@@ -1,0 +1,288 @@
+name: Temporary E8 reciprocal current-main finalize
+
+on:
+  push:
+    branches:
+      - dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01
+    paths:
+      - .github/workflows/temporary_e8_reciprocal_current_main_finalize.yml
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      BRANCH: dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01
+      EXPECTED_MAIN: d2f3a7d0e2533d18f649c089caf1c8dc3b446a7c
+      UPDATE_ID: EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20
+      DELTA_PATH: docs/handoff_deltas/EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Resolve immutable inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          TRIGGER_SHA="$(git rev-parse HEAD)"
+          CURRENT_MAIN="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test "$CURRENT_MAIN" = "$EXPECTED_MAIN"
+          test "$(git merge-base "$EXPECTED_MAIN" "$TRIGGER_SHA")" = "dd46727c1efefd2e6d4cdf6f3b204ec1fc58fca3"
+          printf 'TRIGGER_SHA=%s\nCURRENT_MAIN=%s\n' "$TRIGGER_SHA" "$CURRENT_MAIN" >> "$GITHUB_ENV"
+
+      - name: Build clean source transaction on current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git worktree add --detach /tmp/e8-source "$CURRENT_MAIN"
+          git worktree add --detach /tmp/e8-target "$CURRENT_MAIN"
+          git worktree add --detach /tmp/e8-trusted "$CURRENT_MAIN"
+          git -C /tmp/e8-source config user.name "github-actions[bot]"
+          git -C /tmp/e8-source config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          import yaml
+
+          source_root = Path('/tmp/e8-source')
+          trigger = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          current_main = subprocess.check_output(['git', '-C', str(source_root), 'rev-parse', 'HEAD'], text=True).strip()
+          update_id = 'EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20'
+          delta_rel = Path('docs/handoff_deltas') / update_id / 'HANDOFF_DELTA.yaml'
+
+          copied = [
+              'configs/countdown_e8_oracle_offline_v2_reciprocal_shape_screen_0p5b.yaml',
+              'configs/countdown_e8_oracle_offline_v2_reciprocal_high_lambda_extension_0p5b.yaml',
+              'configs/countdown_e8_oracle_offline_v2_reciprocal_quadratic_dense_lambda_curve_0p5b.yaml',
+              'runspecs/ready/E8_PAPER_ALIGNED_RECIPROCAL_SHAPE_SCREEN_20260719_01.yaml',
+              'runspecs/ready/E8_PAPER_ALIGNED_RECIPROCAL_HIGH_LAMBDA_EXTENSION_20260719_01.yaml',
+              'runspecs/ready/E8_PAPER_ALIGNED_RECIPROCAL_QUADRATIC_DENSE_LAMBDA_CURVE_20260719_01.yaml',
+              'src/drpo/countdown_e8_alpha1_highc_scan_common.py',
+              'src/drpo/countdown_e8_alpha1_highc_scan_runtime.py',
+              'tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py',
+              'docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md',
+              'docs/experiments/E8_RECIPROCAL_JOINT_PROVENANCE_AUDIT.json',
+              delta_rel.as_posix(),
+          ]
+          for rel in copied:
+              data = subprocess.check_output(['git', 'show', f'{trigger}:{rel}'])
+              path = source_root / rel
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_bytes(data)
+
+          provenance_path = source_root / 'docs/experiments/E8_RECIPROCAL_JOINT_PROVENANCE_AUDIT.json'
+          provenance = json.loads(provenance_path.read_text(encoding='utf-8'))
+          provenance['base_commit'] = current_main
+          provenance['current_main_rebase'] = {
+              'status': 'PASS',
+              'base_commit': current_main,
+              'reason': 'main advanced by one unrelated ReplayAB authority-binding repair before final merge',
+              'scientific_files_overlap': False,
+          }
+          provenance_path.write_text(json.dumps(provenance, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+
+          ids = [
+              'EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-SHAPE-SCREEN-0.5B-01',
+              'EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-HIGH-LAMBDA-EXTENSION-0.5B-01',
+              'EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-QUADRATIC-DENSE-LAMBDA-CURVE-0.5B-01',
+          ]
+          locator_rows = {
+              ids[0]: {
+                  'run_id': 'E8_PAPER_ALIGNED_RECIPROCAL_SHAPE_SCREEN_20260719_01',
+                  'source_commit': 'f99a9b1efdcc17d7e2bc5f5b08d110fd9d29d63f',
+                  'results_commit': '8d04768273315ff6ab1bcbade9cbf5705952259a',
+                  'manifest_sha256': '0242b70cf71fe0531bca0d26201c0b29bfc6537f964a52a06da978fbe5dda286',
+              },
+              ids[1]: {
+                  'run_id': 'E8_PAPER_ALIGNED_RECIPROCAL_HIGH_LAMBDA_EXTENSION_20260719_01',
+                  'source_commit': '356d878d26be1ad1b8bcf70d0908c9960e09f19f',
+                  'results_commit': 'eca0eb0365f5660e0a49dff5d39c9bb5f5df0cdf',
+                  'manifest_sha256': 'dc1feef96bf0bcc5cc0fe35f4eb5d3e506ec79cf50d782ac2622bdef1503b888',
+              },
+              ids[2]: {
+                  'run_id': 'E8_PAPER_ALIGNED_RECIPROCAL_QUADRATIC_DENSE_LAMBDA_CURVE_20260719_01',
+                  'source_commit': '7cc6d2daf787998283f733f4152114dced017316',
+                  'results_commit': '69a81c6db3bdd90ed640d54eb5687870d2dba220',
+                  'manifest_sha256': 'acbf0fd8aa9f29d56b4c05841c7e0dd174568d4f9a15e229475df7db9a642c3b',
+              },
+          }
+
+          trigger_registry = yaml.safe_load(subprocess.check_output(
+              ['git', 'show', f'{trigger}:experiments/registry.yaml'], text=True
+          ))
+          trigger_by_id = {entry['id']: entry for entry in trigger_registry['experiments']}
+          entries = []
+          for experiment_id in ids:
+              entry = trigger_by_id[experiment_id]
+              row = locator_rows[experiment_id]
+              entry['evidence_locator'] = {
+                  'schema_version': 1,
+                  'primary_run_id': row['run_id'],
+                  'records': [{
+                      'run_id': row['run_id'],
+                      'lane': 'e8',
+                      'source_commit': row['source_commit'],
+                      'results_repository': 'easonhuo/drpo-results',
+                      'results_branch': 'ingest/e8',
+                      'results_commit': row['results_commit'],
+                      'result_path': f"runs/e8/{row['run_id']}",
+                      'manifest_sha256': row['manifest_sha256'],
+                      'export_profile': 'manifest_text_v1',
+                  }],
+              }
+              entries.append(entry)
+
+          registry_path = source_root / 'experiments/registry.yaml'
+          registry_text = registry_path.read_text(encoding='utf-8')
+          registry_payload = yaml.safe_load(registry_text)
+          existing_ids = {entry['id'] for entry in registry_payload['experiments']}
+          overlap = sorted(existing_ids & set(ids))
+          if overlap:
+              raise SystemExit(f'current main unexpectedly already contains reciprocal closure IDs: {overlap}')
+          marker = '\ndevelopment_experiment_registrations:\n'
+          if marker not in registry_text:
+              raise SystemExit('registry insertion marker missing')
+          appended = yaml.safe_dump(entries, sort_keys=False, allow_unicode=True, width=120)
+          registry_after = registry_text.replace(marker, '\n' + appended + 'development_experiment_registrations:\n', 1)
+          parsed_after = yaml.safe_load(registry_after)
+          parsed_ids = {entry['id'] for entry in parsed_after['experiments']}
+          if not set(ids).issubset(parsed_ids):
+              raise SystemExit('registry insertion verification failed')
+          registry_path.write_text(registry_after, encoding='utf-8')
+
+          delta_path = source_root / delta_rel
+          delta = yaml.safe_load(delta_path.read_text(encoding='utf-8'))
+          base_handoff = subprocess.check_output(
+              ['git', '-C', str(source_root), 'show', f'{current_main}:docs/handoff.md'], text=True
+          )
+          base_registry = subprocess.check_output(
+              ['git', '-C', str(source_root), 'show', f'{current_main}:experiments/registry.yaml'], text=True
+          )
+          sys.path.insert(0, str((source_root / 'scripts').resolve()))
+          import handoff_delta_shadow as shadow
+          candidate = shadow.render(base_handoff, delta['operations']).text
+          delta['base'] = {
+              'commit': current_main,
+              'handoff_sha256': hashlib.sha256(base_handoff.encode()).hexdigest(),
+              'registry_sha256': hashlib.sha256(base_registry.encode()).hexdigest(),
+          }
+          delta['registry']['exact_base_after_sha256'] = hashlib.sha256(registry_after.encode()).hexdigest()
+          delta['expected']['exact_base_candidate_sha256'] = hashlib.sha256(candidate.encode()).hexdigest()
+          delta_path.write_text(
+              yaml.safe_dump(delta, sort_keys=False, allow_unicode=True, width=120),
+              encoding='utf-8',
+          )
+          PY
+
+          git -C /tmp/e8-source add \
+            configs/countdown_e8_oracle_offline_v2_reciprocal_shape_screen_0p5b.yaml \
+            configs/countdown_e8_oracle_offline_v2_reciprocal_high_lambda_extension_0p5b.yaml \
+            configs/countdown_e8_oracle_offline_v2_reciprocal_quadratic_dense_lambda_curve_0p5b.yaml \
+            runspecs/ready/E8_PAPER_ALIGNED_RECIPROCAL_SHAPE_SCREEN_20260719_01.yaml \
+            runspecs/ready/E8_PAPER_ALIGNED_RECIPROCAL_HIGH_LAMBDA_EXTENSION_20260719_01.yaml \
+            runspecs/ready/E8_PAPER_ALIGNED_RECIPROCAL_QUADRATIC_DENSE_LAMBDA_CURVE_20260719_01.yaml \
+            src/drpo/countdown_e8_alpha1_highc_scan_common.py \
+            src/drpo/countdown_e8_alpha1_highc_scan_runtime.py \
+            tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py \
+            docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md \
+            docs/experiments/E8_RECIPROCAL_JOINT_PROVENANCE_AUDIT.json \
+            experiments/registry.yaml \
+            "$DELTA_PATH"
+          git -C /tmp/e8-source commit -m "Prepare E8 reciprocal joint closure transaction"
+          SOURCE_COMMIT="$(git -C /tmp/e8-source rev-parse HEAD)"
+          printf 'SOURCE_COMMIT=%s\n' "$SOURCE_COMMIT" >> "$GITHUB_ENV"
+          changed="$(git diff --name-only "$CURRENT_MAIN".."$SOURCE_COMMIT")"
+          ! grep -Fxq 'docs/handoff.md' <<<"$changed"
+          ! grep -q '^docs/handoff_shadow/stage4/minimal/generated/' <<<"$changed"
+          ! grep -q '^.github/workflows/' <<<"$changed"
+          git diff --check "$CURRENT_MAIN".."$SOURCE_COMMIT"
+          python /tmp/e8-trusted/scripts/handoff_authority.py validate-delta \
+            --repo-root /tmp/e8-source \
+            --delta "/tmp/e8-source/$DELTA_PATH" \
+            --source-patch-commit "$SOURCE_COMMIT" \
+            --json
+
+      - name: Materialize trusted current-main after-image
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --binary "$CURRENT_MAIN".."$SOURCE_COMMIT" | git -C /tmp/e8-target apply --index
+          python /tmp/e8-trusted/scripts/handoff_authority.py normalize \
+            --repo-root /tmp/e8-target \
+            --trusted-repo-root /tmp/e8-trusted \
+            --current-before "$CURRENT_MAIN" \
+            --source-base "$CURRENT_MAIN" \
+            --source-patch-commit "$SOURCE_COMMIT" \
+            --json
+          git -C /tmp/e8-target config user.name "github-actions[bot]"
+          git -C /tmp/e8-target config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C /tmp/e8-target add -A
+          git -C /tmp/e8-target commit -m "Materialize E8 reciprocal joint pilot closure"
+          TARGET_COMMIT="$(git -C /tmp/e8-target rev-parse HEAD)"
+          printf 'TARGET_COMMIT=%s\n' "$TARGET_COMMIT" >> "$GITHUB_ENV"
+
+      - name: Run final-tree acceptance gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '/tmp/e8-target[dev]'
+          cd /tmp/e8-target
+          python scripts/validate_evidence_locator.py \
+            --repo-root . \
+            --base "$CURRENT_MAIN" \
+            --head "$TARGET_COMMIT" \
+            --json
+          python scripts/select_update_tests.py \
+            --base "$CURRENT_MAIN" \
+            --head "$TARGET_COMMIT" \
+            --mode auto \
+            --json
+          python -m compileall -q src scripts tools tests
+          bash -n tools/drpo-update/drpo-update tools/drpo-update/install.sh
+          python scripts/handoff_authority.py verify --repo-root .
+          python scripts/validate_formal_execution_channel.py --repo-root .
+          python scripts/validate_governance_rule_inventory.py --repo-root .
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          python -m pytest -q
+          ruff check .
+          git diff --check "$CURRENT_MAIN".."$TARGET_COMMIT"
+          test -z "$(git status --porcelain)"
+          test -z "$(git ls-files '.github/workflows/temporary_e8_reciprocal*')"
+
+      - name: Publish durable merge-shaped final commit
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          latest_main="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test "$latest_main" = "$CURRENT_MAIN"
+          tree="$(git rev-parse "$TARGET_COMMIT^{tree}")"
+          FINAL_COMMIT="$(printf '%s\n' 'Finalize E8 reciprocal joint pilot closure' | git commit-tree "$tree" -p "$TRIGGER_SHA" -p "$SOURCE_COMMIT")"
+          test "$(git rev-parse "$FINAL_COMMIT^{tree}")" = "$tree"
+          git push origin "$FINAL_COMMIT:refs/heads/$BRANCH"
+          body="Current-main E8 reciprocal closure finalization passed on \`$FINAL_COMMIT\` (source transaction \`$SOURCE_COMMIT\`, base \`$CURRENT_MAIN\`): all three immutable evidence locators, trusted schema-v3 normalization, Evidence Locator Gate, tiered-plan validation, compile, shell syntax, handoff authority, formal execution channel, governance inventory/stage, full pytest, and Ruff. Temporary workflows are absent from the final tree."
+          gh api "repos/$GITHUB_REPOSITORY/issues/174/comments" -f body="$body" >/dev/null
