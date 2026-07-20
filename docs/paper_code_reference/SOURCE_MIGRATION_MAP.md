@@ -192,73 +192,110 @@ Hopper E7-Q2 remains a separate mechanism trainer.
 
 ## Countdown
 
-### Stable source oracles
+### Differential and provenance oracles
 
-The stable training-core characterization uses:
+- `src/drpo/countdown_qwen_arena_onefile.py`: expression cleaning, verifier,
+  prompting, masking, sequence statistics, model/LoRA loading, generation, and
+  historical end-to-end lifecycle;
+- `src/drpo/countdown_e8_alpha1_c_scan_common.py`: unique-negative handling,
+  bank flattening, per-prompt denominator, and no weight-sum normalization;
+- `src/drpo/countdown_e8_alpha1_c_scan_trainer.py`: Positive-only skipping,
+  joint objective, AdamW update semantics, diagnostics, and checkpoint lifecycle;
+- `src/drpo/countdown_e8_alpha1_highc_scan_common.py`: corrected
+  linear-surprisal envelope;
+- `src/drpo/countdown_e8_taper.py` and the registered active-tail protocol:
+  current-policy active-tail remoteness, calibration, method weights, training,
+  checkpoint, and evaluation responsibilities;
+- Round-1 and active-tail protocol documents: scientific-variable provenance and
+  the distinction between development pilots and an unfrozen final coordinate.
 
-- `src/drpo/countdown_qwen_arena_onefile.py` for expression cleaning, exact
-  verifier semantics, chat prompt rendering, completion masking, sequence
-  likelihood/statistics, and response metrics;
-- `src/drpo/countdown_e8_alpha1_c_scan_common.py` for first-occurrence
-  unique-negative handling, frozen-bank flattening, per-prompt denominator
-  semantics, and the prohibition on weight-sum normalization;
-- `src/drpo/countdown_e8_alpha1_c_scan_trainer.py` for Positive-only bank
-  skipping, the joint positive-minus-weighted-negative objective, clipped AdamW
-  first-update semantics, and diagnostic fields;
-- `src/drpo/countdown_e8_alpha1_highc_scan_common.py` for the corrected
-  paper-aligned linear-surprisal envelope;
-- `docs/experiments/E8_PAPER_ALIGNED_LINEAR_SCAN_PROTOCOL.md` and
-  `docs/experiments/E8_PAPER_ALIGNED_LINEAR_C_EXTENSION_PROTOCOL.md` for the
-  stable formula and the boundary between development scans and an unfrozen
-  final manuscript protocol.
+Legacy files remain differential/provenance oracles. The reviewer package does
+not import them at runtime.
 
-These legacy files remain differential/provenance oracles. They are not imported
-at runtime by the reviewer package.
+### Approved algorithm-core path
 
-### Approved live reference path
+The exact path
+`paper_code/src/drpo_reference/categorical/countdown.py` was approved before
+creation and recorded in Draft PR #149 comment `5016309623`.
 
-- `categorical/countdown.py`: stable expression/verifier, prompt/completion
-  encoding, completion-only likelihood/statistics, unique-bank encoding and
-  collation, normalized sequence surprisal, detached `alpha * exp(-c*u)`
-  weights, exact joint objective, Positive-only bank skipping, weight/bank
-  diagnostics, parameter-update norm, and lightweight response metrics;
-- `categorical/__init__.py`: exports stable primitives without creating an
-  experiment command;
-- existing `tests/test_common.py`: formula, mask, verifier, bank, objective,
-  diagnostics, first AdamW update, and response aggregation characterization.
+It owns:
 
-The exact path `paper_code/src/drpo_reference/categorical/countdown.py` and this
-limited responsibility were explicitly approved by the user and preserved in
-Draft PR #149 comment `5016309623` before creation.
+- stable expression/verifier and sequence encoding/statistics;
+- first-occurrence unique banks and per-prompt denominators;
+- historical Round-1 linear-surprisal compatibility;
+- registered active-tail coordinate and six method-weight formulas;
+- deterministic detached current weights and the exact joint objective;
+- prompt-balanced sampling and model-backed raw-gradient calibration;
+- diagnostics, parameter-update norm, and response aggregation.
 
-### Contracts intentionally not migrated yet
+`categorical/__init__.py` exports these primitives. Existing
+`tests/test_common.py` contains formula, masking, objective, two-forward,
+calibration, and first-update characterization.
 
-- model or LoRA loading;
-- GPU/resource scheduling;
-- optimizer/scheduler selection and the full multi-step training loop;
-- checkpoint persistence, resume, selection, and terminal evaluation;
-- coefficient or method-matrix selection;
-- development-to-confirmatory seed promotion;
-- validation/test access policy for the final experiment;
-- RunSpec, artifact delivery, or internal terminal adjudication;
-- a public Countdown experiment entry point or CLI command.
+The core must remain free of Transformers/PEFT lifecycle responsibilities.
 
-The nearest D-U1 modules remain unsuitable for these sequence primitives because
-D-U1 models unordered categorical actions rather than autoregressive completion
-tokens. The stable-training-core module therefore remains separate while sharing
-no scientific responsibility with D-U1.
+### Approved reviewer-runtime path
+
+The exact path
+`paper_code/src/drpo_reference/experiments/countdown.py` was separately approved
+before creation and recorded in Draft PR #149 comment `5019085196`.
+
+It owns:
+
+- explicit JSON configuration with no hidden model, method, seed, budget,
+  coefficient, checkpoint, or test defaults;
+- lazy Transformers/PEFT loading, optional bitsandbytes, tokenizer, base model,
+  initial adapter or fresh LoRA;
+- replay/calibration/validation checks, delayed optional test access, hashes, and
+  prompt-disjointness;
+- per-seed model-backed calibration and shared-initialization digest checks;
+- prompt-balanced paired training, AdamW/cosine scheduling, accumulation,
+  clipping, raw/update norms, and non-finite rollback;
+- best, last-finite, and terminal adapters;
+- Greedy/Pass@k best-versus-terminal evaluation;
+- lightweight per-run/root records and simple seed aggregation.
+
+Related existing paths:
+
+- `cli.py`: `drpo-reference countdown --config ... --output ...` dispatch;
+- `pyproject.toml`: optional `countdown` and `countdown-4bit` extras;
+- `tests/test_cli.py`: command-dispatch characterization;
+- `README.md`: install, explicit-config contract, output, and evidence boundary.
+
+### Compatibility and evidence rules
+
+- the historical Round-1 and active-tail APIs remain separate;
+- Positive-only skips both negative forwards;
+- method models must match the calibrated initial trainable-state digest;
+- test input is not read or hashed before all method training finishes;
+- fixed horizon is not convergence;
+- task collapse, support/probability boundary, NaN/Inf, invalid evaluation input,
+  checkpoint-evaluation failure, and incomplete terminal review remain distinct;
+- reviewer completion never upgrades scientific status or authorizes ranking;
+- Countdown remains external validity and does not replace D-U1 controlled
+  identification.
+
+### Still not migrated or not closed
+
+- interrupted-run resume with optimizer and scheduler state;
+- real Qwen/PEFT/CUDA liveness and any fixes it reveals;
+- final manuscript-facing model/initialization, methods, coefficients, seeds,
+  budget, checkpoint rule, validation/test protocol, and result values;
+- internal RunSpec, hardened artifact delivery, scientific terminal adjudication,
+  registry/handoff mutation, and manuscript binding;
+- human-only protected-environment confirmation and integration-freshness review.
 
 ### Exclude
 
-- historical one-file orchestration as the public entry point;
-- superseded fixed-pair and squared-surprisal tuning stacks;
-- current development coefficient grids as a silent final default;
-- dirty-worktree, smoke, or two-seed pilot claims as final evidence;
+- importing the historical one-file orchestration as the public runtime;
+- superseded fixed-pair or squared-surprisal tuning stacks;
+- current development grids as silent final defaults;
+- dirty-worktree, smoke, fake-HF, or limited-seed results as final evidence;
 - any claim that Countdown replaces controlled D-U1 causal identification.
 
-Countdown stable-training-core migration is implemented. The final
-experiment-entry layer remains blocked until the manuscript-facing protocol and
-result are frozen and a separate exact Python path is proposed and approved.
+The algorithm core and reviewer lifecycle are implemented. Real Qwen/CUDA
+liveness, final protocol freeze, resume, protected human review, terminal
+scientific review, and integration freshness remain open gates.
 
 ## Result reporting
 
