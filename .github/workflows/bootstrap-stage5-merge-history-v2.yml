@@ -1,0 +1,60 @@
+name: Bootstrap Stage 5 merge history v2
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: github.head_ref == 'fix/r2-health-handoff-authority-test-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Materialize candidate
+        run: python .github/bootstrap_stage5_merge_history.py
+
+      - name: Install focused dependencies
+        run: |
+          python -m pip install --quiet --upgrade pip
+          python -m pip install --quiet -e . pytest pyyaml ruff
+
+      - name: Verify candidate
+        run: |
+          set -euo pipefail
+          python -m pytest tests/test_handoff_authority.py -q
+          python scripts/handoff_authority.py verify --repo-root .
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          python -m pytest tests/test_governance_pipeline_stage_status.py -q
+          python -m ruff check scripts/handoff_authority.py tests/test_handoff_authority.py
+          python -m compileall -q scripts/handoff_authority.py tests/test_handoff_authority.py
+
+      - name: Publish clean candidate
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          rm -f maintenance.patch
+          rm -f .github/bootstrap_stage5_merge_history.py
+          rm -f .github/workflows/bootstrap-r2-health-handoff-authority-test.yml
+          rm -f .github/workflows/bootstrap-stage5-merge-history-v2.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Accept bounded merge-introduced Stage 5 path history'
+          git push origin "HEAD:${HEAD_BRANCH}"
