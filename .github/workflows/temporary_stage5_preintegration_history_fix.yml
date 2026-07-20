@@ -32,8 +32,9 @@ jobs:
           set +e
           {
             set -euo pipefail
+            python tools/temporary_patch_stage5_maintenance_fixture.py
             python tools/temporary_patch_stage5_preintegration_history.py
-            python tests/stage5_candidate_integration.py
+            DRPO_STAGE5_MAINTENANCE_CANDIDATE=1 python tests/stage5_candidate_integration.py
             python scripts/handoff_authority.py verify --repo-root . --json
             python scripts/validate_governance_pipeline_stage_status.py --repo-root .
             python -m pytest -q tests/test_governance_pipeline_stage_status.py tests/test_governance_rule_inventory.py
@@ -59,10 +60,12 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git rm .github/workflows/temporary_stage5_preintegration_history_fix.yml
           git rm tools/temporary_patch_stage5_preintegration_history.py
+          git rm tools/temporary_patch_stage5_maintenance_fixture.py
+          rm -f docs/experiments/STAGE5_PREINTEGRATION_HISTORY_FIX_FAILURE.txt
           git add -A
           git diff --check --cached
-          test -z "$(git diff --cached --name-only | grep -E '(^|/)temporary_' || true)" || {
-            echo 'temporary path remains staged' >&2
+          test -z "$(git ls-files '.github/workflows/temporary_stage5*' 'tools/temporary_patch_stage5*')" || {
+            echo 'temporary path remains in final tree' >&2
             exit 1
           }
           git commit -m 'Fix Stage 5 pre-integration report history validation'
