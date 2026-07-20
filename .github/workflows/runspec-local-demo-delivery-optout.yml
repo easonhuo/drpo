@@ -57,9 +57,10 @@ jobs:
           cpu_path = Path('tests/test_e7_measured_cpu_autotune.py')
           text = cpu_path.read_text(encoding='utf-8')
           old = '    assert result["machine_snapshot"]["load_average_1m"] == 999.0\n'
-          new = '''    record = json.loads(Path(result["revalidation"]["path"]).read_text())
-    assert record["current_machine_snapshot"]["load_average_1m"] == 999.0
-'''
+          new = (
+              '    record = json.loads(Path(result["revalidation"]["path"]).read_text())\n'
+              '    assert record["current_machine_snapshot"]["load_average_1m"] == 999.0\n'
+          )
           if text.count(old) != 1:
               raise SystemExit(f'expected one stale machine snapshot assertion, found {text.count(old)}')
           cpu_path.write_text(text.replace(old, new), encoding='utf-8')
