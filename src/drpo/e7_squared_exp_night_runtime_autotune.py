@@ -6,7 +6,7 @@ import contextlib
 import contextvars
 import math
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, Mapping
 
 from drpo import e7_ppo_w0_runtime_autotune as legacy
 from drpo import e7_squared_exp_night as pilot
@@ -24,6 +24,10 @@ _REQUESTED_PROBE_STEPS: contextvars.ContextVar[int | None] = contextvars.Context
 )
 _REQUESTED_PROBE_SECONDS: contextvars.ContextVar[float | None] = contextvars.ContextVar(
     "e7_squared_exp_requested_probe_seconds",
+    default=None,
+)
+_ACTIVE_PLAN_IDENTITY: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "e7_squared_exp_plan_identity",
     default=None,
 )
 
@@ -133,8 +137,70 @@ def _low_first_candidate_workers(safe_cap: int, fallback_workers: int) -> list[i
     return sorted(values)
 
 
+def _binding_payload(binding: Any) -> dict[str, Any]:
+    payload = binding.as_dict()
+    if not isinstance(payload, dict):
+        raise legacy.RuntimeResourceError("candidate CPU binding must serialize to a mapping")
+    return payload
+
+
+def _candidate_checkpoint_identity(
+    kwargs: Mapping[str, Any],
+    *,
+    effective_steps: int,
+    effective_seconds: float,
+) -> dict[str, Any]:
+    plan_identity = _ACTIVE_PLAN_IDENTITY.get()
+    if not plan_identity:
+        raise legacy.RuntimeResourceError("squared-night candidate plan identity is missing")
+    return {
+        "schema_version": 1,
+        "plan_identity": plan_identity,
+        "selector_policy_version": SELECTOR_POLICY_VERSION,
+        "candidate_policy": CANDIDATE_POLICY,
+        "concurrency": int(kwargs["concurrency"]),
+        "probe_steps": int(effective_steps),
+        "probe_seed": int(kwargs["probe_seed"]),
+        "timeout_seconds": float(effective_seconds),
+        "cpu_fraction": float(kwargs["cpu_fraction"]),
+        "cpu_safety_factor": float(kwargs["cpu_safety_factor"]),
+        "cpu_binding": _binding_payload(kwargs["binding"]),
+    }
+
+
+def _candidate_summary_path(kwargs: Mapping[str, Any]) -> Path:
+    return Path(str(kwargs["probe_root"])) / (
+        f"workers-{int(kwargs['concurrency']):03d}"
+    ) / "BENCHMARK_SUMMARY.json"
+
+
+def _load_valid_candidate_checkpoint(
+    path: Path,
+    *,
+    identity: dict[str, Any],
+    usable_memory_bytes: int,
+) -> dict[str, Any] | None:
+    if not path.is_file():
+        return None
+    try:
+        summary = legacy.load_json(path)
+    except (OSError, ValueError, TypeError):
+        return None
+    if summary.get("valid") is not True:
+        return None
+    if summary.get("v3_checkpoint_identity") != identity:
+        return None
+    aggregate_peak = int(summary.get("aggregate_peak_rss_bytes", 0) or 0)
+    if aggregate_peak < 1 or aggregate_peak > int(usable_memory_bytes):
+        return None
+    reused = dict(summary)
+    reused["checkpoint_reused"] = True
+    reused["checkpoint_source_path"] = str(path)
+    return reused
+
+
 def _bounded_benchmark_concurrency(**kwargs: Any) -> dict[str, Any]:
-    """Keep candidate measurement bounded even when legacy callers request longer probes."""
+    """Bound candidate cost and reuse exact completed V3 evidence after interruption."""
 
     policy = _bounded_probe_policy(
         int(kwargs.get("probe_steps", 0) or 0),
@@ -148,6 +214,20 @@ def _bounded_benchmark_concurrency(**kwargs: Any) -> dict[str, Any]:
         requested_seconds = float(policy["requested_probe_seconds"])
     effective_steps = int(policy["effective_probe_steps"])
     effective_seconds = float(policy["effective_probe_seconds"])
+    identity = _candidate_checkpoint_identity(
+        kwargs,
+        effective_steps=effective_steps,
+        effective_seconds=effective_seconds,
+    )
+    summary_path = _candidate_summary_path(kwargs)
+    checkpoint = _load_valid_candidate_checkpoint(
+        summary_path,
+        identity=identity,
+        usable_memory_bytes=int(kwargs["usable_memory_bytes"]),
+    )
+    if checkpoint is not None:
+        return checkpoint
+
     bounded = dict(kwargs)
     bounded["probe_steps"] = effective_steps
     bounded["timeout_seconds"] = effective_seconds
@@ -163,12 +243,11 @@ def _bounded_benchmark_concurrency(**kwargs: Any) -> dict[str, Any]:
                 or not math.isclose(effective_seconds, requested_seconds)
             ),
             "candidate_policy": CANDIDATE_POLICY,
+            "v3_checkpoint_identity": identity,
+            "checkpoint_reused": False,
         }
     )
-    candidate_root = Path(str(kwargs["probe_root"])) / (
-        f"workers-{int(kwargs['concurrency']):03d}"
-    )
-    legacy.atomic_write_json(candidate_root / "BENCHMARK_SUMMARY.json", summary)
+    legacy.atomic_write_json(summary_path, summary)
     return summary
 
 
@@ -272,6 +351,7 @@ def resource_fingerprint(
             "candidate_policy": CANDIDATE_POLICY,
             "candidate_growth_factor": CANDIDATE_GROWTH_FACTOR,
             "candidate_one_worker_foothold": True,
+            "candidate_checkpoint_reuse": "same_workdir_valid_only",
             "cpu_fraction": float(cpu_fraction),
             "memory_headroom_fraction": float(memory_headroom_fraction),
             "per_worker_memory_safety_factor": float(per_worker_safety_factor),
@@ -371,6 +451,15 @@ def _requested_probe_context(probe_steps: int, probe_seconds: float) -> Iterator
         _REQUESTED_PROBE_SECONDS.reset(seconds_token)
 
 
+@contextlib.contextmanager
+def _plan_identity_context(identity: str) -> Iterator[None]:
+    token = _ACTIVE_PLAN_IDENTITY.set(identity)
+    try:
+        yield
+    finally:
+        _ACTIVE_PLAN_IDENTITY.reset(token)
+
+
 def _bounded_runtime_kwargs(kwargs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     policy = _bounded_probe_policy(
         int(kwargs.get("probe_steps", 0) or 0),
@@ -380,6 +469,48 @@ def _bounded_runtime_kwargs(kwargs: dict[str, Any]) -> tuple[dict[str, Any], dic
     bounded["probe_steps"] = int(policy["effective_probe_steps"])
     bounded["probe_seconds"] = float(policy["effective_probe_seconds"])
     return bounded, policy
+
+
+def _fingerprint_kwargs(kwargs: Mapping[str, Any]) -> dict[str, Any]:
+    names = (
+        "repo_root",
+        "contract_path",
+        "run_spec_path",
+        "grid_path",
+        "probe_steps",
+        "probe_seed",
+        "probe_seconds",
+        "throughput_retention_fraction",
+        "fallback_workers",
+        "cpu_fraction",
+        "memory_headroom_fraction",
+        "per_worker_safety_factor",
+        "per_worker_cpu_safety_factor",
+        "minimum_cpu_cores_per_worker",
+        "max_workers",
+        "max_growth_factor",
+        "revalidation_samples",
+        "revalidation_sample_seconds",
+    )
+    return {name: kwargs[name] for name in names}
+
+
+def _plan_checkpoint_identity(kwargs: Mapping[str, Any]) -> str:
+    fingerprint = resource_fingerprint(**_fingerprint_kwargs(kwargs))
+    source = legacy.git_state(kwargs["repo_root"])
+    return legacy.canonical_json_sha256(
+        {
+            "schema_version": 1,
+            "selector_policy_version": SELECTOR_POLICY_VERSION,
+            "adapter_id": fingerprint["adapter_id"],
+            "resource_fingerprint": fingerprint,
+            "selector_implementation": _selector_implementation_identity(
+                kwargs["repo_root"]
+            ),
+            "source_commit": source.get("commit"),
+            "source_dirty": source.get("dirty"),
+        }
+    )
 
 
 def _attach_requested_probe_policy(
@@ -406,7 +537,9 @@ def select_runtime(**kwargs: Any) -> dict[str, Any]:
         float(policy["requested_probe_seconds"]),
     ):
         with _installed_adapter():
-            document = _ORIGINAL_SELECT_RUNTIME(**bounded)
+            identity = _plan_checkpoint_identity(bounded)
+            with _plan_identity_context(identity):
+                document = _ORIGINAL_SELECT_RUNTIME(**bounded)
     return _attach_requested_probe_policy(
         document,
         work_dir=str(kwargs["work_dir"]),
