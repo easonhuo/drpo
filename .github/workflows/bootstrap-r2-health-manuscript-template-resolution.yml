@@ -31,17 +31,42 @@ jobs:
           python -m pip install --quiet --upgrade pip
           python -m pip install --quiet -e . pytest pyyaml ruff
 
-      - name: Run focused manuscript regression
+      - name: Capture focused manuscript regression
+        shell: bash
+        run: |
+          set +e
+          python -m pytest tests/test_full_manuscript_compiler.py -q -vv \
+            > /tmp/pytest.log 2>&1
+          echo $? > /tmp/pytest.exit
+          python -m ruff check \
+            scripts/manuscript_release_pipeline.py \
+            tests/test_full_manuscript_compiler.py \
+            > /tmp/ruff.log 2>&1
+          echo $? > /tmp/ruff.exit
+          python -m compileall -q \
+            scripts/manuscript_release_pipeline.py \
+            tests/test_full_manuscript_compiler.py \
+            > /tmp/compile.log 2>&1
+          echo $? > /tmp/compile.exit
+          exit 0
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r2-health-manuscript-diagnostic-${{ github.run_id }}
+          path: |
+            /tmp/*.log
+            /tmp/*.exit
+
+      - name: Enforce focused manuscript regression
         shell: bash
         run: |
           set -euo pipefail
-          python -m pytest tests/test_full_manuscript_compiler.py -q
-          python -m ruff check \
-            scripts/manuscript_release_pipeline.py \
-            tests/test_full_manuscript_compiler.py
-          python -m compileall -q \
-            scripts/manuscript_release_pipeline.py \
-            tests/test_full_manuscript_compiler.py
+          for name in pytest ruff compile; do
+            echo "=== ${name} ==="
+            cat "/tmp/${name}.log"
+            test "$(cat "/tmp/${name}.exit")" = "0"
+          done
 
       - name: Publish clean candidate commit
         shell: bash
