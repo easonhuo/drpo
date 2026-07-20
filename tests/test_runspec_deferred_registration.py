@@ -72,6 +72,7 @@ def write_spec(
         "provenance": {"commit_policy": "exact_head"},
         "entrypoint": {"command": "bash scripts/run.sh", "cwd": "repo_root"},
         "policy": {
+            "formal_evidence_allowed": False,
             "existing_script_required": True,
             "forbid_new_launcher": True,
             "forbid_hparam_change": True,

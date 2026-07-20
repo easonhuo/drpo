@@ -68,7 +68,8 @@ def test_configure_is_idempotent_and_installs_strict_hook(tmp_path: Path):
     assert "run_lane.py --once" in local_instructions
     assert "Never move, copy, delete, or recreate files" in local_instructions
     assert "Never rerun a failed `run_id`" in local_instructions
-    assert "create `COMPLETED.json`" in local_instructions
+    assert "`COMPLETED.json`" in local_instructions
+    assert "success evidence by hand" in local_instructions
     settings = json.loads((repo / ".claude" / "settings.local.json").read_text())
     commands = [
         hook["command"]
