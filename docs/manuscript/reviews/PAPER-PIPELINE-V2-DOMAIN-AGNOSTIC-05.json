@@ -127,7 +127,7 @@
     },
     {
       "path": "scripts/manuscript_release_pipeline.py",
-      "sha256": "ece20336ff04a7f655514a24584f53e0adc7a7524b1403902d9708c4d6c56ee8"
+      "sha256": "eaf531bbcad7025a82ddcb51b99fa2c15fb621690c90d981822197db710e6673"
     },
     {
       "path": "scripts/projects/drpo/build_manuscript_assets.py",
