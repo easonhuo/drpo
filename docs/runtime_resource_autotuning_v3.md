@@ -11,28 +11,37 @@ V2 correctly replaced load-average arithmetic with measured affinity/cgroup CPU 
 made `plan` selection immutable. Its retained PPO-family throughput grid was nevertheless
 unsafe on large machines because it started around 50 percent of the measured ceiling. A
 large ceiling could therefore make the first candidate larger than a known startup-failure
-region. V2 also reused the representative `probe_steps` horizon for every candidate, so a
-long RSS/CPU observation accidentally multiplied into several long short-training grids.
+region. V2 also reused the same requested horizon and timeout for the representative probe
+and every candidate, so a large operator override multiplied into several long short-training
+grids.
 
 V3 keeps the V2 CPU, cgroup, memory, identity, revalidation, process-group, and retained-peak
-contracts. It replaces only the squared-night adapter's candidate and probe-horizon policy.
+contracts. It replaces only the squared-night adapter's candidate and bounded-probe policy.
 
-## Separate probe responsibilities
+## Bounded probe policy
 
-The representative resource probe owns:
+Squared-night preflight is capped at:
+
+```text
+optimizer steps per probe/candidate: 5000
+wall-clock seconds per probe/candidate: 300
+```
+
+The limits apply to both the representative CPU/RSS probe and each throughput candidate. A
+caller may request a smaller value. A larger request is recorded but cannot expand the
+preflight beyond the V3 limits.
+
+The representative probe still owns:
 
 - peak process-tree RSS;
 - average process-tree CPU demand;
-- affinity and quota-domain observations;
-- the requested `probe_steps` and `probe_seconds` values.
+- affinity and quota-domain observations.
 
-The throughput grid owns only a short comparison of independent subprocess counts. Every
-squared-night throughput candidate is capped at 5000 optimizer steps per branch. Therefore a
-requested representative horizon of 100000 steps remains one 100000-step resource probe; it
-no longer turns every concurrency candidate into another 100000-step run.
-
-Both requested and effective candidate horizons are recorded in each
-`BENCHMARK_SUMMARY.json`.
+The throughput grid still owns comparison of independent subprocess counts. Requested and
+effective step/time limits are recorded in the resource fingerprint, and every candidate
+`BENCHMARK_SUMMARY.json` records its requested and effective values. Thus the former
+`100000`-step, `2500`-second override becomes an auditable effective `5000`-step,
+`300`-second preflight instead of an hour-scale plan.
 
 ## Low-first candidate policy
 
@@ -65,8 +74,9 @@ The plan does not fail merely because the first fraction of a large cap was unsa
 
 Squared-night selections use selector policy version `3`. The resource fingerprint records:
 
-- representative probe steps;
-- effective throughput probe steps;
+- requested and effective probe steps;
+- requested and effective probe seconds;
+- hard V3 probe limits;
 - candidate policy and divisions;
 - fallback as a bounded candidate only;
 - max workers as an optional absolute ceiling.
@@ -110,7 +120,7 @@ Before use on a full pilot:
 1. focused deterministic tests and shell syntax;
 2. full repository CI and governance no-op checks;
 3. a selection-only server shadow in a new work directory;
-4. confirmation that a long representative probe still produces 5000-step throughput rows;
+4. confirmation that oversized step/time requests are capped to 5000/300;
 5. confirmation that a failed higher candidate retains valid lower candidates;
 6. confirmation that one-click consumes an existing V3 selection without another plan;
 7. no scientific branch launch during shadow.
