@@ -1,0 +1,215 @@
+name: ReplayAB R2 current-main terminal audit
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    if: github.head_ref == 'exec/replayab-r2-current-main-terminal-audit-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 749ba603dddebeb559998459a4bee38633a35897
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --quiet --upgrade pip
+          python -m pip install --quiet -e . pytest ruff pyyaml
+
+      - name: Verify exact audited tree
+        run: |
+          test "$(git rev-parse HEAD)" = "749ba603dddebeb559998459a4bee38633a35897"
+          test ! -e .github/workflows/replayab-r2-current-main-terminal-audit.yml
+
+      - name: Run full repository pytest
+        run: |
+          python -m pytest -q --junitxml=/tmp/full.xml | tee /tmp/full.log
+
+      - name: Run repository Ruff
+        run: |
+          python -m ruff check . | tee /tmp/ruff.log
+
+      - name: Run Python compilation
+        run: |
+          python -m compileall -q src scripts tests
+          echo PASS > /tmp/compile.txt
+
+      - name: Run handoff authority
+        run: |
+          python scripts/handoff_authority.py verify --repo-root . | tee /tmp/handoff-authority.log
+
+      - name: Run formal execution channel validator
+        run: |
+          python scripts/validate_formal_execution_channel.py --repo-root . | tee /tmp/formal-channel.log
+
+      - name: Run governance inventory and stage checks
+        run: |
+          python -m pytest tests/test_governance_rule_inventory.py -q | tee /tmp/governance-inventory.log
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root . | tee /tmp/governance-stage.log
+
+      - name: Run focused ReplayAB suite
+        run: |
+          python -m pytest \
+            tests/test_workflow_replay_model.py \
+            tests/test_workflow_replay_execute.py \
+            tests/test_workflow_replay_compare.py \
+            tests/test_workflow_replay_r1.py \
+            -q --junitxml=/tmp/focused.xml | tee /tmp/focused.log
+
+      - name: Run frozen R2 calibration subset
+        run: |
+          python -m pytest tests/test_workflow_replay_r1.py -k 'r2_' \
+            -q --junitxml=/tmp/r2.xml | tee /tmp/r2.log
+
+      - name: Run closed R1 terminal non-regression subset
+        run: |
+          python -m pytest tests/test_workflow_replay_r1.py -k 'not r2_' \
+            -q --junitxml=/tmp/r1.xml | tee /tmp/r1.log
+
+      - name: Build exact-head terminal audit report
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import json
+          import xml.etree.ElementTree as ET
+          import yaml
+
+          ROOT = Path('.')
+          AUDITED = '749ba603dddebeb559998459a4bee38633a35897'
+          IMPLEMENTATION = '74630c6fa8c7be665ca2615308bab1db7a85f28b'
+          CAL = ROOT / 'docs/development_workflow_optimization/replayab_r2_calibration'
+          FIXTURE = ROOT / 'tests/fixtures/workflow_replay/r2/semantic'
+
+          def junit(path: str) -> dict[str, int]:
+              root = ET.parse(path).getroot()
+              nodes = [root] if root.tag == 'testsuite' else list(root)
+              return {
+                  key: sum(int(node.attrib.get(key, 0)) for node in nodes)
+                  for key in ('tests', 'failures', 'errors', 'skipped')
+              }
+
+          results = {
+              'full': junit('/tmp/full.xml'),
+              'focused': junit('/tmp/focused.xml'),
+              'r2': junit('/tmp/r2.xml'),
+              'r1_non_regression': junit('/tmp/r1.xml'),
+          }
+          for name, result in results.items():
+              if result['tests'] <= 0 or result['failures'] or result['errors']:
+                  raise SystemExit(f'{name} test evidence is not green: {result}')
+
+          inventory = yaml.safe_load((CAL / 'INVENTORY.yaml').read_text())
+          expected = yaml.safe_load((CAL / 'EXPECTED_VERDICTS.yaml').read_text())
+          case_ids = [row['case_id'] for row in inventory['cases']]
+          verdict_ids = list(expected['verdicts'])
+          if len(case_ids) != 12 or len(set(case_ids)) != 12:
+              raise SystemExit('R2 frozen bank is not exactly 12 unique cases')
+          if set(case_ids) != set(verdict_ids):
+              raise SystemExit('R2 inventory and expected verdict IDs differ')
+          if inventory['selection_frozen_before_implementation_results'] is not True:
+              raise SystemExit('R2 case selection was not frozen before results')
+          if inventory['post_selection_rule']['no_case_removal_after_results'] is not True:
+              raise SystemExit('R2 no-case-removal rule missing')
+
+          schema_sha = hashlib.sha256(
+              (ROOT / 'docs/development_workflow_optimization/R2_IMPLEMENTATION_CONTRACT.md').read_bytes()
+          ).hexdigest()
+          manifest = yaml.safe_load((FIXTURE / 'manifest.yaml').read_text())
+          if manifest['acceptance']['evidence_schema_sha256'] != schema_sha:
+              raise SystemExit('R2 evidence-schema binding mismatch')
+
+          outcome_bindings = {}
+          for arm in ('a', 'b'):
+              outcome_path = FIXTURE / f'outcome-{arm}.json'
+              acceptance_path = FIXTURE / f'acceptance-{arm}.json'
+              run_path = FIXTURE / f'run-{arm}.json'
+              outcome_sha = hashlib.sha256(outcome_path.read_bytes()).hexdigest()
+              acceptance = json.loads(acceptance_path.read_text())
+              run = json.loads(run_path.read_text())
+              if acceptance['outcome_sha256'] != outcome_sha:
+                  raise SystemExit(f'arm {arm}: acceptance/outcome binding mismatch')
+              acceptance_raw = acceptance_path.read_bytes()
+              locator = run['evidence']['result']
+              if locator['sha256'] != hashlib.sha256(acceptance_raw).hexdigest():
+                  raise SystemExit(f'arm {arm}: result locator SHA mismatch')
+              if locator['byte_size'] != len(acceptance_raw):
+                  raise SystemExit(f'arm {arm}: result locator byte-size mismatch')
+              outcome_bindings[arm] = outcome_sha
+
+          report = {
+              'schema_version': 1,
+              'work_id': 'REPLAYAB-R2-SEMANTIC-ACCEPTANCE-01',
+              'claim': 'GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01',
+              'audited_main_sha': AUDITED,
+              'implementation_head_sha': IMPLEMENTATION,
+              'status': 'R2_CURRENT_MAIN_TERMINAL_AUDIT_PASS',
+              'closure_review_permitted': True,
+              'frozen_verdict_count': 12,
+              'junit': results,
+              'evidence_schema_sha256': schema_sha,
+              'outcome_bindings': outcome_bindings,
+              'temporary_workflow_absent_from_audited_tree': True,
+              'unsupported_claims': [
+                  'live coding-agent workers',
+                  'complete repair trajectories',
+                  'stochastic multi-task inference',
+                  'Candidate 01 general efficiency',
+                  'Candidate 01 default adoption',
+                  'R3 implementation or closure',
+                  'scientific execution',
+              ],
+          }
+          Path('/tmp/R2_CURRENT_MAIN_TERMINAL_AUDIT.json').write_text(
+              json.dumps(report, indent=2, sort_keys=True) + '\n'
+          )
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: replayab-r2-current-main-terminal-audit-${{ github.run_id }}
+          path: |
+            /tmp/R2_CURRENT_MAIN_TERMINAL_AUDIT.json
+            /tmp/full.xml
+            /tmp/full.log
+            /tmp/ruff.log
+            /tmp/compile.txt
+            /tmp/handoff-authority.log
+            /tmp/formal-channel.log
+            /tmp/governance-inventory.log
+            /tmp/governance-stage.log
+            /tmp/focused.xml
+            /tmp/focused.log
+            /tmp/r2.xml
+            /tmp/r2.log
+            /tmp/r1.xml
+            /tmp/r1.log
+            docs/development_workflow_optimization/R2_GAP_AUDIT.md
+            docs/development_workflow_optimization/R2_IMPLEMENTATION_CONTRACT.md
+            docs/development_workflow_optimization/replayab_r2_calibration
+
+      - name: Enforce terminal classification
+        run: |
+          python - <<'PY'
+          import json
+          report = json.load(open('/tmp/R2_CURRENT_MAIN_TERMINAL_AUDIT.json'))
+          assert report['status'] == 'R2_CURRENT_MAIN_TERMINAL_AUDIT_PASS'
+          assert report['closure_review_permitted'] is True
+          assert report['frozen_verdict_count'] == 12
+          PY
