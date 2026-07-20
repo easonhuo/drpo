@@ -17,6 +17,7 @@ from drpo_reference.experiments import (
     LEGACY_PILOT_METHOD_PROFILE,
     run_d4rl,
 )
+from drpo_reference.experiments.countdown import run_countdown
 from drpo_reference.experiments.hopper import run_hopper
 
 
@@ -274,6 +275,26 @@ def build_parser() -> argparse.ArgumentParser:
             "never scientific evidence"
         ),
     )
+
+    countdown = experiments.add_parser(
+        "countdown",
+        help="reviewer-facing Countdown Qwen/LoRA training and evaluation",
+    )
+    countdown.add_argument(
+        "--config",
+        type=Path,
+        required=True,
+        help=(
+            "explicit JSON runtime coordinate; no paper protocol defaults are "
+            "selected by the command"
+        ),
+    )
+    countdown.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="new or empty output directory",
+    )
     return parser
 
 
@@ -340,6 +361,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.method_profile is not None:
             run_kwargs["method_profile"] = args.method_profile
         run_d4rl(**run_kwargs)
+        return 0
+    if args.experiment == "countdown":
+        run_countdown(
+            config_path=args.config,
+            output_root=args.output,
+        )
         return 0
     raise AssertionError("unreachable")
 
