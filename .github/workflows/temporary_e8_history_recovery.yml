@@ -19,9 +19,12 @@ jobs:
         with:
           ref: dev/e8-completed-backlog-closure-01
           fetch-depth: 0
-      - name: Recover historical chunks from Git history
-        run: python tools/temporary_recover_e8_history.py
-      - name: Publish recovery and remove temporary files
+      - name: Inspect historical chunks from Git history
+        run: |
+          set +e
+          python tools/temporary_recover_e8_history.py
+          test -f docs/experiments/E8_HISTORICAL_CLOSURE_HISTORY_RECOVERY.json
+      - name: Publish inspection and remove temporary files
         run: |
           set -euo pipefail
           git config user.name github-actions[bot]
@@ -30,5 +33,5 @@ jobs:
           git rm tools/temporary_recover_e8_history.py
           git add docs/experiments/E8_HISTORICAL_CLOSURE_HISTORY_RECOVERY.json
           git add docs/experiments/E8_COMPLETED_BACKLOG_RECOVERY_AUDIT.md
-          git commit -m 'Recover complete historical E8 closure patch'
+          git commit -m 'Inspect historical E8 closure chunks'
           git push origin HEAD:dev/e8-completed-backlog-closure-01
