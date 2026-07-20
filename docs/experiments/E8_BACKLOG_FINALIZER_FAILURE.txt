@@ -1,36 +1,3 @@
-Preparing worktree (detached HEAD cfe4357)
-HEAD is now at cfe4357 Merge PR #185: ReplayAB R2 semantic acceptance
-Preparing worktree (detached HEAD cfe4357)
-HEAD is now at cfe4357 Merge PR #185: ReplayAB R2 semantic acceptance
-Preparing worktree (detached HEAD cfe4357)
-HEAD is now at cfe4357 Merge PR #185: ReplayAB R2 semantic acceptance
-[detached HEAD f2daa9f] Prepare E8 completed backlog closure transaction
- 13 files changed, 1122 insertions(+), 1 deletion(-)
- create mode 100644 docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md
- create mode 100644 docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json
- create mode 100644 docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml
- create mode 100644 experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json
- create mode 100644 experiments/results/e8_paper_aligned_linear_scan_round1_pilot/PER_CELL_SUMMARY.csv
- create mode 100644 experiments/results/e8_paper_aligned_linear_scan_round1_pilot/README.md
- create mode 100644 experiments/results/e8_paper_aligned_linear_scan_round1_pilot/RESULT_SUMMARY.json
- create mode 100644 experiments/results/e8_paper_aligned_linear_scan_round1_pilot/RUN_COMPLETE.json
- create mode 100644 experiments/results/e8_paper_aligned_linear_scan_round1_pilot/TERMINAL_AUDIT.json
- create mode 100644 experiments/results/e8_paper_aligned_tau_curve_pilot/README.md
- create mode 100644 experiments/results/e8_paper_aligned_tau_curve_pilot/RESULT_SUMMARY.json
-{
-  "exact_base_candidate_sha256": "9184a35c57d2741d2d5ad218355a56fc57f708f0ffe1809be396f35bd844ded1",
-  "mode": "authoritative",
-  "registry_validation": {
-    "assertions": [
-      {
-        "change_id": "add-ext-c-e8-oracle-offline-v2-continuous-exp-grid-0-5b-01",
-        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01",
-        "evidence": [
-          {
-            "path": "experiments/registry.yaml",
-            "sha256": "f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5"
-          },
-          {
             "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
             "sha256": "2a2f5daab75da5aa2b52865195c49d051f48a6fe9863ad7c170a0f8d668c796a"
           },
@@ -44,61 +11,7 @@ HEAD is now at cfe4357 Merge PR #185: ReplayAB R2 semantic acceptance
           },
           {
             "path": "docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
-            "sha256": "0bce4187260471fa8fea283a603902b94aac3e6642055a1247079f0ced1dba89"
-          }
-        ],
-        "kind": "add_entity"
-      },
-      {
-        "change_id": "add-ext-c-e8-oracle-offline-v2-alpha1-c-scan-0-5b-01",
-        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01",
-        "evidence": [
-          {
-            "path": "experiments/registry.yaml",
-            "sha256": "f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5"
-          },
-          {
-            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
-            "sha256": "2a2f5daab75da5aa2b52865195c49d051f48a6fe9863ad7c170a0f8d668c796a"
-          },
-          {
-            "path": "docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json",
-            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
-          },
-          {
-            "path": "experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json",
-            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
-          },
-          {
-            "path": "docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
-            "sha256": "0bce4187260471fa8fea283a603902b94aac3e6642055a1247079f0ced1dba89"
-          }
-        ],
-        "kind": "add_entity"
-      },
-      {
-        "change_id": "add-ext-c-e8-oracle-offline-v2-alpha1-highc-scan-0-5b-01",
-        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-HIGHC-SCAN-0.5B-01",
-        "evidence": [
-          {
-            "path": "experiments/registry.yaml",
-            "sha256": "f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5"
-          },
-          {
-            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
-            "sha256": "2a2f5daab75da5aa2b52865195c49d051f48a6fe9863ad7c170a0f8d668c796a"
-          },
-          {
-            "path": "docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json",
-            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
-          },
-          {
-            "path": "experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json",
-            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
-          },
-          {
-            "path": "docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
-            "sha256": "0bce4187260471fa8fea283a603902b94aac3e6642055a1247079f0ced1dba89"
+            "sha256": "f709ddff316cb6c9fd8803d6985ef48bdd236840d10e64a184115007365ad96d"
           }
         ],
         "kind": "add_entity"
@@ -125,7 +38,7 @@ HEAD is now at cfe4357 Merge PR #185: ReplayAB R2 semantic acceptance
           },
           {
             "path": "docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
-            "sha256": "0bce4187260471fa8fea283a603902b94aac3e6642055a1247079f0ced1dba89"
+            "sha256": "f709ddff316cb6c9fd8803d6985ef48bdd236840d10e64a184115007365ad96d"
           }
         ],
         "kind": "add_entity"
@@ -152,7 +65,7 @@ HEAD is now at cfe4357 Merge PR #185: ReplayAB R2 semantic acceptance
           },
           {
             "path": "docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
-            "sha256": "0bce4187260471fa8fea283a603902b94aac3e6642055a1247079f0ced1dba89"
+            "sha256": "f709ddff316cb6c9fd8803d6985ef48bdd236840d10e64a184115007365ad96d"
           },
           {
             "path": "experiments/results/e8_paper_aligned_linear_scan_round1_pilot/RESULT_SUMMARY.json",
@@ -183,7 +96,7 @@ HEAD is now at cfe4357 Merge PR #185: ReplayAB R2 semantic acceptance
           },
           {
             "path": "docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
-            "sha256": "0bce4187260471fa8fea283a603902b94aac3e6642055a1247079f0ced1dba89"
+            "sha256": "f709ddff316cb6c9fd8803d6985ef48bdd236840d10e64a184115007365ad96d"
           },
           {
             "path": "experiments/results/e8_paper_aligned_tau_curve_pilot/RESULT_SUMMARY.json",
@@ -213,15 +126,115 @@ HEAD is now at cfe4357 Merge PR #185: ReplayAB R2 semantic acceptance
   "status": "PASS",
   "update_id": "EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20"
 }
-ERROR: materialization report is not immutable: /tmp/e8-backlog-trusted/docs/handoff_deltas/EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20/MATERIALIZATION_REPORT.json
-Traceback (most recent call last):
-  File "/home/runner/work/drpo/drpo/tools/temporary_finalize_e8_completed_backlog.py", line 507, in <module>
-    main()
-  File "/home/runner/work/drpo/drpo/tools/temporary_finalize_e8_completed_backlog.py", line 388, in main
-    run(
-  File "/home/runner/work/drpo/drpo/tools/temporary_finalize_e8_completed_backlog.py", line 48, in run
-    return subprocess.run(args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/subprocess.py", line 571, in run
-    raise CalledProcessError(retcode, process.args,
-subprocess.CalledProcessError: Command '['/opt/hostedtoolcache/Python/3.11.15/x64/bin/python', '/tmp/e8-backlog-trusted/scripts/handoff_authority.py', 'normalize', '--repo-root', '/tmp/e8-backlog-target', '--trusted-repo-root', '/tmp/e8-backlog-trusted', '--current-before', 'cfe43571cd8c6d0909c61d36c4f6e4d07c2d2362', '--source-base', 'cfe43571cd8c6d0909c61d36c4f6e4d07c2d2362', '--source-patch-commit', 'f2daa9fbd4fae4f277c7ffaf58552428b40a6f16', '--json']' returned non-zero exit status 2.
+{
+  "delta_path": "docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
+  "handoff_after_sha256": "9184a35c57d2741d2d5ad218355a56fc57f708f0ffe1809be396f35bd844ded1",
+  "handoff_before_sha256": "b3a99be6eb5c44e5ae2fa9ace6161c0acd60be6aeb9ee2aea96631b07f576e7c",
+  "mode": "delta",
+  "normalization": "materialized",
+  "report_path": "docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/MATERIALIZATION_REPORT.json",
+  "stage4a_refreshed": [
+    "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+    "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+    "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+  ],
+  "stage4a_reused_count": 14,
+  "status": "PASS",
+  "update_id": "EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20"
+}
+[detached HEAD a553a4b] Materialize E8 completed backlog pilot closure
+ 18 files changed, 1600 insertions(+), 9 deletions(-)
+ create mode 100644 docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md
+ create mode 100644 docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json
+ create mode 100644 docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml
+ create mode 100644 docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/MATERIALIZATION_REPORT.json
+ create mode 100644 experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json
+ create mode 100644 experiments/results/e8_paper_aligned_linear_scan_round1_pilot/PER_CELL_SUMMARY.csv
+ create mode 100644 experiments/results/e8_paper_aligned_linear_scan_round1_pilot/README.md
+ create mode 100644 experiments/results/e8_paper_aligned_linear_scan_round1_pilot/RESULT_SUMMARY.json
+ create mode 100644 experiments/results/e8_paper_aligned_linear_scan_round1_pilot/RUN_COMPLETE.json
+ create mode 100644 experiments/results/e8_paper_aligned_linear_scan_round1_pilot/TERMINAL_AUDIT.json
+ create mode 100644 experiments/results/e8_paper_aligned_tau_curve_pilot/README.md
+ create mode 100644 experiments/results/e8_paper_aligned_tau_curve_pilot/RESULT_SUMMARY.json
+{
+  "changed_experiment_count": 6,
+  "changed_experiment_ids": [
+    "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01",
+    "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-HIGHC-SCAN-0.5B-01",
+    "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-LOGC-BOUNDARY-SCAN-0.5B-01",
+    "EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01",
+    "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01",
+    "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-CURVE-0.5B-01"
+  ],
+  "checked_locator_count": 2,
+  "checked_locator_ids": [
+    "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01",
+    "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-CURVE-0.5B-01"
+  ],
+  "mode": "transition",
+  "policy_id": "GOV-POSTRUN-EVIDENCE-LOCATOR-01",
+  "status": "PASS"
+}
+Stage 5 handoff authority: PASS (command=verify, mode=delta)
+Formal execution channel validation: PASS
+Channel: hardened-v1 (GOV-FORMAL-ENTRYPOINT-01)
+Experiments: formal=14, historical_formal=2, pilot=27, superseded=2
+Legacy runner archive exceptions: 1
+Governance validation: PASS
+Rules: 55 (machine=17, review=38, structural=0)
+Coverage: direct=17, grouped=0
+Pytest nodes: 32; status=not_requested
+Inventory: sections=4, covered_rules=55
+Governance pipeline stage status: PASS (Stage 1=closed_maintenance_only, Stage 2=closed_maintenance_only, Stage 3=shadow_active, Stage 4=active, Stage 5=closed_maintenance_only, protected_files=25, authorizations=35)
+.                                                                        [100%]
+1 passed in 0.53s
+All checks passed!
+{
+  "base_commit": "be23ab5441fe9c1536edbf0b5c370a80c1279c7b",
+  "baseline_exit_code": 1,
+  "baseline_failures": [
+    "tests/test_agent_runspec.py::test_artifact_packaging_rejects_model_like_include",
+    "tests/test_agent_runspec.py::test_run_lane_impossible_capacity_floor_fails_before_entrypoint",
+    "tests/test_agent_runspec.py::test_run_lane_real_affinity_pool_subprocess_inherits_and_capacity_admits",
+    "tests/test_agent_runspec.py::test_validate_claim_and_run_lane_packages_only_allowed_artifacts",
+    "tests/test_claude_runspec_workspace.py::test_configure_is_idempotent_and_installs_strict_hook",
+    "tests/test_e7_measured_cpu_autotune.py::test_high_load_average_does_not_change_frozen_worker_count",
+    "tests/test_e7_ppo_w0_runtime_autotune.py::test_retained_peak_rejects_all_failed_candidates",
+    "tests/test_full_manuscript_compiler.py::test_proof_and_citation_validation_passes",
+    "tests/test_full_manuscript_compiler.py::test_template_contract_is_explicitly_two_column_icml",
+    "tests/test_runspec_deferred_registration.py::test_deferred_packaging_records_registration_timing",
+    "tests/test_runspec_deferred_registration.py::test_deferred_registration_is_claimable_without_registry_entry",
+    "tests/test_runspec_publish.py::test_publish_commits_only_declared_evidence_and_opens_draft_pr",
+    "tests/test_runspec_publish.py::test_publish_rejects_unrelated_tracked_change",
+    "tests/test_runspec_publish.py::test_run_lane_auto_publish_reports_partial_without_reclassifying_run",
+    "tests/test_runspec_recovery.py::test_oom_log_blocks_retry_even_when_exit_code_is_allowlisted",
+    "tests/test_runspec_recovery.py::test_resume_command_is_automatically_provenance_protected",
+    "tests/test_runspec_recovery.py::test_retry_requires_a_fresh_checkpoint",
+    "tests/test_runspec_recovery.py::test_retryable_failure_resumes_from_fresh_checkpoint",
+    "tests/test_runtime_resource_acceptance.py::test_profile_rejects_placeholders_and_overlapping_pools"
+  ],
+  "new_failures": [],
+  "target_exit_code": 1,
+  "target_failures": [
+    "tests/test_agent_runspec.py::test_artifact_packaging_rejects_model_like_include",
+    "tests/test_agent_runspec.py::test_run_lane_impossible_capacity_floor_fails_before_entrypoint",
+    "tests/test_agent_runspec.py::test_run_lane_real_affinity_pool_subprocess_inherits_and_capacity_admits",
+    "tests/test_agent_runspec.py::test_validate_claim_and_run_lane_packages_only_allowed_artifacts",
+    "tests/test_claude_runspec_workspace.py::test_configure_is_idempotent_and_installs_strict_hook",
+    "tests/test_e7_measured_cpu_autotune.py::test_high_load_average_does_not_change_frozen_worker_count",
+    "tests/test_e7_ppo_w0_runtime_autotune.py::test_retained_peak_rejects_all_failed_candidates",
+    "tests/test_full_manuscript_compiler.py::test_proof_and_citation_validation_passes",
+    "tests/test_full_manuscript_compiler.py::test_template_contract_is_explicitly_two_column_icml",
+    "tests/test_runspec_deferred_registration.py::test_deferred_packaging_records_registration_timing",
+    "tests/test_runspec_deferred_registration.py::test_deferred_registration_is_claimable_without_registry_entry",
+    "tests/test_runspec_publish.py::test_publish_commits_only_declared_evidence_and_opens_draft_pr",
+    "tests/test_runspec_publish.py::test_publish_rejects_unrelated_tracked_change",
+    "tests/test_runspec_publish.py::test_run_lane_auto_publish_reports_partial_without_reclassifying_run",
+    "tests/test_runspec_recovery.py::test_oom_log_blocks_retry_even_when_exit_code_is_allowlisted",
+    "tests/test_runspec_recovery.py::test_resume_command_is_automatically_provenance_protected",
+    "tests/test_runspec_recovery.py::test_retry_requires_a_fresh_checkpoint",
+    "tests/test_runspec_recovery.py::test_retryable_failure_resumes_from_fresh_checkpoint",
+    "tests/test_runtime_resource_acceptance.py::test_profile_rejects_placeholders_and_overlapping_pools"
+  ]
+}
+main advanced during finalization: be23ab5441fe9c1536edbf0b5c370a80c1279c7b -> 749ba603dddebeb559998459a4bee38633a35897
