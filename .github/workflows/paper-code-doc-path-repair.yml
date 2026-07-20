@@ -1,0 +1,77 @@
+name: Paper Code Hopper Config Path Repair
+
+on:
+  pull_request:
+    types: [synchronize]
+    paths:
+      - "docs/paper_code_reference/**"
+      - ".github/workflows/paper-code-doc-path-repair.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: paper-code-doc-path-repair-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  repair:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Apply bounded document repair
+        run: |
+          set -euo pipefail
+          old='configs/e7_hopper_q2.yaml'
+          new='configs/e7_hopper_q2_medium_replay_v2.yaml'
+          files=(
+            docs/paper_code_reference/ACCEPTANCE_MATRIX.yaml
+            docs/paper_code_reference/SOURCE_MIGRATION_MAP.md
+            docs/paper_code_reference/VALIDATION_MATRIX.yaml
+          )
+
+          for path in "${files[@]}"; do
+            count=$(grep -Foc "$old" "$path")
+            if [ "$count" -ne 1 ]; then
+              echo "expected exactly one stale Hopper config path in $path, found $count" >&2
+              exit 1
+            fi
+            sed -i "s#${old}#${new}#g" "$path"
+          done
+
+          if grep -F "$old" "${files[@]}"; then
+            echo "stale Hopper config path remains in repaired live documents" >&2
+            exit 1
+          fi
+
+          changed=$(git diff --name-only -- "${files[@]}" | sort)
+          expected=$(printf '%s\n' "${files[@]}" | sort)
+          if [ "$changed" != "$expected" ]; then
+            echo "repair changed an unexpected document set" >&2
+            printf 'expected:\n%s\nactual:\n%s\n' "$expected" "$changed" >&2
+            exit 1
+          fi
+
+          git diff --check
+
+      - name: Commit repair and self-delete
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          rm .github/workflows/paper-code-doc-path-repair.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            docs/paper_code_reference/ACCEPTANCE_MATRIX.yaml \
+            docs/paper_code_reference/SOURCE_MIGRATION_MAP.md \
+            docs/paper_code_reference/VALIDATION_MATRIX.yaml
+          git add -u .github/workflows/paper-code-doc-path-repair.yml
+          git commit -m "PAPER-CODE-VALIDATION-01 repair Hopper config path"
+          git push origin "HEAD:${HEAD_REF}"
