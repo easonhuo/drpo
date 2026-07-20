@@ -1,0 +1,424 @@
+name: Temporary E8 reciprocal closure bootstrap
+
+on:
+  push:
+    branches:
+      - dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01
+    paths:
+      - .github/workflows/temporary_e8_reciprocal_closure_bootstrap.yml
+
+permissions:
+  contents: write
+
+jobs:
+  close:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      BRANCH: dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01
+      BASE_SHA: dd46727c1efefd2e6d4cdf6f3b204ec1fc58fca3
+      EXPECTED_PARENT: ca177caa459deeddd4a6a599fd19160340001a19
+      UPDATE_ID: EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20
+      DELTA_PATH: docs/handoff_deltas/EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install bootstrap dependency
+        run: python -m pip install --disable-pip-version-check PyYAML
+
+      - name: Check bootstrap boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = ".github/workflows/temporary_e8_reciprocal_closure_bootstrap.yml"
+          test "$(git merge-base "$BASE_SHA" HEAD)" = "$BASE_SHA"
+          git diff --check "$BASE_SHA"...HEAD
+
+      - name: Verify scientific provenance and prepare authored closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          import yaml
+
+          BASE = "dd46727c1efefd2e6d4cdf6f3b204ec1fc58fca3"
+          UPDATE_ID = "EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20"
+          DELTA_DIR = Path("docs/handoff_deltas") / UPDATE_ID
+          DELTA_PATH = DELTA_DIR / "HANDOFF_DELTA.yaml"
+          WORKFLOW = Path(".github/workflows/temporary_e8_reciprocal_closure_bootstrap.yml")
+          PROVENANCE_JSON = Path("docs/experiments/E8_RECIPROCAL_JOINT_PROVENANCE_AUDIT.json")
+          CLOSURE_MD = Path("docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md")
+
+          def git_bytes(commit: str, path: str) -> bytes:
+              return subprocess.check_output(["git", "show", f"{commit}:{path}"])
+
+          def sha256(data: bytes) -> str:
+              return hashlib.sha256(data).hexdigest()
+
+          shared = {
+              "base_common": ("src/drpo/countdown_e8_alpha1_c_scan_common.py", "bf6a2245d0f7f5278cc983c5425d6cbc2d5d0d96f16dfb7f31936df107d85fd4"),
+              "base_runtime": ("src/drpo/countdown_e8_alpha1_c_scan_runtime.py", "1111e6e532721f3bc8d3bc43bd78c60a2a57cc3c6218049d6ece7401fff062fd"),
+              "base_trainer": ("src/drpo/countdown_e8_alpha1_c_scan_trainer.py", "34f39b2347ca8397cdf3ff8fbdd5eef8ff07ff6853482a1afff6772d7db9d919"),
+              "highc_auto_launcher": ("scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py", "96ebdafb3bc42fae430fbd7512d70bbe4f1976cf05a263b0cd42f16b67dcdc8a"),
+              "highc_runtime": ("src/drpo/countdown_e8_alpha1_highc_scan_runtime.py", "0b692b49f270c90dbb1e93dadcbc569c1545247e1aac822e4bf2d449e3c4486b"),
+          }
+          rounds = [
+              {
+                  "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-SHAPE-SCREEN-0.5B-01",
+                  "run_id": "E8_PAPER_ALIGNED_RECIPROCAL_SHAPE_SCREEN_20260719_01",
+                  "run_source_commit": "f99a9b1efdcc17d7e2bc5f5b08d110fd9d29d63f",
+                  "snapshot_commit": "147bc50b8c7a208e5742d1f64f7fd01cc77ba3a6",
+                  "highc_common_sha256": "30fc398889002dd401fa1d08b265af247f22bc4fda7e8e38285c6875e98d0ca0",
+                  "config_path": "configs/countdown_e8_oracle_offline_v2_reciprocal_shape_screen_0p5b.yaml",
+                  "config_sha256": "ceeee34f056c3733b7045212bab95ef1d07339dac1cea03e84ef73268a9f0e97",
+                  "results_commit": "8d04768273315ff6ab1bcbade9cbf5705952259a",
+                  "result_manifest_sha256": "0242b70cf71fe0531bca0d26201c0b29bfc6537f964a52a06da978fbe5dda286",
+                  "artifact_zip_sha256": "c694c0054289463500980d46a414bc450bed61ce77e7f5aeb402e9bc39580683",
+                  "terminal_audit_sha256": "281110255d7d72fa8544ad8b27aebd1152dc732fd10e9310621327de1ca7b2b5",
+                  "cells": 16,
+                  "lambda_values": [1, 3, 7, 19],
+                  "families": ["reciprocal_linear", "reciprocal_quadratic"],
+              },
+              {
+                  "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-HIGH-LAMBDA-EXTENSION-0.5B-01",
+                  "run_id": "E8_PAPER_ALIGNED_RECIPROCAL_HIGH_LAMBDA_EXTENSION_20260719_01",
+                  "run_source_commit": "356d878d26be1ad1b8bcf70d0908c9960e09f19f",
+                  "snapshot_commit": "356d878d26be1ad1b8bcf70d0908c9960e09f19f",
+                  "highc_common_sha256": "849d90acf421ef6da60ef80c7d104a110b9de019473ccef0add6056819be84ef",
+                  "config_path": "configs/countdown_e8_oracle_offline_v2_reciprocal_high_lambda_extension_0p5b.yaml",
+                  "config_sha256": "ccea02d04f0606d73ee4f2d134b8968cd77d43d76c8110b97b9707bf9b60b06b",
+                  "results_commit": "eca0eb0365f5660e0a49dff5d39c9bb5f5df0cdf",
+                  "result_manifest_sha256": "dc1feef96bf0bcc5cc0fe35f4eb5d3e506ec79cf50d782ac2622bdef1503b888",
+                  "artifact_zip_sha256": "f4f541db62721e9dae7f37a83a0c6e271287e0616574945807413b22dce4dcfd",
+                  "terminal_audit_sha256": "41352f4b2dd3b0dd5682af15843608034cbae13d9d690546dc126ada2a4a1008",
+                  "cells": 16,
+                  "lambda_values": [39, 79, 159, 319],
+                  "families": ["reciprocal_linear", "reciprocal_quadratic"],
+              },
+              {
+                  "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-QUADRATIC-DENSE-LAMBDA-CURVE-0.5B-01",
+                  "run_id": "E8_PAPER_ALIGNED_RECIPROCAL_QUADRATIC_DENSE_LAMBDA_CURVE_20260719_01",
+                  "run_source_commit": "7cc6d2daf787998283f733f4152114dced017316",
+                  "snapshot_commit": "5305df6fd4540d2cc57efacfcebc69bc853851db",
+                  "highc_common_sha256": "2eabb8794c20ed7439672883b9630a3497ae9d50b44d6d1df8e7886ecdda5249",
+                  "config_path": "configs/countdown_e8_oracle_offline_v2_reciprocal_quadratic_dense_lambda_curve_0p5b.yaml",
+                  "config_sha256": "4cbb9ad4fd5249826392c414d8ceedbcbd8abf36d52b7daf5264aeb87cfc4a99",
+                  "results_commit": "69a81c6db3bdd90ed640d54eb5687870d2dba220",
+                  "result_manifest_sha256": "acbf0fd8aa9f29d56b4c05841c7e0dd174568d4f9a15e229475df7db9a642c3b",
+                  "artifact_zip_sha256": "73f542a63c8c3974324bee5a80700e6cac9fa891b7c2b42b52903e16e471f629",
+                  "terminal_audit_sha256": "4a3dd8a478d1f4c2520161fb3c6ee7041c6fc2f5cf15d99188bee0a45ca3452c",
+                  "cells": 32,
+                  "lambda_values": [24, 29, 34, 47, 57, 68, 95, 113, 135, 191, 227, 270, 383, 511, 767, 1279],
+                  "families": ["reciprocal_quadratic"],
+              },
+          ]
+
+          audit_rounds = []
+          for item in rounds:
+              subprocess.run(["git", "merge-base", "--is-ancestor", item["snapshot_commit"], "HEAD"], check=True)
+              checks = {}
+              for name, (path, expected) in shared.items():
+                  actual = sha256(git_bytes(item["snapshot_commit"], path))
+                  if actual != expected:
+                      raise SystemExit(f"{item['experiment_id']} {name} mismatch: {actual} != {expected}")
+                  checks[name] = {"path": path, "sha256": actual}
+              common_path = "src/drpo/countdown_e8_alpha1_highc_scan_common.py"
+              actual_common = sha256(git_bytes(item["snapshot_commit"], common_path))
+              if actual_common != item["highc_common_sha256"]:
+                  raise SystemExit(f"{item['experiment_id']} highc_common mismatch")
+              checks["highc_common"] = {"path": common_path, "sha256": actual_common}
+              actual_config = sha256(git_bytes(item["snapshot_commit"], item["config_path"]))
+              if actual_config != item["config_sha256"]:
+                  raise SystemExit(f"{item['experiment_id']} config mismatch")
+              resolution = subprocess.run(
+                  ["git", "cat-file", "-e", f"{item['run_source_commit']}^{{commit}}"],
+                  stdout=subprocess.DEVNULL,
+                  stderr=subprocess.DEVNULL,
+              ).returncode == 0
+              if item["run_source_commit"] == "356d878d26be1ad1b8bcf70d0908c9960e09f19f" and not resolution:
+                  raise SystemExit("authoritative high-lambda source commit unexpectedly unavailable")
+              audit_rounds.append({
+                  **item,
+                  "run_source_commit_resolved": resolution,
+                  "resolution_mode": "exact_commit" if resolution else "registered_snapshot_plus_protected_sha256_equivalence",
+                  "protected_source_checks": checks,
+                  "config_verified_sha256": actual_config,
+                  "status": "PASS",
+              })
+
+          provenance = {
+              "schema_version": 1,
+              "audit_id": UPDATE_ID,
+              "status": "PASS",
+              "repository": "easonhuo/drpo",
+              "base_commit": BASE,
+              "pr_number": 174,
+              "bank_sha256": "3887fe4b13b1ff89e904e0816491e13a74ecd1d1dfe71dc1211b0dcae2f69519",
+              "validation_sha256": "b21069c90746f7e7207d7b61079b28c6a71935da782bb696e771edbcda4fd004",
+              "base_config_sha256": "492f063f0cb41dded82355bb4bd9c3d0524f607d670599a5f48a51a5c0099866",
+              "manual_v1_fallback": {
+                  "approved_by_user": True,
+                  "reason": "one-experiment fastpath cannot atomically register the three linked reciprocal evidence rounds; authoritative shell checkout was unavailable",
+                  "temporary_workflow": WORKFLOW.as_posix(),
+                  "workflow_deleted_in_final_commit": True,
+              },
+              "rounds": audit_rounds,
+          }
+          PROVENANCE_JSON.parent.mkdir(parents=True, exist_ok=True)
+          PROVENANCE_JSON.write_text(json.dumps(provenance, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+          closure_text = """# E8 reciprocal joint pilot closure
+
+          ## Decision
+
+          The reciprocal lambda exploration line is closed. No fourth scan or further right-boundary expansion is authorized by this closure.
+
+          ## Locked pilot claim
+
+          Under the frozen Countdown current-surprisal coordinate, fixed 1200-step training budget, paired development seeds, and validation-only protocol, Reciprocal-Linear and Reciprocal-Quadratic move from under-suppression into a broad plateau as lambda increases, but do not reach the sustained validation behavior of the matched exponential anchor. This supports tail-decay shape, rather than simple global strength alone, as an important control factor in this Countdown external-validity setting.
+
+          ## Evidence chain
+
+          - Shape screen: 16/16 cells, lambda 1/3/7/19, two reciprocal families.
+          - High-lambda extension: 16/16 cells, lambda 39/79/159/319, two reciprocal families.
+          - Dense Rec-Q curve: 32/32 cells, sixteen additional points through lambda 1279.
+          - Joint total: 64/64 cells; every terminal audit passed; numerical failures 0; test split unused.
+
+          ## Claim boundary
+
+          All three records remain pilots. Two paired development seeds and a fixed 1200-step horizon do not establish convergence, steady state, statistical significance, or a formal method ranking. Valid rate remains a structural diagnostic and is not formal support recovery. Task performance, support/structure diagnostics, and NaN/Inf failure remain separate reports. The result does not establish universal exponential superiority across tasks, models, seeds, or parameterizations.
+
+          ## Provenance resolution
+
+          The high-lambda run source commit is directly resolvable. The shape-screen and dense-run local source commits are not authoritative GitHub refs; their registered RunSpec snapshot commits were therefore audited against the result-recorded SHA-256 values for every active protected runtime source plus the exact grid config. The machine-readable mapping is in `E8_RECIPROCAL_JOINT_PROVENANCE_AUDIT.json`.
+
+          ## Governance path
+
+          The user explicitly approved a manual V1 fallback and a one-time remote bootstrap workflow. The ordinary preparation/V1 fastpath supports one experiment entity per transaction, while this closure atomically registers three linked pilot entities. The workflow is removed in the same final closure commit after trusted-current-main normalization, authority verification, and repository gates.
+          """
+          CLOSURE_MD.write_text(closure_text, encoding="utf-8")
+
+          registry_path = Path("experiments/registry.yaml")
+          registry_text = registry_path.read_text(encoding="utf-8")
+          for item in rounds:
+              if item["experiment_id"] in registry_text:
+                  raise SystemExit(f"registry already contains {item['experiment_id']}")
+
+          accepted_claim = (
+              "Under the frozen Countdown surprisal coordinate, training budget, and validation protocol, "
+              "linear- and quadratic-distance reciprocal controllers move from under-suppression into a broad "
+              "plateau as lambda increases, without reaching the sustained matched exponential anchor behavior; "
+              "this supports tail-decay shape rather than simple global strength alone as a control factor."
+          )
+          entries = []
+          for item in audit_rounds:
+              entries.append({
+                  "id": item["experiment_id"],
+                  "environment": "EXT-C",
+                  "name": item["run_id"].lower(),
+                  "status": "pilot",
+                  "scientific_status": "pilot",
+                  "role": "Countdown_external_validity_shape_ablation",
+                  "registration_state": "registered_after_deferred_code_first_closure",
+                  "claim": accepted_claim,
+                  "model": {
+                      "identity": "Qwen2.5-0.5B-Instruct",
+                      "initialization": "pretrained_base_plus_fresh_lora",
+                      "parameterization": "lora",
+                  },
+                  "data": {
+                      "bank_experiment": "EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01",
+                      "bank_sha256": provenance["bank_sha256"],
+                      "validation_sha256": provenance["validation_sha256"],
+                      "test_data_used": False,
+                  },
+                  "protocol": {
+                      "coordinate": "x=relu(current_mean_token_surprisal/2-0.125)",
+                      "detached": True,
+                      "reciprocal_linear": "1/(1+lambda*sqrt(x))",
+                      "reciprocal_quadratic": "1/(1+lambda*x)",
+                      "steps": 1200,
+                      "early_stop": False,
+                      "seed_offsets": [4000, 5000],
+                      "lambda_values": item["lambda_values"],
+                      "families": item["families"],
+                      "expected_cells": item["cells"],
+                      "completed_cells": item["cells"],
+                  },
+                  "execution": {
+                      "state": "delivered",
+                      "run_id": item["run_id"],
+                      "terminal_audit_status": "PASS",
+                      "numerical_failures": 0,
+                  },
+                  "provenance": {
+                      "run_source_commit": item["run_source_commit"],
+                      "run_source_commit_resolved": item["run_source_commit_resolved"],
+                      "resolution_mode": item["resolution_mode"],
+                      "authoritative_snapshot_commit": item["snapshot_commit"],
+                      "protected_source_sha256_audit": PROVENANCE_JSON.as_posix(),
+                      "grid_config_sha256": item["config_sha256"],
+                  },
+                  "evidence": {
+                      "results_repository": "easonhuo/drpo-results",
+                      "results_commit": item["results_commit"],
+                      "result_manifest_sha256": item["result_manifest_sha256"],
+                      "source_artifact_zip_sha256": item["artifact_zip_sha256"],
+                      "terminal_audit_sha256": item["terminal_audit_sha256"],
+                      "closure_document": CLOSURE_MD.as_posix(),
+                      "terminal_audited": True,
+                      "all_expected_cells_present": True,
+                      "nan_inf_numerical_events": 0,
+                  },
+                  "reporting_separation": [
+                      "task_performance",
+                      "support_or_structure_valid_rate_diagnostic",
+                      "nan_inf_numerical_failure",
+                  ],
+                  "paper_use": {
+                      "allowed": [
+                          "Countdown_external_validity_shape_ablation",
+                          "reciprocal_under_suppression_to_plateau_trend",
+                          "tail_decay_shape_not_strength_only_interpretation",
+                      ],
+                      "prohibited": [
+                          "formal_method_ranking",
+                          "statistical_significance",
+                          "convergence_or_steady_state",
+                          "formal_support_recovery",
+                          "universal_exponential_superiority",
+                          "cross_task_or_cross_model_generalization",
+                      ],
+                  },
+                  "closure": {
+                      "state": "closed_pilot_evidence_line",
+                      "continue_expanding_reciprocal_lambda": False,
+                      "fourth_scan_required": False,
+                      "joint_evidence_update_id": UPDATE_ID,
+                  },
+              })
+          appended = yaml.safe_dump(entries, sort_keys=False, allow_unicode=True, width=120)
+          registry_path.write_text(registry_text.rstrip() + "\n\n" + appended, encoding="utf-8")
+
+          block = """- **Countdown reciprocal shape-ablation joint pilot closure:** `EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-SHAPE-SCREEN-0.5B-01`, `...RECIPROCAL-HIGH-LAMBDA-EXTENSION...`, and `...RECIPROCAL-QUADRATIC-DENSE-LAMBDA-CURVE...` are now registered as one linked external-validity evidence chain. The three runs completed 16/16, 16/16, and 32/32 cells respectively (64/64 jointly), all terminal audits passed, NaN/Inf failures were 0, and the test split was not used.
+
+          Under the frozen current-surprisal coordinate, paired development seeds, 1200-step budget, and validation-only protocol, Reciprocal-Linear and Reciprocal-Quadratic move from under-suppression into a broad plateau as lambda increases, but do not reach the sustained matched exponential anchor behavior. This supports tail-decay shape rather than simple global strength alone as an important control factor in this Countdown setting. The evidence remains pilot-only: it does not establish significance, convergence, steady state, formal support recovery, or a formal/cross-task method ranking.
+
+          Provenance is resolved by direct commit identity for the high-lambda run and by registered RunSpec snapshot plus protected-source SHA-256 equivalence for the two non-resolvable local run commits. The durable audit is `docs/experiments/E8_RECIPROCAL_JOINT_PROVENANCE_AUDIT.json`; results are bound to `drpo-results` commits `8d04768273315ff6ab1bcbade9cbf5705952259a`, `eca0eb0365f5660e0a49dff5d39c9bb5f5df0cdf`, and `69a81c6db3bdd90ed640d54eb5687870d2dba220`.
+
+          Scientific exploration on this reciprocal lambda line is closed: no fourth scan or further right-boundary expansion is required. The user-approved manual V1 fallback was used because the ordinary fastpath permits one experiment entity per transaction while this closure atomically registers three linked entities; the one-time remote bootstrap workflow is deleted after trusted normalization and gates."""
+          operations = [{
+              "operation_id": "append-e8-reciprocal-joint-pilot-closure",
+              "op": "append_to_section",
+              "heading_path": [
+                  "0. 研究与执行原则（每次新会话首先阅读）",
+                  "0.1 当前执行门禁",
+              ],
+              "block_id": "e8-reciprocal-joint-pilot-closure-2026-07-20",
+              "content": block,
+          }]
+
+          base_handoff = git_bytes(BASE, "docs/handoff.md").decode("utf-8")
+          base_registry = git_bytes(BASE, "experiments/registry.yaml").decode("utf-8")
+          sys.path.insert(0, str(Path("scripts").resolve()))
+          import handoff_delta_shadow as shadow
+          candidate = shadow.render(base_handoff, operations).text
+          registry_after = registry_path.read_text(encoding="utf-8")
+          delta = {
+              "schema_version": 3,
+              "update_id": UPDATE_ID,
+              "mode": "authoritative",
+              "base": {
+                  "commit": BASE,
+                  "handoff_sha256": hashlib.sha256(base_handoff.encode()).hexdigest(),
+                  "registry_sha256": hashlib.sha256(base_registry.encode()).hexdigest(),
+              },
+              "renderer_version": 1,
+              "operations": operations,
+              "registry": {
+                  "mode": "expected_after",
+                  "exact_base_after_sha256": hashlib.sha256(registry_after.encode()).hexdigest(),
+                  "changes": [
+                      {
+                          "change_id": f"add-{index+1}-reciprocal-pilot",
+                          "kind": "add_entity",
+                          "entity_id": item["experiment_id"],
+                          "evidence": [
+                              "experiments/registry.yaml",
+                              CLOSURE_MD.as_posix(),
+                              PROVENANCE_JSON.as_posix(),
+                              item["config_path"],
+                              f"runspecs/ready/{item['run_id']}.yaml",
+                              DELTA_PATH.as_posix(),
+                          ],
+                      }
+                      for index, item in enumerate(rounds)
+                  ],
+              },
+              "expected": {
+                  "exact_base_candidate_sha256": hashlib.sha256(candidate.encode()).hexdigest(),
+              },
+          }
+          DELTA_DIR.mkdir(parents=True, exist_ok=True)
+          DELTA_PATH.write_text(yaml.safe_dump(delta, sort_keys=False, allow_unicode=True, width=120), encoding="utf-8")
+          PY
+
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add experiments/registry.yaml docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md docs/experiments/E8_RECIPROCAL_JOINT_PROVENANCE_AUDIT.json "$DELTA_PATH"
+          git commit -m "Close E8 reciprocal joint pilot evidence"
+
+      - name: Trusted normalize and materialize
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_PATCH_COMMIT="$(git rev-parse HEAD)"
+          git worktree add --detach /tmp/drpo-trusted-main "$BASE_SHA"
+          python /tmp/drpo-trusted-main/scripts/handoff_authority.py validate-delta \
+            --repo-root . \
+            --delta "$DELTA_PATH" \
+            --source-patch-commit "$SOURCE_PATCH_COMMIT" \
+            --json
+          python /tmp/drpo-trusted-main/scripts/handoff_authority.py normalize \
+            --repo-root . \
+            --trusted-repo-root /tmp/drpo-trusted-main \
+            --current-before "$BASE_SHA" \
+            --source-base "$BASE_SHA" \
+            --source-patch-commit "$SOURCE_PATCH_COMMIT" \
+            --json
+          git rm .github/workflows/temporary_e8_reciprocal_closure_bootstrap.yml
+          git add docs/handoff.md experiments/registry.yaml docs/handoff_deltas docs/handoff_shadow/stage4/minimal/generated docs/experiments
+          git commit --amend --no-edit
+
+      - name: Run closure gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/handoff_authority.py verify --repo-root . --json
+          python scripts/validate_formal_execution_channel.py --repo-root .
+          python scripts/validate_governance_stage.py --repo-root .
+          python scripts/validate_governance_inventory.py --repo-root .
+          python -m py_compile src/drpo/countdown_e8_alpha1_highc_scan_common.py src/drpo/countdown_e8_alpha1_highc_scan_runtime.py tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
+          git diff --check "$BASE_SHA"...HEAD
+          test -z "$(git status --porcelain)"
+
+      - name: Push closure commit
+        shell: bash
+        run: git push origin HEAD:"$BRANCH"
