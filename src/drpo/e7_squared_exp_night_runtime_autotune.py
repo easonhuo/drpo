@@ -198,12 +198,6 @@ def resource_fingerprint(
     pilot.load_grid(grid_path)
     argv = [str(value) for value in run_spec["trainer_argv_template"]]
     profile = pilot.active_runtime_profile()
-    requested_probe_steps = _REQUESTED_PROBE_STEPS.get()
-    requested_probe_seconds = _REQUESTED_PROBE_SECONDS.get()
-    if requested_probe_steps is None:
-        requested_probe_steps = int(probe_steps)
-    if requested_probe_seconds is None:
-        requested_probe_seconds = float(probe_seconds)
     source_paths = (
         "src/drpo/e7_squared_exp_kernel.py",
         "src/drpo/e7_ppo_kl_refresh.py",
@@ -266,10 +260,8 @@ def resource_fingerprint(
                 pilot._flag_value(argv, "--eval_episodes")  # noqa: SLF001
             ),
             "probe_terminal_evaluation_episodes": 1,
-            "requested_probe_steps": requested_probe_steps,
             "effective_probe_steps": int(probe_steps),
             "probe_steps_limit": PROBE_STEPS_LIMIT,
-            "requested_probe_seconds": requested_probe_seconds,
             "effective_probe_seconds": float(probe_seconds),
             "probe_seconds_limit": PROBE_SECONDS_LIMIT,
             "probe_seed_namespace": int(probe_seed),
@@ -390,6 +382,23 @@ def _bounded_runtime_kwargs(kwargs: dict[str, Any]) -> tuple[dict[str, Any], dic
     return bounded, policy
 
 
+def _attach_requested_probe_policy(
+    document: dict[str, Any],
+    *,
+    work_dir: str | Path,
+    policy: dict[str, Any],
+) -> dict[str, Any]:
+    document["requested_probe_policy"] = {
+        "requested_probe_steps": int(policy["requested_probe_steps"]),
+        "effective_probe_steps": int(policy["effective_probe_steps"]),
+        "requested_probe_seconds": float(policy["requested_probe_seconds"]),
+        "effective_probe_seconds": float(policy["effective_probe_seconds"]),
+        "identity_affecting": False,
+    }
+    legacy.atomic_write_json(Path(work_dir) / "RUNTIME_SELECTION.json", document)
+    return document
+
+
 def select_runtime(**kwargs: Any) -> dict[str, Any]:
     bounded, policy = _bounded_runtime_kwargs(kwargs)
     with _requested_probe_context(
@@ -397,7 +406,12 @@ def select_runtime(**kwargs: Any) -> dict[str, Any]:
         float(policy["requested_probe_seconds"]),
     ):
         with _installed_adapter():
-            return _ORIGINAL_SELECT_RUNTIME(**bounded)
+            document = _ORIGINAL_SELECT_RUNTIME(**bounded)
+    return _attach_requested_probe_policy(
+        document,
+        work_dir=str(kwargs["work_dir"]),
+        policy=policy,
+    )
 
 
 def revalidate_runtime(**kwargs: Any) -> dict[str, Any]:
