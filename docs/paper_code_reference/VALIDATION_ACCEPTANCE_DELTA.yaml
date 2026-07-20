@@ -1,0 +1,108 @@
+schema_version: 1
+claim_id: PAPER-CODE-VALIDATION-01
+parent_acceptance_matrix: docs/paper_code_reference/ACCEPTANCE_MATRIX.yaml
+validation_runbook: docs/paper_code_reference/VALIDATION_RUNBOOK.md
+validation_matrix: docs/paper_code_reference/VALIDATION_MATRIX.yaml
+validation_status: docs/paper_code_reference/VALIDATION_STATUS.md
+scientific_status_impact: none
+additive_only: true
+
+purpose: >-
+  Add the deadline-critical correctness-validation campaign without deleting or
+  rewriting the migration acceptance history. The parent acceptance matrix keeps
+  ownership of migration facts; this delta owns the subsequent validation gates.
+
+baseline:
+  repository: easonhuo/drpo
+  main_observed: 4b718e7439cf78a04f4affa1987ac15582d702d1
+  branch: dev/paper-code-reference-01
+  planning_base_head: 8b81b4b72e38538a0b2ea4b50595059a67838d63
+  draft_pr: 149
+  merged: false
+  baseline_exact_head_ci:
+    evidence_locator: passed
+    pr_gate: passed
+
+acceptance_layers:
+  - function_equivalence
+  - short_trajectory_equivalence
+  - real_dependency_liveness
+  - registered_scientific_reproduction
+  - terminal_review
+
+campaign_status:
+  migration_scope: frozen
+  broad_refactor: excluded
+  validation_documentation: complete
+  exact_head_ci_after_validation_docs: pending
+  v0_package_inventory: pending
+  v1_clean_package: pending
+  v2_function_equivalence: pending
+  v3_short_trajectory: pending
+  v4_real_liveness: pending
+  v5_scientific_reproduction: pending
+
+component_overrides:
+  shared_kernel:
+    migration_status: implementation_complete_engineering_validated
+    validation_status: pending_exact_head_rerun
+  cu1:
+    migration_status: implementation_complete_formal_rerun_pending
+    validation_next:
+      - clean_package
+      - fixed_input_equivalence
+      - fixed_short_trajectory
+      - cpu_liveness
+      - registered_full_cpu_reproduction
+      - terminal_review
+  du1_revision_4:
+    migration_status: implementation_complete_formal_run_pending
+    validation_next:
+      - clean_package
+      - fixed_input_equivalence
+      - fixed_short_trajectory
+      - cpu_liveness
+      - registered_full_cpu_matrix
+      - terminal_review
+  hopper_e7_q2:
+    migration_status: implementation_complete_real_registered_rerun_pending
+    validation_next:
+      - clean_package
+      - fixed_input_equivalence
+      - fixed_short_trajectory
+      - registered_hdf5_mujoco_liveness
+      - registered_full_budget_rerun
+      - terminal_review
+  d4rl_9:
+    migration_status: reviewer_runtime_implemented
+    validation_status: code_equivalence_pending_formal_protocol_blocked
+    blockers:
+      - unresolved_dataset_identities
+      - final_methods_and_coefficients_unfrozen
+      - formal_seeds_unfrozen
+      - formal_budget_unfrozen
+      - checkpoint_policy_unfrozen
+      - manuscript_role_unresolved
+  countdown:
+    migration_status: reviewer_code_migration_closed
+    scientific_status: pilot_not_run
+    validation_next:
+      - clean_package
+      - fixed_input_equivalence
+      - controlled_fake_hf_short_trajectory
+      - freeze_non_scientific_schema1_liveness_config
+      - real_qwen_peft_cuda_liveness
+      - registered_canonical_v79_execution
+      - terminal_review
+
+forbidden_substitutions:
+  - static_check_for_execution
+  - smoke_for_reproduction
+  - fake_backend_for_real_liveness
+  - short_trajectory_for_scientific_result
+  - selected_checkpoint_for_terminal_audit
+  - fixed_horizon_for_convergence
+  - pilot_for_formal_result
+  - post_hoc_method_selection_for_frozen_protocol
+
+next_gate: exact_head_ci_after_validation_docs
