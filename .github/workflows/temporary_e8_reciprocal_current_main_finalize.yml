@@ -81,9 +81,6 @@ jobs:
               'runspecs/ready/E8_PAPER_ALIGNED_RECIPROCAL_SHAPE_SCREEN_20260719_01.yaml',
               'runspecs/ready/E8_PAPER_ALIGNED_RECIPROCAL_HIGH_LAMBDA_EXTENSION_20260719_01.yaml',
               'runspecs/ready/E8_PAPER_ALIGNED_RECIPROCAL_QUADRATIC_DENSE_LAMBDA_CURVE_20260719_01.yaml',
-              'src/drpo/countdown_e8_alpha1_highc_scan_common.py',
-              'src/drpo/countdown_e8_alpha1_highc_scan_runtime.py',
-              'tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py',
               'docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md',
               'docs/experiments/E8_RECIPROCAL_JOINT_PROVENANCE_AUDIT.json',
               delta_rel.as_posix(),
@@ -93,6 +90,22 @@ jobs:
               path = source_root / rel
               path.parent.mkdir(parents=True, exist_ok=True)
               path.write_bytes(data)
+
+          shared_paths = [
+              'src/drpo/countdown_e8_alpha1_highc_scan_common.py',
+              'src/drpo/countdown_e8_alpha1_highc_scan_runtime.py',
+              'tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py',
+          ]
+          shared_patch = subprocess.check_output([
+              'git', 'diff', '--binary',
+              'dd46727c1efefd2e6d4cdf6f3b204ec1fc58fca3',
+              trigger, '--', *shared_paths,
+          ])
+          subprocess.run(
+              ['git', '-C', str(source_root), 'apply', '--3way', '--index'],
+              input=shared_patch,
+              check=True,
+          )
 
           provenance_path = source_root / 'docs/experiments/E8_RECIPROCAL_JOINT_PROVENANCE_AUDIT.json'
           provenance = json.loads(provenance_path.read_text(encoding='utf-8'))
