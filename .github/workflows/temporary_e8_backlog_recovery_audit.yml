@@ -23,7 +23,7 @@ jobs:
       - name: Recover historical closure metadata
         shell: bash
         run: |
-          set -u
+          set +e
           mkdir -p docs/experiments
           : > /tmp/recovery_diagnostics.txt
           git show origin/dev/e8-four-result-closure-authority-export:tools/tmp_e8_four_result_closure.patch.gz.b64 > /tmp/e8_patch.b64 2>> /tmp/recovery_diagnostics.txt
@@ -59,6 +59,7 @@ jobs:
             echo
             if [ -s /tmp/e8.patch ]; then grep -Ei 'EXT-C-E8|E8_[A-Z0-9_]+|results_commit|manifest_sha256|package_sha256|expected_cells|completed_cells|terminal_audit|numerical_failures|nan_inf' /tmp/e8.patch || true; fi
           } > docs/experiments/E8_COMPLETED_BACKLOG_RECOVERY_AUDIT.md
+          exit 0
 
       - name: Publish recovery audit
         run: |
