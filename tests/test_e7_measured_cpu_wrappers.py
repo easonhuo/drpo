@@ -202,7 +202,10 @@ def test_night_runtime_kwargs_apply_bounded_probe_policy() -> None:
 def test_requested_probe_policy_is_recorded_outside_selection_identity(
     tmp_path: Path,
 ) -> None:
-    document = {"selection_digest": "stable-digest", "selection": {"selected_workers": 41}}
+    document = {
+        "selection_digest": "stable-digest",
+        "selection": {"selected_workers": 41},
+    }
     policy = night_adapter._bounded_probe_policy(100_000, 2_500.0)  # noqa: SLF001
     result = night_adapter._attach_requested_probe_policy(  # noqa: SLF001
         document,
@@ -233,6 +236,7 @@ def test_night_throughput_probe_is_bounded_independently(
         return {
             "concurrency": kwargs["concurrency"],
             "probe_steps_per_branch": kwargs["probe_steps"],
+            "aggregate_peak_rss_bytes": 1_024,
             "valid": True,
         }
 
@@ -241,12 +245,21 @@ def test_night_throughput_probe_is_bounded_independently(
         "_ORIGINAL_BENCHMARK_CONCURRENCY",
         fake_benchmark,
     )
-    result = night_adapter._bounded_benchmark_concurrency(  # noqa: SLF001
-        probe_root=tmp_path,
-        concurrency=17,
-        probe_steps=100_000,
-        timeout_seconds=2_500.0,
-    )
+    token = night_adapter._ACTIVE_PLAN_IDENTITY.set("plan-identity")  # noqa: SLF001
+    try:
+        result = night_adapter._bounded_benchmark_concurrency(  # noqa: SLF001
+            probe_root=tmp_path,
+            concurrency=17,
+            probe_steps=100_000,
+            probe_seed=99,
+            timeout_seconds=2_500.0,
+            cpu_fraction=0.85,
+            cpu_safety_factor=1.25,
+            usable_memory_bytes=1_000_000,
+            binding=_FakeBinding(),
+        )
+    finally:
+        night_adapter._ACTIVE_PLAN_IDENTITY.reset(token)  # noqa: SLF001
 
     assert observed["probe_steps"] == 5_000
     assert observed["timeout_seconds"] == 120.0
@@ -255,12 +268,77 @@ def test_night_throughput_probe_is_bounded_independently(
     assert result["requested_timeout_seconds"] == 2_500.0
     assert result["effective_timeout_seconds"] == 120.0
     assert result["probe_policy_bounded_by_adapter"] is True
+    assert result["checkpoint_reused"] is False
     persisted = json.loads(
         (tmp_path / "workers-017" / "BENCHMARK_SUMMARY.json").read_text(
             encoding="utf-8"
         )
     )
     assert persisted == result
+
+
+class _FakeBinding:
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "affinity_cpu_ids": [0, 1, 2, 3],
+            "affinity_source": "test",
+            "quota_domains": [],
+        }
+
+
+def test_exact_valid_candidate_checkpoint_is_reused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kwargs = {
+        "probe_root": tmp_path,
+        "concurrency": 17,
+        "probe_steps": 5_000,
+        "probe_seed": 99,
+        "timeout_seconds": 120.0,
+        "cpu_fraction": 0.85,
+        "cpu_safety_factor": 1.25,
+        "usable_memory_bytes": 1_000_000,
+        "binding": _FakeBinding(),
+    }
+    token = night_adapter._ACTIVE_PLAN_IDENTITY.set("plan-identity")  # noqa: SLF001
+    try:
+        identity = night_adapter._candidate_checkpoint_identity(  # noqa: SLF001
+            kwargs,
+            effective_steps=5_000,
+            effective_seconds=120.0,
+        )
+        path = night_adapter._candidate_summary_path(kwargs)  # noqa: SLF001
+        path.parent.mkdir(parents=True)
+        path.write_text(
+            json.dumps(
+                {
+                    "concurrency": 17,
+                    "valid": True,
+                    "aggregate_peak_rss_bytes": 1_024,
+                    "aggregate_updates_per_second": 1_700.0,
+                    "v3_checkpoint_identity": identity,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        def should_not_run(**_kwargs: object) -> dict[str, object]:
+            raise AssertionError("exact valid checkpoint should be reused")
+
+        monkeypatch.setattr(
+            night_adapter,
+            "_ORIGINAL_BENCHMARK_CONCURRENCY",
+            should_not_run,
+        )
+        result = night_adapter._bounded_benchmark_concurrency(  # noqa: SLF001
+            **kwargs
+        )
+    finally:
+        night_adapter._ACTIVE_PLAN_IDENTITY.reset(token)  # noqa: SLF001
+
+    assert result["checkpoint_reused"] is True
+    assert result["checkpoint_source_path"] == str(path)
+    assert result["aggregate_updates_per_second"] == 1_700.0
 
 
 def test_valid_lower_candidates_remain_selectable_after_higher_failure() -> None:
