@@ -1,25 +1,86 @@
-schema_version: 1
+schema_version: 2
 claim_id: PAPER-CODE-VALIDATION-01
 base_matrix: docs/paper_code_reference/VALIDATION_MATRIX.yaml
-applies_after_commit: e83397fa0017951f31b11f5838c867e43b67d146
+latest_execution_report: docs/paper_code_reference/VALIDATION_EXECUTION_REPORT_20260720.md
 scientific_status_impact: none
 
 reason: >-
-  Record additive V0 status after the runbook, matrix, validation-status, and
-  acceptance-delta documents were committed. This file does not alter any
-  scientific coordinate or prior migration evidence.
+  Record additive live gate overrides after validation documentation, exact-head
+  CI, isolated-package loading, differential/short-path suites, and the first CPU
+  liveness checks. No scientific coordinate or result status changes.
 
 overrides:
-  stages.V0_baseline_and_docs.status: running
+  stages.V0_baseline_and_docs.status: in_progress
   stages.V0_baseline_and_docs.gates.V0-04_current_status_sync.status: passed
   stages.V0_baseline_and_docs.gates.V0-04_current_status_sync.evidence: docs/paper_code_reference/VALIDATION_STATUS.md
   stages.V0_baseline_and_docs.gates.V0-05_acceptance_matrix_sync.status: passed
   stages.V0_baseline_and_docs.gates.V0-05_acceptance_matrix_sync.evidence: docs/paper_code_reference/VALIDATION_ACCEPTANCE_DELTA.yaml
-  stages.V0_baseline_and_docs.gates.V0-06_exact_head_ci_after_docs.status: pending
+  stages.V0_baseline_and_docs.gates.V0-06_exact_head_ci_after_docs.status: passed
+  stages.V0_baseline_and_docs.gates.V0-06_exact_head_ci_after_docs.evidence:
+    head: 0201b9cde2b1f6e9b8d754fc7b7aacaa580c3f3e
+    evidence_locator_run: 29738490031
+    pr_gate_run: 29738490048
+    pr_gate_job: 88339432508
   stages.V0_baseline_and_docs.gates.V0-07_exact_package_inventory.status: pending
-  next_gate: V0-06_exact_head_ci_after_docs
+
+  stages.V1_clean_package.status: in_progress
+  stages.V1_clean_package.subgates.isolated_copy_install.status: passed
+  stages.V1_clean_package.subgates.isolated_copy_install.evidence:
+    head: 6bb89fce283e508906f62bccbf32aa844e90528b
+    evidence_locator_run: 29739126054
+    pr_gate_run: 29739126098
+    pr_gate_job: 88341481345
+  stages.V1_clean_package.subgates.public_entrypoints.status: passed
+  stages.V1_clean_package.subgates.exact_package_manifest.status: pending
+  stages.V1_clean_package.subgates.explicit_ruff_format_check.status: pending
+
+  stages.V2_function_equivalence.status: passed
+  stages.V2_function_equivalence.evidence:
+    kind: exact_head_full_pytest
+    heads:
+      - 6bb89fce283e508906f62bccbf32aa844e90528b
+      - 67ad662f01c169167167269a3743e0e01ac65033
+    scope:
+      - shared
+      - cu1
+      - du1_revision_4
+      - hopper_e7_q2
+      - d4rl_9_code
+      - countdown
+    scientific_reproduction: false
+
+  stages.V3_short_trajectory.status: passed
+  stages.V3_short_trajectory.evidence:
+    kind: exact_head_full_pytest
+    heads:
+      - 6bb89fce283e508906f62bccbf32aa844e90528b
+      - 67ad662f01c169167167269a3743e0e01ac65033
+    real_external_stack: false
+    scientific_result: false
+
+  stages.V4_real_liveness.status: in_progress
+  stages.V4_real_liveness.components.cu1_cpu.status: passed
+  stages.V4_real_liveness.components.cu1_cpu.evidence:
+    head: 67ad662f01c169167167269a3743e0e01ac65033
+    evidence_locator_run: 29739812639
+    pr_gate_run: 29739812652
+    pr_gate_job: 88343702063
+    route: real_cli_main_cpu_smoke
+    formal_evidence: false
+  stages.V4_real_liveness.components.du1_cpu.status: pending
+  stages.V4_real_liveness.components.du1_cpu.partial_evidence:
+    six_method_cpu_runner_smoke: passed
+    cli_parse_and_dispatch: passed
+    combined_cli_to_terminal_audit: pending
+  stages.V4_real_liveness.components.hopper_hdf5_mujoco.status: blocked
+  stages.V4_real_liveness.components.countdown_qwen_cuda.status: blocked
+  stages.V4_real_liveness.components.d4rl_9.status: blocked
+
+  stages.V5_scientific_reproduction.status: pending
+  next_gate: V0-07_exact_package_inventory
 
 notes:
-  - direct long-file replacement of the migration snapshot was not used
-  - synchronization is additive and preserves the existing documents in Git history
-  - no experiment or liveness command was launched
+  - synchronization is additive and preserves migration history
+  - no formal experiment was launched
+  - no result status or method ranking changed
+  - D-U1 split evidence is not promoted to a combined gate
