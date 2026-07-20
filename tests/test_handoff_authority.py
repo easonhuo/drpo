@@ -240,3 +240,69 @@ def test_repo_relative_accepts_symlinked_repo_root(tmp_path: Path) -> None:
         authority._repo_relative(linked_root, protected.resolve(), "protected asset")
         == "docs/asset.json"
     )
+
+
+def test_merge_result_introduced_path_history_is_bounded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "repo"
+    report = repo / "docs" / "report.json"
+    report.parent.mkdir(parents=True)
+    report.write_text('{"status":"PASS"}\n', encoding="utf-8")
+
+    def fake_git_text(_repo: Path, *args: str, **_kwargs: Any) -> str:
+        if args == ("rev-parse", "HEAD"):
+            return "head"
+        if args[:2] == ("log", "--format=%H"):
+            return "origin"
+        if args[:3] == ("log", "--diff-filter=A", "--format=%H"):
+            return ""
+        if args[:5] == ("rev-list", "--parents", "-n", "1", "origin"):
+            return "origin first second"
+        if args[:3] == ("rev-list", "--first-parent", "--reverse"):
+            return ""
+        raise AssertionError(args)
+
+    monkeypatch.setattr(authority, "_git_text", fake_git_text)
+    monkeypatch.setattr(
+        authority,
+        "_path_exists_at_commit",
+        lambda _repo, commit, _relative: commit == "origin",
+    )
+    monkeypatch.setattr(
+        authority,
+        "_first_parent_integration_commit",
+        lambda *_args, **_kwargs: "integration",
+    )
+    monkeypatch.setattr(
+        authority,
+        "_git",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess([], 0),
+    )
+    monkeypatch.setattr(
+        authority,
+        "_git_show",
+        lambda _repo, commit, _path: report.read_text(encoding="utf-8")
+        if commit in {"origin", "integration"}
+        else "",
+    )
+
+    assert authority._validated_integrated_path_history(
+        repo,
+        report,
+        positions={"integration": 0},
+        label="materialization report",
+    ) == ("origin", "integration")
+
+    monkeypatch.setattr(
+        authority,
+        "_path_exists_at_commit",
+        lambda _repo, commit, _relative: commit in {"origin", "first"},
+    )
+    with pytest.raises(authority.HandoffAuthorityError, match="predates"):
+        authority._validated_integrated_path_history(
+            repo,
+            report,
+            positions={"integration": 0},
+            label="materialization report",
+        )
