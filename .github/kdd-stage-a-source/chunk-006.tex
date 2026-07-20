@@ -1,0 +1,712 @@
+gin{equation}
+\begin{aligned}
+    \mathbf m^\star
+    &=
+    \frac{
+        p\mathbf m_+
+        -
+        q\mathbf m_-
+    }{
+        p-q
+    }
+    \\
+    &=
+    \mathbf m_+
+    +
+    \frac{q}{p-q}
+    \left(
+        \mathbf m_+
+        -
+        \mathbf m_-
+    \right)
+    \\
+    &=
+    \mathbf m_+
+    +
+    \frac{\rho}{1-\rho}
+    \left(
+        \mathbf m_+
+        -
+        \mathbf m_-
+    \right).
+\end{aligned}
+\label{eq:app_stable_extrapolation_identity}
+\end{equation}
+This proves Equation~\eqref{eq:signed_target_ratio}. In particular,
+holding \(\mathbf m_+\) and \(\mathbf m_-\) fixed, the displacement from
+the positive-only target is
+\begin{equation}
+    \mathbf m^\star-\mathbf m_+
+    =
+    \frac{\rho}{1-\rho}
+    \left(
+        \mathbf m_+
+        -
+        \mathbf m_-
+    \right),
+    \label{eq:app_equilibrium_displacement}
+\end{equation}
+whose magnitude increases with \(\rho\in(0,1)\) whenever
+\(\mathbf m_+\neq\mathbf m_-\).
+
+If \(\mathbf m^\star\notin\mathcal M\), no finite
+\(\xi^\star\in\mathcal H\) can satisfy
+Equation~\eqref{eq:app_equilibrium_condition}, and hence no finite
+equilibrium exists.
+
+More generally, consider any sequence
+\(\mathbf m^\star_n\in\mathcal M\) that leaves every compact subset of
+\(\mathcal M\), either by approaching its boundary or by becoming
+unbounded, and define
+\begin{equation}
+    \xi^\star_n
+    =
+    (\nabla\psi)^{-1}
+    \left(
+        \mathbf m^\star_n
+    \right).
+\end{equation}
+Suppose, for contradiction, that
+\(\{\xi^\star_n\}\) remains in a compact subset
+\(K\subset\mathcal H\). By continuity,
+\(\nabla\psi(K)\) is a compact subset of \(\mathcal M\), but
+\(\mathbf m^\star_n=\nabla\psi(\xi^\star_n)\) would then remain inside
+that compact set. This contradicts the assumed behavior of
+\(\mathbf m^\star_n\). Hence, the corresponding natural parameters must
+leave every compact subset of \(\mathcal H\).
+
+\medskip
+\noindent\textbf{Critical regime.}
+Suppose \(p=q>0\). Equation~\eqref{eq:app_aggregate_field} reduces to
+\begin{equation}
+\begin{aligned}
+    \mathbf F(\xi)
+    &=
+    \bar{\mathbf m}_+
+    -
+    \bar{\mathbf m}_-
+    \\
+    &=
+    p
+    \left(
+        \mathbf m_+
+        -
+        \mathbf m_-
+    \right),
+\end{aligned}
+\label{eq:app_critical_field}
+\end{equation}
+which is independent of \(\xi\).
+
+If \(\mathbf m_+\neq\mathbf m_-\), the continuous trajectory is
+\begin{equation}
+    \xi(t)
+    =
+    \xi(0)
+    +
+    tp
+    \left(
+        \mathbf m_+
+        -
+        \mathbf m_-
+    \right),
+    \label{eq:app_critical_continuous}
+\end{equation}
+and the discrete trajectory is
+\begin{equation}
+    \xi_t
+    =
+    \xi_0
+    +
+    t\alpha p
+    \left(
+        \mathbf m_+
+        -
+        \mathbf m_-
+    \right).
+    \label{eq:app_critical_discrete}
+\end{equation}
+Both exhibit persistent linear drift and admit no finite equilibrium.
+
+If \(\mathbf m_+=\mathbf m_-\), then
+\(\mathbf F(\xi)=\mathbf 0\) for every \(\xi\). Every point is
+stationary, but a perturbed trajectory remains at the perturbed point
+rather than returning to the original one. Hence, no point is an
+isolated locally asymptotically stable equilibrium.
+
+\medskip
+\noindent\textbf{Negative-dominant regime.}
+Suppose \(p<q\). Equation~\eqref{eq:app_signed_hessian} gives
+\begin{equation}
+    \nabla^2\mathcal L(\xi)
+    =
+    (q-p)
+    \nabla^2\psi(\xi)
+    \succ0.
+\end{equation}
+Thus, \(\mathcal L\) is strictly convex.
+
+If a finite stationary point \(\xi^\star\) exists, the continuous field
+Jacobian is
+\begin{equation}
+    J_{\mathbf F}(\xi^\star)
+    =
+    (q-p)
+    \nabla^2\psi(\xi^\star)
+    \succ0.
+    \label{eq:app_negative_continuous_jacobian}
+\end{equation}
+All eigenvalues are positive, so the stationary point is repelling and
+therefore unstable.
+
+For the discrete update, the local Jacobian is
+\begin{equation}
+    J_{\mathrm{disc}}(\xi^\star)
+    =
+    I
+    +
+    \alpha(q-p)
+    \nabla^2\psi(\xi^\star).
+    \label{eq:app_negative_discrete_jacobian}
+\end{equation}
+Its eigenvalues are
+\[
+    1+\alpha(q-p)\lambda_i
+    >
+    1
+\]
+for every \(\alpha>0\) and every \(\lambda_i>0\). Therefore, every finite
+stationary point is unstable under the discrete dynamics as well. If no
+stationary point exists, there is trivially no finite stable equilibrium.
+
+The four cases establish
+Theorem~\ref{thm:aggregate_equilibria}.
+\end{proof}
+
+
+\subsection{Proof of
+Theorem~\ref{thm:policy_family_manifestations}}
+\label{app:policy_family_manifestations}
+
+\begin{proof}
+Let
+\begin{equation}
+    r
+    =
+    q-p
+    >
+    0.
+\end{equation}
+
+\medskip
+\noindent\textbf{Gaussian policy.}
+For a Gaussian policy with fixed covariance,
+\begin{equation}
+    \nabla_{\mu}
+    \log\pi_{\mu}(a)
+    =
+    \Sigma^{-1}(a-\mu).
+    \label{eq:app_gaussian_mean_score}
+\end{equation}
+The aggregate mean field is therefore
+\begin{equation}
+\begin{aligned}
+    \mathbf{F}_{\mu}(\mu)
+    &=
+    \mathbb{E}_{\nu}
+    \left[
+        \widehat{A}(a)
+        \Sigma^{-1}(a-\mu)
+    \right] \\
+    &=
+    \Sigma^{-1}
+    \left[
+        p\mu_{+}
+        -
+        q\mu_{-}
+        -
+        (p-q)\mu
+    \right].
+\end{aligned}
+\label{eq:app_gaussian_aggregate_field}
+\end{equation}
+Because $p-q=-r$ and
+\begin{equation}
+    \mu^{\dagger}
+    =
+    \frac{
+        q\mu_{-}
+        -
+        p\mu_{+}
+    }{
+        r
+    },
+\end{equation}
+Equation~\eqref{eq:app_gaussian_aggregate_field} becomes
+\begin{equation}
+    \mathbf{F}_{\mu}(\mu)
+    =
+    r\Sigma^{-1}
+    \left(
+        \mu-\mu^{\dagger}
+    \right).
+\end{equation}
+
+For the continuous dynamics, define
+\begin{equation}
+    \delta(t)
+    =
+    \mu(t)-\mu^{\dagger}.
+\end{equation}
+Then
+\begin{equation}
+    \dot{\delta}(t)
+    =
+    r\Sigma^{-1}\delta(t),
+\end{equation}
+and hence
+\begin{equation}
+    \delta(t)
+    =
+    \exp
+    \left(
+        r\Sigma^{-1}t
+    \right)
+    \delta(0).
+    \label{eq:app_gaussian_continuous_solution}
+\end{equation}
+Since $\Sigma^{-1}\succ0$,
+\begin{equation}
+    \left\|
+        \delta(t)
+    \right\|_2
+    \geq
+    \exp
+    \left(
+        r\lambda_{\min}
+        \left(
+            \Sigma^{-1}
+        \right)t
+    \right)
+    \left\|
+        \delta(0)
+    \right\|_2.
+    \label{eq:app_gaussian_continuous_growth}
+\end{equation}
+Therefore, unless
+$\delta(0)=0$, the distance from the stationary point grows
+exponentially and
+$\|\mu(t)\|_2\rightarrow\infty$.
+
+For the discrete update,
+\begin{equation}
+    \mu_{t+1}
+    =
+    \mu_t
+    +
+    \alpha
+    \mathbf{F}_{\mu}(\mu_t),
+\end{equation}
+so
+\begin{equation}
+    \delta_{t+1}
+    =
+    \left(
+        I
+        +
+        \alpha r\Sigma^{-1}
+    \right)
+    \delta_t.
+\end{equation}
+Iterating gives
+\begin{equation}
+    \delta_t
+    =
+    \left(
+        I
+        +
+        \alpha r\Sigma^{-1}
+    \right)^t
+    \delta_0.
+    \label{eq:app_gaussian_discrete_solution}
+\end{equation}
+All eigenvalues of the update matrix are strictly larger than one.
+Consequently,
+\begin{equation}
+    \left\|
+        \delta_t
+    \right\|_2
+    \geq
+    \left[
+        1
+        +
+        \alpha r
+        \lambda_{\min}
+        \left(
+            \Sigma^{-1}
+        \right)
+    \right]^t
+    \left\|
+        \delta_0
+    \right\|_2.
+    \label{eq:app_gaussian_discrete_growth}
+\end{equation}
+Thus, every nonstationary discrete trajectory also diverges.
+
+For any fixed historical action $a$,
+\begin{equation}
+\begin{aligned}
+    \left\|
+        \nabla_{\mu}
+        \log\pi_{\mu}(a)
+    \right\|_2
+    &=
+    \left\|
+        \Sigma^{-1}(a-\mu)
+    \right\|_2 \\
+    &\geq
+    \lambda_{\min}
+    \left(
+        \Sigma^{-1}
+    \right)
+    \left\|
+        a-\mu
+    \right\|_2.
+\end{aligned}
+\label{eq:app_gaussian_score_lower_bound}
+\end{equation}
+Since $\|\mu\|_2\rightarrow\infty$ while $a$ is fixed,
+$\|a-\mu\|_2\rightarrow\infty$.
+Equation~\eqref{eq:app_gaussian_score_lower_bound} therefore proves
+Equation~\eqref{eq:gaussian_unbounded_score}.
+
+\medskip
+\noindent\textbf{Categorical policy.}
+Let there be $K\geq2$ actions and write
+\begin{equation}
+    \pi_z
+    =
+    \operatorname{softmax}(z).
+\end{equation}
+Because adding a constant to every logit does not change the policy, we
+work on the gauge-fixed subspace
+\begin{equation}
+    \mathcal{H}_0
+    =
+    \left\{
+        z\in\mathbb{R}^{K}
+        :
+        \mathbf{1}^{\top}z=0
+    \right\}.
+    \label{eq:app_categorical_gauge}
+\end{equation}
+
+Let $\rho_{+}$ and $\rho_{-}$ denote the normalized positive and negative
+weighted action distributions, and define
+\begin{equation}
+    b
+    =
+    p\rho_{+}
+    -
+    q\rho_{-}.
+\end{equation}
+The signed categorical objective can be written as
+\begin{equation}
+    \mathcal{L}(z)
+    =
+    b^{\top}z
+    +
+    r
+    \log
+    \left(
+        \sum_{j=1}^{K}
+        e^{z_j}
+    \right)
+    +
+    C,
+    \label{eq:app_categorical_objective}
+\end{equation}
+because $p-q=-r$. Its gradient and Hessian are
+\begin{equation}
+    \nabla\mathcal{L}(z)
+    =
+    b+r\pi_z
+\end{equation}
+and
+\begin{equation}
+    \nabla^2\mathcal{L}(z)
+    =
+    r
+    \left[
+        \operatorname{Diag}(\pi_z)
+        -
+        \pi_z\pi_z^{\top}
+    \right].
+    \label{eq:app_categorical_hessian}
+\end{equation}
+For every nonzero
+$v\in\mathcal{H}_0$,
+\begin{equation}
+\begin{aligned}
+    v^{\top}
+    \nabla^2\mathcal{L}(z)
+    v
+    &=
+    r
+    \operatorname{Var}_{A\sim\pi_z}
+    \left[
+        v_A
+    \right] \\
+    &>
+    0,
+\end{aligned}
+\end{equation}
+because every softmax probability is positive and a nonzero vector in
+$\mathcal{H}_0$ cannot be constant. Hence,
+$\mathcal{L}$ is strictly convex on $\mathcal{H}_0$ and has at most one
+finite stationary point.
+
+Consider first the continuous gradient flow
+\begin{equation}
+    \dot{z}
+    =
+    \nabla\mathcal{L}(z).
+\end{equation}
+Along every trajectory,
+\begin{equation}
+    \frac{d}{dt}
+    \mathcal{L}(z(t))
+    =
+    \left\|
+        \nabla\mathcal{L}(z(t))
+    \right\|_2^2
+    \geq
+    0.
+    \label{eq:app_categorical_objective_growth}
+\end{equation}
+Suppose a nonstationary trajectory were bounded. Its closure would be
+compact, so $\mathcal{L}$ would remain bounded above. Integrating
+Equation~\eqref{eq:app_categorical_objective_growth} would then give
+\begin{equation}
+    \int_0^\infty
+    \left\|
+        \nabla\mathcal{L}(z(t))
+    \right\|_2^2
+    dt
+    <
+    \infty.
+\end{equation}
+Since the gradient is Lipschitz on the compact trajectory closure, the
+standard gradient-flow argument implies
+\begin{equation}
+    \nabla\mathcal{L}(z(t))
+    \longrightarrow
+    0.
+\end{equation}
+Any accumulation point would therefore be a stationary point.
+
+If no finite stationary point exists, this is an immediate
+contradiction. If a stationary point $z^{\dagger}$ exists, strict
+convexity gives, for every $z\neq z^{\dagger}$,
+\begin{equation}
+    (z-z^{\dagger})^{\top}
+    \left[
+        \nabla\mathcal{L}(z)
+        -
+        \nabla\mathcal{L}(z^{\dagger})
+    \right]
+    >
+    0.
+\end{equation}
+Since
+$\nabla\mathcal{L}(z^{\dagger})=0$,
+\begin{equation}
+    \frac{d}{dt}
+    \frac{1}{2}
+    \left\|
+        z(t)-z^{\dagger}
+    \right\|_2^2
+    >
+    0
+\end{equation}
+along every nonstationary trajectory. Such a trajectory cannot have a
+subsequence converging to $z^{\dagger}$. Hence, the only bounded
+continuous trajectory is the stationary one itself.
+
+For the discrete update
+\begin{equation}
+    z_{t+1}
+    =
+    z_t
+    +
+    \alpha
+    \nabla\mathcal{L}(z_t),
+    \qquad
+    \alpha>0,
+\end{equation}
+convexity gives
+\begin{equation}
+\begin{aligned}
+    \mathcal{L}(z_{t+1})
+    &\geq
+    \mathcal{L}(z_t)
+    +
+    \nabla\mathcal{L}(z_t)^{\top}
+    (z_{t+1}-z_t) \\
+    &=
+    \mathcal{L}(z_t)
+    +
+    \alpha
+    \left\|
+        \nabla\mathcal{L}(z_t)
+    \right\|_2^2.
+\end{aligned}
+\label{eq:app_categorical_discrete_growth}
+\end{equation}
+If the trajectory were bounded,
+Equation~\eqref{eq:app_categorical_discrete_growth} would imply
+\begin{equation}
+    \nabla\mathcal{L}(z_t)
+    \longrightarrow
+    0.
+\end{equation}
+A convergent subsequence would therefore approach a finite stationary
+point. If no such point exists, this is impossible. If the unique
+stationary point $z^{\dagger}$ exists, then for
+$z_t\neq z^{\dagger}$,
+\begin{equation}
+\begin{aligned}
+    \left\|
+        z_{t+1}-z^{\dagger}
+    \right\|_2^2
+    &=
+    \left\|
+        z_t-z^{\dagger}
+    \right\|_2^2 \\
+    &\quad
+    +
+    2\alpha
+    (z_t-z^{\dagger})^{\top}
+    \nabla\mathcal{L}(z_t) \\
+    &\quad
+    +
+    \alpha^2
+    \left\|
+        \nabla\mathcal{L}(z_t)
+    \right\|_2^2 \\
+    &>
+    \left\|
+        z_t-z^{\dagger}
+    \right\|_2^2.
+\end{aligned}
+\end{equation}
+The trajectory therefore cannot have a subsequence converging to
+$z^{\dagger}$. Thus, every nonstationary discrete trajectory leaves
+every compact subset of $\mathcal{H}_0$.
+
+To relate logit divergence to the probability boundary, note that on
+$\mathcal{H}_0$ the inverse softmax representation is
+\begin{equation}
+    z_i
+    =
+    \log\pi_z(i)
+    -
+    \frac{1}{K}
+    \sum_{j=1}^{K}
+    \log\pi_z(j).
+    \label{eq:app_inverse_softmax}
+\end{equation}
+If the probabilities remained in a compact subset of the simplex
+interior, all coordinates would be bounded below by some
+$\varepsilon>0$, and
+Equation~\eqref{eq:app_inverse_softmax} would imply bounded logits.
+Therefore, an unbounded gauge-fixed logit trajectory must contain a
+subsequence along which at least one action probability approaches zero.
+
+Finally, for every action $a$,
+\begin{equation}
+    \nabla_z\log\pi_z(a)
+    =
+    e_a-\pi_z.
+\end{equation}
+Its squared norm satisfies
+\begin{equation}
+\begin{aligned}
+    \left\|
+        e_a-\pi_z
+    \right\|_2^2
+    &=
+    \left(
+        1-\pi_z(a)
+    \right)^2
+    +
+    \sum_{j\neq a}
+    \pi_z(j)^2 \\
+    &\leq
+    \left(
+        1-\pi_z(a)
+    \right)^2
+    +
+    \left(
+        \sum_{j\neq a}
+        \pi_z(j)
+    \right)^2 \\
+    &=
+    2
+    \left(
+        1-\pi_z(a)
+    \right)^2 \\
+    &\leq
+    2.
+\end{aligned}
+\end{equation}
+This proves the categorical score bound and completes the proof.
+\end{proof}
+
+\subsection{Proof of Minimum-Order Control}
+\label{app:min_order_control}
+
+For fixed-covariance Gaussian mean coordinates,
+Proposition~\ref{prop:distance_strength} gives
+\(R(D)=\Theta(D-C_\Sigma)=\Theta(D)\) in the far field. Thus there are
+constants \(0<c_1\le c_2<\infty\) and \(D_0\) such that, for
+\(D\ge D_0\),
+\[
+    c_1 D
+    \le
+    R(D)
+    \le
+    c_2 D .
+\]
+If \(\omega(D)R(D)\) is bounded, then for some \(M<\infty\),
+\[
+    \omega(D)R(D)\le M
+    \qquad
+    \text{for all sufficiently large } D .
+\]
+Using the lower bound gives
+\[
+    \omega(D)
+    \le
+    \frac{M}{c_1D}
+    =
+    O(D^{-1}).
+\]
+Conversely, \(\omega(D)\le CD^{-1}\) and the upper bound imply
+\[
+    \omega(D)R(D)
+    \le
+    CD^{-1}c_2D
+    =
+    O(1).
+\]
+The same comparison with little-\(o\) proves that the weighted loop gain
+vanishes exactly when \(\omega(D)=o(D^{-1})\). Finally,
+\(D-C_\Sigma=r^2/2\) converts \(D^{-1}\) to the equivalent
+reciprocal-quadratic order \(r^{-2}\).
+
+
+\subsection{Empirical Negative-Update Utility}
+\label{app:negative_update_utility}
+
+To operationalize the utilit
