@@ -14,7 +14,7 @@ tracked_sections:
   coverage: complete_for_selected_section
 - source_id: AGENTS-PATCH-DELIVERY
   path: AGENTS.md
-  heading: Emergency offline patch-delivery fallback
+  heading: ChatGPT patch-delivery protocol
   selector: top_level_list_items
   expected_item_count: 8
   section_item_digest: 7d6558b9c285514045e9e728c0ef7fbd18cad63784186348294c3c7a21cde933
@@ -313,7 +313,7 @@ rules:
     normalized_text_sha256: 5c88c5521538d079fbf4925187b8b95565f2edc993b64c1b2fb2e294e7eee61e
   current_locations:
   - path: AGENTS.md
-    heading: Emergency offline patch-delivery fallback
+    heading: ChatGPT patch-delivery protocol
     role: prompt_authority
   detailed_contract_locations:
   - path: docs/formal_experiment_artifact_protocol.md
@@ -342,7 +342,7 @@ rules:
     normalized_text_sha256: ab4283ba3e568bde9f4a035b0f8e4f1d258e3e18167fc6566d1b608d7411b763
   current_locations:
   - path: AGENTS.md
-    heading: Emergency offline patch-delivery fallback
+    heading: ChatGPT patch-delivery protocol
     role: prompt_authority
   detailed_contract_locations:
   - path: docs/formal_experiment_artifact_protocol.md
@@ -370,7 +370,7 @@ rules:
     normalized_text_sha256: aee265088ac684a47bb665b7afd62bf309c90a3f7b4fe6a52919b4b1fe7580b4
   current_locations:
   - path: AGENTS.md
-    heading: Emergency offline patch-delivery fallback
+    heading: ChatGPT patch-delivery protocol
     role: prompt_authority
   detailed_contract_locations:
   - path: docs/formal_experiment_artifact_protocol.md
@@ -399,7 +399,7 @@ rules:
     normalized_text_sha256: 33c481fc049788ff98af7c317ab6fcf2b16b060b484c38563f19d4ef8716a7c1
   current_locations:
   - path: AGENTS.md
-    heading: Emergency offline patch-delivery fallback
+    heading: ChatGPT patch-delivery protocol
     role: prompt_authority
   detailed_contract_locations:
   - path: docs/formal_experiment_artifact_protocol.md
@@ -428,7 +428,7 @@ rules:
     normalized_text_sha256: 550c823305084bf6153a288e48e8d3a3fbdf7d0322aac266b50f37002c9c00e9
   current_locations:
   - path: AGENTS.md
-    heading: Emergency offline patch-delivery fallback
+    heading: ChatGPT patch-delivery protocol
     role: prompt_authority
   detailed_contract_locations:
   - path: docs/formal_experiment_artifact_protocol.md
@@ -456,7 +456,7 @@ rules:
     normalized_text_sha256: dce9dcd24877d4eab26dc35ac4d55045e92702b2ed4dd03317addee6601f3405
   current_locations:
   - path: AGENTS.md
-    heading: Emergency offline patch-delivery fallback
+    heading: ChatGPT patch-delivery protocol
     role: prompt_authority
   detailed_contract_locations:
   - path: docs/governance_pipeline_refactor_plan.md
@@ -489,7 +489,7 @@ rules:
     normalized_text_sha256: 6fa20949ab4f898b2fbad39c5d79834698742243753a642709958704dc58ce9e
   current_locations:
   - path: AGENTS.md
-    heading: Emergency offline patch-delivery fallback
+    heading: ChatGPT patch-delivery protocol
     role: prompt_authority
   detailed_contract_locations:
   - path: docs/governance_pipeline_refactor_plan.md
@@ -519,7 +519,7 @@ rules:
     normalized_text_sha256: 7c5b0a1dd0d4a4d7f83f8ae1d41c2c77ef7ff8d4297cb7b4db42b92ffb4cc38c
   current_locations:
   - path: AGENTS.md
-    heading: Emergency offline patch-delivery fallback
+    heading: ChatGPT patch-delivery protocol
     role: prompt_authority
   detailed_contract_locations:
   - path: docs/formal_experiment_artifact_protocol.md

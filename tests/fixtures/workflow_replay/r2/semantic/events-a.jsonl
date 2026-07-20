@@ -1,2 +1,0 @@
-{"event":"run_started","monotonic_ns":100,"payload":{"arm":"A","case_id":"R2-CAL-SEMANTIC-DIFFERENT-CORRECT"},"run_id":"90b07ee11eb1d3320849e7b84071af0e9c5580e0f9556324282b7cee591b792f","sequence":0}
-{"event":"run_finished","monotonic_ns":200,"payload":{"terminal_state":"READY"},"run_id":"90b07ee11eb1d3320849e7b84071af0e9c5580e0f9556324282b7cee591b792f","sequence":1}

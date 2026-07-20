@@ -11,7 +11,6 @@ WORK_DIR="${E7_SQUARED_EXP_LIVENESS_WORK_DIR:-outputs/e7/squared_exp_night_liven
 PROBE_STEPS="${E7_SQUARED_EXP_LIVENESS_PROBE_STEPS:-500}"
 PROBE_SECONDS="${E7_SQUARED_EXP_LIVENESS_PROBE_SECONDS:-120}"
 MAX_WORKERS="${E7_SQUARED_EXP_LIVENESS_MAX_WORKERS:-2}"
-MODE="${E7_SQUARED_EXP_LIVENESS_MODE:-historical}"
 
 if [[ -n "$(git status --porcelain)" ]]; then
   echo "refusing to run liveness from a dirty checkout" >&2
@@ -24,35 +23,12 @@ for required in "${CONTRACT}" "${RUN_SPEC}" "${GRID}"; do
   fi
 done
 
-case "${MODE}" in
-  historical)
-    EXTRA_ARGS=()
-    ;;
-  gae)
-    EXTRA_ARGS=(--matched-gae-pair)
-    ;;
-  *)
-    echo "unsupported E7_SQUARED_EXP_LIVENESS_MODE=${MODE}" >&2
-    exit 2
-    ;;
-esac
-
-COMMON_ARGS=(
-  --repo-root "${REPO_ROOT}"
-  --contract "${CONTRACT}"
-  --run-spec "${RUN_SPEC}"
-  --grid "${GRID}"
-  --work-dir "${WORK_DIR}"
-  --max-workers "${MAX_WORKERS}"
-  --probe-steps "${PROBE_STEPS}"
+python scripts/run_e7_squared_exp_night_auto.py plan \
+  --repo-root "${REPO_ROOT}" \
+  --contract "${CONTRACT}" \
+  --run-spec "${RUN_SPEC}" \
+  --grid "${GRID}" \
+  --work-dir "${WORK_DIR}" \
+  --max-workers "${MAX_WORKERS}" \
+  --probe-steps "${PROBE_STEPS}" \
   --probe-seconds "${PROBE_SECONDS}"
-  "${EXTRA_ARGS[@]}"
-)
-
-python scripts/run_e7_squared_exp_night_auto.py plan "${COMMON_ARGS[@]}"
-
-if [[ "${MODE}" == "gae" ]]; then
-  python scripts/run_e7_squared_exp_night_auto.py run \
-    "${COMMON_ARGS[@]}" \
-    --resume
-fi

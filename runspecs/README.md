@@ -53,54 +53,6 @@ The canonical command is:
 python scripts/agent/run_lane.py --once
 ```
 
-## One-command runtime resources
-
-Runtime placement can be attached to that same command without editing the tracked
-RunSpec. For example:
-
-```bash
-python scripts/agent/run_lane.py --once \
-  --cpu-pool 0-95,192-295 \
-  --minimum-available-cpu-cores 60 \
-  --max-workers 60
-```
-
-This invocation:
-
-1. claims the RunSpec through the normal lane rules;
-2. restricts the executor and all descendants to the declared Linux CPU list;
-3. measures CPU availability only inside that affinity and visible cgroup quotas;
-4. waits in the foreground until the declared minimum capacity is available;
-5. exports `DRPO_RUNTIME_MAX_WORKERS=60` for compatible launchers;
-6. continues through the existing execution, recovery, packaging, and delivery path.
-
-The default resource policy uses `--resource-cpu-fraction 0.85`, one-second
-measurements, a 300-second poll interval, and unlimited foreground waiting. The
-complete opt-in controls are:
-
-```text
---cpu-pool
---resource-cpu-fraction
---minimum-available-cpu-cores
---resource-wait-timeout-seconds
---resource-poll-seconds
---resource-sample-seconds
---max-workers
-```
-
-The CPU pool is the hard placement boundary. The minimum available cores are the
-launch floor. `--max-workers` is only a ceiling exported to a compatible runner;
-it does not let the generic RunSpec layer infer arbitrary per-worker CPU or memory
-demand. Existing workload-specific auto launchers may perform their more detailed
-representative-worker probe after inheriting the restricted pool. Sequential or
-fixed-width liveness runners may ignore the worker ceiling while still receiving
-the pool and capacity wait.
-
-Use non-overlapping CPU pools for independently launched E7 and E8 workloads.
-The wrapper never changes affinity of unrelated processes and does not dynamically
-resize workers after launch. Runtime identity and wait evidence are written below
-`.runspec_state/logs/<run_id>/`.
-
 ## Environment prefixes
 
 `entrypoint.command` and `recovery.resume_command` may start with literal
@@ -203,46 +155,6 @@ Artifact packaging is allow-list first. Only files matching `artifacts.include`
 can enter the ZIP. Model/checkpoint/optimizer files remain denied by default.
 Any symbolic-link path, including a file beneath a symlinked directory, is
 rejected rather than followed. Package size limits are enforced before delivery.
-
-## Formal evidence and durable delivery
-
-Every RunSpec must make its evidence responsibility explicit through
-`policy.formal_evidence_allowed`.
-
-- `false` is the only local-only opt-out and is reserved for liveness, smoke,
-  engineering probes, and other runs that cannot form formal evidence.
-- `true`, or an omitted declaration, is delivery-required and fails closed unless
-  the existing automatic results-repository contract is present.
-- A non-formal RunSpec may still request durable delivery; `false` permits
-  local-only execution but does not forbid upload.
-
-A delivery-required RunSpec uses:
-
-```yaml
-policy:
-  formal_evidence_allowed: true
-
-delivery:
-  enabled: true
-  auto: true
-  mode: results_repo
-  repository: easonhuo/drpo-results
-  branch: ingest/<lane>
-  export_profile: manifest_text_v1
-  max_total_size_mb: 30
-  max_file_size_mb: 10
-```
-
-The gate runs during static validation, before lane claim, and again before the
-entrypoint. A rejected specification remains unclaimed and no training starts.
-Directly running the lower-level one-click experiment script bypasses RunSpec
-state, packaging, and delivery, so it cannot be used as the top-level formal
-execution command.
-
-After computation, the governed executor packages allow-listed evidence and
-attempts automatic delivery. An authentication or network failure returns a
-partial handoff state while preserving the completed local run and package. Fix
-the transport and retry only `upload_runspec_result.py`; do not rerun training.
 
 ## Controlled publication
 

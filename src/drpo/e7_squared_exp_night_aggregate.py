@@ -1,4 +1,4 @@
-"""Aggregate the historical squared-night suite or its TD/GAE successor."""
+"""Aggregate the fixed 126-branch E7 squared-remoteness night suite."""
 
 from __future__ import annotations
 
@@ -12,17 +12,12 @@ from typing import Any, Iterable, Mapping
 
 
 EXPERIMENT_ID = "EXT-H-E7-SQUARED-EXP-NIGHT-01"
-GAE_EXPERIMENT_ID = "EXT-H-E7-SQEXP-GAE-01"
 EXPECTED_BRANCHES = 126
-GAE_EXPECTED_BRANCHES = 96
 EXPECTED_FINAL_STEP = 1_000_000
 INTERMEDIATE_STEP = 500_000
 LATE_WINDOW_START = 800_000
 EXPECTED_SEEDS = (200, 201)
-GAE_EXPECTED_SEEDS = (200, 201, 202, 203)
 ACTOR_MODES = ("a2c", "ppo_clip_k4", "ppo_clip_kl_k16")
-GAE_ESTIMATORS = ("td", "gae")
-GAE_COEFFICIENTS = (64.0, 128.0, 256.0)
 
 
 def _atomic_json(path: Path, payload: Any) -> None:
@@ -73,9 +68,7 @@ def _score_at(steps: list[int], scores: list[float], target: int) -> float:
     return scores[index]
 
 
-def _slope_per_100k(
-    steps: list[int], scores: list[float], start: int
-) -> float | None:
+def _slope_per_100k(steps: list[int], scores: list[float], start: int) -> float | None:
     pairs = [
         (float(step), float(score))
         for step, score in zip(steps, scores, strict=True)
@@ -103,13 +96,11 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     return records
 
 
-def _aggregate_geometry(
-    path: Path, *, expected_final_step: int = EXPECTED_FINAL_STEP
-) -> dict[str, Any]:
+def _aggregate_geometry(path: Path) -> dict[str, Any]:
     records = _read_jsonl(path)
     final = records[-1]
-    if final.get("status") != "complete" or int(final.get("update", -1)) != expected_final_step:
-        raise RuntimeError(f"geometry diagnostics did not complete at expected step: {path}")
+    if final.get("status") != "complete" or int(final.get("update", -1)) != EXPECTED_FINAL_STEP:
+        raise RuntimeError(f"geometry diagnostics did not complete at 1M: {path}")
     negative_samples = 0
     distance_sum = 0.0
     weight_sum = 0.0
@@ -225,27 +216,17 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
-def _branch_dirs(work: Path) -> tuple[list[Path], str]:
+def aggregate(work_dir: str | Path) -> dict[str, Any]:
+    work = Path(work_dir).expanduser().resolve()
     branch_root = work / "branches"
     if not branch_root.is_dir():
         raise RuntimeError("night-suite branch directory is missing")
     branch_dirs = sorted(path for path in branch_root.iterdir() if path.is_dir())
-    if not branch_dirs:
-        raise RuntimeError("night-suite has no branch directories")
-    experiment_ids = {
-        str(json.loads((path / "branch_config.json").read_text()).get("experiment_id"))
-        for path in branch_dirs
-    }
-    if len(experiment_ids) != 1:
-        raise RuntimeError(f"mixed experiment IDs in one work directory: {experiment_ids}")
-    return branch_dirs, experiment_ids.pop()
-
-
-def _legacy_aggregate(work: Path, branch_dirs: list[Path]) -> dict[str, Any]:
     if len(branch_dirs) != EXPECTED_BRANCHES:
         raise RuntimeError(
             f"expected {EXPECTED_BRANCHES} branch directories, found {len(branch_dirs)}"
         )
+
     rows: list[dict[str, Any]] = []
     numerical_failures = 0
     for branch_dir in branch_dirs:
@@ -263,11 +244,13 @@ def _legacy_aggregate(work: Path, branch_dirs: list[Path]) -> dict[str, Any]:
         actor_mode = str(values["actor_update_mode"])
         if actor_mode not in ACTOR_MODES:
             raise RuntimeError(f"unknown actor mode: {actor_mode}")
+
         summary_path = _only(
             (branch_dir / "trainer_output").glob("*_summary.json"),
             "trainer summary",
         )
-        steps, scores = _read_history(json.loads(summary_path.read_text()))
+        summary = json.loads(summary_path.read_text())
+        steps, scores = _read_history(summary)
         if steps[-1] != EXPECTED_FINAL_STEP:
             raise RuntimeError(f"branch final step mismatch: {branch_dir.name}")
         finite_scores = all(math.isfinite(score) for score in scores)
@@ -302,9 +285,7 @@ def _legacy_aggregate(work: Path, branch_dirs: list[Path]) -> dict[str, Any]:
             "best_to_final_drop": scores[best_index] - scores[-1],
             "late_window_mean_800k_1m": _mean(late_scores),
             "late_window_std_800k_1m": _sample_std(late_scores),
-            "late_slope_per_100k": _slope_per_100k(
-                steps, scores, LATE_WINDOW_START
-            ),
+            "late_slope_per_100k": _slope_per_100k(steps, scores, LATE_WINDOW_START),
             "finite_task_scores": finite_scores,
             "task_performance_collapse_event": "not_adjudicated_no_registered_threshold",
             "support_or_variance_boundary_event": "not_instrumented_in_this_pilot",
@@ -400,16 +381,18 @@ def _legacy_aggregate(work: Path, branch_dirs: list[Path]) -> dict[str, Any]:
                     "dataset": dataset,
                     "exp_coefficient": coefficient,
                     "control": "positive_only" if coefficient is None else f"c={coefficient:g}",
-                    "ppo_k4_minus_a2c_late": float(ppo4["late_window_mean_800k_1m"])
-                    - float(a2c["late_window_mean_800k_1m"]),
-                    "ppo_kl_k16_minus_ppo_k4_late": float(
-                        ppo16["late_window_mean_800k_1m"]
-                    )
-                    - float(ppo4["late_window_mean_800k_1m"]),
-                    "ppo_kl_k16_minus_a2c_late": float(
-                        ppo16["late_window_mean_800k_1m"]
-                    )
-                    - float(a2c["late_window_mean_800k_1m"]),
+                    "ppo_k4_minus_a2c_late": (
+                        float(ppo4["late_window_mean_800k_1m"])
+                        - float(a2c["late_window_mean_800k_1m"])
+                    ),
+                    "ppo_kl_k16_minus_ppo_k4_late": (
+                        float(ppo16["late_window_mean_800k_1m"])
+                        - float(ppo4["late_window_mean_800k_1m"])
+                    ),
+                    "ppo_kl_k16_minus_a2c_late": (
+                        float(ppo16["late_window_mean_800k_1m"])
+                        - float(a2c["late_window_mean_800k_1m"])
+                    ),
                 }
             )
 
@@ -426,6 +409,7 @@ def _legacy_aggregate(work: Path, branch_dirs: list[Path]) -> dict[str, Any]:
         "scientific_result_available": False,
     }
     _atomic_json(aggregate_dir / "GAE_STAGE_STATUS.json", gae_status)
+
     terminal_status = "PASS" if numerical_failures == 0 else "FAIL"
     audit = {
         "status": terminal_status,
@@ -466,245 +450,3 @@ def _legacy_aggregate(work: Path, branch_dirs: list[Path]) -> dict[str, Any]:
     if terminal_status != "PASS":
         raise RuntimeError("night-suite terminal audit failed")
     return summary
-
-
-def _gae_branch_row(branch_dir: Path) -> dict[str, Any]:
-    if not (branch_dir / "COMPLETED.json").is_file():
-        raise RuntimeError(f"incomplete GAE branch: {branch_dir.name}")
-    branch = json.loads((branch_dir / "branch_config.json").read_text())
-    manifest = json.loads((branch_dir / "branch_manifest.json").read_text())
-    if branch.get("experiment_id") != GAE_EXPERIMENT_ID:
-        raise RuntimeError(f"GAE branch experiment mismatch: {branch_dir.name}")
-    if int(branch["seed"]) not in GAE_EXPECTED_SEEDS:
-        raise RuntimeError(f"forbidden GAE seed: {branch_dir.name}")
-    values = branch["template_values"]
-    estimator = str(values.get("advantage_estimator"))
-    if estimator not in GAE_ESTIMATORS:
-        raise RuntimeError(f"unknown advantage estimator: {estimator}")
-    expected_step = int(values["steps"])
-    summary_path = _only(
-        (branch_dir / "trainer_output").glob("*_summary.json"), "trainer summary"
-    )
-    steps, scores = _read_history(json.loads(summary_path.read_text()))
-    if steps[-1] != expected_step or not all(math.isfinite(score) for score in scores):
-        raise RuntimeError(f"non-finite or incomplete GAE branch: {branch_dir.name}")
-    snapshot = manifest.get("trajectory_snapshot", {})
-    hashes = [str(value) for value in snapshot.get("snapshot_hashes", [])]
-    if snapshot.get("critic_evolution_observed") is not True or len(hashes) < 2:
-        raise RuntimeError(f"critic evolution or snapshots missing: {branch_dir.name}")
-    control = branch["weight_control"]
-    coefficient = (
-        None if control["method"] == "positive_only" else float(control["exp_coefficient"])
-    )
-    late = [
-        score
-        for step, score in zip(steps, scores, strict=True)
-        if step >= LATE_WINDOW_START
-    ]
-    best = max(range(len(scores)), key=scores.__getitem__)
-    geometry = _aggregate_geometry(
-        branch_dir / "geometry_diagnostics.jsonl", expected_final_step=expected_step
-    )
-    return {
-        "branch_id": branch["branch_id"],
-        "dataset": branch["dataset_id"],
-        "seed": int(branch["seed"]),
-        "execution_mode": str(values.get("execution_mode", "full")),
-        "advantage_estimator": estimator,
-        "exp_coefficient": coefficient,
-        "best_score": scores[best],
-        "best_step": steps[best],
-        "final_score": scores[-1],
-        "best_to_final_drop": scores[best] - scores[-1],
-        "late_window_mean_800k_1m": _mean(late) if late else None,
-        "late_window_std_800k_1m": _sample_std(late) if late else None,
-        "late_slope_per_100k": (
-            _slope_per_100k(steps, scores, LATE_WINDOW_START) if late else None
-        ),
-        "snapshot_count": int(snapshot["snapshot_count"]),
-        "snapshot_refresh_interval": int(snapshot["snapshot_refresh_interval"]),
-        "snapshot_hashes": hashes,
-        "first_snapshot_critic_sha256": snapshot["first_snapshot_critic_sha256"],
-        "latest_snapshot_critic_sha256": snapshot["latest_snapshot_critic_sha256"],
-        "final_critic_sha256": snapshot["final_critic_sha256"],
-        "critic_evolution_observed": True,
-        "geometry_effective_negative_mass_fraction": geometry[
-            "effective_negative_mass_fraction"
-        ],
-        "task_performance_collapse_event": "not_adjudicated_no_registered_threshold",
-        "support_or_variance_boundary_event": "not_instrumented_in_this_pilot",
-        "nan_inf_numerical_failure": False,
-    }
-
-
-def _validate_td_gae_pair(td: Mapping[str, Any], gae: Mapping[str, Any]) -> None:
-    for field in ("dataset", "seed", "exp_coefficient", "execution_mode"):
-        if td[field] != gae[field]:
-            raise RuntimeError(f"TD/GAE pair mismatch in {field}")
-    if td["advantage_estimator"] != "td" or gae["advantage_estimator"] != "gae":
-        raise RuntimeError("TD/GAE pair estimator labels changed")
-    if td["snapshot_refresh_interval"] != gae["snapshot_refresh_interval"]:
-        raise RuntimeError("TD/GAE snapshot cadence diverged")
-    if td["snapshot_count"] != gae["snapshot_count"]:
-        raise RuntimeError("TD/GAE snapshot counts diverged")
-    if td["snapshot_hashes"] != gae["snapshot_hashes"]:
-        raise RuntimeError("TD/GAE critic snapshot trajectories diverged")
-
-
-def _gae_aggregate(work: Path, branch_dirs: list[Path]) -> dict[str, Any]:
-    rows = [_gae_branch_row(path) for path in branch_dirs]
-    modes = {str(row["execution_mode"]) for row in rows}
-    if len(modes) != 1:
-        raise RuntimeError(f"mixed GAE execution modes: {modes}")
-    mode = modes.pop()
-    expected = 2 if mode == "liveness" else GAE_EXPECTED_BRANCHES
-    if len(rows) != expected:
-        raise RuntimeError(f"expected {expected} GAE branches, found {len(rows)}")
-
-    by_pair: dict[tuple[str, int, float | None], dict[str, dict[str, Any]]] = defaultdict(dict)
-    for row in rows:
-        key = (row["dataset"], int(row["seed"]), row["exp_coefficient"])
-        estimator = str(row["advantage_estimator"])
-        if estimator in by_pair[key]:
-            raise RuntimeError(f"duplicate estimator in TD/GAE pair: {key},{estimator}")
-        by_pair[key][estimator] = row
-    pair_rows: list[dict[str, Any]] = []
-    for key, pair in sorted(by_pair.items(), key=lambda item: repr(item[0])):
-        if set(pair) != set(GAE_ESTIMATORS):
-            raise RuntimeError(f"incomplete TD/GAE pair for {key}: {sorted(pair)}")
-        td, gae = pair["td"], pair["gae"]
-        _validate_td_gae_pair(td, gae)
-        pair_rows.append(
-            {
-                "dataset": key[0],
-                "seed": key[1],
-                "exp_coefficient": key[2],
-                "gae_minus_td_final": float(gae["final_score"])
-                - float(td["final_score"]),
-                "gae_minus_td_late": (
-                    None
-                    if gae["late_window_mean_800k_1m"] is None
-                    else float(gae["late_window_mean_800k_1m"])
-                    - float(td["late_window_mean_800k_1m"])
-                ),
-                "snapshot_count": int(td["snapshot_count"]),
-                "snapshot_refresh_interval": int(td["snapshot_refresh_interval"]),
-                "snapshot_hashes_match": True,
-            }
-        )
-
-    aggregate_dir = work / "aggregate"
-    _write_csv(aggregate_dir / "branch_results.csv", rows)
-    _write_csv(aggregate_dir / "gae_td_paired_results.csv", pair_rows)
-
-    if mode == "liveness":
-        audit = {
-            "status": "PASS",
-            "experiment_id": GAE_EXPERIMENT_ID,
-            "execution_mode": "liveness",
-            "engineering_evidence_only": True,
-            "scientific_aggregation_allowed": False,
-            "branch_count_observed": len(rows),
-            "expected_branch_count": 2,
-            "matched_pair_count": 1,
-            "snapshot_hash_trajectories_match": True,
-            "critic_evolution_observed": True,
-            "prepared_advantage_artifact_used": False,
-            "held_out_seeds_touched": False,
-            "formal_evidence_allowed": False,
-        }
-        _atomic_json(aggregate_dir / "LIVENESS_AUDIT.json", audit)
-        summary = {
-            "experiment_id": GAE_EXPERIMENT_ID,
-            "status": "PASS",
-            "execution_mode": "liveness",
-            "branch_count": len(rows),
-            "pair_count": len(pair_rows),
-            "audit": str(aggregate_dir / "LIVENESS_AUDIT.json"),
-        }
-        _atomic_json(aggregate_dir / "aggregate_summary.json", summary)
-        return summary
-
-    grouped: dict[tuple[str, str, float | None], list[dict[str, Any]]] = defaultdict(list)
-    for row in rows:
-        grouped[(row["dataset"], row["advantage_estimator"], row["exp_coefficient"])].append(row)
-    groups: list[dict[str, Any]] = []
-    for key, values in sorted(grouped.items(), key=lambda item: repr(item[0])):
-        seeds = tuple(sorted(int(row["seed"]) for row in values))
-        if seeds != GAE_EXPECTED_SEEDS:
-            raise RuntimeError(f"paired seed set changed for {key}: {seeds}")
-        groups.append(
-            {
-                "dataset": key[0],
-                "advantage_estimator": key[1],
-                "exp_coefficient": key[2],
-                "seeds": list(seeds),
-                "best_mean": _mean([float(row["best_score"]) for row in values]),
-                "final_mean": _mean([float(row["final_score"]) for row in values]),
-                "final_seed_std": _sample_std([float(row["final_score"]) for row in values]),
-                "late_mean": _mean(
-                    [float(row["late_window_mean_800k_1m"]) for row in values]
-                ),
-                "late_seed_std": _sample_std(
-                    [float(row["late_window_mean_800k_1m"]) for row in values]
-                ),
-            }
-        )
-    index = {
-        (group["dataset"], group["advantage_estimator"], group["exp_coefficient"]): group
-        for group in groups
-    }
-    comparisons = [
-        {
-            "dataset": dataset,
-            "exp_coefficient": coefficient,
-            "gae_minus_td_final": index[(dataset, "gae", coefficient)]["final_mean"]
-            - index[(dataset, "td", coefficient)]["final_mean"],
-            "gae_minus_td_late": index[(dataset, "gae", coefficient)]["late_mean"]
-            - index[(dataset, "td", coefficient)]["late_mean"],
-        }
-        for dataset in sorted({row["dataset"] for row in rows})
-        for coefficient in (None, *GAE_COEFFICIENTS)
-    ]
-    _write_csv(aggregate_dir / "group_summary.csv", groups)
-    _write_csv(aggregate_dir / "gae_td_comparisons.csv", comparisons)
-    audit = {
-        "status": "PASS",
-        "experiment_id": GAE_EXPERIMENT_ID,
-        "raw_complete": True,
-        "branch_count_observed": len(rows),
-        "expected_branch_count": GAE_EXPECTED_BRANCHES,
-        "matched_pair_count": len(pair_rows),
-        "snapshot_hash_trajectories_match": True,
-        "critic_updated_during_actor_training": True,
-        "prepared_advantage_artifact_used": False,
-        "held_out_seeds_touched": False,
-        "task_performance_collapse_separate": True,
-        "support_or_variance_boundary_separate": True,
-        "nan_inf_separate": True,
-        "convergence_claim_allowed": False,
-        "steady_state_ranking_allowed": False,
-        "universal_gae_superiority_claim_allowed": False,
-        "formal_evidence_allowed": False,
-    }
-    _atomic_json(aggregate_dir / "terminal_audit.json", audit)
-    summary = {
-        "experiment_id": GAE_EXPERIMENT_ID,
-        "status": "PASS",
-        "branch_count": len(rows),
-        "group_count": len(groups),
-        "paired_comparison_count": len(comparisons),
-        "terminal_audit": str(aggregate_dir / "terminal_audit.json"),
-    }
-    _atomic_json(aggregate_dir / "aggregate_summary.json", summary)
-    return summary
-
-
-def aggregate(work_dir: str | Path) -> dict[str, Any]:
-    work = Path(work_dir).expanduser().resolve()
-    branch_dirs, experiment_id = _branch_dirs(work)
-    if experiment_id == EXPERIMENT_ID:
-        return _legacy_aggregate(work, branch_dirs)
-    if experiment_id == GAE_EXPERIMENT_ID:
-        return _gae_aggregate(work, branch_dirs)
-    raise RuntimeError(f"unsupported aggregate experiment_id={experiment_id!r}")

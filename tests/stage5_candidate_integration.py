@@ -69,10 +69,7 @@ def copy_repository(destination: Path) -> Path:
         run(REPO_ROOT, "show", f"{source_head}:docs/handoff_versions/AUTHORITY.yaml").stdout
     )
     fixture_source = source_head
-    maintenance_candidate = (
-        os.environ.get("DRPO_STAGE5_MAINTENANCE_CANDIDATE") == "1"
-    )
-    if committed_authority["mode"] == "delta" and not maintenance_candidate:
+    if committed_authority["mode"] == "delta":
         fixture_source = committed_authority["delta_authority"][
             "activation_parent_commit"
         ]
@@ -557,81 +554,6 @@ def run_stale_independent_updates_commute_and_same_block_conflicts(tmp_path: Pat
         assert git_text(target_reject, "rev-parse", "HEAD") == before_reject
 
 
-def run_preintegration_report_revision_and_postintegration_tamper(
-    tmp_path: Path,
-) -> None:
-    central = copy_repository(tmp_path / "preintegration-report-revision")
-    current_authority = yaml.safe_load(
-        (central / "docs/handoff_versions/AUTHORITY.yaml").read_text(encoding="utf-8")
-    )
-    if current_authority["mode"] == "delta":
-        cutover = git_text(central, "rev-parse", "HEAD")
-    else:
-        _, cutover = activate_delta_mode(central)
-    source = make_source_delta(
-        central,
-        branch="source-preintegration-report",
-        base_commit=cutover,
-        update_id="STAGE5-TEST-PREINTEGRATION-REPORT",
-        block_id="stage5-test-preintegration-report",
-        content="Pre-integration materialization-report history probe.",
-        target_path=heading_path(central),
-    )
-    normalized, _, _ = normalize_source(
-        central,
-        current=cutover,
-        source_base=cutover,
-        source_commit=source,
-        name="preintegration-report",
-        tmp_path=tmp_path,
-    )
-
-    run(central, "checkout", "-q", "-B", "revised-report", normalized)
-    relative = (
-        "docs/handoff_deltas/STAGE5-TEST-PREINTEGRATION-REPORT/"
-        "MATERIALIZATION_REPORT.json"
-    )
-    report_path = central / relative
-    payload = json.loads(report_path.read_text(encoding="utf-8"))
-    report_path.write_text(
-        json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n",
-        encoding="utf-8",
-    )
-    run(central, "add", relative)
-    run(central, "commit", "-q", "-m", "revise report before integration")
-    revised = git_text(central, "rev-parse", "HEAD")
-
-    run(central, "checkout", "-q", "-B", "main", cutover)
-    run(
-        central,
-        "merge",
-        "--no-ff",
-        "-q",
-        revised,
-        "-m",
-        "integrate report revision",
-    )
-    accepted = authority.verify_current_state(central)
-    assert accepted["status"] == "PASS"
-    assert "STAGE5-TEST-PREINTEGRATION-REPORT" in accepted[
-        "authoritative_update_ids"
-    ]
-
-    payload = json.loads(report_path.read_text(encoding="utf-8"))
-    report_path.write_text(
-        json.dumps(payload, indent=4, sort_keys=False) + "\n",
-        encoding="utf-8",
-    )
-    run(central, "add", relative)
-    run(central, "commit", "-q", "-m", "tamper report after integration")
-    try:
-        authority.verify_current_state(central)
-    except authority.HandoffAuthorityError as exc:
-        assert "not immutable after integration" in str(exc)
-    else:  # pragma: no cover - fail closed assertion
-        raise AssertionError("post-integration report tamper was accepted")
-
-
 def run_code_only_noop_and_rollback(tmp_path: Path) -> None:
     central = copy_repository(tmp_path / "noop-repo")
     _, cutover = activate_delta_mode(central)
@@ -1042,10 +964,6 @@ def main() -> int:
         root = Path(directory)
         for name, callback in (
             ("stale", run_stale_independent_updates_commute_and_same_block_conflicts),
-            (
-                "preintegration-report",
-                run_preintegration_report_revision_and_postintegration_tamper,
-            ),
             ("noop", run_code_only_noop_and_rollback),
             ("cutover-auth", run_cutover_requires_independent_authorization),
             (

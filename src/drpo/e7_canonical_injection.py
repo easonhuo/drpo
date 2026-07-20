@@ -1,7 +1,7 @@
 """Fail-closed adapter for the canonical D4RL signed actor update.
 
 This module intentionally does *not* reimplement the old D4RL networks, critic,
-optimizer construction, dataset loop, or rollout code. It loads the user's
+optimizer construction, dataset loop, or rollout code.  It loads the user's
 canonical source tree at runtime, verifies exact source fingerprints, and only
 replaces the signed actor-update method of the configured agent class.
 
@@ -13,7 +13,7 @@ The supported update contract is the historical ``signed_td_v_v1`` skeleton:
 * scalar attributes ``gamma``, ``tau`` and ``alpha`` exist;
 * ``update(s, a, r, ns, d, ep_ret=None)`` is the trainer entry point.
 
-A source tree that does not satisfy this contract must fail before training. It
+A source tree that does not satisfy this contract must fail before training.  It
 must never be silently treated as canonical IQL/DRPO/SNA2C.
 """
 
@@ -28,7 +28,7 @@ import os
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any, Iterable, Mapping
 
 import torch
 
@@ -43,7 +43,6 @@ SUPPORTED_METHODS = {
     "reciprocal_quadratic",
     "exponential",
 }
-AdvantageProvider = Callable[[Any, Any, torch.Tensor], torch.Tensor]
 
 
 class CanonicalContractError(RuntimeError):
@@ -188,9 +187,7 @@ class CanonicalContract:
         for field_name in ("python_tree_sha256", "agents_sha256", "trainer_sha256"):
             value = getattr(self, field_name)
             if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
-                raise CanonicalContractError(
-                    f"{field_name} must be a SHA-256 hex digest"
-                )
+                raise CanonicalContractError(f"{field_name} must be a SHA-256 hex digest")
         for relpath in (self.agents_relpath, self.trainer_relpath):
             path = Path(relpath)
             if path.is_absolute() or ".." in path.parts:
@@ -325,7 +322,13 @@ def detached_standardized_distance(
     states: torch.Tensor,
     actions: torch.Tensor,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Return ``(mean, log_std, RMS(z))`` using detached gate geometry."""
+    """Return ``(mean, log_std, RMS(z))`` using a detached gate geometry.
+
+    ``RMS(z)`` is the standardized Euclidean distance per action dimension.
+    Keeping ``d`` rather than ``d²`` here ensures the reciprocal-quadratic
+    branch is genuinely quadratic in distance rather than accidentally
+    quartic.
+    """
 
     actor_output = actor(states)
     if not isinstance(actor_output, (tuple, list)) or len(actor_output) != 2:
@@ -439,21 +442,14 @@ def build_injected_agent_class(
     *,
     control: NegativeControl,
     return_mode: str,
-    advantage_provider: AdvantageProvider | None = None,
 ) -> type:
-    """Build one canonical update class with an optional actor-advantage provider.
-
-    The actor loss, critic target, expectile loss, optimizer order, and optimizer
-    steps remain single-sourced here. A provider may replace only the detached
-    actor advantage batch; it cannot replace the critic update.
-    """
+    """Build a subclass that changes only the signed negative weighting."""
 
     if return_mode not in {"zero_float", "metrics_dict"}:
         raise ValueError(f"unsupported return_mode={return_mode!r}")
 
     class CanonicalNegativeControlAgent(base_class):  # type: ignore[misc, valid-type]
         _drpo_negative_control = control
-        _drpo_advantage_provider = advantage_provider
 
         def update(
             self,
@@ -464,6 +460,7 @@ def build_injected_agent_class(
             d: Any,
             ep_ret: Any = None,
         ) -> Any:
+            del ep_ret
             validate_agent_instance(self, expected_alpha=control.canonical_alpha)
             device = _agent_device(self)
             states = _as_tensor(s, device=device)
@@ -476,21 +473,7 @@ def build_injected_agent_class(
             with torch.no_grad():
                 next_values = self.critic(next_states).squeeze(-1)
                 targets = rewards + float(self.gamma) * next_values * (~dones).float()
-            default_advantages = targets - values.detach()
-            if advantage_provider is None:
-                advantages = default_advantages
-            else:
-                provided = advantage_provider(self, ep_ret, default_advantages)
-                advantages = _as_tensor(provided, device=device).reshape(-1)
-                if advantages.shape != default_advantages.shape:
-                    raise CanonicalContractError(
-                        "advantage provider returned a misaligned batch"
-                    )
-                if not bool(torch.isfinite(advantages).all()):
-                    raise FloatingPointError(
-                        "advantage provider returned non-finite values"
-                    )
-                advantages = advantages.detach()
+            advantages = targets - values.detach()
 
             mean, log_std, distance = detached_standardized_distance(
                 self.actor,
@@ -505,8 +488,9 @@ def build_injected_agent_class(
                 control,
             )
 
-            # Full-batch normalization is deliberate. Positive-only therefore
-            # differs from signed training only by zeroing negative terms.
+            # Full-batch normalization is deliberate.  Positive-only therefore
+            # differs from signed training only by zeroing the negative terms;
+            # it does not receive a larger positive-gradient denominator.
             actor_loss = -(log_prob * weighted_advantage).mean()
             self.a_opt.zero_grad(set_to_none=True)
             actor_loss.backward()
@@ -544,10 +528,6 @@ def build_injected_agent_class(
                 "effective_alpha": control.effective_alpha,
                 "method": control.method,
             }
-            if advantage_provider is not None:
-                metrics["advantage_estimator"] = str(
-                    getattr(advantage_provider, "estimator", "custom")
-                )
             self._drpo_last_negative_control_metrics = metrics
             if return_mode == "metrics_dict":
                 return metrics
@@ -615,8 +595,6 @@ def patch_canonical_module(
     module: ModuleType,
     contract: CanonicalContract,
     control: NegativeControl,
-    *,
-    advantage_provider: AdvantageProvider | None = None,
 ) -> type:
     """Replace only the configured class inside the already verified module."""
 
@@ -625,7 +603,6 @@ def patch_canonical_module(
         original,
         control=control,
         return_mode=contract.return_mode,
-        advantage_provider=advantage_provider,
     )
     setattr(module, contract.target_class, injected)
     return injected

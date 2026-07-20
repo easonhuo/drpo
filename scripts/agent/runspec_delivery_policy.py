@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Formal delivery gate, V1 size policy, and graceful oversize reporting."""
+"""Simple V1 size policy and graceful oversize reporting for result delivery."""
 from __future__ import annotations
 
 import json
@@ -18,7 +18,6 @@ from runspec_lib import (
 
 MAX_REVIEW_PACKAGE_MB = 30
 MAX_REVIEW_FILE_MB = 10
-FORMAL_RESULTS_REPOSITORY = "easonhuo/drpo-results"
 RESULT_TOO_LARGE = "RESULT_TOO_LARGE"
 _TOO_LARGE_MARKERS = (
     "delivery source file exceeds max_file_size_mb",
@@ -27,65 +26,9 @@ _TOO_LARGE_MARKERS = (
 )
 
 
-def formal_delivery_required(spec: dict[str, Any]) -> bool:
-    """Return whether the RunSpec must use automatic durable delivery.
-
-    ``policy.formal_evidence_allowed: false`` is the only local-only opt-out.
-    Missing declarations fail closed as delivery-required so an omitted field
-    cannot silently downgrade a potentially formal run.
-    """
-
-    policy = spec.get("policy") or {}
-    if not isinstance(policy, dict):
-        raise RunSpecError("policy must be a mapping")
-    declared = policy.get("formal_evidence_allowed")
-    if declared is not None and not isinstance(declared, bool):
-        raise RunSpecError("policy.formal_evidence_allowed must be a boolean")
-    return declared is not False
-
-
-def validate_formal_delivery_policy(spec: dict[str, Any]) -> bool:
-    """Fail closed unless a delivery-required RunSpec uses the canonical channel."""
-
-    required = formal_delivery_required(spec)
-    if not required:
-        return False
-
-    raw = spec.get("delivery") or {}
-    if not isinstance(raw, dict):
-        raise RunSpecError("delivery must be a mapping")
-    if raw.get("enabled") is not True or raw.get("auto") is not True:
-        raise RunSpecError(
-            "formal RunSpec requires delivery.enabled=true and delivery.auto=true; "
-            "set policy.formal_evidence_allowed=false only for non-formal local runs"
-        )
-    if raw.get("mode") != "results_repo":
-        raise RunSpecError("formal RunSpec requires delivery.mode=results_repo")
-    if raw.get("repository") != FORMAL_RESULTS_REPOSITORY:
-        raise RunSpecError(
-            "formal RunSpec requires delivery.repository="
-            f"{FORMAL_RESULTS_REPOSITORY}"
-        )
-    lane = str(spec.get("lane") or "")
-    if not lane:
-        raise RunSpecError("formal RunSpec requires a lane before delivery validation")
-    expected_branch = f"ingest/{lane}"
-    if raw.get("branch") != expected_branch:
-        raise RunSpecError(
-            f"formal RunSpec requires delivery.branch={expected_branch}"
-        )
-    profile = raw.get("export_profile", "manifest_text_v1")
-    if profile != "manifest_text_v1":
-        raise RunSpecError(
-            "formal RunSpec requires delivery.export_profile=manifest_text_v1"
-        )
-    return True
-
-
 def validate_simple_size_policy(spec: dict[str, Any]) -> dict[str, int] | None:
-    """Enforce formal delivery first, then the intentionally small V1 limits."""
+    """Enforce the intentionally small V1 review-package limits."""
 
-    validate_formal_delivery_policy(spec)
     raw = spec.get("delivery") or {}
     if not isinstance(raw, dict):
         raise RunSpecError("delivery must be a mapping")

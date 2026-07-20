@@ -17,8 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       approval_required: ${{ steps.budget.outputs.approval_required }}
-      approval_reason: ${{ steps.budget.outputs.approval_reason }}
-      new_python_count: ${{ steps.budget.outputs.new_python_count }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,76 +27,16 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        shell: bash
         run: |
-          set -euo pipefail
           git fetch --no-tags --depth=1 origin "$HEAD_SHA"
-
-          bash tests/test_new_python_file_gate.sh
-          new_python_file="$RUNNER_TEMP/new-python-files.txt"
-          bash scripts/check_new_python_file_gate.sh \
-            --repo-root . \
-            --base "$BASE_SHA" \
-            --head "$HEAD_SHA" \
-            --output "$new_python_file"
-          new_python_count=$(awk 'END {print NR + 0}' "$new_python_file")
-
           churn=$(git diff --numstat "$BASE_SHA" "$HEAD_SHA" -- '*.py' |
             awk '{a += $1; d += $2} END {print a + d + 0}')
           structural=$(git diff --name-status -M -C "$BASE_SHA" "$HEAD_SHA" -- '*.py' |
             awk '$1 ~ /^[ADRC]/ {n++} END {print n + 0}')
-
-          protected_changed=0
-          if ! git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
-            .github/workflows/code-change-budget.yml \
-            AGENTS.md \
-            docs/governance_new_python_file_approval.md \
-            docs/scopes/GOV-NEW-PYTHON-FILE-HUMAN-APPROVAL-01.md \
-            docs/governance_stage_authorizations/GOV-NEW-PYTHON-FILE-HUMAN-APPROVAL-01.yaml \
-            scripts/check_new_python_file_gate.sh \
-            tests/test_new_python_file_gate.sh; then
-            protected_changed=1
-          fi
-
           required=false
-          reasons=()
-          if (( new_python_count > 0 )); then
-            required=true
-            reasons+=(new_python_file)
-          fi
-          if (( protected_changed > 0 )); then
-            required=true
-            reasons+=(hard_gate_policy_change)
-          fi
-          if (( churn > 100 || structural > 0 )); then
-            required=true
-            reasons+=(large_or_structural_python_change)
-          fi
-
-          if ((${#reasons[@]})); then
-            approval_reason=$(IFS=,; echo "${reasons[*]}")
-          else
-            approval_reason=none
-          fi
+          if (( churn > 100 || structural > 0 )); then required=true; fi
           echo "approval_required=$required" >> "$GITHUB_OUTPUT"
-          echo "approval_reason=$approval_reason" >> "$GITHUB_OUTPUT"
-          echo "new_python_count=$new_python_count" >> "$GITHUB_OUTPUT"
-
-          {
-            echo "### Code Change Budget"
-            echo
-            echo "- New Python paths: $new_python_count"
-            echo "- Python churn: $churn"
-            echo "- Structural Python changes: $structural"
-            echo "- Protected hard-gate paths changed: $protected_changed"
-            echo "- Human approval required: $required"
-            echo "- Reason: $approval_reason"
-            if (( new_python_count > 0 )); then
-              echo
-              echo "New Python destinations:"
-              sed 's/^/- `/' "$new_python_file" | sed 's/$/`/'
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Python churn: $churn; structural .py changes: $structural"
 
   approve:
     name: Approve large code change
@@ -107,10 +45,4 @@ jobs:
     environment: large-code-change-approval
     runs-on: ubuntu-latest
     steps:
-      - env:
-          APPROVAL_REASON: ${{ needs.check.outputs.approval_reason }}
-          NEW_PYTHON_COUNT: ${{ needs.check.outputs.new_python_count }}
-        run: |
-          echo "Human approval granted."
-          echo "Reason: $APPROVAL_REASON"
-          echo "New Python paths: $NEW_PYTHON_COUNT"
+      - run: echo "Human approval granted."

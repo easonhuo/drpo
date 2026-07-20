@@ -1,19 +1,14 @@
 #!/usr/bin/env python3
-"""Plan or run the shared E7 squared-remoteness execution pipeline."""
+"""Plan or run the 126-branch E7 squared-remoteness night suite."""
 
 from __future__ import annotations
 
 import argparse
 import json
-import math
-import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
-import h5py
-import numpy as np
 
 from drpo import e7_squared_exp_night as pilot
 from drpo.e7_squared_exp_night_runtime_autotune import (
@@ -22,7 +17,6 @@ from drpo.e7_squared_exp_night_runtime_autotune import (
 )
 from drpo.runtime_resource_autotune import (
     RuntimeResourceError,
-    canonical_json_sha256,
     discover_machine,
     load_json,
 )
@@ -37,11 +31,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--grid", required=True)
     parser.add_argument("--work-dir", required=True)
     parser.add_argument("--resume", action="store_true")
-    parser.add_argument(
-        "--matched-gae-pair",
-        action="store_true",
-        help="run only the registered Hopper seed-200 TD/GAE engineering pair",
-    )
     parser.add_argument("--fallback-workers", type=int, default=60)
     parser.add_argument("--probe-steps", type=int, default=5_000)
     parser.add_argument("--probe-seed", type=int, default=993_001)
@@ -106,30 +95,13 @@ def _validate_existing_run_identity(
         )
 
 
-def _load_or_materialize_run_identity(work_dir: Path) -> dict[str, Any]:
-    identity_path = work_dir / "RUN_IDENTITY.json"
-    if identity_path.is_file():
-        return load_json(identity_path)
-    plan_path = work_dir / "EXECUTION_PLAN.json"
-    if not plan_path.is_file():
-        raise RuntimeResourceError(
-            "plan completed without EXECUTION_PLAN.json or RUN_IDENTITY.json"
-        )
-    plan = load_json(plan_path)
-    stable_plan = {key: value for key, value in plan.items() if key != "created_utc"}
-    identity = {
-        "run_identity_sha256": canonical_json_sha256(stable_plan),
-        "plan": plan,
-    }
-    _atomic_json(identity_path, identity)
-    return identity
-
-
 def _bind_selection_to_run_identity(
     work_dir: Path, *, selected_workers: int, selection_digest: str
 ) -> None:
     identity_path = work_dir / "RUN_IDENTITY.json"
-    identity = _load_or_materialize_run_identity(work_dir)
+    if not identity_path.is_file():
+        raise RuntimeResourceError("plan completed without RUN_IDENTITY.json")
+    identity = load_json(identity_path)
     plan = identity.get("plan")
     existing = plan.get("max_workers") if isinstance(plan, dict) else None
     if existing != selected_workers:
@@ -166,7 +138,7 @@ def _git_value(repo: Path, *args: str) -> str | None:
 
 
 def _registration_snapshot(repo: Path) -> dict[str, Any]:
-    experiment_id = pilot.active_experiment_id()
+    experiment_id = pilot.EXPERIMENT_ID
     protocol_path = repo / "docs" / "experiments" / f"{experiment_id}.md"
     registry_path = repo / "experiments" / "registry.yaml"
     registry_contains_id = False
@@ -227,21 +199,16 @@ def _write_launch_registration_status(repo: Path, work_dir: Path) -> Path:
     return path
 
 
-def _write_stage_status(work_dir: Path, *, matched_pair: bool) -> Path:
-    historical = pilot.active_experiment_id() == pilot.EXPERIMENT_ID
+def _write_gae_gate(work_dir: Path) -> Path:
     payload = {
-        "status": "BLOCKED" if historical else "READY",
-        "experiment_id": pilot.active_experiment_id(),
+        "status": "BLOCKED",
+        "experiment_id": pilot.EXPERIMENT_ID,
         "stage": "stage_c_gae",
         "gae_lambda": 0.95,
         "reason": (
             "verified ordered-trajectory and terminal/truncation contract unavailable"
-            if historical
-            else "ordered-trajectory contract is implemented in the existing pipeline"
         ),
         "branches_started": 0,
-        "planned_branch_count": pilot.active_expected_branch_count(),
-        "matched_liveness_pair": bool(matched_pair),
         "scientific_result_available": False,
     }
     path = work_dir / "GAE_STAGE_STATUS.json"
@@ -264,15 +231,16 @@ def _write_failed_terminal_audit(work_dir: Path, error: BaseException) -> Path:
     branch_count = int(summary.get("branch_count", completed + failed) or 0)
     audit = {
         "status": "FAIL",
-        "experiment_id": pilot.active_experiment_id(),
-        "scientific_status": pilot.active_scientific_status(),
+        "experiment_id": pilot.EXPERIMENT_ID,
+        "scientific_status": pilot.SCIENTIFIC_STATUS,
         "raw_complete": False,
         "branch_count_observed": branch_count,
-        "expected_branch_count": pilot.active_expected_branch_count(),
+        "expected_branch_count": pilot.EXPECTED_TOTAL_BRANCHES,
         "completed_or_skipped": completed,
         "failed_branches": failed,
         "error_type": type(error).__name__,
         "error": str(error),
+        "stage_c_status": "blocked_before_execution",
         "task_performance_collapse_separate": True,
         "support_or_variance_boundary_separate": True,
         "nan_inf_separate": True,
@@ -333,71 +301,10 @@ def _load_planned_selection(work_dir: Path) -> tuple[int, str]:
     return workers, digest
 
 
-def _matched_pair_steps(run_spec_path: str | Path) -> int:
-    run_spec, _ = pilot.load_run_spec(run_spec_path)
-    matches = [
-        item
-        for item in run_spec["datasets"]
-        if str(item["id"]) == pilot.GAE_LIVENESS_DATASET
-    ]
-    if len(matches) != 1:
-        raise RuntimeResourceError(
-            "GAE matched pair requires exactly one Hopper medium-expert dataset"
-        )
-    source = Path(str(matches[0]["path"])).expanduser().resolve()
-    required = (
-        "observations",
-        "actions",
-        "rewards",
-        "terminals",
-        "timeouts",
-        "next_observations",
-    )
-    with h5py.File(source, "r") as handle:
-        missing = [name for name in required if name not in handle]
-        if missing:
-            raise RuntimeResourceError(
-                f"GAE matched pair dataset is missing fields: {missing}"
-            )
-        lengths = {int(handle[name].shape[0]) for name in required}
-        if lengths == {0} or len(lengths) != 1:
-            raise RuntimeResourceError(
-                "GAE matched pair dataset fields must be non-empty and aligned"
-            )
-        terminals = np.asarray(handle["terminals"][:], dtype=np.bool_).reshape(-1)
-        timeouts = np.asarray(handle["timeouts"][:], dtype=np.bool_).reshape(-1)
-        if bool((terminals & timeouts).any()):
-            raise RuntimeResourceError("terminal and timeout flags overlap")
-    transition_count = lengths.pop()
-    return math.ceil(transition_count / pilot.GAE_CANONICAL_BATCH_SIZE) + 1
-
-
-def _configure_profile(args: argparse.Namespace) -> int | None:
-    pilot.configure_execution(args.grid)
-    if not args.matched_gae_pair:
-        os.environ.pop("DRPO_E7_GAE_LIVENESS_PAIR", None)
-        os.environ.pop("DRPO_E7_GAE_LIVENESS_STEPS", None)
-        return None
-    if pilot.active_experiment_id() != pilot.GAE_EXPERIMENT_ID:
-        raise RuntimeResourceError(
-            "--matched-gae-pair requires the GAE successor grid"
-        )
-    steps = _matched_pair_steps(args.run_spec)
-    pilot.configure_execution(
-        args.grid,
-        liveness_pair=True,
-        liveness_steps=steps,
-    )
-    os.environ["DRPO_E7_GAE_LIVENESS_PAIR"] = "1"
-    os.environ["DRPO_E7_GAE_LIVENESS_STEPS"] = str(steps)
-    return steps
-
-
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "plan" and args.resume:
         raise RuntimeResourceError("--resume is valid only for run")
-    liveness_steps = _configure_profile(args)
     repo = Path(args.repo_root).resolve()
     work_dir = Path(args.work_dir).resolve()
     _reject_legacy_work_dir(work_dir)
@@ -406,7 +313,7 @@ def main(argv: list[str] | None = None) -> int:
             "cannot re-plan a work directory with a run identity"
         )
     registration_status = _write_launch_registration_status(repo, work_dir)
-    _write_stage_status(work_dir, matched_pair=args.matched_gae_pair)
+    _write_gae_gate(work_dir)
     machine = discover_machine(
         meminfo_path=args.meminfo,
         loadavg_path=args.loadavg,
@@ -424,13 +331,10 @@ def main(argv: list[str] | None = None) -> int:
         workers = int(document["selection"]["selected_workers"])
         selection_digest = str(document["selection_digest"])
         if workers != planned_workers or selection_digest != planned_digest:
-            raise RuntimeResourceError(
-                "run revalidation changed immutable selection identity"
-            )
+            raise RuntimeResourceError("run revalidation changed immutable selection identity")
     registration = json.loads(registration_status.read_text(encoding="utf-8"))[
         "latest_check"
     ]
-    profile = pilot.active_runtime_profile()
     print(
         json.dumps(
             {
@@ -439,14 +343,14 @@ def main(argv: list[str] | None = None) -> int:
                 "selected_workers": workers,
                 "selection_digest": selection_digest,
                 "revalidation": document.get("revalidation"),
-                "experiment_id": pilot.active_experiment_id(),
-                "branch_count": pilot.active_expected_branch_count(),
-                "matched_gae_pair": args.matched_gae_pair,
-                "matched_pair_steps": liveness_steps,
+                "scientific_branch_count": pilot.EXPECTED_TOTAL_BRANCHES,
+                "stage_c": "blocked_pending_verified_trajectory_contract",
                 "registration_state": registration["launch_mode"],
                 "registration_blocks_launch": False,
                 "registration_status_file": str(registration_status),
-                "selection_scope": profile,
+                "selection_scope": (
+                    "representative KL-PPO branch under measured CPU/RAM constraints"
+                ),
             },
             sort_keys=True,
         ),
@@ -475,7 +379,7 @@ def main(argv: list[str] | None = None) -> int:
                 selected_workers=workers,
                 selection_digest=selection_digest,
             )
-        return int(returncode)
+        return returncode
     except BaseException as exc:
         if args.command == "run":
             _write_failed_terminal_audit(work_dir, exc)
