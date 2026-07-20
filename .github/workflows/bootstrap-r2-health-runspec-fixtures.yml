@@ -26,12 +26,42 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Apply narrow maintenance patch
+      - name: Materialize narrow fixture changes
         shell: bash
         run: |
           set -euo pipefail
-          git apply --check maintenance.patch
-          git apply maintenance.patch
+          python - <<'PY'
+          from pathlib import Path
+
+          policy_files = [
+              Path('tests/test_agent_runspec.py'),
+              Path('tests/test_runspec_deferred_registration.py'),
+              Path('tests/test_runspec_publish.py'),
+              Path('tests/test_runspec_recovery.py'),
+          ]
+          old = '"policy": {\n            "existing_script_required": True,'
+          new = (
+              '"policy": {\n'
+              '            "formal_evidence_allowed": False,\n'
+              '            "existing_script_required": True,'
+          )
+          for path in policy_files:
+              text = path.read_text(encoding='utf-8')
+              if text.count(old) < 1:
+                  raise SystemExit(f'missing local policy fixture in {path}')
+              path.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          path = Path('tests/test_claude_runspec_workspace.py')
+          text = path.read_text(encoding='utf-8')
+          old_assertion = '    assert "create `COMPLETED.json`" in local_instructions\n'
+          new_assertion = (
+              '    assert "`COMPLETED.json`" in local_instructions\n'
+              '    assert "success evidence by hand" in local_instructions\n'
+          )
+          if text.count(old_assertion) != 1:
+              raise SystemExit('Claude instruction assertion drift')
+          path.write_text(text.replace(old_assertion, new_assertion), encoding='utf-8')
+          PY
 
       - name: Install focused dependencies
         run: |
@@ -68,7 +98,7 @@ jobs:
           HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
-          rm maintenance.patch
+          rm -f maintenance.patch
           rm .github/workflows/bootstrap-r2-health-runspec-fixtures.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
