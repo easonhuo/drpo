@@ -22,11 +22,14 @@ from drpo.workflow_replay.evidence import (  # noqa: E402
     EvidenceError,
     EvidenceLocator,
     build_opposite_order_schedule,
-    canonical_sha256,
+    build_semantic_opposite_order_schedule,
     compare_normalized_runs,
+    compare_semantic_runs,
+    load_acceptance_contract,
     load_r1_case_contract,
     load_run_artifact,
     release_bound_efficiency,
+    release_semantic_efficiency,
     validate_r1_case_contract,
 )
 from drpo.workflow_replay.model import ManifestError, load_case_manifest  # noqa: E402
@@ -392,3 +395,176 @@ def test_manifest_and_run_artifact_digests_are_stable() -> None:
     manifest = load_r1_case_contract(R1 / "ready" / "manifest.yaml")
     run = json.loads((R1 / "ready" / "run-a.json").read_text(encoding="utf-8"))
     assert run["case_contract_sha256"] == manifest.sha256
+
+
+R2 = ROOT / "tests" / "fixtures" / "workflow_replay" / "r2" / "semantic"
+R2_CAL = ROOT / "docs" / "development_workflow_optimization" / "replayab_r2_calibration"
+R2_EXPECTED = R2_CAL / "EXPECTED_VERDICTS.yaml"
+
+
+def expected_r2(case_id: str) -> dict[str, str]:
+    return yaml.safe_load(R2_EXPECTED.read_text(encoding="utf-8"))["verdicts"][case_id]
+
+
+def load_r2_pair(repo: Path = ROOT):
+    folder = repo / "tests" / "fixtures" / "workflow_replay" / "r2" / "semantic"
+    contract = load_acceptance_contract(folder / "manifest.yaml")
+    arm_a = load_run_artifact(folder / "run-a.json", repo, contract)
+    arm_b = load_run_artifact(folder / "run-b.json", repo, contract)
+    return contract, arm_a, arm_b
+
+
+def copied_r2(tmp_path: Path) -> Path:
+    source = tmp_path / SOURCES[0]
+    source.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / SOURCES[0], source)
+    target = tmp_path / "tests" / "fixtures" / "workflow_replay" / "r2" / "semantic"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(R2, target)
+    return target
+
+
+def mutate_r2_result(repo: Path, arms: tuple[str, ...], mutate) -> None:
+    folder = repo / "tests" / "fixtures" / "workflow_replay" / "r2" / "semantic"
+    for arm in arms:
+        result_path = folder / f"acceptance-{arm}.json"
+        result = json.loads(result_path.read_text(encoding="utf-8"))
+        mutate(result)
+        write_json(result_path, result)
+        run_path = folder / f"run-{arm}.json"
+        run = json.loads(run_path.read_text(encoding="utf-8"))
+        run["evidence"]["result"] = locator(result_path, repo, "result")
+        write_json(run_path, run)
+
+
+def test_r2_calibration_authority_is_frozen() -> None:
+    inventory = yaml.safe_load((R2_CAL / "INVENTORY.yaml").read_text(encoding="utf-8"))
+    expected = yaml.safe_load(R2_EXPECTED.read_text(encoding="utf-8"))
+    assert inventory["selection_frozen_before_implementation_results"] is True
+    assert inventory["post_selection_rule"]["no_case_removal_after_results"] is True
+    assert {item["case_id"] for item in inventory["cases"]} == set(expected["verdicts"])
+    assert len(expected["verdicts"]) == 12
+
+
+def test_r2_contract_and_opposite_order_schedule() -> None:
+    contract = load_acceptance_contract(R2 / "manifest.yaml")
+    assert contract.r1["comparison_mode"] == "semantic_acceptance"
+    assert contract.mandatory_behaviors == ("api_contract", "core_behavior")
+    schedule = build_semantic_opposite_order_schedule(contract, "fixture")
+    assert tuple(item.arm for item in schedule) == ("A", "B", "B", "A")
+    assert tuple(item.order_position for item in schedule) == (0, 1, 0, 1)
+
+
+def test_r2_different_correct_implementations_are_both_accepted() -> None:
+    contract, arm_a, arm_b = load_r2_pair()
+    assert arm_a.outcome is not None and arm_b.outcome is not None
+    assert arm_a.outcome.output_hashes != arm_b.outcome.output_hashes
+    assert arm_a.acceptance is not None and arm_a.acceptance.accepted
+    assert arm_b.acceptance is not None and arm_b.acceptance.accepted
+    report = compare_semantic_runs(contract, arm_a, arm_b)
+    assert report.acceptance_pattern == "BOTH_ACCEPTED"
+    assert report.pair_comparable and report.efficiency_release_allowed
+    payload = {"run_ids": report.run_ids, "evidence_sha256": report.evidence_sha256, "timing": report.timing}
+    assert release_semantic_efficiency(report, payload) == report.timing
+    assert expected_r2("R2-CAL-DIFFERENT-BOTH-CORRECT")["expected"] == "both_accepted"
+
+
+def test_r2_missing_mandatory_rejects_only_that_arm(tmp_path: Path) -> None:
+    copied_r2(tmp_path)
+    mutate_r2_result(tmp_path, ("b",), lambda result: result["mandatory_results"].update(api_contract=False))
+    contract, arm_a, arm_b = load_r2_pair(tmp_path)
+    report = compare_semantic_runs(contract, arm_a, arm_b)
+    assert report.acceptance_pattern == "A_ACCEPTED_B_REJECTED"
+    assert dict(report.arm_failures)["B"] == ("mandatory.api_contract",)
+    with pytest.raises(EquivalenceError):
+        release_semantic_efficiency(report, {})
+    assert expected_r2("R2-CAL-MISSING-MANDATORY")["expected"] == "reject_b"
+
+
+def test_r2_forbidden_regression_rejects_only_that_arm(tmp_path: Path) -> None:
+    copied_r2(tmp_path)
+    mutate_r2_result(tmp_path, ("a",), lambda result: result["forbidden_results"].update(deletes_required_behavior=True))
+    contract, arm_a, arm_b = load_r2_pair(tmp_path)
+    report = compare_semantic_runs(contract, arm_a, arm_b)
+    assert report.acceptance_pattern == "A_REJECTED_B_ACCEPTED"
+    assert dict(report.arm_failures)["A"] == ("forbidden.deletes_required_behavior",)
+    assert expected_r2("R2-CAL-FORBIDDEN-REGRESSION")["expected"] == "reject_a"
+
+
+def test_r2_both_same_wrong_are_rejected(tmp_path: Path) -> None:
+    copied_r2(tmp_path)
+    mutate_r2_result(tmp_path, ("a", "b"), lambda result: result["mandatory_results"].update(core_behavior=False))
+    contract, arm_a, arm_b = load_r2_pair(tmp_path)
+    report = compare_semantic_runs(contract, arm_a, arm_b)
+    assert report.acceptance_pattern == "BOTH_REJECTED"
+    assert not report.pair_comparable
+    assert expected_r2("R2-CAL-BOTH-SAME-WRONG")["expected"] == "reject_both"
+
+
+def test_r2_inclusive_tolerance_boundaries_are_accepted(tmp_path: Path) -> None:
+    copied_r2(tmp_path)
+    mutate_r2_result(tmp_path, ("a",), lambda result: result["tolerance_values"].update(score=0.9))
+    mutate_r2_result(tmp_path, ("b",), lambda result: result["tolerance_values"].update(latency_ms=100.0, score=1.0))
+    contract, arm_a, arm_b = load_r2_pair(tmp_path)
+    report = compare_semantic_runs(contract, arm_a, arm_b)
+    assert report.acceptance_pattern == "BOTH_ACCEPTED"
+    assert expected_r2("R2-CAL-LOWER-BOUND")["expected"] == "accepted"
+    assert expected_r2("R2-CAL-UPPER-BOUND")["expected"] == "accepted"
+
+
+def test_r2_out_of_bound_value_is_rejected(tmp_path: Path) -> None:
+    copied_r2(tmp_path)
+    mutate_r2_result(tmp_path, ("b",), lambda result: result["tolerance_values"].update(score=0.899))
+    contract, arm_a, arm_b = load_r2_pair(tmp_path)
+    report = compare_semantic_runs(contract, arm_a, arm_b)
+    assert report.acceptance_pattern == "A_ACCEPTED_B_REJECTED"
+    assert dict(report.arm_failures)["B"] == ("tolerance.score.minimum",)
+    assert expected_r2("R2-CAL-TOLERANCE-VIOLATION")["expected"] == "reject_b"
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "case_id"),
+    [
+        ("evaluator_sha256", "0" * 64, "R2-CAL-EVALUATOR-MISMATCH"),
+        ("acceptance_contract_sha256", "0" * 64, "R2-CAL-CONTRACT-MISMATCH"),
+        ("run_id", "0" * 64, "R2-CAL-WRONG-RUN-BINDING"),
+    ],
+)
+def test_r2_identity_mismatches_fail_closed(tmp_path: Path, field: str, value: str, case_id: str) -> None:
+    folder = copied_r2(tmp_path)
+    mutate_r2_result(tmp_path, ("b",), lambda result: result.__setitem__(field, value))
+    contract = load_acceptance_contract(folder / "manifest.yaml")
+    with pytest.raises(EvidenceError, match="identity mismatch"):
+        load_run_artifact(folder / "run-b.json", tmp_path, contract)
+    assert expected_r2(case_id)["expected"] == "evidence_invalid"
+
+
+def test_r2_protected_path_failure_rejects_arm(tmp_path: Path) -> None:
+    copied_r2(tmp_path)
+    mutate_r2_result(tmp_path, ("b",), lambda result: result.__setitem__("protected_paths_ok", False))
+    contract, arm_a, arm_b = load_r2_pair(tmp_path)
+    report = compare_semantic_runs(contract, arm_a, arm_b)
+    assert report.acceptance_pattern == "A_ACCEPTED_B_REJECTED"
+    assert dict(report.arm_failures)["B"] == ("protected_paths",)
+    assert expected_r2("R2-CAL-PROTECTED-PATH")["expected"] == "reject_b"
+
+
+def test_r2_rejected_arm_never_releases_efficiency(tmp_path: Path) -> None:
+    copied_r2(tmp_path)
+    mutate_r2_result(tmp_path, ("a",), lambda result: result["mandatory_results"].update(api_contract=False))
+    contract, arm_a, arm_b = load_r2_pair(tmp_path)
+    report = compare_semantic_runs(contract, arm_a, arm_b)
+    with pytest.raises(EquivalenceError, match="two accepted arms"):
+        release_semantic_efficiency(report, {"run_ids": report.run_ids, "evidence_sha256": report.evidence_sha256, "timing": report.timing})
+    assert expected_r2("R2-CAL-EFFICIENCY-BLOCK")["expected"] == "blocked"
+
+def test_r2_acceptance_result_binds_exact_outcome_evidence(tmp_path: Path) -> None:
+    folder = copied_r2(tmp_path)
+    mutate_r2_result(
+        tmp_path,
+        ("b",),
+        lambda result: result.__setitem__("outcome_sha256", "0" * 64),
+    )
+    contract = load_acceptance_contract(folder / "manifest.yaml")
+    with pytest.raises(EvidenceError, match="identity mismatch"):
+        load_run_artifact(folder / "run-b.json", tmp_path, contract)

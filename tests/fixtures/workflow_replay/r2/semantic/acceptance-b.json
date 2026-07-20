@@ -1,0 +1,22 @@
+{
+  "acceptance_contract_sha256": "622eadb9e0f299ed44088cdebbdbf2aa243c9809566f9ccf2a24b6d02a9509ab",
+  "case_id": "R2-CAL-SEMANTIC-DIFFERENT-CORRECT",
+  "diagnostic_codes": [],
+  "evaluator_sha256": "d6064dd68224ad8348a60de59f93944d4fbafda83a21cc649f714ca2c5623361",
+  "forbidden_results": {
+    "deletes_required_behavior": false,
+    "touches_protected_path": false
+  },
+  "mandatory_results": {
+    "api_contract": true,
+    "core_behavior": true
+  },
+  "outcome_sha256": "ec8fd19383a871bd1d4e0fac8a470a3dfd41d03dba8c860481b1946a62b9fe87",
+  "protected_paths_ok": true,
+  "run_id": "a2269c422c70c9fc352f9841069114ca740a7baa88a2223d7073d753296a80a7",
+  "schema_version": 1,
+  "tolerance_values": {
+    "latency_ms": 60.0,
+    "score": 0.96
+  }
+}

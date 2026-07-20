@@ -1,0 +1,59 @@
+{
+  "case_contract_sha256": "c2e55fd467ec376cc3b0ca33aa76d92c08040d39e668928e74d6feb0679f6440",
+  "evidence": {
+    "event_log": {
+      "byte_size": 370,
+      "kind": "event_log",
+      "relative_path": "tests/fixtures/workflow_replay/r2/semantic/events-b.jsonl",
+      "sha256": "c59ae670df3a54d76ad3e1beca6591e91b55a9eaeea8c6c733b09c3542f1b518"
+    },
+    "outcome": {
+      "byte_size": 855,
+      "kind": "outcome",
+      "relative_path": "tests/fixtures/workflow_replay/r2/semantic/outcome-b.json",
+      "sha256": "ec8fd19383a871bd1d4e0fac8a470a3dfd41d03dba8c860481b1946a62b9fe87"
+    },
+    "result": {
+      "byte_size": 749,
+      "kind": "result",
+      "relative_path": "tests/fixtures/workflow_replay/r2/semantic/acceptance-b.json",
+      "sha256": "4d1f4a58fa53a6614b39c973c52ddbe379216f3b769c64bf9ba20f241d971c82"
+    },
+    "subject": {
+      "byte_size": 991,
+      "kind": "subject",
+      "relative_path": "tests/fixtures/workflow_replay/valid_code_only.yaml",
+      "sha256": "a932ebccdb665c7794b7801eb14b934a56ffbb081e28e2413f1f5b83eeb50410"
+    }
+  },
+  "execution_terminal": "READY",
+  "identities": {
+    "backend_id": "fixture",
+    "base_sha": "b01b7715c8a703905a03403e54dfce258e69ba1e",
+    "cache_policy": "cold",
+    "environment_id": "replayab-r2-fixture-v1",
+    "evaluator_sha256": "d6064dd68224ad8348a60de59f93944d4fbafda83a21cc649f714ca2c5623361",
+    "evidence_schema_sha256": "a6c839c15db3461049043028811f9ae41685df68eb2f563d56e147cb75bbd9f2",
+    "input_sha256": "a932ebccdb665c7794b7801eb14b934a56ffbb081e28e2413f1f5b83eeb50410",
+    "plan_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+    "toolchain_sha": "b01b7715c8a703905a03403e54dfce258e69ba1e"
+  },
+  "producer_id": "replayab-r2-fixture-v1",
+  "run_identity": {
+    "arm": "B",
+    "backend_id": "fixture",
+    "case_id": "R2-CAL-SEMANTIC-DIFFERENT-CORRECT",
+    "order_position": 1,
+    "pair_id": "pair-0",
+    "repetition": 0,
+    "run_id": "a2269c422c70c9fc352f9841069114ca740a7baa88a2223d7073d753296a80a7"
+  },
+  "schema_version": 1,
+  "timing": {
+    "child_ns": 901,
+    "self_overhead_ns": 100,
+    "total_ns": 1001
+  },
+  "workspace_after_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+  "workspace_before_sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+}
