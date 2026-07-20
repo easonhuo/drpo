@@ -1,4 +1,4 @@
-schema_version: 4
+schema_version: 5
 claim_id: PAPER-CODE-VALIDATION-01
 base_matrix: docs/paper_code_reference/VALIDATION_MATRIX.yaml
 latest_execution_report: docs/paper_code_reference/VALIDATION_EXECUTION_REPORT_20260720.md
@@ -7,8 +7,8 @@ scientific_status_impact: none
 reason: >-
   Record additive live gate overrides after validation documentation, package
   isolation, differential and short-path suites, CPU liveness checks, correctness
-  repairs, and the bounded Ruff-format repair. No scientific coordinate or result
-  status changes.
+  repairs, bounded Ruff formatting, and the first complete exact-head reviewer
+  package validation. No scientific coordinate or result status changes.
 
 repairs:
   du1_protocol_method_order:
@@ -41,41 +41,88 @@ repairs:
     formatter_check_after_repair: passed_in_cleanup_run
     compileall_after_repair: passed_in_cleanup_run
     function_or_scientific_behavior_changed: false
-    exact_head_package_ci_after_repair: pending
+
+exact_head_engineering_evidence:
+  head: 692adbd64cbecf89f78696e08a3f8f33533eedc2
+  evidence_locator:
+    run: 29748664401
+    status: passed
+  pr_gate:
+    run: 29748664404
+    job: 88373145537
+    status: passed
+    checks:
+      python_compile: passed
+      shell_syntax: passed
+      handoff_authority: passed
+      formal_execution_channel: passed
+      governance_inventory: passed
+      governance_stage_status: passed
+      full_pytest: passed
+      ruff: passed
+  package_validation:
+    run: 29748664467
+    job: 88373087812
+    status: passed
+    checks:
+      exact_head_package_build: passed
+      package_manifest: passed
+      isolated_install: passed
+      compile: passed
+      self_contained_tests: passed
+      cu1_tests: passed
+      du1_tests: passed
+      du1_public_cli_cpu_liveness: passed
+      ruff_check: passed
+      ruff_format_check: passed
+      all_public_cli_entrypoints: passed
+      validated_package_upload: passed
+    artifact:
+      id: 8463571441
+      name: drpo-reference-v0.1-692adbd64cbecf89f78696e08a3f8f33533eedc2
+      digest: sha256:4f74db454886bbf41a041262327277b39b97217b869bbf83c160351f75994f31
+      expires_at: 2026-08-19T14:01:35Z
+      local_download_verification:
+        outer_archive_downloaded: true
+        package_zip_sha256_check: passed
+        source_commit_matches: true
+        manifest_source_matches: true
+        manifest_file_count: 68
+        manifest_entries_match_actual_files: true
 
 overrides:
-  stages.V0_baseline_and_docs.status: in_progress
+  stages.V0_baseline_and_docs.status: passed
   stages.V0_baseline_and_docs.gates.V0-04_current_status_sync.status: passed
   stages.V0_baseline_and_docs.gates.V0-04_current_status_sync.evidence: docs/paper_code_reference/VALIDATION_STATUS.md
   stages.V0_baseline_and_docs.gates.V0-05_acceptance_matrix_sync.status: passed
   stages.V0_baseline_and_docs.gates.V0-05_acceptance_matrix_sync.evidence: docs/paper_code_reference/VALIDATION_ACCEPTANCE_DELTA.yaml
-  stages.V0_baseline_and_docs.gates.V0-06_exact_head_ci_after_docs.status: passed_before_format_repair
+  stages.V0_baseline_and_docs.gates.V0-06_exact_head_ci_after_docs.status: passed
   stages.V0_baseline_and_docs.gates.V0-06_exact_head_ci_after_docs.evidence:
-    head: 0201b9cde2b1f6e9b8d754fc7b7aacaa580c3f3e
-    evidence_locator_run: 29738490031
-    pr_gate_run: 29738490048
-    pr_gate_job: 88339432508
-  stages.V0_baseline_and_docs.gates.V0-07_exact_package_inventory.status: manifest_verified_final_artifact_pending
-  stages.V0_baseline_and_docs.gates.V0-07_exact_package_inventory.evidence_before_format_repair:
-    head: a11423927e3397eea3551e2ff2fb8b0a965da7dd
-    package_validation_run: 29744134252
-    package_validation_job: 88357854875
-    exact_head_package_built: true
+    head: 692adbd64cbecf89f78696e08a3f8f33533eedc2
+    evidence_locator_run: 29748664401
+    pr_gate_run: 29748664404
+    pr_gate_job: 88373145537
+  stages.V0_baseline_and_docs.gates.V0-07_exact_package_inventory.status: passed
+  stages.V0_baseline_and_docs.gates.V0-07_exact_package_inventory.evidence:
+    head: 692adbd64cbecf89f78696e08a3f8f33533eedc2
+    package_validation_run: 29748664467
+    package_validation_job: 88373087812
+    artifact_id: 8463571441
     manifest_verified: true
-    artifact_uploaded: false
+    downloaded_artifact_verified: true
 
-  stages.V1_clean_package.status: in_progress
+  stages.V1_clean_package.status: passed
   stages.V1_clean_package.subgates.isolated_copy_install.status: passed
-  stages.V1_clean_package.subgates.isolated_copy_install.evidence:
-    head: 6bb89fce283e508906f62bccbf32aa844e90528b
-    evidence_locator_run: 29739126054
-    pr_gate_run: 29739126098
-    pr_gate_job: 88341481345
-  stages.V1_clean_package.subgates.public_entrypoints.status: pending_final_exact_head_run
-  stages.V1_clean_package.subgates.exact_package_manifest.status: passed_before_format_repair_final_artifact_pending
-  stages.V1_clean_package.subgates.self_contained_package_tests.status: passed_before_format_repair
-  stages.V1_clean_package.subgates.ruff_check.status: passed_before_format_repair
-  stages.V1_clean_package.subgates.ruff_format_check.status: repaired_pending_final_exact_head_run
+  stages.V1_clean_package.subgates.public_entrypoints.status: passed
+  stages.V1_clean_package.subgates.exact_package_manifest.status: passed
+  stages.V1_clean_package.subgates.self_contained_package_tests.status: passed
+  stages.V1_clean_package.subgates.ruff_check.status: passed
+  stages.V1_clean_package.subgates.ruff_format_check.status: passed
+  stages.V1_clean_package.evidence:
+    head: 692adbd64cbecf89f78696e08a3f8f33533eedc2
+    package_validation_run: 29748664467
+    package_validation_job: 88373087812
+    artifact_id: 8463571441
 
   stages.V2_function_equivalence.status: passed
   stages.V2_function_equivalence.evidence:
@@ -83,6 +130,7 @@ overrides:
     heads:
       - 6bb89fce283e508906f62bccbf32aa844e90528b
       - 67ad662f01c169167167269a3743e0e01ac65033
+      - 692adbd64cbecf89f78696e08a3f8f33533eedc2
     scope:
       - shared
       - cu1
@@ -98,6 +146,7 @@ overrides:
     heads:
       - 6bb89fce283e508906f62bccbf32aa844e90528b
       - 67ad662f01c169167167269a3743e0e01ac65033
+      - 692adbd64cbecf89f78696e08a3f8f33533eedc2
     real_external_stack: false
     scientific_result: false
 
@@ -112,9 +161,9 @@ overrides:
     formal_evidence: false
   stages.V4_real_liveness.components.du1_cpu.status: passed
   stages.V4_real_liveness.components.du1_cpu.evidence:
-    head: a11423927e3397eea3551e2ff2fb8b0a965da7dd
-    package_validation_run: 29744134252
-    package_validation_job: 88357854875
+    head: 692adbd64cbecf89f78696e08a3f8f33533eedc2
+    package_validation_run: 29748664467
+    package_validation_job: 88373087812
     route: exact_package_public_cli_cpu_smoke
     all_six_methods_execute: true
     frozen_method_order_after_repair: true
@@ -124,7 +173,7 @@ overrides:
   stages.V4_real_liveness.components.d4rl_9.status: blocked
 
   stages.V5_scientific_reproduction.status: pending
-  next_gate: final_exact_head_package_ci_and_validated_artifact_after_format_repair
+  next_gate: integration_freshness_audit_against_current_main
 
 notes:
   - synchronization is additive and preserves migration history
@@ -132,3 +181,4 @@ notes:
   - no result status or method ranking changed
   - the format repair changed layout only and was bounded to the 60-file diagnostic set
   - Hopper, Countdown, and D4RL real-stack blockers remain unchanged
+  - the CI of this evidence-synchronization commit is tracked externally to avoid a self-referential evidence loop
