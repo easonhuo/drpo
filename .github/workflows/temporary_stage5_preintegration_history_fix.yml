@@ -34,7 +34,23 @@ jobs:
             set -euo pipefail
             python tools/temporary_patch_stage5_maintenance_fixture.py
             python tools/temporary_patch_stage5_preintegration_history.py
-            DRPO_STAGE5_MAINTENANCE_CANDIDATE=1 python tests/stage5_candidate_integration.py
+            python tools/temporary_patch_stage5_focused_regression.py
+            python tools/temporary_refresh_stage5_maintenance_hashes.py
+            DRPO_STAGE5_MAINTENANCE_CANDIDATE=1 python - <<'PY'
+          import runpy
+          import tempfile
+          from pathlib import Path
+
+          namespace = runpy.run_path(
+              "tests/stage5_candidate_integration.py",
+              run_name="stage5_candidate",
+          )
+          with tempfile.TemporaryDirectory(prefix="drpo-stage5-focused-") as directory:
+              namespace[
+                  "run_preintegration_report_revision_and_postintegration_tamper"
+              ](Path(directory))
+          print("Stage 5 pre-integration history regression: PASS")
+          PY
             python scripts/handoff_authority.py verify --repo-root . --json
             python scripts/validate_governance_pipeline_stage_status.py --repo-root .
             python -m pytest -q tests/test_governance_pipeline_stage_status.py tests/test_governance_rule_inventory.py
@@ -61,10 +77,12 @@ jobs:
           git rm .github/workflows/temporary_stage5_preintegration_history_fix.yml
           git rm tools/temporary_patch_stage5_preintegration_history.py
           git rm tools/temporary_patch_stage5_maintenance_fixture.py
+          git rm tools/temporary_patch_stage5_focused_regression.py
+          git rm tools/temporary_refresh_stage5_maintenance_hashes.py
           rm -f docs/experiments/STAGE5_PREINTEGRATION_HISTORY_FIX_FAILURE.txt
           git add -A
           git diff --check --cached
-          test -z "$(git ls-files '.github/workflows/temporary_stage5*' 'tools/temporary_patch_stage5*')" || {
+          test -z "$(git ls-files '.github/workflows/temporary_stage5*' 'tools/temporary_*stage5*')" || {
             echo 'temporary path remains in final tree' >&2
             exit 1
           }
