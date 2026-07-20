@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 50
     env:
       BRANCH: dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01
-      EXPECTED_MAIN: d2f3a7d0e2533d18f649c089caf1c8dc3b446a7c
+      EXPECTED_MAIN: 943c9a033e3494ab2a101929d6017cfd6e2372f8
       UPDATE_ID: EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20
       DELTA_PATH: docs/handoff_deltas/EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml
     steps:
@@ -99,7 +99,7 @@ jobs:
           provenance['current_main_rebase'] = {
               'status': 'PASS',
               'base_commit': current_main,
-              'reason': 'main advanced by one unrelated ReplayAB authority-binding repair before final merge',
+              'reason': 'main advanced through unrelated ReplayAB governance closure commits before final merge',
               'scientific_files_overlap': False,
           }
           provenance_path.write_text(json.dumps(provenance, indent=2, sort_keys=True) + '\n', encoding='utf-8')
