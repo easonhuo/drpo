@@ -1,4 +1,4 @@
-name: Temporary current-main pytest baseline
+name: Temporary current-main pytest extractor
 
 on:
   push:
@@ -8,48 +8,32 @@ on:
       - .github/workflows/temporary_e8_reciprocal_status_probe.yml
 
 permissions:
+  actions: read
   contents: write
 
 jobs:
-  baseline:
+  extract:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
-          fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: pip
-      - name: Run current-main full pytest
-        run: |
-          set +e
-          python -m pip install -e '.[dev]'
-          python -m pytest -q > /tmp/main_pytest.log 2>&1
-          rc=$?
-          mkdir -p docs/experiments
-          {
-            echo "main_sha=$(git rev-parse HEAD)"
-            echo "pytest_exit=$rc"
-            grep -E '^FAILED |^ERROR ' /tmp/main_pytest.log || true
-            echo '--- summary tail ---'
-            tail -n 80 /tmp/main_pytest.log
-          } > docs/experiments/TEMP_CURRENT_MAIN_PYTEST_BASELINE.txt
-          exit 0
-      - name: Publish baseline on diagnostic branch
+          ref: diag/e8-reciprocal-finalizer-48a3e49
+      - name: Extract current-main pytest baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          mkdir -p docs/experiments
+          gh run view 29731547757 --repo easonhuo/drpo --log > /tmp/baseline_run.log 2>&1 || true
+          {
+            echo 'run_id=29731547757'
+            grep -E 'FAILED |ERROR |short test summary|failed,|passed,' /tmp/baseline_run.log | tail -n 220 || true
+            echo '--- tail ---'
+            tail -n 120 /tmp/baseline_run.log
+          } > docs/experiments/TEMP_CURRENT_MAIN_PYTEST_BASELINE.txt
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git switch -C diag-output origin/diag/e8-reciprocal-finalizer-48a3e49
-          cp /tmp/main_pytest.log /tmp/main_pytest.full.log
-          git show main:docs/experiments/TEMP_CURRENT_MAIN_PYTEST_BASELINE.txt >/dev/null 2>&1 || true
-          cp "$GITHUB_WORKSPACE/docs/experiments/TEMP_CURRENT_MAIN_PYTEST_BASELINE.txt" /tmp/baseline.txt
-          mkdir -p docs/experiments
-          cp /tmp/baseline.txt docs/experiments/TEMP_CURRENT_MAIN_PYTEST_BASELINE.txt
           git add docs/experiments/TEMP_CURRENT_MAIN_PYTEST_BASELINE.txt
-          git commit -m 'Record current-main pytest baseline'
+          git commit -m 'Extract current-main pytest baseline'
           git push origin HEAD:diag/e8-reciprocal-finalizer-48a3e49
