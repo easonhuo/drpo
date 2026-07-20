@@ -480,8 +480,6 @@ def validate_grid_config(config: Mapping[str, Any]) -> None:
 
     predecessor_compatible = copy.deepcopy(config)
     predecessor_compatible["remoteness"]["weight"] = "alpha*exp(-c*u^2)"
-    with activated(profile):
-        _BASE_VALIDATE_GRID_CONFIG(predecessor_compatible)
     if config["remoteness"].get("weight") != "alpha*exp(-c*u)":
         raise ValueError("The paper-aligned weight must be alpha*exp(-c*u)")
     points = tuple(
@@ -518,6 +516,8 @@ def validate_grid_config(config: Mapping[str, Any]) -> None:
             raise ValueError("Positive-only must not be rerun in the extension")
         if tuple(reference.get("seed_offsets", ())) != SEED_OFFSETS:
             raise ValueError("Historical reference seed offsets changed")
+    with activated(profile):
+        _BASE_VALIDATE_GRID_CONFIG(predecessor_compatible)
     if config["execution"].get("default_gpus") != list(range(8)):
         raise ValueError("The paper-aligned scan requires GPU 0-7")
     if config["evaluation"].get("primary_selection_metric") != "late_window_pass_at_8":
