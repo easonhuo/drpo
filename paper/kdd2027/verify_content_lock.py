@@ -97,6 +97,7 @@ def strip_descriptions(text: str) -> str:
     return re.sub(r"\n?\s*\\Description\{[^{}]*\}", "", text)
 
 
+
 def strip_formatting_only(text: str) -> str:
     text = text.replace(VERIFIER_FORMATTED, VERIFIER_ORIGINAL)
     text = text.replace(TOPR_FORMATTED, TOPR_ORIGINAL)
