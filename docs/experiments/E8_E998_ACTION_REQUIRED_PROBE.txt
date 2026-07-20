@@ -1,0 +1,153 @@
+=== RUN 29738734778 ===
+{
+  "id": 29738734778,
+  "name": "Evidence Locator Gate",
+  "event": "pull_request",
+  "status": "completed",
+  "conclusion": "action_required",
+  "head_sha": "e998e6b49f3656d90f6205ccd5dfeb6cebb6fa5c",
+  "head_branch": "dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01",
+  "actor": "github-actions[bot]",
+  "triggering_actor": "github-actions[bot]",
+  "run_attempt": 1,
+  "path": ".github/workflows/evidence-locator-gate.yml",
+  "display_title": "Close E8 reciprocal pilot evidence chain",
+  "created_at": "2026-07-20T11:29:34Z",
+  "updated_at": "2026-07-20T11:29:34Z",
+  "pull_requests": [
+    {
+      "url": "https://api.github.com/repos/easonhuo/drpo/pulls/174",
+      "id": 4086376561,
+      "number": 174,
+      "head": {
+        "ref": "dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01",
+        "sha": "e998e6b49f3656d90f6205ccd5dfeb6cebb6fa5c",
+        "repo": {
+          "id": 1279080796,
+          "url": "https://api.github.com/repos/easonhuo/drpo",
+          "name": "drpo"
+        }
+      },
+      "base": {
+        "ref": "main",
+        "sha": "4b718e7439cf78a04f4affa1987ac15582d702d1",
+        "repo": {
+          "id": 1279080796,
+          "url": "https://api.github.com/repos/easonhuo/drpo",
+          "name": "drpo"
+        }
+      }
+    }
+  ]
+}
+
+X dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01 Evidence Locator Gate easonhuo/drpo#174 · 29738734778
+Triggered via pull_request about 1 minute ago
+
+JOBS
+
+
+To see what failed, try: gh run view 29738734778 --log-failed
+View this run on GitHub: https://github.com/easonhuo/drpo/actions/runs/29738734778
+=== RUN 29738734730 ===
+{
+  "id": 29738734730,
+  "name": "PR Gate Log",
+  "event": "pull_request",
+  "status": "completed",
+  "conclusion": "action_required",
+  "head_sha": "e998e6b49f3656d90f6205ccd5dfeb6cebb6fa5c",
+  "head_branch": "dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01",
+  "actor": "github-actions[bot]",
+  "triggering_actor": "github-actions[bot]",
+  "run_attempt": 1,
+  "path": ".github/workflows/pr-gate-log.yml",
+  "display_title": "Close E8 reciprocal pilot evidence chain",
+  "created_at": "2026-07-20T11:29:34Z",
+  "updated_at": "2026-07-20T11:29:34Z",
+  "pull_requests": [
+    {
+      "url": "https://api.github.com/repos/easonhuo/drpo/pulls/174",
+      "id": 4086376561,
+      "number": 174,
+      "head": {
+        "ref": "dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01",
+        "sha": "e998e6b49f3656d90f6205ccd5dfeb6cebb6fa5c",
+        "repo": {
+          "id": 1279080796,
+          "url": "https://api.github.com/repos/easonhuo/drpo",
+          "name": "drpo"
+        }
+      },
+      "base": {
+        "ref": "main",
+        "sha": "4b718e7439cf78a04f4affa1987ac15582d702d1",
+        "repo": {
+          "id": 1279080796,
+          "url": "https://api.github.com/repos/easonhuo/drpo",
+          "name": "drpo"
+        }
+      }
+    }
+  ]
+}
+
+X dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01 PR Gate Log easonhuo/drpo#174 · 29738734730
+Triggered via pull_request about 1 minute ago
+
+JOBS
+
+
+To see what failed, try: gh run view 29738734730 --log-failed
+View this run on GitHub: https://github.com/easonhuo/drpo/actions/runs/29738734730
+=== RUN 29738734769 ===
+{
+  "id": 29738734769,
+  "name": "Import revised Overleaf project and compiled PDF",
+  "event": "pull_request",
+  "status": "completed",
+  "conclusion": "action_required",
+  "head_sha": "e998e6b49f3656d90f6205ccd5dfeb6cebb6fa5c",
+  "head_branch": "dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01",
+  "actor": "github-actions[bot]",
+  "triggering_actor": "github-actions[bot]",
+  "run_attempt": 1,
+  "path": ".github/workflows/import-revised-overleaf.yml",
+  "display_title": "Close E8 reciprocal pilot evidence chain",
+  "created_at": "2026-07-20T11:29:34Z",
+  "updated_at": "2026-07-20T11:29:34Z",
+  "pull_requests": [
+    {
+      "url": "https://api.github.com/repos/easonhuo/drpo/pulls/174",
+      "id": 4086376561,
+      "number": 174,
+      "head": {
+        "ref": "dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01",
+        "sha": "e998e6b49f3656d90f6205ccd5dfeb6cebb6fa5c",
+        "repo": {
+          "id": 1279080796,
+          "url": "https://api.github.com/repos/easonhuo/drpo",
+          "name": "drpo"
+        }
+      },
+      "base": {
+        "ref": "main",
+        "sha": "4b718e7439cf78a04f4affa1987ac15582d702d1",
+        "repo": {
+          "id": 1279080796,
+          "url": "https://api.github.com/repos/easonhuo/drpo",
+          "name": "drpo"
+        }
+      }
+    }
+  ]
+}
+
+X dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01 Import revised Overleaf project and compiled PDF easonhuo/drpo#174 · 29738734769
+Triggered via pull_request about 1 minute ago
+
+JOBS
+
+
+To see what failed, try: gh run view 29738734769 --log-failed
+View this run on GitHub: https://github.com/easonhuo/drpo/actions/runs/29738734769
