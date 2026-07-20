@@ -17,19 +17,26 @@ REPRESENTATIVE_DATASET = "walker2d-medium-v2"
 REPRESENTATIVE_W0 = 1.0
 REPRESENTATIVE_COEFFICIENT = 4.0
 SELECTOR_POLICY_VERSION = 3
-THROUGHPUT_PROBE_STEPS = 5_000
+PROBE_STEPS_LIMIT = 5_000
+PROBE_SECONDS_LIMIT = 300.0
 CANDIDATE_DIVISIONS = 8
 CANDIDATE_POLICY = "low_first_eighths_v3"
 
-_ACTIVE_THROUGHPUT_PROBE_STEPS: contextvars.ContextVar[int] = contextvars.ContextVar(
-    "e7_squared_exp_throughput_probe_steps",
-    default=THROUGHPUT_PROBE_STEPS,
+_REQUESTED_PROBE_STEPS: contextvars.ContextVar[int | None] = contextvars.ContextVar(
+    "e7_squared_exp_requested_probe_steps",
+    default=None,
+)
+_REQUESTED_PROBE_SECONDS: contextvars.ContextVar[float | None] = contextvars.ContextVar(
+    "e7_squared_exp_requested_probe_seconds",
+    default=None,
 )
 
 _ORIGINAL_SELECT_RUNTIME = legacy.select_runtime
 _ORIGINAL_REVALIDATE_RUNTIME = legacy.revalidate_runtime
 _ORIGINAL_CLEANUP = legacy._cleanup_probe_payload  # noqa: SLF001
-_ORIGINAL_SELECTOR_IMPLEMENTATION = legacy._selector_implementation_identity  # noqa: SLF001
+_ORIGINAL_SELECTOR_IMPLEMENTATION = (  # noqa: SLF001
+    legacy._selector_implementation_identity
+)
 _ORIGINAL_CANDIDATE_WORKERS = legacy.candidate_workers
 _ORIGINAL_BENCHMARK_CONCURRENCY = legacy.benchmark_concurrency
 _ORIGINAL_SELECTOR_POLICY_VERSION = legacy.SELECTOR_POLICY_VERSION
@@ -92,6 +99,19 @@ def _representative(branches: list[Any]) -> Any:
     return matches[0]
 
 
+def _bounded_probe_policy(probe_steps: int, probe_seconds: float) -> dict[str, int | float]:
+    if probe_steps < 1:
+        raise legacy.RuntimeResourceError("probe_steps must be positive")
+    if not math.isfinite(probe_seconds) or probe_seconds <= 0:
+        raise legacy.RuntimeResourceError("probe_seconds must be finite and positive")
+    return {
+        "requested_probe_steps": int(probe_steps),
+        "effective_probe_steps": min(int(probe_steps), PROBE_STEPS_LIMIT),
+        "requested_probe_seconds": float(probe_seconds),
+        "effective_probe_seconds": min(float(probe_seconds), PROBE_SECONDS_LIMIT),
+    }
+
+
 def _low_first_candidate_workers(safe_cap: int, fallback_workers: int) -> list[int]:
     """Return a bounded ascending grid that always has a one-worker foothold."""
 
@@ -107,20 +127,34 @@ def _low_first_candidate_workers(safe_cap: int, fallback_workers: int) -> list[i
 
 
 def _bounded_benchmark_concurrency(**kwargs: Any) -> dict[str, Any]:
-    """Keep throughput measurement short even when the RSS probe is configured long."""
+    """Keep candidate measurement bounded even when legacy callers request longer probes."""
 
-    requested_steps = int(kwargs.get("probe_steps", 0) or 0)
-    if requested_steps < 1:
-        raise legacy.RuntimeResourceError("probe_steps must be positive")
-    effective_steps = min(requested_steps, _ACTIVE_THROUGHPUT_PROBE_STEPS.get())
+    policy = _bounded_probe_policy(
+        int(kwargs.get("probe_steps", 0) or 0),
+        float(kwargs.get("timeout_seconds", 0.0) or 0.0),
+    )
+    requested_steps = _REQUESTED_PROBE_STEPS.get()
+    requested_seconds = _REQUESTED_PROBE_SECONDS.get()
+    if requested_steps is None:
+        requested_steps = int(policy["requested_probe_steps"])
+    if requested_seconds is None:
+        requested_seconds = float(policy["requested_probe_seconds"])
+    effective_steps = int(policy["effective_probe_steps"])
+    effective_seconds = float(policy["effective_probe_seconds"])
     bounded = dict(kwargs)
     bounded["probe_steps"] = effective_steps
+    bounded["timeout_seconds"] = effective_seconds
     summary = dict(_ORIGINAL_BENCHMARK_CONCURRENCY(**bounded))
     summary.update(
         {
             "requested_probe_steps_per_branch": requested_steps,
             "effective_probe_steps_per_branch": effective_steps,
-            "probe_horizon_bounded_by_adapter": effective_steps != requested_steps,
+            "requested_timeout_seconds": requested_seconds,
+            "effective_timeout_seconds": effective_seconds,
+            "probe_policy_bounded_by_adapter": (
+                effective_steps != requested_steps
+                or not math.isclose(effective_seconds, requested_seconds)
+            ),
             "candidate_policy": CANDIDATE_POLICY,
         }
     )
@@ -157,6 +191,12 @@ def resource_fingerprint(
     pilot.load_grid(grid_path)
     argv = [str(value) for value in run_spec["trainer_argv_template"]]
     profile = pilot.active_runtime_profile()
+    requested_probe_steps = _REQUESTED_PROBE_STEPS.get()
+    requested_probe_seconds = _REQUESTED_PROBE_SECONDS.get()
+    if requested_probe_steps is None:
+        requested_probe_steps = int(probe_steps)
+    if requested_probe_seconds is None:
+        requested_probe_seconds = float(probe_seconds)
     source_paths = (
         "src/drpo/e7_squared_exp_kernel.py",
         "src/drpo/e7_ppo_kl_refresh.py",
@@ -198,7 +238,12 @@ def resource_fingerprint(
             if key != "adapter_id"
         },
     }
-    for key in ("clip_epsilon", "max_updates_per_old_policy", "target_kl", "gae_lambda"):
+    for key in (
+        "clip_epsilon",
+        "max_updates_per_old_policy",
+        "target_kl",
+        "gae_lambda",
+    ):
         if key in profile:
             hard_fields[key] = profile[key]
     return {
@@ -214,9 +259,12 @@ def resource_fingerprint(
                 pilot._flag_value(argv, "--eval_episodes")  # noqa: SLF001
             ),
             "probe_terminal_evaluation_episodes": 1,
-            "representative_probe_steps": int(probe_steps),
-            "throughput_probe_steps": _ACTIVE_THROUGHPUT_PROBE_STEPS.get(),
-            "probe_seconds": float(probe_seconds),
+            "requested_probe_steps": requested_probe_steps,
+            "effective_probe_steps": int(probe_steps),
+            "probe_steps_limit": PROBE_STEPS_LIMIT,
+            "requested_probe_seconds": requested_probe_seconds,
+            "effective_probe_seconds": float(probe_seconds),
+            "probe_seconds_limit": PROBE_SECONDS_LIMIT,
             "probe_seed_namespace": int(probe_seed),
         },
         "selection_policy": {
@@ -264,11 +312,7 @@ def _cleanup_probe_payload(probe_dir: Path) -> None:
 
 
 @contextlib.contextmanager
-def _installed_adapter(
-    *, throughput_probe_steps: int = THROUGHPUT_PROBE_STEPS
-) -> Iterator[None]:
-    if throughput_probe_steps < 1:
-        raise legacy.RuntimeResourceError("throughput_probe_steps must be positive")
+def _installed_adapter() -> Iterator[None]:
     profile = pilot.active_runtime_profile()
     previous = (
         legacy.pilot,
@@ -284,7 +328,6 @@ def _installed_adapter(
         legacy.benchmark_concurrency,
         legacy.SELECTOR_POLICY_VERSION,
     )
-    token = _ACTIVE_THROUGHPUT_PROBE_STEPS.set(int(throughput_probe_steps))
     legacy.pilot = PROXY
     legacy.ADAPTER_ID = str(profile["adapter_id"])
     legacy.REPRESENTATIVE_DATASET = str(profile["dataset"])
@@ -316,14 +359,45 @@ def _installed_adapter(
             legacy.benchmark_concurrency,
             legacy.SELECTOR_POLICY_VERSION,
         ) = previous
-        _ACTIVE_THROUGHPUT_PROBE_STEPS.reset(token)
+
+
+@contextlib.contextmanager
+def _requested_probe_context(probe_steps: int, probe_seconds: float) -> Iterator[None]:
+    steps_token = _REQUESTED_PROBE_STEPS.set(int(probe_steps))
+    seconds_token = _REQUESTED_PROBE_SECONDS.set(float(probe_seconds))
+    try:
+        yield
+    finally:
+        _REQUESTED_PROBE_STEPS.reset(steps_token)
+        _REQUESTED_PROBE_SECONDS.reset(seconds_token)
+
+
+def _bounded_runtime_kwargs(kwargs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    policy = _bounded_probe_policy(
+        int(kwargs.get("probe_steps", 0) or 0),
+        float(kwargs.get("probe_seconds", 0.0) or 0.0),
+    )
+    bounded = dict(kwargs)
+    bounded["probe_steps"] = int(policy["effective_probe_steps"])
+    bounded["probe_seconds"] = float(policy["effective_probe_seconds"])
+    return bounded, policy
 
 
 def select_runtime(**kwargs: Any) -> dict[str, Any]:
-    with _installed_adapter():
-        return _ORIGINAL_SELECT_RUNTIME(**kwargs)
+    bounded, policy = _bounded_runtime_kwargs(kwargs)
+    with _requested_probe_context(
+        int(policy["requested_probe_steps"]),
+        float(policy["requested_probe_seconds"]),
+    ):
+        with _installed_adapter():
+            return _ORIGINAL_SELECT_RUNTIME(**bounded)
 
 
 def revalidate_runtime(**kwargs: Any) -> dict[str, Any]:
-    with _installed_adapter():
-        return _ORIGINAL_REVALIDATE_RUNTIME(**kwargs)
+    bounded, policy = _bounded_runtime_kwargs(kwargs)
+    with _requested_probe_context(
+        int(policy["requested_probe_steps"]),
+        float(policy["requested_probe_seconds"]),
+    ):
+        with _installed_adapter():
+            return _ORIGINAL_REVALIDATE_RUNTIME(**bounded)
