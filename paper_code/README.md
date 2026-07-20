@@ -53,6 +53,16 @@ evaluation is required:
 python -m pip install -e '.[test,rollout]'
 ```
 
+Install the optional Countdown Transformer runtime without changing the base
+CPU-oriented package:
+
+```bash
+python -m pip install -e '.[test,countdown]'
+```
+
+Use `countdown-4bit` instead of `countdown` only for an explicitly configured
+bitsandbytes/CUDA run.
+
 ## C-U1
 
 The public C-U1 stage names follow the paper's evidence roles rather than the
@@ -213,41 +223,57 @@ critic, or multi-method execution code and are not silently frozen by the public
 runner. Real nine-task HDF5 and MuJoCo liveness has not yet been executed by this
 migration task.
 
-## Countdown stable training core
+## Countdown Transformer runtime
 
-`drpo_reference.categorical.countdown` contains the stable reviewer-facing
-sequence and objective primitives that do not depend on the final manuscript
-protocol:
+`drpo_reference.categorical.countdown` remains the dependency-light algorithm
+core. `drpo_reference.experiments.countdown` adds the approved reviewer-facing
+Transformers/PEFT lifecycle without moving those dependencies into the core.
 
-- canonical expression cleaning and exact arithmetic verification;
-- prompt/completion encoding with prompt labels masked and EOS included;
-- completion-only sequence log-probability, entropy, and bounded categorical
-  direct-logit score;
-- first-occurrence unique-negative bank encoding and flattened batching;
-- per-prompt unique-negative denominators, never weight-sum normalization;
-- detached normalized sequence surprisal `u=-log P(y|x)/2`;
-- paper-aligned linear-surprisal weights `alpha * exp(-c*u)`;
-- joint objective `-(mean positive log-probability - mean weighted negative
-  log-probability)`;
-- Positive-only execution that skips the negative-bank model forward;
-- stable bank/weight diagnostics and parameter-update norm measurement;
-- Greedy, Pass@k, valid-rate, and verifier-category aggregation.
+The runtime implements explicit JSON configuration, model/tokenizer/LoRA loading,
+replay and independent calibration validation, prompt-balanced paired training,
+per-seed model-backed calibration, AdamW with cosine warmup, gradient
+accumulation and clipping, raw/update norms, non-finite guards, best/last-finite/
+terminal adapter checkpoints, delayed test access, Greedy/Pass@k generation,
+completion/failure records, and method/seed mean/std aggregation.
 
-The implementation has controlled differential tests for frozen-bank collation,
-the exact objective and denominator, Positive-only bank skipping, diagnostics,
-and the first clipped AdamW update. It does not import Transformers or PEFT and
-does not select a model or optimizer schedule.
+Run it with:
 
-There is deliberately no `drpo-reference countdown` command yet. The stable core
-does not select a coefficient, model scale, method matrix, seed set, training
-budget, checkpoint, or test protocol. It also does not import the historical
-one-file trainer, GPU scheduler, RunSpec machinery, or experiment artifact
-system.
+```bash
+drpo-reference countdown \
+  --config /ABS/PATH/countdown-reviewer.json \
+  --output outputs/countdown-reviewer
+```
 
-The final Countdown experiment entry remains blocked until the manuscript-facing
-protocol and result are frozen. Adding that entry requires a separate approved
-Python path and must preserve the distinction between external validity and
-D-U1 controlled causal identification.
+The JSON object must explicitly provide these sections and coordinates:
+
+- `schema_version: 1`;
+- `model`: path, optional initial adapter, device, dtype, 4-bit flag, gradient
+  checkpointing flag, and LoRA rank/alpha/dropout/target modules;
+- `data`: replay, calibration, validation, and optional test JSONL paths;
+- `methods` and `seeds`;
+- `training`: max length, steps, micro-batch, accumulation, learning rate, weight
+  decay, warmup ratio, clipping norm, evaluation cadence, checkpoint cadence;
+- `calibration`: prompt count/seed, minimum scale, inherited exponential
+  coefficient, search range/steps/tolerance, and nondegenerate gates;
+- `evaluation`: batch size, example count, generation length, Pass@k, seed,
+  selection metric, temperature, and top-p.
+
+No model, LoRA, method, seed, budget, coefficient, checkpoint, or test coordinate
+is silently selected by the command. The test file is not read or hashed before
+method training finishes. Fixed-horizon completion is not reported as
+convergence, and no output authorizes a formal result or method ranking.
+
+The command writes a root run manifest, per-seed calibration record, per-method
+training metrics and adapter checkpoints, best/terminal evaluation records,
+per-run completion/failure records, a summary, and a root completion record.
+Training failure, NaN/Inf failure, test-input failure, and checkpoint-evaluation
+failure are preserved separately. Task-collapse and support/probability-boundary
+fields remain unset because no reviewer threshold has been frozen.
+
+Real Qwen/CUDA liveness, resume semantics, the final manuscript-facing
+coordinate, formal seeds/budgets, and scientific terminal review remain pending.
+Countdown remains external validity and does not replace D-U1 controlled causal
+identification.
 
 ## Artifact and evidence boundary
 
@@ -267,10 +293,10 @@ Current migration status:
 - D-U1 revision-4 implementation candidate complete; formal run pending;
 - Hopper E7-Q2 implementation candidate complete; registered real reproduction pending;
 - D4RL-9 reviewer-facing algorithm, multi-method training, rollout, and simple aggregation implemented; real liveness and final formal protocol remain pending;
-- Countdown stable training core implemented and engineering-tested; final reviewer experiment entry remains blocked pending manuscript-facing protocol and result freeze.
+- Countdown reviewer runtime implemented and controlled-backend tested; real Qwen/CUDA liveness and final manuscript-facing protocol remain pending.
 
-No smoke or short differential result is a paper result. The machine-readable
-acceptance contract is in:
+No smoke, fake-backend, short differential, or static-check result is a paper
+result. The machine-readable acceptance contract is in:
 
 ```text
 ../docs/paper_code_reference/ACCEPTANCE_MATRIX.yaml
