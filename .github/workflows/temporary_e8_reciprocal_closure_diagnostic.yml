@@ -15,27 +15,15 @@ permissions:
 jobs:
   diagnose:
     runs-on: ubuntu-latest
-    env:
-      TARGET_SHA: a2b0375aaf36f6413da536efd06bb5a2f2747416
-      TARGET_WORKFLOW: Temporary E8 reciprocal closure bootstrap v2
     steps:
-      - name: Locate bootstrap run and report failed step
+      - name: Report bootstrap failure log tail
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          TARGET_JOB_ID: '88281833758'
         run: |
           set -euo pipefail
-          runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$TARGET_SHA&per_page=100")"
-          run_id="$(jq -r --arg name "$TARGET_WORKFLOW" '.workflow_runs[] | select(.name == $name) | .id' <<<"$runs" | head -n1)"
-          if [[ -z "$run_id" ]]; then
-            body="Diagnostic: no workflow run named \`$TARGET_WORKFLOW\` was found for \`$TARGET_SHA\`."
-          else
-            run="$(jq -r --argjson id "$run_id" '.workflow_runs[] | select(.id == $id)' <<<"$runs")"
-            status="$(jq -r '.status' <<<"$run")"
-            conclusion="$(jq -r '.conclusion // "null"' <<<"$run")"
-            url="$(jq -r '.html_url' <<<"$run")"
-            jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs?per_page=100")"
-            summary="$(jq -r '.jobs[] | "- job `" + .name + "`: status=" + .status + ", conclusion=" + (.conclusion // "null") + "\n" + ((.steps // []) | map(select(.conclusion == "failure") | "  - failed step: `" + .name + "`") | join("\n"))' <<<"$jobs")"
-            body="Diagnostic for \`$TARGET_WORKFLOW\` at \`$TARGET_SHA\`: run $run_id, status=$status, conclusion=$conclusion.\n\n$summary\n\n$url"
-          fi
+          gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$TARGET_JOB_ID/logs" > /tmp/job.log
+          tail_text="$(tail -n 120 /tmp/job.log | sed 's/`/\x27/g')"
+          body="Diagnostic log tail for job $TARGET_JOB_ID:\n\n\`\`\`text\n$tail_text\n\`\`\`"
           gh api "repos/$GITHUB_REPOSITORY/issues/174/comments" -f body="$body" >/dev/null
