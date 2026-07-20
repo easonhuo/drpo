@@ -24,7 +24,7 @@ Squared-night preflight is capped at:
 
 ```text
 optimizer steps per probe/candidate: 5000
-wall-clock seconds per probe/candidate: 300
+wall-clock seconds per probe/candidate: 120
 ```
 
 The limits apply to both the representative CPU/RSS probe and each throughput candidate. A
@@ -37,26 +37,27 @@ The representative probe still owns:
 - average process-tree CPU demand;
 - affinity and quota-domain observations.
 
-The throughput grid still owns comparison of independent subprocess counts. Requested and
-effective step/time limits are recorded in the resource fingerprint, and every candidate
-`BENCHMARK_SUMMARY.json` records its requested and effective values. Thus the former
-`100000`-step, `2500`-second override becomes an auditable effective `5000`-step,
-`300`-second preflight instead of an hour-scale plan.
+The throughput grid still owns comparison of independent subprocess counts. Effective
+step/time limits and the V3 hard limits enter the immutable resource fingerprint. Requested
+and effective values are preserved as non-identity evidence in `RUNTIME_SELECTION.json` and
+in every candidate `BENCHMARK_SUMMARY.json`. Therefore changing `100000/2500` to `5000/120`
+after planning does not invalidate a selection when the effective policy is unchanged.
 
 ## Low-first candidate policy
 
 Let `safe_cap` be the unchanged V2 minimum of CPU, memory, task, growth, and optional
-configured ceilings. V3 constructs a sorted unique grid containing:
+configured ceilings. V3 constructs a sorted unique geometric sequence that:
 
-1. candidate `1`;
-2. the eight equal-fraction boundaries of `safe_cap`;
-3. the legacy fallback when it lies within the cap;
-4. `safe_cap` itself.
+1. always starts at candidate `1`;
+2. grows by a factor of `1.75`;
+3. includes the legacy fallback when it lies within the cap;
+4. includes `safe_cap` exactly;
+5. never contains a value above `safe_cap`.
 
-No candidate exceeds `safe_cap`. Because candidate `1` is always first, a higher candidate can
-fail without leaving the selector with zero completed evidence. The existing shared loop stops
-on the first invalid candidate, and the unchanged retained-peak rule selects from the already
-valid lower candidates.
+Because candidate `1` is always first, a higher candidate can fail without leaving the
+selector with zero completed evidence. The existing shared loop stops on the first invalid
+candidate, and the unchanged retained-peak rule selects from the already valid lower
+candidates.
 
 `max_workers` remains supported, but only as an optional absolute ceiling. It is no longer
 needed to pull the first candidate below the safe range.
@@ -64,22 +65,26 @@ needed to pull the first candidate below the safe range.
 Example for `safe_cap=130`, `fallback=60`:
 
 ```text
-1, 17, 33, 49, 60, 65, 82, 98, 114, 130
+1, 2, 4, 7, 13, 23, 41, 60, 72, 126, 130
 ```
 
-If 49 is invalid, 1, 17, and 33 remain valid evidence and selection continues from those rows.
-The plan does not fail merely because the first fraction of a large cap was unsafe.
+If 60 is invalid, candidates through 41 remain valid evidence and selection continues from
+those rows. The plan does not fail merely because a fraction of a large machine ceiling was
+unsafe.
 
 ## Policy and identity
 
-Squared-night selections use selector policy version `3`. The resource fingerprint records:
+Squared-night selections use a V3 adapter id and selector policy version `3`. The immutable
+resource fingerprint records:
 
-- requested and effective probe steps;
-- requested and effective probe seconds;
+- effective probe steps and seconds;
 - hard V3 probe limits;
-- candidate policy and divisions;
+- geometric candidate policy and growth factor;
 - fallback as a bounded candidate only;
 - max workers as an optional absolute ceiling.
+
+Requested probe values are operational provenance rather than identity when normalization
+produces the same effective limits. They are recorded with `identity_affecting=false`.
 
 A V2 squared-night selection is not silently upgraded. Existing work directories remain
 immutable and may resume only under their original source and policy. A V3 decision requires a
@@ -120,7 +125,8 @@ Before use on a full pilot:
 1. focused deterministic tests and shell syntax;
 2. full repository CI and governance no-op checks;
 3. a selection-only server shadow in a new work directory;
-4. confirmation that oversized step/time requests are capped to 5000/300;
+4. confirmation that oversized requests are normalized to effective `5000/120`;
 5. confirmation that a failed higher candidate retains valid lower candidates;
 6. confirmation that one-click consumes an existing V3 selection without another plan;
-7. no scientific branch launch during shadow.
+7. confirmation that changing only an oversized requested value does not change identity;
+8. no scientific branch launch during shadow.
