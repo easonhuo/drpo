@@ -16,7 +16,7 @@ jobs:
   diagnose:
     runs-on: ubuntu-latest
     steps:
-      - name: Report bootstrap failure log tail
+      - name: Report concise bootstrap failure
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -24,6 +24,7 @@ jobs:
         run: |
           set -euo pipefail
           gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$TARGET_JOB_ID/logs" > /tmp/job.log
-          tail_text="$(tail -n 120 /tmp/job.log | sed 's/`/\x27/g')"
-          body="Diagnostic log tail for job $TARGET_JOB_ID:\n\n\`\`\`text\n$tail_text\n\`\`\`"
+          matches="$(grep -nEi 'ERROR|Traceback|mismatch|forbid|invalid|failed|requires|exact_base|registry' /tmp/job.log | tail -n 35 || true)"
+          tail_text="$(tail -n 45 /tmp/job.log)"
+          body="Concise diagnostic for job $TARGET_JOB_ID:\n\nMatches:\n\`\`\`text\n$matches\n\`\`\`\n\nFinal lines:\n\`\`\`text\n$tail_text\n\`\`\`"
           gh api "repos/$GITHUB_REPOSITORY/issues/174/comments" -f body="$body" >/dev/null
