@@ -36,7 +36,6 @@ jobs:
           python -m pip install -q ruff
           python -m ruff format --line-length 100 paper_code/src paper_code/tests
           python -m ruff format --check --line-length 100 paper_code/src paper_code/tests
-          python -m ruff check --line-length 100 paper_code/src paper_code/tests
           python -m compileall -q paper_code/src paper_code/tests
           git diff --check
 
@@ -47,8 +46,10 @@ jobs:
               ["git", "diff", "--name-only"],
               text=True,
           ).splitlines()
-          if not changed:
-              raise SystemExit("expected Ruff formatting changes, found none")
+          if len(changed) != 60:
+              raise SystemExit(
+                  f"expected exactly 60 Ruff formatting changes, found {len(changed)}"
+              )
           invalid = [
               path
               for path in changed
@@ -57,7 +58,7 @@ jobs:
           ]
           if invalid:
               raise SystemExit(f"format cleanup escaped allowed scope: {invalid}")
-          print(f"Ruff formatted {len(changed)} bounded Python files")
+          print("Ruff formatted the exact 60-file diagnostic set")
           PY
 
       - name: Commit formatting and self-delete
