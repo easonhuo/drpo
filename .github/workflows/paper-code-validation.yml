@@ -202,8 +202,30 @@ jobs:
         run: python -m pytest -x -vv tests/test_du1_cli.py
 
       - name: Run D-U1 public smoke tests
+        id: du1_public
+        continue-on-error: true
         working-directory: extracted/drpo-reference-v0.1
-        run: python -m pytest -x -vv tests/test_du1_public.py
+        run: |
+          set +e
+          python -m pytest -x -vv tests/test_du1_public.py \
+            > "$GITHUB_WORKSPACE/du1-public-pytest.log" 2>&1
+          status=$?
+          cat "$GITHUB_WORKSPACE/du1-public-pytest.log"
+          echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Upload D-U1 package diagnostics
+        if: steps.du1_public.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-code-du1-diagnostics-${{ github.event.pull_request.head.sha }}
+          path: du1-public-pytest.log
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Fail on D-U1 package smoke mismatch
+        if: steps.du1_public.outcome == 'failure'
+        run: exit 1
 
       - name: Ruff check extracted package
         working-directory: extracted/drpo-reference-v0.1
