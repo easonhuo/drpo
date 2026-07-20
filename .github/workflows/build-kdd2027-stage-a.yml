@@ -32,21 +32,13 @@ jobs:
           cat .github/kdd-stage-a-source/chunk-*.tex > paper/kdd2027/source_locked.tex
           echo '6e5ee53daf390f50ee2f2098826c02882a53257cbbe97ccee4a4ace1cde45dae  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
 
-      - name: Correct the portable font audit and generate the anonymous manuscript
+      - name: Generate anonymous ACM manuscript
         shell: bash
         run: |
           set -euo pipefail
-          python - <<'PY'
-          from pathlib import Path
-          path = Path('scripts/generate_kdd2027_stage_a.py')
-          text = path.read_text(encoding='utf-8')
-          old = 'NR>2 && ($5 != "yes" || $6 != "yes")'
-          new = 'NR>2 && ($4 != "yes" || $5 != "yes")'
-          if old not in text:
-              raise SystemExit('expected font-audit expression not found')
-          path.write_text(text.replace(old, new, 1), encoding='utf-8')
-          PY
           python scripts/generate_kdd2027_stage_a.py
+          python scripts/postprocess_kdd2027_stage_a.py
+          python paper/kdd2027/verify_content_lock.py
 
       - name: Install LaTeX and PDF audit tools
         run: |
@@ -55,6 +47,7 @@ jobs:
             latexmk \
             poppler-utils \
             texlive-bibtex-extra \
+            texlive-fonts-extra \
             texlive-fonts-recommended \
             texlive-latex-extra
 
