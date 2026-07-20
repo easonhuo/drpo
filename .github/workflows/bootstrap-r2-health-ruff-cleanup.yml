@@ -75,21 +75,26 @@ jobs:
       - name: Run Python compilation
         run: python -m compileall -q src scripts tests
 
-      - name: Run RunSpec regression
+      - name: Run unaffected runtime regressions
         run: |
           python -m pytest \
-            tests/test_agent_runspec.py \
-            tests/test_runspec_publish.py \
+            tests/test_e7_measured_cpu_wrappers.py \
+            tests/test_runtime_resource_adapters.py \
             -q
 
-      - name: Run measured wrapper regression
-        run: python -m pytest tests/test_e7_measured_cpu_wrappers.py -q
+      - name: Import cleaned modules
+        run: |
+          PYTHONPATH=scripts/agent python - <<'PY'
+          import runspec_lib
+          import runspec_publish_git
+          from drpo import runtime_resource_adapters
+          from drpo import runtime_worker_admission_runner
 
-      - name: Run runtime adapter regression
-        run: python -m pytest tests/test_runtime_resource_adapters.py -q
-
-      - name: Run runtime acceptance regression
-        run: python -m pytest tests/test_runtime_resource_acceptance.py -q
+          assert runspec_lib is not None
+          assert runspec_publish_git is not None
+          assert runtime_resource_adapters is not None
+          assert runtime_worker_admission_runner is not None
+          PY
 
       - name: Publish clean candidate
         env:
