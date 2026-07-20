@@ -69,11 +69,14 @@ jobs:
           python -m pip install --quiet --upgrade pip
           python -m pip install --quiet -e . pytest ruff pyyaml
 
-      - name: Verify cleanup
+      - name: Run repository Ruff
+        run: python -m ruff check .
+
+      - name: Run Python compilation
+        run: python -m compileall -q src scripts tests
+
+      - name: Run focused regression
         run: |
-          set -euo pipefail
-          python -m ruff check .
-          python -m compileall -q src scripts tests
           python -m pytest \
             tests/test_agent_runspec.py \
             tests/test_runspec_publish.py \
