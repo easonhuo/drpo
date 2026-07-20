@@ -18,9 +18,14 @@ def test_template_contract_is_explicitly_two_column_icml():
     cfg = yaml.safe_load((ROOT / "docs/manuscript/full_paper_assets.yaml").read_text())
     assert cfg["paper_template"]["family"] == "icml2026"
     assert cfg["paper_template"]["columns"] == 2
-    main = (ROOT / "paper/overleaf/main.tex").read_text()
-    assert "\\twocolumn" in main
-    assert "icml2026" in main
+    release = load_module()._release_module()
+    template = cfg["paper_template"]
+    active_source = release.resolve_active_template_source(
+        ROOT / template["main_tex"],
+        ROOT / template["root"],
+    )
+    assert "\\twocolumn" in active_source
+    assert "icml2026" in active_source
 
 
 def test_generated_assets_are_bound_to_stable_nodes():
