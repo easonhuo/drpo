@@ -13,6 +13,9 @@ PROBE_STEPS="${E7_SQUARED_EXP_PROBE_STEPS:-5000}"
 PROBE_SECONDS="${E7_SQUARED_EXP_PROBE_SECONDS:-120}"
 THROUGHPUT_RETENTION="${E7_SQUARED_EXP_THROUGHPUT_RETENTION:-0.97}"
 MAX_WORKERS="${E7_SQUARED_EXP_MAX_WORKERS:-}"
+if [[ -z "${MAX_WORKERS}" ]]; then
+  MAX_WORKERS="${DRPO_RUNTIME_MAX_WORKERS:-}"
+fi
 
 if [[ -n "$(git status --porcelain)" ]]; then
   echo "refusing to resume from a dirty checkout" >&2
