@@ -4,17 +4,26 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 python3 verify_content_lock.py
 required_figures=(
-  ../overleaf/figures/figure1_external_gradient_bottom_labels.pdf
-  ../overleaf/figures/fig_6_3_1_source_heatmap.pdf
-  ../overleaf/figures/fig_6_3_2_rescue_plot.pdf
-  ../overleaf/figures/fig_6_4_1_phase_transition.pdf
-  ../overleaf/figures/fig_6_4_2_leftfig_bigtext_legend_protocol.pdf
+  figures/figure1_external_gradient_bottom_labels.pdf
+  figures/fig_6_3_1_source_heatmap.pdf
+  figures/fig_6_3_2_rescue_plot.pdf
+  figures/fig_6_4_1_phase_transition.pdf
+  figures/fig_6_4_2_leftfig_bigtext_legend_protocol.pdf
 )
 for file in "${required_figures[@]}"; do test -s "$file" || { echo "missing figure: $file" >&2; exit 1; }; done
-for file in ../overleaf/example_paper.bib ../overleaf/missing_references.bib; do test -s "$file" || { echo "missing bibliography: $file" >&2; exit 1; }; done
-latexmk -C main.tex >/dev/null 2>&1 || true
-latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+for file in example_paper.bib missing_references.bib; do test -s "$file" || { echo "missing bibliography: $file" >&2; exit 1; }; done
+if [[ "${DRPO_SKIP_LATEX_COMPILE:-0}" != "1" ]]; then
+  pdflatex --version > TEXLIVE_ENVIRONMENT.txt
+  latexmk -C main.tex >/dev/null 2>&1 || true
+  latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+fi
 test -s main.pdf
+test -s TEXLIVE_ENVIRONMENT.txt
+if ! grep -Fq 'TeX Live 2025' TEXLIVE_ENVIRONMENT.txt; then
+  echo 'KDD canonical build requires TeX Live 2025' >&2
+  cat TEXLIVE_ENVIRONMENT.txt >&2
+  exit 1
+fi
 if grep -Eqi 'Undefined control sequence|LaTeX Error|Citation .* undefined|Reference .* undefined|There were undefined references|There were undefined citations|multiply defined|Fatal error' main.log; then
   echo 'Unresolved LaTeX diagnostic detected' >&2
   grep -Ein 'Undefined control sequence|LaTeX Error|Citation .* undefined|Reference .* undefined|There were undefined references|There were undefined citations|multiply defined|Fatal error' main.log >&2 || true
@@ -46,6 +55,7 @@ render_count="$(find renders -maxdepth 1 -name 'page-*.png' -type f | wc -l | tr
   echo "canonical_content_sha256=842bc044055bf9695a23ce26411df6b93859d2582c6eb877ab7751bf8e5d6708"
   echo "pages=$pages"
   echo "page_size=$page_size"
+  echo "texlive_version=2025"
   echo "required_figures=${#required_figures[@]}"
   echo "rendered_pages=$render_count"
   echo "pdf_sha256=$(sha256sum main.pdf | awk '{print $1}')"
