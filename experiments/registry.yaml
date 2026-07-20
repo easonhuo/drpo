@@ -6910,6 +6910,391 @@ experiments:
       result_path: runs/e8/E8_PAPER_ALIGNED_RECIPROCAL_QUADRATIC_DENSE_LAMBDA_CURVE_20260719_01
       manifest_sha256: acbf0fd8aa9f29d56b4c05841c7e0dd174568d4f9a15e229475df7db9a642c3b
       export_profile: manifest_text_v1
+- id: EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01
+  environment: EXT-C
+  name: countdown_e8_continuous_exp_grid
+  status: pilot
+  scientific_status: pilot
+  role: Countdown_external_validity_hyperparameter_localization
+  execution_class: pilot
+  registration_state: registered_after_completed_backlog_closure
+  claim: Across the frozen historical continuous-EXP validation-only screen, uncontrolled Global negative pressure is harmful
+    and sufficient tapering opens a broad usable coefficient region; evaluator RNG contamination and seed-by-hyperparameter
+    variation prohibit a sharp coefficient ranking.
+  model:
+    identity: Qwen2.5-0.5B-Instruct
+    initialization: pretrained_base_plus_fresh_lora
+    parameterization: lora
+  protocol:
+    fixed_training_steps: 1200
+    early_stop: false
+    validation_only: true
+    test_data_used: false
+    expected_cells: 62
+    completed_cells: 62
+  execution:
+    state: completed_external_package_audited
+    run_id: null
+    terminal_audit_status: PASS
+    numerical_failures: 0
+  provenance:
+    run_source_commit: 9de742532ac8559a0aba1282151e66cc1ce22f9e
+    run_source_commit_resolved: false
+    source_artifact_zip_sha256: 9bc0b3a7623717bd17da29d2478ea4ed52150176e6b2d269fc81d88f9fb1964e
+    closure_document: docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md
+    provenance_document: docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json
+  evidence:
+    terminal_audited: true
+    all_expected_cells_present: true
+    source_artifact_zip_sha256: 9bc0b3a7623717bd17da29d2478ea4ed52150176e6b2d269fc81d88f9fb1964e
+    nan_inf_numerical_events: 0
+    test_split_used: false
+    compact_closure: experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json
+  reporting_separation:
+  - task_performance
+  - support_or_structure_valid_rate_diagnostic
+  - nan_inf_numerical_failure
+  paper_use:
+    allowed:
+    - Countdown_external_validity_coefficient_localization
+    - broad_usable_taper_region_interpretation
+    prohibited:
+    - formal_method_ranking
+    - statistical_significance
+    - convergence_or_steady_state
+    - OOD_generalization
+    - universal_exponential_superiority
+    - cross_task_or_cross_model_generalization
+  closure:
+    state: closed_pilot_evidence_line
+    backlog_registration_closed: true
+    closure_update_id: EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20
+- id: EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01
+  environment: EXT-C
+  name: countdown_e8_alpha1_c_scan
+  status: pilot
+  scientific_status: pilot
+  role: Countdown_external_validity_hyperparameter_localization
+  execution_class: pilot
+  registration_state: registered_after_completed_backlog_closure
+  claim: Across the frozen historical continuous-EXP validation-only screen, uncontrolled Global negative pressure is harmful
+    and sufficient tapering opens a broad usable coefficient region; evaluator RNG contamination and seed-by-hyperparameter
+    variation prohibit a sharp coefficient ranking.
+  model:
+    identity: Qwen2.5-0.5B-Instruct
+    initialization: pretrained_base_plus_fresh_lora
+    parameterization: lora
+  protocol:
+    fixed_training_steps: 1200
+    early_stop: false
+    validation_only: true
+    test_data_used: false
+    expected_cells: 32
+    completed_cells: 32
+  execution:
+    state: completed_external_package_audited
+    run_id: null
+    terminal_audit_status: PASS
+    numerical_failures: 0
+  provenance:
+    run_source_commit: a54dc74b849561c15f6195336fca446ed36f0640
+    run_source_commit_resolved: true
+    source_artifact_zip_sha256: 58522afed3072337138c29752efbf99ca8a4b65fe54a79adf1f7c153354416fb
+    closure_document: docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md
+    provenance_document: docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json
+  evidence:
+    terminal_audited: true
+    all_expected_cells_present: true
+    source_artifact_zip_sha256: 58522afed3072337138c29752efbf99ca8a4b65fe54a79adf1f7c153354416fb
+    nan_inf_numerical_events: 0
+    test_split_used: false
+    compact_closure: experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json
+  reporting_separation:
+  - task_performance
+  - support_or_structure_valid_rate_diagnostic
+  - nan_inf_numerical_failure
+  paper_use:
+    allowed:
+    - Countdown_external_validity_coefficient_localization
+    - broad_usable_taper_region_interpretation
+    prohibited:
+    - formal_method_ranking
+    - statistical_significance
+    - convergence_or_steady_state
+    - OOD_generalization
+    - universal_exponential_superiority
+    - cross_task_or_cross_model_generalization
+  closure:
+    state: closed_pilot_evidence_line
+    backlog_registration_closed: true
+    closure_update_id: EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20
+- id: EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-HIGHC-SCAN-0.5B-01
+  environment: EXT-C
+  name: countdown_e8_alpha1_highc_scan
+  status: pilot
+  scientific_status: pilot
+  role: Countdown_external_validity_hyperparameter_localization
+  execution_class: pilot
+  registration_state: registered_after_completed_backlog_closure
+  claim: Across the frozen historical continuous-EXP validation-only screen, uncontrolled Global negative pressure is harmful
+    and sufficient tapering opens a broad usable coefficient region; evaluator RNG contamination and seed-by-hyperparameter
+    variation prohibit a sharp coefficient ranking.
+  model:
+    identity: Qwen2.5-0.5B-Instruct
+    initialization: pretrained_base_plus_fresh_lora
+    parameterization: lora
+  protocol:
+    fixed_training_steps: 1200
+    early_stop: false
+    validation_only: true
+    test_data_used: false
+    expected_cells: 32
+    completed_cells: 32
+  execution:
+    state: completed_external_package_audited
+    run_id: null
+    terminal_audit_status: PASS
+    numerical_failures: 0
+  provenance:
+    run_source_commit: 929142930a3e2efaa7cafc8e4afe3866600027a5
+    run_source_commit_resolved: true
+    source_artifact_zip_sha256: 73fd7e21b7921e02bb67a0d8ddf4842431a3f6ccd07f80aea7aed2b273c6f53f
+    closure_document: docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md
+    provenance_document: docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json
+  evidence:
+    terminal_audited: true
+    all_expected_cells_present: true
+    source_artifact_zip_sha256: 73fd7e21b7921e02bb67a0d8ddf4842431a3f6ccd07f80aea7aed2b273c6f53f
+    nan_inf_numerical_events: 0
+    test_split_used: false
+    compact_closure: experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json
+  reporting_separation:
+  - task_performance
+  - support_or_structure_valid_rate_diagnostic
+  - nan_inf_numerical_failure
+  paper_use:
+    allowed:
+    - Countdown_external_validity_coefficient_localization
+    - broad_usable_taper_region_interpretation
+    prohibited:
+    - formal_method_ranking
+    - statistical_significance
+    - convergence_or_steady_state
+    - OOD_generalization
+    - universal_exponential_superiority
+    - cross_task_or_cross_model_generalization
+  closure:
+    state: closed_pilot_evidence_line
+    backlog_registration_closed: true
+    closure_update_id: EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20
+- id: EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-LOGC-BOUNDARY-SCAN-0.5B-01
+  environment: EXT-C
+  name: countdown_e8_alpha1_logc_boundary_scan
+  status: pilot
+  scientific_status: pilot
+  role: Countdown_external_validity_hyperparameter_localization
+  execution_class: pilot
+  registration_state: registered_after_completed_backlog_closure
+  claim: Across the frozen historical continuous-EXP validation-only screen, uncontrolled Global negative pressure is harmful
+    and sufficient tapering opens a broad usable coefficient region; evaluator RNG contamination and seed-by-hyperparameter
+    variation prohibit a sharp coefficient ranking.
+  model:
+    identity: Qwen2.5-0.5B-Instruct
+    initialization: pretrained_base_plus_fresh_lora
+    parameterization: lora
+  protocol:
+    fixed_training_steps: 1200
+    early_stop: false
+    validation_only: true
+    test_data_used: false
+    expected_cells: 32
+    completed_cells: 32
+  execution:
+    state: completed_external_package_audited
+    run_id: null
+    terminal_audit_status: PASS
+    numerical_failures: 0
+  provenance:
+    run_source_commit: 05e8704770bda9a8682cd1031fa8b67bc3b55a41
+    run_source_commit_resolved: true
+    source_artifact_zip_sha256: 4f4237c1261289ca8a6f85850b216f6dd7c107598be1299f6d5f0f6587b941ec
+    closure_document: docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md
+    provenance_document: docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json
+  evidence:
+    terminal_audited: true
+    all_expected_cells_present: true
+    source_artifact_zip_sha256: 4f4237c1261289ca8a6f85850b216f6dd7c107598be1299f6d5f0f6587b941ec
+    nan_inf_numerical_events: 0
+    test_split_used: false
+    compact_closure: experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json
+  reporting_separation:
+  - task_performance
+  - support_or_structure_valid_rate_diagnostic
+  - nan_inf_numerical_failure
+  paper_use:
+    allowed:
+    - Countdown_external_validity_coefficient_localization
+    - broad_usable_taper_region_interpretation
+    prohibited:
+    - formal_method_ranking
+    - statistical_significance
+    - convergence_or_steady_state
+    - OOD_generalization
+    - universal_exponential_superiority
+    - cross_task_or_cross_model_generalization
+  closure:
+    state: closed_pilot_evidence_line
+    backlog_registration_closed: true
+    closure_update_id: EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20
+- id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01
+  environment: EXT-C
+  name: countdown_e8_paper_aligned_linear_scan
+  status: pilot
+  scientific_status: pilot
+  role: Countdown_external_validity_hyperparameter_localization
+  execution_class: pilot
+  registration_state: registered_after_completed_backlog_closure
+  claim: Under the frozen paper-aligned linear current-surprisal coordinate, the tested two-seed coefficient response contains
+    a near-tied useful region, while the descending right branch remains unlocalized; this is external-validity pilot evidence
+    only.
+  model:
+    identity: Qwen2.5-0.5B-Instruct
+    initialization: pretrained_base_plus_fresh_lora
+    parameterization: lora
+  protocol:
+    fixed_training_steps: 1200
+    early_stop: false
+    validation_only: true
+    test_data_used: false
+    expected_cells: 32
+    completed_cells: 32
+  execution:
+    state: delivered
+    run_id: E8_PAPER_ALIGNED_LINEAR_SCAN_20260716_01
+    terminal_audit_status: PASS
+    numerical_failures: 0
+  provenance:
+    run_source_commit: f957e7f63c376e328e3d677cb143d526f6937c51
+    run_source_commit_resolved: false
+    source_artifact_zip_sha256: 00d53286a6642998b5563045bbb278876ba38713f98819c679ed4825e49bdd48
+    closure_document: docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md
+    provenance_document: docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json
+  evidence:
+    terminal_audited: true
+    all_expected_cells_present: true
+    source_artifact_zip_sha256: 00d53286a6642998b5563045bbb278876ba38713f98819c679ed4825e49bdd48
+    nan_inf_numerical_events: 0
+    test_split_used: false
+    compact_closure: experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json
+    results_repository: easonhuo/drpo-results
+    results_commit: 69a81c6db3bdd90ed640d54eb5687870d2dba220
+    result_manifest_sha256: 24635fbb634b23450cdfb560fd7b16a2dc0fe4a6d0586f10e1cf385e58bab333
+  reporting_separation:
+  - task_performance
+  - support_or_structure_valid_rate_diagnostic
+  - nan_inf_numerical_failure
+  paper_use:
+    allowed:
+    - Countdown_external_validity_coefficient_localization
+    - broad_usable_taper_region_interpretation
+    prohibited:
+    - formal_method_ranking
+    - statistical_significance
+    - convergence_or_steady_state
+    - OOD_generalization
+    - universal_exponential_superiority
+    - cross_task_or_cross_model_generalization
+  closure:
+    state: closed_pilot_evidence_line
+    backlog_registration_closed: true
+    closure_update_id: EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20
+  evidence_locator:
+    schema_version: 1
+    primary_run_id: E8_PAPER_ALIGNED_LINEAR_SCAN_20260716_01
+    records:
+    - run_id: E8_PAPER_ALIGNED_LINEAR_SCAN_20260716_01
+      lane: e8
+      source_commit: f957e7f63c376e328e3d677cb143d526f6937c51
+      results_repository: easonhuo/drpo-results
+      results_branch: ingest/e8
+      results_commit: 69a81c6db3bdd90ed640d54eb5687870d2dba220
+      result_path: runs/e8/E8_PAPER_ALIGNED_LINEAR_SCAN_20260716_01
+      manifest_sha256: 24635fbb634b23450cdfb560fd7b16a2dc0fe4a6d0586f10e1cf385e58bab333
+      export_profile: manifest_text_v1
+- id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-CURVE-0.5B-01
+  environment: EXT-C
+  name: countdown_e8_paper_aligned_tau_curve
+  status: pilot
+  scientific_status: pilot
+  role: Countdown_external_validity_hyperparameter_localization
+  execution_class: pilot
+  registration_state: registered_after_completed_backlog_closure
+  claim: Under the frozen paper-aligned current-surprisal coordinate, the single-seed tau response surface provides localization
+    evidence only and does not identify a statistically supported optimum.
+  model:
+    identity: Qwen2.5-0.5B-Instruct
+    initialization: pretrained_base_plus_fresh_lora
+    parameterization: lora
+  protocol:
+    fixed_training_steps: 1200
+    early_stop: false
+    validation_only: true
+    test_data_used: false
+    expected_cells: 32
+    completed_cells: 32
+  execution:
+    state: delivered
+    run_id: E8_PAPER_ALIGNED_TAU_CURVE_20260717_01
+    terminal_audit_status: PASS
+    numerical_failures: 0
+  provenance:
+    run_source_commit: f9ea5a155ada50e9a4aebbe8ed08e8ffec82d66a
+    run_source_commit_resolved: false
+    source_artifact_zip_sha256: 8487365fc15be097733cad2df3fd235dba7a4cb44d4f5e19e37f40c937ae8982
+    closure_document: docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md
+    provenance_document: docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json
+  evidence:
+    terminal_audited: true
+    all_expected_cells_present: true
+    source_artifact_zip_sha256: 8487365fc15be097733cad2df3fd235dba7a4cb44d4f5e19e37f40c937ae8982
+    nan_inf_numerical_events: 0
+    test_split_used: false
+    compact_closure: experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json
+    results_repository: easonhuo/drpo-results
+    results_commit: 69a81c6db3bdd90ed640d54eb5687870d2dba220
+    result_manifest_sha256: e737f94d9bb3f8c4dc08551ac2606a49cea39a639ba8b951d5f99d6d810524a0
+  reporting_separation:
+  - task_performance
+  - support_or_structure_valid_rate_diagnostic
+  - nan_inf_numerical_failure
+  paper_use:
+    allowed:
+    - Countdown_external_validity_coefficient_localization
+    - broad_usable_taper_region_interpretation
+    prohibited:
+    - formal_method_ranking
+    - statistical_significance
+    - convergence_or_steady_state
+    - OOD_generalization
+    - universal_exponential_superiority
+    - cross_task_or_cross_model_generalization
+  closure:
+    state: closed_pilot_evidence_line
+    backlog_registration_closed: true
+    closure_update_id: EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20
+  evidence_locator:
+    schema_version: 1
+    primary_run_id: E8_PAPER_ALIGNED_TAU_CURVE_20260717_01
+    records:
+    - run_id: E8_PAPER_ALIGNED_TAU_CURVE_20260717_01
+      lane: e8
+      source_commit: f9ea5a155ada50e9a4aebbe8ed08e8ffec82d66a
+      results_repository: easonhuo/drpo-results
+      results_branch: ingest/e8
+      results_commit: 69a81c6db3bdd90ed640d54eb5687870d2dba220
+      result_path: runs/e8/E8_PAPER_ALIGNED_TAU_CURVE_20260717_01
+      manifest_sha256: e737f94d9bb3f8c4dc08551ac2606a49cea39a639ba8b951d5f99d6d810524a0
+      export_profile: manifest_text_v1
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1
