@@ -1,0 +1,57 @@
+name: Temporary E8 backlog recovery audit
+
+on:
+  push:
+    branches:
+      - dev/e8-completed-backlog-closure-01
+    paths:
+      - .github/workflows/temporary_e8_backlog_recovery_audit.yml
+
+permissions:
+  contents: write
+
+jobs:
+  recover:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-completed-backlog-closure-01
+          fetch-depth: 0
+
+      - name: Recover historical closure metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin dev/e8-four-result-closure-authority-export
+          git show origin/dev/e8-four-result-closure-authority-export:tools/tmp_e8_four_result_closure.patch.gz.b64 > /tmp/e8_patch.b64
+          base64 --decode /tmp/e8_patch.b64 | gzip --decompress > /tmp/e8.patch
+          mkdir -p docs/experiments
+          {
+            echo '# E8 completed-backlog recovery audit'
+            echo
+            echo 'Provenance recovery record only; not a competing research master or scientific-status upgrade.'
+            echo
+            echo '## Recovered patch identity'
+            echo
+            sha256sum /tmp/e8.patch
+            echo
+            echo '## File inventory'
+            echo
+            grep '^diff --git ' /tmp/e8.patch || true
+            echo
+            echo '## Experiment and evidence references'
+            echo
+            grep -Ei 'EXT-C-E8|E8_[A-Z0-9_]+|results_commit|manifest_sha256|package_sha256|expected_cells|completed_cells|terminal_audit|numerical_failures|nan_inf' /tmp/e8.patch || true
+          } > docs/experiments/E8_COMPLETED_BACKLOG_RECOVERY_AUDIT.md
+
+      - name: Publish recovery audit
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/temporary_e8_backlog_recovery_audit.yml
+          git add docs/experiments/E8_COMPLETED_BACKLOG_RECOVERY_AUDIT.md
+          git commit -m 'Recover E8 completed-result backlog provenance'
+          git push origin HEAD:dev/e8-completed-backlog-closure-01
