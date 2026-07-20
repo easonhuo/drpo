@@ -3,27 +3,39 @@
 This module intentionally stops below the experiment-entry layer. It contains
 protocol-independent expression verification, prompt/completion masking,
 autoregressive completion statistics, frozen-bank batching, the detached
-paper-aligned linear-surprisal objective, and response-level aggregation. It
-does not select a model scale, coefficient, method matrix, seed set, training
-budget, checkpoint, or test protocol.
+paper-aligned linear-surprisal objective, the registered E8-TAPER active-tail
+weight/calibration primitives, and response-level aggregation. It does not
+select a model path, coefficient file, seed set, training budget, checkpoint,
+or test protocol.
 """
 
 from __future__ import annotations
 
 import ast
 import math
+import random
 import re
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
+from statistics import median
 from typing import Any
 
 import torch
 import torch.nn.functional as F
 
-COUNTDOWN_CORE_VERSION = "0.2.0-stable-training-core"
+COUNTDOWN_CORE_VERSION = "0.3.0-active-tail-training-core"
 COUNTDOWN_REFERENCE_DISTANCE = 2.0
+COUNTDOWN_ACTIVE_TAIL_METHODS = (
+    "positive_only",
+    "uncontrolled_negative",
+    "global_matched",
+    "reciprocal_linear",
+    "exponential",
+    "squared_distance_exponential",
+)
+COUNTDOWN_ACTIVE_TAIL_TAU_RULE = "calibration_common_half_median_surprisal"
 IGNORE_INDEX = -100
 MAX_EXPRESSION_LENGTH = 200
 SYSTEM_PROMPT = (
@@ -441,6 +453,308 @@ def paper_aligned_linear_weights(
     return (float(alpha) * torch.exp(-float(coefficient) * coordinate)).detach()
 
 
+def normalized_active_tail_remoteness(
+    sequence_log_probability: torch.Tensor,
+    *,
+    tau: float,
+    surprisal_scale: float,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return detached normalized excess surprisal ``S`` and ``d=sqrt(S)``.
+
+    This is the v79 learner-relative coordinate. ``tau`` and ``surprisal_scale``
+    are calibration artifacts and are never inferred from the training batch.
+    """
+
+    if not math.isfinite(tau) or tau < 0.0:
+        raise ValueError("tau must be finite and non-negative")
+    if not math.isfinite(surprisal_scale) or surprisal_scale <= 0.0:
+        raise ValueError("surprisal_scale must be finite and positive")
+    if not bool(torch.isfinite(sequence_log_probability).all()):
+        raise ValueError("sequence log-probability must be finite")
+    excess = torch.relu(-sequence_log_probability.detach() - float(tau))
+    normalized_excess = excess / float(surprisal_scale)
+    distance = torch.sqrt(normalized_excess)
+    return normalized_excess.detach(), distance.detach()
+
+
+def active_tail_taper_weights(
+    method: str,
+    distance: torch.Tensor,
+    *,
+    coefficient: float,
+) -> torch.Tensor:
+    """Return v79 detached weights on the true distance coordinate ``d``."""
+
+    if method not in COUNTDOWN_ACTIVE_TAIL_METHODS:
+        raise ValueError(f"unknown Countdown active-tail method: {method}")
+    if not math.isfinite(coefficient) or coefficient < 0.0:
+        raise ValueError("coefficient must be finite and non-negative")
+    if not bool(torch.isfinite(distance).all()) or bool((distance < 0).any()):
+        raise ValueError("distance must be finite and non-negative")
+    if method == "positive_only":
+        weights = torch.zeros_like(distance)
+    elif method == "uncontrolled_negative":
+        weights = torch.ones_like(distance)
+    elif method == "global_matched":
+        weights = torch.full_like(distance, float(coefficient))
+    elif method == "reciprocal_linear":
+        weights = 1.0 / (1.0 + float(coefficient) * distance)
+    elif method == "exponential":
+        weights = torch.exp(-float(coefficient) * distance)
+    else:
+        weights = torch.exp(-float(coefficient) * distance.square())
+    return weights.detach()
+
+
+def calibration_surprisal_scale(
+    surprisals: Sequence[float],
+    *,
+    minimum: float,
+) -> tuple[float, dict[str, float]]:
+    """Return the upper-half minus lower-half median calibration scale."""
+
+    if not math.isfinite(minimum) or minimum <= 0.0:
+        raise ValueError("minimum must be finite and positive")
+    values = sorted(float(value) for value in surprisals)
+    if len(values) < 4 or any(not math.isfinite(value) for value in values):
+        raise ValueError("calibration requires at least four finite surprisals")
+    midpoint = len(values) // 2
+    common_median = float(median(values[:midpoint]))
+    rare_median = float(median(values[midpoint:]))
+    scale = rare_median - common_median
+    if not math.isfinite(scale) or scale < float(minimum):
+        raise ValueError(
+            "calibration surprisal spread is too small: "
+            f"scale={scale}, minimum={minimum}"
+        )
+    return scale, {
+        "common_half_median_surprisal": common_median,
+        "rare_half_median_surprisal": rare_median,
+        "scale": scale,
+    }
+
+
+def resolve_active_tail_tau(
+    value: float | str,
+    scale_diagnostics: Mapping[str, float],
+) -> tuple[float, str]:
+    """Resolve the v79 threshold without reading confirmation or test metrics."""
+
+    if value == COUNTDOWN_ACTIVE_TAIL_TAU_RULE:
+        tau = float(scale_diagnostics["common_half_median_surprisal"])
+        rule = COUNTDOWN_ACTIVE_TAIL_TAU_RULE
+    else:
+        tau = float(value)
+        rule = "fixed_numeric_surprisal_threshold"
+    if not math.isfinite(tau) or tau < 0.0:
+        raise ValueError("resolved tau must be finite and non-negative")
+    return tau, rule
+
+
+def active_distance_diagnostics(
+    surprisals: Sequence[float],
+    *,
+    tau: float,
+    surprisal_scale: float,
+) -> dict[str, float | int]:
+    """Summarize the nonzero active tail on an independent calibration split."""
+
+    values = torch.tensor(list(surprisals), dtype=torch.float64)
+    if values.numel() < 1 or not bool(torch.isfinite(values).all()):
+        raise ValueError("surprisals must be a non-empty finite sequence")
+    seq_lp = -values
+    normalized, distance = normalized_active_tail_remoteness(
+        seq_lp,
+        tau=tau,
+        surprisal_scale=surprisal_scale,
+    )
+    active = normalized > 0
+    return {
+        "samples": int(values.numel()),
+        "active_distance_count": int(active.sum().item()),
+        "active_distance_fraction": float(active.float().mean().item()),
+        "normalized_excess_mean": float(normalized.mean().item()),
+        "distance_mean": float(distance.mean().item()),
+        "distance_max": float(distance.max().item()),
+    }
+
+
+def validate_active_tail_calibration(
+    *,
+    active_distance_fraction: float,
+    uncontrolled_norm: float,
+    target_unscaled: float,
+    coefficients: Mapping[str, float],
+    minimum_active_distance_fraction: float,
+    nondegenerate_target_max_ratio: float,
+    minimum_taper_lambda: float,
+) -> dict[str, Any]:
+    """Fail closed when calibrated methods collapse into uncontrolled clones."""
+
+    values = (
+        active_distance_fraction,
+        uncontrolled_norm,
+        target_unscaled,
+        minimum_active_distance_fraction,
+        nondegenerate_target_max_ratio,
+        minimum_taper_lambda,
+    )
+    if any(not math.isfinite(float(value)) for value in values):
+        raise ValueError("calibration scalars must be finite")
+    if uncontrolled_norm <= 0.0 or target_unscaled < 0.0:
+        raise ValueError(
+            "gradient norms must be non-negative and uncontrolled positive"
+        )
+    if minimum_active_distance_fraction <= 0.0:
+        raise ValueError("minimum_active_distance_fraction must be positive")
+    if not 0.0 < nondegenerate_target_max_ratio < 1.0:
+        raise ValueError("nondegenerate_target_max_ratio must lie in (0, 1)")
+    if minimum_taper_lambda <= 0.0:
+        raise ValueError("minimum_taper_lambda must be positive")
+
+    target_ratio = float(target_unscaled / uncontrolled_norm)
+    failures: list[str] = []
+    if target_ratio >= nondegenerate_target_max_ratio:
+        failures.append("reference target is too close to uncontrolled")
+    if active_distance_fraction < minimum_active_distance_fraction:
+        failures.append("active-distance fraction is too small")
+    if float(coefficients.get("global_matched", 1.0)) >= nondegenerate_target_max_ratio:
+        failures.append("global_matched is degenerate or near-uncontrolled")
+    for method in ("reciprocal_linear", "squared_distance_exponential"):
+        if float(coefficients.get(method, 0.0)) <= minimum_taper_lambda:
+            failures.append(f"{method} lambda is degenerate")
+    payload = {
+        "status": "pass" if not failures else "fail",
+        "target_unscaled_to_uncontrolled_ratio": target_ratio,
+        "nondegenerate_target_max_ratio": float(nondegenerate_target_max_ratio),
+        "minimum_taper_lambda": float(minimum_taper_lambda),
+        "minimum_active_distance_fraction": float(minimum_active_distance_fraction),
+        "failures": failures,
+    }
+    if failures:
+        raise RuntimeError(
+            "Countdown active-tail calibration degenerated: " + "; ".join(failures)
+        )
+    return payload
+
+
+def make_prompt_balanced_sampler_plan(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    seed: int,
+    total_samples: int,
+) -> list[dict[str, int]]:
+    """Uniform prompt cycles plus within-prompt negative sampling."""
+
+    if not rows:
+        raise ValueError("sampler plan requires a non-empty replay pool")
+    if total_samples <= 0:
+        raise ValueError("total_samples must be positive")
+    candidate_counts: list[int] = []
+    for row in rows:
+        candidates = row.get("negatives", row.get("negative_bank", []))
+        if not isinstance(candidates, Sequence) or isinstance(candidates, (str, bytes)):
+            raise ValueError("every replay row must expose a candidate sequence")
+        if len(candidates) < 1:
+            raise ValueError("every replay row must have at least one negative")
+        candidate_counts.append(len(candidates))
+
+    rng = random.Random(int(seed))
+    order: list[int] = []
+    while len(order) < total_samples:
+        cycle = list(range(len(rows)))
+        rng.shuffle(cycle)
+        order.extend(cycle)
+    return [
+        {
+            "prompt_index": int(row_index),
+            "negative_index": int(rng.randrange(candidate_counts[row_index])),
+        }
+        for row_index in order[:total_samples]
+    ]
+
+
+def calibrate_monotone_coefficient(
+    norm_fn: Callable[[float], float],
+    target: float,
+    *,
+    maximum: float,
+    steps: int,
+    tolerance: float,
+) -> tuple[float, float, float]:
+    """Match a gradient-norm target with a bracket scan plus bisection."""
+
+    if not math.isfinite(target) or target <= 0.0:
+        raise ValueError("target must be finite and positive")
+    if not math.isfinite(maximum) or maximum <= 0.0:
+        raise ValueError("maximum must be finite and positive")
+    if steps < 0:
+        raise ValueError("steps must be non-negative")
+    if not math.isfinite(tolerance) or tolerance < 0.0:
+        raise ValueError("tolerance must be finite and non-negative")
+
+    grid = [0.0]
+    value = min(1.0e-4, maximum)
+    while value < maximum:
+        grid.append(value)
+        value *= 2.0
+    if grid[-1] != maximum:
+        grid.append(float(maximum))
+    observations = [(coefficient, float(norm_fn(coefficient))) for coefficient in grid]
+    if any(not math.isfinite(norm) or norm < 0.0 for _, norm in observations):
+        raise RuntimeError("calibration norm function returned a non-finite value")
+    if observations[0][1] < target:
+        raise RuntimeError("taper norm at coefficient zero is already below target")
+
+    candidates = list(observations)
+    brackets: list[tuple[float, float, float, float]] = []
+    for (left, left_norm), (right, right_norm) in zip(observations, observations[1:]):
+        left_delta = left_norm - target
+        right_delta = right_norm - target
+        if left_delta == 0.0:
+            brackets.append((left, left, left_norm, left_norm))
+        elif left_delta * right_delta <= 0.0:
+            brackets.append((left, right, left_norm, right_norm))
+    if not brackets:
+        closest = min(
+            candidates,
+            key=lambda item: abs(math.log(max(item[1], 1.0e-30) / target)),
+        )
+        relative_error = abs(closest[1] - target) / target
+        if relative_error <= tolerance:
+            return float(closest[0]), float(closest[1]), float(relative_error)
+        raise RuntimeError("could not bracket calibration target")
+
+    for left, right, left_norm, right_norm in brackets:
+        if left == right:
+            continue
+        left_delta = left_norm - target
+        for _ in range(steps):
+            middle = 0.5 * (left + right)
+            middle_norm = float(norm_fn(middle))
+            if not math.isfinite(middle_norm) or middle_norm < 0.0:
+                raise RuntimeError(
+                    "calibration norm function returned a non-finite value"
+                )
+            candidates.append((middle, middle_norm))
+            middle_delta = middle_norm - target
+            if left_delta * middle_delta <= 0.0:
+                right, right_norm = middle, middle_norm
+            else:
+                left, left_norm, left_delta = middle, middle_norm, middle_delta
+
+    coefficient, matched = min(
+        candidates,
+        key=lambda item: abs(math.log(max(item[1], 1.0e-30) / target)),
+    )
+    relative_error = abs(matched - target) / target
+    if relative_error > tolerance:
+        raise RuntimeError(
+            f"calibration relative error {relative_error:.6f} exceeds {tolerance:.6f}"
+        )
+    return float(coefficient), float(matched), float(relative_error)
+
+
 def mean_unique_negative_term(
     sequence_log_probability: torch.Tensor,
     weights: torch.Tensor,
@@ -717,12 +1031,18 @@ def evaluate_response_batches(
 
 
 __all__ = [
+    "COUNTDOWN_ACTIVE_TAIL_METHODS",
+    "COUNTDOWN_ACTIVE_TAIL_TAU_RULE",
     "COUNTDOWN_CORE_VERSION",
     "COUNTDOWN_REFERENCE_DISTANCE",
     "CountdownTrainingItem",
     "EncodedCompletion",
     "ExpressionVerifier",
     "SYSTEM_PROMPT",
+    "active_distance_diagnostics",
+    "active_tail_taper_weights",
+    "calibrate_monotone_coefficient",
+    "calibration_surprisal_scale",
     "chat_prompt",
     "clean_expression",
     "collate_countdown_training_items",
@@ -734,13 +1054,17 @@ __all__ = [
     "encode_countdown_training_row",
     "encode_prompt_completion",
     "evaluate_response_batches",
+    "make_prompt_balanced_sampler_plan",
     "mean_unique_negative_term",
     "move_tensor_batch_to_device",
+    "normalized_active_tail_remoteness",
     "normalized_sequence_surprisal",
     "pad_encoded",
     "paper_aligned_linear_weights",
     "parameter_update_norm",
+    "resolve_active_tail_tau",
     "unique_negative_expressions",
+    "validate_active_tail_calibration",
     "verifier_category",
     "verify_expression",
     "weighted_sequence_logprob",
