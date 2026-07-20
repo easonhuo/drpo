@@ -1,0 +1,6 @@
+29733000348	Import revised Overleaf project and compiled PDF	completed	skipped
+29733000425	PR Gate Log	in_progress	null
+29733000317	Evidence Locator Gate	completed	failure
+29732998583	Code Change Budget	completed	failure
+29732997173	Temporary E8 finalizer YAML repair	completed	failure
+29732996397	.github/workflows/temporary_e8_reciprocal_current_main_finalize.yml	completed	failure
