@@ -1,4 +1,4 @@
-schema_version: 3
+schema_version: 4
 claim_id: PAPER-CODE-VALIDATION-01
 base_matrix: docs/paper_code_reference/VALIDATION_MATRIX.yaml
 latest_execution_report: docs/paper_code_reference/VALIDATION_EXECUTION_REPORT_20260720.md
@@ -6,8 +6,9 @@ scientific_status_impact: none
 
 reason: >-
   Record additive live gate overrides after validation documentation, package
-  isolation, differential and short-path suites, CPU liveness checks, and the
-  first correctness repairs. No scientific coordinate or result status changes.
+  isolation, differential and short-path suites, CPU liveness checks, correctness
+  repairs, and the bounded Ruff-format repair. No scientific coordinate or result
+  status changes.
 
 repairs:
   du1_protocol_method_order:
@@ -25,7 +26,22 @@ repairs:
       - continuous.cu1_taper.math
       - continuous.cu1_training.math
     function_or_scientific_behavior_changed: false
-    final_exact_head_ci_at_document_write: pending
+  bounded_ruff_formatting:
+    diagnostic_commit: 8792b282135d6e17fd03db10044d81ecbc610daa
+    diagnostic_run: 29748280355
+    diagnostic_artifact_id: 8463359741
+    diagnostic_artifact_digest: sha256:eafe41f90b02b9614fb18d4c124e80ee2b3e9d4a99e42caf8838360139728783
+    repair_commit: 48555aa1e8375347bec3e85d18afdea66e8d06d3
+    cleanup_run: 29748511609
+    formatted_python_files: 60
+    allowed_scope:
+      - paper_code/src/**/*.py
+      - paper_code/tests/**/*.py
+    formatter: ruff_format_line_length_100
+    formatter_check_after_repair: passed_in_cleanup_run
+    compileall_after_repair: passed_in_cleanup_run
+    function_or_scientific_behavior_changed: false
+    exact_head_package_ci_after_repair: pending
 
 overrides:
   stages.V0_baseline_and_docs.status: in_progress
@@ -33,13 +49,20 @@ overrides:
   stages.V0_baseline_and_docs.gates.V0-04_current_status_sync.evidence: docs/paper_code_reference/VALIDATION_STATUS.md
   stages.V0_baseline_and_docs.gates.V0-05_acceptance_matrix_sync.status: passed
   stages.V0_baseline_and_docs.gates.V0-05_acceptance_matrix_sync.evidence: docs/paper_code_reference/VALIDATION_ACCEPTANCE_DELTA.yaml
-  stages.V0_baseline_and_docs.gates.V0-06_exact_head_ci_after_docs.status: passed
+  stages.V0_baseline_and_docs.gates.V0-06_exact_head_ci_after_docs.status: passed_before_format_repair
   stages.V0_baseline_and_docs.gates.V0-06_exact_head_ci_after_docs.evidence:
     head: 0201b9cde2b1f6e9b8d754fc7b7aacaa580c3f3e
     evidence_locator_run: 29738490031
     pr_gate_run: 29738490048
     pr_gate_job: 88339432508
-  stages.V0_baseline_and_docs.gates.V0-07_exact_package_inventory.status: pending
+  stages.V0_baseline_and_docs.gates.V0-07_exact_package_inventory.status: manifest_verified_final_artifact_pending
+  stages.V0_baseline_and_docs.gates.V0-07_exact_package_inventory.evidence_before_format_repair:
+    head: a11423927e3397eea3551e2ff2fb8b0a965da7dd
+    package_validation_run: 29744134252
+    package_validation_job: 88357854875
+    exact_head_package_built: true
+    manifest_verified: true
+    artifact_uploaded: false
 
   stages.V1_clean_package.status: in_progress
   stages.V1_clean_package.subgates.isolated_copy_install.status: passed
@@ -48,11 +71,11 @@ overrides:
     evidence_locator_run: 29739126054
     pr_gate_run: 29739126098
     pr_gate_job: 88341481345
-  stages.V1_clean_package.subgates.public_entrypoints.status: passed
-  stages.V1_clean_package.subgates.exact_package_manifest.status: pending_final_artifact
-  stages.V1_clean_package.subgates.self_contained_package_tests.status: passed_before_final_head
-  stages.V1_clean_package.subgates.ruff_check.status: repaired_pending_final_rerun
-  stages.V1_clean_package.subgates.ruff_format_check.status: pending_final_rerun
+  stages.V1_clean_package.subgates.public_entrypoints.status: pending_final_exact_head_run
+  stages.V1_clean_package.subgates.exact_package_manifest.status: passed_before_format_repair_final_artifact_pending
+  stages.V1_clean_package.subgates.self_contained_package_tests.status: passed_before_format_repair
+  stages.V1_clean_package.subgates.ruff_check.status: passed_before_format_repair
+  stages.V1_clean_package.subgates.ruff_format_check.status: repaired_pending_final_exact_head_run
 
   stages.V2_function_equivalence.status: passed
   stages.V2_function_equivalence.evidence:
@@ -87,20 +110,25 @@ overrides:
     pr_gate_job: 88343702063
     route: real_cli_main_cpu_smoke
     formal_evidence: false
-  stages.V4_real_liveness.components.du1_cpu.status: pending_final_package_cli_gate
-  stages.V4_real_liveness.components.du1_cpu.evidence_before_final_gate:
-    six_method_cpu_runner_smoke: passed
-    cli_parse_and_dispatch: passed
-    frozen_method_order_after_repair: passed
+  stages.V4_real_liveness.components.du1_cpu.status: passed
+  stages.V4_real_liveness.components.du1_cpu.evidence:
+    head: a11423927e3397eea3551e2ff2fb8b0a965da7dd
+    package_validation_run: 29744134252
+    package_validation_job: 88357854875
+    route: exact_package_public_cli_cpu_smoke
+    all_six_methods_execute: true
+    frozen_method_order_after_repair: true
+    formal_evidence: false
   stages.V4_real_liveness.components.hopper_hdf5_mujoco.status: blocked
   stages.V4_real_liveness.components.countdown_qwen_cuda.status: blocked
   stages.V4_real_liveness.components.d4rl_9.status: blocked
 
   stages.V5_scientific_reproduction.status: pending
-  next_gate: final_exact_head_package_evidence_and_pr_ci
+  next_gate: final_exact_head_package_ci_and_validated_artifact_after_format_repair
 
 notes:
   - synchronization is additive and preserves migration history
   - no formal experiment was launched
   - no result status or method ranking changed
-  - final CI and artifact identifiers are recorded outside this pending-at-write snapshot
+  - the format repair changed layout only and was bounded to the 60-file diagnostic set
+  - Hopper, Countdown, and D4RL real-stack blockers remain unchanged
