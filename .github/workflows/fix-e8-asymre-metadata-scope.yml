@@ -50,3 +50,5 @@ jobs:
           git add src/drpo/countdown_e8_alpha1_c_scan_trainer.py
           git commit -m 'E8 AsymRE: scope metadata to AsymRE cells'
           git push origin HEAD:dev/e8-asymre-deltav-scan
+
+# retrigger
