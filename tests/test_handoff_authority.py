@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 
@@ -44,19 +45,42 @@ def test_manual_mode_is_safe_noop(tmp_path: Path) -> None:
 
 
 def test_current_repository_authority_phase_verifies() -> None:
-    config = authority.load_authority(REPO_ROOT)
-    if config["mode"] == "manual":
-        verified = authority.verify_current_state(REPO_ROOT)
-        assert verified["mode"] == "manual"
-        return
+    """Exercise the current repository through the production CLI boundary.
 
+    The full suite imports the authority module in several test modules. This
+    current-repository integration check must not depend on in-process module
+    state left by earlier unit tests, so it runs the production command in a
+    fresh interpreter.
+    """
+
+    config = authority.load_authority(REPO_ROOT)
     head = authority._git_text(REPO_ROOT, "rev-parse", "HEAD")
     activation_parent = config["delta_authority"]["activation_parent_commit"]
-    if head == activation_parent:
-        verified = authority.verify_prepared_cutover(REPO_ROOT)
+    command = [
+        sys.executable,
+        str(REPO_ROOT / "scripts" / "handoff_authority.py"),
+        "verify",
+        "--repo-root",
+        str(REPO_ROOT),
+        "--json",
+    ]
+    if config["mode"] != "manual" and head == activation_parent:
+        command.append("--prepared")
+    completed = subprocess.run(
+        command,
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assert completed.returncode == 0, completed.stderr or completed.stdout
+    verified = json.loads(completed.stdout)
+
+    if config["mode"] == "manual":
+        assert verified["mode"] == "manual"
+    elif head == activation_parent:
         assert verified["mode"] == "cutover_prepared"
     else:
-        verified = authority.verify_current_state(REPO_ROOT)
         assert verified["mode"] == "delta"
         assert verified["legacy_inert_delta_count"] == 1
         assert verified["legacy_inert_update_ids"] == [
@@ -128,7 +152,6 @@ def test_legacy_inert_delta_compatibility_is_exactly_bound() -> None:
     )
 
 
-
 def test_historical_e8_taper_v73_delta_matches_its_repository_after_image() -> None:
     delta = (
         REPO_ROOT
@@ -156,6 +179,7 @@ def test_historical_e8_taper_v73_delta_matches_its_repository_after_image() -> N
     ).stdout
     assert historical_handoff == intent.candidate
     assert intent.registry_report["coverage"]["fully_declared"] is True
+
 
 def test_schema_v3_rejects_reserved_marker_injection(tmp_path: Path) -> None:
     path = tmp_path / "BAD" / "HANDOFF_DELTA.yaml"
@@ -216,3 +240,69 @@ def test_repo_relative_accepts_symlinked_repo_root(tmp_path: Path) -> None:
         authority._repo_relative(linked_root, protected.resolve(), "protected asset")
         == "docs/asset.json"
     )
+
+
+def test_merge_result_introduced_path_history_is_bounded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "repo"
+    report = repo / "docs" / "report.json"
+    report.parent.mkdir(parents=True)
+    report.write_text('{"status":"PASS"}\n', encoding="utf-8")
+
+    def fake_git_text(_repo: Path, *args: str, **_kwargs: Any) -> str:
+        if args == ("rev-parse", "HEAD"):
+            return "head"
+        if args[:2] == ("log", "--format=%H"):
+            return "origin"
+        if args[:3] == ("log", "--diff-filter=A", "--format=%H"):
+            return ""
+        if args[:5] == ("rev-list", "--parents", "-n", "1", "origin"):
+            return "origin first second"
+        if args[:3] == ("rev-list", "--first-parent", "--reverse"):
+            return ""
+        raise AssertionError(args)
+
+    monkeypatch.setattr(authority, "_git_text", fake_git_text)
+    monkeypatch.setattr(
+        authority,
+        "_path_exists_at_commit",
+        lambda _repo, commit, _relative: commit == "origin",
+    )
+    monkeypatch.setattr(
+        authority,
+        "_first_parent_integration_commit",
+        lambda *_args, **_kwargs: "integration",
+    )
+    monkeypatch.setattr(
+        authority,
+        "_git",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess([], 0),
+    )
+    monkeypatch.setattr(
+        authority,
+        "_git_show",
+        lambda _repo, commit, _path: report.read_text(encoding="utf-8")
+        if commit in {"origin", "integration"}
+        else "",
+    )
+
+    assert authority._validated_integrated_path_history(
+        repo,
+        report,
+        positions={"integration": 0},
+        label="materialization report",
+    ) == ("origin", "integration")
+
+    monkeypatch.setattr(
+        authority,
+        "_path_exists_at_commit",
+        lambda _repo, commit, _relative: commit in {"origin", "first"},
+    )
+    with pytest.raises(authority.HandoffAuthorityError, match="predates"):
+        authority._validated_integrated_path_history(
+            repo,
+            report,
+            positions={"integration": 0},
+            label="materialization report",
+        )

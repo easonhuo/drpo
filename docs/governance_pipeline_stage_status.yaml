@@ -255,8 +255,8 @@ stages:
     - stage_4_lossless_validation
     protected_files:
     - path: scripts/handoff_authority.py
-      sha256: c375a4c6c74f604048269b1344ca35a03eb8b6e166a27063153efe64ea5888ff
-      authorized_by: GOV-STAGE5-PREINTEGRATION-REPORT-HISTORY-BUGFIX-2026-07-20
+      sha256: 2c86cc5b19df5d64cc3febf8b3317a0405b82ba5a0cdc9f2b38f60693161b4cc
+      authorized_by: GOV-STAGE5-MERGE-INTRODUCED-PATH-HISTORY-BUGFIX-2026-07-20
     - path: scripts/validate_governance_pipeline_stage_status.py
       sha256: dc47015449b1fa2c806229a6dd1bfd64b06a6015dec3d151c6cc59390727a8f6
       authorized_by: GOV-STAGE5-CLOSURE-2026-07-03
