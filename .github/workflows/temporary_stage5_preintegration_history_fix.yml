@@ -1,0 +1,54 @@
+name: Temporary Stage 5 pre-integration history fix
+
+on:
+  push:
+    branches:
+      - fix/stage5-preintegration-report-history-20260720
+    paths:
+      - .github/workflows/temporary_stage5_preintegration_history_fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/stage5-preintegration-report-history-20260720
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Apply bounded Stage 5 maintenance patch
+        run: python tools/temporary_patch_stage5_preintegration_history.py
+      - name: Focused Stage 5 verification
+        run: |
+          set -euo pipefail
+          python tests/stage5_candidate_integration.py
+          python scripts/handoff_authority.py verify --repo-root . --json
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          python -m pytest -q tests/test_governance_pipeline_stage_status.py tests/test_governance_rule_inventory.py
+          python -m compileall -q scripts tests
+          ruff check scripts/handoff_authority.py tests/stage5_candidate_integration.py
+      - name: Publish clean maintenance branch
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/temporary_stage5_preintegration_history_fix.yml
+          git rm tools/temporary_patch_stage5_preintegration_history.py
+          git add -A
+          git diff --check --cached
+          test -z "$(git diff --cached --name-only | grep -E '(^|/)temporary_' || true)" || {
+            echo 'temporary path remains staged' >&2
+            exit 1
+          }
+          git commit -m 'Fix Stage 5 pre-integration report history validation'
+          git push origin HEAD:fix/stage5-preintegration-report-history-20260720
