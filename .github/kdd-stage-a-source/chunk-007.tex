@@ -1,0 +1,536 @@
+y view used in
+Section~\ref{subsec:distance_dependent_utility}, let
+\(\widehat J_{\mathcal B}(\theta)\) denote an empirical estimate of task
+performance on an evaluation batch \(\mathcal B\). For a negative sample
+\(z=(s,a)\), define its raw repulsive update as
+\begin{equation}
+    g_\theta^-(z)
+    =
+    -\widehat A^-(z)
+    \nabla_\theta \log \pi_\theta(a\mid s).
+    \label{eq:raw_negative_update}
+\end{equation}
+Assigning it a weight \(w\in[0,1]\) produces the parameter step
+\begin{equation}
+    \Delta\theta(z;w)
+    =
+    \eta w g_\theta^-(z).
+    \label{eq:weighted_negative_step}
+\end{equation}
+We define the empirical utility of this weighted negative update as
+\begin{equation}
+    \widehat{\mathcal U}_{\mathcal B}
+    (z;w\mid\theta)
+    =
+    \widehat J_{\mathcal B}
+    \!\left(
+        \theta+\Delta\theta(z;w)
+    \right)
+    -
+    \widehat J_{\mathcal B}(\theta).
+    \label{eq:app_empirical_negative_update_utility}
+\end{equation}
+The corresponding utility-optimal weight is
+\begin{equation}
+    \widehat w_{\mathcal U}^{\star}(z\mid\theta)
+    \in
+    \arg\max_{w\in[0,1]}
+    \widehat{\mathcal U}_{\mathcal B}(z;w\mid\theta).
+    \label{eq:empirical_utility_optimal_weight}
+\end{equation}
+
+We distinguish this empirical utility from its population counterpart:
+\begin{equation}
+    \mathcal U_\theta(z;w)
+    =
+    J\!\left(
+        \theta+\eta w g_\theta^-(z)
+    \right)
+    -
+    J(\theta).
+    \label{eq:population_negative_update_utility}
+\end{equation}
+If \(\widehat J_{\mathcal B}\) is an unbiased estimator of \(J\), then
+\begin{equation}
+    \mathbb E_{\mathcal B}
+    \left[
+        \widehat{\mathcal U}_{\mathcal B}(z;w\mid\theta)
+    \right]
+    =
+    \mathcal U_\theta(z;w).
+    \label{eq:empirical_utility_unbiased}
+\end{equation}
+Thus, empirical utility is a noisy, evaluation-dependent estimate rather
+than an intrinsic deterministic label attached to the sample.
+
+The following result gives sufficient conditions under which the
+utility-optimal effective step vanishes in the far field.
+
+\begin{lemma}[Far-field shrinkage of the utility-optimal step]
+\label{lem:far_field_utility}
+Let \(D\) index learner-relative remoteness, and let \(g(D)\neq0\)
+denote the corresponding negative-update direction. Write
+\begin{equation}
+    I(D)
+    =
+    \|g(D)\|_2,
+    \qquad
+    v(D)
+    =
+    \frac{g(D)}{I(D)}.
+    \label{eq:far_field_direction}
+\end{equation}
+Assume that the local update space admits an orthogonal decomposition
+\begin{equation}
+    \mathcal T
+    =
+    \mathcal T_{\mathrm{task}}
+    \oplus
+    \mathcal T_{\mathrm{far}},
+    \label{eq:task_far_decomposition}
+\end{equation}
+and let \(P_{\mathrm{task}}\) denote the orthogonal projection onto
+\(\mathcal T_{\mathrm{task}}\). Suppose that:
+\begin{enumerate}
+    \item \(\nabla J(\theta)\in\mathcal T_{\mathrm{task}}\);
+
+    \item the normalized far-field update becomes asymptotically
+    task-orthogonal,
+    \begin{equation}
+        \left\|
+            P_{\mathrm{task}}v(D)
+        \right\|_2
+        \longrightarrow 0;
+        \label{eq:task_projection_vanishes}
+    \end{equation}
+
+    \item there exist \(\rho_0>0\), \(\kappa>0\), and \(D_0\) such that,
+    for every \(D\geq D_0\) and every \(\rho\in[0,\rho_0]\),
+    \begin{equation}
+        v(D)^\top
+        \nabla^2J
+        \!\left(
+            \theta+\rho v(D)
+        \right)
+        v(D)
+        \leq
+        -\kappa.
+        \label{eq:far_field_negative_curvature}
+    \end{equation}
+\end{enumerate}
+
+Define the population utility of an effective step of length \(\rho\) by
+\begin{equation}
+    \mathcal V_D(\rho)
+    =
+    J\!\left(
+        \theta+\rho v(D)
+    \right)
+    -
+    J(\theta),
+    \qquad
+    0\leq\rho\leq\rho_0,
+    \label{eq:effective_step_utility}
+\end{equation}
+and let
+\begin{equation}
+    \rho_{\mathcal U}^{\star}(D)
+    \in
+    \arg\max_{\rho\in[0,\rho_0]}
+    \mathcal V_D(\rho).
+    \label{eq:utility_optimal_effective_step}
+\end{equation}
+Then
+\begin{equation}
+    \rho_{\mathcal U}^{\star}(D)
+    \longrightarrow 0
+    \qquad
+    \text{as }
+    D\longrightarrow\infty.
+    \label{eq:optimal_step_vanishes}
+\end{equation}
+Moreover, if
+\[
+    \langle\nabla J(\theta),v(D)\rangle<0,
+\]
+then every nonzero local step has negative utility:
+\begin{equation}
+    \mathcal V_D(\rho)<0
+    \qquad
+    \text{for all }
+    \rho\in(0,\rho_0].
+    \label{eq:negative_far_field_utility}
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+Define the first-order task alignment
+\begin{equation}
+    a(D)
+    =
+    \left\langle
+        \nabla J(\theta),
+        v(D)
+    \right\rangle.
+    \label{eq:far_field_alignment}
+\end{equation}
+Because
+\(\nabla J(\theta)\in\mathcal T_{\mathrm{task}}\), orthogonality gives
+\begin{equation}
+\begin{aligned}
+    |a(D)|
+    &=
+    \left|
+        \left\langle
+            \nabla J(\theta),
+            P_{\mathrm{task}}v(D)
+        \right\rangle
+    \right| \\
+    &\leq
+    \left\|
+        \nabla J(\theta)
+    \right\|_2
+    \left\|
+        P_{\mathrm{task}}v(D)
+    \right\|_2.
+\end{aligned}
+\end{equation}
+Equation~\eqref{eq:task_projection_vanishes} therefore implies
+\begin{equation}
+    a(D)\longrightarrow0.
+    \label{eq:alignment_vanishes}
+\end{equation}
+
+For any \(\rho\in[0,\rho_0]\), Taylor's theorem gives some
+\(\xi\in(0,\rho)\) such that
+\begin{equation}
+\begin{aligned}
+    \mathcal V_D(\rho)
+    &=
+    \rho a(D) \\
+    &\quad+
+    \frac{\rho^2}{2}
+    v(D)^\top
+    \nabla^2J
+    \!\left(
+        \theta+\xi v(D)
+    \right)
+    v(D).
+\end{aligned}
+\end{equation}
+Using Equation~\eqref{eq:far_field_negative_curvature},
+\begin{equation}
+    \mathcal V_D(\rho)
+    \leq
+    \rho a(D)
+    -
+    \frac{\kappa}{2}\rho^2.
+    \label{eq:utility_quadratic_upper_bound}
+\end{equation}
+
+Since \(\mathcal V_D(0)=0\), any utility-maximizing step must attain
+nonnegative utility. However, whenever
+\begin{equation}
+    \rho
+    >
+    \frac{
+        2[a(D)]_+
+    }{
+        \kappa
+    },
+\end{equation}
+the right-hand side of
+Equation~\eqref{eq:utility_quadratic_upper_bound}
+is strictly negative. Hence,
+\begin{equation}
+    0
+    \leq
+    \rho_{\mathcal U}^{\star}(D)
+    \leq
+    \frac{
+        2[a(D)]_+
+    }{
+        \kappa
+    }.
+    \label{eq:optimal_step_upper_bound}
+\end{equation}
+Together with Equation~\eqref{eq:alignment_vanishes}, this proves
+Equation~\eqref{eq:optimal_step_vanishes}.
+
+If \(a(D)<0\), then for every \(\rho>0\),
+\begin{equation}
+    \rho a(D)
+    -
+    \frac{\kappa}{2}\rho^2
+    <
+    0.
+\end{equation}
+Equation~\eqref{eq:utility_quadratic_upper_bound} therefore implies
+\(\mathcal V_D(\rho)<0\) for every nonzero local step, proving
+Equation~\eqref{eq:negative_far_field_utility}.
+\end{proof}
+
+The lemma is a sufficient mechanism rather than a universal monotonicity
+claim. It applies when far-field negative updates become increasingly
+misaligned with the task-improving direction and the task objective is
+locally harmed along that far-field direction. The curvature condition
+can represent local losses caused by parameter drift or policy-support
+contraction, provided those effects reduce the evaluated objective
+\(J\). If far-field growth remains aligned with \(\nabla J(\theta)\), the
+conclusion need not hold.
+
+Finally, the effective step generated by a sample weight \(w\) is
+\begin{equation}
+    \rho(D;w)
+    =
+    \eta w I(D).
+    \label{eq:weight_effective_step}
+\end{equation}
+Consequently, the population analogue of the utility-optimal sample
+weight must satisfy
+\begin{equation}
+    \eta
+    w_{\mathcal U}^{\star}(D)
+    I(D)
+    =
+    \rho_{\mathcal U}^{\star}(D)
+    \longrightarrow0.
+    \label{eq:oracle_weighted_influence_vanishes}
+\end{equation}
+Thus, when the raw far-field response remains nonvanishing or grows, the
+utility-optimal sample weight itself must shrink so that the weighted
+response vanishes.
+
+\subsection{Proof of Proposition~\ref{prop:exp_vanishing_influence}}
+\label{app:exp_vanishing_influence}
+
+\begin{proof}
+For $D>\tau$,
+\begin{equation}
+    \omega_{\mathrm{Exp}}(D)
+    =
+    \exp
+    \left[
+        -\frac{\lambda}{c}(D-\tau)
+    \right].
+\end{equation}
+Hence,
+\begin{equation}
+\begin{aligned}
+    \omega_{\mathrm{Exp}}(D) I(D)
+    &\leq
+    C
+    \exp
+    \left[
+        -\frac{\lambda}{c}(D-\tau)
+    \right]
+    (1+D)^m \\
+    &\longrightarrow
+    0,
+\end{aligned}
+\end{equation}
+because exponential decay dominates every finite-order polynomial.
+
+The corresponding weighted parameter step is
+\begin{equation}
+    \Delta\theta_{\mathrm{Exp}}(D)
+    =
+    \eta
+    \omega_{\mathrm{Exp}}(D)
+    g_\theta^-(D),
+\end{equation}
+and therefore
+\begin{equation}
+    \left\|
+        \Delta\theta_{\mathrm{Exp}}(D)
+    \right\|_2
+    =
+    \eta
+    \omega_{\mathrm{Exp}}(D)
+    I(D)
+    \longrightarrow
+    0.
+\end{equation}
+
+If $\widehat J_{\mathcal B}$ is locally $L_{\mathcal B}$-Lipschitz around
+$\theta$, then for all sufficiently large $D$,
+\begin{equation}
+\begin{aligned}
+    \left|
+        \widehat{\mathcal U}_{\theta,\mathcal B}
+        \bigl(z;\omega_{\mathrm{Exp}}(D)\bigr)
+    \right|
+    &\leq
+    L_{\mathcal B}
+    \left\|
+        \Delta\theta_{\mathrm{Exp}}(D)
+    \right\|_2 \\
+    &\longrightarrow
+    0.
+\end{aligned}
+\end{equation}
+This proves both claims.
+\end{proof}
+
+
+\subsection{Categorical One-vs-Rest Dynamics}
+\label{app:categorical_self_limiting}
+
+\begin{proof}[Proof of Theorem~\ref{thm:categorical_self_limiting}]
+For a single negative atom \(i\), the direct-logit field is
+\[
+\dot z=-q(e_i-\pi),
+\qquad
+\dot z_i=-q(1-\pi_i),
+\qquad
+\dot z_j=q\pi_j\quad(j\ne i).
+\]
+Define the normalized off-target probabilities
+\(\bar\pi_j=\pi_j/(1-\pi_i)\). Differentiating
+\(y_i=z_i-\log\sum_{j\ne i}e^{z_j}\) gives
+\begin{align}
+\dot y_i
+&=-q(1-\pi_i)
+-q\frac{\sum_{j\ne i}\pi_j^2}{1-\pi_i} \\
+&=-q(1-\pi_i)c_K(t),
+\qquad
+c_K(t)=1+\sum_{j\ne i}\bar\pi_j^2.
+\label{eq:app_categorical_exact_ode}
+\end{align}
+Because \(\bar\pi\) is a distribution on \(K-1\) actions,
+\[
+\frac1{K-1}\le\sum_{j\ne i}\bar\pi_j^2\le1,
+\]
+which proves the coefficient envelope without a concentration assumption.
+
+We next justify entry into the far half-line before using its bounds.
+The log-odds is strictly decreasing. Until \(\pi_i<1/2\), monotonicity
+gives \(1-\pi_i(t)\ge1-\pi_i(0)>0\), so
+Equation~\eqref{eq:app_categorical_exact_ode} has a strictly negative
+upper bound. The trajectory therefore crosses \(\pi_i=1/2\) in finite
+time. Thereafter \(1-\pi_i\ge1/2\), so \(y_i\to-\infty\) at a linear
+rate and \(\pi_i=\sigma(y_i)\) decays exponentially.
+
+For the generic coefficient, suppose \(j^*\ne i\) is the unique largest
+off-target logit initially. For every \(k\ne i,j^*\),
+\[
+\frac{d}{dt}(z_{j^*}-z_k)=q(\pi_{j^*}-\pi_k)>0.
+\]
+The initial ordering is therefore preserved. If a gap stayed bounded,
+then, once \(\pi_i\to0\), maximality of \(j^*\) and the positive initial
+gap would give a positive lower bound on
+\(\pi_{j^*}-\pi_k\), a contradiction. Hence all such gaps diverge,
+off-target mass concentrates on \(j^*\), and \(c_K(t)\to2\). Under
+complete off-target symmetry, symmetry is preserved and
+\(\bar\pi_j=1/(K-1)\), giving
+\(c_K(t)\equiv K/(K-1)\).
+
+Now apply the taper
+\(\omega_i=\min\{1,(e^{\tau_i}\pi_i)^\beta\}\). In the far branch,
+let \(U=e^{-\beta y_i}\). Since
+\(\pi_i e^{-y_i}=1-\pi_i\),
+\begin{align}
+\dot U
+&=-\beta e^{-\beta y_i}\dot y_i \\
+&=\beta q e^{\beta\tau_i}
+c_K(t)(1-\pi_i)^{\beta+1}.
+\label{eq:app_categorical_tapered_u}
+\end{align}
+After the finite crossing above, the right-hand side is bounded above
+and below by positive constants. Thus \(U=\Theta(t)\), which is
+equivalent to
+\[
+y_i(t)=-\beta^{-1}\log t+O(1),
+\qquad
+\pi_i(t)=\Theta(t^{-1/\beta}).
+\]
+\end{proof}
+
+\subsection{Categorical Restoring-Force Balance}
+\label{app:categorical_restoring_balance}
+
+Write the one-dimensional restored dynamics as
+\[
+\dot y=F(y)=E(y)-S_{\mathrm{tap}}(y),
+\]
+where \(S_{\mathrm{tap}}>0\) is downward suppression and \(E>0\) is
+upward restoration.
+
+\begin{proposition}[Finite restoring crossing]
+\label{prop:categorical_restoring_crossing}
+Assume \(E\) and \(S_{\mathrm{tap}}\) are continuous and their zeros in
+\([y_L,y_R]\) are isolated. If
+\(F(y_L)>0\) and \(F(y_R)<0\), then the interval contains a zero at
+which the phase line has a positive-to-negative crossing. Such a
+crossing is locally asymptotically stable; if it is hyperbolic, its
+condition is
+\[
+F'(y^*)<0
+\quad\Longleftrightarrow\quad
+[S_{\mathrm{tap}}-E]'(y^*)>0.
+\]
+\end{proposition}
+
+\begin{proof}
+The intermediate value theorem gives at least one zero. Because the
+zeros are isolated on a compact interval, only finitely many occur; as
+the endpoint signs differ, at least one has positive sign immediately
+to its left and negative sign immediately to its right. The flow then
+points toward that zero from both sides, proving phase-line stability. At a
+hyperbolic crossing this sign change is equivalent to \(F'(y^*)<0\),
+and the displayed derivative identity follows from \(F=E-S_{\mathrm{tap}}\).
+\end{proof}
+
+In the binary or symmetric one-vs-rest tail, the tapered suppression
+has order \(e^{\beta y}\), whereas entropy restoration has order
+\(|y|e^y\) as \(y\to-\infty\). Hence \(\beta\ge1\) supplies the
+required far-tail ordering (with the \(|y|\) factor breaking the tie at
+\(\beta=1\)), but it does not by itself verify the finite phase-line
+conditions of Proposition~\ref{prop:categorical_restoring_crossing}.
+
+\section{Distributional Reweighting Interpretations}
+\label{app:distributional_reweighting}
+
+\subsection{Finite-Measure I-Divergence Attenuation}
+\label{app:finite_measure_variational}
+
+\begin{proof}[Proof of Proposition~\ref{prop:finite_measure_variational}]
+Use the convention
+\(\phi(0)=1\) for
+\(\phi(w)=w\log w-w+1\). For an active constraint, the Lagrangian with
+multiplier \(\kappa>0\) is
+\[
+\mathcal L(w,\kappa)
+=\int\{wh+\kappa\phi(w)\}\,d\xi^- -\kappa\delta.
+\]
+Pointwise stationarity on \(0<w\le1\) gives
+\(h+\kappa\log w=0\), hence
+\[
+w_\kappa(z)=e^{-h(z)/\kappa}.
+\]
+For \(h=0\), this equals one; for \(h>0\), it lies strictly between
+zero and one. Define
+\(\mathcal D(\kappa)=\int\phi(w_\kappa)d\xi^-\). Dominated convergence gives
+\[
+\lim_{\kappa\to\infty}\mathcal D(\kappa)=0,
+\qquad
+\lim_{\kappa\downarrow0}\mathcal D(\kappa)
+=\xi^-(\{h>0\})=\delta_0.
+\]
+On a set of positive \(h\), increasing \(\kappa\) strictly increases
+\(w_\kappa\) toward one and strictly decreases \(\phi(w_\kappa)\).
+Thus \(\mathcal D(\kappa)\) is continuous and strictly decreasing from
+\(\delta_0\) to zero, proving existence and uniqueness for
+\(0<\delta<\delta_0\).
+
+At \(\delta=\delta_0\), the limit is
+\(w_0=\mathbf1\{h=0\}\), which has zero objective and divergence
+\(\delta_0\). For \(\delta>\delta_0\), the same zero-objective point is
+strictly feasible, so the constraint need not be active and there is no
+finite one-to-one multiplier relation. Finally,
+\(\int\phi(0)d\xi^-=|\xi^-|\), so \(w\equiv0\) becomes feasible only at the later
+endpoint \(\delta\ge|\xi^-|\).
+\end{proof}
+
+This problem derives learner-relative exponential attenuation. It is
+distinct from quality-based hard selection: bo
