@@ -1,9 +1,13 @@
 # ReplayAB R1 Formal Calibration Execution Plan
 
-Claim: `GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01`  
-Calibration: `REPLAYAB-R1-C1-CALIBRATION-01`  
-Frozen implementation/toolchain: `main@dd46727c1efefd2e6d4cdf6f3b204ec1fc58fca3`  
-Execution branch: `exec/replayab-r1-calibration-01`  
+Claim: `GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01`
+
+Calibration: `REPLAYAB-R1-C1-CALIBRATION-01`
+
+Frozen implementation/toolchain: `main@dd46727c1efefd2e6d4cdf6f3b204ec1fc58fca3`
+
+Execution branch: `exec/replayab-r1-calibration-01`
+
 Scientific impact: none
 
 ## Purpose
