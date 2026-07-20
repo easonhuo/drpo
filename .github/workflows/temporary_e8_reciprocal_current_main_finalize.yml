@@ -19,7 +19,6 @@ jobs:
     timeout-minutes: 50
     env:
       BRANCH: dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01
-      EXPECTED_MAIN: 943c9a033e3494ab2a101929d6017cfd6e2372f8
       UPDATE_ID: EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20
       DELTA_PATH: docs/handoff_deltas/EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml
     steps:
@@ -42,8 +41,8 @@ jobs:
           set -euo pipefail
           TRIGGER_SHA="$(git rev-parse HEAD)"
           CURRENT_MAIN="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
-          test "$CURRENT_MAIN" = "$EXPECTED_MAIN"
-          test "$(git merge-base "$EXPECTED_MAIN" "$TRIGGER_SHA")" = "dd46727c1efefd2e6d4cdf6f3b204ec1fc58fca3"
+          test -n "$CURRENT_MAIN"
+          test "$(git merge-base "$CURRENT_MAIN" "$TRIGGER_SHA")" = "dd46727c1efefd2e6d4cdf6f3b204ec1fc58fca3"
           printf 'TRIGGER_SHA=%s\nCURRENT_MAIN=%s\n' "$TRIGGER_SHA" "$CURRENT_MAIN" >> "$GITHUB_ENV"
 
       - name: Build clean source transaction on current main
@@ -69,7 +68,9 @@ jobs:
 
           source_root = Path('/tmp/e8-source')
           trigger = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-          current_main = subprocess.check_output(['git', '-C', str(source_root), 'rev-parse', 'HEAD'], text=True).strip()
+          current_main = subprocess.check_output(
+              ['git', '-C', str(source_root), 'rev-parse', 'HEAD'], text=True
+          ).strip()
           update_id = 'EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20'
           delta_rel = Path('docs/handoff_deltas') / update_id / 'HANDOFF_DELTA.yaml'
 
@@ -102,7 +103,9 @@ jobs:
               'reason': 'main advanced through unrelated ReplayAB governance closure commits before final merge',
               'scientific_files_overlap': False,
           }
-          provenance_path.write_text(json.dumps(provenance, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          provenance_path.write_text(
+              json.dumps(provenance, indent=2, sort_keys=True) + '\n', encoding='utf-8'
+          )
 
           ids = [
               'EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-SHAPE-SCREEN-0.5B-01',
@@ -130,10 +133,14 @@ jobs:
               },
           }
 
-          trigger_registry = yaml.safe_load(subprocess.check_output(
-              ['git', 'show', f'{trigger}:experiments/registry.yaml'], text=True
-          ))
-          trigger_by_id = {entry['id']: entry for entry in trigger_registry['experiments']}
+          trigger_registry = yaml.safe_load(
+              subprocess.check_output(
+                  ['git', 'show', f'{trigger}:experiments/registry.yaml'], text=True
+              )
+          )
+          trigger_by_id = {
+              entry['id']: entry for entry in trigger_registry['experiments']
+          }
           entries = []
           for experiment_id in ids:
               entry = trigger_by_id[experiment_id]
@@ -159,17 +166,29 @@ jobs:
           registry_path = source_root / 'experiments/registry.yaml'
           registry_text = registry_path.read_text(encoding='utf-8')
           registry_payload = yaml.safe_load(registry_text)
-          existing_ids = {entry['id'] for entry in registry_payload['experiments']}
+          existing_ids = {
+              entry['id'] for entry in registry_payload['experiments']
+          }
           overlap = sorted(existing_ids & set(ids))
           if overlap:
-              raise SystemExit(f'current main unexpectedly already contains reciprocal closure IDs: {overlap}')
+              raise SystemExit(
+                  f'current main unexpectedly already contains reciprocal closure IDs: {overlap}'
+              )
           marker = '\ndevelopment_experiment_registrations:\n'
           if marker not in registry_text:
               raise SystemExit('registry insertion marker missing')
-          appended = yaml.safe_dump(entries, sort_keys=False, allow_unicode=True, width=120)
-          registry_after = registry_text.replace(marker, '\n' + appended + 'development_experiment_registrations:\n', 1)
+          appended = yaml.safe_dump(
+              entries, sort_keys=False, allow_unicode=True, width=120
+          )
+          registry_after = registry_text.replace(
+              marker,
+              '\n' + appended + 'development_experiment_registrations:\n',
+              1,
+          )
           parsed_after = yaml.safe_load(registry_after)
-          parsed_ids = {entry['id'] for entry in parsed_after['experiments']}
+          parsed_ids = {
+              entry['id'] for entry in parsed_after['experiments']
+          }
           if not set(ids).issubset(parsed_ids):
               raise SystemExit('registry insertion verification failed')
           registry_path.write_text(registry_after, encoding='utf-8')
@@ -177,23 +196,32 @@ jobs:
           delta_path = source_root / delta_rel
           delta = yaml.safe_load(delta_path.read_text(encoding='utf-8'))
           base_handoff = subprocess.check_output(
-              ['git', '-C', str(source_root), 'show', f'{current_main}:docs/handoff.md'], text=True
+              ['git', '-C', str(source_root), 'show', f'{current_main}:docs/handoff.md'],
+              text=True,
           )
           base_registry = subprocess.check_output(
-              ['git', '-C', str(source_root), 'show', f'{current_main}:experiments/registry.yaml'], text=True
+              ['git', '-C', str(source_root), 'show', f'{current_main}:experiments/registry.yaml'],
+              text=True,
           )
           sys.path.insert(0, str((source_root / 'scripts').resolve()))
           import handoff_delta_shadow as shadow
+
           candidate = shadow.render(base_handoff, delta['operations']).text
           delta['base'] = {
               'commit': current_main,
               'handoff_sha256': hashlib.sha256(base_handoff.encode()).hexdigest(),
               'registry_sha256': hashlib.sha256(base_registry.encode()).hexdigest(),
           }
-          delta['registry']['exact_base_after_sha256'] = hashlib.sha256(registry_after.encode()).hexdigest()
-          delta['expected']['exact_base_candidate_sha256'] = hashlib.sha256(candidate.encode()).hexdigest()
+          delta['registry']['exact_base_after_sha256'] = hashlib.sha256(
+              registry_after.encode()
+          ).hexdigest()
+          delta['expected']['exact_base_candidate_sha256'] = hashlib.sha256(
+              candidate.encode()
+          ).hexdigest()
           delta_path.write_text(
-              yaml.safe_dump(delta, sort_keys=False, allow_unicode=True, width=120),
+              yaml.safe_dump(
+                  delta, sort_keys=False, allow_unicode=True, width=120
+              ),
               encoding='utf-8',
           )
           PY
@@ -230,7 +258,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git diff --binary "$CURRENT_MAIN".."$SOURCE_COMMIT" | git -C /tmp/e8-target apply --index
+          latest_main="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test "$latest_main" = "$CURRENT_MAIN"
+          git diff --binary "$CURRENT_MAIN".."$SOURCE_COMMIT" | \
+            git -C /tmp/e8-target apply --index
           python /tmp/e8-trusted/scripts/handoff_authority.py normalize \
             --repo-root /tmp/e8-target \
             --trusted-repo-root /tmp/e8-trusted \
@@ -282,7 +313,10 @@ jobs:
           latest_main="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
           test "$latest_main" = "$CURRENT_MAIN"
           tree="$(git rev-parse "$TARGET_COMMIT^{tree}")"
-          FINAL_COMMIT="$(printf '%s\n' 'Finalize E8 reciprocal joint pilot closure' | git commit-tree "$tree" -p "$TRIGGER_SHA" -p "$SOURCE_COMMIT")"
+          FINAL_COMMIT="$(
+            printf '%s\n' 'Finalize E8 reciprocal joint pilot closure' | \
+              git commit-tree "$tree" -p "$TRIGGER_SHA" -p "$SOURCE_COMMIT"
+          )"
           test "$(git rev-parse "$FINAL_COMMIT^{tree}")" = "$tree"
           git push origin "$FINAL_COMMIT:refs/heads/$BRANCH"
           body="Current-main E8 reciprocal closure finalization passed on \`$FINAL_COMMIT\` (source transaction \`$SOURCE_COMMIT\`, base \`$CURRENT_MAIN\`): all three immutable evidence locators, trusted schema-v3 normalization, Evidence Locator Gate, tiered-plan validation, compile, shell syntax, handoff authority, formal execution channel, governance inventory/stage, full pytest, and Ruff. Temporary workflows are absent from the final tree."
