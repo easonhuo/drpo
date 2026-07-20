@@ -174,15 +174,35 @@ jobs:
 
       - name: Install extracted package
         working-directory: extracted/drpo-reference-v0.1
-        run: python -m pip install -e '.[test]' ruff
+        run: python -m pip install -q -e '.[test]' ruff
 
       - name: Compile extracted package
         working-directory: extracted/drpo-reference-v0.1
         run: python -m compileall -q src tests
 
-      - name: Run self-contained package tests
+      - name: Run shared self-contained tests
         working-directory: extracted/drpo-reference-v0.1
-        run: python -m pytest
+        run: >-
+          python -m pytest -x -vv
+          tests/test_aggregate.py
+          tests/test_common.py
+          tests/test_controls.py
+          tests/test_events.py
+
+      - name: Run public CLI self-contained tests
+        working-directory: extracted/drpo-reference-v0.1
+        run: python -m pytest -x -vv tests/test_cli.py
+
+      - name: Run C-U1 self-contained tests
+        working-directory: extracted/drpo-reference-v0.1
+        run: python -m pytest -x -vv tests/test_cu1_suite.py
+
+      - name: Run D-U1 self-contained tests
+        working-directory: extracted/drpo-reference-v0.1
+        run: >-
+          python -m pytest -x -vv
+          tests/test_du1_cli.py
+          tests/test_du1_public.py
 
       - name: Ruff check extracted package
         working-directory: extracted/drpo-reference-v0.1
