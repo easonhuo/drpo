@@ -122,9 +122,13 @@ def test_one_click_inherits_unified_worker_cap_and_is_resume_safe() -> None:
     expected_cap = (
         'MAX_WORKERS="${E7_SQUARED_EXP_MAX_WORKERS:-${DRPO_RUNTIME_MAX_WORKERS:-}}"'
     )
+    resume_command = (
+        'python scripts/run_e7_squared_exp_night_auto.py run '
+        '"${COMMON_ARGS[@]}" --resume'
+    )
     assert expected_cap in run_text
     assert expected_cap in resume_text
     assert 'SELECTION_PATH="${WORK_DIR}/RUNTIME_SELECTION.json"' in run_text
     assert 'IDENTITY_PATH="${WORK_DIR}/RUN_IDENTITY.json"' in run_text
-    assert 'python scripts/run_e7_squared_exp_night_auto.py run "${COMMON_ARGS[@]}" --resume' in run_text
+    assert resume_command in run_text
     assert "partial runtime identity" in run_text
