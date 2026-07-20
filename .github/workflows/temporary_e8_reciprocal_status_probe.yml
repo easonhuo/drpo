@@ -1,0 +1,46 @@
+name: Temporary E8 reciprocal status probe
+
+on:
+  push:
+    branches:
+      - diag/e8-reciprocal-finalizer-48a3e49
+    paths:
+      - .github/workflows/temporary_e8_reciprocal_status_probe.yml
+
+permissions:
+  actions: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    env:
+      TARGET_SHA: 48a3e49adef04df569e67350fec74dbb15fb97e4
+      TARGET_WORKFLOW: Temporary E8 reciprocal current-main finalize
+    steps:
+      - name: Report target run status
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$TARGET_SHA&per_page=100")"
+          run_id="$(jq -r --arg name "$TARGET_WORKFLOW" '.workflow_runs[] | select(.name == $name) | .id' <<<"$runs" | head -n1)"
+          if [[ -z "$run_id" ]]; then
+            body="Status probe: no run named \`$TARGET_WORKFLOW\` was found for \`$TARGET_SHA\`."
+          else
+            run="$(jq -r --argjson id "$run_id" '.workflow_runs[] | select(.id == $id)' <<<"$runs")"
+            status="$(jq -r '.status' <<<"$run")"
+            conclusion="$(jq -r '.conclusion // "null"' <<<"$run")"
+            url="$(jq -r '.html_url' <<<"$run")"
+            jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs?per_page=100")"
+            summary="$(jq -r '.jobs[] | "- job `" + .name + "`: " + .status + "/" + (.conclusion // "null") + "\n" + ((.steps // []) | map(select(.status == "in_progress" or .conclusion == "failure") | "  - `" + .name + "`: " + .status + "/" + (.conclusion // "null")) | join("\n"))' <<<"$jobs")"
+            failed_logs=""
+            if [[ "$status" == "completed" && "$conclusion" != "success" ]]; then
+              failed_logs="$(gh run view "$run_id" --repo "$GITHUB_REPOSITORY" --log-failed 2>&1 || true)"
+            fi
+            failed_tail="$(tail -n 160 <<<"$failed_logs")"
+            body="Status probe for \`$TARGET_WORKFLOW\` at \`$TARGET_SHA\`: run $run_id, status=$status, conclusion=$conclusion.\n\n$summary\n\n\`\`\`text\n$failed_tail\n\`\`\`\n\n$url"
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/issues/174/comments" -f body="$body" >/dev/null
