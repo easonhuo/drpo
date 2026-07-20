@@ -1,0 +1,189 @@
+name: Build KDD 2027 Stage-A manuscript
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      github.event.pull_request.head.ref == 'dev/paper-kdd2027-template-migration-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Reconstruct locked latest manuscript source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p paper/kdd2027
+          if compgen -G '.github/kdd-stage-a-source/chunk-*.tex' >/dev/null; then
+            cat .github/kdd-stage-a-source/chunk-*.tex > paper/kdd2027/source_locked.tex
+          fi
+          test -s paper/kdd2027/source_locked.tex
+          echo '6e5ee53daf390f50ee2f2098826c02882a53257cbbe97ccee4a4ace1cde45dae  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
+
+      - name: Generate anonymous ACM manuscript
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/generate_kdd2027_stage_a.py
+          python scripts/postprocess_kdd2027_stage_a.py
+          python paper/kdd2027/verify_content_lock.py
+
+      - name: Install LaTeX and PDF audit tools
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            latexmk \
+            poppler-utils \
+            texlive-bibtex-extra \
+            texlive-fonts-extra \
+            texlive-fonts-recommended \
+            texlive-latex-extra
+
+      - name: Install current official ACM acmart template files
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-delay 3 \
+            -o /tmp/acmart.zip \
+            https://mirrors.ctan.org/macros/latex/contrib/acmart.zip
+          rm -rf /tmp/acmart-unpack
+          mkdir -p /tmp/acmart-unpack
+          unzip -q /tmp/acmart.zip -d /tmp/acmart-unpack
+          ins="$(find /tmp/acmart-unpack -type f -name acmart.ins -print -quit)"
+          bst="$(find /tmp/acmart-unpack -type f -name ACM-Reference-Format.bst -print -quit)"
+          test -n "$ins"
+          test -n "$bst"
+          package_dir="$(dirname "$ins")"
+          cls="$(find "$package_dir" -maxdepth 1 -type f -name acmart.cls -print -quit)"
+          if [[ -z "$cls" ]]; then
+            (cd "$package_dir" && tex -interaction=nonstopmode acmart.ins >/tmp/acmart-ins.log 2>&1) || true
+            cls="$(find "$package_dir" -maxdepth 1 -type f -name acmart.cls -print -quit)"
+          fi
+          if [[ -z "$cls" ]]; then
+            (cd "$package_dir" && latex -interaction=nonstopmode acmart.ins >>/tmp/acmart-ins.log 2>&1) || true
+            cls="$(find "$package_dir" -maxdepth 1 -type f -name acmart.cls -print -quit)"
+          fi
+          if [[ -z "$cls" ]]; then
+            cat /tmp/acmart-ins.log >&2 || true
+            echo 'Unable to generate acmart.cls from the official CTAN source archive' >&2
+            exit 1
+          fi
+          cp "$cls" paper/kdd2027/acmart.cls
+          cp "$bst" paper/kdd2027/ACM-Reference-Format.bst
+          test -s paper/kdd2027/acmart.cls
+          test -s paper/kdd2027/ACM-Reference-Format.bst
+          version_line="$(grep -m1 'Typesetting articles for the Association for Computing Machinery' paper/kdd2027/acmart.cls || true)"
+          test -n "$version_line"
+          printf '%s\n' "$version_line"
+          {
+            echo 'source=https://mirrors.ctan.org/macros/latex/contrib/acmart.zip'
+            echo "resolved_version_line=$version_line"
+            echo "acmart_cls_sha256=$(sha256sum paper/kdd2027/acmart.cls | awk '{print $1}')"
+            echo "acm_reference_format_bst_sha256=$(sha256sum paper/kdd2027/ACM-Reference-Format.bst | awk '{print $1}')"
+            echo 'user_uploaded_overleaf_bundle_version=2.18'
+            echo 'user_uploaded_overleaf_bundle_acmart_cls_sha256=7a9b6535aafd31738b6cd959608be38a4958f3246da12dd6972e8ae71ac858bb'
+            echo 'user_uploaded_overleaf_bundle_bst_sha256=8ec002c927068bfc5b3cfe71b66aa4767b9e485530ac3c67ba5c064df4c2e6ac'
+          } > paper/kdd2027/TEMPLATE_PROVENANCE.txt
+          cat paper/kdd2027/TEMPLATE_PROVENANCE.txt
+
+      - name: Build with repository figures and audit every page
+        id: manuscript_build
+        continue-on-error: true
+        run: bash paper/kdd2027/build.sh
+
+      - name: Capture build diagnostics
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p paper/kdd2027/diagnostics
+          if [[ -f paper/kdd2027/main.log ]]; then
+            tail -n 500 paper/kdd2027/main.log > paper/kdd2027/diagnostics/main-log-tail.txt
+          fi
+          if [[ -f paper/kdd2027/main.blg ]]; then
+            cp paper/kdd2027/main.blg paper/kdd2027/diagnostics/main.blg
+          fi
+          if [[ -f paper/kdd2027/main.pdf ]]; then
+            pdfinfo paper/kdd2027/main.pdf > paper/kdd2027/diagnostics/PDFINFO-partial.txt || true
+          fi
+          find paper/kdd2027 -maxdepth 2 -type f -printf '%p %s bytes\n' | sort > paper/kdd2027/diagnostics/file-inventory.txt
+
+      - name: Upload compiled manuscript, renders, and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drpo-kdd2027-stage-a
+          path: |
+            paper/kdd2027/main.pdf
+            paper/kdd2027/BUILD_AUDIT.txt
+            paper/kdd2027/PDFINFO.txt
+            paper/kdd2027/PDFFONTS.txt
+            paper/kdd2027/main.log
+            paper/kdd2027/main.blg
+            paper/kdd2027/TEMPLATE_PROVENANCE.txt
+            paper/kdd2027/renders/page-*.png
+            paper/kdd2027/diagnostics/*
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Enforce successful manuscript build
+        if: steps.manuscript_build.outcome != 'success'
+        shell: bash
+        run: |
+          cat paper/kdd2027/diagnostics/main-log-tail.txt 2>/dev/null || true
+          cat paper/kdd2027/diagnostics/main.blg 2>/dev/null || true
+          exit 1
+
+      - name: Install release PDF and audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p paper/releases
+          cp paper/kdd2027/main.pdf paper/releases/DRPO_KDD2027_STAGE_A.pdf
+          cp paper/kdd2027/BUILD_AUDIT.txt paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt
+          test -s paper/releases/DRPO_KDD2027_STAGE_A.pdf
+
+      - name: Commit complete Stage-A source and compiled PDF
+        shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          rm -rf .github/kdd-stage-a-source
+          rm -rf paper/kdd2027/diagnostics
+          rm -f paper/kdd2027/main.aux \
+                paper/kdd2027/main.bbl \
+                paper/kdd2027/main.blg \
+                paper/kdd2027/main.fdb_latexmk \
+                paper/kdd2027/main.fls \
+                paper/kdd2027/main.log \
+                paper/kdd2027/main.out \
+                paper/kdd2027/main.txt \
+                paper/kdd2027/PDFINFO.txt \
+                paper/kdd2027/PDFFONTS.txt \
+                paper/kdd2027/main.pdf
+          rm -rf paper/kdd2027/renders
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git status --short
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'Add KDD 2027 Stage-A anonymous ACM manuscript and PDF'
+          git push origin "HEAD:${HEAD_BRANCH}"

@@ -30,16 +30,14 @@ stages:
   stage_0:
     number: 0
     name: rule_migration_safety_and_assurance
-    responsibility: Preserve governance rules, fingerprints, assurance mappings, and
-      direct test evidence.
+    responsibility: Preserve governance rules, fingerprints, assurance mappings, and direct test evidence.
     status: closed
     status_authorization: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
     protected_files: []
   stage_1:
     number: 1
     name: bundle_backed_update_integration_pipeline
-    responsibility: Produce, verify, integrate, test, diagnose, and export canonical
-      code-update packages.
+    responsibility: Produce, verify, integrate, test, diagnose, and export canonical code-update packages.
     status: closed_maintenance_only
     status_authorization: GOV-STAGE1-STAGE3-TEST-INTEGRATION-2026-06-27
     closure_evidence:
@@ -97,8 +95,7 @@ stages:
   stage_2:
     number: 2
     name: canonical_formal_experiment_channel
-    responsibility: Enforce the single guarded formal execution, packaging, verification,
-      and anti-bypass channel.
+    responsibility: Enforce the single guarded formal execution, packaging, verification, and anti-bypass channel.
     status: closed_maintenance_only
     status_authorization: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
     production_acceptance_experiment: D-U1-E6-SEMANTIC-LONGRUN-01
@@ -146,8 +143,8 @@ stages:
   stage_3:
     number: 3
     name: handoff_delta_shadow_mode
-    responsibility: Add structured HANDOFF_DELTA generation, replay, candidate rendering,
-      and shadow comparison without switching authority.
+    responsibility: Add structured HANDOFF_DELTA generation, replay, candidate rendering, and shadow comparison without switching
+      authority.
     status: shadow_active
     status_authorization: GOV-STAGE3-SHADOW-ACTIVATION-2026-06-27
     depends_on:
@@ -180,8 +177,7 @@ stages:
   stage_4:
     number: 4
     name: lossless_handoff_history_split_shadow_mode
-    responsibility: Generate a compact current handoff plus immutable indexed history
-      while preserving all bytes and headings.
+    responsibility: Generate a compact current handoff plus immutable indexed history while preserving all bytes and headings.
     status: active
     status_authorization: GOV-STAGE4B-FINAL-ACCEPTANCE-2026-07-01
     design_state: specification_authorized
@@ -224,9 +220,8 @@ stages:
   stage_5:
     number: 5
     name: versioned_handoff_write_authority_cutover
-    responsibility: Operate the production schema-v3 delta write-authority pipeline
-      for docs/handoff.md with checkpointed rollback and verified code-only no-op
-      normalization.
+    responsibility: Operate the production schema-v3 delta write-authority pipeline for docs/handoff.md with checkpointed
+      rollback and verified code-only no-op normalization.
     status: closed_maintenance_only
     status_authorization: GOV-STAGE5-CLOSURE-2026-07-03
     implementation_state: production_delta_authority_active
@@ -260,8 +255,8 @@ stages:
     - stage_4_lossless_validation
     protected_files:
     - path: scripts/handoff_authority.py
-      sha256: 80fc13f5c626b482052cc1cf775e7769c1fa7ea861619dfa05820caa2c8f75c5
-      authorized_by: GOV-STAGE5-LEGACY-INERT-DELTA-COMPATIBILITY-BUGFIX-2026-07-19
+      sha256: c375a4c6c74f604048269b1344ca35a03eb8b6e166a27063153efe64ea5888ff
+      authorized_by: GOV-STAGE5-PREINTEGRATION-REPORT-HISTORY-BUGFIX-2026-07-20
     - path: scripts/validate_governance_pipeline_stage_status.py
       sha256: dc47015449b1fa2c806229a6dd1bfd64b06a6015dec3d151c6cc59390727a8f6
       authorized_by: GOV-STAGE5-CLOSURE-2026-07-03
@@ -269,8 +264,8 @@ stages:
       sha256: 74fe7980ad300be58140c1b14a13c51d5a25f5d26ca6c1a10ffeafd234bbb6de
       authorized_by: GOV-STAGE5-CLOSURE-2026-07-03
     - path: tests/stage5_candidate_integration.py
-      sha256: f3788d281557298b4a2715fd9d50103467b7075e786708b32656b6583d93b1e3
-      authorized_by: GOV-STAGE5-CLOSURE-2026-07-03
+      sha256: 9d53b240c0bd514987fb90d1d7eebb2706321e989bfca21a8b75fc12565a8bcf
+      authorized_by: GOV-STAGE5-PREINTEGRATION-REPORT-HISTORY-BUGFIX-2026-07-20
     - path: tests/test_governance_pipeline_stage_status.py
       sha256: b7e576ee511466055cb402c417df973cac0fd6dbea746f18b5b2ef5e67c7d1b9
       authorized_by: GOV-STAGE5-CLOSURE-2026-07-03

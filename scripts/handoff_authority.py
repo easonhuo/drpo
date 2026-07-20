@@ -1677,6 +1677,92 @@ def _first_parent_integration_commit(
     )
 
 
+def _validated_integrated_path_history(
+    repo_root: Path,
+    path: Path,
+    *,
+    positions: dict[str, int],
+    label: str,
+    expected_integration_commit: str | None = None,
+) -> tuple[str, str]:
+    """Validate one immutable path across pre-integration branch revisions.
+
+    A source branch may revise a newly added delta or materialization report before
+    the branch is merged.  Every such touch must already be an ancestor of the
+    single first-parent integration commit, and the integrated bytes must still
+    equal the current bytes.  Any post-integration touch remains fail-closed.
+    """
+
+    relative = _repo_relative(repo_root, path, label)
+    head = _git_text(repo_root, "rev-parse", "HEAD")
+    touches = _git_text(
+        repo_root, "log", "--format=%H", "--", relative
+    ).splitlines()
+    adds = _git_text(
+        repo_root,
+        "log",
+        "--diff-filter=A",
+        "--format=%H",
+        "--",
+        relative,
+    ).splitlines()
+    if len(adds) != 1 or not touches:
+        raise HandoffAuthorityError(
+            f"{label} must have one addition and non-empty history: {relative}"
+        )
+    first_add = adds[0]
+    if first_add in positions:
+        integration_commit = first_add
+    else:
+        integration_commit = _first_parent_integration_commit(
+            repo_root,
+            positions=positions,
+            first_add=first_add,
+            relative=relative,
+        )
+    if (
+        expected_integration_commit is not None
+        and integration_commit != expected_integration_commit
+    ):
+        raise HandoffAuthorityError(
+            f"{label} was not integrated with its authoritative delta: {relative}"
+        )
+    for touch in touches:
+        if (
+            _git(
+                repo_root,
+                "merge-base",
+                "--is-ancestor",
+                touch,
+                integration_commit,
+                check=False,
+            ).returncode
+            != 0
+        ):
+            raise HandoffAuthorityError(
+                f"{label} is not immutable after integration: {relative}"
+            )
+    integrated_text = _git_show(repo_root, integration_commit, Path(relative))
+    if path.read_text(encoding="utf-8") != integrated_text:
+        raise HandoffAuthorityError(
+            f"{label} bytes differ from the integration commit: {relative}"
+        )
+    first_parent_touches = _git_text(
+        repo_root,
+        "rev-list",
+        "--first-parent",
+        "--reverse",
+        f"{integration_commit}..{head}",
+        "--",
+        relative,
+    ).splitlines()
+    if first_parent_touches:
+        raise HandoffAuthorityError(
+            f"{label} changed after first-parent integration: {relative}"
+        )
+    return first_add, integration_commit
+
+
 def _legacy_inert_materialization_report(
     repo_root: Path,
     path: Path,
@@ -1766,22 +1852,12 @@ def _discover_v3_deltas(
             continue
         validate_v3_delta(payload, path)
         relative = _repo_relative(repo_root, path, "authoritative delta")
-        touches = _git_text(repo_root, "log", "--format=%H", "--", relative).splitlines()
-        adds = _git_text(
-            repo_root, "log", "--diff-filter=A", "--format=%H", "--", relative
-        ).splitlines()
-        if len(adds) != 1 or len(touches) != 1:
-            raise HandoffAuthorityError(f"authoritative delta is not immutable: {relative}")
-        first_add = adds[0]
-        if first_add in positions:
-            integration_commit = first_add
-        else:
-            integration_commit = _first_parent_integration_commit(
-                repo_root,
-                positions=positions,
-                first_add=first_add,
-                relative=relative,
-            )
+        first_add, integration_commit = _validated_integrated_path_history(
+            repo_root,
+            path,
+            positions=positions,
+            label="authoritative delta",
+        )
         report = path.parent / REPORT_FILENAME
         if not report.is_file():
             legacy_report = _legacy_inert_materialization_report(
@@ -1805,15 +1881,13 @@ def _discover_v3_deltas(
                 )
             )
             continue
-        report_touches = _git_text(
+        _validated_integrated_path_history(
             repo_root,
-            "log",
-            "--format=%H",
-            "--",
-            _repo_relative(repo_root, report, "materialization report"),
-        ).splitlines()
-        if report_touches != [first_add]:
-            raise HandoffAuthorityError(f"materialization report is not immutable: {report}")
+            report,
+            positions=positions,
+            label="materialization report",
+            expected_integration_commit=integration_commit,
+        )
         records.append(
             DiscoveredDelta(
                 integration_commit,

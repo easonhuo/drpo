@@ -1,0 +1,426 @@
+{
+  "current_before_commit": "749ba603dddebeb559998459a4bee38633a35897",
+  "current_handoff_before_sha256": "b3a99be6eb5c44e5ae2fa9ace6161c0acd60be6aeb9ee2aea96631b07f576e7c",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-ext-c-e8-oracle-offline-v2-continuous-exp-grid-0-5b-01",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "2a2f5daab75da5aa2b52865195c49d051f48a6fe9863ad7c170a0f8d668c796a"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
+            "sha256": "203316aa5147a36470de72d5450b8045a56c0c7bfd1daa496292f9deeab8d3c7"
+          }
+        ],
+        "kind": "add_entity"
+      },
+      {
+        "change_id": "add-ext-c-e8-oracle-offline-v2-alpha1-c-scan-0-5b-01",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "2a2f5daab75da5aa2b52865195c49d051f48a6fe9863ad7c170a0f8d668c796a"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
+            "sha256": "203316aa5147a36470de72d5450b8045a56c0c7bfd1daa496292f9deeab8d3c7"
+          }
+        ],
+        "kind": "add_entity"
+      },
+      {
+        "change_id": "add-ext-c-e8-oracle-offline-v2-alpha1-highc-scan-0-5b-01",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-HIGHC-SCAN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "2a2f5daab75da5aa2b52865195c49d051f48a6fe9863ad7c170a0f8d668c796a"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
+            "sha256": "203316aa5147a36470de72d5450b8045a56c0c7bfd1daa496292f9deeab8d3c7"
+          }
+        ],
+        "kind": "add_entity"
+      },
+      {
+        "change_id": "add-ext-c-e8-oracle-offline-v2-alpha1-logc-boundary-scan-0-5b-01",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-LOGC-BOUNDARY-SCAN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "2a2f5daab75da5aa2b52865195c49d051f48a6fe9863ad7c170a0f8d668c796a"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
+            "sha256": "203316aa5147a36470de72d5450b8045a56c0c7bfd1daa496292f9deeab8d3c7"
+          }
+        ],
+        "kind": "add_entity"
+      },
+      {
+        "change_id": "add-ext-c-e8-oracle-offline-v2-paper-aligned-linear-scan-0-5b-01",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "2a2f5daab75da5aa2b52865195c49d051f48a6fe9863ad7c170a0f8d668c796a"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
+            "sha256": "203316aa5147a36470de72d5450b8045a56c0c7bfd1daa496292f9deeab8d3c7"
+          },
+          {
+            "path": "experiments/results/e8_paper_aligned_linear_scan_round1_pilot/RESULT_SUMMARY.json",
+            "sha256": "2d2d6857aabf89d0771c021bd3efc49a7881b8aa85f5dfce137c50e9230b95cf"
+          }
+        ],
+        "kind": "add_entity"
+      },
+      {
+        "change_id": "add-ext-c-e8-oracle-offline-v2-paper-aligned-tau-curve-0-5b-01",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-CURVE-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "2a2f5daab75da5aa2b52865195c49d051f48a6fe9863ad7c170a0f8d668c796a"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
+            "sha256": "203316aa5147a36470de72d5450b8045a56c0c7bfd1daa496292f9deeab8d3c7"
+          },
+          {
+            "path": "experiments/results/e8_paper_aligned_tau_curve_pilot/RESULT_SUMMARY.json",
+            "sha256": "0f3de24435773970e0013dbc25f7a8ef548640b199cd32394e1084a85e6942e3"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01",
+        "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-HIGHC-SCAN-0.5B-01",
+        "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-LOGC-BOUNDARY-SCAN-0.5B-01",
+        "EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01",
+        "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01",
+        "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-CURVE-0.5B-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 6,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "203316aa5147a36470de72d5450b8045a56c0c7bfd1daa496292f9deeab8d3c7",
+  "exact_base_candidate_sha256": "9184a35c57d2741d2d5ad218355a56fc57f708f0ffe1809be396f35bd844ded1",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-ext-c-e8-oracle-offline-v2-continuous-exp-grid-0-5b-01",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "2a2f5daab75da5aa2b52865195c49d051f48a6fe9863ad7c170a0f8d668c796a"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
+            "sha256": "203316aa5147a36470de72d5450b8045a56c0c7bfd1daa496292f9deeab8d3c7"
+          }
+        ],
+        "kind": "add_entity"
+      },
+      {
+        "change_id": "add-ext-c-e8-oracle-offline-v2-alpha1-c-scan-0-5b-01",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "2a2f5daab75da5aa2b52865195c49d051f48a6fe9863ad7c170a0f8d668c796a"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
+            "sha256": "203316aa5147a36470de72d5450b8045a56c0c7bfd1daa496292f9deeab8d3c7"
+          }
+        ],
+        "kind": "add_entity"
+      },
+      {
+        "change_id": "add-ext-c-e8-oracle-offline-v2-alpha1-highc-scan-0-5b-01",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-HIGHC-SCAN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "2a2f5daab75da5aa2b52865195c49d051f48a6fe9863ad7c170a0f8d668c796a"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
+            "sha256": "203316aa5147a36470de72d5450b8045a56c0c7bfd1daa496292f9deeab8d3c7"
+          }
+        ],
+        "kind": "add_entity"
+      },
+      {
+        "change_id": "add-ext-c-e8-oracle-offline-v2-alpha1-logc-boundary-scan-0-5b-01",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-LOGC-BOUNDARY-SCAN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "2a2f5daab75da5aa2b52865195c49d051f48a6fe9863ad7c170a0f8d668c796a"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
+            "sha256": "203316aa5147a36470de72d5450b8045a56c0c7bfd1daa496292f9deeab8d3c7"
+          }
+        ],
+        "kind": "add_entity"
+      },
+      {
+        "change_id": "add-ext-c-e8-oracle-offline-v2-paper-aligned-linear-scan-0-5b-01",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "2a2f5daab75da5aa2b52865195c49d051f48a6fe9863ad7c170a0f8d668c796a"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
+            "sha256": "203316aa5147a36470de72d5450b8045a56c0c7bfd1daa496292f9deeab8d3c7"
+          },
+          {
+            "path": "experiments/results/e8_paper_aligned_linear_scan_round1_pilot/RESULT_SUMMARY.json",
+            "sha256": "2d2d6857aabf89d0771c021bd3efc49a7881b8aa85f5dfce137c50e9230b95cf"
+          }
+        ],
+        "kind": "add_entity"
+      },
+      {
+        "change_id": "add-ext-c-e8-oracle-offline-v2-paper-aligned-tau-curve-0-5b-01",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-CURVE-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "2a2f5daab75da5aa2b52865195c49d051f48a6fe9863ad7c170a0f8d668c796a"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json",
+            "sha256": "30925b148da306295ed233592d3e1599ac77f2a33dfdd0bfb9ecab1976a8688d"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
+            "sha256": "203316aa5147a36470de72d5450b8045a56c0c7bfd1daa496292f9deeab8d3c7"
+          },
+          {
+            "path": "experiments/results/e8_paper_aligned_tau_curve_pilot/RESULT_SUMMARY.json",
+            "sha256": "0f3de24435773970e0013dbc25f7a8ef548640b199cd32394e1084a85e6942e3"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01",
+        "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-HIGHC-SCAN-0.5B-01",
+        "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-LOGC-BOUNDARY-SCAN-0.5B-01",
+        "EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01",
+        "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01",
+        "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-CURVE-0.5B-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 6,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "9184a35c57d2741d2d5ad218355a56fc57f708f0ffe1809be396f35bd844ded1",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5",
+  "registry_before_sha256": "92362cdf550c9f296a364cd1ea87cb9e3471372a56606617165d08a3e463a780",
+  "report_schema_version": 1,
+  "source_base_commit": "749ba603dddebeb559998459a4bee38633a35897",
+  "source_patch_commit": "236160809bdcfe7c324fb1781a484ae82b775bc4",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "c375a4c6c74f604048269b1344ca35a03eb8b6e166a27063153efe64ea5888ff",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20"
+}
