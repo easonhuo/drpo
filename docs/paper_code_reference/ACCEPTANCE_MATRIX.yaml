@@ -3,25 +3,25 @@ task_id: PAPER-CODE-REFERENCE-01
 base_commit: 4544005bd7df69c53bad70a9dcac846af01285e4
 branch: dev/paper-code-reference-01
 scientific_status_impact: none
+status_history:
+  prior_detailed_gate_inventory_preserved_in_git_history: true
+  note: >-
+    This compact schema-v2 snapshot retains live status, source ownership,
+    acceptance boundaries, and open gates. Earlier per-test inventories remain
+    immutable provenance in Git history and are not scientific evidence.
 rules:
   smoke_is_not_reproduction: true
   static_checks_are_not_scientific_results: true
-  legacy_source_remains_provenance_oracle: true
   no_frozen_variable_changes: true
-  require_clean_checkout_validation_before_ready: true
-  no_per_task_d4rl_trainer_copies: true
-  no_forced_hopper_mechanism_backend_reuse_for_d4rl_performance: true
   reviewer_code_is_not_internal_formal_governance: true
   lightweight_completion_is_not_scientific_terminal_audit: true
-  manuscript_artifact_binding_is_internal: true
-  legacy_pilot_profile_is_not_final_method_matrix: true
-  d4rl_exprank_remains_implicit_default: true
   no_post_hoc_per_task_method_selection: true
-  countdown_stable_training_core_is_not_final_experiment_entry: true
   countdown_linear_surprisal_must_not_be_silently_squared: true
   countdown_unique_negative_denominator_must_not_be_weight_sum: true
   countdown_positive_only_skips_negative_bank_forward: true
-  countdown_public_command_requires_final_protocol_freeze_and_path_approval: true
+  countdown_runtime_requires_explicit_config: true
+  countdown_test_access_occurs_after_training: true
+  countdown_fixed_horizon_is_not_convergence: true
   countdown_does_not_replace_du1_controlled_identification: true
   separate_events:
     - task_performance_collapse
@@ -29,31 +29,18 @@ rules:
     - nan_inf_numerical_failure
     - environment_invalid_or_rollout_unavailable
     - incomplete_or_unresolved_terminal_state
-status_history:
-  note: >-
-    Schema version 1 recorded early planning statuses and a broad paper-output
-    regeneration requirement. Those records remain in Git history. Schema
-    version 2 records implementation status, the reviewer-facing code boundary,
-    and the separation between runnable reference code and internal formal
-    scientific governance.
 phases:
   shared_kernel:
-    previous_status: in_progress
     status: implementation_complete_engineering_validated
-    target:
+    targets:
       - paper_code/src/drpo_reference/common
       - paper_code/src/drpo_reference/controls
-    passed_engineering_gates:
-      - formula_characterization
-      - detached_weight_gradient_check
-      - coefficient_retention_check
-      - hard_mask_characterization
-      - budget_scale_characterization
-      - event_taxonomy_separation
-      - clean_checkout_compile_pytest_ruff
+    engineering_gates:
+      formula_and_detachment: passed
+      event_separation: passed
+      clean_checkout_compile_pytest_ruff: passed
     pending_scientific_gates: []
   cu1:
-    previous_status: planned
     status: implementation_complete_formal_rerun_pending
     authoritative_sources:
       - src/drpo/cu1_core.py
@@ -62,51 +49,30 @@ phases:
       - src/drpo/cu1_taper_near_retention_formal.py
       - src/drpo/cu1_taper_budget_match_formal.py
     reference_entrypoint: paper_code/src/drpo_reference/cli.py
-    passed_engineering_gates:
-      - fixed_seed_environment_identity
-      - initialization_identity
-      - loss_identity
-      - raw_gradient_identity
-      - first_adam_update_identity
-      - short_trajectory_identity
-      - terminal_audit_schema_identity
-      - public_cli_and_aggregation
-      - legacy_differential_tests
-      - clean_checkout_compile_pytest_ruff
+    engineering_gates:
+      environment_loss_gradient_first_update_identity: passed
+      public_cli_aggregation_and_terminal_schema: passed
+      clean_checkout_compile_pytest_ruff: passed
     pending_scientific_gates:
       - registered_full_cpu_reproduction
       - terminal_result_review
       - selected_conclusion_report
   du1_revision_4:
-    previous_status: planned
     status: implementation_complete_formal_run_pending
     authoritative_sources:
       - src/drpo/du1_e6_cartesian_taper_v4.py
       - configs/du1_e6_cartesian_taper_v4.yaml
     reference_entrypoint: paper_code/src/drpo_reference/cli.py
-    excluded_sources:
-      - src/drpo/du1_e6_cartesian_taper.py
-      - outputs/du1_e6_cartesian_taper_rev3_development
-    passed_engineering_gates:
-      - environment_geometry_identity
-      - hidden_action_identity
-      - initialization_identity
-      - common_rare_assignment_identity
-      - calibration_identity
-      - loss_identity
-      - raw_gradient_identity
-      - first_adam_update_identity
-      - short_trajectory_identity
-      - terminal_audit_schema_identity
-      - public_cli_and_aggregation
-      - legacy_differential_tests
-      - clean_checkout_compile_pytest_ruff
+    engineering_gates:
+      environment_policy_control_calibration_identity: passed
+      loss_gradient_first_update_identity: passed
+      public_cli_aggregation_and_terminal_schema: passed
+      clean_checkout_compile_pytest_ruff: passed
     pending_scientific_gates:
       - registered_full_cpu_reproduction
       - terminal_result_review
       - selected_conclusion_report
   hopper_e7_q2:
-    previous_status: planned
     status: implementation_complete_real_registered_rerun_pending
     scientific_role: external_mechanism_validation
     authoritative_sources:
@@ -115,137 +81,40 @@ phases:
       - scripts/run_e7_hopper_q2.py
       - outputs/e7_hopper_q2
     reference_entrypoint: paper_code/src/drpo_reference/experiments/hopper.py
-    excluded_as_mechanism_authority:
-      - src/drpo/e7_bench.py
-      - src/drpo/e7_canonical_vendor/d4rl
-      - unmerged_gae_branches
-    passed_engineering_gates:
-      - dataset_identity_contract
-      - episode_split_identity
-      - critic_checkpoint_selection_identity
-      - frozen_advantage_identity
-      - near_far_pair_identity
-      - actor_loss_identity
-      - raw_gradient_identity
-      - first_optimizer_update_identity
-      - six_branch_suite_identity
-      - rollout_preflight_and_failure_semantics
-      - public_runner_and_aggregation
-      - terminal_audit_schema_identity
-      - legacy_differential_tests
-      - clean_checkout_compile_pytest_ruff
+    engineering_gates:
+      dataset_critic_advantage_actor_identity: passed
+      first_update_six_branch_and_rollout_identity: passed
+      public_runner_aggregation_and_terminal_schema: passed
+      clean_checkout_compile_pytest_ruff: passed
     pending_scientific_gates:
       - registered_hdf5_and_real_mujoco_liveness
       - registered_full_budget_rerun
       - terminal_result_review
       - selected_conclusion_report
   d4rl_9:
-    previous_status: reviewer_runtime_implemented_real_liveness_pending_formal_protocol_blocked
     status: reviewer_multimethod_runtime_implemented_real_liveness_pending_formal_protocol_blocked
     experiment_id: EXT-H-E7-BENCH-01
     scientific_role: external_task_performance
-    task_matrix:
-      environments:
-        - halfcheetah
-        - hopper
-        - walker2d
-      dataset_tiers:
-        - medium
-        - medium-replay
-        - medium-expert
     reference_entrypoint: paper_code/src/drpo_reference/cli.py
     runtime_orchestrator: paper_code/src/drpo_reference/experiments/__init__.py
     algorithm_core: paper_code/src/drpo_reference/experiments/d4rl.py
     task_contract: paper_code/src/drpo_reference/external/d4rl_tasks.py
-    reviewer_code_scope:
-      readable_algorithm_required: true
-      public_training_required: true
-      public_rollout_required: true
-      simple_seed_aggregation_required: true
-      lightweight_completion_required: true
-      internal_formal_audit_required: false
-      registry_handoff_mutation_required: false
-      manuscript_table_cell_binding_required: false
-    reviewer_method_execution:
-      implicit_default: exprank
-      selectable_methods:
-        - exprank
-        - positive_only
-        - signed
-        - global
-        - reciprocal_linear
-        - reciprocal_quadratic
-        - exponential
-      historical_control_profile: legacy-pilot-v1
-      historical_profile_requires_explicit_acknowledgement: true
-      profile_is_final: false
-      final_method_matrix_frozen: false
-      post_hoc_per_task_method_selection_allowed: false
-      formal_method_ranking_claim_allowed: false
     selected_backend:
       id: canonical_sna2c_iqlv_exprank
-      algorithm_family: SNA2C_IQLV_ExpRank
-      implementation_selected: true
       implementation_migrated: true
-      migration_mode: paper_facing_code_migration
-      protocol_status: selected_backend_code_migrated_protocol_unfrozen
       protocol_frozen: false
-      formal_task_matrix_eligible: false
       mechanism_runner_reusable: false
-      differential_oracles:
-        - src/drpo/e7_canonical_vendor/d4rl/agents.py
-        - src/drpo/e7_canonical_vendor/d4rl/train_sna2c_variant.py
-        - src/drpo/e7_canonical_vendor/d4rl/d4rl_common/train_loop.py
-        - src/drpo/e7_canonical_vendor/d4rl/d4rl_common/normalize.py
-    archive_evidence:
-      status: pilot_provenance_only
-      completed_rows: 576
-      datasets: 9
-      seeds:
-        - 200
-        - 201
-      steps: 1000000
-      formal_ranking: false
-      launch_commit_resolved: false
-    passed_engineering_gates:
-      - exact_nine_task_catalog
-      - d4rl_reference_score_constants
-      - hopper_medium_replay_identity_bridge
-      - unresolved_sha_fail_closed
-      - backend_independent_rollout_identity
-      - canonical_exprank_backend_selected
-      - migrated_actor_critic_initialization_identity
-      - migrated_actor_critic_forward_identity
-      - rank_weight_formula_identity
-      - first_adam_update_identity
-      - fixed_short_trajectory_identity
-      - locomotion_dataset_preparation_identity
-      - checkpoint_and_completion_record_identity
-      - one_migrated_trainer_across_all_nine_tasks
-      - no_per_task_trainer_dispatch
-      - hopper_mechanism_backend_separation
-      - public_selected_or_all_nine_task_training
-      - public_d4rl_cli
-      - new_or_empty_output_contract
-      - lightweight_completion_and_failure_records
-      - direct_gymnasium_mujoco_rollout
-      - reset_step_termination_truncation_identity
-      - deterministic_episode_seeding
-      - rollout_dimension_and_finiteness_checks
-      - raw_and_normalized_score_calculation
-      - per_episode_mean_std
-      - task_seed_mean_std_aggregation
-      - rollout_unavailability_is_not_task_performance
-      - optional_rollout_dependency_contract
-      - controlled_fake_environment_tests
-      - reviewer_selectable_multimethod_execution
-      - explicit_legacy_pilot_profile_gate
-      - shared_task_method_seed_trainer
-      - detached_standardized_distance_identity
-      - legacy_control_formula_identity
-      - method_seed_mean_std_aggregation
-      - exprank_default_backward_compatibility
-      - clean_checkout_compile_pytest_ruff_after_multimethod_migration
+    reviewer_method_execution:
+      implicit_default: exprank
+      historical_control_profile: legacy-pilot-v1
+      final_method_matrix_frozen: false
+      formal_method_ranking_claim_allowed: false
+    engineering_gates:
+      nine_task_catalog_and_dataset_contract: passed
+      canonical_actor_critic_and_first_update_identity: passed
+      shared_nine_task_training_checkpoint_and_rollout: passed
+      multi_method_cli_and_seed_aggregation: passed
+      clean_checkout_compile_pytest_ruff: passed
     blockers:
       - canonical_archive_launch_commit_unresolved
       - eight_dataset_sha256_values_unresolved
@@ -262,105 +131,88 @@ phases:
       - terminal_result_review
       - selected_conclusion_report
   countdown:
-    previous_status: stable_core_implemented_final_experiment_entry_blocked
-    status: stable_training_core_implemented_final_experiment_entry_blocked
+    status: reviewer_runtime_implemented_real_liveness_pending_final_protocol_blocked
+    experiment_id: EXT-C-E8-TAPER-0.5B-01
     scientific_role: external_transformer_validity
-    approved_core_path: paper_code/src/drpo_reference/categorical/countdown.py
-    approval_record:
-      source: user_explicit_approval
-      draft_pull_request: 149
-      comment_id: 5016309623
-      scope_limited_to_stable_core: true
-      final_experiment_entry_approved: false
+    scientific_status: pilot_not_run
+    paths:
+      algorithm_core: paper_code/src/drpo_reference/categorical/countdown.py
+      reviewer_runtime: paper_code/src/drpo_reference/experiments/countdown.py
+      public_cli: paper_code/src/drpo_reference/cli.py
+    approval_records:
+      algorithm_core:
+        draft_pull_request: 149
+        comment_id: 5016309623
+        approved_before_creation: true
+      reviewer_runtime:
+        draft_pull_request: 149
+        comment_id: 5019085196
+        approved_before_creation: true
       protected_environment_approval_confirmed_by_connector: false
-    stable_characterization_sources:
+    differential_oracles:
       - src/drpo/countdown_qwen_arena_onefile.py
       - src/drpo/countdown_e8_alpha1_c_scan_common.py
       - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
       - src/drpo/countdown_e8_alpha1_highc_scan_common.py
-      - docs/experiments/E8_PAPER_ALIGNED_LINEAR_SCAN_PROTOCOL.md
-      - docs/experiments/E8_PAPER_ALIGNED_LINEAR_C_EXTENSION_PROTOCOL.md
-    stable_core_scope:
-      expression_cleaning: implemented
-      exact_fraction_verifier: implemented
-      verifier_category_separation: implemented
-      chat_prompt_rendering: implemented
-      completion_eos_and_prompt_masking: implemented
-      completion_only_sequence_log_probability: implemented
-      entropy_and_bounded_direct_logit_score: implemented
-      weighted_sequence_log_probability: implemented
-      first_occurrence_unique_negative_bank: implemented
-      frozen_bank_row_encoding: implemented
-      flattened_unique_bank_collation: implemented
-      unique_negative_count_per_prompt_denominator: implemented
-      weight_sum_normalization: forbidden
-      normalized_sequence_surprisal_u_equals_negative_logp_over_two: implemented
-      detached_paper_aligned_linear_weight_alpha_exp_negative_c_u: implemented
-      joint_positive_minus_weighted_negative_objective: implemented
-      positive_only_skips_negative_bank_forward: implemented
-      weight_and_bank_diagnostics: implemented
-      parameter_update_norm: implemented
-      first_clipped_adamw_update_identity: implemented
-      greedy_pass_at_k_valid_rate_aggregation: implemented
-      transformers_or_peft_runtime_dependency: false
-      model_or_training_protocol_selected: false
-      full_multistep_training_loop_available: false
-      public_experiment_command_available: false
-      final_protocol_frozen: false
+      - src/drpo/countdown_e8_taper.py
+    algorithm_core:
+      verifier_masking_statistics_and_unique_bank: implemented
+      historical_linear_surprisal_compatibility: implemented
+      active_tail_coordinate_and_six_method_weights: implemented
+      deterministic_detached_two_forward_objective: implemented
+      prompt_balanced_sampling: implemented
+      model_backed_gradient_calibration: implemented
+      first_clipped_adamw_update_identity: passed
+      transformers_or_peft_dependency: false
+    reviewer_runtime:
+      explicit_json_configuration: implemented
+      hidden_scientific_defaults: forbidden
+      lazy_transformers_peft_and_optional_4bit: implemented
+      model_tokenizer_lora_or_initial_adapter: implemented
+      replay_calibration_validation_and_delayed_test: implemented
+      input_hashes_and_prompt_disjointness: implemented
+      per_seed_calibration_and_initialization_digest: implemented
+      paired_multistep_adamw_training: implemented
+      accumulation_clipping_and_update_norms: implemented
+      nonfinite_guards_and_parameter_rollback: implemented
+      best_last_finite_terminal_adapters: implemented
+      greedy_pass_at_k_best_terminal_evaluation: implemented
+      lightweight_records_and_seed_aggregation: implemented
+      public_cli_command: implemented
+      optional_dependency_extras: implemented
+      interrupted_run_resume: not_implemented
+      real_qwen_cuda_liveness: not_run
       formal_result_claim_allowed: false
-    passed_engineering_gates:
-      - approved_new_python_path_recorded_before_creation
-      - canonical_expression_cleaning_characterization
-      - exact_fraction_verifier_characterization
-      - verifier_category_separation
-      - prompt_mask_and_eos_characterization
-      - completion_truncation_fail_closed
-      - completion_padding_characterization
-      - completion_only_sequence_log_probability_characterization
-      - entropy_and_direct_logit_score_characterization
-      - weighted_sequence_log_probability_characterization
-      - first_occurrence_unique_negative_characterization
-      - frozen_bank_collation_characterization
-      - unique_negative_denominator_characterization
-      - weight_sum_normalization_rejected
-      - detached_linear_surprisal_formula_characterization
-      - squared_surprisal_regression_rejected
-      - joint_objective_formula_identity
-      - positive_only_bank_forward_skipped
-      - bank_and_weight_diagnostics_characterization
-      - first_clipped_adamw_update_identity
-      - greedy_pass_at_k_valid_rate_characterization
-      - lightweight_metrics_marked_nonfinal
-      - clean_checkout_compile_pytest_ruff_for_stable_training_core
-    excluded_from_current_core:
-      - historical_one_file_public_orchestration
-      - model_and_lora_loading
-      - gpu_and_runtime_scheduler
-      - optimizer_and_scheduler_selection
-      - full_multistep_training_loop
-      - checkpoint_persistence_resume_and_selection
-      - runspec_and_artifact_delivery
-      - final_method_matrix_or_default_coefficient
-      - final_model_scale_seeds_budget_or_test_protocol
-    final_entry_blockers:
-      - final_manuscript_facing_protocol_and_result_unfrozen
-      - exact_final_experiment_entry_python_path_not_approved
+      method_ranking_claim_allowed: false
+    engineering_gates:
+      stable_core_differential_tests: passed
+      active_tail_formula_two_forward_and_calibration_tests: passed
+      controlled_fake_hf_end_to_end_runtime: passed
+      public_cli_dispatch_test: passed
+      initial_runtime_exact_head_ci: passed
+      cumulative_exact_head_ci_after_status_sync: pending
+    boundaries:
+      - no_silent_final_model_adapter_method_coefficient_seed_or_budget
+      - no_silent_checkpoint_or_test_protocol
+      - no_registry_or_handoff_mutation
+      - no_internal_artifact_or_evidence_promotion
+      - no_scientific_terminal_adjudication
+      - no_manuscript_binding
+    blockers:
       - protected_new_python_environment_result_not_visible_to_connector
+      - cumulative_exact_head_ci_pending_after_status_sync
+      - real_qwen_peft_cuda_liveness_not_run
+      - interrupted_run_resume_not_implemented
       - final_model_scale_and_initialization_unfrozen
-      - final_comparison_arms_and_default_coefficient_unfrozen
+      - final_comparison_arms_and_coefficient_source_unfrozen
       - formal_or_confirmatory_seeds_unfrozen
-      - training_budget_and_checkpoint_selection_unfrozen
+      - training_budget_and_checkpoint_policy_unfrozen
       - final_validation_and_test_access_protocol_unfrozen
-      - model_and_lora_loading_not_migrated
-      - optimizer_scheduler_and_multistep_lifecycle_not_migrated
-      - selected_checkpoint_evaluation_identity_not_migrated
-      - terminal_evaluation_identity_not_migrated
-      - registered_real_qwen_cuda_rerun_not_run
+      - terminal_scientific_review_not_run
+      - integration_freshness_audit_pending
       - selected_conclusion_report_unavailable
     pending_scientific_gates:
       - final_protocol_and_result_freeze
-      - separate_final_entry_path_approval
-      - selected_training_and_evaluation_lifecycle_migration
       - registered_real_qwen_cuda_execution
       - terminal_result_review
       - selected_conclusion_report
@@ -373,11 +225,6 @@ ready_definition:
     - clean_checkout_tests_pass
     - minimum_scientific_result_summary_regenerated
     - remaining_formal_blockers_explicit
-  superseded_requirements_preserved_for_history:
-    - paper_tables_and_figures_regenerated
-    - byte_identical_stochastic_output_verification
-    - universal_paper_output_framework
-    - reviewer_code_duplicates_internal_formal_governance
   forbidden_substitutions:
     - smoke_for_full_reproduction
     - pilot_for_formal_result
