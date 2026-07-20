@@ -1,0 +1,39 @@
+name: Temporary extract reciprocal latest failure
+
+on:
+  push:
+    branches:
+      - diag/e8-upgrade-log-20260720
+    paths:
+      - .github/workflows/temporary_extract_reciprocal_latest_failure.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  extract:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: diag/e8-upgrade-log-20260720
+      - name: Extract failed log
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p docs/experiments
+          gh run view 29734076499 --repo easonhuo/drpo --log-failed > /tmp/log.txt 2>&1 || true
+          {
+            grep -Ein 'ERROR|Error|FAILED|failed|Traceback|Process completed|new_failures|current main|temporary|ruff|pytest' /tmp/log.txt | tail -n 220 || true
+            echo '--- tail ---'
+            tail -n 180 /tmp/log.txt
+          } > docs/experiments/E8_RECIPROCAL_LATEST_FAILURE.txt
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/temporary_extract_reciprocal_latest_failure.yml
+          git add docs/experiments/E8_RECIPROCAL_LATEST_FAILURE.txt
+          git commit -m 'Extract latest reciprocal finalizer failure'
+          git push origin HEAD:diag/e8-upgrade-log-20260720
