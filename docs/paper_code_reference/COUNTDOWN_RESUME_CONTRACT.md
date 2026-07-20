@@ -23,6 +23,7 @@ Only these existing files may change in the implementation slice:
 - `paper_code/src/drpo_reference/cli.py`;
 - `paper_code/tests/test_common.py`;
 - `paper_code/tests/test_cli.py`;
+- `paper_code/README.md`;
 - task-local paper-code documentation and validation workflow test inventory if
   required to execute the new existing-file tests.
 
@@ -59,17 +60,21 @@ resume checkpoint contains:
 1. trainable adapter and tokenizer files;
 2. optimizer state;
 3. scheduler state;
-4. Python, NumPy, Torch CPU, and available CUDA RNG states;
+4. Python, NumPy, Torch CPU, and applicable CUDA RNG states;
 5. completed optimizer step and deterministic sampler-plan offset;
 6. initial trainable-state digest;
 7. method, seed, coefficient, shared negative scale, tau, and surprisal scale;
 8. best step/value, last-finite step, and accumulated metric rows;
 9. config/input/model/reference-adapter identity digests;
-10. schema and runner versions plus `formal_result_claim=false`.
+10. best and last-finite checkpoint tree hashes;
+11. schema and runner versions plus `formal_result_claim=false`.
 
-The state is written to a temporary sibling and atomically promoted only after
-all required files are complete. A stale temporary directory is ignored and
-removed on resume. The committed state is never assembled from partial files.
+The state is written to a temporary sibling and promoted only after all required
+files are complete. Promotion retains the prior committed state as a temporary
+backup until the new state is installed. Resume recovers the prior committed
+state if interruption occurred in that replacement window, removes stale
+uncommitted temporary state, and never assembles a checkpoint from partial
+files.
 
 The first durable state is written after step-0 validation and before training.
 Later states are written at the existing `checkpoint_every` cadence and at the
@@ -94,7 +99,9 @@ recompute and compare:
 - calibration identity and initial trainable-state digest;
 - expected sampler offset
   `completed_step * grad_accum * micro_batch`;
-- optimizer and scheduler step compatibility with the requested total budget.
+- optimizer and scheduler step compatibility with the requested total budget;
+- committed tensor-state, adapter, best-checkpoint, and last-finite-checkpoint
+  hashes.
 
 A mismatch produces a dedicated fail-closed resume error. The runtime must not
 silently delete output, restart from scratch, accept a different coordinate, or
