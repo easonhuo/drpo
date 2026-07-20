@@ -1,0 +1,38 @@
+name: Temporary probe e998 action required
+
+on:
+  push:
+    branches:
+      - diag/e8-upgrade-log-20260720
+    paths:
+      - .github/workflows/temporary_probe_e998_action_required.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  probe:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: diag/e8-upgrade-log-20260720
+      - name: Query action-required runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p docs/experiments
+          for run in 29738734778 29738734730 29738734769; do
+            echo "=== RUN $run ==="
+            gh api "repos/easonhuo/drpo/actions/runs/$run" | jq '{id,name,event,status,conclusion,head_sha,head_branch,actor:.actor.login,triggering_actor:.triggering_actor.login,run_attempt,path,display_title,created_at,updated_at,pull_requests}'
+            gh run view "$run" --repo easonhuo/drpo || true
+          done > docs/experiments/E8_E998_ACTION_REQUIRED_PROBE.txt 2>&1
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/temporary_probe_e998_action_required.yml
+          git add docs/experiments/E8_E998_ACTION_REQUIRED_PROBE.txt
+          git commit -m 'Probe e998 action-required CI state'
+          git push origin HEAD:diag/e8-upgrade-log-20260720
