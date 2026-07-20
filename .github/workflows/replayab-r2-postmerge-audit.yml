@@ -1,0 +1,182 @@
+name: ReplayAB R2 merged-main terminal audit
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    if: github.head_ref == 'exec/replayab-r2-postmerge-audit-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cfe43571cd8c6d0909c61d36c4f6e4d07c2d2362
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest ruff pyyaml
+
+      - name: Verify exact merged-main identity
+        run: |
+          test "$(git rev-parse HEAD)" = "cfe43571cd8c6d0909c61d36c4f6e4d07c2d2362"
+          test ! -e .github/workflows/replayab-r2-postmerge-audit.yml
+
+      - name: Run repository-wide tests
+        run: |
+          python -m pytest -q --junitxml=/tmp/full.xml
+
+      - name: Run repository-wide Ruff and compile audit
+        run: |
+          python -m ruff check .
+          python -m compileall -q src scripts tests
+
+      - name: Run governance and authority gates
+        run: |
+          python scripts/handoff_authority.py verify --repo-root .
+          python scripts/validate_formal_execution_channel.py --repo-root .
+          python scripts/validate_governance_rule_inventory.py --repo-root .
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+
+      - name: Run frozen R2 calibration tests
+        run: |
+          python -m pytest tests/test_workflow_replay_r1.py -k 'r2_' \
+            -q --junitxml=/tmp/r2.xml
+
+      - name: Run closed R1 terminal non-regression
+        run: |
+          python -m pytest tests/test_workflow_replay_r1.py -k 'not r2_' \
+            -q --junitxml=/tmp/r1.xml
+
+      - name: Build and enforce merged-main terminal report
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import json
+          import xml.etree.ElementTree as ET
+          import yaml
+
+          root = Path('.')
+          cal = root / 'docs/development_workflow_optimization/replayab_r2_calibration'
+          fixture = root / 'tests/fixtures/workflow_replay/r2/semantic'
+          inventory = yaml.safe_load((cal / 'INVENTORY.yaml').read_text())
+          expected = yaml.safe_load((cal / 'EXPECTED_VERDICTS.yaml').read_text())
+          ids = [item['case_id'] for item in inventory['cases']]
+          verdict_ids = list(expected['verdicts'])
+          if inventory['selection_frozen_before_implementation_results'] is not True:
+              raise SystemExit('R2 selection was not frozen')
+          if inventory['post_selection_rule']['no_case_removal_after_results'] is not True:
+              raise SystemExit('R2 no-removal rule missing')
+          if len(ids) != 12 or len(set(ids)) != 12 or set(ids) != set(verdict_ids):
+              raise SystemExit('R2 calibration inventory mismatch')
+
+          def junit(path: str) -> dict[str, int]:
+              tree = ET.parse(path)
+              suites = tree.getroot()
+              nodes = [suites] if suites.tag == 'testsuite' else list(suites)
+              return {
+                  key: sum(int(node.attrib.get(key, 0)) for node in nodes)
+                  for key in ('tests', 'failures', 'errors', 'skipped')
+              }
+
+          full = junit('/tmp/full.xml')
+          r2 = junit('/tmp/r2.xml')
+          r1 = junit('/tmp/r1.xml')
+          for name, result in (('full', full), ('r2', r2), ('r1', r1)):
+              if result['tests'] <= 0 or result['failures'] or result['errors']:
+                  raise SystemExit(f'{name} test evidence failed')
+
+          manifest = yaml.safe_load((fixture / 'manifest.yaml').read_text())
+          schema_sha = hashlib.sha256(
+              (root / 'docs/development_workflow_optimization/R2_IMPLEMENTATION_CONTRACT.md').read_bytes()
+          ).hexdigest()
+          if manifest['acceptance']['evidence_schema_sha256'] != schema_sha:
+              raise SystemExit('R2 evidence-schema identity mismatch')
+
+          outcome_bindings = {}
+          for arm in ('a', 'b'):
+              outcome = fixture / f'outcome-{arm}.json'
+              acceptance_path = fixture / f'acceptance-{arm}.json'
+              acceptance = json.loads(acceptance_path.read_text())
+              run = json.loads((fixture / f'run-{arm}.json').read_text())
+              outcome_sha = hashlib.sha256(outcome.read_bytes()).hexdigest()
+              if acceptance['outcome_sha256'] != outcome_sha:
+                  raise SystemExit(f'{arm} acceptance/outcome mismatch')
+              result_raw = acceptance_path.read_bytes()
+              locator = run['evidence']['result']
+              if locator['sha256'] != hashlib.sha256(result_raw).hexdigest():
+                  raise SystemExit(f'{arm} result SHA mismatch')
+              if locator['byte_size'] != len(result_raw):
+                  raise SystemExit(f'{arm} result byte-size mismatch')
+              outcome_bindings[arm] = outcome_sha
+
+          test_text = (root / 'tests/test_workflow_replay_r1.py').read_text()
+          if 'test_r2_acceptance_result_binds_exact_outcome_evidence' not in test_text:
+              raise SystemExit('post-review outcome-binding regression missing')
+
+          report = {
+              'schema_version': 1,
+              'work_id': 'REPLAYAB-R2-SEMANTIC-ACCEPTANCE-01',
+              'merged_main_sha': 'cfe43571cd8c6d0909c61d36c4f6e4d07c2d2362',
+              'implementation_head_sha': '74630c6fa8c7be665ca2615308bab1db7a85f28b',
+              'status': 'R2_MERGED_MAIN_TERMINAL_PASS',
+              'frozen_verdict_count': 12,
+              'covered_false_acceptance_count': 0,
+              'covered_false_rejection_count': 0,
+              'post_review_regression_count': 1,
+              'full_junit': full,
+              'r2_junit': r2,
+              'r1_non_regression_junit': r1,
+              'outcome_bindings': outcome_bindings,
+              'evidence_schema_sha256': schema_sha,
+              'temporary_workflow_absent_from_audited_tree': True,
+              'unsupported_claims': [
+                  'live coding-agent workers',
+                  'stochastic multi-task inference',
+                  'Candidate 01 general efficiency',
+                  'Candidate 01 default adoption',
+                  'R3 trajectory capture',
+                  'scientific execution',
+              ],
+          }
+          Path('/tmp/r2-merged-main-terminal-report.json').write_text(
+              json.dumps(report, indent=2, sort_keys=True) + '\n'
+          )
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: replayab-r2-merged-main-terminal-${{ github.run_id }}
+          path: |
+            /tmp/r2-merged-main-terminal-report.json
+            /tmp/full.xml
+            /tmp/r2.xml
+            /tmp/r1.xml
+            docs/development_workflow_optimization/R2_GAP_AUDIT.md
+            docs/development_workflow_optimization/R2_IMPLEMENTATION_CONTRACT.md
+            docs/development_workflow_optimization/replayab_r2_calibration
+
+      - name: Enforce terminal state
+        run: |
+          python - <<'PY'
+          import json
+          report = json.load(open('/tmp/r2-merged-main-terminal-report.json'))
+          assert report['status'] == 'R2_MERGED_MAIN_TERMINAL_PASS'
+          assert report['frozen_verdict_count'] == 12
+          assert report['covered_false_acceptance_count'] == 0
+          assert report['covered_false_rejection_count'] == 0
+          assert report['post_review_regression_count'] == 1
+          assert report['temporary_workflow_absent_from_audited_tree'] is True
+          PY
