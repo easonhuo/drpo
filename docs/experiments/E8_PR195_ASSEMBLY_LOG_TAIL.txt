@@ -1,0 +1,18 @@
+assemble	Publish evidence-only branch state	﻿2026-07-20T10:01:30.4339953Z ##[group]Run set -euo pipefail
+assemble	Publish evidence-only branch state	2026-07-20T10:01:30.4340434Z ^[[36;1mset -euo pipefail^[[0m
+assemble	Publish evidence-only branch state	2026-07-20T10:01:30.4340918Z ^[[36;1mgit config user.name github-actions[bot]^[[0m
+assemble	Publish evidence-only branch state	2026-07-20T10:01:30.4341684Z ^[[36;1mgit config user.email 41898282+github-actions[bot]@users.noreply.github.com^[[0m
+assemble	Publish evidence-only branch state	2026-07-20T10:01:30.4342573Z ^[[36;1mgit rm tools/temporary_prepare_e8_backlog_evidence.py^[[0m
+assemble	Publish evidence-only branch state	2026-07-20T10:01:30.4343135Z ^[[36;1mgit add -A^[[0m
+assemble	Publish evidence-only branch state	2026-07-20T10:01:30.4343434Z ^[[36;1mgit diff --check --cached^[[0m
+assemble	Publish evidence-only branch state	2026-07-20T10:01:30.4344001Z ^[[36;1mtest -z "$(git diff --cached --name-only | grep '^.github/workflows/temporary_e8_' || true)" || {^[[0m
+assemble	Publish evidence-only branch state	2026-07-20T10:01:30.4344653Z ^[[36;1m  echo 'temporary workflow remains in final staged tree' >&2^[[0m
+assemble	Publish evidence-only branch state	2026-07-20T10:01:30.4345094Z ^[[36;1m  exit 1^[[0m
+assemble	Publish evidence-only branch state	2026-07-20T10:01:30.4345360Z ^[[36;1m}^[[0m
+assemble	Publish evidence-only branch state	2026-07-20T10:01:30.4345728Z ^[[36;1mgit commit -m 'Assemble six completed E8 pilot evidence records'^[[0m
+assemble	Publish evidence-only branch state	2026-07-20T10:01:30.4346265Z ^[[36;1mgit push origin HEAD:dev/e8-completed-backlog-closure-01^[[0m
+assemble	Publish evidence-only branch state	2026-07-20T10:01:30.4412672Z shell: /usr/bin/bash -e {0}
+assemble	Publish evidence-only branch state	2026-07-20T10:01:30.4413050Z ##[endgroup]
+assemble	Publish evidence-only branch state	2026-07-20T10:01:30.5466507Z rm 'tools/temporary_prepare_e8_backlog_evidence.py'
+assemble	Publish evidence-only branch state	2026-07-20T10:01:30.6674319Z temporary workflow remains in final staged tree
+assemble	Publish evidence-only branch state	2026-07-20T10:01:30.6689567Z ##[error]Process completed with exit code 1.
