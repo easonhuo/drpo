@@ -1,0 +1,412 @@
+aset contains trajectories collected from a
+partially trained policy, medium-replay contains the corresponding replay
+buffer collected throughout training, and medium-expert combines medium
+and expert behavior. Hopper-medium-replay is used for the primary mechanism
+diagnostic because its broader behavioral coverage provides a wider range of
+learner-relative distances, while all three Hopper datasets are retained for
+the task-level performance evaluation.
+
+\subsection{Countdown Task and Puzzle Dataset}
+\label{app:countdown_dataset}
+
+Countdown is an arithmetic generation task in which the policy receives
+a multiset of integers and a target value, and must generate an
+arithmetic expression that evaluates exactly to the target. A valid
+output must use every supplied number exactly once and may contain only
+addition, subtraction, multiplication, division, and parentheses.
+
+Let
+$x=(\mathcal N,T)$
+denote a puzzle, where
+$\mathcal N$
+is the supplied multiset of numbers and
+$T$
+is the target. The policy action is a complete token sequence
+$y$ representing the generated expression. Task success is determined
+by a deterministic verifier:
+\begin{equation}
+    R(x,y)
+    =
+    \mathbf 1
+    \left[
+        y
+        \text{ is syntactically valid, uses }
+        \mathcal N
+        \text{ exactly once, and evaluates to }T
+    \right].
+    \label{eq:countdown_reward}
+\end{equation}
+Because multiple expressions can solve the same puzzle, evaluation is
+based on verifier success rather than exact string matching.
+
+The puzzle corpus is procedurally generated from valid arithmetic
+expressions and divided into disjoint training, validation, and test
+sets. Duplicate puzzles with the same number multiset and target are
+removed across the corpus. Validation puzzles are used for checkpoint
+selection, while the test split is reserved for final evaluation.
+
+Countdown provides an external discrete-action setting with
+autoregressive sequence generation and shared Transformer parameters.
+For the diagnostic in Figure~\ref{fig:external_far_field}, unsuccessful
+responses are verifier-matched and grouped by current mean-token surprisal.
+
+\subsection{Training and Evaluation Protocols}
+
+\section{Controlled Experimental Protocols}
+\label{app:controlled_protocols}
+
+This section specifies the interventions used in
+Sections~\ref{sec:controlled_identification}
+and~\ref{sec:repulsion_control}. The definitions of C-U1 and D-U1 are given in
+Appendix~\ref{app:experimental_details}. Network architectures,
+optimizer settings, training budgets, seeds, and evaluation frequencies
+are reported in the protocol-specific subsections below.
+
+\subsection{Shared Notation and Experimental Invariants}
+\label{app:controlled_shared}
+
+For a negative sample
+$z=(s,a)$, define its raw repulsive update as
+\begin{equation}
+    g_\theta^-(z)
+    =
+    -\widehat A^-(z)
+    \nabla_\theta
+    \log\pi_\theta(a\mid s),
+    \qquad
+    \widehat A^-(z)
+    =
+    \max\{-\widehat A(z),0\}.
+    \label{eq:controlled_negative_update}
+\end{equation}
+Learner-relative remoteness is measured by
+\begin{equation}
+    D_\theta(z)
+    =
+    -\log\pi_\theta(a\mid s),
+    \label{eq:controlled_remoteness}
+\end{equation}
+or by its equivalent standardized Gaussian component when additive
+density constants are irrelevant.
+
+Unless explicitly stated otherwise, all branches of one controlled
+comparison share:
+
+\begin{enumerate}
+    \item the same training and evaluation contexts;
+    \item the same positive and negative samples;
+    \item the same fixed rewards or advantage labels;
+    \item the same initial policy parameters;
+    \item the same minibatch order, optimizer, and training horizon;
+    \item the same evaluation checkpoints and terminal classification
+    rules.
+\end{enumerate}
+
+Only the variable named by the intervention is changed. Actions generated
+under the same context are aggregated at the context level and are not
+treated as independent contexts for statistical inference.
+
+
+\subsection{Source-Isolation Protocol}
+\label{app:source_isolation_protocol}
+
+\paragraph{Purpose.}
+The source-isolation experiment asks whether policy-relative remoteness
+changes negative-update magnitude when sample quality is held fixed. It
+identifies the source of a per-sample difference, not its causal effect on
+training.
+
+\paragraph{Continuous product-manifold construction.}
+For each C-U1 context, we select multiple negative actions from a common
+reward contour:
+\begin{equation}
+    R(s,a_i)
+    =
+    R(s,a_j),
+    \qquad
+    \widehat A(s,a_i)
+    =
+    \widehat A(s,a_j)
+    <0,
+    \label{eq:source_equal_quality}
+\end{equation}
+while ensuring that
+\begin{equation}
+    D_\theta(s,a_i)
+    \neq
+    D_\theta(s,a_j).
+    \label{eq:source_different_remoteness}
+\end{equation}
+The reward coordinate and the policy-distance coordinate are therefore
+independently controlled. This exact counterfactual comparison is the
+reason for using a synthetic product-manifold construction: an external
+offline dataset generally cannot provide two actions with precisely
+matched task quality and independently prescribed distance from the
+same current policy.
+
+The comparison is performed both at policy initialization and after
+positive-only pretraining. No negative sample used as a probe is applied
+as an optimizer update during this protocol. Let \(u_\theta(s)\) denote
+the policy-output coordinate used by the controlled probe, e.g.,
+fixed-covariance Gaussian mean coordinates in C-U1 and direct logits in
+D-U1. For every probe, we record
+\begin{equation}
+\begin{aligned}
+I_{\mathrm{score}}(z)
+&=
+\left\|
+\nabla_{u}\log \pi_{u}(a\mid s)
+\right\|_2,\\
+I_{\mathrm{sample}}(z)
+&=
+|\widehat A(z)|\, I_{\mathrm{score}}(z).
+\end{aligned}
+\label{eq:source_influence_metrics}
+\end{equation}
+Because \(|\widehat A|\) is identical across the matched actions,
+differences in \(I_{\mathrm{sample}}\) arise from policy-score geometry
+rather than advantage magnitude.
+
+For neural implementations, we additionally record the full
+parameter-gradient norm and the aggregate gradient obtained from samples
+in the same remoteness range. These implementation-level actor-gradient
+diagnostics are used as transfer checks, not as theorem-level score
+measures.
+
+We report near-to-far ratios of remoteness, score norm, single-sample
+gradient norm, aggregate gradient norm, and gradient-direction
+coherence. Ratios are first computed within each context and seed and
+are then aggregated across the prespecified seeds.
+
+\paragraph{Categorical counterpart.}
+D-U1 uses unordered categorical actions with identical fixed negative
+labels. The comparison varies the current probability assigned to the
+negative action while preserving its reward role and advantage:
+\begin{equation}
+    \widehat A(s,i)
+    =
+    \widehat A(s,j)
+    <0,
+    \qquad
+    \pi_\theta(i\mid s)
+    \neq
+    \pi_\theta(j\mid s).
+    \label{eq:categorical_source_match}
+\end{equation}
+For a direct categorical logit parameterization, the score norm is
+bounded and need not grow without limit as probability decreases.
+The relevant far-field effect is instead persistence: the negative
+update continues to increase the selected action's logit gap even after
+its probability has become small. We therefore report probability,
+surprisal, logit gap, score norm, and cumulative suppression over
+repeated updates. This distinguishes categorical support suppression
+from the unbounded Gaussian-distance amplification measured in C-U1.
+
+
+\subsection{Causal-Transmission Protocol}
+\label{app:causal_transmission_protocol}
+
+\paragraph{Purpose.}
+The source-isolation protocol identifies the source of abnormal update
+magnitude but not its effect on task behavior. Causal transmission is tested in the nonlinear
+Gaussian protocol, where the policy mean and variance evolve jointly,
+and in the categorical support reconstruction of D-U1.
+
+\paragraph{Dynamic near--far partition.}
+At each intervention step, negative samples are partitioned using their
+current-policy remoteness. Let
+$\mathcal N_\theta$
+and
+$\mathcal F_\theta$
+denote the prespecified near- and far-field sets. Their membership is
+recomputed as the policy evolves rather than frozen at initialization.
+The thresholds or quantiles are fixed before training and specified with the
+corresponding environment.
+
+\paragraph{Interventions.}
+For a negative sample $z$, the following multipliers are applied to
+$g_\theta^-(z)$:
+\begin{equation}
+\begin{aligned}
+    w_{\mathrm{uncontrolled}}(z)
+    &=1,\\
+    w_{\mathrm{positive}}(z)
+    &=0,\\
+    w_{\mathrm{near\text{-}zero}}(z)
+    &=
+    \mathbf 1[z\notin\mathcal N_\theta],\\
+    w_{\mathrm{far\text{-}zero}}(z)
+    &=
+    \mathbf 1[z\notin\mathcal F_\theta].
+\end{aligned}
+\label{eq:causal_zero_interventions}
+\end{equation}
+
+The far-cap intervention preserves the direction of a far-field update
+but limits its detached magnitude to a reference level estimated from
+near-field negative samples:
+\begin{equation}
+    w_{\mathrm{far\text{-}cap}}(z)
+    =
+    \begin{cases}
+        \displaystyle
+        \min\left\{
+            1,
+            \frac{C_{\mathrm{near}}}
+                 {I_{\mathrm{sample}}(z)+\epsilon}
+        \right\},
+        & z\in\mathcal F_\theta,\\[3mm]
+        1,
+        & \text{otherwise},
+    \end{cases}
+    \label{eq:causal_far_cap}
+\end{equation}
+where $C_{\mathrm{near}}$ is the prespecified near-field update-magnitude
+reference.
+
+To distinguish selective intervention from a generic decrease in
+negative optimization, the global-matched control applies one scalar
+to every negative sample:
+\begin{equation}
+    w_{\mathrm{global}}(z)
+    =
+    \alpha_{\mathrm{match}}.
+    \label{eq:causal_global_weight}
+\end{equation}
+The scalar is chosen using the training batch so that its detached aggregate
+negative-update magnitude matches the corresponding selective
+intervention:
+\begin{equation}
+    \alpha_{\mathrm{match}}
+    \sum_{z\in\mathcal B^-}
+        I_{\mathrm{sample}}(z)
+    =
+    \sum_{z\in\mathcal B^-}
+        w_{\mathrm{selective}}(z)
+        I_{\mathrm{sample}}(z).
+    \label{eq:causal_budget_match}
+\end{equation}
+The matching coefficient is not differentiated through.
+
+\paragraph{Causal contrasts.}
+The primary causal contrast is between removing near-field and
+far-field negative updates. If Near-zero leaves the dynamics unchanged
+while Far-zero or Far-cap alters them, the effect cannot be attributed
+to negative feedback in general. The global-matched branch quantifies
+how much of the change follows from reducing total negative-update magnitude
+and how much requires selecting samples by remoteness.
+
+\paragraph{Temporal and terminal measurements.}
+We record policy displacement, reward, negative-gradient magnitude,
+mean dynamics and, for learnable-variance runs, scale dynamics, entropy or effective support, and the first
+time at which each prespecified event occurs. The analysis checks whether
+far-field update magnitude rises before policy drift and whether drift precedes
+task-performance loss.
+
+Terminal outcomes are classified separately as:
+
+\begin{enumerate}
+    \item \textbf{task-performance collapse}: a sustained loss of the
+    prespecified task metric while optimization remains finite;
+    \item \textbf{support or variance-boundary event}: categorical
+    effective support or Gaussian variance crosses its prespecified
+    boundary without requiring NaN or Inf;
+    \item \textbf{numerical collapse}: a parameter, loss, gradient, or
+    model output becomes NaN or Inf.
+\end{enumerate}
+
+A boundary event is not automatically counted as task-performance
+collapse, and finite execution is not automatically counted as
+convergence.
+
+\subsection{Controlled Negative-Strength Sweep}
+\label{app:negative_strength_sweep}
+
+The controlled negative-strength sweep varies only the effective
+negative-repulsion strength $q/p$, where $p$ denotes the aggregate
+positive-attraction budget and $q$ denotes the aggregate
+negative-repulsion budget. All sweep arms share the same data, fixed
+labels, initialization, optimizer, training horizon, and event
+thresholds. The positive-only baseline corresponds to $q/p=0$.
+
+Held-out-context reward evaluates unseen-state generalization within the
+C-U1 controlled protocol. Policy shift is the normalized displacement of
+the learned policy from the positive-only target and visualizes how far
+negative feedback pushes the policy beyond the imitation solution.
+Task-performance collapse, support or variance-boundary events, and
+NaN/Inf numerical failures are reported as separate event types.
+
+
+\subsection{Controlled Taper Comparison}
+\label{app:controlled_taper_protocol}
+
+\paragraph{Controlled utility construction.}
+In C-U1, the hidden optimum $a_\star(s)$ lies beyond the center of the
+positive demonstrations $a_+(s)$. A local negative anchor is placed on
+the opposite side of $a_+(s)$, so repulsion from this anchor points
+toward $a_\star(s)$. Additional negative actions are placed on matched
+reward contours at larger policy-relative distances. Increasing
+negative strength therefore produces three observable regimes:
+positive-only under-extrapolation, useful local extrapolation, and
+far-field over-extrapolation or instability.
+
+D-U1 implements the same logic with unordered semantic actions. The
+hidden optimal target lies beyond the demonstrated positive direction,
+while the local negative target lies in the opposite semantic
+direction. Repelling the local negative action can therefore improve
+the shared representation toward the hidden optimal action. Additional
+remote negative actions create support pressure without changing their
+fixed negative label. Evaluation on independently sampled contexts is
+reported as held-out-context generalization.
+
+Let
+\[
+x(D)
+=
+\left[
+\frac{D-\tau}{c}
+\right]_{+},
+\qquad
+r_x(D)=\sqrt{x(D)}.
+\]
+The Linear and Quadratic names refer to polynomial order in the
+radialized coordinate \(r_\theta=\sqrt{x_\theta}\), rather than in the
+squared-remoteness coordinate \(x_\theta\).
+\paragraph{Weighting rules.}
+For negative-sample remoteness $D$, the compared rules are
+\begin{equation}
+\begin{aligned}
+    \omega_{\mathrm{positive}}(D)
+    &=0,\\
+    \omega_{\mathrm{uncontrolled}}(D)
+    &=1,\\
+    \omega_{\mathrm{global}}(D)
+    &=\alpha,\\
+    \omega_{\mathrm{hard}}(D)
+    &=
+    \mathbf 1[D\leq\tau],\\
+    \omega_{\mathrm{Rec\text{-}L}}(D)
+    &=
+    \frac{1}{1+\lambda r_x(D)},\\
+    \omega_{\mathrm{Rec\text{-}Q}}(D)
+    &=
+    \frac{1}{1+\lambda r_x(D)^2},\\
+    \omega_{\mathrm{exp}}(D)
+    &=
+    \exp\{-\lambda r_x(D)^2\}.
+\end{aligned}
+\label{eq:controlled_taper_rules}
+\end{equation}
+All weighting values are computed from detached remoteness statistics;
+the policy cannot reduce its loss by differentiating through the taper.
+
+\paragraph{Near-field-retention matching.}
+Let $\mathcal N$ denote the prespecified useful near-field set and define
+its retained first-order update magnitude as
+\begin{equation}
+    \rho_{\mathrm{near}}(\omega)
+    =
+    \frac{
+        \sum_{z\in\mathcal N}
+        \omega(D_\theta(z))
+        I
