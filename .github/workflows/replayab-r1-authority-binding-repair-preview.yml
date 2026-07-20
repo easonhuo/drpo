@@ -107,9 +107,9 @@ jobs:
               f'Base: `main@{os.environ["BASE_SHA"]}`  \n'
               'Scientific impact: none\n\n'
               '## Authorization and diagnosis\n\n'
-              'The user authorized this narrow repair on 2026-07-20 after formal calibration '\
-              'reported 10/10 behavioral verdict agreement, zero covered unsafe passes, zero '\
-              'covered false rejections, and a passing runtime guardrail, while blocking closure '\
+              'The user authorized this narrow repair on 2026-07-20 after formal calibration '
+              'reported 10/10 behavioral verdict agreement, zero covered unsafe passes, zero '
+              'covered false rejections, and a passing runtime guardrail, while blocking closure '
               'because the frozen fixtures contained an orphaned evidence-schema digest.\n\n'
               f'The incorrect digest was `{old}`. Historical provenance diagnostic run '
               '`29719811214` found no repository object matching that digest. The implementation '
@@ -146,6 +146,7 @@ jobs:
               json.dumps(report, indent=2, sort_keys=True) + '\n', encoding='utf-8'
           )
           PY
+          git add -N docs/development_workflow_optimization/replayab_r1_calibration/R1_AUTHORITY_BINDING_REPAIR.md
           git diff --check
           python - <<'PY'
           import json
