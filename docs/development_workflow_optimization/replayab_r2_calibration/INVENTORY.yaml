@@ -1,0 +1,19 @@
+schema_version: 1
+calibration_id: REPLAYAB-R2-CALIBRATION-01
+selection_frozen_before_implementation_results: true
+post_selection_rule:
+  no_case_removal_after_results: true
+  retain_failures_and_rejections: true
+cases:
+- case_id: R2-CAL-BOTH-SAME-WRONG
+- case_id: R2-CAL-CONTRACT-MISMATCH
+- case_id: R2-CAL-DIFFERENT-BOTH-CORRECT
+- case_id: R2-CAL-EFFICIENCY-BLOCK
+- case_id: R2-CAL-EVALUATOR-MISMATCH
+- case_id: R2-CAL-FORBIDDEN-REGRESSION
+- case_id: R2-CAL-LOWER-BOUND
+- case_id: R2-CAL-MISSING-MANDATORY
+- case_id: R2-CAL-PROTECTED-PATH
+- case_id: R2-CAL-TOLERANCE-VIOLATION
+- case_id: R2-CAL-UPPER-BOUND
+- case_id: R2-CAL-WRONG-RUN-BINDING
