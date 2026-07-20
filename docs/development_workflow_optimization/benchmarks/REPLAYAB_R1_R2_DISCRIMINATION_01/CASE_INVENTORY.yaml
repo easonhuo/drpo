@@ -1,0 +1,355 @@
+schema_version: 1
+benchmark_id: REPLAYAB-R1-R2-DISCRIMINATION-01
+claim: GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01
+base_commit: b18aea9186d7e3ccc5d43b456719cafc23761e03
+selection_frozen_before_execution: true
+post_selection_rule:
+  no_case_removal_after_results: true
+  no_label_change_after_results: true
+  no_orientation_change_after_results: true
+  retain_failures_and_invalid_cases: true
+evidence_grade_target: C2
+live_agent_ab: false
+families:
+  API:
+    responsibility: api_compatibility
+    source_anchor: scripts/agent/runspec_lib.py
+    recent_context_pr: 208
+    canonical_arm: A
+    allowed_root: src/api
+    failure_kind: missing_mandatory
+  NUMERIC:
+    responsibility: numeric_tolerance
+    source_anchor: src/drpo/e7_ppo_w0_runtime_autotune.py
+    recent_context_pr: 209
+    canonical_arm: B
+    allowed_root: src/numeric
+    failure_kind: tolerance_violation
+  PROTECTED:
+    responsibility: protected_path_safety
+    source_anchor: scripts/handoff_authority.py
+    recent_context_pr: 207
+    canonical_arm: A
+    allowed_root: src/protected
+    failure_kind: protected_path
+  SERIAL:
+    responsibility: serialization_semantics
+    source_anchor: scripts/manuscript_release_pipeline.py
+    recent_context_pr: 211
+    canonical_arm: B
+    allowed_root: src/serial
+    failure_kind: forbidden_regression
+shared_semantic_contract:
+  mandatory_behaviors:
+  - api_contract
+  - core_behavior
+  forbidden_regressions:
+  - deletes_required_behavior
+  - touches_protected_path
+  tolerances:
+    latency_ms:
+      minimum: null
+      maximum: 100.0
+    score:
+      minimum: 0.9
+      maximum: 1.0
+  protected_paths:
+  - docs/handoff.md
+  - experiments/registry.yaml
+  correct_facts:
+    mandatory_results:
+      api_contract: true
+      core_behavior: true
+    forbidden_results:
+      deletes_required_behavior: false
+      touches_protected_path: false
+    tolerance_values:
+      latency_ms: 50.0
+      score: 0.95
+    protected_paths_ok: true
+cases:
+- case_id: R1R2-API-IDENTICAL-CORRECT
+  family: API
+  pair_class: identical_correct
+  canonical_arm: A
+  arms:
+    A:
+      ground_truth: correct
+      changed_path: src/api/canonical.txt
+      artifact_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      facts: correct
+    B:
+      ground_truth: correct
+      changed_path: src/api/canonical.txt
+      artifact_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      facts: correct
+- case_id: R1R2-API-DIFFERENT-CORRECT
+  family: API
+  pair_class: different_correct
+  canonical_arm: A
+  arms:
+    A:
+      ground_truth: correct
+      changed_path: src/api/canonical.txt
+      artifact_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      facts: correct
+    B:
+      ground_truth: correct
+      changed_path: src/api/alternative.txt
+      artifact_sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+      facts: correct
+- case_id: R1R2-API-MIXED
+  family: API
+  pair_class: mixed
+  canonical_arm: A
+  arms:
+    A:
+      ground_truth: correct
+      changed_path: src/api/canonical.txt
+      artifact_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      facts: correct
+    B:
+      ground_truth: incorrect
+      changed_path: src/api/broken.txt
+      artifact_sha256: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+      facts: api_failure
+- case_id: R1R2-API-BOTH-WRONG
+  family: API
+  pair_class: both_wrong
+  canonical_arm: A
+  arms:
+    A:
+      ground_truth: incorrect
+      changed_path: src/api/broken-a.txt
+      artifact_sha256: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+      facts: api_failure
+    B:
+      ground_truth: incorrect
+      changed_path: src/api/broken-b.txt
+      artifact_sha256: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+      facts: api_failure
+- case_id: R1R2-NUMERIC-IDENTICAL-CORRECT
+  family: NUMERIC
+  pair_class: identical_correct
+  canonical_arm: B
+  arms:
+    A:
+      ground_truth: correct
+      changed_path: src/numeric/canonical.txt
+      artifact_sha256: '1111111111111111111111111111111111111111111111111111111111111111'
+      facts: correct
+    B:
+      ground_truth: correct
+      changed_path: src/numeric/canonical.txt
+      artifact_sha256: '1111111111111111111111111111111111111111111111111111111111111111'
+      facts: correct
+- case_id: R1R2-NUMERIC-DIFFERENT-CORRECT
+  family: NUMERIC
+  pair_class: different_correct
+  canonical_arm: B
+  arms:
+    A:
+      ground_truth: correct
+      changed_path: src/numeric/alternative.txt
+      artifact_sha256: '2222222222222222222222222222222222222222222222222222222222222222'
+      facts: correct
+    B:
+      ground_truth: correct
+      changed_path: src/numeric/canonical.txt
+      artifact_sha256: '1111111111111111111111111111111111111111111111111111111111111111'
+      facts: correct
+- case_id: R1R2-NUMERIC-MIXED
+  family: NUMERIC
+  pair_class: mixed
+  canonical_arm: B
+  arms:
+    A:
+      ground_truth: incorrect
+      changed_path: src/numeric/broken.txt
+      artifact_sha256: '3333333333333333333333333333333333333333333333333333333333333333'
+      facts: numeric_failure
+    B:
+      ground_truth: correct
+      changed_path: src/numeric/canonical.txt
+      artifact_sha256: '1111111111111111111111111111111111111111111111111111111111111111'
+      facts: correct
+- case_id: R1R2-NUMERIC-BOTH-WRONG
+  family: NUMERIC
+  pair_class: both_wrong
+  canonical_arm: B
+  arms:
+    A:
+      ground_truth: incorrect
+      changed_path: src/numeric/broken-a.txt
+      artifact_sha256: '3333333333333333333333333333333333333333333333333333333333333333'
+      facts: numeric_failure
+    B:
+      ground_truth: incorrect
+      changed_path: src/numeric/broken-b.txt
+      artifact_sha256: '4444444444444444444444444444444444444444444444444444444444444444'
+      facts: numeric_failure
+- case_id: R1R2-PROTECTED-IDENTICAL-CORRECT
+  family: PROTECTED
+  pair_class: identical_correct
+  canonical_arm: A
+  arms:
+    A:
+      ground_truth: correct
+      changed_path: src/protected/canonical.txt
+      artifact_sha256: '5555555555555555555555555555555555555555555555555555555555555555'
+      facts: correct
+    B:
+      ground_truth: correct
+      changed_path: src/protected/canonical.txt
+      artifact_sha256: '5555555555555555555555555555555555555555555555555555555555555555'
+      facts: correct
+- case_id: R1R2-PROTECTED-DIFFERENT-CORRECT
+  family: PROTECTED
+  pair_class: different_correct
+  canonical_arm: A
+  arms:
+    A:
+      ground_truth: correct
+      changed_path: src/protected/canonical.txt
+      artifact_sha256: '5555555555555555555555555555555555555555555555555555555555555555'
+      facts: correct
+    B:
+      ground_truth: correct
+      changed_path: src/protected/alternative.txt
+      artifact_sha256: '6666666666666666666666666666666666666666666666666666666666666666'
+      facts: correct
+- case_id: R1R2-PROTECTED-MIXED
+  family: PROTECTED
+  pair_class: mixed
+  canonical_arm: A
+  arms:
+    A:
+      ground_truth: correct
+      changed_path: src/protected/canonical.txt
+      artifact_sha256: '5555555555555555555555555555555555555555555555555555555555555555'
+      facts: correct
+    B:
+      ground_truth: incorrect
+      changed_path: docs/handoff.md
+      artifact_sha256: '7777777777777777777777777777777777777777777777777777777777777777'
+      facts: protected_failure
+- case_id: R1R2-PROTECTED-BOTH-WRONG
+  family: PROTECTED
+  pair_class: both_wrong
+  canonical_arm: A
+  arms:
+    A:
+      ground_truth: incorrect
+      changed_path: docs/handoff.md
+      artifact_sha256: '7777777777777777777777777777777777777777777777777777777777777777'
+      facts: protected_failure
+    B:
+      ground_truth: incorrect
+      changed_path: experiments/registry.yaml
+      artifact_sha256: '8888888888888888888888888888888888888888888888888888888888888888'
+      facts: protected_failure
+- case_id: R1R2-SERIAL-IDENTICAL-CORRECT
+  family: SERIAL
+  pair_class: identical_correct
+  canonical_arm: B
+  arms:
+    A:
+      ground_truth: correct
+      changed_path: src/serial/canonical.txt
+      artifact_sha256: '9999999999999999999999999999999999999999999999999999999999999999'
+      facts: correct
+    B:
+      ground_truth: correct
+      changed_path: src/serial/canonical.txt
+      artifact_sha256: '9999999999999999999999999999999999999999999999999999999999999999'
+      facts: correct
+- case_id: R1R2-SERIAL-DIFFERENT-CORRECT
+  family: SERIAL
+  pair_class: different_correct
+  canonical_arm: B
+  arms:
+    A:
+      ground_truth: correct
+      changed_path: src/serial/alternative.txt
+      artifact_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+      facts: correct
+    B:
+      ground_truth: correct
+      changed_path: src/serial/canonical.txt
+      artifact_sha256: '9999999999999999999999999999999999999999999999999999999999999999'
+      facts: correct
+- case_id: R1R2-SERIAL-MIXED
+  family: SERIAL
+  pair_class: mixed
+  canonical_arm: B
+  arms:
+    A:
+      ground_truth: incorrect
+      changed_path: src/serial/broken.txt
+      artifact_sha256: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+      facts: serial_failure
+    B:
+      ground_truth: correct
+      changed_path: src/serial/canonical.txt
+      artifact_sha256: '9999999999999999999999999999999999999999999999999999999999999999'
+      facts: correct
+- case_id: R1R2-SERIAL-BOTH-WRONG
+  family: SERIAL
+  pair_class: both_wrong
+  canonical_arm: B
+  arms:
+    A:
+      ground_truth: incorrect
+      changed_path: src/serial/broken-a.txt
+      artifact_sha256: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+      facts: serial_failure
+    B:
+      ground_truth: incorrect
+      changed_path: src/serial/broken-b.txt
+      artifact_sha256: ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+      facts: serial_failure
+fact_overrides:
+  api_failure:
+    mandatory_results:
+      api_contract: false
+      core_behavior: true
+    forbidden_results:
+      deletes_required_behavior: false
+      touches_protected_path: false
+    tolerance_values:
+      latency_ms: 50.0
+      score: 0.95
+    protected_paths_ok: true
+  numeric_failure:
+    mandatory_results:
+      api_contract: true
+      core_behavior: true
+    forbidden_results:
+      deletes_required_behavior: false
+      touches_protected_path: false
+    tolerance_values:
+      latency_ms: 50.0
+      score: 0.5
+    protected_paths_ok: true
+  protected_failure:
+    mandatory_results:
+      api_contract: true
+      core_behavior: true
+    forbidden_results:
+      deletes_required_behavior: false
+      touches_protected_path: true
+    tolerance_values:
+      latency_ms: 50.0
+      score: 0.95
+    protected_paths_ok: false
+  serial_failure:
+    mandatory_results:
+      api_contract: true
+      core_behavior: true
+    forbidden_results:
+      deletes_required_behavior: true
+      touches_protected_path: false
+    tolerance_values:
+      latency_ms: 50.0
+      score: 0.95
+    protected_paths_ok: true
