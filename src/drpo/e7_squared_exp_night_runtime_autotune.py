@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import contextvars
 import math
 from pathlib import Path
 from typing import Any, Iterator
@@ -11,15 +12,27 @@ from drpo import e7_ppo_w0_runtime_autotune as legacy
 from drpo import e7_squared_exp_night as pilot
 
 
-ADAPTER_ID = "e7_squared_exp_night_cpu_v2"
+ADAPTER_ID = "e7_squared_exp_night_cpu_v3"
 REPRESENTATIVE_DATASET = "walker2d-medium-v2"
 REPRESENTATIVE_W0 = 1.0
 REPRESENTATIVE_COEFFICIENT = 4.0
+SELECTOR_POLICY_VERSION = 3
+THROUGHPUT_PROBE_STEPS = 5_000
+CANDIDATE_DIVISIONS = 8
+CANDIDATE_POLICY = "low_first_eighths_v3"
+
+_ACTIVE_THROUGHPUT_PROBE_STEPS: contextvars.ContextVar[int] = contextvars.ContextVar(
+    "e7_squared_exp_throughput_probe_steps",
+    default=THROUGHPUT_PROBE_STEPS,
+)
 
 _ORIGINAL_SELECT_RUNTIME = legacy.select_runtime
 _ORIGINAL_REVALIDATE_RUNTIME = legacy.revalidate_runtime
 _ORIGINAL_CLEANUP = legacy._cleanup_probe_payload  # noqa: SLF001
 _ORIGINAL_SELECTOR_IMPLEMENTATION = legacy._selector_implementation_identity  # noqa: SLF001
+_ORIGINAL_CANDIDATE_WORKERS = legacy.candidate_workers
+_ORIGINAL_BENCHMARK_CONCURRENCY = legacy.benchmark_concurrency
+_ORIGINAL_SELECTOR_POLICY_VERSION = legacy.SELECTOR_POLICY_VERSION
 
 
 def _selector_implementation_identity(repo_root: str | Path) -> dict[str, str]:
@@ -77,6 +90,45 @@ def _representative(branches: list[Any]) -> Any:
             f"{profile}, found {len(matches)}"
         )
     return matches[0]
+
+
+def _low_first_candidate_workers(safe_cap: int, fallback_workers: int) -> list[int]:
+    """Return a bounded ascending grid that always has a one-worker foothold."""
+
+    if safe_cap < 1:
+        raise legacy.RuntimeResourceError("safe worker cap must be positive")
+    values = {1, int(safe_cap)}
+    for numerator in range(1, CANDIDATE_DIVISIONS):
+        candidate = math.ceil(safe_cap * numerator / CANDIDATE_DIVISIONS)
+        values.add(max(1, min(int(safe_cap), int(candidate))))
+    if 1 <= fallback_workers <= safe_cap:
+        values.add(int(fallback_workers))
+    return sorted(values)
+
+
+def _bounded_benchmark_concurrency(**kwargs: Any) -> dict[str, Any]:
+    """Keep throughput measurement short even when the RSS probe is configured long."""
+
+    requested_steps = int(kwargs.get("probe_steps", 0) or 0)
+    if requested_steps < 1:
+        raise legacy.RuntimeResourceError("probe_steps must be positive")
+    effective_steps = min(requested_steps, _ACTIVE_THROUGHPUT_PROBE_STEPS.get())
+    bounded = dict(kwargs)
+    bounded["probe_steps"] = effective_steps
+    summary = dict(_ORIGINAL_BENCHMARK_CONCURRENCY(**bounded))
+    summary.update(
+        {
+            "requested_probe_steps_per_branch": requested_steps,
+            "effective_probe_steps_per_branch": effective_steps,
+            "probe_horizon_bounded_by_adapter": effective_steps != requested_steps,
+            "candidate_policy": CANDIDATE_POLICY,
+        }
+    )
+    candidate_root = Path(str(kwargs["probe_root"])) / (
+        f"workers-{int(kwargs['concurrency']):03d}"
+    )
+    legacy.atomic_write_json(candidate_root / "BENCHMARK_SUMMARY.json", summary)
+    return summary
 
 
 def resource_fingerprint(
@@ -162,18 +214,24 @@ def resource_fingerprint(
                 pilot._flag_value(argv, "--eval_episodes")  # noqa: SLF001
             ),
             "probe_terminal_evaluation_episodes": 1,
-            "probe_steps": int(probe_steps),
+            "representative_probe_steps": int(probe_steps),
+            "throughput_probe_steps": _ACTIVE_THROUGHPUT_PROBE_STEPS.get(),
             "probe_seconds": float(probe_seconds),
             "probe_seed_namespace": int(probe_seed),
         },
         "selection_policy": {
             "fallback_workers": int(fallback_workers),
+            "fallback_role": "bounded_candidate_only",
+            "candidate_policy": CANDIDATE_POLICY,
+            "candidate_divisions": CANDIDATE_DIVISIONS,
+            "candidate_one_worker_foothold": True,
             "cpu_fraction": float(cpu_fraction),
             "memory_headroom_fraction": float(memory_headroom_fraction),
             "per_worker_memory_safety_factor": float(per_worker_safety_factor),
             "per_worker_cpu_safety_factor": float(per_worker_cpu_safety_factor),
             "minimum_cpu_cores_per_worker": float(minimum_cpu_cores_per_worker),
             "max_workers": None if max_workers is None else int(max_workers),
+            "max_workers_role": "optional_absolute_ceiling",
             "max_growth_factor": float(max_growth_factor),
             "throughput_retention_fraction": float(throughput_retention_fraction),
             "revalidation_samples": int(revalidation_samples),
@@ -206,7 +264,11 @@ def _cleanup_probe_payload(probe_dir: Path) -> None:
 
 
 @contextlib.contextmanager
-def _installed_adapter() -> Iterator[None]:
+def _installed_adapter(
+    *, throughput_probe_steps: int = THROUGHPUT_PROBE_STEPS
+) -> Iterator[None]:
+    if throughput_probe_steps < 1:
+        raise legacy.RuntimeResourceError("throughput_probe_steps must be positive")
     profile = pilot.active_runtime_profile()
     previous = (
         legacy.pilot,
@@ -218,7 +280,11 @@ def _installed_adapter() -> Iterator[None]:
         legacy.resource_fingerprint,
         legacy._cleanup_probe_payload,  # noqa: SLF001
         legacy._selector_implementation_identity,  # noqa: SLF001
+        legacy.candidate_workers,
+        legacy.benchmark_concurrency,
+        legacy.SELECTOR_POLICY_VERSION,
     )
+    token = _ACTIVE_THROUGHPUT_PROBE_STEPS.set(int(throughput_probe_steps))
     legacy.pilot = PROXY
     legacy.ADAPTER_ID = str(profile["adapter_id"])
     legacy.REPRESENTATIVE_DATASET = str(profile["dataset"])
@@ -230,6 +296,9 @@ def _installed_adapter() -> Iterator[None]:
     legacy._selector_implementation_identity = (  # noqa: SLF001
         _selector_implementation_identity
     )
+    legacy.candidate_workers = _low_first_candidate_workers
+    legacy.benchmark_concurrency = _bounded_benchmark_concurrency
+    legacy.SELECTOR_POLICY_VERSION = SELECTOR_POLICY_VERSION
     try:
         yield
     finally:
@@ -243,7 +312,11 @@ def _installed_adapter() -> Iterator[None]:
             legacy.resource_fingerprint,
             legacy._cleanup_probe_payload,  # noqa: SLF001
             legacy._selector_implementation_identity,  # noqa: SLF001
+            legacy.candidate_workers,
+            legacy.benchmark_concurrency,
+            legacy.SELECTOR_POLICY_VERSION,
         ) = previous
+        _ACTIVE_THROUGHPUT_PROBE_STEPS.reset(token)
 
 
 def select_runtime(**kwargs: Any) -> dict[str, Any]:
