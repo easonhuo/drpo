@@ -1,0 +1,173 @@
+{
+  "attempts": [
+    {
+      "compact_bytes": 49437,
+      "error": "Error: Only base64 data is allowed",
+      "joined_bytes": 49437,
+      "name": "all_changed_blobs_in_commit_order"
+    },
+    {
+      "compact_bytes": 39420,
+      "error": "Error: Excess data after padding",
+      "joined_bytes": 39420,
+      "name": "chunk_subject_blobs"
+    },
+    {
+      "compact_bytes": 49437,
+      "error": "Error: Only base64 data is allowed",
+      "joined_bytes": 49437,
+      "name": "unique_changed_blobs_in_commit_order"
+    }
+  ],
+  "base": "e3718a346e260d0d3666ba55542565b2907c703f",
+  "branch": "origin/dev/e8-four-result-closure-authority-export",
+  "changed_blob_sequence": [
+    {
+      "bytes": 10018,
+      "commit": "aeb1c74cdd34d1c088dea5dab1a8f6eae177ddbb",
+      "path": "tools/tmp_e8_four_result_closure.patch.gz.b64",
+      "sha256": "f63ad017feee1a06926a92f27446c123b80df9bb79ffb12a71e3865cc948b94a",
+      "status": "A",
+      "subject": "TEMP stage reviewed E8 four-result closure patch"
+    },
+    {
+      "bytes": 6000,
+      "commit": "5af5e3a8a5f20b1415c0026b669923a51bc1e412",
+      "path": "tools/tmp_e8_patch_chunks/part00",
+      "sha256": "9e391b18662d508d6bb5a52edd15b221945fcaa51e4a965ed22e23b58f52e175",
+      "status": "A",
+      "subject": "TEMP add E8 closure patch chunk 00"
+    },
+    {
+      "bytes": 1000,
+      "commit": "7ea8072daead7f983f8c334a6798bd28a81b951c",
+      "path": "tools/tmp_e8_patch_small/chunk18",
+      "sha256": "ea9a79a2681cfe2d3eb79ff73f87696a2d15091c849d93bd33fb53187f06a4af",
+      "status": "A",
+      "subject": "TEMP add E8 closure small chunk 18"
+    },
+    {
+      "bytes": 1000,
+      "commit": "578e8f0d2d4185e5f0d9163e42e4b27d177bb1d5",
+      "path": "tools/tmp_e8_patch_small/chunk19",
+      "sha256": "ac0f084cbb46cf1b99bab8b9e064512a5cfa4f2ee4efe0ffbba0da13ce6e6246",
+      "status": "A",
+      "subject": "TEMP add E8 closure small chunk 19"
+    },
+    {
+      "bytes": 1000,
+      "commit": "a11ae012ee237443fc8b6c7ff4ce18543403aec9",
+      "path": "tools/tmp_e8_patch_small/chunk20",
+      "sha256": "db06949d7bfa6d4e295efa626567fd0f6c06ef69b90b06f4c601a22913051d60",
+      "status": "A",
+      "subject": "TEMP add E8 closure small chunk 20"
+    },
+    {
+      "bytes": 1000,
+      "commit": "441b35d8ce7bb4b114fa0f62aaba491c05223692",
+      "path": "tools/tmp_e8_patch_small/chunk21",
+      "sha256": "3b6f10a07c9f93e1f339ce4463175ea29460606c81278077667f8b77fdb868f6",
+      "status": "A",
+      "subject": "TEMP add E8 closure small chunk 21"
+    },
+    {
+      "bytes": 1000,
+      "commit": "659a44380938d2745aa259279a326fc60764a9af",
+      "path": "tools/tmp_e8_patch_small/chunk22",
+      "sha256": "d8d91a905bc4d858e87a9ee2241058ea626d138720869e3752e23c6f80083478",
+      "status": "A",
+      "subject": "TEMP add E8 closure small chunk 22"
+    },
+    {
+      "bytes": 1000,
+      "commit": "0e3132460ee3c4c37303a46044ed83ba3ed72535",
+      "path": "tools/tmp_e8_patch_small/chunk23",
+      "sha256": "87b91536a243f8af27cac9a6f86b47d6bfcb69a166ecdece025d787a35014832",
+      "status": "A",
+      "subject": "TEMP add E8 closure small chunk 23"
+    },
+    {
+      "bytes": 1000,
+      "commit": "4c0e8c0023ebf749fcb80a49af4fe3129d65d40f",
+      "path": "tools/tmp_e8_patch_small/chunk24",
+      "sha256": "4be106a095faa35ec80513c81a4500e09e47d6f94b2ac8bd8574e87780ff97e7",
+      "status": "A",
+      "subject": "TEMP add E8 closure small chunk 24"
+    },
+    {
+      "bytes": 1000,
+      "commit": "1e5ce4490e57bdacaed2e143cbca5867422cdffc",
+      "path": "tools/tmp_e8_patch_small/chunk25",
+      "sha256": "2e897d2d07d95f85a68e411759cbeb199b0356d204d51f13cabb36da3d709b48",
+      "status": "A",
+      "subject": "TEMP add E8 closure small chunk 25"
+    },
+    {
+      "bytes": 1000,
+      "commit": "6d76e3579c742dba4428b180628aca3c43f2242c",
+      "path": "tools/tmp_e8_patch_small/chunk26",
+      "sha256": "df99dc0fc6cd085efc5a565b321ec727ed37ccf599e1a1de35ce72d1a4251d68",
+      "status": "A",
+      "subject": "TEMP add E8 closure small chunk 26"
+    },
+    {
+      "bytes": 1000,
+      "commit": "486269df17e13bfcfd461c9d8d99d8bec1937f46",
+      "path": "tools/tmp_e8_patch_small/chunk27",
+      "sha256": "431883db6706230cfa3675ac173ecc27a10be4682e4b44405e3eec65a7a49cf2",
+      "status": "A",
+      "subject": "TEMP add E8 closure small chunk 27"
+    },
+    {
+      "bytes": 1000,
+      "commit": "018559f5a4928aff527d0eb82bcc7990d6bda98a",
+      "path": "tools/tmp_e8_patch_small/chunk28",
+      "sha256": "7a0f030aca831cf40bd76c8c20ec317e75549d1c085685cea4ddf02c2cedfe4e",
+      "status": "A",
+      "subject": "TEMP add E8 closure small chunk 28"
+    },
+    {
+      "bytes": 1000,
+      "commit": "6dee89d974de562b697ba25d9bc2a2ca9cc733d6",
+      "path": "tools/tmp_e8_patch_small/chunk29",
+      "sha256": "e2cb4199d3a5ffb16439cb4cd05ac37edea06a43a6d86a41b823a505729aa2b6",
+      "status": "A",
+      "subject": "TEMP add E8 closure small chunk 29"
+    },
+    {
+      "bytes": 6000,
+      "commit": "041a0ff6d8b7ec088e4548c146a5edbcf2101f2d",
+      "path": "tools/tmp_e8_patch_small/chunk30",
+      "sha256": "ec0317f57f2e4ce40863c02c9c4fc24534cce1b982c0e758d539216cda7bc967",
+      "status": "A",
+      "subject": "TEMP add E8 closure patch chunk 05"
+    },
+    {
+      "bytes": 6000,
+      "commit": "e8f0f38a358006d835171db89e0175f0bb3250ed",
+      "path": "tools/tmp_e8_patch_chunks/part06",
+      "sha256": "68fbc6c4233ddfa5bc949dc135c46db822aec7b9b40bb275a54a8eec379b1748",
+      "status": "A",
+      "subject": "TEMP add E8 closure patch chunk 06"
+    },
+    {
+      "bytes": 3420,
+      "commit": "4fc4cf8dd981d1ec06881d1f310973b6d0d2bd58",
+      "path": "tools/tmp_e8_patch_chunks/part07",
+      "sha256": "0269edf16ed8099e8bb478e5053d488c4580ea4aea8a4814359d9b7cf2010c1f",
+      "status": "A",
+      "subject": "TEMP add E8 closure patch chunk 07"
+    },
+    {
+      "bytes": 6000,
+      "commit": "01295e6175de7ad4b7cb84eb7a3639ae8b28ffc2",
+      "path": "tools/tmp_e8_patch_chunks/part02",
+      "sha256": "df1cb1ef39c69ab1073f1c9e9fe804da307facff7fb5435e65909896b1d8abe3",
+      "status": "A",
+      "subject": "TEMP add E8 closure patch chunk 02"
+    }
+  ],
+  "commit_count": 21,
+  "schema_version": 2,
+  "selected": null
+}
