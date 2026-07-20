@@ -175,8 +175,30 @@ def validate_release(root: Path, manifest: dict[str, Any]) -> None:
         for label in obligation.values():
             if f"\\label{{{label}}}" not in all_tex:
                 raise ReleaseBuildError(f"missing proof/statement label: {label}")
-    bib_path = root / template["bibliography"]
-    bib = bib_path.read_text(encoding="utf-8")
+    bib_paths = [(root / template["bibliography"]).resolve()]
+    bibliography_root = overleaf.resolve()
+    for group in re.findall(r"\\bibliography\{([^}]+)\}", active_source):
+        for raw_name in group.split(","):
+            name = raw_name.strip()
+            if not name or "\\" in name or "#" in name:
+                continue
+            candidate = (overleaf / name).resolve()
+            if candidate.suffix != ".bib":
+                candidate = candidate.with_suffix(".bib")
+            try:
+                candidate.relative_to(bibliography_root)
+            except ValueError as exc:
+                raise ReleaseBuildError(
+                    f"bibliography escapes template root: {name}"
+                ) from exc
+            if candidate not in bib_paths:
+                bib_paths.append(candidate)
+    bib_chunks: list[str] = []
+    for bib_path in bib_paths:
+        if not bib_path.is_file():
+            raise ReleaseBuildError(f"missing bibliography file: {bib_path}")
+        bib_chunks.append(bib_path.read_text(encoding="utf-8"))
+    bib = "\n".join(bib_chunks)
     keys = set(re.findall(r"@[A-Za-z]+\s*\{\s*([^,]+),", bib))
     used: set[str] = set()
     for group in re.findall(r"\\cite[a-zA-Z]*\{([^}]+)\}", all_tex):
