@@ -29,8 +29,9 @@ jobs:
           git rm tools/temporary_prepare_e8_backlog_evidence.py
           git add -A
           git diff --check --cached
-          test -z "$(git diff --cached --name-only | grep '^.github/workflows/temporary_e8_' || true)" || {
+          test -z "$(git ls-files '.github/workflows/temporary_e8_*')" || {
             echo 'temporary workflow remains in final staged tree' >&2
+            git ls-files '.github/workflows/temporary_e8_*' >&2
             exit 1
           }
           git commit -m 'Assemble six completed E8 pilot evidence records'
