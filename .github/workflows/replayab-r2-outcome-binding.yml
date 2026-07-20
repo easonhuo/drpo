@@ -1,0 +1,183 @@
+name: ReplayAB R2 outcome binding
+
+on:
+  pull_request:
+    branches:
+      - dev/replayab-r2-semantic-acceptance-01
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    if: github.head_ref == 'exec/replayab-r2-outcome-binding-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/replayab-r2-semantic-acceptance-01
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest ruff pyyaml
+
+      - name: Apply outcome-evidence binding
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import json
+
+          evidence = Path('src/drpo/workflow_replay/evidence.py')
+          text = evidence.read_text(encoding='utf-8')
+
+          replacements = [
+              (
+                  'class AcceptanceResult:\n    case_id: str\n    run_id: str\n',
+                  'class AcceptanceResult:\n    case_id: str\n    run_id: str\n    outcome_sha256: str\n',
+              ),
+              (
+                  '    raw: bytes, contract: AcceptanceContract, identity: RunIdentity, digest: str\n',
+                  '    raw: bytes, contract: AcceptanceContract, identity: RunIdentity, digest: str,\n    outcome_sha256: str,\n',
+              ),
+              (
+                  '        "schema_version", "case_id", "run_id", "acceptance_contract_sha256",\n',
+                  '        "schema_version", "case_id", "run_id", "outcome_sha256",\n        "acceptance_contract_sha256",\n',
+              ),
+              (
+                  '        or data["case_id"] != contract.base.case_id or data["run_id"] != identity.run_id\n',
+                  '        or data["case_id"] != contract.base.case_id or data["run_id"] != identity.run_id\n        or data["outcome_sha256"] != outcome_sha256\n',
+              ),
+              (
+                  '        data["case_id"], data["run_id"], mandatory, forbidden, values,\n',
+                  '        data["case_id"], data["run_id"], data["outcome_sha256"],\n        mandatory, forbidden, values,\n',
+              ),
+              (
+                  '    result = locators["result"]\n',
+                  '    outcome_locator = locators["outcome"]\n    result = locators["result"]\n',
+              ),
+              (
+                  '        if result is None or not isinstance(contract, AcceptanceContract):\n',
+                  '        if result is None or outcome_locator is None or not isinstance(contract, AcceptanceContract):\n',
+              ),
+              (
+                  '            result.verify(root), contract, identity, result.sha256\n',
+                  '            result.verify(root), contract, identity, result.sha256,\n            outcome_locator.sha256,\n',
+              ),
+              (
+                  '    _validate_journal(event.verify(root), identity, terminal)\n    outcome_locator = locators["outcome"]\n',
+                  '    _validate_journal(event.verify(root), identity, terminal)\n',
+              ),
+          ]
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f'missing production marker: {old!r}')
+              text = text.replace(old, new, 1)
+          evidence.write_text(text, encoding='utf-8')
+
+          fixture = Path('tests/fixtures/workflow_replay/r2/semantic')
+          for arm in ('a', 'b'):
+              outcome_path = fixture / f'outcome-{arm}.json'
+              outcome_sha = hashlib.sha256(outcome_path.read_bytes()).hexdigest()
+              result_path = fixture / f'acceptance-{arm}.json'
+              result = json.loads(result_path.read_text(encoding='utf-8'))
+              result['outcome_sha256'] = outcome_sha
+              result_path.write_text(
+                  json.dumps(result, indent=2, sort_keys=True) + '\n', encoding='utf-8'
+              )
+              run_path = fixture / f'run-{arm}.json'
+              run = json.loads(run_path.read_text(encoding='utf-8'))
+              raw = result_path.read_bytes()
+              run['evidence']['result'] = {
+                  'kind': 'result',
+                  'relative_path': result_path.as_posix(),
+                  'sha256': hashlib.sha256(raw).hexdigest(),
+                  'byte_size': len(raw),
+              }
+              run_path.write_text(
+                  json.dumps(run, indent=2, sort_keys=True) + '\n', encoding='utf-8'
+              )
+
+          tests = Path('tests/test_workflow_replay_r1.py')
+          test_text = tests.read_text(encoding='utf-8')
+          addition = '''
+
+          def test_r2_acceptance_result_binds_exact_outcome_evidence(tmp_path: Path) -> None:
+              folder = copied_r2(tmp_path)
+              mutate_r2_result(
+                  tmp_path,
+                  ("b",),
+                  lambda result: result.__setitem__("outcome_sha256", "0" * 64),
+              )
+              contract = load_acceptance_contract(folder / "manifest.yaml")
+              with pytest.raises(EvidenceError, match="identity mismatch"):
+                  load_run_artifact(folder / "run-b.json", tmp_path, contract)
+          '''.replace('          ', '')
+          if 'def test_r2_acceptance_result_binds_exact_outcome_evidence' in test_text:
+              raise SystemExit('outcome binding test already exists')
+          tests.write_text(test_text.rstrip() + addition + '\n', encoding='utf-8')
+          PY
+          git diff --check
+
+      - name: Verify scope and budget
+        run: |
+          python - <<'PY'
+          import subprocess
+          allowed = {
+              'src/drpo/workflow_replay/evidence.py',
+              'tests/test_workflow_replay_r1.py',
+              'tests/fixtures/workflow_replay/r2/semantic/acceptance-a.json',
+              'tests/fixtures/workflow_replay/r2/semantic/acceptance-b.json',
+              'tests/fixtures/workflow_replay/r2/semantic/run-a.json',
+              'tests/fixtures/workflow_replay/r2/semantic/run-b.json',
+          }
+          changed = set(subprocess.check_output(['git', 'diff', '--name-only'], text=True).splitlines())
+          if changed != allowed:
+              raise SystemExit(f'unexpected changed paths: {sorted(changed)}')
+          base = 'b01b7715c8a703905a03403e54dfce258e69ba1e'
+          diff = subprocess.check_output(
+              ['git', 'diff', '--unified=0', base, '--', 'src/drpo/workflow_replay/evidence.py'],
+              text=True,
+          )
+          count = sum(
+              1 for line in diff.splitlines()
+              if line.startswith('+') and not line.startswith('+++')
+              and line[1:].strip() and not line[1:].lstrip().startswith('#')
+          )
+          print(f'changed production Python lines: {count}')
+          if not 280 <= count <= 360:
+              raise SystemExit('R2 production delta left preferred budget')
+          PY
+
+      - name: Run focused tests and Ruff
+        run: |
+          python -m pytest \
+            tests/test_workflow_replay_model.py \
+            tests/test_workflow_replay_execute.py \
+            tests/test_workflow_replay_compare.py \
+            tests/test_workflow_replay_r1.py -q
+          python -m ruff check \
+            src/drpo/workflow_replay/evidence.py \
+            tests/test_workflow_replay_r1.py
+
+      - name: Commit hardened R2 implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/drpo/workflow_replay/evidence.py \
+            tests/test_workflow_replay_r1.py \
+            tests/fixtures/workflow_replay/r2/semantic/acceptance-a.json \
+            tests/fixtures/workflow_replay/r2/semantic/acceptance-b.json \
+            tests/fixtures/workflow_replay/r2/semantic/run-a.json \
+            tests/fixtures/workflow_replay/r2/semantic/run-b.json
+          git commit -m "Bind R2 acceptance to outcome evidence"
+          git push origin HEAD:dev/replayab-r2-semantic-acceptance-01
