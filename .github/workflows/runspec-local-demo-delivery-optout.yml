@@ -33,17 +33,18 @@ jobs:
           from pathlib import Path
 
           path = Path('tests/test_agent_runspec.py')
-          text = path.read_text(encoding='utf-8')
-          old = '''            "forbid_cross_lane": True,
-          },
-          "outputs": {'''
-          new = '''            "forbid_cross_lane": True,
-              "formal_evidence_allowed": False,
-          },
-          "outputs": {'''
-          if text.count(old) != 1:
-              raise SystemExit(f'expected one local-demo policy tail, found {text.count(old)}')
-          path.write_text(text.replace(old, new), encoding='utf-8')
+          lines = path.read_text(encoding='utf-8').splitlines(keepends=True)
+          matches = [
+              i
+              for i in range(len(lines) - 2)
+              if lines[i] == '            "forbid_cross_lane": True,\n'
+              and lines[i + 1] == '        },\n'
+              and lines[i + 2] == '        "outputs": {\n'
+          ]
+          if len(matches) != 1:
+              raise SystemExit(f'expected one local-demo policy tail, found {len(matches)}')
+          lines.insert(matches[0] + 1, '            "formal_evidence_allowed": False,\n')
+          path.write_text(''.join(lines), encoding='utf-8')
           PY
           rm .github/workflows/runspec-local-demo-delivery-optout.yml
 
