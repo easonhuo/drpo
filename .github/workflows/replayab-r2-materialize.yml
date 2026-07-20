@@ -1,0 +1,521 @@
+name: ReplayAB R2 materialization
+
+on:
+  pull_request:
+    branches:
+      - dev/replayab-r2-semantic-acceptance-01
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: github.head_ref == 'exec/replayab-r2-materialize-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/replayab-r2-semantic-acceptance-01
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install pytest ruff pyyaml
+
+      - name: Materialize R2 implementation and calibration
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          evidence = Path("src/drpo/workflow_replay/evidence.py")
+          text = evidence.read_text(encoding="utf-8")
+          if "class AcceptanceContract:" in text:
+              print("R2 code already materialized")
+              raise SystemExit(0)
+
+          insert = '\nR2_FIELDS = {\n    "mandatory_behaviors", "forbidden_regressions", "tolerances", "protected_paths",\n    "evaluator_sha256", "evidence_schema_sha256", "order_policy",\n}\n\n\ndef _sorted_tokens(value: Any, label: str, required: bool = False) -> tuple[str, ...]:\n    if not isinstance(value, list) or (required and not value):\n        raise EvidenceError(f"{label} must be a {\'non-empty \' if required else \'\'}list")\n    items = tuple(_token(item, f"{label}[]") for item in value)\n    if items != tuple(sorted(set(items))):\n        raise EvidenceError(f"{label} must be sorted and unique")\n    return items\n\n\ndef _finite(value: Any, label: str) -> float:\n    if isinstance(value, bool) or not isinstance(value, (int, float)):\n        raise EvidenceError(f"{label} must be finite")\n    number = float(value)\n    if number != number or number in {float("inf"), float("-inf")}:\n        raise EvidenceError(f"{label} must be finite")\n    return number\n\n\ndef _safe_paths(value: Any, label: str) -> tuple[str, ...]:\n    paths = _sorted_tokens(value, label)\n    for raw in paths:\n        path = PurePosixPath(raw)\n        if raw.startswith(("/", "-")) or "\\\\" in raw or path.as_posix() != raw or ".." in path.parts:\n            raise EvidenceError(f"{label} contains an unsafe path")\n    return paths\n\n\n@dataclass(frozen=True)\nclass AcceptanceContract:\n    sha256: str\n    acceptance_sha256: str\n    base: CaseManifest\n    runtime: Mapping[str, Any]\n    mandatory_behaviors: tuple[str, ...]\n    forbidden_regressions: tuple[str, ...]\n    tolerance_bounds: tuple[tuple[str, tuple[float | None, float | None]], ...]\n    protected_paths: tuple[str, ...]\n\n    @property\n    def r1(self) -> Mapping[str, Any]:\n        return self.runtime\n\n\ndef validate_acceptance_contract(value: Any) -> AcceptanceContract:\n    root = _strict(value, "R2 case contract", {\n        "schema_version", "case_id", "task_class", "historical_task", "benchmark", "acceptance",\n    })\n    if isinstance(root["schema_version"], bool) or root["schema_version"] != 3:\n        raise EvidenceError("R2 case schema_version must equal integer 3")\n    base_payload = {key: item for key, item in root.items() if key != "acceptance"}\n    base_payload["schema_version"] = 1\n    try:\n        base = validate_case_manifest(base_payload)\n    except ValueError as exc:\n        raise EvidenceError(f"invalid base case contract: {exc}") from exc\n    if base.benchmark["expected_terminal_state"] != "READY":\n        raise EvidenceError("semantic acceptance requires READY")\n\n    raw = _strict(root["acceptance"], "acceptance", R2_FIELDS)\n    mandatory = _sorted_tokens(raw["mandatory_behaviors"], "mandatory_behaviors", True)\n    forbidden = _sorted_tokens(raw["forbidden_regressions"], "forbidden_regressions")\n    if set(mandatory) & set(forbidden):\n        raise EvidenceError("mandatory and forbidden IDs overlap")\n    tolerances = raw["tolerances"]\n    if not isinstance(tolerances, dict) or not tolerances or tuple(tolerances) != tuple(sorted(tolerances)):\n        raise EvidenceError("tolerances must be a sorted non-empty mapping")\n    bounds = []\n    for name, item in tolerances.items():\n        _token(name, "tolerance name")\n        bound = _strict(item, f"tolerance {name}", {"minimum", "maximum"})\n        minimum = None if bound["minimum"] is None else _finite(bound["minimum"], f"{name}.minimum")\n        maximum = None if bound["maximum"] is None else _finite(bound["maximum"], f"{name}.maximum")\n        if minimum is None and maximum is None:\n            raise EvidenceError("a tolerance requires at least one bound")\n        if minimum is not None and maximum is not None and minimum > maximum:\n            raise EvidenceError("tolerance minimum exceeds maximum")\n        bounds.append((name, (minimum, maximum)))\n    protected = _safe_paths(raw["protected_paths"], "protected_paths")\n    evaluator = _token(raw["evaluator_sha256"], "evaluator_sha256", SHA256)\n    schema = _token(raw["evidence_schema_sha256"], "evidence_schema_sha256", SHA256)\n    if raw["order_policy"] != "two_opposite_pairs":\n        raise EvidenceError("unsupported semantic order policy")\n    digest = canonical_sha256(raw)\n    if dict(base.benchmark["expected_final_tree_or_semantic_hashes"]) != {\n        "acceptance_contract_sha256": digest, "evaluator_sha256": evaluator,\n    }:\n        raise EvidenceError("semantic hashes do not bind the acceptance contract")\n    runtime = _freeze({\n        "comparison_mode": "semantic_acceptance",\n        "workspace_rule": "changed_as_expected",\n        "evaluator_sha256": evaluator,\n        "evidence_schema_sha256": schema,\n        "order_policy": raw["order_policy"],\n    })\n    return AcceptanceContract(\n        canonical_sha256(root), digest, base, runtime, mandatory, forbidden, tuple(bounds), protected\n    )\n\n\ndef load_acceptance_contract(path: str | Path) -> AcceptanceContract:\n    manifest = Path(path)\n    if manifest.is_symlink() or any(parent.is_symlink() for parent in manifest.parents):\n        raise EvidenceError("R2 case path must not contain symlinks")\n    try:\n        value = yaml.safe_load(manifest.read_text(encoding="utf-8"))\n    except (OSError, UnicodeError, yaml.YAMLError) as exc:\n        raise EvidenceError("cannot read R2 case contract") from exc\n    return validate_acceptance_contract(value)\n\n\ndef build_semantic_opposite_order_schedule(\n    contract: AcceptanceContract, backend_id: str\n) -> tuple[RunIdentity, ...]:\n    if contract.r1["order_policy"] != "two_opposite_pairs":\n        raise EvidenceError("unsupported semantic order policy")\n    return tuple(\n        RunIdentity.build(contract.base.case_id, arm, f"pair-{repeat}", repeat, position, backend_id)\n        for repeat, order in enumerate((("A", "B"), ("B", "A")))\n        for position, arm in enumerate(order)\n    )\n\n\n@dataclass(frozen=True)\nclass AcceptanceResult:\n    case_id: str\n    run_id: str\n    mandatory_results: tuple[tuple[str, bool], ...]\n    forbidden_results: tuple[tuple[str, bool], ...]\n    tolerance_values: tuple[tuple[str, float], ...]\n    protected_paths_ok: bool\n    diagnostic_codes: tuple[str, ...]\n    accepted: bool\n    failures: tuple[str, ...]\n    evidence_sha256: str\n\n\ndef _bool_results(value: Any, label: str, keys: tuple[str, ...]) -> tuple[tuple[str, bool], ...]:\n    if not isinstance(value, dict) or tuple(value) != keys or any(\n        not isinstance(item, bool) for item in value.values()\n    ):\n        raise EvidenceError(f"{label} does not match the frozen contract")\n    return tuple(value.items())\n\n\ndef _load_acceptance_result(\n    raw: bytes, contract: AcceptanceContract, identity: RunIdentity, digest: str\n) -> AcceptanceResult:\n    data = _strict(_json_object(raw, "acceptance result"), "acceptance result", {\n        "schema_version", "case_id", "run_id", "acceptance_contract_sha256",\n        "evaluator_sha256", "mandatory_results", "forbidden_results",\n        "tolerance_values", "protected_paths_ok", "diagnostic_codes",\n    })\n    if (\n        isinstance(data["schema_version"], bool) or data["schema_version"] != 1\n        or data["case_id"] != contract.base.case_id or data["run_id"] != identity.run_id\n        or data["acceptance_contract_sha256"] != contract.acceptance_sha256\n        or data["evaluator_sha256"] != contract.r1["evaluator_sha256"]\n    ):\n        raise EvidenceError("acceptance result identity mismatch")\n    mandatory = _bool_results(data["mandatory_results"], "mandatory_results", contract.mandatory_behaviors)\n    forbidden = _bool_results(data["forbidden_results"], "forbidden_results", contract.forbidden_regressions)\n    metric_keys = tuple(name for name, _ in contract.tolerance_bounds)\n    values = data["tolerance_values"]\n    if not isinstance(values, dict) or tuple(values) != metric_keys:\n        raise EvidenceError("tolerance values do not match the frozen contract")\n    values = tuple((name, _finite(item, f"tolerance {name}")) for name, item in values.items())\n    if not isinstance(data["protected_paths_ok"], bool):\n        raise EvidenceError("protected_paths_ok must be boolean")\n    diagnostics = _sorted_tokens(data["diagnostic_codes"], "diagnostic_codes")\n    failures = [f"mandatory.{name}" for name, passed in mandatory if not passed]\n    failures += [f"forbidden.{name}" for name, detected in forbidden if detected]\n    value_map = dict(values)\n    for name, (minimum, maximum) in contract.tolerance_bounds:\n        if minimum is not None and value_map[name] < minimum:\n            failures.append(f"tolerance.{name}.minimum")\n        if maximum is not None and value_map[name] > maximum:\n            failures.append(f"tolerance.{name}.maximum")\n    if not data["protected_paths_ok"]:\n        failures.append("protected_paths")\n    return AcceptanceResult(\n        data["case_id"], data["run_id"], mandatory, forbidden, values,\n        data["protected_paths_ok"], diagnostics, not failures, tuple(failures), digest,\n    )\n'
+          marker = "@dataclass(frozen=True)\nclass NormalizedRun:"
+          if marker not in text:
+              raise SystemExit("NormalizedRun marker missing")
+          text = text.replace(marker, insert + "\n\n" + marker, 1)
+
+          old_run = '''@dataclass(frozen=True)
+          class NormalizedRun:
+              identity: RunIdentity
+              evidence_sha256: tuple[tuple[str, str], ...]
+              execution_terminal: str
+              outcome: OutcomeSnapshot | None
+              timing: tuple[tuple[str, int], ...]
+              execution_valid: bool
+          '''
+          old_run = old_run.replace("          ", "")
+          new_run = old_run + "    acceptance: AcceptanceResult | None = None\n"
+          if old_run not in text:
+              raise SystemExit("NormalizedRun body mismatch")
+          text = text.replace(old_run, new_run, 1)
+
+          old_sig = (
+              "def load_run_artifact(artifact_path: str | Path, evidence_root: str | Path, "
+              "contract: R1CaseContract) -> NormalizedRun:"
+          )
+          new_sig = (
+              "def load_run_artifact(artifact_path: str | Path, evidence_root: str | Path, "
+              "contract: R1CaseContract | AcceptanceContract) -> NormalizedRun:"
+          )
+          if old_sig not in text:
+              raise SystemExit("load_run_artifact signature mismatch")
+          text = text.replace(old_sig, new_sig, 1)
+
+          old_result = '''    result = locators["result"]
+              expected_result = contract.base.benchmark["expected_final_tree_or_semantic_hashes"].get("artifact_sha256")
+              if contract.r1["comparison_mode"] == "exact_artifact":
+                  if result is None or result.sha256 != expected_result:
+                      raise EvidenceError("result evidence does not match expected exact artifact")
+                  result.verify(root)
+              elif result is not None:
+                  raise EvidenceError("failure-boundary evidence must not include a result artifact")
+          '''.replace("              ", "")
+          new_result = '''    result = locators["result"]
+              acceptance = None
+              expected_result = contract.base.benchmark["expected_final_tree_or_semantic_hashes"].get("artifact_sha256")
+              if contract.r1["comparison_mode"] == "exact_artifact":
+                  if result is None or result.sha256 != expected_result:
+                      raise EvidenceError("result evidence does not match expected exact artifact")
+                  result.verify(root)
+              elif contract.r1["comparison_mode"] == "semantic_acceptance":
+                  if result is None or not isinstance(contract, AcceptanceContract):
+                      raise EvidenceError("semantic acceptance requires a result artifact")
+                  acceptance = _load_acceptance_result(
+                      result.verify(root), contract, identity, result.sha256
+                  )
+              elif result is not None:
+                  raise EvidenceError("failure-boundary evidence must not include a result artifact")
+          '''.replace("              ", "")
+          if old_result not in text:
+              raise SystemExit("result branch mismatch")
+          text = text.replace(old_result, new_result, 1)
+
+          old_return = '''    return NormalizedRun(
+                  identity, digest_pairs, terminal, outcome, tuple(sorted(timing.items())),
+                  comparable and workspace_ok and not partial,
+              )
+          '''.replace("              ", "")
+          new_return = '''    return NormalizedRun(
+                  identity, digest_pairs, terminal, outcome, tuple(sorted(timing.items())),
+                  comparable and workspace_ok and not partial, acceptance,
+              )
+          '''.replace("              ", "")
+          if old_return not in text:
+              raise SystemExit("NormalizedRun return mismatch")
+          text = text.replace(old_return, new_return, 1)
+
+          pair_code = '\n@dataclass(frozen=True)\nclass SemanticPairReport:\n    case_id: str\n    acceptance_pattern: str\n    arm_acceptance: tuple[tuple[str, bool], ...]\n    arm_failures: tuple[tuple[str, tuple[str, ...]], ...]\n    issues: tuple[str, ...]\n    pair_comparable: bool\n    efficiency_release_allowed: bool\n    run_ids: tuple[str, str]\n    evidence_sha256: tuple[tuple[tuple[str, str], ...], tuple[tuple[str, str], ...]]\n    timing: tuple[tuple[tuple[str, int], ...], tuple[tuple[str, int], ...]]\n    report_sha256: str\n\n\ndef _semantic_report_value(report: SemanticPairReport) -> dict[str, Any]:\n    return {\n        "case_id": report.case_id,\n        "acceptance_pattern": report.acceptance_pattern,\n        "arm_acceptance": report.arm_acceptance,\n        "arm_failures": report.arm_failures,\n        "issues": report.issues,\n        "pair_comparable": report.pair_comparable,\n        "efficiency_release_allowed": report.efficiency_release_allowed,\n        "run_ids": report.run_ids,\n        "evidence_sha256": report.evidence_sha256,\n        "timing": report.timing,\n    }\n\n\ndef _path_in_roots(raw: str, roots: tuple[str, ...]) -> bool:\n    path = PurePosixPath(raw)\n    return any(path == PurePosixPath(root) or PurePosixPath(root) in path.parents for root in roots)\n\n\ndef _semantic_execution_valid(run: NormalizedRun, contract: AcceptanceContract) -> bool:\n    outcome = run.outcome\n    if not run.execution_valid or outcome is None or outcome.terminal_state != "READY":\n        return False\n    roots = tuple(contract.base.benchmark["expected_changed_paths"])\n    return (\n        bool(outcome.changed_paths)\n        and all(_path_in_roots(path, roots) for path in outcome.changed_paths)\n        and not (set(outcome.changed_paths) & set(contract.protected_paths))\n        and outcome.authority_result == "PASS"\n        and set(dict(outcome.gate_results).values()) == {"PASS"}\n        and not outcome.diagnostic_codes\n        and not outcome.partial_mutation\n        and outcome.recovery_class is None\n    )\n\n\ndef compare_semantic_runs(\n    contract: AcceptanceContract, arm_a: NormalizedRun, arm_b: NormalizedRun\n) -> SemanticPairReport:\n    issues: list[str] = []\n    identities = (arm_a.identity, arm_b.identity)\n    if {item.arm for item in identities} != {"A", "B"}:\n        issues.append("pair.arms")\n    for name in ("case_id", "pair_id", "repetition", "backend_id"):\n        if getattr(identities[0], name) != getattr(identities[1], name):\n            issues.append(f"pair.identity.{name}")\n    if {item.order_position for item in identities} != {0, 1}:\n        issues.append("pair.identity.order_position")\n\n    runs = {arm_a.identity.arm: arm_a, arm_b.identity.arm: arm_b}\n    accepted: dict[str, bool] = {}\n    failures: dict[str, tuple[str, ...]] = {}\n    for arm in ("A", "B"):\n        run = runs.get(arm)\n        result = None if run is None else run.acceptance\n        valid = run is not None and _semantic_execution_valid(run, contract)\n        if not valid:\n            issues.append(f"{arm}.execution_invalid")\n        if result is None:\n            issues.append(f"{arm}.missing_acceptance")\n            accepted[arm], failures[arm] = False, ("missing_acceptance",)\n        else:\n            accepted[arm], failures[arm] = valid and result.accepted, result.failures\n\n    pattern = (\n        "BOTH_ACCEPTED" if accepted["A"] and accepted["B"]\n        else "A_ACCEPTED_B_REJECTED" if accepted["A"]\n        else "A_REJECTED_B_ACCEPTED" if accepted["B"]\n        else "BOTH_REJECTED"\n    )\n    comparable = not issues and pattern == "BOTH_ACCEPTED"\n    draft = SemanticPairReport(\n        contract.base.case_id, pattern,\n        tuple((arm, accepted[arm]) for arm in ("A", "B")),\n        tuple((arm, failures[arm]) for arm in ("A", "B")),\n        tuple(dict.fromkeys(issues)), comparable, comparable,\n        tuple(item.run_id for item in identities),\n        (arm_a.evidence_sha256, arm_b.evidence_sha256),\n        (arm_a.timing, arm_b.timing), "",\n    )\n    return SemanticPairReport(\n        draft.case_id, draft.acceptance_pattern, draft.arm_acceptance, draft.arm_failures,\n        draft.issues, draft.pair_comparable, draft.efficiency_release_allowed,\n        draft.run_ids, draft.evidence_sha256, draft.timing,\n        canonical_sha256(_semantic_report_value(draft)),\n    )\n\n\ndef release_semantic_efficiency(report: SemanticPairReport, payload: Any) -> Any:\n    if not report.efficiency_release_allowed or not isinstance(payload, dict):\n        raise EquivalenceError("semantic efficiency release requires two accepted arms")\n    if canonical_sha256(_semantic_report_value(report)) != report.report_sha256:\n        raise EquivalenceError("semantic pair report digest mismatch")\n    if tuple(payload.get("run_ids", ())) != report.run_ids:\n        raise EquivalenceError("semantic efficiency run identities mismatch")\n    evidence = tuple(tuple(tuple(item) for item in arm) for arm in payload.get("evidence_sha256", ()))\n    if evidence != report.evidence_sha256:\n        raise EquivalenceError("semantic efficiency evidence identities mismatch")\n    if "timing" in payload and payload["timing"] != report.timing:\n        raise EquivalenceError("semantic efficiency timing mismatch")\n    return report.timing\n'
+          text += "\n\n" + pair_code.strip() + "\n"
+          evidence.write_text(text, encoding="utf-8")
+
+          tests = Path("tests/test_workflow_replay_r1.py")
+          test_text = tests.read_text(encoding="utf-8")
+          replacements = {
+              "    build_opposite_order_schedule,\n": "    build_opposite_order_schedule,\n    build_semantic_opposite_order_schedule,\n",
+              "    compare_normalized_runs,\n": "    compare_normalized_runs,\n    compare_semantic_runs,\n",
+              "    load_r1_case_contract,\n": "    load_acceptance_contract,\n    load_r1_case_contract,\n",
+              "    release_bound_efficiency,\n": "    release_bound_efficiency,\n    release_semantic_efficiency,\n",
+          }
+          for old, new in replacements.items():
+              if old not in test_text:
+                  raise SystemExit(f"test import marker missing: {old!r}")
+              test_text = test_text.replace(old, new, 1)
+
+          test_text += r'''
+
+          R2 = ROOT / "tests" / "fixtures" / "workflow_replay" / "r2" / "semantic"
+          R2_CAL = ROOT / "docs" / "development_workflow_optimization" / "replayab_r2_calibration"
+          R2_EXPECTED = R2_CAL / "EXPECTED_VERDICTS.yaml"
+
+
+          def expected_r2(case_id: str) -> dict[str, str]:
+              return yaml.safe_load(R2_EXPECTED.read_text(encoding="utf-8"))["verdicts"][case_id]
+
+
+          def load_r2_pair(repo: Path = ROOT):
+              folder = repo / "tests" / "fixtures" / "workflow_replay" / "r2" / "semantic"
+              contract = load_acceptance_contract(folder / "manifest.yaml")
+              arm_a = load_run_artifact(folder / "run-a.json", repo, contract)
+              arm_b = load_run_artifact(folder / "run-b.json", repo, contract)
+              return contract, arm_a, arm_b
+
+
+          def copied_r2(tmp_path: Path) -> Path:
+              source = tmp_path / SOURCES[0]
+              source.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(ROOT / SOURCES[0], source)
+              target = tmp_path / "tests" / "fixtures" / "workflow_replay" / "r2" / "semantic"
+              target.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copytree(R2, target)
+              return target
+
+
+          def mutate_r2_result(repo: Path, arms: tuple[str, ...], mutate) -> None:
+              folder = repo / "tests" / "fixtures" / "workflow_replay" / "r2" / "semantic"
+              for arm in arms:
+                  result_path = folder / f"acceptance-{arm}.json"
+                  result = json.loads(result_path.read_text(encoding="utf-8"))
+                  mutate(result)
+                  write_json(result_path, result)
+                  run_path = folder / f"run-{arm}.json"
+                  run = json.loads(run_path.read_text(encoding="utf-8"))
+                  run["evidence"]["result"] = locator(result_path, repo, "result")
+                  write_json(run_path, run)
+
+
+          def test_r2_calibration_authority_is_frozen() -> None:
+              inventory = yaml.safe_load((R2_CAL / "INVENTORY.yaml").read_text(encoding="utf-8"))
+              expected = yaml.safe_load(R2_EXPECTED.read_text(encoding="utf-8"))
+              assert inventory["selection_frozen_before_implementation_results"] is True
+              assert inventory["post_selection_rule"]["no_case_removal_after_results"] is True
+              assert {item["case_id"] for item in inventory["cases"]} == set(expected["verdicts"])
+              assert len(expected["verdicts"]) == 12
+
+
+          def test_r2_contract_and_opposite_order_schedule() -> None:
+              contract = load_acceptance_contract(R2 / "manifest.yaml")
+              assert contract.r1["comparison_mode"] == "semantic_acceptance"
+              assert contract.mandatory_behaviors == ("api_contract", "core_behavior")
+              schedule = build_semantic_opposite_order_schedule(contract, "fixture")
+              assert tuple(item.arm for item in schedule) == ("A", "B", "B", "A")
+              assert tuple(item.order_position for item in schedule) == (0, 1, 0, 1)
+
+
+          def test_r2_different_correct_implementations_are_both_accepted() -> None:
+              contract, arm_a, arm_b = load_r2_pair()
+              assert arm_a.outcome is not None and arm_b.outcome is not None
+              assert arm_a.outcome.output_hashes != arm_b.outcome.output_hashes
+              assert arm_a.acceptance is not None and arm_a.acceptance.accepted
+              assert arm_b.acceptance is not None and arm_b.acceptance.accepted
+              report = compare_semantic_runs(contract, arm_a, arm_b)
+              assert report.acceptance_pattern == "BOTH_ACCEPTED"
+              assert report.pair_comparable and report.efficiency_release_allowed
+              payload = {"run_ids": report.run_ids, "evidence_sha256": report.evidence_sha256, "timing": report.timing}
+              assert release_semantic_efficiency(report, payload) == report.timing
+              assert expected_r2("R2-CAL-DIFFERENT-BOTH-CORRECT")["expected"] == "both_accepted"
+
+
+          def test_r2_missing_mandatory_rejects_only_that_arm(tmp_path: Path) -> None:
+              copied_r2(tmp_path)
+              mutate_r2_result(tmp_path, ("b",), lambda result: result["mandatory_results"].update(api_contract=False))
+              contract, arm_a, arm_b = load_r2_pair(tmp_path)
+              report = compare_semantic_runs(contract, arm_a, arm_b)
+              assert report.acceptance_pattern == "A_ACCEPTED_B_REJECTED"
+              assert dict(report.arm_failures)["B"] == ("mandatory.api_contract",)
+              with pytest.raises(EquivalenceError):
+                  release_semantic_efficiency(report, {})
+              assert expected_r2("R2-CAL-MISSING-MANDATORY")["expected"] == "reject_b"
+
+
+          def test_r2_forbidden_regression_rejects_only_that_arm(tmp_path: Path) -> None:
+              copied_r2(tmp_path)
+              mutate_r2_result(tmp_path, ("a",), lambda result: result["forbidden_results"].update(deletes_required_behavior=True))
+              contract, arm_a, arm_b = load_r2_pair(tmp_path)
+              report = compare_semantic_runs(contract, arm_a, arm_b)
+              assert report.acceptance_pattern == "A_REJECTED_B_ACCEPTED"
+              assert dict(report.arm_failures)["A"] == ("forbidden.deletes_required_behavior",)
+              assert expected_r2("R2-CAL-FORBIDDEN-REGRESSION")["expected"] == "reject_a"
+
+
+          def test_r2_both_same_wrong_are_rejected(tmp_path: Path) -> None:
+              copied_r2(tmp_path)
+              mutate_r2_result(tmp_path, ("a", "b"), lambda result: result["mandatory_results"].update(core_behavior=False))
+              contract, arm_a, arm_b = load_r2_pair(tmp_path)
+              report = compare_semantic_runs(contract, arm_a, arm_b)
+              assert report.acceptance_pattern == "BOTH_REJECTED"
+              assert not report.pair_comparable
+              assert expected_r2("R2-CAL-BOTH-SAME-WRONG")["expected"] == "reject_both"
+
+
+          def test_r2_inclusive_tolerance_boundaries_are_accepted(tmp_path: Path) -> None:
+              copied_r2(tmp_path)
+              mutate_r2_result(tmp_path, ("a",), lambda result: result["tolerance_values"].update(score=0.9))
+              mutate_r2_result(tmp_path, ("b",), lambda result: result["tolerance_values"].update(latency_ms=100.0, score=1.0))
+              contract, arm_a, arm_b = load_r2_pair(tmp_path)
+              report = compare_semantic_runs(contract, arm_a, arm_b)
+              assert report.acceptance_pattern == "BOTH_ACCEPTED"
+              assert expected_r2("R2-CAL-LOWER-BOUND")["expected"] == "accepted"
+              assert expected_r2("R2-CAL-UPPER-BOUND")["expected"] == "accepted"
+
+
+          def test_r2_out_of_bound_value_is_rejected(tmp_path: Path) -> None:
+              copied_r2(tmp_path)
+              mutate_r2_result(tmp_path, ("b",), lambda result: result["tolerance_values"].update(score=0.899))
+              contract, arm_a, arm_b = load_r2_pair(tmp_path)
+              report = compare_semantic_runs(contract, arm_a, arm_b)
+              assert report.acceptance_pattern == "A_ACCEPTED_B_REJECTED"
+              assert dict(report.arm_failures)["B"] == ("tolerance.score.minimum",)
+              assert expected_r2("R2-CAL-TOLERANCE-VIOLATION")["expected"] == "reject_b"
+
+
+          @pytest.mark.parametrize(
+              ("field", "value", "case_id"),
+              [
+                  ("evaluator_sha256", "0" * 64, "R2-CAL-EVALUATOR-MISMATCH"),
+                  ("acceptance_contract_sha256", "0" * 64, "R2-CAL-CONTRACT-MISMATCH"),
+                  ("run_id", "0" * 64, "R2-CAL-WRONG-RUN-BINDING"),
+              ],
+          )
+          def test_r2_identity_mismatches_fail_closed(tmp_path: Path, field: str, value: str, case_id: str) -> None:
+              folder = copied_r2(tmp_path)
+              mutate_r2_result(tmp_path, ("b",), lambda result: result.__setitem__(field, value))
+              contract = load_acceptance_contract(folder / "manifest.yaml")
+              with pytest.raises(EvidenceError, match="identity mismatch"):
+                  load_run_artifact(folder / "run-b.json", tmp_path, contract)
+              assert expected_r2(case_id)["expected"] == "evidence_invalid"
+
+
+          def test_r2_protected_path_failure_rejects_arm(tmp_path: Path) -> None:
+              copied_r2(tmp_path)
+              mutate_r2_result(tmp_path, ("b",), lambda result: result.__setitem__("protected_paths_ok", False))
+              contract, arm_a, arm_b = load_r2_pair(tmp_path)
+              report = compare_semantic_runs(contract, arm_a, arm_b)
+              assert report.acceptance_pattern == "A_ACCEPTED_B_REJECTED"
+              assert dict(report.arm_failures)["B"] == ("protected_paths",)
+              assert expected_r2("R2-CAL-PROTECTED-PATH")["expected"] == "reject_b"
+
+
+          def test_r2_rejected_arm_never_releases_efficiency(tmp_path: Path) -> None:
+              copied_r2(tmp_path)
+              mutate_r2_result(tmp_path, ("a",), lambda result: result["mandatory_results"].update(api_contract=False))
+              contract, arm_a, arm_b = load_r2_pair(tmp_path)
+              report = compare_semantic_runs(contract, arm_a, arm_b)
+              with pytest.raises(EquivalenceError, match="two accepted arms"):
+                  release_semantic_efficiency(report, {"run_ids": report.run_ids, "evidence_sha256": report.evidence_sha256, "timing": report.timing})
+              assert expected_r2("R2-CAL-EFFICIENCY-BLOCK")["expected"] == "blocked"
+          '''
+          test_text = test_text.replace("          ", "")
+          tests.write_text(test_text, encoding="utf-8")
+
+          import hashlib
+          import json
+          import yaml
+
+          ROOT = Path(".")
+          BASE = "b01b7715c8a703905a03403e54dfce258e69ba1e"
+          FIXTURE = ROOT / "tests/fixtures/workflow_replay/r2/semantic"
+          CAL = ROOT / "docs/development_workflow_optimization/replayab_r2_calibration"
+          SUBJECT = ROOT / "tests/fixtures/workflow_replay/valid_code_only.yaml"
+
+          def canonical(value):
+              return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+          def write_json(path, value):
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+          def make_locator(path, kind):
+              raw = path.read_bytes()
+              return {"kind": kind, "relative_path": path.as_posix(), "sha256": hashlib.sha256(raw).hexdigest(), "byte_size": len(raw)}
+
+          expected = {
+              "schema_version": 1,
+              "authority_id": "REPLAYAB-R2-CALIBRATION-01",
+              "frozen_before_implementation_results": True,
+              "verdicts": {
+                  "R2-CAL-BOTH-SAME-WRONG": {"expected": "reject_both"},
+                  "R2-CAL-CONTRACT-MISMATCH": {"expected": "evidence_invalid"},
+                  "R2-CAL-DIFFERENT-BOTH-CORRECT": {"expected": "both_accepted"},
+                  "R2-CAL-EFFICIENCY-BLOCK": {"expected": "blocked"},
+                  "R2-CAL-EVALUATOR-MISMATCH": {"expected": "evidence_invalid"},
+                  "R2-CAL-FORBIDDEN-REGRESSION": {"expected": "reject_a"},
+                  "R2-CAL-LOWER-BOUND": {"expected": "accepted"},
+                  "R2-CAL-MISSING-MANDATORY": {"expected": "reject_b"},
+                  "R2-CAL-PROTECTED-PATH": {"expected": "reject_b"},
+                  "R2-CAL-TOLERANCE-VIOLATION": {"expected": "reject_b"},
+                  "R2-CAL-UPPER-BOUND": {"expected": "accepted"},
+                  "R2-CAL-WRONG-RUN-BINDING": {"expected": "evidence_invalid"},
+              },
+          }
+          CAL.mkdir(parents=True, exist_ok=True)
+          (CAL / "EXPECTED_VERDICTS.yaml").write_text(yaml.safe_dump(expected, sort_keys=False), encoding="utf-8")
+          inventory = {
+              "schema_version": 1,
+              "calibration_id": "REPLAYAB-R2-CALIBRATION-01",
+              "selection_frozen_before_implementation_results": True,
+              "post_selection_rule": {"no_case_removal_after_results": True, "retain_failures_and_rejections": True},
+              "cases": [{"case_id": case_id} for case_id in expected["verdicts"]],
+          }
+          (CAL / "INVENTORY.yaml").write_text(yaml.safe_dump(inventory, sort_keys=False), encoding="utf-8")
+
+          subject_sha = hashlib.sha256(SUBJECT.read_bytes()).hexdigest()
+          evaluator_sha = hashlib.sha256((CAL / "EXPECTED_VERDICTS.yaml").read_bytes()).hexdigest()
+          schema_sha = hashlib.sha256((ROOT / "docs/development_workflow_optimization/R2_IMPLEMENTATION_CONTRACT.md").read_bytes()).hexdigest()
+          acceptance = {
+              "mandatory_behaviors": ["api_contract", "core_behavior"],
+              "forbidden_regressions": ["deletes_required_behavior", "touches_protected_path"],
+              "tolerances": {
+                  "latency_ms": {"minimum": None, "maximum": 100.0},
+                  "score": {"minimum": 0.9, "maximum": 1.0},
+              },
+              "protected_paths": ["docs/handoff.md", "experiments/registry.yaml"],
+              "evaluator_sha256": evaluator_sha,
+              "evidence_schema_sha256": schema_sha,
+              "order_policy": "two_opposite_pairs",
+          }
+          acceptance_sha = canonical(acceptance)
+          manifest = {
+              "schema_version": 3,
+              "case_id": "R2-CAL-SEMANTIC-DIFFERENT-CORRECT",
+              "task_class": "code_only",
+              "historical_task": {
+                  "base_sha": BASE,
+                  "frozen_implementation_sha": None,
+                  "source_prs": [],
+                  "source_commits": [BASE],
+                  "historical_real_time_evidence": [],
+              },
+              "benchmark": {
+                  "toolchain_sha": BASE,
+                  "input_spec_sha256": subject_sha,
+                  "expected_terminal_state": "READY",
+                  "expected_safety_boundary": None,
+                  "expected_changed_paths": ["src/semantic_a", "src/semantic_b"],
+                  "expected_final_tree_or_semantic_hashes": {"acceptance_contract_sha256": acceptance_sha, "evaluator_sha256": evaluator_sha},
+                  "required_gates": ["pytest", "ruff"],
+                  "environment_id": "replayab-r2-fixture-v1",
+                  "cache_policy": "cold",
+                  "replayability": "complete",
+                  "predeclared_exclusions": [],
+              },
+              "acceptance": acceptance,
+          }
+          FIXTURE.mkdir(parents=True, exist_ok=True)
+          (FIXTURE / "manifest.yaml").write_text(yaml.safe_dump(manifest, sort_keys=False), encoding="utf-8")
+          contract_sha = canonical(manifest)
+
+          rows = [
+              ("a", 0, "src/semantic_a/implementation.txt", "a" * 64, 50.0, 0.95, "2" * 64, "3" * 64),
+              ("b", 1, "src/semantic_b/implementation.txt", "b" * 64, 60.0, 0.96, "4" * 64, "5" * 64),
+          ]
+          for arm, position, path_name, impl_hash, latency, score, before, after in rows:
+              arm_name = arm.upper()
+              identity_payload = {"case_id": manifest["case_id"], "arm": arm_name, "pair_id": "pair-0", "repetition": 0, "order_position": position, "backend_id": "fixture"}
+              run_id = canonical(identity_payload)
+              identity = dict(identity_payload, run_id=run_id)
+              events = [
+                  {"run_id": run_id, "sequence": 0, "event": "run_started", "monotonic_ns": 100, "payload": {"arm": arm_name, "case_id": manifest["case_id"]}},
+                  {"run_id": run_id, "sequence": 1, "event": "run_finished", "monotonic_ns": 200, "payload": {"terminal_state": "READY"}},
+              ]
+              event_path = FIXTURE / f"events-{arm}.jsonl"
+              event_path.write_text("".join(json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n" for row in events), encoding="utf-8")
+              outcome = {
+                  "case_id": manifest["case_id"], "terminal_state": "READY", "safety_boundary": None,
+                  "changed_paths": [path_name], "file_modes": {path_name: "100644"},
+                  "output_hashes": {"implementation_sha256": impl_hash}, "authority_result": "PASS",
+                  "gate_results": {"pytest": "PASS", "ruff": "PASS"},
+                  "provenance": {
+                      "benchmark_toolchain_sha": BASE, "cache_policy": "cold",
+                      "environment_id": "replayab-r2-fixture-v1", "historical_base_sha": BASE,
+                      "input_spec_sha256": subject_sha,
+                  },
+                  "diagnostic_codes": [], "recovery_class": None,
+              }
+              outcome_path = FIXTURE / f"outcome-{arm}.json"
+              write_json(outcome_path, outcome)
+              result = {
+                  "schema_version": 1, "case_id": manifest["case_id"], "run_id": run_id,
+                  "acceptance_contract_sha256": acceptance_sha, "evaluator_sha256": evaluator_sha,
+                  "mandatory_results": {"api_contract": True, "core_behavior": True},
+                  "forbidden_results": {"deletes_required_behavior": False, "touches_protected_path": False},
+                  "tolerance_values": {"latency_ms": latency, "score": score},
+                  "protected_paths_ok": True, "diagnostic_codes": [],
+              }
+              result_path = FIXTURE / f"acceptance-{arm}.json"
+              write_json(result_path, result)
+              run = {
+                  "schema_version": 2, "case_contract_sha256": contract_sha, "run_identity": identity,
+                  "identities": {
+                      "base_sha": BASE, "input_sha256": subject_sha, "toolchain_sha": BASE,
+                      "evaluator_sha256": evaluator_sha, "evidence_schema_sha256": schema_sha,
+                      "environment_id": "replayab-r2-fixture-v1", "cache_policy": "cold",
+                      "backend_id": "fixture", "plan_sha256": ("6" if arm == "a" else "7") * 64,
+                  },
+                  "evidence": {
+                      "event_log": make_locator(event_path, "event_log"),
+                      "outcome": make_locator(outcome_path, "outcome"),
+                      "result": make_locator(result_path, "result"),
+                      "subject": make_locator(SUBJECT, "subject"),
+                  },
+                  "workspace_before_sha256": before, "workspace_after_sha256": after,
+                  "execution_terminal": "READY",
+                  "timing": {"total_ns": 1000 + position, "child_ns": 900 + position, "self_overhead_ns": 100},
+                  "producer_id": "replayab-r2-fixture-v1",
+              }
+              write_json(FIXTURE / f"run-{arm}.json", run)
+          PY
+
+      - name: Verify authorized scope and code budget
+        shell: bash
+        run: |
+          python - <<'PY'
+          import subprocess
+          allowed_exact = {
+              "src/drpo/workflow_replay/evidence.py",
+              "tests/test_workflow_replay_r1.py",
+              "docs/development_workflow_optimization/R2_GAP_AUDIT.md",
+              "docs/development_workflow_optimization/R2_IMPLEMENTATION_CONTRACT.md",
+          }
+          changed = subprocess.check_output(["git", "diff", "--name-only"], text=True).splitlines()
+          for path in changed:
+              if path not in allowed_exact and not path.startswith("tests/fixtures/workflow_replay/r2/") and not path.startswith("docs/development_workflow_optimization/replayab_r2_calibration/"):
+                  raise SystemExit(f"unauthorized path: {path}")
+          new_python = subprocess.check_output(["git", "diff", "--diff-filter=A", "--name-only"], text=True).splitlines()
+          if any(path.lower().endswith(".py") for path in new_python):
+              raise SystemExit(f"new Python path is forbidden: {new_python}")
+          diff = subprocess.check_output(["git", "diff", "--unified=0", "--", "src/drpo/workflow_replay/evidence.py"], text=True)
+          count = 0
+          for line in diff.splitlines():
+              if line.startswith("+") and not line.startswith("+++"):
+                  body = line[1:].strip()
+                  if body and not body.startswith("#"):
+                      count += 1
+          print(f"changed production Python lines: {count}")
+          if not 280 <= count <= 360:
+              raise SystemExit("production Python delta left the preferred R2 budget")
+          PY
+          git diff --check
+
+      - name: Run focused ReplayAB tests
+        run: |
+          python -m pytest \
+            tests/test_workflow_replay_model.py \
+            tests/test_workflow_replay_execute.py \
+            tests/test_workflow_replay_compare.py \
+            tests/test_workflow_replay_r1.py -q
+
+      - name: Run Ruff on changed Python
+        run: |
+          python -m ruff check \
+            src/drpo/workflow_replay/evidence.py \
+            tests/test_workflow_replay_r1.py
+
+      - name: Commit materialized R2 implementation
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No materialization changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/drpo/workflow_replay/evidence.py \
+            tests/test_workflow_replay_r1.py \
+            tests/fixtures/workflow_replay/r2 \
+            docs/development_workflow_optimization/replayab_r2_calibration
+          git commit -m "Implement ReplayAB R2 semantic acceptance"
+          git push origin HEAD:dev/replayab-r2-semantic-acceptance-01
