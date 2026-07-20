@@ -1,4 +1,4 @@
-name: Temporary E8 reciprocal status probe
+name: Temporary E8 reciprocal failure extractor
 
 on:
   push:
@@ -12,34 +12,28 @@ permissions:
   contents: write
 
 jobs:
-  probe:
+  extract:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: diag/e8-reciprocal-finalizer-48a3e49
-      - name: Record finalizer state
+      - name: Extract fixed-run failure summary
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh api 'repos/easonhuo/drpo/actions/runs?head_sha=9c111c6a78ad60044db0ba660c6050e0d9b5d333&per_page=100' > /tmp/runs.json
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          payload = json.loads(Path('/tmp/runs.json').read_text())
-          rows = [row for row in payload['workflow_runs'] if row['name'] == 'Temporary E8 reciprocal current-main finalize']
-          if not rows:
-              raise SystemExit('finalizer run not found')
-          row = rows[0]
-          Path('docs/experiments/TEMP_RECIPROCAL_FINALIZER_STATUS.txt').write_text(
-              f"run_id={row['id']}\nstatus={row['status']}\nconclusion={row['conclusion']}\n",
-              encoding='utf-8',
-          )
-          PY
+          mkdir -p docs/experiments
+          gh run view 29729381874 --repo easonhuo/drpo --log-failed > /tmp/finalizer_failed.log 2>&1 || true
+          {
+            echo 'run_id=29729381874'
+            grep -Ein 'ERROR|Error|FAILED|failed|Traceback|Process completed|assert|mismatch|missing' /tmp/finalizer_failed.log | tail -n 120 || true
+            echo '--- tail ---'
+            tail -n 80 /tmp/finalizer_failed.log
+          } > docs/experiments/TEMP_RECIPROCAL_FINALIZER_FAILURE.txt
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add docs/experiments/TEMP_RECIPROCAL_FINALIZER_STATUS.txt
-          git commit -m 'Record reciprocal finalizer state'
+          git add docs/experiments/TEMP_RECIPROCAL_FINALIZER_FAILURE.txt
+          git commit -m 'Extract reciprocal finalizer failure'
           git push origin HEAD:diag/e8-reciprocal-finalizer-48a3e49
