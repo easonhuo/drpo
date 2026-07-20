@@ -131,7 +131,9 @@ class CountdownReviewerConfig:
         if unknown:
             raise ValueError("unsupported Countdown methods: " + ", ".join(unknown))
         seeds = _unique_ints(value.get("seeds"), "seeds")
-        target_modules = _unique_strings(lora.get("target_modules"), "lora.target_modules")
+        target_modules = _unique_strings(
+            lora.get("target_modules"), "lora.target_modules"
+        )
         test_value = data.get("test")
         initial_adapter = model.get("initial_adapter")
         config = cls(
@@ -149,7 +151,9 @@ class CountdownReviewerConfig:
             ),
             lora_r=_positive_int(lora.get("r"), "model.lora.r"),
             lora_alpha=_positive_int(lora.get("alpha"), "model.lora.alpha"),
-            lora_dropout=_probability(lora.get("dropout"), "model.lora.dropout", upper_open=True),
+            lora_dropout=_probability(
+                lora.get("dropout"), "model.lora.dropout", upper_open=True
+            ),
             lora_target_modules=target_modules,
             replay_path=Path(_nonempty_string(data.get("replay"), "data.replay")),
             calibration_path=Path(
@@ -227,7 +231,9 @@ class CountdownReviewerConfig:
                 calibration.get("minimum_taper_lambda"),
                 "calibration.minimum_taper_lambda",
             ),
-            eval_batch=_positive_int(evaluation.get("batch_size"), "evaluation.batch_size"),
+            eval_batch=_positive_int(
+                evaluation.get("batch_size"), "evaluation.batch_size"
+            ),
             eval_examples=_positive_int(
                 evaluation.get("examples"), "evaluation.examples"
             ),
@@ -261,7 +267,9 @@ class CountdownReviewerConfig:
                 + ", ".join(_SELECTION_METRICS)
             )
         if self.eval_every > self.steps or self.checkpoint_every > self.steps:
-            raise ValueError("evaluation/checkpoint cadence cannot exceed training steps")
+            raise ValueError(
+                "evaluation/checkpoint cadence cannot exceed training steps"
+            )
         if self.calibration_prompts < 2:
             raise ValueError("calibration.prompts must be at least two")
         if self.test_path is not None and self.test_path == self.validation_path:
@@ -318,9 +326,7 @@ class CountdownReviewerConfig:
                 "minimum_active_distance_fraction": (
                     self.minimum_active_distance_fraction
                 ),
-                "nondegenerate_target_max_ratio": (
-                    self.nondegenerate_target_max_ratio
-                ),
+                "nondegenerate_target_max_ratio": (self.nondegenerate_target_max_ratio),
                 "minimum_taper_lambda": self.minimum_taper_lambda,
             },
             "evaluation": {
@@ -447,9 +453,7 @@ def _load_hf_stack() -> HFStack:
         AutoModelForCausalLM=transformers.AutoModelForCausalLM,
         AutoTokenizer=transformers.AutoTokenizer,
         BitsAndBytesConfig=transformers.BitsAndBytesConfig,
-        get_cosine_schedule_with_warmup=(
-            transformers.get_cosine_schedule_with_warmup
-        ),
+        get_cosine_schedule_with_warmup=(transformers.get_cosine_schedule_with_warmup),
         LoraConfig=peft.LoraConfig,
         PeftModel=peft.PeftModel,
         get_peft_model=peft.get_peft_model,
@@ -545,7 +549,9 @@ def _load_trainable_model(
 
 
 def _trainable_parameters(model: Any) -> list[torch.nn.Parameter]:
-    parameters = [parameter for parameter in model.parameters() if parameter.requires_grad]
+    parameters = [
+        parameter for parameter in model.parameters() if parameter.requires_grad
+    ]
     if not parameters:
         raise RuntimeError("Countdown model exposes no trainable parameters")
     return parameters
@@ -621,7 +627,9 @@ def _validate_evaluation_rows(rows: Sequence[Mapping[str, Any]], name: str) -> N
         prompts.add(prompt)
         if not isinstance(numbers, Sequence) or isinstance(numbers, (str, bytes)):
             raise ValueError(f"{name}[{index}] has no number sequence")
-        if not numbers or any(isinstance(item, bool) or not isinstance(item, int) for item in numbers):
+        if not numbers or any(
+            isinstance(item, bool) or not isinstance(item, int) for item in numbers
+        ):
             raise ValueError(f"{name}[{index}] numbers must be non-empty integers")
         if isinstance(target, bool) or not isinstance(target, int):
             raise ValueError(f"{name}[{index}] target must be an integer")
@@ -638,9 +646,7 @@ def _assert_prompt_disjoint(
     }
     if overlap:
         example = sorted(overlap)[0]
-        raise ValueError(
-            f"{left_name} and {right_name} prompt sets overlap: {example}"
-        )
+        raise ValueError(f"{left_name} and {right_name} prompt sets overlap: {example}")
 
 
 def _prepare_training_items(
@@ -684,7 +690,9 @@ def _selected_batch(
     return collate_countdown_training_items(selected, pad_id)
 
 
-def _packed_to_device(packed: Mapping[str, Any], device: torch.device) -> dict[str, Any]:
+def _packed_to_device(
+    packed: Mapping[str, Any], device: torch.device
+) -> dict[str, Any]:
     return {
         "positive": move_tensor_batch_to_device(packed["positive"], device),
         "bank": move_tensor_batch_to_device(packed["bank"], device),
@@ -750,15 +758,11 @@ def _calibrate_for_seed(
         _trainable_parameters(model),
         tau=tau,
         surprisal_scale=surprisal_scale,
-        inherited_exponential_coefficient=(
-            config.inherited_exponential_coefficient
-        ),
+        inherited_exponential_coefficient=(config.inherited_exponential_coefficient),
         maximum_coefficient=config.maximum_coefficient,
         bisection_steps=config.bisection_steps,
         relative_l2_tolerance=config.relative_l2_tolerance,
-        minimum_active_distance_fraction=(
-            config.minimum_active_distance_fraction
-        ),
+        minimum_active_distance_fraction=(config.minimum_active_distance_fraction),
         nondegenerate_target_max_ratio=config.nondegenerate_target_max_ratio,
         minimum_taper_lambda=config.minimum_taper_lambda,
     )
@@ -799,7 +803,22 @@ def _gradient_state(parameters: Sequence[torch.nn.Parameter]) -> tuple[float, bo
 
 
 def _parameters_finite(parameters: Sequence[torch.nn.Parameter]) -> bool:
-    return all(bool(torch.isfinite(parameter.detach()).all()) for parameter in parameters)
+    return all(
+        bool(torch.isfinite(parameter.detach()).all()) for parameter in parameters
+    )
+
+
+def _restore_parameters(
+    snapshots: Sequence[torch.Tensor],
+    parameters: Sequence[torch.nn.Parameter],
+) -> None:
+    if len(snapshots) != len(parameters):
+        raise ValueError("parameter snapshots and live parameters must align")
+    with torch.no_grad():
+        for snapshot, parameter in zip(snapshots, parameters, strict=True):
+            parameter.copy_(snapshot.to(device=parameter.device, dtype=parameter.dtype))
+    if not _parameters_finite(parameters):
+        raise FloatingPointError("failed to restore the last finite parameters")
 
 
 def _save_adapter_checkpoint(
@@ -884,9 +903,7 @@ def evaluate_countdown_model(
     prompts = [str(row["prompt"]) for row in selected]
     was_training = bool(model.training)
     cache_value = getattr(model.config, "use_cache", False)
-    checkpointing_was_enabled = bool(
-        getattr(model, "is_gradient_checkpointing", False)
-    )
+    checkpointing_was_enabled = bool(getattr(model, "is_gradient_checkpointing", False))
     model.eval()
     if checkpointing_was_enabled and hasattr(model, "gradient_checkpointing_disable"):
         model.gradient_checkpointing_disable()
@@ -918,7 +935,9 @@ def evaluate_countdown_model(
             )
     finally:
         model.config.use_cache = cache_value
-        if checkpointing_was_enabled and hasattr(model, "gradient_checkpointing_enable"):
+        if checkpointing_was_enabled and hasattr(
+            model, "gradient_checkpointing_enable"
+        ):
             model.gradient_checkpointing_enable()
         model.train(was_training)
     greedy_text = [group[0] for group in greedy]
@@ -1000,6 +1019,17 @@ def _train_one_method(
             "formal_result_claim": False,
         },
     )
+    _save_adapter_checkpoint(
+        model,
+        tokenizer,
+        last_finite_checkpoint,
+        {
+            "step": 0,
+            "method": method,
+            "kind": "last_finite",
+            "formal_result_claim": False,
+        },
+    )
     device = next(model.parameters()).device
     plan_offset = 0
     numerical_failure: dict[str, Any] | None = None
@@ -1007,6 +1037,7 @@ def _train_one_method(
     model.train()
     for step in range(1, config.steps + 1):
         optimizer.zero_grad(set_to_none=True)
+        before_update: list[torch.Tensor] | None = None
         accumulated = {
             "loss": 0.0,
             "positive_lp": 0.0,
@@ -1076,6 +1107,8 @@ def _train_one_method(
         except (FloatingPointError, RuntimeError) as exc:
             if isinstance(exc, RuntimeError) and "non-finite" not in str(exc).lower():
                 raise
+            if before_update is not None:
+                _restore_parameters(before_update, parameters)
             numerical_failure = {
                 "event": "nan_inf_numerical_failure",
                 "step": int(step),
@@ -1132,19 +1165,18 @@ def _train_one_method(
                     "formal_result_claim": False,
                 },
             )
-    if last_finite_step > 0:
-        _save_adapter_checkpoint(
-            model,
-            tokenizer,
-            terminal_checkpoint,
-            {
-                "step": last_finite_step,
-                "method": method,
-                "kind": "terminal",
-                "fixed_horizon_is_convergence": False,
-                "formal_result_claim": False,
-            },
-        )
+    _save_adapter_checkpoint(
+        model,
+        tokenizer,
+        terminal_checkpoint,
+        {
+            "step": last_finite_step,
+            "method": method,
+            "kind": "terminal",
+            "fixed_horizon_is_convergence": False,
+            "formal_result_claim": False,
+        },
+    )
     write_csv(output / "training_metrics.csv", metrics_rows)
     summary = {
         "experiment_id": COUNTDOWN_REVIEWER_EXPERIMENT_ID,
@@ -1163,6 +1195,7 @@ def _train_one_method(
         "surprisal_scale": surprisal_scale,
         "initial_trainable_state_sha256": initial_digest,
         "numerical_failure": numerical_failure,
+        "nan_inf_numerical_failure": numerical_failure is not None,
         "task_performance_collapse": None,
         "support_or_probability_boundary": None,
         "formal_result_claim": False,
@@ -1336,7 +1369,11 @@ def run_countdown(
             }
             atomic_json(seed_root / "CALIBRATION_FAILED.json", calibration_failure)
             for method in config.methods:
-                all_runs.append({**calibration_failure, "method": method})
+                method_failure = {**calibration_failure, "method": method}
+                method_root = seed_root / method
+                method_root.mkdir(parents=True, exist_ok=False)
+                atomic_json(method_root / "RUN_FAILED.json", method_failure)
+                all_runs.append(method_failure)
             continue
         finally:
             _release_model(calibration_model)
@@ -1371,9 +1408,7 @@ def run_countdown(
                     "traceback": traceback.format_exc(),
                     "task_performance_collapse": None,
                     "support_or_probability_boundary": None,
-                    "nan_inf_numerical_failure": isinstance(
-                        exc, FloatingPointError
-                    ),
+                    "nan_inf_numerical_failure": isinstance(exc, FloatingPointError),
                     "formal_result_claim": False,
                 }
                 method_root.mkdir(parents=True, exist_ok=True)
@@ -1383,15 +1418,27 @@ def run_countdown(
                 _release_model(model)
             all_runs.append(dict(summary))
     test_rows: list[dict[str, Any]] | None = None
+    test_input_failure: dict[str, Any] | None = None
     if config.test_path is not None:
-        test_rows = _read_jsonl(config.test_path)
-        _validate_evaluation_rows(test_rows, "test")
-        _assert_prompt_disjoint(replay_rows, test_rows, "replay", "test")
-        _assert_prompt_disjoint(calibration_rows, test_rows, "calibration", "test")
-        _assert_prompt_disjoint(validation_rows, test_rows, "validation", "test")
-        input_identity["test_sha256"] = _sha256_file(
-            config.test_path.expanduser().resolve()
-        )
+        try:
+            test_rows = _read_jsonl(config.test_path)
+            _validate_evaluation_rows(test_rows, "test")
+            _assert_prompt_disjoint(replay_rows, test_rows, "replay", "test")
+            _assert_prompt_disjoint(calibration_rows, test_rows, "calibration", "test")
+            _assert_prompt_disjoint(validation_rows, test_rows, "validation", "test")
+            input_identity["test_sha256"] = _sha256_file(
+                config.test_path.expanduser().resolve()
+            )
+        except Exception as exc:
+            test_rows = None
+            test_input_failure = {
+                "event": "environment_invalid_or_evaluation_input_unavailable",
+                "error": f"{type(exc).__name__}: {exc}",
+                "traceback": traceback.format_exc(),
+                "training_outputs_preserved": True,
+                "formal_result_claim": False,
+            }
+            atomic_json(output / "TEST_INPUT_FAILED.json", test_input_failure)
     if test_rows is not None:
         for run in all_runs:
             if run.get("status") != "completed":
@@ -1399,27 +1446,48 @@ def run_countdown(
             seed = int(run["seed"])
             method = str(run["method"])
             method_root = output / f"seed_{seed}" / method
-            best = _evaluate_saved_checkpoint(
-                stack,
-                config,
-                method_root / "best_adapter",
-                test_rows,
-                seed=config.evaluation_seed,
-                kind="best",
-            )
-            terminal = _evaluate_saved_checkpoint(
-                stack,
-                config,
-                method_root / "terminal_adapter",
-                test_rows,
-                seed=config.evaluation_seed,
-                kind="terminal",
-            )
+            try:
+                best = _evaluate_saved_checkpoint(
+                    stack,
+                    config,
+                    method_root / "best_adapter",
+                    test_rows,
+                    seed=config.evaluation_seed,
+                    kind="best",
+                )
+                terminal = _evaluate_saved_checkpoint(
+                    stack,
+                    config,
+                    method_root / "terminal_adapter",
+                    test_rows,
+                    seed=config.evaluation_seed,
+                    kind="terminal",
+                )
+            except Exception as exc:
+                run["training_status"] = "completed"
+                run["status"] = "failed"
+                run["event"] = "test_evaluation_failure"
+                run["evaluation_error"] = f"{type(exc).__name__}: {exc}"
+                run["evaluation_traceback"] = traceback.format_exc()
+                atomic_json(method_root / "RUN_FAILED.json", run)
+                continue
             run["best_test"] = best
             run["terminal_test"] = terminal
             atomic_json(method_root / "BEST_TEST.json", best)
             atomic_json(method_root / "TERMINAL_TEST.json", terminal)
             atomic_json(method_root / "RUN_COMPLETE.json", run)
+    elif test_input_failure is not None:
+        for run in all_runs:
+            if run.get("status") != "completed":
+                continue
+            seed = int(run["seed"])
+            method = str(run["method"])
+            method_root = output / f"seed_{seed}" / method
+            run["training_status"] = "completed"
+            run["status"] = "failed"
+            run["event"] = test_input_failure["event"]
+            run["evaluation_error"] = test_input_failure["error"]
+            atomic_json(method_root / "RUN_FAILED.json", run)
     else:
         for run in all_runs:
             if run.get("status") != "completed":
@@ -1429,7 +1497,8 @@ def run_countdown(
             method_root = output / f"seed_{seed}" / method
             atomic_json(method_root / "RUN_COMPLETE.json", run)
     manifest["input_identity"] = input_identity
-    manifest["test_accessed_after_training"] = bool(test_rows is not None)
+    manifest["test_accessed_after_training"] = bool(config.test_path is not None)
+    manifest["test_input_failure"] = test_input_failure
     atomic_json(output / "RUN_MANIFEST.json", manifest)
     aggregate = _aggregate_runs(all_runs)
     atomic_json(output / "SUMMARY.json", aggregate)
@@ -1442,6 +1511,7 @@ def run_countdown(
         "completed_runs": sum(run.get("status") == "completed" for run in all_runs),
         "failed_runs": sum(run.get("status") != "completed" for run in all_runs),
         "test_configured": config.test_path is not None,
+        "test_input_failure": test_input_failure,
         "formal_result_claim": False,
         "method_ranking_claim_allowed": False,
         "terminal_scientific_audit_included": False,
