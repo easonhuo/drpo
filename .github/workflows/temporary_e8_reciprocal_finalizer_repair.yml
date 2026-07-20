@@ -1,0 +1,34 @@
+name: Temporary E8 reciprocal finalizer repair
+
+on:
+  push:
+    branches:
+      - dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01
+    paths:
+      - .github/workflows/temporary_e8_reciprocal_finalizer_repair.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01
+          fetch-depth: 0
+      - name: Repair shared-file integration
+        run: python tools/temporary_repair_e8_finalizer.py
+      - name: Publish repaired finalizer
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/temporary_e8_reciprocal_finalizer_repair.yml
+          git rm tools/temporary_repair_e8_finalizer.py
+          git add .github/workflows/temporary_e8_reciprocal_current_main_finalize.yml
+          git diff --check --cached
+          git commit -m 'Merge reciprocal shared-file delta onto current main'
+          git push origin HEAD:dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01
