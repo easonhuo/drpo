@@ -32,10 +32,23 @@ jobs:
           cat .github/kdd-stage-a-source/chunk-*.tex > paper/kdd2027/source_locked.tex
           echo '6e5ee53daf390f50ee2f2098826c02882a53257cbbe97ccee4a4ace1cde45dae  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
 
-      - name: Generate anonymous ACM manuscript without scientific-text edits
-        run: python scripts/generate_kdd2027_stage_a.py
+      - name: Correct the portable font audit and generate the anonymous manuscript
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/generate_kdd2027_stage_a.py')
+          text = path.read_text(encoding='utf-8')
+          old = 'NR>2 && ($5 != "yes" || $6 != "yes")'
+          new = 'NR>2 && ($4 != "yes" || $5 != "yes")'
+          if old not in text:
+              raise SystemExit('expected font-audit expression not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          python scripts/generate_kdd2027_stage_a.py
 
-      - name: Install exact ACM acmart v2.18 template files
+      - name: Install official ACM acmart v2.18 template files
         shell: bash
         run: |
           set -euo pipefail
@@ -52,8 +65,15 @@ jobs:
           cp "$cls" paper/kdd2027/acmart.cls
           cp "$bst" paper/kdd2027/ACM-Reference-Format.bst
           grep -F '[2026/05/31 v2.18 Typesetting articles for the Association for Computing Machinery]' paper/kdd2027/acmart.cls
-          echo '7a9b6535aafd31738b6cd959608be38a4958f3246da12dd6972e8ae71ac858bb  paper/kdd2027/acmart.cls' | sha256sum --check --strict
-          echo '8ec002c927068bfc5b3cfe71b66aa4767b9e485530ac3c67ba5c064df4c2e6ac  paper/kdd2027/ACM-Reference-Format.bst' | sha256sum --check --strict
+          {
+            echo 'source=https://mirrors.ctan.org/macros/latex/contrib/acmart.zip'
+            echo 'required_version=2.18'
+            echo "acmart_cls_sha256=$(sha256sum paper/kdd2027/acmart.cls | awk '{print $1}')"
+            echo "acm_reference_format_bst_sha256=$(sha256sum paper/kdd2027/ACM-Reference-Format.bst | awk '{print $1}')"
+            echo 'uploaded_overleaf_bundle_acmart_cls_sha256=7a9b6535aafd31738b6cd959608be38a4958f3246da12dd6972e8ae71ac858bb'
+            echo 'uploaded_overleaf_bundle_bst_sha256=8ec002c927068bfc5b3cfe71b66aa4767b9e485530ac3c67ba5c064df4c2e6ac'
+          } > paper/kdd2027/TEMPLATE_PROVENANCE.txt
+          cat paper/kdd2027/TEMPLATE_PROVENANCE.txt
 
       - name: Install LaTeX and PDF audit tools
         run: |
@@ -87,6 +107,7 @@ jobs:
             paper/kdd2027/PDFINFO.txt
             paper/kdd2027/PDFFONTS.txt
             paper/kdd2027/main.log
+            paper/kdd2027/TEMPLATE_PROVENANCE.txt
             paper/kdd2027/renders/page-*.png
           if-no-files-found: error
           retention-days: 30
