@@ -6,7 +6,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   repair:
@@ -27,13 +27,13 @@ jobs:
           git merge-base --is-ancestor cfe43571cd8c6d0909c61d36c4f6e4d07c2d2362 HEAD
           test "$(git diff --name-only cfe43571cd8c6d0909c61d36c4f6e4d07c2d2362 HEAD | sort)" = ".github/workflows/runspec-local-demo-delivery-optout.yml"
 
-      - name: Apply narrow test-fixture repair in audit workspace
+      - name: Apply narrow test repairs
         run: |
           python - <<'PY'
           from pathlib import Path
 
-          path = Path('tests/test_agent_runspec.py')
-          lines = path.read_text(encoding='utf-8').splitlines(keepends=True)
+          runspec_path = Path('tests/test_agent_runspec.py')
+          lines = runspec_path.read_text(encoding='utf-8').splitlines(keepends=True)
           matches = [
               i
               for i in range(len(lines) - 2)
@@ -44,35 +44,45 @@ jobs:
           if len(matches) != 1:
               raise SystemExit(f'expected one local-demo policy tail, found {len(matches)}')
           lines.insert(matches[0] + 1, '            "formal_evidence_allowed": False,\n')
-          path.write_text(''.join(lines), encoding='utf-8')
+          runspec_path.write_text(''.join(lines), encoding='utf-8')
+
+          claude_path = Path('tests/test_claude_runspec_workspace.py')
+          text = claude_path.read_text(encoding='utf-8')
+          old = '    assert "create `COMPLETED.json`" in local_instructions\n'
+          new = '    assert "create `COMPLETED.json`" in " ".join(local_instructions.split())\n'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one wrapped-instruction assertion, found {text.count(old)}')
+          claude_path.write_text(text.replace(old, new), encoding='utf-8')
           PY
+          rm .github/workflows/runspec-local-demo-delivery-optout.yml
 
       - name: Install dependencies
         run: |
           python -m pip install --quiet --upgrade pip
           python -m pip install --quiet -e . pytest ruff pyyaml
 
-      - name: Capture full repository pytest evidence
+      - name: Run focused regressions
         run: |
-          set +e
-          python -m pytest -q -vv --maxfail=1 --junitxml=/tmp/full.xml > /tmp/full.log 2>&1
-          code=$?
-          echo "$code" > /tmp/full.exit
-          echo "pytest_exit_code=$code"
-          tail -n 250 /tmp/full.log
-          exit 0
+          python -m pytest \
+            tests/test_agent_runspec.py::test_validate_claim_and_run_lane_packages_only_allowed_artifacts \
+            tests/test_claude_runspec_workspace.py::test_configure_is_idempotent_and_installs_strict_hook \
+            -q
 
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: runspec-local-demo-full-pytest-diagnostic-${{ github.run_id }}
-          path: |
-            /tmp/full.log
-            /tmp/full.xml
-            /tmp/full.exit
-
-      - name: Enforce pytest outcome
-        if: always()
+      - name: Run full repository tests
         run: |
-          code="$(cat /tmp/full.exit)"
-          test "$code" = "0"
+          python -m pytest -q
+
+      - name: Run changed-file quality gates
+        run: |
+          python -m ruff check tests/test_agent_runspec.py tests/test_claude_runspec_workspace.py
+          git diff --check
+          test "$(git diff --name-only | sort)" = $'tests/test_agent_runspec.py\ntests/test_claude_runspec_workspace.py'
+
+      - name: Commit repaired tests
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          test "$(git diff --cached --name-only | sort)" = $'.github/workflows/runspec-local-demo-delivery-optout.yml\ntests/test_agent_runspec.py\ntests/test_claude_runspec_workspace.py'
+          git commit -m 'Repair stale local executor test fixtures'
+          git push origin HEAD:maintenance/runspec-local-demo-delivery-optout-01
