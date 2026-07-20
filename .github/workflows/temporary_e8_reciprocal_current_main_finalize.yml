@@ -137,6 +137,7 @@ jobs:
           entries = []
           for experiment_id in ids:
               entry = trigger_by_id[experiment_id]
+              entry['execution_class'] = 'pilot'
               row = locator_rows[experiment_id]
               entry['evidence_locator'] = {
                   'schema_version': 1,
