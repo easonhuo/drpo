@@ -37,6 +37,22 @@ jobs:
           set +e
           python -m pytest tests/test_workflow_replay_r1_r2_discrimination.py -vv > /tmp/benchmark.log 2>&1
           echo $? > /tmp/benchmark.exit
+          python - <<'PY' >> /tmp/benchmark.log 2>&1
+          import importlib.util
+          import json
+          from pathlib import Path
+
+          path = Path('tests/test_workflow_replay_r1_r2_discrimination.py')
+          spec = importlib.util.spec_from_file_location('r1r2_discrimination', path)
+          module = importlib.util.module_from_spec(spec)
+          assert spec.loader is not None
+          spec.loader.exec_module(module)
+          rows, comparison = module.execute_benchmark()
+          print('\n=== DEBUG_ROWS ===')
+          print(json.dumps(rows, indent=2, sort_keys=True))
+          print('\n=== DEBUG_COMPARISON ===')
+          print(json.dumps(comparison, indent=2, sort_keys=True))
+          PY
           exit 0
 
       - uses: actions/upload-artifact@v4
