@@ -48,7 +48,7 @@ jobs:
           PY
           python scripts/generate_kdd2027_stage_a.py
 
-      - name: Install official ACM acmart v2.18 template files
+      - name: Install current official ACM acmart template files
         shell: bash
         run: |
           set -euo pipefail
@@ -64,14 +64,21 @@ jobs:
           test -n "$bst"
           cp "$cls" paper/kdd2027/acmart.cls
           cp "$bst" paper/kdd2027/ACM-Reference-Format.bst
-          grep -F '[2026/05/31 v2.18 Typesetting articles for the Association for Computing Machinery]' paper/kdd2027/acmart.cls
+          version_line="$(grep -m1 'Typesetting articles for the Association for Computing Machinery' paper/kdd2027/acmart.cls)"
+          printf '%s\n' "$version_line"
+          case "$version_line" in
+            *'v2.18 '*|*'v2.19 '*) ;;
+            *) echo "unsupported acmart version: $version_line" >&2; exit 1 ;;
+          esac
           {
             echo 'source=https://mirrors.ctan.org/macros/latex/contrib/acmart.zip'
-            echo 'required_version=2.18'
+            echo "resolved_version_line=$version_line"
+            echo 'minimum_accepted_version=2.18'
             echo "acmart_cls_sha256=$(sha256sum paper/kdd2027/acmart.cls | awk '{print $1}')"
             echo "acm_reference_format_bst_sha256=$(sha256sum paper/kdd2027/ACM-Reference-Format.bst | awk '{print $1}')"
-            echo 'uploaded_overleaf_bundle_acmart_cls_sha256=7a9b6535aafd31738b6cd959608be38a4958f3246da12dd6972e8ae71ac858bb'
-            echo 'uploaded_overleaf_bundle_bst_sha256=8ec002c927068bfc5b3cfe71b66aa4767b9e485530ac3c67ba5c064df4c2e6ac'
+            echo 'user_uploaded_overleaf_bundle_version=2.18'
+            echo 'user_uploaded_overleaf_bundle_acmart_cls_sha256=7a9b6535aafd31738b6cd959608be38a4958f3246da12dd6972e8ae71ac858bb'
+            echo 'user_uploaded_overleaf_bundle_bst_sha256=8ec002c927068bfc5b3cfe71b66aa4767b9e485530ac3c67ba5c064df4c2e6ac'
           } > paper/kdd2027/TEMPLATE_PROVENANCE.txt
           cat paper/kdd2027/TEMPLATE_PROVENANCE.txt
 
