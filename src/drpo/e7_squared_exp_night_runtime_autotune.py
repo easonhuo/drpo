@@ -3,23 +3,50 @@
 from __future__ import annotations
 
 import contextlib
+import contextvars
 import math
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, Mapping
 
 from drpo import e7_ppo_w0_runtime_autotune as legacy
 from drpo import e7_squared_exp_night as pilot
 
 
-ADAPTER_ID = "e7_squared_exp_night_cpu_v2"
-REPRESENTATIVE_DATASET = "walker2d-medium-v2"
-REPRESENTATIVE_W0 = 1.0
-REPRESENTATIVE_COEFFICIENT = 4.0
+SELECTOR_POLICY_VERSION = 3
+PROBE_STEPS_LIMIT = 5_000
+PROBE_SECONDS_LIMIT = 120.0
+CANDIDATE_GROWTH_FACTOR = 1.75
+CANDIDATE_POLICY = "low_first_geometric_v3"
+
+_REQUESTED_PROBE_STEPS: contextvars.ContextVar[int | None] = contextvars.ContextVar(
+    "e7_squared_exp_requested_probe_steps",
+    default=None,
+)
+_REQUESTED_PROBE_SECONDS: contextvars.ContextVar[float | None] = contextvars.ContextVar(
+    "e7_squared_exp_requested_probe_seconds",
+    default=None,
+)
+_ACTIVE_PLAN_IDENTITY: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "e7_squared_exp_plan_identity",
+    default=None,
+)
 
 _ORIGINAL_SELECT_RUNTIME = legacy.select_runtime
 _ORIGINAL_REVALIDATE_RUNTIME = legacy.revalidate_runtime
 _ORIGINAL_CLEANUP = legacy._cleanup_probe_payload  # noqa: SLF001
-_ORIGINAL_SELECTOR_IMPLEMENTATION = legacy._selector_implementation_identity  # noqa: SLF001
+_ORIGINAL_SELECTOR_IMPLEMENTATION = (  # noqa: SLF001
+    legacy._selector_implementation_identity
+)
+_ORIGINAL_BENCHMARK_CONCURRENCY = legacy.benchmark_concurrency
+
+
+def _v3_adapter_id(profile: dict[str, Any]) -> str:
+    adapter_id = str(profile["adapter_id"])
+    if not adapter_id.endswith("_v2"):
+        raise legacy.RuntimeResourceError(
+            f"squared-night V3 requires a V2 predecessor adapter id: {adapter_id}"
+        )
+    return f"{adapter_id[:-3]}_v3"
 
 
 def _selector_implementation_identity(repo_root: str | Path) -> dict[str, str]:
@@ -77,6 +104,151 @@ def _representative(branches: list[Any]) -> Any:
             f"{profile}, found {len(matches)}"
         )
     return matches[0]
+
+
+def _bounded_probe_policy(probe_steps: int, probe_seconds: float) -> dict[str, int | float]:
+    if probe_steps < 1:
+        raise legacy.RuntimeResourceError("probe_steps must be positive")
+    if not math.isfinite(probe_seconds) or probe_seconds <= 0:
+        raise legacy.RuntimeResourceError("probe_seconds must be finite and positive")
+    return {
+        "requested_probe_steps": int(probe_steps),
+        "effective_probe_steps": min(int(probe_steps), PROBE_STEPS_LIMIT),
+        "requested_probe_seconds": float(probe_seconds),
+        "effective_probe_seconds": min(float(probe_seconds), PROBE_SECONDS_LIMIT),
+    }
+
+
+def _low_first_candidate_workers(safe_cap: int, fallback_workers: int) -> list[int]:
+    """Return a bounded ascending grid that always has a one-worker foothold."""
+
+    if safe_cap < 1:
+        raise legacy.RuntimeResourceError("safe worker cap must be positive")
+    values = {1, int(safe_cap)}
+    candidate = 1
+    while candidate < safe_cap:
+        candidate = min(
+            int(safe_cap),
+            max(candidate + 1, math.ceil(candidate * CANDIDATE_GROWTH_FACTOR)),
+        )
+        values.add(candidate)
+    if 1 <= fallback_workers <= safe_cap:
+        values.add(int(fallback_workers))
+    return sorted(values)
+
+
+def _binding_payload(binding: Any) -> dict[str, Any]:
+    payload = binding.as_dict()
+    if not isinstance(payload, dict):
+        raise legacy.RuntimeResourceError("candidate CPU binding must serialize to a mapping")
+    return payload
+
+
+def _candidate_checkpoint_identity(
+    kwargs: Mapping[str, Any],
+    *,
+    effective_steps: int,
+    effective_seconds: float,
+) -> dict[str, Any]:
+    plan_identity = _ACTIVE_PLAN_IDENTITY.get()
+    if not plan_identity:
+        raise legacy.RuntimeResourceError("squared-night candidate plan identity is missing")
+    return {
+        "schema_version": 1,
+        "plan_identity": plan_identity,
+        "selector_policy_version": SELECTOR_POLICY_VERSION,
+        "candidate_policy": CANDIDATE_POLICY,
+        "concurrency": int(kwargs["concurrency"]),
+        "probe_steps": int(effective_steps),
+        "probe_seed": int(kwargs["probe_seed"]),
+        "timeout_seconds": float(effective_seconds),
+        "cpu_fraction": float(kwargs["cpu_fraction"]),
+        "cpu_safety_factor": float(kwargs["cpu_safety_factor"]),
+        "cpu_binding": _binding_payload(kwargs["binding"]),
+    }
+
+
+def _candidate_summary_path(kwargs: Mapping[str, Any]) -> Path:
+    return Path(str(kwargs["probe_root"])) / (
+        f"workers-{int(kwargs['concurrency']):03d}"
+    ) / "BENCHMARK_SUMMARY.json"
+
+
+def _load_valid_candidate_checkpoint(
+    path: Path,
+    *,
+    identity: dict[str, Any],
+    usable_memory_bytes: int,
+) -> dict[str, Any] | None:
+    if not path.is_file():
+        return None
+    try:
+        summary = legacy.load_json(path)
+    except (OSError, ValueError, TypeError):
+        return None
+    if summary.get("valid") is not True:
+        return None
+    if summary.get("v3_checkpoint_identity") != identity:
+        return None
+    aggregate_peak = int(summary.get("aggregate_peak_rss_bytes", 0) or 0)
+    if aggregate_peak < 1 or aggregate_peak > int(usable_memory_bytes):
+        return None
+    reused = dict(summary)
+    reused["checkpoint_reused"] = True
+    reused["checkpoint_source_path"] = str(path)
+    return reused
+
+
+def _bounded_benchmark_concurrency(**kwargs: Any) -> dict[str, Any]:
+    """Bound candidate cost and reuse exact completed V3 evidence after interruption."""
+
+    policy = _bounded_probe_policy(
+        int(kwargs.get("probe_steps", 0) or 0),
+        float(kwargs.get("timeout_seconds", 0.0) or 0.0),
+    )
+    requested_steps = _REQUESTED_PROBE_STEPS.get()
+    requested_seconds = _REQUESTED_PROBE_SECONDS.get()
+    if requested_steps is None:
+        requested_steps = int(policy["requested_probe_steps"])
+    if requested_seconds is None:
+        requested_seconds = float(policy["requested_probe_seconds"])
+    effective_steps = int(policy["effective_probe_steps"])
+    effective_seconds = float(policy["effective_probe_seconds"])
+    identity = _candidate_checkpoint_identity(
+        kwargs,
+        effective_steps=effective_steps,
+        effective_seconds=effective_seconds,
+    )
+    summary_path = _candidate_summary_path(kwargs)
+    checkpoint = _load_valid_candidate_checkpoint(
+        summary_path,
+        identity=identity,
+        usable_memory_bytes=int(kwargs["usable_memory_bytes"]),
+    )
+    if checkpoint is not None:
+        return checkpoint
+
+    bounded = dict(kwargs)
+    bounded["probe_steps"] = effective_steps
+    bounded["timeout_seconds"] = effective_seconds
+    summary = dict(_ORIGINAL_BENCHMARK_CONCURRENCY(**bounded))
+    summary.update(
+        {
+            "requested_probe_steps_per_branch": requested_steps,
+            "effective_probe_steps_per_branch": effective_steps,
+            "requested_timeout_seconds": requested_seconds,
+            "effective_timeout_seconds": effective_seconds,
+            "probe_policy_bounded_by_adapter": (
+                effective_steps != requested_steps
+                or not math.isclose(effective_seconds, requested_seconds)
+            ),
+            "candidate_policy": CANDIDATE_POLICY,
+            "v3_checkpoint_identity": identity,
+            "checkpoint_reused": False,
+        }
+    )
+    legacy.atomic_write_json(summary_path, summary)
+    return summary
 
 
 def resource_fingerprint(
@@ -146,12 +318,17 @@ def resource_fingerprint(
             if key != "adapter_id"
         },
     }
-    for key in ("clip_epsilon", "max_updates_per_old_policy", "target_kl", "gae_lambda"):
+    for key in (
+        "clip_epsilon",
+        "max_updates_per_old_policy",
+        "target_kl",
+        "gae_lambda",
+    ):
         if key in profile:
             hard_fields[key] = profile[key]
     return {
         "schema_version": 2,
-        "adapter_id": profile["adapter_id"],
+        "adapter_id": _v3_adapter_id(profile),
         "selector_policy_version": legacy.SELECTOR_POLICY_VERSION,
         "hard_fields": hard_fields,
         "soft_fields": {
@@ -162,18 +339,26 @@ def resource_fingerprint(
                 pilot._flag_value(argv, "--eval_episodes")  # noqa: SLF001
             ),
             "probe_terminal_evaluation_episodes": 1,
-            "probe_steps": int(probe_steps),
-            "probe_seconds": float(probe_seconds),
+            "effective_probe_steps": int(probe_steps),
+            "probe_steps_limit": PROBE_STEPS_LIMIT,
+            "effective_probe_seconds": float(probe_seconds),
+            "probe_seconds_limit": PROBE_SECONDS_LIMIT,
             "probe_seed_namespace": int(probe_seed),
         },
         "selection_policy": {
             "fallback_workers": int(fallback_workers),
+            "fallback_role": "bounded_candidate_only",
+            "candidate_policy": CANDIDATE_POLICY,
+            "candidate_growth_factor": CANDIDATE_GROWTH_FACTOR,
+            "candidate_one_worker_foothold": True,
+            "candidate_checkpoint_reuse": "same_workdir_valid_only",
             "cpu_fraction": float(cpu_fraction),
             "memory_headroom_fraction": float(memory_headroom_fraction),
             "per_worker_memory_safety_factor": float(per_worker_safety_factor),
             "per_worker_cpu_safety_factor": float(per_worker_cpu_safety_factor),
             "minimum_cpu_cores_per_worker": float(minimum_cpu_cores_per_worker),
             "max_workers": None if max_workers is None else int(max_workers),
+            "max_workers_role": "optional_absolute_ceiling",
             "max_growth_factor": float(max_growth_factor),
             "throughput_retention_fraction": float(throughput_retention_fraction),
             "revalidation_samples": int(revalidation_samples),
@@ -218,9 +403,12 @@ def _installed_adapter() -> Iterator[None]:
         legacy.resource_fingerprint,
         legacy._cleanup_probe_payload,  # noqa: SLF001
         legacy._selector_implementation_identity,  # noqa: SLF001
+        legacy.candidate_workers,
+        legacy.benchmark_concurrency,
+        legacy.SELECTOR_POLICY_VERSION,
     )
     legacy.pilot = PROXY
-    legacy.ADAPTER_ID = str(profile["adapter_id"])
+    legacy.ADAPTER_ID = _v3_adapter_id(profile)
     legacy.REPRESENTATIVE_DATASET = str(profile["dataset"])
     legacy.REPRESENTATIVE_W0 = float(profile["weight_at_zero"])
     legacy.REPRESENTATIVE_COEFFICIENT = float(profile["exp_coefficient"])
@@ -230,6 +418,9 @@ def _installed_adapter() -> Iterator[None]:
     legacy._selector_implementation_identity = (  # noqa: SLF001
         _selector_implementation_identity
     )
+    legacy.candidate_workers = _low_first_candidate_workers
+    legacy.benchmark_concurrency = _bounded_benchmark_concurrency
+    legacy.SELECTOR_POLICY_VERSION = SELECTOR_POLICY_VERSION
     try:
         yield
     finally:
@@ -243,14 +434,124 @@ def _installed_adapter() -> Iterator[None]:
             legacy.resource_fingerprint,
             legacy._cleanup_probe_payload,  # noqa: SLF001
             legacy._selector_implementation_identity,  # noqa: SLF001
+            legacy.candidate_workers,
+            legacy.benchmark_concurrency,
+            legacy.SELECTOR_POLICY_VERSION,
         ) = previous
 
 
+@contextlib.contextmanager
+def _requested_probe_context(probe_steps: int, probe_seconds: float) -> Iterator[None]:
+    steps_token = _REQUESTED_PROBE_STEPS.set(int(probe_steps))
+    seconds_token = _REQUESTED_PROBE_SECONDS.set(float(probe_seconds))
+    try:
+        yield
+    finally:
+        _REQUESTED_PROBE_STEPS.reset(steps_token)
+        _REQUESTED_PROBE_SECONDS.reset(seconds_token)
+
+
+@contextlib.contextmanager
+def _plan_identity_context(identity: str) -> Iterator[None]:
+    token = _ACTIVE_PLAN_IDENTITY.set(identity)
+    try:
+        yield
+    finally:
+        _ACTIVE_PLAN_IDENTITY.reset(token)
+
+
+def _bounded_runtime_kwargs(kwargs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    policy = _bounded_probe_policy(
+        int(kwargs.get("probe_steps", 0) or 0),
+        float(kwargs.get("probe_seconds", 0.0) or 0.0),
+    )
+    bounded = dict(kwargs)
+    bounded["probe_steps"] = int(policy["effective_probe_steps"])
+    bounded["probe_seconds"] = float(policy["effective_probe_seconds"])
+    return bounded, policy
+
+
+def _fingerprint_kwargs(kwargs: Mapping[str, Any]) -> dict[str, Any]:
+    names = (
+        "repo_root",
+        "contract_path",
+        "run_spec_path",
+        "grid_path",
+        "probe_steps",
+        "probe_seed",
+        "probe_seconds",
+        "throughput_retention_fraction",
+        "fallback_workers",
+        "cpu_fraction",
+        "memory_headroom_fraction",
+        "per_worker_safety_factor",
+        "per_worker_cpu_safety_factor",
+        "minimum_cpu_cores_per_worker",
+        "max_workers",
+        "max_growth_factor",
+        "revalidation_samples",
+        "revalidation_sample_seconds",
+    )
+    return {name: kwargs[name] for name in names}
+
+
+def _plan_checkpoint_identity(kwargs: Mapping[str, Any]) -> str:
+    fingerprint = resource_fingerprint(**_fingerprint_kwargs(kwargs))
+    source = legacy.git_state(kwargs["repo_root"])
+    return legacy.canonical_json_sha256(
+        {
+            "schema_version": 1,
+            "selector_policy_version": SELECTOR_POLICY_VERSION,
+            "adapter_id": fingerprint["adapter_id"],
+            "resource_fingerprint": fingerprint,
+            "selector_implementation": _selector_implementation_identity(
+                kwargs["repo_root"]
+            ),
+            "source_commit": source.get("commit"),
+            "source_dirty": source.get("dirty"),
+        }
+    )
+
+
+def _attach_requested_probe_policy(
+    document: dict[str, Any],
+    *,
+    work_dir: str | Path,
+    policy: dict[str, Any],
+) -> dict[str, Any]:
+    document["requested_probe_policy"] = {
+        "requested_probe_steps": int(policy["requested_probe_steps"]),
+        "effective_probe_steps": int(policy["effective_probe_steps"]),
+        "requested_probe_seconds": float(policy["requested_probe_seconds"]),
+        "effective_probe_seconds": float(policy["effective_probe_seconds"]),
+        "identity_affecting": False,
+    }
+    legacy.atomic_write_json(Path(work_dir) / "RUNTIME_SELECTION.json", document)
+    return document
+
+
 def select_runtime(**kwargs: Any) -> dict[str, Any]:
-    with _installed_adapter():
-        return _ORIGINAL_SELECT_RUNTIME(**kwargs)
+    bounded, policy = _bounded_runtime_kwargs(kwargs)
+    with _requested_probe_context(
+        int(policy["requested_probe_steps"]),
+        float(policy["requested_probe_seconds"]),
+    ):
+        with _installed_adapter():
+            identity = _plan_checkpoint_identity(bounded)
+            with _plan_identity_context(identity):
+                document = _ORIGINAL_SELECT_RUNTIME(**bounded)
+    return _attach_requested_probe_policy(
+        document,
+        work_dir=str(kwargs["work_dir"]),
+        policy=policy,
+    )
 
 
 def revalidate_runtime(**kwargs: Any) -> dict[str, Any]:
-    with _installed_adapter():
-        return _ORIGINAL_REVALIDATE_RUNTIME(**kwargs)
+    bounded, policy = _bounded_runtime_kwargs(kwargs)
+    with _requested_probe_context(
+        int(policy["requested_probe_steps"]),
+        float(policy["requested_probe_seconds"]),
+    ):
+        with _installed_adapter():
+            return _ORIGINAL_REVALIDATE_RUNTIME(**bounded)
