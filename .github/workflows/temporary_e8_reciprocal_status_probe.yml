@@ -18,6 +18,7 @@ jobs:
     env:
       TARGET_SHA: 9c111c6a78ad60044db0ba660c6050e0d9b5d333
       TARGET_WORKFLOW: Temporary E8 reciprocal current-main finalize
+      PROBE_ROUND: '2'
     steps:
       - name: Report concise target status
         shell: bash
@@ -37,5 +38,5 @@ jobs:
           logs="$(gh run view "$run_id" --repo "$GITHUB_REPOSITORY" --log-failed 2>&1 || true)"
           matches="$(grep -Ein 'ERROR|Error|FAILED|failed|Traceback|Process completed|passed|warning' <<<"$logs" | tail -n 100 || true)"
           final_lines="$(tail -n 50 <<<"$logs")"
-          body="Concise status probe for \`$TARGET_WORKFLOW\` at \`$TARGET_SHA\`: run $run_id, status=$status, conclusion=$conclusion.\n\n$summary\n\nMatches:\n\`\`\`text\n$matches\n\`\`\`\n\nFinal lines:\n\`\`\`text\n$final_lines\n\`\`\`\n\n$url"
+          body="Concise status probe round $PROBE_ROUND for \`$TARGET_WORKFLOW\` at \`$TARGET_SHA\`: run $run_id, status=$status, conclusion=$conclusion.\n\n$summary\n\nMatches:\n\`\`\`text\n$matches\n\`\`\`\n\nFinal lines:\n\`\`\`text\n$final_lines\n\`\`\`\n\n$url"
           gh api "repos/$GITHUB_REPOSITORY/issues/174/comments" -f body="$body" >/dev/null
