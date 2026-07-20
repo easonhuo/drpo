@@ -10,7 +10,6 @@ import concurrent.futures
 import json
 import threading
 from contextlib import contextmanager
-from pathlib import Path
 from types import ModuleType
 from typing import Any, Iterator
 

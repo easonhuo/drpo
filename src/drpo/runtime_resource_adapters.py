@@ -25,7 +25,6 @@ from drpo.runtime_resource_autotune import (
     atomic_write_json,
     canonical_json_sha256,
     load_json,
-    measure_command_peak_memory,
     select_gpu_devices,
     selection_document,
 )

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from drpo import e7_ppo_w0_grid_pilot as pilot
-from drpo.e7_ppo_w0_runtime_autotune import revalidate_runtime, select_runtime
+from drpo.e7_ppo_w0_runtime_autotune import select_runtime
 from drpo.runtime_capacity_wait import (
     wait_for_runtime_admission,
     wait_for_runtime_plan,

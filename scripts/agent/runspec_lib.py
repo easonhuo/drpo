@@ -15,7 +15,6 @@ import json
 import os
 import re
 import shlex
-import shutil
 import subprocess
 import sys
 import time
@@ -433,7 +432,6 @@ def match_any(path: str, patterns: Iterable[str]) -> bool:
 
 def is_model_like(path: str) -> bool:
     pure = PurePosixPath(path)
-    lowered = path.lower()
     if pure.suffix.lower() in MODEL_LIKE_SUFFIXES:
         return True
     parts = [part.lower() for part in pure.parts]

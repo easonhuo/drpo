@@ -15,7 +15,6 @@ from runspec_lib import (
     current_commit,
     load_lane_config,
     now_utc,
-    read_yaml,
     state_path,
     validate_runspec,
     write_yaml,
