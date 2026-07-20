@@ -197,12 +197,13 @@ jobs:
         working-directory: extracted/drpo-reference-v0.1
         run: python -m pytest -x -vv tests/test_cu1_suite.py
 
-      - name: Run D-U1 self-contained tests
+      - name: Run D-U1 CLI tests
         working-directory: extracted/drpo-reference-v0.1
-        run: >-
-          python -m pytest -x -vv
-          tests/test_du1_cli.py
-          tests/test_du1_public.py
+        run: python -m pytest -x -vv tests/test_du1_cli.py
+
+      - name: Run D-U1 public smoke tests
+        working-directory: extracted/drpo-reference-v0.1
+        run: python -m pytest -x -vv tests/test_du1_public.py
 
       - name: Ruff check extracted package
         working-directory: extracted/drpo-reference-v0.1
