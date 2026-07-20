@@ -1,0 +1,439 @@
+schema_version: 1
+claim_id: PAPER-CODE-VALIDATION-01
+parent_claim_id: PAPER-CODE-REFERENCE-01
+repository: easonhuo/drpo
+branch: dev/paper-code-reference-01
+planning_base_head: 8b81b4b72e38538a0b2ea4b50595059a67838d63
+main_observed_at_planning: 4b718e7439cf78a04f4affa1987ac15582d702d1
+research_authority: docs/handoff.md
+runbook: docs/paper_code_reference/VALIDATION_RUNBOOK.md
+scientific_status_impact: none
+formal_experiment_authorized: false
+method_ranking_claim_allowed: false
+
+status_vocabulary:
+  - pending
+  - running
+  - passed
+  - failed
+  - blocked
+  - deferred
+  - not_applicable
+
+rules:
+  docs_before_execution: true
+  bind_every_record_to_full_commit_sha: true
+  require_new_or_empty_output_root: true
+  preserve_failure_and_partial_outputs: true
+  no_tolerance_relaxation_after_mismatch: true
+  smoke_is_not_reproduction: true
+  fake_backend_is_not_real_liveness: true
+  short_trajectory_is_not_scientific_result: true
+  fixed_horizon_is_not_convergence: true
+  no_post_hoc_method_selection: true
+  no_frozen_coordinate_changes: true
+  rerun_affected_gates_after_code_change: true
+  separate_events:
+    - task_performance_collapse
+    - support_or_variance_or_probability_boundary
+    - nan_inf_numerical_failure
+    - environment_invalid_or_rollout_unavailable
+    - incomplete_or_unresolved_terminal_state
+
+evidence_contract:
+  root: validation_outputs/PAPER-CODE-VALIDATION-01
+  required_when_applicable:
+    - SOURCE_COMMIT.txt
+    - COMMAND.txt
+    - ENVIRONMENT.json
+    - INPUT_MANIFEST.json
+    - STDOUT.log
+    - STDERR.log
+    - EXIT_CODE.txt
+    - RESULT.json
+    - OUTPUT_MANIFEST.json
+  source_tree_outputs_forbidden: true
+
+stages:
+  V0_baseline_and_docs:
+    purpose: freeze validation object, decision rules, order, and evidence format
+    status: running
+    gates:
+      V0-01_lock_planning_coordinates:
+        status: passed
+        evidence:
+          repository: easonhuo/drpo
+          main: 4b718e7439cf78a04f4affa1987ac15582d702d1
+          branch: dev/paper-code-reference-01
+          planning_base_head: 8b81b4b72e38538a0b2ea4b50595059a67838d63
+      V0-02_validation_runbook:
+        status: passed
+        path: docs/paper_code_reference/VALIDATION_RUNBOOK.md
+      V0-03_validation_matrix:
+        status: passed
+        path: docs/paper_code_reference/VALIDATION_MATRIX.yaml
+      V0-04_current_status_sync:
+        status: pending
+        path: docs/paper_code_reference/CURRENT_STATUS.md
+      V0-05_acceptance_matrix_sync:
+        status: pending
+        path: docs/paper_code_reference/ACCEPTANCE_MATRIX.yaml
+      V0-06_exact_head_ci_after_docs:
+        status: pending
+        required_checks:
+          - evidence_locator
+          - python_compile
+          - shell_syntax
+          - handoff_authority
+          - formal_execution_channel
+          - governance_inventory_and_stage
+          - full_pytest
+          - ruff
+      V0-07_exact_package_inventory:
+        status: pending
+        required_outputs:
+          - SOURCE_COMMIT.txt
+          - PACKAGE_MANIFEST.json
+          - VALIDATION_STATUS.md
+
+  V1_clean_package:
+    purpose: prove clean installation, package isolation, full engineering tests, and public entrypoints
+    status: pending
+    prerequisites:
+      - V0-06_exact_head_ci_after_docs
+      - V0-07_exact_package_inventory
+    working_directory: paper_code
+    commands:
+      - python -m pip install -e '.[test]'
+      - python -m compileall -q src tests
+      - python -m pytest
+      - python -m ruff check .
+      - python -m ruff format --check .
+      - python -m drpo_reference --help
+      - python -m drpo_reference cu1 --help
+      - python -m drpo_reference du1 --help
+      - python -m drpo_reference hopper --help
+      - python -m drpo_reference d4rl --help
+      - python -m drpo_reference countdown --help
+    pass_criteria:
+      - install_without_historical_repo_on_pythonpath
+      - compile_pass
+      - full_pytest_pass
+      - ruff_check_pass
+      - ruff_format_check_pass
+      - all_public_subcommands_parse
+      - no_tracked_source_output
+      - no_hidden_internal_runtime_dependency
+
+  V2_function_equivalence:
+    purpose: fixed-input formula, mask, loss, gradient, update, and event equivalence
+    status: pending
+    prerequisite: V1_clean_package
+    tolerance_policy:
+      existing_tests: retain_existing_declared_tolerances
+      new_cpu_comparisons: freeze_before_execution
+      relax_after_mismatch: forbidden
+    components:
+      shared:
+        status: pending
+        authoritative_scope:
+          - common
+          - controls
+        command: >-
+          python -m pytest -q tests/test_common.py tests/test_controls.py
+          tests/test_events.py tests/test_aggregate.py
+        required_invariants:
+          - taper_formula
+          - detached_weight
+          - hard_selection
+          - raw_gradient_budget_match
+          - event_separation
+          - verifier_and_masking_statistics
+          - aggregation
+      cu1:
+        status: pending
+        authoritative_sources:
+          - src/drpo/cu1_core.py
+          - src/drpo/drpo_cu1_e1_e4_oneclick.py
+          - src/drpo/cu1_distance_taper_formal.py
+          - src/drpo/cu1_taper_near_retention_formal.py
+          - src/drpo/cu1_taper_budget_match_formal.py
+        command: >-
+          python -m pytest -q tests/test_cu1_differential.py
+          tests/test_cu1_mechanism_differential.py
+          tests/test_cu1_phase_differential.py
+          tests/test_cu1_positive_training.py
+          tests/test_cu1_taper_differential.py
+        required_invariants:
+          - environment_tensor
+          - initialization
+          - loss
+          - raw_gradient
+          - first_adam_update
+          - remoteness_controls
+          - event_labels
+      du1_revision_4:
+        status: pending
+        authoritative_sources:
+          - src/drpo/du1_e6_cartesian_taper_v4.py
+          - configs/du1_e6_cartesian_taper_v4.yaml
+        command: >-
+          python -m pytest -q tests/test_du1_environment_differential.py
+          tests/test_du1_controls_differential.py
+          tests/test_du1_training_differential.py
+          tests/test_du1_update_differential.py
+        required_invariants:
+          - action_reward_geometry
+          - hidden_rare_action_cost
+          - initial_common_rare_gap
+          - calibration_threshold_and_scale
+          - loss
+          - raw_gradient
+          - first_update
+          - shared_rarity_gradient_ratio
+          - support_probability_event
+      hopper_e7_q2:
+        status: pending
+        authoritative_sources:
+          - src/drpo/e7_hopper_q2.py
+          - configs/e7_hopper_q2.yaml
+          - scripts/run_e7_hopper_q2.py
+        command: >-
+          python -m pytest -q tests/test_hopper_data_differential.py
+          tests/test_hopper_models_differential.py
+          tests/test_hopper_critic_differential.py
+          tests/test_hopper_metrics_differential.py
+          tests/test_hopper_actor_differential.py
+          tests/test_hopper_suite_differential.py
+          tests/test_hopper_rollout_differential.py
+          tests/test_hopper_public_differential.py
+        required_invariants:
+          - dataset_split
+          - critic_selection
+          - frozen_advantage
+          - advantage_sign_and_rank
+          - near_far_matching
+          - actor_loss
+          - raw_gradient
+          - first_update
+          - rollout_semantics
+          - aggregation_schema
+      d4rl_9_code:
+        status: pending
+        command: python -m pytest -q tests/test_d4rl_shared_core_differential.py
+        required_invariants:
+          - selected_backend_initialization
+          - forward_values
+          - first_adam_update
+          - deterministic_short_trajectory
+        scientific_closure: false
+      countdown:
+        status: pending
+        authoritative_sources:
+          - src/drpo/countdown_qwen_arena_onefile.py
+          - src/drpo/countdown_e8_alpha1_c_scan_common.py
+          - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+          - src/drpo/countdown_e8_alpha1_highc_scan_common.py
+          - src/drpo/countdown_e8_taper.py
+        command: python -m pytest -q tests/test_common.py tests/test_cli.py
+        required_invariants:
+          - expression_verifier
+          - token_mask_eos_padding
+          - sequence_log_probability
+          - unique_negative_denominator
+          - active_tail_coordinate
+          - two_forward_detachment
+          - model_backed_calibration
+          - first_clipped_adamw_update
+          - canonical_config_mutation_rejection
+          - structure_metrics
+          - delayed_test_access
+
+  V3_short_trajectory:
+    purpose: fixed-seed trajectory, checkpoint, scheduler, and output-schema equivalence
+    status: pending
+    prerequisite: corresponding_V2_component_passed
+    components:
+      cu1:
+        status: pending
+        tests:
+          - tests/test_cu1_positive_training.py
+          - tests/test_cu1_suite.py
+          - tests/test_cu1_phase_differential.py
+          - tests/test_cu1_taper_differential.py
+      du1_revision_4:
+        status: pending
+        tests:
+          - tests/test_du1_training_differential.py
+          - tests/test_du1_update_differential.py
+          - tests/test_du1_public.py
+          - tests/test_du1_cli.py
+      hopper_e7_q2:
+        status: pending
+        tests:
+          - tests/test_hopper_critic_differential.py
+          - tests/test_hopper_actor_differential.py
+          - tests/test_hopper_suite_differential.py
+          - tests/test_hopper_rollout_differential.py
+          - tests/test_hopper_public_differential.py
+      d4rl_9_code:
+        status: pending
+        tests:
+          - tests/test_d4rl_shared_core_differential.py
+      countdown:
+        status: pending
+        evidence_kind: controlled_fake_hf_end_to_end
+        required_lifecycle:
+          - configuration
+          - calibration
+          - at_least_two_methods
+          - multiple_optimizer_steps
+          - gradient_clipping
+          - checkpoint_lifecycle
+          - generation
+          - delayed_test_access
+          - aggregation
+
+  V4_real_liveness:
+    purpose: actual CPU, HDF5/MuJoCo, and Qwen/PEFT/CUDA stack execution
+    status: pending
+    scientific_result: false
+    components:
+      cu1_cpu:
+        status: pending
+        command: >-
+          python -m drpo_reference cu1 --stage source
+          --output "$VALIDATION_ROOT/V4_real_liveness/cu1_source"
+          --device cpu --smoke
+        pass_criteria:
+          - process_exit_zero
+          - finite_outputs
+          - expected_records
+          - separate_event_categories
+          - formal_evidence_false
+      du1_cpu:
+        status: pending
+        command: >-
+          python -m drpo_reference du1
+          --output "$VALIDATION_ROOT/V4_real_liveness/du1"
+          --device cpu --workers 1 --smoke
+        pass_criteria:
+          - all_six_methods_execute
+          - expected_records
+          - formal_evidence_false
+      hopper_hdf5_mujoco:
+        status: blocked
+        blockers:
+          - registered_hopper_hdf5_not_resolved_in_validation_environment
+          - gymnasium_mujoco_environment_not_yet_verified
+        required_input:
+          basename: hopper_medium_replay-v2.hdf5
+          sha256: e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b
+        command: >-
+          python -m drpo_reference hopper --dataset "$HOPPER_HDF5"
+          --output "$VALIDATION_ROOT/V4_real_liveness/hopper"
+          --device auto --smoke
+        pass_criteria:
+          - dataset_identity
+          - isolated_preflight
+          - real_environment_interaction
+          - training_lifecycle
+          - checkpoint_reload
+          - rollout_evaluation
+      countdown_qwen_cuda:
+        status: blocked
+        blockers:
+          - non_scientific_schema1_liveness_config_not_frozen
+          - real_model_adapter_and_inputs_not_resolved_in_validation_environment
+          - cuda_environment_not_verified
+        command: >-
+          python -m drpo_reference countdown
+          --config "$COUNTDOWN_LIVENESS_CONFIG"
+          --output "$VALIDATION_ROOT/V4_real_liveness/countdown"
+        pass_criteria:
+          - tokenizer_model_adapter_identity
+          - real_forward_backward
+          - optimizer_update
+          - checkpoint_save_reload
+          - greedy_and_sampled_generation
+          - finite_state
+          - delayed_test_behavior
+          - completion_or_failure_records
+          - no_score_or_ranking_claim
+      d4rl_9:
+        status: blocked
+        blockers:
+          - selected_task_dataset_identity_not_resolved
+          - eight_dataset_sha256_values_unresolved_for_full_matrix
+          - final_formal_protocol_unfrozen
+
+  V5_scientific_reproduction:
+    purpose: registered full-budget reproduction, terminal audit, and paper-facing closure
+    status: pending
+    global_prerequisites:
+      - corresponding_V1_to_V4_passed
+      - authoritative_formal_coordinate
+      - supervised_execution
+      - durable_artifact_protocol
+    components:
+      cu1:
+        status: pending
+        required:
+          - registered_full_cpu_reproduction
+          - terminal_audit
+          - selected_conclusion_report
+      du1_revision_4:
+        status: pending
+        frozen_coordinate:
+          seeds: 200-219
+          methods: 6
+          updates: 8000
+          terminal_windows: frozen_in_protocol
+        required:
+          - registered_full_cpu_matrix
+          - terminal_audit
+          - selected_conclusion_report
+      hopper_e7_q2:
+        status: blocked
+        blockers:
+          - V4_hopper_liveness_not_passed
+        required:
+          - registered_hdf5
+          - canonical_critic_and_frozen_advantages
+          - registered_seeds_and_budgets
+          - real_rollouts
+          - root_terminal_audit
+      countdown:
+        status: blocked
+        canonical_protocol_id: EXT-C-E8-TAPER-0.5B-01-v79
+        blockers:
+          - V4_countdown_liveness_not_passed
+          - scientific_execution_not_registered_from_validation_branch
+        required:
+          - canonical_v79_config
+          - best_and_terminal_or_last_finite_separate
+          - test_after_all_method_training
+          - terminal_scientific_review
+      d4rl_9:
+        status: blocked
+        blockers:
+          - all_dataset_identities_not_verified
+          - final_methods_and_coefficients_unfrozen
+          - formal_seeds_unfrozen
+          - formal_budget_unfrozen
+          - checkpoint_policy_unfrozen
+          - manuscript_role_unresolved
+
+execution_order:
+  - V0_baseline_and_docs
+  - V1_clean_package
+  - V2_function_equivalence
+  - V3_short_trajectory
+  - V4_real_liveness.cu1_cpu
+  - V4_real_liveness.du1_cpu
+  - V4_real_liveness.hopper_hdf5_mujoco
+  - freeze_countdown_non_scientific_liveness_config
+  - V4_real_liveness.countdown_qwen_cuda
+  - V5_scientific_reproduction_for_selected_manuscript_experiments
+
+next_gate: V0-04_current_status_sync
