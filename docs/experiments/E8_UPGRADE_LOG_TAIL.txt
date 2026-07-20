@@ -1,0 +1,22 @@
+upgrade	Commit upgraded finalizer	﻿2026-07-20T09:43:08.2142278Z ##[group]Run set -euo pipefail
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:08.2143609Z ^[[36;1mset -euo pipefail^[[0m
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:08.2144915Z ^[[36;1mgit config user.name github-actions[bot]^[[0m
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:08.2146994Z ^[[36;1mgit config user.email 41898282+github-actions[bot]@users.noreply.github.com^[[0m
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:08.2149574Z ^[[36;1mgit rm .github/workflows/temporary_e8_differential_finalizer_upgrade.yml^[[0m
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:08.2152023Z ^[[36;1mgit rm tools/temporary_upgrade_e8_finalizer.py^[[0m
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:08.2154181Z ^[[36;1mgit add .github/workflows/temporary_e8_reciprocal_current_main_finalize.yml^[[0m
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:08.2156168Z ^[[36;1mgit diff --check --cached^[[0m
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:08.2157889Z ^[[36;1mgit commit -m 'Gate reciprocal closure against exact main baseline'^[[0m
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:08.2160554Z ^[[36;1mgit push origin HEAD:dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01^[[0m
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:08.2221215Z shell: /usr/bin/bash -e {0}
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:08.2222353Z ##[endgroup]
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:08.3160634Z rm '.github/workflows/temporary_e8_differential_finalizer_upgrade.yml'
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:08.3967565Z rm 'tools/temporary_upgrade_e8_finalizer.py'
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:08.5936276Z [dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01 03ce063] Gate reciprocal closure against exact main baseline
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:08.5941086Z  3 files changed, 69 insertions(+), 138 deletions(-)
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:08.5944679Z  delete mode 100644 .github/workflows/temporary_e8_differential_finalizer_upgrade.yml
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:08.5948379Z  delete mode 100644 tools/temporary_upgrade_e8_finalizer.py
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:09.5827882Z To https://github.com/easonhuo/drpo
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:09.5829552Z  ! [remote rejected] HEAD -> dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01 (refusing to allow a GitHub App to create or update workflow `.github/workflows/temporary_e8_reciprocal_current_main_finalize.yml` without `workflows` permission)
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:09.5831444Z error: failed to push some refs to 'https://github.com/easonhuo/drpo'
+upgrade	Commit upgraded finalizer	2026-07-20T09:43:09.5853986Z ##[error]Process completed with exit code 1.
