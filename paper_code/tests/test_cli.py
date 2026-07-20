@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -419,3 +423,77 @@ def test_d4rl_public_runner_aggregates_rollout_scores(
         "normalized_score_std_across_seeds": pytest.approx(2.0),
     }
     assert (output / task.task_id / "seed_7" / "EVALUATION.json").is_file()
+
+
+def test_extracted_package_installs_and_exposes_all_entrypoints(
+    tmp_path: Path,
+) -> None:
+    source_root = Path(__file__).resolve().parents[1]
+    package_root = tmp_path / "package"
+    package_root.mkdir()
+    for name in ("README.md", "pyproject.toml", "configs", "src"):
+        source = source_root / name
+        destination = package_root / name
+        if source.is_dir():
+            shutil.copytree(source, destination)
+        else:
+            shutil.copy2(source, destination)
+
+    target = tmp_path / "site"
+    install = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--no-deps",
+            "--no-build-isolation",
+            "--target",
+            str(target),
+            str(package_root),
+        ],
+        cwd=tmp_path,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert install.returncode == 0, install.stdout + install.stderr
+
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(target)
+    probe = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import pathlib, drpo_reference; "
+            "print(pathlib.Path(drpo_reference.__file__).resolve())",
+        ],
+        cwd=tmp_path,
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert probe.returncode == 0, probe.stdout + probe.stderr
+    installed_module = Path(probe.stdout.strip())
+    assert installed_module.is_relative_to(target.resolve())
+
+    for arguments in (
+        ("--help",),
+        ("cu1", "--help"),
+        ("du1", "--help"),
+        ("hopper", "--help"),
+        ("d4rl", "--help"),
+        ("countdown", "--help"),
+    ):
+        result = subprocess.run(
+            [sys.executable, "-m", "drpo_reference", *arguments],
+            cwd=tmp_path,
+            env=environment,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert result.returncode == 0, (
+            f"entrypoint failed for {arguments}:\n{result.stdout}\n{result.stderr}"
+        )
