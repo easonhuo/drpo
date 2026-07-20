@@ -220,14 +220,14 @@ def run_du1(
     trajectories.sort(
         key=lambda row: (
             int(row["seed"]),
-            str(row["method"]),
+            FORMAL_METHODS.index(str(row["method"])),
             int(row["step"]),
         )
     )
     summaries.sort(
         key=lambda row: (
             int(row["seed"]),
-            str(row["method"]),
+            FORMAL_METHODS.index(str(row["method"])),
         )
     )
     assign_task_collapse(summaries, protocol)
