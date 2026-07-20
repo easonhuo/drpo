@@ -296,9 +296,7 @@ def test_countdown_linear_surprisal_weights_are_detached_and_not_squared() -> No
         alpha=0.5,
         coefficient=0.7,
     )
-    expected = 0.5 * torch.exp(
-        -0.7 * torch.tensor([1.0, 2.0], dtype=torch.float64)
-    )
+    expected = 0.5 * torch.exp(-0.7 * torch.tensor([1.0, 2.0], dtype=torch.float64))
     squared_alternative = 0.5 * torch.exp(
         -0.7 * torch.tensor([1.0, 4.0], dtype=torch.float64)
     )
@@ -326,8 +324,7 @@ def test_countdown_unique_bank_uses_cleaned_first_occurrence() -> None:
 def test_countdown_training_collator_preserves_unique_negative_denominator() -> None:
     tokenizer = _CharacterTokenizer()
     items = [
-        encode_countdown_training_row(row, tokenizer, 4096)
-        for row in _training_rows()
+        encode_countdown_training_row(row, tokenizer, 4096) for row in _training_rows()
     ]
     assert [item.unique_count for item in items] == [2, 1]
     assert [item.raw_bank_count for item in items] == [3, 2]
@@ -384,8 +381,7 @@ def test_countdown_training_objective_matches_legacy_formula() -> None:
 def test_countdown_model_objective_skips_bank_forward_for_positive_only() -> None:
     tokenizer = _CharacterTokenizer()
     items = [
-        encode_countdown_training_row(row, tokenizer, 4096)
-        for row in _training_rows()
+        encode_countdown_training_row(row, tokenizer, 4096) for row in _training_rows()
     ]
     packed = collate_countdown_training_items(items, pad_id=0)
     model = _CountingLogitModel()
@@ -487,9 +483,7 @@ def test_countdown_first_adamw_update_matches_manual_legacy_objective() -> None:
     legacy_positive, legacy_negative = log_probabilities(legacy_parameter)
     legacy_weights = (
         alpha
-        * torch.exp(
-            -coefficient * ((-legacy_negative.detach()).clamp_min(0.0) / 2.0)
-        )
+        * torch.exp(-coefficient * ((-legacy_negative.detach()).clamp_min(0.0) / 2.0))
     ).detach()
     legacy_negative_term = torch.stack(
         [
@@ -548,8 +542,7 @@ def test_countdown_active_tail_objective_matches_manual_unique_bank_formula() ->
 def test_countdown_active_tail_model_uses_deterministic_two_forward_boundary() -> None:
     tokenizer = _CharacterTokenizer()
     items = [
-        encode_countdown_training_row(row, tokenizer, 4096)
-        for row in _training_rows()
+        encode_countdown_training_row(row, tokenizer, 4096) for row in _training_rows()
     ]
     packed = collate_countdown_training_items(items, pad_id=0)
     model = _CountingLogitModel()
@@ -589,8 +582,9 @@ def test_countdown_active_tail_model_uses_deterministic_two_forward_boundary() -
     assert positive_only["negative_stats"] is None
 
 
-def test_countdown_model_backed_calibration_freezes_shared_budget_and_coefficients(
-) -> None:
+def test_countdown_model_backed_calibration_freezes_shared_budget_and_coefficients() -> (
+    None
+):
     model = _CalibrationLogitModel()
     model.train()
     payload = calibrate_active_tail_model(
@@ -611,8 +605,7 @@ def test_countdown_model_backed_calibration_freezes_shared_budget_and_coefficien
     assert payload["positive_gradient_l2"] > 0.0
     assert payload["uncontrolled_negative_gradient_l2"] > 0.0
     assert payload["shared_negative_scale"] == pytest.approx(
-        payload["positive_gradient_l2"]
-        / payload["uncontrolled_negative_gradient_l2"]
+        payload["positive_gradient_l2"] / payload["uncontrolled_negative_gradient_l2"]
     )
     assert payload["method_coefficients"]["global_matched"] < 1.0
     assert payload["method_coefficients"]["reciprocal_linear"] > 0.0
@@ -712,3 +705,147 @@ def test_countdown_response_metrics_are_lightweight_and_nonfinal() -> None:
     }
     assert metrics["formal_result_claim"] is False
     assert metrics["final_countdown_protocol_frozen"] is False
+
+
+def test_countdown_canonical_result_coordinate_is_exact_and_fail_closed(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from drpo_reference.experiments import countdown as runtime
+
+    model_root = tmp_path / "Qwen2.5-0.5B-Instruct"
+    adapter_root = tmp_path / "reference_adapter"
+    prepared_root = tmp_path / "prepared"
+    model_root.mkdir()
+    adapter_root.mkdir()
+    prepared_root.mkdir()
+    monkeypatch.setenv("COUNTDOWN_MODEL_PATH", str(model_root))
+    monkeypatch.setenv("COUNTDOWN_REFERENCE_ADAPTER", str(adapter_root))
+    monkeypatch.setenv("COUNTDOWN_PREPARED_ROOT", str(prepared_root))
+    canonical_path = (
+        Path(__file__).resolve().parents[1] / "configs" / "countdown_e8_taper_0p5b.json"
+    )
+    config = runtime.load_countdown_config(canonical_path)
+    assert config.protocol_id == runtime.COUNTDOWN_CANONICAL_PROTOCOL_ID
+    assert config.model_identity == "Qwen2.5-0.5B-Instruct"
+    assert config.methods == (
+        "positive_only",
+        "uncontrolled_negative",
+        "global_matched",
+        "reciprocal_linear",
+        "exponential",
+        "squared_distance_exponential",
+    )
+    assert config.seeds == (9234, 10234, 11234)
+    assert config.evaluation_seed_for(9234) == 709234
+    assert config.selection_delta == pytest.approx(0.002)
+    assert config.steps == 1200
+    assert config.expected_replay_rows == 900
+    assert config.expected_calibration_rows == 16
+    assert config.expected_validation_rows == 500
+    assert config.expected_test_rows == 1000
+    assert config.expected_structure_reference_rows == 6000
+
+    mutated = json.loads(canonical_path.read_text(encoding="utf-8"))
+    mutated["training"]["steps"] = 1199
+    mutated_path = tmp_path / "mutated.json"
+    mutated_path.write_text(json.dumps(mutated), encoding="utf-8")
+    with pytest.raises(ValueError, match="canonical Countdown coordinate mismatch"):
+        runtime.load_countdown_config(mutated_path)
+
+
+def test_countdown_canonical_model_and_reference_identity_are_hashed(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from drpo_reference.experiments import countdown as runtime
+
+    model_root = tmp_path / "local-model"
+    adapter_root = tmp_path / "reference_adapter"
+    prepared_root = tmp_path / "prepared"
+    model_root.mkdir()
+    adapter_root.mkdir()
+    prepared_root.mkdir()
+    (model_root / "config.json").write_text(
+        json.dumps(
+            {
+                "model_type": "qwen2",
+                "_name_or_path": "Qwen/Qwen2.5-0.5B-Instruct",
+                "architectures": ["Qwen2ForCausalLM"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (model_root / "tokenizer_config.json").write_text(
+        json.dumps(
+            {
+                "name_or_path": "Qwen/Qwen2.5-0.5B-Instruct",
+                "chat_template": "{{ messages }}",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (adapter_root / "adapter_config.json").write_text("{}", encoding="utf-8")
+    (adapter_root / "adapter_model.bin").write_bytes(b"adapter")
+    monkeypatch.setenv("COUNTDOWN_MODEL_PATH", str(model_root))
+    monkeypatch.setenv("COUNTDOWN_REFERENCE_ADAPTER", str(adapter_root))
+    monkeypatch.setenv("COUNTDOWN_PREPARED_ROOT", str(prepared_root))
+    canonical_path = (
+        Path(__file__).resolve().parents[1] / "configs" / "countdown_e8_taper_0p5b.json"
+    )
+    config = runtime.load_countdown_config(canonical_path)
+    model_identity = runtime._validate_model_identity(config)
+    adapter_identity = runtime._adapter_identity(config)
+    assert model_identity["identity_verified"] is True
+    assert model_identity["model_type"] == "qwen2"
+    assert model_identity["has_chat_template"] is True
+    assert set(adapter_identity["hashes"]) == {
+        "adapter_config.json",
+        "adapter_model.bin",
+    }
+
+
+def test_countdown_runtime_accepts_authoritative_legacy_replay_rows() -> None:
+    from drpo_reference.experiments import countdown as runtime
+
+    rows = [
+        {
+            "id": "row-1",
+            "prompt": "Numbers: 1, 2, 3, 4\nTarget: 10",
+            "oracle": "1 + 2 + 3 + 4",
+            "negatives": [
+                {
+                    "expression": "1 + 2",
+                    "structure": "A+B",
+                    "reference_surprisal": 3.0,
+                }
+            ],
+        }
+    ]
+    normalized = runtime._normalize_training_rows(rows)
+    assert normalized[0]["positive"] == "1 + 2 + 3 + 4"
+    assert normalized[0]["negative_bank"] == rows[0]["negatives"]
+    runtime._validate_training_rows(normalized, "replay")
+
+
+def test_countdown_structure_metrics_match_registered_pattern_semantics() -> None:
+    from drpo_reference.experiments import countdown as runtime
+
+    known = {runtime.expression_structure("1 + 2 + 3 + 4")}
+    row = {
+        "prompt": "Numbers: 1, 2, 3, 4\nTarget: 21",
+        "numbers": [1, 2, 3, 4],
+        "target": 21,
+        "oracle": "(1 + 2) * (3 + 4)",
+    }
+    metrics = runtime._pattern_metrics(
+        [row],
+        ["(1 + 2) * (3 + 4)"],
+        [["(1 + 2) * (3 + 4)"]],
+        known,
+    )
+    assert metrics["heldout_patterns_total"] == pytest.approx(1.0)
+    assert metrics["heldout_pattern_coverage"] == pytest.approx(1.0)
+    assert metrics["greedy_heldout_pattern_precision_micro"] == pytest.approx(1.0)
+    assert metrics["sampled_heldout_pattern_precision_micro"] == pytest.approx(1.0)
+    assert metrics["greedy_unseen_structure_success"] == pytest.approx(1.0)

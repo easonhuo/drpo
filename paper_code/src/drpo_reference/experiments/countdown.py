@@ -16,14 +16,17 @@ Every output remains reviewer-run evidence with ``formal_result_claim=False``.
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import importlib
 import json
 import math
+import os
 import random
 import shutil
 import traceback
-from collections.abc import Mapping, Sequence
+from collections import defaultdict
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -40,6 +43,7 @@ from drpo_reference.categorical.countdown import (
     calibration_surprisal_scale,
     chat_prompt,
     collate_countdown_training_items,
+    clean_expression,
     completion_stats,
     encode_countdown_training_row,
     evaluate_response_batches,
@@ -48,13 +52,80 @@ from drpo_reference.categorical.countdown import (
     parameter_update_norm,
     resolve_active_tail_tau,
     unique_negative_expressions,
+    verify_expression,
 )
 from drpo_reference.common.io import atomic_json, write_csv
 
 COUNTDOWN_REVIEWER_EXPERIMENT_ID = "EXT-C-E8-TAPER-0.5B-01"
-COUNTDOWN_REVIEWER_RUNNER_VERSION = "0.1.0-end-to-end-reviewer-runtime"
-_CONFIG_SCHEMA_VERSION = 1
+COUNTDOWN_CANONICAL_PROTOCOL_ID = "EXT-C-E8-TAPER-0.5B-01-v79"
+COUNTDOWN_REVIEWER_RUNNER_VERSION = "0.2.0-canonical-result-coordinate"
+_CONFIG_SCHEMA_VERSIONS = (1, 2)
 _SELECTION_METRICS = ("greedy_success", "pass_at_k", "valid_rate")
+_CANONICAL_METHODS = (
+    "positive_only",
+    "uncontrolled_negative",
+    "global_matched",
+    "reciprocal_linear",
+    "exponential",
+    "squared_distance_exponential",
+)
+_CANONICAL_SEEDS = (9234, 10234, 11234)
+_CANONICAL_LORA_TARGETS = (
+    "q_proj",
+    "k_proj",
+    "v_proj",
+    "o_proj",
+    "gate_proj",
+    "up_proj",
+    "down_proj",
+)
+_CANONICAL_PROTOCOL_CONTRACT = {
+    "dataset_generation": {
+        "seed": 1234,
+        "train_rows": 6000,
+        "validation_rows": 500,
+        "test_rows": 1000,
+        "numbers_per_problem": 4,
+        "split_protocol": (
+            "park_inspired_pattern_first_family_holdout_capacity_audited"
+        ),
+    },
+    "reference": {
+        "base_greedy_success_gate": 0.15,
+        "base_valid_rate_gate": 0.80,
+        "pilot_greedy_success_gate": 0.08,
+        "pilot_valid_rate_gate": 0.95,
+        "formal_greedy_success_gate": 0.15,
+        "formal_valid_rate_gate": 0.95,
+        "sft_epochs": 6,
+        "sft_min_epochs": 3,
+        "sft_early_stop_patience": 2,
+        "sft_micro_batch": 1,
+        "sft_gradient_accumulation": 32,
+        "sft_learning_rate": 0.0002,
+        "sft_warmup_ratio": 0.03,
+        "sft_max_gradient_norm": 1.0,
+        "validation_seed": 5000,
+    },
+    "replay_collection": {
+        "train_prompt_rows": 900,
+        "calibration_prompt_rows": 16,
+        "train_candidate_prompt_rows": 1800,
+        "calibration_candidate_prompt_rows": 32,
+        "rollouts_per_prompt_per_round": 12,
+        "resample_rounds": 3,
+        "generation_batch_size": 4,
+        "score_batch_size": 16,
+        "temperature": 0.8,
+        "top_p": 0.95,
+        "synthetic_negative_fallback": False,
+        "fixed_negative_count_per_prompt": False,
+        "enforce_training_structure_support": True,
+        "prompt_balanced_sampling": True,
+    },
+    "test_access": "after_all_method_training_only",
+    "checkpoint_policy": "best_plus_terminal_or_last_finite",
+}
 
 
 @dataclass(frozen=True)
@@ -71,7 +142,11 @@ class HFStack:
 
 @dataclass(frozen=True)
 class CountdownReviewerConfig:
+    schema_version: int
+    protocol_id: str
+    protocol_contract: dict[str, Any]
     model_path: str
+    model_identity: str | None
     initial_adapter: str | None
     device: str
     dtype: str
@@ -85,6 +160,12 @@ class CountdownReviewerConfig:
     calibration_path: Path
     validation_path: Path
     test_path: Path | None
+    structure_reference_path: Path | None
+    expected_replay_rows: int | None
+    expected_calibration_rows: int | None
+    expected_validation_rows: int | None
+    expected_test_rows: int | None
+    expected_structure_reference_rows: int | None
     methods: tuple[str, ...]
     seeds: tuple[int, ...]
     max_length: int
@@ -111,21 +192,38 @@ class CountdownReviewerConfig:
     eval_examples: int
     max_new_tokens: int
     pass_k: int
-    evaluation_seed: int
+    evaluation_seed: int | None
+    evaluation_seed_offset: int | None
     selection_metric: str
+    selection_delta: float
     sample_temperature: float
     sample_top_p: float
+    require_structure_metrics: bool
 
     @classmethod
-    def from_mapping(cls, value: Mapping[str, Any]) -> "CountdownReviewerConfig":
-        if int(value.get("schema_version", -1)) != _CONFIG_SCHEMA_VERSION:
-            raise ValueError("Countdown config schema_version must be 1")
+    def from_mapping(
+        cls,
+        value: Mapping[str, Any],
+        *,
+        base_dir: Path,
+    ) -> "CountdownReviewerConfig":
+        schema_version = _int_value(value.get("schema_version"), "schema_version")
+        if schema_version not in _CONFIG_SCHEMA_VERSIONS:
+            raise ValueError("Countdown config schema_version must be 1 or 2")
+        protocol_id = str(value.get("protocol_id") or "custom-reviewer-coordinate")
+        protocol_contract_value = value.get("protocol_contract") or {}
+        if not isinstance(protocol_contract_value, Mapping):
+            raise ValueError("protocol_contract must be a mapping")
+        protocol_contract = json.loads(json.dumps(protocol_contract_value))
         model = _mapping(value, "model")
         data = _mapping(value, "data")
         training = _mapping(value, "training")
         calibration = _mapping(value, "calibration")
         evaluation = _mapping(value, "evaluation")
         lora = _mapping(model, "lora")
+        expected_rows_value = data.get("expected_rows") or {}
+        if not isinstance(expected_rows_value, Mapping):
+            raise ValueError("data.expected_rows must be a mapping")
         methods = _unique_strings(value.get("methods"), "methods")
         unknown = sorted(set(methods) - set(COUNTDOWN_ACTIVE_TAIL_METHODS))
         if unknown:
@@ -135,11 +233,22 @@ class CountdownReviewerConfig:
             lora.get("target_modules"), "lora.target_modules"
         )
         test_value = data.get("test")
+        structure_reference_value = data.get("structure_reference")
         initial_adapter = model.get("initial_adapter")
+        seed_value = evaluation.get("seed")
+        seed_offset_value = evaluation.get("seed_offset")
         config = cls(
-            model_path=_nonempty_string(model.get("path"), "model.path"),
+            schema_version=schema_version,
+            protocol_id=_nonempty_string(protocol_id, "protocol_id"),
+            protocol_contract=protocol_contract,
+            model_path=_expand_required_string(model.get("path"), "model.path"),
+            model_identity=(
+                _nonempty_string(model.get("identity"), "model.identity")
+                if model.get("identity") is not None
+                else None
+            ),
             initial_adapter=(
-                _nonempty_string(initial_adapter, "model.initial_adapter")
+                _expand_required_string(initial_adapter, "model.initial_adapter")
                 if initial_adapter is not None
                 else None
             ),
@@ -155,17 +264,44 @@ class CountdownReviewerConfig:
                 lora.get("dropout"), "model.lora.dropout", upper_open=True
             ),
             lora_target_modules=target_modules,
-            replay_path=Path(_nonempty_string(data.get("replay"), "data.replay")),
-            calibration_path=Path(
-                _nonempty_string(data.get("calibration"), "data.calibration")
+            replay_path=_config_path(data.get("replay"), base_dir, "data.replay"),
+            calibration_path=_config_path(
+                data.get("calibration"), base_dir, "data.calibration"
             ),
-            validation_path=Path(
-                _nonempty_string(data.get("validation"), "data.validation")
+            validation_path=_config_path(
+                data.get("validation"), base_dir, "data.validation"
             ),
             test_path=(
-                Path(_nonempty_string(test_value, "data.test"))
+                _config_path(test_value, base_dir, "data.test")
                 if test_value is not None
                 else None
+            ),
+            structure_reference_path=(
+                _config_path(
+                    structure_reference_value,
+                    base_dir,
+                    "data.structure_reference",
+                )
+                if structure_reference_value is not None
+                else None
+            ),
+            expected_replay_rows=_optional_positive_int(
+                expected_rows_value.get("replay"), "data.expected_rows.replay"
+            ),
+            expected_calibration_rows=_optional_positive_int(
+                expected_rows_value.get("calibration"),
+                "data.expected_rows.calibration",
+            ),
+            expected_validation_rows=_optional_positive_int(
+                expected_rows_value.get("validation"),
+                "data.expected_rows.validation",
+            ),
+            expected_test_rows=_optional_positive_int(
+                expected_rows_value.get("test"), "data.expected_rows.test"
+            ),
+            expected_structure_reference_rows=_optional_positive_int(
+                expected_rows_value.get("structure_reference"),
+                "data.expected_rows.structure_reference",
             ),
             methods=methods,
             seeds=seeds,
@@ -182,7 +318,9 @@ class CountdownReviewerConfig:
                 training.get("weight_decay"), "training.weight_decay"
             ),
             warmup_ratio=_probability(
-                training.get("warmup_ratio"), "training.warmup_ratio", upper_open=False
+                training.get("warmup_ratio"),
+                "training.warmup_ratio",
+                upper_open=False,
             ),
             max_grad_norm=_positive_float(
                 training.get("max_grad_norm"), "training.max_grad_norm"
@@ -241,18 +379,36 @@ class CountdownReviewerConfig:
                 evaluation.get("max_new_tokens"), "evaluation.max_new_tokens"
             ),
             pass_k=_positive_int(evaluation.get("pass_k"), "evaluation.pass_k"),
-            evaluation_seed=_int_value(evaluation.get("seed"), "evaluation.seed"),
+            evaluation_seed=(
+                _int_value(seed_value, "evaluation.seed")
+                if seed_value is not None
+                else None
+            ),
+            evaluation_seed_offset=(
+                _int_value(seed_offset_value, "evaluation.seed_offset")
+                if seed_offset_value is not None
+                else None
+            ),
             selection_metric=_nonempty_string(
                 evaluation.get("selection_metric"), "evaluation.selection_metric"
             ),
+            selection_delta=_nonnegative_float(
+                evaluation.get("selection_delta", 0.0),
+                "evaluation.selection_delta",
+            ),
             sample_temperature=_positive_float(
-                evaluation.get("sample_temperature"), "evaluation.sample_temperature"
+                evaluation.get("sample_temperature"),
+                "evaluation.sample_temperature",
             ),
             sample_top_p=_probability(
                 evaluation.get("sample_top_p"),
                 "evaluation.sample_top_p",
                 upper_open=False,
                 lower_open=True,
+            ),
+            require_structure_metrics=_strict_bool(
+                evaluation.get("require_structure_metrics", False),
+                "evaluation.require_structure_metrics",
             ),
         )
         config.validate()
@@ -274,12 +430,135 @@ class CountdownReviewerConfig:
             raise ValueError("calibration.prompts must be at least two")
         if self.test_path is not None and self.test_path == self.validation_path:
             raise ValueError("validation and test paths must be distinct")
+        if (self.evaluation_seed is None) == (self.evaluation_seed_offset is None):
+            raise ValueError(
+                "evaluation must define exactly one of seed or seed_offset"
+            )
+        if self.require_structure_metrics and self.structure_reference_path is None:
+            raise ValueError(
+                "structure_reference is required when structure metrics are enabled"
+            )
+        if self.protocol_id == COUNTDOWN_CANONICAL_PROTOCOL_ID:
+            self._validate_canonical_coordinate()
+
+    def _validate_canonical_coordinate(self) -> None:
+        failures: list[str] = []
+
+        def require(condition: bool, message: str) -> None:
+            if not condition:
+                failures.append(message)
+
+        require(self.schema_version == 2, "canonical schema_version must be 2")
+        require(
+            self.protocol_contract == _CANONICAL_PROTOCOL_CONTRACT,
+            "canonical protocol_contract differs from the registered v79 freeze",
+        )
+        require(
+            self.model_identity == "Qwen2.5-0.5B-Instruct",
+            "canonical model identity must be Qwen2.5-0.5B-Instruct",
+        )
+        require(
+            self.initial_adapter is not None, "canonical reference adapter is required"
+        )
+        require(self.device.startswith("cuda"), "canonical runtime requires CUDA")
+        require(self.dtype == "bf16", "canonical dtype must be bf16")
+        require(not self.load_in_4bit, "canonical v79 uses BF16, not 4-bit loading")
+        require(
+            self.gradient_checkpointing, "canonical gradient checkpointing is required"
+        )
+        require(self.lora_r == 32, "canonical LoRA rank must be 32")
+        require(self.lora_alpha == 64, "canonical LoRA alpha must be 64")
+        require(self.lora_dropout == 0.05, "canonical LoRA dropout must be 0.05")
+        require(
+            self.lora_target_modules == _CANONICAL_LORA_TARGETS,
+            "canonical LoRA target modules differ",
+        )
+        require(self.expected_replay_rows == 900, "canonical replay rows must be 900")
+        require(
+            self.expected_calibration_rows == 16,
+            "canonical calibration rows must be 16",
+        )
+        require(
+            self.expected_validation_rows == 500,
+            "canonical validation rows must be 500",
+        )
+        require(self.expected_test_rows == 1000, "canonical test rows must be 1000")
+        require(
+            self.expected_structure_reference_rows == 6000,
+            "canonical structure-reference rows must be 6000",
+        )
+        require(self.methods == _CANONICAL_METHODS, "canonical method order differs")
+        require(self.seeds == _CANONICAL_SEEDS, "canonical paired seeds differ")
+        require(self.max_length == 256, "canonical max_length must be 256")
+        require(self.steps == 1200, "canonical update budget must be 1200")
+        require(self.micro_batch == 1, "canonical micro_batch must be 1")
+        require(self.grad_accum == 8, "canonical grad_accum must be 8")
+        require(self.learning_rate == 0.00005, "canonical learning rate differs")
+        require(self.weight_decay == 0.01, "canonical weight decay differs")
+        require(self.warmup_ratio == 0.03, "canonical warmup ratio differs")
+        require(self.max_grad_norm == 1.0, "canonical gradient norm differs")
+        require(self.eval_every == 100, "canonical evaluation cadence differs")
+        require(self.calibration_prompts == 16, "canonical calibration prompts differ")
+        require(self.calibration_seed == 9134, "canonical calibration seed differs")
+        require(
+            self.minimum_surprisal_scale == 1.0e-6, "canonical minimum scale differs"
+        )
+        require(
+            self.inherited_exponential_coefficient == 0.7,
+            "canonical inherited exponential coefficient differs",
+        )
+        require(self.maximum_coefficient == 64.0, "canonical maximum lambda differs")
+        require(self.bisection_steps == 24, "canonical bisection steps differ")
+        require(self.relative_l2_tolerance == 0.01, "canonical L2 tolerance differs")
+        require(
+            self.minimum_active_distance_fraction == 0.25,
+            "canonical minimum active fraction differs",
+        )
+        require(
+            self.nondegenerate_target_max_ratio == 0.995,
+            "canonical nondegenerate target ratio differs",
+        )
+        require(self.minimum_taper_lambda == 1.0e-6, "canonical minimum lambda differs")
+        require(self.eval_batch == 8, "canonical evaluation batch differs")
+        require(self.eval_examples == 500, "canonical validation example count differs")
+        require(self.max_new_tokens == 80, "canonical max_new_tokens differs")
+        require(self.pass_k == 8, "canonical pass@k must be 8")
+        require(
+            self.evaluation_seed_offset == 700000,
+            "canonical paired evaluation seed offset differs",
+        )
+        require(
+            self.selection_metric == "greedy_success",
+            "canonical selection metric differs",
+        )
+        require(self.selection_delta == 0.002, "canonical selection delta differs")
+        require(
+            self.sample_temperature == 0.8, "canonical sampling temperature differs"
+        )
+        require(self.sample_top_p == 0.95, "canonical top_p differs")
+        require(
+            self.require_structure_metrics, "canonical structure metrics are required"
+        )
+        if failures:
+            raise ValueError(
+                "canonical Countdown coordinate mismatch: " + "; ".join(failures)
+            )
+
+    def evaluation_seed_for(self, training_seed: int) -> int:
+        if self.evaluation_seed_offset is not None:
+            return int(training_seed) + int(self.evaluation_seed_offset)
+        if self.evaluation_seed is None:
+            raise AssertionError("validated config has no evaluation seed")
+        return int(self.evaluation_seed)
 
     def as_manifest(self) -> dict[str, Any]:
         return {
-            "schema_version": _CONFIG_SCHEMA_VERSION,
+            "schema_version": self.schema_version,
+            "protocol_id": self.protocol_id,
+            "protocol_contract": self.protocol_contract,
             "model": {
                 "path": self.model_path,
+                "identity": self.model_identity,
                 "initial_adapter": self.initial_adapter,
                 "device": self.device,
                 "dtype": self.dtype,
@@ -297,6 +576,18 @@ class CountdownReviewerConfig:
                 "calibration": str(self.calibration_path),
                 "validation": str(self.validation_path),
                 "test": str(self.test_path) if self.test_path is not None else None,
+                "structure_reference": (
+                    str(self.structure_reference_path)
+                    if self.structure_reference_path is not None
+                    else None
+                ),
+                "expected_rows": {
+                    "replay": self.expected_replay_rows,
+                    "calibration": self.expected_calibration_rows,
+                    "validation": self.expected_validation_rows,
+                    "test": self.expected_test_rows,
+                    "structure_reference": self.expected_structure_reference_rows,
+                },
             },
             "methods": list(self.methods),
             "seeds": list(self.seeds),
@@ -326,7 +617,7 @@ class CountdownReviewerConfig:
                 "minimum_active_distance_fraction": (
                     self.minimum_active_distance_fraction
                 ),
-                "nondegenerate_target_max_ratio": (self.nondegenerate_target_max_ratio),
+                "nondegenerate_target_max_ratio": self.nondegenerate_target_max_ratio,
                 "minimum_taper_lambda": self.minimum_taper_lambda,
             },
             "evaluation": {
@@ -335,9 +626,12 @@ class CountdownReviewerConfig:
                 "max_new_tokens": self.max_new_tokens,
                 "pass_k": self.pass_k,
                 "seed": self.evaluation_seed,
+                "seed_offset": self.evaluation_seed_offset,
                 "selection_metric": self.selection_metric,
+                "selection_delta": self.selection_delta,
                 "sample_temperature": self.sample_temperature,
                 "sample_top_p": self.sample_top_p,
+                "require_structure_metrics": self.require_structure_metrics,
             },
         }
 
@@ -432,12 +726,34 @@ def _unique_ints(value: Any, name: str) -> tuple[int, ...]:
     return items
 
 
+def _optional_positive_int(value: Any, name: str) -> int | None:
+    if value is None:
+        return None
+    return _positive_int(value, name)
+
+
+def _expand_required_string(value: Any, name: str) -> str:
+    raw = _nonempty_string(value, name)
+    expanded = os.path.expanduser(os.path.expandvars(raw))
+    if "$" in expanded:
+        raise ValueError(f"{name} contains an unresolved environment variable")
+    return expanded
+
+
+def _config_path(value: Any, base_dir: Path, name: str) -> Path:
+    expanded = _expand_required_string(value, name)
+    path = Path(expanded)
+    if not path.is_absolute():
+        path = base_dir / path
+    return path.resolve()
+
+
 def load_countdown_config(path: str | Path) -> CountdownReviewerConfig:
     config_path = Path(path).expanduser().resolve()
     value = json.loads(config_path.read_text(encoding="utf-8"))
     if not isinstance(value, Mapping):
         raise ValueError("Countdown reviewer config must be a JSON object")
-    return CountdownReviewerConfig.from_mapping(value)
+    return CountdownReviewerConfig.from_mapping(value, base_dir=config_path.parent)
 
 
 def _load_hf_stack() -> HFStack:
@@ -480,6 +796,98 @@ def _resolve_device(value: str) -> torch.device:
 
 def _dtype(value: str) -> torch.dtype:
     return {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}[value]
+
+
+def _normalized_identity_text(value: str) -> str:
+    return "".join(character for character in value.lower() if character.isalnum())
+
+
+def _validate_model_identity(config: CountdownReviewerConfig) -> dict[str, Any]:
+    expected = config.model_identity
+    if expected is None:
+        return {"expected_identity": None, "identity_verified": False}
+    model_root = Path(config.model_path).expanduser()
+    hints = [config.model_path]
+    model_type: str | None = None
+    has_chat_template: bool | None = None
+    if model_root.is_dir():
+        model_config_path = model_root / "config.json"
+        tokenizer_config_path = model_root / "tokenizer_config.json"
+        if not model_config_path.is_file():
+            raise RuntimeError("canonical model directory has no config.json")
+        model_config = json.loads(model_config_path.read_text(encoding="utf-8"))
+        tokenizer_config = (
+            json.loads(tokenizer_config_path.read_text(encoding="utf-8"))
+            if tokenizer_config_path.is_file()
+            else {}
+        )
+        model_type = str(model_config.get("model_type") or "")
+        has_chat_template = bool(tokenizer_config.get("chat_template"))
+        hints.extend(
+            [
+                str(model_config.get("_name_or_path") or ""),
+                str(model_config.get("architectures") or ""),
+                str(tokenizer_config.get("name_or_path") or ""),
+                model_root.name,
+            ]
+        )
+        if config.protocol_id == COUNTDOWN_CANONICAL_PROTOCOL_ID:
+            if model_type != "qwen2":
+                raise RuntimeError(
+                    f"canonical model_type must be qwen2, observed {model_type!r}"
+                )
+            if not has_chat_template:
+                raise RuntimeError("canonical tokenizer must define a chat template")
+    identity_text = _normalized_identity_text(" ".join(hints))
+    expected_text = _normalized_identity_text(expected)
+    required_fragments = ("qwen25", "05b", "instruct")
+    verified = expected_text in identity_text or all(
+        fragment in identity_text for fragment in required_fragments
+    )
+    if not verified:
+        raise RuntimeError(
+            f"model identity does not match Qwen2.5-0.5B-Instruct; hints={hints!r}"
+        )
+    return {
+        "expected_identity": expected,
+        "identity_verified": True,
+        "model_type": model_type,
+        "has_chat_template": has_chat_template,
+        "identity_hints": hints,
+    }
+
+
+def _hash_tree(root: Path) -> dict[str, str]:
+    resolved = root.expanduser().resolve()
+    if not resolved.is_dir():
+        raise FileNotFoundError(f"adapter directory does not exist: {resolved}")
+    members = sorted(resolved.rglob("*"))
+    symlinks = [item for item in members if item.is_symlink()]
+    if symlinks:
+        raise RuntimeError(f"adapter directory contains a symlink: {symlinks[0]}")
+    files = [item for item in members if item.is_file()]
+    if not files:
+        raise RuntimeError(f"adapter directory is empty: {resolved}")
+    return {str(item.relative_to(resolved)): _sha256_file(item) for item in files}
+
+
+def _adapter_identity(config: CountdownReviewerConfig) -> dict[str, Any]:
+    if config.initial_adapter is None:
+        return {"path": None, "hashes": None, "prepared_reference_required": False}
+    root = Path(config.initial_adapter).expanduser().resolve()
+    hashes = _hash_tree(root)
+    if config.protocol_id == COUNTDOWN_CANONICAL_PROTOCOL_ID:
+        if "adapter_config.json" not in hashes:
+            raise RuntimeError("canonical reference adapter has no adapter_config.json")
+        if not ({"adapter_model.safetensors", "adapter_model.bin"} & set(hashes)):
+            raise RuntimeError("canonical reference adapter has no adapter weights")
+    return {
+        "path": str(root),
+        "hashes": hashes,
+        "prepared_reference_required": (
+            config.protocol_id == COUNTDOWN_CANONICAL_PROTOCOL_ID
+        ),
+    }
 
 
 def _load_tokenizer(stack: HFStack, model_path: str) -> Any:
@@ -599,6 +1007,52 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
+def _normalize_training_rows(
+    rows: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    normalized_rows: list[dict[str, Any]] = []
+    for row in rows:
+        normalized = dict(row)
+        if not isinstance(normalized.get("positive"), str):
+            oracle = normalized.get("oracle")
+            if isinstance(oracle, str):
+                normalized["positive"] = oracle
+        if "negative_bank" not in normalized:
+            negatives = normalized.get("negatives")
+            if isinstance(negatives, Sequence) and not isinstance(
+                negatives, (str, bytes)
+            ):
+                normalized["negative_bank"] = list(negatives)
+        normalized_rows.append(normalized)
+    return normalized_rows
+
+
+def _require_row_count(
+    rows: Sequence[Mapping[str, Any]],
+    expected: int | None,
+    name: str,
+) -> None:
+    if expected is not None and len(rows) != expected:
+        raise ValueError(f"{name} row count mismatch: {len(rows)} != {expected}")
+
+
+def _validate_structure_reference_rows(
+    rows: Sequence[Mapping[str, Any]],
+) -> set[str]:
+    structures: set[str] = set()
+    for index, row in enumerate(rows):
+        prompt = row.get("prompt")
+        oracle = row.get("oracle") or row.get("positive")
+        if not isinstance(prompt, str) or not prompt:
+            raise ValueError(f"structure_reference[{index}] has no prompt")
+        if not isinstance(oracle, str) or not oracle:
+            raise ValueError(f"structure_reference[{index}] has no oracle")
+        structures.add(str(row.get("oracle_structure") or expression_structure(oracle)))
+    if not structures:
+        raise ValueError("structure_reference has no canonical structures")
+    return structures
+
+
 def _validate_training_rows(rows: Sequence[Mapping[str, Any]], name: str) -> None:
     prompts: set[str] = set()
     for index, row in enumerate(rows):
@@ -633,6 +1087,20 @@ def _validate_evaluation_rows(rows: Sequence[Mapping[str, Any]], name: str) -> N
             raise ValueError(f"{name}[{index}] numbers must be non-empty integers")
         if isinstance(target, bool) or not isinstance(target, int):
             raise ValueError(f"{name}[{index}] target must be an integer")
+
+
+def _validate_structure_evaluation_rows(
+    rows: Sequence[Mapping[str, Any]],
+    name: str,
+) -> None:
+    for index, row in enumerate(rows):
+        oracle = row.get("oracle")
+        oracle_structure = row.get("oracle_structure")
+        if not isinstance(oracle, str) and not isinstance(oracle_structure, str):
+            raise ValueError(
+                f"{name}[{index}] requires oracle or oracle_structure for "
+                "canonical structure metrics"
+            )
 
 
 def _assert_prompt_disjoint(
@@ -839,6 +1307,298 @@ def _save_adapter_checkpoint(
     temporary.replace(destination)
 
 
+_AST_OP = {
+    ast.Add: "+",
+    ast.Sub: "-",
+    ast.Mult: "*",
+    ast.Div: "/",
+}
+
+
+class _PatternNode:
+    def __init__(
+        self,
+        op: str,
+        children: list["_PatternNode"] | None = None,
+        sign: str = "+",
+    ) -> None:
+        self.op = op
+        self.children = children or []
+        self.sign = sign
+        self.weight = (
+            1 if not self.children else sum(child.weight for child in self.children)
+        )
+
+
+def _flip_sign(sign: str) -> str:
+    return "-" if sign == "+" else "+"
+
+
+def _pattern_tree_from_ast(
+    node: ast.AST,
+    symbols: Iterable[str] | None = None,
+) -> _PatternNode:
+    symbol_iter = iter(symbols or (chr(ord("A") + index) for index in range(26)))
+
+    def convert(current: ast.AST) -> _PatternNode:
+        if isinstance(current, ast.Expression):
+            return convert(current.body)
+        if isinstance(current, (ast.Constant, ast.Name)):
+            if isinstance(current, ast.Constant) and (
+                isinstance(current.value, bool) or not isinstance(current.value, int)
+            ):
+                raise ValueError("only integer leaves are supported")
+            return _PatternNode(next(symbol_iter))
+        if isinstance(current, ast.BinOp) and type(current.op) in _AST_OP:
+            return _PatternNode(
+                _AST_OP[type(current.op)],
+                [convert(current.left), convert(current.right)],
+            )
+        raise ValueError(f"unsupported structure node: {type(current).__name__}")
+
+    return convert(node)
+
+
+def _raw_pattern_shape(node: _PatternNode) -> str:
+    if not node.children:
+        return "L"
+    return (
+        node.op
+        + "("
+        + ",".join(child.sign + _raw_pattern_shape(child) for child in node.children)
+        + ")"
+    )
+
+
+def _generic_pattern_tree(node: _PatternNode) -> _PatternNode:
+    if not node.children:
+        return node
+    node.children = [_generic_pattern_tree(child) for child in node.children]
+    if node.op in {"-", "/"}:
+        node.children[1].sign = _flip_sign(node.children[1].sign)
+    family = {"+", "-"} if node.op in {"+", "-"} else {"*", "/"}
+    merged: list[_PatternNode] = []
+    for child in node.children:
+        if child.op in family:
+            for grandchild in child.children:
+                if child.sign == "-":
+                    grandchild.sign = _flip_sign(grandchild.sign)
+                merged.append(grandchild)
+        else:
+            merged.append(child)
+    node.children = merged
+    node.op = "+" if node.op in {"+", "-"} else "*"
+    node.weight = sum(child.weight for child in node.children)
+    node.children.sort(
+        key=lambda child: (
+            child.sign,
+            -child.weight,
+            -sum(grandchild.sign == "+" for grandchild in child.children),
+            _raw_pattern_shape(child),
+        )
+    )
+    return node
+
+
+def _canonical_pattern_string(tree: _PatternNode) -> str:
+    symbols: dict[str, str] = {}
+
+    def render(node: _PatternNode) -> str:
+        if not node.children:
+            if node.op not in symbols:
+                symbols[node.op] = chr(ord("A") + len(symbols))
+            return symbols[node.op]
+        parts: list[str] = []
+        for index, child in enumerate(node.children):
+            child_text = render(child)
+            if child.children and node.op == "*" and child.op == "+":
+                child_text = f"({child_text})"
+            if index > 0:
+                if child.sign == "-":
+                    parts.append("-" if node.op == "+" else "/")
+                else:
+                    parts.append(node.op)
+            elif child.sign == "-":
+                parts.append("-" if node.op == "+" else "1/")
+            parts.append(child_text)
+        return "".join(parts)
+
+    return render(tree)
+
+
+def expression_structure(text: str) -> str:
+    expression = clean_expression(text)
+    if not expression:
+        raise ValueError("empty expression")
+    tree = _pattern_tree_from_ast(ast.parse(expression, mode="eval"))
+    return _canonical_pattern_string(_generic_pattern_tree(tree))
+
+
+def _pattern_metrics(
+    rows: Sequence[Mapping[str, Any]],
+    greedy_outputs: Sequence[str],
+    sampled_outputs: Sequence[Sequence[str]],
+    known_structures: set[str],
+) -> dict[str, Any]:
+    target_structures = {
+        str(row.get("oracle_structure") or expression_structure(str(row["oracle"])))
+        for row in rows
+    }
+    heldout_targets = target_structures - known_structures
+    greedy_counts: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"attempts": 0, "correct": 0}
+    )
+    sampled_counts: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"attempts": 0, "correct": 0}
+    )
+    observed_correct: set[str] = set()
+    greedy_correct_structures: set[str] = set()
+    sampled_correct_structures: set[str] = set()
+    greedy_unseen_presence: list[float] = []
+    greedy_unseen_success: list[float] = []
+    sampled_unseen_presence: list[float] = []
+    sampled_unseen_success: list[float] = []
+
+    def record(
+        counts: dict[str, dict[str, int]],
+        pattern: str,
+        correct: bool,
+    ) -> None:
+        counts[pattern]["attempts"] += 1
+        counts[pattern]["correct"] += int(correct)
+
+    for row, greedy_text, samples in zip(
+        rows,
+        greedy_outputs,
+        sampled_outputs,
+        strict=True,
+    ):
+        greedy_check = verify_expression(
+            greedy_text,
+            row["numbers"],
+            int(row["target"]),
+        )
+        greedy_presence = False
+        greedy_success = False
+        if greedy_check["valid_format"] and greedy_check["uses_numbers"]:
+            try:
+                pattern = expression_structure(str(greedy_check["expression"]))
+                if pattern in heldout_targets:
+                    record(greedy_counts, pattern, bool(greedy_check["correct"]))
+                greedy_presence = pattern not in known_structures
+                if greedy_check["correct"]:
+                    observed_correct.add(pattern)
+                    greedy_correct_structures.add(pattern)
+                    greedy_success = greedy_presence
+            except Exception:
+                pass
+        greedy_unseen_presence.append(float(greedy_presence))
+        greedy_unseen_success.append(float(greedy_success))
+
+        any_presence = False
+        any_success = False
+        for sample in samples:
+            check = verify_expression(sample, row["numbers"], int(row["target"]))
+            if not (check["valid_format"] and check["uses_numbers"]):
+                continue
+            try:
+                pattern = expression_structure(str(check["expression"]))
+            except Exception:
+                continue
+            if pattern in heldout_targets:
+                record(sampled_counts, pattern, bool(check["correct"]))
+            if pattern not in known_structures:
+                any_presence = True
+            if check["correct"]:
+                observed_correct.add(pattern)
+                sampled_correct_structures.add(pattern)
+                if pattern not in known_structures:
+                    any_success = True
+        sampled_unseen_presence.append(float(any_presence))
+        sampled_unseen_success.append(float(any_success))
+
+    def precision(
+        counts: Mapping[str, Mapping[str, int]],
+    ) -> tuple[float, float, int, int]:
+        attempts = sum(int(item["attempts"]) for item in counts.values())
+        correct = sum(int(item["correct"]) for item in counts.values())
+        per_pattern = [
+            float(item["correct"] / item["attempts"])
+            for item in counts.values()
+            if item["attempts"] > 0
+        ]
+        return (
+            float(correct / attempts) if attempts else 0.0,
+            float(np.mean(per_pattern)) if per_pattern else 0.0,
+            attempts,
+            correct,
+        )
+
+    def per_pattern(
+        counts: Mapping[str, Mapping[str, int]],
+    ) -> dict[str, dict[str, float | int | None]]:
+        result: dict[str, dict[str, float | int | None]] = {}
+        for pattern in sorted(heldout_targets):
+            attempts = int(counts.get(pattern, {}).get("attempts", 0))
+            correct = int(counts.get(pattern, {}).get("correct", 0))
+            result[pattern] = {
+                "attempts": attempts,
+                "correct": correct,
+                "precision": float(correct / attempts) if attempts else None,
+            }
+        return result
+
+    greedy_micro, greedy_macro, greedy_attempts, greedy_correct = precision(
+        greedy_counts
+    )
+    sampled_micro, sampled_macro, sampled_attempts, sampled_correct = precision(
+        sampled_counts
+    )
+    heldout_correct = observed_correct & heldout_targets
+    greedy_heldout_correct = greedy_correct_structures & heldout_targets
+    sampled_heldout_correct = sampled_correct_structures & heldout_targets
+    denominator = len(heldout_targets)
+    return {
+        "greedy_unseen_structure_presence": float(np.mean(greedy_unseen_presence)),
+        "greedy_unseen_structure_success": float(np.mean(greedy_unseen_success)),
+        "pass_at_k_unseen_structure_presence": float(np.mean(sampled_unseen_presence)),
+        "pass_at_k_unseen_structure": float(np.mean(sampled_unseen_success)),
+        "pass_at_k_unseen_structure_success": float(np.mean(sampled_unseen_success)),
+        "unique_correct_structures": float(len(observed_correct)),
+        "heldout_pattern_coverage": (
+            float(len(heldout_correct) / denominator) if denominator else 0.0
+        ),
+        "greedy_heldout_pattern_coverage": (
+            float(len(greedy_heldout_correct) / denominator) if denominator else 0.0
+        ),
+        "sampled_heldout_pattern_coverage": (
+            float(len(sampled_heldout_correct) / denominator) if denominator else 0.0
+        ),
+        "greedy_heldout_pattern_precision_micro": greedy_micro,
+        "greedy_heldout_pattern_precision_macro": greedy_macro,
+        "sampled_heldout_pattern_precision_micro": sampled_micro,
+        "sampled_heldout_pattern_precision_macro": sampled_macro,
+        "heldout_pattern_precision": sampled_micro,
+        "heldout_pattern_family_coverage": (
+            float(len(heldout_correct) / denominator) if denominator else 0.0
+        ),
+        "heldout_pattern_family_precision_micro": sampled_micro,
+        "heldout_pattern_family_precision_macro": sampled_macro,
+        "heldout_pattern_attempts": float(sampled_attempts),
+        "greedy_heldout_pattern_attempts": float(greedy_attempts),
+        "greedy_heldout_pattern_correct": float(greedy_correct),
+        "sampled_heldout_pattern_attempts": float(sampled_attempts),
+        "sampled_heldout_pattern_correct": float(sampled_correct),
+        "heldout_patterns_observed_correct": float(len(heldout_correct)),
+        "correct_heldout_patterns": float(len(heldout_correct)),
+        "heldout_patterns_total": float(denominator),
+        "per_pattern_precision": {
+            "greedy": per_pattern(greedy_counts),
+            "sampled": per_pattern(sampled_counts),
+        },
+    }
+
+
 def _generation_batches(
     model: Any,
     tokenizer: Any,
@@ -898,6 +1658,7 @@ def evaluate_countdown_model(
     config: CountdownReviewerConfig,
     *,
     seed: int,
+    known_structures: set[str] | None = None,
 ) -> dict[str, Any]:
     selected = list(rows[: min(len(rows), config.eval_examples)])
     prompts = [str(row["prompt"]) for row in selected]
@@ -942,10 +1703,17 @@ def evaluate_countdown_model(
         model.train(was_training)
     greedy_text = [group[0] for group in greedy]
     metrics = evaluate_response_batches(selected, greedy_text, sampled)
+    if known_structures is not None:
+        metrics.update(
+            _pattern_metrics(selected, greedy_text, sampled, known_structures)
+        )
+    elif config.require_structure_metrics:
+        raise RuntimeError("canonical evaluation has no structure-reference set")
     return {
         **metrics,
         "evaluation_seed": int(seed),
         "selection_metric": config.selection_metric,
+        "selection_delta": config.selection_delta,
         "checkpoint_is_terminal_audit": False,
     }
 
@@ -958,6 +1726,7 @@ def _train_one_method(
     sampler_rows: Sequence[Mapping[str, Any]],
     validation_rows: Sequence[Mapping[str, Any]],
     calibration: Mapping[str, Any],
+    known_structures: set[str] | None,
     *,
     method: str,
     seed: int,
@@ -1002,7 +1771,8 @@ def _train_one_method(
         tokenizer,
         validation_rows,
         config,
-        seed=config.evaluation_seed,
+        seed=config.evaluation_seed_for(seed),
+        known_structures=known_structures,
     )
     metrics_rows.append({"step": 0, "method": method, **initial_metrics})
     best_value = float(initial_metrics[config.selection_metric])
@@ -1131,11 +1901,12 @@ def _train_one_method(
                 tokenizer,
                 validation_rows,
                 config,
-                seed=config.evaluation_seed,
+                seed=config.evaluation_seed_for(seed),
+                known_structures=known_structures,
             )
             row.update(evaluation)
             value = float(evaluation[config.selection_metric])
-            if value > best_value:
+            if value > best_value + config.selection_delta:
                 best_value = value
                 best_step = step
                 _save_adapter_checkpoint(
@@ -1189,6 +1960,8 @@ def _train_one_method(
         "best_step": int(best_step),
         "best_validation_value": float(best_value),
         "selection_metric": config.selection_metric,
+        "selection_delta": config.selection_delta,
+        "evaluation_seed": config.evaluation_seed_for(seed),
         "coefficient": coefficient,
         "shared_negative_scale": shared_negative_scale,
         "tau": tau,
@@ -1232,6 +2005,7 @@ def _evaluate_saved_checkpoint(
     *,
     seed: int,
     kind: str,
+    known_structures: set[str] | None = None,
 ) -> dict[str, Any]:
     model, tokenizer = _load_checkpoint_for_evaluation(stack, config, checkpoint)
     try:
@@ -1241,6 +2015,7 @@ def _evaluate_saved_checkpoint(
             rows,
             config,
             seed=seed,
+            known_structures=known_structures,
         )
     finally:
         _release_model(model)
@@ -1299,12 +2074,28 @@ def run_countdown(
         raise FileExistsError(f"Countdown output must be new or empty: {output}")
     output.mkdir(parents=True, exist_ok=True)
     stack = _load_hf_stack()
-    replay_rows = _read_jsonl(config.replay_path)
-    calibration_rows = _read_jsonl(config.calibration_path)
+    model_identity = _validate_model_identity(config)
+    adapter_identity = _adapter_identity(config)
+
+    replay_rows = _normalize_training_rows(_read_jsonl(config.replay_path))
+    calibration_rows = _normalize_training_rows(_read_jsonl(config.calibration_path))
     validation_rows = _read_jsonl(config.validation_path)
+    _require_row_count(replay_rows, config.expected_replay_rows, "replay")
+    _require_row_count(
+        calibration_rows,
+        config.expected_calibration_rows,
+        "calibration",
+    )
+    _require_row_count(
+        validation_rows,
+        config.expected_validation_rows,
+        "validation",
+    )
     _validate_training_rows(replay_rows, "replay")
     _validate_training_rows(calibration_rows, "calibration")
     _validate_evaluation_rows(validation_rows, "validation")
+    if config.require_structure_metrics:
+        _validate_structure_evaluation_rows(validation_rows, "validation")
     _assert_prompt_disjoint(replay_rows, calibration_rows, "replay", "calibration")
     _assert_prompt_disjoint(replay_rows, validation_rows, "replay", "validation")
     _assert_prompt_disjoint(
@@ -1313,14 +2104,27 @@ def run_countdown(
         "calibration",
         "validation",
     )
+
+    known_structures: set[str] | None = None
+    structure_reference_rows: list[dict[str, Any]] | None = None
+    if config.structure_reference_path is not None:
+        structure_reference_rows = _read_jsonl(config.structure_reference_path)
+        _require_row_count(
+            structure_reference_rows,
+            config.expected_structure_reference_rows,
+            "structure_reference",
+        )
+        known_structures = _validate_structure_reference_rows(structure_reference_rows)
+
     input_identity = {
         "config_sha256": _sha256_file(config_file),
-        "replay_sha256": _sha256_file(config.replay_path.expanduser().resolve()),
-        "calibration_sha256": _sha256_file(
-            config.calibration_path.expanduser().resolve()
-        ),
-        "validation_sha256": _sha256_file(
-            config.validation_path.expanduser().resolve()
+        "replay_sha256": _sha256_file(config.replay_path),
+        "calibration_sha256": _sha256_file(config.calibration_path),
+        "validation_sha256": _sha256_file(config.validation_path),
+        "structure_reference_sha256": (
+            _sha256_file(config.structure_reference_path)
+            if config.structure_reference_path is not None
+            else None
         ),
         "test_sha256": None,
         "test_accessed_before_training": False,
@@ -1330,11 +2134,21 @@ def run_countdown(
         "runner_version": COUNTDOWN_REVIEWER_RUNNER_VERSION,
         "scope": "reviewer_facing_countdown_training_and_evaluation",
         "config": config.as_manifest(),
+        "model_identity": model_identity,
+        "reference_adapter_identity": adapter_identity,
         "input_identity": input_identity,
         "output_root": str(output),
         "formal_result_claim": False,
         "method_ranking_claim_allowed": False,
+        "registered_result_affecting_coordinate_bound": (
+            config.protocol_id == COUNTDOWN_CANONICAL_PROTOCOL_ID
+        ),
         "final_manuscript_coordinate_frozen": False,
+        "reviewer_code_migration_closed": (
+            config.protocol_id == COUNTDOWN_CANONICAL_PROTOCOL_ID
+        ),
+        "scientific_experiment_completed": False,
+        "scientific_status": "pilot_not_run",
         "countdown_replaces_du1_controlled_identification": False,
     }
     atomic_json(output / "RUN_MANIFEST.json", manifest)
@@ -1391,6 +2205,7 @@ def run_countdown(
                     sampler_rows,
                     validation_rows,
                     calibration,
+                    known_structures,
                     method=method,
                     seed=seed,
                     output=method_root,
@@ -1417,18 +2232,30 @@ def run_countdown(
             finally:
                 _release_model(model)
             all_runs.append(dict(summary))
+
     test_rows: list[dict[str, Any]] | None = None
     test_input_failure: dict[str, Any] | None = None
     if config.test_path is not None:
         try:
             test_rows = _read_jsonl(config.test_path)
+            _require_row_count(test_rows, config.expected_test_rows, "test")
             _validate_evaluation_rows(test_rows, "test")
+            if config.require_structure_metrics:
+                _validate_structure_evaluation_rows(test_rows, "test")
             _assert_prompt_disjoint(replay_rows, test_rows, "replay", "test")
-            _assert_prompt_disjoint(calibration_rows, test_rows, "calibration", "test")
-            _assert_prompt_disjoint(validation_rows, test_rows, "validation", "test")
-            input_identity["test_sha256"] = _sha256_file(
-                config.test_path.expanduser().resolve()
+            _assert_prompt_disjoint(
+                calibration_rows,
+                test_rows,
+                "calibration",
+                "test",
             )
+            _assert_prompt_disjoint(
+                validation_rows,
+                test_rows,
+                "validation",
+                "test",
+            )
+            input_identity["test_sha256"] = _sha256_file(config.test_path)
         except Exception as exc:
             test_rows = None
             test_input_failure = {
@@ -1446,22 +2273,25 @@ def run_countdown(
             seed = int(run["seed"])
             method = str(run["method"])
             method_root = output / f"seed_{seed}" / method
+            evaluation_seed = config.evaluation_seed_for(seed)
             try:
                 best = _evaluate_saved_checkpoint(
                     stack,
                     config,
                     method_root / "best_adapter",
                     test_rows,
-                    seed=config.evaluation_seed,
+                    seed=evaluation_seed,
                     kind="best",
+                    known_structures=known_structures,
                 )
                 terminal = _evaluate_saved_checkpoint(
                     stack,
                     config,
                     method_root / "terminal_adapter",
                     test_rows,
-                    seed=config.evaluation_seed,
+                    seed=evaluation_seed,
                     kind="terminal",
+                    known_structures=known_structures,
                 )
             except Exception as exc:
                 run["training_status"] = "completed"
@@ -1501,10 +2331,15 @@ def run_countdown(
     manifest["test_input_failure"] = test_input_failure
     atomic_json(output / "RUN_MANIFEST.json", manifest)
     aggregate = _aggregate_runs(all_runs)
+    aggregate["protocol_id"] = config.protocol_id
+    aggregate["reviewer_code_migration_closed"] = (
+        config.protocol_id == COUNTDOWN_CANONICAL_PROTOCOL_ID
+    )
     atomic_json(output / "SUMMARY.json", aggregate)
     suite_complete = all(run.get("status") == "completed" for run in all_runs)
     completion = {
         "experiment_id": COUNTDOWN_REVIEWER_EXPERIMENT_ID,
+        "protocol_id": config.protocol_id,
         "runner_version": COUNTDOWN_REVIEWER_RUNNER_VERSION,
         "status": "completed" if suite_complete else "partial_failure",
         "requested_runs": len(config.methods) * len(config.seeds),
@@ -1512,6 +2347,11 @@ def run_countdown(
         "failed_runs": sum(run.get("status") != "completed" for run in all_runs),
         "test_configured": config.test_path is not None,
         "test_input_failure": test_input_failure,
+        "reviewer_code_migration_closed": (
+            config.protocol_id == COUNTDOWN_CANONICAL_PROTOCOL_ID
+        ),
+        "scientific_experiment_completed": False,
+        "scientific_status": "pilot_not_run",
         "formal_result_claim": False,
         "method_ranking_claim_allowed": False,
         "terminal_scientific_audit_included": False,
@@ -1533,6 +2373,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 __all__ = [
+    "COUNTDOWN_CANONICAL_PROTOCOL_ID",
     "COUNTDOWN_REVIEWER_EXPERIMENT_ID",
     "COUNTDOWN_REVIEWER_RUNNER_VERSION",
     "CountdownReviewerConfig",
