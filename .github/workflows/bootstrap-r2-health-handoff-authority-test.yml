@@ -1,4 +1,4 @@
-name: Bootstrap R2 health handoff authority test fix
+name: Bootstrap Stage 5 merge-introduced path history fix
 
 on:
   pull_request:
@@ -26,61 +26,202 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Materialize bounded Stage 5 maintenance change
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+
+          script = Path('scripts/handoff_authority.py')
+          text = script.read_text(encoding='utf-8')
+          old = '\n'.join([
+              '    if len(adds) != 1 or not touches:',
+              '        raise HandoffAuthorityError(',
+              '            f"{label} must have one addition and non-empty history: {relative}"',
+              '        )',
+              '    first_add = adds[0]',
+              '    if first_add in positions:',
+              '        integration_commit = first_add',
+              '    else:',
+              '        integration_commit = _first_parent_integration_commit(',
+              '            repo_root,',
+              '            positions=positions,',
+              '            first_add=first_add,',
+              '            relative=relative,',
+              '        )',
+          ]) + '\n'
+          new = '\n'.join([
+              '    if not touches:',
+              '        raise HandoffAuthorityError(',
+              '            f"{label} must have non-empty history: {relative}"',
+              '        )',
+              '    merge_introduced = False',
+              '    if len(adds) == 1:',
+              '        first_add = adds[0]',
+              '    elif not adds:',
+              '        first_add = touches[-1]',
+              '        parents = _git_text(',
+              '            repo_root,',
+              '            "rev-list",',
+              '            "--parents",',
+              '            "-n",',
+              '            "1",',
+              '            first_add,',
+              '        ).split()',
+              '        if len(parents) < 3:',
+              '            raise HandoffAuthorityError(',
+              '                f"{label} lacks a bounded merge-introduced origin: {relative}"',
+              '            )',
+              '        first_parent = parents[1]',
+              '        if _path_exists_at_commit(repo_root, first_parent, relative):',
+              '            raise HandoffAuthorityError(',
+              '                f"{label} predates its merge-introduced origin: {relative}"',
+              '            )',
+              '        if not any(',
+              '            _path_exists_at_commit(repo_root, parent, relative)',
+              '            for parent in parents[2:]',
+              '        ):',
+              '            raise HandoffAuthorityError(',
+              '                f"{label} is absent from all merged parents: {relative}"',
+              '            )',
+              '        merge_introduced = True',
+              '    else:',
+              '        raise HandoffAuthorityError(',
+              '            f"{label} has multiple addition commits: {relative}"',
+              '        )',
+              '    if first_add in positions:',
+              '        integration_commit = first_add',
+              '    else:',
+              '        integration_commit = _first_parent_integration_commit(',
+              '            repo_root,',
+              '            positions=positions,',
+              '            first_add=first_add,',
+              '            relative=relative,',
+              '        )',
+          ]) + '\n'
+          if text.count(old) != 1:
+              raise SystemExit('Stage 5 history block drift')
+          text = text.replace(old, new)
+          old = '\n'.join([
+              '    integrated_text = _git_show(repo_root, integration_commit, Path(relative))',
+              '    if path.read_text(encoding="utf-8") != integrated_text:',
+          ]) + '\n'
+          new = '\n'.join([
+              '    integrated_text = _git_show(repo_root, integration_commit, Path(relative))',
+              '    if merge_introduced:',
+              '        source_text = _git_show(repo_root, first_add, Path(relative))',
+              '        if source_text != integrated_text:',
+              '            raise HandoffAuthorityError(',
+              '                f"{label} merge-origin bytes differ from integration: {relative}"',
+              '            )',
+              '    if path.read_text(encoding="utf-8") != integrated_text:',
+          ]) + '\n'
+          if text.count(old) != 1:
+              raise SystemExit('Stage 5 integrated-byte block drift')
+          script.write_text(text.replace(old, new), encoding='utf-8')
+          script_sha = hashlib.sha256(script.read_bytes()).hexdigest()
+
+          ledger = Path('docs/governance_pipeline_stage_status.yaml')
+          ledger_text = ledger.read_text(encoding='utf-8')
+          old = '\n'.join([
+              '    - path: scripts/handoff_authority.py',
+              '      sha256: c375a4c6c74f604048269b1344ca35a03eb8b6e166a27063153efe64ea5888ff',
+              '      authorized_by: GOV-STAGE5-PREINTEGRATION-REPORT-HISTORY-BUGFIX-2026-07-20',
+          ])
+          new = '\n'.join([
+              '    - path: scripts/handoff_authority.py',
+              f'      sha256: {script_sha}',
+              '      authorized_by: GOV-STAGE5-MERGE-INTRODUCED-PATH-HISTORY-BUGFIX-2026-07-20',
+          ])
+          if ledger_text.count(old) != 1:
+              raise SystemExit('Stage 5 protected hash binding drift')
+          ledger.write_text(ledger_text.replace(old, new), encoding='utf-8')
+
+          auth = Path(
+              'docs/governance_stage_authorizations/'
+              'GOV-STAGE5-MERGE-INTRODUCED-PATH-HISTORY-BUGFIX-2026-07-20.yaml'
+          )
+          auth.write_text('\n'.join([
+              'schema_version: 1',
+              'authorization_id: GOV-STAGE5-MERGE-INTRODUCED-PATH-HISTORY-BUGFIX-2026-07-20',
+              'kind: maintenance',
+              'change_class: bugfix',
+              'claim_id: GOV-STAGE5-MERGE-INTRODUCED-PATH-HISTORY-BUGFIX-01',
+              'approval_record: user_approved_repository_health_repairs_2026_07_20',
+              'base_commit: 3e00ca8c2802724d509124541b7ca5a4de1eb90c',
+              'stage_ids:',
+              '- stage_5',
+              'authorized_stage_statuses:',
+              '  stage_5: closed_maintenance_only',
+              'authorized_file_hashes:',
+              f'  scripts/handoff_authority.py: {script_sha}',
+              'scope:',
+              '- accept_a_path_introduced_by_a_two_parent_source_merge_when_git_reports_no_add_commit',
+              '- require_the_first_parent_to_lack_the_path_and_a_merged_parent_to_contain_it',
+              '- bind_the_merge_origin_to_one_first_parent_integration_commit',
+              '- require_merge_origin_integration_and_current_bytes_to_match',
+              '- preserve_rejection_of_multiple_additions_and_every_postintegration_touch',
+              '- update_only_the_exact_stage_5_script_hash_binding',
+              'excluded_scope:',
+              '- change_schema_v3_shapes_registry_authority_or_handoff_semantics',
+              '- allow_direct_handoff_edits_or_unbounded_history_shapes',
+              '- weaken_delta_or_materialization_report_immutability',
+              '- modify_scientific_code_configuration_results_or_claims',
+              'rollback_plan:',
+              '- revert_the_merge_origin_support_authorization_and_stage_ledger_hash_together',
+              '- preserve_all_existing_handoff_delta_materialization_and_scientific_history',
+              'remaining_uncertainties:',
+              '- octopus_source_merges_remain_out_of_scope',
+              '- the_fix_is_bounded_to_the_current_two_parent_merge_route',
+              '',
+          ]), encoding='utf-8')
+
+          scope = Path(
+              'docs/scopes/GOV-STAGE5-MERGE-INTRODUCED-PATH-HISTORY-BUGFIX-01.md'
+          )
+          scope.write_text('\n'.join([
+              '# Stage 5 merge-introduced path-history bugfix',
+              '',
+              'Base: `main@3e00ca8c2802724d509124541b7ca5a4de1eb90c`',
+              '',
+              'The completed E8 backlog transaction introduced its materialization report',
+              'through a two-parent source merge and then a first-parent GitHub integration.',
+              'For that bounded history shape, Git records a path touch but no standalone',
+              '`--diff-filter=A` commit. The previous validator therefore rejected an',
+              'immutable report even though the first parent lacked the path, a merged parent',
+              'contained it, and the integration/current bytes were identical.',
+              '',
+              'This maintenance fix accepts only that bounded merge-introduced shape. It still',
+              'rejects multiple additions, non-merge origins, paths already present on the',
+              'source first parent, absence from every merged parent, byte drift, and every',
+              'post-integration touch. It changes no handoff content, registry state, scientific',
+              'variable, result, or claim.',
+              '',
+          ]), encoding='utf-8')
+          print(script_sha)
+          PY
+
       - name: Install focused dependencies
         run: |
           python -m pip install --quiet --upgrade pip
           python -m pip install --quiet -e . pytest pyyaml ruff
 
-      - name: Capture focused authority verification
-        shell: bash
-        run: |
-          set +e
-          report='docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/MATERIALIZATION_REPORT.json'
-          {
-            echo 'HEAD:'
-            git rev-parse HEAD
-            echo 'TOUCHES:'
-            git log --format='%H %P %s' -- "$report"
-            echo 'ADDITIONS:'
-            git log --diff-filter=A --format='%H %P %s' -- "$report"
-            echo 'FIRST-PARENT:'
-            git rev-list --first-parent --reverse HEAD -- "$report"
-          } > /tmp/history.log 2>&1
-          echo $? > /tmp/history.exit
-          python -m pytest tests/test_handoff_authority.py -q -vv \
-            > /tmp/pytest.log 2>&1
-          echo $? > /tmp/pytest.exit
-          python scripts/handoff_authority.py verify --repo-root . \
-            > /tmp/authority.log 2>&1
-          echo $? > /tmp/authority.exit
-          python scripts/validate_governance_pipeline_stage_status.py --repo-root . \
-            > /tmp/governance.log 2>&1
-          echo $? > /tmp/governance.exit
-          python -m ruff check tests/test_handoff_authority.py \
-            > /tmp/ruff.log 2>&1
-          echo $? > /tmp/ruff.exit
-          python -m compileall -q tests/test_handoff_authority.py \
-            > /tmp/compile.log 2>&1
-          echo $? > /tmp/compile.exit
-          exit 0
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: r2-health-handoff-authority-diagnostic-${{ github.run_id }}
-          path: |
-            /tmp/*.log
-            /tmp/*.exit
-
-      - name: Enforce focused authority verification
+      - name: Run bounded Stage 5 verification
         shell: bash
         run: |
           set -euo pipefail
-          for name in history pytest authority governance ruff compile; do
-            echo "=== ${name} ==="
-            cat "/tmp/${name}.log"
-            test "$(cat "/tmp/${name}.exit")" = "0"
-          done
+          python -m pytest tests/test_handoff_authority.py -q
+          python scripts/handoff_authority.py verify --repo-root .
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          python -m pytest tests/test_governance_pipeline_stage_status.py -q
+          python -m ruff check \
+            scripts/handoff_authority.py \
+            tests/test_handoff_authority.py
+          python -m compileall -q \
+            scripts/handoff_authority.py \
+            tests/test_handoff_authority.py
 
       - name: Publish clean candidate commit
         shell: bash
@@ -93,5 +234,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m 'Isolate current repository handoff authority integration test'
+          git commit -m 'Accept bounded merge-introduced Stage 5 path history'
           git push origin "HEAD:${HEAD_BRANCH}"
