@@ -1,8 +1,14 @@
 {
   "audit_id": "EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20",
   "bank_sha256": "3887fe4b13b1ff89e904e0816491e13a74ecd1d1dfe71dc1211b0dcae2f69519",
-  "base_commit": "dd46727c1efefd2e6d4cdf6f3b204ec1fc58fca3",
+  "base_commit": "4b718e7439cf78a04f4affa1987ac15582d702d1",
   "base_config_sha256": "492f063f0cb41dded82355bb4bd9c3d0524f607d670599a5f48a51a5c0099866",
+  "current_main_rebase": {
+    "base_commit": "4b718e7439cf78a04f4affa1987ac15582d702d1",
+    "reason": "main advanced through unrelated ReplayAB governance closure commits before final merge",
+    "scientific_files_overlap": false,
+    "status": "PASS"
+  },
   "manual_v1_fallback": {
     "approved_by_user": true,
     "reason": "one-experiment fastpath cannot atomically register the three linked reciprocal evidence rounds; authoritative shell checkout was unavailable",

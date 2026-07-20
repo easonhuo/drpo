@@ -2,7 +2,7 @@ schema_version: 3
 update_id: EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20
 mode: authoritative
 base:
-  commit: dd46727c1efefd2e6d4cdf6f3b204ec1fc58fca3
+  commit: 4b718e7439cf78a04f4affa1987ac15582d702d1
   handoff_sha256: f8ff67ab71c0f53b21fc96967a13aa3e5b8500e42d25464e378df23e1f62c4e8
   registry_sha256: 05671687033882a6c4954c58e6b5e902709edc3f60818c921d8c954eb7a6deea
 renderer_version: 1
@@ -38,7 +38,7 @@ operations:
     after trusted normalization and gates.'
 registry:
   mode: expected_after
-  exact_base_after_sha256: 2e0b7ebe46ab6e6f650add3cb5a843984be2d434d6ec114dff0492cd60b4a6ec
+  exact_base_after_sha256: 92362cdf550c9f296a364cd1ea87cb9e3471372a56606617165d08a3e463a780
   changes:
   - change_id: add-1-reciprocal-pilot
     kind: add_entity

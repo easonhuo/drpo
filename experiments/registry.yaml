@@ -6691,6 +6691,20 @@ experiments:
     continue_expanding_reciprocal_lambda: false
     fourth_scan_required: false
     joint_evidence_update_id: EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20
+  execution_class: pilot
+  evidence_locator:
+    schema_version: 1
+    primary_run_id: E8_PAPER_ALIGNED_RECIPROCAL_SHAPE_SCREEN_20260719_01
+    records:
+    - run_id: E8_PAPER_ALIGNED_RECIPROCAL_SHAPE_SCREEN_20260719_01
+      lane: e8
+      source_commit: f99a9b1efdcc17d7e2bc5f5b08d110fd9d29d63f
+      results_repository: easonhuo/drpo-results
+      results_branch: ingest/e8
+      results_commit: 8d04768273315ff6ab1bcbade9cbf5705952259a
+      result_path: runs/e8/E8_PAPER_ALIGNED_RECIPROCAL_SHAPE_SCREEN_20260719_01
+      manifest_sha256: 0242b70cf71fe0531bca0d26201c0b29bfc6537f964a52a06da978fbe5dda286
+      export_profile: manifest_text_v1
 - id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-HIGH-LAMBDA-EXTENSION-0.5B-01
   environment: EXT-C
   name: e8_paper_aligned_reciprocal_high_lambda_extension_20260719_01
@@ -6774,6 +6788,20 @@ experiments:
     continue_expanding_reciprocal_lambda: false
     fourth_scan_required: false
     joint_evidence_update_id: EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20
+  execution_class: pilot
+  evidence_locator:
+    schema_version: 1
+    primary_run_id: E8_PAPER_ALIGNED_RECIPROCAL_HIGH_LAMBDA_EXTENSION_20260719_01
+    records:
+    - run_id: E8_PAPER_ALIGNED_RECIPROCAL_HIGH_LAMBDA_EXTENSION_20260719_01
+      lane: e8
+      source_commit: 356d878d26be1ad1b8bcf70d0908c9960e09f19f
+      results_repository: easonhuo/drpo-results
+      results_branch: ingest/e8
+      results_commit: eca0eb0365f5660e0a49dff5d39c9bb5f5df0cdf
+      result_path: runs/e8/E8_PAPER_ALIGNED_RECIPROCAL_HIGH_LAMBDA_EXTENSION_20260719_01
+      manifest_sha256: dc1feef96bf0bcc5cc0fe35f4eb5d3e506ec79cf50d782ac2622bdef1503b888
+      export_profile: manifest_text_v1
 - id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-QUADRATIC-DENSE-LAMBDA-CURVE-0.5B-01
   environment: EXT-C
   name: e8_paper_aligned_reciprocal_quadratic_dense_lambda_curve_20260719_01
@@ -6868,6 +6896,20 @@ experiments:
     continue_expanding_reciprocal_lambda: false
     fourth_scan_required: false
     joint_evidence_update_id: EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20
+  execution_class: pilot
+  evidence_locator:
+    schema_version: 1
+    primary_run_id: E8_PAPER_ALIGNED_RECIPROCAL_QUADRATIC_DENSE_LAMBDA_CURVE_20260719_01
+    records:
+    - run_id: E8_PAPER_ALIGNED_RECIPROCAL_QUADRATIC_DENSE_LAMBDA_CURVE_20260719_01
+      lane: e8
+      source_commit: 7cc6d2daf787998283f733f4152114dced017316
+      results_repository: easonhuo/drpo-results
+      results_branch: ingest/e8
+      results_commit: 69a81c6db3bdd90ed640d54eb5687870d2dba220
+      result_path: runs/e8/E8_PAPER_ALIGNED_RECIPROCAL_QUADRATIC_DENSE_LAMBDA_CURVE_20260719_01
+      manifest_sha256: acbf0fd8aa9f29d56b4c05841c7e0dd174568d4f9a15e229475df7db9a642c3b
+      export_profile: manifest_text_v1
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1

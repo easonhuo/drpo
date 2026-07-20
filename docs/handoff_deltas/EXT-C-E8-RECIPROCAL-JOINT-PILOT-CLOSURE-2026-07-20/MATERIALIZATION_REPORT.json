@@ -1,5 +1,5 @@
 {
-  "current_before_commit": "dd46727c1efefd2e6d4cdf6f3b204ec1fc58fca3",
+  "current_before_commit": "4b718e7439cf78a04f4affa1987ac15582d702d1",
   "current_handoff_before_sha256": "f8ff67ab71c0f53b21fc96967a13aa3e5b8500e42d25464e378df23e1f62c4e8",
   "current_registry_validation": {
     "assertions": [
@@ -9,7 +9,7 @@
         "evidence": [
           {
             "path": "experiments/registry.yaml",
-            "sha256": "2e0b7ebe46ab6e6f650add3cb5a843984be2d434d6ec114dff0492cd60b4a6ec"
+            "sha256": "92362cdf550c9f296a364cd1ea87cb9e3471372a56606617165d08a3e463a780"
           },
           {
             "path": "docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md",
@@ -17,7 +17,7 @@
           },
           {
             "path": "docs/experiments/E8_RECIPROCAL_JOINT_PROVENANCE_AUDIT.json",
-            "sha256": "7fc4f41337bd7ce5e84e6b1c286622d7622d09174182892d75274ca43bbf7951"
+            "sha256": "51fc9977901a1a924d7d821e33b162e694aed4b1c8c283c3175fa392c39b108b"
           },
           {
             "path": "configs/countdown_e8_oracle_offline_v2_reciprocal_shape_screen_0p5b.yaml",
@@ -29,7 +29,7 @@
           },
           {
             "path": "docs/handoff_deltas/EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
-            "sha256": "de6321cae4ba836095502fc412e33e04d76d832df9c96c9c125a655363b6ce11"
+            "sha256": "e368c0bd982963d5caac0ae49a3f48e4596174b28e616056d92db92a68dd4967"
           }
         ],
         "kind": "add_entity"
@@ -40,7 +40,7 @@
         "evidence": [
           {
             "path": "experiments/registry.yaml",
-            "sha256": "2e0b7ebe46ab6e6f650add3cb5a843984be2d434d6ec114dff0492cd60b4a6ec"
+            "sha256": "92362cdf550c9f296a364cd1ea87cb9e3471372a56606617165d08a3e463a780"
           },
           {
             "path": "docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md",
@@ -48,7 +48,7 @@
           },
           {
             "path": "docs/experiments/E8_RECIPROCAL_JOINT_PROVENANCE_AUDIT.json",
-            "sha256": "7fc4f41337bd7ce5e84e6b1c286622d7622d09174182892d75274ca43bbf7951"
+            "sha256": "51fc9977901a1a924d7d821e33b162e694aed4b1c8c283c3175fa392c39b108b"
           },
           {
             "path": "configs/countdown_e8_oracle_offline_v2_reciprocal_high_lambda_extension_0p5b.yaml",
@@ -60,7 +60,7 @@
           },
           {
             "path": "docs/handoff_deltas/EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
-            "sha256": "de6321cae4ba836095502fc412e33e04d76d832df9c96c9c125a655363b6ce11"
+            "sha256": "e368c0bd982963d5caac0ae49a3f48e4596174b28e616056d92db92a68dd4967"
           }
         ],
         "kind": "add_entity"
@@ -71,7 +71,7 @@
         "evidence": [
           {
             "path": "experiments/registry.yaml",
-            "sha256": "2e0b7ebe46ab6e6f650add3cb5a843984be2d434d6ec114dff0492cd60b4a6ec"
+            "sha256": "92362cdf550c9f296a364cd1ea87cb9e3471372a56606617165d08a3e463a780"
           },
           {
             "path": "docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md",
@@ -79,7 +79,7 @@
           },
           {
             "path": "docs/experiments/E8_RECIPROCAL_JOINT_PROVENANCE_AUDIT.json",
-            "sha256": "7fc4f41337bd7ce5e84e6b1c286622d7622d09174182892d75274ca43bbf7951"
+            "sha256": "51fc9977901a1a924d7d821e33b162e694aed4b1c8c283c3175fa392c39b108b"
           },
           {
             "path": "configs/countdown_e8_oracle_offline_v2_reciprocal_quadratic_dense_lambda_curve_0p5b.yaml",
@@ -91,7 +91,7 @@
           },
           {
             "path": "docs/handoff_deltas/EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
-            "sha256": "de6321cae4ba836095502fc412e33e04d76d832df9c96c9c125a655363b6ce11"
+            "sha256": "e368c0bd982963d5caac0ae49a3f48e4596174b28e616056d92db92a68dd4967"
           }
         ],
         "kind": "add_entity"
@@ -111,7 +111,7 @@
     },
     "legacy_transition_assertions": []
   },
-  "delta_sha256": "de6321cae4ba836095502fc412e33e04d76d832df9c96c9c125a655363b6ce11",
+  "delta_sha256": "e368c0bd982963d5caac0ae49a3f48e4596174b28e616056d92db92a68dd4967",
   "exact_base_candidate_sha256": "b3a99be6eb5c44e5ae2fa9ace6161c0acd60be6aeb9ee2aea96631b07f576e7c",
   "exact_base_registry_validation": {
     "assertions": [
@@ -121,7 +121,7 @@
         "evidence": [
           {
             "path": "experiments/registry.yaml",
-            "sha256": "2e0b7ebe46ab6e6f650add3cb5a843984be2d434d6ec114dff0492cd60b4a6ec"
+            "sha256": "92362cdf550c9f296a364cd1ea87cb9e3471372a56606617165d08a3e463a780"
           },
           {
             "path": "docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md",
@@ -129,7 +129,7 @@
           },
           {
             "path": "docs/experiments/E8_RECIPROCAL_JOINT_PROVENANCE_AUDIT.json",
-            "sha256": "7fc4f41337bd7ce5e84e6b1c286622d7622d09174182892d75274ca43bbf7951"
+            "sha256": "51fc9977901a1a924d7d821e33b162e694aed4b1c8c283c3175fa392c39b108b"
           },
           {
             "path": "configs/countdown_e8_oracle_offline_v2_reciprocal_shape_screen_0p5b.yaml",
@@ -141,7 +141,7 @@
           },
           {
             "path": "docs/handoff_deltas/EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
-            "sha256": "de6321cae4ba836095502fc412e33e04d76d832df9c96c9c125a655363b6ce11"
+            "sha256": "e368c0bd982963d5caac0ae49a3f48e4596174b28e616056d92db92a68dd4967"
           }
         ],
         "kind": "add_entity"
@@ -152,7 +152,7 @@
         "evidence": [
           {
             "path": "experiments/registry.yaml",
-            "sha256": "2e0b7ebe46ab6e6f650add3cb5a843984be2d434d6ec114dff0492cd60b4a6ec"
+            "sha256": "92362cdf550c9f296a364cd1ea87cb9e3471372a56606617165d08a3e463a780"
           },
           {
             "path": "docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md",
@@ -160,7 +160,7 @@
           },
           {
             "path": "docs/experiments/E8_RECIPROCAL_JOINT_PROVENANCE_AUDIT.json",
-            "sha256": "7fc4f41337bd7ce5e84e6b1c286622d7622d09174182892d75274ca43bbf7951"
+            "sha256": "51fc9977901a1a924d7d821e33b162e694aed4b1c8c283c3175fa392c39b108b"
           },
           {
             "path": "configs/countdown_e8_oracle_offline_v2_reciprocal_high_lambda_extension_0p5b.yaml",
@@ -172,7 +172,7 @@
           },
           {
             "path": "docs/handoff_deltas/EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
-            "sha256": "de6321cae4ba836095502fc412e33e04d76d832df9c96c9c125a655363b6ce11"
+            "sha256": "e368c0bd982963d5caac0ae49a3f48e4596174b28e616056d92db92a68dd4967"
           }
         ],
         "kind": "add_entity"
@@ -183,7 +183,7 @@
         "evidence": [
           {
             "path": "experiments/registry.yaml",
-            "sha256": "2e0b7ebe46ab6e6f650add3cb5a843984be2d434d6ec114dff0492cd60b4a6ec"
+            "sha256": "92362cdf550c9f296a364cd1ea87cb9e3471372a56606617165d08a3e463a780"
           },
           {
             "path": "docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md",
@@ -191,7 +191,7 @@
           },
           {
             "path": "docs/experiments/E8_RECIPROCAL_JOINT_PROVENANCE_AUDIT.json",
-            "sha256": "7fc4f41337bd7ce5e84e6b1c286622d7622d09174182892d75274ca43bbf7951"
+            "sha256": "51fc9977901a1a924d7d821e33b162e694aed4b1c8c283c3175fa392c39b108b"
           },
           {
             "path": "configs/countdown_e8_oracle_offline_v2_reciprocal_quadratic_dense_lambda_curve_0p5b.yaml",
@@ -203,7 +203,7 @@
           },
           {
             "path": "docs/handoff_deltas/EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml",
-            "sha256": "de6321cae4ba836095502fc412e33e04d76d832df9c96c9c125a655363b6ce11"
+            "sha256": "e368c0bd982963d5caac0ae49a3f48e4596174b28e616056d92db92a68dd4967"
           }
         ],
         "kind": "add_entity"
@@ -229,11 +229,11 @@
   "mode": "authoritative",
   "network_used": false,
   "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
-  "registry_after_sha256": "2e0b7ebe46ab6e6f650add3cb5a843984be2d434d6ec114dff0492cd60b4a6ec",
+  "registry_after_sha256": "92362cdf550c9f296a364cd1ea87cb9e3471372a56606617165d08a3e463a780",
   "registry_before_sha256": "05671687033882a6c4954c58e6b5e902709edc3f60818c921d8c954eb7a6deea",
   "report_schema_version": 1,
-  "source_base_commit": "dd46727c1efefd2e6d4cdf6f3b204ec1fc58fca3",
-  "source_patch_commit": "ac51536461e4ad778198df687b974d4de965d57d",
+  "source_base_commit": "4b718e7439cf78a04f4affa1987ac15582d702d1",
+  "source_patch_commit": "6cd36f574ae97cbfbd85f9693890236f7bcae5ee",
   "stage4a_refresh": {
     "refreshed": [
       "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",

@@ -181,7 +181,7 @@
     "docs/handoff.md": "b3a99be6eb5c44e5ae2fa9ace6161c0acd60be6aeb9ee2aea96631b07f576e7c",
     "docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml": "fb19da70ea2db6a35c4320e23a91640d0f21887c46bb79873d9548357271f4da",
     "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "9eb67303232bb2362b8a4571f383687aca0cfd2c25eeb9b8e68733c84b3701e8",
-    "experiments/registry.yaml": "2e0b7ebe46ab6e6f650add3cb5a843984be2d434d6ec114dff0492cd60b4a6ec"
+    "experiments/registry.yaml": "92362cdf550c9f296a364cd1ea87cb9e3471372a56606617165d08a3e463a780"
   },
   "module_order": [
     "global_core_governance",
