@@ -18,7 +18,7 @@ After the benchmark protocol, 16-case inventory, independent labels, metrics, an
 
 Its sole responsibility is to execute and verify the frozen R1-versus-R2 controlled discrimination benchmark using the already merged ReplayAB comparators and contracts.
 
-The approval is also preserved in PR #218 discussion before benchmark execution.
+The approval is preserved in PR #218 discussion before benchmark execution.
 
 ## Narrow supersession
 
