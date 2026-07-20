@@ -1,0 +1,88 @@
+name: PAPER-CODE-REFERENCE-01 Single Branch Gate
+
+on:
+  push:
+    branches:
+      - dev/paper-code-reference-01
+      - "dev/paper-code-reference-01-*"
+      - "dev/paper-code-reference-01/**"
+  pull_request:
+    branches:
+      - dev/paper-code-reference-01
+
+permissions:
+  contents: write
+
+concurrency:
+  group: paper-code-reference-01-single-branch-gate
+  cancel-in-progress: false
+
+jobs:
+  enforce-single-branch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CANONICAL_BRANCH: dev/paper-code-reference-01
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Reject stacked or derivative pull requests
+        if: github.event_name == 'pull_request'
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          echo "PAPER-CODE-REFERENCE-01 accepts no staging or derivative branches."
+          echo "Required branch: ${CANONICAL_BRANCH}"
+          echo "Observed PR head: ${HEAD_BRANCH}"
+          exit 1
+
+      - name: Delete a pushed derivative branch
+        if: github.event_name == 'push' && github.ref_name != 'dev/paper-code-reference-01'
+        env:
+          CURRENT_BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          case "${CURRENT_BRANCH}" in
+            dev/paper-code-reference-01-*|dev/paper-code-reference-01/*)
+              echo "Deleting forbidden derivative branch ${CURRENT_BRANCH}"
+              gh api --method DELETE \
+                "/repos/${GITHUB_REPOSITORY}/git/refs/heads/${CURRENT_BRANCH}"
+              ;;
+            *)
+              echo "Unexpected branch outside the protected task namespace: ${CURRENT_BRANCH}" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Remove all existing PAPER-CODE-REFERENCE-01 derivatives
+        if: github.event_name == 'push' && github.ref_name == 'dev/paper-code-reference-01'
+        run: |
+          set -euo pipefail
+
+          mapfile -t branches < <(
+            gh api --paginate "/repos/${GITHUB_REPOSITORY}/branches?per_page=100" \
+              --jq '.[].name' \
+              | grep -E '^dev/paper-code-reference-01(-|/)' \
+              || true
+          )
+
+          # Remove the accidental branch created while installing this gate.
+          branches+=("DO-NOT-CREATE")
+
+          if [ "${#branches[@]}" -eq 0 ]; then
+            echo "No forbidden derivative branches found."
+            exit 0
+          fi
+
+          printf '%s\n' "${branches[@]}" | sort -u | while IFS= read -r branch; do
+            [ -n "${branch}" ] || continue
+            [ "${branch}" != "${CANONICAL_BRANCH}" ] || continue
+
+            if gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/${branch}" >/dev/null 2>&1; then
+              echo "Deleting forbidden branch ${branch}"
+              gh api --method DELETE \
+                "/repos/${GITHUB_REPOSITORY}/git/refs/heads/${branch}"
+            else
+              echo "Already absent: ${branch}"
+            fi
+          done
