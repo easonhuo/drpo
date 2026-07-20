@@ -13,10 +13,12 @@ unsafe on large machines because it started around 50 percent of the measured ce
 large ceiling could therefore make the first candidate larger than a known startup-failure
 region. V2 also reused the same requested horizon and timeout for the representative probe
 and every candidate, so a large operator override multiplied into several long short-training
-grids.
+grids. Finally, an interrupted plan repeated every completed candidate because the shared V2
+benchmark function deleted the candidate directory before rerunning it.
 
 V3 keeps the V2 CPU, cgroup, memory, identity, revalidation, process-group, and retained-peak
-contracts. It replaces only the squared-night adapter's candidate and bounded-probe policy.
+contracts. It replaces only the squared-night adapter's candidate, bounded-probe, and
+same-workdir checkpoint policy.
 
 ## Bounded probe policy
 
@@ -72,6 +74,28 @@ If 60 is invalid, candidates through 41 remain valid evidence and selection cont
 those rows. The plan does not fail merely because a fraction of a large machine ceiling was
 unsafe.
 
+## Interrupted-plan checkpoint policy
+
+Every completed candidate summary records an exact checkpoint identity over:
+
+- source commit and source dirty state;
+- selector implementation digests and V3 adapter/policy identity;
+- scientific input fingerprints;
+- effective probe horizon and timeout;
+- candidate concurrency and probe seed;
+- CPU fraction, CPU safety factor, and exact CPU binding.
+
+On a later `plan` attempt in the same work directory, V3 may reuse a candidate only when:
+
+1. the summary exists and declares `valid=true`;
+2. the exact checkpoint identity matches;
+3. the current usable-memory budget still exceeds the candidate's observed aggregate peak RSS.
+
+Invalid, incomplete, malformed, mismatched, or currently memory-infeasible summaries are not
+reused. The currently interrupted candidate therefore reruns, but all earlier exact valid
+candidates do not repeat. This is bounded plan continuation, not a cross-run cache service.
+The representative resource probe still reruns so current machine pressure is remeasured.
+
 ## Policy and identity
 
 Squared-night selections use a V3 adapter id and selector policy version `3`. The immutable
@@ -80,6 +104,7 @@ resource fingerprint records:
 - effective probe steps and seconds;
 - hard V3 probe limits;
 - geometric candidate policy and growth factor;
+- same-workdir valid-only checkpoint policy;
 - fallback as a bounded candidate only;
 - max workers as an optional absolute ceiling.
 
@@ -127,6 +152,7 @@ Before use on a full pilot:
 3. a selection-only server shadow in a new work directory;
 4. confirmation that oversized requests are normalized to effective `5000/120`;
 5. confirmation that a failed higher candidate retains valid lower candidates;
-6. confirmation that one-click consumes an existing V3 selection without another plan;
-7. confirmation that changing only an oversized requested value does not change identity;
-8. no scientific branch launch during shadow.
+6. confirmation that an interrupted plan reuses exact valid lower candidates only;
+7. confirmation that one-click consumes an existing V3 selection without another plan;
+8. confirmation that changing only an oversized requested value does not change identity;
+9. no scientific branch launch during shadow.
