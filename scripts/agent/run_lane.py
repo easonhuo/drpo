@@ -5,7 +5,11 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from run_claimed_runspec import execute_claimed_runspec
+from run_claimed_runspec import (
+    add_runtime_resource_args,
+    execute_claimed_runspec,
+    runtime_resource_request_from_args,
+)
 from runspec_delivery_policy import RESULT_TOO_LARGE
 from runspec_lib import add_common_args, handle_cli_error, json_main, load_lane_config
 from runspec_safety import claim_next_runspec_safe
@@ -16,12 +20,17 @@ def main() -> int:
     add_common_args(parser)
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--once", action="store_true", help="Run one task and exit")
+    add_runtime_resource_args(parser)
     args = parser.parse_args()
     repo = Path(args.repo_root).resolve()
     try:
         lane_config = load_lane_config(repo, args.lane, args.lane_file)
         claimed = claim_next_runspec_safe(repo, lane_config=lane_config, run_id=args.run_id)
-        payload, code = execute_claimed_runspec(repo, claimed)
+        payload, code = execute_claimed_runspec(
+            repo,
+            claimed,
+            runtime_resources=runtime_resource_request_from_args(args),
+        )
         payload["lane"] = lane_config["lane"]
     except Exception as exc:  # noqa: BLE001
         return handle_cli_error(exc, json_output=args.json)

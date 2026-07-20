@@ -1,0 +1,74 @@
+schema_version: 3
+update_id: EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20
+mode: authoritative
+base:
+  commit: 4b718e7439cf78a04f4affa1987ac15582d702d1
+  handoff_sha256: f8ff67ab71c0f53b21fc96967a13aa3e5b8500e42d25464e378df23e1f62c4e8
+  registry_sha256: 05671687033882a6c4954c58e6b5e902709edc3f60818c921d8c954eb7a6deea
+renderer_version: 1
+operations:
+- operation_id: append-e8-reciprocal-joint-pilot-closure
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-reciprocal-joint-pilot-closure-2026-07-20
+  content: '- **Countdown reciprocal shape-ablation joint pilot closure:** `EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-SHAPE-SCREEN-0.5B-01`,
+    `...RECIPROCAL-HIGH-LAMBDA-EXTENSION...`, and `...RECIPROCAL-QUADRATIC-DENSE-LAMBDA-CURVE...` are now registered as one
+    linked external-validity evidence chain. The three runs completed 16/16, 16/16, and 32/32 cells respectively (64/64 jointly),
+    all terminal audits passed, NaN/Inf failures were 0, and the test split was not used.
+
+
+    Under the frozen current-surprisal coordinate, paired development seeds, 1200-step budget, and validation-only protocol,
+    Reciprocal-Linear and Reciprocal-Quadratic move from under-suppression into a broad plateau as lambda increases, but do
+    not reach the sustained matched exponential anchor behavior. This supports tail-decay shape rather than simple global
+    strength alone as an important control factor in this Countdown setting. The evidence remains pilot-only: it does not
+    establish significance, convergence, steady state, formal support recovery, or a formal/cross-task method ranking.
+
+
+    Provenance is resolved by direct commit identity for the high-lambda run and by registered RunSpec snapshot plus protected-source
+    SHA-256 equivalence for the two non-resolvable local run commits. The durable audit is `docs/experiments/E8_RECIPROCAL_JOINT_PROVENANCE_AUDIT.json`;
+    results are bound to `drpo-results` commits `8d04768273315ff6ab1bcbade9cbf5705952259a`, `eca0eb0365f5660e0a49dff5d39c9bb5f5df0cdf`,
+    and `69a81c6db3bdd90ed640d54eb5687870d2dba220`.
+
+
+    Scientific exploration on this reciprocal lambda line is closed: no fourth scan or further right-boundary expansion is
+    required. The user-approved manual V1 fallback was used because the ordinary fastpath permits one experiment entity per
+    transaction while this closure atomically registers three linked entities; the one-time remote bootstrap workflow is deleted
+    after trusted normalization and gates.'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: 92362cdf550c9f296a364cd1ea87cb9e3471372a56606617165d08a3e463a780
+  changes:
+  - change_id: add-1-reciprocal-pilot
+    kind: add_entity
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-SHAPE-SCREEN-0.5B-01
+    evidence:
+    - experiments/registry.yaml
+    - docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md
+    - docs/experiments/E8_RECIPROCAL_JOINT_PROVENANCE_AUDIT.json
+    - configs/countdown_e8_oracle_offline_v2_reciprocal_shape_screen_0p5b.yaml
+    - runspecs/ready/E8_PAPER_ALIGNED_RECIPROCAL_SHAPE_SCREEN_20260719_01.yaml
+    - docs/handoff_deltas/EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml
+  - change_id: add-2-reciprocal-pilot
+    kind: add_entity
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-HIGH-LAMBDA-EXTENSION-0.5B-01
+    evidence:
+    - experiments/registry.yaml
+    - docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md
+    - docs/experiments/E8_RECIPROCAL_JOINT_PROVENANCE_AUDIT.json
+    - configs/countdown_e8_oracle_offline_v2_reciprocal_high_lambda_extension_0p5b.yaml
+    - runspecs/ready/E8_PAPER_ALIGNED_RECIPROCAL_HIGH_LAMBDA_EXTENSION_20260719_01.yaml
+    - docs/handoff_deltas/EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml
+  - change_id: add-3-reciprocal-pilot
+    kind: add_entity
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-QUADRATIC-DENSE-LAMBDA-CURVE-0.5B-01
+    evidence:
+    - experiments/registry.yaml
+    - docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md
+    - docs/experiments/E8_RECIPROCAL_JOINT_PROVENANCE_AUDIT.json
+    - configs/countdown_e8_oracle_offline_v2_reciprocal_quadratic_dense_lambda_curve_0p5b.yaml
+    - runspecs/ready/E8_PAPER_ALIGNED_RECIPROCAL_QUADRATIC_DENSE_LAMBDA_CURVE_20260719_01.yaml
+    - docs/handoff_deltas/EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml
+expected:
+  exact_base_candidate_sha256: b3a99be6eb5c44e5ae2fa9ace6161c0acd60be6aeb9ee2aea96631b07f576e7c

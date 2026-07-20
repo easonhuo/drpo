@@ -1,0 +1,120 @@
+version: 1
+run_id: E8_PAPER_ALIGNED_RECIPROCAL_SHAPE_SCREEN_20260719_01
+lane: e8
+priority: 150
+created_at: "2026-07-19T04:50:00Z"
+experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-SHAPE-SCREEN-0.5B-01
+repo_commit: 147bc50b8c7a208e5742d1f64f7fd01cc77ba3a6
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/countdown_e8_oracle_offline_v2_reciprocal_shape_screen_0p5b.yaml
+    - src/drpo/countdown_e8_alpha1_highc_scan_common.py
+    - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    - src/drpo/countdown_e8_alpha1_c_scan_runtime.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_c_scan_auto.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh
+    - tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
+
+purpose: >
+  Run the manuscript-correct Reciprocal-Linear and Reciprocal-Quadratic
+  Countdown comparison on the frozen E8 V2 bank. Execute four strengths per
+  family on the same two paired development seed offsets, for exactly eight
+  method points and sixteen cells. Do not rerun Positive-only, Global, or the
+  completed exponential anchor. This code-first pilot remains validation-only
+  and cannot establish convergence, steady state, significance, or a formal
+  method ranking.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    E8_ALPHA1_HIGHC_WORK_DIR=outputs/e8/paper_aligned_reciprocal_shape_screen_001
+    E8_ALPHA1_HIGHC_GRID_CONFIG=configs/countdown_e8_oracle_offline_v2_reciprocal_shape_screen_0p5b.yaml
+    bash scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: >-
+    E8_ALPHA1_HIGHC_WORK_DIR=outputs/e8/paper_aligned_reciprocal_shape_screen_001
+    E8_ALPHA1_HIGHC_GRID_CONFIG=configs/countdown_e8_oracle_offline_v2_reciprocal_shape_screen_0p5b.yaml
+    bash scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e8/paper_aligned_reciprocal_shape_screen_001/RUNTIME_SELECTION.json
+    - outputs/e8/paper_aligned_reciprocal_shape_screen_001/RUNTIME_SLOTS.json
+    - outputs/e8/paper_aligned_reciprocal_shape_screen_001/SWEEP_STATUS.json
+  backoff_seconds: 60
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+
+outputs:
+  run_dir: outputs/e8/paper_aligned_reciprocal_shape_screen_001
+  summary_file: outputs/e8/paper_aligned_reciprocal_shape_screen_001/SWEEP_COMPLETE.json
+  audit_file: outputs/e8/paper_aligned_reciprocal_shape_screen_001/aggregate/terminal_audit.json
+
+success_criteria:
+  - shared coordinate is x=relu(current_mean_token_surprisal/2-0.125) and is detached
+  - Reciprocal-Linear is 1/(1+lambda*sqrt(x)) with no replacement by x
+  - Reciprocal-Quadratic is 1/(1+lambda*x) with no replacement by x squared
+  - runtime config contains the shared autotune admission block required by the existing launcher
+  - runtime summary records the reciprocal-family provenance weight label without changing weight computation
+  - matrix contains 8 method points and 16 cells on paired seed offsets 4000 and 5000
+  - each family uses lambda values 1, 3, 7, and 19 exactly once per seed
+  - no Positive-only, Global, or exponential cell is launched in this round
+  - historical control identities must be frozen before any paper comparison
+  - runtime records GPU 0-7, two slots per GPU, and 16 concurrent cells
+  - the full sweep requires one 16-slot wave after the smoke gate
+  - smoke gate passes before the full sweep and is not scientific evidence
+  - test_data_used remains false
+  - task performance, support or structure boundary, and NaN/Inf failure are reported separately
+  - fixed 1200 steps is not described as convergence, steady state, significance, or ranking
+  - completed text-first evidence is delivered to drpo-results ingest/e8
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e8/paper_aligned_reciprocal_shape_screen_001/*.json
+    - outputs/e8/paper_aligned_reciprocal_shape_screen_001/aggregate/*.json
+    - outputs/e8/paper_aligned_reciprocal_shape_screen_001/aggregate/*.csv
+    - outputs/e8/paper_aligned_reciprocal_shape_screen_001/methods/*/summary.json
+    - outputs/e8/paper_aligned_reciprocal_shape_screen_001/methods/*/metrics.csv
+    - outputs/e8/paper_aligned_reciprocal_shape_screen_001/logs/*.log
+  exclude:
+    - "**/*.pt"
+    - "**/*.pth"
+    - "**/*.ckpt"
+    - "**/*.safetensors"
+    - "**/*.bin"
+    - "**/checkpoint*"
+    - "**/checkpoints/**"
+    - "**/optimizer*"
+    - "**/wandb/**"
+  max_package_size_mb: 100
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e8
+  export_profile: manifest_text_v1
+  max_total_size_mb: 30
+  max_file_size_mb: 10
+
+publish:
+  enabled: false
+  auto: false

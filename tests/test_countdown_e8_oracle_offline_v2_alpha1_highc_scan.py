@@ -188,3 +188,289 @@ def test_one_click_uses_highc_config_and_unregistered_acknowledgement() -> None:
     assert "countdown_e8_oracle_offline_v2_alpha1_highc_scan_0p5b.yaml" in source
     assert "--allow-dev-unregistered" in source
     assert "E8_ALPHA1_HIGHC_MAX_DEVICES:-8" in source
+
+
+EXTENSION_CONFIG = (
+    ROOT
+    / "configs"
+    / "countdown_e8_oracle_offline_v2_linear_c_extension_0p5b.yaml"
+)
+EXTENSION_RUNSPEC = (
+    ROOT
+    / "runspecs"
+    / "ready"
+    / "E8_PAPER_ALIGNED_LINEAR_C_EXTENSION_20260717_01.yaml"
+)
+
+
+def _load_path(path: Path) -> dict:
+    value = yaml.safe_load(path.read_text(encoding="utf-8"))
+    assert isinstance(value, dict)
+    return value
+
+
+def test_extension_has_eight_new_c_points_and_sixteen_cells() -> None:
+    config = _load_path(EXTENSION_CONFIG)
+    points = scan.parameter_points(config)
+    cells = scan.build_cells(config)
+    assert points == scan.C_EXTENSION_PARAMETER_POINTS
+    assert len(cells) == 16
+    assert len({cell.name for cell in cells}) == 16
+    assert {cell.seed_offset for cell in cells} == {4000, 5000}
+    assert {cell.alpha for cell in cells} == {1.0}
+    assert {cell.method for cell in cells} == {"continuous_exp"}
+    assert not any(cell.c in {0.0, 0.051293294, 2.995732274} for cell in cells)
+    assert config["sweep"]["positive_only_same_seed_control"] is False
+    assert config["historical_reference"]["positive_only_rerun_in_this_round"] is False
+
+
+def test_round1_profile_remains_unchanged_after_extension_validation() -> None:
+    original = (
+        scan.EXPERIMENT_ID,
+        scan.PARAMETER_POINTS,
+        scan.SEED_OFFSETS,
+        scan.EXPECTED_POINTS,
+        scan.EXPECTED_CELLS,
+    )
+    scan.validate_grid_config(_load_path(EXTENSION_CONFIG))
+    assert (
+        scan.EXPERIMENT_ID,
+        scan.PARAMETER_POINTS,
+        scan.SEED_OFFSETS,
+        scan.EXPECTED_POINTS,
+        scan.EXPECTED_CELLS,
+    ) == original
+    assert scan.parameter_points(_config()) == scan.ROUND1_PARAMETER_POINTS
+
+
+def test_extension_activation_updates_base_identity_only_inside_context() -> None:
+    config = _load_path(EXTENSION_CONFIG)
+    profile = scan._profile_for_config(config)
+    original_id = predecessor.EXPERIMENT_ID
+    with scan.activated(profile):
+        assert predecessor.EXPERIMENT_ID == scan.C_EXTENSION_EXPERIMENT_ID
+        assert predecessor.PARAMETER_POINTS == scan.C_EXTENSION_PARAMETER_POINTS
+        assert predecessor.SEED_OFFSETS == (4000, 5000)
+        assert predecessor.EXPECTED_POINTS == 8
+        assert predecessor.EXPECTED_CELLS == 16
+    assert predecessor.EXPERIMENT_ID == original_id
+
+
+def test_extension_rejects_alpha_positive_only_and_reference_drift() -> None:
+    config = _load_path(EXTENSION_CONFIG)
+    config["sweep"]["parameter_points"][0]["alpha"] = 0.5
+    with pytest.raises(ValueError, match="alpha fixed at 1"):
+        scan.validate_grid_config(config)
+
+    config = _load_path(EXTENSION_CONFIG)
+    config["sweep"]["positive_only_same_seed_control"] = True
+    with pytest.raises(ValueError, match="must not rerun Positive-only"):
+        scan.validate_grid_config(config)
+
+    config = _load_path(EXTENSION_CONFIG)
+    config["historical_reference"]["result_manifest_sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="Historical result manifest"):
+        scan.validate_grid_config(config)
+
+
+def test_runtime_plan_selects_extension_profile(tmp_path: Path) -> None:
+    model = tmp_path / "model"
+    model.mkdir()
+    bank = tmp_path / "bank.jsonl"
+    val = tmp_path / "val.jsonl"
+    bank.write_text("{}\n", encoding="utf-8")
+    val.write_text("{}\n", encoding="utf-8")
+    work = tmp_path / "work"
+    subprocess.run(
+        [
+            sys.executable,
+            str(RUNTIME),
+            "plan",
+            "--model_path",
+            str(model),
+            "--bank",
+            str(bank),
+            "--val",
+            str(val),
+            "--base_config",
+            str(ROOT / "configs/countdown_e8_base_rl_replay_0p5b.yaml"),
+            "--grid_config",
+            str(EXTENSION_CONFIG),
+            "--work_dir",
+            str(work),
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    plan = json.loads((work / "SWEEP_PLAN.json").read_text(encoding="utf-8"))
+    assert plan["experiment_id"] == scan.C_EXTENSION_EXPERIMENT_ID
+    assert plan["parameter_points"] == 8
+    assert plan["cell_count"] == 16
+    assert {row["method"] for row in plan["cells"]} == {"continuous_exp"}
+
+
+def test_extension_runspec_enables_default_e8_results_delivery() -> None:
+    spec = _load_path(EXTENSION_RUNSPEC)
+    assert spec["registration"] == {"mode": "deferred", "closure_required": True}
+    assert spec["delivery"] == {
+        "enabled": True,
+        "auto": True,
+        "mode": "results_repo",
+        "repository": "easonhuo/drpo-results",
+        "branch": "ingest/e8",
+        "export_profile": "manifest_text_v1",
+        "max_total_size_mb": 30,
+        "max_file_size_mb": 10,
+    }
+    assert "E8_ALPHA1_HIGHC_GRID_CONFIG=" in spec["entrypoint"]["command"]
+    assert "16 parameter points" not in "\n".join(spec["success_criteria"])
+    assert any(
+        "8 parameter points and 16 cells" in item
+        for item in spec["success_criteria"]
+    )
+
+
+def test_extension_reuses_existing_launcher_without_new_training_stack() -> None:
+    source = AUTO.read_text(encoding="utf-8")
+    assert "activate_for_grid_config" in source
+    assert "countdown_e8_alpha1_highc_scan_runtime.py" in source
+    assert "e8_linear_c_extension_cuda_dev_v1" in source
+    assert "run_countdown_e8_oracle_offline_v2_alpha1_c_scan_auto.py" in source
+
+
+RECIPROCAL_CONFIG = (
+    ROOT
+    / "configs"
+    / "countdown_e8_oracle_offline_v2_reciprocal_shape_screen_0p5b.yaml"
+)
+
+
+def test_reciprocal_screen_has_eight_points_and_sixteen_paired_cells() -> None:
+    config = _load_path(RECIPROCAL_CONFIG)
+    points = scan.parameter_points(config)
+    cells = scan.build_cells(config)
+    assert points == scan.RECIPROCAL_SCREEN_POINTS
+    assert len(points) == 8
+    assert len(cells) == 16
+    assert len({cell.name for cell in cells}) == 16
+    assert {cell.seed_offset for cell in cells} == {4000, 5000}
+    assert sum(cell.method == "reciprocal_linear" for cell in cells) == 8
+    assert sum(cell.method == "reciprocal_quadratic" for cell in cells) == 8
+    assert {cell.alpha for cell in cells} == {1.0}
+    assert {cell.coefficient for cell in cells} == {1.0, 3.0, 7.0, 19.0}
+    assert not any(
+        cell.method in {"positive_only", "global", "continuous_exp"}
+        for cell in cells
+    )
+    assert config["historical_controls"]["rerun_in_this_round"] is False
+    assert config["historical_controls"]["methods"] == [
+        "positive_only",
+        "global",
+        "exponential",
+    ]
+
+
+def test_reciprocal_weight_formulas_use_sqrt_x_and_x() -> None:
+    config = _load_path(RECIPROCAL_CONFIG)
+    profile = scan._profile_for_config(config)
+    seq_lp = torch.tensor([-0.25, -2.25, -8.25])
+    with scan.activated(profile):
+        linear = scan.continuous_exp_weights(
+            seq_lp,
+            alpha=1.0,
+            c=scan.FamilyCoefficient(3.0, "reciprocal_linear"),
+        )
+        quadratic = scan.continuous_exp_weights(
+            seq_lp,
+            alpha=1.0,
+            c=scan.FamilyCoefficient(3.0, "reciprocal_quadratic"),
+        )
+    expected_linear = torch.tensor([1.0, 0.25, 1.0 / 7.0])
+    expected_quadratic = torch.tensor([1.0, 0.25, 1.0 / 13.0])
+    assert torch.allclose(linear, expected_linear)
+    assert torch.allclose(quadratic, expected_quadratic)
+    assert not torch.allclose(linear, quadratic)
+    assert linear.requires_grad is False
+    assert quadratic.requires_grad is False
+
+
+def test_reciprocal_config_rejects_seed_or_historical_control_drift() -> None:
+    config = _load_path(RECIPROCAL_CONFIG)
+    config["sweep"]["seed_offsets"] = [4000]
+    with pytest.raises(ValueError, match="seed offsets changed"):
+        scan.validate_grid_config(config)
+
+    config = _load_path(RECIPROCAL_CONFIG)
+    config["historical_controls"]["rerun_in_this_round"] = True
+    with pytest.raises(ValueError, match="must not be rerun"):
+        scan.validate_grid_config(config)
+
+
+def test_runtime_plan_selects_reciprocal_profile(tmp_path: Path) -> None:
+    model = tmp_path / "model"
+    model.mkdir()
+    bank = tmp_path / "bank.jsonl"
+    val = tmp_path / "val.jsonl"
+    bank.write_text("{}\n", encoding="utf-8")
+    val.write_text("{}\n", encoding="utf-8")
+    work = tmp_path / "work"
+    subprocess.run(
+        [
+            sys.executable,
+            str(RUNTIME),
+            "plan",
+            "--model_path",
+            str(model),
+            "--bank",
+            str(bank),
+            "--val",
+            str(val),
+            "--base_config",
+            str(ROOT / "configs/countdown_e8_base_rl_replay_0p5b.yaml"),
+            "--grid_config",
+            str(RECIPROCAL_CONFIG),
+            "--work_dir",
+            str(work),
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    plan = json.loads((work / "SWEEP_PLAN.json").read_text(encoding="utf-8"))
+    assert plan["experiment_id"] == scan.RECIPROCAL_SCREEN_EXPERIMENT_ID
+    assert plan["parameter_points"] == 8
+    assert plan["cell_count"] == 16
+    assert {row["method"] for row in plan["cells"]} == {
+        "reciprocal_linear",
+        "reciprocal_quadratic",
+    }
+
+
+RECIPROCAL_Q_DENSE_CONFIG = (
+    ROOT
+    / "configs"
+    / "countdown_e8_oracle_offline_v2_reciprocal_quadratic_dense_lambda_curve_0p5b.yaml"
+)
+
+
+def test_reciprocal_q_dense_curve_has_sixteen_points_and_thirty_two_cells() -> None:
+    config = _load_path(RECIPROCAL_Q_DENSE_CONFIG)
+    points = scan.parameter_points(config)
+    cells = scan.build_cells(config)
+    assert points == scan.RECIPROCAL_Q_DENSE_POINTS
+    assert tuple(point[2] for point in points) == scan.RECIPROCAL_Q_DENSE_LAMBDAS
+    assert len(points) == 16
+    assert len(cells) == 32
+    assert len({cell.name for cell in cells}) == 32
+    assert {cell.seed_offset for cell in cells} == {4000, 5000}
+    assert {cell.method for cell in cells} == {"reciprocal_quadratic"}
+    assert {cell.alpha for cell in cells} == {1.0}
+    completed = {1.0, 3.0, 7.0, 19.0, 39.0, 79.0, 159.0, 319.0}
+    assert not completed.intersection({cell.coefficient for cell in cells})
+    assert config["execution"]["parallel_cells_per_gpu"] == 2
+    assert config["execution"]["expected_full_waves"] == 2
+    assert config["historical_controls"]["rerun_in_this_round"] is False
+    assert config["reporting"]["trend_resolution_claim_only"] is True

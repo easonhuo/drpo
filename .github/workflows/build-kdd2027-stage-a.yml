@@ -1,0 +1,171 @@
+name: Build KDD 2027 Stage-A manuscript
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: >-
+      startsWith(github.event.pull_request.head.ref, 'dev/paper-kdd2027-')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Verify locked manuscript and generate anonymous ACM source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s paper/kdd2027/source_locked.tex
+          echo '6e5ee53daf390f50ee2f2098826c02882a53257cbbe97ccee4a4ace1cde45dae  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
+          python scripts/generate_kdd2027_stage_a.py
+          python scripts/postprocess_kdd2027_stage_a.py
+          python paper/kdd2027/verify_content_lock.py
+
+      - name: Materialize self-contained Overleaf assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p paper/kdd2027/figures
+          cp paper/overleaf/example_paper.bib paper/kdd2027/example_paper.bib
+          cp paper/overleaf/missing_references.bib paper/kdd2027/missing_references.bib
+          for figure in \
+            figure1_external_gradient_bottom_labels.pdf \
+            fig_6_3_1_source_heatmap.pdf \
+            fig_6_3_2_rescue_plot.pdf \
+            fig_6_4_1_phase_transition.pdf \
+            fig_6_4_2_leftfig_bigtext_legend_protocol.pdf; do
+            cp "paper/overleaf/figures/${figure}" "paper/kdd2027/figures/${figure}"
+          done
+          test -s paper/kdd2027/example_paper.bib
+          test -s paper/kdd2027/missing_references.bib
+          test "$(find paper/kdd2027/figures -maxdepth 1 -type f -name '*.pdf' | wc -l)" -eq 5
+
+      - name: Verify pinned ACM template files
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'd754095d4c28eb01eae8683f60a9e16e5eea379d9015f8f78ca7ed4dce55fabc  paper/kdd2027/acmart.cls' | sha256sum --check --strict
+          echo '8ec002c927068bfc5b3cfe71b66aa4767b9e485530ac3c67ba5c064df4c2e6ac  paper/kdd2027/ACM-Reference-Format.bst' | sha256sum --check --strict
+          grep -Fq '2026/06/27 v2.19 Typesetting articles for the Association for Computing Machinery' paper/kdd2027/acmart.cls
+
+      - name: Install PDF audit and packaging tools
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y poppler-utils zip
+
+      - name: Compile with TeX Live 2025
+        id: manuscript_compile
+        continue-on-error: true
+        uses: xu-cheng/texlive-action@v3
+        with:
+          texlive_version: 2025
+          os: debian
+          run: |
+            cd paper/kdd2027
+            pdflatex --version | tee TEXLIVE_ENVIRONMENT.txt
+            latexmk -C main.tex >/dev/null 2>&1 || true
+            latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+            test -s main.pdf
+            grep -Fq 'TeX Live 2025' TEXLIVE_ENVIRONMENT.txt
+
+      - name: Audit compiled PDF and every rendered page
+        id: manuscript_audit
+        continue-on-error: true
+        env:
+          DRPO_SKIP_LATEX_COMPILE: '1'
+        run: bash paper/kdd2027/build.sh
+
+      - name: Build root-level Overleaf upload ZIP
+        id: overleaf_package
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p paper/releases
+          rm -f paper/releases/DRPO_KDD2027_OVERLEAF.zip
+          (
+            cd paper/kdd2027
+            zip -r ../releases/DRPO_KDD2027_OVERLEAF.zip \
+              main.tex \
+              acmart.cls \
+              ACM-Reference-Format.bst \
+              example_paper.bib \
+              missing_references.bib \
+              figures \
+              README.md
+          )
+          test -s paper/releases/DRPO_KDD2027_OVERLEAF.zip
+          first_entry="$(unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | head -n 1)"
+          [[ "$first_entry" == 'main.tex' ]] || { echo "unexpected first ZIP entry: $first_entry" >&2; exit 1; }
+          unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Fxq 'example_paper.bib'
+          unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Fxq 'missing_references.bib'
+          test "$(unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Ec '^figures/.*\.pdf$')" -eq 5
+
+      - name: Capture build diagnostics
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p paper/kdd2027/diagnostics
+          if [[ -f paper/kdd2027/main.log ]]; then
+            tail -n 500 paper/kdd2027/main.log > paper/kdd2027/diagnostics/main-log-tail.txt
+          fi
+          if [[ -f paper/kdd2027/main.blg ]]; then
+            cp paper/kdd2027/main.blg paper/kdd2027/diagnostics/main.blg
+          fi
+          if [[ -f paper/kdd2027/main.pdf ]]; then
+            pdfinfo paper/kdd2027/main.pdf > paper/kdd2027/diagnostics/PDFINFO-partial.txt || true
+          fi
+          find paper/kdd2027 -maxdepth 2 -type f -printf '%p %s bytes\n' | sort > paper/kdd2027/diagnostics/file-inventory.txt
+
+      - name: Upload manuscript, Overleaf bundle, renders, and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drpo-kdd2027-stage-a-tl2025
+          path: |
+            paper/kdd2027/main.pdf
+            paper/kdd2027/BUILD_AUDIT.txt
+            paper/kdd2027/PDFINFO.txt
+            paper/kdd2027/PDFFONTS.txt
+            paper/kdd2027/TEXLIVE_ENVIRONMENT.txt
+            paper/kdd2027/main.log
+            paper/kdd2027/main.blg
+            paper/kdd2027/TEMPLATE_PROVENANCE.txt
+            paper/kdd2027/renders/page-*.png
+            paper/kdd2027/diagnostics/*
+            paper/releases/DRPO_KDD2027_OVERLEAF.zip
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Enforce successful canonical build
+        if: >-
+          steps.manuscript_compile.outcome != 'success' ||
+          steps.manuscript_audit.outcome != 'success' ||
+          steps.overleaf_package.outcome != 'success'
+        shell: bash
+        run: |
+          cat paper/kdd2027/TEXLIVE_ENVIRONMENT.txt 2>/dev/null || true
+          cat paper/kdd2027/diagnostics/main-log-tail.txt 2>/dev/null || true
+          cat paper/kdd2027/diagnostics/main.blg 2>/dev/null || true
+          exit 1
+
+      - name: Verify canonical release files are present
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s paper/releases/DRPO_KDD2027_STAGE_A.pdf
+          test -s paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt
+          test -s paper/releases/DRPO_KDD2027_OVERLEAF.zip

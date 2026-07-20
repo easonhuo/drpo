@@ -1,0 +1,13 @@
+source_sha256=6e5ee53daf390f50ee2f2098826c02882a53257cbbe97ccee4a4ace1cde45dae
+canonical_content_sha256=842bc044055bf9695a23ce26411df6b93859d2582c6eb877ab7751bf8e5d6708
+pages=25
+page_size=612 x 792 pts (letter)
+texlive_version=2025
+required_figures=5
+rendered_pages=25
+pdf_sha256=74bb2a6ec96dbeaca4210e2d180c3bd875232e7ec4b8e086fd46e7f8c21f19f5
+content_lock=PASS
+anonymous_pdf=PASS
+latex_diagnostics=PASS
+font_embedding=PASS
+render_gate=PASS

@@ -1,0 +1,21 @@
+schema_version: 3
+update_id: EXT-H-E7-SQEXP-GAE-FROZEN-DIAGNOSTIC-2026-07-18
+mode: authoritative
+base:
+  commit: bb637503e1289f24f7a28e587f50665afb20e0de
+  handoff_sha256: f8ff67ab71c0f53b21fc96967a13aa3e5b8500e42d25464e378df23e1f62c4e8
+  registry_sha256: 05671687033882a6c4954c58e6b5e902709edc3f60818c921d8c954eb7a6deea
+renderer_version: 1
+operations:
+- operation_id: append-e7-sqexp-gae-frozen-critic-diagnostic
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e7-sqexp-gae-frozen-critic-diagnostic-20260718
+  content: '- **E7 frozen-critic TD/GAE 192-branch diagnostic 归档（非当前 joint-critic 结果）：**昨晚完成的旧实现结果已按 package SHA-256 `01ac39461248391e668f9808428b3d66157ea9ea28ac5411d0b07b3a725c04d0` 和 run-identity SHA-256 `ed24dd90262823422368e3d3fb991743c1c2e8c67d8da2188c118ac75c6b5719` 归档。该 run 使用 frozen critic、预计算 advantage、A2C/PPO-K4、TD/GAE(lambda=0.95)、Positive-only 与 squared EXP c={64,128,256}，3 tasks x 4 development seeds 共 192/192 branches 完成，failed=0、NaN/Inf=0、support/variance boundary=0，held-out seeds 204--207 未使用；task-performance collapse 因未登记阈值而保持 not_adjudicated。描述性结果中 GAE 的 800k--1M late mean 在 23/24 个 dataset-actor-control groups 与 82/96 个 paired seed cells 高于 TD，平均 GAE-TD late/final/best 分别为 +14.24/+17.02/+5.71；Positive-only 下六个 dataset-actor cells 均为 GAE 高于 TD，Hopper 信号最强，但 Walker-replay PPO c=256 是 grouped late 的唯一反例。该包缺少可解析 repository source commit，且不是已合入的 changing-critic snapshot 实现，因此只作为 superseded frozen-critic diagnostic 保留，不得升级为 formal evidence、普遍 GAE/c/PPO 排名、收敛或稳态结论；当前正确 `EXT-H-E7-SQEXP-GAE-01` 继续保持 not_run。完整实际分数、advantage diagnostics 与边界说明见 `docs/results/E7_SQEXP_GAE_FROZEN_CRITIC_DIAGNOSTIC_2026-07-18.md`，机器证据见 `experiments/results/e7_sqexp_gae_frozen_critic_diagnostic_20260718/`。'
+registry:
+  mode: unchanged
+  changes: []
+expected:
+  exact_base_candidate_sha256: f8ff67ab71c0f53b21fc96967a13aa3e5b8500e42d25464e378df23e1f62c4e8
