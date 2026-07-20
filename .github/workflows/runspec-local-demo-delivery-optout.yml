@@ -27,7 +27,7 @@ jobs:
           git merge-base --is-ancestor cfe43571cd8c6d0909c61d36c4f6e4d07c2d2362 HEAD
           test "$(git diff --name-only cfe43571cd8c6d0909c61d36c4f6e4d07c2d2362 HEAD | sort)" = ".github/workflows/runspec-local-demo-delivery-optout.yml"
 
-      - name: Apply two narrow test repairs in audit workspace
+      - name: Apply three narrow test repairs in audit workspace
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -53,6 +53,16 @@ jobs:
           if text.count(old) != 1:
               raise SystemExit(f'expected one wrapped-instruction assertion, found {text.count(old)}')
           claude_path.write_text(text.replace(old, new), encoding='utf-8')
+
+          cpu_path = Path('tests/test_e7_measured_cpu_autotune.py')
+          text = cpu_path.read_text(encoding='utf-8')
+          old = '    assert result["machine_snapshot"]["load_average_1m"] == 999.0\n'
+          new = '''    record = json.loads(Path(result["revalidation"]["path"]).read_text())
+    assert record["current_machine_snapshot"]["load_average_1m"] == 999.0
+'''
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one stale machine snapshot assertion, found {text.count(old)}')
+          cpu_path.write_text(text.replace(old, new), encoding='utf-8')
           PY
 
       - name: Install dependencies
@@ -60,20 +70,20 @@ jobs:
           python -m pip install --quiet --upgrade pip
           python -m pip install --quiet -e . pytest ruff pyyaml
 
-      - name: Capture full repository pytest evidence
+      - name: Capture complete repository pytest evidence
         run: |
           set +e
-          python -m pytest -q -vv --maxfail=1 --junitxml=/tmp/full.xml > /tmp/full.log 2>&1
+          python -m pytest -q --junitxml=/tmp/full.xml > /tmp/full.log 2>&1
           code=$?
           echo "$code" > /tmp/full.exit
           echo "pytest_exit_code=$code"
-          tail -n 250 /tmp/full.log
+          tail -n 300 /tmp/full.log
           exit 0
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: runspec-local-demo-third-pytest-diagnostic-${{ github.run_id }}
+          name: runspec-local-demo-complete-pytest-diagnostic-${{ github.run_id }}
           path: |
             /tmp/full.log
             /tmp/full.xml
