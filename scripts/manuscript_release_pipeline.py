@@ -24,6 +24,9 @@ class ReleaseBuildError(RuntimeError):
     pass
 
 
+_TEX_INCLUDE_RE = re.compile(r"\\(?:input|include)\{([^{}]+)\}")
+
+
 def read_yaml(path: Path) -> dict[str, Any]:
     try:
         payload = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -53,6 +56,45 @@ def resolve_command(raw: Any, root: Path) -> list[str]:
         raise ReleaseBuildError("release command must be a non-empty string list")
     replacements = {"{python}": sys.executable, "{repo_root}": str(root)}
     return [replacements.get(item, item.replace("{repo_root}", str(root))) for item in raw]
+
+
+def resolve_active_template_source(main_path: Path, template_root: Path) -> str:
+    """Collect literal TeX source reachable from the configured entrypoint.
+
+    Repository entrypoints may be thin wrappers around a replacement source.
+    Follow only existing literal ``\\input`` and ``\\include`` targets that stay
+    inside the configured template root. Macro paths, missing optional inputs,
+    cycles, and paths outside the root are ignored.
+    """
+
+    root = template_root.resolve()
+    if not main_path.is_file():
+        raise ReleaseBuildError(f"configured main TeX file is missing: {main_path}")
+    visited: set[Path] = set()
+    chunks: list[str] = []
+
+    def visit(path: Path) -> None:
+        resolved = path.resolve()
+        try:
+            resolved.relative_to(root)
+        except ValueError:
+            return
+        if resolved in visited or not resolved.is_file():
+            return
+        visited.add(resolved)
+        source = resolved.read_text(encoding="utf-8")
+        chunks.append(source)
+        for raw_target in _TEX_INCLUDE_RE.findall(source):
+            target = raw_target.strip()
+            if not target or "\\" in target or "#" in target:
+                continue
+            candidate = resolved.parent / target
+            if not candidate.suffix:
+                candidate = candidate.with_suffix(".tex")
+            visit(candidate)
+
+    visit(main_path)
+    return "\n".join(chunks)
 
 
 def build_assets(root: Path, manifest: dict[str, Any]) -> None:
@@ -117,11 +159,14 @@ def validate_release(root: Path, manifest: dict[str, Any]) -> None:
     template = manifest["paper_template"]
     overleaf = root / template["root"]
     main_path = root / template["main_tex"]
-    main = main_path.read_text(encoding="utf-8")
-    if int(template.get("columns", 1)) == 2 and "\\twocolumn" not in main:
+    active_source = resolve_active_template_source(main_path, overleaf)
+    if (
+        int(template.get("columns", 1)) == 2
+        and "\\twocolumn" not in active_source
+    ):
         raise ReleaseBuildError("configured two-column template is not active")
     family = str(template.get("family", "")).strip()
-    if family and family not in main:
+    if family and family not in active_source:
         raise ReleaseBuildError("configured template family is not active")
     all_tex = "\n".join(path.read_text(encoding="utf-8") for path in overleaf.rglob("*.tex"))
     for obligation in manifest.get("proof_obligations", []):
@@ -130,8 +175,30 @@ def validate_release(root: Path, manifest: dict[str, Any]) -> None:
         for label in obligation.values():
             if f"\\label{{{label}}}" not in all_tex:
                 raise ReleaseBuildError(f"missing proof/statement label: {label}")
-    bib_path = root / template["bibliography"]
-    bib = bib_path.read_text(encoding="utf-8")
+    bib_paths = [(root / template["bibliography"]).resolve()]
+    bibliography_root = overleaf.resolve()
+    for group in re.findall(r"\\bibliography\{([^}]+)\}", active_source):
+        for raw_name in group.split(","):
+            name = raw_name.strip()
+            if not name or "\\" in name or "#" in name:
+                continue
+            candidate = (overleaf / name).resolve()
+            if candidate.suffix != ".bib":
+                candidate = candidate.with_suffix(".bib")
+            try:
+                candidate.relative_to(bibliography_root)
+            except ValueError as exc:
+                raise ReleaseBuildError(
+                    f"bibliography escapes template root: {name}"
+                ) from exc
+            if candidate not in bib_paths:
+                bib_paths.append(candidate)
+    bib_chunks: list[str] = []
+    for bib_path in bib_paths:
+        if not bib_path.is_file():
+            raise ReleaseBuildError(f"missing bibliography file: {bib_path}")
+        bib_chunks.append(bib_path.read_text(encoding="utf-8"))
+    bib = "\n".join(bib_chunks)
     keys = set(re.findall(r"@[A-Za-z]+\s*\{\s*([^,]+),", bib))
     used: set[str] = set()
     for group in re.findall(r"\\cite[a-zA-Z]*\{([^}]+)\}", all_tex):
