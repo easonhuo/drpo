@@ -1,0 +1,46 @@
+name: ReplayAB R2 outcome binding v2
+on:
+  pull_request:
+    branches: [dev/replayab-r2-semantic-acceptance-01]
+permissions:
+  contents: write
+jobs:
+  harden:
+    if: github.head_ref == 'exec/replayab-r2-outcome-binding-v2'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/replayab-r2-semantic-acceptance-01
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest ruff pyyaml
+      - shell: bash
+        run: |
+          git show origin/exec/replayab-r2-outcome-binding-01:.github/workflows/replayab-r2-outcome-binding.yml > /tmp/v1.yml
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess, yaml
+          workflow = yaml.safe_load(Path('/tmp/v1.yml').read_text())
+          steps = workflow['jobs']['harden']['steps']
+          def script(name):
+              return next(s['run'] for s in steps if s.get('name') == name)
+          apply = script('Apply outcome-evidence binding')
+          old = "tests.write_text(test_text.rstrip() + addition + '\\n', encoding='utf-8')"
+          new = "tests.write_text(test_text.rstrip() + addition.rstrip() + '\\n', encoding='utf-8')"
+          if old not in apply:
+              raise SystemExit('EOF-write marker missing')
+          apply = apply.replace(old, new, 1)
+          for command in (
+              apply,
+              script('Verify scope and budget'),
+              script('Run focused tests and Ruff'),
+              script('Commit hardened R2 implementation'),
+          ):
+              subprocess.run(['bash', '-lc', command], check=True)
+          PY
