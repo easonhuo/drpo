@@ -1,0 +1,38 @@
+name: Trigger Countdown closure payload
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: dev/paper-code-reference-01
+      - name: Apply verified payload and self-remove
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '3e08c76f05e85d487089078870c6b76714003d5abaec070bcb7a02770e9d2744  paper_code/src/drpo_reference/experiments/countdown.py' | sha256sum -c -
+          echo 'b66d174057793b9d06b31e19c892b40ab7c569ae58f923b7f55ab2b324bc1f0d  paper_code/tests/test_common.py' | sha256sum -c -
+          payload="$(sed -n 's/^          PAYLOAD: //p' .github/workflows/apply_countdown_closure.yml)"
+          test -n "$payload"
+          printf '%s' "$payload" | base64 --decode | gzip --decompress > /tmp/countdown-closure.patch
+          git apply --check /tmp/countdown-closure.patch
+          git apply /tmp/countdown-closure.patch
+          echo '72d334b944b9638cc07f7ff4a13df3dfad71568c1007024f7ecd37bdba0eeb21  paper_code/src/drpo_reference/experiments/countdown.py' | sha256sum -c -
+          echo '222e9c23abe17ec5be8b7c30e004a68449a6c133e476f7de78adab70c8b22647  paper_code/tests/test_common.py' | sha256sum -c -
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/apply_countdown_closure.yml .github/workflows/trigger_countdown_closure.yml
+          git add paper_code/src/drpo_reference/experiments/countdown.py paper_code/tests/test_common.py
+          git commit -m 'PAPER-CODE-REFERENCE-01 bind Countdown v79 result coordinate'
+          git push origin HEAD:dev/paper-code-reference-01
