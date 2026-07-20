@@ -1,4 +1,4 @@
-name: ReplayAB R1 authority repair preview v2
+name: Materialize ReplayAB R1 authority repair
 
 on:
   pull_request:
@@ -7,22 +7,23 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: replayab-r1-authority-repair-preview-v2
+  group: replayab-r1-authority-repair-materialize
   cancel-in-progress: false
 
 jobs:
-  preview-repair:
+  materialize:
     if: github.event_name != 'pull_request' || github.head_ref == 'exec/replayab-r1-authority-repair-preview-02'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
       BASE_SHA: dd46727c1efefd2e6d4cdf6f3b204ec1fc58fca3
+      FORMAL_BRANCH: repair/replayab-r1-authority-binding-01
       OLD_DIGEST: 5f02130bc08513540e694fc1b1abf1d8437f9fa697f92535c49a795dcd9de179
       NEW_DIGEST: ae7f23134285b5314647bd1068bc3fa1f3935deccdd24536eb8183cb57e11494
-      OUT: /tmp/replayab-r1-authority-repair-preview-v2
+      OUT: /tmp/replayab-r1-authority-repair-materialization
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,15 +34,26 @@ jobs:
           python-version: '3.11'
           cache: pip
 
-      - name: Install development dependencies
-        run: python -m pip install -e '.[dev]'
-
-      - name: Generate mechanically repaired fixtures
+      - name: Verify exact base and create isolated worktree
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf "$OUT"
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          test "$(git rev-parse origin/$FORMAL_BRANCH)" = "$BASE_SHA"
+          rm -rf /tmp/replayab-r1-formal-repair "$OUT"
           mkdir -p "$OUT/modified_files"
+          git worktree add --detach /tmp/replayab-r1-formal-repair "$BASE_SHA"
+          test "$(git -C /tmp/replayab-r1-formal-repair rev-parse HEAD)" = "$BASE_SHA"
+          test -z "$(git -C /tmp/replayab-r1-formal-repair status --porcelain=v1)"
+
+      - name: Install exact-base development dependencies
+        run: python -m pip install -e '/tmp/replayab-r1-formal-repair[dev]'
+
+      - name: Generate approved repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/replayab-r1-formal-repair
           python - <<'PY'
           import hashlib
           import json
@@ -53,9 +65,8 @@ jobs:
           root = Path.cwd()
           old = os.environ['OLD_DIGEST']
           new = os.environ['NEW_DIGEST']
-          actual_contract = hashlib.sha256(
-              (root / 'docs/development_workflow_optimization/R1_IMPLEMENTATION_CONTRACT.md').read_bytes()
-          ).hexdigest()
+          contract_path = root / 'docs/development_workflow_optimization/R1_IMPLEMENTATION_CONTRACT.md'
+          actual_contract = hashlib.sha256(contract_path.read_bytes()).hexdigest()
           if actual_contract != new:
               raise SystemExit(
                   f'actual contract digest {actual_contract} does not equal approved replacement {new}'
@@ -83,24 +94,24 @@ jobs:
               raw = json.dumps(value, sort_keys=True, separators=(',', ':')).encode()
               return hashlib.sha256(raw).hexdigest()
 
-          contract_digests = {}
+          case_digests = {}
           for case in ('ready', 'failure'):
               manifest_path = root / f'tests/fixtures/workflow_replay/r1/{case}/manifest.yaml'
               manifest = yaml.safe_load(manifest_path.read_text(encoding='utf-8'))
               contract_sha = canonical_sha256(manifest)
-              contract_digests[case] = contract_sha
+              case_digests[case] = contract_sha
               for arm in ('a', 'b'):
                   run_path = root / f'tests/fixtures/workflow_replay/r1/{case}/run-{arm}.json'
                   run = json.loads(run_path.read_text(encoding='utf-8'))
                   if run['identities']['evidence_schema_sha256'] != new:
-                      raise SystemExit(f'{run_path}: evidence schema replacement did not apply')
+                      raise SystemExit(f'{run_path}: replacement did not apply')
                   run['case_contract_sha256'] = contract_sha
                   run_path.write_text(
                       json.dumps(run, indent=2, sort_keys=True) + '\n', encoding='utf-8'
                   )
 
-          repair_doc = root / 'docs/development_workflow_optimization/replayab_r1_calibration/R1_AUTHORITY_BINDING_REPAIR.md'
-          repair_doc.write_text(
+          record = root / 'docs/development_workflow_optimization/replayab_r1_calibration/R1_AUTHORITY_BINDING_REPAIR.md'
+          record.write_text(
               '# ReplayAB R1 Authority-Binding Repair\n\n'
               'Claim: `GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01`\n\n'
               'Calibration: `REPLAYAB-R1-C1-CALIBRATION-01`\n\n'
@@ -125,11 +136,13 @@ jobs:
               '- Preserve the original failed calibration and diagnostic artifacts.\n\n'
               '## Validation gate\n\n'
               'The repaired fixtures must pass the complete frozen R1 calibration module, focused '
-              'Candidate 01 replay tests, Ruff, full repository pytest, and repository governance '
-              'checks before merge. Passing authorizes R1 closure review only; it does not start R2.\n',
+              'ReplayAB tests, full repository PR gates, and governance checks before merge. Ruff '
+              'is required for changed Python files; this repair changes no Python file. Passing '
+              'authorizes R1 closure review only and does not start R2.\n',
               encoding='utf-8',
           )
 
+          modified = sorted(direct_paths + [record.relative_to(root).as_posix()])
           report = {
               'schema_version': 1,
               'claim_id': 'GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01',
@@ -137,8 +150,9 @@ jobs:
               'old_digest': old,
               'new_digest': new,
               'actual_contract_sha256': actual_contract,
-              'derived_case_contract_sha256': contract_digests,
-              'modified_paths': sorted(direct_paths + [repair_doc.relative_to(root).as_posix()]),
+              'derived_case_contract_sha256': case_digests,
+              'modified_paths': modified,
+              'changed_python_paths': [],
               'behavior_or_threshold_change': False,
           }
           out = Path(os.environ['OUT'])
@@ -146,45 +160,7 @@ jobs:
               json.dumps(report, indent=2, sort_keys=True) + '\n', encoding='utf-8'
           )
           PY
-          git add -N docs/development_workflow_optimization/replayab_r1_calibration/R1_AUTHORITY_BINDING_REPAIR.md
-          git diff --check
-          python - <<'PY'
-          import json
-          import os
-          import subprocess
-          from pathlib import Path
-
-          report = json.loads((Path(os.environ['OUT']) / 'REPAIR_REPORT.json').read_text())
-          changed = sorted(subprocess.run(
-              ['git', 'diff', '--name-only', os.environ['BASE_SHA'], '--'],
-              check=True, text=True, capture_output=True,
-          ).stdout.splitlines())
-          workflow = '.github/workflows/replayab-r1-authority-repair-preview-v2.yml'
-          expected = sorted(report['modified_paths'] + [workflow])
-          if changed != expected:
-              raise SystemExit(f'preview scope mismatch: changed={changed}, expected={expected}')
-          PY
-
-      - name: Run frozen R1 and replay focused tests
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pytest -q \
-            tests/test_workflow_replay_r1.py \
-            tests/test_workflow_replay_execute.py \
-            tests/test_workflow_replay_compare.py 2>&1 | tee "$OUT/focused_pytest.log"
-
-      - name: Run Ruff
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m ruff check . 2>&1 | tee "$OUT/ruff.log"
-
-      - name: Build repair patch and complete files
-        shell: bash
-        run: |
-          set -euo pipefail
-          git diff --binary "$BASE_SHA" -- \
+          git add \
             docs/development_workflow_optimization/replayab_r1_calibration/R1_AUTHORITY_BINDING_REPAIR.md \
             tests/fixtures/workflow_replay/r1/ready/manifest.yaml \
             tests/fixtures/workflow_replay/r1/failure/manifest.yaml \
@@ -193,15 +169,56 @@ jobs:
             tests/fixtures/workflow_replay/r1/failure/run-a.json \
             tests/fixtures/workflow_replay/r1/failure/run-b.json \
             tests/fixtures/workflow_replay/candidate01_c1/c01_code_only_contract.yaml \
-            tests/fixtures/workflow_replay/candidate01_c1/c06_stale_main_contract.yaml \
-            > "$OUT/update.patch"
+            tests/fixtures/workflow_replay/candidate01_c1/c06_stale_main_contract.yaml
+          git diff --cached --check
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          report = json.loads((Path(os.environ['OUT']) / 'REPAIR_REPORT.json').read_text())
+          changed = sorted(subprocess.run(
+              ['git', 'diff', '--cached', '--name-only'],
+              check=True, text=True, capture_output=True,
+          ).stdout.splitlines())
+          if changed != report['modified_paths']:
+              raise SystemExit(f'formal repair scope mismatch: {changed}')
+          if any(path.endswith('.py') for path in changed):
+              raise SystemExit('approved repair unexpectedly changes Python')
+          PY
+          printf 'NOT_APPLICABLE: no changed Python files\n' > "$OUT/ruff_changed.log"
+
+      - name: Run frozen R1 and ReplayAB focused tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/replayab-r1-formal-repair
+          python -m pytest -q \
+            tests/test_workflow_replay_r1.py \
+            tests/test_workflow_replay_execute.py \
+            tests/test_workflow_replay_compare.py 2>&1 | tee "$OUT/focused_pytest.log"
+
+      - name: Commit and push formal repair branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/replayab-r1-formal-repair
+          git config user.name 'DRPO Replay Repair'
+          git config user.email 'drpo-replay-repair@local.invalid'
+          git commit -m 'Repair ReplayAB R1 authority binding'
+          commit=$(git rev-parse HEAD)
+          git push origin "HEAD:refs/heads/$FORMAL_BRANCH"
+          printf '%s\n' "$commit" > "$OUT/FORMAL_COMMIT.txt"
+          git diff --binary "$BASE_SHA" HEAD > "$OUT/update.patch"
+          printf '%s\n' "$BASE_SHA" > "$OUT/BASE_COMMIT.txt"
           python - <<'PY'
           import json
           import os
           import shutil
           from pathlib import Path
 
-          root = Path.cwd()
+          root = Path('/tmp/replayab-r1-formal-repair')
           out = Path(os.environ['OUT'])
           report = json.loads((out / 'REPAIR_REPORT.json').read_text())
           for relative in report['modified_paths']:
@@ -209,15 +226,14 @@ jobs:
               target = out / 'modified_files' / relative
               target.parent.mkdir(parents=True, exist_ok=True)
               shutil.copy2(source, target)
-          (out / 'BASE_COMMIT.txt').write_text(os.environ['BASE_SHA'] + '\n', encoding='utf-8')
           PY
           find "$OUT" -type f -printf '%P %s bytes\n' | sort > "$OUT/ARTIFACT_INVENTORY.txt"
 
-      - name: Upload repair preview
+      - name: Upload materialization evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: replayab-r1-authority-repair-preview-v2-${{ github.run_id }}
-          path: /tmp/replayab-r1-authority-repair-preview-v2
+          name: replayab-r1-authority-repair-materialization-${{ github.run_id }}
+          path: /tmp/replayab-r1-authority-repair-materialization
           if-no-files-found: warn
           retention-days: 30
