@@ -1,0 +1,228 @@
+name: ReplayAB R2 materialization v3
+
+on:
+  pull_request:
+    branches:
+      - dev/replayab-r2-semantic-acceptance-01
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: github.head_ref == 'exec/replayab-r2-materialize-v3'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/replayab-r2-semantic-acceptance-01
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install pytest ruff pyyaml
+
+      - name: Execute corrected frozen materializer
+        shell: bash
+        run: |
+          git show origin/exec/replayab-r2-materialize-01:.github/workflows/replayab-r2-materialize.yml > /tmp/r2-materializer.yml
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import yaml
+
+          text = Path('/tmp/r2-materializer.yml').read_text(encoding='utf-8')
+          old = '          test_text = test_text.replace("          ", "")\n'
+          if old not in text:
+              raise SystemExit('destructive indentation line not found')
+          text = text.replace(old, '          test_text = test_text\n', 1)
+          workflow = yaml.safe_load(text)
+          script = next(
+              step['run']
+              for step in workflow['jobs']['materialize']['steps']
+              if step.get('name') == 'Materialize R2 implementation and calibration'
+          )
+          subprocess.run(['bash', '-lc', script], check=True)
+          PY
+
+      - name: Apply diagnostic correctness fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          path = Path('src/drpo/workflow_replay/evidence.py')
+          text = path.read_text(encoding='utf-8')
+
+          old_paths = '''def _safe_paths(value: Any, label: str) -> tuple[str, ...]:
+              paths = _sorted_tokens(value, label)
+              for raw in paths:
+                  path = PurePosixPath(raw)
+                  if raw.startswith(("/", "-")) or "\\" in raw or path.as_posix() != raw or ".." in path.parts:
+                      raise EvidenceError(f"{label} contains an unsafe path")
+              return paths
+          '''.replace('              ', '')
+          new_paths = '''def _safe_paths(value: Any, label: str) -> tuple[str, ...]:
+              if not isinstance(value, list):
+                  raise EvidenceError(f"{label} must be a list")
+              paths = tuple(value)
+              if any(
+                  not isinstance(raw, str) or not raw or raw != raw.strip()
+                  for raw in paths
+              ) or paths != tuple(sorted(set(paths))):
+                  raise EvidenceError(f"{label} must contain sorted unique paths")
+              for raw in paths:
+                  path = PurePosixPath(raw)
+                  if raw.startswith(("/", "-")) or "\\" in raw or path.as_posix() != raw or ".." in path.parts:
+                      raise EvidenceError(f"{label} contains an unsafe path")
+              return paths
+          '''.replace('              ', '')
+          if old_paths not in text:
+              raise SystemExit('old safe-path validator not found')
+          text = text.replace(old_paths, new_paths, 1)
+
+          old_valid = '''def _semantic_execution_valid(run: NormalizedRun, contract: AcceptanceContract) -> bool:
+              outcome = run.outcome
+              if not run.execution_valid or outcome is None or outcome.terminal_state != "READY":
+                  return False
+              roots = tuple(contract.base.benchmark["expected_changed_paths"])
+              return (
+                  bool(outcome.changed_paths)
+                  and all(_path_in_roots(path, roots) for path in outcome.changed_paths)
+                  and not (set(outcome.changed_paths) & set(contract.protected_paths))
+                  and outcome.authority_result == "PASS"
+                  and set(dict(outcome.gate_results).values()) == {"PASS"}
+                  and not outcome.diagnostic_codes
+                  and not outcome.partial_mutation
+                  and outcome.recovery_class is None
+              )
+          '''.replace('              ', '')
+          new_valid = '''def _semantic_execution_valid(run: NormalizedRun, contract: AcceptanceContract) -> bool:
+              outcome = run.outcome
+              if not run.execution_valid or outcome is None or outcome.terminal_state != "READY":
+                  return False
+              benchmark = contract.base.benchmark
+              historical = contract.base.historical_task
+              roots = tuple(benchmark["expected_changed_paths"])
+              provenance = dict(outcome.provenance)
+              expected_provenance = {
+                  "benchmark_toolchain_sha": benchmark["toolchain_sha"],
+                  "cache_policy": benchmark["cache_policy"],
+                  "environment_id": benchmark["environment_id"],
+                  "historical_base_sha": historical["base_sha"],
+                  "input_spec_sha256": benchmark["input_spec_sha256"],
+              }
+              if historical["frozen_implementation_sha"] is not None:
+                  expected_provenance["frozen_implementation_sha"] = historical["frozen_implementation_sha"]
+              protected = any(
+                  _path_in_roots(path, contract.protected_paths)
+                  for path in outcome.changed_paths
+              )
+              return (
+                  outcome.case_id == contract.base.case_id
+                  and bool(outcome.changed_paths)
+                  and tuple(path for path, _ in outcome.file_modes) == outcome.changed_paths
+                  and bool(outcome.output_hashes)
+                  and all(_path_in_roots(path, roots) for path in outcome.changed_paths)
+                  and not protected
+                  and outcome.authority_result == "PASS"
+                  and outcome.gate_plan == tuple(benchmark["required_gates"])
+                  and set(dict(outcome.gate_results).values()) == {"PASS"}
+                  and all(provenance.get(key) == value for key, value in expected_provenance.items())
+                  and not outcome.diagnostic_codes
+                  and not outcome.partial_mutation
+                  and outcome.recovery_class is None
+              )
+          '''.replace('              ', '')
+          if old_valid not in text:
+              raise SystemExit('old semantic execution validator not found')
+          text = text.replace(old_valid, new_valid, 1)
+          path.write_text(text, encoding='utf-8')
+
+          fixture = Path('tests/fixtures/workflow_replay/r2/semantic')
+          for arm in ('a', 'b'):
+              run_path = fixture / f'run-{arm}.json'
+              run = json.loads(run_path.read_text(encoding='utf-8'))
+              if run['schema_version'] != 2:
+                  raise SystemExit('unexpected generated semantic run schema')
+              run['schema_version'] = 1
+              run_path.write_text(
+                  json.dumps(run, indent=2, sort_keys=True) + '\n', encoding='utf-8'
+              )
+          PY
+
+      - name: Verify authorized scope and code budget
+        shell: bash
+        run: |
+          python - <<'PY'
+          import subprocess
+
+          allowed_exact = {
+              'src/drpo/workflow_replay/evidence.py',
+              'tests/test_workflow_replay_r1.py',
+              'docs/development_workflow_optimization/R2_GAP_AUDIT.md',
+              'docs/development_workflow_optimization/R2_IMPLEMENTATION_CONTRACT.md',
+          }
+          changed = subprocess.check_output(['git', 'diff', '--name-only'], text=True).splitlines()
+          for path in changed:
+              allowed = (
+                  path in allowed_exact
+                  or path.startswith('tests/fixtures/workflow_replay/r2/')
+                  or path.startswith('docs/development_workflow_optimization/replayab_r2_calibration/')
+              )
+              if not allowed:
+                  raise SystemExit(f'unauthorized path: {path}')
+          new_python = subprocess.check_output(
+              ['git', 'diff', '--diff-filter=A', '--name-only'], text=True
+          ).splitlines()
+          if any(path.lower().endswith('.py') for path in new_python):
+              raise SystemExit(f'new Python path is forbidden: {new_python}')
+          diff = subprocess.check_output(
+              ['git', 'diff', '--unified=0', '--', 'src/drpo/workflow_replay/evidence.py'],
+              text=True,
+          )
+          count = 0
+          for line in diff.splitlines():
+              if line.startswith('+') and not line.startswith('+++'):
+                  body = line[1:].strip()
+                  if body and not body.startswith('#'):
+                      count += 1
+          print(f'changed production Python lines: {count}')
+          if not 280 <= count <= 360:
+              raise SystemExit('production Python delta left the preferred R2 budget')
+          PY
+          git diff --check
+
+      - name: Run focused ReplayAB tests
+        run: |
+          python -m pytest \
+            tests/test_workflow_replay_model.py \
+            tests/test_workflow_replay_execute.py \
+            tests/test_workflow_replay_compare.py \
+            tests/test_workflow_replay_r1.py -q
+
+      - name: Run Ruff on changed Python
+        run: |
+          python -m ruff check \
+            src/drpo/workflow_replay/evidence.py \
+            tests/test_workflow_replay_r1.py
+
+      - name: Commit materialized R2 implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/drpo/workflow_replay/evidence.py \
+            tests/test_workflow_replay_r1.py \
+            tests/fixtures/workflow_replay/r2 \
+            docs/development_workflow_optimization/replayab_r2_calibration
+          git commit -m "Implement ReplayAB R2 semantic acceptance"
+          git push origin HEAD:dev/replayab-r2-semantic-acceptance-01
