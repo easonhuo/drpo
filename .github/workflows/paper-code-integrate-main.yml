@@ -55,13 +55,19 @@ jobs:
           parents=$(git show -s --format=%P HEAD)
           first_parent=${parents%% *}
           second_parent=${parents##* }
-          test "$first_parent" = "$branch_head"
-          test "$second_parent" = "$EXPECTED_MAIN"
+          if [ "$first_parent" != "$branch_head" ] || [ "$second_parent" != "$EXPECTED_MAIN" ]; then
+            echo "unexpected merge parents: $parents" >&2
+            exit 1
+          fi
 
-          git diff --exit-code "$branch_head" HEAD -- \
+          if ! git diff --exit-code "$branch_head" HEAD -- \
             paper_code \
             docs/paper_code_reference \
             .github/workflows/paper-code-validation.yml
+          then
+            echo "main integration changed the protected paper-code task tree" >&2
+            exit 1
+          fi
 
           for path in \
             AGENTS.md \
@@ -70,9 +76,13 @@ jobs:
             docs/governance_pipeline_stage_status.yaml \
             docs/governance_rule_inventory.yaml
           do
-            test "$(git rev-parse "HEAD:${path}")" = \
-              "$(git rev-parse "${EXPECTED_MAIN}:${path}")"
+            head_blob=$(git rev-parse "HEAD:${path}")
+            main_blob=$(git rev-parse "${EXPECTED_MAIN}:${path}")
+            if [ "$head_blob" != "$main_blob" ]; then
+              echo "authority path differs from audited main: $path" >&2
+              exit 1
+            fi
           done
 
-          git diff --check "$branch_head" HEAD
+          test -z "$(git status --porcelain)"
           git push origin "HEAD:${HEAD_REF}"
