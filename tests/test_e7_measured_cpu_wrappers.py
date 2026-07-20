@@ -199,6 +199,30 @@ def test_night_runtime_kwargs_apply_bounded_probe_policy() -> None:
     assert policy["requested_probe_seconds"] == 2_500.0
 
 
+def test_requested_probe_policy_is_recorded_outside_selection_identity(
+    tmp_path: Path,
+) -> None:
+    document = {"selection_digest": "stable-digest", "selection": {"selected_workers": 41}}
+    policy = night_adapter._bounded_probe_policy(100_000, 2_500.0)  # noqa: SLF001
+    result = night_adapter._attach_requested_probe_policy(  # noqa: SLF001
+        document,
+        work_dir=tmp_path,
+        policy=policy,
+    )
+    assert result["selection_digest"] == "stable-digest"
+    assert result["requested_probe_policy"] == {
+        "requested_probe_steps": 100_000,
+        "effective_probe_steps": 5_000,
+        "requested_probe_seconds": 2_500.0,
+        "effective_probe_seconds": 120.0,
+        "identity_affecting": False,
+    }
+    persisted = json.loads(
+        (tmp_path / "RUNTIME_SELECTION.json").read_text(encoding="utf-8")
+    )
+    assert persisted == result
+
+
 def test_night_throughput_probe_is_bounded_independently(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -243,11 +267,11 @@ def test_valid_lower_candidates_remain_selectable_after_higher_failure() -> None
     selected, rule = shared.select_from_throughput(
         [
             {"concurrency": 1, "valid": True, "aggregate_updates_per_second": 100.0},
-            {"concurrency": 17, "valid": True, "aggregate_updates_per_second": 900.0},
-            {"concurrency": 33, "valid": True, "aggregate_updates_per_second": 1_700.0},
-            {"concurrency": 49, "valid": False, "aggregate_updates_per_second": 0.0},
+            {"concurrency": 23, "valid": True, "aggregate_updates_per_second": 900.0},
+            {"concurrency": 41, "valid": True, "aggregate_updates_per_second": 1_700.0},
+            {"concurrency": 60, "valid": False, "aggregate_updates_per_second": 0.0},
         ],
         retention_fraction=0.97,
     )
-    assert selected == 33
+    assert selected == 41
     assert rule["peak_aggregate_updates_per_second"] == 1_700.0
