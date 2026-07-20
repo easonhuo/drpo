@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path

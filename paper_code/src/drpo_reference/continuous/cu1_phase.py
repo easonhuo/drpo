@@ -22,10 +22,8 @@ from .cu1 import (
 )
 from .cu1_mechanism import _support_event_type as support_event_type
 from .cu1_training import (
-    EPS,
     CU1PositiveProtocol,
     finite_model,
-    gradient_norm,
     make_adam,
     normalized_field_residual,
     optimizer_step_with_norm,

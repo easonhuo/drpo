@@ -8,7 +8,6 @@ detached negative-sample weight applied to standardized action distance.
 from __future__ import annotations
 
 import copy
-import math
 from dataclasses import dataclass
 from typing import Any
 
