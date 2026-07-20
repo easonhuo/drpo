@@ -77,7 +77,7 @@ phases:
     scientific_role: external_mechanism_validation
     authoritative_sources:
       - src/drpo/e7_hopper_q2.py
-      - configs/e7_hopper_q2.yaml
+      - configs/e7_hopper_q2_medium_replay_v2.yaml
       - scripts/run_e7_hopper_q2.py
       - outputs/e7_hopper_q2
     reference_entrypoint: paper_code/src/drpo_reference/experiments/hopper.py

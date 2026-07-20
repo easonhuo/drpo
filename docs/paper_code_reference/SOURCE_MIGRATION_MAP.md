@@ -134,7 +134,7 @@ Hopper E7-Q2 remains a separate mechanism trainer.
 
 - Hopper E7-Q2 authoritative mechanism sources:
   - `src/drpo/e7_hopper_q2.py`;
-  - `configs/e7_hopper_q2.yaml`;
+  - `configs/e7_hopper_q2_medium_replay_v2.yaml`;
   - `scripts/run_e7_hopper_q2.py`;
   - registered dataset identity and selected compact outputs;
 - selected canonical D4RL performance oracles:

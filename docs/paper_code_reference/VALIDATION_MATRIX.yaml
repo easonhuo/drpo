@@ -196,7 +196,7 @@ stages:
         status: pending
         authoritative_sources:
           - src/drpo/e7_hopper_q2.py
-          - configs/e7_hopper_q2.yaml
+          - configs/e7_hopper_q2_medium_replay_v2.yaml
           - scripts/run_e7_hopper_q2.py
         command: >-
           python -m pytest -q tests/test_hopper_data_differential.py
