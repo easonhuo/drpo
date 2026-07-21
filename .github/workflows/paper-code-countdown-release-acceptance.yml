@@ -1,11 +1,11 @@
 name: One-time Countdown release acceptance
 
 on:
-  pull_request:
-    types: [synchronize]
+  push:
+    branches:
+      - dev/paper-code-reference-01
     paths:
       - .github/workflows/paper-code-countdown-release-acceptance.yml
-      - docs/paper_code_reference/COUNTDOWN_RELEASE_ACCEPTANCE.patch
 
 permissions:
   contents: write
@@ -16,7 +16,6 @@ concurrency:
 
 jobs:
   apply-test-and-remove:
-    if: github.event.pull_request.number == 149
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -29,8 +28,8 @@ jobs:
       - name: Guard approved branch and patch base
         run: |
           set -euo pipefail
-          test "${{ github.event.pull_request.head.ref }}" = "dev/paper-code-reference-01"
-          test "$(git rev-parse HEAD^)" = "4acc1e09ae2912604bab05d33f2cd2e656ec72d9"
+          test "$(git branch --show-current)" = "dev/paper-code-reference-01"
+          test "$(git rev-parse HEAD^)" = "222b0a6676f9d18500c5173166d6e12ecda386d0"
           git apply --check docs/paper_code_reference/COUNTDOWN_RELEASE_ACCEPTANCE.patch
 
       - uses: actions/setup-python@v5
