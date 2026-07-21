@@ -1,0 +1,139 @@
+--- a/scripts/run_workflow_replay.py
++++ b/scripts/run_workflow_replay.py
+@@ -4,6 +4,7 @@
+ from __future__ import annotations
+ 
+ import argparse
++import hashlib
+ import json
+ import shutil
+ import subprocess
+@@ -115,6 +116,10 @@
+         pair.add_argument(f"--{name}", required=True)
+     pair.add_argument("--backend-id", default="local-git-v1")
+     pair.add_argument("--json", action="store_true")
++    objects = commands.add_parser("git-object-pair")
++    for name in ("case-packet", "output-root"):
++        objects.add_argument(f"--{name}", required=True)
++    objects.add_argument("--json", action="store_true")
+     return parser
+ 
+ 
+@@ -124,6 +129,101 @@
+ 
+ def _locator(path: Path, root: Path, kind: str) -> dict[str, object]:
+     return {"kind": kind, "relative_path": path.relative_to(root).as_posix(), "sha256": sha256(path), "byte_size": path.stat().st_size}
++
++
++def _object_packet(path: Path) -> dict[str, object]:
++    raw = path.expanduser().absolute()
++    if raw.is_symlink() or any(parent.is_symlink() for parent in raw.parents):
++        raise ValueError("case-packet path contains a symlink")
++    data = load_yaml(raw, "git-object case packet")
++    terminal = {None: "READY", "stale_head": "STALE", "validation_failure": "BLOCKED"}.get(data.get("failure"))
++    if (set(data) != {"schema_version", "case_id", "family", "expected_terminal_state", "failure", "files"}
++            or data.get("schema_version") != 1 or data.get("family") not in {"e7", "e8"} or not isinstance(data.get("case_id"), str) or not data["case_id"]
++            or data.get("expected_terminal_state") != terminal
++            or not isinstance(data.get("files"), list) or not 1 <= len(data["files"]) <= 32):
++        raise ValueError("case packet identity, fields, or terminal contract is invalid")
++    seen = set()
++    for item in data["files"]:
++        if set(item) != {"path", "mode", "content", "sha256"} or item["mode"] != "100644":
++            raise ValueError("file contract is invalid")
++        raw_path, content = item["path"], item["content"]
++        if (not isinstance(raw_path, str) or not isinstance(content, str) or raw_path.startswith(("/", "-"))
++                or "\\" in raw_path or any(part in {"", ".", ".."} for part in raw_path.split("/"))
++                or "\0" in content or len(content.encode()) > 1048576 or raw_path in {"docs/handoff.md", "experiments/registry.yaml", "docs/governance_pipeline_stage_status.yaml", "scripts/handoff_authority.py"}
++                or raw_path.startswith((".github/", "docs/handoff_deltas/", "docs/handoff_versions/", "docs/governance_stage_authorizations/")) or raw_path in seen
++                or hashlib.sha256(content.encode()).hexdigest() != item["sha256"]):
++            raise ValueError("file path, content, or hash is invalid")
++        seen.add(raw_path)
++    return data
++
++
++def _ref(repo: Path, name: str) -> str | None:
++    result = subprocess.run(["git", "show-ref", "--verify", "--hash", name], cwd=repo, text=True, capture_output=True, check=False)
++    if result.returncode not in {0, 1, 128}:
++        raise ValueError("ref inspection failed")
++    return result.stdout.strip() or None
++
++
++def _object_run(packet: dict[str, object], root: Path, arm: str) -> dict[str, object]:
++    started = time.monotonic_ns()
++    root.mkdir()
++    _git(["init", "-q"], root)
++    _git(["config", "user.email", "replay@example.invalid"], root)
++    _git(["config", "user.name", "ReplayAB"], root)
++    _git(["commit", "--allow-empty", "-qm", "base"], root)
++    base = str(_git(["rev-parse", "HEAD"], root)).strip()
++    ref, failure = "refs/heads/m0-candidate", packet["failure"]
++    before, terminal, final = _ref(root, ref), "READY", base
++    if failure == "validation_failure":
++        terminal = "BLOCKED"
++    else:
++        for item in packet["files"]:
++            target = root / item["path"]
++            target.parent.mkdir(parents=True, exist_ok=True)
++            target.write_text(item["content"], encoding="utf-8")
++            _git(["add", "--", item["path"]], root)
++            if arm == "A":
++                _git(["commit", "-qm", f"write {item['path']}"], root)
++        if arm == "B":
++            _git(["commit", "-qm", "atomic after-images"], root)
++        final = str(_git(["rev-parse", "HEAD"], root)).strip()
++        if failure == "stale_head":
++            _git(["update-ref", ref, base], root)
++            terminal = "STALE"
++        elif _ref(root, ref) is None:
++            _git(["update-ref", ref, final], root)
++        else:
++            terminal = "STALE"
++    after = _ref(root, ref)
++    paths = tuple(sorted(item["path"] for item in packet["files"])) if terminal == "READY" else ()
++    commands = 0 if failure == "validation_failure" else ((2 * len(packet["files"]) + 1) if arm == "A" else len(packet["files"]) + 2)
++    result = {"arm": arm, "terminal_state": terminal, "base_sha": base, "commit_sha": final, "ref_before": before, "ref_after": after,
++              "changed_paths": paths, "tree_sha": str(_git(["rev-parse", f"{final}^{{tree}}"], root)).strip() if terminal == "READY" else None,
++              "parent_sha": str(_git(["rev-parse", f"{final}^"], root)).strip() if terminal == "READY" else None, "file_modes": _modes(root, final, paths) if paths else {}, "child_command_count": commands,
++              "operator_action_count": 0 if failure == "validation_failure" else (len(packet["files"]) + 1 if arm == "A" else 3),
++              "total_ns": time.monotonic_ns() - started}
++    if terminal != packet["expected_terminal_state"] or (terminal == "READY" and after != final) or (terminal != "READY" and after != (base if failure == "stale_head" else before)):
++        raise ValueError("git-object terminal or protected-ref contract failed")
++    return result
++
++
++def run_git_object_pair(args) -> tuple[int, dict[str, object]]:
++    packet = _object_packet(Path(args.case_packet))
++    output = Path(args.output_root).expanduser().absolute()
++    if output.exists() or output.is_symlink() or any(parent.is_symlink() for parent in output.parents):
++        raise ValueError("output root must be new")
++    output.mkdir(parents=True)
++    runs = [_object_run(packet, output / f"run-{index}-{arm}", arm)
++            for index, arm in enumerate(("A", "B", "B", "A"))]
++    success = [item for item in runs if item["terminal_state"] == "READY"]
++    equivalent = all((item["tree_sha"], item["changed_paths"], item["file_modes"])
++                     == (success[0]["tree_sha"], success[0]["changed_paths"], success[0]["file_modes"])
++                     for item in success) if success else all(item["terminal_state"] == packet["expected_terminal_state"] for item in runs)
++    payload = {"schema_version": 1, "status": "PASS" if equivalent else "FAIL", "state": "M0_PAIR_READY" if equivalent else "MISMATCH",
++               "case_id": packet["case_id"], "family": packet["family"], "case_packet_sha256": sha256(Path(args.case_packet)),
++               "producer_sha256": sha256(Path(__file__)), "run_count": 4, "runs": runs}
++    write_json(output / "PAIR_REPORT.json", payload)
++    return (0 if equivalent else 3), payload
+ 
+ 
+ def _validate_control_plane(path: Path, expected_sha: str) -> Path:
+@@ -542,6 +642,15 @@
+ 
+ def main(argv: Sequence[str] | None = None) -> int:
+     args = build_parser().parse_args(argv)
++    if args.command == "git-object-pair":
++        try:
++            code, payload = run_git_object_pair(args)
++        except (KeyError, OSError, TypeError, ValueError, WritePathError) as error:
++            code, payload = 2, {"status": "FAIL", "state": "INVALIDATED", "message": str(error)}
++        message = f"PASS {payload.get('case_id', '')}" if code == 0 else f"FAIL {payload.get('message', payload.get('state'))}"
++        print(json.dumps(payload, sort_keys=True) if args.json else message,
++              file=sys.stdout if args.json or code == 0 else sys.stderr)
++        return code
+     if args.command == "real-pair":
+         try:
+             code, payload = run_real_pair(args)

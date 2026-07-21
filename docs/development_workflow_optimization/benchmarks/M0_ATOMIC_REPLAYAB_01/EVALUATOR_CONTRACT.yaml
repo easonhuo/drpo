@@ -1,0 +1,46 @@
+schema_version: 1
+evaluator_id: M0-ATOMIC-REPLAYAB-EVALUATOR-01
+claim_id: GOV-DRPO-MAINTENANCE-RUNNER-REPLAYAB-01
+benchmark_id: M0-ATOMIC-REPLAYAB-01
+input_bindings:
+  require_case_packet_sha256: true
+  require_producer_sha256: true
+  require_exact_run_order: [A, B, B, A]
+mandatory_success_properties:
+  - expected_terminal_ready
+  - all_runs_same_final_tree
+  - all_runs_same_changed_paths
+  - all_runs_same_file_modes
+  - each_ref_points_to_its_final_commit
+  - arm_b_parent_is_base
+  - arm_a_is_multi_commit_when_file_count_exceeds_one
+mandatory_failure_properties:
+  - expected_terminal_matches
+  - stale_ref_remains_at_injected_base
+  - validation_failure_creates_no_candidate_ref
+  - no_ready_result_on_failure
+security_properties:
+  - protected_packet_path_rejected_before_output
+  - nul_content_rejected
+  - file_count_and_file_size_bounded
+  - no_commands_in_packet
+screen_thresholds:
+  median_wall_time_improvement_minimum: 0.30
+  mean_wall_time_must_improve: true
+  median_active_operation_improvement_minimum: 0.30
+  median_operator_action_reduction_minimum: 0.60
+  no_case_slowdown_seconds: 60
+  no_case_slowdown_fraction: 0.05
+  e7_and_e8_separately_positive: true
+narrow_confirmation:
+  accepted_file_count_minimum: 7
+  accepted_file_count_maximum: 10
+  thresholds_identical_to_screen: true
+spread_rule:
+  trigger_fraction: 0.15
+  required_additional_opposite_order_execution: 1
+decisions:
+  ADOPT_M0: screen_passes_all_gates
+  NARROW_M0: screen_correct_but_small_cases_fail_action_gate_and_narrow_confirmation_passes
+  REDESIGN_TO_M1: correctness_passes_and_specific_publisher_gap_is_measured
+  REJECT_OPTIMIZATION: correctness_or_security_failure
