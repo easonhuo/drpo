@@ -33,7 +33,6 @@ jobs:
           set -euo pipefail
           patch_file='docs/paper_code_reference/COUNTDOWN_FINAL_ACCEPTANCE.patch'
           test -s "$patch_file"
-          test "$(git rev-parse HEAD^)" = 'b37481cc190390f1a78081c9d472472da241d84c' || true
           grep -Fq 'def _release_model(model: Any) -> None:' \
             paper_code/src/drpo_reference/experiments/countdown.py
           git apply --check "$patch_file"
@@ -78,3 +77,5 @@ jobs:
           git diff --cached --check
           git commit -m 'PAPER-CODE-VALIDATION-01 apply Countdown repair and boundary audit'
           git push origin HEAD:dev/paper-code-reference-01
+
+# contents-api-trigger-v1
