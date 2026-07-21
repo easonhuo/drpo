@@ -2,7 +2,7 @@ name: Temporary E8 AsymRE dense-boundary apply
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, reopened, synchronize]
     branches:
       - dev/tmp-e8-asymre-boundary-dense-apply-base
 
@@ -20,7 +20,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: dev/e8-asymre-deltav-boundary-dense
-          fetch-depth: 0
+          fetch-depth: 1
+          show-progress: false
 
       - name: Apply deterministic dense-boundary transformation
         shell: bash
@@ -31,6 +32,7 @@ jobs:
             exit 0
           fi
           actual_blob="$(git hash-object .tmp/e8_asymre_boundary_dense_apply.sh)"
+          echo "apply-script blob: ${actual_blob}"
           test "$actual_blob" = 'f1d5d2d2db4564f5c819fc357d7f2960d7de4438'
           bash .tmp/e8_asymre_boundary_dense_apply.sh
           rm .tmp/e8_asymre_boundary_dense_apply.sh
