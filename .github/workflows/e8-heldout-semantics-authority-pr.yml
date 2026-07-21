@@ -30,6 +30,9 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install bootstrap parser
+        run: python -m pip install --upgrade pyyaml
+
       - name: Execute the one-time authority transaction
         run: |
           python - <<'PY'
