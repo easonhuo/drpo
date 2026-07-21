@@ -1,20 +1,29 @@
-name: Paper Code Exact-Head Validation
+name: Paper Code Validation
 
 on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "paper_code/**"
+      - "docs/paper_code_reference/**"
+      - ".github/workflows/paper-code-validation.yml"
   workflow_dispatch:
-  schedule:
-    - cron: "*/5 * * * *"
+    inputs:
+      commit_sha:
+        description: "Full commit SHA to validate"
+        required: true
+        type: string
 
 permissions:
   contents: read
   statuses: write
 
 concurrency:
-  group: paper-code-exact-head-2594c88d
+  group: paper-code-validation-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.commit_sha }}
   cancel-in-progress: true
 
 env:
-  SOURCE_COMMIT: 2594c88d7a65bc7bbb3a10b9700835c11a8906de
+  SOURCE_COMMIT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || inputs.commit_sha }}
 
 jobs:
   validate:
@@ -176,7 +185,7 @@ jobs:
       - name: Upload exact-head package
         uses: actions/upload-artifact@v4
         with:
-          name: drpo-reference-v0.1-2594c88d
+          name: drpo-reference-v0.1-${{ env.SOURCE_COMMIT }}
           path: dist/drpo-reference-v0.1.zip
           if-no-files-found: error
           retention-days: 30
