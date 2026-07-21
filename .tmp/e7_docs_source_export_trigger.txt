@@ -1,4 +1,4 @@
 base=b18aea9186d7e3ccc5d43b456719cafc23761e03
 purpose=prepare authoritative P1 result and P2 registration delta
 mode=canonical_schema_v3_materialization
-retry=3
+retry=4
