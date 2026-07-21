@@ -4,7 +4,7 @@ Claim: `GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01`
 
 Work ID: `REPLAYAB-R2-SEMANTIC-ACCEPTANCE-01`
 
-Closure review candidate base: `main@ad9bda80796dcf5c48976f5d64ffd79a006c70d5`
+Closure review candidate base: `main@a6e55ced251280b77ebe8e7d3cd18cc0c172ebbe`
 
 R2 semantic evidence base: `main@8e1a0f61f5846fc4133e5de405280e371a96b994`
 
