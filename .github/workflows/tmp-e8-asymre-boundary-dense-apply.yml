@@ -26,16 +26,34 @@ jobs:
       - name: Apply deterministic dense-boundary transformation
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
           if [[ ! -f .tmp/e8_asymre_boundary_dense_apply.sh ]]; then
             echo 'deterministic apply script already consumed'
             exit 0
           fi
           actual_blob="$(git hash-object .tmp/e8_asymre_boundary_dense_apply.sh)"
           echo "apply-script blob: ${actual_blob}"
-          test "$actual_blob" = 'f1d5d2d2db4564f5c819fc357d7f2960d7de4438'
-          bash .tmp/e8_asymre_boundary_dense_apply.sh
+          if [[ "$actual_blob" != 'f1d5d2d2db4564f5c819fc357d7f2960d7de4438' ]]; then
+            echo "unexpected apply-script blob ${actual_blob}" > .tmp/e8_apply_failure.log
+            exit 1
+          fi
+          bash .tmp/e8_asymre_boundary_dense_apply.sh > .tmp/e8_apply_failure.log 2>&1
+          status=$?
+          cat .tmp/e8_apply_failure.log
+          if [[ $status -ne 0 ]]; then
+            exit $status
+          fi
+          rm .tmp/e8_apply_failure.log
           rm .tmp/e8_asymre_boundary_dense_apply.sh
+
+      - name: Upload apply failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e8-asymre-boundary-dense-apply-failure
+          path: .tmp/e8_apply_failure.log
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Install focused-test dependencies
         run: |
