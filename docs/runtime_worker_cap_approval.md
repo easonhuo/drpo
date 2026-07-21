@@ -25,7 +25,7 @@ An AI agent may inspect evidence and recommend a worker cap. It may not, without
 - silently inherit an unapproved environment value;
 - describe a cap-censored result as the uncapped autotune optimum.
 
-Every approved cap is exact-run evidence. The approval must be stored as a committed JSON record under `docs/runtime_worker_cap_authorizations/`. A command-line flag or environment variable is only an assertion of the approved value; it is not itself authorization.
+Every approved cap is exact-run evidence. The approval must be stored as a committed JSON record under `docs/runtime_worker_cap_authorizations/` and must already exist byte-for-byte on trusted `origin/main`. A local commit, local branch, or unmerged pull request cannot authorize a cap. A command-line flag or environment variable is only an assertion of the approved value; it is not itself authorization.
 
 ## Default-unset behavior
 
@@ -37,7 +37,7 @@ approval file = unset
 autotune selects concurrency inside the resource pool
 ```
 
-The canonical E7 wrappers write `USER_APPROVED_WORKER_CAP.json` with mode `unset_autotune_controls_concurrency`. Once written, the cap mode is immutable for that work directory.
+The canonical E7 wrappers write `USER_APPROVED_WORKER_CAP.json` with mode `unset_autotune_controls_concurrency`. Once written, the cap mode is immutable for that work directory. Unset mode does not require an approval record or network access.
 
 ## Approved-cap behavior
 
@@ -55,7 +55,7 @@ export E7_SQUARED_EXP_MAX_WORKERS=64
 export E7_SQUARED_EXP_MAX_WORKERS_APPROVAL_FILE=docs/runtime_worker_cap_authorizations/<record>.json
 ```
 
-The validator rejects a cap when the approval is missing, untracked, dirty, outside the authorization directory, malformed, scoped to another experiment/work directory/resource pool, or based on runtime code that changed after approval.
+Before launch, the server must fetch the authoritative remote state so that `refs/remotes/origin/main` resolves the merged approval. The validator rejects a cap when the approval is missing, untracked, dirty, outside the authorization directory, absent from trusted `origin/main`, byte-different from trusted `origin/main`, malformed, scoped to another experiment/work directory/resource pool, or based on runtime code that changed after approval.
 
 ## Approval record schema
 
@@ -82,11 +82,11 @@ Each record is a JSON object:
 }
 ```
 
-The approved code commit must be an ancestor of the launch commit. The cap validator additionally requires the canonical E7 wrappers, auto runner, runtime selector, scientific runner, and tracked grid to remain unchanged since that approved commit.
+The approved code commit must be an ancestor of both the launch commit and trusted `origin/main`. The cap validator additionally requires the canonical E7 wrappers, liveness wrapper, auto runner, runtime selector, scientific runner, and tracked grid to remain unchanged since that approved commit.
 
 ## Change and resume rules
 
-- The first cap for a run requires a new approval record.
+- The first cap for a run requires a new approval record merged to `origin/main`.
 - Any different cap requires a new approval record and a new run/work directory.
 - Removing a cap from an already identified work directory is prohibited; use a newly approved run identity whose default is unset.
 - Resume must reproduce the same normalized cap identity byte-for-byte.
