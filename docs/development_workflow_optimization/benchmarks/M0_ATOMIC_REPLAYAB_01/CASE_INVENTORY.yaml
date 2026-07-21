@@ -1,0 +1,167 @@
+schema_version: 1
+benchmark_id: M0-ATOMIC-REPLAYAB-01
+base_main: d3f7d046f948108a3d837bdcff617eed5146a2f0
+status: frozen_pre_execution
+case_replacement_forbidden: true
+packet_serialization: json_sort_keys_indent_2_trailing_newline
+content_formula: 'case: {case_id}\nrole: file-{zero_based_index}\nfamily: {family}\n'
+mode: '100644'
+cases:
+- case_id: E7-M0-C01-CONFIG-RUNSPEC
+  family: e7
+  phase: general_screen
+  expected_terminal_state: READY
+  failure: null
+  paths:
+  - configs/e7_m0_replay_c01.json
+  - docs/scopes/E7-M0-REPLAY-C01.md
+  - runspecs/ready/E7_M0_REPLAY_C01.yaml
+  packet_sha256: 8b2b4eece3305dd82944ef2e7447a49ae0d6e7110cec38e045042ee4d30307bb
+- case_id: E7-M0-C02-CODE-TEST
+  family: e7
+  phase: general_screen
+  expected_terminal_state: READY
+  failure: null
+  paths:
+  - configs/e7_m0_replay_c02.json
+  - src/drpo/e7_m0_replay_c02.py
+  - src/drpo/e7_m0_replay_c02_runtime.py
+  - tests/test_e7_m0_replay_c02.py
+  - docs/scopes/E7-M0-REPLAY-C02.md
+  packet_sha256: b14a61ca3f6f56a1bded0d2f3c34453448befca101329a1c8fbd9340f56eea14
+- case_id: E7-M0-C03-INTEGRATION-HEAVY
+  family: e7
+  phase: general_screen
+  expected_terminal_state: READY
+  failure: null
+  paths:
+  - configs/e7_m0_replay_c03.json
+  - scripts/run_e7_m0_replay_c03.sh
+  - scripts/run_e7_m0_replay_c03.py
+  - src/drpo/e7_m0_replay_c03.py
+  - src/drpo/e7_m0_replay_c03_aggregate.py
+  - src/drpo/e7_m0_replay_c03_bootstrap.py
+  - tests/test_e7_m0_replay_c03.py
+  - docs/scopes/E7-M0-REPLAY-C03.md
+  packet_sha256: 562ee53624797a48d816885886532ca564ecab4b3a246e3a041faa5bf9fe41f9
+- case_id: E7-M0-C04-STALE-HEAD
+  family: e7
+  phase: general_screen
+  expected_terminal_state: STALE
+  failure: stale_head
+  paths:
+  - configs/e7_m0_replay_c04.json
+  - src/drpo/e7_m0_replay_c04.py
+  - tests/test_e7_m0_replay_c04.py
+  packet_sha256: bc4d7664aa3b4055f33c447af286c96bb84b5e3d0205a78882925eb17367a647
+- case_id: E7-M0-N01-SEVEN-FILES
+  family: e7
+  phase: narrow_confirmation
+  expected_terminal_state: READY
+  failure: null
+  paths:
+  - configs/e7-m0-n01-seven-files.yaml
+  - docs/scopes/E7-M0-N01-SEVEN-FILES.md
+  - runspecs/templates/E7-M0-N01-SEVEN-FILES.yaml
+  - scripts/run_e7-m0-n01-seven-files_3.py
+  - src/drpo/e7-m0-n01-seven-files_4.py
+  - tests/test_e7-m0-n01-seven-files_5.py
+  - scripts/run_e7-m0-n01-seven-files_6.py
+  packet_sha256: cd22ccda21c7fa4c49f84506382f46f21c974d7220640a743eff8fed3b36616e
+- case_id: E7-M0-N02-NINE-FILES
+  family: e7
+  phase: narrow_confirmation
+  expected_terminal_state: READY
+  failure: null
+  paths:
+  - configs/e7-m0-n02-nine-files.yaml
+  - docs/scopes/E7-M0-N02-NINE-FILES.md
+  - runspecs/templates/E7-M0-N02-NINE-FILES.yaml
+  - scripts/run_e7-m0-n02-nine-files_3.py
+  - src/drpo/e7-m0-n02-nine-files_4.py
+  - tests/test_e7-m0-n02-nine-files_5.py
+  - scripts/run_e7-m0-n02-nine-files_6.py
+  - src/drpo/e7-m0-n02-nine-files_7.py
+  - tests/test_e7-m0-n02-nine-files_8.py
+  packet_sha256: 21258d5bf60889af5886d83f2dd94316a20c7992a6b37c6dd9c7abf905bf10de
+- case_id: E8-M0-C01-CONFIG-RUNSPEC
+  family: e8
+  phase: general_screen
+  expected_terminal_state: READY
+  failure: null
+  paths:
+  - configs/e8_m0_replay_c01.yaml
+  - configs/e8_m0_replay_c01_aux.yaml
+  - runspecs/ready/E8_M0_REPLAY_C01.yaml
+  - docs/scopes/E8-M0-REPLAY-C01.md
+  packet_sha256: e054bab1ffbc05447a29c9f746a894953e9b433cf1231fd843924f65d142fc1e
+- case_id: E8-M0-C02-CODE-TEST
+  family: e8
+  phase: general_screen
+  expected_terminal_state: READY
+  failure: null
+  paths:
+  - configs/e8_m0_replay_c02.yaml
+  - src/drpo/e8_m0_replay_c02.py
+  - tests/test_e8_m0_replay_c02.py
+  - runspecs/templates/E8_M0_REPLAY_C02.yaml
+  - docs/scopes/E8-M0-REPLAY-C02.md
+  packet_sha256: 850b62582fe37d76d98fde757f46edef023c7c0a15f1e9d65f1b5a5d4fd18ef6
+- case_id: E8-M0-C03-INTEGRATION-HEAVY
+  family: e8
+  phase: general_screen
+  expected_terminal_state: READY
+  failure: null
+  paths:
+  - configs/e8_m0_replay_c03.yaml
+  - scripts/run_e8_m0_replay_c03.py
+  - scripts/run_e8_m0_replay_c03.sh
+  - src/drpo/e8_m0_replay_c03.py
+  - src/drpo/e8_m0_replay_c03_runtime.py
+  - tests/test_e8_m0_replay_c03.py
+  - docs/scopes/E8-M0-REPLAY-C03.md
+  packet_sha256: 1dd645e557e9ff624b20a16b696df98ecd3c43a89b19351fcff43510da7386c7
+- case_id: E8-M0-C04-VALIDATION-FAILURE
+  family: e8
+  phase: general_screen
+  expected_terminal_state: BLOCKED
+  failure: validation_failure
+  paths:
+  - configs/e8_m0_replay_c04.yaml
+  - src/drpo/e8_m0_replay_c04.py
+  - tests/test_e8_m0_replay_c04.py
+  - runspecs/templates/E8_M0_REPLAY_C04.yaml
+  - docs/scopes/E8-M0-REPLAY-C04.md
+  packet_sha256: b9733bce65ff417987155f7a27cb05f753828146a3c8a42f0de281c3e2a95e08
+- case_id: E8-M0-N01-EIGHT-FILES
+  family: e8
+  phase: narrow_confirmation
+  expected_terminal_state: READY
+  failure: null
+  paths:
+  - configs/e8-m0-n01-eight-files.yaml
+  - docs/scopes/E8-M0-N01-EIGHT-FILES.md
+  - runspecs/templates/E8-M0-N01-EIGHT-FILES.yaml
+  - scripts/run_e8-m0-n01-eight-files_3.py
+  - src/drpo/e8-m0-n01-eight-files_4.py
+  - tests/test_e8-m0-n01-eight-files_5.py
+  - scripts/run_e8-m0-n01-eight-files_6.py
+  - src/drpo/e8-m0-n01-eight-files_7.py
+  packet_sha256: 1a8b14aac9da7412bb5eab947de27fcf1a10606f7f509223681a52685a24dedb
+- case_id: E8-M0-N02-TEN-FILES
+  family: e8
+  phase: narrow_confirmation
+  expected_terminal_state: READY
+  failure: null
+  paths:
+  - configs/e8-m0-n02-ten-files.yaml
+  - docs/scopes/E8-M0-N02-TEN-FILES.md
+  - runspecs/templates/E8-M0-N02-TEN-FILES.yaml
+  - scripts/run_e8-m0-n02-ten-files_3.py
+  - src/drpo/e8-m0-n02-ten-files_4.py
+  - tests/test_e8-m0-n02-ten-files_5.py
+  - scripts/run_e8-m0-n02-ten-files_6.py
+  - src/drpo/e8-m0-n02-ten-files_7.py
+  - tests/test_e8-m0-n02-ten-files_8.py
+  - scripts/run_e8-m0-n02-ten-files_9.py
+  packet_sha256: dbbedd77521e1035b3ad1e5ad7558401588549b16a0dd8caa2e4f7e266b912c3
