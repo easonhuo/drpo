@@ -261,6 +261,31 @@ def test_worker_cap_gate_defaults_unset_and_requires_exact_approval(
     _git(repo, "add", str(approval.relative_to(repo)))
     _git(repo, "commit", "-m", "record exact cap approval")
 
+    local_only = subprocess.run(
+        [
+            "bash",
+            str(validator),
+            str(repo),
+            str(cap_work),
+            "4",
+            str(approval),
+            str(contract),
+            str(run_spec),
+            str(grid),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert local_only.returncode == 2
+    assert "trusted origin/main approval ref is unavailable" in local_only.stderr
+
+    _git(
+        repo,
+        "update-ref",
+        "refs/remotes/origin/main",
+        _git(repo, "rev-parse", "HEAD"),
+    )
     approved = subprocess.run(
         [
             "bash",
@@ -285,6 +310,9 @@ def test_worker_cap_gate_defaults_unset_and_requires_exact_approval(
     assert cap_identity["max_workers"] == 4
     assert cap_identity["authorization"]["authorization_id"] == (
         "E7-WORKER-CAP-TEST-01"
+    )
+    assert cap_identity["authorization"]["trusted_ref"] == (
+        "refs/remotes/origin/main"
     )
 
     changed = subprocess.run(
