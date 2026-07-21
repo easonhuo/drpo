@@ -72,16 +72,36 @@ jobs:
           python -m pip install -e . pytest ruff
 
       - name: Focused validation
+        shell: bash
         run: |
-          python -m pytest -q \
-            tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
-          ruff check \
-            src/drpo/countdown_e8_alpha1_highc_scan_common.py \
-            tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
-          python -m py_compile \
-            src/drpo/countdown_e8_alpha1_highc_scan_common.py \
-            tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
-          git diff --check
+          set +e
+          {
+            python -m pytest -q \
+              tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
+            ruff check \
+              src/drpo/countdown_e8_alpha1_highc_scan_common.py \
+              tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
+            python -m py_compile \
+              src/drpo/countdown_e8_alpha1_highc_scan_common.py \
+              tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
+            git diff --check
+          } > .tmp/e8_validation.log 2>&1
+          status=$?
+          cat .tmp/e8_validation.log
+          exit $status
+
+      - name: Upload validation failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e8-asymre-boundary-dense-validation-failure
+          path: .tmp/e8_validation.log
+          if-no-files-found: ignore
+          retention-days: 1
+
+      - name: Remove validation log
+        if: success()
+        run: rm -f .tmp/e8_validation.log
 
       - name: Commit verified dense-boundary files
         shell: bash
