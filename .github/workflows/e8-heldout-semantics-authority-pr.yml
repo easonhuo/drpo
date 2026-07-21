@@ -44,6 +44,7 @@ jobs:
 
           import yaml
 
+          log_path = Path('/tmp/e8-heldout-authority-bootstrap.log')
           workflow = yaml.safe_load(
               Path('.github/workflows/e8-heldout-semantics-authority.yml').read_text(
                   encoding='utf-8'
@@ -54,31 +55,53 @@ jobs:
           env_path = Path(environment['GITHUB_ENV'])
           seen_env_lines = len(env_path.read_text(encoding='utf-8').splitlines()) if env_path.exists() else 0
 
-          for step in steps:
-              command = step.get('run')
-              if command is None:
-                  continue
-              command = command.replace(
-                  'git -C "$TARGET" rm -f .github/workflows/e8-heldout-semantics-authority.yml',
-                  'git -C "$TARGET" rm -f '
-                  '.github/workflows/e8-heldout-semantics-authority.yml '
-                  '.github/workflows/e8-heldout-semantics-authority-pr.yml',
-              )
-              step_environment = dict(environment)
-              for key, value in (step.get('env') or {}).items():
-                  step_environment[str(key)] = str(value)
-              print(f"\n=== {step.get('name', 'unnamed run step')} ===", flush=True)
-              subprocess.run(
-                  ['bash', '-euo', 'pipefail', '-c', command],
-                  check=True,
-                  env=step_environment,
-              )
-              if env_path.exists():
-                  lines = env_path.read_text(encoding='utf-8').splitlines()
-                  for line in lines[seen_env_lines:]:
-                      if '=' not in line:
-                          continue
-                      key, value = line.split('=', 1)
-                      environment[key] = value
-                  seen_env_lines = len(lines)
+          with log_path.open('w', encoding='utf-8') as log:
+              for step in steps:
+                  command = step.get('run')
+                  if command is None:
+                      continue
+                  command = command.replace(
+                      'git -C "$TARGET" rm -f .github/workflows/e8-heldout-semantics-authority.yml',
+                      'git -C "$TARGET" rm -f '
+                      '.github/workflows/e8-heldout-semantics-authority.yml '
+                      '.github/workflows/e8-heldout-semantics-authority-pr.yml',
+                  )
+                  step_environment = dict(environment)
+                  for key, value in (step.get('env') or {}).items():
+                      step_environment[str(key)] = str(value)
+                  banner = f"\n=== {step.get('name', 'unnamed run step')} ===\n"
+                  print(banner, end='', flush=True)
+                  log.write(banner)
+                  result = subprocess.run(
+                      ['bash', '-euo', 'pipefail', '-c', command],
+                      check=False,
+                      env=step_environment,
+                      text=True,
+                      stdout=subprocess.PIPE,
+                      stderr=subprocess.STDOUT,
+                  )
+                  print(result.stdout, end='', flush=True)
+                  log.write(result.stdout)
+                  log.flush()
+                  if result.returncode != 0:
+                      raise SystemExit(
+                          f"Step failed ({result.returncode}): {step.get('name', 'unnamed run step')}"
+                      )
+                  if env_path.exists():
+                      lines = env_path.read_text(encoding='utf-8').splitlines()
+                      for line in lines[seen_env_lines:]:
+                          if '=' not in line:
+                              continue
+                          key, value = line.split('=', 1)
+                          environment[key] = value
+                      seen_env_lines = len(lines)
           PY
+
+      - name: Upload bootstrap log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e8-heldout-authority-bootstrap-log
+          path: /tmp/e8-heldout-authority-bootstrap.log
+          if-no-files-found: error
+          retention-days: 7
