@@ -3,14 +3,14 @@ experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-SCAN-0.5B-01
 result_status: pilot
 registration_state: dev_code_first_unregistered
 claim: >-
-  On the frozen model-independent E8 V2 bank, tune canonical AsymRE's additive
-  baseline offset delta_v while holding the branch-balanced signed reward,
-  response bank, optimizer, training horizon, and validation protocol fixed.
-  Equal total positive and negative branch mass with rewards +1/-1 gives an
-  exact zero empirical baseline per prompt, so A=R-delta_v in this controlled
-  one-step setting. Run 8 delta_v values on two paired development seeds, for
-  exactly 16 cells. This validation-only pilot does not establish formal method
-  ranking, convergence, or steady state.
+  On the frozen model-independent E8 V2 bank, measure the held-out task-performance
+  response curve to canonical AsymRE's additive baseline offset delta_v while holding
+  the branch-balanced signed reward, response bank, optimizer, training horizon, and
+  evaluation protocol fixed. Equal total positive and negative branch mass with rewards
+  +1/-1 gives an exact zero empirical baseline per prompt, so A=R-delta_v in this
+  controlled one-step setting. Run 8 delta_v values on two paired development seeds,
+  for exactly 16 cells. This finite-horizon pilot reports the complete declared curve
+  and does not establish formal method ranking, convergence, or steady state.
 model:
   identity: Qwen2.5-0.5B-Instruct
   initialization: pretrained_base_plus_fresh_lora
@@ -81,14 +81,26 @@ execution:
     validation_examples: 8
     scientific_evidence: false
 evaluation:
+  split_file: val.jsonl
+  split_role: structurally_disjoint_held_out_evaluation
+  enters_training_loss: false
+  train_structure_overlap: none
+  train_problem_key_overlap: none
+  response_curve_mode: full_declared_grid_late_window_and_terminal
   validation_only_during_tuning: true
+  legacy_validation_field_interpretation: held_out_evaluation_split_only
   test_access_forbidden: true
+  legacy_test_field_interpretation: separate_test_jsonl_not_accessed
   greedy_every: 100
   pass_at_8_every: 100
   pass_at_64_every: 200
   primary_selection_metric: late_window_pass_at_8
   secondary_selection_metric: terminal_pass_at_8
+  primary_reporting_metric: late_window_pass_at_8
+  secondary_reporting_metric: terminal_pass_at_8
+  best_checkpoint_saved: true
   best_checkpoint_metric_is_supplementary_only: true
+  best_checkpoint_role: supplementary_local_diagnostic_and_recovery_only
   late_window_steps: [800, 900, 1000, 1100, 1200]
 reporting:
   distinguish_task_performance: true
@@ -98,6 +110,8 @@ reporting:
   method_ranking_claim_allowed: false
   countdown_role: external_validity_only
   compare_terminal_and_late_window: true
+  separate_test_jsonl_used: false
+  held_out_evaluation_absent: false
 exclusions:
   - value_network
   - learned_baseline
@@ -106,4 +120,4 @@ exclusions:
   - binary_near_far_mixture
   - weight_sum_normalization
   - dynamic_delta_v
-  - test_split_access
+  - separate_test_jsonl_access
