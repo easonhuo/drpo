@@ -1,466 +1,705 @@
-# DRPO Maintenance Runner + ReplayAB phased plan
+# DRPO Maintenance Runner + ReplayAB implementation contract
 
 **Claim:** `GOV-DRPO-MAINTENANCE-RUNNER-REPLAYAB-01`  
 **Parent measurement claim:** `GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01`  
-**Base:** `main@d7e82201159a736f0d2e48403aae15ea07e178a7`  
-**Status:** design frozen for staged implementation; no workflow implementation, write permission, default-route change, scientific execution, or merge is authorized by this document alone  
+**Document version:** `0.2-stage0-review`  
+**Initial branch base:** `main@d7e82201159a736f0d2e48403aae15ea07e178a7`  
+**Latest main reviewed:** `main@d5029d05696382ce02cc0eb1e4c44291b00f8a7d`  
+**Status:** Stage 0 active and under repeated review; no behavior code, write-capable workflow, default-route change, scientific execution, or merge is authorized by this document alone  
 **Scientific impact:** none
 
-## 1. Decision
+## 1. Executive decision
 
-Develop one small shared maintenance-runner candidate, then judge it with the existing ReplayAB Core before considering adoption.
+Develop one small shared Maintenance Runner candidate, qualify thin E7 and E8 validation adapters on top of it, and judge the complete candidate with the existing ReplayAB Core before any adoption decision.
 
-The objects remain separate:
+The implementation is deliberately divided into separate owners:
 
-- **Maintenance Runner** is the candidate workflow being tested.
-- **ReplayAB Core** is the measurement instrument and must not be rewritten into the candidate.
-- **E7/E8 adapters** are thin domain validators added only after the shared runner passes its own safety and cost gates.
-- **Handoff Authority** remains a separate authority validator; it is not the shared runner.
+- **Maintenance Runner:** the workflow candidate under test. It owns only repository transaction mechanics.
+- **ReplayAB Core:** the measuring instrument. It owns frozen cases, independent acceptance, paired comparison, and decision evidence.
+- **E7/E8 adapters:** fixed validation selections and scientific-invariant checks. They do not choose scientific values.
+- **Handoff Authority:** a separate authority validator. It is not part of the first Maintenance Runner task class.
 
-No candidate becomes the default repository route merely because it is implemented or because one liveness run succeeds.
+Implementation, liveness, replay success, and default adoption are separate states. No earlier state implies a later one.
 
-## 2. Problem being solved
+## 2. Problem and success condition
 
-Recent E7/E8 successor-profile tasks repeatedly spent substantial time on mechanical repository work:
+Recent E7/E8 successor tasks repeatedly spent time on the same mechanical work:
 
-1. exact-base and branch checks;
-2. applying or reconstructing approved changes;
-3. selecting and running focused validation;
-4. checking changed paths and frozen scientific fields;
-5. creating a commit on a development branch;
-6. obtaining exact-head CI evidence;
-7. preparing a reviewable Draft PR.
+1. resolving an exact current base;
+2. staging an approved change payload;
+3. checking branch identity and allowed paths;
+4. applying the change in an isolated workspace;
+5. selecting and running focused validation;
+6. checking frozen scientific values and generated matrices;
+7. creating and pushing a development-branch commit;
+8. collecting exact-head evidence for review.
 
-These steps are repeated across sessions and are often rebuilt as temporary workflows. The target is to reduce this repeated mechanical work without automating scientific decisions.
+The candidate is useful only when it reduces those repeated operations without reducing correctness, safety, scientific control, or provenance.
 
-The candidate does **not** attempt to make model training, full CI, or scientific review intrinsically faster.
+It is not intended to make training, full CI, scientific review, or stochastic coding-model reasoning intrinsically faster.
 
-## 3. Existing components that must be reused
+## 3. Non-goals and first-version exclusions
 
-The implementation must compose existing owners rather than duplicate them:
+The first accepted version must not:
 
-- connected GitHub App development route from `AGENTS.md`;
-- existing PR gates and test-selection mechanisms;
-- existing ReplayAB Core exact-artifact, failure-boundary, and R2 semantic-acceptance capabilities;
-- existing RunSpec and pilot-registration tools where applicable;
-- existing handoff authority and governance validators;
-- experiment-specific E7/E8 loaders and validators until a separately reviewed data-driven migration is approved.
+- choose experiment IDs, parameters, seeds, datasets, budgets, thresholds, anchors, stopping rules, or claim boundaries;
+- edit `docs/handoff.md`, `experiments/registry.yaml`, schema-v3 deltas, authority after-images, or governance-stage ledgers;
+- modify `.github/workflows/**` as a task payload;
+- launch liveness, pilot, formal training, aggregation, terminal audit, or result publication;
+- create or update a scientific result status;
+- write to `main`, create an undeclared branch, force-push, merge, auto-merge, or mark a PR ready;
+- accept arbitrary shell, Python, command, test, or path expressions from task input;
+- install a new dependency;
+- become the default route before the final ReplayAB decision and separate user approval.
 
-The candidate may call these components. It may not reimplement their authority or scientific semantics.
+Profile data-driven migration is related but separate. The runner must first prove useful on frozen historical payloads. Moving E7/E8 constants out of Python requires a later, independently reviewed claim.
 
-## 4. First-version scope
+## 4. Existing owners that must be reused
 
-The first useful version supports one narrow transaction:
+The candidate must compose existing repository components rather than duplicate them:
+
+- the connected GitHub App dev-branch route defined in `AGENTS.md`;
+- existing test-selection and PR-gate commands;
+- existing E7/E8 loaders, matrix builders, RunSpec checks, and focused tests;
+- existing ReplayAB exact-artifact, failure-boundary, and R2 semantic-acceptance capabilities;
+- existing formal-execution, governance-stage, and handoff-authority validators when their paths are in scope;
+- existing Git and GitHub branch protections.
+
+The candidate may invoke an owner. It may not reimplement that owner's authority or scientific semantics.
+
+## 5. Four-stage development map
+
+The previously separate planner, apply, and commit phases are merged into one implementation stage. E7 and E8 qualification are also merged into one adapter stage.
+
+### Stage 0 — design, threat model, and replay contract
+
+No behavior-changing code.
+
+Stage 0 freezes:
+
+- candidate responsibility and non-goals;
+- task-manifest and payload boundaries;
+- write and branch safety model;
+- exact file plan and code/runtime budgets;
+- internal checkpoints for Stage 1;
+- E7/E8 adapter boundaries;
+- ReplayAB case-selection, ordering, metrics, and decision rules;
+- rollback and stop conditions;
+- the document-dependency protocol in Section 6.
+
+Stage 0 does not close until every review pass in Section 7 is resolved and the user explicitly approves Stage 1.
+
+### Stage 1 — shared runner closed loop
+
+One development stage implements and validates the complete shared transaction:
 
 ```text
-frozen task manifest + approved patch or complete text payload
-→ exact base/head validation
-→ allowed-path audit
-→ apply in isolated development workspace
-→ run declared focused validation
-→ verify final changed paths and protected values
-→ create one commit on the declared dev branch
-→ emit logs, hashes, timing, and final commit SHA
+validate manifest and payload
+→ plan deterministically
+→ apply in isolated workspace
+→ run fixed validation profile
+→ re-audit final diff
+→ create one commit
+→ non-force push to the same pre-existing dev branch
+→ emit exact-head evidence
 ```
 
-The first version does not automatically:
+Stage 1 has internal checkpoints but only one major stage acceptance:
 
-- choose E7/E8 parameter values, seeds, budgets, thresholds, or experiment IDs;
-- generate scientific claims;
-- change `docs/handoff.md` or `experiments/registry.yaml`;
-- create a ready RunSpec or upgrade its state;
-- launch liveness, pilot, or formal training;
-- push to `main`, force-push, merge, auto-merge, or mark a PR ready;
-- accept arbitrary shell commands;
-- create branches not predeclared by the task;
-- modify workflow, governance, authority, or protected scientific files unless a later phase explicitly authorizes that task class.
+- **Checkpoint 1A — read-only planner:** parsing, identity, path, plan hash, no mutation.
+- **Checkpoint 1B — isolated apply/validate:** payload verification, apply check, fixed tests, failure retention, no push.
+- **Checkpoint 1C — write liveness:** one commit and same-branch non-force push after all checks.
 
-## 5. Candidate task contract
+A checkpoint pass permits work on the next checkpoint inside Stage 1. It is not a stage acceptance and does not authorize routine use.
 
-Every run must consume one immutable, reviewable manifest. The manifest is data, not executable code.
+### Stage 2 — E7 and E8 thin-adapter qualification
 
-Minimum fields:
+Reuse the Stage 1 transaction without copying its mechanics.
+
+Stage 2 adds two separate fixed adapters:
+
+- E7 validation selection and invariant checks;
+- E8 validation selection and invariant checks.
+
+The adapters may validate frozen values and generated outputs. They may not choose, infer, optimize, or alter those values.
+
+Stage 2 does not include profile data migration, training, handoff materialization, or scientific interpretation.
+
+### Stage 3 — final ReplayAB evaluation
+
+Run the frozen paired case bank and issue exactly one engineering verdict:
+
+- `ADOPT`;
+- `NARROW`;
+- `REDESIGN`;
+- `REJECT`.
+
+No verdict changes repository defaults without a separate explicit approval and reviewed change.
+
+## 6. Document-as-contract dependency protocol
+
+Every implementation stage is strongly dependent on this document rather than merely inspired by it.
+
+### 6.1 Plan identity
+
+Before a stage starts, its durable stage packet must record:
+
+- this document path;
+- the exact Git commit containing the approved document version;
+- the document SHA-256;
+- the stage number and approved stage status;
+- the exact current-main SHA reviewed for that stage;
+- the authorized paths, responsibilities, commands, tests, budgets, and exit gates.
+
+A stage run with a different or missing plan identity is invalid.
+
+### 6.2 No silent deviation
+
+Implementation must stop before proceeding when it requires any of the following:
+
+- a path not authorized by the stage packet;
+- a new Python path without exact-path oral approval;
+- a new dependency;
+- broader GitHub permissions;
+- a new task input field or executable input;
+- a relaxed safety, test, time, complexity, or replay threshold;
+- a changed scientific responsibility;
+- a different ReplayAB case, label, exclusion, or acceptance rule.
+
+The document must be revised and reviewed first. Code is never allowed to redefine the plan after implementation difficulty or benchmark results are observed.
+
+### 6.3 Stage output binding
+
+Every stage report must bind:
+
+- approved plan commit and SHA-256;
+- implementation base and head;
+- changed paths and line-count method;
+- executed commands and observed outcomes;
+- unresolved items and deviations;
+- explicit `PASS`, `HOLD`, `REDESIGN`, or `STOP` decision.
+
+A later stage may start only from a `PASS` report that cites the same approved document lineage.
+
+### 6.4 Change classes
+
+Document changes are classified as:
+
+- **clarification:** no responsibility, permission, threshold, file, or acceptance change;
+- **contract amendment:** changes scope, file plan, permissions, tests, thresholds, cases, or responsibilities;
+- **result record:** records evidence without changing the frozen contract.
+
+A contract amendment after Stage 1 behavior results requires a new pre-result review. Adoption thresholds and case labels cannot be relaxed post hoc.
+
+### 6.5 Engineering-plan boundary
+
+This document controls only the Maintenance Runner engineering project. It does not replace `docs/handoff.md`, change scientific experiment state, or become a second research master.
+
+## 7. Stage 0 repeated-review protocol
+
+Stage 0 is reviewed in separate passes. A single broad read-through is insufficient.
+
+### Pass A — objective and ROI
+
+Questions:
+
+- Is the problem repeated enough to justify a new workflow?
+- Does the proposed transaction remove real manual work rather than move it into setup?
+- Can the gain be measured independently from child-test time and GitHub queue time?
+- Is a smaller reuse of an existing owner sufficient?
+
+Failure action: narrow or cancel before behavior code.
+
+### Pass B — architecture and duplication
+
+Questions:
+
+- Are Maintenance Runner, ReplayAB, E7/E8 adapters, V1, and Handoff Authority still separate owners?
+- Is existing repository behavior composed rather than copied?
+- Does any abstraction exist only for hypothetical future experiments?
+- Can the first version be implemented without a service, plugin system, backend registry, or generalized framework?
+
+Failure action: simplify before implementation.
+
+### Pass C — security and mutation safety
+
+Questions:
+
+- Can task input execute arbitrary code or select arbitrary tests?
+- Can it target `main`, another branch, a protected path, a symlink, a submodule, or Git metadata?
+- What happens on stale head, concurrent update, partial apply, test failure, cancellation, timeout, or push rejection?
+- Can secrets or payload contents leak through logs or artifacts?
+- Can a GitHub-token push be mistaken for independently triggered PR CI?
+
+Failure action: fail closed or remove the task class.
+
+### Pass D — governance and scientific safety
+
+Questions:
+
+- Are handoff, registry, workflow, authority, governance, and formal-execution paths excluded from V1 payloads?
+- Are frozen scientific fields checked by existing owners?
+- Are smoke, liveness, replay, and formal results kept distinct?
+- Does any task implicitly change scientific status or execution order?
+
+Failure action: stop and revise scope.
+
+### Pass E — ReplayAB validity
+
+Questions:
+
+- Are both arms given identical frozen inputs except for the treatment?
+- Are case selection, labels, exclusions, environment, cache policy, and thresholds frozen before candidate results?
+- Are both arms independently accepted before efficiency is compared?
+- Are order effects, failures, timeouts, and per-family outcomes retained?
+- Is the conclusion limited to deterministic repository-transaction performance?
+
+Failure action: no adoption claim.
+
+### Pass F — implementation and rollback feasibility
+
+Questions:
+
+- Are exact files and responsibilities identified?
+- Can focused tests cover the dangerous boundaries?
+- Can routine use be disabled with one reviewed change?
+- Does rollback preserve history and leave the current route intact?
+- Is the production-code budget realistic without minification or responsibility mixing?
+
+Failure action: redesign or cancel.
+
+Stage 0 closure requires a written result for all six passes and no unresolved blocker.
+
+## 8. First-version task contract
+
+Every run consumes one immutable, reviewable manifest and one approved unified-diff payload. The manifest is data, not executable code.
+
+V1 supports only `unified_diff`. Complete-file generation, Base64 chunk protocols, binary payloads, and arbitrary archive extraction are excluded until replay evidence proves they are necessary.
+
+Illustrative manifest:
 
 ```yaml
 task_id: E7-PROFILE-EXAMPLE-01
+schema_version: 1
 task_type: patch_apply
+plan_commit: 40-character SHA
 base_commit: 40-character SHA
 target_branch: dev/example
 expected_head: 40-character SHA
-payload:
-  kind: unified_diff
-  path: .github/agent-payload/E7-PROFILE-EXAMPLE-01/update.patch
-  sha256: 64-character digest
+payload_path: .github/maintenance-payload/E7-PROFILE-EXAMPLE-01/update.patch
+payload_sha256: 64-character digest
 allowed_paths:
   - configs/example.json
   - runspecs/templates/example.yaml
-forbidden_paths:
-  - docs/handoff.md
-  - experiments/registry.yaml
 validation_profile: e7_focused
 expected_change:
   min_files: 1
   max_files: 3
-  require_clean_result: true
+  allow_delete: false
+  allow_rename: false
+  allow_mode_change: false
 ```
 
-The schema must reject unknown keys, non-full SHAs, wildcard branch escalation, path traversal, overlapping allowed/forbidden paths, arbitrary commands, and mutable remote references.
+The schema must reject:
 
-## 6. Shared runner responsibilities
+- unknown keys;
+- non-full or uppercase Git SHAs;
+- mutable refs in place of SHAs;
+- `main`, the default branch, missing branches, or wildcard branch patterns;
+- absolute paths, `..`, empty segments, control characters, or duplicate normalized paths;
+- paths outside the explicit allowlist;
+- overlapping payload and output paths;
+- executable command, environment, expression, or script fields;
+- binary, submodule, symlink, rename, deletion, or file-mode changes in V1;
+- oversized manifest or payload;
+- a payload hash, plan identity, base, or expected head mismatch.
 
-The shared runner owns only the transaction mechanics:
+## 9. V1 transaction sequence
 
-1. validate manifest and payload identities;
-2. prove the branch is not `main` and matches the declared development branch;
-3. prove the checked-out head equals `expected_head`;
-4. reconstruct and hash-check the payload when chunking is used;
-5. run `git apply --check` before mutation for patch payloads;
-6. audit changed paths before and after application;
-7. invoke a fixed, repository-owned validation profile;
-8. stop without commit or push on any failure;
-9. create one non-force commit only after all declared checks pass;
-10. emit append-only evidence containing exact inputs, commands selected by repository code, timestamps, outcomes, and final SHA.
+The shared runner owns only the following sequence:
 
-It does not own E7/E8 matrix semantics, handoff authority, or scientific interpretation.
+1. parse the manifest strictly;
+2. verify plan identity and the stage authorization packet;
+3. resolve the repository default branch and reject it as target;
+4. verify `base_commit` and `expected_head` are reachable commit objects;
+5. verify the remote target branch exists and equals `expected_head`;
+6. verify manifest and payload size limits;
+7. verify payload SHA-256;
+8. parse the patch without applying it and derive its changed paths and change kinds;
+9. reject forbidden change kinds and paths;
+10. create an isolated workspace from `expected_head`;
+11. run `git apply --check` and apply only in that workspace;
+12. verify the actual diff exactly matches the allowed change contract;
+13. run one fixed repository-owned validation profile;
+14. recheck remote target head immediately before commit;
+15. create one commit with task, plan, manifest, payload, base, and parent identities;
+16. verify the committed tree and changed paths;
+17. non-force push only to the same target branch;
+18. emit an append-only report and exact final commit SHA.
 
-## 7. Thin validation profiles
+Any failure before push must leave the remote target unchanged. A non-fast-forward push rejection is a safe stale-head result, not a retry invitation.
 
-A validation profile is a repository-owned fixed mapping, not user-supplied shell.
+## 10. Fixed validation profiles
 
-Initial profile set:
+Task input selects a profile by exact ID. It cannot provide commands.
 
-- `generic_small_code`: compile, Ruff, selected pytest, diff check;
-- `e7_focused`: existing E7 focused tests plus matrix/RunSpec checks already owned by E7 code;
-- `e8_focused`: existing E8 focused tests plus matrix/RunSpec checks already owned by E8 code.
+### `generic_small_code`
 
-Handoff/registry materialization is explicitly excluded from the first implementation. A later `authority_materialization` profile requires its own design and authorization because it writes authoritative after-images.
+- Python compile for changed Python scope when applicable;
+- Ruff for the repository-owned selected scope;
+- repository test selector and focused pytest;
+- changed-path and file-mode audit;
+- code-only handoff-authority no-op verification when required by current repository policy.
 
-## 8. Profile data-driven migration boundary
+### `e7_focused`
 
-Moving E7 or E8 profile data out of Python is related but separate.
+- all `generic_small_code` requirements;
+- existing E7 profile/matrix/RunSpec focused tests selected by repository code;
+- frozen scientific-field and expected-branch-count checks owned by E7 code.
 
-The maintenance runner can be evaluated before profile migration by applying frozen historical patches. Profile migration is considered only after the shared transaction proves useful.
+### `e8_focused`
 
-A later migration must preserve, byte-for-byte or semantically under a frozen evaluator:
+- all `generic_small_code` requirements;
+- existing E8 profile/cell/RunSpec focused tests selected by repository code;
+- frozen scientific-field and expected-cell-count checks owned by E8 code.
 
-- experiment IDs;
-- datasets and order;
-- seeds;
-- control points and anchors;
-- expected branch counts;
-- RunSpec fields;
-- output naming and provenance;
-- all frozen scientific exclusions and claim boundaries.
+V1 does not include `authority_materialization`, `workflow_change`, `paper_release`, or `formal_experiment` profiles.
 
-No migration may combine E7 and E8 scientific schemas merely for architectural uniformity.
+## 11. Edge-case and failure matrix
 
-## 9. Phased development
+Stage 1 tests and liveness must cover at least the following classes.
 
-### Stage 0 — design and replay contract
+| Class | Expected result |
+|---|---|
+| valid manifest and patch | validate, test, commit, and non-force push |
+| malformed or unknown manifest field | reject before workspace creation |
+| stale `base_commit` contract | reject with no mutation |
+| stale remote `expected_head` at start | reject with no mutation |
+| remote head changes during validation | reject before commit or fail non-force push safely |
+| target is `main` or default branch | reject |
+| undeclared or missing target branch | reject |
+| path traversal or absolute path | reject |
+| case-folding or normalization collision | reject |
+| changed path outside allowlist | reject |
+| workflow, handoff, registry, authority, governance, or Git metadata path | reject |
+| binary, submodule, symlink, delete, rename, or mode change | reject in V1 |
+| payload hash mismatch | reject before patch parse |
+| payload over size limit | reject before workspace creation |
+| patch does not apply cleanly | reject with retained diagnostics |
+| patch applies partially only | impossible through atomic apply; otherwise reject and discard workspace |
+| focused test failure | no commit and no push |
+| test command timeout | no commit and no push; retain timeout evidence |
+| runner cancellation before push | no remote change |
+| cancellation after successful push | commit remains valid; report recovery state explicitly |
+| commit succeeds but push is rejected | local/disposable commit only; remote unchanged |
+| artifact upload fails after push | do not claim complete evidence; recover from commit identity and rerun report-only step |
+| secret-like value in payload or log | redact or block according to frozen rule |
+| concurrent task on same branch | serialize or reject; never interleave |
+| concurrent tasks on different branches | may run independently |
+| flaky focused test | retain failure; no automatic retry unless both arms' replay contract predeclares the same retry |
+| GitHub-token push does not retrigger PR workflows | do not claim PR CI ran; Stage 1 validation must stand on its own exact head |
+| current `main` advances during a task | does not alter frozen task base; report divergence for reviewer |
+| generated file differs nondeterministically | independent acceptance fails unless variability was frozen in advance |
 
-Deliverables:
+No failure may be converted to success by silently broadening paths, rerunning a different test set, changing the payload, or moving the expected head.
 
-- this plan;
-- frozen candidate responsibility;
-- code/runtime budgets;
-- replay validity and adoption gates;
-- no behavior-changing code.
+## 12. Stage 1 acceptance
 
-Exit gate:
+Stage 1 may be accepted only when all internal checkpoints pass and one final major acceptance verifies:
 
-- current-main review complete;
-- no scientific or authority files changed;
-- ReplayAB reuse path identified;
-- user approves proceeding to Stage 1.
+- strict positive and adversarial manifest tests;
+- isolated-workspace mutation only;
+- every failure class required by Section 11 fails closed;
+- exact-head recheck immediately before commit and push;
+- no commit or push after failed validation;
+- one successful low-risk documentation/fixture liveness;
+- one stale-head liveness with no push;
+- one test-failure liveness with no push;
+- final commit provenance independently re-read from GitHub;
+- full repository pytest, Ruff, compile, handoff-authority no-op, formal-execution, and governance-stage checks on the Stage 1 candidate head;
+- production code and self-overhead budgets pass.
 
-### Stage 1 — read-only manifest planner
+The successful liveness must not touch scientific code, experiment configuration, handoff, registry, workflows, or governance authority.
 
-Implement strict manifest parsing and deterministic planning without applying files, committing, or pushing.
+## 13. Stage 2 E7/E8 adapter contract
 
-The planner must output:
+Stage 2 reuses the Stage 1 runner unchanged except for fixed profile selection and explicit scientific-invariant checks.
 
-- resolved exact base/head;
-- candidate changed paths from the payload;
-- selected fixed validation profile;
-- forbidden-path result;
-- deterministic plan hash.
+### E7 adapter may validate
 
-Exit gate:
-
-- focused positive and adversarial tests pass;
-- no repository mutation occurs;
-- median planner overhead is at most 250 ms and p95 at most 1 s in fixture replay;
-- production implementation remains within the Stage 1 line budget.
-
-### Stage 2 — isolated apply and validation
-
-Add payload reconstruction, SHA-256 verification, `git apply --check`, isolated application, and fixed validation-profile execution.
-
-Still forbidden:
-
-- commit;
-- push;
-- PR creation;
-- workflow write permission.
-
-Exit gate:
-
-- success, malformed payload, stale head, forbidden path, failing test, partial apply, and interruption cases all retain evidence and fail closed;
-- no source workspace mutation outside the isolated worktree;
-- candidate self-overhead excludes child-test time and remains within budget.
-
-### Stage 3 — dev-branch commit liveness
-
-Add one-commit behavior for a pre-existing declared dev branch. No automatic PR creation yet.
-
-Safety requirements:
-
-- `main` and default branch rejected;
-- no new branch creation;
-- no force push;
-- exact expected head rechecked immediately before commit and push;
-- tests must pass before commit;
-- final tree and changed paths re-audited after commit;
-- push only to the same declared dev branch;
-- concurrent runs for the same branch serialized.
-
-The first real liveness uses a disposable low-risk documentation or fixture-only task, not scientific code and not handoff/registry.
-
-Exit gate:
-
-- exact-head liveness succeeds;
-- stale-head and test-failure liveness stop without push;
-- final commit provenance is independently verified.
-
-### Stage 4 — E7 adapter qualification
-
-Add only the minimum E7-specific adapter needed to validate already-approved successor-profile material.
-
-The adapter may validate:
-
-- exact profile ID and parent;
-- frozen datasets, seeds, controls, anchors, and exclusions;
-- deterministic branch expansion and expected count;
+- exact experiment/profile identity and parent identity;
+- frozen datasets and order;
+- frozen seeds;
+- frozen control points, anchors, exclusions, and expected branch count;
+- deterministic matrix expansion;
 - RunSpec consistency;
-- focused E7 tests.
+- existing focused E7 tests.
 
-It may not choose or alter those values.
+### E8 adapter may validate
 
-Exit gate:
+- exact experiment/profile identity and parent identity;
+- frozen dataset/corpus and initialization identity;
+- frozen seeds and seed offsets;
+- frozen parameter grid, controls, exclusions, and expected cell count;
+- deterministic matrix expansion;
+- RunSpec consistency;
+- existing focused E8 tests.
 
-- at least three frozen E7 historical tasks can be replayed by both arms;
-- every arm independently satisfies the same semantic acceptance contract;
-- no E7 scientific value changes between accepted A and B outcomes.
+### Adapter prohibitions
 
-### Stage 5 — E8 adapter qualification
+- no automatic parameter or seed proposal;
+- no inference from previous results;
+- no profile migration or common E7/E8 scientific schema;
+- no training or evaluator execution;
+- no handoff or registry write;
+- no ranking, convergence, steady-state, or result-status decision.
 
-Reuse the shared transaction and add a separate E8 validator. Do not force E8 into the E7 schema.
+Stage 2 acceptance requires at least three frozen E7 and three frozen E8 successful-path tasks plus one failure-boundary task per family. Every arm must independently satisfy the same frozen acceptance contract.
 
-Exit gate:
+## 14. ReplayAB final protocol
 
-- at least three frozen E8 historical tasks can be replayed by both arms;
-- expected cells, seeds, profile identity, and RunSpec outputs match the frozen contracts;
-- no scientific execution occurs.
+### 14.1 Claim boundary
 
-### Stage 6 — ReplayAB paired evaluation
+ReplayAB measures the deterministic repository transaction layer:
 
-Run the frozen replay bank described below. This stage produces an engineering decision only.
+- correctness and safety of the produced dev-branch commit;
+- active interventions and operation count;
+- controlled end-to-end time;
+- candidate self-overhead;
+- failure-boundary behavior;
+- maintenance complexity.
 
-Possible decisions:
+It does not estimate how often a future coding agent invents a correct patch. Both arms receive the same approved task packet and payload identity.
 
-- `ADOPT`: candidate qualifies for a separately approved default-route change;
-- `NARROW`: useful only for a smaller task class;
-- `REDESIGN`: benefit exists but safety, complexity, or runtime fails;
-- `REJECT`: no sufficient net benefit.
+### 14.2 Arms
 
-No decision automatically changes `main` or repository defaults.
+- **Arm A — current route:** frozen reconstruction of the accepted GitHub-App/manual plus existing-script sequence.
+- **Arm B — candidate route:** Maintenance Runner using the same base, payload, branch policy, test requirements, and acceptance contract.
 
-## 10. ReplayAB protocol
+Neither arm may consume the other arm's workspace, outputs, diagnostics, or timing results.
 
-### 10.1 What is measured accurately
+### 14.3 Frozen case bank
 
-The replay measures the deterministic repository transaction layer:
+Before Stage 1 write-capable liveness results are used for any efficiency claim, freeze eight replayable cases:
 
-- correctness and safety of the resulting development commit;
-- elapsed transaction time under a controlled environment;
-- active interventions and command count;
-- failure and recovery behavior;
-- candidate overhead;
-- output consistency under frozen scientific constraints.
+- four E7 cases;
+- four E8 cases.
 
-It does not estimate the probability that a future coding model invents the correct patch. Both arms receive the same frozen task packet and approved payload or equivalent source material.
+Each family should include:
 
-### 10.2 Arm definitions
+1. config/RunSpec-only success;
+2. small code-plus-test success;
+3. a historical task with temporary workflow or repeated integration work;
+4. a failure-boundary task.
 
-- **Arm A — current route:** the currently accepted manual/GitHub-App plus existing script sequence reconstructed as a frozen command plan.
-- **Arm B — candidate route:** the Maintenance Runner using the same base, payload, branch policy, tests, and acceptance contract.
+The inventory freezes case ID, task family, source history, base, payload hash, allowed paths, treatment, evaluator, expected terminal state, replayability class, cache policy, exclusions, and ground-truth acceptance facts.
 
-Neither arm may use the other arm's outputs.
+Cases, labels, orientations, exclusions, and thresholds may not be removed or changed after candidate results.
 
-### 10.3 Frozen case bank
+### 14.4 Ordering and repetitions
 
-Before candidate results, select 8 representative replayable tasks:
+For each successful-path case:
 
-- 4 E7 tasks;
-- 4 E8 tasks.
+- one paired repetition in A→B order;
+- one paired repetition in B→A order;
+- isolated workspaces;
+- identical cache policy and environment fingerprint;
+- all failures and timeouts retained.
 
-Each family should include, when historical evidence permits:
+A third paired repetition is mandatory when paired wall-time spread exceeds 15%, a cache/environment mismatch occurs, or one repetition crosses the predeclared timeout boundary.
 
-1. a config/RunSpec-only change;
-2. a small code-plus-test change;
-3. a task that previously required temporary workflow plumbing;
-4. a failure-boundary case such as stale base, forbidden path, or failing validation.
+Failure-boundary cases require repeated terminal agreement; their speed is diagnostic only.
 
-The final case IDs, bases, payload hashes, expected outcomes, and exclusions must be frozen in a separate inventory before Stage 2 behavior results are observed. Cases may not be removed after an unfavorable result.
+### 14.5 Independent acceptance
 
-### 10.4 Repetition and ordering
+Use R2 semantic acceptance when different commit metadata or implementation trees may both be correct. Use exact-artifact mode only for genuinely deterministic outputs. Use failure-boundary mode when stopping is the correct result.
 
-For every successful-path case:
+Efficiency is hidden until both arms are independently accepted.
 
-- run two paired repetitions;
-- one repetition uses A→B;
-- the other uses B→A;
-- use isolated workspaces and the same cache policy;
-- retain all failures and timeouts.
+Each arm must pass:
 
-Run a third paired repetition when the paired wall-time spread exceeds 15% or a cache/environment mismatch is detected.
+- mandatory behavior and output completeness;
+- forbidden-regression checks;
+- path, mode, branch, and protected-value checks;
+- relevant focused and governance tests;
+- task, evaluator, plan, payload, base, and run identity bindings;
+- expected terminal state;
+- no unauthorized partial mutation.
 
-Failure-boundary cases require deterministic repeated agreement rather than speed comparison.
+### 14.6 Metrics
 
-### 10.5 Independent acceptance
+Primary:
 
-Use ReplayAB R2 semantic acceptance when different commit metadata or implementation trees can still be correct. Use exact-artifact mode only when the frozen task truly requires identical outputs.
-
-Each arm must independently pass:
-
-- declared behavior and output completeness;
-- changed-path and protected-path rules;
-- frozen scientific-value checks;
-- relevant focused tests;
-- repository governance checks applicable to the task;
-- exact input and provenance bindings;
-- expected terminal state.
-
-Efficiency results are hidden until both arms are accepted.
-
-### 10.6 Metrics
-
-Primary metrics:
-
-- independently accepted task rate;
-- safety-boundary agreement rate;
+- independently accepted case rate;
+- incorrect-arm false-acceptance count;
+- safety-boundary agreement;
 - median active intervention count;
 - median repository commands/tool actions;
 - median time to reviewable dev-branch commit;
 - median controlled end-to-end wall time;
 - candidate self-overhead excluding child validation;
 - failed-attempt and retry count;
-- changed production lines and maintenance complexity.
+- production lines and changed-path complexity.
 
-Secondary diagnostics:
+Secondary:
 
-- test-selection time;
-- payload reconstruction time;
+- planning time;
+- patch verification/apply time;
+- test-selection and child-test time;
 - commit/push time;
 - cache/order effects;
-- per-task rather than aggregate-only outcomes.
+- per-case and per-family outcomes.
 
-### 10.7 Adoption gate
+### 14.7 Decision gate
 
-`ADOPT` is allowed only if all conditions pass:
+`ADOPT` is allowed only when all conditions pass:
 
-1. both arms are independently accepted on every successful-path replay;
-2. all failure-boundary cases stop at the correct boundary without partial unauthorized mutation;
-3. Arm B introduces no false acceptance or protected-path regression;
+1. both arms are independently accepted on every successful-path case;
+2. every failure-boundary case stops at the correct boundary without unauthorized mutation;
+3. Arm B has zero false acceptance and zero protected-path regression;
 4. median active interventions fall by at least 40%;
 5. median time to reviewable dev commit falls by at least 25%;
-6. Arm B controlled wall time does not regress by more than 5% on any task family;
-7. median candidate self-overhead is at most 2 seconds and p95 at most 5 seconds, excluding child tests;
-8. no hidden rerun of full tests or validators is used to manufacture telemetry;
-9. preferred production-line budget is met, or a pre-result redesign review approves a yellow-zone exception;
-10. the result remains positive when E7 and E8 are reported separately.
+6. Arm B controlled wall time does not regress by more than 5% in either E7 or E8;
+7. median candidate self-overhead is at most 2 seconds and p95 at most 5 seconds, excluding child validation;
+8. no duplicate validator or full-test execution is used only to manufacture telemetry;
+9. code and complexity budgets pass;
+10. E7 and E8 results are both positive when reported separately.
 
-If correctness passes but only one family benefits, the decision is `NARROW`, not `ADOPT`.
+If correctness passes but only one family benefits, return `NARROW`. A correctness or security failure returns `REJECT` unless the failure clearly precedes benchmark validity, in which case return `REDESIGN` and rerun only under a newly frozen contract.
 
-## 11. Code and runtime budgets
+## 15. Code, runtime, and complexity budgets
 
-The candidate must remain small.
-
-Preferred cumulative production budget through Stage 3:
+Preferred cumulative production budget through Stage 1:
 
 | Component | Preferred lines |
 |---|---:|
 | Workflow YAML | 80–140 |
-| Shared non-Python runner/helper | 160–260 |
-| Fixed validation-profile mapping | 40–80 |
-| **Total** | **280–480** |
+| Runner production Python | 180–300 |
+| Fixed validation mapping and shell glue | 30–80 |
+| **Total** | **290–520** |
 
 Rules:
 
-- yellow review above 500 production lines;
-- hard stop above 650 production lines before E7/E8 adapters;
+- yellow review above 520 production lines;
+- hard stop above 650 production lines before Stage 2;
 - tests and fixtures are outside the production budget but must remain targeted;
-- no service, daemon, database, dashboard, queue, scheduler, or new dependency;
-- no new Python file without exact-path oral approval under repository policy;
-- adapter code above 200 production lines per experiment family triggers redesign rather than framework expansion.
+- no service, daemon, database, dashboard, queue, scheduler, plugin system, backend registry, or dependency;
+- no responsibility may be hidden in generated code, minified code, shell heredocs, or unrelated modules to fit the budget;
+- Stage 2 adapter additions above 150 production lines per family trigger redesign;
+- static planning target: median ≤250 ms and p95 ≤1 s;
+- candidate self-overhead target: median ≤2 s and p95 ≤5 s, excluding child validation;
+- a candidate that saves manual actions but materially increases controlled wall time is a negative optimization.
 
-A candidate that saves manual actions but increases controlled wall time or maintenance complexity beyond these gates is a negative optimization.
+## 16. Proposed file plan and approval gates
 
-## 12. Security and governance boundaries
+Stage 0 proposes, but does not yet authorize creation of:
 
-The write-capable phase must enforce:
+- `.github/workflows/drpo-maintenance-runner.yml` — manual, branch-scoped workflow entrypoint;
+- `scripts/run_drpo_maintenance_runner.py` — strict manifest, patch, isolated validation, commit, and same-branch push transaction;
+- `tests/test_drpo_maintenance_runner.py` — positive, adversarial, failure-injection, and liveness-contract tests;
+- non-Python manifests, fixtures, and reports under `docs/development_workflow_optimization/maintenance_runner/`.
 
-- least-privilege `contents: write` only where required;
-- no `pull-requests: write` in the first implementation;
-- no arbitrary command input;
-- no secret disclosure in artifacts or logs;
-- payload and manifest SHA-256 binding;
-- exact base and exact expected head;
-- same-branch non-force push only;
-- branch-level concurrency lock;
-- fixed path allowlist and denylist;
-- failure before mutation whenever possible;
-- no commit or push after failed validation;
-- complete provenance and retained failure evidence.
+The two proposed `.py` paths are new governed Python destinations. Before Stage 1 creates either path, the repository owner must explicitly approve each exact path and stated responsibility under `GOV-NEW-PYTHON-FILE-ORAL-APPROVAL-02`.
 
-Any future automatic Draft PR creation, authority materialization, workflow-file modification, or protected-environment approval is a separate scope expansion.
+Why existing Python files are insufficient:
 
-## 13. Relationship to existing Handoff Authority PR
+- ReplayAB files judge outcomes and must not own candidate mutation behavior;
+- V1 files own pilot-registration transactions and must not become a generic patch runner;
+- E7/E8 files own scientific domain behavior and must not own repository-wide write mechanics;
+- placing the runner in an unrelated existing file would violate responsibility boundaries and make rollback harder.
 
-The pending Handoff Authority workflow is a separate read-only checker. It is neither required for Stage 1 nor a substitute for the Maintenance Runner.
+If exact-path approval is not given, Stage 1 must redesign around existing approved paths or stop. It may not hide Python behavior in another file type.
 
-The first Maintenance Runner version forbids handoff/registry changes. Therefore it does not depend on cross-workflow triggering.
+## 17. GitHub Actions and CI semantics
 
-A later authority-aware task class must invoke the existing authority validator inside the same transaction and requires a separately approved design.
+The write-capable workflow must use least privilege:
 
-## 14. Rollback
+- `contents: write` only in the job that performs the guarded same-branch push;
+- no `pull-requests: write` in V1;
+- no secret-bearing environment input;
+- `persist-credentials: false` except for the explicit guarded push mechanism;
+- branch-scoped concurrency;
+- exact expected-head recheck before write.
 
-Before default adoption, rollback is simply:
+A push performed with `GITHUB_TOKEN` is not assumed to trigger another workflow. Therefore:
 
-- stop the candidate branch and workflows;
-- keep the current GitHub App/manual route unchanged;
-- retain ReplayAB evidence and failed cases;
-- do not delete historical candidate commits or reports.
+- Stage 1 must run its declared validation before push;
+- it must publish only evidence it actually produced;
+- it must not claim PR Gate, Handoff Authority, or any other workflow ran recursively;
+- an exact-head external check, when required, must be explicitly triggered or observed separately.
 
-After any later default adoption, rollback must:
+Automatic Draft PR creation is excluded from V1 and may be considered only after the runner is accepted and the additional permission is separately reviewed.
 
-- disable the candidate trigger or remove the default-route reference in one reviewed commit;
-- restore the previously documented route;
-- preserve all task manifests, logs, and provenance;
-- require explicit user approval.
+## 18. Relationship to Handoff Authority
 
-No scientific artifact or experiment status is affected by rollback.
+The pending Handoff Authority PR is a separate read-only checker.
 
-## 15. Stage ledger
+The first Maintenance Runner task class forbids handoff and registry changes, so it neither invokes nor depends on remote cross-workflow authority triggering.
 
-| Stage | Status | Main impact | Next gate |
+A future authority-aware task class would need to invoke the existing trusted normalizer and authority verifier inside one explicitly designed transaction. That is a separate scope and cannot be inferred from this plan.
+
+## 19. Rollback and kill switch
+
+Before adoption, rollback is immediate:
+
+- disable or remove the candidate workflow on its development branch;
+- stop candidate runs;
+- retain all commits, manifests, logs, reports, failures, and ReplayAB evidence;
+- keep the current GitHub App/manual route unchanged.
+
+After a later default adoption, rollback must be one reviewed commit that:
+
+- disables the candidate trigger or removes the default-route reference;
+- restores the previously documented route;
+- preserves historical evidence;
+- does not modify scientific artifacts or experiment state;
+- requires explicit user approval.
+
+Stage work stops immediately when any of the following occurs:
+
+- false acceptance or protected-path mutation;
+- write to the wrong branch;
+- force push or unauthorized branch creation;
+- silent scientific-variable change;
+- benchmark case or threshold changed after results;
+- production code exceeds the hard stop;
+- controlled wall time indicates a negative optimization;
+- required new path, permission, dependency, or responsibility lacks approval.
+
+## 20. Current uncertainties that Stage 0 must resolve
+
+Stage 0 remains open until these are resolved and durably recorded:
+
+1. exact eight-case ReplayAB inventory and artifact availability;
+2. final payload-size and manifest-size limits based on historical task distribution;
+3. exact repository-owned command lists for `generic_small_code`, `e7_focused`, and `e8_focused`;
+4. whether the proposed new Python paths receive explicit approval;
+5. how exact-head evidence is retained when artifact upload fails after a successful push;
+6. whether the first liveness should use a documentation-only or fixture-only payload;
+7. refresh of the implementation branch to the then-current `main` before Stage 1 starts.
+
+No uncertainty may be resolved after seeing benchmark results merely to improve the decision.
+
+## 21. Stage ledger
+
+| Stage | Status | Behavior impact | Required next decision |
 |---|---|---|---|
-| 0 — design and replay contract | `active` | none | document review and user approval |
-| 1 — read-only planner | `not_started` | none | focused adversarial tests and overhead gate |
-| 2 — isolated apply/validate | `not_started` | none | fail-closed fixture replay |
-| 3 — dev-branch commit liveness | `not_started` | no default change | three real safety liveness cases |
-| 4 — E7 adapter | `not_started` | none | frozen E7 replay qualification |
-| 5 — E8 adapter | `not_started` | none | frozen E8 replay qualification |
-| 6 — paired ReplayAB | `not_started` | none | `ADOPT/NARROW/REDESIGN/REJECT` decision |
+| 0 — design, threat model, replay contract | `active_under_review` | none | complete six review passes, freeze inventory and command profiles, user approves Stage 1 |
+| 1 — shared runner closed loop | `not_started` | dev-branch candidate only | major safety/CI/runtime acceptance |
+| 2 — E7/E8 thin adapters | `not_started` | validation only; no training | joint adapter qualification |
+| 3 — ReplayAB final evaluation | `not_started` | evidence only | `ADOPT/NARROW/REDESIGN/REJECT` |
 
-Development stops at every stage boundary for review. Later-stage authorization is not inferred from an earlier-stage pass.
+Later-stage authorization is never inferred from an earlier-stage pass.
+
+## 22. Stage 0 review record
+
+Current review cycle: `stage0-review-1`.
+
+- Pass A — objective and ROI: `provisionally_pass`; benefit is measurable, but exact historical case inventory remains open.
+- Pass B — architecture and duplication: `pass_with_boundary`; candidate, ReplayAB, adapters, V1, and Handoff Authority remain separate.
+- Pass C — security and mutation safety: `pass_with_v1_exclusions`; binaries, symlinks, deletes, renames, mode changes, protected paths, branch creation, and arbitrary commands are excluded.
+- Pass D — governance and scientific safety: `pass_with_approval_gate`; no scientific or authority paths are in V1, and new Python paths still require exact approval.
+- Pass E — ReplayAB validity: `hold`; exact case inventory, evaluator bindings, and historical artifact availability must be frozen before closure.
+- Pass F — implementation and rollback feasibility: `provisionally_pass`; line budget appears feasible but command profiles and evidence-recovery behavior remain open.
+
+Stage 0 is not closed by this review cycle. The next review must resolve the `hold` and all open items in Section 20 before requesting Stage 1 authorization.
