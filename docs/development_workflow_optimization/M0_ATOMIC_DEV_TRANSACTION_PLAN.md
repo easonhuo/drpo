@@ -2,10 +2,10 @@
 
 **Claim:** `GOV-DRPO-MAINTENANCE-RUNNER-REPLAYAB-01`  
 **Measurement authority:** `GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01`  
-**Document version:** `1.0-stage0-redesign-draft`  
+**Document version:** `1.1-stage0-review-A`  
 **Initial design branch base:** `main@d7e82201159a736f0d2e48403aae15ea07e178a7`  
 **Current main reviewed:** `main@ad9bda80796dcf5c48976f5d64ffd79a006c70d5`  
-**Status:** `stage0_rewrite_under_review`  
+**Status:** `stage0_review_A_applied`  
 **Scientific impact:** none  
 **Implementation authorization:** none
 
@@ -93,7 +93,10 @@ M0 may not receive credit for reducing:
 | ReplayAB Core | case contracts, independent acceptance, paired comparison, decision evidence | measures M0; not embedded in M0 |
 
 A capability being available does not prove the end-to-end M0 procedure is sufficient.
-Stage 1 must verify the complete procedure under the exact task class below.
+A Stage 0 non-publishing check confirmed that the current connector can construct a
+tree update from a commit base and existing blob without creating a ref, branch, commit,
+or PR. Stage 1 must still verify the complete remote procedure under the exact task
+class below.
 
 ## 4. M0 task-class boundary
 
@@ -305,6 +308,19 @@ Stage 1 does not authorize routine use or adoption.
 
 ### Stage 2 — frozen ReplayAB evaluation and verdict
 
+Stage 2 has two deliberately separated evidence layers:
+
+1. **controlled local-git replay:** the existing ReplayAB `local-git-v1` machinery
+   executes equivalent historical sequential operations and M0 atomic operations with
+   monotonic timing and isolated repositories;
+2. **remote operational context:** Stage 1 GitHub ref, Draft PR, and exact-head CI
+   observations validate remote semantics but are not mixed into the controlled causal
+   timing estimate.
+
+No new ReplayAB backend is authorized by default. If the frozen M0 operations cannot be
+represented by the current local-git instrument, Stage 0 returns to `HOLD`; implementation
+does not silently expand ReplayAB.
+
 Run the eight frozen cases in balanced opposite order.
 
 Possible verdicts:
@@ -341,11 +357,14 @@ because M1 appears convenient.
 
 ### 10.1 Arms
 
-- **Arm A:** the historically accepted direct route for the frozen case, including its
-  actual sequential file/commit and review operations, without artificial delay.
+- **Arm A:** the exact accepted or historically used route frozen separately for each
+  case, including its actual file, commit, and review operations without artificial
+  delay.
 - **Arm B:** the M0 atomic transaction using the same file after-images, base, validation,
   evaluator, environment policy, and expected result.
 
+A case whose historical Arm A already used an equivalent single atomic transaction has
+no treatment contrast and cannot be selected as a successful efficiency case.
 Arm B receives no better scientific content than Arm A.
 
 ### 10.2 Case bank
@@ -389,7 +408,22 @@ ReplayAB independently re-reads:
 
 Candidate-produced summaries are evidence inputs, not the acceptance oracle.
 
-### 10.4 Repetition
+### 10.4 Evidence-layer separation
+
+Controlled timing, child-operation timing, and operator-action counts come from the
+existing local-git ReplayAB execution record. GitHub PR and Actions timestamps are
+reported separately as operational context.
+
+Remote GitHub qualification may confirm:
+
+- commit parent/tree and branch-ref semantics;
+- Draft PR identity;
+- exact-head check existence and conclusion;
+- recovery after ref or evidence failures.
+
+It may not replace controlled timing or be combined with it into one estimate.
+
+### 10.5 Repetition
 
 For each successful case:
 
@@ -508,8 +542,10 @@ Before Stage 0 closure:
 3. freeze operation/time recording rules for connector actions;
 4. determine whether a real M0 liveness can use low-risk existing tasks without creating
    disposable repository clutter;
-5. record exact plan SHA-256 from an exact byte stream;
-6. refresh or rebuild the implementation branch from current main before any non-document
+5. prove the frozen operations fit the existing `local-git-v1` ReplayAB instrument
+   without adding a backend;
+6. record exact plan SHA-256 from an exact byte stream;
+7. refresh or rebuild the implementation branch from current main before any non-document
    work.
 
 These are design-review tasks. They do not authorize M1 or any runtime implementation.
