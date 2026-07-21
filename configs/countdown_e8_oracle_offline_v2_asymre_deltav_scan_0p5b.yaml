@@ -87,17 +87,13 @@ evaluation:
   train_structure_overlap: none
   train_problem_key_overlap: none
   response_curve_mode: full_declared_grid_late_window_and_terminal
-  validation_only_during_tuning: true
-  legacy_validation_field_interpretation: held_out_evaluation_split_only
-  test_access_forbidden: true
-  legacy_test_field_interpretation: separate_test_jsonl_not_accessed
+  separate_test_split_access: false
   greedy_every: 100
   pass_at_8_every: 100
   pass_at_64_every: 200
-  primary_selection_metric: late_window_pass_at_8
-  secondary_selection_metric: terminal_pass_at_8
   primary_reporting_metric: late_window_pass_at_8
   secondary_reporting_metric: terminal_pass_at_8
+  paper_facing_checkpoint_policy: late_window_and_terminal
   best_checkpoint_saved: true
   best_checkpoint_metric_is_supplementary_only: true
   best_checkpoint_role: supplementary_local_diagnostic_and_recovery_only
