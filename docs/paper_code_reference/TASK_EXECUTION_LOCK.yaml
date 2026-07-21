@@ -73,7 +73,7 @@ forbidden_write_paths:
   - tests/
   - paper/
 
- authority_order:
+authority_order:
   - explicit_current_user_instruction
   - current_main_handoff_and_registry
   - preexisting_task_execution_lock
