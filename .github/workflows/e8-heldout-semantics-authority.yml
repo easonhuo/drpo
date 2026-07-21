@@ -1,0 +1,294 @@
+name: E8 held-out semantics authority transaction
+
+on:
+  push:
+    branches:
+      - dev/e8-asymre-deltav-scan
+    paths:
+      - .github/workflows/e8-heldout-semantics-authority.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: e8-heldout-semantics-authority
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-asymre-deltav-scan
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install authority dependencies
+        run: python -m pip install --upgrade pyyaml pytest ruff
+
+      - name: Build source registry and schema-v3 delta
+        env:
+          BASE_COMMIT: b18aea9186d7e3ccc5d43b456719cafc23761e03
+          UPDATE_ID: EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$BASE_COMMIT"
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import os
+          import sys
+          from pathlib import Path
+
+          import yaml
+
+          root = Path.cwd()
+          sys.path.insert(0, str(root / "scripts"))
+          import handoff_delta_shadow as shadow
+
+          base_commit = os.environ["BASE_COMMIT"]
+          update_id = os.environ["UPDATE_ID"]
+          delta_rel = f"docs/handoff_deltas/{update_id}/HANDOFF_DELTA.yaml"
+          delta_path = root / delta_rel
+          registry_path = root / "experiments/registry.yaml"
+          handoff_path = root / "docs/handoff.md"
+
+          experiment_ids = [
+              "EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01",
+              "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01",
+              "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-HIGHC-SCAN-0.5B-01",
+              "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-LOGC-BOUNDARY-SCAN-0.5B-01",
+              "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01",
+              "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-CURVE-0.5B-01",
+              "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-SHAPE-SCREEN-0.5B-01",
+              "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-HIGH-LAMBDA-EXTENSION-0.5B-01",
+              "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-QUADRATIC-DENSE-LAMBDA-CURVE-0.5B-01",
+          ]
+          reciprocal_ids = set(experiment_ids[-3:])
+          protocol = {
+              "split_file": "val.jsonl",
+              "split_role": "structurally_disjoint_held_out_evaluation",
+              "enters_training_loss": False,
+              "train_structure_overlap": "none",
+              "train_problem_key_overlap": "none",
+              "paper_facing_summary": [
+                  "late_window_pass_at_8",
+                  "terminal_pass_at_8",
+              ],
+              "best_checkpoint_saved": True,
+              "best_checkpoint_role": "supplementary_only",
+              "separate_test_jsonl_used": False,
+              "separate_test_jsonl_required_for_existing_curve_validity": False,
+              "response_curve_mode": "staged_full_grid_reporting",
+          }
+          protocol_block = (
+              "  evaluation_protocol:\n"
+              "    split_file: val.jsonl\n"
+              "    split_role: structurally_disjoint_held_out_evaluation\n"
+              "    enters_training_loss: false\n"
+              "    train_structure_overlap: none\n"
+              "    train_problem_key_overlap: none\n"
+              "    paper_facing_summary:\n"
+              "    - late_window_pass_at_8\n"
+              "    - terminal_pass_at_8\n"
+              "    best_checkpoint_saved: true\n"
+              "    best_checkpoint_role: supplementary_only\n"
+              "    separate_test_jsonl_used: false\n"
+              "    separate_test_jsonl_required_for_existing_curve_validity: false\n"
+              "    response_curve_mode: staged_full_grid_reporting\n"
+          )
+
+          registry_before = registry_path.read_text(encoding="utf-8")
+          registry_text = registry_before
+          for experiment_id in experiment_ids:
+              marker = f"- id: {experiment_id}\n"
+              if registry_text.count(marker) != 1:
+                  raise SystemExit(f"Registry marker must resolve exactly once: {experiment_id}")
+              start = registry_text.index(marker)
+              next_start = registry_text.find("\n- id: ", start + len(marker))
+              end = len(registry_text) if next_start < 0 else next_start + 1
+              entity_text = registry_text[start:end]
+              if "\n  evaluation_protocol:\n" in entity_text:
+                  raise SystemExit(f"evaluation_protocol already exists: {experiment_id}")
+              insertion = start + len(marker)
+              registry_text = registry_text[:insertion] + protocol_block + registry_text[insertion:]
+          registry_path.write_text(registry_text, encoding="utf-8")
+
+          parsed = yaml.safe_load(registry_text)
+          rows = {row["id"]: row for row in parsed["experiments"]}
+          for experiment_id in experiment_ids:
+              if rows[experiment_id].get("evaluation_protocol") != protocol:
+                  raise SystemExit(f"Registry protocol mismatch after write: {experiment_id}")
+
+          handoff_before = handoff_path.read_text(encoding="utf-8")
+          content = (
+              "- **Countdown E8 evaluation-semantics clarification (authoritative override):** "
+              "For the completed EXP, Linear, Tau, and Reciprocal coefficient-response pilots, "
+              "the file named `val.jsonl` is a structurally disjoint held-out evaluation split: "
+              "canonical structure families and `(numbers, target)` problem keys do not overlap "
+              "the training bank, and evaluation rows never enter the training loss or optimizer update.\n\n"
+              "  Paper-facing evidence reports every declared coefficient point using the fixed "
+              "late-window Pass@8 summary and the fixed terminal Pass@8 horizon. A saved "
+              "`best_pass8_adapter` is supplementary diagnostic/local-recovery evidence only and "
+              "must not replace the late-window or terminal response curve.\n\n"
+              "  Historical statements such as `test_split_used: false`, `test_data_used: false`, "
+              "or `test split unused` refer only to the separately materialized `test.jsonl`. They "
+              "do not imply absence of held-out evaluation and do not, by themselves, require the "
+              "existing curves to be rerun. Because later high-c, high-lambda, and dense reciprocal "
+              "ranges were expanded after earlier held-out curves were inspected, the combined line "
+              "is described as **staged held-out evaluation response curves**, not an untouched "
+              "one-shot confirmatory test. No result status, significance, convergence, steady-state, "
+              "formal method-ranking, OOD, cross-task/model, or universal-superiority claim is upgraded.\n\n"
+              "  Historical EXP evaluator RNG contamination remains a separate provenance limitation. "
+              "Task performance, support/valid-structure boundary events, and NaN/Inf numerical "
+              "failures remain separately reported. Durable clarification records are "
+              "`docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md`, "
+              "`docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md`, and "
+              "`docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md`."
+          )
+          operations = [
+              {
+                  "operation_id": "append-e8-heldout-evaluation-semantics",
+                  "op": "append_to_section",
+                  "heading_path": [
+                      "0. 研究与执行原则（每次新会话首先阅读）",
+                      "0.1 当前执行门禁",
+                  ],
+                  "block_id": "e8-heldout-evaluation-semantics-2026-07-21",
+                  "content": content,
+              }
+          ]
+          rendered = shadow.render(handoff_before, operations)
+          shadow.verify_history_preservation(handoff_before, rendered.text, operations)
+
+          changes = []
+          for index, experiment_id in enumerate(experiment_ids, start=1):
+              closure = (
+                  "docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md"
+                  if experiment_id in reciprocal_ids
+                  else "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md"
+              )
+              changes.append(
+                  {
+                      "change_id": f"e8-evaluation-protocol-{index:02d}",
+                      "kind": "update_field",
+                      "entity_id": experiment_id,
+                      "field_path": ["evaluation_protocol"],
+                      "from": None,
+                      "to": protocol,
+                      "reason": (
+                          "Clarify that val.jsonl is structurally held-out evaluation, "
+                          "paper-facing summaries are late-window and terminal, and the "
+                          "separate unused test.jsonl is not evidence that evaluation was absent."
+                      ),
+                      "evidence": [
+                          "experiments/registry.yaml",
+                          "docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md",
+                          closure,
+                          delta_rel,
+                      ],
+                  }
+              )
+
+          sha = lambda text: hashlib.sha256(text.encode("utf-8")).hexdigest()
+          delta = {
+              "schema_version": 3,
+              "update_id": update_id,
+              "mode": "authoritative",
+              "base": {
+                  "commit": base_commit,
+                  "handoff_sha256": sha(handoff_before),
+                  "registry_sha256": sha(registry_before),
+              },
+              "renderer_version": 1,
+              "operations": operations,
+              "registry": {
+                  "mode": "expected_after",
+                  "exact_base_after_sha256": sha(registry_text),
+                  "changes": changes,
+              },
+              "expected": {
+                  "exact_base_candidate_sha256": sha(rendered.text),
+              },
+          }
+          delta_path.parent.mkdir(parents=True, exist_ok=False)
+          delta_path.write_text(
+              yaml.safe_dump(delta, sort_keys=False, allow_unicode=True, width=120),
+              encoding="utf-8",
+          )
+          print(delta_rel)
+          print(f"registry_before={sha(registry_before)}")
+          print(f"registry_after={sha(registry_text)}")
+          print(f"handoff_before={sha(handoff_before)}")
+          print(f"handoff_candidate={sha(rendered.text)}")
+          PY
+
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add experiments/registry.yaml "docs/handoff_deltas/$UPDATE_ID/HANDOFF_DELTA.yaml"
+          git commit -m "Register E8 held-out evaluation semantics"
+          SOURCE_PATCH_COMMIT="$(git rev-parse HEAD)"
+          python scripts/handoff_authority.py validate-delta \
+            --repo-root . \
+            --delta "docs/handoff_deltas/$UPDATE_ID/HANDOFF_DELTA.yaml" \
+            --source-patch-commit "$SOURCE_PATCH_COMMIT" \
+            --json
+          echo "SOURCE_PATCH_COMMIT=$SOURCE_PATCH_COMMIT" >> "$GITHUB_ENV"
+
+      - name: Normalize through trusted current main
+        env:
+          BASE_COMMIT: b18aea9186d7e3ccc5d43b456719cafc23761e03
+        run: |
+          set -euo pipefail
+          TARGET=/tmp/drpo-e8-heldout-target
+          TRUSTED=/tmp/drpo-e8-heldout-trusted
+          rm -rf "$TARGET" "$TRUSTED"
+          git worktree add --detach "$TARGET" "$BASE_COMMIT"
+          git worktree add --detach "$TRUSTED" "$BASE_COMMIT"
+          git -C "$TARGET" config user.name github-actions[bot]
+          git -C "$TARGET" config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git -C "$TARGET" merge --no-ff --no-commit "$SOURCE_PATCH_COMMIT"
+          python "$TARGET/scripts/handoff_authority.py" normalize \
+            --repo-root "$TARGET" \
+            --trusted-repo-root "$TRUSTED" \
+            --current-before "$BASE_COMMIT" \
+            --source-base "$BASE_COMMIT" \
+            --source-patch-commit "$SOURCE_PATCH_COMMIT" \
+            --json
+          git -C "$TARGET" rm -f .github/workflows/e8-heldout-semantics-authority.yml
+          git -C "$TARGET" add -A
+          git -C "$TARGET" commit -m "Materialize E8 held-out evaluation semantics"
+          FINAL_COMMIT="$(git -C "$TARGET" rev-parse HEAD)"
+          echo "FINAL_COMMIT=$FINAL_COMMIT" >> "$GITHUB_ENV"
+          python "$TARGET/scripts/handoff_authority.py" verify --repo-root "$TARGET" --json
+          python "$TARGET/scripts/validate_governance_pipeline_stage_status.py" --repo-root "$TARGET"
+
+      - name: Test final integration commit
+        run: |
+          set -euo pipefail
+          TARGET=/tmp/drpo-e8-heldout-target
+          python -m compileall -q "$TARGET/scripts" "$TARGET/src" "$TARGET/tests"
+          PYTHONPATH="$TARGET/src" python -m pytest -q \
+            "$TARGET/tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py" \
+            "$TARGET/tests/test_runspec_results_delivery.py" \
+            "$TARGET/tests/test_handoff_authority.py"
+          ruff check \
+            "$TARGET/src/drpo/countdown_e8_alpha1_c_scan_trainer.py" \
+            "$TARGET/src/drpo/countdown_e8_alpha1_highc_scan_common.py" \
+            "$TARGET/src/drpo/countdown_e8_alpha1_highc_scan_runtime.py" \
+            "$TARGET/tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py" \
+            "$TARGET/tests/test_runspec_results_delivery.py"
+
+      - name: Publish final integration commit
+        run: |
+          set -euo pipefail
+          git -C /tmp/drpo-e8-heldout-target push origin \
+            HEAD:dev/e8-asymre-deltav-scan
+          echo "Published $FINAL_COMMIT"
