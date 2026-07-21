@@ -125,7 +125,6 @@ def trusted_approval(
             "trusted origin/main approval ref is unavailable; fetch origin/main "
             "before using a worker cap"
         )
-    trusted_commit = str(verified.stdout).strip()
     blob = git(
         repo,
         "show",
@@ -144,7 +143,20 @@ def trusted_approval(
             "local worker-cap approval differs from trusted origin/main; fetch and "
             "use the exact merged approval record"
         )
-    return trusted_commit, trusted_sha256
+    approval_commit = git(
+        repo,
+        "log",
+        "-1",
+        "--format=%H",
+        TRUSTED_APPROVAL_REF,
+        "--",
+        repo_relative,
+        check=False,
+    )
+    trusted_approval_commit = str(approval_commit.stdout).strip()
+    if approval_commit.returncode or len(trusted_approval_commit) != 40:
+        fail("cannot resolve the trusted origin/main commit for worker-cap approval")
+    return trusted_approval_commit, trusted_sha256
 
 
 def main() -> int:
@@ -225,7 +237,7 @@ def main() -> int:
             fail("worker-cap approval must be clean and committed")
 
         local_approval_sha256 = sha256_file(approval)
-        trusted_main_commit, trusted_approval_sha256 = trusted_approval(
+        trusted_approval_commit, trusted_approval_sha256 = trusted_approval(
             repo,
             repo_relative=repo_relative,
             local_sha256=local_approval_sha256,
@@ -278,10 +290,10 @@ def main() -> int:
             "merge-base",
             "--is-ancestor",
             approved_code_commit,
-            TRUSTED_APPROVAL_REF,
+            trusted_approval_commit,
             check=False,
         ).returncode:
-            fail("approved_code_commit must be part of trusted origin/main history")
+            fail("approved_code_commit must precede the trusted approval commit")
 
         protected_paths = [
             "scripts/validate_user_approved_worker_cap.sh",
@@ -322,7 +334,7 @@ def main() -> int:
                 "approval_sha256": local_approval_sha256,
                 "approved_code_commit": approved_code_commit,
                 "trusted_ref": TRUSTED_APPROVAL_REF,
-                "trusted_ref_commit": trusted_main_commit,
+                "trusted_approval_commit": trusted_approval_commit,
                 "trusted_approval_sha256": trusted_approval_sha256,
             },
             "launch_commit": head,
