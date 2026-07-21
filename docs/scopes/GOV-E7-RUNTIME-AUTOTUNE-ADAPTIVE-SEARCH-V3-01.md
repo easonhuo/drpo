@@ -148,3 +148,27 @@ For `safe_cap=130` and `fallback=60`, the candidate sequence is:
 Existing work directories planned under selector policy version 2 remain immutable historical
 artifacts. They may resume only with their original source and policy. They must not be edited
 or silently upgraded to V3. A V3 decision requires a new work directory and new selection.
+
+## 2026-07-21 child-policy override
+
+`GOV-RUNTIME-WORKER-CAP-HUMAN-APPROVAL-01` supersedes only the authorization semantics of
+Objective items 2 and 9, the final One-click lifecycle bullet, and Acceptance item 10. It does
+not reverse the low-first, bounded-probe, checkpoint-reuse, or immutable-selection repair.
+
+The replacement rule is:
+
+- the worker ceiling defaults to unset;
+- when unset, autotune owns the concurrency decision inside measured resource limits;
+- a non-null worker ceiling is a repository-owner-approved hard safety cap, not an executor or
+  AI tuning value;
+- the cap and its matching committed approval record must both pass the canonical gate before
+  `plan`, `run`, or liveness;
+- every set, increase, decrease, removal, or approval substitution requires new explicit user
+  approval and a new run/work directory;
+- an environment variable or CLI value alone is not authorization;
+- a cap-censored selection must be reported as constrained, not as an uncapped autotune
+  optimum.
+
+The exact schema, immutable work-directory identity, fail-closed rules, and rollback are defined
+in `docs/runtime_worker_cap_approval.md` and
+`docs/scopes/GOV-RUNTIME-WORKER-CAP-HUMAN-APPROVAL-01.md`.
