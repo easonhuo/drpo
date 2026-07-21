@@ -18,12 +18,19 @@ from pathlib import Path
 from typing import Any
 
 
+TRUSTED_APPROVAL_REF = "refs/remotes/origin/main"
+
+
 class ApprovalError(RuntimeError):
     pass
 
 
 def fail(message: str) -> None:
     raise ApprovalError(message)
+
+
+def sha256_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
 
 
 def sha256_file(path: Path) -> str:
@@ -34,10 +41,15 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+def git(
+    repo: Path,
+    *args: str,
+    check: bool = True,
+    text: bool = True,
+) -> subprocess.CompletedProcess[Any]:
     return subprocess.run(
         ["git", "-C", str(repo), *args],
-        text=True,
+        text=text,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=check,
@@ -95,6 +107,46 @@ def write_or_verify_identity(path: Path, payload: dict[str, Any]) -> None:
     os.replace(temporary, path)
 
 
+def trusted_approval(
+    repo: Path,
+    *,
+    repo_relative: str,
+    local_sha256: str,
+) -> tuple[str, str]:
+    verified = git(
+        repo,
+        "rev-parse",
+        "--verify",
+        TRUSTED_APPROVAL_REF,
+        check=False,
+    )
+    if verified.returncode:
+        fail(
+            "trusted origin/main approval ref is unavailable; fetch origin/main "
+            "before using a worker cap"
+        )
+    trusted_commit = str(verified.stdout).strip()
+    blob = git(
+        repo,
+        "show",
+        f"{TRUSTED_APPROVAL_REF}:{repo_relative}",
+        check=False,
+        text=False,
+    )
+    if blob.returncode:
+        fail(
+            "worker-cap approval is not present on trusted origin/main; a local "
+            "commit or unmerged PR cannot authorize a cap"
+        )
+    trusted_sha256 = sha256_bytes(bytes(blob.stdout))
+    if trusted_sha256 != local_sha256:
+        fail(
+            "local worker-cap approval differs from trusted origin/main; fetch and "
+            "use the exact merged approval record"
+        )
+    return trusted_commit, trusted_sha256
+
+
 def main() -> int:
     repo = Path(sys.argv[1]).expanduser().resolve()
     work_dir = resolved(sys.argv[2], repo)
@@ -106,7 +158,7 @@ def main() -> int:
 
     if not (repo / ".git").exists():
         fail(f"repository root is not a Git checkout: {repo}")
-    if git(repo, "status", "--porcelain").stdout.strip():
+    if str(git(repo, "status", "--porcelain").stdout).strip():
         fail("worker-cap validation requires a clean checkout")
     for path, label in (
         (contract, "contract"),
@@ -119,7 +171,7 @@ def main() -> int:
     experiment_id = require_nonempty_string(
         grid_payload.get("experiment_id"), "grid.experiment_id"
     )
-    head = git(repo, "rev-parse", "HEAD").stdout.strip()
+    head = str(git(repo, "rev-parse", "HEAD").stdout).strip()
     affinity_cpu_ids = sorted(int(value) for value in os.sched_getaffinity(0))
     common_scope = {
         "experiment_id": experiment_id,
@@ -145,7 +197,9 @@ def main() -> int:
 
         approval = resolved(approval_raw, repo)
         require_file(approval, "worker-cap approval")
-        authorization_root = (repo / "docs" / "runtime_worker_cap_authorizations").resolve()
+        authorization_root = (
+            repo / "docs" / "runtime_worker_cap_authorizations"
+        ).resolve()
         try:
             approval_relative = approval.relative_to(authorization_root)
         except ValueError as exc:
@@ -156,11 +210,26 @@ def main() -> int:
         repo_relative = approval.relative_to(repo).as_posix()
         if approval_relative.name == "README.md":
             fail("README.md is policy documentation, not an approval record")
-        if git(repo, "ls-files", "--error-unmatch", "--", repo_relative, check=False).returncode:
+        if git(
+            repo,
+            "ls-files",
+            "--error-unmatch",
+            "--",
+            repo_relative,
+            check=False,
+        ).returncode:
             fail("worker-cap approval must be tracked by Git")
-        if git(repo, "status", "--porcelain", "--", repo_relative).stdout.strip():
+        if str(
+            git(repo, "status", "--porcelain", "--", repo_relative).stdout
+        ).strip():
             fail("worker-cap approval must be clean and committed")
 
+        local_approval_sha256 = sha256_file(approval)
+        trusted_main_commit, trusted_approval_sha256 = trusted_approval(
+            repo,
+            repo_relative=repo_relative,
+            local_sha256=local_approval_sha256,
+        )
         record = load_json_object(approval, "worker-cap approval")
         if record.get("schema_version") != 1:
             fail("worker-cap approval schema_version must equal 1")
@@ -204,6 +273,15 @@ def main() -> int:
             check=False,
         ).returncode:
             fail("approved_code_commit must be an ancestor of the launch commit")
+        if git(
+            repo,
+            "merge-base",
+            "--is-ancestor",
+            approved_code_commit,
+            TRUSTED_APPROVAL_REF,
+            check=False,
+        ).returncode:
+            fail("approved_code_commit must be part of trusted origin/main history")
 
         protected_paths = [
             "scripts/validate_user_approved_worker_cap.sh",
@@ -241,8 +319,11 @@ def main() -> int:
                 "approved_by": "repository_owner",
                 "reason": reason,
                 "approval_path": repo_relative,
-                "approval_sha256": sha256_file(approval),
+                "approval_sha256": local_approval_sha256,
                 "approved_code_commit": approved_code_commit,
+                "trusted_ref": TRUSTED_APPROVAL_REF,
+                "trusted_ref_commit": trusted_main_commit,
+                "trusted_approval_sha256": trusted_approval_sha256,
             },
             "launch_commit": head,
             "scope": common_scope,
