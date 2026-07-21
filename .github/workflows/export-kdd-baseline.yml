@@ -1,42 +1,179 @@
-name: Export exact KDD manuscript baseline
+name: Materialize KDD taper appendix
 
 on:
   pull_request:
-    branches:
-      - main
-    types:
-      - opened
-      - synchronize
-      - reopened
+    branches: [main]
+    types: [synchronize, reopened]
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: read
 
 jobs:
-  export:
-    if: startsWith(github.event.pull_request.head.ref, 'dev/paper-kdd2027-')
+  materialize:
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      github.event.pull_request.head.ref == 'dev/paper-kdd2027-e8-taper-appendix'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.ref }}
-      - name: Package exact manuscript baseline
+
+      - name: Apply reviewed manuscript patch
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          tar -czf /tmp/kdd-baseline.tar.gz \
-            paper/kdd2027 \
-            paper/releases \
-            scripts/generate_kdd2027_stage_a.py \
-            scripts/postprocess_kdd2027_stage_a.py \
-            .github/workflows/build-kdd2027-stage-a.yml
-          sha256sum /tmp/kdd-baseline.tar.gz > /tmp/kdd-baseline.tar.gz.sha256
-      - uses: actions/upload-artifact@v4
+          gh api "repos/${GITHUB_REPOSITORY}/git/blobs/5852e8331c3316bb8e9b05a194a0002c8fe33399" \
+            --jq .content | tr -d '\n' | base64 -d | gzip -d > /tmp/kdd-update.patch
+          git apply --check /tmp/kdd-update.patch
+          git apply /tmp/kdd-update.patch
+
+      - name: Generate single-column coefficient-response figure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet matplotlib numpy
+          python3 - <<'PY'
+          from pathlib import Path
+          import numpy as np
+          import matplotlib.pyplot as plt
+
+          positive_only = np.mean([0.136, 0.150])
+          exp_rows = [
+              (0.01,.090,.106),(.025,.102,.102),(.04,.120,.118),
+              (.051293294,.118,.108),(.105360516,.122,.124),
+              (.162518929,.112,.116),(.223143551,.138,.126),
+              (.287682072,.114,.122),(.430782916,.112,.098),
+              (.693147181,.126,.128),(.916290732,.132,.134),
+              (1.203972804,.152,.136),(1.386294361,.164,.138),
+              (1.609437912,.168,.146),(1.897119985,.166,.166),
+              (2.302585093,.138,.160),(2.995732274,.164,.166),
+              (3.506557897,.142,.148),(4.605170186,.150,.164),
+              (5.298317367,.148,.152),(6.907755279,.146,.142),
+              (9.210340372,.156,.138),
+          ]
+          rec_l_rows = [
+              (1,.102,.092),(3,.104,.106),(7,.096,.116),(19,.114,.130),
+              (39,.130,.134),(79,.134,.128),(159,.136,.136),(319,.154,.124),
+          ]
+          rec_q_rows = [
+              (1,.122,.118),(3,.110,.102),(7,.102,.102),(19,.140,.130),
+              (24,.142,.158),(29,.140,.142),(34,.150,.146),(39,.146,.134),
+              (47,.140,.134),(57,.158,.136),(68,.146,.140),(79,.140,.136),
+              (95,.140,.132),(113,.146,.142),(135,.146,.124),
+              (159,.132,.130),(191,.142,.126),(227,.136,.140),
+              (270,.138,.140),(319,.142,.144),(383,.130,.138),
+              (511,.148,.140),(767,.144,.148),(1279,.128,.140),
+          ]
+
+          def values(rows):
+              x=np.array([r[0] for r in rows],float)
+              a=np.array([r[1] for r in rows],float)
+              b=np.array([r[2] for r in rows],float)
+              m=(a+b)/2
+              e=np.vstack([m-np.minimum(a,b),np.maximum(a,b)-m])
+              return x,m,e
+
+          plt.rcParams.update({
+              'font.size': 7.1, 'axes.labelsize': 7.3,
+              'xtick.labelsize': 6.5, 'ytick.labelsize': 6.5,
+              'legend.fontsize': 6.4, 'lines.linewidth': 1.15,
+              'lines.markersize': 3.0, 'pdf.fonttype': 42,
+          })
+          fig, ax = plt.subplots(figsize=(3.35,2.45))
+          for rows,label,marker in [
+              (exp_rows,'Exp./DRPO','o'),
+              (rec_l_rows,'Rec.-L','s'),
+              (rec_q_rows,'Rec.-Q','^'),
+          ]:
+              x,m,e=values(rows)
+              ax.errorbar(x,m*100,yerr=e*100,marker=marker,capsize=1.6,
+                          capthick=.65,elinewidth=.65,label=label)
+          ax.axhline(positive_only*100,linestyle='--',linewidth=1.0,
+                     label='Positive-only')
+          ax.set_xscale('log')
+          ax.set_xlim(.008,1600)
+          ax.set_ylim(8.5,17.4)
+          ax.set_xlabel(r'Taper coefficient $\lambda$')
+          ax.set_ylabel('Terminal Pass@8 (%)')
+          ax.grid(True,which='major',linewidth=.35,alpha=.45)
+          ax.legend(ncol=2,loc='lower right',frameon=False,
+                    columnspacing=.8,handlelength=1.6)
+          fig.tight_layout(pad=.45)
+          out=Path('paper/overleaf/figures/fig_app_countdown_taper_coefficient_response.pdf')
+          out.parent.mkdir(parents=True,exist_ok=True)
+          fig.savefig(out,bbox_inches='tight')
+          plt.close(fig)
+          target=Path('paper/kdd2027/figures')/out.name
+          target.parent.mkdir(parents=True,exist_ok=True)
+          target.write_bytes(out.read_bytes())
+          PY
+          test -s paper/kdd2027/figures/fig_app_countdown_taper_coefficient_response.pdf
+          python3 -Werror::SyntaxWarning scripts/generate_kdd2027_stage_a.py
+          python3 -Werror::SyntaxWarning scripts/postprocess_kdd2027_stage_a.py
+          cp paper/overleaf/figures/fig_app_countdown_taper_coefficient_response.pdf \
+             paper/kdd2027/figures/fig_app_countdown_taper_coefficient_response.pdf
+          python3 paper/kdd2027/verify_content_lock.py
+
+      - name: Compile with TeX Live 2025
+        uses: xu-cheng/texlive-action@v3
         with:
-          name: kdd-baseline-b18aea9
-          path: |
-            /tmp/kdd-baseline.tar.gz
-            /tmp/kdd-baseline.tar.gz.sha256
-          if-no-files-found: error
-          retention-days: 1
+          texlive_version: 2025
+          os: debian
+          run: |
+            cd paper/kdd2027
+            pdflatex --version | tee TEXLIVE_ENVIRONMENT.txt
+            latexmk -C main.tex >/dev/null 2>&1 || true
+            latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+            test -s main.pdf
+
+      - name: Audit and package canonical release
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y poppler-utils zip
+          DRPO_SKIP_LATEX_COMPILE=1 bash paper/kdd2027/build.sh
+          cp paper/kdd2027/main.pdf paper/releases/DRPO_KDD2027_STAGE_A.pdf
+          cp paper/kdd2027/BUILD_AUDIT.txt paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt
+          rm -f paper/releases/DRPO_KDD2027_OVERLEAF.zip
+          (
+            cd paper/kdd2027
+            zip -r ../releases/DRPO_KDD2027_OVERLEAF.zip \
+              main.tex acmart.cls ACM-Reference-Format.bst \
+              example_paper.bib missing_references.bib figures README.md
+          )
+          test "$(unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Ec '^figures/.*\.pdf$')" -eq 6
+
+      - name: Commit materialized KDD update
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/export-kdd-baseline.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            .github/workflows/build-kdd2027-stage-a.yml \
+            .github/workflows/export-kdd-baseline.yml \
+            paper/kdd2027/source_locked.tex \
+            paper/kdd2027/main.tex \
+            paper/kdd2027/verify_content_lock.py \
+            paper/kdd2027/build.sh \
+            paper/kdd2027/README.md \
+            paper/kdd2027/CONTENT_LOCK.txt \
+            paper/kdd2027/BUILD_AUDIT.txt \
+            paper/kdd2027/TEXLIVE_ENVIRONMENT.txt \
+            paper/kdd2027/figures/fig_app_countdown_taper_coefficient_response.pdf \
+            paper/overleaf/figures/fig_app_countdown_taper_coefficient_response.pdf \
+            paper/releases/DRPO_KDD2027_STAGE_A.pdf \
+            paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt \
+            paper/releases/DRPO_KDD2027_OVERLEAF.zip \
+            scripts/generate_kdd2027_stage_a.py \
+            scripts/postprocess_kdd2027_stage_a.py
+          git diff --cached --check
+          git commit -m 'PAPER-KDD2027-E8-TAPER-APPENDIX-01 add coefficient response'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
