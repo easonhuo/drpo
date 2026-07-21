@@ -1,0 +1,36 @@
+name: Export exact KDD manuscript baseline
+
+on:
+  push:
+    branches:
+      - dev/paper-kdd2027-e8-taper-appendix
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Package exact manuscript baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -czf /tmp/kdd-baseline.tar.gz \
+            paper/kdd2027 \
+            paper/releases \
+            scripts/generate_kdd2027_stage_a.py \
+            scripts/postprocess_kdd2027_stage_a.py \
+            .github/workflows/build-kdd2027-stage-a.yml
+          sha256sum /tmp/kdd-baseline.tar.gz > /tmp/kdd-baseline.tar.gz.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kdd-baseline-b18aea9
+          path: |
+            /tmp/kdd-baseline.tar.gz
+            /tmp/kdd-baseline.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 1
