@@ -70,6 +70,7 @@ jobs:
           set -euo pipefail
           rm -f \
             docs/paper_code_reference/COUNTDOWN_FINAL_ACCEPTANCE.patch \
+            docs/paper_code_reference/COUNTDOWN_FINAL_APPLY_TRIGGER.txt \
             .github/workflows/paper-code-countdown-final-apply.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -78,4 +79,4 @@ jobs:
           git commit -m 'PAPER-CODE-VALIDATION-01 apply Countdown repair and boundary audit'
           git push origin HEAD:dev/paper-code-reference-01
 
-# contents-api-trigger-v1
+# git-object-trigger-v1
