@@ -1,6 +1,10 @@
 name: PAPER-CODE-VALIDATION-01 Apply Countdown Repair
 
 on:
+  push:
+    branches: [dev/paper-code-reference-01]
+    paths:
+      - "docs/paper_code_reference/COUNTDOWN_ACCEPTANCE_TRIGGER.txt"
   pull_request:
     branches: [main]
     types: [synchronize, reopened]
@@ -12,13 +16,13 @@ permissions:
 
 jobs:
   apply-repair:
-    if: github.event.pull_request.head.ref == 'dev/paper-code-reference-01'
+    if: github.ref_name == 'dev/paper-code-reference-01' || github.event.pull_request.head.ref == 'dev/paper-code-reference-01'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: dev/paper-code-reference-01
           fetch-depth: 0
 
       - uses: actions/setup-python@v5
