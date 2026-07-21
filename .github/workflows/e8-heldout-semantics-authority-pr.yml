@@ -1,0 +1,81 @@
+name: E8 held-out semantics authority bootstrap
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches: [main]
+    paths:
+      - .github/workflows/e8-heldout-semantics-authority.yml
+      - .github/workflows/e8-heldout-semantics-authority-pr.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: e8-heldout-semantics-authority
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    if: github.head_ref == 'dev/e8-asymre-deltav-scan'
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-asymre-deltav-scan
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Execute the one-time authority transaction
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+
+          import os
+          import subprocess
+          from pathlib import Path
+
+          import yaml
+
+          workflow = yaml.safe_load(
+              Path('.github/workflows/e8-heldout-semantics-authority.yml').read_text(
+                  encoding='utf-8'
+              )
+          )
+          steps = workflow['jobs']['materialize']['steps']
+          environment = dict(os.environ)
+          env_path = Path(environment['GITHUB_ENV'])
+          seen_env_lines = len(env_path.read_text(encoding='utf-8').splitlines()) if env_path.exists() else 0
+
+          for step in steps:
+              command = step.get('run')
+              if command is None:
+                  continue
+              command = command.replace(
+                  'git -C "$TARGET" rm -f .github/workflows/e8-heldout-semantics-authority.yml',
+                  'git -C "$TARGET" rm -f '
+                  '.github/workflows/e8-heldout-semantics-authority.yml '
+                  '.github/workflows/e8-heldout-semantics-authority-pr.yml',
+              )
+              step_environment = dict(environment)
+              for key, value in (step.get('env') or {}).items():
+                  step_environment[str(key)] = str(value)
+              print(f"\n=== {step.get('name', 'unnamed run step')} ===", flush=True)
+              subprocess.run(
+                  ['bash', '-euo', 'pipefail', '-c', command],
+                  check=True,
+                  env=step_environment,
+              )
+              if env_path.exists():
+                  lines = env_path.read_text(encoding='utf-8').splitlines()
+                  for line in lines[seen_env_lines:]:
+                      if '=' not in line:
+                          continue
+                      key, value = line.split('=', 1)
+                      environment[key] = value
+                  seen_env_lines = len(lines)
+          PY
