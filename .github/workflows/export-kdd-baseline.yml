@@ -172,7 +172,6 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -f \
-            .github/workflows/build-kdd2027-stage-a.yml \
             paper/kdd2027/source_locked.tex \
             paper/kdd2027/main.tex \
             paper/kdd2027/verify_content_lock.py \
