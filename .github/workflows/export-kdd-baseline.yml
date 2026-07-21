@@ -1,20 +1,26 @@
 name: Export exact KDD manuscript baseline
 
 on:
-  push:
+  pull_request:
     branches:
-      - dev/paper-kdd2027-e8-taper-appendix
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 permissions:
   contents: read
 
 jobs:
   export:
+    if: startsWith(github.event.pull_request.head.ref, 'dev/paper-kdd2027-')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
       - name: Package exact manuscript baseline
         shell: bash
         run: |
