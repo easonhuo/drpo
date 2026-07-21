@@ -549,14 +549,28 @@ def _validate_asymre_config(config: Mapping[str, Any], profile: Mapping[str, Any
     if execution.get("identity_checked_resume") is not True:
         raise ValueError("Identity-checked resume is required")
     evaluation = config.get("evaluation", {})
-    if evaluation.get("validation_only_during_tuning") is not True:
-        raise ValueError("AsymRE tuning must remain validation-only")
-    if evaluation.get("test_access_forbidden") is not True:
-        raise ValueError("Test access must remain forbidden")
-    if evaluation.get("primary_selection_metric") != "late_window_pass_at_8":
-        raise ValueError("Primary selection metric must remain late_window_pass_at_8")
-    if evaluation.get("secondary_selection_metric") != "terminal_pass_at_8":
-        raise ValueError("Secondary selection metric must remain terminal_pass_at_8")
+    legacy_fields = {
+        "validation_only_during_tuning",
+        "test_access_forbidden",
+        "primary_selection_metric",
+        "secondary_selection_metric",
+    }
+    if legacy_fields.intersection(evaluation):
+        raise ValueError("AsymRE evaluation must use reporting-role fields, not legacy selection/tuning fields")
+    if evaluation.get("split_role") != "structurally_disjoint_held_out_evaluation":
+        raise ValueError("AsymRE split role must remain structurally disjoint held-out evaluation")
+    if evaluation.get("enters_training_loss") is not False:
+        raise ValueError("AsymRE held-out evaluation must not enter training loss")
+    if evaluation.get("separate_test_split_access") is not False:
+        raise ValueError("Separate test split access must remain false")
+    if evaluation.get("primary_reporting_metric") != "late_window_pass_at_8":
+        raise ValueError("Primary reporting metric must remain late_window_pass_at_8")
+    if evaluation.get("secondary_reporting_metric") != "terminal_pass_at_8":
+        raise ValueError("Secondary reporting metric must remain terminal_pass_at_8")
+    if evaluation.get("paper_facing_checkpoint_policy") != "late_window_and_terminal":
+        raise ValueError("Paper-facing checkpoint policy must remain late_window_and_terminal")
+    if evaluation.get("best_checkpoint_metric_is_supplementary_only") is not True:
+        raise ValueError("Best checkpoint metric must remain supplementary only")
 
 
 def validate_grid_config(config: Mapping[str, Any]) -> None:
