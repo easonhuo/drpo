@@ -149,16 +149,30 @@ jobs:
           )
           test "$(unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Ec '^figures/.*\.pdf$')" -eq 6
 
+      - name: Upload materialized KDD outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: kdd-materialized-${{ github.sha }}
+          path: |
+            paper/kdd2027/main.pdf
+            paper/kdd2027/renders/page-25.png
+            paper/kdd2027/BUILD_AUDIT.txt
+            paper/kdd2027/TEXLIVE_ENVIRONMENT.txt
+            paper/releases/DRPO_KDD2027_STAGE_A.pdf
+            paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt
+            paper/releases/DRPO_KDD2027_OVERLEAF.zip
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Commit materialized KDD update
         shell: bash
         run: |
           set -euo pipefail
-          rm -f .github/workflows/export-kdd-baseline.yml
+          git status --short
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add \
+          git add -f \
             .github/workflows/build-kdd2027-stage-a.yml \
-            .github/workflows/export-kdd-baseline.yml \
             paper/kdd2027/source_locked.tex \
             paper/kdd2027/main.tex \
             paper/kdd2027/verify_content_lock.py \
