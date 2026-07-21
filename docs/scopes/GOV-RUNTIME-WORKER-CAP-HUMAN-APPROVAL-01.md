@@ -19,16 +19,19 @@ The previous V3 draft correctly made `max_workers` optional, but still treated a
 2. autotune concurrency selection;
 3. human risk tolerance.
 
+A second review found that merely requiring a locally committed file with `approved_by: repository_owner` was still insufficient: an AI-controlled local branch could forge that claim. A usable approval must therefore exist byte-for-byte on trusted `origin/main`.
+
 ## Locked replacement rule
 
 1. The normal value is `unset`.
 2. Unset means autotune selects concurrency within measured resource limits.
 3. A non-null cap is a repository-owner policy decision, not an executor tuning decision.
 4. A non-null cap requires a committed approval JSON under `docs/runtime_worker_cap_authorizations/`.
-5. The approval binds the exact experiment, work directory, cap, CPU affinity, contract hash, run-spec hash, grid hash, and approved runtime-code commit.
-6. The canonical wrapper writes an immutable `USER_APPROVED_WORKER_CAP.json` into the work directory for both unset and capped modes.
-7. Any value or mode change in an existing work directory fails closed and requires a new approval plus a new run/work directory.
-8. A cap-censored result may not be reported as the uncapped autotune optimum.
+5. The exact approval JSON must already exist byte-for-byte on trusted `refs/remotes/origin/main`; a local commit or unmerged PR cannot authorize a cap.
+6. The approval binds the exact experiment, work directory, cap, CPU affinity, contract hash, run-spec hash, grid hash, and approved runtime-code commit.
+7. The canonical wrapper writes an immutable `USER_APPROVED_WORKER_CAP.json` into the work directory for both unset and capped modes.
+8. Any value or mode change in an existing work directory fails closed and requires a new approval plus a new run/work directory.
+9. A cap-censored result may not be reported as the uncapped autotune optimum.
 
 ## Authorized files
 
@@ -60,8 +63,9 @@ No E7 run, resume, probe, or selection-only server shadow is authorized by the c
 - no cap and no approval succeeds and records immutable unset mode;
 - approval without a cap fails;
 - cap without approval fails;
-- untracked, dirty, malformed, mismatched, or stale approval fails;
-- exact approved cap succeeds;
+- local-only or unmerged approval fails;
+- untracked, dirty, malformed, mismatched, byte-different, or stale approval fails;
+- exact approved cap already present on trusted `origin/main` succeeds;
 - changing, deleting, or replacing the cap in the same work directory fails;
 - all three canonical E7 one-click, resume, and liveness wrappers invoke the gate before the auto runner;
 - the helper and approval policy are protected by the next RunSpec provenance binding;
