@@ -182,8 +182,8 @@ def test_p1_full_run_uses_standard_v1_delivery_channel() -> None:
     assert not any(path.endswith("/*.log") for path in include)
 
 
-def test_p1_one_click_does_not_self_authorize_full_run() -> None:
+def test_p2_left_one_click_requires_standard_runspec_authorization() -> None:
     script = RUN_SCRIPT.read_text()
-    assert "export DRPO_E7_P1_FULL_RUN=1" not in script
-    assert '[[ "${DRPO_E7_P1_FULL_RUN:-0}" != "1" ]]' in script
-    assert "authorized only by the standard RunSpec entrypoint" in script
+    assert "export DRPO_E7_P2_LEFT_FULL_RUN=1" not in script
+    assert '[[ "${DRPO_E7_P2_LEFT_FULL_RUN:-0}" != "1" ]]' in script
+    assert "P2-left mode is authorized only by the standard RunSpec entrypoint" in script

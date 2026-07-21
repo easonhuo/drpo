@@ -20,7 +20,7 @@ from drpo.e7_squared_exp_night_bootstrap import (
 )
 
 
-TUNING_GRID = Path("configs/e7_bench_joint_gae_tuning_p1_c.json")
+TUNING_GRID = Path("configs/e7_bench_joint_gae_tuning_p2_left_c.json")
 HISTORICAL_GRID = Path("configs/e7_squared_exp_night_v1.json")
 
 
@@ -141,7 +141,7 @@ def _run_spec() -> dict[str, object]:
     }
 
 
-def test_p1_grid_builds_exact_198_branch_common_c_matrix() -> None:
+def test_p2_left_grid_builds_exact_180_branch_common_c_matrix() -> None:
     try:
         night.configure_execution(TUNING_GRID)
         grid, _ = night.load_grid(TUNING_GRID)
@@ -150,7 +150,7 @@ def test_p1_grid_builds_exact_198_branch_common_c_matrix() -> None:
             _run_spec(),
             grid,
         )
-        assert len(branches) == 198
+        assert len(branches) == 180
         assert {branch.dataset.id for branch in branches} == set(
             night.TUNING_DATASETS
         )
@@ -163,20 +163,26 @@ def test_p1_grid_builds_exact_198_branch_common_c_matrix() -> None:
                     for branch in branches
                     if branch.dataset.id == dataset and branch.seed == seed
                 ]
-                assert len(group) == 11
+                assert len(group) == 10
                 assert sum(
                     branch.template_values["weight_method"] == "positive_only"
                     for branch in group
                 ) == 1
-                assert sum(
+                assert not any(
                     branch.template_values["weight_method"] == "uncontrolled"
                     for branch in group
-                ) == 1
+                )
+                assert {
+                    float(branch.template_values["remoteness_scale"])
+                    for branch in group
+                    if branch.template_values["weight_method"]
+                    == "thresholded_exponential"
+                } == set(night.TUNING_REMOTENESS_SCALES)
     finally:
         night.configure_execution(HISTORICAL_GRID)
 
 
-def test_p1_public_c_maps_to_existing_exponential_slope(tmp_path: Path) -> None:
+def test_p2_left_public_c_maps_to_existing_exponential_slope(tmp_path: Path) -> None:
     try:
         night.configure_execution(TUNING_GRID)
         grid, _ = night.load_grid(TUNING_GRID)
@@ -188,7 +194,7 @@ def test_p1_public_c_maps_to_existing_exponential_slope(tmp_path: Path) -> None:
             item
             for item in night.build_branches(contract, _run_spec(), grid)
             if item.template_values["weight_method"] == "thresholded_exponential"
-            and float(item.template_values["remoteness_scale"]) == 4.0
+            and float(item.template_values["remoteness_scale"]) == 0.1
         )
         _, config = night.branch_command(
             contract_path=tmp_path / "contract.json",
@@ -201,17 +207,17 @@ def test_p1_public_c_maps_to_existing_exponential_slope(tmp_path: Path) -> None:
         internal = _internal_control(public, 0.11)
         assert public["formula"] == THRESHOLDED_FORMULA
         assert public["remoteness_threshold"] == 0.0
-        assert public["remoteness_scale"] == 4.0
+        assert public["remoteness_scale"] == 0.1
         assert public["taper_lambda"] == 1.0
-        assert public["derived_exp_coefficient"] == 0.25
+        assert public["derived_exp_coefficient"] == 10.0
         assert internal.method == "exponential"
-        assert internal.exponential_coefficient == 0.25
+        assert internal.exponential_coefficient == 10.0
         assert math.isclose(internal.effective_alpha, 1.0)
     finally:
         night.configure_execution(HISTORICAL_GRID)
 
 
-def test_p1_full_run_requires_explicit_authorization(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_p2_left_full_run_requires_explicit_authorization(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(night.TUNING_FULL_RUN_ENV, raising=False)
     try:
         with pytest.raises(RuntimeError, match=night.TUNING_FULL_RUN_ENV):
@@ -220,7 +226,7 @@ def test_p1_full_run_requires_explicit_authorization(monkeypatch: pytest.MonkeyP
         night.configure_execution(HISTORICAL_GRID)
 
 
-def test_p1_authorized_run_uses_existing_runner_and_aggregator(
+def test_p2_left_authorized_run_uses_existing_runner_and_aggregator(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     calls: list[tuple[str, object]] = []

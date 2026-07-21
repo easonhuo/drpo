@@ -23,8 +23,8 @@ GAE_EXPECTED_SEEDS = (200, 201, 202, 203)
 ACTOR_MODES = ("a2c", "ppo_clip_k4", "ppo_clip_kl_k16")
 GAE_ESTIMATORS = ("td", "gae")
 GAE_COEFFICIENTS = (64.0, 128.0, 256.0)
-TUNING_PROFILE_ID = "d4rl9_common_c_p1"
-TUNING_EXPECTED_BRANCHES = 198
+TUNING_PROFILE_ID = "d4rl9_common_c_p2_left"
+TUNING_EXPECTED_BRANCHES = 180
 TUNING_DATASETS = (
     "hopper-medium-v2",
     "hopper-medium-replay-v2",
@@ -37,7 +37,7 @@ TUNING_DATASETS = (
     "halfcheetah-medium-expert-v2",
 )
 TUNING_SEEDS = (200, 201)
-TUNING_SCALES = (0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0)
+TUNING_SCALES = (0.2, 0.16, 0.125, 0.1, 0.08, 0.0625, 0.04, 0.025, 0.015625)
 TUNING_FORMULA = (
     "w(D)=w(0)*exp(-taper_lambda*relu((D-remoteness_threshold)/remoteness_scale))"
 )
@@ -503,7 +503,7 @@ def _gae_branch_row(branch_dir: Path) -> dict[str, Any]:
     values = branch["template_values"]
     estimator = str(values.get("advantage_estimator"))
     if profile == TUNING_PROFILE_ID and values.get("actor_update_mode") != "a2c":
-        raise RuntimeError("P1 requires canonical A2C")
+        raise RuntimeError("P2 left requires canonical A2C")
     allowed_estimators = ("gae",) if profile == TUNING_PROFILE_ID else GAE_ESTIMATORS
     if estimator not in allowed_estimators:
         raise RuntimeError(f"unknown advantage estimator: {estimator}")
@@ -528,9 +528,9 @@ def _gae_branch_row(branch_dir: Path) -> dict[str, Any]:
             or float(control.get("remoteness_threshold", -1.0)) != 0.0
             or float(control.get("taper_lambda", -1.0)) != 1.0
         ):
-            raise RuntimeError("P1 public taper contract changed")
-        if method not in {"positive_only", "thresholded_exponential", "uncontrolled"}:
-            raise RuntimeError(f"unknown P1 control: {method}")
+            raise RuntimeError("P2 left public taper contract changed")
+        if method not in {"positive_only", "thresholded_exponential"}:
+            raise RuntimeError(f"unknown P2 left control: {method}")
         scale = (
             float(control["remoteness_scale"])
             if method == "thresholded_exponential"
@@ -592,7 +592,7 @@ def _gae_branch_row(branch_dir: Path) -> dict[str, Any]:
     }
 
 
-def _p1_label(row: Mapping[str, Any]) -> str:
+def _tuning_label(row: Mapping[str, Any]) -> str:
     method = str(row["weight_method"])
     if method == "thresholded_exponential":
         return f"drpo_c{float(row['remoteness_scale']):g}"
@@ -617,24 +617,24 @@ def _validate_td_gae_pair(td: Mapping[str, Any], gae: Mapping[str, Any]) -> None
         raise RuntimeError("TD/GAE critic snapshot trajectories diverged")
 
 
-def _p1_aggregate(
+def _tuning_aggregate(
     work: Path, rows: list[dict[str, Any]], mode: str
 ) -> dict[str, Any]:
-    expected = 3 if mode == "liveness" else TUNING_EXPECTED_BRANCHES
+    expected = 2 if mode == "liveness" else TUNING_EXPECTED_BRANCHES
     if len(rows) != expected:
-        raise RuntimeError(f"expected {expected} P1 branches, found {len(rows)}")
+        raise RuntimeError(f"expected {expected} P2-left branches, found {len(rows)}")
     for row in rows:
-        row["control"] = _p1_label(row)
+        row["control"] = _tuning_label(row)
         if mode == "full" and int(row["trainer_steps"]) != EXPECTED_FINAL_STEP:
-            raise RuntimeError("P1 full branch did not reach one million steps")
+            raise RuntimeError("P2-left full branch did not reach one million steps")
     aggregate_dir = work / "aggregate"
     _write_csv(aggregate_dir / "branch_results.csv", rows)
 
     if mode == "liveness":
         observed = {row["control"] for row in rows}
-        required = {"positive_only", "uncontrolled", "drpo_c4"}
+        required = {"positive_only", "drpo_c0.1"}
         if observed != required:
-            raise RuntimeError(f"P1 liveness controls changed: {sorted(observed)}")
+            raise RuntimeError(f"P2-left liveness controls changed: {sorted(observed)}")
         audit = {
             "status": "PASS",
             "experiment_id": GAE_EXPERIMENT_ID,
@@ -643,7 +643,7 @@ def _p1_aggregate(
             "engineering_evidence_only": True,
             "scientific_aggregation_allowed": False,
             "branch_count_observed": len(rows),
-            "expected_branch_count": 3,
+            "expected_branch_count": 2,
             "critic_evolution_observed": True,
             "prepared_advantage_artifact_used": False,
             "held_out_seeds_touched": False,
@@ -661,17 +661,17 @@ def _p1_aggregate(
         _atomic_json(aggregate_dir / "aggregate_summary.json", summary)
         return summary
 
-    expected_controls = {"positive_only", "uncontrolled", *(f"drpo_c{x:g}" for x in TUNING_SCALES)}
+    expected_controls = {"positive_only", *(f"drpo_c{x:g}" for x in TUNING_SCALES)}
     cell_index: dict[tuple[str, int], list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
         cell_index[(str(row["dataset"]), int(row["seed"]))].append(row)
     expected_cells = {(dataset, seed) for dataset in TUNING_DATASETS for seed in TUNING_SEEDS}
     if set(cell_index) != expected_cells:
-        raise RuntimeError("P1 task-seed matrix changed")
+        raise RuntimeError("P2-left task-seed matrix changed")
     for cell, values in cell_index.items():
         controls = {str(row["control"]) for row in values}
         if controls != expected_controls or len(values) != len(expected_controls):
-            raise RuntimeError(f"P1 control matrix changed for {cell}: {sorted(controls)}")
+            raise RuntimeError(f"P2-left control matrix changed for {cell}: {sorted(controls)}")
 
     po = {
         (str(row["dataset"]), int(row["seed"])): row
@@ -702,7 +702,7 @@ def _p1_aggregate(
     for (control, dataset), values in sorted(task_groups.items()):
         seeds = tuple(sorted(int(row["seed"]) for row in values))
         if seeds != TUNING_SEEDS:
-            raise RuntimeError(f"P1 seed set changed for {control},{dataset}: {seeds}")
+            raise RuntimeError(f"P2-left seed set changed for {control},{dataset}: {seeds}")
         environment, tier = _dataset_parts(dataset)
         task_rows.append(
             {
@@ -729,7 +729,7 @@ def _p1_aggregate(
     controls: list[dict[str, Any]] = []
     for control, values in sorted(task_by_control.items()):
         if len(values) != len(TUNING_DATASETS):
-            raise RuntimeError(f"P1 task coverage changed for {control}")
+            raise RuntimeError(f"P2-left task coverage changed for {control}")
         deltas = paired_by_control.get(control, [])
         controls.append(
             {
@@ -774,10 +774,10 @@ def _p1_aggregate(
                 }
             )
 
-    _write_csv(aggregate_dir / "p1_paired_deltas.csv", paired)
-    _write_csv(aggregate_dir / "p1_task_summary.csv", task_rows)
-    _write_csv(aggregate_dir / "p1_control_summary.csv", controls)
-    _write_csv(aggregate_dir / "p1_stratum_summary.csv", strata)
+    _write_csv(aggregate_dir / "p2_paired_deltas.csv", paired)
+    _write_csv(aggregate_dir / "p2_task_summary.csv", task_rows)
+    _write_csv(aggregate_dir / "p2_control_summary.csv", controls)
+    _write_csv(aggregate_dir / "p2_stratum_summary.csv", strata)
     audit = {
         "status": "PASS",
         "experiment_id": GAE_EXPERIMENT_ID,
@@ -830,7 +830,7 @@ def _gae_aggregate(work: Path, branch_dirs: list[Path]) -> dict[str, Any]:
     if len(profiles) != 1:
         raise RuntimeError(f"mixed GAE profiles: {profiles}")
     if profiles.pop() == TUNING_PROFILE_ID:
-        return _p1_aggregate(work, rows, mode)
+        return _tuning_aggregate(work, rows, mode)
     expected = 2 if mode == "liveness" else GAE_EXPECTED_BRANCHES
     if len(rows) != expected:
         raise RuntimeError(f"expected {expected} GAE branches, found {len(rows)}")

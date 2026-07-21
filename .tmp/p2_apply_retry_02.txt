@@ -1,2 +1,0 @@
-retry=3
-purpose=run exact Git-blob-verified deterministic apply

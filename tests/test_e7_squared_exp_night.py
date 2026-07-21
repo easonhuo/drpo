@@ -412,7 +412,7 @@ def test_gae_config_remains_independent_from_historical_config() -> None:
     assert gae["expected_total_branches"] == 96
 
 
-def _write_p1_branch(
+def _write_p2_branch(
     root: Path,
     *,
     dataset: str,
@@ -494,18 +494,24 @@ def _write_p1_branch(
     (branch / "geometry_diagnostics.jsonl").write_text(json.dumps(geometry) + "\n")
 
 
-def test_p1_full_aggregate_is_task_balanced_and_claim_bounded(tmp_path: Path) -> None:
+def test_p2_left_full_aggregate_is_task_balanced_and_claim_bounded(tmp_path: Path) -> None:
     from drpo.e7_squared_exp_night_aggregate import aggregate
 
     controls = [
         ("positive_only", None, 0.0),
-        *(("thresholded_exponential", scale, 2.0 - abs(math.log2(scale / 4.0))) for scale in night.TUNING_REMOTENESS_SCALES),
-        ("uncontrolled", None, -2.0),
+        *(
+            (
+                "thresholded_exponential",
+                scale,
+                2.0 - abs(math.log2(scale / 0.1)),
+            )
+            for scale in night.TUNING_REMOTENESS_SCALES
+        ),
     ]
     for task_index, dataset in enumerate(night.TUNING_DATASETS):
         for seed in night.TUNING_SEEDS:
             for method, scale, delta in controls:
-                _write_p1_branch(
+                _write_p2_branch(
                     tmp_path,
                     dataset=dataset,
                     seed=seed,
@@ -516,14 +522,14 @@ def test_p1_full_aggregate_is_task_balanced_and_claim_bounded(tmp_path: Path) ->
 
     summary = aggregate(tmp_path)
     assert summary["status"] == "PASS"
-    assert summary["branch_count"] == 198
+    assert summary["branch_count"] == 180
     assert summary["task_count"] == 9
-    assert summary["control_count"] == 11
+    assert summary["control_count"] == 10
     aggregate_dir = tmp_path / "aggregate"
     audit = json.loads((aggregate_dir / "terminal_audit.json").read_text())
     assert audit["selected_control"] is None
     assert audit["selection_status"] == "response_curve_only_pending_protocol_freeze"
     assert audit["formal_evidence_allowed"] is False
     assert audit["fixed_horizon_is_not_convergence"] is True
-    paired = (aggregate_dir / "p1_paired_deltas.csv").read_text().splitlines()
-    assert len(paired) == 181
+    paired = (aggregate_dir / "p2_paired_deltas.csv").read_text().splitlines()
+    assert len(paired) == 163
