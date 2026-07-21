@@ -1,0 +1,290 @@
+name: Paper Code Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "paper_code/**"
+      - "docs/paper_code_reference/**"
+      - ".github/workflows/paper-code-validation.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: paper-code-validation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install repository and reviewer test dependencies
+        run: python -m pip install -q -e 'paper_code[test]' ruff
+
+      - name: Compile exact head
+        run: python -m compileall -q paper_code/src paper_code/tests
+
+      - name: Run exact-head paper-code tests
+        run: python -m pytest -x -vv paper_code/tests
+
+      - name: Ruff check exact head
+        run: python -m ruff check --line-length 100 paper_code/src paper_code/tests
+
+      - name: Ruff format check exact head
+        run: python -m ruff format --check --line-length 100 paper_code/src paper_code/tests
+
+      - name: Check public CLI entry points
+        run: |
+          set -euo pipefail
+          python -m drpo_reference --help
+          python -m drpo_reference cu1 --help
+          python -m drpo_reference du1 --help
+          python -m drpo_reference hopper --help
+          python -m drpo_reference d4rl --help
+          python -m drpo_reference countdown --help
+
+      - name: Run D-U1 public CLI CPU liveness
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/du1-package-cli-smoke"
+          rm -rf "$output"
+          python -m drpo_reference du1 \
+            --output "$output" \
+            --device cpu \
+            --workers 1 \
+            --smoke
+          DU1_OUTPUT="$output" python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from drpo_reference.categorical.du1_protocol import FORMAL_METHODS
+
+          root = Path(os.environ["DU1_OUTPUT"])
+          terminal = json.loads((root / "terminal_audit.json").read_text())
+          assert terminal["all_registered_runs_present"] is True
+          assert terminal["formal_evidence_allowed"] is False
+          checkpoint = json.loads(
+              (
+                  root
+                  / "checkpoints"
+                  / "seed_0"
+                  / "CHECKPOINT_COMPLETE.json"
+              ).read_text()
+          )
+          assert checkpoint["methods_completed"] == list(FORMAL_METHODS)
+          assert (root / "aggregate_summary.json").is_file()
+          assert (root / "mechanism_summary.json").is_file()
+          assert (root / "taper_summary.json").is_file()
+          PY
+
+      - name: Audit reviewer-code boundary
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+
+          root = Path("paper_code")
+          forbidden_suffixes = {
+              ".bin", ".ckpt", ".h5", ".hdf5", ".pt", ".pth",
+              ".safetensors", ".tar", ".tgz", ".zip",
+          }
+          forbidden_dirs = {"artifacts", "checkpoints", "outputs", "results"}
+
+          for path in root.rglob("*"):
+              assert not path.is_symlink(), f"symlink forbidden: {path}"
+              if path.is_file():
+                  assert path.suffix.lower() not in forbidden_suffixes, (
+                      f"forbidden payload: {path}"
+                  )
+                  assert not (set(path.parts) & forbidden_dirs), (
+                      f"forbidden result directory: {path}"
+                  )
+
+          source_root = root / "src" / "drpo_reference"
+          for path in source_root.rglob("*.py"):
+              tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.Import):
+                      names = [alias.name for alias in node.names]
+                  elif isinstance(node, ast.ImportFrom):
+                      names = [node.module or ""]
+                  else:
+                      continue
+                  for name in names:
+                      assert name != "drpo" and not name.startswith("drpo."), (
+                          f"internal drpo import in {path}: {name}"
+                      )
+
+          countdown_core = (
+              source_root / "categorical" / "countdown.py"
+          ).read_text(encoding="utf-8")
+          core_tree = ast.parse(countdown_core)
+          heavy = {"transformers", "peft", "bitsandbytes"}
+          for node in ast.walk(core_tree):
+              if isinstance(node, ast.Import):
+                  names = [alias.name.split(".", 1)[0] for alias in node.names]
+              elif isinstance(node, ast.ImportFrom):
+                  names = [(node.module or "").split(".", 1)[0]]
+              else:
+                  continue
+              assert not (set(names) & heavy), (
+                  f"heavy runtime import in Countdown core: {names}"
+              )
+          PY
+
+      - name: Build exact-head reviewer package
+        env:
+          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          package="drpo-reference-v0.1"
+          root="dist/${package}"
+          rm -rf dist extracted
+          mkdir -p "${root}/tests"
+
+          cp paper_code/README.md "${root}/README.md"
+          cp paper_code/pyproject.toml "${root}/pyproject.toml"
+          cp -a paper_code/configs "${root}/configs"
+          cp -a paper_code/src "${root}/src"
+
+          for test_file in \
+            test_aggregate.py \
+            test_cli.py \
+            test_common.py \
+            test_controls.py \
+            test_countdown_release.py \
+            test_cu1_suite.py \
+            test_du1_cli.py \
+            test_du1_public.py \
+            test_events.py
+          do
+            cp "paper_code/tests/${test_file}" "${root}/tests/${test_file}"
+          done
+
+          cat > "${root}/tests/conftest.py" <<'PY'
+          from __future__ import annotations
+
+          import os
+
+          import torch
+
+
+          torch.set_num_threads(max(1, min(4, os.cpu_count() or 1)))
+          try:
+              torch.set_num_interop_threads(1)
+          except RuntimeError:
+              pass
+          PY
+
+          printf '%s\n' "${SOURCE_COMMIT}" > "${root}/SOURCE_COMMIT.txt"
+
+          cat > "${root}/TEST_SCOPE.md" <<'EOF'
+          # Test scope
+
+          The archive contains self-contained reviewer tests only. Repository-internal
+          differential tests remain exact-head CI oracles in the source repository and
+          are intentionally not copied into this standalone package.
+          EOF
+
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path("dist/drpo-reference-v0.1")
+          files = []
+          for path in sorted(root.rglob("*")):
+              if not path.is_file() or path.name == "PACKAGE_MANIFEST.json":
+                  continue
+              payload = path.read_bytes()
+              files.append(
+                  {
+                      "path": path.relative_to(root).as_posix(),
+                      "sha256": hashlib.sha256(payload).hexdigest(),
+                      "size_bytes": len(payload),
+                  }
+              )
+          manifest = {
+              "schema_version": 1,
+              "package": "drpo-reference-v0.1",
+              "source_commit": os.environ["SOURCE_COMMIT"],
+              "file_count_excluding_manifest": len(files),
+              "files": files,
+          }
+          (root / "PACKAGE_MANIFEST.json").write_text(
+              json.dumps(manifest, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+          (
+            cd dist
+            zip -X -q -r "${package}.zip" "${package}"
+            sha256sum "${package}.zip" > "${package}.zip.sha256"
+          )
+          unzip -q "dist/${package}.zip" -d extracted
+          unzip -t "dist/${package}.zip"
+
+      - name: Verify and test extracted reviewer package
+        env:
+          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha }}
+        working-directory: extracted/drpo-reference-v0.1
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(".")
+          manifest = json.loads((root / "PACKAGE_MANIFEST.json").read_text())
+          assert manifest["source_commit"] == os.environ["SOURCE_COMMIT"]
+          assert (root / "SOURCE_COMMIT.txt").read_text().strip() == os.environ["SOURCE_COMMIT"]
+          actual = []
+          for path in sorted(root.rglob("*")):
+              if not path.is_file() or path.name == "PACKAGE_MANIFEST.json":
+                  continue
+              payload = path.read_bytes()
+              actual.append(
+                  {
+                      "path": path.relative_to(root).as_posix(),
+                      "sha256": hashlib.sha256(payload).hexdigest(),
+                      "size_bytes": len(payload),
+                  }
+              )
+          assert actual == manifest["files"]
+          assert len(actual) == manifest["file_count_excluding_manifest"]
+          PY
+          python -m pip install -q -e '.[test]' ruff
+          python -m compileall -q src tests
+          python -m pytest -x -vv tests
+          python -m ruff check --line-length 100 src tests
+          python -m ruff format --check --line-length 100 src tests
+          python -m drpo_reference --help
+          python -m drpo_reference countdown --help
+
+      - name: Upload validated reviewer package
+        uses: actions/upload-artifact@v4
+        with:
+          name: drpo-reference-v0.1-${{ github.event.pull_request.head.sha }}
+          path: |
+            dist/drpo-reference-v0.1.zip
+            dist/drpo-reference-v0.1.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
