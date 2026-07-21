@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import hashlib
+import json
+import os
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -31,6 +36,15 @@ AUTO_SCRIPT = ROOT / "scripts" / "run_e7_squared_exp_night_auto.py"
 RUN_SCRIPT = ROOT / "scripts" / "run_e7_squared_exp_night_one_click.sh"
 RESUME_SCRIPT = ROOT / "scripts" / "run_e7_squared_exp_night_resume_one_click.sh"
 LIVENESS_SCRIPT = ROOT / "scripts" / "run_e7_squared_exp_night_liveness_one_click.sh"
+CAP_VALIDATOR = ROOT / "scripts" / "validate_user_approved_worker_cap.sh"
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _git(repo: Path, *args: str) -> str:
+    return subprocess.check_output(["git", "-C", str(repo), *args], text=True).strip()
 
 
 def test_pilot_runspec_is_valid_and_recovery_is_bounded() -> None:
@@ -119,9 +133,187 @@ def test_templates_pin_all_scientific_and_execution_paths() -> None:
 def test_one_click_resume_contract() -> None:
     run_text = RUN_SCRIPT.read_text()
     resume_text = RESUME_SCRIPT.read_text()
-    assert "DRPO_RUNTIME_MAX_WORKERS" in run_text
-    assert "DRPO_RUNTIME_MAX_WORKERS" in resume_text
+    for text in (run_text, resume_text):
+        assert "DRPO_RUNTIME_MAX_WORKERS" in text
+        assert "DRPO_RUNTIME_MAX_WORKERS_APPROVAL_FILE" in text
+        assert "E7_SQUARED_EXP_MAX_WORKERS_APPROVAL_FILE" in text
+        assert "validate_user_approved_worker_cap.sh" in text
+        assert "USER_APPROVED_WORKER_CAP.json" not in text
     assert "RUNTIME_SELECTION.json" in run_text
     assert "RUN_IDENTITY.json" in run_text
     assert "partial runtime identity" in run_text
     assert "--resume" in run_text
+
+
+def test_worker_cap_gate_defaults_unset_and_requires_exact_approval(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init")
+    _git(repo, "config", "user.email", "test@example.com")
+    _git(repo, "config", "user.name", "Worker Cap Test")
+
+    copied_paths = (
+        "scripts/validate_user_approved_worker_cap.sh",
+        "scripts/run_e7_squared_exp_night_one_click.sh",
+        "scripts/run_e7_squared_exp_night_resume_one_click.sh",
+        "scripts/run_e7_squared_exp_night_auto.py",
+        "src/drpo/e7_squared_exp_night_runtime_autotune.py",
+        "src/drpo/e7_squared_exp_night.py",
+    )
+    for relative in copied_paths:
+        source = ROOT / relative
+        target = repo / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+
+    contract = repo / "fixtures" / "contract.json"
+    run_spec = repo / "fixtures" / "run_spec.json"
+    grid = repo / "configs" / "cap_test_grid.json"
+    contract.parent.mkdir(parents=True, exist_ok=True)
+    grid.parent.mkdir(parents=True, exist_ok=True)
+    contract.write_text('{"contract": 1}\n', encoding="utf-8")
+    run_spec.write_text('{"run_spec": 1}\n', encoding="utf-8")
+    grid.write_text(
+        json.dumps({"experiment_id": "EXT-H-E7-CAP-TEST-01"}) + "\n",
+        encoding="utf-8",
+    )
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "base runtime code")
+    approved_code_commit = _git(repo, "rev-parse", "HEAD")
+
+    validator = repo / "scripts" / "validate_user_approved_worker_cap.sh"
+    unset_work = tmp_path / "work-unset"
+    unset = subprocess.run(
+        [
+            "bash",
+            str(validator),
+            str(repo),
+            str(unset_work),
+            "",
+            "",
+            str(contract),
+            str(run_spec),
+            str(grid),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert unset.returncode == 0, unset.stderr
+    unset_identity = json.loads(
+        (unset_work / "USER_APPROVED_WORKER_CAP.json").read_text(encoding="utf-8")
+    )
+    assert unset_identity["mode"] == "unset_autotune_controls_concurrency"
+    assert unset_identity["max_workers"] is None
+
+    cap_work = tmp_path / "work-cap"
+    missing_approval = subprocess.run(
+        [
+            "bash",
+            str(validator),
+            str(repo),
+            str(cap_work),
+            "4",
+            "",
+            str(contract),
+            str(run_spec),
+            str(grid),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert missing_approval.returncode == 2
+    assert "requires an explicit approval file" in missing_approval.stderr
+
+    approval = repo / "docs" / "runtime_worker_cap_authorizations" / "test.json"
+    approval.parent.mkdir(parents=True, exist_ok=True)
+    approval_payload = {
+        "schema_version": 1,
+        "authorization_id": "E7-WORKER-CAP-TEST-01",
+        "status": "approved",
+        "approved_by": "repository_owner",
+        "approval_reference": "test-only explicit owner approval",
+        "reason": "exercise the fail-closed cap gate",
+        "scope": {
+            "experiment_id": "EXT-H-E7-CAP-TEST-01",
+            "work_dir": str(cap_work.resolve()),
+            "max_workers": 4,
+            "affinity_cpu_ids": sorted(os.sched_getaffinity(0)),
+            "contract_sha256": _sha256(contract),
+            "run_spec_sha256": _sha256(run_spec),
+            "grid_sha256": _sha256(grid),
+            "approved_code_commit": approved_code_commit,
+        },
+    }
+    approval.write_text(
+        json.dumps(approval_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    _git(repo, "add", str(approval.relative_to(repo)))
+    _git(repo, "commit", "-m", "record exact cap approval")
+
+    approved = subprocess.run(
+        [
+            "bash",
+            str(validator),
+            str(repo),
+            str(cap_work),
+            "4",
+            str(approval),
+            str(contract),
+            str(run_spec),
+            str(grid),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert approved.returncode == 0, approved.stderr
+    cap_identity = json.loads(
+        (cap_work / "USER_APPROVED_WORKER_CAP.json").read_text(encoding="utf-8")
+    )
+    assert cap_identity["mode"] == "user_approved_hard_cap"
+    assert cap_identity["max_workers"] == 4
+    assert cap_identity["authorization"]["authorization_id"] == (
+        "E7-WORKER-CAP-TEST-01"
+    )
+
+    changed = subprocess.run(
+        [
+            "bash",
+            str(validator),
+            str(repo),
+            str(cap_work),
+            "5",
+            str(approval),
+            str(contract),
+            str(run_spec),
+            str(grid),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert changed.returncode == 2
+
+    removed = subprocess.run(
+        [
+            "bash",
+            str(validator),
+            str(repo),
+            str(cap_work),
+            "",
+            "",
+            str(contract),
+            str(run_spec),
+            str(grid),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert removed.returncode == 2
+    assert "worker-cap policy changed" in removed.stderr
