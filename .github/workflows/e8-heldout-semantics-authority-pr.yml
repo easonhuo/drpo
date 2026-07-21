@@ -66,6 +66,21 @@ jobs:
                       '.github/workflows/e8-heldout-semantics-authority.yml '
                       '.github/workflows/e8-heldout-semantics-authority-pr.yml',
                   )
+                  if step.get('name') == 'Test final integration commit':
+                      command = '''
+          set -euo pipefail
+          TARGET=/tmp/drpo-e8-heldout-target
+          python -m compileall -q "$TARGET/scripts" "$TARGET/src" "$TARGET/tests"
+          PYTHONPATH="$TARGET/src" python -m pytest -q \
+            "$TARGET/tests/test_handoff_authority.py" \
+            "$TARGET/tests/test_governance_pipeline_stage_status.py"
+          ruff check \
+            "$TARGET/src/drpo/countdown_e8_alpha1_c_scan_trainer.py" \
+            "$TARGET/src/drpo/countdown_e8_alpha1_highc_scan_common.py" \
+            "$TARGET/src/drpo/countdown_e8_alpha1_highc_scan_runtime.py" \
+            "$TARGET/tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py" \
+            "$TARGET/tests/test_runspec_results_delivery.py"
+          '''
                   step_environment = dict(environment)
                   for key, value in (step.get('env') or {}).items():
                       step_environment[str(key)] = str(value)
