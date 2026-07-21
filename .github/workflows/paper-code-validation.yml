@@ -7,22 +7,27 @@ on:
       - "paper_code/**"
       - "docs/paper_code_reference/**"
       - ".github/workflows/paper-code-validation.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "*/5 * * * *"
 
 permissions:
   contents: read
 
 concurrency:
-  group: paper-code-validation-${{ github.event.pull_request.number }}
+  group: paper-code-validation-${{ github.event_name }}-${{ github.event.pull_request.number || 'scheduled' }}
   cancel-in-progress: true
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    env:
+      SOURCE_COMMIT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || '2594c88d7a65bc7bbb3a10b9700835c11a8906de' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ env.SOURCE_COMMIT }}
           fetch-depth: 1
 
       - uses: actions/setup-python@v5
@@ -147,8 +152,6 @@ jobs:
           PY
 
       - name: Build exact-head reviewer package
-        env:
-          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
           package="drpo-reference-v0.1"
@@ -241,8 +244,6 @@ jobs:
           unzip -t "dist/${package}.zip"
 
       - name: Verify and test extracted reviewer package
-        env:
-          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha }}
         working-directory: extracted/drpo-reference-v0.1
         run: |
           set -euo pipefail
@@ -282,7 +283,7 @@ jobs:
       - name: Upload validated reviewer package
         uses: actions/upload-artifact@v4
         with:
-          name: drpo-reference-v0.1-${{ github.event.pull_request.head.sha }}
+          name: drpo-reference-v0.1-${{ env.SOURCE_COMMIT }}
           path: |
             dist/drpo-reference-v0.1.zip
             dist/drpo-reference-v0.1.zip.sha256
