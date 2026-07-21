@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  package-and-validate:
+  validate:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -29,6 +29,122 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
+
+      - name: Install repository and reviewer test dependencies
+        run: python -m pip install -q -e 'paper_code[test]' ruff
+
+      - name: Compile exact head
+        run: python -m compileall -q paper_code/src paper_code/tests
+
+      - name: Run exact-head paper-code tests
+        run: python -m pytest -x -vv paper_code/tests
+
+      - name: Ruff check exact head
+        run: python -m ruff check --line-length 100 paper_code/src paper_code/tests
+
+      - name: Ruff format check exact head
+        run: python -m ruff format --check --line-length 100 paper_code/src paper_code/tests
+
+      - name: Check public CLI entry points
+        run: |
+          set -euo pipefail
+          python -m drpo_reference --help
+          python -m drpo_reference cu1 --help
+          python -m drpo_reference du1 --help
+          python -m drpo_reference hopper --help
+          python -m drpo_reference d4rl --help
+          python -m drpo_reference countdown --help
+
+      - name: Run D-U1 public CLI CPU liveness
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/du1-package-cli-smoke"
+          rm -rf "$output"
+          python -m drpo_reference du1 \
+            --output "$output" \
+            --device cpu \
+            --workers 1 \
+            --smoke
+          DU1_OUTPUT="$output" python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from drpo_reference.categorical.du1_protocol import FORMAL_METHODS
+
+          root = Path(os.environ["DU1_OUTPUT"])
+          terminal = json.loads((root / "terminal_audit.json").read_text())
+          assert terminal["all_registered_runs_present"] is True
+          assert terminal["formal_evidence_allowed"] is False
+          checkpoint = json.loads(
+              (
+                  root
+                  / "checkpoints"
+                  / "seed_0"
+                  / "CHECKPOINT_COMPLETE.json"
+              ).read_text()
+          )
+          assert checkpoint["methods_completed"] == list(FORMAL_METHODS)
+          assert (root / "aggregate_summary.json").is_file()
+          assert (root / "mechanism_summary.json").is_file()
+          assert (root / "taper_summary.json").is_file()
+          PY
+
+      - name: Audit reviewer-code boundary
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+
+          root = Path("paper_code")
+          forbidden_suffixes = {
+              ".bin", ".ckpt", ".h5", ".hdf5", ".pt", ".pth",
+              ".safetensors", ".tar", ".tgz", ".zip",
+          }
+          forbidden_dirs = {"artifacts", "checkpoints", "outputs", "results"}
+
+          for path in root.rglob("*"):
+              assert not path.is_symlink(), f"symlink forbidden: {path}"
+              if path.is_file():
+                  assert path.suffix.lower() not in forbidden_suffixes, (
+                      f"forbidden payload: {path}"
+                  )
+                  assert not (set(path.parts) & forbidden_dirs), (
+                      f"forbidden result directory: {path}"
+                  )
+
+          source_root = root / "src" / "drpo_reference"
+          for path in source_root.rglob("*.py"):
+              tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.Import):
+                      names = [alias.name for alias in node.names]
+                  elif isinstance(node, ast.ImportFrom):
+                      names = [node.module or ""]
+                  else:
+                      continue
+                  for name in names:
+                      assert name != "drpo" and not name.startswith("drpo."), (
+                          f"internal drpo import in {path}: {name}"
+                      )
+
+          countdown_core = (
+              source_root / "categorical" / "countdown.py"
+          ).read_text(encoding="utf-8")
+          core_tree = ast.parse(countdown_core)
+          heavy = {"transformers", "peft", "bitsandbytes"}
+          for node in ast.walk(core_tree):
+              if isinstance(node, ast.Import):
+                  names = [alias.name.split(".", 1)[0] for alias in node.names]
+              elif isinstance(node, ast.ImportFrom):
+                  names = [(node.module or "").split(".", 1)[0]]
+              else:
+                  continue
+              assert not (set(names) & heavy), (
+                  f"heavy runtime import in Countdown core: {names}"
+              )
+          PY
 
       - name: Build exact-head reviewer package
         env:
@@ -50,6 +166,7 @@ jobs:
             test_cli.py \
             test_common.py \
             test_controls.py \
+            test_countdown_release.py \
             test_cu1_suite.py \
             test_du1_cli.py \
             test_du1_public.py \
@@ -79,26 +196,8 @@ jobs:
           # Test scope
 
           The archive contains self-contained reviewer tests only. Repository-internal
-          `*_differential.py` tests import historical `drpo` implementations and remain
-          exact-head CI oracles in the main repository; they are intentionally not copied
-          into this standalone package.
-          EOF
-
-          cat > "${root}/VALIDATION_STATUS.md" <<EOF
-          # Validation status
-
-          Source commit: \`${SOURCE_COMMIT}\`
-
-          This archive is produced only after the workflow validates its manifest,
-          installs the extracted package, compiles source and tests, runs the
-          self-contained test suite, checks Ruff and formatting, and opens all public
-          CLI help entry points. Repository-internal differential tests run separately
-          in the Draft PR full-pytest gate.
-
-          These checks are engineering evidence. They are not a formal experiment,
-          convergence result, terminal scientific audit, or method-ranking claim.
-          Real Hopper HDF5/MuJoCo and Countdown Qwen/PEFT/CUDA liveness remain separate
-          gates unless recorded otherwise in the repository validation status.
+          differential tests remain exact-head CI oracles in the source repository and
+          are intentionally not copied into this standalone package.
           EOF
 
           python - <<'PY'
@@ -141,9 +240,10 @@ jobs:
           unzip -q "dist/${package}.zip" -d extracted
           unzip -t "dist/${package}.zip"
 
-      - name: Verify package manifest
+      - name: Verify and test extracted reviewer package
         env:
           SOURCE_COMMIT: ${{ github.event.pull_request.head.sha }}
+        working-directory: extracted/drpo-reference-v0.1
         run: |
           set -euo pipefail
           python - <<'PY'
@@ -152,7 +252,7 @@ jobs:
           import os
           from pathlib import Path
 
-          root = Path("extracted/drpo-reference-v0.1")
+          root = Path(".")
           manifest = json.loads((root / "PACKAGE_MANIFEST.json").read_text())
           assert manifest["source_commit"] == os.environ["SOURCE_COMMIT"]
           assert (root / "SOURCE_COMMIT.txt").read_text().strip() == os.environ["SOURCE_COMMIT"]
@@ -171,140 +271,12 @@ jobs:
           assert actual == manifest["files"]
           assert len(actual) == manifest["file_count_excluding_manifest"]
           PY
-
-      - name: Install extracted package
-        working-directory: extracted/drpo-reference-v0.1
-        run: python -m pip install -q -e '.[test]' ruff
-
-      - name: Compile extracted package
-        working-directory: extracted/drpo-reference-v0.1
-        run: python -m compileall -q src tests
-
-      - name: Run shared self-contained tests
-        working-directory: extracted/drpo-reference-v0.1
-        run: >-
-          python -m pytest -x -vv
-          tests/test_aggregate.py
-          tests/test_common.py
-          tests/test_controls.py
-          tests/test_events.py
-
-      - name: Run public CLI self-contained tests
-        working-directory: extracted/drpo-reference-v0.1
-        run: python -m pytest -x -vv tests/test_cli.py
-
-      - name: Run C-U1 self-contained tests
-        working-directory: extracted/drpo-reference-v0.1
-        run: python -m pytest -x -vv tests/test_cu1_suite.py
-
-      - name: Run D-U1 CLI tests
-        working-directory: extracted/drpo-reference-v0.1
-        run: python -m pytest -x -vv tests/test_du1_cli.py
-
-      - name: Run D-U1 public smoke tests
-        id: du1_public
-        continue-on-error: true
-        working-directory: extracted/drpo-reference-v0.1
-        run: |
-          set +e
-          python -m pytest -x -vv tests/test_du1_public.py \
-            > "$GITHUB_WORKSPACE/du1-public-pytest.log" 2>&1
-          status=$?
-          cat "$GITHUB_WORKSPACE/du1-public-pytest.log"
-          echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
-          exit "$status"
-
-      - name: Upload D-U1 package diagnostics
-        if: steps.du1_public.outcome == 'failure'
-        uses: actions/upload-artifact@v4
-        with:
-          name: paper-code-du1-diagnostics-${{ github.event.pull_request.head.sha }}
-          path: du1-public-pytest.log
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Fail on D-U1 package smoke mismatch
-        if: steps.du1_public.outcome == 'failure'
-        run: exit 1
-
-      - name: Run D-U1 public CLI CPU liveness
-        working-directory: extracted/drpo-reference-v0.1
-        run: |
-          set -euo pipefail
-          output="$RUNNER_TEMP/du1-package-cli-smoke"
-          rm -rf "$output"
-          python -m drpo_reference du1 \
-            --output "$output" \
-            --device cpu \
-            --workers 1 \
-            --smoke
-          DU1_OUTPUT="$output" python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          from drpo_reference.categorical.du1_protocol import FORMAL_METHODS
-
-          root = Path(os.environ["DU1_OUTPUT"])
-          terminal = json.loads((root / "terminal_audit.json").read_text())
-          assert terminal["all_registered_runs_present"] is True
-          assert terminal["formal_evidence_allowed"] is False
-          checkpoint = json.loads(
-              (
-                  root
-                  / "checkpoints"
-                  / "seed_0"
-                  / "CHECKPOINT_COMPLETE.json"
-              ).read_text()
-          )
-          assert checkpoint["methods_completed"] == list(FORMAL_METHODS)
-          assert (root / "aggregate_summary.json").is_file()
-          assert (root / "mechanism_summary.json").is_file()
-          assert (root / "taper_summary.json").is_file()
-          PY
-
-      - name: Ruff check extracted package
-        id: package_ruff
-        continue-on-error: true
-        working-directory: extracted/drpo-reference-v0.1
-        run: |
-          set +e
-          python -m ruff check --line-length 100 src tests \
-            > "$GITHUB_WORKSPACE/package-ruff.log" 2>&1
-          status=$?
-          cat "$GITHUB_WORKSPACE/package-ruff.log"
-          echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
-          exit "$status"
-
-      - name: Upload package Ruff diagnostics
-        if: steps.package_ruff.outcome == 'failure'
-        uses: actions/upload-artifact@v4
-        with:
-          name: paper-code-ruff-diagnostics-${{ github.event.pull_request.head.sha }}
-          path: |
-            package-ruff.log
-            dist/drpo-reference-v0.1.zip
-            dist/drpo-reference-v0.1.zip.sha256
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Fail on package Ruff mismatch
-        if: steps.package_ruff.outcome == 'failure'
-        run: exit 1
-
-      - name: Ruff format check extracted package
-        working-directory: extracted/drpo-reference-v0.1
-        run: python -m ruff format --check --line-length 100 src tests
-
-      - name: Check all public CLI entry points
-        working-directory: extracted/drpo-reference-v0.1
-        run: |
-          set -euo pipefail
+          python -m pip install -q -e '.[test]' ruff
+          python -m compileall -q src tests
+          python -m pytest -x -vv tests
+          python -m ruff check --line-length 100 src tests
+          python -m ruff format --check --line-length 100 src tests
           python -m drpo_reference --help
-          python -m drpo_reference cu1 --help
-          python -m drpo_reference du1 --help
-          python -m drpo_reference hopper --help
-          python -m drpo_reference d4rl --help
           python -m drpo_reference countdown --help
 
       - name: Upload validated reviewer package
