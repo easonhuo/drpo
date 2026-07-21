@@ -9,6 +9,7 @@ required_figures=(
   figures/fig_6_3_2_rescue_plot.pdf
   figures/fig_6_4_1_phase_transition.pdf
   figures/fig_6_4_2_leftfig_bigtext_legend_protocol.pdf
+  figures/fig_app_countdown_taper_coefficient_response.pdf
 )
 for file in "${required_figures[@]}"; do test -s "$file" || { echo "missing figure: $file" >&2; exit 1; }; done
 for file in example_paper.bib missing_references.bib; do test -s "$file" || { echo "missing bibliography: $file" >&2; exit 1; }; done
@@ -51,8 +52,8 @@ pdftoppm -png -r 150 main.pdf renders/page >/dev/null 2>&1
 render_count="$(find renders -maxdepth 1 -name 'page-*.png' -type f | wc -l | tr -d ' ')"
 [[ "$render_count" == "$pages" ]] || { echo "render count mismatch: pages=$pages renders=$render_count" >&2; exit 1; }
 {
-  echo "source_sha256=6e5ee53daf390f50ee2f2098826c02882a53257cbbe97ccee4a4ace1cde45dae"
-  echo "canonical_content_sha256=842bc044055bf9695a23ce26411df6b93859d2582c6eb877ab7751bf8e5d6708"
+  echo "source_sha256=16b8331df826cca6351fa9888c2109caa6ecbb994499c6b30e93dd31b44c6380"
+  echo "canonical_content_sha256=7a35f10305ccb023d51921ad1fef3f552649f815af653663d11543571fefde65"
   echo "pages=$pages"
   echo "page_size=$page_size"
   echo "texlive_version=2025"

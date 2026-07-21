@@ -97,11 +97,11 @@ def strip_formatting_only(text: str) -> str:
 
 README_TEXT = r'''# DRPO KDD 2027 Stage-A manuscript
 
-This directory is a self-contained, format-only KDD 2027 Research Track
-migration of the locked manuscript in `source_locked.tex`.
+This directory is the self-contained current KDD 2027 Research Track
+submission generated from the locked manuscript in `source_locked.tex`.
 
 - Format: `\documentclass[sigconf,anonymous,review]{acmart}`
-- Scope: Stage A only; no page-limit compression or scientific-text editing
+- Scope: current KDD submission source with the registered appendix result update
 - Compiler: pdfLaTeX
 - Canonical TeX environment: TeX Live 2025
 - Figures: local `figures/` directory
@@ -128,7 +128,7 @@ bash paper/kdd2027/build.sh
 ```
 
 The build requires TeX Live 2025 and verifies the locked source hash,
-character-equivalent manuscript content, five local figure assets, resolved
+character-equivalent manuscript content, six local figure assets, resolved
 LaTeX references/citations, anonymous PDF text and metadata, US Letter page
 size, embedded fonts, and a complete PNG render of every page. Page count is
 recorded but not gated in Stage A.
@@ -180,7 +180,7 @@ def main() -> None:
     MAIN.write_text(text, encoding="utf-8")
 
     verify = VERIFY.read_text(encoding="utf-8")
-    hash_line = 'EXPECTED_CONTENT_SHA256 = "842bc044055bf9695a23ce26411df6b93859d2582c6eb877ab7751bf8e5d6708"'
+    hash_line = 'EXPECTED_CONTENT_SHA256 = "7a35f10305ccb023d51921ad1fef3f552649f815af653663d11543571fefde65"'
     verify = replace_once(verify, hash_line, hash_line + VERIFY_CONSTANTS, "content hash line")
     strip_fn = '''def strip_descriptions(text: str) -> str:\n    return re.sub(r"\\n?\\s*\\\\Description\\{[^{}]*\\}", "", text)\n'''
     verify = replace_once(verify, strip_fn, strip_fn + FORMAT_HELPER, "description stripper")
