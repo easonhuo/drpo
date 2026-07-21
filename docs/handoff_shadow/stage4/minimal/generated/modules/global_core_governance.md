@@ -7,7 +7,7 @@
 - Responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
 - Content contract topics: `unique_master_document`, `document_before_experiment`, `non_destructive_history`, `terminal_audit_governance`, `controlled_external_validity_boundary`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `36d0d9307369081fae7b06b0a5408c43589996b9bd2edb318e73c5352b4a2a5b`
+- Source hash: `a77c0f9796543d6abef95f3173709566b3c957c3867012ebfd7d22b52f834301`
 
 ## Content contract evidence
 
@@ -165,6 +165,15 @@
 
   The first four predate automatic results-repository delivery and remain bound by audited source commits and source-package SHA-256 values. Linear and Tau are additionally bound to immutable `drpo-results` manifests. Durable records are `docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md` and `docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json`.
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-completed-backlog-closure-2026-07-20:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:e8-heldout-evaluation-semantics-2026-07-21:START -->
+- **Countdown E8 evaluation-semantics clarification (authoritative override):** For the completed EXP, Linear, Tau, and Reciprocal coefficient-response pilots, the file named `val.jsonl` is a structurally disjoint held-out evaluation split: canonical structure families and `(numbers, target)` problem keys do not overlap the training bank, and evaluation rows never enter the training loss or optimizer update.
+
+  Paper-facing evidence reports every declared coefficient point using the fixed late-window Pass@8 summary and the fixed terminal Pass@8 horizon. A saved `best_pass8_adapter` is supplementary diagnostic/local-recovery evidence only and must not replace the late-window or terminal response curve.
+
+  Historical statements such as `test_split_used: false`, `test_data_used: false`, or `test split unused` refer only to the separately materialized `test.jsonl`. They do not imply absence of held-out evaluation and do not, by themselves, require the existing curves to be rerun. Because later high-c, high-lambda, and dense reciprocal ranges were expanded after earlier held-out curves were inspected, the combined line is described as **staged held-out evaluation response curves**, not an untouched one-shot confirmatory test. No result status, significance, convergence, steady-state, formal method-ranking, OOD, cross-task/model, or universal-superiority claim is upgraded.
+
+  Historical EXP evaluator RNG contamination remains a separate provenance limitation. Task performance, support/valid-structure boundary events, and NaN/Inf numerical failures remain separately reported. Durable clarification records are `docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md`, `docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md`, and `docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md`.
+<!-- HANDOFF-DELTA-BLOCK:section_end:e8-heldout-evaluation-semantics-2026-07-21:END -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-lowsft-rft-dirty-pilot-record-20260708:START -->
 - **Countdown E8 low-SFT / capacity diagnostic dirty pilots：**本线记录 `EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01` 与一次性 `EXT-C-E8-LOWSFT-RFT-0.5B-01` 试错结果，只能作为 single-seed pilot evidence，不得升级为正式多 seed 结论或方法排名。capacity diagnostic 的 single seed `2026070701` 显示 `same_lora_rft`、`fresh_lora_rft`、`full_param_rft` 的 `best_attempt` 均为 0；terminal 端总体表现为 greedy 持平或小升、pass@8/pass@64 下降，说明 naive verifier-correct positive-only on-policy RFT 没有超过 LoRA SFT 起点。low-SFT 试错从按 validation greedy≈0.08 选出的 epoch-3 LoRA SFT checkpoint 起跑；该 checkpoint 的 pass@8 实际已接近 full-SFT（不是 pass@8≈0.08 起点），RFT 后 `best_attempt=0`，terminal test greedy 0.100→0.113、pass@8 0.174→0.133、pass@64 0.265→0.149。解释必须保留以下限制：运行源码为 dirty pilot / one-off orchestration；不是 convergence；没有证明 3B 或更强模型无效；尚需 no-update、parameter-delta、probe-loss、Qwen pretrained-base no-SFT、ultra-low pass@8 checkpoint 与 offline fixed-corpus controls。工程上允许把 `cmd_sft --save_every_epoch` 作为 opt-in 本地 checkpoint 功能合入，以便后续选择更细粒度 ultra-low SFT 起点；模型权重与结果包不得进入 Git 更新包。
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-lowsft-rft-dirty-pilot-record-20260708:END -->

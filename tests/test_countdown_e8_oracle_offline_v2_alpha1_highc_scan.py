@@ -474,3 +474,83 @@ def test_reciprocal_q_dense_curve_has_sixteen_points_and_thirty_two_cells() -> N
     assert config["execution"]["expected_full_waves"] == 2
     assert config["historical_controls"]["rerun_in_this_round"] is False
     assert config["reporting"]["trend_resolution_claim_only"] is True
+
+
+ASYMRE_CONFIG = (
+    ROOT
+    / "configs"
+    / "countdown_e8_oracle_offline_v2_asymre_deltav_scan_0p5b.yaml"
+)
+
+
+def test_asymre_scan_has_eight_delta_v_points_and_sixteen_cells() -> None:
+    config = _load_path(ASYMRE_CONFIG)
+    points = scan.parameter_points(config)
+    cells = scan.build_cells(config)
+    assert points == scan.ASYMRE_DELTA_VS
+    assert len(cells) == 16
+    assert len({cell.name for cell in cells}) == 16
+    assert {cell.seed_offset for cell in cells} == {4000, 5000}
+    assert {cell.method for cell in cells} == {"asymre"}
+    assert {cell.family for cell in cells} == {"asymre"}
+    assert {cell.coefficient for cell in cells} == {0.0}
+    assert {cell.delta_v for cell in cells} == set(scan.ASYMRE_DELTA_VS)
+    assert {cell.alpha for cell in cells} == {
+        0.0, 0.5, 0.7, 0.8, 0.9, 0.95, 1.0, 1.1,
+    }
+    assert config["execution"]["default_gpus"] == list(range(8))
+    assert config["execution"]["parallel_cells_per_gpu"] == 2
+
+
+def test_asymre_uses_constant_negative_weights_and_no_distance_control() -> None:
+    config = _load_path(ASYMRE_CONFIG)
+    profile = scan._profile_for_config(config)
+    seq_lp = torch.tensor([-0.25, -2.25, -8.25])
+    with scan.activated(profile):
+        weights = scan.continuous_exp_weights(
+            seq_lp,
+            alpha=0.9,
+            c=scan.FamilyCoefficient(0.0, "asymre"),
+        )
+    assert torch.allclose(weights, torch.full_like(seq_lp, 0.9))
+    assert weights.requires_grad is False
+    assert config["remoteness"] == {
+        "enabled": False,
+        "weight": "constant_1_no_distance_control",
+        "detached": True,
+    }
+
+
+def test_asymre_trainer_changes_only_the_signed_objective_coefficients() -> None:
+    source = TRAINER.read_text(encoding="utf-8")
+    assert 'cell.method == "asymre"' in source
+    assert "(1.0 - cell.delta_v)" in source
+    assert "weighted_negative_lp" in source
+    assert "value_network" not in source
+
+    positive_lp = torch.tensor(2.0)
+    negative_lp = torch.tensor(3.0)
+    for delta_v, expected in (
+        (0.0, 1.0),
+        (-1.0, -4.0),
+        (0.1, 1.5),
+    ):
+        actual = -((1.0 - delta_v) * positive_lp - (1.0 + delta_v) * negative_lp)
+        assert float(actual) == pytest.approx(expected)
+
+
+def test_asymre_config_rejects_delta_v_seed_or_value_network_drift() -> None:
+    config = _load_path(ASYMRE_CONFIG)
+    config["sweep"]["parameter_points"][0]["delta_v"] = -1.1
+    with pytest.raises(ValueError, match="parameter points changed"):
+        scan.validate_grid_config(config)
+
+    config = _load_path(ASYMRE_CONFIG)
+    config["sweep"]["seed_offsets"] = [4000]
+    with pytest.raises(ValueError, match="seed offsets changed"):
+        scan.validate_grid_config(config)
+
+    config = _load_path(ASYMRE_CONFIG)
+    config["objective"]["value_network"] = True
+    with pytest.raises(ValueError, match="must not add a value network"):
+        scan.validate_grid_config(config)
