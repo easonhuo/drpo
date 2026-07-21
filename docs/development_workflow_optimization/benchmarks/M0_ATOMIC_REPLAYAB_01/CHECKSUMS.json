@@ -1,0 +1,17 @@
+{
+  "files": {
+    "DECISION.md": {
+      "bytes": 2697,
+      "sha256": "98d3bc9020646e56a89bc8beb2bdd25b6aff3d2837374cb3f0342adf769cdbfa"
+    },
+    "FINAL_REVIEW.md": {
+      "bytes": 3716,
+      "sha256": "6710ac128275774e599d6d210aeb24905e41b1a06b6b8a3e21089b98e4cd09cc"
+    },
+    "RAW_RESULTS.json": {
+      "bytes": 10488,
+      "sha256": "788fca13c528bb54141dd70df4bb94da90c22736a6b0d557903b2158997c5bbd"
+    }
+  },
+  "schema_version": 1
+}
