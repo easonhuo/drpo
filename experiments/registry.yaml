@@ -6609,6 +6609,20 @@ experiments:
     terminal_audited: false
     real_qwen_cuda_run_completed: false
 - id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-SHAPE-SCREEN-0.5B-01
+  evaluation_protocol:
+    split_file: val.jsonl
+    split_role: structurally_disjoint_held_out_evaluation
+    enters_training_loss: false
+    train_structure_overlap: none
+    train_problem_key_overlap: none
+    paper_facing_summary:
+    - late_window_pass_at_8
+    - terminal_pass_at_8
+    best_checkpoint_saved: true
+    best_checkpoint_role: supplementary_only
+    separate_test_jsonl_used: false
+    separate_test_jsonl_required_for_existing_curve_validity: false
+    response_curve_mode: staged_full_grid_reporting
   environment: EXT-C
   name: e8_paper_aligned_reciprocal_shape_screen_20260719_01
   status: pilot
@@ -6706,6 +6720,20 @@ experiments:
       manifest_sha256: 0242b70cf71fe0531bca0d26201c0b29bfc6537f964a52a06da978fbe5dda286
       export_profile: manifest_text_v1
 - id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-HIGH-LAMBDA-EXTENSION-0.5B-01
+  evaluation_protocol:
+    split_file: val.jsonl
+    split_role: structurally_disjoint_held_out_evaluation
+    enters_training_loss: false
+    train_structure_overlap: none
+    train_problem_key_overlap: none
+    paper_facing_summary:
+    - late_window_pass_at_8
+    - terminal_pass_at_8
+    best_checkpoint_saved: true
+    best_checkpoint_role: supplementary_only
+    separate_test_jsonl_used: false
+    separate_test_jsonl_required_for_existing_curve_validity: false
+    response_curve_mode: staged_full_grid_reporting
   environment: EXT-C
   name: e8_paper_aligned_reciprocal_high_lambda_extension_20260719_01
   status: pilot
@@ -6803,6 +6831,20 @@ experiments:
       manifest_sha256: dc1feef96bf0bcc5cc0fe35f4eb5d3e506ec79cf50d782ac2622bdef1503b888
       export_profile: manifest_text_v1
 - id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-QUADRATIC-DENSE-LAMBDA-CURVE-0.5B-01
+  evaluation_protocol:
+    split_file: val.jsonl
+    split_role: structurally_disjoint_held_out_evaluation
+    enters_training_loss: false
+    train_structure_overlap: none
+    train_problem_key_overlap: none
+    paper_facing_summary:
+    - late_window_pass_at_8
+    - terminal_pass_at_8
+    best_checkpoint_saved: true
+    best_checkpoint_role: supplementary_only
+    separate_test_jsonl_used: false
+    separate_test_jsonl_required_for_existing_curve_validity: false
+    response_curve_mode: staged_full_grid_reporting
   environment: EXT-C
   name: e8_paper_aligned_reciprocal_quadratic_dense_lambda_curve_20260719_01
   status: pilot
@@ -6911,6 +6953,20 @@ experiments:
       manifest_sha256: acbf0fd8aa9f29d56b4c05841c7e0dd174568d4f9a15e229475df7db9a642c3b
       export_profile: manifest_text_v1
 - id: EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01
+  evaluation_protocol:
+    split_file: val.jsonl
+    split_role: structurally_disjoint_held_out_evaluation
+    enters_training_loss: false
+    train_structure_overlap: none
+    train_problem_key_overlap: none
+    paper_facing_summary:
+    - late_window_pass_at_8
+    - terminal_pass_at_8
+    best_checkpoint_saved: true
+    best_checkpoint_role: supplementary_only
+    separate_test_jsonl_used: false
+    separate_test_jsonl_required_for_existing_curve_validity: false
+    response_curve_mode: staged_full_grid_reporting
   environment: EXT-C
   name: countdown_e8_continuous_exp_grid
   status: pilot
@@ -6970,6 +7026,20 @@ experiments:
     backlog_registration_closed: true
     closure_update_id: EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20
 - id: EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01
+  evaluation_protocol:
+    split_file: val.jsonl
+    split_role: structurally_disjoint_held_out_evaluation
+    enters_training_loss: false
+    train_structure_overlap: none
+    train_problem_key_overlap: none
+    paper_facing_summary:
+    - late_window_pass_at_8
+    - terminal_pass_at_8
+    best_checkpoint_saved: true
+    best_checkpoint_role: supplementary_only
+    separate_test_jsonl_used: false
+    separate_test_jsonl_required_for_existing_curve_validity: false
+    response_curve_mode: staged_full_grid_reporting
   environment: EXT-C
   name: countdown_e8_alpha1_c_scan
   status: pilot
@@ -7029,6 +7099,20 @@ experiments:
     backlog_registration_closed: true
     closure_update_id: EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20
 - id: EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-HIGHC-SCAN-0.5B-01
+  evaluation_protocol:
+    split_file: val.jsonl
+    split_role: structurally_disjoint_held_out_evaluation
+    enters_training_loss: false
+    train_structure_overlap: none
+    train_problem_key_overlap: none
+    paper_facing_summary:
+    - late_window_pass_at_8
+    - terminal_pass_at_8
+    best_checkpoint_saved: true
+    best_checkpoint_role: supplementary_only
+    separate_test_jsonl_used: false
+    separate_test_jsonl_required_for_existing_curve_validity: false
+    response_curve_mode: staged_full_grid_reporting
   environment: EXT-C
   name: countdown_e8_alpha1_highc_scan
   status: pilot
@@ -7088,6 +7172,20 @@ experiments:
     backlog_registration_closed: true
     closure_update_id: EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20
 - id: EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-LOGC-BOUNDARY-SCAN-0.5B-01
+  evaluation_protocol:
+    split_file: val.jsonl
+    split_role: structurally_disjoint_held_out_evaluation
+    enters_training_loss: false
+    train_structure_overlap: none
+    train_problem_key_overlap: none
+    paper_facing_summary:
+    - late_window_pass_at_8
+    - terminal_pass_at_8
+    best_checkpoint_saved: true
+    best_checkpoint_role: supplementary_only
+    separate_test_jsonl_used: false
+    separate_test_jsonl_required_for_existing_curve_validity: false
+    response_curve_mode: staged_full_grid_reporting
   environment: EXT-C
   name: countdown_e8_alpha1_logc_boundary_scan
   status: pilot
@@ -7147,6 +7245,20 @@ experiments:
     backlog_registration_closed: true
     closure_update_id: EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20
 - id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01
+  evaluation_protocol:
+    split_file: val.jsonl
+    split_role: structurally_disjoint_held_out_evaluation
+    enters_training_loss: false
+    train_structure_overlap: none
+    train_problem_key_overlap: none
+    paper_facing_summary:
+    - late_window_pass_at_8
+    - terminal_pass_at_8
+    best_checkpoint_saved: true
+    best_checkpoint_role: supplementary_only
+    separate_test_jsonl_used: false
+    separate_test_jsonl_required_for_existing_curve_validity: false
+    response_curve_mode: staged_full_grid_reporting
   environment: EXT-C
   name: countdown_e8_paper_aligned_linear_scan
   status: pilot
@@ -7222,6 +7334,20 @@ experiments:
       manifest_sha256: 24635fbb634b23450cdfb560fd7b16a2dc0fe4a6d0586f10e1cf385e58bab333
       export_profile: manifest_text_v1
 - id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-CURVE-0.5B-01
+  evaluation_protocol:
+    split_file: val.jsonl
+    split_role: structurally_disjoint_held_out_evaluation
+    enters_training_loss: false
+    train_structure_overlap: none
+    train_problem_key_overlap: none
+    paper_facing_summary:
+    - late_window_pass_at_8
+    - terminal_pass_at_8
+    best_checkpoint_saved: true
+    best_checkpoint_role: supplementary_only
+    separate_test_jsonl_used: false
+    separate_test_jsonl_required_for_existing_curve_validity: false
+    response_curve_mode: staged_full_grid_reporting
   environment: EXT-C
   name: countdown_e8_paper_aligned_tau_curve
   status: pilot

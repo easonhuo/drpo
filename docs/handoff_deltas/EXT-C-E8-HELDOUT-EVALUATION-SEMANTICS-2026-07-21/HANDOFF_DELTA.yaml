@@ -1,0 +1,175 @@
+schema_version: 3
+update_id: EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21
+mode: authoritative
+base:
+  commit: b18aea9186d7e3ccc5d43b456719cafc23761e03
+  handoff_sha256: 9184a35c57d2741d2d5ad218355a56fc57f708f0ffe1809be396f35bd844ded1
+  registry_sha256: f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5
+renderer_version: 1
+operations:
+- operation_id: append-e8-heldout-evaluation-semantics
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-heldout-evaluation-semantics-2026-07-21
+  content: "- **Countdown E8 evaluation-semantics clarification (authoritative override):** For the completed EXP, Linear,\
+    \ Tau, and Reciprocal coefficient-response pilots, the file named `val.jsonl` is a structurally disjoint held-out evaluation\
+    \ split: canonical structure families and `(numbers, target)` problem keys do not overlap the training bank, and evaluation\
+    \ rows never enter the training loss or optimizer update.\n\n  Paper-facing evidence reports every declared coefficient\
+    \ point using the fixed late-window Pass@8 summary and the fixed terminal Pass@8 horizon. A saved `best_pass8_adapter`\
+    \ is supplementary diagnostic/local-recovery evidence only and must not replace the late-window or terminal response curve.\n\
+    \n  Historical statements such as `test_split_used: false`, `test_data_used: false`, or `test split unused` refer only\
+    \ to the separately materialized `test.jsonl`. They do not imply absence of held-out evaluation and do not, by themselves,\
+    \ require the existing curves to be rerun. Because later high-c, high-lambda, and dense reciprocal ranges were expanded\
+    \ after earlier held-out curves were inspected, the combined line is described as **staged held-out evaluation response\
+    \ curves**, not an untouched one-shot confirmatory test. No result status, significance, convergence, steady-state, formal\
+    \ method-ranking, OOD, cross-task/model, or universal-superiority claim is upgraded.\n\n  Historical EXP evaluator RNG\
+    \ contamination remains a separate provenance limitation. Task performance, support/valid-structure boundary events, and\
+    \ NaN/Inf numerical failures remain separately reported. Durable clarification records are `docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md`,\
+    \ `docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md`, and `docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md`."
+registry:
+  mode: expected_after
+  exact_base_after_sha256: ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1
+  changes:
+  - change_id: e8-evaluation-protocol-01
+    kind: update_field
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01
+    field_path:
+    - evaluation_protocol
+    from: null
+    to: &id001
+      split_file: val.jsonl
+      split_role: structurally_disjoint_held_out_evaluation
+      enters_training_loss: false
+      train_structure_overlap: none
+      train_problem_key_overlap: none
+      paper_facing_summary:
+      - late_window_pass_at_8
+      - terminal_pass_at_8
+      best_checkpoint_saved: true
+      best_checkpoint_role: supplementary_only
+      separate_test_jsonl_used: false
+      separate_test_jsonl_required_for_existing_curve_validity: false
+      response_curve_mode: staged_full_grid_reporting
+    reason: Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal,
+      and the separate unused test.jsonl is not evidence that evaluation was absent.
+    evidence:
+    - experiments/registry.yaml
+    - docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md
+    - docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md
+    - docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml
+  - change_id: e8-evaluation-protocol-02
+    kind: update_field
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01
+    field_path:
+    - evaluation_protocol
+    from: null
+    to: *id001
+    reason: Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal,
+      and the separate unused test.jsonl is not evidence that evaluation was absent.
+    evidence:
+    - experiments/registry.yaml
+    - docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md
+    - docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md
+    - docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml
+  - change_id: e8-evaluation-protocol-03
+    kind: update_field
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-HIGHC-SCAN-0.5B-01
+    field_path:
+    - evaluation_protocol
+    from: null
+    to: *id001
+    reason: Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal,
+      and the separate unused test.jsonl is not evidence that evaluation was absent.
+    evidence:
+    - experiments/registry.yaml
+    - docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md
+    - docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md
+    - docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml
+  - change_id: e8-evaluation-protocol-04
+    kind: update_field
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-LOGC-BOUNDARY-SCAN-0.5B-01
+    field_path:
+    - evaluation_protocol
+    from: null
+    to: *id001
+    reason: Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal,
+      and the separate unused test.jsonl is not evidence that evaluation was absent.
+    evidence:
+    - experiments/registry.yaml
+    - docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md
+    - docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md
+    - docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml
+  - change_id: e8-evaluation-protocol-05
+    kind: update_field
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01
+    field_path:
+    - evaluation_protocol
+    from: null
+    to: *id001
+    reason: Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal,
+      and the separate unused test.jsonl is not evidence that evaluation was absent.
+    evidence:
+    - experiments/registry.yaml
+    - docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md
+    - docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md
+    - docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml
+  - change_id: e8-evaluation-protocol-06
+    kind: update_field
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-CURVE-0.5B-01
+    field_path:
+    - evaluation_protocol
+    from: null
+    to: *id001
+    reason: Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal,
+      and the separate unused test.jsonl is not evidence that evaluation was absent.
+    evidence:
+    - experiments/registry.yaml
+    - docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md
+    - docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md
+    - docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml
+  - change_id: e8-evaluation-protocol-07
+    kind: update_field
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-SHAPE-SCREEN-0.5B-01
+    field_path:
+    - evaluation_protocol
+    from: null
+    to: *id001
+    reason: Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal,
+      and the separate unused test.jsonl is not evidence that evaluation was absent.
+    evidence:
+    - experiments/registry.yaml
+    - docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md
+    - docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md
+    - docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml
+  - change_id: e8-evaluation-protocol-08
+    kind: update_field
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-HIGH-LAMBDA-EXTENSION-0.5B-01
+    field_path:
+    - evaluation_protocol
+    from: null
+    to: *id001
+    reason: Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal,
+      and the separate unused test.jsonl is not evidence that evaluation was absent.
+    evidence:
+    - experiments/registry.yaml
+    - docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md
+    - docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md
+    - docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml
+  - change_id: e8-evaluation-protocol-09
+    kind: update_field
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-QUADRATIC-DENSE-LAMBDA-CURVE-0.5B-01
+    field_path:
+    - evaluation_protocol
+    from: null
+    to: *id001
+    reason: Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal,
+      and the separate unused test.jsonl is not evidence that evaluation was absent.
+    evidence:
+    - experiments/registry.yaml
+    - docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md
+    - docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md
+    - docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml
+expected:
+  exact_base_candidate_sha256: 74f5a64bd17a32ac92efc60d0ef405a66aaec5d5a27b0232d5e2ebf6e2548434
