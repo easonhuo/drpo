@@ -1,0 +1,94 @@
+schema_version: 1
+policy_id: PAPER-CODE-REFERENCE-01-TASK-EXECUTION-LOCK
+claim: PAPER-CODE-REFERENCE-01
+canonical_branch: dev/paper-code-reference-01
+canonical_pr: 149
+
+purpose: >-
+  Produce and correctness-validate a clean, independent, reviewer-facing
+  reference implementation of the paper algorithms extracted from the DRPO
+  research repository.
+
+current_state:
+  migration: closed
+  active_phase: correctness_acceptance
+  scientific_status_impact: none
+
+authorized_next_action: validate_existing_migration
+
+permissions:
+  remaining_gap_is_current_work: false
+  feature_development: false
+  resume_development: false
+  experiment_launch: false
+  real_stack_liveness: false
+  main_merge_or_rebase: false
+  branch_creation: false
+  replacement_pr: false
+  handoff_or_registry_write: false
+  bugfix_after_concrete_validation_defect: true
+  task_local_document_and_gate_repair: true
+
+required_prewrite_report:
+  - repository_branch_and_full_sha
+  - one_sentence_task_purpose
+  - current_lifecycle_state
+  - authorized_next_action
+  - explicit_non_goals
+  - proposed_actions_and_exact_paths
+  - unresolved_uncertainties
+
+self_authorization:
+  documents_created_or_modified_in_current_session_may_expand_scope: false
+  backlog_or_remaining_gap_counts_as_authorization: false
+  lower_authority_document_may_override_higher_authority: false
+  contract_changes_require_explicit_current_user_instruction: true
+
+high_impact_operations_requiring_explicit_current_user_approval:
+  - merge
+  - rebase
+  - reset
+  - force_update
+  - create_branch
+  - delete_branch
+  - replace_pull_request
+  - write_capable_temporary_workflow
+  - handoff_or_registry_mutation
+  - formal_experiment_launch
+
+allowed_write_paths:
+  - paper_code/
+  - docs/paper_code_reference/
+  - .github/workflows/paper-code-validation.yml
+  - .github/workflows/paper-code-single-branch-gate.yml
+
+forbidden_write_paths:
+  - AGENTS.md
+  - docs/handoff.md
+  - docs/handoff_deltas/
+  - experiments/registry.yaml
+  - configs/
+  - src/drpo/
+  - scripts/
+  - tests/
+  - paper/
+
+ authority_order:
+  - explicit_current_user_instruction
+  - current_main_handoff_and_registry
+  - preexisting_task_execution_lock
+  - current_status
+  - acceptance_matrix_and_source_migration_map
+  - documents_created_or_modified_in_current_session
+
+completion_definition:
+  required:
+    - module_by_module_correctness_acceptance
+    - concrete_defect_repairs_only_when_reproduced
+    - clean_reviewer_package_boundary_audit
+    - explicit_acceptance_report
+  insufficient:
+    - static_inspection_only
+    - smoke_test_only
+    - finite_step_pilot
+    - real_stack_liveness_without_correctness_acceptance
