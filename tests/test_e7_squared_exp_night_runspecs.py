@@ -81,7 +81,12 @@ def test_liveness_runspec_is_valid_and_non_scientific() -> None:
     )
     script = LIVENESS_SCRIPT.read_text()
     assert 'PROBE_STEPS="${E7_SQUARED_EXP_LIVENESS_PROBE_STEPS:-500}"' in script
-    assert 'MAX_WORKERS="${E7_SQUARED_EXP_LIVENESS_MAX_WORKERS:-2}"' in script
+    assert (
+        'MAX_WORKERS="${E7_SQUARED_EXP_LIVENESS_MAX_WORKERS:-${DRPO_RUNTIME_MAX_WORKERS:-}}"'
+        in script
+    )
+    assert "E7_SQUARED_EXP_LIVENESS_MAX_WORKERS_APPROVAL_FILE" in script
+    assert "validate_user_approved_worker_cap.sh" in script
     assert validate_recovery_policy(ROOT, spec) is None
 
 
@@ -133,12 +138,12 @@ def test_templates_pin_all_scientific_and_execution_paths() -> None:
 def test_one_click_resume_contract() -> None:
     run_text = RUN_SCRIPT.read_text()
     resume_text = RESUME_SCRIPT.read_text()
-    for text in (run_text, resume_text):
+    liveness_text = LIVENESS_SCRIPT.read_text()
+    for text in (run_text, resume_text, liveness_text):
         assert "DRPO_RUNTIME_MAX_WORKERS" in text
         assert "DRPO_RUNTIME_MAX_WORKERS_APPROVAL_FILE" in text
-        assert "E7_SQUARED_EXP_MAX_WORKERS_APPROVAL_FILE" in text
+        assert "MAX_WORKERS_APPROVAL_FILE" in text
         assert "validate_user_approved_worker_cap.sh" in text
-        assert "USER_APPROVED_WORKER_CAP.json" not in text
     assert "RUNTIME_SELECTION.json" in run_text
     assert "RUN_IDENTITY.json" in run_text
     assert "partial runtime identity" in run_text
@@ -158,6 +163,7 @@ def test_worker_cap_gate_defaults_unset_and_requires_exact_approval(
         "scripts/validate_user_approved_worker_cap.sh",
         "scripts/run_e7_squared_exp_night_one_click.sh",
         "scripts/run_e7_squared_exp_night_resume_one_click.sh",
+        "scripts/run_e7_squared_exp_night_liveness_one_click.sh",
         "scripts/run_e7_squared_exp_night_auto.py",
         "src/drpo/e7_squared_exp_night_runtime_autotune.py",
         "src/drpo/e7_squared_exp_night.py",
