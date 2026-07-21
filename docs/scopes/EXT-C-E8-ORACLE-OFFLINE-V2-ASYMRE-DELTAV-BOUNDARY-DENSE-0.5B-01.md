@@ -46,9 +46,11 @@ Exact matrix:
 
 `8 parameter points x 2 paired seeds = 16 cells`
 
-The two predecessor boundary points, `-1.0` and `-0.5`, are rerun as internal
-anchors. Historical predecessor values may be shown for provenance but may not
-replace the internally rerun anchors.
+The same two development seed offsets are intentionally reused at every point so
+that all interior-versus-boundary comparisons are paired. The two predecessor
+boundary points, `-1.0` and `-0.5`, are rerun as internal anchors. Historical
+predecessor values may be shown for provenance but may not replace the internally
+rerun anchors.
 
 ## Evaluation and reporting
 
