@@ -1,0 +1,61 @@
+{
+  "arm_count": 32,
+  "base_commit": "b18aea9186d7e3ccc5d43b456719cafc23761e03",
+  "benchmark_id": "REPLAYAB-R1-R2-DISCRIMINATION-01",
+  "case_count": 16,
+  "decision_before_terminal_non_regression": "PASS_CONTROLLED_ADVANTAGE_PENDING_TERMINAL_REGRESSION",
+  "deltas": {
+    "correct_arm_frr_reduction": 0.2,
+    "efficiency_release_coverage_gain": 0.5
+  },
+  "evidence_grade": "C2_controlled_discrimination",
+  "judge_gate_checks": {
+    "both_wrong_controls_rejected": true,
+    "r1_identical_correct_controls": true,
+    "r2_arm_accuracy": true,
+    "r2_efficiency_coverage_gain": true,
+    "r2_efficiency_precision": true,
+    "r2_far_not_above_r1": true,
+    "r2_frr_reduction": true,
+    "r2_pair_accuracy": true,
+    "r2_zero_incorrect_far": true
+  },
+  "judge_gate_pass": true,
+  "r1": {
+    "arm_accuracy": 0.875,
+    "correct_arm_false_rejections": 4,
+    "correct_arm_frr": 0.2,
+    "correct_arms": 20,
+    "efficiency_eligible_pairs": 8,
+    "efficiency_release_coverage": 0.5,
+    "efficiency_release_precision": 1.0,
+    "efficiency_released_pairs": 4,
+    "incorrect_arm_false_acceptances": 0,
+    "incorrect_arm_far": 0.0,
+    "incorrect_arms": 12,
+    "pair_accuracy": 0.75
+  },
+  "r1_terminal_non_regression": "REQUIRES_FULL_PR_TEST_SUITE",
+  "r2": {
+    "arm_accuracy": 1.0,
+    "correct_arm_false_rejections": 0,
+    "correct_arm_frr": 0.0,
+    "correct_arms": 20,
+    "efficiency_eligible_pairs": 8,
+    "efficiency_release_coverage": 1.0,
+    "efficiency_release_precision": 1.0,
+    "efficiency_released_pairs": 8,
+    "incorrect_arm_false_acceptances": 0,
+    "incorrect_arm_far": 0.0,
+    "incorrect_arms": 12,
+    "pair_accuracy": 1.0
+  },
+  "schema_version": 1,
+  "unsupported_claims": [
+    "population_level_error_rates",
+    "live_coding_agent_improvement",
+    "candidate01_improvement",
+    "r1_replacement",
+    "r3_r4_r5_r6_completion"
+  ]
+}
