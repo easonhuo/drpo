@@ -1,12 +1,8 @@
 name: Paper Code Validation
 
-on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    paths:
-      - "paper_code/**"
-      - "docs/paper_code_reference/**"
-      - ".github/workflows/paper-code-validation.yml"
+"on":
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
   workflow_dispatch:
     inputs:
       commit_sha:
@@ -14,26 +10,36 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: read
-  statuses: write
-
 concurrency:
   group: paper-code-validation-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.commit_sha }}
   cancel-in-progress: true
 
 env:
-  SOURCE_COMMIT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || inputs.commit_sha }}
+  SOURCE_COMMIT: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || inputs.commit_sha }}
 
 jobs:
   validate:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.number == 149 &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.head.ref == 'dev/paper-code-reference-01')
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
     steps:
+      - name: Validate requested commit identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.SOURCE_COMMIT }}
           fetch-depth: 1
+          persist-credentials: false
 
       - uses: actions/setup-python@v5
         with:
@@ -193,7 +199,9 @@ jobs:
   publish-status:
     runs-on: ubuntu-latest
     needs: validate
-    if: always()
+    if: always() && needs.validate.result != 'skipped'
+    permissions:
+      statuses: write
     steps:
       - name: Publish exact-head status
         uses: actions/github-script@v7
