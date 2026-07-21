@@ -1,26 +1,166 @@
 from __future__ import annotations
 
-import base64
-import gzip
 import hashlib
-import subprocess
-import tempfile
 from pathlib import Path
 
-PAYLOAD = """H4sIADwZX2oC/7Vc65Mb1ZX/Pn/FrcqHAKOW+qlWi/IWjmfATjlmdmwn2UqlWlfdV6OOW91KtzTjYdkqJ8RgZ/3aBAjBhoWEAIEFQ5IND9vx/5IdyeNP/At7zn20ujUaM3aCq9BI3feePvfc8/qde5ow6vWIpm1EI0IbYRrkDXZ2yLJowJJR3lj94SntqLbqaif/dfWHa9ozh1c13agPQtI9+NilhG2RXhQzMkhDRgxdb9r2UpSE7CzRxb963dObjBrBkqZppBGyzUYyjuOl5eXlh3rSU08RTa/pZNmo2TZ56qml5W+RhYPJ38+9TL6bRslIO5JFoyggcJ0cSQeDNNECcjLIGEuiZGNpGUh8i6yzfJgmedSN4mi0jRdP9aOczHgi8IsmcGHEsoTG2iaNoxCGElgKi9MhH5NzqiRNyKjPyHDcjeG5K/b6cW3TJN8bfzc9kpI4DdJBOopgUD6ORqxOjo0IA3JjOmI5n9iLErih9dMseg5p0fyMBnz00mxAk4CRTDDLyCgllAR8TST/6ZhmLNQyBtRZwnLOfZoAXxGNScI26CjaZNoWizb6yCqF/RrDHmX8mQFN0iSCi+QnKDRCg1GaaVogZDekoz7ZiuBjlNGfMLy3reUJHeb9dISS5asIU1hAAhcyNowpMHpEO22QNCMr+DdIk1GWxjELyYAFfZpE+YBEIfLXgwdzidAkRE6QBstHFOSX93HiJss2GCy9RvIRo+E2/AFp1ZD2OIFVZTkwPmCjfhqCVHHPQHaj7brc3ZN9FA3pZelzsD2cEVgf3tS4dPM2OUrj3pE+YyPar5Gj6RBo1Dg7P6DxGZaZYY0wGvQJHcFzwmg8qMm/Gl/sthgsL3G1GT2J5CvqwVgIj+qYul4zdaPDB/RZHGrpuHzX1jRTdzs1AjvejUIQEYmSBYoG6stJ8L0i42EIMmmXdvKweYTfF5vYliNC1E+glW3LTQZhREgLZTuUu1zRiLSLWw5iFk8LN2kyohsMtygaUCDR3k8tBLWYDrohJR297jli0ekQZkbPge5JJYd1GzXwE/hfRzKa86HSNCIcI7juONVhkmWQEhtGOXggMTGMQEnQXII0zcIo4cJJ0IZieHKoDAZVKQkpjMCLIBHUQzWXE5J2PKKwqcDn1mMrjx/aekx/HO3rR5pYnM/vguLH48ceW9FGdPx4I3j8x2K1Hfh5SIf97JQHHzLgSsZ6LEPNnrHbMcWsXnSW7xXTBlEcA1ca3x+WhEO0UHBHGePWVrIPNIiyhXADODXvPwKwQtgjtKbxcJhmI5y2SbOI3+2mY5THNkobHgM8wnBU0B6N4jH4HqHqJ+iJxrGkR5LxAMwN1UTd54yBVQBhFC8b0gxYiQtrXDNIN0tpOPNjwTjbZNxjgzMbxgznDaM45Sa6lqU8tnRCO4s9X7g7P/CHRocP55u4luYRd29pEoMtnk5m3kawK71kJzj073rddGp63akZNbNm11o1o1mzzFrT/o8O7H+WgucEc2DCM/DJo610ryHXyfoYCK66/ndWTxw56n/32WMnTvmg9P6a4T99+vhx39TNpu4anq+bndLKOobXasB/HRADSLyvNBjMIeVChDHFHXz8kOY5XEOjzNgG6AnDJcPnALQ6JnQMgahOTvXl3vF7Z9EL5+N4BLODM2itGMA2gTp4VYb+pMNonib9cdoIs2GqidE56KR4NumASwALbzD0RJzB9dXDK/9GQIeiHtwgJ48e1kynSTpez2C06fV01/G6QWh1Q9ejnhG4QRB2HeaEBjXNnu3BIJcZhk0pNZgb2j2n1wy7gdERagr8M7DJWOMBT8QpWEsMyqNtQTaRbpXNN2OjcZaQLZqTTtOpW7pjd9BhzqtCx3brTbfliJuw/7j9HaEUIFH0q+BMKRdwSjqWW3esVqtGzFbdajkWfLHrttEyasRw67rbasKXZt11myZ8seue5eIts+46hs2/6LoNnCBbQQfkLIk/WdFJwbZet5sGrL7KMr+He91FIadg2jSOK+qH25NCeNrqo13g0Bzo8t2Cnc9RaMIdqdVWSZbYGIpYn6CUt1XeErPeaOYF0h6/KOnCcJaBR0Z1A4WS/iMnvXEGozI+VyvmQq6Du8W9d437KkhXYhoNgCQE0hz2MuZsdshgDJwVsRykEA2GGSxe+nxUiUJLuMLPPIzyRB0ICbiUeX+FN4Df/bwgEBpAAETDBA59Gv4EyAcYKP0k9WcG54/6QKyfxqHUHrn4xl7PWaUYJbA9Y9w5IBIlQCfKfe7eOk9CXhZxwQ1A/l3kBbaG8mCLMkggOsjMZQDS3JJaD77nRAoLYD3InCJUCdzgnMUQgtHhiUxIAzs+g3GdizyXXGGGgAQGnW8ozVhMQsgVrhY0YpWPwP2Eh8zlnkrEAgio8Mx1nXJaDAWxJJ9S71LYtw7HDlu3qTcdrOl2jRW2r12Mtz+0ZnmPpPdrhygtOJhIJIwQAiIKjGEWXp/Em91F80cLpYUrLNxzsBHIM7uwgdKbAKkQTsbC8YiNcvqA8mGACg9x/8fx9CLEcWBWMa1zHErF7oK2Q6T1JopFii45HmJ+MeOZMuObEBc0inJlzWo8YAaAEWBNGtAjdvth8YQIxHaNrDx8Y20wfaYLPgjzvOSYDkrIXnrvnbSQAPsTUa0SvQwzDT4hs+Idf0lv8symu6Tb/lD8MBy4Lvwv8Zywbg/yqbgg0KgLL5haPYWZII1RF5XzY2SAeQ661INaWcEA2TgovJEIUKD9sIU8YYOsKDyU8EVoBhdybZkTxAB4DQ7KGlEoGptImnnWj70jQURCUc4ZbIrjVUKdBO0Gfc/F4dhasC54zyqKzuM2dxzwSEMwxgeflqggeJ2eJJ9OAs8SUBnKIGC29CNCz2JVzS0QsM9tzgWrgMRJ6gNPreLpn2l7LdQLD06kL9mAErGuGgRmYsFkB1Vkv6BrNDvpjFYsRMINeaX2NuVoXVt7XOE7TNigosalxDURIQVYyCu57bZ10vmWaVod7e24dwpI2I8DqIqEXAoEk5uSQQXrLgGnwelwoqA5wMW+oqwDJF+Q5pn989elT5WTHNHwA6tt0EGNyC1t2bGVxirTPVKkkBTPKtME/5WB2Jc4yzHIbsGDY7D56vxHl0YBnUZX0KYOsIsI4oFJRVDGwe9DArvAh8EtCckgRhH0q0+Cbv9Vn3EnLMJuJ8IqudTsC75nPUDi3liiVNirCHFgKV5yyNXFPh/KZszlpXEBAPZNDMZ4fixHIOuVrq0ytAnDpuJ6DpbGM51M8ciDKq+HNFAwA9LQcQUT04IFaOjoZPmqLALi2CICvrK89q5Xgtww89aVwTwkK4H+Y9np+yGLgblG9Z83Q1ldPnj5+Slsz4dszx06eWj986tizJzRUF013NdNoHD18YuXZp5/2V1aPnzrM1U5Vk76xBxyo2NWFWMd67v7Frm+OvVKFzNJ5hSwHbRlQHzeJo2hraVkgZz8K2+QRH720jMtvV0Pk0nIXcl0ITERmBG2C0Z8BGGg1Q5dZQRA4oW11bacJuCigvcC03KbBdAvnKKHkfQq4ok1glk0tJ3Dc0HRtIzRDh4am0bIchzrNHlzvuXqrp0NuAS7Z6zLLa/Yspwu5hw0oyECaIn/LtguiPQt2qOV1bUv3esxr9bxe2GoBpdB0bAP4bIIbboU92whsy7WoEdAwCEPqBS0H/jpLyxB4Qog+2Uyi8KQUtJ57e4zLWOCQP7mMMaQlIbru/KeQgQinbUjIhe5bcslnINfpUE3yR6mfC8PkIgLjA5v0sSDH5axBNCf33nr53h//uvP5lenF93bfvjS58t+TC7/96vaF6c2r0/95e/rqJzu3X9+9+cb9d1+dnL9w/7XzuzdvfXX7oppukMmdX08uXhaT7//m/Xvv/gzv8YSI838wxjXlx8X+g6dLQAG+rZEnnuA1UE+UFlVNEctDkAHcu/Xr6Zs3gHd05JPP3t392xf3Xrk0vfjHyaevwBI6C6u7HWD/q9uvP/EEEBg+oD5w7/VfFAHuwEh98tmfJh9fml64tvPFGzuff1AUcHki8H/nfranEjCr6MHdqkNvVGFf46B1iMn5TxfUCb66fUnUBw4BpIEf1RLAoc7a4ZMn8fpcSj8rKZLpjQ927ty99/L7MEriJqQFfM+hJnH15/c+urhz69bkl29P33jh/kuXORgHeAGZ9M7nX84FrwKGA7UiryvgNzzw/utXJ9euwCdHfJPfvTl55737v728+9KfC9zdkLC7IVF3Q4LuhsTcDQm5GxJxNxTgBvIVSSN7CmB/dfv65Ppb04/eEXo+ufrB9OWb00s/+/u5G9Prf5nc/lTC5cmN93dv/qECI2SiuPP5L6fnbu3c+TWO/+xjWOD0xrnJJ1dBVab/+5+zLHbnzuWdL68UWvz3c28AXzufXxbP4wGS7L5wY/fuS1XZAUHY8cm1S0B25/ZrKB98xst/nb5yHb7ce//PU/h54dXpR7+f3L46ffWL6Z9fmV751eTaZdij0b7IFlf9p7enNy7e/90v7v321u7Hn9x/7cLk3O2du28gO/N4F4W4P6hFYjc+IDM0S8pkyiC3IxY9+dtv7r386c6dK6pWs3v3zvTLm7tv/2Fy4R3ULW75IMKdL9/ZufXa5MIn+9WkyrUooL1PHYpv+T9ciwJl2bnz4uTS+cmL5x8Z3iqP+pu3YKN2bl3ZvXvj3oc3d9/7/fTNa7AAoY07ty5PX7v5ANQKI8EVTz/63eTyS/e+fA/X90BECjJF5PN1mHLy4i0QvXJBkCsgeBTYkUNHjhwlcOS4UcBGhRrRO/3yLZDO/RfeB5ew+9l/VXUZ18e9V0sve67roBFyuDIXqSbXPqw4SZx/5cXJ1T+VzOrW+Z07N3Y/e59DCmFbk6s/3z33ws7nLwtN2717fXL+DzPkJ0GfEMn+0Ax0R+rNQVEZsDcHsVAj50HUQ2EeWN9l8D0LYRdSL9CMxDjS+xeopSEgS2OASTqZvPHSfXBOV9+FYD69+MXkpRdBCOJEqyEOsxqlwy7+bHCIV6/t/O16cbxJ1PGmdF/X7+7c+j0/zmvwszxU4Ddv7N58cXLhQ6CO4fKVv0wuX939+GOI5NKwL+Dd3ffAQRz4fBdU61eX5Hhp/I3FYVskqP4sIcXZwMq3MT8TKR/Pj0SWis/G0pgPG8cyvM7rAD6mq+JakR9C+mg1Q4+5YM6eaTHKHDNkXQf+BqAbkMKGjtW0PZ2ZgQuZo+f0qAtOwTS6ut3qieQHMtkNXqHBDEv8EolgOJcFljMiTR55EPgHwEsM91Fx8UQar4rv+6XtuiFHSXfQFj81Upa8Eo4AC3LANwxJyk850Cl/ecLDq8HSstru9txOB7DEiCMftdtWwHpe2GJNgAyW2zICw9Stnt5tdpln0hbVaROcvuNYVmhT5lKPoicA/9CzTJOZ4QJo+/AMK1D4CEs9CBi1W9Szu3R/MPoIzy2hTEdXfRgukXn+nr4LSNPXRQF5nVegxNH7aqELbbJPno/DZJG0vSjDx/vrvMzUPnCCz+cIbmYl5fbDnIdxCguTkPY/IQNB6t/jeWe7Un7cizvOEqPoq+CFSa9VRFykckScOQqMCveKM8ga0eVJIw47OQuPQUzzvL2410BkJ0/OZx2y8YH3XqgTB3U0LQ8aZKV8dcHpXj4eDCC7xBHPA798KeR58h2UKccZz5PjBeZ4njzN4Y78sSYiPQ+4W1gl3JyvYT/Pj332uwmPBJvA/9oLP5CleXquW7cgLMA3iXbwG2AWo9mEb1jwl584WeQvOKJZ162WC98kHMJvTh2ADc4CFNOCP2bDm03js3TAPA7OkuhIfIP0U+fD+SxjNsuAn45VN42mh/cFksJvwLPlLZ5j4vMtSPts/CZRF36z6i3HMBbOwTVbDmSNFtKUCA2/OXXbaxp8MJ+jz+Zw3oG6bfL7As3JbxBV+eD5OQYStXj2ieKQ0A+/GXXXa+kLJ1l8HV7dtEzOncCJ+E1HyXkLJzVxgOnUWy3TFJMQVIpJzWZzEXsVtAkyrDsm501gTvHF4MKozuSWcAzLwEOARbLis7T8g2jUj5L5M/69ULRGthg9Uy5BQxoYjgM8zM3SDfBauTg73EqzfP8DdVLCi/Pnz8Xp5Z5DaFGelq0GC4+S1UGzOKqanUfzcnitdPyepxgUIBpzPwFOKzjD8CR6VkHnPULjgXAvkOdu8l4fWmooKUtqnyO4etHKJ4/0Cq/FS/O4KNUZR/JoA50LDBxjMTzP6+WuME30dpG8jx5NHG2rQ2q+P9hegFGYnzCUBFPQH+LmjDOmDu5FTg7OgmHSH/FDAXFNq/SRwQgUax+2D0bkuDCkJ09K0L/1wafD5jM8TN5WHSvi7AtxORVdjagg/aiLmUqpaF8+A+D1enWueaooLgE9WRUShSbZOFcpPrUJFp9KjUuqe1Gd8M7OELBbbCxaq9SRtZJXm2BuUrrF2yTBSsbYGaf6hXx+HuKjsvpYI+UF0SwdpUEa++LEdFFvXakO1p6dcPOB+zcztYnOR8w3Fajr+xZf2iIAzqorYDEBBc2C66RoJeAGM1NjsfL9SjCCZLnSQrjLABHz0Mx37vjCNhlxRIqWhv5lCzIz7JeDZ89WXFSNQI+pYkKrdoMVZ96zY/M4GkQzN/aNtAp0Qe7cXOXcf6BpQDGnzhXFgSifWfK12lz3QKktFeQ3Hm5kNBT9Qg+sx6CSRTEp9RgA50Gc5thXUQEO+yI0SNH3R28izw9b1GmFzXo9DJomNQKFAjDdfwBlCQD2v48pvmt6Tq1Jlvlfw3Ih0y+jyfYSEf+EVMWpBNZoAOe1Gqstf+3w2uq6f/j4sWdOrK74pw6f9o+cXv/+qkrHXR8wqyShMukCmjHXAgRuh163a/VagR0GestxDBrA1Ca1vYBRy6NNy+vSVtdzjNDpeV7YDFuG7pg21RVh7ILORv5QoYjiQdgk528aaHIPRNQs2YyyNBE4hY/CqwkdADGBSDiK9wWK9wHWzyBKPuszJ4UjK3D+rC7l77knRbrnOvY7wsNYCTsVnHP0I7mGaBOyACIOtueW1nb68PrqioYrPHHsmaOn5OjyOY7Eyo9wgMfjR5v8iyYQ/LPJXCMxwsNH6y+vCYpBn2LnNuNH2wta5bFNRh13l3vkc9iBmMnDF0Hqa/rlxfk972ZhItKx4kieFo0AglQ19xBnCbBo9L3YcAU+vzfem2fgclPu2ZjohxXEQobeRVQn027OINKFsk9fZn4yVtb5vqUxL2+Jsp2vynb7aiRfVlUr2VkWjPm+S/BXqFoA2QzWn7Jtnty1SZ4FHBwDBval/FAR/QQzy/qQV6m6aTpCTRoefKZfzJE06AYkshtCGQ9ORc1ikgrIKmHxgQiIoXJehm57AFJSGchD8KDmYo/FaJwoVsRxcJpVKcH2DNHtjuEJCxcERBSBBLYwjoIzD0ehmFbP+8IpyCwpTIOxcB4PVZUbGr70S3MEHqVKBzbI38socjdZsATlBwc0yov6Zb+SFG+ai6+L9zD2vS1y6dLtLflix16683f2UJ4fsId2H3BDUMEND765l/e9Y+YeUkpXfPnqyI/wGJqYuvFjMQTTXx9cTOm+jfcd/GjihytHcm/sy64Q2dhhBvKeet/DX/i+h6/cNLoZMQP9jXjTAbLkuudI3y2ckXwJxed9vT6+0iDwgBgEUYs39Puzp9IMIiQw2IbcO87luOIFEk4hBxiQ+aLy1cb8B/+pYrh6fcRXvctiSps4C0epd0iQjrjJ8YwvQ4wf5T6ed+7BMzI2Q1bAw5N4Y0WufOELKIW5ll9A8cULKL56G0QQKNodi+ttYtYVe0BxHIOoixdTngBVeazyYsoTcy+mPC6mwi/cIV39QimqjTPU5aEsDgi8JUoApSWLtEoZKzgIHssERJMXi1H85GJPEVcNmgUi3lzWLhCmzxEmCCdkMcJWFqop6Ph47nagyq+aFfii3xMsgvdgEGzCwAXXUKo1YuNHCz+MJn5a/GoTLv9YkRiXqj97ZCKzTnHipOqxvAJbcKAKsYtvi9Js6Z6u7lRFUmSHiL3VEIWp/Qqmrt5VQsa5D4Gqi8VhVcnHPMtXVSU/5q6D0aTY9DnVacuKqdWChLFpGJ47Gxj4+tB02qo6ahuepetGyzarQ2CErIQaehO21Ya9LY8w2rLqaSJ2BEeom0blKWZbljh114EU1m7CCKc8wG6reqbRNL2W6epmhYdWW9UuDfCeru2ZhlfhAICLqFPqnu64ptlqwXrLIyzgQRQlLc9oOi3DMd3qiKbdlhVIy/UM1wVZWLY1G1HWvbasN9q67nktzzOdGS1ZqhCqUtoVgKLgC3t+Af19NZKfmZe0jaiyxwNGcC0oFUD8SgHkIK9TzGjJooMPsUgVP/xK8eMB71IUuinBt48VOoxVpcWIJMUvn/osPPTZO0XFluIMaH5IBfu6jYdzSEiEhtv+Hgz8j54lzR7w9Si48NSyWFERHJZwMFTxGk6BDQ9awyntcJmAL+o2qMWl0M5zjnJZxa+AU+U6fTryRd/DntmiDOMXmiBPoSrjZDeMX1SKDxSrxKR9A1bpXQ9ftXDwbEFsL/82ThaHob0vcRzoHY4iIlXDNG8ur0akhSGrIjkI3sIRq+n73eWgk7+WgevxZ+kJfzYuUzThPCgYtgofUqqCVLtzCj07aHOOoljOjZXlHvANioIE9vj4Q4icPr4/AJYCocO0SokHFu2LXW6Tf8IrEwfJavaZX0zliiY6g/bYlZK+L/uISn5cWJKvXpXw1SGLr16VmOlSNQVpqwyVTwzLKqdozIDcvrFCDXhQAPB5BVqNnAtM6vK+sQ0HRJVTN59XrlWTzt4SSqHLJbPBAj6Mqf5fCwSBPXgMgAtT83tRxoHTtrglZghcYQx89Ur3AmyBkhBvXAgfI2ZCIJU+DgteIhETJ/C+PIEvxhUHPTMvBiQx2PmlNzV8XrkrJiEO4ETVSyPizswDSEYpekRh6r6oVZUEMk6Ue4ccvxo5fN5anvtVNz/ntpHK13nypYrYZ1WMSsjAMrUo8WLvmrba1I48e2LlGDYuHT6uPXN4TVtZ/b4mKtGVWi8OX/p/jM0/0j9FAAA="""
-EXPECTED_PATCH_SHA256 = "4ae08a954f610418fe45399b4507db4e5f4b86f2000a0a8317c20998ae73ec74"
+BASE_REGISTRY_SHA256 = "f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5"
+AFTER_REGISTRY_SHA256 = "5bd36d9e797f923eae52deb5ae5cc193ccd536490e2c7d8895fa744321b048f1"
+EXPECTED_FILES = {
+    "docs/experiments/EXT-H-E7-SQEXP-GAE-01.md": "ad767e2d03f2279dc8be6026abe38b484d013a42636b08b993ca6cbd153e64cb",
+    "docs/results/E7_BENCH_JOINT_GAE_P1_RESULT_2026-07-21.md": "08aecb2d04f9185471617efce1f5ae1eb36d8a01dc286f507e2d45a490d64428",
+    "docs/handoff_deltas/EXT-H-E7-SQEXP-GAE-P1-RESULT-P2-REGISTRATION-2026-07-21/HANDOFF_DELTA.yaml": "3fb6d5927014ffa4c38797600ce8045a5cd5f3fc2e1e9b583b80ee3e8f59ecf5",
+}
+MARKER = "development_experiment_registrations:\n"
+ENTITY = """- id: EXT-H-E7-SQEXP-GAE-01
+  environment: EXT-H
+  name: d4rl9_joint_critic_gae_common_c_screening
+  status: pilot
+  scientific_status: pilot
+  result_status: pilot
+  parent_experiment: EXT-H-E7-BENCH-01
+  predecessor: EXT-H-E7-SQUARED-EXP-NIGHT-01
+  registration_base_commit: b18aea9186d7e3ccc5d43b456719cafc23761e03
+  claim: >-
+    On the canonical D4RL joint actor--critic path with trajectory-snapshot GAE,
+    characterize the finite-horizon nine-task response to a single common
+    squared-remoteness exponential scale and determine whether a stronger
+    left-boundary taper can retain useful negative signal without the broad
+    degradation observed under weaker control.
+  role: external_validity_joint_critic_gae_common_scale_screening
+  execution_class: pilot
+  code_entrypoint: src/drpo/e7_squared_exp_night.py
+  bootstrap_entrypoint: src/drpo/e7_squared_exp_night_bootstrap.py
+  aggregation_entrypoint: src/drpo/e7_squared_exp_night_aggregate.py
+  kernel_entrypoint: src/drpo/e7_squared_exp_kernel.py
+  runtime_selection_entrypoint: src/drpo/e7_squared_exp_night_runtime_autotune.py
+  operator_entrypoint: scripts/run_e7_squared_exp_night_auto.py
+  one_click_entrypoint: scripts/run_e7_squared_exp_night_one_click.sh
+  protocol_document: docs/experiments/EXT-H-E7-SQEXP-GAE-01.md
+  p1_result_document: docs/results/E7_BENCH_JOINT_GAE_P1_RESULT_2026-07-21.md
+  shared_protocol:
+    datasets:
+    - hopper-medium-v2
+    - hopper-medium-replay-v2
+    - hopper-medium-expert-v2
+    - walker2d-medium-v2
+    - walker2d-medium-replay-v2
+    - walker2d-medium-expert-v2
+    - halfcheetah-medium-v2
+    - halfcheetah-medium-replay-v2
+    - halfcheetah-medium-expert-v2
+    development_seeds: [200, 201]
+    held_out_seeds: [204, 205, 206, 207]
+    actor_update_mode: a2c
+    advantage_estimator: trajectory_snapshot_gae
+    gae_lambda: 0.95
+    critic_updated_every_step: true
+    prepared_advantage_artifact: false
+    optimizer_steps_per_branch: 1000000
+    evaluation_interval_steps: 50000
+    evaluation_episodes: 10
+    fixed_horizon_is_not_convergence: true
+  parameterization:
+    coordinate: normalized_squared_standardized_action_distance
+    reference_distance: 2.0
+    formula: w(D)=w(0)*exp(-lambda_taper*relu((D-tau)/c))
+    tau: 0.0
+    taper_lambda: 1.0
+    positive_only_anchor: true
+  profiles:
+    p1_broad_curve:
+      profile_id: d4rl9_common_c_p1
+      execution_state: terminal_audited_delivered
+      run_id: E7_BENCH_JOINT_GAE_P1_FULL_20260719_02
+      c_values: [0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0]
+      uncontrolled_anchor: true
+      expected_branches: 198
+      completed_branches: 198
+      failed_branches: 0
+      terminal_audit_status: PASS
+      selected_control: null
+      selection_status: response_curve_only_pending_protocol_freeze
+      equal_task_weighted_late_mean:
+        positive_only: 65.3053876161197
+        c_0p25: 47.67854193001842
+        c_0p5: 37.53881062604026
+        c_1: 28.385295302010217
+        c_2: 24.418075456461025
+        c_4: 17.07861629827022
+        c_8: 16.77621207749219
+        c_16: 14.937090572288387
+        c_32: 12.751391658152787
+        c_64: 12.004379177930343
+        uncontrolled: 0.4611400998992587
+      failure_audit:
+        nan_inf_numerical_failure_count: 0
+        rollout_failure_count: 0
+        task_performance_collapse: not_adjudicated_no_registered_threshold
+        support_or_variance_boundary: not_instrumented_in_this_pilot
+      evidence_locator:
+        results_repository: easonhuo/drpo-results
+        results_branch: ingest/e7
+        result_path: runs/e7/E7_BENCH_JOINT_GAE_P1_FULL_20260719_02
+        ready_manifest_sha256: 9f1ea69f0759bcd3bd79a91c7ccdb5e5d1a22f49ea67e114aaa1e7d4f5f6dbc1
+        export_profile: manifest_text_v1
+      provenance:
+        recorded_source_commit: d0ba443154d847065965b18a43ffe897f19530fa
+        source_commit_resolved: false
+        authoritative_registration_complete_at_launch: false
+        formal_evidence_allowed: false
+    p2_left_extension:
+      profile_id: d4rl9_common_c_p2_left
+      execution_state: implemented_template_not_ready_not_run
+      c_values: [0.2, 0.16, 0.125, 0.1, 0.08, 0.0625, 0.04, 0.025, 0.015625]
+      positive_only_rerun: true
+      uncontrolled_anchor: false
+      p1_c_0p25_rerun: false
+      p1_c_0p25_role: cross_run_reference_only_not_paired
+      expected_branches: 180
+      scientific_implementation_commit: 909249875c190a75301ceb2dc2c2062ca0efcb16
+      development_branch: dev/ext-h-e7-bench-joint-gae-p2-left-01
+      draft_pull_request: 223
+      runspec_template: runspecs/templates/E7_BENCH_JOINT_GAE_P2_LEFT_FULL_20260721_01.yaml
+      run_id: E7_BENCH_JOINT_GAE_P2_LEFT_FULL_20260721_01
+      ready_promoted: false
+      branches_started: 0
+      launch_requires_separate_approval: true
+  terminal_audit:
+    required: true
+    separates:
+    - task_performance_collapse
+    - support_or_variance_boundary_event
+    - rollout_failure
+    - nan_inf_numerical_failure
+  interpretation_limits:
+  - external_validity_only_not_controlled_causal_identification
+  - development_seeds_are_not_confirmatory_seeds
+  - fixed_1m_endpoint_is_not_convergence_or_steady_state
+  - no_formal_nine_task_method_ranking
+  - no_universal_common_c_or_drpo_superiority_claim
+  - no_per_task_retuning
+  - p1_c_0p25_is_not_a_p2_paired_observation
+  - unresolved_p1_source_commit_blocks_authoritative_formal_evidence
+  formal_evidence_allowed: false
 
-patch = gzip.decompress(base64.b64decode(PAYLOAD))
-actual = hashlib.sha256(patch).hexdigest()
-if actual != EXPECTED_PATCH_SHA256:
-    raise RuntimeError(f"documentation patch identity mismatch: {actual}")
+"""
 
-with tempfile.NamedTemporaryFile(suffix=".patch", delete=False) as handle:
-    handle.write(patch)
-    patch_path = Path(handle.name)
 
-try:
-    subprocess.run(["git", "apply", "--check", str(patch_path)], check=True)
-    subprocess.run(["git", "apply", str(patch_path)], check=True)
-finally:
-    patch_path.unlink(missing_ok=True)
+def sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+for name, expected in EXPECTED_FILES.items():
+    actual = sha256(Path(name))
+    if actual != expected:
+        raise RuntimeError(f"source document identity mismatch for {name}: {actual}")
+
+registry = Path("experiments/registry.yaml")
+if sha256(registry) != BASE_REGISTRY_SHA256:
+    raise RuntimeError("registry base identity mismatch")
+text = registry.read_text(encoding="utf-8")
+if text.count(MARKER) != 1 or "- id: EXT-H-E7-SQEXP-GAE-01\n" in text:
+    raise RuntimeError("registry insertion boundary is not unique and clean")
+registry.write_text(text.replace(MARKER, ENTITY + MARKER), encoding="utf-8")
+actual_after = sha256(registry)
+if actual_after != AFTER_REGISTRY_SHA256:
+    raise RuntimeError(f"registry after-image mismatch: {actual_after}")
