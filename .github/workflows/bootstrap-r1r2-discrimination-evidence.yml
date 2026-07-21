@@ -26,6 +26,11 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install focused dependencies
+        run: |
+          python -m pip install --quiet --upgrade pip
+          python -m pip install --quiet -e . pytest ruff pyyaml
+
       - name: Materialize deterministic evidence
         run: |
           python - <<'PY'
@@ -46,11 +51,6 @@ jobs:
               module._decision_markdown(comparison), encoding='utf-8'
           )
           PY
-
-      - name: Install focused dependencies
-        run: |
-          python -m pip install --quiet --upgrade pip
-          python -m pip install --quiet -e . pytest ruff pyyaml
 
       - name: Verify evidence and non-regression
         run: |
