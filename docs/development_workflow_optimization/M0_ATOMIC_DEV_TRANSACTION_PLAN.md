@@ -2,10 +2,10 @@
 
 **Claim:** `GOV-DRPO-MAINTENANCE-RUNNER-REPLAYAB-01`  
 **Measurement authority:** `GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01`  
-**Document version:** `1.1-stage0-review-A`  
+**Document version:** `1.2-stage0-review-B`  
 **Initial design branch base:** `main@d7e82201159a736f0d2e48403aae15ea07e178a7`  
 **Current main reviewed:** `main@ad9bda80796dcf5c48976f5d64ffd79a006c70d5`  
-**Status:** `stage0_review_A_applied`  
+**Status:** `stage0_review_B_applied`  
 **Scientific impact:** none  
 **Implementation authorization:** none
 
@@ -138,6 +138,7 @@ A task outside this boundary follows its existing owner. It is not a failed M0 c
 Every attempt binds:
 
 - `task_id`;
+- task scope authorization identity;
 - authoritative `base_commit`;
 - target branch name;
 - target mode: `new_branch_from_base` or `existing_branch_exact_head`;
@@ -150,23 +151,32 @@ Every attempt binds:
 - expected changed-file inventory;
 - stage-plan commit and plan-file SHA-256;
 - reviewer decision identity;
+- exact new-Python path approvals when applicable;
+- code-change-budget and large-code approval identities when applicable;
 - rollback and recovery class.
 
 The packet contains data only. It contains no shell command, Python expression,
 environment override, branch wildcard, mutable ref, or test list.
 
-### 5.2 Pre-write checks
+### 5.2 PREOBJECT checks
 
-Before any ref is created or moved:
+Before the first blob is created:
 
 1. resolve current `main` through the GitHub repository API;
 2. require the resolved SHA to equal the packet base;
 3. validate target-branch policy and reject `main` or the default branch;
 4. normalize and audit every repository path;
 5. reject protected paths and unsupported file kinds;
-6. verify all after-image hashes and expected modes;
-7. verify the exact validation profile and expected changed-file inventory;
-8. verify all required approvals and the plan identity.
+6. verify all after-image hashes, sizes, encodings, and expected modes;
+7. reject secret-bearing or insufficiently reviewed content before Git object storage;
+8. verify the exact validation profile and expected changed-file inventory;
+9. bind task scope authorization;
+10. bind exact-path oral approval for each new Python destination when applicable;
+11. bind code-change-budget classification and any required large-code approval;
+12. verify the plan identity and every other required approval.
+
+A failure here terminates as `BLOCKED_PREOBJECT`. No blob, tree, commit, branch, or PR
+may be created.
 
 ### 5.3 Atomic Git-object construction
 
@@ -176,11 +186,17 @@ M0 uses one immutable object sequence:
 2. create one tree from the exact parent tree plus the approved entries;
 3. create one commit whose unique parent is the frozen base or expected head;
 4. independently inspect the commit tree and parent before publication;
-5. create or non-force update only the declared dev-branch ref;
-6. independently re-read the remote ref and commit from GitHub.
+5. immediately before ref publication, re-resolve current `main`;
+6. for a new branch, prove the branch still does not exist;
+7. for an existing branch, prove it still equals `expected_head`;
+8. create a new branch directly at the final commit, or non-force update only the
+   declared existing dev branch;
+9. independently re-read the remote ref and commit from GitHub.
 
-Creating blobs, a tree, or a commit object does not publish a branch. The only
-publication boundary is the branch-ref creation or non-force update.
+Creating blobs, a tree, or a commit object is already a repository-side content
+operation, even when the objects are unreferenced. It is not branch publication.
+The branch must never be created at the base and moved later; a new branch appears
+directly at the final audited commit.
 
 ### 5.4 Draft PR and CI
 
@@ -201,7 +217,7 @@ when an actual exact-head run is observed.
 The permitted terminal states are:
 
 - `PLANNED_NO_WRITE`;
-- `BLOCKED_PREWRITE`;
+- `BLOCKED_PREOBJECT`;
 - `OBJECTS_CREATED_REF_UNCHANGED`;
 - `PUBLISHED_PR_PENDING`;
 - `PUBLISHED_CHECKS_FAILED`;
@@ -216,8 +232,8 @@ No state is called complete merely because a commit object or branch ref exists.
 
 | Boundary | Required behavior |
 |---|---|
-| base or expected-head mismatch | stop before object/ref mutation |
-| invalid or protected path | stop before object/ref mutation |
+| base, approval, or expected-head mismatch at PREOBJECT | stop before object creation |
+| invalid, secret-bearing, or protected content/path | stop before object creation |
 | blob/tree/commit object creation fails | branch ref remains unchanged |
 | final tree or parent audit fails | branch ref remains unchanged |
 | branch creation/update is non-fast-forward or rejected | no retry, rebase, or force push |
@@ -226,7 +242,7 @@ No state is called complete merely because a commit object or branch ref exists.
 | evidence collection fails after publication | label `PUBLISHED_EVIDENCE_INCOMPLETE`; recover by re-reading immutable GitHub identities |
 | cancellation before ref publication | remote branch unchanged |
 | cancellation after ref publication | remote commit remains; recovery resumes from immutable ref identity |
-| current main advances after task freeze | report divergence; do not rewrite task base post hoc |
+| current main advances before publication | stop with ref unchanged; do not rewrite task base post hoc |
 | flaky test | preserve failure; no unplanned retry |
 | unknown terminal condition | fail closed and stop qualification |
 
@@ -290,10 +306,12 @@ Stage 1 adds no repository runtime code.
 
 It performs:
 
-- one low-risk E7-derived success transaction;
-- one low-risk E8-derived success transaction;
-- one stale-head failure transaction;
-- one validation-failure transaction.
+- one approved low-risk E7-derived remote success transaction;
+- one approved low-risk E8-derived remote success transaction;
+- one stale-head failure in the controlled local/bare-remote layer;
+- one validation-failure in the controlled local/bare-remote layer.
+
+Failure qualification must not create disposable remote branches or PRs.
 
 Stage 1 passes only when:
 
@@ -330,7 +348,10 @@ Possible verdicts:
 - `REDESIGN_TO_M1`;
 - `REJECT_OPTIMIZATION`.
 
-A verdict does not alter repository defaults by itself.
+A verdict does not alter repository defaults by itself. Any later change to
+`AGENTS.md`, default policy, or routine repository behavior requires a separately
+reviewed default-policy change, current-ledger closed-stage determination, explicit
+user approval, rollback, and exact-head governance validation.
 
 ## 9. M1 contingency gate
 
