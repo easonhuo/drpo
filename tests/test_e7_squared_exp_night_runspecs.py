@@ -17,6 +17,7 @@ from runspec_recovery import validate_recovery_policy  # noqa: E402
 
 PINNED_IMPLEMENTATION = "d4cdc176562db1fa439afa9f9a0cbd9a9c8d0259"
 P1_PINNED_IMPLEMENTATION = "f7241a1084527f6b15be35a73a4304ba47147458"
+P2_PINNED_IMPLEMENTATION = "909249875c190a75301ceb2dc2c2062ca0efcb16"
 PILOT_RUNSPEC = (
     ROOT
     / "runspecs"
@@ -40,6 +41,12 @@ P1_FULL_RUNSPEC = (
     / "runspecs"
     / "templates"
     / "E7_BENCH_JOINT_GAE_P1_FULL_20260719_02.yaml"
+)
+P2_FULL_RUNSPEC = (
+    ROOT
+    / "runspecs"
+    / "templates"
+    / "E7_BENCH_JOINT_GAE_P2_LEFT_FULL_20260721_01.yaml"
 )
 AUTO_SCRIPT = ROOT / "scripts" / "run_e7_squared_exp_night_auto.py"
 RUN_SCRIPT = ROOT / "scripts" / "run_e7_squared_exp_night_one_click.sh"
@@ -174,6 +181,61 @@ def test_p1_full_run_uses_standard_v1_delivery_channel() -> None:
     assert spec["artifacts"]["max_package_size_mb"] == 30
     assert (
         "outputs/e7/bench_joint_gae_p1_full_002/aggregate/*.csv"
+        in include
+    )
+    assert any(path.endswith("/GEOMETRY_DIAGNOSTICS_LATEST.json") for path in include)
+    assert not any("geometry_diagnostics.jsonl" in path for path in include)
+    assert not any("stdout_stderr.log" in path for path in include)
+    assert not any(path.endswith("/*.log") for path in include)
+
+
+def test_p2_left_full_run_uses_standard_v1_delivery_channel() -> None:
+    spec = validate_runspec(ROOT, P2_FULL_RUNSPEC, require_registry=False)
+    assert spec["run_id"] == "E7_BENCH_JOINT_GAE_P2_LEFT_FULL_20260721_01"
+    assert spec["experiment_id"] == "EXT-H-E7-SQEXP-GAE-01"
+    assert spec["repo_commit"] == P2_PINNED_IMPLEMENTATION
+    assert spec["registration"] == {"mode": "deferred", "closure_required": True}
+    assert spec["policy"]["formal_evidence_allowed"] is False
+    assert spec["delivery"] == {
+        "enabled": True,
+        "auto": True,
+        "mode": "results_repo",
+        "repository": "easonhuo/drpo-results",
+        "branch": "ingest/e7",
+        "export_profile": "manifest_text_v1",
+        "max_total_size_mb": 30,
+        "max_file_size_mb": 10,
+    }
+    assert validate_simple_size_policy(spec) == {
+        "max_total_size_mb": 30,
+        "max_file_size_mb": 10,
+    }
+    assert spec["publish"] == {"enabled": False, "auto": False}
+
+    command = spec["entrypoint"]["command"]
+    assert "DRPO_E7_P2_LEFT_FULL_RUN=1" in command
+    assert "E7_SQUARED_EXP_MODE=p2_left" in command
+    assert "e7_bench_joint_gae_tuning_p2_left_c.json" in command
+    assert "bench_joint_gae_p2_left_full_001" in command
+    assert "scripts/run_e7_squared_exp_night_one_click.sh" in command
+
+    criteria = " ".join(spec["success_criteria"])
+    assert "180" in criteria
+    assert "0.015625" in criteria
+    assert "c 0.25 and Uncontrolled are absent" in criteria
+    assert "cross-run reference" in criteria
+    assert "selected_control remains null" in criteria
+
+    recovery = validate_recovery_policy(ROOT, spec)
+    assert recovery is not None
+    assert recovery["max_attempts"] == 2
+    assert recovery["retryable_exit_codes"] == [137, 143]
+    assert "DRPO_E7_P2_LEFT_FULL_RUN=1" in recovery["resume_command"]
+
+    include = spec["artifacts"]["include"]
+    assert spec["artifacts"]["max_package_size_mb"] == 30
+    assert (
+        "outputs/e7/bench_joint_gae_p2_left_full_001/aggregate/*.csv"
         in include
     )
     assert any(path.endswith("/GEOMETRY_DIAGNOSTICS_LATEST.json") for path in include)
