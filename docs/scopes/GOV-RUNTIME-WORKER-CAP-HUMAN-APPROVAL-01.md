@@ -36,6 +36,7 @@ Existing files modified:
 
 - `scripts/run_e7_squared_exp_night_one_click.sh`;
 - `scripts/run_e7_squared_exp_night_resume_one_click.sh`;
+- `scripts/run_e7_squared_exp_night_liveness_one_click.sh`;
 - `tests/test_e7_squared_exp_night_runspecs.py`;
 - the existing V3 repair files carried by the parent claim.
 
@@ -62,7 +63,7 @@ No E7 run, resume, probe, or selection-only server shadow is authorized by the c
 - untracked, dirty, malformed, mismatched, or stale approval fails;
 - exact approved cap succeeds;
 - changing, deleting, or replacing the cap in the same work directory fails;
-- both canonical one-click and resume wrappers invoke the gate before the auto runner;
+- all three canonical E7 one-click, resume, and liveness wrappers invoke the gate before the auto runner;
 - the helper and approval policy are protected by the next RunSpec provenance binding;
 - focused tests, shell syntax, compile, Ruff, full pytest, authority no-op, and governance validators pass on the exact review head;
 - a server selection-only shadow passes before merge or scientific use.
