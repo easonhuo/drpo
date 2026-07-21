@@ -1,7 +1,7 @@
-name: PAPER-CODE-REFERENCE-01 Single Branch Gate
+name: PAPER-CODE-REFERENCE-01 Single Branch and Scope Gate
 
 on:
-  push:
+  push: {}
   pull_request:
     branches:
       - dev/paper-code-reference-01
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: paper-code-reference-01-single-branch-gate-${{ github.ref }}
+  group: paper-code-reference-01-boundary-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -40,13 +40,15 @@ jobs:
       CANONICAL_BRANCH: dev/paper-code-reference-01
       LOCK_COMMIT: fd1eb6303a380cbedafde183115bb5b577630baa
       CURRENT_BRANCH: ${{ github.ref_name }}
+      EVENT_BEFORE: ${{ github.event.before }}
+      EVENT_AFTER: ${{ github.sha }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Enforce the single-branch invariant
+      - name: Enforce single-branch and task-scope invariants
         run: |
           set -euo pipefail
 
@@ -61,7 +63,98 @@ jobs:
               "/repos/${GITHUB_REPOSITORY}/git/refs/heads/${branch}"
           }
 
+          validate_task_lock() {
+            local contract="docs/paper_code_reference/TASK_EXECUTION_LOCK.yaml"
+            local router="docs/paper_code_reference/AGENTS.md"
+
+            test -s "${contract}"
+            test -s "${router}"
+
+            required_lines=(
+              "claim: PAPER-CODE-REFERENCE-01"
+              "canonical_branch: dev/paper-code-reference-01"
+              "authorized_next_action: validate_existing_migration"
+              "  migration: closed"
+              "  active_phase: correctness_acceptance"
+              "  remaining_gap_is_current_work: false"
+              "  feature_development: false"
+              "  resume_development: false"
+              "  experiment_launch: false"
+              "  real_stack_liveness: false"
+              "  main_merge_or_rebase: false"
+              "  branch_creation: false"
+              "  replacement_pr: false"
+              "  handoff_or_registry_write: false"
+              "  documents_created_or_modified_in_current_session_may_expand_scope: false"
+              "  backlog_or_remaining_gap_counts_as_authorization: false"
+            )
+
+            for line in "${required_lines[@]}"; do
+              grep -Fxq "${line}" "${contract}" || {
+                echo "Task execution lock is missing required invariant: ${line}" >&2
+                exit 1
+              }
+            done
+          }
+
+          validate_canonical_push() {
+            local before="${EVENT_BEFORE}"
+            local after="${EVENT_AFTER}"
+            local zero_sha="0000000000000000000000000000000000000000"
+
+            validate_task_lock
+
+            if [ "${before}" = "${zero_sha}" ]; then
+              echo "Canonical branch creation is not permitted by this gate." >&2
+              exit 1
+            fi
+
+            git cat-file -e "${before}^{commit}" 2>/dev/null || {
+              echo "Could not resolve pre-push commit ${before}; refusing an unauditable update." >&2
+              exit 1
+            }
+            git cat-file -e "${after}^{commit}" 2>/dev/null || {
+              echo "Could not resolve post-push commit ${after}." >&2
+              exit 1
+            }
+
+            if ! git merge-base --is-ancestor "${before}" "${after}"; then
+              echo "Non-fast-forward update detected on ${CANONICAL_BRANCH}." >&2
+              echo "Force updates require separate explicit user authorization and a gate change." >&2
+              exit 1
+            fi
+
+            merge_commits="$(git rev-list --min-parents=2 "${before}..${after}")"
+            if [ -n "${merge_commits}" ]; then
+              echo "New merge commits are forbidden on ${CANONICAL_BRANCH}:" >&2
+              echo "${merge_commits}" >&2
+              exit 1
+            fi
+
+            mapfile -t changed_paths < <(git diff --name-only "${before}" "${after}")
+            for path in "${changed_paths[@]}"; do
+              case "${path}" in
+                paper_code/*)
+                  ;;
+                docs/paper_code_reference/*)
+                  ;;
+                .github/workflows/paper-code-validation.yml)
+                  ;;
+                .github/workflows/paper-code-single-branch-gate.yml)
+                  ;;
+                *)
+                  echo "Path outside PAPER-CODE-REFERENCE-01 write boundary: ${path}" >&2
+                  exit 1
+                  ;;
+              esac
+            done
+
+            echo "Canonical push satisfies the task lock, no-merge rule, and path allowlist."
+          }
+
           if [ "${CURRENT_BRANCH}" = "${CANONICAL_BRANCH}" ]; then
+            validate_canonical_push
+
             mapfile -t branches < <(
               gh api --paginate "/repos/${GITHUB_REPOSITORY}/branches?per_page=100" \
                 --jq '.[].name' \
@@ -81,7 +174,6 @@ jobs:
             exit 0
           fi
 
-          # Never act on the repository default branch.
           if [ "${CURRENT_BRANCH}" = "main" ]; then
             echo "Default branch is outside this task-local gate."
             exit 0
@@ -94,11 +186,6 @@ jobs:
               ;;
           esac
 
-          # A differently named branch created from the canonical branch inherits
-          # this workflow and the immutable lock commit. Delete it while the lock
-          # commit is not part of main. If the task is eventually merged, this
-          # ancestry rule automatically becomes inert and only namespace matching
-          # remains active.
           git fetch --no-tags origin \
             "+refs/heads/main:refs/remotes/origin/main" \
             "+refs/heads/${CANONICAL_BRANCH}:refs/remotes/origin/${CANONICAL_BRANCH}"
