@@ -6,6 +6,8 @@ on:
 
 permissions:
   contents: read
+  issues: read
+  pull-requests: read
 
 concurrency:
   group: code-change-budget-${{ github.event.pull_request.number }}
@@ -35,6 +37,8 @@ jobs:
           git fetch --no-tags --depth=1 origin "$HEAD_SHA"
 
           bash tests/test_new_python_file_gate.sh
+          bash tests/test_human_approval_record_gate.sh
+
           new_python_file="$RUNNER_TEMP/new-python-files.txt"
           bash scripts/check_new_python_file_gate.sh \
             --repo-root . \
@@ -48,15 +52,37 @@ jobs:
           structural=$(git diff --name-status -M -C "$BASE_SHA" "$HEAD_SHA" -- '*.py' |
             awk '$1 ~ /^[ADRC]/ {n++} END {print n + 0}')
 
+          changed_python_file="$RUNNER_TEMP/changed-python-files.txt"
+          : >"$changed_python_file"
+          while IFS= read -r -d '' path; do
+            lowercase=${path,,}
+            [[ "$lowercase" == *.py ]] || continue
+            printf '%s\n' "$path" >>"$changed_python_file"
+          done < <(git diff --name-only -z "$BASE_SHA" "$HEAD_SHA" --)
+          LC_ALL=C sort -u "$changed_python_file" -o "$changed_python_file"
+
+          existing_python_changed=0
+          while IFS= read -r path || [[ -n "$path" ]]; do
+            [[ -n "$path" ]] || continue
+            if ! grep -Fxq -- "$path" "$new_python_file"; then
+              existing_python_changed=1
+              break
+            fi
+          done <"$changed_python_file"
+
           protected_changed=0
           if ! git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
             .github/workflows/code-change-budget.yml \
             AGENTS.md \
             docs/governance_new_python_file_approval.md \
             docs/scopes/GOV-NEW-PYTHON-FILE-HUMAN-APPROVAL-01.md \
+            docs/scopes/GOV-NEW-PYTHON-FILE-ORAL-APPROVAL-02.md \
             docs/governance_stage_authorizations/GOV-NEW-PYTHON-FILE-HUMAN-APPROVAL-01.yaml \
+            docs/governance_stage_authorizations/GOV-NEW-PYTHON-FILE-ORAL-APPROVAL-02.yaml \
             scripts/check_new_python_file_gate.sh \
-            tests/test_new_python_file_gate.sh; then
+            scripts/check_human_approval_record.sh \
+            tests/test_new_python_file_gate.sh \
+            tests/test_human_approval_record_gate.sh; then
             protected_changed=1
           fi
 
@@ -70,7 +96,7 @@ jobs:
             required=true
             reasons+=(hard_gate_policy_change)
           fi
-          if (( churn > 100 || structural > 0 )); then
+          if (( existing_python_changed > 0 && (churn > 100 || structural > 0) )); then
             required=true
             reasons+=(large_or_structural_python_change)
           fi
@@ -90,8 +116,9 @@ jobs:
             echo "- New Python paths: $new_python_count"
             echo "- Python churn: $churn"
             echo "- Structural Python changes: $structural"
+            echo "- Existing Python path changed: $existing_python_changed"
             echo "- Protected hard-gate paths changed: $protected_changed"
-            echo "- Human approval required: $required"
+            echo "- Durable oral-approval record required: $required"
             echo "- Reason: $approval_reason"
             if (( new_python_count > 0 )); then
               echo
@@ -103,14 +130,67 @@ jobs:
   approve:
     name: Approve large code change
     needs: check
-    if: needs.check.outputs.approval_required == 'true'
-    environment: large-code-change-approval
     runs-on: ubuntu-latest
     steps:
-      - env:
+      - name: No approval record required
+        if: needs.check.outputs.approval_required != 'true'
+        run: echo "No governed oral-approval record is required."
+
+      - uses: actions/checkout@v4
+        if: needs.check.outputs.approval_required == 'true'
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify recorded oral approval
+        if: needs.check.outputs.approval_required == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          APPROVAL_AUTHOR: ${{ github.repository_owner }}
           APPROVAL_REASON: ${{ needs.check.outputs.approval_reason }}
-          NEW_PYTHON_COUNT: ${{ needs.check.outputs.new_python_count }}
+        shell: bash
         run: |
-          echo "Human approval granted."
-          echo "Reason: $APPROVAL_REASON"
-          echo "New Python paths: $NEW_PYTHON_COUNT"
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$HEAD_SHA"
+
+          comments_json="$RUNNER_TEMP/approval-records.json"
+          {
+            gh api --paginate \
+              "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments?per_page=100"
+            gh api --paginate \
+              "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews?per_page=100"
+          } | jq -s 'add' >"$comments_json"
+
+          new_python_file="$RUNNER_TEMP/new-python-files.txt"
+          bash scripts/check_new_python_file_gate.sh \
+            --repo-root . \
+            --base "$BASE_SHA" \
+            --head "$HEAD_SHA" \
+            --output "$new_python_file"
+
+          args=()
+          IFS=',' read -r -a reasons <<<"$APPROVAL_REASON"
+          for reason in "${reasons[@]}"; do
+            [[ -n "$reason" && "$reason" != none ]] || continue
+            args+=(--approval-reason "$reason")
+          done
+
+          bash scripts/check_human_approval_record.sh \
+            --comments-json "$comments_json" \
+            --approval-author "$APPROVAL_AUTHOR" \
+            --new-python-paths "$new_python_file" \
+            "${args[@]}"
+
+          {
+            echo "### Human approval record"
+            echo
+            echo "- Status: verified"
+            echo "- Approval author: $APPROVAL_AUTHOR"
+            echo "- Reason: $APPROVAL_REASON"
+            echo "- New Python paths: ${{ needs.check.outputs.new_python_count }}"
+            echo "- GitHub Environment click: not required"
+          } >> "$GITHUB_STEP_SUMMARY"
