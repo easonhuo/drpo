@@ -1,0 +1,268 @@
+name: One-time Countdown release acceptance
+
+on:
+  push:
+    branches:
+      - dev/paper-code-reference-01
+    paths:
+      - .github/workflows/paper-code-countdown-release-acceptance.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: paper-code-countdown-release-acceptance
+  cancel-in-progress: false
+
+jobs:
+  apply-test-and-remove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/paper-code-reference-01
+          fetch-depth: 2
+          persist-credentials: true
+
+      - name: Guard approved base
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "e9521afa2339cf529fe7e8abbc827c58c78098f0"
+          test "$(git branch --show-current)" = "dev/paper-code-reference-01"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Apply verified Countdown model-release repair
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          runtime_path = Path("paper_code/src/drpo_reference/experiments/countdown.py")
+          runtime = runtime_path.read_text(encoding="utf-8")
+          runtime = runtime.replace(
+              "import argparse\nimport ast\n",
+              "import argparse\nimport ast\nimport gc\n",
+              1,
+          )
+          old_helper = """def _release_model(model: Any) -> None:
+              del model
+              if torch.cuda.is_available():
+                  torch.cuda.empty_cache()
+          """
+          new_helper = """def _clear_device_cache() -> None:
+              gc.collect()
+              if torch.cuda.is_available():
+                  torch.cuda.empty_cache()
+          """
+          if old_helper not in runtime:
+              raise SystemExit("approved old release helper was not found")
+          runtime = runtime.replace(old_helper, new_helper, 1)
+
+          replacements = (
+              (
+                  """    finally:
+                  _release_model(model)
+          """,
+                  """    finally:
+                  del model
+                  _clear_device_cache()
+          """,
+              ),
+              (
+                  """        finally:
+                      _release_model(calibration_model)
+          """,
+                  """        finally:
+                      del calibration_model
+                      _clear_device_cache()
+          """,
+              ),
+              (
+                  """            finally:
+                          _release_model(model)
+          """,
+                  """            finally:
+                          del model
+                          _clear_device_cache()
+          """,
+              ),
+          )
+          for old, new in replacements:
+              if runtime.count(old) != 1:
+                  raise SystemExit(f"approved release call replacement count was {runtime.count(old)}")
+              runtime = runtime.replace(old, new, 1)
+          if "_release_model" in runtime:
+              raise SystemExit("stale release helper reference remains")
+          runtime_path.write_text(runtime, encoding="utf-8")
+
+          test_path = Path("paper_code/tests/test_common.py")
+          tests = test_path.read_text(encoding="utf-8")
+          marker = "def test_countdown_runtime_releases_model_before_loading_next("
+          if marker in tests:
+              raise SystemExit("release regression test already exists")
+          tests += r'''
+
+
+def test_countdown_runtime_releases_model_before_loading_next(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    import weakref
+
+    from drpo_reference.experiments import countdown as runtime
+
+    config_path = tmp_path / "config.json"
+    replay_path = tmp_path / "replay.jsonl"
+    calibration_path = tmp_path / "calibration.jsonl"
+    validation_path = tmp_path / "validation.jsonl"
+    for path in (config_path, replay_path, calibration_path, validation_path):
+        path.write_text("{}\n", encoding="utf-8")
+
+    class FakeConfig:
+        protocol_id = "custom-reviewer-coordinate"
+        model_path = "fake-model"
+        test_path = None
+        structure_reference_path = None
+        expected_replay_rows = None
+        expected_calibration_rows = None
+        expected_validation_rows = None
+        expected_test_rows = None
+        expected_structure_reference_rows = None
+        require_structure_metrics = False
+        max_length = 64
+        methods = ("positive_only", "exponential")
+        seeds = (7,)
+
+        def __init__(self) -> None:
+            self.replay_path = replay_path
+            self.calibration_path = calibration_path
+            self.validation_path = validation_path
+
+        def as_manifest(self) -> dict[str, object]:
+            return {"schema_version": 1}
+
+    class CyclicModel:
+        def __init__(self) -> None:
+            self.cycle = self
+
+    model_refs: list[weakref.ReferenceType[CyclicModel]] = []
+
+    def load_model(*args: object, **kwargs: object) -> CyclicModel:
+        del args, kwargs
+        if model_refs:
+            assert model_refs[-1]() is None
+        model = CyclicModel()
+        model_refs.append(weakref.ref(model))
+        return model
+
+    rows = {
+        replay_path: [{"prompt": "replay", "positive": "1", "negative_bank": ["2"]}],
+        calibration_path: [
+            {"prompt": "calibration", "positive": "1", "negative_bank": ["2"]}
+        ],
+        validation_path: [{"prompt": "validation", "numbers": [1], "target": 1}],
+    }
+
+    monkeypatch.setattr(runtime, "load_countdown_config", lambda path: FakeConfig())
+    monkeypatch.setattr(runtime, "_load_hf_stack", lambda: object())
+    monkeypatch.setattr(runtime, "_validate_model_identity", lambda config: {})
+    monkeypatch.setattr(runtime, "_adapter_identity", lambda config: {})
+    monkeypatch.setattr(runtime, "_read_jsonl", lambda path: rows[path])
+    monkeypatch.setattr(runtime, "_validate_training_rows", lambda *args: None)
+    monkeypatch.setattr(runtime, "_validate_evaluation_rows", lambda *args: None)
+    monkeypatch.setattr(runtime, "_load_tokenizer", lambda *args: SimpleNamespace(pad_token_id=0))
+    monkeypatch.setattr(runtime, "_prepare_training_items", lambda *args: ([], []))
+    monkeypatch.setattr(runtime, "_load_trainable_model", load_model)
+    monkeypatch.setattr(
+        runtime,
+        "_calibrate_for_seed",
+        lambda *args, **kwargs: {
+            "method_coefficients": {"positive_only": 0.0, "exponential": 1.0},
+            "shared_negative_scale": 1.0,
+            "tau": 1.0,
+            "surprisal_scale": 1.0,
+            "initial_trainable_state_sha256": "fake",
+        },
+    )
+
+    def train_method(*args: object, **kwargs: object) -> dict[str, object]:
+        del args
+        output = Path(kwargs["output"])
+        output.mkdir(parents=True, exist_ok=False)
+        return {
+            "method": kwargs["method"],
+            "seed": kwargs["seed"],
+            "status": "completed",
+        }
+
+    monkeypatch.setattr(runtime, "_train_one_method", train_method)
+    monkeypatch.setattr(runtime.torch.cuda, "is_available", lambda: False)
+
+    result = runtime.run_countdown(config_path=config_path, output_root=tmp_path / "output")
+
+    assert result["completion"]["completed_runs"] == 2
+    assert len(model_refs) == 3
+    assert all(reference() is None for reference in model_refs)
+'''
+          test_path.write_text(tests, encoding="utf-8")
+          PY
+
+      - name: Install focused validation dependencies
+        run: python -m pip install -q -e 'paper_code[test]' ruff
+
+      - name: Run focused acceptance gates
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            paper_code/src/drpo_reference/experiments/countdown.py \
+            paper_code/tests/test_common.py
+          python -m pytest -q paper_code/tests/test_common.py
+          python -m pytest -q \
+            paper_code/tests/test_cli.py::test_cli_dispatches_countdown_public_runner
+          python -m ruff check --line-length 100 \
+            paper_code/src/drpo_reference/experiments/countdown.py \
+            paper_code/tests/test_common.py
+          python -m ruff format --check --line-length 100 \
+            paper_code/src/drpo_reference/experiments/countdown.py \
+            paper_code/tests/test_common.py
+
+      - name: Verify exact scope and remove one-time workflow
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/paper-code-countdown-release-acceptance.yml
+          python - <<'PY'
+          import subprocess
+
+          expected = {
+              "paper_code/src/drpo_reference/experiments/countdown.py",
+              "paper_code/tests/test_common.py",
+              ".github/workflows/paper-code-countdown-release-acceptance.yml",
+          }
+          paths = set(
+              subprocess.check_output(
+                  ["git", "status", "--short"],
+                  text=True,
+              ).splitlines()
+          )
+          actual = {line[3:] for line in paths}
+          if actual != expected:
+              raise SystemExit(f"unexpected changed paths: {sorted(actual)}")
+          PY
+          git diff --check
+
+      - name: Commit verified repair to fixed branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            paper_code/src/drpo_reference/experiments/countdown.py \
+            paper_code/tests/test_common.py \
+            .github/workflows/paper-code-countdown-release-acceptance.yml
+          git commit -m "PAPER-CODE-VALIDATION-01 release Countdown models between phases"
+          git push origin HEAD:dev/paper-code-reference-01
