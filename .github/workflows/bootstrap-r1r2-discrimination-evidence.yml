@@ -1,0 +1,74 @@
+name: Bootstrap R1 R2 discrimination evidence
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: github.head_ref == 'exec/replayab-r1-r2-discrimination-audit-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/replayab-r1-r2-discrimination-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Materialize deterministic evidence
+        run: |
+          python - <<'PY'
+          import importlib.util
+          from pathlib import Path
+
+          test_path = Path('tests/test_workflow_replay_r1_r2_discrimination.py')
+          spec = importlib.util.spec_from_file_location('r1r2_discrimination', test_path)
+          module = importlib.util.module_from_spec(spec)
+          assert spec.loader is not None
+          spec.loader.exec_module(module)
+          rows, comparison = module.execute_benchmark()
+          module.RAW_RESULTS_PATH.write_text(module._raw_jsonl(rows), encoding='utf-8')
+          module.COMPARISON_PATH.write_text(
+              module._comparison_json(comparison), encoding='utf-8'
+          )
+          module.DECISION_PATH.write_text(
+              module._decision_markdown(comparison), encoding='utf-8'
+          )
+          PY
+
+      - name: Install focused dependencies
+        run: |
+          python -m pip install --quiet --upgrade pip
+          python -m pip install --quiet -e . pytest ruff pyyaml
+
+      - name: Verify evidence and non-regression
+        run: |
+          python -m pytest tests/test_workflow_replay_r1_r2_discrimination.py -q
+          python -m pytest tests/test_workflow_replay_r1.py -q
+          python -m ruff check tests/test_workflow_replay_r1_r2_discrimination.py
+          python -m compileall -q tests/test_workflow_replay_r1_r2_discrimination.py
+
+      - name: Publish evidence
+        env:
+          TARGET_BRANCH: dev/replayab-r1-r2-discrimination-01
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            docs/development_workflow_optimization/benchmarks/REPLAYAB_R1_R2_DISCRIMINATION_01/RAW_RESULTS.jsonl \
+            docs/development_workflow_optimization/benchmarks/REPLAYAB_R1_R2_DISCRIMINATION_01/PAIRED_COMPARISON.json \
+            docs/development_workflow_optimization/benchmarks/REPLAYAB_R1_R2_DISCRIMINATION_01/DECISION.md
+          git commit -m 'Record R1 versus R2 controlled discrimination evidence'
+          git push origin "HEAD:${TARGET_BRANCH}"
