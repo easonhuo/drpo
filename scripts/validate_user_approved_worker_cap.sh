@@ -209,6 +209,7 @@ def main() -> int:
             "scripts/validate_user_approved_worker_cap.sh",
             "scripts/run_e7_squared_exp_night_one_click.sh",
             "scripts/run_e7_squared_exp_night_resume_one_click.sh",
+            "scripts/run_e7_squared_exp_night_liveness_one_click.sh",
             "scripts/run_e7_squared_exp_night_auto.py",
             "src/drpo/e7_squared_exp_night_runtime_autotune.py",
             "src/drpo/e7_squared_exp_night.py",
