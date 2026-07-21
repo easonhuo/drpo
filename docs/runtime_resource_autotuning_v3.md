@@ -47,8 +47,8 @@ after planning does not invalidate a selection when the effective policy is unch
 
 ## Low-first candidate policy
 
-Let `safe_cap` be the unchanged V2 minimum of CPU, memory, task, growth, and optional
-configured ceilings. V3 constructs a sorted unique geometric sequence that:
+Let `safe_cap` be the unchanged V2 minimum of CPU, memory, task, growth, and an optional
+user-approved hard ceiling. V3 constructs a sorted unique geometric sequence that:
 
 1. always starts at candidate `1`;
 2. grows by a factor of `1.75`;
@@ -61,8 +61,9 @@ selector with zero completed evidence. The existing shared loop stops on the fir
 candidate, and the unchanged retained-peak rule selects from the already valid lower
 candidates.
 
-`max_workers` remains supported, but only as an optional absolute ceiling. It is no longer
-needed to pull the first candidate below the safe range.
+`max_workers` remains supported only as a repository-owner-approved absolute safety ceiling.
+Its default is unset, and an AI executor may recommend but may not set, change, or remove it.
+It is not needed to pull the first candidate below the safe range.
 
 Example for `safe_cap=130`, `fallback=60`:
 
@@ -106,7 +107,7 @@ resource fingerprint records:
 - geometric candidate policy and growth factor;
 - same-workdir valid-only checkpoint policy;
 - fallback as a bounded candidate only;
-- max workers as an optional absolute ceiling.
+- the default-unset or exact user-approved hard worker ceiling.
 
 Requested probe values are operational provenance rather than identity when normalization
 produces the same effective limits. They are recorded with `identity_affecting=false`.
@@ -115,9 +116,24 @@ A V2 squared-night selection is not silently upgraded. Existing work directories
 immutable and may resume only under their original source and policy. A V3 decision requires a
 new work directory.
 
-## One-click lifecycle
+## User-approved worker-cap lifecycle
 
-The squared-night one-click wrapper now behaves as follows:
+The canonical E7 wrappers validate the cap before `plan` or `run`:
+
+```text
+cap unset + approval unset       -> autotune owns concurrency selection
+cap set + exact committed approval -> approved hard ceiling is applied
+cap set + no/mismatched approval -> fail closed before autotune
+approval set + cap unset         -> fail closed
+```
+
+The approval is governed by `docs/runtime_worker_cap_approval.md`. It binds the exact
+experiment, work directory, CPU affinity, cap, contract/run-spec/grid hashes, and approved
+runtime-code commit. Both unset and capped modes are written to immutable
+`USER_APPROVED_WORKER_CAP.json`. Any later value or mode change requires a new user approval
+and a new run/work directory.
+
+The squared-night one-click wrapper then follows:
 
 ```text
 no RUNTIME_SELECTION + no RUN_IDENTITY -> plan, then run --resume
@@ -125,8 +141,9 @@ both files present                         -> run --resume only
 exactly one file present                   -> fail closed
 ```
 
-The E7-specific `E7_SQUARED_EXP_MAX_WORKERS` value has priority. When it is absent, the wrapper
-inherits the unified RunSpec `DRPO_RUNTIME_MAX_WORKERS` ceiling.
+`E7_SQUARED_EXP_MAX_WORKERS` may override the unified
+`DRPO_RUNTIME_MAX_WORKERS` assertion only when its matching approval-file variable is also
+supplied and validates. Neither environment variable is authorization by itself.
 
 ## What V3 does not solve
 
@@ -155,4 +172,5 @@ Before use on a full pilot:
 6. confirmation that an interrupted plan reuses exact valid lower candidates only;
 7. confirmation that one-click consumes an existing V3 selection without another plan;
 8. confirmation that changing only an oversized requested value does not change identity;
-9. no scientific branch launch during shadow.
+9. confirmation that default-unset, missing-approval, exact-approval, and immutable-resume worker-cap cases behave fail-closed as specified;
+10. no scientific branch launch during shadow.
