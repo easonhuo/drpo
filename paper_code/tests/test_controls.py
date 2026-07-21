@@ -178,8 +178,13 @@ def test_d4rl_legacy_control_factors_match_registered_pilot_formulas() -> None:
     negative_advantages = torch.tensor(
         [-4.0, -1.0, -3.0, -2.0],
         dtype=torch.float64,
+        requires_grad=True,
     )
-    distances = torch.tensor([0.0, 2.0, 4.0, 6.0], dtype=torch.float64)
+    distances = torch.tensor(
+        [0.0, 2.0, 4.0, 6.0],
+        dtype=torch.float64,
+        requires_grad=True,
+    )
     methods = {
         method.method_id: method
         for method in resolve_d4rl_reviewer_methods(
@@ -207,6 +212,9 @@ def test_d4rl_legacy_control_factors_match_registered_pilot_formulas() -> None:
         exprank_temperature=5.0,
     )
     torch.testing.assert_close(positive, torch.zeros_like(positive))
+    assert positive.requires_grad is False
+    assert signed.requires_grad is False
+    assert global_factor.requires_grad is False
     torch.testing.assert_close(
         signed,
         torch.full_like(signed, LEGACY_PILOT_CANONICAL_ALPHA),
@@ -216,7 +224,7 @@ def test_d4rl_legacy_control_factors_match_registered_pilot_formulas() -> None:
         torch.full_like(global_factor, LEGACY_PILOT_CANONICAL_ALPHA * 0.1),
     )
 
-    normalized = distances / LEGACY_PILOT_REFERENCE_DISTANCE
+    normalized = distances.detach() / LEGACY_PILOT_REFERENCE_DISTANCE
     expected = {
         "reciprocal_linear": (
             LEGACY_PILOT_CANONICAL_ALPHA
@@ -242,6 +250,7 @@ def test_d4rl_legacy_control_factors_match_registered_pilot_formulas() -> None:
             exprank_temperature=5.0,
         )
         torch.testing.assert_close(actual, expected_factor)
+        assert actual.requires_grad is False
 
 
 def test_d4rl_standardized_distance_is_detached() -> None:

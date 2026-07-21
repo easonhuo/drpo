@@ -421,6 +421,8 @@ def canonical_method_negative_factors(
         raise ValueError("negative advantages and distances must be rank-1")
     if negative_advantages.shape != negative_distances.shape:
         raise ValueError("negative advantages and distances must align")
+    negative_advantages = negative_advantages.detach()
+    negative_distances = negative_distances.detach()
     if method.method_id == "exprank":
         return canonical_exprank_negative_weights(
             negative_advantages,
