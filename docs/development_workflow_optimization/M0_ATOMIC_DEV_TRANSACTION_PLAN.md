@@ -2,10 +2,10 @@
 
 **Claim:** `GOV-DRPO-MAINTENANCE-RUNNER-REPLAYAB-01`  
 **Measurement authority:** `GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01`  
-**Document version:** `1.2-stage0-review-B`  
+**Document version:** `1.3-stage0-review-C`  
 **Initial design branch base:** `main@d7e82201159a736f0d2e48403aae15ea07e178a7`  
 **Current main reviewed:** `main@ad9bda80796dcf5c48976f5d64ffd79a006c70d5`  
-**Status:** `stage0_review_B_applied`  
+**Status:** `stage0_review_C_applied`  
 **Scientific impact:** none  
 **Implementation authorization:** none
 
@@ -16,8 +16,13 @@ No earlier review or abandoned design is deleted.
 
 ## 1. Controlling decision
 
-The first iteration will **not** implement a new patch runner, integration engine,
+The M0 candidate itself will **not** implement a new patch runner, integration engine,
 GitHub Actions workflow, E7 adapter, or E8 adapter.
+
+One bounded measurement-instrument change is now predeclared for Stage 1: extend the
+existing ReplayAB CLI in place so its already-generic command-plan and evidence
+primitives can execute the M0 sequential-versus-atomic local-git pair. This is not M0
+runtime behavior and cannot publish to GitHub.
 
 The first candidate is **M0: a documented, hash-bound atomic GitHub development
 transaction using capabilities already provided by the connected GitHub App and the
@@ -300,27 +305,36 @@ Exit requires:
 - all review passes `PASS`;
 - explicit user approval to begin Stage 1.
 
-### Stage 1 — M0 qualification
+### Stage 1 — measurement adapter and M0 qualification
 
-Stage 1 adds no repository runtime code.
+The M0 candidate adds no repository runtime code. Stage 1 may make one bounded
+measurement-instrument change in the existing ReplayAB entrypoint.
 
-It performs:
+Internal order:
 
-- one approved low-risk E7-derived remote success transaction;
-- one approved low-risk E8-derived remote success transaction;
-- one stale-head failure in the controlled local/bare-remote layer;
-- one validation-failure in the controlled local/bare-remote layer.
+- **1A — measurement-adapter qualification:** extend existing
+  `scripts/run_workflow_replay.py` with one fixed `git-object-pair` command that reuses
+  existing `ExecutionPlan`, event, schedule, evidence, and comparison primitives;
+- **1B — controlled case readiness:** validate all frozen command plans and evaluators
+  without releasing efficiency results;
+- **1C — remote success qualification:** run one approved low-risk E7-derived and one
+  approved low-risk E8-derived M0 transaction;
+- **1D — major acceptance:** jointly audit local failure boundaries, remote semantics,
+  exact-head evidence, code size, and operation metrics.
 
+The controlled layer includes one stale-head and one validation-failure case.
 Failure qualification must not create disposable remote branches or PRs.
 
 Stage 1 passes only when:
 
-- every success produces exactly one approved dev-branch commit and one Draft PR;
-- both failure cases stop at the expected boundary;
+- the adapter does not change Candidate 01 or ReplayAB Core semantics;
+- every remote success produces exactly one approved dev-branch commit and one Draft PR;
+- both controlled failure cases stop at the expected boundary;
 - no protected or scientific state changes;
 - exact-head checks and evidence are independently observed;
 - operation count, active effort, and failure recovery are recorded;
-- M0 remains simpler than the recurring work it replaces.
+- M0 remains simpler than the recurring work it replaces;
+- the adapter stays within its frozen budget.
 
 Stage 1 does not authorize routine use or adoption.
 
@@ -335,9 +349,10 @@ Stage 2 has two deliberately separated evidence layers:
    observations validate remote semantics but are not mixed into the controlled causal
    timing estimate.
 
-No new ReplayAB backend is authorized by default. If the frozen M0 operations cannot be
-represented by the current local-git instrument, Stage 0 returns to `HOLD`; implementation
-does not silently expand ReplayAB.
+No new ReplayAB backend is authorized. The only permitted measurement change is a
+bounded in-place CLI command over existing Core primitives. If that cannot represent the
+frozen M0 operations within the budget, Stage 1 stops at `REDESIGN`; ReplayAB does not
+silently expand.
 
 Run the eight frozen cases in balanced opposite order.
 
@@ -353,7 +368,46 @@ A verdict does not alter repository defaults by itself. Any later change to
 reviewed default-policy change, current-ledger closed-stage determination, explicit
 user approval, rollback, and exact-head governance validation.
 
-## 9. M1 contingency gate
+## 9. Frozen implementation scope and budget
+
+### 9.1 M0 candidate
+
+M0 production-code budget is exactly zero.
+
+M0 may add only documentation, YAML case data, templates, and review/evidence records.
+
+### 9.2 ReplayAB measurement adapter
+
+Stage 1 may modify only existing paths:
+
+- `scripts/run_workflow_replay.py`;
+- `tests/test_workflow_replay_execute.py`;
+- an existing evidence/comparison test file only when required;
+- non-Python fixtures under `tests/fixtures/workflow_replay/m0_atomic/`.
+
+No new Python path, dependency, workflow, service, database, queue, scheduler, or
+network backend is permitted.
+
+The CLI extension must:
+
+- add one fixed `git-object-pair` command;
+- accept a strict reviewer-frozen case packet, not arbitrary shell;
+- use isolated local/bare Git repositories only;
+- reuse existing plan, event, schedule, evidence, and comparison primitives;
+- inspect final parent, tree, paths, modes, terminal state, and protected ref;
+- leave Candidate 01 commands and outputs unchanged.
+
+Budget:
+
+- preferred production change: `<=100` added/changed executable lines;
+- `101--140`: yellow review before remote qualification;
+- `>140`: hard redesign;
+- test and fixture lines are reported separately;
+- no code minification, hidden heredoc implementation, or responsibility mixing.
+
+The current code-change-budget gate remains controlling.
+
+## 10. M1 contingency gate
 
 M1 may be designed only when all conditions hold:
 
@@ -374,9 +428,9 @@ authority, open or merge PRs, or become a general workflow engine.
 A triggered M1 is a new reviewed contract amendment. Stage 1 code cannot begin merely
 because M1 appears convenient.
 
-## 10. ReplayAB design
+## 11. ReplayAB design
 
-### 10.1 Arms
+### 11.1 Arms
 
 - **Arm A:** the exact accepted or historically used route frozen separately for each
   case, including its actual file, commit, and review operations without artificial
@@ -388,7 +442,7 @@ A case whose historical Arm A already used an equivalent single atomic transacti
 no treatment contrast and cannot be selected as a successful efficiency case.
 Arm B receives no better scientific content than Arm A.
 
-### 10.2 Case bank
+### 11.2 Case bank
 
 Freeze eight cases:
 
@@ -415,7 +469,7 @@ Each entry freezes:
 
 No case may include handoff/registry materialization as M0 treatment benefit.
 
-### 10.3 Independent acceptance
+### 11.3 Independent acceptance
 
 ReplayAB independently re-reads:
 
@@ -429,7 +483,7 @@ ReplayAB independently re-reads:
 
 Candidate-produced summaries are evidence inputs, not the acceptance oracle.
 
-### 10.4 Evidence-layer separation
+### 11.4 Evidence-layer separation
 
 Controlled timing, child-operation timing, and operator-action counts come from the
 existing local-git ReplayAB execution record. GitHub PR and Actions timestamps are
@@ -444,7 +498,7 @@ Remote GitHub qualification may confirm:
 
 It may not replace controlled timing or be combined with it into one estimate.
 
-### 10.5 Repetition
+### 11.5 Repetition
 
 For each successful case:
 
@@ -459,7 +513,7 @@ identity differs, or a timeout boundary is crossed.
 
 Failure-boundary cases are repeated for deterministic agreement; speed is diagnostic.
 
-## 11. Controlling decision thresholds
+## 12. Controlling decision thresholds
 
 The parent ReplayAB thresholds remain controlling.
 
@@ -484,7 +538,7 @@ A correctness or security failure yields `REJECT_OPTIMIZATION`.
 A valid M0 with a specifically measured remaining publisher gap may yield
 `REDESIGN_TO_M1`.
 
-## 12. Document-as-contract binding
+## 13. Document-as-contract binding
 
 Every stage packet records:
 
@@ -505,7 +559,7 @@ threshold, evaluator, responsibility, or scientific value is required.
 
 No implementation difficulty or benchmark result may relax the frozen contract.
 
-## 13. Review protocol
+## 14. Review protocol
 
 Stage 0 requires at least three separately recorded reviews after this rewrite:
 
@@ -529,7 +583,7 @@ continuation.
 A review may return `PASS`, `HOLD`, `REDESIGN`, or `STOP`.
 Stage 0 closes only when all three reviews pass and every deliverable is frozen.
 
-## 14. Rollback and stop conditions
+## 15. Rollback and stop conditions
 
 Before adoption, rollback is to stop using the M0 packet/template and continue the
 existing direct route. No repository runtime component must be disabled or migrated.
@@ -546,7 +600,7 @@ Stop or redesign immediately when:
 - M1 would absorb patch application, validation ownership, V1, authority, PR management,
   or scientific logic.
 
-## 15. Stage ledger
+## 16. Stage ledger
 
 | Stage | Status | Next gate |
 |---|---|---|
@@ -554,7 +608,7 @@ Stop or redesign immediately when:
 | 1 — M0 qualification | `blocked_not_started` | four qualification transactions |
 | 2 — ReplayAB and verdict | `blocked_not_started` | `ADOPT_M0/NARROW_M0/REDESIGN_TO_M1/REJECT_OPTIMIZATION` |
 
-## 16. Current uncertainties
+## 17. Current uncertainties
 
 Before Stage 0 closure:
 
@@ -563,10 +617,9 @@ Before Stage 0 closure:
 3. freeze operation/time recording rules for connector actions;
 4. determine whether a real M0 liveness can use low-risk existing tasks without creating
    disposable repository clutter;
-5. prove the frozen operations fit the existing `local-git-v1` ReplayAB instrument
-   without adding a backend;
-6. record exact plan SHA-256 from an exact byte stream;
-7. refresh or rebuild the implementation branch from current main before any non-document
-   work.
+5. freeze the exact `git-object-pair` case-packet schema and existing-file code budget;
+6. select exact existing test files and prove no new Python path is needed;
+7. record exact plan SHA-256 from an exact byte stream;
+8. refresh or rebuild the implementation branch from current main before Stage 1.
 
 These are design-review tasks. They do not authorize M1 or any runtime implementation.
