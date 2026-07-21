@@ -1,2 +1,2 @@
-retry=2
-purpose=capture exact deterministic apply mismatch
+retry=3
+purpose=run exact Git-blob-verified deterministic apply
