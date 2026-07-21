@@ -29,13 +29,13 @@ done
 case "${MODE}" in
   historical)
     ;;
-  p1)
-    if [[ "${GRID}" != "configs/e7_bench_joint_gae_tuning_p1_c.json" ]]; then
-      echo "P1 mode requires the registered P1 grid" >&2
+  p2_left)
+    if [[ "${GRID}" != "configs/e7_bench_joint_gae_tuning_p2_left_c.json" ]]; then
+      echo "P2-left mode requires the registered P2-left grid" >&2
       exit 2
     fi
-    if [[ "${DRPO_E7_P1_FULL_RUN:-0}" != "1" ]]; then
-      echo "P1 mode is authorized only by the standard RunSpec entrypoint" >&2
+    if [[ "${DRPO_E7_P2_LEFT_FULL_RUN:-0}" != "1" ]]; then
+      echo "P2-left mode is authorized only by the standard RunSpec entrypoint" >&2
       exit 2
     fi
     ;;
