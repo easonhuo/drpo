@@ -93,6 +93,11 @@
 - Reason: canonical registry experiment is not mapped to any minimal module
 - Automatic action: `false`
 
+## candidate_add_or_map_module: `EXT-H-E7-SQEXP-GAE-01`
+
+- Reason: canonical registry experiment is not mapped to any minimal module
+- Automatic action: `false`
+
 ## candidate_add_or_map_module: `EXT-H-E7-SQUARED-EXP-NIGHT-01`
 
 - Reason: canonical registry experiment is not mapped to any minimal module
@@ -105,7 +110,7 @@
 
 ## candidate_split_module: `global_core_governance`
 
-- Reason: source content has 53018 characters, above the configured 50000 threshold
+- Reason: source content has 54907 characters, above the configured 50000 threshold
 - Automatic action: `false`
 
 ## candidate_split_module: `continuous_e4_taper`
@@ -120,7 +125,7 @@
 
 ## candidate_split_module: `hopper_e7`
 
-- Reason: source content has 63010 characters, above the configured 50000 threshold
+- Reason: source content has 64790 characters, above the configured 50000 threshold
 - Automatic action: `false`
 
 ## candidate_split_module: `countdown_e8`

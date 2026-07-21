@@ -1,0 +1,122 @@
+{
+  "current_before_commit": "b18aea9186d7e3ccc5d43b456719cafc23761e03",
+  "current_handoff_before_sha256": "9184a35c57d2741d2d5ad218355a56fc57f708f0ffe1809be396f35bd844ded1",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e7-sqexp-gae-joint-critic-pilot",
+        "entity_id": "EXT-H-E7-SQEXP-GAE-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "5bd36d9e797f923eae52deb5ae5cc193ccd536490e2c7d8895fa744321b048f1"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-H-E7-SQEXP-GAE-P1-RESULT-P2-REGISTRATION-2026-07-21/HANDOFF_DELTA.yaml",
+            "sha256": "3fb6d5927014ffa4c38797600ce8045a5cd5f3fc2e1e9b583b80ee3e8f59ecf5"
+          },
+          {
+            "path": "docs/experiments/EXT-H-E7-SQEXP-GAE-01.md",
+            "sha256": "ad767e2d03f2279dc8be6026abe38b484d013a42636b08b993ca6cbd153e64cb"
+          },
+          {
+            "path": "docs/results/E7_BENCH_JOINT_GAE_P1_RESULT_2026-07-21.md",
+            "sha256": "08aecb2d04f9185471617efce1f5ae1eb36d8a01dc286f507e2d45a490d64428"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-H-E7-SQEXP-GAE-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "3fb6d5927014ffa4c38797600ce8045a5cd5f3fc2e1e9b583b80ee3e8f59ecf5",
+  "exact_base_candidate_sha256": "3cef9d8e68443781c1203f0b6be92a8a0a6d0b5533d4ae7a9aca0ea75f322e2d",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e7-sqexp-gae-joint-critic-pilot",
+        "entity_id": "EXT-H-E7-SQEXP-GAE-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "5bd36d9e797f923eae52deb5ae5cc193ccd536490e2c7d8895fa744321b048f1"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-H-E7-SQEXP-GAE-P1-RESULT-P2-REGISTRATION-2026-07-21/HANDOFF_DELTA.yaml",
+            "sha256": "3fb6d5927014ffa4c38797600ce8045a5cd5f3fc2e1e9b583b80ee3e8f59ecf5"
+          },
+          {
+            "path": "docs/experiments/EXT-H-E7-SQEXP-GAE-01.md",
+            "sha256": "ad767e2d03f2279dc8be6026abe38b484d013a42636b08b993ca6cbd153e64cb"
+          },
+          {
+            "path": "docs/results/E7_BENCH_JOINT_GAE_P1_RESULT_2026-07-21.md",
+            "sha256": "08aecb2d04f9185471617efce1f5ae1eb36d8a01dc286f507e2d45a490d64428"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-H-E7-SQEXP-GAE-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "3cef9d8e68443781c1203f0b6be92a8a0a6d0b5533d4ae7a9aca0ea75f322e2d",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "5bd36d9e797f923eae52deb5ae5cc193ccd536490e2c7d8895fa744321b048f1",
+  "registry_before_sha256": "f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5",
+  "report_schema_version": 1,
+  "source_base_commit": "b18aea9186d7e3ccc5d43b456719cafc23761e03",
+  "source_patch_commit": "fab3069eb945ef2fcae25ad566992edefdeed9a1",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "2c86cc5b19df5d64cc3febf8b3317a0405b82ba5a0cdc9f2b38f60693161b4cc",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-H-E7-SQEXP-GAE-P1-RESULT-P2-REGISTRATION-2026-07-21"
+}

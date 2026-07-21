@@ -1,0 +1,30 @@
+schema_version: 3
+update_id: EXT-H-E7-SQEXP-GAE-P1-RESULT-P2-REGISTRATION-2026-07-21
+mode: authoritative
+base:
+  commit: b18aea9186d7e3ccc5d43b456719cafc23761e03
+  handoff_sha256: 9184a35c57d2741d2d5ad218355a56fc57f708f0ffe1809be396f35bd844ded1
+  registry_sha256: f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5
+renderer_version: 1
+operations:
+- operation_id: append-e7-sqexp-gae-p1-result-p2-registration
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e7-sqexp-gae-p1-result-p2-registration-20260721
+  content: '- **D4RL-9 joint-critic GAE P1 结果与 P2 左边界扩展（`EXT-H-E7-SQEXP-GAE-01`）：**P1 profile `d4rl9_common_c_p1` 的 RunSpec `E7_BENCH_JOINT_GAE_P1_FULL_20260719_02` 已完成九个 D4RL-v2 tasks、development seeds `200,201`、Positive-only / Uncontrolled / common `c={0.25,0.5,1,2,4,8,16,32,64}` 共 `198/198` branches，failed=`0`，terminal audit=`PASS`，held-out seeds `204--207` 未使用，NaN/Inf=`0`、rollout failure=`0`。等任务权重 late mean 为 Positive-only `65.3054`、`c=0.25` `47.6785`，随后随 `c` 增大降至 `37.5388/28.3853/24.4181/17.0786/16.7762/14.9371/12.7514/12.0044`，Uncontrolled 为 `0.4611`；因此当前只支持“更弱 taper 在该 development matrix 上总体更差、最小已测 `c=0.25` 位于左边界”，不支持 DRPO 胜过 Positive-only、共同最优 `c`、收敛、稳态或正式方法排名。task-performance collapse 因没有预登记阈值保持 `not_adjudicated`，support/variance boundary 因未 instrument 保持 `not_instrumented`，不得由低 return 追溯补判。结果已交付到 `easonhuo/drpo-results` `ingest/e7`，READY manifest SHA-256 为 `9f1ea69f0759bcd3bd79a91c7ccdb5e5d1a22f49ea67e114aaa1e7d4f5f6dbc1`；但包内 source commit `d0ba443154d847065965b18a43ffe897f19530fa` 当前无法从远端解析，因此仍是 development pilot evidence，禁止升级为 authoritative formal evidence。P2 profile `d4rl9_common_c_p2_left` 冻结 `c={0.20,0.16,0.125,0.10,0.08,0.0625,0.04,0.025,0.015625}` 加内部重跑 Positive-only，共 `180` branches；不重跑 `c=0.25`，不含 Uncontrolled，历史 `c=0.25` 仅作跨 run 边界参考且不得进入 P2 paired counts。P2 scientific implementation SHA 为 `909249875c190a75301ceb2dc2c2062ca0efcb16`，Draft PR `#223`，RunSpec template `E7_BENCH_JOINT_GAE_P2_LEFT_FULL_20260721_01` 仍在 `runspecs/templates/`，branches started=`0`，promotion/launch/merge 均需另行批准。Hopper/Walker/HalfCheetah 仍只提供 external validity，不替代 C-U1/D-U1 因果识别。完整协议与结果分别见 `docs/experiments/EXT-H-E7-SQEXP-GAE-01.md` 和 `docs/results/E7_BENCH_JOINT_GAE_P1_RESULT_2026-07-21.md`。'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: 5bd36d9e797f923eae52deb5ae5cc193ccd536490e2c7d8895fa744321b048f1
+  changes:
+  - change_id: add-e7-sqexp-gae-joint-critic-pilot
+    kind: add_entity
+    entity_id: EXT-H-E7-SQEXP-GAE-01
+    evidence:
+    - experiments/registry.yaml
+    - docs/handoff_deltas/EXT-H-E7-SQEXP-GAE-P1-RESULT-P2-REGISTRATION-2026-07-21/HANDOFF_DELTA.yaml
+    - docs/experiments/EXT-H-E7-SQEXP-GAE-01.md
+    - docs/results/E7_BENCH_JOINT_GAE_P1_RESULT_2026-07-21.md
+expected:
+  exact_base_candidate_sha256: 3cef9d8e68443781c1203f0b6be92a8a0a6d0b5533d4ae7a9aca0ea75f322e2d
