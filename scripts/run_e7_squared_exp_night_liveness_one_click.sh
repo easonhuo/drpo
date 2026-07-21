@@ -10,14 +10,19 @@ GRID="${E7_SQUARED_EXP_GRID:-configs/e7_squared_exp_night_v1.json}"
 WORK_DIR="${E7_SQUARED_EXP_LIVENESS_WORK_DIR:-outputs/e7/squared_exp_night_liveness_001}"
 PROBE_STEPS="${E7_SQUARED_EXP_LIVENESS_PROBE_STEPS:-500}"
 PROBE_SECONDS="${E7_SQUARED_EXP_LIVENESS_PROBE_SECONDS:-120}"
-MAX_WORKERS="${E7_SQUARED_EXP_LIVENESS_MAX_WORKERS:-2}"
+MAX_WORKERS="${E7_SQUARED_EXP_LIVENESS_MAX_WORKERS:-${DRPO_RUNTIME_MAX_WORKERS:-}}"
+MAX_WORKERS_APPROVAL_FILE="${E7_SQUARED_EXP_LIVENESS_MAX_WORKERS_APPROVAL_FILE:-${DRPO_RUNTIME_MAX_WORKERS_APPROVAL_FILE:-}}"
 MODE="${E7_SQUARED_EXP_LIVENESS_MODE:-historical}"
 
 if [[ -n "$(git status --porcelain)" ]]; then
   echo "refusing to run liveness from a dirty checkout" >&2
   exit 2
 fi
-for required in "${CONTRACT}" "${RUN_SPEC}" "${GRID}"; do
+for required in \
+  "${CONTRACT}" \
+  "${RUN_SPEC}" \
+  "${GRID}" \
+  "scripts/validate_user_approved_worker_cap.sh"; do
   if [[ ! -f "${required}" ]]; then
     echo "missing required file: ${required}" >&2
     exit 2
@@ -37,17 +42,29 @@ case "${MODE}" in
     ;;
 esac
 
+bash scripts/validate_user_approved_worker_cap.sh \
+  "${REPO_ROOT}" \
+  "${WORK_DIR}" \
+  "${MAX_WORKERS}" \
+  "${MAX_WORKERS_APPROVAL_FILE}" \
+  "${CONTRACT}" \
+  "${RUN_SPEC}" \
+  "${GRID}" \
+  >/dev/null
+
 COMMON_ARGS=(
   --repo-root "${REPO_ROOT}"
   --contract "${CONTRACT}"
   --run-spec "${RUN_SPEC}"
   --grid "${GRID}"
   --work-dir "${WORK_DIR}"
-  --max-workers "${MAX_WORKERS}"
   --probe-steps "${PROBE_STEPS}"
   --probe-seconds "${PROBE_SECONDS}"
   "${EXTRA_ARGS[@]}"
 )
+if [[ -n "${MAX_WORKERS}" ]]; then
+  COMMON_ARGS+=(--max-workers "${MAX_WORKERS}")
+fi
 
 python scripts/run_e7_squared_exp_night_auto.py plan "${COMMON_ARGS[@]}"
 
