@@ -12,10 +12,8 @@ FALLBACK_WORKERS="${E7_SQUARED_EXP_FALLBACK_WORKERS:-60}"
 PROBE_STEPS="${E7_SQUARED_EXP_PROBE_STEPS:-5000}"
 PROBE_SECONDS="${E7_SQUARED_EXP_PROBE_SECONDS:-120}"
 THROUGHPUT_RETENTION="${E7_SQUARED_EXP_THROUGHPUT_RETENTION:-0.97}"
-MAX_WORKERS="${E7_SQUARED_EXP_MAX_WORKERS:-}"
-if [[ -z "${MAX_WORKERS}" ]]; then
-  MAX_WORKERS="${DRPO_RUNTIME_MAX_WORKERS:-}"
-fi
+MAX_WORKERS="${E7_SQUARED_EXP_MAX_WORKERS:-${DRPO_RUNTIME_MAX_WORKERS:-}}"
+MAX_WORKERS_APPROVAL_FILE="${E7_SQUARED_EXP_MAX_WORKERS_APPROVAL_FILE:-${DRPO_RUNTIME_MAX_WORKERS_APPROVAL_FILE:-}}"
 
 if [[ -n "$(git status --porcelain)" ]]; then
   echo "refusing to resume from a dirty checkout" >&2
@@ -26,12 +24,23 @@ for required in \
   "${RUN_SPEC}" \
   "${GRID}" \
   "${WORK_DIR}/RUNTIME_SELECTION.json" \
-  "${WORK_DIR}/RUN_IDENTITY.json"; do
+  "${WORK_DIR}/RUN_IDENTITY.json" \
+  "scripts/validate_user_approved_worker_cap.sh"; do
   if [[ ! -f "${required}" ]]; then
     echo "missing required file: ${required}" >&2
     exit 2
   fi
 done
+
+bash scripts/validate_user_approved_worker_cap.sh \
+  "${REPO_ROOT}" \
+  "${WORK_DIR}" \
+  "${MAX_WORKERS}" \
+  "${MAX_WORKERS_APPROVAL_FILE}" \
+  "${CONTRACT}" \
+  "${RUN_SPEC}" \
+  "${GRID}" \
+  >/dev/null
 
 ARGS=(
   run
