@@ -5,8 +5,8 @@
 - class: repository governance default-policy correction;
 - repository: `easonhuo/drpo`;
 - base branch: `main`;
-- base commit: `b18aea9186d7e3ccc5d43b456719cafc23761e03`;
-- development branch: `dev/gov-new-python-file-oral-approval-02`;
+- base commit: `d1b163b6fc9eb58158cc5841f9bc1d4a719d3f69`;
+- development branch: `dev/gov-new-python-file-oral-approval-02-current-main`;
 - scientific experiment status impact: none;
 - user authorization: explicit instruction on 2026-07-21 that oral approval in the active conversation is sufficient and must not require a second GitHub Environment click;
 - predecessor: `GOV-NEW-PYTHON-FILE-HUMAN-APPROVAL-01` remains preserved as historical provenance.
