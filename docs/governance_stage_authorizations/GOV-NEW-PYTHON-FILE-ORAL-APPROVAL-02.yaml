@@ -1,7 +1,7 @@
 schema_version: 1
 authorization_id: GOV-NEW-PYTHON-FILE-ORAL-APPROVAL-02
 kind: reopen
-change_class: default_policy_change
+change_class: reopen
 claim_id: GOV-NEW-PYTHON-FILE-ORAL-APPROVAL-02
 approval_record: user_explicitly_approved_2026_07_21_oral_approval_as_sufficient_without_second_github_environment_click
 base_commit: d1b163b6fc9eb58158cc5841f9bc1d4a719d3f69
