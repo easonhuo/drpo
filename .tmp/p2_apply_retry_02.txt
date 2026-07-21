@@ -1,0 +1,2 @@
+retry=2
+purpose=capture exact deterministic apply mismatch
