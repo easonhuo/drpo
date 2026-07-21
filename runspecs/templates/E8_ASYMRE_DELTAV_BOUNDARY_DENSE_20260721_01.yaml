@@ -1,0 +1,126 @@
+version: 1
+run_id: E8_ASYMRE_DELTAV_BOUNDARY_DENSE_20260721_01
+lane: e8
+priority: 151
+created_at: "2026-07-21T07:47:00Z"
+experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-BOUNDARY-DENSE-0.5B-01
+repo_commit: d865b5ce41034db037ea80804bb8d35989549eda
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/countdown_e8_oracle_offline_v2_asymre_deltav_boundary_dense_0p5b.yaml
+    - docs/scopes/EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-BOUNDARY-DENSE-0.5B-01.md
+    - docs/experiments/E8_ASYMRE_DELTAV_SCAN_PROTOCOL.md
+    - docs/experiments/E8_ASYMRE_DELTAV_SCAN_OPERATOR.md
+    - src/drpo/countdown_e8_alpha1_highc_scan_common.py
+    - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    - src/drpo/countdown_e8_alpha1_c_scan_runtime.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_c_scan_auto.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh
+    - tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
+
+purpose: >
+  Run the frozen eight-point AsymRE boundary-dense response curve on two paired
+  development seed offsets. Resolve delta_v from -1.0 through -0.5 while
+  preserving the E8 V2 bank, objective, optimizer, horizon, held-out evaluation
+  split, late-window and terminal reporting, and automatic text-first delivery.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    E8_ALPHA1_HIGHC_WORK_DIR=outputs/e8/asymre_deltav_boundary_dense_001
+    E8_ALPHA1_HIGHC_GRID_CONFIG=configs/countdown_e8_oracle_offline_v2_asymre_deltav_boundary_dense_0p5b.yaml
+    bash scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: >-
+    E8_ALPHA1_HIGHC_WORK_DIR=outputs/e8/asymre_deltav_boundary_dense_001
+    E8_ALPHA1_HIGHC_GRID_CONFIG=configs/countdown_e8_oracle_offline_v2_asymre_deltav_boundary_dense_0p5b.yaml
+    bash scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e8/asymre_deltav_boundary_dense_001/RUNTIME_SELECTION.json
+    - outputs/e8/asymre_deltav_boundary_dense_001/RUNTIME_SLOTS.json
+    - outputs/e8/asymre_deltav_boundary_dense_001/SWEEP_STATUS.json
+  backoff_seconds: 60
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+
+outputs:
+  run_dir: outputs/e8/asymre_deltav_boundary_dense_001
+  summary_file: outputs/e8/asymre_deltav_boundary_dense_001/SWEEP_COMPLETE.json
+  audit_file: outputs/e8/asymre_deltav_boundary_dense_001/aggregate/terminal_audit.json
+
+success_criteria:
+  - objective remains A=R-delta_v with signed rewards +1 and -1 and zero empirical baseline
+  - no value network, learned baseline, or remoteness taper is used
+  - exact delta-v grid is [-1.0, -0.95, -0.9, -0.85, -0.8, -0.7, -0.6, -0.5]
+  - matrix contains 8 parameter points and 16 cells on paired seed offsets 4000 and 5000
+  - delta_v=-1.0 and delta_v=-0.5 are rerun as internal boundary anchors
+  - runtime records GPU 0-7, two slots per GPU, and 16 concurrent cells
+  - the full sweep requires one 16-slot wave after the smoke gate
+  - the delta_v=-0.9 smoke gate passes before the full sweep and is not scientific evidence
+  - val.jsonl is recorded as a structurally disjoint held-out evaluation split and never enters the training loss
+  - every declared delta-v point is reported using late-window and terminal metrics
+  - an interior-point claim includes paired per-seed differences against delta_v=-1.0
+  - validation-selected best checkpoint remains supplementary only
+  - separate test.jsonl remains unused without implying absence of held-out evaluation
+  - task performance, valid-expression or structure diagnostics, and NaN/Inf failure are separate
+  - fixed 1200 steps is not described as convergence, steady state, significance, or formal ranking
+  - no taper-superiority or AsymRE-superiority claim is inferred from this pilot alone
+  - completed text-first evidence is delivered to drpo-results ingest/e8
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e8/asymre_deltav_boundary_dense_001/*.json
+    - outputs/e8/asymre_deltav_boundary_dense_001/aggregate/*.json
+    - outputs/e8/asymre_deltav_boundary_dense_001/aggregate/*.csv
+    - outputs/e8/asymre_deltav_boundary_dense_001/methods/*/summary.json
+    - outputs/e8/asymre_deltav_boundary_dense_001/methods/*/metrics.csv
+    - outputs/e8/asymre_deltav_boundary_dense_001/methods/*/validation_diagnostics.jsonl
+    - outputs/e8/asymre_deltav_boundary_dense_001/methods/*/training_diagnostics.jsonl
+    - outputs/e8/asymre_deltav_boundary_dense_001/logs/*.log
+  exclude:
+    - "**/*.pt"
+    - "**/*.pth"
+    - "**/*.ckpt"
+    - "**/*.safetensors"
+    - "**/*.bin"
+    - "**/best_pass8_adapter/**"
+    - "**/terminal_adapter/**"
+    - "**/last_finite_adapter/**"
+    - "**/checkpoint*"
+    - "**/checkpoints/**"
+    - "**/optimizer*"
+    - "**/wandb/**"
+  max_package_size_mb: 100
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e8
+  export_profile: manifest_text_v1
+  max_total_size_mb: 30
+  max_file_size_mb: 10
+
+publish:
+  enabled: false
+  auto: false
