@@ -1,0 +1,265 @@
+diff --git a/docs/paper_code_reference/COUNTDOWN_REPAIR_APPLICATION_20260721.md b/docs/paper_code_reference/COUNTDOWN_REPAIR_APPLICATION_20260721.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..ec750d6fbb29c07132190818970db46b8568212c
+--- /dev/null
++++ b/docs/paper_code_reference/COUNTDOWN_REPAIR_APPLICATION_20260721.md
+@@ -0,0 +1,41 @@
++# PAPER-CODE-VALIDATION-01 Countdown Repair Application Record
++
++**Date:** 2026-07-21
++**Claim:** `PAPER-CODE-VALIDATION-01`
++**Experiment:** `EXT-C-E8-TAPER-0.5B-01`
++**Base commit:** `147e26c7e63eefcf7feae24ae4b91b40a6bba1ef`
++**Scientific-status impact:** none
++
++## Applied engineering repair
++
++The Countdown reviewer runtime now explicitly releases caller-owned calibration,
++method-training, and saved-checkpoint model references before Python garbage
++collection and optional CUDA cache clearing. A weak-reference regression verifies
++that each cyclic fake model is collected before the next model load.
++
++The repair changes no objective, remoteness coordinate, method, coefficient,
++seed, dataset size, optimizer, scheduler, training budget, checkpoint rule,
++evaluation metric, scientific status, or manuscript value.
++
++## Validation completed before delivery
++
++- base file blob identities matched the canonical branch;
++- `git apply --check` passed;
++- repaired full files matched the validated after-images byte-for-byte;
++- Python compilation passed;
++- shared reviewer tests passed: 46 tests;
++- public CLI tests passed: 9 tests;
++- C-U1 package tests passed: 2 tests;
++- D-U1 CLI and public tests passed: 1 + 1 tests;
++- all public CLI help entry points passed;
++- the final reviewer-package boundary audit passed.
++
++Ruff was unavailable in the isolated local runtime and is not claimed as locally
++executed. The normal exact-head PR workflow must run Ruff, formatting, packaging,
++and the cumulative package suite after this update is applied and pushed.
++
++## Remaining separate gates
++
++Real Qwen/PEFT/CUDA liveness, real GPU allocator behavior, interrupted-run
++optimizer/scheduler resume, registered scientific execution, terminal scientific
++review, and method ranking remain outside this engineering acceptance.
+diff --git a/docs/paper_code_reference/FINAL_PACKAGE_BOUNDARY_AUDIT_20260721.md b/docs/paper_code_reference/FINAL_PACKAGE_BOUNDARY_AUDIT_20260721.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..4422d579bba99127bfdc22f2955ebef1de43007b
+--- /dev/null
++++ b/docs/paper_code_reference/FINAL_PACKAGE_BOUNDARY_AUDIT_20260721.md
+@@ -0,0 +1,49 @@
++# PAPER-CODE-VALIDATION-01 Final Reviewer-Package Boundary Audit
++
++**Date:** 2026-07-21
++**Claim:** `PAPER-CODE-VALIDATION-01`
++**Scientific-status impact:** none
++
++## Decision
++
++**PASS for the candidate reviewer-facing package boundary.**
++
++The audit was executed on the independently verified reviewer artifact with the
++accepted D4RL detached-factor repair and the Countdown model-release repair
++overlaid. It verified:
++
++- no source import of the internal `drpo` runtime;
++- no checkpoints, model weights, result archives, artifact directories, or
++  symbolic links in the standalone package;
++- required implementations and entry points for shared controls, C-U1, D-U1
++  revision 4, Hopper E7-Q2, D4RL-9, and Countdown are present;
++- the dependency-light Countdown core imports neither Transformers nor PEFT;
++- all public CLI help entry points open successfully;
++- the package continues to separate task-performance collapse,
++  support/probability/variance boundaries, numerical failure, and unavailable
++  environments;
++- reviewer execution never upgrades scientific status or authorizes method
++  ranking.
++
++## Executed candidate tests
++
++- Python compile: passed;
++- shared self-contained tests: 46 passed;
++- public CLI tests: 9 passed;
++- C-U1 package tests: 2 passed;
++- D-U1 CLI tests: 1 passed;
++- D-U1 public tests: 1 passed;
++- public CLI help checks: passed;
++- static boundary inventory: 150 files, zero prohibited payloads, zero symlinks,
++  zero internal `drpo` imports, zero heavy-runtime imports in Countdown core.
++
++A single combined pytest invocation exceeded the local process time limit, so the
++same suite was completed in the groups listed above. Ruff was not installed in
++the local runtime and is not claimed as executed.
++
++## Interpretation boundary
++
++This is engineering correctness and delivery-boundary evidence. It is not real
++HDF5/MuJoCo liveness, real Qwen/CUDA liveness, convergence, scientific terminal
++audit, or cross-method ranking. Normal exact-head PR CI remains required after
++the update is applied to the canonical branch.
+diff --git a/paper_code/src/drpo_reference/experiments/countdown.py b/paper_code/src/drpo_reference/experiments/countdown.py
+index 063115232d63533a063721637cb970a8198c9b54..8ae3de42273424e36c5bb4965c21fa55e99d62a3 100644
+--- a/paper_code/src/drpo_reference/experiments/countdown.py
++++ b/paper_code/src/drpo_reference/experiments/countdown.py
+@@ -17,6 +17,7 @@ from __future__ import annotations
+ 
+ import argparse
+ import ast
++import gc
+ import hashlib
+ import importlib
+ import json
+@@ -1889,8 +1890,8 @@ def _train_one_method(
+     return summary
+ 
+ 
+-def _release_model(model: Any) -> None:
+-    del model
++def _clear_device_cache() -> None:
++    gc.collect()
+     if torch.cuda.is_available():
+         torch.cuda.empty_cache()
+ 
+@@ -1926,7 +1927,8 @@ def _evaluate_saved_checkpoint(
+             known_structures=known_structures,
+         )
+     finally:
+-        _release_model(model)
++        del model
++        _clear_device_cache()
+     return {"checkpoint_kind": kind, **metrics}
+ 
+ 
+@@ -2096,7 +2098,8 @@ def run_countdown(
+                 all_runs.append(method_failure)
+             continue
+         finally:
+-            _release_model(calibration_model)
++            del calibration_model
++            _clear_device_cache()
+         atomic_json(seed_root / "CALIBRATION.json", calibration)
+         for method in config.methods:
+             method_root = seed_root / method
+@@ -2136,7 +2139,8 @@ def run_countdown(
+                 atomic_json(method_root / "RUN_FAILED.json", failure)
+                 summary = failure
+             finally:
+-                _release_model(model)
++                del model
++                _clear_device_cache()
+             all_runs.append(dict(summary))
+ 
+     test_rows: list[dict[str, Any]] | None = None
+diff --git a/paper_code/tests/test_common.py b/paper_code/tests/test_common.py
+index 7f4c0dc7f329a305c282678548f3f88fce8b38a3..04efdcc17a473134e1cb4864be832ab997e1a2c1 100644
+--- a/paper_code/tests/test_common.py
++++ b/paper_code/tests/test_common.py
+@@ -830,3 +830,105 @@ def test_countdown_structure_metrics_match_registered_pattern_semantics() -> Non
+     assert metrics["greedy_heldout_pattern_precision_micro"] == pytest.approx(1.0)
+     assert metrics["sampled_heldout_pattern_precision_micro"] == pytest.approx(1.0)
+     assert metrics["greedy_unseen_structure_success"] == pytest.approx(1.0)
++
++
++def test_countdown_runtime_releases_model_before_loading_next(
++    monkeypatch: pytest.MonkeyPatch,
++    tmp_path: Path,
++) -> None:
++    import weakref
++
++    from drpo_reference.experiments import countdown as runtime
++
++    config_path = tmp_path / "config.json"
++    replay_path = tmp_path / "replay.jsonl"
++    calibration_path = tmp_path / "calibration.jsonl"
++    validation_path = tmp_path / "validation.jsonl"
++    for path in (config_path, replay_path, calibration_path, validation_path):
++        path.write_text("{}\n", encoding="utf-8")
++
++    class FakeConfig:
++        protocol_id = "custom-reviewer-coordinate"
++        model_path = "fake-model"
++        test_path = None
++        structure_reference_path = None
++        expected_replay_rows = None
++        expected_calibration_rows = None
++        expected_validation_rows = None
++        expected_test_rows = None
++        expected_structure_reference_rows = None
++        require_structure_metrics = False
++        max_length = 64
++        methods = ("positive_only", "exponential")
++        seeds = (7,)
++
++        def __init__(self) -> None:
++            self.replay_path = replay_path
++            self.calibration_path = calibration_path
++            self.validation_path = validation_path
++
++        def as_manifest(self) -> dict[str, object]:
++            return {"schema_version": 1}
++
++    class CyclicModel:
++        def __init__(self) -> None:
++            self.cycle = self
++
++    model_refs: list[weakref.ReferenceType[CyclicModel]] = []
++
++    def load_model(*args: object, **kwargs: object) -> CyclicModel:
++        del args, kwargs
++        if model_refs:
++            assert model_refs[-1]() is None
++        model = CyclicModel()
++        model_refs.append(weakref.ref(model))
++        return model
++
++    rows = {
++        replay_path: [{"prompt": "replay", "positive": "1", "negative_bank": ["2"]}],
++        calibration_path: [
++            {"prompt": "calibration", "positive": "1", "negative_bank": ["2"]}
++        ],
++        validation_path: [{"prompt": "validation", "numbers": [1], "target": 1}],
++    }
++
++    monkeypatch.setattr(runtime, "load_countdown_config", lambda path: FakeConfig())
++    monkeypatch.setattr(runtime, "_load_hf_stack", lambda: object())
++    monkeypatch.setattr(runtime, "_validate_model_identity", lambda config: {})
++    monkeypatch.setattr(runtime, "_adapter_identity", lambda config: {})
++    monkeypatch.setattr(runtime, "_read_jsonl", lambda path: rows[path])
++    monkeypatch.setattr(runtime, "_validate_training_rows", lambda *args: None)
++    monkeypatch.setattr(runtime, "_validate_evaluation_rows", lambda *args: None)
++    monkeypatch.setattr(runtime, "_load_tokenizer", lambda *args: SimpleNamespace(pad_token_id=0))
++    monkeypatch.setattr(runtime, "_prepare_training_items", lambda *args: ([], []))
++    monkeypatch.setattr(runtime, "_load_trainable_model", load_model)
++    monkeypatch.setattr(
++        runtime,
++        "_calibrate_for_seed",
++        lambda *args, **kwargs: {
++            "method_coefficients": {"positive_only": 0.0, "exponential": 1.0},
++            "shared_negative_scale": 1.0,
++            "tau": 1.0,
++            "surprisal_scale": 1.0,
++            "initial_trainable_state_sha256": "fake",
++        },
++    )
++
++    def train_method(*args: object, **kwargs: object) -> dict[str, object]:
++        del args
++        output = Path(kwargs["output"])
++        output.mkdir(parents=True, exist_ok=False)
++        return {
++            "method": kwargs["method"],
++            "seed": kwargs["seed"],
++            "status": "completed",
++        }
++
++    monkeypatch.setattr(runtime, "_train_one_method", train_method)
++    monkeypatch.setattr(runtime.torch.cuda, "is_available", lambda: False)
++
++    result = runtime.run_countdown(config_path=config_path, output_root=tmp_path / "output")
++
++    assert result["completion"]["completed_runs"] == 2
++    assert len(model_refs) == 3
++    assert all(reference() is None for reference in model_refs)
