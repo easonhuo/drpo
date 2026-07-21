@@ -1,0 +1,213 @@
+name: ReplayAB R2 closure review terminal audit
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    if: github.head_ref == 'exec/replayab-r2-closure-review-audit-01'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 4e5b5ad75c94fa5a8d6e1b25e1a0325184597062
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Verify immutable merge candidate and document scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_candidate=4e5b5ad75c94fa5a8d6e1b25e1a0325184597062
+          expected_base=8e1a0f61f5846fc4133e5de405280e371a96b994
+          expected_review_head=3d228791c8f10dd294c1d65830882f786c5f1937
+          actual_candidate=$(git rev-parse HEAD)
+          test "$actual_candidate" = "$expected_candidate"
+          read -r merge_sha parent_one parent_two extra < <(git rev-list --parents -n 1 HEAD)
+          test "$merge_sha" = "$expected_candidate"
+          test -z "${extra:-}"
+          test "$parent_one" = "$expected_base"
+          test "$parent_two" = "$expected_review_head"
+          git diff --name-only "$expected_base"..HEAD | sort > /tmp/changed-paths.txt
+          printf '%s\n' \
+            docs/development_workflow_optimization/REPLAYAB_R2_CLOSURE_REVIEW.md \
+            > /tmp/expected-paths.txt
+          diff -u /tmp/expected-paths.txt /tmp/changed-paths.txt
+          printf '%s\n' "$actual_candidate" > /tmp/audit-head.txt
+
+      - name: Verify closure-review contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path(
+              "docs/development_workflow_optimization/REPLAYAB_R2_CLOSURE_REVIEW.md"
+          )
+          text = path.read_text(encoding="utf-8")
+          required = [
+              "Work ID: `REPLAYAB-R2-SEMANTIC-ACCEPTANCE-01`",
+              "Controlled discrimination: `REPLAYAB-R1-R2-DISCRIMINATION-01`",
+              "Status: `USER_CLOSURE_APPROVAL_RECORDED; SEPARATE_CLOSURE_RECORD_REQUIRED`",
+              "main@8e1a0f61f5846fc4133e5de405280e371a96b994",
+              "29785274230",
+              "8478312547",
+              "29789194545",
+              "8479682445",
+              "8e1a0f61f5846fc4133e5de405280e371a96b994",
+              "4/20 = 20%",
+              "0/20 = 0%",
+              "0/12 = 0%",
+              "This document does **not** itself close R2.",
+              "not a population-level error estimate",
+              "Candidate 01 default-route authorization",
+              "R3 implementation authorization",
+          ]
+          missing = [item for item in required if item not in text]
+          if missing:
+              raise SystemExit(f"missing closure-review obligations: {missing}")
+          forbidden = [
+              "Status: `R2_CLOSED`",
+              "R3 implementation is authorized",
+              "Candidate 01 is adopted",
+          ]
+          present = [item for item in forbidden if item in text]
+          if present:
+              raise SystemExit(f"forbidden closure-review claims: {present}")
+          PY
+
+      - name: Install dependencies
+        run: python -m pip install --quiet -e '.[dev]'
+
+      - name: Capture terminal checks
+        shell: bash
+        run: |
+          set +e
+          python -m pytest \
+            tests/test_workflow_replay_model.py \
+            tests/test_workflow_replay_execute.py \
+            tests/test_workflow_replay_compare.py \
+            tests/test_workflow_replay_r1.py \
+            tests/test_workflow_replay_r1_r2_discrimination.py \
+            -q --junitxml=/tmp/focused.xml > /tmp/focused.log 2>&1
+          echo $? > /tmp/focused.exit
+          python -m pytest -q --junitxml=/tmp/full.xml > /tmp/full.log 2>&1
+          echo $? > /tmp/full.exit
+          python -m ruff check . > /tmp/ruff.log 2>&1
+          echo $? > /tmp/ruff.exit
+          python -m compileall -q src scripts tools tests > /tmp/compile.log 2>&1
+          echo $? > /tmp/compile.exit
+          python scripts/handoff_authority.py verify --repo-root . --json \
+            > /tmp/handoff.json 2>/tmp/handoff.err
+          echo $? > /tmp/handoff.exit
+          python scripts/validate_formal_execution_channel.py --repo-root . \
+            > /tmp/formal.log 2>&1
+          echo $? > /tmp/formal.exit
+          python scripts/validate_governance_rule_inventory.py --repo-root . \
+            > /tmp/inventory.log 2>&1
+          echo $? > /tmp/inventory.exit
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root . \
+            > /tmp/stage.log 2>&1
+          echo $? > /tmp/stage.exit
+          exit 0
+
+      - name: Build terminal report
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import xml.etree.ElementTree as ET
+
+          checks = [
+              "focused", "full", "ruff", "compile",
+              "handoff", "formal", "inventory", "stage",
+          ]
+          exits = {
+              name: int(Path(f"/tmp/{name}.exit").read_text().strip())
+              for name in checks
+          }
+
+          def junit(path: str) -> dict[str, int]:
+              root = ET.parse(path).getroot()
+              nodes = [root] if root.tag == "testsuite" else list(root)
+              return {
+                  key: sum(int(node.attrib.get(key, 0)) for node in nodes)
+                  for key in ("tests", "failures", "errors", "skipped")
+              }
+
+          report = {
+              "schema_version": 1,
+              "work_id": "REPLAYAB-R2-CLOSURE-REVIEW-TERMINAL-AUDIT-01",
+              "parent_claim": "GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01",
+              "base_main_sha": "8e1a0f61f5846fc4133e5de405280e371a96b994",
+              "review_head_sha": "3d228791c8f10dd294c1d65830882f786c5f1937",
+              "audited_merge_candidate_sha": Path("/tmp/audit-head.txt").read_text().strip(),
+              "changed_paths": Path("/tmp/changed-paths.txt").read_text().splitlines(),
+              "exit_codes": exits,
+              "junit": {
+                  "focused_replayab": junit("/tmp/focused.xml"),
+                  "full_repository": junit("/tmp/full.xml"),
+              },
+              "status": "PASS" if all(code == 0 for code in exits.values()) else "FAIL",
+              "review_merge_permitted": all(code == 0 for code in exits.values()),
+              "r2_closed": False,
+              "r3_started": False,
+              "candidate_01_adopted": False,
+              "scientific_impact": "none",
+          }
+          Path("/tmp/REPLAYAB_R2_CLOSURE_REVIEW_TERMINAL_AUDIT.json").write_text(
+              json.dumps(report, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: replayab-r2-closure-review-terminal-audit-${{ github.run_id }}
+          path: |
+            /tmp/REPLAYAB_R2_CLOSURE_REVIEW_TERMINAL_AUDIT.json
+            /tmp/changed-paths.txt
+            /tmp/audit-head.txt
+            /tmp/*.xml
+            /tmp/*.log
+            /tmp/*.json
+            /tmp/*.err
+            /tmp/*.exit
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce terminal result
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+
+          with open("/tmp/REPLAYAB_R2_CLOSURE_REVIEW_TERMINAL_AUDIT.json") as handle:
+              report = json.load(handle)
+          assert report["status"] == "PASS", report
+          assert report["review_merge_permitted"] is True
+          assert report["r2_closed"] is False
+          assert report["r3_started"] is False
+          assert report["candidate_01_adopted"] is False
+          assert report["junit"]["full_repository"]["failures"] == 0
+          assert report["junit"]["full_repository"]["errors"] == 0
+          PY
