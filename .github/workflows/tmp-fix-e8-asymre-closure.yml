@@ -38,6 +38,9 @@ jobs:
               '"evaluation_protocol": common_evaluation,\n': (
                   '"evaluation_protocol": copy.deepcopy(common_evaluation),\n'
               ),
+              'writer = csv.writer(handle)\n': (
+                  'writer = csv.writer(handle, lineterminator="\\n")\n'
+              ),
               'test "$(git diff --name-only "$BASE"..HEAD)" = "$WORKFLOW"\n': 'true\n',
           }
           for old, new in anchors.items():
