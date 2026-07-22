@@ -67,8 +67,9 @@ def read_csv(path: Path) -> list[dict[str, str]]:
 
 
 def load_runspec(path: str | Path) -> dict[str, Any]:
-    from drpo import e7_hopper_q2 as q2
     import yaml
+
+    from drpo import e7_hopper_q2 as q2
 
     source = Path(path).expanduser().resolve()
     raw = yaml.safe_load(source.read_text())
@@ -349,9 +350,10 @@ def run_seed(
     source_commit: str,
     runner_sha: str,
 ) -> dict[str, Any]:
-    from drpo import e7_hopper_q2 as q2
     import numpy as np
     import torch
+
+    from drpo import e7_hopper_q2 as q2
 
     critic_sha = canonical.artifact_manifest["files"]["critic_checkpoint"]["sha256"]
     identity = {
