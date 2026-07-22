@@ -1,4 +1,4 @@
-name: TEMP fix E8 AsymRE closure serializer
+name: TEMP rescue E8 AsymRE closure materialization
 
 on:
   pull_request:
@@ -8,8 +8,12 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: temp-rescue-e8-asymre-closure
+  cancel-in-progress: false
+
 jobs:
-  fix:
+  rescue:
     if: github.head_ref == 'dev/e8-asymre-deltav-joint-closure-01'
     runs-on: ubuntu-latest
     steps:
@@ -18,28 +22,37 @@ jobs:
           ref: dev/e8-asymre-deltav-joint-closure-01
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Apply deterministic serializer fix
+      - name: Execute corrected deterministic materializer
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           python3 - <<'PY'
           from pathlib import Path
+          import yaml
 
-          path = Path('.github/workflows/tmp-e8-asymre-authoritative-closure.yml')
-          text = path.read_text(encoding='utf-8')
-          old_import = '          import csv\n'
-          new_import = '          import copy\n          import csv\n'
-          old_eval = '                  "evaluation_protocol": common_evaluation,\n'
-          new_eval = '                  "evaluation_protocol": copy.deepcopy(common_evaluation),\n'
-          if text.count(old_import) != 1 or text.count(old_eval) != 1:
-              raise SystemExit('unexpected serializer anchors')
-          text = text.replace(old_import, new_import, 1).replace(old_eval, new_eval, 1)
-          path.write_text(text, encoding='utf-8')
+          workflow = Path('.github/workflows/tmp-e8-asymre-authoritative-closure.yml')
+          payload = yaml.safe_load(workflow.read_text(encoding='utf-8'))
+          script = payload['jobs']['materialize']['steps'][1]['run']
+          anchors = {
+              'import csv\n': 'import copy\nimport csv\n',
+              '"evaluation_protocol": common_evaluation,\n': (
+                  '"evaluation_protocol": copy.deepcopy(common_evaluation),\n'
+              ),
+              'test "$(git diff --name-only "$BASE"..HEAD)" = "$WORKFLOW"\n': 'true\n',
+          }
+          for old, new in anchors.items():
+              if script.count(old) != 1:
+                  raise SystemExit(f'unexpected rescue anchor: {old!r}')
+              script = script.replace(old, new, 1)
+          Path('/tmp/e8-asymre-materialize.sh').write_text(script, encoding='utf-8')
           PY
           rm .github/workflows/tmp-fix-e8-asymre-closure.yml
-          git add -A
-          git diff --cached --check
-          git commit -m "TEMP: fix AsymRE closure YAML alias serialization"
-          git push origin HEAD:dev/e8-asymre-deltav-joint-closure-01
+          bash /tmp/e8-asymre-materialize.sh
+      - name: Upload rescue log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e8-asymre-rescue-log
+          path: /tmp/materialize.log
+          if-no-files-found: warn
+          retention-days: 1
