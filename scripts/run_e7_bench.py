@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Repository entrypoint for E7 benchmark and D4RL-9 Figure-1 diagnostics.
+"""E7 benchmark entrypoint plus the D4RL-9 Figure-1 gradient diagnostic.
 
-Existing E7 benchmark commands are delegated unchanged to ``drpo.e7_bench``.
-The ``figure1-d4rl9`` command runs only the learned-critic -> Positive-only ->
-negative-transition gradient diagnostic and saves every selected plot point.
+The ``figure1-d4rl9`` subcommand preserves the existing E7-Q2 protocol:
+learned critic -> frozen advantages -> Positive-only actor -> advantage-matched
+near/far negative probes.  Every selected gradient point is persisted before
+per-dataset aggregation and appendix plotting.
 """
 from __future__ import annotations
 
@@ -11,21 +12,21 @@ import argparse
 import concurrent.futures
 import csv
 import dataclasses
+import hashlib
 import json
 import math
 import multiprocessing
 import os
 import sys
 import traceback
-from collections import defaultdict
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-FIG1_ID = "EXT-H-E7-FIG1-D4RL9-GRADIENT-COVERAGE-01"
-FIG1_VERSION = "1.0.0-d4rl9-point-provenance"
+EXPERIMENT_ID = "EXT-H-E7-FIG1-D4RL9-GRADIENT-COVERAGE-01"
+RUNNER_VERSION = "1.1.0-e7q2-protocol-preserving"
 D4RL9 = (
     "halfcheetah-medium-v2",
     "halfcheetah-medium-replay-v2",
@@ -37,21 +38,13 @@ D4RL9 = (
     "walker2d-medium-replay-v2",
     "walker2d-medium-expert-v2",
 )
-POINT_FIELDS = (
-    "dataset_id",
-    "dataset_sha256",
-    "seed",
-    "distance_bin",
-    "advantage_bin",
-    "match_group_id",
-    "target_abs_advantage",
-    "relative_advantage_error",
-    "transition_index",
-    "episode_id",
-    "split",
-    "advantage",
-    "abs_advantage",
-    "standardized_distance",
+ENV_DIMS = {
+    "HalfCheetah-v4": (17, 6),
+    "Hopper-v4": (11, 3),
+    "Walker2d-v4": (17, 6),
+}
+POINT_COMPONENTS = (
+    "radius",
     "mean_score_norm",
     "raw_log_scale_score_norm",
     "corrected_q_xi",
@@ -60,29 +53,17 @@ POINT_FIELDS = (
     "raw_action_distance",
     "pre_squash_distance",
     "full_parameter_gradient_norm",
-    "distance_bin_left",
-    "distance_bin_right",
-    "advantage_bin_left",
-    "advantage_bin_right",
-    "critic_checkpoint_sha256",
-    "positive_actor_checkpoint_sha256",
-    "runspec_sha256",
-    "base_config_sha256",
-    "source_commit_sha",
-    "runner_sha256",
 )
 
 
-def _mapping(value: Any, label: str) -> dict[str, Any]:
-    if not isinstance(value, dict):
-        raise ValueError(f"{label} must be a mapping")
-    return value
+def payload_hash(payload: Any) -> str:
+    body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(body).hexdigest()
 
 
-def _list(value: Any, label: str) -> list[Any]:
-    if not isinstance(value, list):
-        raise ValueError(f"{label} must be a list")
-    return value
+def read_csv(path: Path) -> list[dict[str, str]]:
+    with path.open(newline="") as handle:
+        return list(csv.DictReader(handle))
 
 
 def load_runspec(path: str | Path) -> dict[str, Any]:
@@ -90,33 +71,39 @@ def load_runspec(path: str | Path) -> dict[str, Any]:
     import yaml
 
     source = Path(path).expanduser().resolve()
-    raw = _mapping(yaml.safe_load(source.read_text()), "runspec")
+    raw = yaml.safe_load(source.read_text())
+    if not isinstance(raw, dict):
+        raise ValueError("runspec must be a mapping")
     frozen = {
-        "experiment_id": FIG1_ID,
-        "runner_version": FIG1_VERSION,
+        "experiment_id": EXPERIMENT_ID,
+        "runner_version": RUNNER_VERSION,
         "execution_class": "pilot",
         "scientific_status": "pilot",
         "formal_launch_allowed": False,
     }
     for key, expected in frozen.items():
         if raw.get(key) != expected:
-            raise ValueError(f"{key} must be {expected!r}")
-    datasets = _list(raw.get("datasets"), "datasets")
-    if tuple(_mapping(item, "dataset").get("id") for item in datasets) != D4RL9:
-        raise ValueError("runspec must retain the exact ordered D4RL-v2 3x3 cells")
-    for dataset in datasets:
-        if dataset.get("format") != "legacy_d4rl_hdf5":
-            raise ValueError(f"{dataset['id']} must use legacy_d4rl_hdf5")
-        expected = dataset.get("expected_sha256")
-        if expected not in (None, "auto_capture_before_training"):
-            if len(str(expected)) != 64:
-                raise ValueError(f"invalid expected_sha256 for {dataset['id']}")
-    protocol = _mapping(raw.get("protocol"), "protocol")
+            raise ValueError(f"{key} must remain {expected!r}")
+    datasets = raw.get("datasets")
+    if not isinstance(datasets, list) or tuple(x.get("id") for x in datasets) != D4RL9:
+        raise ValueError("runspec must retain the ordered D4RL-v2 3x3 cells")
+    for item in datasets:
+        env_id = item.get("env_id")
+        if item.get("format") != "legacy_d4rl_hdf5" or env_id not in ENV_DIMS:
+            raise ValueError(f"invalid dataset contract for {item.get('id')}")
+        if (item.get("observation_dim"), item.get("action_dim")) != ENV_DIMS[env_id]:
+            raise ValueError(f"dimension contract mismatch for {item['id']}")
+        expected = item.get("expected_sha256")
+        if expected not in (None, "auto_capture_before_training") and len(str(expected)) != 64:
+            raise ValueError(f"invalid expected_sha256 for {item['id']}")
+    protocol = raw.get("protocol", {})
     if tuple(protocol.get("seeds", ())) != tuple(range(100, 110)):
         raise ValueError("seeds must remain 100..109")
     if protocol.get("canonical_critic_seed") != 100:
         raise ValueError("canonical_critic_seed must remain 100")
-    budget = _mapping(protocol.get("budget"), "protocol.budget")
+    if protocol.get("train_method_branches") is not False:
+        raise ValueError("method branches are forbidden in this diagnostic")
+    budget = protocol.get("budget", {})
     required_budget = {
         "max_transitions": None,
         "critic_steps": 100000,
@@ -125,106 +112,98 @@ def load_runspec(path: str | Path) -> dict[str, Any]:
         "positive_actor_eval_interval": 5000,
         "audit_sample_size": 16384,
     }
-    for key, expected in required_budget.items():
-        if budget.get(key) != expected:
-            raise ValueError(f"protocol.budget.{key} must remain {expected!r}")
-    probe = _mapping(protocol.get("probe"), "protocol.probe")
+    probe = protocol.get("probe", {})
     required_probe = {
-        "distance_bins": 7,
-        "advantage_bins": 8,
-        "gradient_points_per_seed": 64,
-        "matching_rule": "nearest_abs_advantage_targets_shared_across_distance_bins",
+        "matching_function": "drpo.e7_hopper_q2.match_near_far_indices",
+        "near_quantile": 0.25,
+        "far_quantile": 0.75,
+        "advantage_matching_bins": 20,
         "relative_advantage_tolerance": 0.05,
+        "matched_pair_pool_per_seed": 256,
+        "gradient_pairs_per_seed": 64,
+        "far_distance_bins": 7,
         "save_every_selected_point": True,
     }
-    for key, expected in required_probe.items():
-        if probe.get(key) != expected:
-            raise ValueError(f"protocol.probe.{key} must remain {expected!r}")
-    if protocol.get("train_method_branches") is not False:
-        raise ValueError("this diagnostic must not train E7 method branches")
-    execution = _mapping(raw.get("execution"), "execution")
+    for section, actual, expected in (
+        ("budget", budget, required_budget),
+        ("probe", probe, required_probe),
+    ):
+        for key, value in expected.items():
+            if actual.get(key) != value:
+                raise ValueError(f"protocol.{section}.{key} must remain {value!r}")
+    execution = raw.get("execution", {})
     if execution.get("require_clean_worktree") is not True:
-        raise ValueError("execution.require_clean_worktree must remain true")
-    if int(execution.get("dataset_workers", 0)) < 1:
-        raise ValueError("execution.dataset_workers must be positive")
+        raise ValueError("clean-worktree execution must remain enabled")
+    if min(int(execution.get("dataset_workers", 0)), int(execution.get("cpus_per_worker", 0))) < 1:
+        raise ValueError("dataset_workers and cpus_per_worker must be positive")
     raw["_path"] = str(source)
     raw["_sha256"] = q2.sha256_file(source)
     return raw
 
 
-def _dataset_spec(item: dict[str, Any], sha256: str) -> Any:
+def dataset_spec(item: dict[str, Any], sha256: str) -> Any:
     from drpo import e7_bench
 
     return e7_bench.DatasetSpec(
-        id=str(item["id"]),
-        relative_path=str(item["relative_path"]),
+        id=item["id"],
+        relative_path=item["relative_path"],
         sha256=sha256,
-        format=str(item["format"]),
-        env_id=str(item["env_id"]),
+        format=item["format"],
+        env_id=item["env_id"],
         dataset_family="d4rl_v2",
         score_protocol="gradient_diagnostic_no_rollout",
         reference_min_score=None,
         reference_max_score=None,
         formal_cell_eligible=True,
-        provenance_note=str(item["provenance_note"]),
+        provenance_note=item["provenance_note"],
     )
 
 
-def lock_datasets(runspec: dict[str, Any], dataset_root: str | Path) -> dict[str, Any]:
+def lock_datasets(runspec: dict[str, Any], root_value: str | Path) -> dict[str, Any]:
     from drpo import e7_bench
     from drpo import e7_hopper_q2 as q2
 
-    root = Path(dataset_root).expanduser().resolve()
+    root = Path(root_value).expanduser().resolve()
     if not root.is_dir():
         raise FileNotFoundError(f"dataset root does not exist: {root}")
-    rows = []
+    locked = []
     for item in runspec["datasets"]:
-        path = (root / str(item["relative_path"])).resolve()
+        path = (root / item["relative_path"]).resolve()
         path.relative_to(root)
         if not path.is_file():
             raise FileNotFoundError(f"missing D4RL dataset: {path}")
-        sha256 = q2.sha256_file(path)
+        digest = q2.sha256_file(path)
         expected = item.get("expected_sha256")
-        if expected not in (None, "auto_capture_before_training") and expected != sha256:
-            raise RuntimeError(
-                f"dataset SHA mismatch for {item['id']}: expected {expected}, got {sha256}"
-            )
-        spec = _dataset_spec(item, sha256)
-        sample = e7_bench.load_dataset(path, spec, max_transitions=32)
-        rows.append(
+        if expected not in (None, "auto_capture_before_training") and digest != expected:
+            raise RuntimeError(f"dataset SHA mismatch for {item['id']}: {digest}")
+        sample = e7_bench.load_dataset(path, dataset_spec(item, digest), max_transitions=32)
+        dims = (int(sample.observations.shape[1]), int(sample.actions.shape[1]))
+        expected_dims = (item["observation_dim"], item["action_dim"])
+        if dims != expected_dims:
+            raise RuntimeError(f"dataset dimensions mismatch for {item['id']}: {dims}")
+        locked.append(
             {
-                **{key: item[key] for key in ("id", "relative_path", "format", "env_id")},
+                **item,
                 "resolved_path": str(path),
-                "sha256": sha256,
+                "sha256": digest,
                 "size_bytes": path.stat().st_size,
-                "observation_dim": int(sample.observations.shape[1]),
-                "action_dim": int(sample.actions.shape[1]),
-                "provenance_note": item["provenance_note"],
             }
         )
-    payload = {
-        "experiment_id": FIG1_ID,
-        "runner_version": FIG1_VERSION,
+    result = {
+        "experiment_id": EXPERIMENT_ID,
+        "runner_version": RUNNER_VERSION,
         "runspec_sha256": runspec["_sha256"],
         "capture_stage": "all_nine_files_before_any_training",
-        "datasets": rows,
+        "datasets": locked,
     }
-    payload["dataset_lock_sha256"] = _payload_sha256(payload)
-    return payload
+    result["dataset_lock_sha256"] = payload_hash(result)
+    return result
 
 
-def _payload_sha256(payload: Any) -> str:
-    import hashlib
-
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
-    return hashlib.sha256(encoded).hexdigest()
-
-
-def _adapt_config(runspec: dict[str, Any], dataset: dict[str, Any]) -> tuple[Any, Any]:
+def adapted_config(runspec: dict[str, Any], dataset: dict[str, Any]) -> tuple[Any, Any]:
     from drpo import e7_hopper_q2 as q2
 
-    base_path = (ROOT / str(runspec["base_config_path"])).resolve()
-    base = q2.load_config(base_path)
+    base = q2.load_config(ROOT / runspec["base_config_path"])
     budget = runspec["protocol"]["budget"]
     probe = runspec["protocol"]["probe"]
     mode = q2.ModeConfig(
@@ -239,15 +218,15 @@ def _adapt_config(runspec: dict[str, Any], dataset: dict[str, Any]) -> tuple[Any
         actor_eval_interval=budget["positive_actor_eval_interval"],
         branch_max_steps=0,
         branch_min_steps=0,
-        matched_pairs=probe["gradient_points_per_seed"],
+        matched_pairs=probe["matched_pair_pool_per_seed"],
         audit_sample_size=budget["audit_sample_size"],
         rollout_episodes=0,
         final_rollout_episodes=0,
         rollout_eval_interval=0,
     )
-    return dataclasses.replace(
+    config = dataclasses.replace(
         base,
-        experiment_id=FIG1_ID,
+        experiment_id=EXPERIMENT_ID,
         dataset_basename=Path(dataset["resolved_path"]).name,
         dataset_sha256=dataset["sha256"],
         rollout_dataset_id=dataset["id"],
@@ -259,144 +238,14 @@ def _adapt_config(runspec: dict[str, Any], dataset: dict[str, Any]) -> tuple[Any
         pilot_rollout_required=False,
         pilot=mode,
         formal=mode,
-    ), mode
-
-
-def _bin_ids(values: Any, edges: Any) -> Any:
-    import numpy as np
-
-    return np.clip(np.searchsorted(edges[1:-1], values, side="right"), 0, len(edges) - 2)
-
-
-def select_matched_points(
-    negative_indices: Any,
-    distances: Any,
-    advantages: Any,
-    *,
-    distance_bins: int,
-    advantage_bins: int,
-    point_budget: int,
-    minimum_per_bin: int,
-    tolerance: float,
-    seed: int,
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Match each distance bin to shared nearest absolute-advantage targets."""
-    import numpy as np
-
-    negative_indices = np.asarray(negative_indices, dtype=np.int64)
-    magnitude = np.abs(np.asarray(advantages, dtype=np.float64))
-    neg_distance = np.asarray(distances[negative_indices], dtype=np.float64)
-    neg_magnitude = magnitude[negative_indices]
-    distance_edges = np.unique(
-        np.quantile(neg_distance, np.linspace(0.0, 1.0, distance_bins + 1))
     )
-    advantage_edges = np.unique(
-        np.quantile(neg_magnitude, np.linspace(0.0, 1.0, advantage_bins + 1))
-    )
-    if len(distance_edges) != distance_bins + 1 or len(advantage_edges) < 3:
-        raise RuntimeError("distance or advantage quantiles collapsed")
-    distance_id = _bin_ids(neg_distance, distance_edges)
-    pools = [negative_indices[distance_id == index] for index in range(distance_bins)]
-    if any(len(pool) == 0 for pool in pools):
-        raise RuntimeError("one or more distance bins are empty")
-    common_left = max(float(magnitude[pool].min()) for pool in pools)
-    common_right = min(float(magnitude[pool].max()) for pool in pools)
-    anchors = pools[0][
-        (magnitude[pools[0]] >= common_left) & (magnitude[pools[0]] <= common_right)
-    ]
-    if not common_left < common_right or len(anchors) == 0:
-        raise RuntimeError("distance bins lack common absolute-advantage support")
-    position = {int(index): offset for offset, index in enumerate(negative_indices)}
-    advantage_id = _bin_ids(neg_magnitude, advantage_edges)
-    strata = [[] for _ in range(len(advantage_edges) - 1)]
-    rng = np.random.default_rng(seed)
-    for anchor in anchors:
-        strata[int(advantage_id[position[int(anchor)]])].append(int(anchor))
-    for members in strata:
-        rng.shuffle(members)
-    ordered = []
-    while any(strata):
-        for members in strata:
-            if members:
-                ordered.append(members.pop())
-    target_groups = max(1, point_budget // distance_bins)
-    used = [set() for _ in pools]
-    groups = []
-    for anchor in ordered:
-        if len(groups) >= target_groups:
-            break
-        target = float(magnitude[anchor])
-        group = [anchor]
-        errors = [0.0]
-        for distance_bin in range(1, distance_bins):
-            available = [
-                int(index)
-                for index in pools[distance_bin]
-                if int(index) not in used[distance_bin]
-            ]
-            if not available:
-                group = []
-                break
-            candidate = min(
-                available, key=lambda index: abs(float(magnitude[index]) - target)
-            )
-            error = abs(float(magnitude[candidate]) - target) / max(target, 1e-8)
-            if error > tolerance:
-                group = []
-                break
-            group.append(candidate)
-            errors.append(error)
-        if not group:
-            continue
-        for distance_bin, index in enumerate(group):
-            used[distance_bin].add(index)
-        groups.append((target, group, errors))
-    if len(groups) < minimum_per_bin:
-        raise RuntimeError(
-            f"only {len(groups)} matched groups found; minimum is {minimum_per_bin}"
-        )
-    rows = []
-    for group_id, (target, group, errors) in enumerate(groups):
-        advantage_bin = int(_bin_ids(np.asarray([target]), advantage_edges)[0])
-        for distance_bin, (index, error) in enumerate(zip(group, errors)):
-            rows.append((index, distance_bin, advantage_bin, group_id, target, error))
-    rows.sort(key=lambda row: (row[1], row[3]))
-    selection = {
-        "indices": np.asarray([row[0] for row in rows], dtype=np.int64),
-        "distance_bin": np.asarray([row[1] for row in rows], dtype=np.int64),
-        "advantage_bin": np.asarray([row[2] for row in rows], dtype=np.int64),
-        "match_group_id": np.asarray([row[3] for row in rows], dtype=np.int64),
-        "target_abs_advantage": np.asarray([row[4] for row in rows], dtype=np.float64),
-        "relative_advantage_error": np.asarray([row[5] for row in rows], dtype=np.float64),
-        "distance_edges": distance_edges,
-        "advantage_edges": advantage_edges,
-    }
-    errors = selection["relative_advantage_error"]
-    audit = {
-        "matching_rule": "nearest_abs_advantage_targets_shared_across_distance_bins",
-        "relative_advantage_tolerance": tolerance,
-        "requested_point_budget": point_budget,
-        "points_per_distance_bin": len(groups),
-        "total_points": len(rows),
-        "common_abs_advantage_support": [common_left, common_right],
-        "mean_relative_advantage_error": float(errors.mean()),
-        "max_relative_advantage_error": float(errors.max()),
-        "distance_edges": distance_edges,
-        "advantage_edges": advantage_edges,
-    }
-    return selection, audit
+    return config, mode
 
 
-def _configure_threads(count: int) -> None:
+def configure_threads(count: int) -> None:
     import torch
 
-    count = max(1, int(count))
-    for name in (
-        "OMP_NUM_THREADS",
-        "MKL_NUM_THREADS",
-        "OPENBLAS_NUM_THREADS",
-        "NUMEXPR_NUM_THREADS",
-    ):
+    for name in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
         os.environ[name] = str(count)
     torch.set_num_threads(count)
     try:
@@ -405,172 +254,79 @@ def _configure_threads(count: int) -> None:
         pass
 
 
-def _critic_context(
+def heartbeat(path: Path, stage: str, step: int, **extra: Any) -> None:
+    from drpo import e7_hopper_q2 as q2
+
+    q2.atomic_write_json(path, {"utc": q2.utc_now(), "stage": stage, "step": step, **extra})
+
+
+def point_rows_from_probe(
+    probe_rows: Sequence[dict[str, str]],
+    *,
     dataset: dict[str, Any],
-    runspec: dict[str, Any],
+    seed: int,
     data: Any,
-    config: Any,
-    mode: Any,
-    device: Any,
-    output_dir: Path,
-    resume: bool,
-    identity: dict[str, str],
-) -> dict[str, Any]:
-    from drpo import e7_hopper_q2 as q2
-    import numpy as np
-
-    marker = output_dir / "CRITIC_COMPLETE.json"
-    if marker.is_file():
-        if not resume:
-            raise RuntimeError(f"critic exists for {dataset['id']}; pass --resume")
-        complete = json.loads(marker.read_text())
-        if complete["identity_sha256"] != _payload_sha256(identity):
-            raise RuntimeError(f"critic identity mismatch for {dataset['id']}")
-        split_npz = np.load(output_dir / "episode_split.npz")
-        split = {key: split_npz[key].astype(np.int64) for key in split_npz.files}
-        norm = np.load(output_dir / "observation_normalizer.npz")
-        obs_norm = q2.Normalizer(
-            norm["mean"].astype(np.float32), norm["std"].astype(np.float32)
-        )
-        advantages = np.load(
-            output_dir / "frozen_advantage" / "frozen_advantages.npz"
-        )["advantage"]
-        return {
-            "split": split,
-            "obs_norm": obs_norm,
-            "advantages": advantages,
-            "complete": complete,
-        }
-    if output_dir.exists() and any(output_dir.iterdir()):
-        raise RuntimeError(f"partial critic output without marker: {output_dir}")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    q2.seed_everything(mode.canonical_critic_seed)
-    split = q2.split_episode_indices(
-        data.episode_ids,
-        mode.canonical_critic_seed,
-        config.train_fraction,
-        config.validation_fraction,
-    )
-    obs_norm = q2.Normalizer.fit(data.observations[split["train"]])
-    returns = q2.discounted_returns(
-        data.rewards, data.terminals, data.timeouts, config.gamma
-    )
-    critic, target_norm, audit = q2.train_critic(
-        data=data,
-        split=split,
-        obs_norm=obs_norm,
-        returns=returns,
-        config=config,
-        mode=mode,
-        seed=mode.canonical_critic_seed,
-        device=device,
-        output_dir=output_dir / "critic",
-    )
-    if not audit["fixed_budget_completed"]:
-        raise RuntimeError(f"critic budget incomplete for {dataset['id']}")
-    advantages, advantage_manifest = q2.freeze_advantages(
-        critic=critic,
-        data=data,
-        obs_norm=obs_norm,
-        target_norm=target_norm,
-        gamma=config.gamma,
-        standardize=config.advantage_standardize,
-        standardization_indices=split["train"],
-        device=device,
-        output_dir=output_dir / "frozen_advantage",
-    )
-    np.savez_compressed(output_dir / "episode_split.npz", **split)
-    np.savez_compressed(
-        output_dir / "observation_normalizer.npz", mean=obs_norm.mean, std=obs_norm.std
-    )
-    complete = {
-        "identity_sha256": _payload_sha256(identity),
-        "critic_checkpoint": audit["checkpoint"],
-        "advantage_manifest": advantage_manifest,
-        "critic_fixed_budget_completed": True,
-        "completed_utc": q2.utc_now(),
-    }
-    q2.atomic_write_json(marker, complete)
-    return {
-        "split": split,
-        "obs_norm": obs_norm,
-        "advantages": advantages,
-        "complete": complete,
-    }
-
-
-def _components(
-    policy: Any, obs: Any, actions: Any, indices: Any, device: Any
-) -> dict[str, Any]:
-    from drpo import e7_hopper_q2 as q2
-    import torch
-
-    with torch.no_grad():
-        values = policy.score_components(
-            q2.tensor(obs[indices], device), q2.tensor(actions[indices], device)
-        )
-    keys = (
-        "radius",
-        "mean_score_norm",
-        "raw_log_scale_score_norm",
-        "corrected_q_xi",
-        "joint_output_score_norm",
-        "log_scale_to_mean_ratio",
-        "raw_action_distance",
-        "pre_squash_distance",
-    )
-    return {key: values[key].detach().cpu().numpy() for key in keys}
-
-
-def _seed_curve(
-    points: Sequence[dict[str, Any]], bins: int
+    gradient_pairs: int,
+    critic_sha: str,
+    actor_sha: str,
+    runspec_sha: str,
+    base_config_sha: str,
+    source_commit: str,
+    runner_sha: str,
+    probe: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    grouped = defaultdict(list)
-    for row in points:
-        grouped[int(row["distance_bin"])].append(row)
-    if sorted(grouped) != list(range(bins)):
-        raise RuntimeError("probe is missing a distance bin")
-    rows = []
-    for distance_bin in range(bins):
-        local = grouped[distance_bin]
-        rows.append(
-            {
-                "distance_bin": distance_bin,
-                "distance_mean": sum(
-                    row["standardized_distance"] for row in local
-                )
-                / len(local),
-                "gradient_mean": sum(
-                    row["full_parameter_gradient_norm"] for row in local
-                )
-                / len(local),
-                "abs_advantage_mean": sum(row["abs_advantage"] for row in local)
-                / len(local),
-                "n_samples": len(local),
+    points = []
+    for pair in probe_rows[:gradient_pairs]:
+        pair_id = int(pair["pair_id"])
+        for role, paired_role in (("near", "far"), ("far", "near")):
+            transition = int(pair[f"{role}_index"])
+            advantage = float(pair[f"{role}_advantage"])
+            paired_abs = float(pair[f"{paired_role}_abs_advantage"])
+            current_abs = abs(advantage)
+            row = {
+                "dataset_id": dataset["id"],
+                "dataset_sha256": dataset["sha256"],
+                "seed": seed,
+                "pair_id": pair_id,
+                "pair_role": role,
+                "transition_index": transition,
+                "episode_id": int(data.episode_ids[transition]),
+                "split": "critic_train_episode_split",
+                "advantage": advantage,
+                "abs_advantage": current_abs,
+                "paired_abs_advantage": paired_abs,
+                "pair_relative_advantage_error": abs(current_abs - paired_abs) / max(paired_abs, 1e-8),
+                "near_quantile": probe["near_quantile"],
+                "far_quantile": probe["far_quantile"],
+                "advantage_matching_bins": probe["advantage_matching_bins"],
+                "matching_relative_tolerance": probe["relative_advantage_tolerance"],
+                "critic_checkpoint_sha256": critic_sha,
+                "positive_actor_checkpoint_sha256": actor_sha,
+                "runspec_sha256": runspec_sha,
+                "base_config_sha256": base_config_sha,
+                "source_commit_sha": source_commit,
+                "runner_sha256": runner_sha,
             }
-        )
-    bases = (
-        rows[0]["distance_mean"],
-        rows[0]["gradient_mean"],
-        rows[0]["abs_advantage_mean"],
-    )
-    for row in rows:
-        row["relative_distance"] = row["distance_mean"] / max(bases[0], 1e-12)
-        row["relative_gradient"] = row["gradient_mean"] / max(bases[1], 1e-12)
-        row["relative_abs_advantage"] = row["abs_advantage_mean"] / max(
-            bases[2], 1e-12
-        )
-    return rows
+            for key in POINT_COMPONENTS:
+                value = pair.get(f"{role}_{key}")
+                if value in (None, ""):
+                    raise RuntimeError(f"missing {role}_{key} for pair {pair_id}")
+                row["standardized_distance" if key == "radius" else key] = float(value)
+            points.append(row)
+    if len(points) != 2 * gradient_pairs:
+        raise RuntimeError("gradient point count mismatch")
+    return points
 
 
-def _run_seed(
+def run_seed(
+    *,
     seed: int,
     dataset: dict[str, Any],
     runspec: dict[str, Any],
     data: Any,
     config: Any,
     mode: Any,
-    context: dict[str, Any],
+    canonical: Any,
     device: Any,
     output_dir: Path,
     resume: bool,
@@ -581,36 +337,33 @@ def _run_seed(
     import numpy as np
     import torch
 
-    marker = output_dir / "SEED_COMPLETE.json"
+    critic_sha = canonical.artifact_manifest["files"]["critic_checkpoint"]["sha256"]
     identity = {
         "dataset_sha256": dataset["sha256"],
         "seed": seed,
-        "critic_sha256": context["complete"]["critic_checkpoint"]["sha256"],
+        "critic_sha256": critic_sha,
         "runspec_sha256": runspec["_sha256"],
-        "source_commit": source_commit,
+        "source_commit_sha": source_commit,
         "runner_sha256": runner_sha,
     }
+    marker = output_dir / "SEED_COMPLETE.json"
     if marker.is_file():
         complete = json.loads(marker.read_text())
-        if not resume or complete["identity_sha256"] != _payload_sha256(identity):
-            raise RuntimeError(f"seed output conflict for {dataset['id']} seed {seed}")
-        return complete
+        if resume and complete.get("identity_sha256") == payload_hash(identity):
+            return complete
+        raise RuntimeError(f"seed output conflict for {dataset['id']} seed {seed}")
     if output_dir.exists() and any(output_dir.iterdir()):
         raise RuntimeError(f"partial seed output without marker: {output_dir}")
     output_dir.mkdir(parents=True, exist_ok=True)
     q2.seed_everything(seed)
-    split, obs_norm, advantages = (
-        context["split"],
-        context["obs_norm"],
-        context["advantages"],
-    )
-    obs = obs_norm.transform(data.observations)
+    split = canonical.split
+    advantages = canonical.advantages
+    obs = canonical.obs_norm.transform(data.observations)
     train = split["train"]
     positive = train[advantages[train] > 0]
     negative = train[advantages[train] < 0]
     validation = split["validation"]
-    val_pos = validation[advantages[validation] > 0]
-    val_neg = validation[advantages[validation] < 0]
+    val_pos, val_neg = validation[advantages[validation] > 0], validation[advantages[validation] < 0]
     if min(len(positive), len(negative), len(val_pos), len(val_neg)) == 0:
         raise RuntimeError("frozen advantage signs are insufficient for the diagnostic")
     rng = np.random.default_rng(seed + 321)
@@ -622,9 +375,7 @@ def _run_seed(
         )
     ).astype(np.int64)
     rng.shuffle(audit_indices)
-    fixed_negative = rng.choice(
-        negative, min(mode.audit_sample_size, len(negative)), replace=False
-    )
+    fixed_negative = rng.choice(negative, min(mode.audit_sample_size, len(negative)), replace=False)
     policy = q2.SquashedGaussianPolicy(
         obs.shape[1],
         data.actions.shape[1],
@@ -654,11 +405,12 @@ def _run_seed(
         output_dir=output_dir / "positive_only",
         rollout_evaluator=None,
         rollout_eval_interval=0,
-        heartbeat=None,
+        heartbeat=lambda stage, step: heartbeat(
+            output_dir / "HEARTBEAT.json", stage, step, dataset_id=dataset["id"], seed=seed
+        ),
     )
     if actor_audit["numerical_nonfinite"] or not actor_audit["fixed_budget_completed"]:
         raise RuntimeError(f"Positive-only budget failed for {dataset['id']} seed {seed}")
-    actor_path = output_dir / "positive_only" / "terminal_actor.pt"
     distances = np.full(data.size, np.nan, dtype=np.float32)
     policy.eval()
     with torch.no_grad():
@@ -668,102 +420,84 @@ def _run_seed(
                 q2.tensor(obs[index], device), q2.tensor(data.actions[index], device)
             ).cpu().numpy()
     probe = runspec["protocol"]["probe"]
-    selection, selection_audit = select_matched_points(
-        negative,
-        distances,
+    near, far, matching_summary = q2.match_near_far_indices(
         advantages,
-        distance_bins=probe["distance_bins"],
-        advantage_bins=probe["advantage_bins"],
-        point_budget=probe["gradient_points_per_seed"],
-        minimum_per_bin=probe["minimum_points_per_distance_bin"],
-        tolerance=probe["relative_advantage_tolerance"],
+        distances,
+        negative,
+        probe["near_quantile"],
+        probe["far_quantile"],
+        probe["advantage_matching_bins"],
+        probe["matched_pair_pool_per_seed"],
+        probe["relative_advantage_tolerance"],
+        seed,
+    )
+    if len(near) < probe["gradient_pairs_per_seed"]:
+        raise RuntimeError(f"only {len(near)} matched pairs for {dataset['id']} seed {seed}")
+    q2.write_csv(
+        output_dir / "matching_pairs.csv",
+        [
+            {
+                "pair_id": i,
+                "selected_for_gradient": i < probe["gradient_pairs_per_seed"],
+                "near_index": int(n),
+                "far_index": int(f),
+                "near_abs_advantage": float(abs(advantages[n])),
+                "far_abs_advantage": float(abs(advantages[f])),
+                "near_standardized_distance": float(distances[n]),
+                "far_standardized_distance": float(distances[f]),
+            }
+            for i, (n, f) in enumerate(zip(near, far))
+        ],
+    )
+    q2.atomic_write_json(output_dir / "matching_summary.json", matching_summary)
+    probe_dir = output_dir / "probe_raw"
+    probe_summary = q2.create_gradient_probe(
+        policy=policy,
+        obs=obs,
+        actions=data.actions,
+        advantages=advantages,
+        near_indices=near,
+        far_indices=far,
+        population_indices=fixed_negative,
+        max_gradient_pairs=probe["gradient_pairs_per_seed"],
+        distance_bins=probe["far_distance_bins"],
+        device=device,
+        output_dir=probe_dir,
+    )
+    actor_sha = actor_audit["checkpoint"]["sha256"]
+    points = point_rows_from_probe(
+        read_csv(probe_dir / "matched_near_far_components.csv"),
+        dataset=dataset,
         seed=seed,
+        data=data,
+        gradient_pairs=probe["gradient_pairs_per_seed"],
+        critic_sha=critic_sha,
+        actor_sha=actor_sha,
+        runspec_sha=runspec["_sha256"],
+        base_config_sha=q2.sha256_file(ROOT / runspec["base_config_path"]),
+        source_commit=source_commit,
+        runner_sha=runner_sha,
+        probe=probe,
     )
-    selected = selection["indices"]
-    components = _components(policy, obs, data.actions, selected, device)
-    gradients = q2.per_sample_gradient_norm(
-        policy, obs, data.actions, advantages, selected, device
-    )
-    actor_sha = q2.sha256_file(actor_path)
-    base_sha = q2.sha256_file(ROOT / runspec["base_config_path"])
-    points = []
-    for position, transition in enumerate(selected):
-        distance_bin = int(selection["distance_bin"][position])
-        advantage_bin = int(selection["advantage_bin"][position])
-        row = {
-            "dataset_id": dataset["id"],
-            "dataset_sha256": dataset["sha256"],
-            "seed": seed,
-            "distance_bin": distance_bin,
-            "advantage_bin": advantage_bin,
-            "match_group_id": int(selection["match_group_id"][position]),
-            "target_abs_advantage": float(
-                selection["target_abs_advantage"][position]
-            ),
-            "relative_advantage_error": float(
-                selection["relative_advantage_error"][position]
-            ),
-            "transition_index": int(transition),
-            "episode_id": int(data.episode_ids[transition]),
-            "split": "critic_train_episode_split",
-            "advantage": float(advantages[transition]),
-            "abs_advantage": float(abs(advantages[transition])),
-            "full_parameter_gradient_norm": float(gradients[position]),
-            "distance_bin_left": float(selection["distance_edges"][distance_bin]),
-            "distance_bin_right": float(
-                selection["distance_edges"][distance_bin + 1]
-            ),
-            "advantage_bin_left": float(
-                selection["advantage_edges"][advantage_bin]
-            ),
-            "advantage_bin_right": float(
-                selection["advantage_edges"][advantage_bin + 1]
-            ),
-            "critic_checkpoint_sha256": context["complete"]["critic_checkpoint"][
-                "sha256"
-            ],
-            "positive_actor_checkpoint_sha256": actor_sha,
-            "runspec_sha256": runspec["_sha256"],
-            "base_config_sha256": base_sha,
-            "source_commit_sha": source_commit,
-            "runner_sha256": runner_sha,
-        }
-        for key, values in components.items():
-            row["standardized_distance" if key == "radius" else key] = float(
-                values[position]
-            )
-        if set(row) != set(POINT_FIELDS):
-            missing = sorted(set(POINT_FIELDS) - set(row))
-            extra = sorted(set(row) - set(POINT_FIELDS))
-            raise RuntimeError(
-                f"point schema mismatch: missing={missing}, extra={extra}"
-            )
-        points.append(row)
     point_path = output_dir / "gradient_probe_points.csv"
     q2.write_csv(point_path, points)
-    curve = _seed_curve(points, probe["distance_bins"])
-    for row in curve:
-        row.update({"dataset_id": dataset["id"], "seed": seed})
-    q2.write_csv(output_dir / "seed_curve.csv", curve)
-    selection_audit.update(
+    probe_summary.update(
         {
+            "saved_point_rows": len(points),
             "point_file_sha256": q2.sha256_file(point_path),
-            "abs_advantage_curve_max_min_ratio": max(
-                row["abs_advantage_mean"] for row in curve
-            )
-            / max(min(row["abs_advantage_mean"] for row in curve), 1e-12),
+            "protocol_preserved_from": "EXT-H-E7-Q2",
         }
     )
-    q2.atomic_write_json(output_dir / "probe_selection_audit.json", selection_audit)
+    q2.atomic_write_json(output_dir / "gradient_probe_summary.json", probe_summary)
     complete = {
-        "identity_sha256": _payload_sha256(identity),
+        "identity_sha256": payload_hash(identity),
         "dataset_id": dataset["id"],
         "seed": seed,
+        "matching_pair_pool": len(near),
+        "gradient_pairs": probe["gradient_pairs_per_seed"],
         "point_rows": len(points),
         "positive_actor_fixed_budget_completed": True,
-        "positive_actor_support_boundary_event": actor_audit[
-            "support_boundary_event"
-        ],
+        "positive_actor_support_boundary_event": actor_audit["support_boundary_event"],
         "positive_actor_numerical_nonfinite": actor_audit["numerical_nonfinite"],
         "task_performance_collapse": "not_evaluated_in_gradient_only_diagnostic",
         "completed_utc": q2.utc_now(),
@@ -772,54 +506,218 @@ def _run_seed(
     return complete
 
 
-def _dataset_worker(payload: dict[str, Any]) -> dict[str, Any]:
+def bootstrap_ci(values: Iterable[float], *, seed: int, draws: int) -> tuple[float, float, float]:
+    import numpy as np
+
+    array = np.asarray(list(values), dtype=np.float64)
+    if len(array) == 0:
+        raise ValueError("bootstrap requires values")
+    mean = float(array.mean())
+    if len(array) == 1:
+        return mean, mean, mean
+    rng = np.random.default_rng(seed)
+    means = rng.choice(array, size=(draws, len(array)), replace=True).mean(axis=1)
+    low, high = np.quantile(means, (0.025, 0.975))
+    return mean, float(low), float(high)
+
+
+def build_plot_rows(
+    points: Sequence[dict[str, Any]],
+    *,
+    dataset_id: str,
+    seeds: Sequence[int],
+    far_bins: int,
+    bootstrap_draws: int,
+    bootstrap_seed: int,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
+    import numpy as np
+
+    rows = []
+    for source in points:
+        row = dict(source)
+        for key in ("seed", "pair_id", "transition_index", "episode_id"):
+            row[key] = int(row[key])
+        for key in ("abs_advantage", "standardized_distance", "full_parameter_gradient_norm"):
+            row[key] = float(row[key])
+        rows.append(row)
+    expected_seeds = tuple(int(seed) for seed in seeds)
+    if tuple(sorted({row["seed"] for row in rows})) != expected_seeds:
+        raise RuntimeError(f"seed set mismatch for {dataset_id}")
+    far_distance = np.asarray(
+        [row["standardized_distance"] for row in rows if row["pair_role"] == "far"]
+    )
+    edges = np.unique(np.quantile(far_distance, np.linspace(0.0, 1.0, far_bins + 1)))
+    if len(edges) != far_bins + 1:
+        raise RuntimeError(f"far distance quantiles collapsed for {dataset_id}")
+    binned = []
+    for source in rows:
+        row = dict(source)
+        if row["pair_role"] == "near":
+            row.update(distance_bin=-1, distance_bin_left=None, distance_bin_right=None)
+        elif row["pair_role"] == "far":
+            bin_id = int(np.clip(np.searchsorted(edges[1:-1], row["standardized_distance"], side="right"), 0, far_bins - 1))
+            row.update(
+                distance_bin=bin_id,
+                distance_bin_left=float(edges[bin_id]),
+                distance_bin_right=float(edges[bin_id + 1]),
+            )
+        else:
+            raise RuntimeError(f"unknown pair role: {row['pair_role']}")
+        binned.append(row)
+    seed_curves = []
+    for seed in expected_seeds:
+        local = [row for row in binned if row["seed"] == seed]
+        near = [row for row in local if row["pair_role"] == "near"]
+        far = [row for row in local if row["pair_role"] == "far"]
+        if len(near) != len(far) or {x["pair_id"] for x in near} != {x["pair_id"] for x in far}:
+            raise RuntimeError(f"unbalanced pairs for {dataset_id} seed {seed}")
+        bases = (
+            np.mean([x["standardized_distance"] for x in near]),
+            np.mean([x["full_parameter_gradient_norm"] for x in near]),
+            np.mean([x["abs_advantage"] for x in near]),
+        )
+        seed_curves.append(
+            {
+                "dataset_id": dataset_id,
+                "seed": seed,
+                "distance_bin": -1,
+                "relative_distance": 1.0,
+                "relative_gradient": 1.0,
+                "relative_abs_advantage": 1.0,
+                "n_samples": len(near),
+            }
+        )
+        for bin_id in range(far_bins):
+            selected = [x for x in far if x["distance_bin"] == bin_id]
+            if selected:
+                seed_curves.append(
+                    {
+                        "dataset_id": dataset_id,
+                        "seed": seed,
+                        "distance_bin": bin_id,
+                        "relative_distance": float(np.mean([x["standardized_distance"] for x in selected]) / max(bases[0], 1e-12)),
+                        "relative_gradient": float(np.mean([x["full_parameter_gradient_norm"] for x in selected]) / max(bases[1], 1e-12)),
+                        "relative_abs_advantage": float(np.mean([x["abs_advantage"] for x in selected]) / max(bases[2], 1e-12)),
+                        "n_samples": len(selected),
+                    }
+                )
+    plot_rows = []
+    for bin_id in (-1, *range(far_bins)):
+        local = [x for x in seed_curves if x["distance_bin"] == bin_id]
+        if not local:
+            raise RuntimeError(f"empty aggregate bin {bin_id} for {dataset_id}")
+        if bin_id == -1:
+            distance = gradient = advantage = (1.0, 1.0, 1.0)
+        else:
+            base = bootstrap_seed + 1000 * bin_id
+            distance = bootstrap_ci((x["relative_distance"] for x in local), seed=base + 11, draws=bootstrap_draws)
+            gradient = bootstrap_ci((x["relative_gradient"] for x in local), seed=base + 23, draws=bootstrap_draws)
+            advantage = bootstrap_ci((x["relative_abs_advantage"] for x in local), seed=base + 37, draws=bootstrap_draws)
+        plot_rows.append(
+            {
+                "dataset_id": dataset_id,
+                "distance_bin": bin_id,
+                "relative_distance": distance[0],
+                "relative_gradient_mean": gradient[0],
+                "relative_gradient_ci_low": gradient[1],
+                "relative_gradient_ci_high": gradient[2],
+                "relative_abs_advantage_mean": advantage[0],
+                "relative_abs_advantage_ci_low": advantage[1],
+                "relative_abs_advantage_ci_high": advantage[2],
+                "n_seeds": len(local),
+                "n_samples": sum(int(x["n_samples"]) for x in local),
+            }
+        )
+    near = [x for x in binned if x["pair_role"] == "near"]
+    far = [x for x in binned if x["pair_role"] == "far"]
+    summary = {
+        "dataset_id": dataset_id,
+        "distance_edges": edges.tolist(),
+        "matched_pairs_per_seed": len(near) // len(expected_seeds),
+        "point_rows": len(binned),
+        "farthest_relative_distance": plot_rows[-1]["relative_distance"],
+        "farthest_relative_gradient": plot_rows[-1]["relative_gradient_mean"],
+        "farthest_relative_abs_advantage": plot_rows[-1]["relative_abs_advantage_mean"],
+        "absolute_advantage_far_near_ratio_all_points": float(
+            np.mean([x["abs_advantage"] for x in far]) / max(np.mean([x["abs_advantage"] for x in near]), 1e-12)
+        ),
+        "n_seeds": len(expected_seeds),
+    }
+    return binned, seed_curves, plot_rows, summary
+
+
+def aggregate_dataset(output_dir: Path, dataset: dict[str, Any], runspec: dict[str, Any]) -> dict[str, Any]:
+    from drpo import e7_hopper_q2 as q2
+
+    points = []
+    for seed in runspec["protocol"]["seeds"]:
+        points.extend(read_csv(output_dir / f"seed_{seed}" / "gradient_probe_points.csv"))
+    aggregation = runspec["protocol"]["aggregation"]
+    seed_value = int(payload_hash(dataset["id"])[:8], 16) + aggregation["bootstrap_seed"]
+    binned, seed_curves, plot_rows, summary = build_plot_rows(
+        points,
+        dataset_id=dataset["id"],
+        seeds=runspec["protocol"]["seeds"],
+        far_bins=runspec["protocol"]["probe"]["far_distance_bins"],
+        bootstrap_draws=aggregation["bootstrap_draws"],
+        bootstrap_seed=seed_value,
+    )
+    q2.write_csv(output_dir / "dataset_gradient_probe_points.csv", binned)
+    q2.write_csv(output_dir / "dataset_seed_curves.csv", seed_curves)
+    q2.write_csv(output_dir / "dataset_plot_data.csv", plot_rows)
+    summary.update(dataset_sha256=dataset["sha256"], scientific_status="pilot", completed_utc=q2.utc_now())
+    q2.atomic_write_json(output_dir / "DATASET_AGGREGATE_COMPLETE.json", summary)
+    return summary
+
+
+def dataset_worker(payload: dict[str, Any]) -> dict[str, Any]:
     from drpo import e7_bench
     from drpo import e7_hopper_q2 as q2
 
     dataset = payload["dataset"]
     output_dir = Path(payload["work_dir"]) / "datasets" / dataset["id"]
     try:
-        _configure_threads(payload["cpus_per_worker"])
+        configure_threads(payload["cpus_per_worker"])
         runspec = load_runspec(payload["runspec_path"])
-        spec = _dataset_spec(dataset, dataset["sha256"])
-        data = e7_bench.load_dataset(
-            Path(dataset["resolved_path"]), spec, max_transitions=None
-        )
-        config, mode = _adapt_config(runspec, dataset)
+        data = e7_bench.load_dataset(Path(dataset["resolved_path"]), dataset_spec(dataset, dataset["sha256"]), max_transitions=None)
+        config, mode = adapted_config(runspec, dataset)
         device = q2.choose_device(payload["device"])
-        critic_identity = {
-            "dataset_sha256": dataset["sha256"],
-            "runspec_sha256": runspec["_sha256"],
-            "source_commit": payload["source_commit"],
-            "runner_sha256": payload["runner_sha256"],
-            "critic_seed": 100,
-            "critic_steps": mode.critic_max_steps,
+        canonical_root = output_dir / "canonical_critic"
+        if canonical_root.exists() and not payload["resume"]:
+            raise RuntimeError(f"canonical critic exists for {dataset['id']}; pass --resume")
+        manifest = {
+            "basename": Path(dataset["resolved_path"]).name,
+            "sha256": dataset["sha256"],
+            "size_bytes": dataset["size_bytes"],
         }
-        context = _critic_context(
-            dataset,
-            runspec,
-            data,
-            config,
-            mode,
-            device,
-            output_dir / "critic_context",
-            payload["resume"],
-            critic_identity,
+        canonical = q2.prepare_canonical_critic_context(
+            data=data,
+            config=config,
+            mode=mode,
+            mode_name="pilot",
+            config_path=Path(runspec["_path"]),
+            dataset_manifest=manifest,
+            device=device,
+            artifact_root=canonical_root,
+            reuse_root=None,
+            heartbeat=lambda stage, step: heartbeat(
+                output_dir / "HEARTBEAT.json", stage, step, dataset_id=dataset["id"]
+            ),
         )
         completions = [
-            _run_seed(
-                seed,
-                dataset,
-                runspec,
-                data,
-                config,
-                mode,
-                context,
-                device,
-                output_dir / f"seed_{seed}",
-                payload["resume"],
-                payload["source_commit"],
-                payload["runner_sha256"],
+            run_seed(
+                seed=seed,
+                dataset=dataset,
+                runspec=runspec,
+                data=data,
+                config=config,
+                mode=mode,
+                canonical=canonical,
+                device=device,
+                output_dir=output_dir / f"seed_{seed}",
+                resume=payload["resume"],
+                source_commit=payload["source_commit"],
+                runner_sha=payload["runner_sha256"],
             )
             for seed in runspec["protocol"]["seeds"]
         ]
@@ -829,6 +727,7 @@ def _dataset_worker(payload: dict[str, Any]) -> dict[str, Any]:
             "transitions": data.size,
             "episodes": int(data.episode_ids.max()) + 1,
             "seed_count": len(completions),
+            "aggregate": aggregate_dataset(output_dir, dataset, runspec),
             "completed_utc": q2.utc_now(),
         }
         q2.atomic_write_json(output_dir / "DATASET_COMPLETE.json", result)
@@ -847,73 +746,26 @@ def _dataset_worker(payload: dict[str, Any]) -> dict[str, Any]:
         raise
 
 
-def _read_csv(path: Path) -> list[dict[str, str]]:
-    with path.open(newline="") as handle:
-        return list(csv.DictReader(handle))
-
-
-def _mean_ci95(values: Iterable[float]) -> tuple[float, float, float]:
-    import numpy as np
-
-    values = np.asarray(list(values), dtype=np.float64)
-    mean = float(values.mean())
-    if len(values) == 1:
-        return mean, mean, mean
-    half = 1.96 * float(values.std(ddof=1)) / math.sqrt(len(values))
-    return mean, mean - half, mean + half
-
-
-def _plot(rows: Sequence[dict[str, Any]], output_dir: Path) -> list[str]:
+def plot_appendix(rows: Sequence[dict[str, Any]], output_dir: Path) -> list[str]:
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    titles = {
-        dataset: dataset.replace("-v2", "").replace("-", " ") for dataset in D4RL9
-    }
     figure, axes = plt.subplots(3, 3, figsize=(13.2, 10.2))
     handles = labels = None
-    for axis, dataset in zip(axes.flat, D4RL9):
-        local = sorted(
-            (row for row in rows if row["dataset_id"] == dataset),
-            key=lambda row: row["distance_bin"],
-        )
-        x = [row["relative_distance"] for row in local]
+    for axis, dataset_id in zip(axes.flat, D4RL9):
+        local = sorted((x for x in rows if x["dataset_id"] == dataset_id), key=lambda x: int(x["distance_bin"]))
+        x = [float(row["relative_distance"]) for row in local]
         for key, low, high, marker, linestyle, label in (
-            (
-                "relative_gradient_mean",
-                "relative_gradient_ci95_low",
-                "relative_gradient_ci95_high",
-                "o",
-                "-",
-                "implemented actor-gradient",
-            ),
-            (
-                "relative_abs_advantage_mean",
-                "relative_abs_advantage_ci95_low",
-                "relative_abs_advantage_ci95_high",
-                "s",
-                "--",
-                "matched |advantage|",
-            ),
+            ("relative_gradient_mean", "relative_gradient_ci_low", "relative_gradient_ci_high", "o", "-", "implemented actor-gradient"),
+            ("relative_abs_advantage_mean", "relative_abs_advantage_ci_low", "relative_abs_advantage_ci_high", "s", "--", "matched |advantage|"),
         ):
-            axis.plot(
-                x,
-                [row[key] for row in local],
-                marker=marker,
-                linestyle=linestyle,
-                label=label,
-            )
-            axis.fill_between(
-                x,
-                [row[low] for row in local],
-                [row[high] for row in local],
-                alpha=0.15,
-            )
+            axis.plot(x, [float(row[key]) for row in local], marker=marker, linestyle=linestyle, label=label)
+            axis.fill_between(x, [float(row[low]) for row in local], [float(row[high]) for row in local], alpha=0.15)
         axis.axhline(1.0, linewidth=0.8, alpha=0.6)
         axis.set(
-            title=titles[dataset],
+            title=dataset_id.replace("-v2", "").replace("-", " "),
             xlabel="relative standardized distance",
             ylabel="relative quantity",
         )
@@ -931,93 +783,38 @@ def _plot(rows: Sequence[dict[str, Any]], output_dir: Path) -> list[str]:
     return paths
 
 
-def aggregate(work_dir: Path, runspec: dict[str, Any]) -> dict[str, Any]:
+def aggregate_run(work_dir: Path, runspec: dict[str, Any]) -> dict[str, Any]:
     from drpo import e7_hopper_q2 as q2
 
-    aggregate_dir = work_dir / "aggregate"
-    aggregate_dir.mkdir(parents=True, exist_ok=True)
-    points, curves = [], []
-    for dataset in D4RL9:
-        for seed in runspec["protocol"]["seeds"]:
-            seed_dir = work_dir / "datasets" / dataset / f"seed_{seed}"
-            points.extend(_read_csv(seed_dir / "gradient_probe_points.csv"))
-            curves.extend(_read_csv(seed_dir / "seed_curve.csv"))
-    q2.write_csv(aggregate_dir / "d4rl9_gradient_probe_points.csv", points)
-    q2.write_csv(aggregate_dir / "d4rl9_seed_curves.csv", curves)
-    grouped = defaultdict(list)
-    counts = defaultdict(int)
-    for row in curves:
-        grouped[(row["dataset_id"], int(row["distance_bin"]))].append(row)
-    for row in points:
-        counts[(row["dataset_id"], int(row["distance_bin"]))] += 1
-    plot_rows = []
-    for dataset in D4RL9:
-        for distance_bin in range(runspec["protocol"]["probe"]["distance_bins"]):
-            local = grouped[(dataset, distance_bin)]
-            if len(local) != len(runspec["protocol"]["seeds"]):
-                raise RuntimeError(
-                    f"seed count mismatch for {dataset} bin {distance_bin}"
-                )
-            distance = _mean_ci95(float(row["relative_distance"]) for row in local)
-            gradient = _mean_ci95(float(row["relative_gradient"]) for row in local)
-            advantage = _mean_ci95(
-                float(row["relative_abs_advantage"]) for row in local
-            )
-            plot_rows.append(
-                {
-                    "dataset_id": dataset,
-                    "distance_bin": distance_bin,
-                    "relative_distance": distance[0],
-                    "relative_distance_ci95_low": distance[1],
-                    "relative_distance_ci95_high": distance[2],
-                    "relative_gradient_mean": gradient[0],
-                    "relative_gradient_ci95_low": gradient[1],
-                    "relative_gradient_ci95_high": gradient[2],
-                    "relative_abs_advantage_mean": advantage[0],
-                    "relative_abs_advantage_ci95_low": advantage[1],
-                    "relative_abs_advantage_ci95_high": advantage[2],
-                    "n_seeds": len(local),
-                    "n_samples": counts[(dataset, distance_bin)],
-                }
-            )
-    q2.write_csv(aggregate_dir / "d4rl9_plot_data.csv", plot_rows)
-    plots = _plot(plot_rows, aggregate_dir)
-    summaries = []
-    for dataset in D4RL9:
-        local = [row for row in plot_rows if row["dataset_id"] == dataset]
-        farthest = max(local, key=lambda row: row["distance_bin"])
-        advantages = [row["relative_abs_advantage_mean"] for row in local]
-        summaries.append(
-            {
-                "dataset_id": dataset,
-                "farthest_relative_distance": farthest["relative_distance"],
-                "farthest_relative_gradient": farthest["relative_gradient_mean"],
-                "farthest_relative_abs_advantage": farthest[
-                    "relative_abs_advantage_mean"
-                ],
-                "abs_advantage_curve_max_min_ratio": max(advantages)
-                / max(min(advantages), 1e-12),
-                "n_seeds": farthest["n_seeds"],
-                "n_points": sum(row["n_samples"] for row in local),
-            }
-        )
-    q2.write_csv(aggregate_dir / "dataset_summary.csv", summaries)
+    output_dir = work_dir / "aggregate"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    points, curves, plot_rows, summaries = [], [], [], []
+    for dataset_id in D4RL9:
+        source = work_dir / "datasets" / dataset_id
+        points.extend(read_csv(source / "dataset_gradient_probe_points.csv"))
+        curves.extend(read_csv(source / "dataset_seed_curves.csv"))
+        plot_rows.extend(read_csv(source / "dataset_plot_data.csv"))
+        summaries.append(json.loads((source / "DATASET_AGGREGATE_COMPLETE.json").read_text()))
+    q2.write_csv(output_dir / "d4rl9_gradient_probe_points.csv", points)
+    q2.write_csv(output_dir / "d4rl9_seed_curves.csv", curves)
+    q2.write_csv(output_dir / "d4rl9_plot_data.csv", plot_rows)
+    q2.write_csv(output_dir / "dataset_summary.csv", summaries)
     result = {
         "dataset_count": 9,
         "seed_count_per_dataset": len(runspec["protocol"]["seeds"]),
         "gradient_point_rows": len(points),
         "plot_data_rows": len(plot_rows),
-        "plot_paths": plots,
+        "plot_paths": plot_appendix(plot_rows, output_dir),
         "scientific_status": "pilot",
         "completed_utc": q2.utc_now(),
     }
-    q2.atomic_write_json(aggregate_dir / "AGGREGATE_COMPLETE.json", result)
+    q2.atomic_write_json(output_dir / "AGGREGATE_COMPLETE.json", result)
     return result
 
 
-def _plan(runspec: dict[str, Any], dataset_root: str | Path) -> dict[str, Any]:
+def plan(runspec: dict[str, Any], dataset_root: str | Path) -> dict[str, Any]:
     return {
-        "experiment_id": FIG1_ID,
+        "experiment_id": EXPERIMENT_ID,
         "scientific_status_cap": "pilot",
         "dataset_root": str(Path(dataset_root).expanduser().resolve()),
         "datasets": list(D4RL9),
@@ -1026,6 +823,7 @@ def _plan(runspec: dict[str, Any], dataset_root: str | Path) -> dict[str, Any]:
         "positive_actor_probe_jobs": 90,
         "method_branch_jobs": 0,
         "dataset_workers": runspec["execution"]["dataset_workers"],
+        "cpus_per_worker": runspec["execution"]["cpus_per_worker"],
         "device_pool": runspec["execution"]["device_pool"],
         "probe": runspec["protocol"]["probe"],
     }
@@ -1036,12 +834,10 @@ def run_figure1(args: argparse.Namespace) -> int:
 
     runspec = load_runspec(args.runspec)
     if args.plan:
-        print(json.dumps(_plan(runspec, args.dataset_root), indent=2))
+        print(json.dumps(plan(runspec, args.dataset_root), indent=2))
         return 0
     git_state = q2.collect_git_state(ROOT)
-    if not git_state.get("available") or str(
-        git_state.get("status_porcelain", "")
-    ).strip():
+    if not git_state.get("available") or str(git_state.get("status_porcelain", "")).strip():
         raise RuntimeError("Figure-1 execution requires a clean Git checkout")
     source_commit = str(git_state["head"])
     runner_sha = q2.sha256_file(Path(__file__).resolve())
@@ -1051,47 +847,47 @@ def run_figure1(args: argparse.Namespace) -> int:
     lock_path = work_dir / "DATASET_LOCK.json"
     if lock_path.is_file():
         previous = json.loads(lock_path.read_text())
-        if (
-            not args.resume
-            or previous["dataset_lock_sha256"] != lock["dataset_lock_sha256"]
-        ):
+        if not args.resume or previous.get("dataset_lock_sha256") != lock["dataset_lock_sha256"]:
             raise RuntimeError("work directory dataset lock conflict")
     q2.atomic_write_json(lock_path, lock)
-    q2.atomic_write_json(
-        work_dir / "RUNSPEC_RESOLVED.json",
-        {
-            **{key: value for key, value in runspec.items() if not key.startswith("_")},
-            "runspec_sha256": runspec["_sha256"],
-            "dataset_lock_sha256": lock["dataset_lock_sha256"],
-            "source_commit_sha": source_commit,
-            "runner_sha256": runner_sha,
-        },
-    )
+    resolved = {
+        **{key: value for key, value in runspec.items() if not key.startswith("_")},
+        "runspec_sha256": runspec["_sha256"],
+        "dataset_lock_sha256": lock["dataset_lock_sha256"],
+        "source_commit_sha": source_commit,
+        "runner_sha256": runner_sha,
+    }
+    q2.atomic_write_json(work_dir / "RUNSPEC_RESOLVED.json", resolved)
     if args.validate_only:
         q2.atomic_write_json(
             work_dir / "PREFLIGHT_COMPLETE.json",
-            {
-                "training_started": False,
-                "dataset_lock_sha256": lock["dataset_lock_sha256"],
-                "completed_utc": q2.utc_now(),
-            },
+            {"training_started": False, "dataset_lock_sha256": lock["dataset_lock_sha256"], "completed_utc": q2.utc_now()},
         )
         return 0
-    if (work_dir / "RUN_COMPLETE.json").is_file():
-        if args.resume:
+    complete_path = work_dir / "RUN_COMPLETE.json"
+    identity = {
+        "runspec_sha256": runspec["_sha256"],
+        "dataset_lock_sha256": lock["dataset_lock_sha256"],
+        "source_commit_sha": source_commit,
+        "runner_sha256": runner_sha,
+    }
+    if complete_path.is_file():
+        existing = json.loads(complete_path.read_text())
+        if args.resume and all(existing.get(key) == value for key, value in identity.items()):
             return 0
-        raise RuntimeError(
-            "RUN_COMPLETE.json exists; pass --resume or use a new work directory"
-        )
+        raise RuntimeError("RUN_COMPLETE.json has a conflicting identity; use a new work directory")
     devices = (
-        [value.strip() for value in args.device_pool.split(",") if value.strip()]
+        [item.strip() for item in args.device_pool.split(",") if item.strip()]
         if args.device_pool
         else list(runspec["execution"]["device_pool"])
     )
     workers = min(args.workers or runspec["execution"]["dataset_workers"], 9)
     cpus = args.cpus_per_worker or runspec["execution"]["cpus_per_worker"]
-    if not devices or workers < 1 or cpus < 1:
+    if not devices or min(workers, cpus) < 1:
         raise ValueError("device pool, workers, and cpus-per-worker must be positive")
+    available = os.cpu_count() or 1
+    if workers * cpus > available:
+        raise RuntimeError(f"refusing CPU oversubscription: {workers} x {cpus} > {available}")
     payloads = [
         {
             "dataset": dataset,
@@ -1106,39 +902,43 @@ def run_figure1(args: argparse.Namespace) -> int:
         for index, dataset in enumerate(lock["datasets"])
     ]
     manifest = {
-        "experiment_id": FIG1_ID,
-        "runner_version": FIG1_VERSION,
+        "experiment_id": EXPERIMENT_ID,
+        "runner_version": RUNNER_VERSION,
         "scientific_status_cap": "pilot",
-        "runspec_sha256": runspec["_sha256"],
-        "dataset_lock_sha256": lock["dataset_lock_sha256"],
-        "source_commit_sha": source_commit,
-        "runner_sha256": runner_sha,
+        **identity,
         "git_state": git_state,
-        "execution_plan": _plan(runspec, args.dataset_root),
+        "execution_plan": plan(runspec, args.dataset_root),
         "started_utc": q2.utc_now(),
     }
     q2.atomic_write_json(work_dir / "RUN_MANIFEST.json", manifest)
     try:
         if workers == 1:
-            results = [_dataset_worker(payload) for payload in payloads]
+            results = [dataset_worker(payload) for payload in payloads]
         else:
             with concurrent.futures.ProcessPoolExecutor(
-                max_workers=workers,
-                mp_context=multiprocessing.get_context("spawn"),
+                max_workers=workers, mp_context=multiprocessing.get_context("spawn")
             ) as executor:
-                futures = [executor.submit(_dataset_worker, payload) for payload in payloads]
-                results = [future.result() for future in futures]
+                futures = [executor.submit(dataset_worker, payload) for payload in payloads]
+                results = []
+                try:
+                    for future in concurrent.futures.as_completed(futures):
+                        results.append(future.result())
+                except Exception:
+                    for pending in futures:
+                        pending.cancel()
+                    raise
+        by_id = {row["dataset_id"]: row for row in results}
         complete = {
             **manifest,
-            "dataset_results": results,
-            "aggregate": aggregate(work_dir, runspec),
+            "dataset_results": [by_id[item] for item in D4RL9],
+            "aggregate": aggregate_run(work_dir, runspec),
             "raw_complete": True,
             "task_performance_collapse": "not_evaluated",
             "support_or_variance_boundary": "preserved_per_positive_only_seed_audit",
             "nan_inf_numerical_failure": "fail_closed",
             "completed_utc": q2.utc_now(),
         }
-        q2.atomic_write_json(work_dir / "RUN_COMPLETE.json", complete)
+        q2.atomic_write_json(complete_path, complete)
         return 0
     except Exception as exc:
         q2.atomic_write_json(
@@ -1159,50 +959,49 @@ def self_test() -> int:
     import numpy as np
 
     rng = np.random.default_rng(7)
-    count = 7000
-    distances = np.exp(rng.normal(size=count))
-    advantages = -np.exp(rng.normal(scale=0.4, size=count))
-    selection, audit = select_matched_points(
-        np.arange(count),
-        distances,
-        advantages,
-        distance_bins=7,
-        advantage_bins=8,
-        point_budget=64,
-        minimum_per_bin=4,
-        tolerance=0.05,
-        seed=100,
+    points = []
+    for seed in range(100, 110):
+        advantage = np.exp(rng.normal(scale=0.25, size=64))
+        near = np.exp(rng.normal(scale=0.08, size=64))
+        far = np.linspace(2.8, 6.0, 64) * np.exp(rng.normal(scale=0.025, size=64))
+        for pair_id in range(64):
+            for role, distance, gradient, magnitude in (
+                ("near", near[pair_id], near[pair_id] * advantage[pair_id], advantage[pair_id]),
+                ("far", far[pair_id], far[pair_id] * advantage[pair_id], advantage[pair_id] * (1 + rng.normal(scale=0.002))),
+            ):
+                points.append(
+                    {
+                        "dataset_id": "synthetic",
+                        "seed": seed,
+                        "pair_id": pair_id,
+                        "pair_role": role,
+                        "transition_index": seed * 1000 + pair_id,
+                        "episode_id": pair_id,
+                        "abs_advantage": magnitude,
+                        "standardized_distance": distance,
+                        "full_parameter_gradient_norm": gradient,
+                    }
+                )
+    binned, _, plot_rows, summary = build_plot_rows(
+        points,
+        dataset_id="synthetic",
+        seeds=tuple(range(100, 110)),
+        far_bins=7,
+        bootstrap_draws=1000,
+        bootstrap_seed=42,
     )
-    assert len(selection["indices"]) == 7 * audit["points_per_distance_bin"]
-    assert audit["max_relative_advantage_error"] <= 0.05
-    assert len(set(np.bincount(selection["distance_bin"]))) == 1
-    synthetic = []
-    for position, index in enumerate(selection["indices"]):
-        synthetic.append(
-            {
-                "distance_bin": int(selection["distance_bin"][position]),
-                "standardized_distance": float(distances[index]),
-                "full_parameter_gradient_norm": float(distances[index] ** 1.2),
-                "abs_advantage": float(abs(advantages[index])),
-            }
-        )
-    curve = _seed_curve(synthetic, 7)
-    assert curve[0]["relative_distance"] == curve[0]["relative_gradient"] == 1.0
-    print(
-        json.dumps(
-            {"self_test": "passed", "selected_points": len(synthetic)}, indent=2
-        )
-    )
+    assert len(binned) == 1280 and len(plot_rows) == 8
+    assert plot_rows[0]["distance_bin"] == -1 and plot_rows[0]["n_samples"] == 640
+    assert sum(row["n_samples"] for row in plot_rows[1:]) == 640
+    assert plot_rows[-1]["relative_gradient_mean"] > plot_rows[1]["relative_gradient_mean"]
+    assert math.isclose(summary["absolute_advantage_far_near_ratio_all_points"], 1.0, abs_tol=0.01)
+    print(json.dumps({"self_test": "passed", "selected_point_rows": len(binned), "plot_rows": len(plot_rows)}, indent=2))
     return 0
 
 
 def figure1_main(argv: Sequence[str]) -> int:
-    parser = argparse.ArgumentParser(
-        description="D4RL-9 Figure-1 gradient coverage diagnostic"
-    )
-    parser.add_argument(
-        "--runspec", default="configs/e7_figure1_d4rl9_runspec.yaml"
-    )
+    parser = argparse.ArgumentParser(description="D4RL-9 Figure-1 gradient coverage diagnostic")
+    parser.add_argument("--runspec", default="configs/e7_figure1_d4rl9_runspec.yaml")
     parser.add_argument("--dataset-root")
     parser.add_argument("--work-dir")
     parser.add_argument("--device-pool")
