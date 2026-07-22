@@ -1,0 +1,35 @@
+subsubsection{External Validation of Remoteness Tapering}
+ \label{sec:external_tapers}
+@@ -1376,9 +1379,10 @@ near-field utility matching, they test transfer rather than repeat the
+ controlled causal identification.
+ 
+ The external summary in Figure~\ref{fig:taper_control_and_transfer}
+-pre-registers the transfer comparison, but its cells remain open pending
+-the formal runs and terminal audit. We therefore make no task-level
+-ranking claim from this panel. The controlled results establish the
++now reports the fixed-budget Countdown-0.5B late-window summary, while
++the Hopper cells remain open pending the formal run and terminal audit.
++We therefore treat the panel as partial transfer evidence rather than a
++closed cross-task ranking. The controlled results establish the
+ stability--utility mechanism; the external panel tests whether that
+ principle transfers to continuous offline control and autoregressive
+ policy optimization.
+@@ -5263,4 +5267,48 @@ events, and NaN/Inf numerical failures are audited independently.
+ Claims about stability or final method ranking use the registered
+ terminal checkpoint audit rather than finite-step pilot behavior.
+ 
++
++\subsection{Countdown Taper-Coefficient Sensitivity}
++\label{app:countdown_taper_sensitivity}
++
++Figure~\ref{fig:app_countdown_taper_coefficient_response} reports the
++complete stored late-window Pass@8 coefficient response for the
++Countdown-0.5B taper study under the fixed 1,200-step budget. Here the
++late-window metric averages the final five evaluations (steps 800, 900,
++1000, 1100, and 1200). Each point is the mean of the two paired
++development seeds, and each error bar spans the corresponding pair of
++seed values. The horizontal reference is the Positive-only late-window
++mean of 14.0\%.
++
++\begin{figure}[t]
++    \
