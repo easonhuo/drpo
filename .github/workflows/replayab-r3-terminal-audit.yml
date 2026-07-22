@@ -50,8 +50,13 @@ jobs:
             name="$1"
             shift
             echo "::group::$name"
-            "$@" > >(tee "$AUDIT_DIR/logs/$name.log") 2>&1
-            status=$?
+            "$@" 2>&1 | tee "$AUDIT_DIR/logs/$name.log"
+            command_status=${PIPESTATUS[0]}
+            tee_status=${PIPESTATUS[1]}
+            status=$command_status
+            if [ "$tee_status" -ne 0 ]; then
+              status=$tee_status
+            fi
             echo "::endgroup::"
             printf '%s\t%s\n' "$name" "$status" >> "$AUDIT_DIR/gate-status.tsv"
             if [ "$status" -ne 0 ]; then
@@ -274,7 +279,7 @@ jobs:
           name: replayab-r3-terminal-audit-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
           path: replayab-r3-terminal-audit/
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 90
           compression-level: 0
 
       - name: Publish audit identity
