@@ -23,7 +23,8 @@ gate, provenance rule, and reporting boundary.
 
 - `src/drpo/countdown_e8_alpha1_highc_scan_runtime.py`
 - `scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py`
-- `scripts/run_e8_asymre_matrix_replay_ab.sh`
+- `scripts/run_e8_experiment_matrix_replay_ab.sh`
+- `scripts/run_e8_asymre_matrix_replay_ab.sh` (backward-compatible entrypoint)
 - `docs/development_workflow_optimization/E8_CONFIG_DRIVEN_ADAPTER_CONTRACT.md`
 - `docs/scopes/GOV-E8-CONFIG-DRIVEN-ADAPTERS-01.md`
 - PR descriptions and review comments for PR #250 and its Replay evidence
@@ -84,7 +85,8 @@ This scope does not authorize changes to:
 - isolated three-structure adapter checks;
 - exact-head full pytest, Ruff, handoff authority, formal execution channel,
   governance, and evidence locator;
-- full-family Replay execution when a stable full checkout executor is
-  available.
+- full-family Replay execution through
+  `bash scripts/run_e8_experiment_matrix_replay_ab.sh` when a stable full
+  checkout executor is available.
 
 Smoke, plan, static checks, and Replay are engineering evidence only.
