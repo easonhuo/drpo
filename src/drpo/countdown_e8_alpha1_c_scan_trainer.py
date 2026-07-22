@@ -219,6 +219,10 @@ def train_cell(
                 "method": cell.method,
                 "alpha": cell.alpha,
                 "c": cell.c,
+                "delta_v": cell.delta_v if cell.method == "asymre" else None,
+                "positive_coefficient": 1.0 - cell.delta_v if cell.method == "asymre" else 1.0,
+                "negative_repulsion_coefficient": 1.0 + cell.delta_v if cell.method == "asymre" else cell.alpha,
+                "distance_control": cell.method != "asymre",
                 "test_data_used": False,
             }
         )
@@ -313,7 +317,11 @@ def train_cell(
                     packed["unique_counts"],
                     packed["raw_bank_counts"],
                 )
-            raw_loss = -(positive_lp - weighted_negative_lp)
+            raw_loss = -(
+                ((1.0 - cell.delta_v) if cell.method == "asymre" else 1.0)
+                * positive_lp
+                - weighted_negative_lp
+            )
             if not bool(torch.isfinite(raw_loss)):
                 numerical_failure = f"nonfinite_loss_at_step_{update_step}"
                 stop_reason = numerical_failure
@@ -376,6 +384,10 @@ def train_cell(
                 "method": cell.method,
                 "alpha": cell.alpha,
                 "c": cell.c,
+                "delta_v": cell.delta_v if cell.method == "asymre" else None,
+                "positive_coefficient": 1.0 - cell.delta_v if cell.method == "asymre" else 1.0,
+                "negative_repulsion_coefficient": 1.0 + cell.delta_v if cell.method == "asymre" else cell.alpha,
+                "distance_control": cell.method != "asymre",
                 "test_data_used": False,
                 **accum,
             }
@@ -437,8 +449,17 @@ def train_cell(
         "method": cell.method,
         "alpha": cell.alpha,
         "c": cell.c,
+        "delta_v": cell.delta_v if cell.method == "asymre" else None,
+        "positive_coefficient": 1.0 - cell.delta_v if cell.method == "asymre" else 1.0,
+        "negative_repulsion_coefficient": 1.0 + cell.delta_v if cell.method == "asymre" else cell.alpha,
+        "distance_control": cell.method != "asymre",
+        "objective_formula": (
+            "(1-delta_v)*positive_lp-(1+delta_v)*negative_lp"
+            if cell.method == "asymre"
+            else "positive_lp-weighted_negative_lp"
+        ),
         "weight_formula": str(grid_config["remoteness"]["weight"]),
-        "u_definition": "current_sequence_surprisal/2",
+        "u_definition": None if cell.method == "asymre" else "current_sequence_surprisal/2",
         "unique_negative_denominator": True,
         "weight_sum_normalization": False,
         "extreme_selection_used": False,

@@ -1,0 +1,864 @@
+{
+  "current_before_commit": "b18aea9186d7e3ccc5d43b456719cafc23761e03",
+  "current_handoff_before_sha256": "9184a35c57d2741d2d5ad218355a56fc57f708f0ffe1809be396f35bd844ded1",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "e8-evaluation-protocol-01",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1"
+          },
+          {
+            "path": "docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md",
+            "sha256": "87a672664111a334320b3b0cbf4c2c34ffb563eeb19626adc315194625ecbfac"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "53f7248695eaa2ad731a56348ebc62e805445b992243178a47539c22024f0023"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml",
+            "sha256": "900f59d8f626ee534d08a66abab04260ccbb7cfcf1cf3184871a66fb59442414"
+          }
+        ],
+        "field_path": [
+          "evaluation_protocol"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal, and the separate unused test.jsonl is not evidence that evaluation was absent.",
+        "to": {
+          "best_checkpoint_role": "supplementary_only",
+          "best_checkpoint_saved": true,
+          "enters_training_loss": false,
+          "paper_facing_summary": [
+            "late_window_pass_at_8",
+            "terminal_pass_at_8"
+          ],
+          "response_curve_mode": "staged_full_grid_reporting",
+          "separate_test_jsonl_required_for_existing_curve_validity": false,
+          "separate_test_jsonl_used": false,
+          "split_file": "val.jsonl",
+          "split_role": "structurally_disjoint_held_out_evaluation",
+          "train_problem_key_overlap": "none",
+          "train_structure_overlap": "none"
+        }
+      },
+      {
+        "change_id": "e8-evaluation-protocol-02",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1"
+          },
+          {
+            "path": "docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md",
+            "sha256": "87a672664111a334320b3b0cbf4c2c34ffb563eeb19626adc315194625ecbfac"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "53f7248695eaa2ad731a56348ebc62e805445b992243178a47539c22024f0023"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml",
+            "sha256": "900f59d8f626ee534d08a66abab04260ccbb7cfcf1cf3184871a66fb59442414"
+          }
+        ],
+        "field_path": [
+          "evaluation_protocol"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal, and the separate unused test.jsonl is not evidence that evaluation was absent.",
+        "to": {
+          "best_checkpoint_role": "supplementary_only",
+          "best_checkpoint_saved": true,
+          "enters_training_loss": false,
+          "paper_facing_summary": [
+            "late_window_pass_at_8",
+            "terminal_pass_at_8"
+          ],
+          "response_curve_mode": "staged_full_grid_reporting",
+          "separate_test_jsonl_required_for_existing_curve_validity": false,
+          "separate_test_jsonl_used": false,
+          "split_file": "val.jsonl",
+          "split_role": "structurally_disjoint_held_out_evaluation",
+          "train_problem_key_overlap": "none",
+          "train_structure_overlap": "none"
+        }
+      },
+      {
+        "change_id": "e8-evaluation-protocol-03",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-HIGHC-SCAN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1"
+          },
+          {
+            "path": "docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md",
+            "sha256": "87a672664111a334320b3b0cbf4c2c34ffb563eeb19626adc315194625ecbfac"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "53f7248695eaa2ad731a56348ebc62e805445b992243178a47539c22024f0023"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml",
+            "sha256": "900f59d8f626ee534d08a66abab04260ccbb7cfcf1cf3184871a66fb59442414"
+          }
+        ],
+        "field_path": [
+          "evaluation_protocol"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal, and the separate unused test.jsonl is not evidence that evaluation was absent.",
+        "to": {
+          "best_checkpoint_role": "supplementary_only",
+          "best_checkpoint_saved": true,
+          "enters_training_loss": false,
+          "paper_facing_summary": [
+            "late_window_pass_at_8",
+            "terminal_pass_at_8"
+          ],
+          "response_curve_mode": "staged_full_grid_reporting",
+          "separate_test_jsonl_required_for_existing_curve_validity": false,
+          "separate_test_jsonl_used": false,
+          "split_file": "val.jsonl",
+          "split_role": "structurally_disjoint_held_out_evaluation",
+          "train_problem_key_overlap": "none",
+          "train_structure_overlap": "none"
+        }
+      },
+      {
+        "change_id": "e8-evaluation-protocol-04",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-LOGC-BOUNDARY-SCAN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1"
+          },
+          {
+            "path": "docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md",
+            "sha256": "87a672664111a334320b3b0cbf4c2c34ffb563eeb19626adc315194625ecbfac"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "53f7248695eaa2ad731a56348ebc62e805445b992243178a47539c22024f0023"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml",
+            "sha256": "900f59d8f626ee534d08a66abab04260ccbb7cfcf1cf3184871a66fb59442414"
+          }
+        ],
+        "field_path": [
+          "evaluation_protocol"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal, and the separate unused test.jsonl is not evidence that evaluation was absent.",
+        "to": {
+          "best_checkpoint_role": "supplementary_only",
+          "best_checkpoint_saved": true,
+          "enters_training_loss": false,
+          "paper_facing_summary": [
+            "late_window_pass_at_8",
+            "terminal_pass_at_8"
+          ],
+          "response_curve_mode": "staged_full_grid_reporting",
+          "separate_test_jsonl_required_for_existing_curve_validity": false,
+          "separate_test_jsonl_used": false,
+          "split_file": "val.jsonl",
+          "split_role": "structurally_disjoint_held_out_evaluation",
+          "train_problem_key_overlap": "none",
+          "train_structure_overlap": "none"
+        }
+      },
+      {
+        "change_id": "e8-evaluation-protocol-05",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1"
+          },
+          {
+            "path": "docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md",
+            "sha256": "87a672664111a334320b3b0cbf4c2c34ffb563eeb19626adc315194625ecbfac"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "53f7248695eaa2ad731a56348ebc62e805445b992243178a47539c22024f0023"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml",
+            "sha256": "900f59d8f626ee534d08a66abab04260ccbb7cfcf1cf3184871a66fb59442414"
+          }
+        ],
+        "field_path": [
+          "evaluation_protocol"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal, and the separate unused test.jsonl is not evidence that evaluation was absent.",
+        "to": {
+          "best_checkpoint_role": "supplementary_only",
+          "best_checkpoint_saved": true,
+          "enters_training_loss": false,
+          "paper_facing_summary": [
+            "late_window_pass_at_8",
+            "terminal_pass_at_8"
+          ],
+          "response_curve_mode": "staged_full_grid_reporting",
+          "separate_test_jsonl_required_for_existing_curve_validity": false,
+          "separate_test_jsonl_used": false,
+          "split_file": "val.jsonl",
+          "split_role": "structurally_disjoint_held_out_evaluation",
+          "train_problem_key_overlap": "none",
+          "train_structure_overlap": "none"
+        }
+      },
+      {
+        "change_id": "e8-evaluation-protocol-06",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-CURVE-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1"
+          },
+          {
+            "path": "docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md",
+            "sha256": "87a672664111a334320b3b0cbf4c2c34ffb563eeb19626adc315194625ecbfac"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "53f7248695eaa2ad731a56348ebc62e805445b992243178a47539c22024f0023"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml",
+            "sha256": "900f59d8f626ee534d08a66abab04260ccbb7cfcf1cf3184871a66fb59442414"
+          }
+        ],
+        "field_path": [
+          "evaluation_protocol"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal, and the separate unused test.jsonl is not evidence that evaluation was absent.",
+        "to": {
+          "best_checkpoint_role": "supplementary_only",
+          "best_checkpoint_saved": true,
+          "enters_training_loss": false,
+          "paper_facing_summary": [
+            "late_window_pass_at_8",
+            "terminal_pass_at_8"
+          ],
+          "response_curve_mode": "staged_full_grid_reporting",
+          "separate_test_jsonl_required_for_existing_curve_validity": false,
+          "separate_test_jsonl_used": false,
+          "split_file": "val.jsonl",
+          "split_role": "structurally_disjoint_held_out_evaluation",
+          "train_problem_key_overlap": "none",
+          "train_structure_overlap": "none"
+        }
+      },
+      {
+        "change_id": "e8-evaluation-protocol-07",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-SHAPE-SCREEN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1"
+          },
+          {
+            "path": "docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md",
+            "sha256": "87a672664111a334320b3b0cbf4c2c34ffb563eeb19626adc315194625ecbfac"
+          },
+          {
+            "path": "docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md",
+            "sha256": "1e67aee81536b6097f3b0748284868f640266eb7b79c61f57ab5490d00ddbea3"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml",
+            "sha256": "900f59d8f626ee534d08a66abab04260ccbb7cfcf1cf3184871a66fb59442414"
+          }
+        ],
+        "field_path": [
+          "evaluation_protocol"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal, and the separate unused test.jsonl is not evidence that evaluation was absent.",
+        "to": {
+          "best_checkpoint_role": "supplementary_only",
+          "best_checkpoint_saved": true,
+          "enters_training_loss": false,
+          "paper_facing_summary": [
+            "late_window_pass_at_8",
+            "terminal_pass_at_8"
+          ],
+          "response_curve_mode": "staged_full_grid_reporting",
+          "separate_test_jsonl_required_for_existing_curve_validity": false,
+          "separate_test_jsonl_used": false,
+          "split_file": "val.jsonl",
+          "split_role": "structurally_disjoint_held_out_evaluation",
+          "train_problem_key_overlap": "none",
+          "train_structure_overlap": "none"
+        }
+      },
+      {
+        "change_id": "e8-evaluation-protocol-08",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-HIGH-LAMBDA-EXTENSION-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1"
+          },
+          {
+            "path": "docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md",
+            "sha256": "87a672664111a334320b3b0cbf4c2c34ffb563eeb19626adc315194625ecbfac"
+          },
+          {
+            "path": "docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md",
+            "sha256": "1e67aee81536b6097f3b0748284868f640266eb7b79c61f57ab5490d00ddbea3"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml",
+            "sha256": "900f59d8f626ee534d08a66abab04260ccbb7cfcf1cf3184871a66fb59442414"
+          }
+        ],
+        "field_path": [
+          "evaluation_protocol"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal, and the separate unused test.jsonl is not evidence that evaluation was absent.",
+        "to": {
+          "best_checkpoint_role": "supplementary_only",
+          "best_checkpoint_saved": true,
+          "enters_training_loss": false,
+          "paper_facing_summary": [
+            "late_window_pass_at_8",
+            "terminal_pass_at_8"
+          ],
+          "response_curve_mode": "staged_full_grid_reporting",
+          "separate_test_jsonl_required_for_existing_curve_validity": false,
+          "separate_test_jsonl_used": false,
+          "split_file": "val.jsonl",
+          "split_role": "structurally_disjoint_held_out_evaluation",
+          "train_problem_key_overlap": "none",
+          "train_structure_overlap": "none"
+        }
+      },
+      {
+        "change_id": "e8-evaluation-protocol-09",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-QUADRATIC-DENSE-LAMBDA-CURVE-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1"
+          },
+          {
+            "path": "docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md",
+            "sha256": "87a672664111a334320b3b0cbf4c2c34ffb563eeb19626adc315194625ecbfac"
+          },
+          {
+            "path": "docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md",
+            "sha256": "1e67aee81536b6097f3b0748284868f640266eb7b79c61f57ab5490d00ddbea3"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml",
+            "sha256": "900f59d8f626ee534d08a66abab04260ccbb7cfcf1cf3184871a66fb59442414"
+          }
+        ],
+        "field_path": [
+          "evaluation_protocol"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal, and the separate unused test.jsonl is not evidence that evaluation was absent.",
+        "to": {
+          "best_checkpoint_role": "supplementary_only",
+          "best_checkpoint_saved": true,
+          "enters_training_loss": false,
+          "paper_facing_summary": [
+            "late_window_pass_at_8",
+            "terminal_pass_at_8"
+          ],
+          "response_curve_mode": "staged_full_grid_reporting",
+          "separate_test_jsonl_required_for_existing_curve_validity": false,
+          "separate_test_jsonl_used": false,
+          "split_file": "val.jsonl",
+          "split_role": "structurally_disjoint_held_out_evaluation",
+          "train_problem_key_overlap": "none",
+          "train_structure_overlap": "none"
+        }
+      }
+    ],
+    "coverage": {
+      "added_entities": [],
+      "changed_field_count": 9,
+      "declared_assertion_count": 9,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "900f59d8f626ee534d08a66abab04260ccbb7cfcf1cf3184871a66fb59442414",
+  "exact_base_candidate_sha256": "74f5a64bd17a32ac92efc60d0ef405a66aaec5d5a27b0232d5e2ebf6e2548434",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "e8-evaluation-protocol-01",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1"
+          },
+          {
+            "path": "docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md",
+            "sha256": "87a672664111a334320b3b0cbf4c2c34ffb563eeb19626adc315194625ecbfac"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "53f7248695eaa2ad731a56348ebc62e805445b992243178a47539c22024f0023"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml",
+            "sha256": "900f59d8f626ee534d08a66abab04260ccbb7cfcf1cf3184871a66fb59442414"
+          }
+        ],
+        "field_path": [
+          "evaluation_protocol"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal, and the separate unused test.jsonl is not evidence that evaluation was absent.",
+        "to": {
+          "best_checkpoint_role": "supplementary_only",
+          "best_checkpoint_saved": true,
+          "enters_training_loss": false,
+          "paper_facing_summary": [
+            "late_window_pass_at_8",
+            "terminal_pass_at_8"
+          ],
+          "response_curve_mode": "staged_full_grid_reporting",
+          "separate_test_jsonl_required_for_existing_curve_validity": false,
+          "separate_test_jsonl_used": false,
+          "split_file": "val.jsonl",
+          "split_role": "structurally_disjoint_held_out_evaluation",
+          "train_problem_key_overlap": "none",
+          "train_structure_overlap": "none"
+        }
+      },
+      {
+        "change_id": "e8-evaluation-protocol-02",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1"
+          },
+          {
+            "path": "docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md",
+            "sha256": "87a672664111a334320b3b0cbf4c2c34ffb563eeb19626adc315194625ecbfac"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "53f7248695eaa2ad731a56348ebc62e805445b992243178a47539c22024f0023"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml",
+            "sha256": "900f59d8f626ee534d08a66abab04260ccbb7cfcf1cf3184871a66fb59442414"
+          }
+        ],
+        "field_path": [
+          "evaluation_protocol"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal, and the separate unused test.jsonl is not evidence that evaluation was absent.",
+        "to": {
+          "best_checkpoint_role": "supplementary_only",
+          "best_checkpoint_saved": true,
+          "enters_training_loss": false,
+          "paper_facing_summary": [
+            "late_window_pass_at_8",
+            "terminal_pass_at_8"
+          ],
+          "response_curve_mode": "staged_full_grid_reporting",
+          "separate_test_jsonl_required_for_existing_curve_validity": false,
+          "separate_test_jsonl_used": false,
+          "split_file": "val.jsonl",
+          "split_role": "structurally_disjoint_held_out_evaluation",
+          "train_problem_key_overlap": "none",
+          "train_structure_overlap": "none"
+        }
+      },
+      {
+        "change_id": "e8-evaluation-protocol-03",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-HIGHC-SCAN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1"
+          },
+          {
+            "path": "docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md",
+            "sha256": "87a672664111a334320b3b0cbf4c2c34ffb563eeb19626adc315194625ecbfac"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "53f7248695eaa2ad731a56348ebc62e805445b992243178a47539c22024f0023"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml",
+            "sha256": "900f59d8f626ee534d08a66abab04260ccbb7cfcf1cf3184871a66fb59442414"
+          }
+        ],
+        "field_path": [
+          "evaluation_protocol"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal, and the separate unused test.jsonl is not evidence that evaluation was absent.",
+        "to": {
+          "best_checkpoint_role": "supplementary_only",
+          "best_checkpoint_saved": true,
+          "enters_training_loss": false,
+          "paper_facing_summary": [
+            "late_window_pass_at_8",
+            "terminal_pass_at_8"
+          ],
+          "response_curve_mode": "staged_full_grid_reporting",
+          "separate_test_jsonl_required_for_existing_curve_validity": false,
+          "separate_test_jsonl_used": false,
+          "split_file": "val.jsonl",
+          "split_role": "structurally_disjoint_held_out_evaluation",
+          "train_problem_key_overlap": "none",
+          "train_structure_overlap": "none"
+        }
+      },
+      {
+        "change_id": "e8-evaluation-protocol-04",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-LOGC-BOUNDARY-SCAN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1"
+          },
+          {
+            "path": "docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md",
+            "sha256": "87a672664111a334320b3b0cbf4c2c34ffb563eeb19626adc315194625ecbfac"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "53f7248695eaa2ad731a56348ebc62e805445b992243178a47539c22024f0023"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml",
+            "sha256": "900f59d8f626ee534d08a66abab04260ccbb7cfcf1cf3184871a66fb59442414"
+          }
+        ],
+        "field_path": [
+          "evaluation_protocol"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal, and the separate unused test.jsonl is not evidence that evaluation was absent.",
+        "to": {
+          "best_checkpoint_role": "supplementary_only",
+          "best_checkpoint_saved": true,
+          "enters_training_loss": false,
+          "paper_facing_summary": [
+            "late_window_pass_at_8",
+            "terminal_pass_at_8"
+          ],
+          "response_curve_mode": "staged_full_grid_reporting",
+          "separate_test_jsonl_required_for_existing_curve_validity": false,
+          "separate_test_jsonl_used": false,
+          "split_file": "val.jsonl",
+          "split_role": "structurally_disjoint_held_out_evaluation",
+          "train_problem_key_overlap": "none",
+          "train_structure_overlap": "none"
+        }
+      },
+      {
+        "change_id": "e8-evaluation-protocol-05",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1"
+          },
+          {
+            "path": "docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md",
+            "sha256": "87a672664111a334320b3b0cbf4c2c34ffb563eeb19626adc315194625ecbfac"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "53f7248695eaa2ad731a56348ebc62e805445b992243178a47539c22024f0023"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml",
+            "sha256": "900f59d8f626ee534d08a66abab04260ccbb7cfcf1cf3184871a66fb59442414"
+          }
+        ],
+        "field_path": [
+          "evaluation_protocol"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal, and the separate unused test.jsonl is not evidence that evaluation was absent.",
+        "to": {
+          "best_checkpoint_role": "supplementary_only",
+          "best_checkpoint_saved": true,
+          "enters_training_loss": false,
+          "paper_facing_summary": [
+            "late_window_pass_at_8",
+            "terminal_pass_at_8"
+          ],
+          "response_curve_mode": "staged_full_grid_reporting",
+          "separate_test_jsonl_required_for_existing_curve_validity": false,
+          "separate_test_jsonl_used": false,
+          "split_file": "val.jsonl",
+          "split_role": "structurally_disjoint_held_out_evaluation",
+          "train_problem_key_overlap": "none",
+          "train_structure_overlap": "none"
+        }
+      },
+      {
+        "change_id": "e8-evaluation-protocol-06",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-CURVE-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1"
+          },
+          {
+            "path": "docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md",
+            "sha256": "87a672664111a334320b3b0cbf4c2c34ffb563eeb19626adc315194625ecbfac"
+          },
+          {
+            "path": "docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md",
+            "sha256": "53f7248695eaa2ad731a56348ebc62e805445b992243178a47539c22024f0023"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml",
+            "sha256": "900f59d8f626ee534d08a66abab04260ccbb7cfcf1cf3184871a66fb59442414"
+          }
+        ],
+        "field_path": [
+          "evaluation_protocol"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal, and the separate unused test.jsonl is not evidence that evaluation was absent.",
+        "to": {
+          "best_checkpoint_role": "supplementary_only",
+          "best_checkpoint_saved": true,
+          "enters_training_loss": false,
+          "paper_facing_summary": [
+            "late_window_pass_at_8",
+            "terminal_pass_at_8"
+          ],
+          "response_curve_mode": "staged_full_grid_reporting",
+          "separate_test_jsonl_required_for_existing_curve_validity": false,
+          "separate_test_jsonl_used": false,
+          "split_file": "val.jsonl",
+          "split_role": "structurally_disjoint_held_out_evaluation",
+          "train_problem_key_overlap": "none",
+          "train_structure_overlap": "none"
+        }
+      },
+      {
+        "change_id": "e8-evaluation-protocol-07",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-SHAPE-SCREEN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1"
+          },
+          {
+            "path": "docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md",
+            "sha256": "87a672664111a334320b3b0cbf4c2c34ffb563eeb19626adc315194625ecbfac"
+          },
+          {
+            "path": "docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md",
+            "sha256": "1e67aee81536b6097f3b0748284868f640266eb7b79c61f57ab5490d00ddbea3"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml",
+            "sha256": "900f59d8f626ee534d08a66abab04260ccbb7cfcf1cf3184871a66fb59442414"
+          }
+        ],
+        "field_path": [
+          "evaluation_protocol"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal, and the separate unused test.jsonl is not evidence that evaluation was absent.",
+        "to": {
+          "best_checkpoint_role": "supplementary_only",
+          "best_checkpoint_saved": true,
+          "enters_training_loss": false,
+          "paper_facing_summary": [
+            "late_window_pass_at_8",
+            "terminal_pass_at_8"
+          ],
+          "response_curve_mode": "staged_full_grid_reporting",
+          "separate_test_jsonl_required_for_existing_curve_validity": false,
+          "separate_test_jsonl_used": false,
+          "split_file": "val.jsonl",
+          "split_role": "structurally_disjoint_held_out_evaluation",
+          "train_problem_key_overlap": "none",
+          "train_structure_overlap": "none"
+        }
+      },
+      {
+        "change_id": "e8-evaluation-protocol-08",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-HIGH-LAMBDA-EXTENSION-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1"
+          },
+          {
+            "path": "docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md",
+            "sha256": "87a672664111a334320b3b0cbf4c2c34ffb563eeb19626adc315194625ecbfac"
+          },
+          {
+            "path": "docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md",
+            "sha256": "1e67aee81536b6097f3b0748284868f640266eb7b79c61f57ab5490d00ddbea3"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml",
+            "sha256": "900f59d8f626ee534d08a66abab04260ccbb7cfcf1cf3184871a66fb59442414"
+          }
+        ],
+        "field_path": [
+          "evaluation_protocol"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal, and the separate unused test.jsonl is not evidence that evaluation was absent.",
+        "to": {
+          "best_checkpoint_role": "supplementary_only",
+          "best_checkpoint_saved": true,
+          "enters_training_loss": false,
+          "paper_facing_summary": [
+            "late_window_pass_at_8",
+            "terminal_pass_at_8"
+          ],
+          "response_curve_mode": "staged_full_grid_reporting",
+          "separate_test_jsonl_required_for_existing_curve_validity": false,
+          "separate_test_jsonl_used": false,
+          "split_file": "val.jsonl",
+          "split_role": "structurally_disjoint_held_out_evaluation",
+          "train_problem_key_overlap": "none",
+          "train_structure_overlap": "none"
+        }
+      },
+      {
+        "change_id": "e8-evaluation-protocol-09",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-QUADRATIC-DENSE-LAMBDA-CURVE-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1"
+          },
+          {
+            "path": "docs/experiments/E8_HELDOUT_EVALUATION_SEMANTICS.md",
+            "sha256": "87a672664111a334320b3b0cbf4c2c34ffb563eeb19626adc315194625ecbfac"
+          },
+          {
+            "path": "docs/experiments/E8_RECIPROCAL_JOINT_CLOSURE.md",
+            "sha256": "1e67aee81536b6097f3b0748284868f640266eb7b79c61f57ab5490d00ddbea3"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21/HANDOFF_DELTA.yaml",
+            "sha256": "900f59d8f626ee534d08a66abab04260ccbb7cfcf1cf3184871a66fb59442414"
+          }
+        ],
+        "field_path": [
+          "evaluation_protocol"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify that val.jsonl is structurally held-out evaluation, paper-facing summaries are late-window and terminal, and the separate unused test.jsonl is not evidence that evaluation was absent.",
+        "to": {
+          "best_checkpoint_role": "supplementary_only",
+          "best_checkpoint_saved": true,
+          "enters_training_loss": false,
+          "paper_facing_summary": [
+            "late_window_pass_at_8",
+            "terminal_pass_at_8"
+          ],
+          "response_curve_mode": "staged_full_grid_reporting",
+          "separate_test_jsonl_required_for_existing_curve_validity": false,
+          "separate_test_jsonl_used": false,
+          "split_file": "val.jsonl",
+          "split_role": "structurally_disjoint_held_out_evaluation",
+          "train_problem_key_overlap": "none",
+          "train_structure_overlap": "none"
+        }
+      }
+    ],
+    "coverage": {
+      "added_entities": [],
+      "changed_field_count": 9,
+      "declared_assertion_count": 9,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "74f5a64bd17a32ac92efc60d0ef405a66aaec5d5a27b0232d5e2ebf6e2548434",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1",
+  "registry_before_sha256": "f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5",
+  "report_schema_version": 1,
+  "source_base_commit": "b18aea9186d7e3ccc5d43b456719cafc23761e03",
+  "source_patch_commit": "8897651d8e28c838e48a992062b33084e4cb4713",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "2c86cc5b19df5d64cc3febf8b3317a0405b82ba5a0cdc9f2b38f60693161b4cc",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-C-E8-HELDOUT-EVALUATION-SEMANTICS-2026-07-21"
+}

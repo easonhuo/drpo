@@ -1,12 +1,21 @@
 # Countdown E8 completed-result backlog closure
 
-This record closes six completed validation-only external-validity pilots without rerunning training or strengthening their claims.
+This record closes six completed external-validity coefficient-response pilots without rerunning training or strengthening their claims.
 
 - Experiments: **6**
 - Completed cells: **222/222**
 - Terminal audits: **PASS for all six pilot lines**
 - NaN/Inf numerical failures: **0**
-- Test split used: **no**
+- Separately materialized `test.jsonl` used: **no**
+- Structurally disjoint held-out evaluation used: **yes (`val.jsonl`)**
+
+## Held-out evaluation clarification
+
+For the current Countdown E8 coefficient-response evidence, the file named `val.jsonl` is the structurally disjoint held-out task-performance evaluation split. It is disjoint from the training bank in canonical structure families and `(numbers, target)` problem keys, and its rows do not enter the training loss or optimizer update.
+
+The paper-facing evidence is the complete declared coefficient curve under the fixed late window and terminal horizon. A held-out-selected best checkpoint may be stored as supplementary diagnostic or recovery evidence, but it is not the source of the reported response curve. Therefore, the historical statement that the test split was unused refers only to the separate `test.jsonl`; it does not mean that held-out evaluation was absent or that task performance was measured on the training bank.
+
+Several later grids were extended after inspecting earlier held-out curves, so the combined evidence must be called **staged held-out evaluation response curves** rather than an untouched one-shot confirmatory test. It does not authorize formal method ranking, significance, convergence, steady state, OOD generalization, or universal exponential superiority. The 222 cells do not require rerunning solely because the additional `test.jsonl` was not accessed.
 
 ## Evidence inventory
 

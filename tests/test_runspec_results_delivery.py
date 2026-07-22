@@ -16,6 +16,20 @@ if str(AGENT_DIR) not in sys.path:
 import runspec_results_delivery as delivery  # noqa: E402
 from runspec_lib import RunSpecError, sha256_file  # noqa: E402
 
+AUTO_DELIVERY_ACTIVATION_COMMIT = "b18aea9186d7e3ccc5d43b456719cafc23761e03"
+ASYMRE_RUNSPEC = (
+    ROOT / "runspecs" / "ready" / "E8_ASYMRE_DELTAV_SCAN_20260721_01.yaml"
+)
+ASYMRE_CONFIG = (
+    ROOT
+    / "configs"
+    / "countdown_e8_oracle_offline_v2_asymre_deltav_scan_0p5b.yaml"
+)
+E8_COMPLETED_CLOSURE = ROOT / "docs" / "experiments" / "E8_COMPLETED_BACKLOG_CLOSURE.md"
+E8_RECIPROCAL_CLOSURE = (
+    ROOT / "docs" / "experiments" / "E8_RECIPROCAL_JOINT_CLOSURE.md"
+)
+
 
 def git(repo: Path, *args: str, check: bool = True) -> str:
     proc = subprocess.run(
@@ -223,3 +237,76 @@ def test_results_repo_upload_is_append_only_and_idempotent(
     )
     with pytest.raises(RunSpecError, match="RESULT_CONFLICT"):
         delivery.deliver_completed_run(repo, "E7-DELIVERY-TEST-1")
+
+
+def test_asymre_runspec_enables_canonical_automatic_delivery() -> None:
+    spec = yaml.safe_load(ASYMRE_RUNSPEC.read_text(encoding="utf-8"))
+    assert spec["registration"] == {"mode": "deferred", "closure_required": True}
+    assert spec["delivery"] == {
+        "enabled": True,
+        "auto": True,
+        "mode": "results_repo",
+        "repository": "easonhuo/drpo-results",
+        "branch": "ingest/e8",
+        "export_profile": "manifest_text_v1",
+        "max_total_size_mb": 30,
+        "max_file_size_mb": 10,
+    }
+    assert spec["publish"] == {"enabled": False, "auto": False}
+
+
+def test_new_or_modified_e7_e8_ready_runspecs_require_automatic_delivery() -> None:
+    changed = git(
+        ROOT,
+        "diff",
+        "--name-only",
+        "--diff-filter=AM",
+        f"{AUTO_DELIVERY_ACTIVATION_COMMIT}..HEAD",
+        "--",
+        "runspecs/ready",
+    ).splitlines()
+    checked: list[str] = []
+    for relative in changed:
+        path = ROOT / relative
+        if path.suffix not in {".yaml", ".yml"} or not path.is_file():
+            continue
+        spec = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if spec.get("lane") not in {"e7", "e8"}:
+            continue
+        checked.append(relative)
+        lane = spec["lane"]
+        assert spec.get("delivery") == {
+            "enabled": True,
+            "auto": True,
+            "mode": "results_repo",
+            "repository": "easonhuo/drpo-results",
+            "branch": f"ingest/{lane}",
+            "export_profile": "manifest_text_v1",
+            "max_total_size_mb": 30,
+            "max_file_size_mb": 10,
+        }, f"{relative} must use canonical automatic results delivery"
+        assert spec.get("publish") == {
+            "enabled": False,
+            "auto": False,
+        }, f"{relative} must disable legacy publish"
+    assert "runspecs/ready/E8_ASYMRE_DELTAV_SCAN_20260721_01.yaml" in checked
+
+
+def test_countdown_temporarily_uses_held_out_evaluation_in_place_of_test() -> None:
+    config = yaml.safe_load(ASYMRE_CONFIG.read_text(encoding="utf-8"))
+    evaluation = config["evaluation"]
+    assert evaluation["split_file"] == "val.jsonl"
+    assert evaluation["split_role"] == "structurally_disjoint_held_out_evaluation"
+    assert evaluation["enters_training_loss"] is False
+    assert evaluation["train_structure_overlap"] == "none"
+    assert evaluation["train_problem_key_overlap"] == "none"
+    assert evaluation["primary_reporting_metric"] == "late_window_pass_at_8"
+    assert evaluation["secondary_reporting_metric"] == "terminal_pass_at_8"
+    assert evaluation["best_checkpoint_metric_is_supplementary_only"] is True
+    assert config["reporting"]["separate_test_jsonl_used"] is False
+    assert config["reporting"]["held_out_evaluation_absent"] is False
+
+    for path in (E8_COMPLETED_CLOSURE, E8_RECIPROCAL_CLOSURE):
+        text = path.read_text(encoding="utf-8")
+        assert "temporarily substitutes for the separately materialized `test.jsonl`" in text
+        assert "does not mean that held-out evaluation was absent" in text

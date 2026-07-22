@@ -178,10 +178,10 @@
   ],
   "graph_hash": "0db2d992b651a2ed85d93d68c298214ba6bdbee1ae15b7b7c48d92162a7fb87c",
   "input_hashes": {
-    "docs/handoff.md": "9184a35c57d2741d2d5ad218355a56fc57f708f0ffe1809be396f35bd844ded1",
+    "docs/handoff.md": "74f5a64bd17a32ac92efc60d0ef405a66aaec5d5a27b0232d5e2ebf6e2548434",
     "docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml": "fb19da70ea2db6a35c4320e23a91640d0f21887c46bb79873d9548357271f4da",
     "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "9eb67303232bb2362b8a4571f383687aca0cfd2c25eeb9b8e68733c84b3701e8",
-    "experiments/registry.yaml": "f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5"
+    "experiments/registry.yaml": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1"
   },
   "module_order": [
     "global_core_governance",
@@ -242,9 +242,9 @@
       "deduplicated_source_labels": [],
       "depends_on": [],
       "module_id": "global_core_governance",
-      "snapshot_hash": "132b0c3be14b8aecf5ed2ee296f31043e8ed8fdbb017c0f3f0da35b370b8e28d",
-      "source_chars": 53018,
-      "source_hash": "36d0d9307369081fae7b06b0a5408c43589996b9bd2edb318e73c5352b4a2a5b",
+      "snapshot_hash": "a20c155d43fc261c07c07c458fedc347d9c313577b367e9e509069aafae03ba0",
+      "source_chars": 54988,
+      "source_hash": "a77c0f9796543d6abef95f3173709566b3c957c3867012ebfd7d22b52f834301",
       "source_labels": [
         "docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线"
       ]

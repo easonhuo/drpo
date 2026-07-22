@@ -6,14 +6,22 @@ The reciprocal lambda exploration line is closed. No fourth scan or further righ
 
 ## Locked pilot claim
 
-Under the frozen Countdown current-surprisal coordinate, fixed 1200-step training budget, paired development seeds, and validation-only protocol, Reciprocal-Linear and Reciprocal-Quadratic move from under-suppression into a broad plateau as lambda increases, but do not reach the sustained validation behavior of the matched exponential anchor. This supports tail-decay shape, rather than simple global strength alone, as an important control factor in this Countdown external-validity setting.
+Under the frozen Countdown current-surprisal coordinate, fixed 1200-step training budget, paired development seeds, and held-out evaluation protocol, Reciprocal-Linear and Reciprocal-Quadratic move from under-suppression into a broad plateau as lambda increases, but do not reach the sustained held-out behavior of the matched exponential anchor. This supports tail-decay shape, rather than simple global strength alone, as an important control factor in this Countdown external-validity setting.
+
+## Held-out evaluation clarification
+
+For the current reciprocal response curves, the file named `val.jsonl` is the structurally disjoint held-out task-performance evaluation split. It is disjoint from the training bank in canonical structure families and `(numbers, target)` problem keys, and it does not enter the training loss or optimizer update.
+
+Every declared lambda point is reported through the fixed late-window and terminal horizon. Any held-out-selected best checkpoint is supplementary diagnostic or recovery evidence only. Consequently, `test split unused` means only that the separate `test.jsonl` was not accessed; it does not mean that held-out evaluation was absent or that performance was evaluated on training examples.
+
+This evidence remains a set of **staged held-out evaluation response curves**, because later reciprocal ranges were chosen after inspecting earlier held-out curves. It is not described as an untouched one-shot confirmatory test. The 64 cells do not require rerunning solely because the separate `test.jsonl` was unused.
 
 ## Evidence chain
 
 - Shape screen: 16/16 cells, lambda 1/3/7/19, two reciprocal families.
 - High-lambda extension: 16/16 cells, lambda 39/79/159/319, two reciprocal families.
 - Dense Rec-Q curve: 32/32 cells, sixteen additional points through lambda 1279.
-- Joint total: 64/64 cells; every terminal audit passed; numerical failures 0; test split unused.
+- Joint total: 64/64 cells; every terminal audit passed; numerical failures 0; separate `test.jsonl` unused; structurally held-out evaluation present.
 
 ## Claim boundary
 

@@ -82,11 +82,12 @@ def main(argv: list[str] | None = None) -> int:
         highc.activate()
     else:
         highc.activate_for_grid_config(grid_config)
-    _base.ADAPTER_ID = (
-        "e8_linear_c_extension_cuda_dev_v1"
-        if highc.EXPERIMENT_ID == highc.C_EXTENSION_EXPERIMENT_ID
-        else "e8_alpha1_highc_scan_cuda_dev_v1"
-    )
+    if highc.EXPERIMENT_ID == highc.ASYMRE_DELTAV_EXPERIMENT_ID:
+        _base.ADAPTER_ID = "e8_asymre_deltav_scan_cuda_dev_v1"
+    elif highc.EXPERIMENT_ID == highc.C_EXTENSION_EXPERIMENT_ID:
+        _base.ADAPTER_ID = "e8_linear_c_extension_cuda_dev_v1"
+    else:
+        _base.ADAPTER_ID = "e8_alpha1_highc_scan_cuda_dev_v1"
     return _base.main(tokens)
 
 
