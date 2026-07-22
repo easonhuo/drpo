@@ -1,0 +1,184 @@
+name: Restore stable training paths
+
+on:
+  push:
+    branches:
+      - hotfix/restore-stable-training-paths-01
+
+permissions:
+  contents: write
+
+concurrency:
+  group: restore-stable-training-paths-01
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out exact hotfix branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore pre-optimization training paths
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          EXPECTED_BASE="f6dac3b624e6ee293d7522f6af0a42c8eff5bad2"
+          E7_PRE_PROFILE="d79580c6d69a86711e2fd7b3ecffb2756024a35d"
+          E8_PRE_CONFIG_DRIVEN="951cbc878d88524e8c9e6b14720bfeb2b21c72e7"
+
+          test "${GITHUB_REF_NAME}" = "hotfix/restore-stable-training-paths-01"
+          test "$(git rev-parse HEAD^)" = "${EXPECTED_BASE}"
+          git cat-file -e "${E7_PRE_PROFILE}^{commit}"
+          git cat-file -e "${E8_PRE_CONFIG_DRIVEN}^{commit}"
+
+          # Revert the eight-file PR #248 P2 profile integration.
+          git checkout "${E7_PRE_PROFILE}" -- \
+            scripts/run_e7_squared_exp_night_one_click.sh \
+            src/drpo/e7_squared_exp_kernel.py \
+            src/drpo/e7_squared_exp_night.py \
+            src/drpo/e7_squared_exp_night_aggregate.py \
+            src/drpo/e7_squared_exp_night_bootstrap.py \
+            tests/test_e7_squared_exp_kernel.py \
+            tests/test_e7_squared_exp_night.py
+          git rm -f configs/e7_bench_joint_gae_tuning_p2_left_c.json
+
+          # Revert the executable part of PR #250 to its exact pre-merge state.
+          git checkout "${E8_PRE_CONFIG_DRIVEN}" -- \
+            scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py \
+            src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+          git rm -f \
+            scripts/run_e8_asymre_matrix_replay_ab.sh \
+            scripts/run_e8_experiment_matrix_replay_ab.sh \
+            src/drpo/experiment_matrix.py \
+            tests/test_e8_experiment_matrix_replay.py
+
+          # Preserve historical documents, but make the inactive status explicit.
+          python - <<'PY'
+          from pathlib import Path
+
+          notices = {
+              Path("docs/development_workflow_optimization/E8_CONFIG_DRIVEN_ADAPTER_CONTRACT.md"): (
+                  "> [!WARNING]\n"
+                  "> **SUSPENDED ON 2026-07-22.** The config-driven E8 runtime path is not active on "
+                  "`main`. The repository uses the preceding fixed-profile/fixed-matrix execution path "
+                  "until a separately reviewed real CUDA liveness and end-to-end training validation "
+                  "explicitly authorizes reactivation. This notice preserves the historical design record; "
+                  "it is not execution authority.\n\n"
+              ),
+              Path("docs/scopes/GOV-E8-CONFIG-DRIVEN-ADAPTERS-01.md"): (
+                  "> [!WARNING]\n"
+                  "> **STATUS: SUSPENDED.** The executable changes formerly associated with this scope "
+                  "have been removed from `main` under the 2026-07-22 stabilization hotfix. Historical "
+                  "Replay/plan evidence remains engineering history only and does not authorize runtime use.\n\n"
+              ),
+              Path("docs/development_workflow_optimization/M0_ATOMIC_DEV_TRANSACTION_PLAN.md"): (
+                  "> [!WARNING]\n"
+                  "> **M0 IS SUSPENDED AS OF 2026-07-22.** Do not use the M0 atomic publication route for "
+                  "new work. Use the ordinary dedicated development-branch and pull-request route until "
+                  "the repository owner explicitly reauthorizes M0 after a separate reliability review.\n\n"
+              ),
+              Path("docs/development_workflow_optimization/maintenance_runner/M0_ATOMIC_DEV_TRANSACTION_SPEC.md"): (
+                  "> [!WARNING]\n"
+                  "> **M0 IS SUSPENDED AS OF 2026-07-22.** This specification is retained as historical "
+                  "evidence only and is not an active publication route.\n\n"
+              ),
+          }
+
+          for path, notice in notices.items():
+              if not path.is_file():
+                  raise SystemExit(f"required historical document missing: {path}")
+              text = path.read_text(encoding="utf-8")
+              if notice not in text:
+                  path.write_text(notice + text, encoding="utf-8")
+
+          suspension = Path(
+              "docs/development_workflow_optimization/STABLE_TRAINING_PATHS_SUSPENSION_20260722.md"
+          )
+          suspension.write_text(
+              """# Stable training-path restoration — 2026-07-22\n\n"
+              "Status: **ACTIVE STABILIZATION DECISION**\n\n"
+              "Repository base: `f6dac3b624e6ee293d7522f6af0a42c8eff5bad2`.\n\n"
+              "This record preserves the repository-owner decision to reduce the active execution surface:\n\n"
+              "- remove the E7 PR #248 P2 profile runtime integration from `main` and restore the preceding "
+              "E7 squared-night execution files;\n"
+              "- remove the executable E8 PR #250 config-driven adapter path and restore the preceding "
+              "fixed-profile/fixed-matrix runtime;\n"
+              "- suspend M0 publication use while retaining its historical evidence and documents;\n"
+              "- leave ReplayAB, completed experiment results, `docs/handoff.md`, "
+              "`experiments/registry.yaml`, and paper artifacts unchanged.\n\n"
+              "The completed P1/P2 scientific result records remain historical evidence. Removing the "
+              "current-main launcher/profile integration does not rewrite those results. Reactivation of "
+              "either optimized runtime requires separate documentation-first authorization plus real "
+              "end-to-end liveness on the intended execution environment.\n"
+              """,
+              encoding="utf-8",
+          )
+          PY
+
+          # The temporary workflow must not survive in the reviewed candidate.
+          git rm -f .github/workflows/restore-stable-training-paths.yml
+
+          test ! -e configs/e7_bench_joint_gae_tuning_p2_left_c.json
+          test ! -e src/drpo/experiment_matrix.py
+          test ! -e tests/test_e8_experiment_matrix_replay.py
+
+          if git grep -n "d4rl9_common_c_p2_left" -- src scripts tests configs; then
+            echo "P2 profile runtime reference remains" >&2
+            exit 1
+          fi
+          if git grep -n -E \
+            "from drpo\.experiment_matrix|install_config_driven_profile|activate_config_driven_profile" \
+            -- src scripts tests; then
+            echo "config-driven runtime reference remains" >&2
+            exit 1
+          fi
+
+          git diff --check
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+
+      - name: Compile restored repository
+        run: python -m compileall -q src scripts tests
+
+      - name: Check affected shell entrypoints
+        run: bash -n scripts/run_e7_squared_exp_night_one_click.sh
+
+      - name: Run focused E7 regression tests
+        run: |
+          pytest -q \
+            tests/test_e7_squared_exp_kernel.py \
+            tests/test_e7_squared_exp_night.py
+
+      - name: Run focused E8 regression tests
+        run: pytest -q tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
+
+      - name: Run full repository tests
+        run: pytest -q
+
+      - name: Run repository Ruff
+        run: ruff check .
+
+      - name: Commit verified restoration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git status --short
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "HOTFIX: restore stable E7/E8 training paths and suspend M0"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
