@@ -51,8 +51,8 @@ jobs:
             shift
             echo "::group::$name"
             "$@" 2>&1 | tee "$AUDIT_DIR/logs/$name.log"
-            command_status=${PIPESTATUS[0]}
-            tee_status=${PIPESTATUS[1]}
+            pipeline_status="${PIPESTATUS[*]}"
+            read -r command_status tee_status <<< "$pipeline_status"
             status=$command_status
             if [ "$tee_status" -ne 0 ]; then
               status=$tee_status
