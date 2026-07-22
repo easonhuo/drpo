@@ -1,0 +1,220 @@
+schema_version: 1
+claim_id: GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01
+work_id: REPLAYAB-R3-IMPLEMENTATION-CONTRACT-01
+calibration_id: REPLAYAB-R3-CALIBRATION-01
+base_commit: 18440ae79a155be1d8aa357ff0fdf3c238b018bb
+status: FROZEN_BEFORE_IMPLEMENTATION_RESULTS
+scientific_impact: none
+
+summary_fields:
+  - final_acceptance
+  - initial_terminal
+  - repair_count
+  - candidate_failure_count
+  - timeout_count
+  - interruption_count
+  - invalidation_count
+  - final_attempt_terminal
+  - trajectory_complete
+
+valid_final_acceptance_values:
+  - PASS
+  - REJECTED
+  - NOT_AVAILABLE
+
+valid_attempt_terminals:
+  - SUCCEEDED
+  - FAILED
+  - TIMED_OUT
+  - INTERRUPTED
+  - INVALIDATED
+
+valid_dispositions:
+  - NONE
+  - CANDIDATE
+  - ENVIRONMENT
+  - INSUFFICIENT_EVIDENCE
+
+valid_feedback_classes:
+  - NONE
+  - EVALUATOR
+  - AUTHORITY
+  - EXECUTION
+  - OPERATOR
+
+cases:
+  - case_id: R3-C01-INITIAL-SUCCESS
+    description: Initial attempt succeeds with no repair.
+    expected_ingestion: ACCEPT
+    expected_error_code: null
+    expected_summary:
+      final_acceptance: PASS
+      initial_terminal: SUCCEEDED
+      repair_count: 0
+      candidate_failure_count: 0
+      timeout_count: 0
+      interruption_count: 0
+      invalidation_count: 0
+      final_attempt_terminal: SUCCEEDED
+      trajectory_complete: true
+
+  - case_id: R3-C02-ONE-REPAIR-SUCCESS
+    description: Initial candidate failure is retained and one feedback-bound repair succeeds.
+    expected_ingestion: ACCEPT
+    expected_error_code: null
+    expected_summary:
+      final_acceptance: PASS
+      initial_terminal: FAILED
+      repair_count: 1
+      candidate_failure_count: 1
+      timeout_count: 0
+      interruption_count: 0
+      invalidation_count: 0
+      final_attempt_terminal: SUCCEEDED
+      trajectory_complete: true
+
+  - case_id: R3-C03-MULTI-REPAIR-SUCCESS
+    description: Two candidate failures are retained before the second repair succeeds.
+    expected_ingestion: ACCEPT
+    expected_error_code: null
+    expected_summary:
+      final_acceptance: PASS
+      initial_terminal: FAILED
+      repair_count: 2
+      candidate_failure_count: 2
+      timeout_count: 0
+      interruption_count: 0
+      invalidation_count: 0
+      final_attempt_terminal: SUCCEEDED
+      trajectory_complete: true
+
+  - case_id: R3-C04-ALL-CANDIDATE-FAILURES
+    description: Initial attempt and two repairs all fail and remain visible.
+    expected_ingestion: ACCEPT
+    expected_error_code: null
+    expected_summary:
+      final_acceptance: REJECTED
+      initial_terminal: FAILED
+      repair_count: 2
+      candidate_failure_count: 3
+      timeout_count: 0
+      interruption_count: 0
+      invalidation_count: 0
+      final_attempt_terminal: FAILED
+      trajectory_complete: true
+
+  - case_id: R3-C05-TIMEOUT-THEN-SUCCESS
+    description: Initial timeout is retained and one execution-feedback repair succeeds.
+    expected_ingestion: ACCEPT
+    expected_error_code: null
+    expected_summary:
+      final_acceptance: PASS
+      initial_terminal: TIMED_OUT
+      repair_count: 1
+      candidate_failure_count: 0
+      timeout_count: 1
+      interruption_count: 0
+      invalidation_count: 0
+      final_attempt_terminal: SUCCEEDED
+      trajectory_complete: true
+
+  - case_id: R3-C06-INTERRUPTED-NO-REPAIR
+    description: Interrupted initial attempt has no semantic acceptance result but remains a complete visible trajectory.
+    expected_ingestion: ACCEPT
+    expected_error_code: null
+    expected_summary:
+      final_acceptance: NOT_AVAILABLE
+      initial_terminal: INTERRUPTED
+      repair_count: 0
+      candidate_failure_count: 0
+      timeout_count: 0
+      interruption_count: 1
+      invalidation_count: 0
+      final_attempt_terminal: INTERRUPTED
+      trajectory_complete: true
+
+  - case_id: R3-C07-ENVIRONMENT-INVALIDATION
+    description: Environment invalidation is retained and is not counted as candidate failure.
+    expected_ingestion: ACCEPT
+    expected_error_code: null
+    expected_summary:
+      final_acceptance: NOT_AVAILABLE
+      initial_terminal: INVALIDATED
+      repair_count: 0
+      candidate_failure_count: 0
+      timeout_count: 0
+      interruption_count: 0
+      invalidation_count: 1
+      final_attempt_terminal: INVALIDATED
+      trajectory_complete: true
+
+  - case_id: R3-C08-MISSING-INITIAL
+    description: Artifact omits ordinal-zero initial attempt.
+    expected_ingestion: REJECT
+    expected_error_code: MISSING_INITIAL_ATTEMPT
+    expected_summary: null
+
+  - case_id: R3-C09-ORDINAL-DUPLICATE-OR-GAP
+    description: Attempt ordinals are duplicated, non-zero-origin, or non-contiguous.
+    expected_ingestion: REJECT
+    expected_error_code: ATTEMPT_ORDINAL_INVALID
+    expected_summary: null
+
+  - case_id: R3-C10-LINEAGE-INVALID
+    description: Attempts are reordered or a repair parent does not identify the immediately preceding attempt.
+    expected_ingestion: REJECT
+    expected_error_code: ATTEMPT_LINEAGE_INVALID
+    expected_summary: null
+
+  - case_id: R3-C11-FEEDBACK-MISBOUND
+    description: Repair feedback is absent, forbidden, or bound to a different attempt.
+    expected_ingestion: REJECT
+    expected_error_code: FEEDBACK_LINEAGE_INVALID
+    expected_summary: null
+
+  - case_id: R3-C12-TAMPERED-EVIDENCE
+    description: Intermediate candidate artifact, feedback, or event journal fails its content binding.
+    expected_ingestion: REJECT
+    expected_error_code: EVIDENCE_DIGEST_MISMATCH
+    expected_summary: null
+
+  - case_id: R3-C13-FINAL-POINTER-MISMATCH
+    description: final_attempt_id or final outcome references a non-final or inconsistent attempt.
+    expected_ingestion: REJECT
+    expected_error_code: FINAL_POINTER_MISMATCH
+    expected_summary: null
+
+  - case_id: R3-C14-RESOURCE-AGGREGATE-MISMATCH
+    description: Run-level observed resource totals do not equal the declared aggregation of attempt records.
+    expected_ingestion: REJECT
+    expected_error_code: RESOURCE_AGGREGATE_MISMATCH
+    expected_summary: null
+
+  - case_id: R3-C15-RESOURCE-CAPABILITY-INCOMPLETE
+    description: Backend neither observes nor explicitly declares unavailable one or more frozen resource dimensions.
+    expected_ingestion: REJECT
+    expected_error_code: RESOURCE_CAPABILITY_INCOMPLETE
+    expected_summary: null
+
+  - case_id: R3-C16-EXECUTION-SUCCESS-SEMANTIC-REJECTION
+    description: Initial attempt executes successfully but the frozen R2 semantic acceptance result is rejected.
+    expected_ingestion: ACCEPT
+    expected_error_code: null
+    expected_summary:
+      final_acceptance: REJECTED
+      initial_terminal: SUCCEEDED
+      repair_count: 0
+      candidate_failure_count: 0
+      timeout_count: 0
+      interruption_count: 0
+      invalidation_count: 0
+      final_attempt_terminal: SUCCEEDED
+      trajectory_complete: true
+
+freeze_rules:
+  - No case may be removed, merged, weakened, or reclassified after implementation results are observed.
+  - Exact expected_ingestion, expected_error_code, and expected_summary values are frozen by this inventory.
+  - Additional calibration cases require a reviewed documentation amendment before their results are used.
+  - Cases R3-C01 through R3-C07 and R3-C16 are valid artifacts with distinct trajectory summaries.
+  - Cases R3-C08 through R3-C15 must fail closed.
+  - A final R2 PASS or REJECTED verdict remains separate from attempt-terminal history.
