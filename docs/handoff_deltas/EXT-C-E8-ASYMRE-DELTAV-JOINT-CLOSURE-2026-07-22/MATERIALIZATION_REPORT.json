@@ -1,0 +1,202 @@
+{
+  "current_before_commit": "483e93448f25ada23dbd71fe4d237ccff80f8c0c",
+  "current_handoff_before_sha256": "74f5a64bd17a32ac92efc60d0ef405a66aaec5d5a27b0232d5e2ebf6e2548434",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e8-asymre-deltav-scan-result",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-SCAN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "e3025245dc643b3f57012a76c9c5dd4d9256096235d5e1214a8f095eb11fa91e"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22/HANDOFF_DELTA.yaml",
+            "sha256": "64d80abcade307971076a6f74c296e6a91668bde29bbdfafd07a27d320ccb9e2"
+          },
+          {
+            "path": "docs/experiments/E8_ASYMRE_DELTAV_JOINT_CLOSURE.md",
+            "sha256": "badc7a606d9bae55daea7c1320e27af8a8a5dcee1bcef2427ac7e16f0848a134"
+          },
+          {
+            "path": "docs/experiments/E8_ASYMRE_DELTAV_JOINT_PROVENANCE.json",
+            "sha256": "786d8b48cf8acd3ab18212c84d537a50c6737859e9c4a6f24dfe65cb74b4e701"
+          },
+          {
+            "path": "experiments/results/e8_asymre_deltav_joint_closure_20260722/RESULT_CLOSURE.json",
+            "sha256": "64d44119170dfe1d9cd5735a3f738a8990de01c919302d5b1cd8acd20e696d04"
+          },
+          {
+            "path": "experiments/results/e8_asymre_deltav_joint_closure_20260722/JOINT_RESPONSE_CURVE.csv",
+            "sha256": "219f7a4dfc98ffb81709ccbee6efcb397e1ccffd9be47c903a1632b792c15719"
+          }
+        ],
+        "kind": "add_entity"
+      },
+      {
+        "change_id": "add-e8-asymre-deltav-boundary-dense-result",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-BOUNDARY-DENSE-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "e3025245dc643b3f57012a76c9c5dd4d9256096235d5e1214a8f095eb11fa91e"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22/HANDOFF_DELTA.yaml",
+            "sha256": "64d80abcade307971076a6f74c296e6a91668bde29bbdfafd07a27d320ccb9e2"
+          },
+          {
+            "path": "docs/experiments/E8_ASYMRE_DELTAV_JOINT_CLOSURE.md",
+            "sha256": "badc7a606d9bae55daea7c1320e27af8a8a5dcee1bcef2427ac7e16f0848a134"
+          },
+          {
+            "path": "docs/experiments/E8_ASYMRE_DELTAV_JOINT_PROVENANCE.json",
+            "sha256": "786d8b48cf8acd3ab18212c84d537a50c6737859e9c4a6f24dfe65cb74b4e701"
+          },
+          {
+            "path": "experiments/results/e8_asymre_deltav_joint_closure_20260722/RESULT_CLOSURE.json",
+            "sha256": "64d44119170dfe1d9cd5735a3f738a8990de01c919302d5b1cd8acd20e696d04"
+          },
+          {
+            "path": "experiments/results/e8_asymre_deltav_joint_closure_20260722/JOINT_RESPONSE_CURVE.csv",
+            "sha256": "219f7a4dfc98ffb81709ccbee6efcb397e1ccffd9be47c903a1632b792c15719"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-BOUNDARY-DENSE-0.5B-01",
+        "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-SCAN-0.5B-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 2,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "64d80abcade307971076a6f74c296e6a91668bde29bbdfafd07a27d320ccb9e2",
+  "exact_base_candidate_sha256": "6f8aaac4515ed62fd802cbc40327b570291ec5c11d109f2c84edb7836a2bf275",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e8-asymre-deltav-scan-result",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-SCAN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "e3025245dc643b3f57012a76c9c5dd4d9256096235d5e1214a8f095eb11fa91e"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22/HANDOFF_DELTA.yaml",
+            "sha256": "64d80abcade307971076a6f74c296e6a91668bde29bbdfafd07a27d320ccb9e2"
+          },
+          {
+            "path": "docs/experiments/E8_ASYMRE_DELTAV_JOINT_CLOSURE.md",
+            "sha256": "badc7a606d9bae55daea7c1320e27af8a8a5dcee1bcef2427ac7e16f0848a134"
+          },
+          {
+            "path": "docs/experiments/E8_ASYMRE_DELTAV_JOINT_PROVENANCE.json",
+            "sha256": "786d8b48cf8acd3ab18212c84d537a50c6737859e9c4a6f24dfe65cb74b4e701"
+          },
+          {
+            "path": "experiments/results/e8_asymre_deltav_joint_closure_20260722/RESULT_CLOSURE.json",
+            "sha256": "64d44119170dfe1d9cd5735a3f738a8990de01c919302d5b1cd8acd20e696d04"
+          },
+          {
+            "path": "experiments/results/e8_asymre_deltav_joint_closure_20260722/JOINT_RESPONSE_CURVE.csv",
+            "sha256": "219f7a4dfc98ffb81709ccbee6efcb397e1ccffd9be47c903a1632b792c15719"
+          }
+        ],
+        "kind": "add_entity"
+      },
+      {
+        "change_id": "add-e8-asymre-deltav-boundary-dense-result",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-BOUNDARY-DENSE-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "e3025245dc643b3f57012a76c9c5dd4d9256096235d5e1214a8f095eb11fa91e"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22/HANDOFF_DELTA.yaml",
+            "sha256": "64d80abcade307971076a6f74c296e6a91668bde29bbdfafd07a27d320ccb9e2"
+          },
+          {
+            "path": "docs/experiments/E8_ASYMRE_DELTAV_JOINT_CLOSURE.md",
+            "sha256": "badc7a606d9bae55daea7c1320e27af8a8a5dcee1bcef2427ac7e16f0848a134"
+          },
+          {
+            "path": "docs/experiments/E8_ASYMRE_DELTAV_JOINT_PROVENANCE.json",
+            "sha256": "786d8b48cf8acd3ab18212c84d537a50c6737859e9c4a6f24dfe65cb74b4e701"
+          },
+          {
+            "path": "experiments/results/e8_asymre_deltav_joint_closure_20260722/RESULT_CLOSURE.json",
+            "sha256": "64d44119170dfe1d9cd5735a3f738a8990de01c919302d5b1cd8acd20e696d04"
+          },
+          {
+            "path": "experiments/results/e8_asymre_deltav_joint_closure_20260722/JOINT_RESPONSE_CURVE.csv",
+            "sha256": "219f7a4dfc98ffb81709ccbee6efcb397e1ccffd9be47c903a1632b792c15719"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-BOUNDARY-DENSE-0.5B-01",
+        "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-SCAN-0.5B-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 2,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "6f8aaac4515ed62fd802cbc40327b570291ec5c11d109f2c84edb7836a2bf275",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "e3025245dc643b3f57012a76c9c5dd4d9256096235d5e1214a8f095eb11fa91e",
+  "registry_before_sha256": "ac98dfa3f6ddff107d70dfb852cbaaabd26ffd3f630245b6ad25eac6da63c9e1",
+  "report_schema_version": 1,
+  "source_base_commit": "483e93448f25ada23dbd71fe4d237ccff80f8c0c",
+  "source_patch_commit": "5a2ee0113485f8671af62b66fa4172deae3ea97b",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "2c86cc5b19df5d64cc3febf8b3317a0405b82ba5a0cdc9f2b38f60693161b4cc",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22"
+}
