@@ -1,0 +1,55 @@
+{
+  "event_separation": {
+    "nan_inf": "0/378",
+    "rollout": "0/378",
+    "support_variance": "not_instrumented",
+    "task_collapse": "not_adjudicated_no_registered_threshold"
+  },
+  "experiment_id": "EXT-H-E7-SQEXP-GAE-01",
+  "joint_counts": {
+    "completed": 378,
+    "expected": 378,
+    "failed": 0,
+    "held_out_seeds_touched": false,
+    "nan_inf": 0,
+    "rollout_failures": 0
+  },
+  "limits": [
+    "external_validity_only",
+    "two_development_seeds",
+    "fixed_horizon_not_convergence",
+    "no_formal_ranking",
+    "p3_not_authorized"
+  ],
+  "locked_result": {
+    "best_finite_c": 0.015625,
+    "best_finite_late": 64.8863016547,
+    "delta_vs_positive_only": -0.4190859614,
+    "finite_c_exceeded_positive_only": false,
+    "interior_optimum_identified": false,
+    "positive_only_late": 65.3053876161
+  },
+  "runs": [
+    {
+      "manifest": "9f1ea69f0759bcd3bd79a91c7ccdb5e5d1a22f49ea67e114aaa1e7d4f5f6dbc1",
+      "profile": "p1",
+      "results_commit": "33fa687352392df985679abddedb834535b10a3d",
+      "run_id": "E7_BENCH_JOINT_GAE_P1_FULL_20260719_02",
+      "source_commit": "d0ba443154d847065965b18a43ffe897f19530fa",
+      "source_resolved": false
+    },
+    {
+      "manifest": "37bbc4ce2fbbd98cd2c2ad742329a9124c578955512ebe4819b75e1aa5bea9e4",
+      "profile": "p2",
+      "results_commit": "7c1af9fc47ddd347c1bb28d43ad8a024ca95b8a8",
+      "run_id": "E7_BENCH_JOINT_GAE_P2_LEFT_FULL_20260721_01",
+      "source_commit": "909249875c190a75301ceb2dc2c2062ca0efcb16",
+      "source_resolved": true,
+      "stale_stage_status_retained": true
+    }
+  ],
+  "schema_version": 1,
+  "scientific_status": "pilot",
+  "status": "PASS_WITH_P1_PROVENANCE_AND_P2_STALE_METADATA_LIMITATIONS",
+  "update_id": "EXT-H-E7-SQEXP-GAE-P1-P2-RESULT-CLOSURE-2026-07-22"
+}
