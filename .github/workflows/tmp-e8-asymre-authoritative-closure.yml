@@ -1,0 +1,764 @@
+name: TEMP E8 AsymRE authoritative closure
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-e8-asymre-authoritative-closure
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    if: github.head_ref == 'dev/e8-asymre-deltav-joint-closure-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-asymre-deltav-joint-closure-01
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Materialize source and authoritative after-image
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=18440ae79a155be1d8aa357ff0fdf3c238b018bb
+          UPDATE_ID=EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22
+          BRANCH=dev/e8-asymre-deltav-joint-closure-01
+          WORKFLOW=.github/workflows/tmp-e8-asymre-authoritative-closure.yml
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          test "$(git rev-parse HEAD^)" = "$BASE"
+          test "$(git diff --name-only "$BASE"..HEAD)" = "$WORKFLOW"
+          rm "$WORKFLOW"
+
+          python3 - <<'PY'
+          from __future__ import annotations
+
+          import csv
+          import hashlib
+          import json
+          import sys
+          from pathlib import Path
+
+          import yaml
+
+          ROOT = Path(".")
+          BASE = "18440ae79a155be1d8aa357ff0fdf3c238b018bb"
+          UPDATE_ID = "EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22"
+          FIRST_ID = "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-SCAN-0.5B-01"
+          DENSE_ID = (
+              "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-BOUNDARY-DENSE-0.5B-01"
+          )
+          FIRST_RUN = "E8_ASYMRE_DELTAV_SCAN_20260721_01"
+          DENSE_RUN = "E8_ASYMRE_DELTAV_BOUNDARY_DENSE_20260721_01"
+          RESULT_DIR = ROOT / "experiments/results/e8_asymre_deltav_joint_closure_20260722"
+          DELTA_DIR = ROOT / "docs/handoff_deltas" / UPDATE_ID
+          RESULT_DIR.mkdir(parents=True, exist_ok=True)
+          DELTA_DIR.mkdir(parents=True, exist_ok=True)
+          (ROOT / "docs/experiments").mkdir(parents=True, exist_ok=True)
+
+          def sha256_text(text: str) -> str:
+              return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+          rows = [
+              # run_id, delta_v, seed, late_p8, terminal_p8, terminal_p64, terminal_valid
+              (FIRST_RUN, -1.0, 4000, 0.1452, 0.148, 0.226, 0.994),
+              (FIRST_RUN, -1.0, 5000, 0.1424, 0.138, 0.218, 0.998),
+              (FIRST_RUN, -0.5, 4000, 0.1048, 0.106, 0.120, 0.880),
+              (FIRST_RUN, -0.5, 5000, 0.1032, 0.112, 0.136, 0.892),
+              (FIRST_RUN, -0.3, 4000, 0.1052, 0.098, 0.132, 0.878),
+              (FIRST_RUN, -0.3, 5000, 0.1028, 0.102, 0.132, 0.862),
+              (FIRST_RUN, -0.2, 4000, 0.0828, 0.090, 0.120, 0.778),
+              (FIRST_RUN, -0.2, 5000, 0.0900, 0.092, 0.132, 0.806),
+              (FIRST_RUN, -0.1, 4000, 0.0724, 0.090, 0.124, 0.704),
+              (FIRST_RUN, -0.1, 5000, 0.0740, 0.072, 0.110, 0.530),
+              (FIRST_RUN, -0.05, 4000, 0.0436, 0.064, 0.118, 0.270),
+              (FIRST_RUN, -0.05, 5000, 0.0528, 0.052, 0.096, 0.246),
+              (FIRST_RUN, 0.0, 4000, 0.0304, 0.034, 0.048, 0.278),
+              (FIRST_RUN, 0.0, 5000, 0.0224, 0.018, 0.040, 0.288),
+              (FIRST_RUN, 0.1, 4000, 0.0192, 0.024, 0.032, 0.236),
+              (FIRST_RUN, 0.1, 5000, 0.0168, 0.016, 0.034, 0.260),
+              (DENSE_RUN, -1.0, 4000, 0.1452, 0.148, 0.226, 0.994),
+              (DENSE_RUN, -1.0, 5000, 0.1424, 0.138, 0.218, 0.998),
+              (DENSE_RUN, -0.95, 4000, 0.1008, 0.104, 0.124, 0.992),
+              (DENSE_RUN, -0.95, 5000, 0.1060, 0.098, 0.132, 0.974),
+              (DENSE_RUN, -0.9, 4000, 0.1004, 0.098, 0.116, 0.992),
+              (DENSE_RUN, -0.9, 5000, 0.1072, 0.108, 0.128, 0.990),
+              (DENSE_RUN, -0.85, 4000, 0.0916, 0.088, 0.106, 0.804),
+              (DENSE_RUN, -0.85, 5000, 0.1084, 0.108, 0.126, 0.900),
+              (DENSE_RUN, -0.8, 4000, 0.1068, 0.108, 0.130, 0.816),
+              (DENSE_RUN, -0.8, 5000, 0.1040, 0.102, 0.120, 0.908),
+              (DENSE_RUN, -0.7, 4000, 0.0968, 0.096, 0.114, 0.982),
+              (DENSE_RUN, -0.7, 5000, 0.0772, 0.072, 0.096, 0.790),
+              (DENSE_RUN, -0.6, 4000, 0.1000, 0.100, 0.122, 0.960),
+              (DENSE_RUN, -0.6, 5000, 0.0980, 0.096, 0.128, 0.848),
+              (DENSE_RUN, -0.5, 4000, 0.1104, 0.110, 0.126, 0.852),
+              (DENSE_RUN, -0.5, 5000, 0.1076, 0.108, 0.136, 0.892),
+          ]
+          curve_path = RESULT_DIR / "JOINT_RESPONSE_CURVE.csv"
+          with curve_path.open("w", encoding="utf-8", newline="") as handle:
+              writer = csv.writer(handle)
+              writer.writerow(
+                  [
+                      "run_id",
+                      "delta_v",
+                      "seed_offset",
+                      "late_window_pass_at_8",
+                      "terminal_pass_at_8",
+                      "terminal_pass_at_64",
+                      "terminal_valid_rate",
+                      "numerical_failure",
+                      "test_data_used",
+                  ]
+              )
+              for row in rows:
+                  writer.writerow([*row, "", False])
+
+          closure = {
+              "schema_version": 1,
+              "update_id": UPDATE_ID,
+              "status": "PASS_WITH_DENSE_SOURCE_COMMIT_LIMITATION",
+              "scientific_status": "pilot",
+              "experiments": [FIRST_ID, DENSE_ID],
+              "runs": [
+                  {
+                      "experiment_id": FIRST_ID,
+                      "run_id": FIRST_RUN,
+                      "expected_cells": 16,
+                      "completed_cells": 16,
+                      "terminal_audit": "PASS",
+                      "results_repository": "easonhuo/drpo-results",
+                      "results_commit": "2f9e6d366596f609a91d46f2db014c82e57c04a2",
+                      "ready_manifest_sha256": (
+                          "4384eacdea314c7f13f7bad500a1860c2aa601b53ffcb0ffa51f48193a66976c"
+                      ),
+                      "run_source_commit": "396601fb3b041cd09743dec4f9a1f925ea71bae1",
+                      "run_source_commit_resolved": True,
+                      "scientific_implementation_commit": (
+                          "1ff3628baf720adbf14754e7ed7835fefee099d0"
+                      ),
+                      "source_artifact_zip_sha256": (
+                          "a52b27180e1ccc197a117ca7dd7c9bd8c4baa888d70f9e324426a46f4b30a7c6"
+                      ),
+                  },
+                  {
+                      "experiment_id": DENSE_ID,
+                      "run_id": DENSE_RUN,
+                      "expected_cells": 16,
+                      "completed_cells": 16,
+                      "terminal_audit": "PASS",
+                      "results_repository": "easonhuo/drpo-results",
+                      "results_commit": "ecdda6392ab9bcca224f15482c245c6d7c06597a",
+                      "ready_manifest_sha256": (
+                          "696d4f72c0bf13e67b0744397d330c27689f163eaf414ed81d92e4f4e097babb"
+                      ),
+                      "run_source_commit": "600a2c3400bd6109d80e566c7a5d5eeaf64518d8",
+                      "run_source_commit_resolved": False,
+                      "reviewed_implementation_commit": (
+                          "d865b5ce41034db037ea80804bb8d35989549eda"
+                      ),
+                      "review_pr_head": "2eddd6139eb07754cb9355fad6a8a37ad59d3d4e",
+                      "review_pr": 229,
+                      "source_artifact_zip_sha256": (
+                          "703485c06d1dacc236ff5801ba94bc6e5522a988a1d9a6d240c5258a09a6275a"
+                      ),
+                  },
+              ],
+              "joint_counts": {
+                  "expected_cells": 32,
+                  "completed_cells": 32,
+                  "terminal_audits_passed": 2,
+                  "nan_inf_numerical_failures": 0,
+                  "test_data_used": False,
+              },
+              "paper_facing_metrics": {
+                  "late_window_steps": [800, 900, 1000, 1100, 1200],
+                  "primary": "late_window_pass_at_8",
+                  "secondary": "terminal_pass_at_8",
+                  "best_checkpoint_role": "supplementary_only",
+              },
+              "locked_result": {
+                  "zero_negative_boundary_delta_v": -1.0,
+                  "zero_negative_boundary_mean_late_window_pass_at_8": 0.1438,
+                  "best_tested_active_negative_point": {
+                      "run_id": DENSE_RUN,
+                      "delta_v": -0.5,
+                      "mean_late_window_pass_at_8": 0.1090,
+                      "difference_vs_zero_negative_boundary": -0.0348,
+                  },
+                  "all_tested_active_negative_points_below_boundary": True,
+                  "weak_negative_task_degradation_precedes_clear_valid_rate_degradation": True,
+                  "further_boundary_search_priority": "low",
+              },
+              "reporting_separation": {
+                  "task_performance": "late-window and terminal metrics reported",
+                  "support_or_structure_boundary": (
+                      "not formally instrumented; terminal valid rate is diagnostic only"
+                  ),
+                  "nan_inf_numerical_failure": "0/32",
+              },
+              "claim_limits": [
+                  "fixed_1200_steps_is_not_convergence",
+                  "two_development_seeds_do_not_support_significance",
+                  "no_formal_method_ranking",
+                  "no_universal_asymre_or_taper_claim",
+                  "countdown_external_validity_does_not_replace_controlled_causal_identification",
+              ],
+              "compact_curve": curve_path.as_posix(),
+          }
+          (RESULT_DIR / "RESULT_CLOSURE.json").write_text(
+              json.dumps(closure, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+
+          provenance = {
+              "schema_version": 1,
+              "update_id": UPDATE_ID,
+              "status": "PASS_WITH_EXPLICIT_UNRESOLVED_RUN_SOURCE",
+              "records": closure["runs"],
+              "dense_source_resolution": {
+                  "run_recorded_commit": "600a2c3400bd6109d80e566c7a5d5eeaf64518d8",
+                  "github_resolution": "not_found_at_closure_time",
+                  "retained_bindings": [
+                      "results repository immutable commit",
+                      "READY manifest SHA-256",
+                      "source artifact ZIP SHA-256",
+                      "reviewed implementation commit",
+                      "Draft PR head",
+                      "per-cell summaries and terminal audit",
+                  ],
+                  "effect_on_claim": (
+                      "keeps the dense result at pilot evidence and forbids authoritative "
+                      "formal-evidence or significance upgrade"
+                  ),
+              },
+          }
+          (ROOT / "docs/experiments/E8_ASYMRE_DELTAV_JOINT_PROVENANCE.json").write_text(
+              json.dumps(provenance, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+
+          result_table = """| Run / delta_v | Mean late-window Pass@8 | Terminal Pass@8 | Terminal valid |
+          |---|---:|---:|---:|
+          | first / -1.00 | 0.1438 | 0.1430 | 0.9960 |
+          | dense / -0.95 | 0.1034 | 0.1010 | 0.9830 |
+          | dense / -0.90 | 0.1038 | 0.1030 | 0.9910 |
+          | dense / -0.85 | 0.1000 | 0.0980 | 0.8520 |
+          | dense / -0.80 | 0.1054 | 0.1050 | 0.8620 |
+          | dense / -0.70 | 0.0870 | 0.0840 | 0.8860 |
+          | dense / -0.60 | 0.0990 | 0.0980 | 0.9040 |
+          | first / -0.50 | 0.1040 | 0.1090 | 0.8860 |
+          | dense / -0.50 | 0.1090 | 0.1090 | 0.8720 |
+          | first / -0.30 | 0.1040 | 0.1000 | 0.8700 |
+          | first / -0.20 | 0.0864 | 0.0910 | 0.7920 |
+          | first / -0.10 | 0.0732 | 0.0810 | 0.6170 |
+          | first / -0.05 | 0.0482 | 0.0580 | 0.2580 |
+          | first / 0.00 | 0.0264 | 0.0260 | 0.2830 |
+          | first / 0.10 | 0.0180 | 0.0200 | 0.2480 |"""
+
+          closure_md = f"""# E8 AsymRE delta-v joint result closure
+
+          ## Scope
+
+          This document closes the two linked development pilots `{FIRST_ID}` and `{DENSE_ID}`.
+          It does not merge their scientific code PRs, start another scan, or promote either run to
+          formal method-ranking evidence.
+
+          ## Frozen protocol
+
+          Both runs use Qwen2.5-0.5B-Instruct with fresh LoRA, the same 6000-row oracle-offline v2
+          bank, the same structurally disjoint `val.jsonl` held-out evaluation split, seed offsets
+          `4000,5000`, fixed 1200 training steps, and the objective
+
+          `(1-delta_v) * positive_lp - (1+delta_v) * negative_lp`.
+
+          No value network, learned baseline, remoteness taper, early stopping, or separate
+          `test.jsonl` evaluation entered either response curve. Paper-facing reporting is the mean
+          Pass@8 over steps 800, 900, 1000, 1100, and 1200 plus the step-1200 terminal metric.
+          Validation-selected best checkpoints remain supplementary diagnostics only.
+
+          ## Completeness
+
+          The first scan completed 16/16 cells and the dense boundary scan completed 16/16 cells.
+          Both terminal audits passed. Across 32 cells, NaN/Inf numerical failures were 0 and test
+          data were not used.
+
+          ## Joint response
+
+          {result_table}
+
+          The `delta_v=-1` boundary removes the negative term and has mean late-window Pass@8
+          `0.1438`. Every tested active-negative point is lower on both paired seeds. The strongest
+          observed active-negative aggregate is the dense `delta_v=-0.5` point at `0.1090`, a
+          difference of `-0.0348` from the zero-negative boundary.
+
+          At `delta_v=-0.95` and `-0.90`, terminal valid rate remains about 98--99% while late-window
+          Pass@8 has already fallen by about four percentage points. Therefore the first visible
+          effect is task-performance degradation, not a NaN/Inf event or an already-established
+          formal structure boundary. From approximately `delta_v=-0.85` onward, valid-rate
+          instability becomes material; the original scan's `-0.20` through `0.10` region combines
+          continued task degradation with severe valid-expression loss.
+
+          ## Event separation
+
+          - Task performance: reported through the fixed late window and terminal metrics.
+          - Support/structure behavior: no formal boundary threshold was registered; valid rate is
+            retained as a diagnostic and is not relabeled as a formal support event.
+          - Numerical failure: 0/32 NaN/Inf events.
+
+          ## Reproducibility and provenance
+
+          The first run is bound to resolvable source commit
+          `396601fb3b041cd09743dec4f9a1f925ea71bae1`, scientific implementation
+          `1ff3628baf720adbf14754e7ed7835fefee099d0`, results commit
+          `2f9e6d366596f609a91d46f2db014c82e57c04a2`, and READY manifest SHA-256
+          `4384eacdea314c7f13f7bad500a1860c2aa601b53ffcb0ffa51f48193a66976c`.
+
+          The dense package records source commit
+          `600a2c3400bd6109d80e566c7a5d5eeaf64518d8`, which was not resolvable from GitHub at
+          closure time. The run remains bound to results commit
+          `ecdda6392ab9bcca224f15482c245c6d7c06597a`, READY manifest SHA-256
+          `696d4f72c0bf13e67b0744397d330c27689f163eaf414ed81d92e4f4e097babb`, source artifact
+          ZIP SHA-256 `703485c06d1dacc236ff5801ba94bc6e5522a988a1d9a6d240c5258a09a6275a`,
+          reviewed implementation commit `d865b5ce41034db037ea80804bb8d35989549eda`, and Draft PR #229 head
+          `2eddd6139eb07754cb9355fad6a8a37ad59d3d4e`. This explicit source-resolution limitation
+          prevents formal-evidence promotion but does not erase the delivered pilot observations.
+
+          ## Locked interpretation and next priority
+
+          The tested global AsymRE coefficient reallocation does not reveal an interior point that
+          beats the zero-negative boundary. Additional search inside `[-1,-0.95]` is low priority
+          and would answer only a narrow onset-threshold diagnostic, not the current main method
+          question. The next scientific line may move to TORR/TOPR review after this repository
+          closure.
+
+          This evidence remains `pilot`: two development seeds do not support statistical
+          significance, fixed 1200 steps do not establish convergence or steady state, and these
+          runs alone do not establish a formal comparison against remoteness-aware taper or a
+          cross-task/model ranking.
+          """
+          (ROOT / "docs/experiments/E8_ASYMRE_DELTAV_JOINT_CLOSURE.md").write_text(
+              closure_md, encoding="utf-8"
+          )
+
+          readme = f"""# AsymRE delta-v compact closure
+
+          This directory contains the compact 32-cell joint response curve and the authoritative
+          closure summary for `{FIRST_ID}` and `{DENSE_ID}`.
+
+          Full per-cell logs, diagnostics, and result manifests remain in `easonhuo/drpo-results`
+          at commits `2f9e6d366596f609a91d46f2db014c82e57c04a2` and
+          `ecdda6392ab9bcca224f15482c245c6d7c06597a`.
+          """
+          (RESULT_DIR / "README.md").write_text(readme, encoding="utf-8")
+
+          registry_path = ROOT / "experiments/registry.yaml"
+          registry_before = registry_path.read_text(encoding="utf-8")
+          if FIRST_ID in registry_before or DENSE_ID in registry_before:
+              raise SystemExit("AsymRE closure IDs already exist in registry")
+          marker = "development_experiment_registrations:\n"
+          if registry_before.count(marker) != 1:
+              raise SystemExit("registry insertion marker is not unique")
+
+          common_evaluation = {
+              "split_file": "val.jsonl",
+              "split_role": "structurally_disjoint_held_out_evaluation",
+              "enters_training_loss": False,
+              "train_structure_overlap": "none",
+              "train_problem_key_overlap": "none",
+              "paper_facing_summary": [
+                  "late_window_pass_at_8",
+                  "terminal_pass_at_8",
+              ],
+              "best_checkpoint_saved": True,
+              "best_checkpoint_role": "supplementary_only",
+              "separate_test_jsonl_used": False,
+              "response_curve_mode": "full_grid_reporting",
+          }
+
+          def entity(
+              *,
+              experiment_id: str,
+              name: str,
+              run_id: str,
+              grid: list[float],
+              results_commit: str,
+              ready_hash: str,
+              run_source: str,
+              resolved: bool,
+              source_zip: str,
+              predecessor: str | None,
+              successor: str | None,
+              dense: bool,
+          ) -> dict:
+              payload = {
+                  "id": experiment_id,
+                  "evaluation_protocol": common_evaluation,
+                  "environment": "EXT-C",
+                  "name": name,
+                  "status": "pilot",
+                  "scientific_status": "pilot",
+                  "role": "Countdown_external_validity_global_signed_weight_response",
+                  "execution_class": "pilot",
+                  "registration_state": "registered_after_completed_code_first_result",
+                  "claim": (
+                      "Under the frozen AsymRE global coefficient reallocation, test "
+                      "whether an active-negative interior delta_v point exceeds the "
+                      "delta_v=-1 zero-negative boundary on fixed late-window Pass@8."
+                  ),
+                  "model": {
+                      "identity": "Qwen2.5-0.5B-Instruct",
+                      "initialization": "pretrained_base_plus_fresh_lora",
+                      "parameterization": "lora",
+                  },
+                  "protocol": {
+                      "objective": (
+                          "(1-delta_v)*positive_lp-(1+delta_v)*negative_lp"
+                      ),
+                      "delta_v_grid": grid,
+                      "seed_offsets": [4000, 5000],
+                      "fixed_training_steps": 1200,
+                      "early_stop": False,
+                      "validation_only": True,
+                      "test_data_used": False,
+                      "expected_cells": 16,
+                      "completed_cells": 16,
+                  },
+                  "execution": {
+                      "state": "delivered",
+                      "run_id": run_id,
+                      "terminal_audit_status": "PASS",
+                      "numerical_failures": 0,
+                  },
+                  "provenance": {
+                      "run_source_commit": run_source,
+                      "run_source_commit_resolved": resolved,
+                      "source_artifact_zip_sha256": source_zip,
+                      "closure_document": (
+                          "docs/experiments/E8_ASYMRE_DELTAV_JOINT_CLOSURE.md"
+                      ),
+                      "provenance_document": (
+                          "docs/experiments/E8_ASYMRE_DELTAV_JOINT_PROVENANCE.json"
+                      ),
+                  },
+                  "evidence": {
+                      "terminal_audited": True,
+                      "all_expected_cells_present": True,
+                      "nan_inf_numerical_events": 0,
+                      "test_split_used": False,
+                      "compact_closure": (
+                          "experiments/results/e8_asymre_deltav_joint_closure_20260722/"
+                          "RESULT_CLOSURE.json"
+                      ),
+                      "compact_curve": (
+                          "experiments/results/e8_asymre_deltav_joint_closure_20260722/"
+                          "JOINT_RESPONSE_CURVE.csv"
+                      ),
+                      "results_repository": "easonhuo/drpo-results",
+                      "results_commit": results_commit,
+                      "result_manifest_sha256": ready_hash,
+                  },
+                  "reporting_separation": [
+                      "task_performance",
+                      "support_or_structure_valid_rate_diagnostic",
+                      "nan_inf_numerical_failure",
+                  ],
+                  "paper_use": {
+                      "allowed": [
+                          "Countdown_external_validity_negative_control",
+                          "global_coefficient_response_interpretation",
+                      ],
+                      "prohibited": [
+                          "formal_method_ranking",
+                          "statistical_significance",
+                          "convergence_or_steady_state",
+                          "formal_support_boundary_claim",
+                          "universal_taper_superiority",
+                          "cross_task_or_cross_model_generalization",
+                      ],
+                  },
+                  "closure": {
+                      "state": "closed_pilot_evidence_line",
+                      "closure_update_id": UPDATE_ID,
+                      "further_boundary_scan_priority": "low",
+                  },
+                  "evidence_locator": {
+                      "schema_version": 1,
+                      "primary_run_id": run_id,
+                      "records": [
+                          {
+                              "run_id": run_id,
+                              "lane": "e8",
+                              "source_commit": run_source,
+                              "results_repository": "easonhuo/drpo-results",
+                              "results_branch": "ingest/e8",
+                              "results_commit": results_commit,
+                              "result_path": f"runs/e8/{run_id}",
+                              "manifest_sha256": ready_hash,
+                              "export_profile": "manifest_text_v1",
+                          }
+                      ],
+                  },
+              }
+              if predecessor:
+                  payload["predecessor"] = predecessor
+              if successor:
+                  payload["successor"] = successor
+              if dense:
+                  payload["provenance"].update(
+                      {
+                          "reviewed_implementation_commit": (
+                              "d865b5ce41034db037ea80804bb8d35989549eda"
+                          ),
+                          "review_pr_head": (
+                              "2eddd6139eb07754cb9355fad6a8a37ad59d3d4e"
+                          ),
+                          "review_pr": 229,
+                          "unresolved_source_commit_blocker": True,
+                      }
+                  )
+              else:
+                  payload["provenance"]["scientific_implementation_commit"] = (
+                      "1ff3628baf720adbf14754e7ed7835fefee099d0"
+                  )
+              return payload
+
+          entities = [
+              entity(
+                  experiment_id=FIRST_ID,
+                  name="countdown_e8_asymre_deltav_scan",
+                  run_id=FIRST_RUN,
+                  grid=[-1.0, -0.5, -0.3, -0.2, -0.1, -0.05, 0.0, 0.1],
+                  results_commit="2f9e6d366596f609a91d46f2db014c82e57c04a2",
+                  ready_hash=(
+                      "4384eacdea314c7f13f7bad500a1860c2aa601b53ffcb0ffa51f48193a66976c"
+                  ),
+                  run_source="396601fb3b041cd09743dec4f9a1f925ea71bae1",
+                  resolved=True,
+                  source_zip=(
+                      "a52b27180e1ccc197a117ca7dd7c9bd8c4baa888d70f9e324426a46f4b30a7c6"
+                  ),
+                  predecessor="EXT-C-E8-ORACLE-OFFLINE-V2-INIT-MATRIX-0.5B-01",
+                  successor=DENSE_ID,
+                  dense=False,
+              ),
+              entity(
+                  experiment_id=DENSE_ID,
+                  name="countdown_e8_asymre_deltav_boundary_dense",
+                  run_id=DENSE_RUN,
+                  grid=[-1.0, -0.95, -0.9, -0.85, -0.8, -0.7, -0.6, -0.5],
+                  results_commit="ecdda6392ab9bcca224f15482c245c6d7c06597a",
+                  ready_hash=(
+                      "696d4f72c0bf13e67b0744397d330c27689f163eaf414ed81d92e4f4e097babb"
+                  ),
+                  run_source="600a2c3400bd6109d80e566c7a5d5eeaf64518d8",
+                  resolved=False,
+                  source_zip=(
+                      "703485c06d1dacc236ff5801ba94bc6e5522a988a1d9a6d240c5258a09a6275a"
+                  ),
+                  predecessor=FIRST_ID,
+                  successor=None,
+                  dense=True,
+              ),
+          ]
+          entity_text = yaml.safe_dump(
+              entities,
+              sort_keys=False,
+              allow_unicode=True,
+              width=120,
+          )
+          if not entity_text.startswith("- id:"):
+              raise SystemExit("unexpected registry entity serialization")
+          registry_after = registry_before.replace(
+              marker, entity_text + marker, 1
+          )
+          registry_path.write_text(registry_after, encoding="utf-8")
+
+          handoff_content = (
+              "- **Countdown E8 AsymRE delta-v 两轮联合闭环：**"
+              f"`{FIRST_ID}` 与 `{DENSE_ID}` 已分别完成 16/16 cells，联合 32/32；"
+              "两个 terminal audit 均为 PASS，NaN/Inf 为 0，`test.jsonl` 未使用。"
+              "paper-facing primary 是 steps `[800,900,1000,1100,1200]` 的 mean Pass@8，"
+              "secondary 是 step-1200 terminal Pass@8，best checkpoint 仅作 supplementary diagnostic。"
+              "`delta_v=-1` zero-negative boundary 的 joint mean late-window Pass@8 为 `0.1438`；"
+              "所有已测 active-negative 点在两个 paired development seeds 上均未超过该边界，"
+              "最佳已测 active-negative aggregate 是 dense `delta_v=-0.5` 的 `0.1090`，差 `-0.0348`。"
+              "在 `-0.95/-0.90` 处 terminal valid rate 仍约 98--99%，任务指标已先下降约 4 个百分点；"
+              "更强负项随后伴随明显 valid-rate 退化。因此 task-performance degradation、"
+              "support/valid-structure diagnostic 与 NaN/Inf 必须继续分报。"
+              "固定 1200 steps 不等于 convergence，两个 development seeds 不授权显著性、稳态或正式方法排名，"
+              "也不单独证明 taper 正式优于 AsymRE。进一步扫描 `[-1,-0.95]` 的优先级登记为 low。"
+              "第一轮 source commit `396601fb3b041cd09743dec4f9a1f925ea71bae1` 可解析；"
+              "dense 包记录的 `600a2c3400bd6109d80e566c7a5d5eeaf64518d8` 在闭环时不可从 GitHub 解析，"
+              "故 dense 继续保留 explicit provenance blocker 与 pilot 状态，不升级为 authoritative formal evidence。"
+              "完整记录见 `docs/experiments/E8_ASYMRE_DELTAV_JOINT_CLOSURE.md`、"
+              "`docs/experiments/E8_ASYMRE_DELTAV_JOINT_PROVENANCE.json` 和 "
+              "`experiments/results/e8_asymre_deltav_joint_closure_20260722/RESULT_CLOSURE.json`。"
+          )
+          operations = [
+              {
+                  "operation_id": "append-e8-asymre-deltav-joint-closure",
+                  "op": "append_to_section",
+                  "heading_path": [
+                      "0. 研究与执行原则（每次新会话首先阅读）",
+                      "0.1 当前执行门禁",
+                  ],
+                  "block_id": "e8-asymre-deltav-joint-closure-20260722",
+                  "content": handoff_content,
+              }
+          ]
+
+          sys.path.insert(0, str((ROOT / "scripts").resolve()))
+          import handoff_delta_shadow as shadow  # noqa: E402
+
+          handoff_before = (ROOT / "docs/handoff.md").read_text(encoding="utf-8")
+          candidate = shadow.render(handoff_before, operations).text
+          delta = {
+              "schema_version": 3,
+              "update_id": UPDATE_ID,
+              "mode": "authoritative",
+              "base": {
+                  "commit": BASE,
+                  "handoff_sha256": sha256_text(handoff_before),
+                  "registry_sha256": sha256_text(registry_before),
+              },
+              "renderer_version": 1,
+              "operations": operations,
+              "registry": {
+                  "mode": "expected_after",
+                  "exact_base_after_sha256": sha256_text(registry_after),
+                  "changes": [
+                      {
+                          "change_id": "add-e8-asymre-deltav-scan-result",
+                          "kind": "add_entity",
+                          "entity_id": FIRST_ID,
+                          "evidence": [
+                              "experiments/registry.yaml",
+                              (
+                                  "docs/handoff_deltas/"
+                                  f"{UPDATE_ID}/HANDOFF_DELTA.yaml"
+                              ),
+                              "docs/experiments/E8_ASYMRE_DELTAV_JOINT_CLOSURE.md",
+                              "docs/experiments/E8_ASYMRE_DELTAV_JOINT_PROVENANCE.json",
+                              (
+                                  "experiments/results/"
+                                  "e8_asymre_deltav_joint_closure_20260722/"
+                                  "RESULT_CLOSURE.json"
+                              ),
+                              (
+                                  "experiments/results/"
+                                  "e8_asymre_deltav_joint_closure_20260722/"
+                                  "JOINT_RESPONSE_CURVE.csv"
+                              ),
+                          ],
+                      },
+                      {
+                          "change_id": "add-e8-asymre-deltav-boundary-dense-result",
+                          "kind": "add_entity",
+                          "entity_id": DENSE_ID,
+                          "evidence": [
+                              "experiments/registry.yaml",
+                              (
+                                  "docs/handoff_deltas/"
+                                  f"{UPDATE_ID}/HANDOFF_DELTA.yaml"
+                              ),
+                              "docs/experiments/E8_ASYMRE_DELTAV_JOINT_CLOSURE.md",
+                              "docs/experiments/E8_ASYMRE_DELTAV_JOINT_PROVENANCE.json",
+                              (
+                                  "experiments/results/"
+                                  "e8_asymre_deltav_joint_closure_20260722/"
+                                  "RESULT_CLOSURE.json"
+                              ),
+                              (
+                                  "experiments/results/"
+                                  "e8_asymre_deltav_joint_closure_20260722/"
+                                  "JOINT_RESPONSE_CURVE.csv"
+                              ),
+                          ],
+                      },
+                  ],
+              },
+              "expected": {
+                  "exact_base_candidate_sha256": sha256_text(candidate),
+              },
+          }
+          (DELTA_DIR / "HANDOFF_DELTA.yaml").write_text(
+              yaml.safe_dump(
+                  delta,
+                  sort_keys=False,
+                  allow_unicode=True,
+                  width=120,
+              ),
+              encoding="utf-8",
+          )
+
+          # Deterministic authoring checks.
+          parsed = yaml.safe_load(registry_path.read_text(encoding="utf-8"))
+          ids = [item["id"] for item in parsed["experiments"]]
+          if ids.count(FIRST_ID) != 1 or ids.count(DENSE_ID) != 1:
+              raise SystemExit("registry IDs were not added exactly once")
+          if len(rows) != 32:
+              raise SystemExit("compact response curve must contain 32 cells")
+          PY
+
+          git add -A
+          git diff --cached --check
+          git commit -m "E8 AsymRE: author joint result closure source"
+          SOURCE_COMMIT=$(git rev-parse HEAD)
+
+          git worktree add --detach /tmp/drpo-trusted "$BASE"
+          python3 /tmp/drpo-trusted/scripts/handoff_authority.py validate-delta \
+            --repo-root . \
+            --delta "docs/handoff_deltas/$UPDATE_ID/HANDOFF_DELTA.yaml" \
+            --source-patch-commit "$SOURCE_COMMIT" \
+            --json
+          python3 /tmp/drpo-trusted/scripts/handoff_authority.py normalize \
+            --repo-root . \
+            --trusted-repo-root /tmp/drpo-trusted \
+            --current-before "$BASE" \
+            --source-base "$BASE" \
+            --source-patch-commit "$SOURCE_COMMIT" \
+            --json
+
+          git add -A
+          git diff --cached --check
+          git commit -m "E8 AsymRE: materialize authoritative result closure"
+
+          python3 scripts/handoff_authority.py verify --repo-root . --json
+          python3 scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          python3 scripts/build_stage4_context.py --repo-root . --json check
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          import yaml
+
+          first_id = "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-SCAN-0.5B-01"
+          dense_id = (
+              "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-BOUNDARY-DENSE-0.5B-01"
+          )
+          registry = yaml.safe_load(
+              Path("experiments/registry.yaml").read_text(encoding="utf-8")
+          )
+          by_id = {row["id"]: row for row in registry["experiments"]}
+          assert by_id[first_id]["status"] == "pilot"
+          assert by_id[dense_id]["status"] == "pilot"
+          assert by_id[dense_id]["provenance"]["unresolved_source_commit_blocker"] is True
+          closure = json.loads(
+              Path(
+                  "experiments/results/e8_asymre_deltav_joint_closure_20260722/"
+                  "RESULT_CLOSURE.json"
+              ).read_text(encoding="utf-8")
+          )
+          assert closure["joint_counts"]["completed_cells"] == 32
+          assert closure["joint_counts"]["nan_inf_numerical_failures"] == 0
+          assert closure["locked_result"]["all_tested_active_negative_points_below_boundary"]
+          PY
+          git diff --check "$BASE"..HEAD
+          git status --short
+          git push origin "HEAD:$BRANCH"
