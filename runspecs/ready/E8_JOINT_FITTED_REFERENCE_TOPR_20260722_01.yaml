@@ -4,7 +4,7 @@ lane: e8
 priority: 150
 created_at: "2026-07-22T07:52:00Z"
 experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-JOINT-FITTED-REFERENCE-TOPR-0.5B-01
-repo_commit: 05bb65f33594e667d0e38d4c5799373bf526262b
+repo_commit: 14306384959deaf41d70dfe1d382ad81edbfc5ba
 
 registration:
   mode: deferred
@@ -24,12 +24,15 @@ provenance:
     - tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
 
 purpose: >
-  Run the frozen Joint Fitted-Reference TOPR candidate on the model-independent E8 V2
-  bank using one shared frozen Qwen backbone, a policy LoRA, and a jointly fitted
-  branch-balanced reference LoRA. Preserve the two paired development seeds, fixed
-  1200-step horizon, structurally disjoint held-out evaluation, late-window and
-  terminal reporting, and automatic text-first result delivery. This is not canonical
-  frozen-behavior TOPR and does not authorize a formal method ranking.
+  Run the frozen eight-point Joint Fitted-Reference beta-TOPR response curve on
+  the model-independent E8 V2 bank using one shared frozen Qwen backbone, a
+  policy LoRA, and a jointly fitted branch-balanced reference LoRA. Preserve
+  the two paired development seeds, fixed 1200-step horizon, structurally
+  disjoint held-out evaluation, late-window and terminal reporting, and
+  automatic text-first result delivery. Beta=1 is the original TOPR ratio-rule
+  anchor with a fitted reference; beta=0 is a no-ratio-taper boundary control.
+  This is not canonical frozen-behavior TOPR and does not authorize a best-beta
+  or formal method-ranking claim.
 
 entrypoint:
   cwd: repo_root
@@ -67,21 +70,26 @@ outputs:
   audit_file: outputs/e8/joint_fitted_reference_topr_001/aggregate/terminal_audit.json
 
 success_criteria:
-  - method identity is Joint Fitted-Reference TOPR and is not reported as canonical frozen-behavior TOPR
+  - method identity is Joint Fitted-Reference beta-TOPR and is not reported as canonical frozen-behavior TOPR
+  - the frozen grid contains 8 beta points and 16 cells at beta values 0, 0.25, 0.5, 0.75, 1, 1.5, 2, and 4 on seed offsets 4000 and 5000
+  - beta=1 is reported as the original TOPR ratio-rule anchor with a jointly fitted reference
+  - beta=0 is reported as the no-ratio-taper boundary control and not as canonical TOPR
+  - all nonzero beta values other than 1 are reported as tempered Joint Fitted-Reference beta-TOPR variants
   - one frozen Qwen backbone carries identically initialized default policy and reference LoRA adapters
   - the reference objective assigns 0.5 positive branch mass and 0.5 total negative branch mass with uniform mass over unique negatives per prompt
-  - policy negative weights equal exp(min(sum_logpi-sum_logmu,0)) on full-completion summed log-probability and are detached
+  - policy negative weights equal exp(beta*min(sum_logpi-sum_logmu,0)) on full-completion summed log-probability and are detached
+  - policy and reference learning rates, schedulers, and one-to-one update frequency remain unchanged across beta
   - positive weight remains 1 and no value network, learned baseline, absolute-surprisal taper, near-far selection, or weight-sum normalization is used
-  - matrix contains 1 method point and 2 cells on seed offsets 4000 and 5000
-  - runtime records GPU 0 and 1 with one slot per GPU and one full wave
-  - smoke gate passes before the full sweep and remains non-scientific evidence
+  - runtime records GPU 0 and 1 with one slot per GPU and eight full waves
+  - the beta=1 smoke gate passes before the full sweep and remains non-scientific evidence
   - initial full-sequence ratio maximum absolute value is at most 1e-5
   - both default and reference adapters record finite nonzero gradient and update norms during liveness
   - policy evaluation activates only the default adapter and checkpoint inventory records both adapters
-  - reference loss, reference positive and negative log-probability, ratio and weight quantiles, and clipped-at-one fraction are finite and recorded
+  - reference loss, reference positive and negative log-probability, ratio and weight quantiles, clipped-at-one fraction, and beta are finite and recorded
   - val.jsonl is recorded as a structurally disjoint held-out evaluation split and never enters the training loss
   - separate test.jsonl remains unused
-  - both cells are reported using late-window and terminal metrics and best-checkpoint metrics remain supplementary only
+  - every beta point is reported using late-window and terminal metrics and best-checkpoint metrics remain supplementary only
+  - the pilot resolves a beta response-curve trend without selecting a best beta or asserting a formal method ranking
   - task performance, valid-expression or structure diagnostics, and NaN/Inf failure are reported separately
   - fixed 1200 steps is not described as convergence, steady state, significance, or formal method ranking
   - completed text-first evidence is delivered to drpo-results ingest/e8
