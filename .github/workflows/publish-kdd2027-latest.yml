@@ -134,3 +134,5 @@ jobs:
           git diff --cached --check
           git commit -m 'PAPER-KDD2027-SOURCE-REFRESH-01: publish latest manuscript'
           git push origin HEAD:main
+
+# bootstrap-trigger
