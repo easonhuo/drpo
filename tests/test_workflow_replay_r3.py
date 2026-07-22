@@ -66,12 +66,14 @@ def _attempt(
     feedback_class: str = "NONE",
 ) -> dict:
     attempt_id = canonical_sha256({"run_id": identity.run_id, "ordinal": ordinal})
+    candidate_produced = terminal in {"SUCCEEDED", "FAILED", "TIMED_OUT"}
     event = {
         "schema_version": 1,
         "run_id": identity.run_id,
         "attempt_id": attempt_id,
         "ordinal": ordinal,
         "terminal": terminal,
+        "candidate_artifact_produced": candidate_produced,
     }
     event_locator = _json_locator(
         root,
@@ -80,7 +82,7 @@ def _attempt(
         f"journal-{attempt_id}",
     )
     output_locator = None
-    if terminal in {"SUCCEEDED", "FAILED", "TIMED_OUT"}:
+    if candidate_produced:
         output_locator = _write(
             root,
             f"attempts/{ordinal}/candidate.bin",
@@ -209,6 +211,13 @@ def _resign_run(payload: dict) -> None:
     payload["run_artifact_sha256"] = canonical_sha256(
         {key: value for key, value in payload.items() if key != "run_artifact_sha256"}
     )
+
+
+def _rewrite_json_locator(root: Path, locator: dict, value: dict) -> None:
+    raw = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    (root / locator["relative_path"]).write_bytes(raw)
+    locator["sha256"] = hashlib.sha256(raw).hexdigest()
+    locator["byte_size"] = len(raw)
 
 
 def _summary_dict(summary) -> dict:
@@ -378,15 +387,41 @@ def test_binding_evidence_cannot_point_to_a_different_attempt(tmp_path: Path) ->
     )
     locator = payload["final_outcome_locator"]
     wrong = _binding(_identity(), payload["attempts"][0]["attempt_id"])
-    raw = json.dumps(wrong, sort_keys=True, separators=(",", ":")).encode()
-    path = tmp_path / locator["relative_path"]
-    path.write_bytes(raw)
-    locator["sha256"] = hashlib.sha256(raw).hexdigest()
-    locator["byte_size"] = len(raw)
+    _rewrite_json_locator(tmp_path, locator, wrong)
     _resign_run(payload)
     with pytest.raises(TrajectoryError) as caught:
         validate_r3_run_artifact(payload, tmp_path)
     assert caught.value.code == "FINAL_POINTER_MISMATCH"
+
+
+@pytest.mark.parametrize(
+    ("field", "wrong_value"),
+    [
+        ("run_id", "0" * 64),
+        ("attempt_id", "0" * 64),
+        ("ordinal", 1),
+        ("terminal", "FAILED"),
+        ("candidate_artifact_produced", False),
+    ],
+)
+def test_attempt_journal_semantic_binding_survives_outer_resigning(
+    field: str,
+    wrong_value: object,
+    tmp_path: Path,
+) -> None:
+    payload = _artifact(tmp_path, [("SUCCEEDED", "NONE", "NONE")], "PASS")
+    attempt = payload["attempts"][0]
+    locator = attempt["event_journal_locator"]
+    journal_path = tmp_path / locator["relative_path"]
+    journal = json.loads(journal_path.read_text(encoding="utf-8"))
+    journal[field] = wrong_value
+    _rewrite_json_locator(tmp_path, locator, journal)
+    _resign_attempt(attempt)
+    _resign_run(payload)
+
+    with pytest.raises(TrajectoryError) as caught:
+        validate_r3_run_artifact(payload, tmp_path)
+    assert caught.value.code == "ATTEMPT_LINEAGE_INVALID"
 
 
 def test_environment_events_do_not_count_as_candidate_failures(tmp_path: Path) -> None:
