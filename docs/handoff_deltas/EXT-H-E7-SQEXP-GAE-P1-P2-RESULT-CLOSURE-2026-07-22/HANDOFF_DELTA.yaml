@@ -1,0 +1,39 @@
+schema_version: 3
+update_id: EXT-H-E7-SQEXP-GAE-P1-P2-RESULT-CLOSURE-2026-07-22
+mode: authoritative
+base:
+  commit: 919a8aaad535168345ddfee84cc19ccaf6d9f18d
+  handoff_sha256: 6f8aaac4515ed62fd802cbc40327b570291ec5c11d109f2c84edb7836a2bf275
+  registry_sha256: e3025245dc643b3f57012a76c9c5dd4d9256096235d5e1214a8f095eb11fa91e
+renderer_version: 1
+operations:
+- operation_id: append-e7-p1-p2-closure
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e7-sqexp-gae-p1-p2-result-closure-20260722
+  content: '- **D4RL-9 joint-critic GAE P1/P2 closure（`EXT-H-E7-SQEXP-GAE-01`）：**P1 完成 `198/198`，P2 完成 `180/180`；两轮 failed=`0`、terminal
+    audit=`PASS`、seeds 仅 `200,201`、held-out `204--207` 未触碰、NaN/Inf=`0`、rollout failure=`0`。P1/P2 随 `c` 向左总体恢复，最小有限点 `c=0.015625`
+    late mean=`64.8863`，仅比 Positive-only `65.3054` 低 `0.4191`，但 final 仍低 `6.1422`；无已测 finite common `c` 超过 Positive-only，也未识别共同内部最优。medium/replay
+    有局部收益而 expert 受损；transient best 不得升级为同步 checkpoint、收敛、稳态或正式排名。task collapse 无阈值故 `not_adjudicated`，support/variance 未
+    instrument，与 NaN/Inf 分报。P1 结果 commit `33fa687352392df985679abddedb834535b10a3d` 的 source `d0ba443154d847065965b18a43ffe897f19530fa`
+    不可解析；P2 结果 commit `7c1af9fc47ddd347c1bb28d43ad8a024ca95b8a8` 绑定可解析 implementation `909249875c190a75301ceb2dc2c2062ca0efcb16`，其
+    stale `GAE_STAGE_STATUS.json` 不覆盖真实 `180/180`。本证据仅属 Hopper/D4RL external validity，不替代 C-U1/D-U1；本闭环不合并 stacked code PR，也不登记或启动
+    P3。见 `docs/results/E7_BENCH_JOINT_GAE_P1_P2_RESULT_2026-07-22.md`。'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: 5444d8fdcd615cab30b7e6a9581bfe6b79307810e73d4689250535c0b636609a
+  changes:
+  - change_id: add-e7-p1-p2-closure
+    kind: add_entity
+    entity_id: EXT-H-E7-SQEXP-GAE-01
+    evidence:
+    - experiments/registry.yaml
+    - docs/handoff_deltas/EXT-H-E7-SQEXP-GAE-P1-P2-RESULT-CLOSURE-2026-07-22/HANDOFF_DELTA.yaml
+    - docs/experiments/EXT-H-E7-SQEXP-GAE-01.md
+    - docs/results/E7_BENCH_JOINT_GAE_P1_P2_RESULT_2026-07-22.md
+    - experiments/results/e7_sqexp_gae_p1_p2_closure_20260722/RESULT_CLOSURE.json
+    - experiments/results/e7_sqexp_gae_p1_p2_closure_20260722/P1_P2_RESPONSE_CURVE.csv
+expected:
+  exact_base_candidate_sha256: 845a5ed4f60bdf486a605351fe00281837ea17b2a18d5a558074b64f91c786d2
