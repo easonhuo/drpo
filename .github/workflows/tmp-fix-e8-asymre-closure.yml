@@ -42,6 +42,19 @@ jobs:
                   'writer = csv.writer(handle, lineterminator="\\n")\n'
               ),
               'test "$(git diff --name-only "$BASE"..HEAD)" = "$WORKFLOW"\n': 'true\n',
+              (
+                  'git add -A\n'
+                  'git diff --cached --check\n'
+                  'git commit -m "E8 AsymRE: materialize authoritative result closure"\n'
+              ): (
+                  'git add -A\n'
+                  'git diff --cached --check\n'
+                  'NORMALIZED_TREE=$(git write-tree)\n'
+                  'INTEGRATION_COMMIT=$(printf "%s\\n" '
+                  '"E8 AsymRE: materialize authoritative result closure" | '
+                  'git commit-tree "$NORMALIZED_TREE" -p "$BASE" -p "$SOURCE_COMMIT")\n'
+                  'git reset --hard "$INTEGRATION_COMMIT"\n'
+              ),
           }
           for old, new in anchors.items():
               if script.count(old) != 1:
