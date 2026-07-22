@@ -405,7 +405,11 @@ def main(argv: list[str] | None = None) -> int:
     experiment_id = str(branch.get("experiment_id"))
     if experiment_id not in {suite.EXPERIMENT_ID, suite.GAE_EXPERIMENT_ID}:
         raise ValueError("branch experiment_id mismatch")
-    if branch.get("profile_id") not in {None, suite.TUNING_PROFILE_ID}:
+    if branch.get("profile_id") not in {
+        None,
+        suite.TUNING_PROFILE_ID,
+        suite.P3_PROFILE_ID,
+    }:
         raise ValueError("branch tuning profile mismatch")
     if branch.get("branch_kind") != "injected" or "negative_control" in branch:
         raise ValueError("bootstrap requires a public injected branch")
