@@ -342,6 +342,15 @@ def test_loader_rejects_unknown_fields_and_never_returns_partial_summary(tmp_pat
         load_r3_run_artifact(artifact_path, tmp_path)
 
 
+def test_direct_validation_rejects_oversized_artifact(tmp_path: Path) -> None:
+    payload = _artifact(tmp_path, [("SUCCEEDED", "NONE", "NONE")], "PASS")
+    payload["attempts"][0]["diagnostic_codes"] = ["X" * 262144]
+    _resign_attempt(payload["attempts"][0])
+    _resign_run(payload)
+    with pytest.raises(TrajectoryError, match="LIMIT_EXCEEDED"):
+        validate_r3_run_artifact(payload, tmp_path)
+
+
 def test_loader_rejects_symlink_and_oversized_json(tmp_path: Path) -> None:
     target = tmp_path / "target.json"
     target.write_text("{}", encoding="utf-8")
@@ -461,6 +470,13 @@ def test_terminal_disposition_compatibility_is_fail_closed(tmp_path: Path) -> No
     with pytest.raises(TrajectoryError) as caught:
         validate_r3_run_artifact(payload, tmp_path)
     assert caught.value.code == "TERMINAL_DISPOSITION_INVALID"
+
+
+def test_non_evaluable_final_attempt_cannot_claim_r2_rejection(tmp_path: Path) -> None:
+    payload = _artifact(tmp_path, [("INVALIDATED", "ENVIRONMENT", "NONE")], "REJECTED")
+    with pytest.raises(TrajectoryError) as caught:
+        validate_r3_run_artifact(payload, tmp_path)
+    assert caught.value.code == "FINAL_POINTER_MISMATCH"
 
 
 def test_pass_requires_a_succeeded_final_attempt(tmp_path: Path) -> None:
