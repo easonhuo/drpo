@@ -134,6 +134,12 @@ def _token(value: Any, label: str) -> str:
     return value
 
 
+def _enum(value: Any, allowed: frozenset[str], label: str, code: str) -> str:
+    if not isinstance(value, str) or value not in allowed:
+        _fail(code, f"{label} is invalid")
+    return value
+
+
 def _sha(value: Any, label: str) -> str:
     if not isinstance(value, str) or SHA256.fullmatch(value) is None:
         _fail("SCHEMA_INVALID", f"{label} must be a lowercase SHA-256 digest")
@@ -196,8 +202,11 @@ def _verify_attempt_journal(
     ):
         _fail("ATTEMPT_LINEAGE_INVALID", "attempt journal field types are invalid")
     expected = {
-        "schema_version": 1, "run_id": run_id, "attempt_id": attempt_id,
-        "ordinal": ordinal, "terminal": terminal,
+        "schema_version": 1,
+        "run_id": run_id,
+        "attempt_id": attempt_id,
+        "ordinal": ordinal,
+        "terminal": terminal,
         "candidate_artifact_produced": output_present,
     }
     if value != expected:
@@ -214,7 +223,7 @@ def _capabilities(value: Any) -> tuple[tuple[str, str], ...]:
     data = _mapping(value, "resource_capabilities")
     if set(data) != set(RESOURCE_DIMENSIONS):
         _fail("RESOURCE_CAPABILITY_INCOMPLETE", "every frozen resource dimension is required")
-    if any(item not in RESOURCE_CAPABILITIES for item in data.values()):
+    if any(not isinstance(item, str) or item not in RESOURCE_CAPABILITIES for item in data.values()):
         _fail("RESOURCE_CAPABILITY_INCOMPLETE", "resource capability values are invalid")
     return tuple((name, data[name]) for name in RESOURCE_DIMENSIONS)
 
@@ -253,16 +262,16 @@ def validate_attempt_record(
     expected_id = _canonical({"run_id": run_id, "ordinal": ordinal})
     if data["attempt_id"] != expected_id:
         _fail("ATTEMPT_LINEAGE_INVALID", "attempt_id does not match run identity and ordinal")
-    kind = data["kind"]
-    terminal = data["terminal"]
-    disposition = data["disposition"]
-    feedback_class = data["feedback_class"]
-    if kind not in ATTEMPT_KINDS or terminal not in ATTEMPT_TERMINALS:
-        _fail("SCHEMA_INVALID", "attempt kind or terminal is invalid")
-    if disposition not in DISPOSITIONS or disposition not in TERMINAL_DISPOSITIONS[terminal]:
+    kind = _enum(data["kind"], ATTEMPT_KINDS, "attempt kind", "SCHEMA_INVALID")
+    terminal = _enum(data["terminal"], ATTEMPT_TERMINALS, "attempt terminal", "SCHEMA_INVALID")
+    disposition = _enum(
+        data["disposition"], DISPOSITIONS, "attempt disposition", "TERMINAL_DISPOSITION_INVALID"
+    )
+    feedback_class = _enum(
+        data["feedback_class"], FEEDBACK_CLASSES, "feedback_class", "FEEDBACK_LINEAGE_INVALID"
+    )
+    if disposition not in TERMINAL_DISPOSITIONS[terminal]:
         _fail("TERMINAL_DISPOSITION_INVALID", "terminal and disposition are incompatible")
-    if feedback_class not in FEEDBACK_CLASSES:
-        _fail("FEEDBACK_LINEAGE_INVALID", "feedback_class is invalid")
     parent = data["parent_attempt_id"]
     if parent is not None:
         _sha(parent, "parent_attempt_id")
@@ -306,8 +315,7 @@ def validate_attempt_record(
     resources = _resources(data["observed_resources"], capability_tuple, "observed_resources")
     attempt_sha = _sha(data["attempt_sha256"], "attempt_sha256")
     digest_payload = {key: item for key, item in data.items() if key != "attempt_sha256"}
-    expected_sha = _canonical(digest_payload)
-    if attempt_sha != expected_sha:
+    if attempt_sha != _canonical(digest_payload):
         _fail("ATTEMPT_DIGEST_MISMATCH", "attempt digest does not match canonical payload")
     journal_raw = _verify(locators["event"], evidence_root)
     for locator in (locators["input"], locators["output"], locators["feedback"]):
@@ -400,31 +408,24 @@ def validate_r3_run_artifact(value: Any, evidence_root: str | Path) -> RunArtifa
     if attempts[0].kind != "INITIAL":
         _fail("MISSING_INITIAL_ATTEMPT", "ordinal-zero attempt must be INITIAL")
     for ordinal, attempt in enumerate(attempts[1:], start=1):
-        previous = attempts[ordinal - 1]
-        if attempt.kind != "REPAIR" or attempt.parent_attempt_id != previous.attempt_id:
-            _fail(
-                "ATTEMPT_LINEAGE_INVALID",
-                "repair must point to the immediately preceding attempt",
-            )
+        if attempt.kind != "REPAIR" or attempt.parent_attempt_id != attempts[ordinal - 1].attempt_id:
+            _fail("ATTEMPT_LINEAGE_INVALID", "repair must point to the immediately preceding attempt")
     if data["first_attempt_id"] != attempts[0].attempt_id:
         _fail("MISSING_INITIAL_ATTEMPT", "first_attempt_id does not identify ordinal zero")
     if data["final_attempt_id"] != attempts[-1].attempt_id:
         _fail("FINAL_POINTER_MISMATCH", "final_attempt_id does not identify the last attempt")
-    final_acceptance = data["final_acceptance"]
-    if final_acceptance not in FINAL_ACCEPTANCE_VALUES:
-        _fail("SCHEMA_INVALID", "final_acceptance is invalid")
+    final_acceptance = _enum(
+        data["final_acceptance"], FINAL_ACCEPTANCE_VALUES, "final_acceptance", "SCHEMA_INVALID"
+    )
     final_outcome = _locator(data["final_outcome_locator"], "final_outcome_locator")
     acceptance = _locator(data["acceptance_evidence_locator"], "acceptance_evidence_locator")
     if final_acceptance in {"PASS", "REJECTED"} and (final_outcome is None or acceptance is None):
-        _fail(
-            "FINAL_POINTER_MISMATCH",
-            "semantic acceptance requires outcome and acceptance evidence",
-        )
+        _fail("FINAL_POINTER_MISMATCH", "semantic acceptance requires outcome and acceptance evidence")
     if final_acceptance == "PASS" and attempts[-1].terminal != "SUCCEEDED":
         _fail("FINAL_POINTER_MISMATCH", "PASS requires a succeeded final attempt")
-    non_evaluable = {"TIMED_OUT", "INTERRUPTED", "INVALIDATED"}
-    if attempts[-1].terminal in non_evaluable and final_acceptance != "NOT_AVAILABLE":
-        _fail("FINAL_POINTER_MISMATCH", "non-evaluable final attempt requires NOT_AVAILABLE")
+    if attempts[-1].terminal in {"TIMED_OUT", "INTERRUPTED", "INVALIDATED"}:
+        if final_acceptance != "NOT_AVAILABLE":
+            _fail("FINAL_POINTER_MISMATCH", "non-evaluable final attempt requires NOT_AVAILABLE")
     if final_acceptance == "NOT_AVAILABLE" and acceptance is not None:
         _fail("FINAL_POINTER_MISMATCH", "NOT_AVAILABLE forbids acceptance evidence")
     aggregate = _resources(
