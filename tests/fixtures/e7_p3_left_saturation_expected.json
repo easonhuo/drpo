@@ -1,0 +1,33 @@
+{
+  "profile_id": "d4rl9_common_c_p3_left_saturation",
+  "datasets": [
+    "hopper-medium-v2",
+    "hopper-medium-replay-v2",
+    "hopper-medium-expert-v2",
+    "walker2d-medium-v2",
+    "walker2d-medium-replay-v2",
+    "walker2d-medium-expert-v2",
+    "halfcheetah-medium-v2",
+    "halfcheetah-medium-replay-v2",
+    "halfcheetah-medium-expert-v2"
+  ],
+  "development_seeds": [200, 201],
+  "held_out_seeds": [204, 205, 206, 207],
+  "remoteness_scales": [
+    0.01,
+    0.005623413251903491,
+    0.0031622776601683794,
+    0.0017782794100389228,
+    0.001,
+    0.0005623413251903491,
+    0.00031622776601683794,
+    0.00017782794100389227,
+    0.0001
+  ],
+  "liveness_scale": 0.001,
+  "controls_per_task_seed": 10,
+  "expected_total_branches": 180,
+  "stage": "p3_left_saturation_screen",
+  "aggregate_prefix": "p3",
+  "selection_status": "left_saturation_curve_only_no_best_c_selection"
+}
