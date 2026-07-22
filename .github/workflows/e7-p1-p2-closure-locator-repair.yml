@@ -72,14 +72,31 @@ jobs:
         shell: bash
         run: |
           set +e
-          git reset --hard 919a8aaad535168345ddfee84cc19ccaf6d9f18d
+          BASE=919a8aaad535168345ddfee84cc19ccaf6d9f18d
+          REMOTE_HEAD="$(git rev-parse HEAD)"
+          git reset --hard "$BASE"
           bash -x /tmp/e7-author.sh > /tmp/author.log 2>&1
           author_exit=$?
           normalize_exit=99
           if [ "$author_exit" -eq 0 ]; then
-            export SOURCE_PATCH="$(git rev-parse HEAD)"
-            bash -x /tmp/e7-normalize.sh > /tmp/normalize.log 2>&1
-            normalize_exit=$?
+            AUTHORED_SOURCE="$(git rev-parse HEAD)"
+            SOURCE_TREE="$(git rev-parse "${AUTHORED_SOURCE}^{tree}")"
+            SOURCE_PATCH="$(printf '%s\n' 'EXT-H-E7-SQEXP-GAE-01 reviewed source transaction' | git commit-tree "$SOURCE_TREE" -p "$BASE" -p "$REMOTE_HEAD")"
+            git reset --hard "$SOURCE_PATCH" >> /tmp/author.log 2>&1
+            export SOURCE_PATCH
+            python scripts/handoff_authority.py validate-delta \
+              --repo-root . \
+              --delta docs/handoff_deltas/EXT-H-E7-SQEXP-GAE-P1-P2-RESULT-CLOSURE-2026-07-22/HANDOFF_DELTA.yaml \
+              --source-patch-commit "$SOURCE_PATCH" \
+              --json >> /tmp/author.log 2>&1
+            wrapper_exit=$?
+            if [ "$wrapper_exit" -eq 0 ]; then
+              bash -x /tmp/e7-normalize.sh > /tmp/normalize.log 2>&1
+              normalize_exit=$?
+            else
+              printf 'normalize skipped because wrapped source validation failed\n' > /tmp/normalize.log
+              normalize_exit=$wrapper_exit
+            fi
           else
             printf 'normalize skipped because author failed\n' > /tmp/normalize.log
           fi
