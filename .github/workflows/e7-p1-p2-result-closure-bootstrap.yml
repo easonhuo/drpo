@@ -1,0 +1,106 @@
+name: E7 P1 P2 closure bootstrap
+on:
+  push:
+    branches: [dev/ext-h-e7-sqexp-gae-p1-p2-result-closure-01]
+permissions:
+  contents: write
+concurrency:
+  group: e7-p1-p2-closure-bootstrap
+  cancel-in-progress: false
+jobs:
+  materialize:
+    if: github.ref == 'refs/heads/dev/ext-h-e7-sqexp-gae-p1-p2-result-closure-01'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11', cache: pip}
+      - run: python -m pip install --quiet -e '.[dev]'
+      - name: Author source transaction
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=483e93448f25ada23dbd71fe4d237ccff80f8c0c; WF=.github/workflows/e7-p1-p2-result-closure-bootstrap.yml
+          test "$(git rev-parse HEAD^)" = "$BASE"
+          git config user.name drpo-result-closure; git config user.email actions@users.noreply.github.com
+          rm -f "$WF"
+          python - <<'PY'
+          import hashlib, importlib.util, json, subprocess, sys
+          from pathlib import Path
+          import yaml
+          BASE="483e93448f25ada23dbd71fe4d237ccff80f8c0c"
+          UID="EXT-H-E7-SQEXP-GAE-P1-P2-RESULT-CLOSURE-2026-07-22"
+          D=Path("docs/handoff_deltas")/UID/"HANDOFF_DELTA.yaml"
+          P=Path("docs/experiments/EXT-H-E7-SQEXP-GAE-01.md")
+          R=Path("docs/results/E7_BENCH_JOINT_GAE_P1_P2_RESULT_2026-07-22.md")
+          O=Path("experiments/results/e7_sqexp_gae_p1_p2_closure_20260722")
+          C=O/"P1_P2_RESPONSE_CURVE.csv"; J=O/"RESULT_CLOSURE.json"
+          def show(p): return subprocess.check_output(["git","show",f"{BASE}:{p}"],text=True)
+          def h(s): return hashlib.sha256(s.encode()).hexdigest()
+          def w(p,s): p.parent.mkdir(parents=True,exist_ok=True); p.write_text(s,encoding="utf-8")
+          rows=[
+          ("P1","positive_only","",77.3923336331,65.3053876161,68.3166037999,9.0757298332,"",""),
+          ("P2","c0.015625",.015625,78.2068953432,64.8863016547,62.1744297877,16.0324655555,4,9),
+          ("P2","c0.025",.025,78.9350306508,63.7140609073,59.7328780126,19.2021526382,6,10),
+          ("P2","c0.04",.04,78.1482434570,62.1267933494,58.9491097595,19.1991336976,2,4),
+          ("P2","c0.0625",.0625,80.3389295173,60.2981588985,54.7540694787,25.5848600386,5,9),
+          ("P2","c0.08",.08,77.4900241675,59.1869344258,54.2560179929,23.2340061745,6,10),
+          ("P2","c0.10",.10,79.7161880743,56.7543780502,54.9765749604,24.7396131139,2,6),
+          ("P2","c0.125",.125,78.4317391183,57.3451474874,55.5434872521,22.8882518663,4,8),
+          ("P2","c0.16",.16,78.9693192655,55.4924471128,49.1397988662,29.8295203993,4,7),
+          ("P2","c0.20",.20,79.8623553136,50.6457300218,49.4462236476,30.4161316660,3,6),
+          ("P1","c0.25",.25,66.0386686380,47.6785419300,45.7865578585,20.2521107795,2,4),
+          ("P1","c0.5",.5,60.7756541659,37.5388106260,37.1540368214,23.6216173445,1,2),
+          ("P1","c1",1,53.2168538927,28.3852953020,27.3390347651,25.8778191276,1,2),
+          ("P1","c2",2,43.1042048139,24.4180754565,23.8510806820,19.2531241320,1,2),
+          ("P1","c4",4,35.1630089810,17.0786162983,15.4961314072,19.6668775738,0,1),
+          ("P1","c8",8,34.4420735572,16.7762120775,16.7192624185,17.7228111387,0,0),
+          ("P1","c16",16,30.0254984568,14.9370905723,11.7979709210,18.2275275357,0,0),
+          ("P1","c32",32,29.2320058667,12.7513916582,10.1548656124,19.0771402543,0,0),
+          ("P1","c64",64,25.8821826409,12.0043791779,10.6662775460,15.2159050948,0,0),
+          ("P1","uncontrolled","",4.5270661586,.4611400999,.4161077269,4.1109584318,0,0)]
+          header="phase,control,c,best_mean,late_mean,final_mean,best_to_final_drop,task_wins,seed_task_wins\n"
+          w(C,header+"".join(",".join(map(str,x))+"\n" for x in rows))
+          protocol='''# EXT-H-E7-SQEXP-GAE-01 protocol and closure\n\nThis Hopper/D4RL experiment is external-validity screening, not controlled causal identification. Both profiles use nine D4RL-v2 Hopper/Walker2d/HalfCheetah tasks, development seeds `200,201`, untouched held-out seeds `204--207`, canonical A2C with a jointly updated critic, trajectory-snapshot GAE `lambda=0.95`, one million steps, evaluation every 50k steps, and `w(D)=w(0)*exp(-lambda_taper*relu((D-tau)/c))` with `tau=0`, `lambda_taper=1`, reference distance 2.\n\nP1 contains Positive-only, Uncontrolled, and `c={0.25,0.5,1,2,4,8,16,32,64}` (198 branches). P2 contains Positive-only and `c={0.20,0.16,0.125,0.10,0.08,0.0625,0.04,0.025,0.015625}` (180 branches). Both are terminal-audited and delivered. Fixed horizon is not convergence. Task collapse, support/variance events, rollout failures, and NaN/Inf are separate. Two development seeds do not authorize significance, formal ranking, steady-state ranking, per-task retuning, or universal superiority. This closure does not register or launch P3.\n'''
+          w(P,protocol)
+          lines=["# E7 joint-critic GAE P1/P2 result closure","","P1: `198/198`, result commit `33fa687352392df985679abddedb834535b10a3d`, READY manifest `9f1ea69f0759bcd3bd79a91c7ccdb5e5d1a22f49ea67e114aaa1e7d4f5f6dbc1`.","P2: `180/180`, result commit `7c1af9fc47ddd347c1bb28d43ad8a024ca95b8a8`, READY manifest `37bbc4ce2fbbd98cd2c2ad742329a9124c578955512ebe4819b75e1aa5bea9e4`.","Both: failed=0, terminal audit PASS, held-out seeds untouched, NaN/Inf=0, rollout failures=0.","","| control | best | late | final | drop | task wins | seed-task wins |","|---|---:|---:|---:|---:|---:|---:|"]
+          for x in rows[:11]: lines.append(f"| {x[0]} {x[1]} | {x[3]:.4f} | {x[4]:.4f} | {x[5]:.4f} | {x[6]:.4f} | {x[7] or '—'} | {x[8] or '—'} |")
+          lines += ["","The response broadly recovers as `c` decreases. The smallest finite point `c=0.015625` has late mean `64.8863`, only `0.4191` below Positive-only `65.3054`, but final mean remains `6.1422` lower. No tested finite common `c` exceeds Positive-only on the equal-task-weighted late metric, and no interior common optimum is identified.","","Negative signal is not uniformly useless: at `c=0.015625`, medium and medium-replay strata exceed Positive-only by about `1.35` and `0.93`, while medium-expert is lower by about `3.53`. Several cells improve, but larger losses on sensitive tasks offset them. Transient best values above Positive-only coexist with worse final values and larger best-to-final decline; this is not a synchronized checkpoint or steady-state result.","","Task-performance collapse is `not_adjudicated` because no threshold was registered. Support/variance boundary is `not_instrumented`. Low return is not relabeled as numerical collapse or a support event.","","P1 records unresolved source commit `d0ba443154d847065965b18a43ffe897f19530fa`, blocking formal-evidence promotion. P2 binds resolvable implementation `909249875c190a75301ceb2dc2c2062ca0efcb16`; its stale pre-run `GAE_STAGE_STATUS.json` is retained but cannot override the completed 180/180 terminal audit.","","Full response values are in `experiments/results/e7_sqexp_gae_p1_p2_closure_20260722/P1_P2_RESPONSE_CURVE.csv`. This closure does not merge stacked scientific-code PRs or authorize P3."]
+          w(R,"\n".join(lines)+"\n")
+          closure={"schema_version":1,"update_id":UID,"experiment_id":"EXT-H-E7-SQEXP-GAE-01","scientific_status":"pilot","status":"PASS_WITH_P1_PROVENANCE_AND_P2_STALE_METADATA_LIMITATIONS","joint_counts":{"expected":378,"completed":378,"failed":0,"nan_inf":0,"rollout_failures":0,"held_out_seeds_touched":False},"locked_result":{"positive_only_late":65.3053876161,"best_finite_c":.015625,"best_finite_late":64.8863016547,"delta_vs_positive_only":-.4190859614,"finite_c_exceeded_positive_only":False,"interior_optimum_identified":False},"runs":[{"profile":"p1","run_id":"E7_BENCH_JOINT_GAE_P1_FULL_20260719_02","results_commit":"33fa687352392df985679abddedb834535b10a3d","manifest":"9f1ea69f0759bcd3bd79a91c7ccdb5e5d1a22f49ea67e114aaa1e7d4f5f6dbc1","source_commit":"d0ba443154d847065965b18a43ffe897f19530fa","source_resolved":False},{"profile":"p2","run_id":"E7_BENCH_JOINT_GAE_P2_LEFT_FULL_20260721_01","results_commit":"7c1af9fc47ddd347c1bb28d43ad8a024ca95b8a8","manifest":"37bbc4ce2fbbd98cd2c2ad742329a9124c578955512ebe4819b75e1aa5bea9e4","source_commit":"909249875c190a75301ceb2dc2c2062ca0efcb16","source_resolved":True,"stale_stage_status_retained":True}],"event_separation":{"task_collapse":"not_adjudicated_no_registered_threshold","support_variance":"not_instrumented","rollout":"0/378","nan_inf":"0/378"},"limits":["external_validity_only","two_development_seeds","fixed_horizon_not_convergence","no_formal_ranking","p3_not_authorized"]}
+          w(J,json.dumps(closure,indent=2,sort_keys=True)+"\n")
+          w(O/"README.md","# E7 P1/P2 compact closure\n\nFull artifacts are in `easonhuo/drpo-results` at commits `33fa687352392df985679abddedb834535b10a3d` and `7c1af9fc47ddd347c1bb28d43ad8a024ca95b8a8`.\n")
+          reg0=show("experiments/registry.yaml"); marker="development_experiment_registrations:\n"
+          if reg0.count(marker)!=1 or "- id: EXT-H-E7-SQEXP-GAE-01\n" in reg0: raise SystemExit("registry base mismatch")
+          entity={"id":"EXT-H-E7-SQEXP-GAE-01","environment":"EXT-H","name":"d4rl9_joint_critic_gae_common_c_response_curves","status":"pilot","scientific_status":"pilot","parent_experiment":"EXT-H-E7-BENCH-01","role":"external_validity_joint_critic_gae_common_scale_screening","registration_state":"registered_after_p1_p2_completed_result_closure","claim":"Characterize the finite-horizon D4RL-9 common-c response under canonical joint-critic trajectory-snapshot GAE without converting development curves into formal ranking or steady-state evidence.","code_entrypoint":"src/drpo/e7_squared_exp_night.py","aggregation_entrypoint":"src/drpo/e7_squared_exp_night_aggregate.py","protocol_document":str(P),"result_document":str(R),"protocol":{"development_seeds":[200,201],"held_out_seeds":[204,205,206,207],"tasks":9,"actor":"a2c","advantage":"trajectory_snapshot_gae","gae_lambda":.95,"steps":1000000,"fixed_horizon_is_not_convergence":True,"formula":"w(D)=w(0)*exp(-lambda_taper*relu((D-tau)/c))","tau":0,"lambda_taper":1},"profiles":{"p1":{"run_id":"E7_BENCH_JOINT_GAE_P1_FULL_20260719_02","c_values":[.25,.5,1,2,4,8,16,32,64],"uncontrolled":True,"completed":198,"failed":0,"terminal_audit":"PASS","results_commit":"33fa687352392df985679abddedb834535b10a3d","manifest":"9f1ea69f0759bcd3bd79a91c7ccdb5e5d1a22f49ea67e114aaa1e7d4f5f6dbc1","source_commit":"d0ba443154d847065965b18a43ffe897f19530fa","source_resolved":False},"p2":{"run_id":"E7_BENCH_JOINT_GAE_P2_LEFT_FULL_20260721_01","c_values":[.2,.16,.125,.1,.08,.0625,.04,.025,.015625],"completed":180,"failed":0,"terminal_audit":"PASS","results_commit":"7c1af9fc47ddd347c1bb28d43ad8a024ca95b8a8","manifest":"37bbc4ce2fbbd98cd2c2ad742329a9124c578955512ebe4819b75e1aa5bea9e4","source_commit":"909249875c190a75301ceb2dc2c2062ca0efcb16","source_resolved":True,"stale_stage_status_retained":True}},"locked_interpretation":{"positive_only_late":65.3053876161,"best_finite_c":.015625,"best_finite_late":64.8863016547,"finite_c_exceeded_positive_only":False,"interior_optimum_identified":False},"terminal_audit":{"task_collapse":"not_adjudicated_no_registered_threshold","support_variance":"not_instrumented","rollout_failures":0,"nan_inf":0},"evidence":{"compact_closure":str(J),"compact_curve":str(C),"results_repository":"easonhuo/drpo-results"},"evidence_locator":{"schema_version":1,"records":[{"run_id":"E7_BENCH_JOINT_GAE_P1_FULL_20260719_02","lane":"e7","source_commit":"d0ba443154d847065965b18a43ffe897f19530fa","source_commit_resolved":False,"results_repository":"easonhuo/drpo-results","results_branch":"ingest/e7","results_commit":"33fa687352392df985679abddedb834535b10a3d","result_path":"runs/e7/E7_BENCH_JOINT_GAE_P1_FULL_20260719_02","manifest_sha256":"9f1ea69f0759bcd3bd79a91c7ccdb5e5d1a22f49ea67e114aaa1e7d4f5f6dbc1","export_profile":"manifest_text_v1"},{"run_id":"E7_BENCH_JOINT_GAE_P2_LEFT_FULL_20260721_01","lane":"e7","source_commit":"909249875c190a75301ceb2dc2c2062ca0efcb16","source_commit_resolved":True,"results_repository":"easonhuo/drpo-results","results_branch":"ingest/e7","results_commit":"7c1af9fc47ddd347c1bb28d43ad8a024ca95b8a8","result_path":"runs/e7/E7_BENCH_JOINT_GAE_P2_LEFT_FULL_20260721_01","manifest_sha256":"37bbc4ce2fbbd98cd2c2ad742329a9124c578955512ebe4819b75e1aa5bea9e4","export_profile":"manifest_text_v1"}]},"limits":["external_validity_only","two_development_seeds","fixed_horizon_not_convergence","no_formal_ranking","no_per_task_retuning","p1_provenance_blocker","p3_not_registered"],"formal_evidence_allowed":False,"closure":{"state":"p1_p2_development_curves_closed","successor_registered":False,"successor_launched":False}}
+          reg1=reg0.replace(marker,yaml.safe_dump([entity],sort_keys=False,allow_unicode=True,width=120)+marker); Path("experiments/registry.yaml").write_text(reg1,encoding="utf-8")
+          block='''- **D4RL-9 joint-critic GAE P1/P2 closure（`EXT-H-E7-SQEXP-GAE-01`）：**P1 完成 `198/198`，P2 完成 `180/180`；两轮 failed=`0`、terminal audit=`PASS`、seeds 仅 `200,201`、held-out `204--207` 未触碰、NaN/Inf=`0`、rollout failure=`0`。P1/P2 随 `c` 向左总体恢复，最小有限点 `c=0.015625` late mean=`64.8863`，仅比 Positive-only `65.3054` 低 `0.4191`，但 final 仍低 `6.1422`；无已测 finite common `c` 超过 Positive-only，也未识别共同内部最优。medium/replay 有局部收益而 expert 受损；transient best 不得升级为同步 checkpoint、收敛、稳态或正式排名。task collapse 无阈值故 `not_adjudicated`，support/variance 未 instrument，与 NaN/Inf 分报。P1 结果 commit `33fa687352392df985679abddedb834535b10a3d` 的 source `d0ba443154d847065965b18a43ffe897f19530fa` 不可解析；P2 结果 commit `7c1af9fc47ddd347c1bb28d43ad8a024ca95b8a8` 绑定可解析 implementation `909249875c190a75301ceb2dc2c2062ca0efcb16`，其 stale `GAE_STAGE_STATUS.json` 不覆盖真实 `180/180`。本证据仅属 Hopper/D4RL external validity，不替代 C-U1/D-U1；本闭环不合并 stacked code PR，也不登记或启动 P3。见 `docs/results/E7_BENCH_JOINT_GAE_P1_P2_RESULT_2026-07-22.md`。'''
+          spec=importlib.util.spec_from_file_location("shadow","scripts/handoff_delta_shadow.py"); sh=importlib.util.module_from_spec(spec); sys.modules[spec.name]=sh; spec.loader.exec_module(sh)
+          h0=show("docs/handoff.md"); ops=[{"operation_id":"append-e7-p1-p2-closure","op":"append_to_section","heading_path":["0. 研究与执行原则（每次新会话首先阅读）","0.1 当前执行门禁"],"block_id":"e7-sqexp-gae-p1-p2-result-closure-20260722","content":block}]; cand=sh.render(h0,ops); sh.verify_history_preservation(h0,cand.text,ops)
+          D.parent.mkdir(parents=True,exist_ok=True); delta={"schema_version":3,"update_id":UID,"mode":"authoritative","base":{"commit":BASE,"handoff_sha256":h(h0),"registry_sha256":h(reg0)},"renderer_version":1,"operations":ops,"registry":{"mode":"expected_after","exact_base_after_sha256":h(reg1),"changes":[{"change_id":"add-e7-p1-p2-closure","kind":"add_entity","entity_id":"EXT-H-E7-SQEXP-GAE-01","evidence":["experiments/registry.yaml",str(D),str(P),str(R),str(J),str(C)]}]},"expected":{"exact_base_candidate_sha256":h(cand.text)}}; D.write_text(yaml.safe_dump(delta,sort_keys=False,allow_unicode=True,width=120),encoding="utf-8")
+
+          PY
+          git add -A; git diff --cached --check
+          git commit -m "EXT-H-E7-SQEXP-GAE-01 close P1/P2 pilot results"
+          SOURCE_PATCH=$(git rev-parse HEAD); echo "SOURCE_PATCH=$SOURCE_PATCH" >> "$GITHUB_ENV"
+          python scripts/handoff_authority.py validate-delta --repo-root . --delta docs/handoff_deltas/EXT-H-E7-SQEXP-GAE-P1-P2-RESULT-CLOSURE-2026-07-22/HANDOFF_DELTA.yaml --source-patch-commit "$SOURCE_PATCH" --json
+
+      - name: Trusted normalization and publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=483e93448f25ada23dbd71fe4d237ccff80f8c0c
+          git worktree add --detach /tmp/trusted "$BASE"
+          python scripts/handoff_authority.py normalize --repo-root . --trusted-repo-root /tmp/trusted --current-before "$BASE" --source-base "$BASE" --source-patch-commit "$SOURCE_PATCH" --json
+          git add -A; git diff --cached --check; TREE=$(git write-tree)
+          HEAD2=$(printf '%s\n' "EXT-H-E7-SQEXP-GAE-01 integrate P1/P2 closure" | git commit-tree "$TREE" -p "$BASE" -p "$SOURCE_PATCH")
+          git reset --hard "$HEAD2"
+          python scripts/handoff_authority.py verify --repo-root . --json
+          python scripts/validate_formal_execution_channel.py --repo-root .
+          python scripts/validate_governance_rule_inventory.py --repo-root .
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          python scripts/build_stage4_context.py --repo-root . --json check
+          test ! -e .github/workflows/e7-p1-p2-result-closure-bootstrap.yml
+          git push origin "HEAD:dev/ext-h-e7-sqexp-gae-p1-p2-result-closure-01"
