@@ -1,0 +1,87 @@
+{
+  "claim_limits": [
+    "fixed_1200_steps_is_not_convergence",
+    "two_development_seeds_do_not_support_significance",
+    "no_formal_method_ranking",
+    "no_universal_asymre_or_taper_claim",
+    "countdown_external_validity_does_not_replace_controlled_causal_identification"
+  ],
+  "compact_curve": "experiments/results/e8_asymre_deltav_joint_closure_20260722/JOINT_RESPONSE_CURVE.csv",
+  "experiments": [
+    "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-SCAN-0.5B-01",
+    "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-BOUNDARY-DENSE-0.5B-01"
+  ],
+  "joint_counts": {
+    "completed_cells": 32,
+    "expected_cells": 32,
+    "nan_inf_numerical_failures": 0,
+    "terminal_audits_passed": 2,
+    "test_data_used": false
+  },
+  "locked_result": {
+    "all_tested_active_negative_points_below_boundary": true,
+    "best_tested_active_negative_point": {
+      "delta_v": -0.5,
+      "difference_vs_zero_negative_boundary": -0.0348,
+      "mean_late_window_pass_at_8": 0.109,
+      "run_id": "E8_ASYMRE_DELTAV_BOUNDARY_DENSE_20260721_01"
+    },
+    "further_boundary_search_priority": "low",
+    "weak_negative_task_degradation_precedes_clear_valid_rate_degradation": true,
+    "zero_negative_boundary_delta_v": -1.0,
+    "zero_negative_boundary_mean_late_window_pass_at_8": 0.1438
+  },
+  "paper_facing_metrics": {
+    "best_checkpoint_role": "supplementary_only",
+    "late_window_steps": [
+      800,
+      900,
+      1000,
+      1100,
+      1200
+    ],
+    "primary": "late_window_pass_at_8",
+    "secondary": "terminal_pass_at_8"
+  },
+  "reporting_separation": {
+    "nan_inf_numerical_failure": "0/32",
+    "support_or_structure_boundary": "not formally instrumented; terminal valid rate is diagnostic only",
+    "task_performance": "late-window and terminal metrics reported"
+  },
+  "runs": [
+    {
+      "completed_cells": 16,
+      "expected_cells": 16,
+      "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-SCAN-0.5B-01",
+      "ready_manifest_sha256": "4384eacdea314c7f13f7bad500a1860c2aa601b53ffcb0ffa51f48193a66976c",
+      "results_commit": "2f9e6d366596f609a91d46f2db014c82e57c04a2",
+      "results_repository": "easonhuo/drpo-results",
+      "run_id": "E8_ASYMRE_DELTAV_SCAN_20260721_01",
+      "run_source_commit": "396601fb3b041cd09743dec4f9a1f925ea71bae1",
+      "run_source_commit_resolved": true,
+      "scientific_implementation_commit": "1ff3628baf720adbf14754e7ed7835fefee099d0",
+      "source_artifact_zip_sha256": "a52b27180e1ccc197a117ca7dd7c9bd8c4baa888d70f9e324426a46f4b30a7c6",
+      "terminal_audit": "PASS"
+    },
+    {
+      "completed_cells": 16,
+      "expected_cells": 16,
+      "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-BOUNDARY-DENSE-0.5B-01",
+      "ready_manifest_sha256": "696d4f72c0bf13e67b0744397d330c27689f163eaf414ed81d92e4f4e097babb",
+      "results_commit": "ecdda6392ab9bcca224f15482c245c6d7c06597a",
+      "results_repository": "easonhuo/drpo-results",
+      "review_pr": 229,
+      "review_pr_head": "2eddd6139eb07754cb9355fad6a8a37ad59d3d4e",
+      "reviewed_implementation_commit": "d865b5ce41034db037ea80804bb8d35989549eda",
+      "run_id": "E8_ASYMRE_DELTAV_BOUNDARY_DENSE_20260721_01",
+      "run_source_commit": "600a2c3400bd6109d80e566c7a5d5eeaf64518d8",
+      "run_source_commit_resolved": false,
+      "source_artifact_zip_sha256": "703485c06d1dacc236ff5801ba94bc6e5522a988a1d9a6d240c5258a09a6275a",
+      "terminal_audit": "PASS"
+    }
+  ],
+  "schema_version": 1,
+  "scientific_status": "pilot",
+  "status": "PASS_WITH_DENSE_SOURCE_COMMIT_LIMITATION",
+  "update_id": "EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22"
+}
