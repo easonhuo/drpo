@@ -64,8 +64,8 @@ jobs:
             grep -Ein 'Undefined control sequence|LaTeX Error|Citation .* undefined|Reference .* undefined|There were undefined references|There were undefined citations|multiply defined|Fatal error' main.log >&2 || true
             exit 1
           fi
-          if grep -Fq 'Overfull \\hbox' main.log; then
-            grep -Fn 'Overfull \\hbox' main.log >&2 || true
+          if grep -Fq 'Overfull \hbox' main.log; then
+            grep -Fn 'Overfull \hbox' main.log >&2 || true
             exit 1
           fi
           pdfinfo main.pdf > PDFINFO.txt
@@ -102,7 +102,7 @@ jobs:
             missing_references.bib \
             figures \
             README.md
-          test "$(unzip -Z1 ../releases/DRPO_KDD2027_OVERLEAF.zip | grep -Ec '^figures/.*\\.pdf$')" -eq 6
+          test "$(unzip -Z1 ../releases/DRPO_KDD2027_OVERLEAF.zip | grep -Ec '^figures/.*[.]pdf$')" -eq 6
           {
             echo 'experiment_id=PAPER-KDD2027-SOURCE-REFRESH-01'
             echo 'source_sha256=068107081942bfc0ef05b4a302134766b279c3011a223b6b735a68b98331398b'
