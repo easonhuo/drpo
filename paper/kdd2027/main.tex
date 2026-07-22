@@ -1309,11 +1309,11 @@ far-field tail from dominating.
     \toprule
     Method & Hop. & Cnt. \\
     \midrule
-    Pos.        & \texttt{--} & \texttt{--} \\
-    G-$\alpha$  & \texttt{--} & \texttt{--} \\
-    Rec.-L      & \texttt{--} & \texttt{--} \\
-    Rec.-Q      & \texttt{--} & \texttt{--} \\
-    DRPO        & \textbf{\texttt{--}} & \textbf{\texttt{--}} \\
+    Pos.        & \texttt{--} & 14.0 \\
+    G-$\alpha$  & \texttt{--} & 2.4 \\
+    Rec.-L      & \texttt{--} & 13.6 \\
+    Rec.-Q      & \texttt{--} & 14.5 \\
+    DRPO        & \textbf{\texttt{--}} & \textbf{15.7} \\
     \bottomrule
     \end{tabular}
     }
@@ -1321,7 +1321,7 @@ far-field tail from dominating.
     \vspace{0.25em}
     {\scriptsize
     Hop.: Hopper return.\\
-    Cnt.: Countdown success.
+    Cnt.: Countdown late-window Pass@8.
     }
 \end{minipage}
 
@@ -1333,10 +1333,9 @@ protocol. For each method, the left bar is the near-field-retention matched
 operating point and the right bar is the aggregate-budget matched operating
 point. Bars decompose retained negative-update magnitude into near- and
 far-field components, and dashed traces report held-out-context reward.
-\textbf{(b)} Reserved external validation summary for Hopper and Countdown;
-dashes mark outcomes awaiting the corresponding formal runs.
+\textbf{(b)} Fixed-budget Countdown-0.5B transfer summary and reserved Hopper panel. Hopper entries remain open pending the formal run and terminal audit. Countdown entries report the maximum two-seed late-window Pass@8 over each method\'s registered coefficient sweep; complete coefficient-response curves are shown in Appendix~\ref{fig:app_countdown_taper_coefficient_response}.
 }
-\Description{Composite figure. The controlled panel compares near-field and far-field retained negative-update magnitude under matched taper operating points. The transfer panel is a reserved table for Hopper return and Countdown success.}
+\Description{Composite figure. The controlled panel compares near-field and far-field retained negative-update magnitude under matched taper operating points. The transfer panel reports fixed-budget Countdown late-window Pass@8 for positive-only, global-alpha, reciprocal-linear, reciprocal-quadratic, and DRPO, while Hopper cells remain pending.}
 \label{fig:taper_control_and_transfer}
 \end{figure}
 
@@ -1361,7 +1360,11 @@ tapering introduces remoteness-aware suppression, but its tail remains
 heavier than the exponential rule. The exponential taper instead retains
 near-field repulsion while rapidly suppressing the far-field tail,
 yielding higher task performance and held-out-context generalization
-than the matched alternatives.
+than the matched alternatives. In the fixed-budget Countdown transfer
+summary, DRPO attains the strongest late-window Pass@8 (15.7\%),
+followed by Reciprocal-Quadratic (14.5\%), Positive-only (14.0\%),
+Reciprocal-Linear (13.6\%), and Global-$\alpha$ (2.4\%); the complete
+coefficient-response curves are reported in Appendix~\ref{fig:app_countdown_taper_coefficient_response}.
 
 \subsubsection{External Validation of Remoteness Tapering}
 \label{sec:external_tapers}
@@ -1376,9 +1379,10 @@ near-field utility matching, they test transfer rather than repeat the
 controlled causal identification.
 
 The external summary in Figure~\ref{fig:taper_control_and_transfer}
-pre-registers the transfer comparison, but its cells remain open pending
-the formal runs and terminal audit. We therefore make no task-level
-ranking claim from this panel. The controlled results establish the
+now reports the fixed-budget Countdown-0.5B late-window summary, while
+the Hopper cells remain open pending the formal run and terminal audit.
+We therefore treat the panel as partial transfer evidence rather than a
+closed cross-task ranking. The controlled results establish the
 stability--utility mechanism; the external panel tests whether that
 principle transfers to continuous offline control and autoregressive
 policy optimization.
@@ -5262,5 +5266,49 @@ Task-performance degradation, token- or sequence-support boundary
 events, and NaN/Inf numerical failures are audited independently.
 Claims about stability or final method ranking use the registered
 terminal checkpoint audit rather than finite-step pilot behavior.
+
+
+\subsection{Countdown Taper-Coefficient Sensitivity}
+\label{app:countdown_taper_sensitivity}
+
+Figure~\ref{fig:app_countdown_taper_coefficient_response} reports the
+complete stored late-window Pass@8 coefficient response for the
+Countdown-0.5B taper study under the fixed 1,200-step budget. Here the
+late-window metric averages the final five evaluations (steps 800, 900,
+1000, 1100, and 1200). Each point is the mean of the two paired
+development seeds, and each error bar spans the corresponding pair of
+seed values. The horizontal reference is the Positive-only late-window
+mean of 14.0\%.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[
+        width=\columnwidth
+    ]{figures/fig_app_countdown_taper_coefficient_response.pdf}
+    \caption{
+        \textbf{Countdown-0.5B taper-coefficient response.}
+        Late-window Pass@8 is shown against the taper coefficient $\lambda$
+        under the fixed 1,200-step budget. Curves report two-seed late-window means;
+        error bars span the paired seed values, and the dashed horizontal
+        line denotes Positive-only. Exp./DRPO is shown over
+        $\lambda\in[0.01,9.2103]$, Reciprocal-Linear through $319$, and
+        Reciprocal-Quadratic through $1279$.
+    }
+    \Description{Single-panel Countdown coefficient-response figure comparing late-window Pass@8 for exponential, reciprocal-linear, and reciprocal-quadratic tapers against the Positive-only reference over logarithmic coefficient scales.}
+    \label{fig:app_countdown_taper_coefficient_response}
+\end{figure}
+
+The exponential response rises above Positive-only over an intermediate
+coefficient region, reaches a maximum two-seed late-window mean of 15.7\%,
+and returns toward the Positive-only level at the largest evaluated
+coefficients. Reciprocal-Linear increases toward a broad plateau but
+remains slightly below Positive-only, with a maximum late-window mean of
+13.6\%. Reciprocal-Quadratic reaches 14.5\% at $\lambda=24$ and then
+fluctuates around a broad reference-level plateau through $\lambda=1279$.
+These complete curves show that the observed difference is a
+response-shape effect rather than a comparison of isolated best points.
+Because this study uses two paired development seeds and a fixed horizon,
+it supports a bounded tail-shape sensitivity claim, not convergence,
+statistical significance, or a universal method ranking.
 
 \end{document}
