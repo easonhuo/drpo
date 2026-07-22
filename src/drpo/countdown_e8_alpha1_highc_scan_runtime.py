@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import json
 import shutil
@@ -11,6 +12,14 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from drpo import countdown_e8_alpha1_highc_scan_common as highc
+from drpo import experiment_matrix as _experiment_matrix
+from drpo.experiment_matrix import (
+    canonical_digest,
+    expand_matrix,
+    finite_float_values,
+    integer_values,
+    require_declared_count,
+)
 
 
 EVALUATION_SEMANTICS: dict[str, Any] = {
@@ -25,6 +34,9 @@ EVALUATION_SEMANTICS: dict[str, Any] = {
     "separate_test_jsonl_used": False,
     "separate_test_jsonl_required_for_existing_curve_validity": False,
 }
+_RECIPROCAL_FAMILIES = frozenset(
+    {"reciprocal_linear", "reciprocal_quadratic"}
+)
 
 
 def _grid_config_from_argv(argv: list[str]) -> str | None:
@@ -34,11 +46,263 @@ def _grid_config_from_argv(argv: list[str]) -> str | None:
     return None
 
 
+def _parameter_mappings(config: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_points = config.get("sweep", {}).get("parameter_points", ())
+    if not isinstance(raw_points, list) or not raw_points:
+        raise ValueError("sweep.parameter_points must be a non-empty list")
+    if any(not isinstance(item, dict) for item in raw_points):
+        raise ValueError("sweep.parameter_points must contain mappings")
+    return raw_points
+
+
+def _finite_value(
+    value: Any,
+    *,
+    name: str,
+    minimum: float | None = None,
+    maximum: float | None = None,
+) -> float:
+    return finite_float_values(
+        [value],
+        name=name,
+        minimum=minimum,
+        maximum=maximum,
+    )[0]
+
+
+def _parse_asymre_points(
+    raw_points: list[dict[str, Any]],
+) -> tuple[tuple[float, ...], bool]:
+    if any("delta_v" not in item for item in raw_points):
+        raise ValueError("AsymRE parameter_points must contain delta_v")
+    points = finite_float_values(
+        [item["delta_v"] for item in raw_points],
+        name="sweep.parameter_points.delta_v",
+        minimum=-1.0,
+        maximum=1.0,
+    )
+    return points, False
+
+
+def _parse_legacy_exp_points(
+    raw_points: list[dict[str, Any]],
+) -> tuple[tuple[tuple[float, float], ...], bool]:
+    points = tuple(
+        (
+            _finite_value(
+                item.get("alpha"),
+                name=f"sweep.parameter_points[{index}].alpha",
+                minimum=0.0,
+            ),
+            _finite_value(
+                item.get("c"),
+                name=f"sweep.parameter_points[{index}].c",
+                minimum=0.0,
+            ),
+        )
+        for index, item in enumerate(raw_points)
+    )
+    if len(points) != len(set(points)):
+        raise ValueError("sweep.parameter_points alpha/c pairs must be unique")
+    return points, any(alpha == 0.0 for alpha, _ in points)
+
+
+def _parse_reciprocal_points(
+    raw_points: list[dict[str, Any]],
+) -> tuple[tuple[tuple[str, float, float], ...], bool]:
+    points: list[tuple[str, float, float]] = []
+    for index, item in enumerate(raw_points):
+        family = str(item.get("family") or "")
+        if family not in _RECIPROCAL_FAMILIES:
+            raise ValueError(
+                f"sweep.parameter_points[{index}].family must be one of "
+                f"{sorted(_RECIPROCAL_FAMILIES)}"
+            )
+        points.append(
+            (
+                family,
+                _finite_value(
+                    item.get("alpha"),
+                    name=f"sweep.parameter_points[{index}].alpha",
+                    minimum=0.0,
+                ),
+                _finite_value(
+                    item.get("coefficient"),
+                    name=f"sweep.parameter_points[{index}].coefficient",
+                    minimum=0.0,
+                ),
+            )
+        )
+    result = tuple(points)
+    if len(result) != len(set(result)):
+        raise ValueError(
+            "sweep.parameter_points reciprocal family/alpha/coefficient tuples "
+            "must be unique"
+        )
+    return result, False
+
+
+def _detect_and_parse_points(
+    config: dict[str, Any],
+    raw_points: list[dict[str, Any]],
+) -> tuple[str, tuple[Any, ...], bool]:
+    objective = config.get("objective", {})
+    if objective.get("formula") == "A=R-delta_v":
+        points, requires_positive_only = _parse_asymre_points(raw_points)
+        return "asymre_scan", points, requires_positive_only
+    if any("family" in item or "coefficient" in item for item in raw_points):
+        points, requires_positive_only = _parse_reciprocal_points(raw_points)
+        return "reciprocal_screen", points, requires_positive_only
+    if any("alpha" not in item or "c" not in item for item in raw_points):
+        raise ValueError(
+            "Unsupported E8 parameter structure; a new method structure requires "
+            "a reviewed adapter and Replay A/B"
+        )
+    points, requires_positive_only = _parse_legacy_exp_points(raw_points)
+    return "legacy_exp", points, requires_positive_only
+
+
+def _matrix_rows(
+    *,
+    kind: str,
+    points: tuple[Any, ...],
+    seeds: tuple[int, ...],
+) -> tuple[dict[str, Any], ...]:
+    expanded = expand_matrix(
+        {"parameter_point": points, "seed_offset": seeds}
+    )
+    rows: list[dict[str, Any]] = []
+    for item in expanded:
+        point = item["parameter_point"]
+        seed = int(item["seed_offset"])
+        if kind == "asymre_scan":
+            rows.append({"delta_v": float(point), "seed_offset": seed})
+        elif kind == "reciprocal_screen":
+            family, alpha, coefficient = point
+            rows.append(
+                {
+                    "family": str(family),
+                    "alpha": float(alpha),
+                    "coefficient": float(coefficient),
+                    "seed_offset": seed,
+                }
+            )
+        elif kind == "legacy_exp":
+            alpha, coefficient = point
+            rows.append(
+                {
+                    "alpha": float(alpha),
+                    "c": float(coefficient),
+                    "seed_offset": seed,
+                }
+            )
+        else:
+            raise AssertionError(kind)
+    return tuple(rows)
+
+
+def install_config_driven_profile(path: str | Path) -> dict[str, Any]:
+    """Materialize one E8 runtime profile from a reviewed grid config.
+
+    Concrete parameter points, seed offsets, declared counts, and matrix digest
+    come only from the grid. Scientific meanings and frozen protocol checks stay
+    in the existing E8 validators.
+    """
+
+    config = highc.load_yaml(path)
+    raw_points = _parameter_mappings(config)
+    kind, points, requires_positive_only = _detect_and_parse_points(
+        config, raw_points
+    )
+    sweep = config.get("sweep", {})
+    seeds = integer_values(
+        sweep.get("seed_offsets", ()),
+        name="sweep.seed_offsets",
+        minimum=0,
+    )
+    rows = _matrix_rows(kind=kind, points=points, seeds=seeds)
+    require_declared_count(
+        name="sweep.unique_parameter_points",
+        declared=sweep.get("unique_parameter_points"),
+        actual=len(points),
+    )
+    require_declared_count(
+        name="sweep.cells",
+        declared=sweep.get("cells"),
+        actual=len(rows),
+    )
+
+    experiment_id = str(config.get("experiment_id") or "")
+    if not experiment_id:
+        raise ValueError("experiment_id must be non-empty")
+    existing = highc._PROFILES.get(experiment_id)  # noqa: SLF001
+    profile = (
+        copy.deepcopy(existing)
+        if existing is not None
+        else {
+            "experiment_id": experiment_id,
+            "version": f"0.5.0-config-driven-{kind.replace('_', '-')}",
+            "default_grid_config": str(path),
+            "requires_positive_only": requires_positive_only,
+            "kind": kind,
+        }
+    )
+    if profile.get("kind") != kind:
+        raise ValueError(
+            f"experiment_id {experiment_id!r} is registered as "
+            f"{profile.get('kind')!r}, not {kind!r}"
+        )
+    if bool(profile.get("requires_positive_only", False)) != requires_positive_only:
+        raise ValueError(
+            f"experiment_id {experiment_id!r} Positive-only role disagrees "
+            "with the reviewed grid"
+        )
+    profile.update(
+        {
+            "experiment_id": experiment_id,
+            "default_grid_config": str(path),
+            "parameter_points": points,
+            "seed_offsets": seeds,
+            "expected_points": len(points),
+            "expected_cells": len(rows),
+            "matrix_digest": canonical_digest(rows),
+        }
+    )
+    highc._PROFILES[experiment_id] = profile  # noqa: SLF001
+    return profile
+
+
+def _install_config_driven_asymre_profile(
+    path: str | Path,
+) -> dict[str, Any] | None:
+    """Backward-compatible narrow alias retained for existing callers."""
+
+    profile = install_config_driven_profile(path)
+    return profile if profile["kind"] == "asymre_scan" else None
+
+
 _grid_config = _grid_config_from_argv(sys.argv[1:])
 if _grid_config is None:
     highc.activate()
 else:
+    install_config_driven_profile(_grid_config)
     highc.activate_for_grid_config(_grid_config)
+
+_ORIGINAL_IDENTITY = highc._identity  # noqa: SLF001
+
+
+def _identity_with_experiment_matrix(**kwargs: Any) -> dict[str, Any]:
+    identity = _ORIGINAL_IDENTITY(**kwargs)
+    source_hashes = dict(identity.get("source_sha256", {}))
+    source_hashes["experiment_matrix"] = highc.sha256_file(
+        Path(_experiment_matrix.__file__).resolve()
+    )
+    identity["source_sha256"] = source_hashes
+    return identity
+
+
+highc._identity = _identity_with_experiment_matrix  # noqa: SLF001
+highc._base._identity = _identity_with_experiment_matrix  # noqa: SLF001
 
 from drpo import countdown_e8_alpha1_c_scan_runtime as _base_runtime  # noqa: E402
 

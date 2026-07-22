@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Autotuned launcher adapter for the E8 paper-aligned linear c scans."""
+"""Autotuned launcher adapter for the E8 paper-aligned taper-family scans."""
 from __future__ import annotations
 
 import importlib.util
 import sys
 from pathlib import Path
+from typing import Any
 
 from drpo import countdown_e8_alpha1_highc_scan_common as highc
 
@@ -28,6 +29,29 @@ def _grid_config_from_argv(argv: list[str]) -> str | None:
         if token == "--grid_config" and index + 1 < len(argv):
             return argv[index + 1]
     return None
+
+
+def activate_config_driven_profile(path: str | Path) -> dict[str, Any]:
+    """Install and activate the reviewed grid before resource planning."""
+
+    from drpo import countdown_e8_alpha1_highc_scan_runtime as runtime_adapter
+
+    profile = runtime_adapter.install_config_driven_profile(path)
+    highc.activate_for_grid_config(path)
+    return profile
+
+
+def _adapter_id(profile: dict[str, Any]) -> str:
+    kind = str(profile["kind"])
+    if kind == "asymre_scan":
+        return "e8_asymre_deltav_scan_cuda_dev_v2"
+    if kind == "reciprocal_screen":
+        return "e8_reciprocal_scan_cuda_dev_v2"
+    if kind == "legacy_exp" and bool(profile.get("requires_positive_only")):
+        return "e8_paper_aligned_linear_scan_cuda_dev_v2"
+    if kind == "legacy_exp":
+        return "e8_linear_c_extension_cuda_dev_v2"
+    raise ValueError(f"Unsupported E8 config-driven profile kind: {kind}")
 
 
 def _core_command(args, command: str, *, selected_ids: list[str]) -> list[str]:
@@ -80,14 +104,10 @@ def main(argv: list[str] | None = None) -> int:
     grid_config = _grid_config_from_argv(tokens)
     if grid_config is None:
         highc.activate()
-    else:
-        highc.activate_for_grid_config(grid_config)
-    if highc.EXPERIMENT_ID == highc.ASYMRE_DELTAV_EXPERIMENT_ID:
-        _base.ADAPTER_ID = "e8_asymre_deltav_scan_cuda_dev_v1"
-    elif highc.EXPERIMENT_ID == highc.C_EXTENSION_EXPERIMENT_ID:
-        _base.ADAPTER_ID = "e8_linear_c_extension_cuda_dev_v1"
-    else:
         _base.ADAPTER_ID = "e8_alpha1_highc_scan_cuda_dev_v1"
+    else:
+        profile = activate_config_driven_profile(grid_config)
+        _base.ADAPTER_ID = _adapter_id(profile)
     return _base.main(tokens)
 
 
