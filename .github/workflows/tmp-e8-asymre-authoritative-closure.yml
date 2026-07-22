@@ -28,6 +28,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          exec > >(tee /tmp/materialize.log) 2>&1
           BASE=18440ae79a155be1d8aa357ff0fdf3c238b018bb
           UPDATE_ID=EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22
           BRANCH=dev/e8-asymre-deltav-joint-closure-01
@@ -35,7 +36,7 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          test "$(git rev-parse HEAD^)" = "$BASE"
+          git merge-base --is-ancestor "$BASE" HEAD
           test "$(git diff --name-only "$BASE"..HEAD)" = "$WORKFLOW"
           rm "$WORKFLOW"
 
@@ -762,3 +763,11 @@ jobs:
           git diff --check "$BASE"..HEAD
           git status --short
           git push origin "HEAD:$BRANCH"
+      - name: Upload materialization log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e8-asymre-materialization-log
+          path: /tmp/materialize.log
+          if-no-files-found: warn
+          retention-days: 1
