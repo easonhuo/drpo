@@ -73,7 +73,6 @@ def _commands(values: Iterable[CommandSpec]) -> tuple[CommandSpec, ...]:
     if len({command.argv for command in result}) != len(result):
         raise ExecutionError("duplicate child command")
     return result
-
 def build_plan(manifest: CaseManifest, arm: str, commands: Iterable[CommandSpec]) -> ExecutionPlan:
     if arm not in {"A", "B"}:
         raise ExecutionError("arm must be A or B")
@@ -227,7 +226,6 @@ def normalize_fixture_attempt(
     record["attempt_sha256"] = canonical_sha256({
         key: value for key, value in record.items() if key != "attempt_sha256"})
     return record
-
 
 def run_fixture_plan(
     plan: ExecutionPlan,
