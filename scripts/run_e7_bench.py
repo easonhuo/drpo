@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 EXPERIMENT_ID = "EXT-H-E7-FIG1-D4RL9-GRADIENT-COVERAGE-01"
-RUNNER_VERSION = "1.1.0-e7q2-protocol-preserving"
+RUNNER_VERSION = "1.1.1-e7q2-protocol-preserving"
 D4RL9 = (
     "halfcheetah-medium-v2",
     "halfcheetah-medium-replay-v2",
@@ -136,8 +136,17 @@ def load_runspec(path: str | Path) -> dict[str, Any]:
         raise ValueError("clean-worktree execution must remain enabled")
     if min(int(execution.get("dataset_workers", 0)), int(execution.get("cpus_per_worker", 0))) < 1:
         raise ValueError("dataset_workers and cpus_per_worker must be positive")
+    base_config = (ROOT / str(raw.get("base_config_path", ""))).resolve()
+    try:
+        base_config.relative_to(ROOT)
+    except ValueError as exc:
+        raise ValueError("base_config_path must remain inside the repository") from exc
+    if not base_config.is_file():
+        raise FileNotFoundError(f"base config does not exist: {base_config}")
+    q2.load_config(base_config)
     raw["_path"] = str(source)
     raw["_sha256"] = q2.sha256_file(source)
+    raw["_base_config_sha256"] = q2.sha256_file(base_config)
     return raw
 
 
@@ -245,7 +254,12 @@ def adapted_config(runspec: dict[str, Any], dataset: dict[str, Any]) -> tuple[An
 def configure_threads(count: int) -> None:
     import torch
 
-    for name in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+    for name in (
+        "OMP_NUM_THREADS",
+        "MKL_NUM_THREADS",
+        "OPENBLAS_NUM_THREADS",
+        "NUMEXPR_NUM_THREADS",
+    ):
         os.environ[name] = str(count)
     torch.set_num_threads(count)
     try:
@@ -295,7 +309,9 @@ def point_rows_from_probe(
                 "advantage": advantage,
                 "abs_advantage": current_abs,
                 "paired_abs_advantage": paired_abs,
-                "pair_relative_advantage_error": abs(current_abs - paired_abs) / max(paired_abs, 1e-8),
+                "pair_relative_advantage_error": (
+                    abs(current_abs - paired_abs) / max(paired_abs, 1e-8)
+                ),
                 "near_quantile": probe["near_quantile"],
                 "far_quantile": probe["far_quantile"],
                 "advantage_matching_bins": probe["advantage_matching_bins"],
@@ -363,7 +379,8 @@ def run_seed(
     positive = train[advantages[train] > 0]
     negative = train[advantages[train] < 0]
     validation = split["validation"]
-    val_pos, val_neg = validation[advantages[validation] > 0], validation[advantages[validation] < 0]
+    val_pos = validation[advantages[validation] > 0]
+    val_neg = validation[advantages[validation] < 0]
     if min(len(positive), len(negative), len(val_pos), len(val_neg)) == 0:
         raise RuntimeError("frozen advantage signs are insufficient for the diagnostic")
     rng = np.random.default_rng(seed + 321)
@@ -555,7 +572,15 @@ def build_plot_rows(
         if row["pair_role"] == "near":
             row.update(distance_bin=-1, distance_bin_left=None, distance_bin_right=None)
         elif row["pair_role"] == "far":
-            bin_id = int(np.clip(np.searchsorted(edges[1:-1], row["standardized_distance"], side="right"), 0, far_bins - 1))
+            bin_id = int(
+                np.clip(
+                    np.searchsorted(
+                        edges[1:-1], row["standardized_distance"], side="right"
+                    ),
+                    0,
+                    far_bins - 1,
+                )
+            )
             row.update(
                 distance_bin=bin_id,
                 distance_bin_left=float(edges[bin_id]),
@@ -595,9 +620,20 @@ def build_plot_rows(
                         "dataset_id": dataset_id,
                         "seed": seed,
                         "distance_bin": bin_id,
-                        "relative_distance": float(np.mean([x["standardized_distance"] for x in selected]) / max(bases[0], 1e-12)),
-                        "relative_gradient": float(np.mean([x["full_parameter_gradient_norm"] for x in selected]) / max(bases[1], 1e-12)),
-                        "relative_abs_advantage": float(np.mean([x["abs_advantage"] for x in selected]) / max(bases[2], 1e-12)),
+                        "relative_distance": float(
+                            np.mean([x["standardized_distance"] for x in selected])
+                            / max(bases[0], 1e-12)
+                        ),
+                        "relative_gradient": float(
+                            np.mean(
+                                [x["full_parameter_gradient_norm"] for x in selected]
+                            )
+                            / max(bases[1], 1e-12)
+                        ),
+                        "relative_abs_advantage": float(
+                            np.mean([x["abs_advantage"] for x in selected])
+                            / max(bases[2], 1e-12)
+                        ),
                         "n_samples": len(selected),
                     }
                 )
@@ -610,9 +646,21 @@ def build_plot_rows(
             distance = gradient = advantage = (1.0, 1.0, 1.0)
         else:
             base = bootstrap_seed + 1000 * bin_id
-            distance = bootstrap_ci((x["relative_distance"] for x in local), seed=base + 11, draws=bootstrap_draws)
-            gradient = bootstrap_ci((x["relative_gradient"] for x in local), seed=base + 23, draws=bootstrap_draws)
-            advantage = bootstrap_ci((x["relative_abs_advantage"] for x in local), seed=base + 37, draws=bootstrap_draws)
+            distance = bootstrap_ci(
+                (x["relative_distance"] for x in local),
+                seed=base + 11,
+                draws=bootstrap_draws,
+            )
+            gradient = bootstrap_ci(
+                (x["relative_gradient"] for x in local),
+                seed=base + 23,
+                draws=bootstrap_draws,
+            )
+            advantage = bootstrap_ci(
+                (x["relative_abs_advantage"] for x in local),
+                seed=base + 37,
+                draws=bootstrap_draws,
+            )
         plot_rows.append(
             {
                 "dataset_id": dataset_id,
@@ -639,14 +687,17 @@ def build_plot_rows(
         "farthest_relative_gradient": plot_rows[-1]["relative_gradient_mean"],
         "farthest_relative_abs_advantage": plot_rows[-1]["relative_abs_advantage_mean"],
         "absolute_advantage_far_near_ratio_all_points": float(
-            np.mean([x["abs_advantage"] for x in far]) / max(np.mean([x["abs_advantage"] for x in near]), 1e-12)
+            np.mean([x["abs_advantage"] for x in far])
+            / max(np.mean([x["abs_advantage"] for x in near]), 1e-12)
         ),
         "n_seeds": len(expected_seeds),
     }
     return binned, seed_curves, plot_rows, summary
 
 
-def aggregate_dataset(output_dir: Path, dataset: dict[str, Any], runspec: dict[str, Any]) -> dict[str, Any]:
+def aggregate_dataset(
+    output_dir: Path, dataset: dict[str, Any], runspec: dict[str, Any]
+) -> dict[str, Any]:
     from drpo import e7_hopper_q2 as q2
 
     points = []
@@ -665,7 +716,11 @@ def aggregate_dataset(output_dir: Path, dataset: dict[str, Any], runspec: dict[s
     q2.write_csv(output_dir / "dataset_gradient_probe_points.csv", binned)
     q2.write_csv(output_dir / "dataset_seed_curves.csv", seed_curves)
     q2.write_csv(output_dir / "dataset_plot_data.csv", plot_rows)
-    summary.update(dataset_sha256=dataset["sha256"], scientific_status="pilot", completed_utc=q2.utc_now())
+    summary.update(
+        dataset_sha256=dataset["sha256"],
+        scientific_status="pilot",
+        completed_utc=q2.utc_now(),
+    )
     q2.atomic_write_json(output_dir / "DATASET_AGGREGATE_COMPLETE.json", summary)
     return summary
 
@@ -679,7 +734,11 @@ def dataset_worker(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         configure_threads(payload["cpus_per_worker"])
         runspec = load_runspec(payload["runspec_path"])
-        data = e7_bench.load_dataset(Path(dataset["resolved_path"]), dataset_spec(dataset, dataset["sha256"]), max_transitions=None)
+        data = e7_bench.load_dataset(
+            Path(dataset["resolved_path"]),
+            dataset_spec(dataset, dataset["sha256"]),
+            max_transitions=None,
+        )
         config, mode = adapted_config(runspec, dataset)
         device = q2.choose_device(payload["device"])
         canonical_root = output_dir / "canonical_critic"
@@ -690,12 +749,46 @@ def dataset_worker(payload: dict[str, Any]) -> dict[str, Any]:
             "sha256": dataset["sha256"],
             "size_bytes": dataset["size_bytes"],
         }
+        canonical_binding = {
+            "experiment_id": EXPERIMENT_ID,
+            "implementation_origin": "EXT-H-E7-Q2",
+            "runspec_sha256": runspec["_sha256"],
+            "base_config_sha256": runspec["_base_config_sha256"],
+            "source_commit_sha": payload["source_commit"],
+            "runner_sha256": payload["runner_sha256"],
+            "dataset_id": dataset["id"],
+            "dataset_sha256": dataset["sha256"],
+            "canonical_critic_seed": mode.canonical_critic_seed,
+            "critic_steps": mode.critic_max_steps,
+            "critic_eval_interval": mode.critic_eval_interval,
+            "model": {
+                "hidden_sizes": list(config.hidden_sizes),
+                "activation": config.activation,
+                "init_scheme": config.init_scheme,
+                "init_gain": config.init_gain,
+            },
+            "critic": {
+                "gamma": config.gamma,
+                "learning_rate": config.critic_lr,
+                "batch_size": config.critic_batch_size,
+                "weight_decay": config.weight_decay,
+            },
+        }
+        canonical_binding_path = output_dir / "CANONICAL_CRITIC_INPUT_BINDING.json"
+        if canonical_binding_path.is_file():
+            previous_binding = json.loads(canonical_binding_path.read_text())
+            if previous_binding != canonical_binding:
+                raise RuntimeError(
+                    "canonical critic input binding mismatch for "
+                    f"{dataset['id']}"
+                )
+        q2.atomic_write_json(canonical_binding_path, canonical_binding)
         canonical = q2.prepare_canonical_critic_context(
             data=data,
             config=config,
             mode=mode,
             mode_name="pilot",
-            config_path=Path(runspec["_path"]),
+            config_path=canonical_binding_path,
             dataset_manifest=manifest,
             device=device,
             artifact_root=canonical_root,
@@ -703,6 +796,21 @@ def dataset_worker(payload: dict[str, Any]) -> dict[str, Any]:
             heartbeat=lambda stage, step: heartbeat(
                 output_dir / "HEARTBEAT.json", stage, step, dataset_id=dataset["id"]
             ),
+        )
+        q2.atomic_write_json(
+            output_dir / "CANONICAL_CRITIC_BINDING.json",
+            {
+                **canonical_binding,
+                "helper_manifest_experiment_id": canonical.artifact_manifest[
+                    "identity"
+                ]["experiment_id"],
+                "helper_manifest_runner_version": canonical.artifact_manifest[
+                    "identity"
+                ]["runner_version"],
+                "canonical_critic_checkpoint_sha256": canonical.artifact_manifest[
+                    "files"
+                ]["critic_checkpoint"]["sha256"],
+            },
         )
         completions = [
             run_seed(
@@ -755,14 +863,42 @@ def plot_appendix(rows: Sequence[dict[str, Any]], output_dir: Path) -> list[str]
     figure, axes = plt.subplots(3, 3, figsize=(13.2, 10.2))
     handles = labels = None
     for axis, dataset_id in zip(axes.flat, D4RL9):
-        local = sorted((x for x in rows if x["dataset_id"] == dataset_id), key=lambda x: int(x["distance_bin"]))
+        local = sorted(
+            (x for x in rows if x["dataset_id"] == dataset_id),
+            key=lambda x: int(x["distance_bin"]),
+        )
         x = [float(row["relative_distance"]) for row in local]
         for key, low, high, marker, linestyle, label in (
-            ("relative_gradient_mean", "relative_gradient_ci_low", "relative_gradient_ci_high", "o", "-", "implemented actor-gradient"),
-            ("relative_abs_advantage_mean", "relative_abs_advantage_ci_low", "relative_abs_advantage_ci_high", "s", "--", "matched |advantage|"),
+            (
+                "relative_gradient_mean",
+                "relative_gradient_ci_low",
+                "relative_gradient_ci_high",
+                "o",
+                "-",
+                "implemented actor-gradient",
+            ),
+            (
+                "relative_abs_advantage_mean",
+                "relative_abs_advantage_ci_low",
+                "relative_abs_advantage_ci_high",
+                "s",
+                "--",
+                "matched |advantage|",
+            ),
         ):
-            axis.plot(x, [float(row[key]) for row in local], marker=marker, linestyle=linestyle, label=label)
-            axis.fill_between(x, [float(row[low]) for row in local], [float(row[high]) for row in local], alpha=0.15)
+            axis.plot(
+                x,
+                [float(row[key]) for row in local],
+                marker=marker,
+                linestyle=linestyle,
+                label=label,
+            )
+            axis.fill_between(
+                x,
+                [float(row[low]) for row in local],
+                [float(row[high]) for row in local],
+                alpha=0.15,
+            )
         axis.axhline(1.0, linewidth=0.8, alpha=0.6)
         axis.set(
             title=dataset_id.replace("-v2", "").replace("-", " "),
@@ -854,6 +990,7 @@ def run_figure1(args: argparse.Namespace) -> int:
         **{key: value for key, value in runspec.items() if not key.startswith("_")},
         "runspec_sha256": runspec["_sha256"],
         "dataset_lock_sha256": lock["dataset_lock_sha256"],
+        "base_config_sha256": runspec["_base_config_sha256"],
         "source_commit_sha": source_commit,
         "runner_sha256": runner_sha,
     }
@@ -861,13 +998,18 @@ def run_figure1(args: argparse.Namespace) -> int:
     if args.validate_only:
         q2.atomic_write_json(
             work_dir / "PREFLIGHT_COMPLETE.json",
-            {"training_started": False, "dataset_lock_sha256": lock["dataset_lock_sha256"], "completed_utc": q2.utc_now()},
+            {
+                "training_started": False,
+                "dataset_lock_sha256": lock["dataset_lock_sha256"],
+                "completed_utc": q2.utc_now(),
+            },
         )
         return 0
     complete_path = work_dir / "RUN_COMPLETE.json"
     identity = {
         "runspec_sha256": runspec["_sha256"],
         "dataset_lock_sha256": lock["dataset_lock_sha256"],
+        "base_config_sha256": runspec["_base_config_sha256"],
         "source_commit_sha": source_commit,
         "runner_sha256": runner_sha,
     }
@@ -901,6 +1043,15 @@ def run_figure1(args: argparse.Namespace) -> int:
         }
         for index, dataset in enumerate(lock["datasets"])
     ]
+    existing_manifest_path = work_dir / "RUN_MANIFEST.json"
+    if existing_manifest_path.is_file():
+        existing_manifest = json.loads(existing_manifest_path.read_text())
+        if not args.resume or any(
+            existing_manifest.get(key) != value for key, value in identity.items()
+        ):
+            raise RuntimeError(
+                "work directory run identity mismatch; use --resume or a new work directory"
+            )
     manifest = {
         "experiment_id": EXPERIMENT_ID,
         "runner_version": RUNNER_VERSION,
@@ -967,7 +1118,12 @@ def self_test() -> int:
         for pair_id in range(64):
             for role, distance, gradient, magnitude in (
                 ("near", near[pair_id], near[pair_id] * advantage[pair_id], advantage[pair_id]),
-                ("far", far[pair_id], far[pair_id] * advantage[pair_id], advantage[pair_id] * (1 + rng.normal(scale=0.002))),
+                (
+                    "far",
+                    far[pair_id],
+                    far[pair_id] * advantage[pair_id],
+                    advantage[pair_id] * (1 + rng.normal(scale=0.002)),
+                ),
             ):
                 points.append(
                     {
@@ -995,7 +1151,16 @@ def self_test() -> int:
     assert sum(row["n_samples"] for row in plot_rows[1:]) == 640
     assert plot_rows[-1]["relative_gradient_mean"] > plot_rows[1]["relative_gradient_mean"]
     assert math.isclose(summary["absolute_advantage_far_near_ratio_all_points"], 1.0, abs_tol=0.01)
-    print(json.dumps({"self_test": "passed", "selected_point_rows": len(binned), "plot_rows": len(plot_rows)}, indent=2))
+    print(
+        json.dumps(
+            {
+                "self_test": "passed",
+                "selected_point_rows": len(binned),
+                "plot_rows": len(plot_rows),
+            },
+            indent=2,
+        )
+    )
     return 0
 
 
