@@ -19,8 +19,7 @@ from .trajectory import FEEDBACK_CLASSES as FEEDBACK, TERMINAL_DISPOSITIONS
 TOKEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
 _R3_FIXTURE_TERMINALS = {
     "READY": ("SUCCEEDED", "NONE"), "BLOCKED": ("FAILED", "CANDIDATE"),
-    "STALE": ("INVALIDATED", "ENVIRONMENT"), "INTERRUPTED": ("INTERRUPTED", "ENVIRONMENT"),
-    "INVALIDATED": ("INVALIDATED", "ENVIRONMENT"),
+    "STALE": ("INVALIDATED", "ENVIRONMENT"), "INTERRUPTED": ("INTERRUPTED", "ENVIRONMENT"), "INVALIDATED": ("INVALIDATED", "ENVIRONMENT"),
 }
 
 class ExecutionError(ValueError):
@@ -136,13 +135,14 @@ def normalize_fixture_attempt(
         first, last = events[0], events[-1]
         state = EVENT_TERMINALS[last["event"]]
         _validate_journal(raw, identity, state)
+        timing_data = dict(timing or {})
     except (AttributeError, IndexError, KeyError, OSError, TypeError, ValueError) as exc:
         raise ExecutionError(f"fixture journal is invalid: {exc}") from exc
     started, finished = first["payload"], last["payload"]
     if started.get("case_id") != identity.case_id or started.get("arm") != identity.arm:
         raise ExecutionError("fixture journal start identity mismatch")
     command_count = finished.get("command_count", finished.get("child_command_count"))
-    active_ns = finished.get("child_ns", dict(timing or {}).get("child_ns"))
+    active_ns = finished.get("child_ns", timing_data.get("child_ns"))
     starts = sum(row["event"] == "command_started" for row in events)
     durations = tuple(row["payload"].get("child_elapsed_ns") for row in events if row["event"] == "command_finished")
     unfinished = starts - len(durations)
