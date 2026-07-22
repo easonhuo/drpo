@@ -47,6 +47,9 @@ RECIPROCAL_Q_DENSE_CURVE_EXPERIMENT_ID = (
 ASYMRE_DELTAV_EXPERIMENT_ID = (
     "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-SCAN-0.5B-01"
 )
+ASYMRE_DELTAV_BOUNDARY_DENSE_EXPERIMENT_ID = (
+    "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-BOUNDARY-DENSE-0.5B-01"
+)
 ROUND1_PARAMETER_POINTS = (
     (0.0, 0.0),
     (1.0, 0.0),
@@ -108,6 +111,16 @@ RECIPROCAL_Q_DENSE_POINTS = tuple(
     for value in RECIPROCAL_Q_DENSE_LAMBDAS
 )
 ASYMRE_DELTA_VS = (-1.0, -0.5, -0.3, -0.2, -0.1, -0.05, 0.0, 0.1)
+ASYMRE_BOUNDARY_DENSE_DELTA_VS = (
+    -1.0,
+    -0.95,
+    -0.9,
+    -0.85,
+    -0.8,
+    -0.7,
+    -0.6,
+    -0.5,
+)
 SEED_OFFSETS = (4000, 5000)
 ROUND1_RESULT_MANIFEST_SHA256 = (
     "24635fbb634b23450cdfb560fd7b16a2dc0fe4a6d0586f10e1cf385e58bab333"
@@ -242,6 +255,20 @@ _PROFILES: dict[str, dict[str, Any]] = {
             "configs/countdown_e8_oracle_offline_v2_asymre_deltav_scan_0p5b.yaml"
         ),
         "parameter_points": ASYMRE_DELTA_VS,
+        "seed_offsets": SEED_OFFSETS,
+        "expected_points": 8,
+        "expected_cells": 16,
+        "requires_positive_only": False,
+        "kind": "asymre_scan",
+    },
+    ASYMRE_DELTAV_BOUNDARY_DENSE_EXPERIMENT_ID: {
+        "experiment_id": ASYMRE_DELTAV_BOUNDARY_DENSE_EXPERIMENT_ID,
+        "version": "0.2.0-dev-code-first-asymre-deltav-boundary-dense",
+        "default_grid_config": (
+            "configs/countdown_e8_oracle_offline_v2_"
+            "asymre_deltav_boundary_dense_0p5b.yaml"
+        ),
+        "parameter_points": ASYMRE_BOUNDARY_DENSE_DELTA_VS,
         "seed_offsets": SEED_OFFSETS,
         "expected_points": 8,
         "expected_cells": 16,
