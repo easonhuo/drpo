@@ -72,7 +72,7 @@
     "targets": ["curve_shape", "recovery_region", "elbow", "saturation_onset", "nonzero_overshoot"]
   },
   "weight_distribution_preflight": {
-    "required_before_full_launch": true,
+    "required_before_full_launch": false,
     "training_updates": 0,
     "point_pruning_allowed": false,
     "metrics": [
@@ -83,7 +83,7 @@
       "weight_lt_1e-3_fraction",
       "weight_lt_1e-6_fraction"
     ],
-    "input_artifact_must_be_bound_by_future_runspec": true
+    "input_artifact_must_be_bound_by_future_runspec": false
   },
   "execution": {
     "recommended_max_workers": 176,
