@@ -14,6 +14,7 @@ PROBE_SECONDS="${E7_SQUARED_EXP_PROBE_SECONDS:-120}"
 THROUGHPUT_RETENTION="${E7_SQUARED_EXP_THROUGHPUT_RETENTION:-0.97}"
 MAX_WORKERS="${E7_SQUARED_EXP_MAX_WORKERS:-${DRPO_RUNTIME_MAX_WORKERS:-}}"
 MAX_WORKERS_APPROVAL_FILE="${E7_SQUARED_EXP_MAX_WORKERS_APPROVAL_FILE:-${DRPO_RUNTIME_MAX_WORKERS_APPROVAL_FILE:-}}"
+MODE="${E7_SQUARED_EXP_MODE:-historical}"
 
 if [[ -n "$(git status --porcelain)" ]]; then
   echo "refusing to run from a dirty checkout" >&2
@@ -29,6 +30,25 @@ for required in \
     exit 2
   fi
 done
+
+case "${MODE}" in
+  historical)
+    ;;
+  p2_left)
+    if [[ "${GRID}" != "configs/e7_bench_joint_gae_tuning_p2_left_c.json" ]]; then
+      echo "P2-left mode requires the registered P2-left grid" >&2
+      exit 2
+    fi
+    if [[ "${DRPO_E7_P2_LEFT_FULL_RUN:-0}" != "1" ]]; then
+      echo "P2-left mode is authorized only by the standard RunSpec entrypoint" >&2
+      exit 2
+    fi
+    ;;
+  *)
+    echo "unsupported E7_SQUARED_EXP_MODE=${MODE}" >&2
+    exit 2
+    ;;
+esac
 
 bash scripts/validate_user_approved_worker_cap.sh \
   "${REPO_ROOT}" \
