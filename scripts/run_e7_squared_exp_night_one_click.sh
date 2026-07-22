@@ -44,6 +44,16 @@ case "${MODE}" in
       exit 2
     fi
     ;;
+  p3_left_saturation)
+    if [[ "${GRID}" != "configs/e7_bench_joint_gae_p3_left_saturation.json" ]]; then
+      echo "P3-left-saturation mode requires the frozen P3 grid" >&2
+      exit 2
+    fi
+    if [[ "${DRPO_E7_P3_LEFT_SATURATION_FULL_RUN:-0}" != "1" ]]; then
+      echo "P3-left-saturation mode is authorized only by the standard RunSpec entrypoint" >&2
+      exit 2
+    fi
+    ;;
   *)
     echo "unsupported E7_SQUARED_EXP_MODE=${MODE}" >&2
     exit 2
