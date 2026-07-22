@@ -4,7 +4,7 @@ lane: e7
 priority: 150
 created_at: "2026-07-22T13:45:00Z"
 experiment_id: EXT-H-E7-SQEXP-GAE-01
-repo_commit: 6780e443ddc73ceb7a13bd9d4e4cb0830a84c88b
+repo_commit: 44e81ea12fe89921984294251c8068b77cfa4a8a
 
 registration:
   mode: deferred
@@ -78,9 +78,8 @@ outputs:
   audit_file: outputs/e7/bench_joint_gae_p3_left_saturation_full_001/aggregate/terminal_audit.json
 
 success_criteria:
-  - this template remains outside runspecs/ready until exact-head P3-specific resource selection and two-branch liveness pass
-  - this template remains outside runspecs/ready until a digest-bound zero-training weight-distribution report satisfies configs/e7_bench_joint_gae_p3_weight_preflight.json
-  - the preflight report uses compatible saved learner-relative distance evidence, records zero training updates, reports overall and environment or tier strata, and does not prune any c point
+  - repository-owner authorization on 2026-07-22 permits READY promotion and full launch using the completed generic E7 GAE liveness as pipeline evidence
+  - the optional zero-training weight-distribution diagnostic is not a launch gate and may not prune or alter any c point
   - matrix contains exactly 180 branches across nine D4RL-v2 tasks, paired seeds 200 and 201, nine finite c values, and Positive-only
   - c values are exactly 0.01, 0.005623413251903491, 0.0031622776601683794, 0.0017782794100389228, 0.001, 0.0005623413251903491, 0.00031622776601683794, 0.00017782794100389227, and 0.0001
   - historical P2 c 0.015625 is not rerun and P2 or P3 raw scores are never treated as one paired run
