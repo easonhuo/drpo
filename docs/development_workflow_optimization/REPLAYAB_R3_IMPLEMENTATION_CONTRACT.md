@@ -16,7 +16,7 @@ Scientific impact: none
 
 ## 1. Decision
 
-R3 is approved for design as a narrow evidence-model extension only. It must preserve the complete ordered attempt trajectory for one ReplayAB run and bind that trajectory to immutable evidence without changing R2 semantic acceptance.
+This contract specifies R3 as a narrow evidence-model extension only. It must preserve the complete ordered attempt trajectory for one ReplayAB run and bind that trajectory to immutable evidence without changing R2 semantic acceptance.
 
 The implementation must make the following coexist without contradiction:
 
@@ -206,7 +206,7 @@ ordinal
 kind
 parent_attempt_id
 terminal
- disposition
+disposition
 input_artifact_locator
 output_artifact_locator
 event_journal_locator
@@ -216,8 +216,6 @@ diagnostic_codes
 observed_resources
 attempt_sha256
 ```
-
-The accidental leading space shown before `disposition` in this explanatory block has no schema meaning; the implementation field is exactly `disposition`.
 
 Required invariants:
 
