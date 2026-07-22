@@ -14,10 +14,12 @@ shape screen runs only the eight new reciprocal method points.  Positive-only,
 Global, and the completed EXP anchor are historical references and are not
 rerun in this profile.
 
-The joint fitted-reference TOPR profile is intentionally distinct from
+The joint fitted-reference beta-TOPR profile is intentionally distinct from
 canonical frozen-behavior TOPR.  It trains a policy adapter and a branch-
-balanced bank-density reference adapter together, then uses the detached full-
-sequence likelihood ratio only on the negative branch.
+balanced bank-density reference adapter together, then applies a detached
+full-sequence likelihood-ratio taper on the negative branch.  Beta=1 is the
+original TOPR ratio-rule anchor, beta=0 is the no-ratio-taper boundary control,
+and all other beta values are explicitly tempered variants.
 """
 from __future__ import annotations
 
@@ -129,8 +131,19 @@ ASYMRE_BOUNDARY_DENSE_DELTA_VS = (
     -0.6,
     -0.5,
 )
-JOINT_FITTED_REFERENCE_TOPR_POINTS = (
-    ("joint_fitted_reference_topr", 1.0, 0.0),
+JOINT_FITTED_REFERENCE_TOPR_BETAS = (
+    0.0,
+    0.25,
+    0.5,
+    0.75,
+    1.0,
+    1.5,
+    2.0,
+    4.0,
+)
+JOINT_FITTED_REFERENCE_TOPR_POINTS = tuple(
+    ("joint_fitted_reference_topr", 1.0, beta)
+    for beta in JOINT_FITTED_REFERENCE_TOPR_BETAS
 )
 SEED_OFFSETS = (4000, 5000)
 ROUND1_RESULT_MANIFEST_SHA256 = (
@@ -191,7 +204,10 @@ class Cell:
                 f"base_asymre_delta_v{tag(self.delta_v)}_seed{self.seed_offset}"
             )
         if self.family == "joint_fitted_reference_topr":
-            return f"base_joint_fitted_reference_topr_seed{self.seed_offset}"
+            return (
+                "base_joint_fitted_reference_topr_"
+                f"beta{tag(self.coefficient)}_seed{self.seed_offset}"
+            )
         return (
             f"base_{self.method}_alpha{tag(self.alpha)}_"
             f"c{tag(self.coefficient)}_seed{self.seed_offset}"
@@ -294,15 +310,15 @@ _PROFILES: dict[str, dict[str, Any]] = {
     },
     JOINT_FITTED_REFERENCE_TOPR_EXPERIMENT_ID: {
         "experiment_id": JOINT_FITTED_REFERENCE_TOPR_EXPERIMENT_ID,
-        "version": "0.1.0-dev-code-first-joint-fitted-reference-topr",
+        "version": "0.2.0-dev-code-first-joint-fitted-reference-beta-topr-scan",
         "default_grid_config": (
             "configs/countdown_e8_oracle_offline_v2_"
             "joint_fitted_reference_topr_0p5b.yaml"
         ),
         "parameter_points": JOINT_FITTED_REFERENCE_TOPR_POINTS,
         "seed_offsets": SEED_OFFSETS,
-        "expected_points": 1,
-        "expected_cells": 2,
+        "expected_points": 8,
+        "expected_cells": 16,
         "requires_positive_only": False,
         "kind": "joint_fitted_reference_topr",
     },
@@ -341,12 +357,17 @@ def full_sequence_log_probability(stats: Mapping[str, torch.Tensor]) -> torch.Te
 def joint_topr_negative_weights(
     policy_stats: Mapping[str, torch.Tensor],
     reference_stats: Mapping[str, torch.Tensor],
+    *,
+    beta: float = 1.0,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Return detached canonical TOPR negative weights and full-sequence log ratios.
+    """Return detached beta-TOPR weights and full-sequence log ratios.
 
-    The reference is fitted jointly rather than frozen, so this helper implements
-    only the TOPR ratio rule; it does not claim canonical behavior-policy provenance.
+    ``beta=1`` is the original TOPR ratio-rule anchor. ``beta=0`` is the
+    no-ratio-taper boundary control. The reference is fitted jointly rather than
+    frozen, so no beta value claims canonical behavior-policy provenance.
     """
+    if not math.isfinite(beta) or beta < 0.0:
+        raise ValueError("TOPR beta must be finite and non-negative")
     policy_lengths = policy_stats["lengths"]
     reference_lengths = reference_stats["lengths"]
     if policy_lengths.shape != reference_lengths.shape or not torch.equal(
@@ -357,7 +378,7 @@ def joint_topr_negative_weights(
         full_sequence_log_probability(policy_stats)
         - full_sequence_log_probability(reference_stats).detach()
     )
-    weights = torch.exp(torch.clamp(log_ratio, max=0.0)).detach()
+    weights = torch.exp(float(beta) * torch.clamp(log_ratio, max=0.0)).detach()
     return weights, log_ratio.detach()
 
 
@@ -400,7 +421,9 @@ def joint_topr_diagnostics(
         "weight_p10": quantile(detached_weights, 0.10),
         "weight_p50": quantile(detached_weights, 0.50),
         "weight_p90": quantile(detached_weights, 0.90),
-        "clipped_at_one_fraction": float((detached_weights == 1.0).float().mean().item()),
+        "clipped_at_one_fraction": float(
+            (detached_weights == 1.0).float().mean().item()
+        ),
         "unique_negative_count_mean": float(unique_counts.float().mean().item()),
         "raw_bank_count_mean": float(raw_bank_counts.float().mean().item()),
         "duplicates_removed_mean": float(
@@ -552,6 +575,11 @@ def _identity(
             "family": cell.family,
             "alpha": cell.alpha,
             "c": float(cell.c),
+            "topr_beta": (
+                float(cell.c)
+                if cell.family == "joint_fitted_reference_topr"
+                else None
+            ),
             "seed_offset": cell.seed_offset,
         },
         "smoke": bool(smoke),
@@ -744,8 +772,11 @@ def _validate_joint_topr_config(
         raise ValueError("Joint fitted-reference TOPR must remain a pilot")
     if config.get("registration_state") != "dev_code_first_unregistered":
         raise ValueError("Joint fitted-reference TOPR must remain code-first unregistered")
-    if config.get("method_identity") != "joint_fitted_reference_topr_not_canonical_topr":
-        raise ValueError("Joint fitted-reference TOPR method identity changed")
+    if (
+        config.get("method_identity")
+        != "joint_fitted_reference_beta_topr_scan_not_canonical_topr"
+    ):
+        raise ValueError("Joint fitted-reference beta-TOPR method identity changed")
 
     model = config.get("model", {})
     if model.get("shared_frozen_backbone") is not True:
@@ -778,8 +809,17 @@ def _validate_joint_topr_config(
         "positive_mean_lp-mean_unique_negative(weight*negative_mean_lp)"
     ):
         raise ValueError("TOPR policy objective changed")
-    if objective.get("negative_weight") != "exp(min(sum_logpi-sum_logmu,0))":
-        raise ValueError("TOPR ratio formula changed")
+    if (
+        objective.get("negative_weight")
+        != "exp(beta*min(sum_logpi-sum_logmu,0))"
+    ):
+        raise ValueError("TOPR beta ratio formula changed")
+    if objective.get("taper_parameter") != "beta":
+        raise ValueError("TOPR taper parameter must remain beta")
+    if float(objective.get("canonical_anchor_beta", float("nan"))) != 1.0:
+        raise ValueError("TOPR canonical ratio-rule anchor beta must remain 1")
+    if float(objective.get("boundary_control_beta", float("nan"))) != 0.0:
+        raise ValueError("TOPR no-ratio-taper boundary beta must remain 0")
     if objective.get("ratio_coordinate") != "full_completion_summed_log_probability":
         raise ValueError("TOPR ratio must use summed sequence log-probability")
     if objective.get("task_loss_log_probability") != "mean_completion_token_log_probability":
@@ -802,14 +842,17 @@ def _validate_joint_topr_config(
         (str(item["family"]), float(item["alpha"]), float(item["coefficient"]))
         for item in sweep.get("parameter_points", ())
     )
-    if configured != tuple(profile["parameter_points"]):
-        raise ValueError("Joint fitted-reference TOPR parameter point changed")
+    expected = tuple(profile["parameter_points"])
+    if configured != expected:
+        raise ValueError("Joint fitted-reference beta-TOPR parameter points changed")
     if tuple(int(value) for value in sweep.get("seed_offsets", ())) != SEED_OFFSETS:
         raise ValueError("Joint fitted-reference TOPR development seed offsets changed")
-    if int(sweep.get("unique_parameter_points", -1)) != 1:
-        raise ValueError("Joint fitted-reference TOPR requires one method point")
-    if int(sweep.get("cells", -1)) != 2:
-        raise ValueError("Joint fitted-reference TOPR requires two paired cells")
+    if int(sweep.get("unique_parameter_points", -1)) != int(
+        profile["expected_points"]
+    ):
+        raise ValueError("Joint fitted-reference beta-TOPR requires eight beta points")
+    if int(sweep.get("cells", -1)) != int(profile["expected_cells"]):
+        raise ValueError("Joint fitted-reference beta-TOPR requires 16 paired cells")
     if sweep.get("cartesian_product") is not False:
         raise ValueError("Joint fitted-reference TOPR must remain an explicit point list")
 
@@ -832,8 +875,13 @@ def _validate_joint_topr_config(
         raise ValueError("Joint fitted-reference TOPR development profile requires GPU 0-1")
     if int(execution.get("parallel_cells_per_gpu", -1)) != 1:
         raise ValueError("Joint fitted-reference TOPR requires one cell per GPU")
+    if int(execution.get("expected_full_waves", -1)) != 8:
+        raise ValueError("Joint fitted-reference beta-TOPR requires eight full waves")
     if execution.get("identity_checked_resume") is not True:
         raise ValueError("Identity-checked resume is required")
+    liveness = execution.get("liveness", {})
+    if float(liveness.get("representative_c", float("nan"))) != 1.0:
+        raise ValueError("TOPR liveness must use the beta=1 ratio-rule anchor")
 
     evaluation = config.get("evaluation", {})
     if evaluation.get("split_role") != "structurally_disjoint_held_out_evaluation":

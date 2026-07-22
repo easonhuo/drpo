@@ -647,26 +647,47 @@ TOPR_CONFIG = (
     / "configs"
     / "countdown_e8_oracle_offline_v2_joint_fitted_reference_topr_0p5b.yaml"
 )
+TOPR_RUNSPEC = (
+    ROOT
+    / "runspecs"
+    / "ready"
+    / "E8_JOINT_FITTED_REFERENCE_TOPR_20260722_01.yaml"
+)
 
 
-def test_joint_topr_has_one_point_and_two_paired_cells() -> None:
+def test_joint_topr_has_eight_beta_points_and_sixteen_paired_cells() -> None:
     config = _load_path(TOPR_CONFIG)
     points = scan.parameter_points(config)
     cells = scan.build_cells(config)
     assert points == scan.JOINT_FITTED_REFERENCE_TOPR_POINTS
-    assert len(cells) == 2
-    assert len({cell.name for cell in cells}) == 2
+    assert tuple(point[2] for point in points) == (
+        0.0,
+        0.25,
+        0.5,
+        0.75,
+        1.0,
+        1.5,
+        2.0,
+        4.0,
+    )
+    assert len(points) == 8
+    assert len(cells) == 16
+    assert len({cell.name for cell in cells}) == 16
     assert {cell.seed_offset for cell in cells} == {4000, 5000}
     assert {cell.method for cell in cells} == {"joint_fitted_reference_topr"}
     assert {cell.family for cell in cells} == {"joint_fitted_reference_topr"}
+    assert {cell.coefficient for cell in cells} == set(
+        scan.JOINT_FITTED_REFERENCE_TOPR_BETAS
+    )
     assert config["method_identity"] == (
-        "joint_fitted_reference_topr_not_canonical_topr"
+        "joint_fitted_reference_beta_topr_scan_not_canonical_topr"
     )
     assert config["execution"]["default_gpus"] == [0, 1]
     assert config["execution"]["parallel_cells_per_gpu"] == 1
+    assert config["execution"]["expected_full_waves"] == 8
 
 
-def test_joint_topr_uses_summed_sequence_ratio_and_detached_weights() -> None:
+def test_joint_topr_beta_controls_summed_sequence_ratio_and_detached_weights() -> None:
     policy_stats = {
         "seq_lp": torch.tensor([-2.0, -3.0], requires_grad=True),
         "lengths": torch.tensor([2.0, 4.0]),
@@ -675,13 +696,34 @@ def test_joint_topr_uses_summed_sequence_ratio_and_detached_weights() -> None:
         "seq_lp": torch.tensor([-1.5, -4.0], requires_grad=True),
         "lengths": torch.tensor([2.0, 4.0]),
     }
-    weights, log_ratio = scan.joint_topr_negative_weights(
-        policy_stats, reference_stats
-    )
-    assert torch.allclose(log_ratio, torch.tensor([-1.0, 4.0]))
-    assert torch.allclose(weights, torch.tensor([torch.exp(torch.tensor(-1.0)), 1.0]))
-    assert weights.requires_grad is False
-    assert log_ratio.requires_grad is False
+    for beta, expected_first in (
+        (0.0, 1.0),
+        (0.5, float(torch.exp(torch.tensor(-0.5)))),
+        (1.0, float(torch.exp(torch.tensor(-1.0)))),
+        (2.0, float(torch.exp(torch.tensor(-2.0)))),
+    ):
+        weights, log_ratio = scan.joint_topr_negative_weights(
+            policy_stats,
+            reference_stats,
+            beta=beta,
+        )
+        assert torch.allclose(log_ratio, torch.tensor([-1.0, 4.0]))
+        assert torch.allclose(weights, torch.tensor([expected_first, 1.0]))
+        assert weights.requires_grad is False
+        assert log_ratio.requires_grad is False
+
+    with pytest.raises(ValueError, match="finite and non-negative"):
+        scan.joint_topr_negative_weights(
+            policy_stats,
+            reference_stats,
+            beta=-0.1,
+        )
+    with pytest.raises(ValueError, match="finite and non-negative"):
+        scan.joint_topr_negative_weights(
+            policy_stats,
+            reference_stats,
+            beta=float("nan"),
+        )
 
 
 def test_joint_topr_branch_balanced_reference_loss_uses_prompt_denominator() -> None:
@@ -699,10 +741,20 @@ def test_joint_topr_branch_balanced_reference_loss_uses_prompt_denominator() -> 
     assert float(loss) == pytest.approx(-(0.5 * -2.0 + 0.5 * expected_negative))
 
 
-def test_joint_topr_config_rejects_ratio_reference_or_seed_drift() -> None:
+def test_joint_topr_config_rejects_ratio_beta_reference_or_seed_drift() -> None:
     config = _load_path(TOPR_CONFIG)
     config["objective"]["ratio_coordinate"] = "mean_token_log_ratio"
     with pytest.raises(ValueError, match="summed sequence"):
+        scan.validate_grid_config(config)
+
+    config = _load_path(TOPR_CONFIG)
+    config["objective"]["negative_weight"] = "exp(min(sum_logpi-sum_logmu,0))"
+    with pytest.raises(ValueError, match="beta ratio formula"):
+        scan.validate_grid_config(config)
+
+    config = _load_path(TOPR_CONFIG)
+    config["sweep"]["parameter_points"][1]["coefficient"] = 0.3
+    with pytest.raises(ValueError, match="parameter points changed"):
         scan.validate_grid_config(config)
 
     config = _load_path(TOPR_CONFIG)
@@ -716,12 +768,32 @@ def test_joint_topr_config_rejects_ratio_reference_or_seed_drift() -> None:
         scan.validate_grid_config(config)
 
 
+def test_joint_topr_runspec_freezes_beta_curve_and_delivery() -> None:
+    spec = _load_path(TOPR_RUNSPEC)
+    criteria = "\n".join(spec["success_criteria"])
+    assert spec["registration"] == {"mode": "deferred", "closure_required": True}
+    assert "8 beta points and 16 cells" in criteria
+    assert "0, 0.25, 0.5, 0.75, 1, 1.5, 2, and 4" in criteria
+    assert spec["delivery"] == {
+        "enabled": True,
+        "auto": True,
+        "mode": "results_repo",
+        "repository": "easonhuo/drpo-results",
+        "branch": "ingest/e8",
+        "export_profile": "manifest_text_v1",
+        "max_total_size_mb": 30,
+        "max_file_size_mb": 10,
+    }
+
+
 def test_joint_topr_reuses_existing_trainer_and_launcher() -> None:
     trainer_source = TRAINER.read_text(encoding="utf-8")
     auto_source = AUTO.read_text(encoding="utf-8")
     assert 'cell.method == "joint_fitted_reference_topr"' in trainer_source
     assert "model.add_adapter" in trainer_source
     assert "joint_topr_negative_weights" in trainer_source
+    assert "beta=topr_beta" in trainer_source
+    assert '"topr_beta": topr_beta' in trainer_source
     assert "branch_balanced_reference_loss" in trainer_source
     assert "full_completion_summed_log_probability" in trainer_source
     assert "e8_joint_fitted_reference_topr_cuda_dev_v1" in auto_source

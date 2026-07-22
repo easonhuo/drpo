@@ -237,6 +237,7 @@ def train_cell(
     seed = int(train_cfg["seed"]) + int(cell.seed_offset)
     arena.seed_all(seed)
     is_topr = cell.method == "joint_fitted_reference_topr"
+    topr_beta = float(cell.c) if is_topr else None
 
     output_dir.mkdir(parents=True, exist_ok=True)
     identity = _identity(
@@ -378,6 +379,7 @@ def train_cell(
                 "method": cell.method,
                 "alpha": cell.alpha,
                 "c": cell.c,
+                "topr_beta": topr_beta,
                 "delta_v": cell.delta_v if cell.method == "asymre" else None,
                 "positive_coefficient": (
                     1.0 - cell.delta_v if cell.method == "asymre" else 1.0
@@ -498,8 +500,11 @@ def train_cell(
                 positive_stats = arena.completion_stats(model, positive_batch)
                 bank_stats = arena.completion_stats(model, bank_batch)
                 positive_lp = positive_stats["seq_lp"].mean()
+                assert topr_beta is not None
                 weights, log_ratio = joint_topr_negative_weights(
-                    bank_stats, reference_bank_stats
+                    bank_stats,
+                    reference_bank_stats,
+                    beta=topr_beta,
                 )
                 if update_step == 1 and accumulation_index == 0:
                     initial_ratio_max_abs = float(log_ratio.abs().max().item())
@@ -697,6 +702,7 @@ def train_cell(
                 "method": cell.method,
                 "alpha": cell.alpha,
                 "c": cell.c,
+                "topr_beta": topr_beta,
                 "delta_v": cell.delta_v if cell.method == "asymre" else None,
                 "positive_coefficient": (
                     1.0 - cell.delta_v if cell.method == "asymre" else 1.0
@@ -769,21 +775,29 @@ def train_cell(
     if is_topr:
         objective_formula = (
             "policy=positive_mean_lp-mean_unique_negative("
-            "stopgrad(min(pi/mu,1))*negative_mean_lp);"
+            "stopgrad(min((pi/mu)^beta,1))*negative_mean_lp);"
             "reference=0.5*positive_mean_lp+0.5*mean_unique_negative(negative_mean_lp)"
         )
-        weight_formula = "exp(min(sum_logpi-sum_logmu,0))"
+        weight_formula = "exp(beta*min(sum_logpi-sum_logmu,0))"
         checkpoint_policy = (
             "server-local dual LoRA only; default=policy, reference=joint fitted reference"
         )
+        if topr_beta == 0.0:
+            method_variant = "no_ratio_taper_boundary_control"
+        elif topr_beta == 1.0:
+            method_variant = "original_topr_ratio_rule_anchor_with_fitted_reference"
+        else:
+            method_variant = "tempered_beta_topr_variant_with_fitted_reference"
     elif cell.method == "asymre":
         objective_formula = "(1-delta_v)*positive_lp-(1+delta_v)*negative_lp"
         weight_formula = str(grid_config["remoteness"]["weight"])
         checkpoint_policy = "server-local LoRA only"
+        method_variant = None
     else:
         objective_formula = "positive_lp-weighted_negative_lp"
         weight_formula = str(grid_config["remoteness"]["weight"])
         checkpoint_policy = "server-local LoRA only"
+        method_variant = None
 
     manifest = {
         "schema_version": 1,
@@ -794,10 +808,14 @@ def train_cell(
         "cell": cell.name,
         "method": cell.method,
         "method_identity": (
-            "joint_fitted_reference_topr_not_canonical_topr" if is_topr else None
+            "joint_fitted_reference_beta_topr_scan_not_canonical_topr"
+            if is_topr
+            else None
         ),
+        "method_variant": method_variant,
         "alpha": cell.alpha,
         "c": cell.c,
+        "topr_beta": topr_beta,
         "delta_v": cell.delta_v if cell.method == "asymre" else None,
         "positive_coefficient": (
             1.0 - cell.delta_v if cell.method == "asymre" else 1.0
