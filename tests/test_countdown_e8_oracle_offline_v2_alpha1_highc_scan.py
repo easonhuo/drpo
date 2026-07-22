@@ -179,7 +179,7 @@ def test_runtime_auto_and_manifest_provenance_are_current() -> None:
     assert "countdown_e8_alpha1_c_scan_runtime" in runtime_source
     assert "countdown_e8_alpha1_highc_scan_runtime.py" in auto_source
     assert "e8_alpha1_highc_scan_cuda_dev_v1" in auto_source
-    assert "requires all eight configured GPUs" in auto_source
+    assert "configured GPUs" in auto_source
     assert 'grid_config["remoteness"]["weight"]' in trainer_source
 
 
@@ -640,3 +640,89 @@ def test_runtime_plan_selects_asymre_boundary_dense_profile(tmp_path: Path) -> N
     assert plan["cell_count"] == 16
     assert {row["method"] for row in plan["cells"]} == {"asymre"}
     assert {row["seed_offset"] for row in plan["cells"]} == {4000, 5000}
+
+
+TOPR_CONFIG = (
+    ROOT
+    / "configs"
+    / "countdown_e8_oracle_offline_v2_joint_fitted_reference_topr_0p5b.yaml"
+)
+
+
+def test_joint_topr_has_one_point_and_two_paired_cells() -> None:
+    config = _load_path(TOPR_CONFIG)
+    points = scan.parameter_points(config)
+    cells = scan.build_cells(config)
+    assert points == scan.JOINT_FITTED_REFERENCE_TOPR_POINTS
+    assert len(cells) == 2
+    assert len({cell.name for cell in cells}) == 2
+    assert {cell.seed_offset for cell in cells} == {4000, 5000}
+    assert {cell.method for cell in cells} == {"joint_fitted_reference_topr"}
+    assert {cell.family for cell in cells} == {"joint_fitted_reference_topr"}
+    assert config["method_identity"] == (
+        "joint_fitted_reference_topr_not_canonical_topr"
+    )
+    assert config["execution"]["default_gpus"] == [0, 1]
+    assert config["execution"]["parallel_cells_per_gpu"] == 1
+
+
+def test_joint_topr_uses_summed_sequence_ratio_and_detached_weights() -> None:
+    policy_stats = {
+        "seq_lp": torch.tensor([-2.0, -3.0], requires_grad=True),
+        "lengths": torch.tensor([2.0, 4.0]),
+    }
+    reference_stats = {
+        "seq_lp": torch.tensor([-1.5, -4.0], requires_grad=True),
+        "lengths": torch.tensor([2.0, 4.0]),
+    }
+    weights, log_ratio = scan.joint_topr_negative_weights(
+        policy_stats, reference_stats
+    )
+    assert torch.allclose(log_ratio, torch.tensor([-1.0, 4.0]))
+    assert torch.allclose(weights, torch.tensor([torch.exp(torch.tensor(-1.0)), 1.0]))
+    assert weights.requires_grad is False
+    assert log_ratio.requires_grad is False
+
+
+def test_joint_topr_branch_balanced_reference_loss_uses_prompt_denominator() -> None:
+    positive_lp = torch.tensor(-2.0)
+    negative_lp = torch.tensor([-1.0, -3.0, -5.0])
+    bank_row_index = torch.tensor([0, 0, 1])
+    unique_counts = torch.tensor([2, 1])
+    loss = scan.branch_balanced_reference_loss(
+        positive_lp,
+        negative_lp,
+        bank_row_index,
+        unique_counts,
+    )
+    expected_negative = ((-1.0 - 3.0) / 2.0 + -5.0) / 2.0
+    assert float(loss) == pytest.approx(-(0.5 * -2.0 + 0.5 * expected_negative))
+
+
+def test_joint_topr_config_rejects_ratio_reference_or_seed_drift() -> None:
+    config = _load_path(TOPR_CONFIG)
+    config["objective"]["ratio_coordinate"] = "mean_token_log_ratio"
+    with pytest.raises(ValueError, match="summed sequence"):
+        scan.validate_grid_config(config)
+
+    config = _load_path(TOPR_CONFIG)
+    config["reference_policy"]["positive_branch_mass"] = 0.6
+    with pytest.raises(ValueError, match="positive branch mass"):
+        scan.validate_grid_config(config)
+
+    config = _load_path(TOPR_CONFIG)
+    config["sweep"]["seed_offsets"] = [4000]
+    with pytest.raises(ValueError, match="seed offsets changed"):
+        scan.validate_grid_config(config)
+
+
+def test_joint_topr_reuses_existing_trainer_and_launcher() -> None:
+    trainer_source = TRAINER.read_text(encoding="utf-8")
+    auto_source = AUTO.read_text(encoding="utf-8")
+    assert 'cell.method == "joint_fitted_reference_topr"' in trainer_source
+    assert "model.add_adapter" in trainer_source
+    assert "joint_topr_negative_weights" in trainer_source
+    assert "branch_balanced_reference_loss" in trainer_source
+    assert "full_completion_summed_log_probability" in trainer_source
+    assert "e8_joint_fitted_reference_topr_cuda_dev_v1" in auto_source
+    assert "required_devices" in auto_source

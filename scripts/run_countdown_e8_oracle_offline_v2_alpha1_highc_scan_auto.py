@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Autotuned launcher adapter for the E8 paper-aligned linear c scans."""
+"""Autotuned launcher adapter for the E8 paper-aligned method profiles."""
 from __future__ import annotations
 
 import importlib.util
@@ -31,8 +31,13 @@ def _grid_config_from_argv(argv: list[str]) -> str | None:
 
 
 def _core_command(args, command: str, *, selected_ids: list[str]) -> list[str]:
-    if len(selected_ids) != 8:
-        raise RuntimeError("paper-aligned scan requires all eight configured GPUs")
+    config = highc.load_yaml(args.grid_config)
+    required_devices = len(config["execution"]["default_gpus"])
+    if len(selected_ids) != required_devices:
+        raise RuntimeError(
+            "paper-aligned profile requires exactly "
+            f"{required_devices} configured GPUs"
+        )
     result = [
         sys.executable,
         str(
@@ -61,11 +66,7 @@ def _core_command(args, command: str, *, selected_ids: list[str]) -> list[str]:
                 "--gpus",
                 ",".join(selected_ids),
                 "--runtime-slots-per-gpu",
-                str(
-                    highc.load_yaml(args.grid_config)["execution"][
-                        "parallel_cells_per_gpu"
-                    ]
-                ),
+                str(config["execution"]["parallel_cells_per_gpu"]),
             ]
         )
     return result
@@ -82,7 +83,9 @@ def main(argv: list[str] | None = None) -> int:
         highc.activate()
     else:
         highc.activate_for_grid_config(grid_config)
-    if highc.EXPERIMENT_ID == highc.ASYMRE_DELTAV_EXPERIMENT_ID:
+    if highc.EXPERIMENT_ID == highc.JOINT_FITTED_REFERENCE_TOPR_EXPERIMENT_ID:
+        _base.ADAPTER_ID = "e8_joint_fitted_reference_topr_cuda_dev_v1"
+    elif highc.EXPERIMENT_ID == highc.ASYMRE_DELTAV_EXPERIMENT_ID:
         _base.ADAPTER_ID = "e8_asymre_deltav_scan_cuda_dev_v1"
     elif highc.EXPERIMENT_ID == highc.C_EXTENSION_EXPERIMENT_ID:
         _base.ADAPTER_ID = "e8_linear_c_extension_cuda_dev_v1"
