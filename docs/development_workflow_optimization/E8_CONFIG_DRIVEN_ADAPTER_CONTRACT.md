@@ -1,3 +1,10 @@
+> [!WARNING]
+> **SUSPENDED ON 2026-07-22.** The config-driven E8 runtime path is not active on
+> `main`. The repository uses the preceding fixed-profile/fixed-matrix execution
+> path until a separately reviewed real CUDA liveness and end-to-end training
+> validation explicitly authorizes reactivation. This document is retained as
+> historical design evidence and is not execution authority.
+
 # E8 Config-Driven Adapter Contract
 
 ## Status
