@@ -1,0 +1,97 @@
+schema_version: 1
+calibration_id: REPLAYAB-R3-CALIBRATION-01
+cases:
+  - case_id: R3-C01-INITIAL-SUCCESS
+    attempts:
+      - [SUCCEEDED, NONE, NONE]
+    final_acceptance: PASS
+    mutation: null
+  - case_id: R3-C02-ONE-REPAIR-SUCCESS
+    attempts:
+      - [FAILED, CANDIDATE, NONE]
+      - [SUCCEEDED, NONE, EVALUATOR]
+    final_acceptance: PASS
+    mutation: null
+  - case_id: R3-C03-MULTI-REPAIR-SUCCESS
+    attempts:
+      - [FAILED, CANDIDATE, NONE]
+      - [FAILED, CANDIDATE, EVALUATOR]
+      - [SUCCEEDED, NONE, EVALUATOR]
+    final_acceptance: PASS
+    mutation: null
+  - case_id: R3-C04-ALL-CANDIDATE-FAILURES
+    attempts:
+      - [FAILED, CANDIDATE, NONE]
+      - [FAILED, CANDIDATE, EVALUATOR]
+      - [FAILED, CANDIDATE, EVALUATOR]
+    final_acceptance: REJECTED
+    mutation: null
+  - case_id: R3-C05-TIMEOUT-THEN-SUCCESS
+    attempts:
+      - [TIMED_OUT, ENVIRONMENT, NONE]
+      - [SUCCEEDED, NONE, EXECUTION]
+    final_acceptance: PASS
+    mutation: null
+  - case_id: R3-C06-INTERRUPTED-NO-REPAIR
+    attempts:
+      - [INTERRUPTED, ENVIRONMENT, NONE]
+    final_acceptance: NOT_AVAILABLE
+    mutation: null
+  - case_id: R3-C07-ENVIRONMENT-INVALIDATION
+    attempts:
+      - [INVALIDATED, ENVIRONMENT, NONE]
+    final_acceptance: NOT_AVAILABLE
+    mutation: null
+  - case_id: R3-C08-MISSING-INITIAL
+    attempts:
+      - [FAILED, CANDIDATE, NONE]
+      - [SUCCEEDED, NONE, EVALUATOR]
+    final_acceptance: PASS
+    mutation: remove_initial
+  - case_id: R3-C09-ORDINAL-DUPLICATE-OR-GAP
+    attempts:
+      - [FAILED, CANDIDATE, NONE]
+      - [SUCCEEDED, NONE, EVALUATOR]
+    final_acceptance: PASS
+    mutation: ordinal_gap
+  - case_id: R3-C10-LINEAGE-INVALID
+    attempts:
+      - [FAILED, CANDIDATE, NONE]
+      - [SUCCEEDED, NONE, EVALUATOR]
+    final_acceptance: PASS
+    mutation: wrong_parent
+  - case_id: R3-C11-FEEDBACK-MISBOUND
+    attempts:
+      - [FAILED, CANDIDATE, NONE]
+      - [SUCCEEDED, NONE, EVALUATOR]
+    final_acceptance: PASS
+    mutation: wrong_feedback_binding
+  - case_id: R3-C12-TAMPERED-EVIDENCE
+    attempts:
+      - [FAILED, CANDIDATE, NONE]
+      - [SUCCEEDED, NONE, EVALUATOR]
+    final_acceptance: PASS
+    mutation: tamper_output
+  - case_id: R3-C13-FINAL-POINTER-MISMATCH
+    attempts:
+      - [FAILED, CANDIDATE, NONE]
+      - [SUCCEEDED, NONE, EVALUATOR]
+    final_acceptance: PASS
+    mutation: wrong_final_pointer
+  - case_id: R3-C14-RESOURCE-AGGREGATE-MISMATCH
+    attempts:
+      - [FAILED, CANDIDATE, NONE]
+      - [SUCCEEDED, NONE, EVALUATOR]
+    final_acceptance: PASS
+    mutation: wrong_resource_aggregate
+  - case_id: R3-C15-RESOURCE-CAPABILITY-INCOMPLETE
+    attempts:
+      - [FAILED, CANDIDATE, NONE]
+      - [SUCCEEDED, NONE, EVALUATOR]
+    final_acceptance: PASS
+    mutation: missing_resource_capability
+  - case_id: R3-C16-EXECUTION-SUCCESS-SEMANTIC-REJECTION
+    attempts:
+      - [SUCCEEDED, NONE, NONE]
+    final_acceptance: REJECTED
+    mutation: null
