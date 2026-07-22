@@ -7295,6 +7295,214 @@ experiments:
       result_path: runs/e8/E8_PAPER_ALIGNED_TAU_CURVE_20260717_01
       manifest_sha256: e737f94d9bb3f8c4dc08551ac2606a49cea39a639ba8b951d5f99d6d810524a0
       export_profile: manifest_text_v1
+- id: EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-SCAN-0.5B-01
+  evaluation_protocol:
+    split_file: val.jsonl
+    split_role: structurally_disjoint_held_out_evaluation
+    enters_training_loss: false
+    train_structure_overlap: none
+    train_problem_key_overlap: none
+    paper_facing_summary:
+    - late_window_pass_at_8
+    - terminal_pass_at_8
+    best_checkpoint_saved: true
+    best_checkpoint_role: supplementary_only
+    separate_test_jsonl_used: false
+    response_curve_mode: full_grid_reporting
+  environment: EXT-C
+  name: countdown_e8_asymre_deltav_scan
+  status: pilot
+  scientific_status: pilot
+  role: Countdown_external_validity_global_signed_weight_response
+  execution_class: pilot
+  registration_state: registered_after_completed_code_first_result
+  claim: Under the frozen AsymRE global coefficient reallocation, test whether an active-negative interior delta_v point exceeds
+    the delta_v=-1 zero-negative boundary on fixed late-window Pass@8.
+  model:
+    identity: Qwen2.5-0.5B-Instruct
+    initialization: pretrained_base_plus_fresh_lora
+    parameterization: lora
+  protocol:
+    objective: (1-delta_v)*positive_lp-(1+delta_v)*negative_lp
+    delta_v_grid:
+    - -1.0
+    - -0.5
+    - -0.3
+    - -0.2
+    - -0.1
+    - -0.05
+    - 0.0
+    - 0.1
+    seed_offsets:
+    - 4000
+    - 5000
+    fixed_training_steps: 1200
+    early_stop: false
+    validation_only: true
+    test_data_used: false
+    expected_cells: 16
+    completed_cells: 16
+  execution:
+    state: delivered
+    run_id: E8_ASYMRE_DELTAV_SCAN_20260721_01
+    terminal_audit_status: PASS
+    numerical_failures: 0
+  provenance:
+    run_source_commit: 396601fb3b041cd09743dec4f9a1f925ea71bae1
+    run_source_commit_resolved: true
+    source_artifact_zip_sha256: a52b27180e1ccc197a117ca7dd7c9bd8c4baa888d70f9e324426a46f4b30a7c6
+    closure_document: docs/experiments/E8_ASYMRE_DELTAV_JOINT_CLOSURE.md
+    provenance_document: docs/experiments/E8_ASYMRE_DELTAV_JOINT_PROVENANCE.json
+    scientific_implementation_commit: 1ff3628baf720adbf14754e7ed7835fefee099d0
+  evidence:
+    terminal_audited: true
+    all_expected_cells_present: true
+    nan_inf_numerical_events: 0
+    test_split_used: false
+    compact_closure: experiments/results/e8_asymre_deltav_joint_closure_20260722/RESULT_CLOSURE.json
+    compact_curve: experiments/results/e8_asymre_deltav_joint_closure_20260722/JOINT_RESPONSE_CURVE.csv
+    results_repository: easonhuo/drpo-results
+    results_commit: 2f9e6d366596f609a91d46f2db014c82e57c04a2
+    result_manifest_sha256: 4384eacdea314c7f13f7bad500a1860c2aa601b53ffcb0ffa51f48193a66976c
+  reporting_separation:
+  - task_performance
+  - support_or_structure_valid_rate_diagnostic
+  - nan_inf_numerical_failure
+  paper_use:
+    allowed:
+    - Countdown_external_validity_negative_control
+    - global_coefficient_response_interpretation
+    prohibited:
+    - formal_method_ranking
+    - statistical_significance
+    - convergence_or_steady_state
+    - formal_support_boundary_claim
+    - universal_taper_superiority
+    - cross_task_or_cross_model_generalization
+  closure:
+    state: closed_pilot_evidence_line
+    closure_update_id: EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22
+    further_boundary_scan_priority: low
+  evidence_locator:
+    schema_version: 1
+    primary_run_id: E8_ASYMRE_DELTAV_SCAN_20260721_01
+    records:
+    - run_id: E8_ASYMRE_DELTAV_SCAN_20260721_01
+      lane: e8
+      source_commit: 396601fb3b041cd09743dec4f9a1f925ea71bae1
+      results_repository: easonhuo/drpo-results
+      results_branch: ingest/e8
+      results_commit: 2f9e6d366596f609a91d46f2db014c82e57c04a2
+      result_path: runs/e8/E8_ASYMRE_DELTAV_SCAN_20260721_01
+      manifest_sha256: 4384eacdea314c7f13f7bad500a1860c2aa601b53ffcb0ffa51f48193a66976c
+      export_profile: manifest_text_v1
+  predecessor: EXT-C-E8-ORACLE-OFFLINE-V2-INIT-MATRIX-0.5B-01
+  successor: EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-BOUNDARY-DENSE-0.5B-01
+- id: EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-BOUNDARY-DENSE-0.5B-01
+  evaluation_protocol:
+    split_file: val.jsonl
+    split_role: structurally_disjoint_held_out_evaluation
+    enters_training_loss: false
+    train_structure_overlap: none
+    train_problem_key_overlap: none
+    paper_facing_summary:
+    - late_window_pass_at_8
+    - terminal_pass_at_8
+    best_checkpoint_saved: true
+    best_checkpoint_role: supplementary_only
+    separate_test_jsonl_used: false
+    response_curve_mode: full_grid_reporting
+  environment: EXT-C
+  name: countdown_e8_asymre_deltav_boundary_dense
+  status: pilot
+  scientific_status: pilot
+  role: Countdown_external_validity_global_signed_weight_response
+  execution_class: pilot
+  registration_state: registered_after_completed_code_first_result
+  claim: Under the frozen AsymRE global coefficient reallocation, test whether an active-negative interior delta_v point exceeds
+    the delta_v=-1 zero-negative boundary on fixed late-window Pass@8.
+  model:
+    identity: Qwen2.5-0.5B-Instruct
+    initialization: pretrained_base_plus_fresh_lora
+    parameterization: lora
+  protocol:
+    objective: (1-delta_v)*positive_lp-(1+delta_v)*negative_lp
+    delta_v_grid:
+    - -1.0
+    - -0.95
+    - -0.9
+    - -0.85
+    - -0.8
+    - -0.7
+    - -0.6
+    - -0.5
+    seed_offsets:
+    - 4000
+    - 5000
+    fixed_training_steps: 1200
+    early_stop: false
+    validation_only: true
+    test_data_used: false
+    expected_cells: 16
+    completed_cells: 16
+  execution:
+    state: delivered
+    run_id: E8_ASYMRE_DELTAV_BOUNDARY_DENSE_20260721_01
+    terminal_audit_status: PASS
+    numerical_failures: 0
+  provenance:
+    run_source_commit: 600a2c3400bd6109d80e566c7a5d5eeaf64518d8
+    run_source_commit_resolved: false
+    source_artifact_zip_sha256: 703485c06d1dacc236ff5801ba94bc6e5522a988a1d9a6d240c5258a09a6275a
+    closure_document: docs/experiments/E8_ASYMRE_DELTAV_JOINT_CLOSURE.md
+    provenance_document: docs/experiments/E8_ASYMRE_DELTAV_JOINT_PROVENANCE.json
+    reviewed_implementation_commit: d865b5ce41034db037ea80804bb8d35989549eda
+    review_pr_head: 2eddd6139eb07754cb9355fad6a8a37ad59d3d4e
+    review_pr: 229
+    unresolved_source_commit_blocker: true
+  evidence:
+    terminal_audited: true
+    all_expected_cells_present: true
+    nan_inf_numerical_events: 0
+    test_split_used: false
+    compact_closure: experiments/results/e8_asymre_deltav_joint_closure_20260722/RESULT_CLOSURE.json
+    compact_curve: experiments/results/e8_asymre_deltav_joint_closure_20260722/JOINT_RESPONSE_CURVE.csv
+    results_repository: easonhuo/drpo-results
+    results_commit: ecdda6392ab9bcca224f15482c245c6d7c06597a
+    result_manifest_sha256: 696d4f72c0bf13e67b0744397d330c27689f163eaf414ed81d92e4f4e097babb
+  reporting_separation:
+  - task_performance
+  - support_or_structure_valid_rate_diagnostic
+  - nan_inf_numerical_failure
+  paper_use:
+    allowed:
+    - Countdown_external_validity_negative_control
+    - global_coefficient_response_interpretation
+    prohibited:
+    - formal_method_ranking
+    - statistical_significance
+    - convergence_or_steady_state
+    - formal_support_boundary_claim
+    - universal_taper_superiority
+    - cross_task_or_cross_model_generalization
+  closure:
+    state: closed_pilot_evidence_line
+    closure_update_id: EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22
+    further_boundary_scan_priority: low
+  evidence_locator:
+    schema_version: 1
+    primary_run_id: E8_ASYMRE_DELTAV_BOUNDARY_DENSE_20260721_01
+    records:
+    - run_id: E8_ASYMRE_DELTAV_BOUNDARY_DENSE_20260721_01
+      lane: e8
+      source_commit: 600a2c3400bd6109d80e566c7a5d5eeaf64518d8
+      results_repository: easonhuo/drpo-results
+      results_branch: ingest/e8
+      results_commit: ecdda6392ab9bcca224f15482c245c6d7c06597a
+      result_path: runs/e8/E8_ASYMRE_DELTAV_BOUNDARY_DENSE_20260721_01
+      manifest_sha256: 696d4f72c0bf13e67b0744397d330c27689f163eaf414ed81d92e4f4e097babb
+      export_profile: manifest_text_v1
+  predecessor: EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-SCAN-0.5B-01
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1
