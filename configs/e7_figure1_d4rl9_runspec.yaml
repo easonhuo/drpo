@@ -1,5 +1,5 @@
 experiment_id: EXT-H-E7-FIG1-D4RL9-GRADIENT-COVERAGE-01
-runner_version: 1.1.0-e7q2-protocol-preserving
+runner_version: 1.1.1-e7q2-protocol-preserving
 execution_class: pilot
 scientific_status: pilot
 formal_launch_allowed: false
@@ -12,7 +12,7 @@ claim: >-
 
 claim_boundaries:
   - External-validity coverage only; this does not replace C-U1 controlled mechanism identification.
-  - The original E7-Q2 near/far matching and Figure-1 aggregation protocol is preserved rather than redesigned.
+  - The original E7-Q2 near/far matching is preserved; aggregation is frozen here to reproduce the existing one-baseline-plus-seven-far-bin plot contract.
   - The run does not compare DRPO, taper, Global alpha, Signed, or other training methods.
   - Per-dataset curves are normalized within dataset and seed and are not pooled on an absolute cross-task scale.
   - Task-performance collapse is not evaluated by this gradient-only diagnostic.
@@ -152,6 +152,8 @@ required_outputs:
   - RUNSPEC_RESOLVED.json
   - RUN_MANIFEST.json
   - RUN_COMPLETE.json
+  - datasets/<dataset_id>/CANONICAL_CRITIC_INPUT_BINDING.json
+  - datasets/<dataset_id>/CANONICAL_CRITIC_BINDING.json
   - datasets/<dataset_id>/canonical_critic/canonical_critic_manifest.json
   - datasets/<dataset_id>/seed_<seed>/SEED_COMPLETE.json
   - datasets/<dataset_id>/seed_<seed>/matching_pairs.csv
