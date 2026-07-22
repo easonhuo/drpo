@@ -36,8 +36,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          OLD=483e93448f25ada23dbd71fe4d237ccff80f8c0c
-          BASE=919a8aaad535168345ddfee84cc19ccaf6d9f18d
           SOURCE=3f83623b68977c26a4f6a73cfe9b972660652460
           git show "$SOURCE:.github/workflows/e7-p1-p2-result-closure-bootstrap.yml" > /tmp/source.yml
           python - <<'PY'
@@ -53,6 +51,11 @@ jobs:
               'test "$(git rev-parse HEAD^)" = "$BASE"',
               'test "$(git merge-base "$BASE" HEAD)" = "$BASE"',
           )
+          needle = '"role":"external_validity_joint_critic_gae_common_scale_screening","registration_state"'
+          replacement = '"role":"external_validity_joint_critic_gae_common_scale_screening","execution_class":"pilot","registration_state"'
+          if needle not in author:
+              raise SystemExit('pilot execution-class injection point missing')
+          author = author.replace(needle, replacement, 1)
           normalize = by_name['Trusted normalization and publication'].replace(old, base)
           Path('/tmp/e7-author.sh').write_text(author, encoding='utf-8')
           Path('/tmp/e7-normalize.sh').write_text(normalize, encoding='utf-8')
