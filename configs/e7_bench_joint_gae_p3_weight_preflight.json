@@ -2,7 +2,7 @@
   "schema_version": 1,
   "profile_id": "d4rl9_common_c_p3_left_saturation",
   "status": "contract_only_not_executed",
-  "source": "P2 saved learner-relative distance evidence bound by future RunSpec",
+  "source": "optional diagnostic over compatible saved learner-relative distance evidence",
   "training_updates": 0,
   "remoteness_scales": [
     0.01,
@@ -29,9 +29,9 @@
   ],
   "required_strata": ["overall", "environment", "tier"],
   "point_pruning_allowed": false,
-  "launch_gate": "full P3 launch remains blocked until a digest-bound report satisfies this contract",
+  "launch_gate": "not_a_launch_gate_owner_authorized_full_180_branch_run_on_2026_07_22",
   "limitations": [
-    "This contract does not assert that a compatible P2 raw-distance artifact is already present in main.",
-    "Approximate reconstruction from published quantiles is not accepted as the launch-gate report."
+    "This optional diagnostic does not authorize pruning or changing any registered c point.",
+    "Absence of a compatible raw-distance artifact does not block the owner-authorized full run."
   ]
 }
