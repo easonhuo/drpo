@@ -1,0 +1,51 @@
+schema_version: 3
+update_id: EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22
+mode: authoritative
+base:
+  commit: 18440ae79a155be1d8aa357ff0fdf3c238b018bb
+  handoff_sha256: 9184a35c57d2741d2d5ad218355a56fc57f708f0ffe1809be396f35bd844ded1
+  registry_sha256: f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5
+renderer_version: 1
+operations:
+- operation_id: append-e8-asymre-deltav-joint-closure
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-asymre-deltav-joint-closure-20260722
+  content: '- **Countdown E8 AsymRE delta-v 两轮联合闭环：**`EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-SCAN-0.5B-01` 与 `EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-BOUNDARY-DENSE-0.5B-01`
+    已分别完成 16/16 cells，联合 32/32；两个 terminal audit 均为 PASS，NaN/Inf 为 0，`test.jsonl` 未使用。paper-facing primary 是 steps `[800,900,1000,1100,1200]`
+    的 mean Pass@8，secondary 是 step-1200 terminal Pass@8，best checkpoint 仅作 supplementary diagnostic。`delta_v=-1` zero-negative
+    boundary 的 joint mean late-window Pass@8 为 `0.1438`；所有已测 active-negative 点在两个 paired development seeds 上均未超过该边界，最佳已测 active-negative
+    aggregate 是 dense `delta_v=-0.5` 的 `0.1090`，差 `-0.0348`。在 `-0.95/-0.90` 处 terminal valid rate 仍约 98--99%，任务指标已先下降约 4 个百分点；更强负项随后伴随明显
+    valid-rate 退化。因此 task-performance degradation、support/valid-structure diagnostic 与 NaN/Inf 必须继续分报。固定 1200 steps 不等于 convergence，两个
+    development seeds 不授权显著性、稳态或正式方法排名，也不单独证明 taper 正式优于 AsymRE。进一步扫描 `[-1,-0.95]` 的优先级登记为 low。第一轮 source commit `396601fb3b041cd09743dec4f9a1f925ea71bae1`
+    可解析；dense 包记录的 `600a2c3400bd6109d80e566c7a5d5eeaf64518d8` 在闭环时不可从 GitHub 解析，故 dense 继续保留 explicit provenance blocker 与
+    pilot 状态，不升级为 authoritative formal evidence。完整记录见 `docs/experiments/E8_ASYMRE_DELTAV_JOINT_CLOSURE.md`、`docs/experiments/E8_ASYMRE_DELTAV_JOINT_PROVENANCE.json`
+    和 `experiments/results/e8_asymre_deltav_joint_closure_20260722/RESULT_CLOSURE.json`。'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: 8148df2aa41ea77e5acb4b846fe2f89131c4a0c111517375296a0e197ae2d1bf
+  changes:
+  - change_id: add-e8-asymre-deltav-scan-result
+    kind: add_entity
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-SCAN-0.5B-01
+    evidence:
+    - experiments/registry.yaml
+    - docs/handoff_deltas/EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22/HANDOFF_DELTA.yaml
+    - docs/experiments/E8_ASYMRE_DELTAV_JOINT_CLOSURE.md
+    - docs/experiments/E8_ASYMRE_DELTAV_JOINT_PROVENANCE.json
+    - experiments/results/e8_asymre_deltav_joint_closure_20260722/RESULT_CLOSURE.json
+    - experiments/results/e8_asymre_deltav_joint_closure_20260722/JOINT_RESPONSE_CURVE.csv
+  - change_id: add-e8-asymre-deltav-boundary-dense-result
+    kind: add_entity
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-BOUNDARY-DENSE-0.5B-01
+    evidence:
+    - experiments/registry.yaml
+    - docs/handoff_deltas/EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22/HANDOFF_DELTA.yaml
+    - docs/experiments/E8_ASYMRE_DELTAV_JOINT_CLOSURE.md
+    - docs/experiments/E8_ASYMRE_DELTAV_JOINT_PROVENANCE.json
+    - experiments/results/e8_asymre_deltav_joint_closure_20260722/RESULT_CLOSURE.json
+    - experiments/results/e8_asymre_deltav_joint_closure_20260722/JOINT_RESPONSE_CURVE.csv
+expected:
+  exact_base_candidate_sha256: d6132bf0bd7af4560e95deaf999f1b7208269974ed6fbf166c62695d41ebb494

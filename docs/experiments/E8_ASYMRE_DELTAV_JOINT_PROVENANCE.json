@@ -1,0 +1,50 @@
+{
+  "dense_source_resolution": {
+    "effect_on_claim": "keeps the dense result at pilot evidence and forbids authoritative formal-evidence or significance upgrade",
+    "github_resolution": "not_found_at_closure_time",
+    "retained_bindings": [
+      "results repository immutable commit",
+      "READY manifest SHA-256",
+      "source artifact ZIP SHA-256",
+      "reviewed implementation commit",
+      "Draft PR head",
+      "per-cell summaries and terminal audit"
+    ],
+    "run_recorded_commit": "600a2c3400bd6109d80e566c7a5d5eeaf64518d8"
+  },
+  "records": [
+    {
+      "completed_cells": 16,
+      "expected_cells": 16,
+      "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-SCAN-0.5B-01",
+      "ready_manifest_sha256": "4384eacdea314c7f13f7bad500a1860c2aa601b53ffcb0ffa51f48193a66976c",
+      "results_commit": "2f9e6d366596f609a91d46f2db014c82e57c04a2",
+      "results_repository": "easonhuo/drpo-results",
+      "run_id": "E8_ASYMRE_DELTAV_SCAN_20260721_01",
+      "run_source_commit": "396601fb3b041cd09743dec4f9a1f925ea71bae1",
+      "run_source_commit_resolved": true,
+      "scientific_implementation_commit": "1ff3628baf720adbf14754e7ed7835fefee099d0",
+      "source_artifact_zip_sha256": "a52b27180e1ccc197a117ca7dd7c9bd8c4baa888d70f9e324426a46f4b30a7c6",
+      "terminal_audit": "PASS"
+    },
+    {
+      "completed_cells": 16,
+      "expected_cells": 16,
+      "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-BOUNDARY-DENSE-0.5B-01",
+      "ready_manifest_sha256": "696d4f72c0bf13e67b0744397d330c27689f163eaf414ed81d92e4f4e097babb",
+      "results_commit": "ecdda6392ab9bcca224f15482c245c6d7c06597a",
+      "results_repository": "easonhuo/drpo-results",
+      "review_pr": 229,
+      "review_pr_head": "2eddd6139eb07754cb9355fad6a8a37ad59d3d4e",
+      "reviewed_implementation_commit": "d865b5ce41034db037ea80804bb8d35989549eda",
+      "run_id": "E8_ASYMRE_DELTAV_BOUNDARY_DENSE_20260721_01",
+      "run_source_commit": "600a2c3400bd6109d80e566c7a5d5eeaf64518d8",
+      "run_source_commit_resolved": false,
+      "source_artifact_zip_sha256": "703485c06d1dacc236ff5801ba94bc6e5522a988a1d9a6d240c5258a09a6275a",
+      "terminal_audit": "PASS"
+    }
+  ],
+  "schema_version": 1,
+  "status": "PASS_WITH_EXPLICIT_UNRESOLVED_RUN_SOURCE",
+  "update_id": "EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22"
+}
