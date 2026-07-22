@@ -14,7 +14,6 @@ provenance:
   commit_policy: protected_paths_unchanged
   protected_paths:
     - configs/countdown_e8_oracle_offline_v2_joint_fitted_reference_topr_0p5b.yaml
-    - docs/scopes/EXT-C-E8-ORACLE-OFFLINE-V2-JOINT-FITTED-REFERENCE-TOPR-0.5B-01.md
     - docs/experiments/E8_JOINT_FITTED_REFERENCE_TOPR_PROTOCOL.md
     - src/drpo/countdown_e8_alpha1_highc_scan_common.py
     - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
