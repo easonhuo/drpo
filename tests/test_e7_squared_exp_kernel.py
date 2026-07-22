@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 from pathlib import Path
 from types import SimpleNamespace
@@ -8,7 +9,10 @@ import pytest
 import torch
 
 from drpo import e7_canonical_injection as canonical
+from drpo import e7_ppo_w0_runtime_autotune as legacy_runtime
 from drpo import e7_squared_exp_night as night
+from drpo import e7_squared_exp_night_bootstrap as bootstrap
+from drpo import e7_squared_exp_night_runtime_autotune as runtime
 from drpo.e7_squared_exp_kernel import (
     THRESHOLDED_FORMULA,
     install_squared_exponential_kernel,
@@ -21,6 +25,7 @@ from drpo.e7_squared_exp_night_bootstrap import (
 
 
 TUNING_GRID = Path("configs/e7_bench_joint_gae_tuning_p2_left_c.json")
+P3_GRID = Path("configs/e7_bench_joint_gae_p3_left_saturation.json")
 HISTORICAL_GRID = Path("configs/e7_squared_exp_night_v1.json")
 
 
@@ -217,7 +222,9 @@ def test_p2_left_public_c_maps_to_existing_exponential_slope(tmp_path: Path) -> 
         night.configure_execution(HISTORICAL_GRID)
 
 
-def test_p2_left_full_run_requires_explicit_authorization(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_p2_left_full_run_requires_explicit_authorization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv(night.TUNING_FULL_RUN_ENV, raising=False)
     try:
         with pytest.raises(RuntimeError, match=night.TUNING_FULL_RUN_ENV):
@@ -257,3 +264,109 @@ def test_p2_left_authorized_run_uses_existing_runner_and_aggregator(
         ),
         ("aggregate", str(tmp_path)),
     ]
+
+
+@pytest.mark.parametrize(
+    ("grid_path", "expected_predecessor", "expected_v3", "expected_coefficient"),
+    (
+        (
+            TUNING_GRID,
+            "e7_joint_gae_thresholded_p2_left_cpu_v2",
+            "e7_joint_gae_thresholded_p2_left_cpu_v3",
+            10.0,
+        ),
+        (
+            P3_GRID,
+            "e7_joint_gae_thresholded_p3_left_saturation_cpu_v2",
+            "e7_joint_gae_thresholded_p3_left_saturation_cpu_v3",
+            1000.0,
+        ),
+    ),
+)
+def test_left_profiles_enter_v3_runtime_adapter(
+    grid_path: Path,
+    expected_predecessor: str,
+    expected_v3: str,
+    expected_coefficient: float,
+) -> None:
+    previous_adapter_id = legacy_runtime.ADAPTER_ID
+    try:
+        night.configure_execution(grid_path)
+        profile = night.active_runtime_profile()
+        assert profile["adapter_id"] == expected_predecessor
+        assert runtime._v3_adapter_id(profile) == expected_v3  # noqa: SLF001
+        assert math.isclose(float(profile["exp_coefficient"]), expected_coefficient)
+        with runtime._installed_adapter():  # noqa: SLF001
+            assert legacy_runtime.ADAPTER_ID == expected_v3
+        assert legacy_runtime.ADAPTER_ID == previous_adapter_id
+    finally:
+        night.configure_execution(HISTORICAL_GRID)
+
+
+@pytest.mark.parametrize("profile_id", (night.TUNING_PROFILE_ID, night.P3_PROFILE_ID))
+def test_bootstrap_accepts_registered_left_profiles_before_branch_validation(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    profile_id: str,
+) -> None:
+    monkeypatch.setattr(
+        bootstrap,
+        "CanonicalContract",
+        SimpleNamespace(
+            load=lambda _path: SimpleNamespace(expected_canonical_alpha=0.11)
+        ),
+    )
+    branch_config = tmp_path / f"{profile_id}.json"
+    branch_config.write_text(
+        json.dumps(
+            {
+                "experiment_id": night.GAE_EXPERIMENT_ID,
+                "profile_id": profile_id,
+                "branch_kind": "deliberately_invalid_after_profile_gate",
+            }
+        )
+    )
+    with pytest.raises(ValueError, match="bootstrap requires a public injected branch"):
+        bootstrap.main(
+            [
+                "--contract",
+                str(tmp_path / "contract.json"),
+                "--branch-config",
+                str(branch_config),
+                "--branch-manifest",
+                str(tmp_path / "manifest.json"),
+            ]
+        )
+
+
+def test_bootstrap_rejects_unknown_tuning_profile(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        bootstrap,
+        "CanonicalContract",
+        SimpleNamespace(
+            load=lambda _path: SimpleNamespace(expected_canonical_alpha=0.11)
+        ),
+    )
+    branch_config = tmp_path / "unknown.json"
+    branch_config.write_text(
+        json.dumps(
+            {
+                "experiment_id": night.GAE_EXPERIMENT_ID,
+                "profile_id": "d4rl9_unknown_profile",
+                "branch_kind": "injected",
+            }
+        )
+    )
+    with pytest.raises(ValueError, match="branch tuning profile mismatch"):
+        bootstrap.main(
+            [
+                "--contract",
+                str(tmp_path / "contract.json"),
+                "--branch-config",
+                str(branch_config),
+                "--branch-manifest",
+                str(tmp_path / "manifest.json"),
+            ]
+        )
