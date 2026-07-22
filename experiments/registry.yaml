@@ -7629,6 +7629,131 @@ experiments:
       manifest_sha256: 696d4f72c0bf13e67b0744397d330c27689f163eaf414ed81d92e4f4e097babb
       export_profile: manifest_text_v1
   predecessor: EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-SCAN-0.5B-01
+- id: EXT-H-E7-SQEXP-GAE-01
+  environment: EXT-H
+  name: d4rl9_joint_critic_gae_common_c_response_curves
+  status: pilot
+  scientific_status: pilot
+  parent_experiment: EXT-H-E7-BENCH-01
+  role: external_validity_joint_critic_gae_common_scale_screening
+  execution_class: pilot
+  registration_state: registered_after_p1_p2_completed_result_closure
+  claim: Characterize the finite-horizon D4RL-9 common-c response under canonical joint-critic trajectory-snapshot GAE without
+    converting development curves into formal ranking or steady-state evidence.
+  code_entrypoint: src/drpo/e7_squared_exp_night.py
+  aggregation_entrypoint: src/drpo/e7_squared_exp_night_aggregate.py
+  protocol_document: docs/experiments/EXT-H-E7-SQEXP-GAE-01.md
+  result_document: docs/results/E7_BENCH_JOINT_GAE_P1_P2_RESULT_2026-07-22.md
+  protocol:
+    development_seeds:
+    - 200
+    - 201
+    held_out_seeds:
+    - 204
+    - 205
+    - 206
+    - 207
+    tasks: 9
+    actor: a2c
+    advantage: trajectory_snapshot_gae
+    gae_lambda: 0.95
+    steps: 1000000
+    fixed_horizon_is_not_convergence: true
+    formula: w(D)=w(0)*exp(-lambda_taper*relu((D-tau)/c))
+    tau: 0
+    lambda_taper: 1
+  profiles:
+    p1:
+      run_id: E7_BENCH_JOINT_GAE_P1_FULL_20260719_02
+      c_values:
+      - 0.25
+      - 0.5
+      - 1
+      - 2
+      - 4
+      - 8
+      - 16
+      - 32
+      - 64
+      uncontrolled: true
+      completed: 198
+      failed: 0
+      terminal_audit: PASS
+      results_commit: 33fa687352392df985679abddedb834535b10a3d
+      manifest: 9f1ea69f0759bcd3bd79a91c7ccdb5e5d1a22f49ea67e114aaa1e7d4f5f6dbc1
+      source_commit: d0ba443154d847065965b18a43ffe897f19530fa
+      source_resolved: false
+    p2:
+      run_id: E7_BENCH_JOINT_GAE_P2_LEFT_FULL_20260721_01
+      c_values:
+      - 0.2
+      - 0.16
+      - 0.125
+      - 0.1
+      - 0.08
+      - 0.0625
+      - 0.04
+      - 0.025
+      - 0.015625
+      completed: 180
+      failed: 0
+      terminal_audit: PASS
+      results_commit: 7c1af9fc47ddd347c1bb28d43ad8a024ca95b8a8
+      manifest: 37bbc4ce2fbbd98cd2c2ad742329a9124c578955512ebe4819b75e1aa5bea9e4
+      source_commit: 909249875c190a75301ceb2dc2c2062ca0efcb16
+      source_resolved: true
+      stale_stage_status_retained: true
+  locked_interpretation:
+    positive_only_late: 65.3053876161
+    best_finite_c: 0.015625
+    best_finite_late: 64.8863016547
+    finite_c_exceeded_positive_only: false
+    interior_optimum_identified: false
+  terminal_audit:
+    task_collapse: not_adjudicated_no_registered_threshold
+    support_variance: not_instrumented
+    rollout_failures: 0
+    nan_inf: 0
+  evidence:
+    compact_closure: experiments/results/e7_sqexp_gae_p1_p2_closure_20260722/RESULT_CLOSURE.json
+    compact_curve: experiments/results/e7_sqexp_gae_p1_p2_closure_20260722/P1_P2_RESPONSE_CURVE.csv
+    results_repository: easonhuo/drpo-results
+  evidence_locator:
+    schema_version: 1
+    records:
+    - run_id: E7_BENCH_JOINT_GAE_P1_FULL_20260719_02
+      lane: e7
+      source_commit: d0ba443154d847065965b18a43ffe897f19530fa
+      source_commit_resolved: false
+      results_repository: easonhuo/drpo-results
+      results_branch: ingest/e7
+      results_commit: 33fa687352392df985679abddedb834535b10a3d
+      result_path: runs/e7/E7_BENCH_JOINT_GAE_P1_FULL_20260719_02
+      manifest_sha256: 9f1ea69f0759bcd3bd79a91c7ccdb5e5d1a22f49ea67e114aaa1e7d4f5f6dbc1
+      export_profile: manifest_text_v1
+    - run_id: E7_BENCH_JOINT_GAE_P2_LEFT_FULL_20260721_01
+      lane: e7
+      source_commit: 909249875c190a75301ceb2dc2c2062ca0efcb16
+      source_commit_resolved: true
+      results_repository: easonhuo/drpo-results
+      results_branch: ingest/e7
+      results_commit: 7c1af9fc47ddd347c1bb28d43ad8a024ca95b8a8
+      result_path: runs/e7/E7_BENCH_JOINT_GAE_P2_LEFT_FULL_20260721_01
+      manifest_sha256: 37bbc4ce2fbbd98cd2c2ad742329a9124c578955512ebe4819b75e1aa5bea9e4
+      export_profile: manifest_text_v1
+  limits:
+  - external_validity_only
+  - two_development_seeds
+  - fixed_horizon_not_convergence
+  - no_formal_ranking
+  - no_per_task_retuning
+  - p1_provenance_blocker
+  - p3_not_registered
+  formal_evidence_allowed: false
+  closure:
+    state: p1_p2_development_curves_closed
+    successor_registered: false
+    successor_launched: false
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1

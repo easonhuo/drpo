@@ -1,0 +1,5 @@
+# EXT-H-E7-SQEXP-GAE-01 protocol and closure
+
+This Hopper/D4RL experiment is external-validity screening, not controlled causal identification. Both profiles use nine D4RL-v2 Hopper/Walker2d/HalfCheetah tasks, development seeds `200,201`, untouched held-out seeds `204--207`, canonical A2C with a jointly updated critic, trajectory-snapshot GAE `lambda=0.95`, one million steps, evaluation every 50k steps, and `w(D)=w(0)*exp(-lambda_taper*relu((D-tau)/c))` with `tau=0`, `lambda_taper=1`, reference distance 2.
+
+P1 contains Positive-only, Uncontrolled, and `c={0.25,0.5,1,2,4,8,16,32,64}` (198 branches). P2 contains Positive-only and `c={0.20,0.16,0.125,0.10,0.08,0.0625,0.04,0.025,0.015625}` (180 branches). Both are terminal-audited and delivered. Fixed horizon is not convergence. Task collapse, support/variance events, rollout failures, and NaN/Inf are separate. Two development seeds do not authorize significance, formal ranking, steady-state ranking, per-task retuning, or universal superiority. This closure does not register or launch P3.

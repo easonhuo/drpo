@@ -1,0 +1,138 @@
+{
+  "current_before_commit": "919a8aaad535168345ddfee84cc19ccaf6d9f18d",
+  "current_handoff_before_sha256": "6f8aaac4515ed62fd802cbc40327b570291ec5c11d109f2c84edb7836a2bf275",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e7-p1-p2-closure",
+        "entity_id": "EXT-H-E7-SQEXP-GAE-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "ba91d58394b8b0c5e062171509baec9325c09395db38706253c373e746162a85"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-H-E7-SQEXP-GAE-P1-P2-RESULT-CLOSURE-2026-07-22/HANDOFF_DELTA.yaml",
+            "sha256": "43ccda8ec03a1fe8187682c3b3dbdd585f898d38ed5ac27af542036eda616d1c"
+          },
+          {
+            "path": "docs/experiments/EXT-H-E7-SQEXP-GAE-01.md",
+            "sha256": "5dd9a9316b9da91269bfa6fb826401fb12d16edc3b4ced4deadf4e720c60b7df"
+          },
+          {
+            "path": "docs/results/E7_BENCH_JOINT_GAE_P1_P2_RESULT_2026-07-22.md",
+            "sha256": "8af2a5dec79a4b15e025d36b712d8068ed0977a71935bf51b22e4d47cbebe745"
+          },
+          {
+            "path": "experiments/results/e7_sqexp_gae_p1_p2_closure_20260722/RESULT_CLOSURE.json",
+            "sha256": "c5b2dc1076a9a37e2f10fd2c2cf5da5d624380f6d79e6ff1b29197b883a4d8cb"
+          },
+          {
+            "path": "experiments/results/e7_sqexp_gae_p1_p2_closure_20260722/P1_P2_RESPONSE_CURVE.csv",
+            "sha256": "9d3fbce19c698cf1f40f1f884f32f6ceb2441e02ca7fca3c316f0ee78a71330d"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-H-E7-SQEXP-GAE-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "43ccda8ec03a1fe8187682c3b3dbdd585f898d38ed5ac27af542036eda616d1c",
+  "exact_base_candidate_sha256": "845a5ed4f60bdf486a605351fe00281837ea17b2a18d5a558074b64f91c786d2",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e7-p1-p2-closure",
+        "entity_id": "EXT-H-E7-SQEXP-GAE-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "ba91d58394b8b0c5e062171509baec9325c09395db38706253c373e746162a85"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-H-E7-SQEXP-GAE-P1-P2-RESULT-CLOSURE-2026-07-22/HANDOFF_DELTA.yaml",
+            "sha256": "43ccda8ec03a1fe8187682c3b3dbdd585f898d38ed5ac27af542036eda616d1c"
+          },
+          {
+            "path": "docs/experiments/EXT-H-E7-SQEXP-GAE-01.md",
+            "sha256": "5dd9a9316b9da91269bfa6fb826401fb12d16edc3b4ced4deadf4e720c60b7df"
+          },
+          {
+            "path": "docs/results/E7_BENCH_JOINT_GAE_P1_P2_RESULT_2026-07-22.md",
+            "sha256": "8af2a5dec79a4b15e025d36b712d8068ed0977a71935bf51b22e4d47cbebe745"
+          },
+          {
+            "path": "experiments/results/e7_sqexp_gae_p1_p2_closure_20260722/RESULT_CLOSURE.json",
+            "sha256": "c5b2dc1076a9a37e2f10fd2c2cf5da5d624380f6d79e6ff1b29197b883a4d8cb"
+          },
+          {
+            "path": "experiments/results/e7_sqexp_gae_p1_p2_closure_20260722/P1_P2_RESPONSE_CURVE.csv",
+            "sha256": "9d3fbce19c698cf1f40f1f884f32f6ceb2441e02ca7fca3c316f0ee78a71330d"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-H-E7-SQEXP-GAE-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "845a5ed4f60bdf486a605351fe00281837ea17b2a18d5a558074b64f91c786d2",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "ba91d58394b8b0c5e062171509baec9325c09395db38706253c373e746162a85",
+  "registry_before_sha256": "e3025245dc643b3f57012a76c9c5dd4d9256096235d5e1214a8f095eb11fa91e",
+  "report_schema_version": 1,
+  "source_base_commit": "919a8aaad535168345ddfee84cc19ccaf6d9f18d",
+  "source_patch_commit": "f99274a8a5c38177bbe4276ae31be0a32058b625",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "2c86cc5b19df5d64cc3febf8b3317a0405b82ba5a0cdc9f2b38f60693161b4cc",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-H-E7-SQEXP-GAE-P1-P2-RESULT-CLOSURE-2026-07-22"
+}
