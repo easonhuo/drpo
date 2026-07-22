@@ -1,3 +1,8 @@
+> [!WARNING]
+> **M0 SUSPENDED ON 2026-07-22.** This scope is retained as historical evidence
+> only. New work must use the ordinary dedicated development-branch and pull-request
+> route until separate repository-owner reauthorization.
+
 # GOV-DRPO-MAINTENANCE-RUNNER-REPLAYAB-01 — Stage 1/2 Scope
 
 - Base: `main@d3f7d046f948108a3d837bdcff617eed5146a2f0`

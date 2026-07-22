@@ -1,3 +1,9 @@
+> [!WARNING]
+> **STATUS: SUSPENDED ON 2026-07-22.** The executable changes associated with
+> this scope are removed from `main` by the stable-training-path hotfix. The
+> historical Replay/plan evidence remains engineering history only and does not
+> authorize runtime use or scientific execution.
+
 # GOV-E8-CONFIG-DRIVEN-ADAPTERS-01 Scope
 
 ## Identity

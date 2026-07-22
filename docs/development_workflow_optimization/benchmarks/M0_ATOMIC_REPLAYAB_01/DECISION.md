@@ -1,3 +1,9 @@
+> [!WARNING]
+> **M0 SUSPENDED ON 2026-07-22.** Do not use the M0 atomic publication route for
+> new work. Use the ordinary dedicated development-branch and pull-request route
+> until the repository owner explicitly reauthorizes M0 after a separate
+> reliability review. The benchmark and decision below remain historical evidence.
+
 # M0 Atomic Development Transaction — Stage 2 Decision
 
 **Claim:** `GOV-DRPO-MAINTENANCE-RUNNER-REPLAYAB-01`  
