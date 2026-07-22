@@ -100,11 +100,6 @@ def _attempt(
                 {"parent_attempt_id": parent_attempt_id, "repair_attempt_id": attempt_id}
             ),
         )
-    resources = {
-        "command_count": ordinal + 1,
-        "active_ns": (ordinal + 1) * 100,
-        "retained_bytes": (ordinal + 1) * 10,
-    }
     payload = {
         "attempt_id": attempt_id,
         "ordinal": ordinal,
@@ -118,12 +113,14 @@ def _attempt(
         "feedback_class": feedback_class,
         "feedback_locator": feedback_locator,
         "diagnostic_codes": [] if terminal == "SUCCEEDED" else [f"R3_{terminal}"],
-        "observed_resources": resources,
+        "observed_resources": {
+            "command_count": ordinal + 1,
+            "active_ns": (ordinal + 1) * 100,
+            "retained_bytes": (ordinal + 1) * 10,
+        },
         "attempt_sha256": "",
     }
-    payload["attempt_sha256"] = canonical_sha256(
-        {key: value for key, value in payload.items() if key != "attempt_sha256"}
-    )
+    _resign_attempt(payload)
     return payload
 
 
@@ -246,8 +243,11 @@ def _valid_cases() -> dict[str, dict]:
 def test_frozen_valid_calibration_cases(case_id: str, tmp_path: Path) -> None:
     inventory = {item["case_id"]: item for item in _inventory()["cases"]}
     case = _valid_cases()[case_id]
-    specs = [tuple(item) for item in case["attempts"]]
-    payload = _artifact(tmp_path, specs, case["final_acceptance"])
+    payload = _artifact(
+        tmp_path,
+        [tuple(item) for item in case["attempts"]],
+        case["final_acceptance"],
+    )
     artifact = validate_r3_run_artifact(payload, tmp_path)
     assert _summary_dict(summarize_trajectory(artifact)) == inventory[case_id]["expected_summary"]
 
@@ -333,10 +333,8 @@ def test_calibration_inventory_is_complete_and_frozen() -> None:
 
 
 def test_run_and_attempt_digests_are_deterministic(tmp_path: Path) -> None:
-    first_root = tmp_path / "first"
-    second_root = tmp_path / "second"
-    first = _artifact(first_root, [("SUCCEEDED", "NONE", "NONE")], "PASS")
-    second = _artifact(second_root, [("SUCCEEDED", "NONE", "NONE")], "PASS")
+    first = _artifact(tmp_path / "first", [("SUCCEEDED", "NONE", "NONE")], "PASS")
+    second = _artifact(tmp_path / "second", [("SUCCEEDED", "NONE", "NONE")], "PASS")
     assert first == second
     assert first["attempts"][0]["attempt_sha256"] == second["attempts"][0]["attempt_sha256"]
     assert first["run_artifact_sha256"] == second["run_artifact_sha256"]
@@ -379,10 +377,7 @@ def test_loader_rejects_symlink_and_oversized_json(tmp_path: Path) -> None:
 def test_binding_evidence_cannot_point_to_a_different_attempt(tmp_path: Path) -> None:
     payload = _artifact(
         tmp_path,
-        [
-            ("FAILED", "CANDIDATE", "NONE"),
-            ("SUCCEEDED", "NONE", "EVALUATOR"),
-        ],
+        [("FAILED", "CANDIDATE", "NONE"), ("SUCCEEDED", "NONE", "EVALUATOR")],
         "PASS",
     )
     locator = payload["final_outcome_locator"]
@@ -418,23 +413,69 @@ def test_attempt_journal_semantic_binding_survives_outer_resigning(
     _rewrite_json_locator(tmp_path, locator, journal)
     _resign_attempt(attempt)
     _resign_run(payload)
-
     with pytest.raises(TrajectoryError) as caught:
         validate_r3_run_artifact(payload, tmp_path)
     assert caught.value.code == "ATTEMPT_LINEAGE_INVALID"
 
 
+@pytest.mark.parametrize("bad_value", [[], {}])
+@pytest.mark.parametrize(
+    ("field", "expected_code"),
+    [
+        ("kind", "SCHEMA_INVALID"),
+        ("terminal", "SCHEMA_INVALID"),
+        ("disposition", "TERMINAL_DISPOSITION_INVALID"),
+        ("feedback_class", "FEEDBACK_LINEAGE_INVALID"),
+    ],
+)
+def test_attempt_enum_list_or_object_fails_with_stable_code(
+    field: str,
+    expected_code: str,
+    bad_value: object,
+    tmp_path: Path,
+) -> None:
+    payload = _artifact(tmp_path, [("SUCCEEDED", "NONE", "NONE")], "PASS")
+    payload["attempts"][0][field] = bad_value
+    _resign_attempt(payload["attempts"][0])
+    _resign_run(payload)
+    with pytest.raises(TrajectoryError) as caught:
+        validate_r3_run_artifact(payload, tmp_path)
+    assert caught.value.code == expected_code
+
+
+@pytest.mark.parametrize("bad_value", [[], {}])
+def test_final_acceptance_list_or_object_fails_with_stable_code(
+    bad_value: object,
+    tmp_path: Path,
+) -> None:
+    payload = _artifact(tmp_path, [("SUCCEEDED", "NONE", "NONE")], "PASS")
+    payload["final_acceptance"] = bad_value
+    _resign_run(payload)
+    with pytest.raises(TrajectoryError) as caught:
+        validate_r3_run_artifact(payload, tmp_path)
+    assert caught.value.code == "SCHEMA_INVALID"
+
+
+@pytest.mark.parametrize("bad_value", [[], {}])
+def test_resource_capability_list_or_object_fails_with_stable_code(
+    bad_value: object,
+    tmp_path: Path,
+) -> None:
+    payload = _artifact(tmp_path, [("SUCCEEDED", "NONE", "NONE")], "PASS")
+    payload["resource_capabilities"]["token_count"] = bad_value
+    _resign_run(payload)
+    with pytest.raises(TrajectoryError) as caught:
+        validate_r3_run_artifact(payload, tmp_path)
+    assert caught.value.code == "RESOURCE_CAPABILITY_INCOMPLETE"
+
+
 def test_environment_events_do_not_count_as_candidate_failures(tmp_path: Path) -> None:
     payload = _artifact(
         tmp_path,
-        [
-            ("TIMED_OUT", "ENVIRONMENT", "NONE"),
-            ("INVALIDATED", "ENVIRONMENT", "EXECUTION"),
-        ],
+        [("TIMED_OUT", "ENVIRONMENT", "NONE"), ("INVALIDATED", "ENVIRONMENT", "EXECUTION")],
         "NOT_AVAILABLE",
     )
-    artifact = validate_r3_run_artifact(payload, tmp_path)
-    summary = summarize_trajectory(artifact)
+    summary = summarize_trajectory(validate_r3_run_artifact(payload, tmp_path))
     assert summary.candidate_failure_count == 0
     assert summary.timeout_count == 1
     assert summary.invalidation_count == 1
@@ -442,14 +483,7 @@ def test_environment_events_do_not_count_as_candidate_failures(tmp_path: Path) -
 
 def test_standalone_attempt_validation_enforces_kind_and_parent(tmp_path: Path) -> None:
     identity = _identity()
-    initial = _attempt(
-        tmp_path,
-        identity,
-        0,
-        "SUCCEEDED",
-        "NONE",
-        None,
-    )
+    initial = _attempt(tmp_path, identity, 0, "SUCCEEDED", "NONE", None)
     initial["ordinal"] = 1
     initial["attempt_id"] = canonical_sha256({"run_id": identity.run_id, "ordinal": 1})
     initial["event_journal_locator"]["kind"] = f"journal-{initial['attempt_id']}"
@@ -463,15 +497,7 @@ def test_standalone_attempt_validation_enforces_kind_and_parent(tmp_path: Path) 
             evidence_root=tmp_path,
         )
     assert caught.value.code == "ATTEMPT_LINEAGE_INVALID"
-
-    repair = _attempt(
-        tmp_path,
-        identity,
-        1,
-        "SUCCEEDED",
-        "NONE",
-        None,
-    )
+    repair = _attempt(tmp_path, identity, 1, "SUCCEEDED", "NONE", None)
     with pytest.raises(TrajectoryError) as caught:
         validate_attempt_record(
             repair,
@@ -489,7 +515,6 @@ def test_attempt_and_run_digest_mismatches_fail_closed(tmp_path: Path) -> None:
     with pytest.raises(TrajectoryError) as caught:
         validate_r3_run_artifact(payload, tmp_path)
     assert caught.value.code == "ATTEMPT_DIGEST_MISMATCH"
-
     payload = _artifact(tmp_path / "run", [("SUCCEEDED", "NONE", "NONE")], "PASS")
     payload["run_artifact_sha256"] = "0" * 64
     with pytest.raises(TrajectoryError) as caught:
