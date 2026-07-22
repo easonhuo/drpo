@@ -5263,4 +5263,46 @@ events, and NaN/Inf numerical failures are audited independently.
 Claims about stability or final method ranking use the registered
 terminal checkpoint audit rather than finite-step pilot behavior.
 
+
+\subsection{Countdown Taper-Coefficient Sensitivity}
+\label{app:countdown_taper_sensitivity}
+
+Figure~\ref{fig:app_countdown_taper_coefficient_response} reports the
+complete stored terminal Pass@8 coefficient response for the
+Countdown-0.5B taper study under the fixed 1,200-step budget. Each point
+is the mean of the two paired development seeds, and each error bar spans
+the corresponding pair of seed values. The horizontal reference is the
+Positive-only terminal mean of 14.3\%.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[
+        width=\columnwidth
+    ]{figures/fig_app_countdown_taper_coefficient_response.pdf}
+    \caption{
+        \textbf{Countdown-0.5B taper-coefficient response.}
+        Terminal Pass@8 is shown against the taper coefficient $\lambda$
+        under the fixed 1,200-step budget. Curves report two-seed means;
+        error bars span the paired seed values, and the dashed horizontal
+        line denotes Positive-only. Exp./DRPO is shown over
+        $\lambda\in[0.01,9.2103]$, Reciprocal-Linear through $319$, and
+        Reciprocal-Quadratic through $1279$.
+    }
+    \Description{Single-panel Countdown coefficient-response figure comparing terminal Pass@8 for exponential, reciprocal-linear, and reciprocal-quadratic tapers against the Positive-only reference over logarithmic coefficient scales.}
+    \label{fig:app_countdown_taper_coefficient_response}
+\end{figure}
+
+The exponential response rises above Positive-only over an intermediate
+coefficient region, reaches a maximum two-seed terminal mean of 16.6\%,
+and returns toward the Positive-only level at the largest evaluated
+coefficients. Reciprocal-Linear increases toward a broad plateau but
+remains below Positive-only, with a maximum terminal mean of 13.9\%.
+Reciprocal-Quadratic reaches 15.0\% at $\lambda=24$ and then fluctuates
+around a broad reference-level plateau through $\lambda=1279$. These
+complete curves show that the observed difference is a response-shape
+effect rather than a comparison of isolated best points. Because this
+study uses two paired development seeds and a fixed horizon, it supports
+a bounded tail-shape sensitivity claim, not convergence, statistical
+significance, or a universal method ranking.
+
 \end{document}

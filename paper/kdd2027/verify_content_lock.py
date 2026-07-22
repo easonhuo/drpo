@@ -7,8 +7,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 SOURCE = ROOT / "source_locked.tex"
 KDD = ROOT / "main.tex"
-EXPECTED_SOURCE_SHA256 = "6e5ee53daf390f50ee2f2098826c02882a53257cbbe97ccee4a4ace1cde45dae"
-EXPECTED_CONTENT_SHA256 = "842bc044055bf9695a23ce26411df6b93859d2582c6eb877ab7751bf8e5d6708"
+EXPECTED_SOURCE_SHA256 = "16b8331df826cca6351fa9888c2109caa6ecbb994499c6b30e93dd31b44c6380"
+EXPECTED_CONTENT_SHA256 = "7a35f10305ccb023d51921ad1fef3f552649f815af653663d11543571fefde65"
 VERIFIER_ORIGINAL = r'''\begin{equation}
     R(x,y)
     =
@@ -153,11 +153,11 @@ for forbidden in [r"\usepackage[preprint]{icml2026}", r"\icmlauthor", r"\icmlaff
     if forbidden in kdd:
         raise SystemExit(f"anonymous KDD source contains forbidden token: {forbidden}")
 figures = re.findall(r"\\includegraphics(?:\[[^]]*\])?\{([^{}]+)\}", kdd, flags=re.S)
-expected_figures = ["figures/figure1_external_gradient_bottom_labels.pdf", "figures/fig_6_3_1_source_heatmap.pdf", "figures/fig_6_3_2_rescue_plot.pdf", "figures/fig_6_4_1_phase_transition.pdf", "figures/fig_6_4_2_leftfig_bigtext_legend_protocol.pdf"]
+expected_figures = ["figures/figure1_external_gradient_bottom_labels.pdf", "figures/fig_6_3_1_source_heatmap.pdf", "figures/fig_6_3_2_rescue_plot.pdf", "figures/fig_6_4_1_phase_transition.pdf", "figures/fig_6_4_2_leftfig_bigtext_legend_protocol.pdf", "figures/fig_app_countdown_taper_coefficient_response.pdf"]
 if figures != expected_figures:
     raise SystemExit(f"figure inventory mismatch: {figures!r}")
-if kdd.count("\\Description{") != 4:
-    raise SystemExit("expected four ACM figure descriptions")
+if kdd.count("\\Description{") != 5:
+    raise SystemExit("expected five ACM figure descriptions")
 print(f"source_sha256={source_sha}")
 print(f"canonical_content_sha256={content_sha}")
 print("content_lock=PASS")

@@ -1,0 +1,150 @@
+name: Direct publish KDD 2027 manuscript to main
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/publish-kdd2027-direct-main.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: direct-publish-kdd2027-main
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply exact reviewed source refresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/kdd2027-source-refresh/update.patch.part.* > /tmp/kdd2027-source-refresh.patch
+          git apply --check /tmp/kdd2027-source-refresh.patch
+          git apply /tmp/kdd2027-source-refresh.patch
+          echo '068107081942bfc0ef05b4a302134766b279c3011a223b6b735a68b98331398b  paper/kdd2027/main.tex' | sha256sum --check --strict
+          echo '5d403d048976f198752844158ee337cdca5779726c2f754059b434f710191279  paper/kdd2027/figures/fig_app_countdown_taper_coefficient_response.pdf' | sha256sum --check --strict
+
+      - name: Install PDF audit and packaging tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y poppler-utils zip unzip
+
+      - name: Compile with TeX Live 2025
+        uses: xu-cheng/texlive-action@v3
+        with:
+          texlive_version: 2025
+          os: debian
+          run: |
+            cd paper/kdd2027
+            pdflatex --version | tee TEXLIVE_ENVIRONMENT.txt
+            latexmk -C main.tex >/dev/null 2>&1 || true
+            latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+            test -s main.pdf
+            grep -Fq 'TeX Live 2025' TEXLIVE_ENVIRONMENT.txt
+
+      - name: Audit and package canonical outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd paper/kdd2027
+          if grep -Eqi 'Undefined control sequence|LaTeX Error|Citation .* undefined|Reference .* undefined|There were undefined references|There were undefined citations|multiply defined|Fatal error' main.log; then
+            grep -Ein 'Undefined control sequence|LaTeX Error|Citation .* undefined|Reference .* undefined|There were undefined references|There were undefined citations|multiply defined|Fatal error' main.log >&2 || true
+            exit 1
+          fi
+          if grep -Fq 'Overfull \hbox' main.log; then
+            grep -Fn 'Overfull \hbox' main.log >&2 || true
+            exit 1
+          fi
+          pdfinfo main.pdf > PDFINFO.txt
+          pdffonts main.pdf > PDFFONTS.txt
+          pdftotext main.pdf main.txt
+          for token in 'Yusen Huo' 'Changping Wang' 'Yangru Huang' 'Jun Zhang' 'Jie Jiang' 'Tencent Inc' 'neoxzhang@tencent.com'; do
+            if grep -Fqi "$token" main.txt PDFINFO.txt; then
+              echo "anonymous PDF contains forbidden identity token: $token" >&2
+              exit 1
+            fi
+          done
+          pages="$(awk '/^Pages:/ {print $2}' PDFINFO.txt)"
+          page_size="$(awk -F': +' '/^Page size:/ {print $2}' PDFINFO.txt)"
+          test "$pages" = '25'
+          [[ "$page_size" == *'612 x 792 pts'* ]]
+          if ! awk 'NR>2 && ($5 != "yes" || $6 != "yes") {bad=1} END {exit bad}' PDFFONTS.txt; then
+            cat PDFFONTS.txt >&2
+            exit 1
+          fi
+          rm -rf renders
+          mkdir -p renders
+          pdftoppm -png -r 150 main.pdf renders/page >/dev/null 2>&1
+          render_count="$(find renders -maxdepth 1 -name 'page-*.png' -type f | wc -l | tr -d ' ')"
+          test "$render_count" = "$pages"
+
+          mkdir -p ../releases
+          cp main.pdf ../releases/DRPO_KDD2027_STAGE_A.pdf
+          rm -f ../releases/DRPO_KDD2027_OVERLEAF.zip
+          zip -q -r ../releases/DRPO_KDD2027_OVERLEAF.zip \
+            main.tex \
+            acmart.cls \
+            ACM-Reference-Format.bst \
+            example_paper.bib \
+            missing_references.bib \
+            figures \
+            README.md
+          test "$(unzip -Z1 ../releases/DRPO_KDD2027_OVERLEAF.zip | grep -Ec '^figures/.*[.]pdf$')" -eq 6
+          {
+            echo 'experiment_id=PAPER-KDD2027-SOURCE-REFRESH-01'
+            echo 'source_sha256=068107081942bfc0ef05b4a302134766b279c3011a223b6b735a68b98331398b'
+            echo 'new_figure_sha256=5d403d048976f198752844158ee337cdca5779726c2f754059b434f710191279'
+            echo "pdf_sha256=$(sha256sum main.pdf | awk '{print $1}')"
+            echo "pages=$pages"
+            echo "page_size=$page_size"
+            echo 'texlive_version=2025'
+            echo 'required_figures=6'
+            echo "rendered_pages=$render_count"
+            echo 'anonymous_pdf=PASS'
+            echo 'latex_diagnostics=PASS'
+            echo 'font_embedding=PASS'
+            echo 'render_gate=PASS'
+          } > ../releases/DRPO_KDD2027_STAGE_A_AUDIT.txt
+
+      - name: Commit canonical source and compiled release directly to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            paper/kdd2027/main.tex \
+            paper/kdd2027/figures/fig_app_countdown_taper_coefficient_response.pdf \
+            paper/releases/DRPO_KDD2027_STAGE_A.pdf \
+            paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt \
+            paper/releases/DRPO_KDD2027_OVERLEAF.zip
+          git rm -r --ignore-unmatch \
+            .github/kdd2027-source-refresh \
+            .github/workflows/publish-kdd2027-latest.yml
+          git diff --cached --check
+          git commit -m 'PAPER-KDD2027-SOURCE-REFRESH-01: publish latest manuscript'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            if ! git merge-base --is-ancestor origin/main HEAD; then
+              git rebase origin/main
+            fi
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo 'failed to fast-forward main after three attempts' >&2
+          exit 1

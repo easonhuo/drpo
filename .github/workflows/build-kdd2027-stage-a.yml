@@ -28,7 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           test -s paper/kdd2027/source_locked.tex
-          echo '6e5ee53daf390f50ee2f2098826c02882a53257cbbe97ccee4a4ace1cde45dae  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
+          echo '16b8331df826cca6351fa9888c2109caa6ecbb994499c6b30e93dd31b44c6380  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
           python scripts/generate_kdd2027_stage_a.py
           python scripts/postprocess_kdd2027_stage_a.py
           python paper/kdd2027/verify_content_lock.py
@@ -45,12 +45,13 @@ jobs:
             fig_6_3_1_source_heatmap.pdf \
             fig_6_3_2_rescue_plot.pdf \
             fig_6_4_1_phase_transition.pdf \
-            fig_6_4_2_leftfig_bigtext_legend_protocol.pdf; do
+            fig_6_4_2_leftfig_bigtext_legend_protocol.pdf \
+            fig_app_countdown_taper_coefficient_response.pdf; do
             cp "paper/overleaf/figures/${figure}" "paper/kdd2027/figures/${figure}"
           done
           test -s paper/kdd2027/example_paper.bib
           test -s paper/kdd2027/missing_references.bib
-          test "$(find paper/kdd2027/figures -maxdepth 1 -type f -name '*.pdf' | wc -l)" -eq 5
+          test "$(find paper/kdd2027/figures -maxdepth 1 -type f -name '*.pdf' | wc -l)" -eq 6
 
       - name: Verify pinned ACM template files
         shell: bash
@@ -111,7 +112,7 @@ jobs:
           [[ "$first_entry" == 'main.tex' ]] || { echo "unexpected first ZIP entry: $first_entry" >&2; exit 1; }
           unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Fxq 'example_paper.bib'
           unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Fxq 'missing_references.bib'
-          test "$(unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Ec '^figures/.*\.pdf$')" -eq 5
+          test "$(unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Ec '^figures/.*\.pdf$')" -eq 6
 
       - name: Capture build diagnostics
         if: always()

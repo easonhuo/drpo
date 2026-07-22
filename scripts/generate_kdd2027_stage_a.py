@@ -8,8 +8,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 OUT = REPO / 'paper' / 'kdd2027'
 SOURCE = OUT / 'source_locked.tex'
-EXPECTED_SOURCE_SHA256 = '6e5ee53daf390f50ee2f2098826c02882a53257cbbe97ccee4a4ace1cde45dae'
-EXPECTED_CONTENT_SHA256 = '842bc044055bf9695a23ce26411df6b93859d2582c6eb877ab7751bf8e5d6708'
+EXPECTED_SOURCE_SHA256 = '16b8331df826cca6351fa9888c2109caa6ecbb994499c6b30e93dd31b44c6380'
+EXPECTED_CONTENT_SHA256 = '7a35f10305ccb023d51921ad1fef3f552649f815af653663d11543571fefde65'
 
 PREAMBLE = r'''\documentclass[sigconf,anonymous,review]{acmart}
 
@@ -40,6 +40,7 @@ DESCRIPTIONS = {
     'fig:controlled_6_3': 'Two-part controlled-mechanism figure. The top heatmap factorizes coefficient magnitude and policy-score response across remoteness bins. The bottom intervention plot compares reward retention and task-collapse counts across near-field and far-field interventions.',
     'fig:phase_transition_6_4_1': 'Phase-transition figure showing held-out-context reward and policy displacement as effective negative strength increases, with separate indicators for task collapse, boundary events, and numerical failure.',
     'fig:taper_control_and_transfer': 'Composite figure. The controlled panel compares near-field and far-field retained negative-update magnitude under matched taper operating points. The transfer panel is a reserved table for Hopper return and Countdown success.',
+    'fig:app_countdown_taper_coefficient_response': 'Single-panel Countdown coefficient-response figure comparing terminal Pass@8 for exponential, reciprocal-linear, and reciprocal-quadratic tapers against the Positive-only reference over logarithmic coefficient scales.',
 }
 
 VERIFY = r'''from __future__ import annotations
@@ -51,8 +52,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 SOURCE = ROOT / "source_locked.tex"
 KDD = ROOT / "main.tex"
-EXPECTED_SOURCE_SHA256 = "6e5ee53daf390f50ee2f2098826c02882a53257cbbe97ccee4a4ace1cde45dae"
-EXPECTED_CONTENT_SHA256 = "842bc044055bf9695a23ce26411df6b93859d2582c6eb877ab7751bf8e5d6708"
+EXPECTED_SOURCE_SHA256 = "16b8331df826cca6351fa9888c2109caa6ecbb994499c6b30e93dd31b44c6380"
+EXPECTED_CONTENT_SHA256 = "7a35f10305ccb023d51921ad1fef3f552649f815af653663d11543571fefde65"
 
 
 def require_match(pattern: str, text: str, name: str) -> str:
@@ -114,11 +115,11 @@ for forbidden in [r"\usepackage[preprint]{icml2026}", r"\icmlauthor", r"\icmlaff
     if forbidden in kdd:
         raise SystemExit(f"anonymous KDD source contains forbidden token: {forbidden}")
 figures = re.findall(r"\\includegraphics(?:\[[^]]*\])?\{([^{}]+)\}", kdd, flags=re.S)
-expected_figures = ["figures/figure1_external_gradient_bottom_labels.pdf", "figures/fig_6_3_1_source_heatmap.pdf", "figures/fig_6_3_2_rescue_plot.pdf", "figures/fig_6_4_1_phase_transition.pdf", "figures/fig_6_4_2_leftfig_bigtext_legend_protocol.pdf"]
+expected_figures = ["figures/figure1_external_gradient_bottom_labels.pdf", "figures/fig_6_3_1_source_heatmap.pdf", "figures/fig_6_3_2_rescue_plot.pdf", "figures/fig_6_4_1_phase_transition.pdf", "figures/fig_6_4_2_leftfig_bigtext_legend_protocol.pdf", "figures/fig_app_countdown_taper_coefficient_response.pdf"]
 if figures != expected_figures:
     raise SystemExit(f"figure inventory mismatch: {figures!r}")
-if kdd.count("\\Description{") != 4:
-    raise SystemExit("expected four ACM figure descriptions")
+if kdd.count("\\Description{") != 5:
+    raise SystemExit("expected five ACM figure descriptions")
 print(f"source_sha256={source_sha}")
 print(f"canonical_content_sha256={content_sha}")
 print("content_lock=PASS")
@@ -136,6 +137,7 @@ required_figures=(
   ../overleaf/figures/fig_6_3_2_rescue_plot.pdf
   ../overleaf/figures/fig_6_4_1_phase_transition.pdf
   ../overleaf/figures/fig_6_4_2_leftfig_bigtext_legend_protocol.pdf
+  ../overleaf/figures/fig_app_countdown_taper_coefficient_response.pdf
 )
 for file in "${required_figures[@]}"; do test -s "$file" || { echo "missing figure: $file" >&2; exit 1; }; done
 for file in ../overleaf/example_paper.bib ../overleaf/missing_references.bib; do test -s "$file" || { echo "missing bibliography: $file" >&2; exit 1; }; done
@@ -164,8 +166,8 @@ pdftoppm -png -r 150 main.pdf renders/page >/dev/null 2>&1
 render_count="$(find renders -maxdepth 1 -name 'page-*.png' -type f | wc -l | tr -d ' ')"
 [[ "$render_count" == "$pages" ]] || { echo "render count mismatch: pages=$pages renders=$render_count" >&2; exit 1; }
 {
-  echo "source_sha256=6e5ee53daf390f50ee2f2098826c02882a53257cbbe97ccee4a4ace1cde45dae"
-  echo "canonical_content_sha256=842bc044055bf9695a23ce26411df6b93859d2582c6eb877ab7751bf8e5d6708"
+  echo "source_sha256=16b8331df826cca6351fa9888c2109caa6ecbb994499c6b30e93dd31b44c6380"
+  echo "canonical_content_sha256=7a35f10305ccb023d51921ad1fef3f552649f815af653663d11543571fefde65"
   echo "pages=$pages"
   echo "page_size=$page_size"
   echo "required_figures=${#required_figures[@]}"
@@ -182,11 +184,11 @@ cat BUILD_AUDIT.txt
 
 README = r'''# DRPO KDD 2027 Stage-A manuscript
 
-This directory is the format-only KDD 2027 Research Track migration of the
-locked manuscript in `source_locked.tex`.
+This directory is the current KDD 2027 Research Track submission generated from
+the locked manuscript in `source_locked.tex`.
 
 - Format: `\documentclass[sigconf,anonymous,review]{acmart}`
-- Scope: Stage A only; no page-limit compression or scientific-text editing
+- Scope: current KDD submission source with the registered appendix result update
 - Figures: reused from `paper/overleaf/figures/`
 - Bibliography: reused from `paper/overleaf/example_paper.bib` and `paper/overleaf/missing_references.bib`
 - Release PDF: `paper/releases/DRPO_KDD2027_STAGE_A.pdf`
@@ -198,7 +200,7 @@ bash paper/kdd2027/build.sh
 ```
 
 The build verifies the locked source hash, character-equivalent manuscript
-content, five referenced figure assets, LaTeX references/citations, anonymous
+content, six referenced figure assets, LaTeX references/citations, anonymous
 PDF text and metadata, US Letter page size, embedded fonts, and a complete PNG
 render of every page. Page count is recorded but not gated in Stage A.
 '''
@@ -230,13 +232,23 @@ def main() -> None:
     appendix = source[app0:e0].replace('\\appendix\n\\onecolumn', '\\appendix', 1)
     for label, desc in DESCRIPTIONS.items():
         marker = f'\\label{{{label}}}'
-        if marker not in body:
+        if marker in body:
+            target = body
+            target_name = 'body'
+        elif marker in appendix:
+            target = appendix
+            target_name = 'appendix'
+        else:
             raise SystemExit(f'missing figure label: {label}')
-        m = re.search(r'(?m)^([ \t]*)' + re.escape(marker), body)
+        m = re.search(r'(?m)^([ \t]*)' + re.escape(marker), target)
         if not m:
             raise SystemExit(f'missing figure label line: {label}')
         indent = m.group(1)
-        body = body[:m.start()] + indent + f'\\Description{{{desc}}}\n' + indent + marker + body[m.end():]
+        target = target[:m.start()] + indent + f'\\Description{{{desc}}}\n' + indent + marker + target[m.end():]
+        if target_name == 'body':
+            body = target
+        else:
+            appendix = target
     out = PREAMBLE
     out += f'\n\\title[Remoteness-Aware Control of Negative Off-Policy Updates]{{{title}}}\n\n'
     out += '% Author names, affiliations, emails, acknowledgments, and funding are\n% intentionally omitted from the anonymous KDD review manuscript.\n\n'
@@ -250,7 +262,7 @@ def main() -> None:
     (OUT / 'build.sh').write_text(BUILD, encoding='utf-8')
     (OUT / 'build.sh').chmod(0o755)
     (OUT / 'README.md').write_text(README, encoding='utf-8')
-    (OUT / 'CONTENT_LOCK.txt').write_text(f'source_sha256={EXPECTED_SOURCE_SHA256}\ncanonical_content_sha256={EXPECTED_CONTENT_SHA256}\nclaim=PAPER-KDD-2027-TEMPLATE-MIGRATION-01\n', encoding='utf-8')
+    (OUT / 'CONTENT_LOCK.txt').write_text(f'source_sha256={EXPECTED_SOURCE_SHA256}\ncanonical_content_sha256={EXPECTED_CONTENT_SHA256}\nclaim=PAPER-KDD2027-E8-TAPER-APPENDIX-01\n', encoding='utf-8')
     print(f'generated {OUT / "main.tex"}')
 
 
