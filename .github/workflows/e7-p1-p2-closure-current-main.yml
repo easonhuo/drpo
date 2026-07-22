@@ -43,21 +43,56 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import yaml
+          old = '483e93448f25ada23dbd71fe4d237ccff80f8c0c'
+          base = '919a8aaad535168345ddfee84cc19ccaf6d9f18d'
           data = yaml.safe_load(Path('/tmp/source.yml').read_text(encoding='utf-8'))
           steps = data['jobs']['materialize']['steps']
           by_name = {step.get('name'): step.get('run') for step in steps}
-          Path('/tmp/e7-author.sh').write_text(by_name['Author source transaction'], encoding='utf-8')
-          Path('/tmp/e7-normalize.sh').write_text(by_name['Trusted normalization and publication'], encoding='utf-8')
+          author = by_name['Author source transaction'].replace(old, base)
+          author = author.replace(
+              'test "$(git rev-parse HEAD^)" = "$BASE"',
+              'test "$(git merge-base "$BASE" HEAD)" = "$BASE"',
+          )
+          normalize = by_name['Trusted normalization and publication'].replace(old, base)
+          Path('/tmp/e7-author.sh').write_text(author, encoding='utf-8')
+          Path('/tmp/e7-normalize.sh').write_text(normalize, encoding='utf-8')
           PY
-          sed -i "s/$OLD/$BASE/g" /tmp/e7-author.sh /tmp/e7-normalize.sh
           bash -n /tmp/e7-author.sh
           bash -n /tmp/e7-normalize.sh
-          test "$(git rev-parse HEAD^)" = "$BASE"
-      - name: Author source transaction
+      - name: Execute closure with retained diagnostics
+        id: execute
         shell: bash
         run: |
+          set +e
           rm -f .github/workflows/e7-p1-p2-closure-current-main.yml
-          bash /tmp/e7-author.sh
-      - name: Trusted normalization and publication
+          bash -x /tmp/e7-author.sh > /tmp/author.log 2>&1
+          author_exit=$?
+          normalize_exit=99
+          if [ "$author_exit" -eq 0 ]; then
+            export SOURCE_PATCH="$(git rev-parse HEAD)"
+            bash -x /tmp/e7-normalize.sh > /tmp/normalize.log 2>&1
+            normalize_exit=$?
+          else
+            printf 'normalize skipped because author failed\n' > /tmp/normalize.log
+          fi
+          printf '%s\n' "$author_exit" > /tmp/author.exit
+          printf '%s\n' "$normalize_exit" > /tmp/normalize.exit
+          echo "author_exit=$author_exit" >> "$GITHUB_OUTPUT"
+          echo "normalize_exit=$normalize_exit" >> "$GITHUB_OUTPUT"
+          exit 0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e7-p1-p2-closure-diagnostics-${{ github.run_id }}
+          path: |
+            /tmp/author.log
+            /tmp/normalize.log
+            /tmp/author.exit
+            /tmp/normalize.exit
+          if-no-files-found: error
+          retention-days: 30
+      - name: Enforce closure result
         shell: bash
-        run: bash /tmp/e7-normalize.sh
+        run: |
+          test "${{ steps.execute.outputs.author_exit }}" = "0"
+          test "${{ steps.execute.outputs.normalize_exit }}" = "0"
