@@ -180,9 +180,9 @@ def active_runtime_profile() -> dict[str, Any]:
     if _is_tuning():
         return {
             "adapter_id": (
-                "e7_joint_gae_thresholded_p3_left_saturation_cpu_v1"
+                "e7_joint_gae_thresholded_p3_left_saturation_cpu_v2"
                 if _is_p3()
-                else "e7_joint_gae_thresholded_p2_left_cpu_v1"
+                else "e7_joint_gae_thresholded_p2_left_cpu_v2"
             ),
             "dataset": GAE_LIVENESS_DATASET,
             "seed": GAE_LIVENESS_SEED,
@@ -435,6 +435,7 @@ def _control(weight_at_zero: float, coefficient: float | None) -> tuple[str, flo
         coefficient,
         f"sqexp__w0_1__c_{_label(coefficient)}",
     )
+
 
 def _tuning_controls() -> list[tuple[str, float | None, float]]:
     controls = [("positive_only", None, 0.0)]
