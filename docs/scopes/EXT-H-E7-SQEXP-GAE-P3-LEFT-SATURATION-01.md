@@ -4,7 +4,7 @@
 
 - Parent experiment: `EXT-H-E7-SQEXP-GAE-01`
 - Profile: `d4rl9_common_c_p3_left_saturation`
-- Development claim: implement and validate, but do not register or launch, the D4RL-9 joint-critic GAE left-tail response-curve profile.
+- Development claim: implement, validate, and execute the owner-authorized D4RL-9 joint-critic GAE left-tail response-curve profile.
 - Base: current `main` at branch creation and refresh.
 - Scientific role: Hopper/D4RL external-validity screening only. It does not replace C-U1 or D-U1 controlled mechanism identification.
 
@@ -19,9 +19,9 @@
 - Exact branch count: `(9 c + 1 Positive-only) × 9 tasks × 2 seeds = 180`.
 - Historical P2 `c=0.015625` is not rerun. P2 and P3 may be connected only through within-run `Delta(c)=J(c)-J(Positive-only)` curves.
 
-## Complete development route
+## Complete development and launch route
 
-This task uses the normal repository development route, not M0. The implementation must cover runner, runtime adapter identity, resource probe, bootstrap profile validation, aggregation, launcher authorization, and regression tests. A Draft PR and exact-head CI are required. Real server resource selection and a two-branch P3 liveness run must pass before implementation-SHA freeze and registration. Full launch remains blocked by the digest-bound zero-training preflight and later explicit approval.
+This task uses the normal repository development route, not M0. The implementation covers runner, runtime adapter identity, resource probe, bootstrap profile validation, aggregation, launcher authorization, regression tests, Draft PR review, and exact-head CI. The repository owner explicitly accepted the completed generic E7 GAE liveness as sufficient pipeline evidence and authorized the 180-branch launch on 2026-07-22. A separate P3-specific liveness run is not a launch gate. The zero-training weight-distribution report remains an optional diagnostic and is not a launch gate; it may not prune or change any of the nine registered `c` points.
 
 ## Claim limits
 
