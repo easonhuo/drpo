@@ -1,0 +1,97 @@
+version: 1
+run_id: REPLAYAB_E8_ASYMRE_CONFIG_DRIVEN_B_01
+lane: e8
+priority: 999
+created_at: "2026-07-22T07:30:00Z"
+experiment_id: GOV-REPLAYAB-E8-ASYMRE-CONFIG-DRIVEN-B-01
+repo_commit: c4ec718ea426f91a4b616a83106706ced8b8e028
+
+registration:
+  mode: deferred
+  closure_required: false
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - docs/development_workflow_optimization/benchmarks/E8_ASYMRE_CONFIG_DRIVEN_REPLAYAB_01/GRID_CONFIG.yaml
+    - docs/development_workflow_optimization/benchmarks/E8_ASYMRE_CONFIG_DRIVEN_REPLAYAB_01/SCOPE.md
+    - docs/development_workflow_optimization/benchmarks/E8_ASYMRE_CONFIG_DRIVEN_REPLAYAB_01/RUNSPEC.yaml
+    - src/drpo/experiment_matrix.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_common.py
+    - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    - src/drpo/countdown_e8_alpha1_c_scan_runtime.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh
+
+purpose: >
+  Repository-only ReplayAB arm B for the historical E8 AsymRE boundary-dense
+  preparation task. Exercise the same eight-point, two-seed launch semantics through
+  the config-driven runtime without an experiment-specific Python profile.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    E8_ALPHA1_HIGHC_WORK_DIR=outputs/workflow_replay/e8_asymre_config_driven_b_01
+    E8_ALPHA1_HIGHC_GRID_CONFIG=docs/development_workflow_optimization/benchmarks/E8_ASYMRE_CONFIG_DRIVEN_REPLAYAB_01/GRID_CONFIG.yaml
+    bash scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh
+
+recovery:
+  enabled: false
+  max_attempts: 1
+  resume_command: null
+  retryable_exit_codes: []
+  checkpoint_globs: []
+  backoff_seconds: 0
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  workflow_replay_only: true
+  scientific_execution_authorized: false
+
+outputs:
+  run_dir: outputs/workflow_replay/e8_asymre_config_driven_b_01
+  summary_file: outputs/workflow_replay/e8_asymre_config_driven_b_01/SWEEP_PLAN.json
+  audit_file: null
+
+success_criteria:
+  - config is accepted without an experiment-specific Python profile
+  - objective remains A=R-delta_v with signed rewards +1 and -1 and zero empirical baseline
+  - exact delta-v grid is [-1.0, -0.95, -0.9, -0.85, -0.8, -0.7, -0.6, -0.5]
+  - matrix contains 8 parameter points and 16 cells on paired seed offsets 4000 and 5000
+  - cell ordering and identity match the historical arm-A launch semantics
+  - no Python file or parameter-specific test changes in arm B
+  - exact-head repository gates pass
+  - CUDA liveness remains NOT_RUN and is not represented as passed
+  - no scientific result, convergence, ranking, or superiority claim is created
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/workflow_replay/e8_asymre_config_driven_b_01/SWEEP_PLAN.json
+  exclude:
+    - "**/*.pt"
+    - "**/*.pth"
+    - "**/*.ckpt"
+    - "**/*.safetensors"
+    - "**/*.bin"
+  max_package_size_mb: 5
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: false
+  auto: false
+  mode: none
+  repository: null
+  branch: null
+  export_profile: null
+  max_total_size_mb: 5
+  max_file_size_mb: 5
+
+publish:
+  enabled: false
+  auto: false
