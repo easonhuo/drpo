@@ -23,7 +23,6 @@ _R3_FIXTURE_TERMINALS = {
     "INVALIDATED": ("INVALIDATED", "ENVIRONMENT"),
 }
 
-
 class ExecutionError(ValueError):
     """The replay execution request is unsafe or ambiguous."""
 
@@ -74,7 +73,6 @@ def _commands(values: Iterable[CommandSpec]) -> tuple[CommandSpec, ...]:
     if len({command.argv for command in result}) != len(result):
         raise ExecutionError("duplicate child command")
     return result
-
 
 def build_plan(manifest: CaseManifest, arm: str, commands: Iterable[CommandSpec]) -> ExecutionPlan:
     if arm not in {"A", "B"}:
@@ -178,9 +176,9 @@ def normalize_fixture_attempt(
     if isinstance(diagnostic_codes, (str, bytes)) or not isinstance(diagnostic_codes, Iterable):
         raise ExecutionError("diagnostic codes must be a non-string iterable")
     diagnostics = tuple(diagnostic_codes)
-    invalid_diagnostics = any(not isinstance(item, str) or not item for item in diagnostics)
-    invalid_diagnostics |= diagnostics != tuple(sorted(set(diagnostics)))
-    if invalid_diagnostics:
+    if any(not isinstance(item, str) or not item for item in diagnostics):
+        raise ExecutionError("diagnostic codes must be sorted unique non-empty strings")
+    if diagnostics != tuple(sorted(set(diagnostics))):
         raise ExecutionError("diagnostic codes must be sorted unique non-empty strings")
     try:
         for locator in (output_artifact_locator, feedback_locator):
@@ -188,6 +186,8 @@ def normalize_fixture_attempt(
                 locator.verify(root)
     except (EvidenceError, OSError, ValueError) as exc:
         raise ExecutionError(f"fixture locator is invalid: {exc}") from exc
+    if not isinstance(binding_journal_relative_path, str):
+        raise ExecutionError("binding journal path is unsafe")
     relative = PurePosixPath(binding_journal_relative_path)
     unsafe = (
         not relative.parts or binding_journal_relative_path.startswith(("/", "-"))
