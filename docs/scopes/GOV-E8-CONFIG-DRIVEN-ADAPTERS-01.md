@@ -3,7 +3,8 @@
 ## Identity
 
 - parent claim: `GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01`
-- exact base: `main@c323577eb170e260b7916b669b4a3e1d6bac2841`
+- exact implementation base: `main@c323577eb170e260b7916b669b4a3e1d6bac2841`
+- latest integration base to verify before merge: `main@951cbc878d88524e8c9e6b14720bfeb2b21c72e7`
 - development branch: `dev/gov-experiment-matrix-e8-replayab-01`
 - initial implementation head: `c4ec718ea426f91a4b616a83106706ced8b8e028`
 - scientific result status: unchanged
@@ -12,6 +13,8 @@
 The repository owner authorized expanding the approved E8 config-driven pilot to
 all current parameter structures and making adapter plus Replay comparison the
 default requirement when a genuinely new E8 method structure is introduced.
+The owner subsequently authorized continuing through the merge-readiness checks,
+including executing the full-family Replay in the repository's stable CI checkout.
 
 ## Goal
 
@@ -25,13 +28,16 @@ gate, provenance rule, and reporting boundary.
 - `scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py`
 - `scripts/run_e8_experiment_matrix_replay_ab.sh`
 - `scripts/run_e8_asymre_matrix_replay_ab.sh` (backward-compatible entrypoint)
+- `tests/test_e8_experiment_matrix_replay.py`
 - `docs/development_workflow_optimization/E8_CONFIG_DRIVEN_ADAPTER_CONTRACT.md`
 - `docs/scopes/GOV-E8-CONFIG-DRIVEN-ADAPTERS-01.md`
 - PR descriptions and review comments for PR #250 and its Replay evidence
 
-No new Python path is authorized or required. The already approved
+No new production Python path is authorized or required. The already approved
 `src/drpo/experiment_matrix.py` keeps its original science-agnostic
-responsibility unchanged.
+responsibility unchanged. The single new test path invokes the reviewed Replay
+entrypoint as a subprocess so the ordinary full-pytest gate records the complete
+seven-history/three-candidate execution in a stable checkout.
 
 ## Required behavior
 
@@ -83,10 +89,11 @@ This scope does not authorize changes to:
 - local Python compile for modified Python files;
 - shell syntax for the Replay entrypoint;
 - isolated three-structure adapter checks;
+- full-family Replay executed by
+  `tests/test_e8_experiment_matrix_replay.py` through the ordinary full-pytest
+  gate on the latest synthetic merge candidate;
 - exact-head full pytest, Ruff, handoff authority, formal execution channel,
   governance, and evidence locator;
-- full-family Replay execution through
-  `bash scripts/run_e8_experiment_matrix_replay_ab.sh` when a stable full
-  checkout executor is available.
+- PR mergeability against the latest `main`.
 
 Smoke, plan, static checks, and Replay are engineering evidence only.
