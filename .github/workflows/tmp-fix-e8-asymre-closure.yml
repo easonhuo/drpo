@@ -1,0 +1,45 @@
+name: TEMP fix E8 AsymRE closure serializer
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.head_ref == 'dev/e8-asymre-deltav-joint-closure-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-asymre-deltav-joint-closure-01
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Apply deterministic serializer fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/tmp-e8-asymre-authoritative-closure.yml')
+          text = path.read_text(encoding='utf-8')
+          old_import = '          import csv\n'
+          new_import = '          import copy\n          import csv\n'
+          old_eval = '                  "evaluation_protocol": common_evaluation,\n'
+          new_eval = '                  "evaluation_protocol": copy.deepcopy(common_evaluation),\n'
+          if text.count(old_import) != 1 or text.count(old_eval) != 1:
+              raise SystemExit('unexpected serializer anchors')
+          text = text.replace(old_import, new_import, 1).replace(old_eval, new_eval, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          rm .github/workflows/tmp-fix-e8-asymre-closure.yml
+          git add -A
+          git diff --cached --check
+          git commit -m "TEMP: fix AsymRE closure YAML alias serialization"
+          git push origin HEAD:dev/e8-asymre-deltav-joint-closure-01
