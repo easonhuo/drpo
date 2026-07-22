@@ -1,0 +1,194 @@
+name: TEMP E8 AsymRE current-main closure
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-e8-asymre-current-main-closure
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    if: github.head_ref == 'exec/e8-asymre-current-main-closure-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: exec/e8-asymre-current-main-closure-01
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Rebuild authoritative closure on merged AsymRE main
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec > >(tee /tmp/materialize.log) 2>&1
+          CURRENT=483e93448f25ada23dbd71fe4d237ccff80f8c0c
+          OLD_SOURCE=b02f8dbce05964f2553c2e4c63d82b33b2840baf
+          OLD_SOURCE_REF=source/e8-asymre-deltav-joint-closure-01
+          OLD_TARGET=8887c9c51260d528c4fa58a246d6e348e6aeeaca
+          TARGET=dev/e8-asymre-deltav-joint-closure-clean-01
+          UPDATE_ID=EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22
+          WORKFLOW=.github/workflows/tmp-e8-asymre-current-main-closure.yml
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main "$OLD_SOURCE_REF"
+          test "$(git rev-parse origin/main)" = "$CURRENT"
+          test "$(git rev-parse origin/$OLD_SOURCE_REF)" = "$OLD_SOURCE"
+          test "$(git diff --name-only "$CURRENT"..HEAD)" = "$WORKFLOW"
+          rm "$WORKFLOW"
+
+          git checkout "$OLD_SOURCE" -- \
+            docs/experiments/E8_ASYMRE_DELTAV_JOINT_CLOSURE.md \
+            docs/experiments/E8_ASYMRE_DELTAV_JOINT_PROVENANCE.json \
+            experiments/results/e8_asymre_deltav_joint_closure_20260722/JOINT_RESPONSE_CURVE.csv \
+            experiments/results/e8_asymre_deltav_joint_closure_20260722/README.md \
+            experiments/results/e8_asymre_deltav_joint_closure_20260722/RESULT_CLOSURE.json
+
+          python3 - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          import yaml
+
+          ROOT = Path('.')
+          CURRENT = '483e93448f25ada23dbd71fe4d237ccff80f8c0c'
+          OLD_SOURCE = 'b02f8dbce05964f2553c2e4c63d82b33b2840baf'
+          UPDATE_ID = 'EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22'
+          FIRST_ID = 'EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-SCAN-0.5B-01'
+          DENSE_ID = 'EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-BOUNDARY-DENSE-0.5B-01'
+
+          sys.path.insert(0, str((ROOT / 'scripts').resolve()))
+          import handoff_delta_shadow as shadow
+
+          def sha256_text(text: str) -> str:
+              return hashlib.sha256(text.encode('utf-8')).hexdigest()
+
+          handoff_path = ROOT / 'docs/handoff.md'
+          registry_path = ROOT / 'experiments/registry.yaml'
+          handoff_before = handoff_path.read_text(encoding='utf-8')
+          registry_before = registry_path.read_text(encoding='utf-8')
+
+          old_registry = subprocess.check_output(
+              ['git', 'show', f'{OLD_SOURCE}:experiments/registry.yaml'], text=True
+          )
+          start = old_registry.index(f'- id: {FIRST_ID}')
+          end = old_registry.index('development_experiment_registrations:', start)
+          entity_block = old_registry[start:end]
+          if FIRST_ID in registry_before or DENSE_ID in registry_before:
+              raise SystemExit('AsymRE result entities already exist in current registry')
+          insertion = registry_before.index('development_experiment_registrations:')
+          registry_after = registry_before[:insertion] + entity_block + registry_before[insertion:]
+          registry_path.write_text(registry_after, encoding='utf-8')
+
+          old_delta_text = subprocess.check_output(
+              [
+                  'git',
+                  'show',
+                  f'{OLD_SOURCE}:docs/handoff_deltas/{UPDATE_ID}/HANDOFF_DELTA.yaml',
+              ],
+              text=True,
+          )
+          delta = yaml.safe_load(old_delta_text)
+          delta['base'] = {
+              'commit': CURRENT,
+              'handoff_sha256': sha256_text(handoff_before),
+              'registry_sha256': sha256_text(registry_before),
+          }
+          delta['registry']['exact_base_after_sha256'] = sha256_text(registry_after)
+          candidate = shadow.render(handoff_before, delta['operations']).text
+          delta['expected']['exact_base_candidate_sha256'] = sha256_text(candidate)
+
+          delta_dir = ROOT / 'docs/handoff_deltas' / UPDATE_ID
+          delta_dir.mkdir(parents=True, exist_ok=True)
+          (delta_dir / 'HANDOFF_DELTA.yaml').write_text(
+              yaml.safe_dump(delta, sort_keys=False, allow_unicode=True, width=120),
+              encoding='utf-8',
+          )
+          PY
+
+          git add -A
+          git diff --cached --check
+          git commit -m 'E8 AsymRE: rebuild authoritative result closure source on merged code main'
+          SOURCE=$(git rev-parse HEAD)
+
+          git worktree add --detach /tmp/drpo-trusted "$CURRENT"
+          python3 /tmp/drpo-trusted/scripts/handoff_authority.py validate-delta \
+            --repo-root . \
+            --delta "docs/handoff_deltas/$UPDATE_ID/HANDOFF_DELTA.yaml" \
+            --source-patch-commit "$SOURCE" \
+            --json
+          python3 /tmp/drpo-trusted/scripts/handoff_authority.py normalize \
+            --repo-root . \
+            --trusted-repo-root /tmp/drpo-trusted \
+            --current-before "$CURRENT" \
+            --source-base "$CURRENT" \
+            --source-patch-commit "$SOURCE" \
+            --json
+
+          git add -A
+          git diff --cached --check
+          TREE=$(git write-tree)
+          INTEGRATION=$(printf '%s\n' 'E8 AsymRE: materialize authoritative joint result closure after code merge' | \
+            git commit-tree "$TREE" -p "$CURRENT" -p "$SOURCE")
+          git reset --hard "$INTEGRATION"
+
+          python3 scripts/handoff_authority.py verify --repo-root . --json
+          python3 scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          python3 scripts/build_stage4_context.py --repo-root . --json check
+          git diff --check "$CURRENT"..HEAD
+
+          cat > /tmp/expected_paths.txt <<'EOF'
+          docs/experiments/E8_ASYMRE_DELTAV_JOINT_CLOSURE.md
+          docs/experiments/E8_ASYMRE_DELTAV_JOINT_PROVENANCE.json
+          docs/handoff.md
+          docs/handoff_deltas/EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22/HANDOFF_DELTA.yaml
+          docs/handoff_deltas/EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22/MATERIALIZATION_REPORT.json
+          docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json
+          docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md
+          docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md
+          docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md
+          experiments/registry.yaml
+          experiments/results/e8_asymre_deltav_joint_closure_20260722/JOINT_RESPONSE_CURVE.csv
+          experiments/results/e8_asymre_deltav_joint_closure_20260722/README.md
+          experiments/results/e8_asymre_deltav_joint_closure_20260722/RESULT_CLOSURE.json
+          EOF
+          sed -i 's/^          //' /tmp/expected_paths.txt
+          git diff --name-only "$CURRENT"..HEAD | sort > /tmp/actual_paths.txt
+          sort -o /tmp/expected_paths.txt /tmp/expected_paths.txt
+          diff -u /tmp/expected_paths.txt /tmp/actual_paths.txt
+
+          test "$(git rev-parse HEAD^1)" = "$CURRENT"
+          test "$(git rev-parse HEAD^2)" = "$SOURCE"
+          test -z "$(git status --short)"
+          git push --force-with-lease="refs/heads/$TARGET:$OLD_TARGET" origin "HEAD:refs/heads/$TARGET"
+
+          {
+            echo "current_main=$CURRENT"
+            echo "source_commit=$SOURCE"
+            echo "integration_commit=$INTEGRATION"
+            echo "target_branch=$TARGET"
+          } | tee /tmp/materialization_identity.txt
+
+      - name: Upload materialization evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e8-asymre-current-main-closure
+          path: |
+            /tmp/materialize.log
+            /tmp/materialization_identity.txt
+            /tmp/expected_paths.txt
+            /tmp/actual_paths.txt
+          if-no-files-found: warn
+          retention-days: 1
