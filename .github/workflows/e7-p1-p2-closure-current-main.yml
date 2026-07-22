@@ -43,6 +43,8 @@ jobs:
           import yaml
           old = '483e93448f25ada23dbd71fe4d237ccff80f8c0c'
           base = '919a8aaad535168345ddfee84cc19ccaf6d9f18d'
+          old_branch = 'dev/ext-h-e7-sqexp-gae-p1-p2-result-closure-01'
+          new_branch = 'dev/ext-h-e7-sqexp-gae-p1-p2-result-closure-02'
           data = yaml.safe_load(Path('/tmp/source.yml').read_text(encoding='utf-8'))
           steps = data['jobs']['materialize']['steps']
           by_name = {step.get('name'): step.get('run') for step in steps}
@@ -57,6 +59,7 @@ jobs:
               raise SystemExit('pilot execution-class injection point missing')
           author = author.replace(needle, replacement, 1)
           normalize = by_name['Trusted normalization and publication'].replace(old, base)
+          normalize = normalize.replace(old_branch, new_branch)
           Path('/tmp/e7-author.sh').write_text(author, encoding='utf-8')
           Path('/tmp/e7-normalize.sh').write_text(normalize, encoding='utf-8')
           PY
