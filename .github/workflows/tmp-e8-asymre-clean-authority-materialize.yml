@@ -1,0 +1,111 @@
+name: TEMP clean E8 AsymRE authority materialization
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-clean-e8-asymre-authority
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    if: github.head_ref == 'exec/e8-asymre-clean-authority-materialize-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: exec/e8-asymre-clean-authority-materialize-01
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build clean merge-equivalent authority branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=18440ae79a155be1d8aa357ff0fdf3c238b018bb
+          CURRENT=46edeb37c11b2a79654debba856e5f8b697d5ea1
+          SOURCE=b02f8dbce05964f2553c2e4c63d82b33b2840baf
+          SOURCE_REF=origin/source/e8-asymre-deltav-joint-closure-01
+          TARGET=dev/e8-asymre-deltav-joint-closure-clean-01
+          UPDATE_ID=EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          test "$(git rev-parse "$SOURCE_REF")" = "$SOURCE"
+          git merge-base --is-ancestor "$BASE" "$CURRENT"
+          git merge-base --is-ancestor "$BASE" "$SOURCE"
+
+          git switch --detach "$CURRENT"
+          git merge --no-commit --no-ff "$SOURCE"
+
+          git worktree add --detach /tmp/drpo-trusted "$CURRENT"
+          python3 /tmp/drpo-trusted/scripts/handoff_authority.py validate-delta \
+            --repo-root . \
+            --delta "docs/handoff_deltas/$UPDATE_ID/HANDOFF_DELTA.yaml" \
+            --source-patch-commit "$SOURCE" \
+            --json
+          python3 /tmp/drpo-trusted/scripts/handoff_authority.py normalize \
+            --repo-root . \
+            --trusted-repo-root /tmp/drpo-trusted \
+            --current-before "$CURRENT" \
+            --source-base "$BASE" \
+            --source-patch-commit "$SOURCE" \
+            --json
+
+          git add -A
+          git diff --cached --check
+          TREE=$(git write-tree)
+          INTEGRATION=$(printf '%s\n' 'E8 AsymRE: materialize authoritative joint result closure' | \
+            git commit-tree "$TREE" -p "$CURRENT" -p "$SOURCE")
+          git reset --hard "$INTEGRATION"
+
+          python3 scripts/handoff_authority.py verify --repo-root . --json
+          python3 scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          python3 scripts/build_stage4_context.py --repo-root . --json check
+          git diff --check "$CURRENT"..HEAD
+
+          cat > /tmp/expected_paths.txt <<'EOF'
+          docs/experiments/E8_ASYMRE_DELTAV_JOINT_CLOSURE.md
+          docs/experiments/E8_ASYMRE_DELTAV_JOINT_PROVENANCE.json
+          docs/handoff.md
+          docs/handoff_deltas/EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22/HANDOFF_DELTA.yaml
+          docs/handoff_deltas/EXT-C-E8-ASYMRE-DELTAV-JOINT-CLOSURE-2026-07-22/MATERIALIZATION_REPORT.json
+          docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json
+          docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md
+          docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md
+          docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md
+          experiments/registry.yaml
+          experiments/results/e8_asymre_deltav_joint_closure_20260722/JOINT_RESPONSE_CURVE.csv
+          experiments/results/e8_asymre_deltav_joint_closure_20260722/README.md
+          experiments/results/e8_asymre_deltav_joint_closure_20260722/RESULT_CLOSURE.json
+          EOF
+          sed -i 's/^          //' /tmp/expected_paths.txt
+          git diff --name-only "$CURRENT"..HEAD | sort > /tmp/actual_paths.txt
+          sort -o /tmp/expected_paths.txt /tmp/expected_paths.txt
+          diff -u /tmp/expected_paths.txt /tmp/actual_paths.txt
+
+          test "$(git rev-parse HEAD^1)" = "$CURRENT"
+          test "$(git rev-parse HEAD^2)" = "$SOURCE"
+          test -z "$(git status --short)"
+          git push --force-with-lease origin "HEAD:refs/heads/$TARGET"
+
+          echo "integration_commit=$INTEGRATION" | tee /tmp/clean-materialization.txt
+          echo "source_commit=$SOURCE" | tee -a /tmp/clean-materialization.txt
+          echo "current_before=$CURRENT" | tee -a /tmp/clean-materialization.txt
+
+      - name: Upload clean materialization identity
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e8-asymre-clean-materialization
+          path: |
+            /tmp/clean-materialization.txt
+            /tmp/expected_paths.txt
+            /tmp/actual_paths.txt
+          if-no-files-found: warn
+          retention-days: 1
