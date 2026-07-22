@@ -72,7 +72,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          rm -f .github/workflows/e7-p1-p2-closure-locator-repair.yml
+          git reset --hard 919a8aaad535168345ddfee84cc19ccaf6d9f18d
           bash -x /tmp/e7-author.sh > /tmp/author.log 2>&1
           author_exit=$?
           normalize_exit=99
