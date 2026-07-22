@@ -2,14 +2,26 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import math
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+import yaml
 
 from drpo import e7_ppo_w0_runtime_autotune as shared
+from drpo import e7_squared_exp_night as night
+from drpo import e7_squared_exp_night_bootstrap as bootstrap
 from drpo import e7_squared_exp_night_runtime_autotune as night_adapter
 from drpo import e7_w0_highc_runtime_autotune as highc_adapter
 from drpo.runtime_resource_autotune import RuntimeResourceError, canonical_json_sha256
+
+
+P3_GRID = Path("configs/e7_bench_joint_gae_p3_left_saturation.json")
+HISTORICAL_GRID = Path("configs/e7_squared_exp_night_v1.json")
+P3_RUNSPEC = Path(
+    "runspecs/ready/E7_BENCH_JOINT_GAE_P3_LEFT_SATURATION_FULL_20260722_03.yaml"
+)
 
 
 def load_script(name: str, path: str):
@@ -207,7 +219,9 @@ def _candidate_kwargs(tmp_path: Path) -> dict[str, object]:
     }
 
 
-def test_candidate_probe_is_bounded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_candidate_probe_is_bounded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     observed: dict[str, object] = {}
 
     def fake_benchmark(**kwargs: object) -> dict[str, object]:
@@ -276,3 +290,124 @@ def test_valid_lower_candidates_survive_higher_failure() -> None:
         retention_fraction=0.97,
     )
     assert selected == 41
+
+
+def _p3_run_spec() -> dict[str, object]:
+    digest = "0" * 64
+    return {
+        "datasets": [
+            {
+                "id": dataset,
+                "path": f"/tmp/{dataset}.hdf5",
+                "sha256": digest,
+            }
+            for dataset in night.TUNING_DATASETS
+        ],
+        "seeds": list(night.TUNING_SEEDS),
+    }
+
+
+def test_p3_stable_main_builds_exact_180_branch_matrix() -> None:
+    try:
+        night.configure_execution(P3_GRID)
+        grid, digest = night.load_grid(P3_GRID)
+        branches = night.build_branches(
+            SimpleNamespace(expected_canonical_alpha=0.11),
+            _p3_run_spec(),
+            grid,
+        )
+        assert len(digest) == 64
+        assert len(branches) == night.P3_EXPECTED_BRANCHES == 180
+        assert len({branch.branch_id for branch in branches}) == 180
+        assert {branch.seed for branch in branches} == {200, 201}
+        assert not ({branch.seed for branch in branches} & set(night.HELD_OUT_SEEDS))
+        assert sum(
+            branch.template_values["weight_method"] == "positive_only"
+            for branch in branches
+        ) == 18
+        observed = {
+            float(branch.template_values["remoteness_scale"])
+            for branch in branches
+            if branch.template_values["weight_method"] == "thresholded_exponential"
+        }
+        assert sorted(observed) == pytest.approx(
+            sorted(night.P3_REMOTENESS_SCALES)
+        )
+    finally:
+        night.configure_execution(HISTORICAL_GRID)
+
+
+def test_p3_profile_enters_v3_runtime_adapter() -> None:
+    previous_adapter = shared.ADAPTER_ID
+    try:
+        night.configure_execution(P3_GRID)
+        profile = night.active_runtime_profile()
+        assert profile["adapter_id"] == (
+            "e7_joint_gae_thresholded_p3_left_saturation_cpu_v2"
+        )
+        assert night_adapter._v3_adapter_id(profile) == (  # noqa: SLF001
+            "e7_joint_gae_thresholded_p3_left_saturation_cpu_v3"
+        )
+        assert math.isclose(float(profile["exp_coefficient"]), 1000.0)
+        with night_adapter._installed_adapter():  # noqa: SLF001
+            assert shared.ADAPTER_ID == (
+                "e7_joint_gae_thresholded_p3_left_saturation_cpu_v3"
+            )
+        assert shared.ADAPTER_ID == previous_adapter
+    finally:
+        night.configure_execution(HISTORICAL_GRID)
+
+
+def test_p3_profile_passes_bootstrap_profile_gate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        bootstrap,
+        "CanonicalContract",
+        SimpleNamespace(
+            load=lambda _path: SimpleNamespace(expected_canonical_alpha=0.11)
+        ),
+    )
+    branch_config = tmp_path / "branch_config.json"
+    branch_config.write_text(
+        json.dumps(
+            {
+                "experiment_id": night.GAE_EXPERIMENT_ID,
+                "profile_id": night.P3_PROFILE_ID,
+                "branch_kind": "deliberately_invalid_after_profile_gate",
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="bootstrap requires a public injected branch"):
+        bootstrap.main(
+            [
+                "--contract",
+                str(tmp_path / "contract.json"),
+                "--branch-config",
+                str(branch_config),
+                "--branch-manifest",
+                str(tmp_path / "manifest.json"),
+            ]
+        )
+
+
+def test_p3_ready_runspec_and_launcher_are_stable_main_only() -> None:
+    spec = yaml.safe_load(P3_RUNSPEC.read_text(encoding="utf-8"))
+    assert spec["run_id"] == (
+        "E7_BENCH_JOINT_GAE_P3_LEFT_SATURATION_FULL_20260722_03"
+    )
+    assert spec["repo_commit"] == "e05aaeeeaa86563df906226624e93b8116e432ca"
+    assert spec["registration"] == {
+        "mode": "deferred",
+        "closure_required": True,
+    }
+    criteria = " ".join(spec["success_criteria"])
+    assert "180 branches" in criteria
+    assert "not a launch gate" in criteria
+    launcher = Path("scripts/run_e7_squared_exp_night_one_click.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "p3_left_saturation" in launcher
+    assert "DRPO_E7_P3_LEFT_SATURATION_FULL_RUN" in launcher
+    assert "p2_left" not in launcher
