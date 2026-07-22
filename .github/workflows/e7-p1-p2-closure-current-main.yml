@@ -1,0 +1,63 @@
+name: Temporary current-main E7 P1 P2 closure
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: write
+
+concurrency:
+  group: e7-p1-p2-closure-current-main
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    if: github.head_ref == 'dev/ext-h-e7-sqexp-gae-p1-p2-result-closure-02'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/ext-h-e7-sqexp-gae-p1-p2-result-closure-02
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install --quiet -e '.[dev]'
+      - name: Recover reviewed closure transaction
+        shell: bash
+        run: |
+          set -euo pipefail
+          OLD=483e93448f25ada23dbd71fe4d237ccff80f8c0c
+          BASE=919a8aaad535168345ddfee84cc19ccaf6d9f18d
+          SOURCE=3f83623b68977c26a4f6a73cfe9b972660652460
+          git show "$SOURCE:.github/workflows/e7-p1-p2-result-closure-bootstrap.yml" > /tmp/source.yml
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+          data = yaml.safe_load(Path('/tmp/source.yml').read_text(encoding='utf-8'))
+          steps = data['jobs']['materialize']['steps']
+          by_name = {step.get('name'): step.get('run') for step in steps}
+          Path('/tmp/e7-author.sh').write_text(by_name['Author source transaction'], encoding='utf-8')
+          Path('/tmp/e7-normalize.sh').write_text(by_name['Trusted normalization and publication'], encoding='utf-8')
+          PY
+          sed -i "s/$OLD/$BASE/g" /tmp/e7-author.sh /tmp/e7-normalize.sh
+          bash -n /tmp/e7-author.sh
+          bash -n /tmp/e7-normalize.sh
+          test "$(git rev-parse HEAD^)" = "$BASE"
+      - name: Author source transaction
+        shell: bash
+        run: |
+          rm -f .github/workflows/e7-p1-p2-closure-current-main.yml
+          bash /tmp/e7-author.sh
+      - name: Trusted normalization and publication
+        shell: bash
+        run: bash /tmp/e7-normalize.sh
