@@ -12,9 +12,7 @@ from .evidence import EvidenceError, EvidenceLocator, RunIdentity, canonical_sha
 from .model import SHA40, SHA256
 
 ATTEMPT_KINDS = frozenset({"INITIAL", "REPAIR"})
-ATTEMPT_TERMINALS = frozenset(
-    {"SUCCEEDED", "FAILED", "TIMED_OUT", "INTERRUPTED", "INVALIDATED"}
-)
+ATTEMPT_TERMINALS = frozenset({"SUCCEEDED", "FAILED", "TIMED_OUT", "INTERRUPTED", "INVALIDATED"})
 DISPOSITIONS = frozenset({"NONE", "CANDIDATE", "ENVIRONMENT", "INSUFFICIENT_EVIDENCE"})
 FEEDBACK_CLASSES = frozenset({"NONE", "EVALUATOR", "AUTHORITY", "EXECUTION", "OPERATOR"})
 FINAL_ACCEPTANCE_VALUES = frozenset({"PASS", "REJECTED", "NOT_AVAILABLE"})
@@ -35,10 +33,7 @@ TERMINAL_DISPOSITIONS = {
     "INTERRUPTED": frozenset({"CANDIDATE", "ENVIRONMENT", "INSUFFICIENT_EVIDENCE"}),
     "INVALIDATED": frozenset({"ENVIRONMENT", "INSUFFICIENT_EVIDENCE"}),
 }
-MAX_ATTEMPTS = 32
-MAX_LOCATORS_PER_ATTEMPT = 8
-MAX_RUN_ARTIFACT_BYTES = 1 << 18
-
+MAX_ATTEMPTS, MAX_LOCATORS_PER_ATTEMPT, MAX_RUN_ARTIFACT_BYTES = 32, 8, 1 << 18
 ATTEMPT_FIELDS = {
     "attempt_id",
     "ordinal",
@@ -79,7 +74,6 @@ ACCEPTANCE_BINDING_FIELDS = BINDING_FIELDS | {"final_acceptance"}
 
 class TrajectoryError(ValueError):
     """R3 trajectory evidence failed closed with a stable error code."""
-
     def __init__(self, code: str, message: str) -> None:
         self.code = code
         super().__init__(f"{code}: {message}")
@@ -241,6 +235,7 @@ def validate_attempt_record(
     evidence_root: str | Path,
 ) -> AttemptRecord:
     data = _strict(value, ATTEMPT_FIELDS, "AttemptRecord")
+    _sha(run_id, "run_id")
     ordinal = _integer(data["ordinal"], "ordinal")
     expected_id = _canonical({"run_id": run_id, "ordinal": ordinal})
     if data["attempt_id"] != expected_id:
@@ -350,6 +345,12 @@ def _verify_binding(
 
 
 def validate_r3_run_artifact(value: Any, evidence_root: str | Path) -> RunArtifact:
+    try:
+        size = len(json.dumps(value, sort_keys=True, separators=(",", ":")).encode())
+    except (TypeError, ValueError) as exc:
+        _fail("SCHEMA_INVALID", f"cannot serialize RunArtifact: {exc}")
+    if size > MAX_RUN_ARTIFACT_BYTES:
+        _fail("LIMIT_EXCEEDED", "serialized RunArtifact exceeds the frozen limit")
     data = _strict(value, RUN_FIELDS, "RunArtifact")
     if isinstance(data["schema_version"], bool) or data["schema_version"] != 1:
         _fail("SCHEMA_INVALID", "schema_version must equal integer 1")
@@ -410,6 +411,9 @@ def validate_r3_run_artifact(value: Any, evidence_root: str | Path) -> RunArtifa
         )
     if final_acceptance == "PASS" and attempts[-1].terminal != "SUCCEEDED":
         _fail("FINAL_POINTER_MISMATCH", "PASS requires a succeeded final attempt")
+    non_evaluable = {"TIMED_OUT", "INTERRUPTED", "INVALIDATED"}
+    if attempts[-1].terminal in non_evaluable and final_acceptance != "NOT_AVAILABLE":
+        _fail("FINAL_POINTER_MISMATCH", "non-evaluable final attempt requires NOT_AVAILABLE")
     if final_acceptance == "NOT_AVAILABLE" and acceptance is not None:
         _fail("FINAL_POINTER_MISMATCH", "NOT_AVAILABLE forbids acceptance evidence")
     aggregate = _resources(
