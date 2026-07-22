@@ -127,29 +127,34 @@ def normalize_fixture_attempt(
     invalid_ordinal = isinstance(ordinal, bool) or not isinstance(ordinal, int) or ordinal < 0
     if not isinstance(identity, RunIdentity) or invalid_ordinal:
         raise ExecutionError("fixture attempt identity or ordinal is invalid")
-    supplied_locators = (raw_journal_locator, output_artifact_locator, feedback_locator)
-    if not all(item is None or isinstance(item, EvidenceLocator) for item in supplied_locators):
+    if not all(item is None or isinstance(item, EvidenceLocator) for item in (raw_journal_locator, output_artifact_locator, feedback_locator)):
         raise ExecutionError("fixture locators must use EvidenceLocator")
     root = Path(evidence_root)
     try:
         raw = raw_journal_locator.verify(root)
-        rows = raw.decode("utf-8").splitlines()
-        first, last = json.loads(rows[0]), json.loads(rows[-1])
+        events = [json.loads(row) for row in raw.decode("utf-8").splitlines()]
+        first, last = events[0], events[-1]
         state = EVENT_TERMINALS[last["event"]]
         _validate_journal(raw, identity, state)
-        timing_data = dict(timing or {})
     except (AttributeError, IndexError, KeyError, OSError, TypeError, ValueError) as exc:
         raise ExecutionError(f"fixture journal is invalid: {exc}") from exc
-    started = first["payload"]
+    started, finished = first["payload"], last["payload"]
     if started.get("case_id") != identity.case_id or started.get("arm") != identity.arm:
         raise ExecutionError("fixture journal start identity mismatch")
-    finished = last["payload"]
     command_count = finished.get("command_count", finished.get("child_command_count"))
-    active_ns = finished.get("child_ns", timing_data.get("child_ns"))
-    if finished.get("terminal_state") != state or any(
+    active_ns = finished.get("child_ns", dict(timing or {}).get("child_ns"))
+    starts = sum(row["event"] == "command_started" for row in events)
+    durations = tuple(row["payload"].get("child_elapsed_ns") for row in events if row["event"] == "command_finished")
+    unfinished = starts - len(durations)
+    invalid_resources = finished.get("terminal_state") != state or any(
         isinstance(item, bool) or not isinstance(item, int) or item < 0
-        for item in (command_count, active_ns)
-    ):
+        for item in (command_count, active_ns, *durations)
+    )
+    completed_ns = sum(durations) if not invalid_resources else 0
+    invalid_resources |= command_count != starts or unfinished not in {0, 1}
+    invalid_resources |= unfinished == 1 and state != "INTERRUPTED"
+    invalid_resources |= active_ns < completed_ns or (not unfinished and active_ns != completed_ns)
+    if invalid_resources:
         raise ExecutionError("fixture terminal resource summary is invalid")
     terminal, default_disposition = _R3_FIXTURE_TERMINALS[state]
     disposition = default_disposition if disposition is None else disposition
@@ -158,8 +163,7 @@ def normalize_fixture_attempt(
     if not isinstance(disposition, str) or disposition not in TERMINAL_DISPOSITIONS[terminal]:
         raise ExecutionError("fixture terminal and disposition are incompatible")
     attempt_id = canonical_sha256({"run_id": identity.run_id, "ordinal": ordinal})
-    parent_id = None if ordinal == 0 else canonical_sha256(
-        {"run_id": identity.run_id, "ordinal": ordinal - 1})
+    parent_id = None if ordinal == 0 else canonical_sha256({"run_id": identity.run_id, "ordinal": ordinal - 1})
     if terminal in {"SUCCEEDED", "FAILED"} and output_artifact_locator is None:
         raise ExecutionError("completed fixture attempt requires a candidate artifact")
     if output_artifact_locator and output_artifact_locator.kind != f"candidate-{attempt_id}":
@@ -175,9 +179,7 @@ def normalize_fixture_attempt(
     if isinstance(diagnostic_codes, (str, bytes)) or not isinstance(diagnostic_codes, Iterable):
         raise ExecutionError("diagnostic codes must be a non-string iterable")
     diagnostics = tuple(diagnostic_codes)
-    if any(not isinstance(item, str) or not item for item in diagnostics):
-        raise ExecutionError("diagnostic codes must be sorted unique non-empty strings")
-    if diagnostics != tuple(sorted(set(diagnostics))):
+    if any(not isinstance(item, str) or not item for item in diagnostics) or diagnostics != tuple(sorted(set(diagnostics))):
         raise ExecutionError("diagnostic codes must be sorted unique non-empty strings")
     try:
         for locator in (output_artifact_locator, feedback_locator):
@@ -207,24 +209,22 @@ def normalize_fixture_attempt(
         f"journal-{attempt_id}", binding_journal_relative_path,
         hashlib.sha256(binding_raw).hexdigest(), len(binding_raw))
     locators = (raw_journal_locator, output_artifact_locator, feedback_locator, binding_locator)
-    sizes = {(item.relative_path, item.sha256): item.byte_size for item in locators if item}
-    retained = sum(sizes.values())
-    payload = lambda item: None if item is None else vars(item)  # noqa: E731
+    retained = sum({(item.relative_path, item.sha256): item.byte_size for item in locators if item}.values())
     record = {
         "attempt_id": attempt_id, "ordinal": ordinal,
         "kind": "INITIAL" if ordinal == 0 else "REPAIR", "parent_attempt_id": parent_id,
         "terminal": terminal, "disposition": disposition,
-        "input_artifact_locator": payload(raw_journal_locator),
-        "output_artifact_locator": payload(output_artifact_locator),
-        "event_journal_locator": payload(binding_locator), "feedback_class": feedback_class,
-        "feedback_locator": payload(feedback_locator), "diagnostic_codes": list(diagnostics),
+        "input_artifact_locator": vars(raw_journal_locator),
+        "output_artifact_locator": None if output_artifact_locator is None else vars(output_artifact_locator),
+        "event_journal_locator": vars(binding_locator), "feedback_class": feedback_class,
+        "feedback_locator": None if feedback_locator is None else vars(feedback_locator),
+        "diagnostic_codes": list(diagnostics),
         "observed_resources": {
             "command_count": command_count, "active_ns": active_ns, "retained_bytes": retained,
         },
         "attempt_sha256": "",
     }
-    record["attempt_sha256"] = canonical_sha256({
-        key: value for key, value in record.items() if key != "attempt_sha256"})
+    record["attempt_sha256"] = canonical_sha256({key: value for key, value in record.items() if key != "attempt_sha256"})
     return record
 
 def run_fixture_plan(
