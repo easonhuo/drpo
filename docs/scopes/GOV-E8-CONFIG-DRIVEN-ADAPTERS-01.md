@@ -4,11 +4,9 @@
 
 - parent claim: `GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01`
 - exact implementation base: `main@c323577eb170e260b7916b669b4a3e1d6bac2841`
-- latest integration base verified before merge: `main@951cbc878d88524e8c9e6b14720bfeb2b21c72e7`
+- latest integration base to verify before merge: `main@951cbc878d88524e8c9e6b14720bfeb2b21c72e7`
 - development branch: `dev/gov-experiment-matrix-e8-replayab-01`
 - initial implementation head: `c4ec718ea426f91a4b616a83106706ced8b8e028`
-- merge-readiness head: `d92bd119d806b1f551c4787cc64f308fd6647904`
-- exact synthetic merge candidate: `ef180a698acc06f2976467b21d8b94d5ee14791a`
 - scientific result status: unchanged
 - execution class: repository workflow engineering only
 
@@ -17,6 +15,8 @@ all current parameter structures and making adapter plus Replay comparison the
 default requirement when a genuinely new E8 method structure is introduced.
 The owner subsequently authorized continuing through the merge-readiness checks,
 including executing the full-family Replay in the repository's stable CI checkout.
+Exact final head, synthetic candidate, and gate-run identities are recorded in the
+PR evidence so documenting them does not mutate the candidate being verified.
 
 ## Goal
 
@@ -88,16 +88,15 @@ This scope does not authorize changes to:
 
 ## Delivery gates
 
-- local Python compile for modified Python files: PASS;
-- shell syntax for the Replay entrypoint: PASS;
-- isolated three-structure adapter checks: PASS;
+- local Python compile for modified Python files;
+- shell syntax for the Replay entrypoint;
+- isolated three-structure adapter checks;
 - full-family Replay executed by
   `tests/test_e8_experiment_matrix_replay.py` through the ordinary full-pytest
-  gate on synthetic merge candidate `ef180a698acc06f2976467b21d8b94d5ee14791a`: PASS;
-- PR Gate Log run `29916571879`: PASS, including full pytest and Ruff;
-- Evidence Locator Gate run `29916572050`: PASS;
-- handoff authority, formal execution channel, governance inventory/stage: PASS;
-- PR mergeability against latest `main`: PASS.
+  gate on the latest synthetic merge candidate;
+- exact-head full pytest, Ruff, handoff authority, formal execution channel,
+  governance, and evidence locator;
+- PR mergeability against the latest `main`.
 
 Smoke, plan, static checks, and Replay are engineering evidence only. CUDA
 liveness and all scientific sweeps remain `NOT_RUN`.
