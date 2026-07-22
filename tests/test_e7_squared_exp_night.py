@@ -23,6 +23,10 @@ from drpo.e7_squared_exp_night_bootstrap import (
 
 GRID = Path("configs/e7_squared_exp_night_v1.json")
 GAE_GRID = Path("configs/e7_sqexp_gae_v2.json")
+P2_GRID = Path("configs/e7_bench_joint_gae_tuning_p2_left_c.json")
+P3_GRID = Path("configs/e7_bench_joint_gae_p3_left_saturation.json")
+P3_PREFLIGHT = Path("configs/e7_bench_joint_gae_p3_weight_preflight.json")
+P3_EXPECTED = Path("tests/fixtures/e7_p3_left_saturation_expected.json")
 
 
 @pytest.fixture(autouse=True)
@@ -44,6 +48,21 @@ def _run_spec(*, gae: bool = False) -> dict[str, object]:
             for dataset in night.EXPECTED_DATASETS
         ],
         "seeds": list(night.GAE_EXPECTED_SEEDS if gae else night.EXPECTED_SEEDS),
+    }
+
+
+def _tuning_run_spec() -> dict[str, object]:
+    digest = "0" * 64
+    return {
+        "datasets": [
+            {
+                "id": dataset,
+                "path": f"/tmp/{dataset}.hdf5",
+                "sha256": digest,
+            }
+            for dataset in night.TUNING_DATASETS
+        ],
+        "seeds": list(night.TUNING_SEEDS),
     }
 
 
@@ -195,7 +214,6 @@ def test_gae_liveness_filters_existing_matrix_to_one_matched_pair() -> None:
     assert {branch.template_values["execution_mode"] for branch in branches} == {
         "liveness"
     }
-
 
 def test_runtime_representative_reuses_gae_branch_matrix() -> None:
     night.configure_execution(GAE_GRID)
@@ -412,7 +430,7 @@ def test_gae_config_remains_independent_from_historical_config() -> None:
     assert gae["expected_total_branches"] == 96
 
 
-def _write_p2_branch(
+def _write_tuning_branch(
     root: Path,
     *,
     dataset: str,
@@ -420,6 +438,7 @@ def _write_p2_branch(
     method: str,
     scale: float | None,
     score: float,
+    profile_id: str = night.TUNING_PROFILE_ID,
 ) -> None:
     label = method if scale is None else f"drpo_c{scale:g}"
     branch_id = f"{dataset}__seed{seed}__gae__{label}__a2c__steps1m"
@@ -442,7 +461,7 @@ def _write_p2_branch(
     }
     config = {
         "experiment_id": night.GAE_EXPERIMENT_ID,
-        "profile_id": night.TUNING_PROFILE_ID,
+        "profile_id": profile_id,
         "branch_id": branch_id,
         "branch_kind": "injected",
         "dataset_id": dataset,
@@ -511,7 +530,7 @@ def test_p2_left_full_aggregate_is_task_balanced_and_claim_bounded(tmp_path: Pat
     for task_index, dataset in enumerate(night.TUNING_DATASETS):
         for seed in night.TUNING_SEEDS:
             for method, scale, delta in controls:
-                _write_p2_branch(
+                _write_tuning_branch(
                     tmp_path,
                     dataset=dataset,
                     seed=seed,
@@ -533,3 +552,151 @@ def test_p2_left_full_aggregate_is_task_balanced_and_claim_bounded(tmp_path: Pat
     assert audit["fixed_horizon_is_not_convergence"] is True
     paired = (aggregate_dir / "p2_paired_deltas.csv").read_text().splitlines()
     assert len(paired) == 163
+
+
+def test_p3_grid_freezes_log_spaced_180_branch_matrix() -> None:
+    expected = json.loads(P3_EXPECTED.read_text())
+    night.configure_execution(P3_GRID)
+    grid, digest = night.load_grid(P3_GRID)
+    assert len(digest) == 64
+    assert grid["profile_id"] == night.P3_PROFILE_ID == expected["profile_id"]
+    assert grid["development_seeds"] == expected["development_seeds"]
+    assert grid["held_out_seeds"] == expected["held_out_seeds"]
+    assert grid["weight_control"]["remoteness_scales"] == pytest.approx(
+        expected["remoteness_scales"]
+    )
+    contract = SimpleNamespace(expected_canonical_alpha=0.11)
+    branches = night.build_branches(contract, _tuning_run_spec(), grid)
+    assert len(branches) == night.P3_EXPECTED_BRANCHES == 180
+    assert len({branch.branch_id for branch in branches}) == 180
+    assert {branch.seed for branch in branches} == set(night.TUNING_SEEDS)
+    assert not ({branch.seed for branch in branches} & set(night.HELD_OUT_SEEDS))
+    assert {branch.template_values["stage"] for branch in branches} == {
+        expected["stage"]
+    }
+    finite = {
+        float(branch.template_values["remoteness_scale"])
+        for branch in branches
+        if branch.template_values["weight_method"] == "thresholded_exponential"
+    }
+    assert sorted(finite) == pytest.approx(sorted(expected["remoteness_scales"]))
+    assert sum(
+        branch.template_values["weight_method"] == "positive_only"
+        for branch in branches
+    ) == 18
+
+
+def test_p2_liveness_uses_exact_scale_not_branch_id_substring() -> None:
+    night.configure_execution(P2_GRID, liveness_pair=True, liveness_steps=9)
+    grid, _ = night.load_grid(P2_GRID)
+    branches = night.build_branches(
+        SimpleNamespace(expected_canonical_alpha=0.11),
+        _tuning_run_spec(),
+        grid,
+    )
+    assert len(branches) == 2
+    finite = [
+        branch
+        for branch in branches
+        if branch.template_values["weight_method"] == "thresholded_exponential"
+    ]
+    assert len(finite) == 1
+    assert float(finite[0].template_values["remoteness_scale"]) == 0.1
+
+
+def test_p3_weight_preflight_contract_matches_grid_and_does_not_prune() -> None:
+    grid = json.loads(P3_GRID.read_text())
+    preflight = json.loads(P3_PREFLIGHT.read_text())
+    assert preflight["profile_id"] == grid["profile_id"]
+    assert preflight["training_updates"] == 0
+    assert preflight["remoteness_scales"] == grid["weight_control"][
+        "remoteness_scales"
+    ]
+    assert preflight["point_pruning_allowed"] is False
+    assert preflight["status"] == "contract_only_not_executed"
+
+
+
+def test_p3_liveness_selects_positive_only_and_middle_decade() -> None:
+    steps = 9
+    night.configure_execution(P3_GRID, liveness_pair=True, liveness_steps=steps)
+    grid, _ = night.load_grid(P3_GRID)
+    branches = night.build_branches(
+        SimpleNamespace(expected_canonical_alpha=0.11),
+        _tuning_run_spec(),
+        grid,
+    )
+    assert len(branches) == 2
+    assert {branch.template_values["weight_method"] for branch in branches} == {
+        "positive_only",
+        "thresholded_exponential",
+    }
+    scales = {
+        float(branch.template_values["remoteness_scale"])
+        for branch in branches
+        if branch.template_values["weight_method"] == "thresholded_exponential"
+    }
+    assert scales == {night.P3_LIVENESS_SCALE}
+    assert {branch.template_values["execution_mode"] for branch in branches} == {
+        "liveness"
+    }
+
+
+def test_p3_full_aggregate_emits_delta_and_stratified_curves(tmp_path: Path) -> None:
+    from drpo.e7_squared_exp_night_aggregate import aggregate
+
+    for task_index, dataset in enumerate(night.TUNING_DATASETS):
+        for seed in night.TUNING_SEEDS:
+            _write_tuning_branch(
+                tmp_path,
+                dataset=dataset,
+                seed=seed,
+                method="positive_only",
+                scale=None,
+                score=30.0 + task_index + (seed - 200) * 0.1,
+                profile_id=night.P3_PROFILE_ID,
+            )
+            for scale in night.P3_REMOTENESS_SCALES:
+                _write_tuning_branch(
+                    tmp_path,
+                    dataset=dataset,
+                    seed=seed,
+                    method="thresholded_exponential",
+                    scale=scale,
+                    score=(
+                        30.0
+                        + task_index
+                        + (seed - 200) * 0.1
+                        - abs(math.log10(scale) + 3.0) * 0.1
+                    ),
+                    profile_id=night.P3_PROFILE_ID,
+                )
+
+    summary = aggregate(tmp_path)
+    assert summary["status"] == "PASS"
+    assert summary["branch_count"] == 180
+    assert summary["selection_status"] == (
+        "left_saturation_curve_only_no_best_c_selection"
+    )
+    aggregate_dir = tmp_path / "aggregate"
+    for name in (
+        "p3_paired_deltas.csv",
+        "p3_task_summary.csv",
+        "p3_control_summary.csv",
+        "p3_stratum_summary.csv",
+    ):
+        assert (aggregate_dir / name).is_file()
+    control_text = (aggregate_dir / "p3_control_summary.csv").read_text()
+    assert "log10_remoteness_scale" in control_text
+    assert "equal_task_weighted_late_delta_vs_positive_only" in control_text
+    stratum_text = (aggregate_dir / "p3_stratum_summary.csv").read_text()
+    assert "late_delta_vs_positive_only" in stratum_text
+    audit = json.loads((aggregate_dir / "terminal_audit.json").read_text())
+    assert audit["curve_shape_claim_allowed"] is True
+    assert audit["best_c_claim_allowed"] is False
+    assert audit["task_performance_collapse_status"] == (
+        "not_adjudicated_no_registered_threshold"
+    )
+    assert audit["support_or_variance_boundary_status"] == (
+        "not_instrumented_in_this_pilot"
+    )

@@ -31,6 +31,11 @@ TUNING_SCIENTIFIC_STATUS = (
     "d4rl9_common_c_left_extension_joint_critic_gae_pilot_only"
 )
 TUNING_RUNNER_VERSION = "5.2.0-paper-threshold-p2-left"
+P3_PROFILE_ID = "d4rl9_common_c_p3_left_saturation"
+P3_SCIENTIFIC_STATUS = (
+    "d4rl9_common_c_left_saturation_joint_critic_gae_screening_pilot_only"
+)
+P3_RUNNER_VERSION = "5.3.0-paper-threshold-p3-left-saturation"
 
 EXPECTED_DATASETS = (
     "hopper-medium-expert-v2",
@@ -55,6 +60,7 @@ TUNING_REMOTENESS_SCALES = (
     0.025,
     0.015625,
 )
+P3_REMOTENESS_SCALES = tuple(10.0 ** (-2.0 - index / 4.0) for index in range(9))
 EXPECTED_ACTOR_MODES = ("a2c", "ppo_clip_k4", "ppo_clip_kl_k16")
 EXPECTED_STEPS = 1_000_000
 EXPECTED_CONTROLS_PER_MODE = 7
@@ -63,6 +69,7 @@ EXPECTED_STAGE_B_BRANCHES = 42
 EXPECTED_TOTAL_BRANCHES = 126
 GAE_EXPECTED_BRANCHES = 96
 TUNING_EXPECTED_BRANCHES = 180
+P3_EXPECTED_BRANCHES = 180
 REFERENCE_DISTANCE = 2.0
 INTERNAL_CANONICAL_ALPHA = 0.11
 DIAGNOSTICS_INTERVAL = 1000
@@ -75,7 +82,9 @@ GAE_LIVENESS_DATASET = "hopper-medium-expert-v2"
 GAE_LIVENESS_SEED = 200
 GAE_LIVENESS_COEFFICIENT = 128.0
 TUNING_LIVENESS_SCALE = 0.1
+P3_LIVENESS_SCALE = 0.001
 TUNING_FULL_RUN_ENV = "DRPO_E7_P2_LEFT_FULL_RUN"
+P3_FULL_RUN_ENV = "DRPO_E7_P3_LEFT_SATURATION_FULL_RUN"
 
 _ACTIVE_EXPERIMENT_ID = EXPERIMENT_ID
 _ACTIVE_PROFILE_ID: str | None = None
@@ -106,7 +115,8 @@ def configure_execution(
     if experiment_id not in {EXPERIMENT_ID, GAE_EXPERIMENT_ID}:
         raise ValueError(f"unsupported squared-night experiment_id={experiment_id!r}")
     if profile_id is not None and (
-        experiment_id != GAE_EXPERIMENT_ID or profile_id != TUNING_PROFILE_ID
+        experiment_id != GAE_EXPERIMENT_ID
+        or profile_id not in {TUNING_PROFILE_ID, P3_PROFILE_ID}
     ):
         raise ValueError("unsupported joint-GAE tuning profile")
     if liveness_pair != (liveness_steps is not None):
@@ -129,10 +139,28 @@ def _is_gae() -> bool:
 
 
 def _is_tuning() -> bool:
-    return _is_gae() and _ACTIVE_PROFILE_ID == TUNING_PROFILE_ID
+    return _is_gae() and _ACTIVE_PROFILE_ID in {TUNING_PROFILE_ID, P3_PROFILE_ID}
+
+
+def _is_p3() -> bool:
+    return _is_gae() and _ACTIVE_PROFILE_ID == P3_PROFILE_ID
+
+
+def _active_tuning_scales() -> tuple[float, ...]:
+    return P3_REMOTENESS_SCALES if _is_p3() else TUNING_REMOTENESS_SCALES
+
+
+def _active_tuning_liveness_scale() -> float:
+    return P3_LIVENESS_SCALE if _is_p3() else TUNING_LIVENESS_SCALE
+
+
+def _active_tuning_full_run_env() -> str:
+    return P3_FULL_RUN_ENV if _is_p3() else TUNING_FULL_RUN_ENV
 
 
 def active_scientific_status() -> str:
+    if _is_p3():
+        return P3_SCIENTIFIC_STATUS
     if _is_tuning():
         return TUNING_SCIENTIFIC_STATUS
     return GAE_SCIENTIFIC_STATUS if _is_gae() else SCIENTIFIC_STATUS
@@ -141,6 +169,8 @@ def active_scientific_status() -> str:
 def active_expected_branch_count() -> int:
     if _LIVENESS_STEPS:
         return 2 if _is_tuning() else 2
+    if _is_p3():
+        return P3_EXPECTED_BRANCHES
     if _is_tuning():
         return TUNING_EXPECTED_BRANCHES
     return GAE_EXPECTED_BRANCHES if _is_gae() else EXPECTED_TOTAL_BRANCHES
@@ -149,13 +179,17 @@ def active_expected_branch_count() -> int:
 def active_runtime_profile() -> dict[str, Any]:
     if _is_tuning():
         return {
-            "adapter_id": "e7_joint_gae_thresholded_p2_left_cpu_v1",
+            "adapter_id": (
+                "e7_joint_gae_thresholded_p3_left_saturation_cpu_v1"
+                if _is_p3()
+                else "e7_joint_gae_thresholded_p2_left_cpu_v1"
+            ),
             "dataset": GAE_LIVENESS_DATASET,
             "seed": GAE_LIVENESS_SEED,
             "actor_update_mode": "a2c",
             "advantage_estimator": "gae",
             "weight_at_zero": 1.0,
-            "exp_coefficient": TUNING_TAPER_LAMBDA / TUNING_LIVENESS_SCALE,
+            "exp_coefficient": TUNING_TAPER_LAMBDA / _active_tuning_liveness_scale(),
             "gae_lambda": GAE_LAMBDA,
         }
     if _is_gae():
@@ -212,17 +246,21 @@ def load_grid(path: str | Path) -> tuple[dict[str, Any], str]:
         _check(
             raw,
             {
-                "profile_id": TUNING_PROFILE_ID,
+                "profile_id": P3_PROFILE_ID if _is_p3() else TUNING_PROFILE_ID,
                 "parent_experiment_id": "EXT-H-E7-BENCH-01",
                 "status": "not_run",
-                "scientific_status": TUNING_SCIENTIFIC_STATUS,
+                "scientific_status": (
+                    P3_SCIENTIFIC_STATUS if _is_p3() else TUNING_SCIENTIFIC_STATUS
+                ),
                 "development_seeds": list(TUNING_SEEDS),
                 "actor_update_modes": ["a2c"],
                 "advantage_modes": ["gae_lambda_0p95"],
-                "expected_total_branches": TUNING_EXPECTED_BRANCHES,
+                "expected_total_branches": (
+                    P3_EXPECTED_BRANCHES if _is_p3() else TUNING_EXPECTED_BRANCHES
+                ),
                 "screening_only": True,
             },
-            "P2 left tuning grid",
+            "P3 saturation grid" if _is_p3() else "P2 left tuning grid",
         )
         _check(
             weight,
@@ -234,9 +272,9 @@ def load_grid(path: str | Path) -> tuple[dict[str, Any], str]:
                 "reference_distance": REFERENCE_DISTANCE,
                 "taper_lambda": TUNING_TAPER_LAMBDA,
                 "remoteness_threshold": TUNING_REMOTENESS_THRESHOLD,
-                "remoteness_scales": list(TUNING_REMOTENESS_SCALES),
+                "remoteness_scales": list(_active_tuning_scales()),
             },
-            "P2 left thresholded taper",
+            "P3 saturation taper" if _is_p3() else "P2 left thresholded taper",
         )
         _check(
             raw.get("trajectory_snapshot", {}),
@@ -250,7 +288,7 @@ def load_grid(path: str | Path) -> tuple[dict[str, Any], str]:
                 "terminal_timeout_recursion_stop": True,
                 "dataset_tail_recursion_stop": True,
             },
-            "P2 left GAE snapshot contract",
+            "P3 saturation GAE snapshot contract" if _is_p3() else "P2 left GAE snapshot contract",
         )
         return raw, sha256_file(source)
 
@@ -398,12 +436,11 @@ def _control(weight_at_zero: float, coefficient: float | None) -> tuple[str, flo
         f"sqexp__w0_1__c_{_label(coefficient)}",
     )
 
-
 def _tuning_controls() -> list[tuple[str, float | None, float]]:
     controls = [("positive_only", None, 0.0)]
     controls.extend(
         ("thresholded_exponential", scale, TUNING_TAPER_LAMBDA / scale)
-        for scale in TUNING_REMOTENESS_SCALES
+        for scale in _active_tuning_scales()
     )
     return controls
 
@@ -429,7 +466,11 @@ def _gae_branches(
                             seed=seed,
                             template_values={
                                 "steps": str(EXPECTED_STEPS),
-                                "stage": "p2_left_common_c_screen",
+                                "stage": (
+                                    "p3_left_saturation_screen"
+                                    if _is_p3()
+                                    else "p2_left_common_c_screen"
+                                ),
                                 "actor_update_mode": "a2c",
                                 "advantage_estimator": "gae",
                                 "weight_method": method,
@@ -484,13 +525,25 @@ def _gae_branches(
                         )
     if _LIVENESS_STEPS:
         if _is_tuning():
-            selected = {"positive_only", f"drpo_c{TUNING_LIVENESS_SCALE:g}"}
+            liveness_scale = _active_tuning_liveness_scale()
             branches = [
                 branch
                 for branch in branches
                 if branch.dataset.id == GAE_LIVENESS_DATASET
                 and branch.seed == GAE_LIVENESS_SEED
-                and any(token in branch.branch_id for token in selected)
+                and (
+                    branch.template_values["weight_method"] == "positive_only"
+                    or (
+                        branch.template_values["weight_method"]
+                        == "thresholded_exponential"
+                        and math.isclose(
+                            float(branch.template_values["remoteness_scale"]),
+                            liveness_scale,
+                            rel_tol=0.0,
+                            abs_tol=1e-15,
+                        )
+                    )
+                )
             ]
         else:
             branches = [
@@ -641,7 +694,7 @@ def branch_command(
         "weight_control": weight_control,
     }
     if _is_tuning():
-        branch_config["profile_id"] = TUNING_PROFILE_ID
+        branch_config["profile_id"] = (P3_PROFILE_ID if _is_p3() else TUNING_PROFILE_ID)
     if _is_gae():
         branch_config.update(
             canonical_root=str(contract.source_root),
@@ -683,10 +736,11 @@ def main(argv: list[str] | None = None) -> int:
         _is_tuning()
         and delegated[0] == "run"
         and env_steps is None
-        and os.environ.get(TUNING_FULL_RUN_ENV) != "1"
+        and os.environ.get(_active_tuning_full_run_env()) != "1"
     ):
         raise RuntimeError(
-            f"P2 left full run requires explicit {TUNING_FULL_RUN_ENV}=1 authorization"
+            "full tuning run requires explicit "
+            f"{_active_tuning_full_run_env()}=1 authorization"
         )
     previous = (
         base.EXPERIMENT_ID,
@@ -699,7 +753,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     base.EXPERIMENT_ID = _ACTIVE_EXPERIMENT_ID
     base.SCIENTIFIC_STATUS = active_scientific_status()
-    if _is_tuning():
+    if _is_p3():
+        base.RUNNER_VERSION = P3_RUNNER_VERSION
+    elif _is_tuning():
         base.RUNNER_VERSION = TUNING_RUNNER_VERSION
     else:
         base.RUNNER_VERSION = GAE_RUNNER_VERSION if _is_gae() else RUNNER_VERSION
