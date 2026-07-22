@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import json
 import shutil
@@ -11,6 +12,14 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from drpo import countdown_e8_alpha1_highc_scan_common as highc
+from drpo import experiment_matrix as _experiment_matrix
+from drpo.experiment_matrix import (
+    canonical_digest,
+    expand_matrix,
+    finite_float_values,
+    integer_values,
+    require_declared_count,
+)
 
 
 EVALUATION_SEMANTICS: dict[str, Any] = {
@@ -34,11 +43,97 @@ def _grid_config_from_argv(argv: list[str]) -> str | None:
     return None
 
 
+def _install_config_driven_asymre_profile(path: str | Path) -> dict[str, Any] | None:
+    """Materialize an AsymRE runtime profile from one reviewed grid config.
+
+    This is intentionally a runtime adapter: scientific semantics remain in the
+    E8 validator, while concrete delta-v points and matrix counts come only from
+    the grid config. Existing historical profiles are copied before adjustment.
+    """
+
+    config = highc.load_yaml(path)
+    objective = config.get("objective", {})
+    if objective.get("formula") != "A=R-delta_v":
+        return None
+    sweep = config.get("sweep", {})
+    raw_points = sweep.get("parameter_points", ())
+    if not isinstance(raw_points, list) or any(
+        not isinstance(item, dict) or "delta_v" not in item for item in raw_points
+    ):
+        raise ValueError("AsymRE parameter_points must be explicit delta_v mappings")
+    points = finite_float_values(
+        [item["delta_v"] for item in raw_points],
+        name="sweep.parameter_points.delta_v",
+        minimum=-1.0,
+        maximum=1.0,
+    )
+    seeds = integer_values(
+        sweep.get("seed_offsets", ()),
+        name="sweep.seed_offsets",
+        minimum=0,
+    )
+    rows = expand_matrix({"delta_v": points, "seed_offset": seeds})
+    require_declared_count(
+        name="sweep.unique_parameter_points",
+        declared=sweep.get("unique_parameter_points"),
+        actual=len(points),
+    )
+    require_declared_count(
+        name="sweep.cells",
+        declared=sweep.get("cells"),
+        actual=len(rows),
+    )
+
+    experiment_id = str(config.get("experiment_id") or "")
+    if not experiment_id:
+        raise ValueError("AsymRE experiment_id must be non-empty")
+    existing = highc._PROFILES.get(experiment_id)  # noqa: SLF001
+    profile = copy.deepcopy(existing) if existing is not None else {
+        "experiment_id": experiment_id,
+        "version": "0.3.0-config-driven-asymre",
+        "default_grid_config": str(path),
+        "requires_positive_only": False,
+        "kind": "asymre_scan",
+    }
+    if profile.get("kind") != "asymre_scan":
+        raise ValueError(f"experiment_id {experiment_id!r} is not an AsymRE profile")
+    profile.update(
+        {
+            "experiment_id": experiment_id,
+            "default_grid_config": str(path),
+            "parameter_points": points,
+            "seed_offsets": seeds,
+            "expected_points": len(points),
+            "expected_cells": len(rows),
+            "matrix_digest": canonical_digest(rows),
+        }
+    )
+    highc._PROFILES[experiment_id] = profile  # noqa: SLF001
+    return profile
+
+
 _grid_config = _grid_config_from_argv(sys.argv[1:])
 if _grid_config is None:
     highc.activate()
 else:
+    _install_config_driven_asymre_profile(_grid_config)
     highc.activate_for_grid_config(_grid_config)
+
+_ORIGINAL_IDENTITY = highc._identity  # noqa: SLF001
+
+
+def _identity_with_experiment_matrix(**kwargs: Any) -> dict[str, Any]:
+    identity = _ORIGINAL_IDENTITY(**kwargs)
+    source_hashes = dict(identity.get("source_sha256", {}))
+    source_hashes["experiment_matrix"] = highc.sha256_file(
+        Path(_experiment_matrix.__file__).resolve()
+    )
+    identity["source_sha256"] = source_hashes
+    return identity
+
+
+highc._identity = _identity_with_experiment_matrix  # noqa: SLF001
+highc._base._identity = _identity_with_experiment_matrix  # noqa: SLF001
 
 from drpo import countdown_e8_alpha1_c_scan_runtime as _base_runtime  # noqa: E402
 
