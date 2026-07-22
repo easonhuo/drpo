@@ -1,0 +1,301 @@
+name: ReplayAB R3 Terminal Audit
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "src/drpo/workflow_replay/**"
+      - "tests/test_workflow_replay_*.py"
+      - "tests/fixtures/workflow_replay/r3/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: replayab-r3-terminal-audit-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      AUDIT_DIR: replayab-r3-terminal-audit
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      CANDIDATE_SHA: ${{ github.sha }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      R3_A_MERGE_SHA: c323577eb170e260b7916b669b4a3e1d6bac2841
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Run exact-candidate audit and capture real exits
+        id: gates
+        shell: bash
+        run: |
+          set +e
+          mkdir -p "$AUDIT_DIR/logs"
+          : > "$AUDIT_DIR/gate-status.tsv"
+          failed=0
+
+          run_gate() {
+            name="$1"
+            shift
+            echo "::group::$name"
+            "$@" > >(tee "$AUDIT_DIR/logs/$name.log") 2>&1
+            status=$?
+            echo "::endgroup::"
+            printf '%s\t%s\n' "$name" "$status" >> "$AUDIT_DIR/gate-status.tsv"
+            if [ "$status" -ne 0 ]; then
+              failed=1
+            fi
+          }
+
+          run_gate install python -m pip install -e '.[dev]'
+
+          run_gate candidate_identity python - <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          audit = Path(os.environ["AUDIT_DIR"])
+          base = os.environ["BASE_SHA"]
+          head = os.environ["HEAD_SHA"]
+          expected_candidate = os.environ["CANDIDATE_SHA"]
+          candidate = subprocess.check_output(
+              ["git", "rev-parse", "HEAD"], text=True
+          ).strip()
+          parents = subprocess.check_output(
+              ["git", "show", "-s", "--format=%P", candidate], text=True
+          ).strip().split()
+          if candidate != expected_candidate:
+              raise SystemExit(
+                  f"candidate mismatch: checkout={candidate} event={expected_candidate}"
+              )
+          if parents != [base, head]:
+              raise SystemExit(
+                  f"candidate parents mismatch: observed={parents} expected={[base, head]}"
+              )
+          merge_base = subprocess.check_output(
+              ["git", "merge-base", base, head], text=True
+          ).strip()
+          payload = {
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "pull_request_number": int(os.environ["PR_NUMBER"]),
+              "base_sha": base,
+              "head_sha": head,
+              "synthetic_merge_candidate_sha": candidate,
+              "candidate_parents": parents,
+              "branch_merge_base_sha": merge_base,
+              "workflow_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "workflow_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+          }
+          (audit / "identity.json").write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+          run_gate changed_file_inventory bash -c '
+            git diff --name-status "$BASE_SHA" "$CANDIDATE_SHA" > "$AUDIT_DIR/changed-files.txt"
+            git diff --numstat "$BASE_SHA" "$CANDIDATE_SHA" > "$AUDIT_DIR/pr-line-budget.tsv"
+            test -s "$AUDIT_DIR/changed-files.txt"
+          '
+
+          run_gate line_budget python - <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          audit = Path(os.environ["AUDIT_DIR"])
+          candidate = os.environ["CANDIDATE_SHA"]
+          r3_a_merge = os.environ["R3_A_MERGE_SHA"]
+          r3_start = subprocess.check_output(
+              ["git", "rev-parse", f"{r3_a_merge}^"], text=True
+          ).strip()
+          raw = subprocess.check_output(
+              ["git", "diff", "--numstat", r3_start, candidate], text=True
+          )
+          rows = []
+          for line in raw.splitlines():
+              additions, deletions, path = line.split("\t", 2)
+              if additions == "-" or deletions == "-":
+                  raise SystemExit(f"binary R3 delta is forbidden: {path}")
+              rows.append(
+                  {
+                      "path": path,
+                      "additions": int(additions),
+                      "deletions": int(deletions),
+                      "net": int(additions) - int(deletions),
+                  }
+              )
+          relevant = {
+              row["path"]: row
+              for row in rows
+              if row["path"] in {
+                  "src/drpo/workflow_replay/trajectory.py",
+                  "src/drpo/workflow_replay/evidence.py",
+                  "src/drpo/workflow_replay/execute.py",
+                  "tests/test_workflow_replay_r3.py",
+                  "tests/test_workflow_replay_execute.py",
+              }
+              or row["path"].startswith("tests/fixtures/workflow_replay/r3/")
+          }
+          production_limits = {
+              "src/drpo/workflow_replay/trajectory.py": 500,
+              "src/drpo/workflow_replay/evidence.py": 160,
+              "src/drpo/workflow_replay/execute.py": 120,
+          }
+          test_limits = {
+              "tests/test_workflow_replay_r3.py": 900,
+              "tests/test_workflow_replay_execute.py": 180,
+          }
+          failures = []
+          for path, limit in production_limits.items():
+              if relevant.get(path, {}).get("net", 0) > limit:
+                  failures.append(f"{path} net addition exceeds {limit}")
+          for path, limit in test_limits.items():
+              if relevant.get(path, {}).get("additions", 0) > limit:
+                  failures.append(f"{path} additions exceed {limit}")
+          production_total = sum(
+              max(0, relevant.get(path, {}).get("net", 0))
+              for path in production_limits
+          )
+          test_total = sum(
+              relevant.get(path, {}).get("additions", 0) for path in test_limits
+          )
+          fixture_total = sum(
+              row["additions"]
+              for path, row in relevant.items()
+              if path.startswith("tests/fixtures/workflow_replay/r3/")
+          )
+          if production_total > 800:
+              failures.append("total production Python exceeds 800")
+          if test_total > 1080:
+              failures.append("total Python tests exceed 1080")
+          if fixture_total > 600:
+              failures.append("calibration fixture additions exceed 600")
+          compare_changed = subprocess.run(
+              [
+                  "git", "diff", "--quiet", r3_start, candidate, "--",
+                  "src/drpo/workflow_replay/compare.py",
+              ],
+              check=False,
+          ).returncode != 0
+          if compare_changed:
+              failures.append("frozen compare.py changed")
+          payload = {
+              "r3_start_sha": r3_start,
+              "r3_a_merge_sha": r3_a_merge,
+              "candidate_sha": candidate,
+              "relevant_file_stats": relevant,
+              "production_net_addition_total": production_total,
+              "test_additions_total": test_total,
+              "fixture_additions_total": fixture_total,
+              "compare_py_unchanged": not compare_changed,
+              "failures": failures,
+          }
+          (audit / "r3-line-budget.json").write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          if failures:
+              raise SystemExit("; ".join(failures))
+          PY
+
+          run_gate r1_r2_focused python -m pytest -q tests/test_workflow_replay_r1.py
+          run_gate r3_calibration python -m pytest -vv tests/test_workflow_replay_r3.py
+          run_gate r3_execution python -m pytest -q tests/test_workflow_replay_execute.py
+          run_gate replayab_focused bash -c 'python -m pytest -q tests/test_workflow_replay_*.py'
+          run_gate full_pytest python -m pytest -q
+          run_gate ruff ruff check .
+          run_gate python_compile python -m compileall -q src scripts tools tests
+          run_gate shell_syntax bash -n tools/drpo-update/drpo-update tools/drpo-update/install.sh
+          run_gate handoff_authority python scripts/handoff_authority.py verify --repo-root .
+          run_gate formal_execution_channel python scripts/validate_formal_execution_channel.py --repo-root .
+          run_gate governance_inventory python scripts/validate_governance_rule_inventory.py --repo-root .
+          run_gate governance_stage python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          run_gate evidence_locator python scripts/validate_evidence_locator.py \
+            --repo-root . --base "$BASE_SHA" --head "$HEAD_SHA" --json
+
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          audit = Path(os.environ["AUDIT_DIR"])
+          gates = {}
+          for line in (audit / "gate-status.tsv").read_text(encoding="utf-8").splitlines():
+              name, status = line.split("\t", 1)
+              gates[name] = int(status)
+          result = {
+              "all_gates_passed": all(status == 0 for status in gates.values()),
+              "gate_exit_codes": gates,
+              "r3_close_permitted": False,
+          }
+          (audit / "audit-result.json").write_text(
+              json.dumps(result, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          if [ "$?" -ne 0 ]; then
+            failed=1
+          fi
+
+          (
+            cd "$AUDIT_DIR" || exit 1
+            find . -type f ! -name SHA256SUMS ! -name AUDIT_MANIFEST_SHA256 -print0 \
+              | sort -z \
+              | xargs -0 sha256sum > SHA256SUMS
+            sha256sum SHA256SUMS > AUDIT_MANIFEST_SHA256
+          )
+          if [ "$?" -ne 0 ]; then
+            failed=1
+          fi
+
+          echo "failed=$failed" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload immutable terminal-audit artifact
+        id: upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: replayab-r3-terminal-audit-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+          path: replayab-r3-terminal-audit/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Publish audit identity
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### ReplayAB R3 exact-candidate terminal audit"
+            echo
+            echo "- base: \`$BASE_SHA\`"
+            echo "- head: \`$HEAD_SHA\`"
+            echo "- candidate: \`$CANDIDATE_SHA\`"
+            echo "- artifact ID: \`${{ steps.upload.outputs['artifact-id'] }}\`"
+            echo "- artifact digest: \`${{ steps.upload.outputs['artifact-digest'] }}\`"
+            echo "- recorded gate failure: \`${{ steps.gates.outputs.failed }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce fail-closed result
+        if: always()
+        shell: bash
+        run: |
+          test "${{ steps.gates.outcome }}" = "success"
+          test "${{ steps.upload.outcome }}" = "success"
+          test "${{ steps.gates.outputs.failed }}" = "0"
