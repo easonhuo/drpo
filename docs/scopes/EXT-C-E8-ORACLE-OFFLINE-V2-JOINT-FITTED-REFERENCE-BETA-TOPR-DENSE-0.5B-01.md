@@ -32,7 +32,7 @@ The runtime-slot provenance key is frozen as:
 
 `execution.runtime_scope: GOV-RUNTIME-E8-GPU-SLOT-HOTFIX-01`
 
-This required metadata repairs `RUNTIME_SLOTS.json` generation only. It does not change beta values, seeds, GPU allocation, cells per GPU, wave count, training, data, or evaluation.
+This required metadata repairs `RUNTIME_SLOTS.json` generation only. It does not change beta values, seeds, GPU allocation, cells per GPU, wave count, training, data, or evaluation. The metadata hotfix itself is engineering evidence only, not liveness or scientific evidence.
 
 The full matrix is blocked until the exact implementation passes:
 
