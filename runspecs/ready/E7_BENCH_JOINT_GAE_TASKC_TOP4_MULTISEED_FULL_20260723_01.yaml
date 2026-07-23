@@ -128,3 +128,4 @@ publish:
 
 # CI trigger only: no scientific or execution semantics changed.
 # CI retrigger after merging current main; no protected path changed.
+# PR synchronize trigger after reopen; no protected path changed.
