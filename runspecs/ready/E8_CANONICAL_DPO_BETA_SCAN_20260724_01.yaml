@@ -4,7 +4,7 @@ lane: e8
 priority: 165
 created_at: "2026-07-24T00:00:00Z"
 experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-CANONICAL-DPO-BETA-SCAN-0.5B-01
-repo_commit: 00e8b5a6a90c02129731f943ce3687beb9d67336
+repo_commit: cc0ead2be00c89a3c35296b7adc1ddeae8d14759
 
 registration:
   mode: deferred
@@ -28,17 +28,19 @@ purpose: >-
   model-independent E8 V2 oracle-offline bank. Pair each oracle completion with
   every first-occurrence unique verifier-wrong completion from the same prompt,
   use an exact frozen copy of the initial policy adapter as the reference, and
-  scan eight beta values over two paired development seeds. Preserve the fixed
-  1200-step horizon, prompt-balanced loss, structurally disjoint held-out
-  evaluation, no-test-access boundary, terminal audit, and automatic text-first
-  delivery. Countdown provides external-validity evidence only. This run does
-  not test the DRPO/TOPR remoteness mechanism and does not authorize convergence,
-  saturation, significance, best-beta, or formal method-ranking claims.
+  scan eight beta values over two paired development seeds. Use GPU 0 and 1 with
+  two concurrent cells per GPU, yielding four full waves after the two-slot
+  capacity gate passes. Preserve the fixed 1200-step horizon, prompt-balanced
+  loss, structurally disjoint held-out evaluation, no-test-access boundary,
+  terminal audit, and automatic text-first delivery. Countdown provides
+  external-validity evidence only. This run does not test the DRPO/TOPR
+  remoteness mechanism and does not authorize convergence, saturation,
+  significance, best-beta, or formal method-ranking claims.
 
 entrypoint:
   cwd: repo_root
   command: >-
-    E8_DPO_EXPECTED_COMMIT=00e8b5a6a90c02129731f943ce3687beb9d67336
+    E8_DPO_EXPECTED_COMMIT=cc0ead2be00c89a3c35296b7adc1ddeae8d14759
     E8_DPO_WORK_DIR=outputs/e8/canonical_dpo_beta_scan_001
     E8_DPO_FORMAL_RUN_AUTHORIZED=1
     bash scripts/run_countdown_e8_canonical_dpo_beta_scan.sh full
@@ -47,7 +49,7 @@ recovery:
   enabled: true
   max_attempts: 2
   resume_command: >-
-    E8_DPO_EXPECTED_COMMIT=00e8b5a6a90c02129731f943ce3687beb9d67336
+    E8_DPO_EXPECTED_COMMIT=cc0ead2be00c89a3c35296b7adc1ddeae8d14759
     E8_DPO_WORK_DIR=outputs/e8/canonical_dpo_beta_scan_001
     E8_DPO_FORMAL_RUN_AUTHORIZED=1
     bash scripts/run_countdown_e8_canonical_dpo_beta_scan.sh run
@@ -75,7 +77,7 @@ outputs:
   audit_file: outputs/e8/canonical_dpo_beta_scan_001/aggregate/terminal_audit.json
 
 success_criteria:
-  - source checkout is clean and the protected implementation paths are unchanged from commit 00e8b5a6a90c02129731f943ce3687beb9d67336
+  - source checkout is clean and the protected implementation paths are unchanged from commit cc0ead2be00c89a3c35296b7adc1ddeae8d14759
   - execution uses only the reviewed fixed-profile DPO entrypoint and does not reactivate generic E8 config-driven execution
   - method identity is canonical sigmoid DPO with an exact frozen initial-policy reference and is not reported as TOPR, DRPO, behavior-policy correction, or remoteness control
   - the model is Qwen2.5-0.5B-Instruct with one shared frozen backbone, a trainable default policy LoRA, and an identically initialized permanently frozen reference LoRA
@@ -86,7 +88,8 @@ success_criteria:
   - the frozen beta grid is exactly 0.01, 0.03, 0.05, 0.1, 0.2, 0.3, 0.5, and 1.0
   - paired development seed offsets are exactly 4000 and 5000
   - exactly eight beta points and sixteen unique cells are present
-  - runtime records GPU 0 and 1, one slot per GPU, and eight full waves
+  - runtime records GPU 0 and 1, two slots per GPU, four full waves, and no more than two concurrent cells on either GPU
+  - the execution host passes a two-concurrent-cell capacity check before the four-wave schedule is treated as valid
   - every full cell uses exactly 1200 optimizer updates, no early stopping, Greedy and Pass@8 every 100 updates, and Pass@64 every 200 updates
   - no hard-negative mining, near-far selection, extreme selection, distance taper, value network, weight-sum normalization, gradient-budget matching, IPO, hinge loss, robust DPO, or length-normalized DPO is used
   - the beta=0.1 two-step liveness gate passes before the full matrix and remains non-scientific engineering evidence
