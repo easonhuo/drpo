@@ -6,7 +6,7 @@ method_identity: canonical_sigmoid_dpo_frozen_initial_reference
 claim: >-
   On the frozen model-independent E8 V2 bank, measure the development response
   of canonical prompt-balanced multi-negative sigmoid DPO with an exact frozen
-  initialization reference. Scan four beta values on two paired development
+  initialization reference. Scan eight beta values on two paired development
   seeds. This code-first round does not establish a formal method ranking,
   convergence, steady state, statistical significance, or test performance.
 model:
@@ -51,13 +51,17 @@ objective:
 sweep:
   cartesian_product: false
   parameter_points:
-    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.03, role: aggressive_boundary}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.01, role: near_zero_boundary}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.03, role: low_anchor}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.05, role: low_transition}
     - {family: canonical_dpo, alpha: 1.0, coefficient: 0.1, role: canonical_center}
-    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.3, role: conservative_middle}
-    - {family: canonical_dpo, alpha: 1.0, coefficient: 1.0, role: strong_reference_anchor}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.2, role: middle_transition}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.3, role: middle_anchor}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.5, role: high_transition}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 1.0, role: strong_anchor}
   seed_offsets: [4000, 5000]
-  unique_parameter_points: 4
-  cells: 8
+  unique_parameter_points: 8
+  cells: 16
 training:
   steps: 1200
   early_stop: false
@@ -72,7 +76,7 @@ execution:
   generic_config_driven_reactivation: false
   default_gpus: [0, 1]
   parallel_cells_per_gpu: 1
-  expected_full_waves: 4
+  expected_full_waves: 8
   runtime_scope: GOV-RUNTIME-E8-GPU-SLOT-HOTFIX-01
   identity_checked_resume: true
   continue_after_cell_failure: true
