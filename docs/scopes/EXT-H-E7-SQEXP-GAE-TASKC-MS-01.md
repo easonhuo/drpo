@@ -4,12 +4,22 @@
 
 - Experiment: `EXT-H-E7-SQEXP-GAE-01`
 - Profile: `d4rl9_task_specific_c_top4_multiseed`
-- Execution claim: run the already observed task-specific peak neighborhoods with five development seeds per task–c cell.
+- Execution claim: rerun the four strongest observed finite-c points for each D4RL task with five development seeds per task–c cell.
 - Scientific role: D4RL/Hopper/Walker2d/HalfCheetah external-validity performance and stability screening only.
+
+## Candidate-selection provenance
+
+The four candidates per task are frozen before this multi-seed execution. They are the strict top four finite c values by `late_window_mean_800k_1m` across the completed P1, P2, and P3 development response curves on seeds `200,201`:
+
+- P1 result commit: `33fa687352392df985679abddedb834535b10a3d`;
+- P2 result commit: `7c1af9fc47ddd347c1bb28d43ad8a024ca95b8a8`;
+- P3 result source: `easonhuo/drpo-results@ingest/e7`, run `E7_BENCH_JOINT_GAE_P3_LEFT_SATURATION_FULL_20260722_03`.
+
+The exact per-task values are authoritative in `configs/e7_bench_joint_gae_taskc_top4_multiseed.json`. Positive-only is not a candidate c and is not part of this 180-branch confirmation matrix.
 
 ## Frozen matrix
 
-The matrix contains the nine D4RL-v2 locomotion tasks. Each task has four predeclared remoteness scales selected from the completed P1/P2/P3 response curves. Every task–c cell uses seeds `200,201,202,203,208`.
+The matrix contains the nine D4RL-v2 locomotion tasks. Every task–c cell uses seeds `200,201,202,203,208`.
 
 `9 tasks × 4 c values × 5 seeds = 180 branches`.
 
@@ -26,7 +36,7 @@ The primary branch statistic is normalized return averaged over evaluations from
 
 For each task, the candidate c is selected by maximum `top3_of_5_late_mean`; ties are resolved by larger all-five median and then smaller c. This deterministic protocol is frozen before execution. External baselines remain quoted from their published sources; this pilot does not create a reproduction-versus-paper confrontation.
 
-Task-performance degradation, support/variance boundary events, rollout failure, and NaN/Inf numerical failure remain separate. Failed runs and low-performing seeds are retained in raw outputs and all-five summaries even when they do not enter the top-three publication summary.
+Task-performance degradation, support/variance boundary events, rollout failure, and NaN/Inf numerical failure remain separate. Failed runs and low-performing seeds are retained in raw outputs and all-five summaries even when they do not enter the top-three publication summary. Rollout and NaN/Inf counts in the terminal audit are derived from branch-level outputs rather than assumed.
 
 ## Execution boundary
 
@@ -36,7 +46,7 @@ The one-click entrypoint is:
 bash scripts/run_e7_taskc_top4_multiseed_entrypoint.sh run
 ```
 
-The outer entrypoint installs a run-local Python profile shim so the existing reviewed P2/P3 bootstrap can recognize the task-specific profile without adding a new Python module or widening the generic runtime. It then delegates to the fixed 180-branch launcher.
+The outer entrypoint installs a run-local Python profile shim so the existing reviewed P2/P3 bootstrap can recognize the task-specific profile without adding a new Python module or widening the generic runtime. It delegates to the fixed 180-branch launcher and performs the final branch-derived numerical/rollout audit update before RunSpec delivery.
 
 Environment overrides are available for the canonical contract, run spec, work directory, and worker count. The launcher rejects a dirty checkout, validates the exact 180-branch matrix, supports identity-checked resume, and writes a terminal audit plus:
 
