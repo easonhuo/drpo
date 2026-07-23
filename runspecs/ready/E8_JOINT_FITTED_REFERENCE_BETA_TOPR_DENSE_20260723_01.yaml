@@ -4,7 +4,7 @@ lane: e8
 priority: 150
 created_at: "2026-07-23T01:30:00Z"
 experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-JOINT-FITTED-REFERENCE-BETA-TOPR-DENSE-0.5B-01
-repo_commit: 871e942c60fc0c484c509e067968eb09b4f4a9fe
+repo_commit: fd01669b2b9d690433494c7af3bd64710d1dcc27
 
 registration:
   mode: deferred
@@ -36,7 +36,7 @@ purpose: >-
 entrypoint:
   cwd: repo_root
   command: >-
-    E8_TOPR_DENSE_EXPECTED_COMMIT=871e942c60fc0c484c509e067968eb09b4f4a9fe
+    E8_TOPR_DENSE_EXPECTED_COMMIT=fd01669b2b9d690433494c7af3bd64710d1dcc27
     E8_TOPR_DENSE_WORK_DIR=outputs/e8/joint_fitted_reference_beta_topr_dense_001
     bash scripts/run_countdown_e8_joint_fitted_reference_beta_topr_dense.sh full
 
@@ -44,7 +44,7 @@ recovery:
   enabled: true
   max_attempts: 2
   resume_command: >-
-    E8_TOPR_DENSE_EXPECTED_COMMIT=871e942c60fc0c484c509e067968eb09b4f4a9fe
+    E8_TOPR_DENSE_EXPECTED_COMMIT=fd01669b2b9d690433494c7af3bd64710d1dcc27
     E8_TOPR_DENSE_WORK_DIR=outputs/e8/joint_fitted_reference_beta_topr_dense_001
     bash scripts/run_countdown_e8_joint_fitted_reference_beta_topr_dense.sh run
   retryable_exit_codes: [137, 143]
@@ -69,8 +69,9 @@ outputs:
   audit_file: outputs/e8/joint_fitted_reference_beta_topr_dense_001/aggregate/terminal_audit.json
 
 success_criteria:
-  - source checkout is clean and exactly matches implementation commit 871e942c60fc0c484c509e067968eb09b4f4a9fe
+  - source checkout is clean and exactly matches implementation commit fd01669b2b9d690433494c7af3bd64710d1dcc27
   - execution uses only the reviewed fixed-profile entrypoint and does not reactivate generic E8 config-driven execution
+  - RUNTIME_SLOTS.json records runtime scope GOV-RUNTIME-E8-GPU-SLOT-HOTFIX-01 without changing the scientific matrix or GPU allocation
   - method identity is Joint Fitted-Reference beta-TOPR and is not reported as canonical frozen-behavior TOPR
   - the frozen grid contains beta values 0, 0.01, 0.02, 0.04, 0.08, 0.125, 0.25, and 0.5 on seed offsets 4000 and 5000
   - exactly 8 beta points and 16 cells are present
