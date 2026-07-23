@@ -75,8 +75,8 @@ execution:
   profile_mode: fixed_profile_fixed_matrix_only
   generic_config_driven_reactivation: false
   default_gpus: [0, 1]
-  parallel_cells_per_gpu: 1
-  expected_full_waves: 8
+  parallel_cells_per_gpu: 2
+  expected_full_waves: 4
   runtime_scope: GOV-RUNTIME-E8-GPU-SLOT-HOTFIX-01
   identity_checked_resume: true
   continue_after_cell_failure: true
