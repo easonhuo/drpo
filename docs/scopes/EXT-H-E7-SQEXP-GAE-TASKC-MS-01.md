@@ -3,12 +3,13 @@
 ## Identity
 
 - Experiment: `EXT-H-E7-SQEXP-GAE-TASKC-MS-01`
-- Parent experiment: `EXT-H-E7-SQEXP-GAE-01`
+- Parent benchmark: `EXT-H-E7-BENCH-01`
+- Predecessor response-curve experiment: `EXT-H-E7-SQEXP-GAE-01`
 - Profile: `d4rl9_task_specific_c_top4_multiseed`
 - Execution claim: rerun the four strongest observed finite-c points for each D4RL task with five development seeds per task–c cell.
 - Scientific role: D4RL/Hopper/Walker2d/HalfCheetah external-validity performance and stability screening only.
 
-The task-specific multi-seed round has its own experiment identity. It must not deposit branches, manifests, aggregates, or terminal audits under the parent P1/P2/P3 experiment ID.
+The task-specific multi-seed round has its own experiment identity. It must not deposit branches, manifests, aggregates, or terminal audits under the predecessor P1/P2/P3 experiment ID.
 
 ## Candidate-selection provenance
 
