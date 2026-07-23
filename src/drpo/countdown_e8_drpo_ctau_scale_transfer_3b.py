@@ -1,20 +1,26 @@
 #!/usr/bin/env python3
-"""Frozen Qwen2.5-3B DRPO c/tau scale-transfer profile.
+"""Frozen Qwen2.5-3B DRPO c/tau scale-transfer profile and runtime adapter.
 
-This module is a narrow adapter over the reviewed E8 V2 offline-bank training
-stack.  It changes only the model scale and the four explicitly frozen
-``(c, tau)`` points selected from the historical 0.5B response surface.  It
-does not implement TOPR, AsymRE, Reciprocal control, new bank construction, or
-new hyperparameter search.
+This approved module is intentionally narrow. It reuses the reviewed E8 V2
+trainer, runtime scheduler, resource probe, bank, held-out evaluation semantics,
+and result packaging. It changes only the model scale and the four explicitly
+frozen ``(c, tau)`` points selected from the historical 0.5B response surface.
+It does not implement TOPR, AsymRE, Reciprocal control, new bank construction,
+or new hyperparameter search.
 """
 from __future__ import annotations
 
+import argparse
+import csv
+import importlib.util
 import json
 import math
+import shutil
+import sys
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator, Mapping
+from typing import Any, Iterator, Mapping, Sequence
 
 import torch
 
@@ -28,7 +34,7 @@ DEFAULT_GRID_CONFIG = "configs/countdown_e8_drpo_ctau_scale_transfer_3b.yaml"
 DEFAULT_BASE_CONFIG = "configs/countdown_e8_base_rl_replay_3b.yaml"
 MODEL_IDENTITY = "Qwen2.5-3B-Instruct"
 
-# Exact four-point transfer set approved for this experiment.  These are the
+# Exact four-point transfer set approved for this experiment. These are the
 # historical implementation-facing coefficient c and threshold tau in
 # w = exp(-c * relu(u - tau)), u = current mean-token surprisal / 2.
 PARAMETER_POINTS = (
@@ -41,6 +47,20 @@ SEED_OFFSETS = (4000, 5000)
 EXPECTED_POINTS = 4
 EXPECTED_CELLS = 8
 _ACTIVE_TAU = 0.0
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+EVALUATION_SEMANTICS: dict[str, Any] = {
+    "evaluation_split_file": "val.jsonl",
+    "evaluation_split_role": "structurally_disjoint_held_out_evaluation",
+    "evaluation_enters_training_loss": False,
+    "training_structure_overlap": "none",
+    "training_problem_key_overlap": "none",
+    "paper_facing_checkpoint_policy": "late_window_and_terminal",
+    "paper_facing_summary": ["late_window_pass_at_8", "terminal_pass_at_8"],
+    "best_checkpoint_role": "supplementary_only",
+    "separate_test_jsonl_used": False,
+    "separate_test_jsonl_required_for_existing_curve_validity": False,
+}
 
 
 @dataclass(frozen=True)
@@ -291,15 +311,14 @@ def _identity(
     validate_grid_config(config)
     package_dir = Path(__file__).resolve().parent
     source_paths = {
-        "transfer_profile": Path(__file__).resolve(),
+        "transfer_profile_and_runtime": Path(__file__).resolve(),
         "base_common": Path(_base.__file__).resolve(),
         "base_trainer": package_dir / "countdown_e8_alpha1_c_scan_trainer.py",
         "base_runtime": package_dir / "countdown_e8_alpha1_c_scan_runtime.py",
         "highc_common": Path(_highc.__file__).resolve(),
-        "highc_runtime": package_dir / "countdown_e8_alpha1_highc_scan_runtime.py",
-        "highc_auto_launcher": repo
+        "resource_launcher": repo
         / "scripts"
-        / "run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py",
+        / "run_countdown_e8_oracle_offline_v2_alpha1_c_scan_auto.py",
     }
     missing = [name for name, path in source_paths.items() if not path.is_file()]
     if missing:
@@ -382,3 +401,444 @@ def activated() -> Iterator[None]:
                     delattr(target, name)
                 else:
                     setattr(target, name, value)
+
+
+def _semantic_payload(config: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    payload = dict(EVALUATION_SEMANTICS)
+    if config is not None:
+        evaluation = config.get("evaluation", {})
+        payload.update(
+            {
+                "evaluation_split_file": str(
+                    evaluation.get("split_file", payload["evaluation_split_file"])
+                ),
+                "evaluation_split_role": str(
+                    evaluation.get("split_role", payload["evaluation_split_role"])
+                ),
+                "evaluation_enters_training_loss": bool(
+                    evaluation.get(
+                        "enters_training_loss",
+                        payload["evaluation_enters_training_loss"],
+                    )
+                ),
+                "paper_facing_checkpoint_policy": str(
+                    evaluation.get(
+                        "paper_facing_checkpoint_policy",
+                        payload["paper_facing_checkpoint_policy"],
+                    )
+                ),
+                "best_checkpoint_role": str(
+                    evaluation.get("best_checkpoint_role", payload["best_checkpoint_role"])
+                ),
+            }
+        )
+    return payload
+
+
+def _load_runtime():
+    activate()
+    from drpo import countdown_e8_alpha1_c_scan_runtime as runtime
+
+    return runtime
+
+
+def _core_worker_command(args: argparse.Namespace, cell: Cell, output_dir: Path) -> list[str]:
+    return [
+        sys.executable,
+        str(Path(__file__).resolve()),
+        "worker",
+        "--model_path",
+        args.model_path,
+        "--bank",
+        args.bank,
+        "--val",
+        args.val,
+        "--base_config",
+        args.base_config,
+        "--grid_config",
+        args.grid_config,
+        "--output_dir",
+        str(output_dir),
+        "--label",
+        cell.label,
+        "--c",
+        str(cell.c),
+        "--tau",
+        str(cell.tau),
+        "--seed_offset",
+        str(cell.seed_offset),
+    ]
+
+
+def _augment_plan(work_dir: Path, config: Mapping[str, Any]) -> None:
+    path = work_dir / "SWEEP_PLAN.json"
+    if not path.is_file():
+        return
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload.update(_semantic_payload(config))
+    payload["model_identity"] = MODEL_IDENTITY
+    payload["resource_contract"] = {
+        "gpu_count": 4,
+        "runtime_slots_per_gpu": 1,
+        "total_runtime_slots": 4,
+        "expected_full_waves": 2,
+    }
+    by_name = {cell.name: cell for cell in build_cells(config)}
+    for row in payload.get("cells", []):
+        cell = by_name[row["name"]]
+        row.update({"label": cell.label, "tau": cell.tau})
+    atomic_json(path, payload)
+
+
+def _augment_csv_constants(path: Path, constants: Mapping[str, Any]) -> None:
+    if not path.is_file():
+        return
+    with path.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    if not rows:
+        return
+    for row in rows:
+        row.update({key: str(value) for key, value in constants.items()})
+    fieldnames = list(rows[0])
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _augment_jsonl_constants(path: Path, constants: Mapping[str, Any]) -> None:
+    if not path.is_file():
+        return
+    rows = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        row.update(constants)
+        rows.append(row)
+    path.write_text(
+        "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+        encoding="utf-8",
+    )
+
+
+def _augment_cell_summary(output_dir: Path, cell: Cell, summary: dict[str, Any]) -> dict[str, Any]:
+    constants = {"ctau_label": cell.label, "tau": cell.tau}
+    summary.update(constants)
+    summary.update(_semantic_payload(load_yaml(DEFAULT_GRID_CONFIG)))
+    terminal = dict(summary.get("terminal_metrics", {}))
+    terminal.update(constants)
+    summary["terminal_metrics"] = terminal
+    reporting = dict(summary.get("reporting_separation", {}))
+    reporting["task_performance"] = (
+        "predeclared late-window and terminal held-out metrics; "
+        "metric-specific best values are supplementary only"
+    )
+    summary["reporting_separation"] = reporting
+    summary["best_checkpoint_saved"] = True
+    atomic_json(output_dir / "manifest.json", summary)
+    atomic_json(output_dir / "summary.json", summary)
+    _augment_csv_constants(output_dir / "metrics.csv", constants)
+    _augment_jsonl_constants(output_dir / "validation_diagnostics.jsonl", constants)
+    _augment_jsonl_constants(output_dir / "training_diagnostics.jsonl", constants)
+    return summary
+
+
+def _augment_aggregate(work_dir: Path, config: Mapping[str, Any]) -> None:
+    aggregate_dir = work_dir / "aggregate"
+    csv_path = aggregate_dir / "per_cell_summary.csv"
+    if csv_path.is_file():
+        with csv_path.open(encoding="utf-8", newline="") as handle:
+            rows = list(csv.DictReader(handle))
+        by_name = {cell.name: cell for cell in build_cells(config)}
+        for row in rows:
+            cell = by_name[row["cell"]]
+            row.update(
+                {
+                    "ctau_label": cell.label,
+                    "tau": str(cell.tau),
+                    "evaluation_split_role": EVALUATION_SEMANTICS[
+                        "evaluation_split_role"
+                    ],
+                    "evaluation_enters_training_loss": "false",
+                    "paper_facing_checkpoint_policy": EVALUATION_SEMANTICS[
+                        "paper_facing_checkpoint_policy"
+                    ],
+                    "best_checkpoint_role": EVALUATION_SEMANTICS[
+                        "best_checkpoint_role"
+                    ],
+                    "separate_test_jsonl_used": "false",
+                }
+            )
+        if rows:
+            with csv_path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+                writer.writeheader()
+                writer.writerows(rows)
+    audit_path = aggregate_dir / "terminal_audit.json"
+    if audit_path.is_file():
+        audit = json.loads(audit_path.read_text(encoding="utf-8"))
+        audit.update(_semantic_payload(config))
+        audit["task_performance_status"] = (
+            "late_window_and_terminal_reported_not_adjudicated"
+        )
+        audit["resource_contract"] = {
+            "gpu_count": 4,
+            "runtime_slots_per_gpu": 1,
+            "total_runtime_slots": 4,
+            "expected_full_waves": 2,
+        }
+        atomic_json(audit_path, audit)
+
+
+def core_plan(args: argparse.Namespace) -> int:
+    runtime = _load_runtime()
+    config = load_yaml(args.grid_config)
+    validate_grid_config(config)
+    result = runtime.plan(args)
+    _augment_plan(Path(args.work_dir).resolve(), config)
+    return result
+
+
+def core_smoke(args: argparse.Namespace) -> int:
+    runtime = _load_runtime()
+    repo = _REPO_ROOT
+    model, bank, val, base_config, grid_config = runtime._required_inputs(args)
+    config = load_yaml(grid_config)
+    validate_grid_config(config)
+    liveness = config["execution"]["liveness"]
+    cell = Cell(
+        label=str(liveness["representative_label"]),
+        coefficient=float(liveness["representative_c"]),
+        tau=float(liveness["representative_tau"]),
+        seed_offset=SEED_OFFSETS[0],
+    )
+    set_active_tau(cell.tau)
+    output_dir = Path(args.work_dir).resolve() / "_liveness" / cell.name
+    if output_dir.exists() and not (output_dir / "summary.json").exists():
+        shutil.rmtree(output_dir)
+    try:
+        summary = runtime.train_cell(
+            cell=cell,
+            model_path=model,
+            bank=bank,
+            val=val,
+            base_config_path=base_config,
+            grid_config_path=grid_config,
+            output_dir=output_dir,
+            repo=repo,
+            smoke=True,
+        )
+        summary = _augment_cell_summary(output_dir, cell, summary)
+        passed = summary.get("numerical_failure") is None and int(
+            summary.get("terminal_step", -1)
+        ) == int(liveness["steps"])
+        gate = {
+            "schema_version": 1,
+            "experiment_id": EXPERIMENT_ID,
+            "registration_state": str(config["registration_state"]),
+            "status": "PASS" if passed else "FAIL",
+            "scientific_evidence": False,
+            "cell": cell.name,
+            "summary": str(output_dir / "summary.json"),
+            "run_identity": summary.get("run_identity"),
+            "resource_contract": {
+                "gpu_count": 4,
+                "runtime_slots_per_gpu": 1,
+                "expected_full_waves": 2,
+            },
+            "test_data_used": False,
+            **_semantic_payload(config),
+        }
+    except BaseException as error:
+        gate = {
+            "schema_version": 1,
+            "experiment_id": EXPERIMENT_ID,
+            "registration_state": str(config["registration_state"]),
+            "status": "FAIL",
+            "scientific_evidence": False,
+            "error_type": type(error).__name__,
+            "error": str(error),
+            "test_data_used": False,
+            **_semantic_payload(config),
+        }
+        atomic_json(Path(args.work_dir).resolve() / "SMOKE_GATE.json", gate)
+        raise
+    atomic_json(Path(args.work_dir).resolve() / "SMOKE_GATE.json", gate)
+    return 0 if gate["status"] == "PASS" else 1
+
+
+def core_run(args: argparse.Namespace) -> int:
+    runtime = _load_runtime()
+    config = load_yaml(args.grid_config)
+    validate_grid_config(config)
+    if int(args.runtime_slots_per_gpu) != 1:
+        raise ValueError("3B scale transfer requires --runtime-slots-per-gpu=1")
+    gpu_pool = [value for value in args.gpus.split(",") if value]
+    if len(gpu_pool) != 4 or len(set(gpu_pool)) != 4:
+        raise ValueError("3B scale transfer requires exactly four unique GPUs")
+    runtime._worker_command = _core_worker_command
+    result = runtime.run(args)
+    work_dir = Path(args.work_dir).resolve()
+    _augment_plan(work_dir, config)
+    _augment_aggregate(work_dir, config)
+    complete_path = work_dir / "SWEEP_COMPLETE.json"
+    if complete_path.is_file():
+        complete = json.loads(complete_path.read_text(encoding="utf-8"))
+        complete.update(_semantic_payload(config))
+        complete["model_identity"] = MODEL_IDENTITY
+        complete["resource_contract"] = {
+            "gpu_count": 4,
+            "runtime_slots_per_gpu": 1,
+            "total_runtime_slots": 4,
+            "expected_full_waves": 2,
+        }
+        atomic_json(complete_path, complete)
+    return result
+
+
+def worker(args: argparse.Namespace) -> int:
+    runtime = _load_runtime()
+    cell = Cell(
+        label=str(args.label),
+        coefficient=float(args.c),
+        tau=float(args.tau),
+        seed_offset=int(args.seed_offset),
+    )
+    config = load_yaml(args.grid_config)
+    if cell not in build_cells(config):
+        raise ValueError(f"Worker cell is outside the frozen grid: {cell}")
+    set_active_tau(cell.tau)
+    output_dir = Path(args.output_dir).resolve()
+    summary = runtime.train_cell(
+        cell=cell,
+        model_path=Path(args.model_path).resolve(),
+        bank=Path(args.bank).resolve(),
+        val=Path(args.val).resolve(),
+        base_config_path=Path(args.base_config).resolve(),
+        grid_config_path=Path(args.grid_config).resolve(),
+        output_dir=output_dir,
+        repo=_REPO_ROOT,
+        smoke=False,
+    )
+    summary = _augment_cell_summary(output_dir, cell, summary)
+    return 0 if summary.get("numerical_failure") is None else 1
+
+
+def _load_auto_launcher():
+    activate()
+    path = _REPO_ROOT / "scripts" / "run_countdown_e8_oracle_offline_v2_alpha1_c_scan_auto.py"
+    spec = importlib.util.spec_from_file_location("_e8_3b_transfer_auto_base", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Unable to load reviewed resource launcher: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _auto_main(tokens: list[str]) -> int:
+    auto = _load_auto_launcher()
+    original_selection = auto._selection
+
+    def selection(args: argparse.Namespace, config: dict[str, Any]) -> dict[str, Any]:
+        document = original_selection(args, config)
+        document["limitations"] = [
+            "fixed_one_process_per_gpu_for_qwen2p5_3b_bf16_lora",
+            "configured_vram_floor_precedes_actual_two_step_liveness",
+            "smoke_probes_one_worker_before_two_wave_full_run",
+            "countdown_external_validity_pilot_not_method_ranking",
+        ]
+        atomic_json(Path(args.work_dir).resolve() / "RUNTIME_SELECTION.json", document)
+        return document
+
+    def core_command(
+        args: argparse.Namespace,
+        command: str,
+        *,
+        selected_ids: list[str],
+    ) -> list[str]:
+        if len(selected_ids) != 4:
+            raise RuntimeError("3B DRPO c/tau scale transfer requires exactly four GPUs")
+        result = [
+            sys.executable,
+            str(Path(__file__).resolve()),
+            f"_core-{command}",
+            "--model_path",
+            str(Path(args.model_path).resolve()),
+            "--work_dir",
+            str(Path(args.work_dir).resolve()),
+            "--bank",
+            str(Path(args.bank).resolve()),
+            "--val",
+            str(Path(args.val).resolve()),
+            "--base_config",
+            str(Path(args.base_config).resolve()),
+            "--grid_config",
+            str(Path(args.grid_config).resolve()),
+        ]
+        if command == "run":
+            result.extend(
+                [
+                    "--gpus",
+                    ",".join(selected_ids),
+                    "--runtime-slots-per-gpu",
+                    "1",
+                ]
+            )
+        return result
+
+    auto.ADAPTER_ID = "e8_drpo_ctau_scale_transfer_3b_cuda_dev_v1"
+    auto._selection = selection
+    auto._core_command = core_command
+    return int(auto.main(tokens))
+
+
+def _core_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    def common(subparser: argparse.ArgumentParser, *, include_work_dir: bool = True) -> None:
+        subparser.add_argument("--model_path", required=True)
+        subparser.add_argument("--bank", required=True)
+        subparser.add_argument("--val", required=True)
+        subparser.add_argument("--base_config", required=True)
+        subparser.add_argument("--grid_config", required=True)
+        if include_work_dir:
+            subparser.add_argument("--work_dir", required=True)
+
+    common(subparsers.add_parser("_core-plan"))
+    common(subparsers.add_parser("_core-smoke"))
+    run_parser = subparsers.add_parser("_core-run")
+    common(run_parser)
+    run_parser.add_argument("--gpus", required=True)
+    run_parser.add_argument("--runtime-slots-per-gpu", type=int, required=True)
+    worker_parser = subparsers.add_parser("worker")
+    common(worker_parser, include_work_dir=False)
+    worker_parser.add_argument("--output_dir", required=True)
+    worker_parser.add_argument("--label", required=True)
+    worker_parser.add_argument("--c", type=float, required=True)
+    worker_parser.add_argument("--tau", type=float, required=True)
+    worker_parser.add_argument("--seed_offset", type=int, required=True)
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    tokens = list(sys.argv[1:] if argv is None else argv)
+    if not tokens:
+        raise SystemExit("A command is required")
+    if tokens[0] in {"plan", "smoke", "run"}:
+        return _auto_main(tokens)
+    args = _core_parser().parse_args(tokens)
+    if args.command == "_core-plan":
+        return core_plan(args)
+    if args.command == "_core-smoke":
+        return core_smoke(args)
+    if args.command == "_core-run":
+        return core_run(args)
+    if args.command == "worker":
+        return worker(args)
+    raise AssertionError(args.command)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
