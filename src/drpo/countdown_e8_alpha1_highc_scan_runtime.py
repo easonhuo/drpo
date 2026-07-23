@@ -690,6 +690,18 @@ def plan(args: argparse.Namespace) -> int:
     if path.is_file():
         payload = json.loads(path.read_text(encoding="utf-8"))
         payload.update(_semantic_payload(config))
+        if highc.EXPERIMENT_ID == CANONICAL_DPO_EXPERIMENT_ID:
+            payload["dpo_beta_points"] = [
+                float(point[2]) for point in highc.parameter_points(config)
+            ]
+            payload["paired_seed_offsets"] = [
+                int(value) for value in config["sweep"]["seed_offsets"]
+            ]
+            payload["matrix_shape"] = {
+                "parameter_points": int(config["sweep"]["unique_parameter_points"]),
+                "seeds_per_parameter": len(config["sweep"]["seed_offsets"]),
+                "cells": int(config["sweep"]["cells"]),
+            }
         for row in payload.get("cells", []):
             if row.get("method") == "asymre":
                 row["delta_v"] = round(float(row["alpha"]) - 1.0, 12)
@@ -755,6 +767,12 @@ def _aggregate(
     audit["task_performance_status"] = (
         "late_window_and_terminal_reported_not_adjudicated"
     )
+    if highc.EXPERIMENT_ID == CANONICAL_DPO_EXPERIMENT_ID:
+        audit["matrix_shape"] = {
+            "parameter_points": len({float(cell.c) for cell in cells}),
+            "seeds_per_parameter": len({int(cell.seed_offset) for cell in cells}),
+            "cells": len(cells),
+        }
     aggregate_dir = work_dir / "aggregate"
     _augment_aggregate_csv(aggregate_dir / "per_cell_summary.csv")
     highc.atomic_json(aggregate_dir / "terminal_audit.json", audit)
