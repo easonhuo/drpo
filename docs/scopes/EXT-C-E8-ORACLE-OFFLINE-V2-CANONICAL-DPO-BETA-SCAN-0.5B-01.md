@@ -29,6 +29,7 @@ On the frozen model-independent E8 V2 oracle-offline bank, measure the developme
 - loss: canonical sigmoid DPO with zero label smoothing
 - beta development grid: `[0.01, 0.03, 0.05, 0.1, 0.2, 0.3, 0.5, 1.0]`
 - matrix size: 8 beta points × 2 paired development seeds = 16 cells
+- execution layout: GPU 0–1, one cell per GPU, eight full waves
 
 For prompt `x`, chosen completion `y+`, and each rejected completion `y-_j`, the pair margin is
 
