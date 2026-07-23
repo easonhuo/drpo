@@ -2,10 +2,13 @@
 
 ## Identity
 
-- Experiment: `EXT-H-E7-SQEXP-GAE-01`
+- Experiment: `EXT-H-E7-SQEXP-GAE-TASKC-MS-01`
+- Parent experiment: `EXT-H-E7-SQEXP-GAE-01`
 - Profile: `d4rl9_task_specific_c_top4_multiseed`
 - Execution claim: rerun the four strongest observed finite-c points for each D4RL task with five development seeds per task–c cell.
 - Scientific role: D4RL/Hopper/Walker2d/HalfCheetah external-validity performance and stability screening only.
+
+The task-specific multi-seed round has its own experiment identity. It must not deposit branches, manifests, aggregates, or terminal audits under the parent P1/P2/P3 experiment ID.
 
 ## Candidate-selection provenance
 
@@ -46,7 +49,7 @@ The one-click entrypoint is:
 bash scripts/run_e7_taskc_top4_multiseed_entrypoint.sh run
 ```
 
-The outer entrypoint installs a run-local Python profile shim so the existing reviewed P2/P3 bootstrap can recognize the task-specific profile without adding a new Python module or widening the generic runtime. It delegates to the fixed 180-branch launcher and performs the final branch-derived numerical/rollout audit update before RunSpec delivery.
+The outer entrypoint installs a run-local Python identity/profile shim. The shim binds the existing reviewed joint-GAE runner, bootstrap subprocess, and aggregate reader to `EXT-H-E7-SQEXP-GAE-TASKC-MS-01` only for this entrypoint, without changing the historical P1/P2/P3 experiment identity. It delegates to the fixed 180-branch launcher and performs the final branch-derived numerical/rollout audit update before RunSpec delivery.
 
 Environment overrides are available for the canonical contract, run spec, work directory, and worker count. The launcher rejects a dirty checkout, validates the exact 180-branch matrix, supports identity-checked resume, and writes a terminal audit plus:
 
