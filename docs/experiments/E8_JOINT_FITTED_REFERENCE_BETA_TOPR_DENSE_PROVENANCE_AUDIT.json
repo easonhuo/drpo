@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "audit_id": "E8-JOINT-FITTED-REFERENCE-BETA-TOPR-DENSE-PROVENANCE-CLOSURE-2026-07-23",
+  "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-JOINT-FITTED-REFERENCE-BETA-TOPR-DENSE-0.5B-01",
+  "run_id": "E8_JOINT_FITTED_REFERENCE_BETA_TOPR_DENSE_20260723_01",
+  "evidence_status": "pilot",
+  "method_identity": "joint_fitted_reference_beta_topr_scan_not_canonical_topr",
+  "countdown_role": "external_validity_only",
+  "durable_result": {
+    "repository": "easonhuo/drpo-results",
+    "commit": "712c36c5e858182de4e93c48dfe917bd42198c67",
+    "status": "READY_FOR_REVIEW",
+    "manifest_sha256": "3d9b004cd9390c9161e2e9177ee19aed41b54707c3662e0ecb9f64d4df4200ca",
+    "source_artifact_zip_sha256": "e565b183c96414c55e703295f7905e1afeacb193d82a68bec53b9e6dfbe88e70",
+    "directly_copied_text_files": 88,
+    "omitted_non_text_files": 0
+  },
+  "run_source": {
+    "reported_commit": "3733ee28cc1517b67ad235afa10f2e855f2dde33",
+    "reported_branch": "dev/ext-c-e8-joint-fitted-reference-beta-topr-dense-01-v2",
+    "reported_dirty": false,
+    "remote_commit_resolvable_at_closure": false,
+    "remote_branch_resolvable_at_closure": false,
+    "direct_commit_provenance_status": "unresolved",
+    "interpretation": "The run reports a clean local commit, but the exact commit is not currently available from the authoritative remote repository. Protected source hashes and the durable result package are preserved; direct-commit provenance is not claimed."
+  },
+  "protected_source_sha256": {
+    "base_common": "bf6a2245d0f7f5278cc983c5425d6cbc2d5d0d96f16dfb7f31936df107d85fd4",
+    "base_runtime": "1111e6e532721f3bc8d3bc43bd78c60a2a57cc3c6218049d6ece7401fff062fd",
+    "base_trainer": "dac1e9a8e844921188f4244a7774c2c60c852d6ed3ea415714e5c3502b7465cc",
+    "highc_auto_launcher": "b29617df3ac80ffe3de20fe43c205b546403af37e41a1954b9ab348ad5a47644",
+    "highc_common": "58a9b10fd5438000a6cc9c55761b07d615b9446ff2438e28f37a4e692ca731ba",
+    "highc_runtime": "124c4a8c61535f8680770e00942996c1b88c3c3693040c1ef7aab02a13b3a9fa"
+  },
+  "frozen_input_sha256": {
+    "bank": "3887fe4b13b1ff89e904e0816491e13a74ecd1d1dfe71dc1211b0dcae2f69519",
+    "validation": "b21069c90746f7e7207d7b61079b28c6a71935da782bb696e771edbcda4fd004",
+    "base_config": "492f063f0cb41dded82355bb4bd9c3d0524f607d670599a5f48a51a5c0099866",
+    "grid_config": "91aec7c00480f1bab71d047501c827595853219c7d0efc827e11c6336c146057"
+  },
+  "execution_allocation": {
+    "runtime_scope": "GOV-RUNTIME-E8-GPU-SLOT-HOTFIX-01",
+    "gpu_pool": [0, 1, 2, 3, 4, 5, 6, 7],
+    "gpu_count": 8,
+    "runtime_slots_per_gpu": 2,
+    "total_runtime_slots": 16,
+    "expected_full_waves": 1,
+    "scientific_matrix_changed": false,
+    "device_type": "NVIDIA H20",
+    "allocation_role": "wall_clock_scheduling_only"
+  },
+  "liveness": {
+    "smoke_gate_status": "PASS",
+    "representative_cell": "base_joint_fitted_reference_topr_beta0p25_seed4000",
+    "scientific_evidence": false,
+    "checkpoint_reload_gate": {
+      "generated": true,
+      "status_inferred_from_full_run_gate": "PASS_required_before_matrix",
+      "deposited_in_compact_result": false,
+      "exclusion_recorded_in_source_artifact_manifest": true,
+      "sha256": "41d9c6ca11494160f06752604165a6c0b1b5c95a4ce10c639cca01835dd3f117",
+      "size_bytes": 911,
+      "limitation": "The compact durable package records the exact hash and size but does not contain the file body."
+    }
+  },
+  "result_completeness": {
+    "expected_cells": 16,
+    "completed_cells": 16,
+    "failed_cells": 0,
+    "terminal_audit_status": "PASS",
+    "numerical_failures": 0,
+    "test_data_used": false,
+    "evaluation_split": "val.jsonl",
+    "evaluation_split_role": "structurally_disjoint_held_out_evaluation",
+    "evaluation_enters_training_loss": false,
+    "training_structure_overlap": "none",
+    "training_problem_key_overlap": "none"
+  },
+  "reporting_boundaries": {
+    "fixed_1200_steps_is_convergence": false,
+    "saturation_claim_allowed": false,
+    "steady_state_claim_allowed": false,
+    "method_ranking_claim_allowed": false,
+    "significance_claim_allowed": false,
+    "formal_support_recovery_claim_allowed": false,
+    "best_checkpoint_role": "supplementary_only",
+    "paper_facing_checkpoint_policy": "late_window_and_terminal",
+    "event_classes_separate": [
+      "task_performance_degradation",
+      "valid_expression_or_structure_degradation",
+      "nan_inf_numerical_failure"
+    ]
+  },
+  "predecessor": {
+    "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-JOINT-FITTED-REFERENCE-TOPR-0.5B-01",
+    "result_repository_commit": "68ea4980ed9c8ebb79e02f7d2b40a7e2a8ee0461",
+    "reported_unresolved_source_commit": "f3712fdb6dd3ec16807cee72dc2afe752ee6c90c",
+    "repeated_anchors": [0.0, 0.25, 0.5]
+  },
+  "closure": {
+    "scientific_exploration_closed": true,
+    "additional_beta_sweep_required": false,
+    "frozen_comparison_beta": 0.5,
+    "selection_rule": "highest registered dense-scan late-window Pass@8 mean within the high-validity plateau",
+    "selection_is_universal_optimum_claim": false,
+    "retuning_after_main_model_or_test_observation_forbidden": true,
+    "future_allowed_work": "one frozen-configuration budget-matched comparison against the main method, without reopening beta tuning"
+  },
+  "provenance_verdict": "provenance_limited_complete_pilot",
+  "provenance_verdict_explanation": "The scientific outputs are complete, terminal-audited, and durably deposited. The exact local source commit and reload-gate file body are not remotely recoverable from the compact package, so the result remains a provenance-limited pilot rather than a direct-commit-resolved formal result."
+}
