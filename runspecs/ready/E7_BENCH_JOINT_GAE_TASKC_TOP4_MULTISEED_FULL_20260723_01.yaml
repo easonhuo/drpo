@@ -128,3 +128,5 @@ delivery:
 publish:
   enabled: false
   auto: false
+
+# PR synchronize trigger after the final implementation freeze; no protected path changed.
