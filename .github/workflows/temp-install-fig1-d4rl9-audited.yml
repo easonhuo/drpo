@@ -1,0 +1,95 @@
+name: TEMP install audited D4RL-9 Figure 1 manuscript update
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  install:
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      github.event.pull_request.head.ref == 'dev/paper-kdd2027-fig1-d4rl9-01'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Download and verify audited artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://sdmntprcentralus.oaiusercontent.com/files/00000000-8768-81f5-93ac-4809865d83f0/raw?se=2026-07-23T18:38:22Z&sp=r&sv=2026-02-06&sr=b&scid=1e48a7a3-962b-5d55-9f1e-9170b1bd46d2&skoid=c69179d1-5b5d-430f-afa3-b9bdcf9d6497&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-07-23T13:25:09Z&ske=2026-07-25T13:25:09Z&sks=b&skv=2026-02-06&sig=v1HDIJtX9IZ3pJmKYolWmEmUCHIPrmFJC026G86Tc2U%3D'
+          curl --fail --location --retry 3 --retry-delay 2 "$url" -o /tmp/audited-outer.zip
+          echo '0ac37211476e98a9234ef661f45de25d4932afb94dc19bbcd1d7f45abd45f53c  /tmp/audited-outer.zip' | sha256sum --check --strict
+          rm -rf /tmp/audited-outer /tmp/audited-inner
+          mkdir -p /tmp/audited-outer /tmp/audited-inner
+          unzip -q /tmp/audited-outer.zip -d /tmp/audited-outer
+          test -s /tmp/audited-outer/paper_fig1_d4rl9_artifact.zip
+          unzip -q /tmp/audited-outer/paper_fig1_d4rl9_artifact.zip -d /tmp/audited-inner
+
+      - name: Verify contract, audits, and file identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git merge-base HEAD a105ead8ae235ccd3bb8d1a545f41b11dad0219a)" = 'a105ead8ae235ccd3bb8d1a545f41b11dad0219a'
+          test "$(grep -c 'PASS' /tmp/audited-inner/round1_implementation_completeness.log)" -eq 6
+          test "$(grep -c 'PASS' /tmp/audited-inner/round2_scope_purity.log)" -eq 6
+          test "$(awk '/^Pages:/ {print $2}' /tmp/audited-inner/pdfinfo.txt)" = '30'
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          root = Path('/tmp/audited-inner/final_files')
+          manifest = json.loads(Path('/tmp/audited-inner/final_file_manifest.json').read_text())
+          assert manifest['base_commit'] == 'a105ead8ae235ccd3bb8d1a545f41b11dad0219a'
+          assert manifest['contract_id'] == 'PAPER-FIG1-D4RL9-ADAPT-PLAN-01'
+          assert manifest['experiment_id'] == 'EXT-H-E7-FIG1-D4RL9-GRADIENT-COVERAGE-01'
+          assert len(manifest['files']) == 18
+          for record in manifest['files']:
+              path = root / record['path']
+              assert path.is_file(), record['path']
+              payload = path.read_bytes()
+              assert len(payload) == record['bytes'], record['path']
+              assert hashlib.sha256(payload).hexdigest() == record['sha256'], record['path']
+          print('audited_artifact_identity=PASS')
+          PY
+
+      - name: Install exact audited files and remove transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp -a /tmp/audited-inner/final_files/. .
+          rm -f .github/workflows/temp-install-fig1-d4rl9-audited.yml
+          git add -A
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+          manifest = json.loads(Path('/tmp/audited-inner/final_file_manifest.json').read_text())
+          expected = {record['path'] for record in manifest['files']}
+          changed = set(subprocess.check_output(
+              ['git', 'diff', '--cached', '--name-only', 'a105ead8ae235ccd3bb8d1a545f41b11dad0219a'],
+              text=True,
+          ).splitlines())
+          assert changed == expected, {'missing': sorted(expected - changed), 'extra': sorted(changed - expected)}
+          print('exact_changed_path_set=PASS')
+          PY
+
+      - name: Commit exact audited update
+        shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'PAPER-FIG1-D4RL9-ADAPT-PLAN-01: apply audited manuscript update'
+          git push origin "HEAD:${HEAD_BRANCH}"
