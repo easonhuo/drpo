@@ -62,8 +62,11 @@ assert config["model"]["reference_trainable"] is False
 assert config["reference_policy"]["role"] == "exact_frozen_initial_policy"
 assert config["preference_data"]["pair_aggregation"] == "mean_within_prompt_then_mean_prompts"
 assert config["training"]["steps"] == 1200
+assert config["execution"]["default_gpus"] == [0, 1]
+assert config["execution"]["parallel_cells_per_gpu"] == 2
+assert config["execution"]["expected_full_waves"] == 4
 assert config["evaluation"]["separate_test_split_access"] is False
-print("canonical DPO fixed-profile preflight: PASS")
+print("canonical DPO fixed-profile 16-cell/2-slot preflight: PASS")
 PY
 }
 
