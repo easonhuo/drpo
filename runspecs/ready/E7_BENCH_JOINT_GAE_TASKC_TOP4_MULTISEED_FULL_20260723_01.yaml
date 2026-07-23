@@ -4,7 +4,7 @@ lane: e7
 priority: 155
 created_at: "2026-07-23T16:30:00Z"
 experiment_id: EXT-H-E7-SQEXP-GAE-TASKC-MS-01
-repo_commit: e51f368c7108b8705eb685844b44335ca0c414a0
+repo_commit: c02ce7027b960d6294ffed6519d1731a35a2d08c
 
 registration:
   mode: deferred
@@ -72,7 +72,7 @@ outputs:
 
 success_criteria:
   - grid, branch configs, branch manifests, aggregate summaries, and terminal audit all use experiment identity EXT-H-E7-SQEXP-GAE-TASKC-MS-01
-  - no output from this run is deposited under parent experiment EXT-H-E7-SQEXP-GAE-01
+  - no output from this run is deposited under predecessor experiment EXT-H-E7-SQEXP-GAE-01
   - run-local Python identity/profile shim binds the reviewed runner, bootstrap, and aggregate reader without changing historical P1/P2/P3 identities
   - candidate c values are the strict per-task top four finite points by late-window mean across completed P1, P2, and P3 development curves
   - matrix contains exactly 180 branches from nine D4RL-v2 tasks, four task-specific c values, and five seeds
