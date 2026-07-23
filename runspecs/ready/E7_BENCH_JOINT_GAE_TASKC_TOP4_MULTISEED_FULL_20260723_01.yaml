@@ -125,3 +125,5 @@ delivery:
 publish:
   enabled: false
   auto: false
+
+# CI trigger only: no scientific or execution semantics changed.
