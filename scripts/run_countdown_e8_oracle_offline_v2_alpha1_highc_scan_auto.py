@@ -140,10 +140,10 @@ def _validate_canonical_dpo_config(config: Mapping[str, Any]) -> None:
     execution = config.get("execution", {})
     if execution.get("default_gpus") != [0, 1]:
         raise ValueError("Canonical DPO profile requires GPU 0-1")
-    if int(execution.get("parallel_cells_per_gpu", -1)) != 1:
-        raise ValueError("Canonical DPO requires one cell per GPU")
-    if int(execution.get("expected_full_waves", -1)) != 8:
-        raise ValueError("Canonical DPO scan requires eight full waves")
+    if int(execution.get("parallel_cells_per_gpu", -1)) != 2:
+        raise ValueError("Canonical DPO requires two cells per GPU")
+    if int(execution.get("expected_full_waves", -1)) != 4:
+        raise ValueError("Canonical DPO scan requires four full waves")
     if execution.get("identity_checked_resume") is not True:
         raise ValueError("Canonical DPO requires identity-checked resume")
     liveness = execution.get("liveness", {})
@@ -186,7 +186,7 @@ def _install_canonical_dpo_profile(grid_config: str | Path | None) -> None:
     highc.CANONICAL_DPO_POINTS = CANONICAL_DPO_POINTS
     highc._PROFILES[CANONICAL_DPO_EXPERIMENT_ID] = {
         "experiment_id": CANONICAL_DPO_EXPERIMENT_ID,
-        "version": "0.2.0-dev-code-first-canonical-dpo-8beta",
+        "version": "0.3.0-dev-code-first-canonical-dpo-8beta-2slot",
         "default_grid_config": (
             "configs/countdown_e8_oracle_offline_v2_canonical_dpo_beta_scan_0p5b.yaml"
         ),
