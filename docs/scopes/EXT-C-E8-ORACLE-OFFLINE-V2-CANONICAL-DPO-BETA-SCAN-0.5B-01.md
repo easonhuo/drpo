@@ -29,7 +29,7 @@ On the frozen model-independent E8 V2 oracle-offline bank, measure the developme
 - loss: canonical sigmoid DPO with zero label smoothing
 - beta development grid: `[0.01, 0.03, 0.05, 0.1, 0.2, 0.3, 0.5, 1.0]`
 - matrix size: 8 beta points × 2 paired development seeds = 16 cells
-- execution layout: GPU 0–1, one cell per GPU, eight full waves
+- execution layout: GPU 0–1, two cells per GPU, four full waves
 
 For prompt `x`, chosen completion `y+`, and each rejected completion `y-_j`, the pair margin is
 
@@ -78,6 +78,7 @@ The implementation extends existing E8 profile/runtime files. It does not create
 1. static validation and repository CI;
 2. two-step liveness on one representative beta cell;
 3. terminal checkpoint reload of both adapters;
-4. freeze implementation SHA;
-5. create and review `DEV_PILOT_REGISTRATION_SPEC.yaml`;
-6. complete the normal schema-v3 registration transaction before any formal run.
+4. verify two concurrent cells fit on each execution GPU before relying on the four-wave schedule;
+5. freeze implementation SHA;
+6. create and review `DEV_PILOT_REGISTRATION_SPEC.yaml`;
+7. complete the normal schema-v3 registration transaction before any formal run.
