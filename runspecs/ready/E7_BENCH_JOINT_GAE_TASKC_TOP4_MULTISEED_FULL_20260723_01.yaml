@@ -4,7 +4,7 @@ lane: e7
 priority: 155
 created_at: "2026-07-23T16:30:00Z"
 experiment_id: EXT-H-E7-SQEXP-GAE-01
-repo_commit: 5bf49cc419e3deb384342975d766d404cdeedb95
+repo_commit: f9505bc6e7e5f06a873fc069206e81e177a0946d
 
 registration:
   mode: deferred
@@ -20,6 +20,7 @@ provenance:
     - src/drpo/e7_squared_exp_night_bootstrap.py
     - src/drpo/e7_squared_exp_night_aggregate.py
     - scripts/run_e7_taskc_top4_multiseed.sh
+    - scripts/run_e7_taskc_top4_multiseed_entrypoint.sh
     - scripts/test_e7_taskc_top4_multiseed.sh
     - scripts/agent/run_claimed_runspec.py
     - scripts/agent/runspec_results_delivery.py
@@ -38,7 +39,7 @@ entrypoint:
   command: >-
     E7_TASKC_GRID=configs/e7_bench_joint_gae_taskc_top4_multiseed.json
     E7_TASKC_WORK_DIR=outputs/e7/taskc_top4_multiseed_001
-    bash scripts/run_e7_taskc_top4_multiseed.sh run
+    bash scripts/run_e7_taskc_top4_multiseed_entrypoint.sh run
 
 recovery:
   enabled: true
@@ -46,7 +47,7 @@ recovery:
   resume_command: >-
     E7_TASKC_GRID=configs/e7_bench_joint_gae_taskc_top4_multiseed.json
     E7_TASKC_WORK_DIR=outputs/e7/taskc_top4_multiseed_001
-    bash scripts/run_e7_taskc_top4_multiseed.sh run
+    bash scripts/run_e7_taskc_top4_multiseed_entrypoint.sh run
   retryable_exit_codes: [137, 143]
   checkpoint_globs:
     - outputs/e7/taskc_top4_multiseed_001/EXECUTION_PLAN.json
@@ -68,6 +69,7 @@ outputs:
   audit_file: outputs/e7/taskc_top4_multiseed_001/aggregate/terminal_audit.json
 
 success_criteria:
+  - run-local Python profile shim resolves the reviewed bootstrap profile whitelist without adding a new Python module
   - matrix contains exactly 180 branches from nine D4RL-v2 tasks, four task-specific c values, and five seeds
   - development seeds are exactly 200, 201, 202, 203, and 208
   - held-out seeds 204 through 207 are untouched
