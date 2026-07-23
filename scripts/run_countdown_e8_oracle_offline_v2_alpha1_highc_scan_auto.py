@@ -27,7 +27,8 @@ CANONICAL_DPO_EXPERIMENT_ID = (
     "EXT-C-E8-ORACLE-OFFLINE-V2-CANONICAL-DPO-BETA-SCAN-0.5B-01"
 )
 CANONICAL_DPO_POINTS = tuple(
-    ("canonical_dpo", 1.0, beta) for beta in (0.03, 0.1, 0.3, 1.0)
+    ("canonical_dpo", 1.0, beta)
+    for beta in (0.01, 0.03, 0.05, 0.1, 0.2, 0.3, 0.5, 1.0)
 )
 CANONICAL_DPO_SEED_OFFSETS = (4000, 5000)
 
@@ -113,10 +114,10 @@ def _validate_canonical_dpo_config(config: Mapping[str, Any]) -> None:
         raise ValueError("Canonical DPO beta points changed")
     if tuple(int(value) for value in sweep.get("seed_offsets", ())) != CANONICAL_DPO_SEED_OFFSETS:
         raise ValueError("Canonical DPO development seed offsets changed")
-    if int(sweep.get("unique_parameter_points", -1)) != 4:
-        raise ValueError("Canonical DPO scan requires four beta points")
-    if int(sweep.get("cells", -1)) != 8:
-        raise ValueError("Canonical DPO scan requires eight paired cells")
+    if int(sweep.get("unique_parameter_points", -1)) != 8:
+        raise ValueError("Canonical DPO scan requires eight beta points")
+    if int(sweep.get("cells", -1)) != 16:
+        raise ValueError("Canonical DPO scan requires sixteen paired cells")
     if sweep.get("cartesian_product") is not False:
         raise ValueError("Canonical DPO scan must remain an explicit point list")
 
@@ -141,8 +142,8 @@ def _validate_canonical_dpo_config(config: Mapping[str, Any]) -> None:
         raise ValueError("Canonical DPO profile requires GPU 0-1")
     if int(execution.get("parallel_cells_per_gpu", -1)) != 1:
         raise ValueError("Canonical DPO requires one cell per GPU")
-    if int(execution.get("expected_full_waves", -1)) != 4:
-        raise ValueError("Canonical DPO scan requires four full waves")
+    if int(execution.get("expected_full_waves", -1)) != 8:
+        raise ValueError("Canonical DPO scan requires eight full waves")
     if execution.get("identity_checked_resume") is not True:
         raise ValueError("Canonical DPO requires identity-checked resume")
     liveness = execution.get("liveness", {})
@@ -185,14 +186,14 @@ def _install_canonical_dpo_profile(grid_config: str | Path | None) -> None:
     highc.CANONICAL_DPO_POINTS = CANONICAL_DPO_POINTS
     highc._PROFILES[CANONICAL_DPO_EXPERIMENT_ID] = {
         "experiment_id": CANONICAL_DPO_EXPERIMENT_ID,
-        "version": "0.1.0-dev-code-first-canonical-dpo",
+        "version": "0.2.0-dev-code-first-canonical-dpo-8beta",
         "default_grid_config": (
             "configs/countdown_e8_oracle_offline_v2_canonical_dpo_beta_scan_0p5b.yaml"
         ),
         "parameter_points": CANONICAL_DPO_POINTS,
         "seed_offsets": CANONICAL_DPO_SEED_OFFSETS,
-        "expected_points": 4,
-        "expected_cells": 8,
+        "expected_points": 8,
+        "expected_cells": 16,
         "requires_positive_only": False,
         "kind": "canonical_dpo",
     }
@@ -227,8 +228,8 @@ def _install_canonical_dpo_profile(grid_config: str | Path | None) -> None:
             for family, alpha, beta in points
             for seed_offset in CANONICAL_DPO_SEED_OFFSETS
         )
-        if len(cells) != 8 or len({cell.name for cell in cells}) != 8:
-            raise AssertionError("Canonical DPO scan must produce eight unique cells")
+        if len(cells) != 16 or len({cell.name for cell in cells}) != 16:
+            raise AssertionError("Canonical DPO scan must produce sixteen unique cells")
         return cells
 
     highc.validate_grid_config = validate_grid_config
