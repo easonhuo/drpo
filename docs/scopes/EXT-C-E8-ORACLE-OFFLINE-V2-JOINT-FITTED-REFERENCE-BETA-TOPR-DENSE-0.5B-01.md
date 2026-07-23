@@ -22,7 +22,6 @@ The sole scientific change is the beta grid. Learning rates, optimizers, schedul
 - `docs/experiments/E8_JOINT_FITTED_REFERENCE_BETA_TOPR_DENSE_PROVENANCE_AUDIT.json`
 - `docs/development_workflow_optimization/E8_TOPR_DENSE_FIXED_PROFILE_REACTIVATION_20260723.md`
 - `runspecs/ready/E8_JOINT_FITTED_REFERENCE_BETA_TOPR_DENSE_20260723_01.yaml`
-- one schema-v3 handoff delta dedicated to this result closure;
 - this scope file.
 
 No new Python path is authorized or needed.
@@ -37,14 +36,7 @@ The runtime-slot provenance key is frozen as:
 
 This required metadata repairs `RUNTIME_SLOTS.json` generation only. It does not change beta values, seeds, training, data, or evaluation. The metadata hotfix itself is engineering evidence only, not liveness or scientific evidence.
 
-The completed run recorded the following execution allocation without changing the 16-cell scientific matrix:
-
-- visible GPUs: `0,1,2,3,4,5,6,7`;
-- runtime slots per GPU: `2`;
-- total runtime slots: `16`;
-- full waves: `1`.
-
-The user authorized synchronizing this already-used execution allocation to the reviewed fixed profile. This synchronization is an engineering/provenance repair, not a new scientific variable or a new experiment.
+The completed run recorded an execution allocation of eight visible GPUs, two runtime slots per GPU, sixteen total slots, and one full wave. That allocation is recorded in the provenance audit as a wall-clock scheduling fact. It is not promoted by this closure into a new canonical resource requirement. Per the user's earlier explicit instruction, the separate local eight-GPU scheduling patch is not synchronized in this closure; the reviewed fixed-profile implementation already merged through PR #261 and its required runtime-scope repair already merged through PR #262.
 
 ## Result-closure authorization
 
@@ -74,11 +66,12 @@ The run reports clean local source commit `3733ee28cc1517b67ad235afa10f2e855f2dd
 - record that `CHECKPOINT_RELOAD_GATE.json` was generated and hashed but excluded from the compact deposited package;
 - avoid claiming direct-commit provenance resolution unless the exact source commit is later recovered.
 
-The schema-v3 registry/handoff closure must be performed through the authoritative delta route. Direct manual edits to `docs/handoff.md` or `experiments/registry.yaml` remain forbidden.
+This closure archives a provenance-limited pilot result and does not directly edit `docs/handoff.md` or `experiments/registry.yaml`. Promotion to a direct-commit-resolved formal result would require recovering the exact run source and using the authoritative schema-v3 delta route.
 
 ## Excluded scope
 
 - changing the beta grid, seeds, data, optimizer, learning rates, objective, jointly fitted reference target, update ratio, horizon, evaluation cadence, or checkpoint reporting policy;
+- synchronizing the separate local eight-GPU scheduling patch in this closure;
 - changing the old result package or rewriting its unresolved source provenance;
 - claiming canonical TOPR, convergence, saturation, universal best beta, significance, or formal ranking;
 - accessing `test.jsonl`;
