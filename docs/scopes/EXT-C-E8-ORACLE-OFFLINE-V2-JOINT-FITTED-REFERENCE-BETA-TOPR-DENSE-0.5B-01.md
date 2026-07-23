@@ -28,6 +28,12 @@ No new Python path is authorized or needed.
 
 The generic E8 config-driven runtime remains suspended. This scope authorizes only the exact dense TOPR fixed profile and exact shell entrypoint above. It does not authorize arbitrary new E8 configs, dynamically inferred profiles, experiment-matrix replay, M0 publication, or any other suspended runtime surface.
 
+The runtime-slot provenance key is frozen as:
+
+`execution.runtime_scope: GOV-RUNTIME-E8-GPU-SLOT-HOTFIX-01`
+
+This required metadata repairs `RUNTIME_SLOTS.json` generation only. It does not change beta values, seeds, GPU allocation, cells per GPU, wave count, training, data, or evaluation.
+
 The full matrix is blocked until the exact implementation passes:
 
 - exact-head repository CI;
@@ -43,6 +49,7 @@ The full matrix is blocked until the exact implementation passes:
 
 - modifying `docs/handoff.md`, `experiments/registry.yaml`, or schema-v3 authority in the implementation commit;
 - changing scientific variables other than beta;
+- changing GPU count, cells per GPU, wave count, or other execution allocation in this metadata hotfix;
 - changing the old result package or rewriting its unresolved source provenance;
 - claiming canonical TOPR, convergence, saturation, a best beta, significance, or formal ranking;
 - accessing `test.jsonl`;
