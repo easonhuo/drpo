@@ -76,6 +76,13 @@ execution:
   runtime_scope: GOV-RUNTIME-E8-GPU-SLOT-HOTFIX-01
   identity_checked_resume: true
   continue_after_cell_failure: true
+  autotune:
+    enabled: true
+    required_free_gpu_memory_gib: 36.0
+    required_host_memory_gib_per_gpu: 8.0
+    gpu_memory_headroom_fraction: 0.12
+    host_memory_headroom_fraction: 0.15
+    maximum_gpu_utilization_percent: 20.0
   liveness:
     required_before_full_run: true
     representative_family: canonical_dpo
