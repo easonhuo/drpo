@@ -51,11 +51,11 @@ config = scan.load_yaml(path)
 scan.activate_for_grid_config(path)
 scan.validate_grid_config(config)
 cells = scan.build_cells(config)
-expected_betas = (0.03, 0.1, 0.3, 1.0)
+expected_betas = (0.01, 0.03, 0.05, 0.1, 0.2, 0.3, 0.5, 1.0)
 assert scan.EXPERIMENT_ID == launcher.CANONICAL_DPO_EXPERIMENT_ID
 assert tuple(point[2] for point in scan.parameter_points(config)) == expected_betas
-assert len(cells) == 8
-assert len({cell.name for cell in cells}) == 8
+assert len(cells) == 16
+assert len({cell.name for cell in cells}) == 16
 assert {cell.seed_offset for cell in cells} == {4000, 5000}
 assert {cell.method for cell in cells} == {"canonical_dpo"}
 assert config["model"]["reference_trainable"] is False
