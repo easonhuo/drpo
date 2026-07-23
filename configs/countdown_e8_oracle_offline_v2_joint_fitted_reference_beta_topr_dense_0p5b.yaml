@@ -1,0 +1,146 @@
+schema_version: 1
+experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-JOINT-FITTED-REFERENCE-BETA-TOPR-DENSE-0.5B-01
+result_status: pilot
+registration_state: dev_code_first_unregistered
+method_identity: joint_fitted_reference_beta_topr_dense_scan_not_canonical_topr
+claim: >-
+  Resolve the low-beta transition between uncontrolled negative training and the
+  previously observed beta=0.25 fitted-reference TOPR anchor on the frozen E8 V2
+  bank. The pilot uses one shared frozen Qwen backbone, a jointly fitted
+  branch-balanced reference LoRA, a policy LoRA, two paired development seeds,
+  and a fixed 1200-step horizon. It does not establish convergence, saturation,
+  a best beta, statistical significance, or a formal method ranking.
+predecessor:
+  experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-JOINT-FITTED-REFERENCE-TOPR-0.5B-01
+  run_id: E8_JOINT_FITTED_REFERENCE_TOPR_20260722_01
+  role: historical_development_curve_only
+  unresolved_source_commit: f3712fdb6dd3ec16807cee72dc2afe752ee6c90c
+  rerun_internal_anchors: [0.0, 0.25, 0.5]
+model:
+  identity: Qwen2.5-0.5B-Instruct
+  initialization: pretrained_base_plus_two_identical_fresh_lora_adapters
+  parameterization: lora
+  shared_frozen_backbone: true
+  policy_adapter: default
+  reference_adapter: reference
+  copy_policy_adapter_to_reference_at_initialization: true
+bank:
+  source_experiment: EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01
+  use_all_unique_negatives: true
+  deduplicate_expression_rule: arena_clean_expression_first_occurrence
+  behavior_policy_logged: false
+  explicit_near_far_training_classes: false
+  extreme_selection_forbidden: true
+reference_policy:
+  role: jointly_fitted_bank_density_reference
+  training_mode: joint_branch_balanced_bank_sft
+  positive_branch_mass: 0.5
+  negative_branch_mass: 0.5
+  negative_within_branch: uniform_over_unique_negatives_per_prompt
+  receives_ratio_gradient: false
+  update_frequency_per_policy_step: 1
+  learning_rate_multiplier: 1.0
+objective:
+  policy_formula: positive_mean_lp-mean_unique_negative(weight*negative_mean_lp)
+  negative_weight: exp(beta*min(sum_logpi-sum_logmu,0))
+  taper_parameter: beta
+  historical_anchor_beta: 0.25
+  boundary_control_beta: 0.0
+  ratio_coordinate: full_completion_summed_log_probability
+  task_loss_log_probability: mean_completion_token_log_probability
+  reference_and_weight_detached: true
+  positive_weight: 1.0
+  weight_range: "[0,1]"
+  signed_reward: {positive: 1.0, negative: -1.0}
+  value_network: false
+remoteness:
+  enabled: false
+  coordinate: behavior_relative_full_sequence_log_ratio
+  weight: exp(beta*min(sum_logpi-sum_logmu,0))
+  detached: true
+sweep:
+  cartesian_product: false
+  parameter_points:
+    - {family: joint_fitted_reference_topr, alpha: 1.0, coefficient: 0.0, role: no_ratio_taper_boundary_control}
+    - {family: joint_fitted_reference_topr, alpha: 1.0, coefficient: 0.01, role: dense_transition_point}
+    - {family: joint_fitted_reference_topr, alpha: 1.0, coefficient: 0.02, role: dense_transition_point}
+    - {family: joint_fitted_reference_topr, alpha: 1.0, coefficient: 0.04, role: dense_transition_point}
+    - {family: joint_fitted_reference_topr, alpha: 1.0, coefficient: 0.08, role: dense_transition_point}
+    - {family: joint_fitted_reference_topr, alpha: 1.0, coefficient: 0.125, role: dense_transition_point}
+    - {family: joint_fitted_reference_topr, alpha: 1.0, coefficient: 0.25, role: historical_observed_anchor_rerun}
+    - {family: joint_fitted_reference_topr, alpha: 1.0, coefficient: 0.5, role: historical_plateau_anchor_rerun}
+  seed_offsets: [4000, 5000]
+  unique_parameter_points: 8
+  cells: 16
+training:
+  steps: 1200
+  early_stop: false
+  eval_every: 100
+  pass64_every: 200
+  denominator: unique_negative_count_per_prompt
+  normalize_by_weight_sum: false
+  hidden_negative_scale: false
+  gradient_budget_matching: false
+  initial_ratio_max_abs_tolerance: 1.0e-5
+execution:
+  profile_mode: fixed_profile_fixed_matrix_only
+  generic_config_driven_reactivation: false
+  default_gpus: [0, 1]
+  parallel_cells_per_gpu: 1
+  expected_full_waves: 8
+  identity_checked_resume: true
+  continue_after_cell_failure: true
+  liveness:
+    required_before_full_run: true
+    representative_family: joint_fitted_reference_topr
+    representative_alpha: 1.0
+    representative_c: 0.25
+    steps: 2
+    validation_examples: 8
+    checkpoint_reload_required: true
+    scientific_evidence: false
+evaluation:
+  split_file: val.jsonl
+  split_role: structurally_disjoint_held_out_evaluation
+  enters_training_loss: false
+  train_structure_overlap: none
+  train_problem_key_overlap: none
+  evaluated_adapter: default
+  response_curve_mode: full_declared_dense_beta_grid_late_window_and_terminal
+  separate_test_split_access: false
+  greedy_every: 100
+  pass_at_8_every: 100
+  pass_at_64_every: 200
+  primary_reporting_metric: late_window_pass_at_8
+  secondary_reporting_metric: terminal_pass_at_8
+  paper_facing_checkpoint_policy: late_window_and_terminal
+  best_checkpoint_saved: true
+  best_checkpoint_metric_is_supplementary_only: true
+  best_checkpoint_role: supplementary_local_diagnostic_and_recovery_only
+  late_window_steps: [800, 900, 1000, 1100, 1200]
+reporting:
+  distinguish_task_performance: true
+  distinguish_support_or_structure_boundary: true
+  distinguish_nan_inf_numerical_failure: true
+  report_reference_nll_and_ratio_distribution: true
+  report_beta_response_curve: true
+  transition_localization_claim_only: true
+  best_beta_claim_allowed: false
+  saturation_claim_allowed: false
+  fixed_horizon_is_not_convergence: true
+  method_ranking_claim_allowed: false
+  countdown_role: external_validity_only
+  compare_terminal_and_late_window: true
+  separate_test_jsonl_used: false
+exclusions:
+  - canonical_frozen_behavior_topr_claim
+  - logged_behavior_policy_claim
+  - best_beta_or_formal_method_ranking_claim
+  - saturation_or_convergence_claim_from_1200_steps
+  - value_network
+  - learned_baseline
+  - absolute_surprisal_taper
+  - current_near_current_far_selection
+  - binary_near_far_mixture
+  - weight_sum_normalization
+  - separate_test_jsonl_access

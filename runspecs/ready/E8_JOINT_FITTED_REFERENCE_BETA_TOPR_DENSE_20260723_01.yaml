@@ -1,0 +1,139 @@
+version: 1
+run_id: E8_JOINT_FITTED_REFERENCE_BETA_TOPR_DENSE_20260723_01
+lane: e8
+priority: 150
+created_at: "2026-07-23T01:30:00Z"
+experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-JOINT-FITTED-REFERENCE-BETA-TOPR-DENSE-0.5B-01
+repo_commit: 871e942c60fc0c484c509e067968eb09b4f4a9fe
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/countdown_e8_oracle_offline_v2_joint_fitted_reference_beta_topr_dense_0p5b.yaml
+    - docs/experiments/E8_JOINT_FITTED_REFERENCE_BETA_TOPR_DENSE_PROTOCOL.md
+    - docs/development_workflow_optimization/E8_TOPR_DENSE_FIXED_PROFILE_REACTIVATION_20260723.md
+    - src/drpo/countdown_e8_alpha1_highc_scan_common.py
+    - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    - src/drpo/countdown_e8_alpha1_c_scan_runtime.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py
+    - scripts/run_countdown_e8_joint_fitted_reference_beta_topr_dense.sh
+
+purpose: >-
+  Resolve the low-beta transition of Joint Fitted-Reference beta-TOPR on the
+  frozen model-independent E8 V2 bank. Run exactly eight beta values over two
+  paired development seeds, after a real beta=0.25 dual-adapter CUDA liveness
+  gate and fresh-process checkpoint reload verification. Preserve the fixed
+  1200-step horizon, held-out evaluation, no-test-access boundary, and automatic
+  text-first result delivery. This is not canonical frozen-behavior TOPR and
+  does not authorize convergence, saturation, best-beta, significance, or
+  formal method-ranking claims.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    E8_TOPR_DENSE_EXPECTED_COMMIT=871e942c60fc0c484c509e067968eb09b4f4a9fe
+    E8_TOPR_DENSE_WORK_DIR=outputs/e8/joint_fitted_reference_beta_topr_dense_001
+    bash scripts/run_countdown_e8_joint_fitted_reference_beta_topr_dense.sh full
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: >-
+    E8_TOPR_DENSE_EXPECTED_COMMIT=871e942c60fc0c484c509e067968eb09b4f4a9fe
+    E8_TOPR_DENSE_WORK_DIR=outputs/e8/joint_fitted_reference_beta_topr_dense_001
+    bash scripts/run_countdown_e8_joint_fitted_reference_beta_topr_dense.sh run
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e8/joint_fitted_reference_beta_topr_dense_001/RUNTIME_SELECTION.json
+    - outputs/e8/joint_fitted_reference_beta_topr_dense_001/RUNTIME_SLOTS.json
+    - outputs/e8/joint_fitted_reference_beta_topr_dense_001/SWEEP_STATUS.json
+    - outputs/e8/joint_fitted_reference_beta_topr_dense_001/SMOKE_GATE.json
+    - outputs/e8/joint_fitted_reference_beta_topr_dense_001/CHECKPOINT_RELOAD_GATE.json
+  backoff_seconds: 60
+
+policy:
+  existing_script_required: true
+  fixed_profile_only: true
+  generic_config_driven_runtime_forbidden: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+
+outputs:
+  run_dir: outputs/e8/joint_fitted_reference_beta_topr_dense_001
+  summary_file: outputs/e8/joint_fitted_reference_beta_topr_dense_001/SWEEP_COMPLETE.json
+  audit_file: outputs/e8/joint_fitted_reference_beta_topr_dense_001/aggregate/terminal_audit.json
+
+success_criteria:
+  - source checkout is clean and exactly matches implementation commit 871e942c60fc0c484c509e067968eb09b4f4a9fe
+  - execution uses only the reviewed fixed-profile entrypoint and does not reactivate generic E8 config-driven execution
+  - method identity is Joint Fitted-Reference beta-TOPR and is not reported as canonical frozen-behavior TOPR
+  - the frozen grid contains beta values 0, 0.01, 0.02, 0.04, 0.08, 0.125, 0.25, and 0.5 on seed offsets 4000 and 5000
+  - exactly 8 beta points and 16 cells are present
+  - beta 0 is reported as the no-ratio-taper boundary control
+  - beta 0.25 and beta 0.5 are reported as rerun historical development anchors, not formal cross-run confirmations
+  - one frozen Qwen backbone carries identically initialized default policy and reference LoRA adapters
+  - the reference objective assigns 0.5 positive branch mass and 0.5 total negative branch mass with uniform mass over unique negatives per prompt
+  - policy negative weights equal exp(beta*min(sum_logpi-sum_logmu,0)) on full-completion summed log-probability and are detached
+  - policy and reference learning rates, optimizers, schedulers, and one-to-one update frequency remain unchanged across beta
+  - positive weight remains 1 and no value network, learned baseline, absolute-surprisal taper, near-far selection, or weight-sum normalization is used
+  - runtime records GPU 0 and 1 with one slot per GPU and eight full waves
+  - the beta=0.25 two-step smoke gate passes before the full matrix and remains non-scientific evidence
+  - initial full-sequence ratio maximum absolute value is at most 1e-5
+  - both default and reference adapters record finite nonzero gradient and update norms during liveness
+  - terminal liveness checkpoint inventory contains both default and reference adapters
+  - CHECKPOINT_RELOAD_GATE.json records fresh-process loading and finite forward outputs for both adapters
+  - policy evaluation activates only the default adapter
+  - reference loss, reference positive and negative log-probability, ratio and weight quantiles, clipped-at-one fraction, and beta are finite and recorded
+  - val.jsonl is structurally disjoint held-out evaluation and never enters the training loss
+  - separate test.jsonl remains unused
+  - every beta point is reported using late-window and terminal metrics and best-checkpoint metrics remain supplementary only
+  - the pilot localizes a low-beta transition without selecting a best beta or asserting saturation, convergence, significance, or formal method ranking
+  - task performance, valid-expression or structure diagnostics, and NaN/Inf failure are reported separately
+  - completed text-first evidence is delivered to drpo-results ingest/e8
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e8/joint_fitted_reference_beta_topr_dense_001/*.json
+    - outputs/e8/joint_fitted_reference_beta_topr_dense_001/aggregate/*.json
+    - outputs/e8/joint_fitted_reference_beta_topr_dense_001/aggregate/*.csv
+    - outputs/e8/joint_fitted_reference_beta_topr_dense_001/methods/*/summary.json
+    - outputs/e8/joint_fitted_reference_beta_topr_dense_001/methods/*/metrics.csv
+    - outputs/e8/joint_fitted_reference_beta_topr_dense_001/methods/*/validation_diagnostics.jsonl
+    - outputs/e8/joint_fitted_reference_beta_topr_dense_001/methods/*/training_diagnostics.jsonl
+    - outputs/e8/joint_fitted_reference_beta_topr_dense_001/logs/*.log
+  exclude:
+    - "**/*.pt"
+    - "**/*.pth"
+    - "**/*.ckpt"
+    - "**/*.safetensors"
+    - "**/*.bin"
+    - "**/best_pass8_adapter/**"
+    - "**/terminal_adapter/**"
+    - "**/last_finite_adapter/**"
+    - "**/checkpoint*"
+    - "**/checkpoints/**"
+    - "**/optimizer*"
+    - "**/wandb/**"
+  max_package_size_mb: 100
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e8
+  export_profile: manifest_text_v1
+  max_total_size_mb: 30
+  max_file_size_mb: 10
+
+publish:
+  enabled: false
+  auto: false

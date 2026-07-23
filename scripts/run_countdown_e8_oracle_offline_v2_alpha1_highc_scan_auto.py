@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Autotuned launcher adapter for the E8 paper-aligned linear c scans."""
+"""Autotuned launcher adapter for reviewed fixed-profile E8 scans."""
 from __future__ import annotations
 
 import importlib.util
@@ -30,9 +30,20 @@ def _grid_config_from_argv(argv: list[str]) -> str | None:
     return None
 
 
+def _required_device_count() -> int:
+    if highc.EXPERIMENT_ID == highc.JOINT_FITTED_REFERENCE_TOPR_DENSE_EXPERIMENT_ID:
+        return 2
+    return 8
+
+
 def _core_command(args, command: str, *, selected_ids: list[str]) -> list[str]:
-    if len(selected_ids) != 8:
-        raise RuntimeError("paper-aligned scan requires all eight configured GPUs")
+    required_devices = _required_device_count()
+    if len(selected_ids) != required_devices:
+        if required_devices == 8:
+            raise RuntimeError("paper-aligned scan requires all eight configured GPUs")
+        raise RuntimeError(
+            "joint fitted-reference beta-TOPR dense scan requires exactly two configured GPUs"
+        )
     result = [
         sys.executable,
         str(
@@ -86,6 +97,8 @@ def main(argv: list[str] | None = None) -> int:
         _base.ADAPTER_ID = "e8_asymre_deltav_scan_cuda_dev_v1"
     elif highc.EXPERIMENT_ID == highc.C_EXTENSION_EXPERIMENT_ID:
         _base.ADAPTER_ID = "e8_linear_c_extension_cuda_dev_v1"
+    elif highc.EXPERIMENT_ID == highc.JOINT_FITTED_REFERENCE_TOPR_DENSE_EXPERIMENT_ID:
+        _base.ADAPTER_ID = "e8_joint_fitted_reference_beta_topr_dense_cuda_dev_v1"
     else:
         _base.ADAPTER_ID = "e8_alpha1_highc_scan_cuda_dev_v1"
     return _base.main(tokens)
