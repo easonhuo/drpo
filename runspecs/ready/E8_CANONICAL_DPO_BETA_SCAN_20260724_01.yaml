@@ -1,0 +1,147 @@
+version: 1
+run_id: E8_CANONICAL_DPO_BETA_SCAN_20260724_01
+lane: e8
+priority: 165
+created_at: "2026-07-24T00:00:00Z"
+experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-CANONICAL-DPO-BETA-SCAN-0.5B-01
+repo_commit: 00e8b5a6a90c02129731f943ce3687beb9d67336
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/countdown_e8_base_rl_replay_0p5b.yaml
+    - configs/countdown_e8_oracle_offline_v2_canonical_dpo_beta_scan_0p5b.yaml
+    - docs/scopes/EXT-C-E8-ORACLE-OFFLINE-V2-CANONICAL-DPO-BETA-SCAN-0.5B-01.md
+    - src/drpo/countdown_e8_alpha1_highc_scan_common.py
+    - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    - src/drpo/countdown_e8_alpha1_c_scan_runtime.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py
+    - scripts/run_countdown_e8_canonical_dpo_beta_scan.sh
+
+purpose: >-
+  Execute the frozen 16-cell canonical sigmoid-DPO beta response pilot on the
+  model-independent E8 V2 oracle-offline bank. Pair each oracle completion with
+  every first-occurrence unique verifier-wrong completion from the same prompt,
+  use an exact frozen copy of the initial policy adapter as the reference, and
+  scan eight beta values over two paired development seeds. Preserve the fixed
+  1200-step horizon, prompt-balanced loss, structurally disjoint held-out
+  evaluation, no-test-access boundary, terminal audit, and automatic text-first
+  delivery. Countdown provides external-validity evidence only. This run does
+  not test the DRPO/TOPR remoteness mechanism and does not authorize convergence,
+  saturation, significance, best-beta, or formal method-ranking claims.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    E8_DPO_EXPECTED_COMMIT=00e8b5a6a90c02129731f943ce3687beb9d67336
+    E8_DPO_WORK_DIR=outputs/e8/canonical_dpo_beta_scan_001
+    E8_DPO_FORMAL_RUN_AUTHORIZED=1
+    bash scripts/run_countdown_e8_canonical_dpo_beta_scan.sh full
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: >-
+    E8_DPO_EXPECTED_COMMIT=00e8b5a6a90c02129731f943ce3687beb9d67336
+    E8_DPO_WORK_DIR=outputs/e8/canonical_dpo_beta_scan_001
+    E8_DPO_FORMAL_RUN_AUTHORIZED=1
+    bash scripts/run_countdown_e8_canonical_dpo_beta_scan.sh run
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e8/canonical_dpo_beta_scan_001/RUNTIME_SELECTION.json
+    - outputs/e8/canonical_dpo_beta_scan_001/RUNTIME_SLOTS.json
+    - outputs/e8/canonical_dpo_beta_scan_001/SWEEP_STATUS.json
+    - outputs/e8/canonical_dpo_beta_scan_001/SMOKE_GATE.json
+    - outputs/e8/canonical_dpo_beta_scan_001/CHECKPOINT_RELOAD_GATE.json
+  backoff_seconds: 60
+
+policy:
+  existing_script_required: true
+  fixed_profile_only: true
+  generic_config_driven_runtime_forbidden: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  scientific_aggregation_allowed: true
+  formal_evidence_allowed: false
+
+outputs:
+  run_dir: outputs/e8/canonical_dpo_beta_scan_001
+  summary_file: outputs/e8/canonical_dpo_beta_scan_001/SWEEP_COMPLETE.json
+  audit_file: outputs/e8/canonical_dpo_beta_scan_001/aggregate/terminal_audit.json
+
+success_criteria:
+  - source checkout is clean and the protected implementation paths are unchanged from commit 00e8b5a6a90c02129731f943ce3687beb9d67336
+  - execution uses only the reviewed fixed-profile DPO entrypoint and does not reactivate generic E8 config-driven execution
+  - method identity is canonical sigmoid DPO with an exact frozen initial-policy reference and is not reported as TOPR, DRPO, behavior-policy correction, or remoteness control
+  - the model is Qwen2.5-0.5B-Instruct with one shared frozen backbone, a trainable default policy LoRA, and an identically initialized permanently frozen reference LoRA
+  - the chosen completion is the oracle and the rejected set contains every first-occurrence unique verifier-wrong completion from the same prompt
+  - pair losses are averaged over unique rejected completions within each prompt and then averaged across prompts
+  - completion scores are full-completion summed token log probabilities and label smoothing remains zero
+  - the loss is mean_prompt(mean_unique_negative(-logsigmoid(beta*((logpi_chosen-logpi_rejected)-(logref_chosen-logref_rejected)))))
+  - the frozen beta grid is exactly 0.01, 0.03, 0.05, 0.1, 0.2, 0.3, 0.5, and 1.0
+  - paired development seed offsets are exactly 4000 and 5000
+  - exactly eight beta points and sixteen unique cells are present
+  - runtime records GPU 0 and 1, one slot per GPU, and eight full waves
+  - every full cell uses exactly 1200 optimizer updates, no early stopping, Greedy and Pass@8 every 100 updates, and Pass@64 every 200 updates
+  - no hard-negative mining, near-far selection, extreme selection, distance taper, value network, weight-sum normalization, gradient-budget matching, IPO, hinge loss, robust DPO, or length-normalized DPO is used
+  - the beta=0.1 two-step liveness gate passes before the full matrix and remains non-scientific engineering evidence
+  - the initial maximum absolute reference-relative pair margin is at most 1e-5
+  - the reference adapter receives no gradient, no optimizer update, and no scheduler update
+  - the terminal liveness checkpoint inventory contains both default and reference adapters
+  - CHECKPOINT_RELOAD_GATE.json records fresh-process loading and finite forward outputs for both adapters
+  - policy evaluation activates only the default adapter
+  - DPO loss, beta, policy and reference chosen and rejected log probabilities, pair-margin quantiles, preference accuracy, logit-saturation fraction, raw gradient norm, and optimizer update norm are finite and recorded
+  - val.jsonl is structurally disjoint held-out evaluation and never enters the training loss
+  - separate test.jsonl remains unused
+  - every beta point is reported using late-window and terminal metrics and best-checkpoint metrics remain supplementary only
+  - task performance, valid-expression or structure diagnostics, and NaN/Inf numerical failure are reported separately
+  - fixed 1200 steps is not described as convergence, steady state, saturation, significance, best-beta evidence, or formal method ranking
+  - completed text-first evidence is delivered to drpo-results ingest/e8
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e8/canonical_dpo_beta_scan_001/*.json
+    - outputs/e8/canonical_dpo_beta_scan_001/aggregate/*.json
+    - outputs/e8/canonical_dpo_beta_scan_001/aggregate/*.csv
+    - outputs/e8/canonical_dpo_beta_scan_001/methods/*/summary.json
+    - outputs/e8/canonical_dpo_beta_scan_001/methods/*/manifest.json
+    - outputs/e8/canonical_dpo_beta_scan_001/methods/*/metrics.csv
+    - outputs/e8/canonical_dpo_beta_scan_001/methods/*/validation_diagnostics.jsonl
+    - outputs/e8/canonical_dpo_beta_scan_001/methods/*/training_diagnostics.jsonl
+    - outputs/e8/canonical_dpo_beta_scan_001/logs/*.log
+  exclude:
+    - "**/*.pt"
+    - "**/*.pth"
+    - "**/*.ckpt"
+    - "**/*.safetensors"
+    - "**/*.bin"
+    - "**/best_pass8_adapter/**"
+    - "**/terminal_adapter/**"
+    - "**/last_finite_adapter/**"
+    - "**/checkpoint*"
+    - "**/checkpoints/**"
+    - "**/optimizer*"
+    - "**/wandb/**"
+  max_package_size_mb: 100
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e8
+  export_profile: manifest_text_v1
+  max_total_size_mb: 30
+  max_file_size_mb: 10
+
+publish:
+  enabled: false
+  auto: false
