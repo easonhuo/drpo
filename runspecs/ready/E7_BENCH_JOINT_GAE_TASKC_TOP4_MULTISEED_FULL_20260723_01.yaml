@@ -127,3 +127,4 @@ publish:
   auto: false
 
 # CI trigger only: no scientific or execution semantics changed.
+# CI retrigger after merging current main; no protected path changed.
