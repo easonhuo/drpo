@@ -10,17 +10,35 @@ PROFILE_SHIM_DIR="${WORK_DIR}/.taskc_python_profile"
 mkdir -p "${PROFILE_SHIM_DIR}"
 cat >"${PROFILE_SHIM_DIR}/sitecustomize.py" <<'PY'
 from drpo import e7_squared_exp_night as _suite
+from drpo import e7_squared_exp_night_aggregate as _aggregate
 
-_suite.TUNING_PROFILE_ID = "d4rl9_task_specific_c_top4_multiseed"
+_TASKC_EXPERIMENT_ID = "EXT-H-E7-SQEXP-GAE-TASKC-MS-01"
+_TASKC_PROFILE_ID = "d4rl9_task_specific_c_top4_multiseed"
+
+_suite.GAE_EXPERIMENT_ID = _TASKC_EXPERIMENT_ID
+_suite.TUNING_PROFILE_ID = _TASKC_PROFILE_ID
+_aggregate.GAE_EXPERIMENT_ID = _TASKC_EXPERIMENT_ID
 PY
 
 export PYTHONPATH="${PROFILE_SHIM_DIR}:${REPO_ROOT}/src${PYTHONPATH:+:${PYTHONPATH}}"
 
 python - <<'PY'
 from drpo import e7_squared_exp_night as suite
+from drpo import e7_squared_exp_night_aggregate as aggregate
 
-expected = "d4rl9_task_specific_c_top4_multiseed"
-if suite.TUNING_PROFILE_ID != expected:
+expected_experiment = "EXT-H-E7-SQEXP-GAE-TASKC-MS-01"
+expected_profile = "d4rl9_task_specific_c_top4_multiseed"
+if suite.GAE_EXPERIMENT_ID != expected_experiment:
+    raise SystemExit(
+        "task-specific runner experiment shim failed: "
+        f"{suite.GAE_EXPERIMENT_ID!r}"
+    )
+if aggregate.GAE_EXPERIMENT_ID != expected_experiment:
+    raise SystemExit(
+        "task-specific aggregate experiment shim failed: "
+        f"{aggregate.GAE_EXPERIMENT_ID!r}"
+    )
+if suite.TUNING_PROFILE_ID != expected_profile:
     raise SystemExit(
         f"task-specific bootstrap profile shim failed: {suite.TUNING_PROFILE_ID!r}"
     )
