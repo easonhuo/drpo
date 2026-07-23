@@ -33,8 +33,10 @@ Task-performance degradation, support/variance boundary events, rollout failure,
 The one-click entrypoint is:
 
 ```bash
-bash scripts/run_e7_taskc_top4_multiseed.sh run
+bash scripts/run_e7_taskc_top4_multiseed_entrypoint.sh run
 ```
+
+The outer entrypoint installs a run-local Python profile shim so the existing reviewed P2/P3 bootstrap can recognize the task-specific profile without adding a new Python module or widening the generic runtime. It then delegates to the fixed 180-branch launcher.
 
 Environment overrides are available for the canonical contract, run spec, work directory, and worker count. The launcher rejects a dirty checkout, validates the exact 180-branch matrix, supports identity-checked resume, and writes a terminal audit plus:
 
