@@ -1,0 +1,32 @@
+use strict;
+use warnings;
+use Cwd qw(abs_path);
+use File::Spec;
+
+my $root = abs_path(File::Spec->catdir('.', '..', '..'));
+my $payload = File::Spec->catfile(
+    $root,
+    '.github',
+    'paper-import-payload-fable-vfinal3',
+    'patch.gz.b64'
+);
+my $patch = '/tmp/drpo-kdd2027-fable-vfinal3.patch';
+
+system("cd '$root' && base64 --decode '$payload' | gzip -dc > '$patch'") == 0
+    or die "failed to reconstruct accepted paper patch\n";
+system("echo 'e87ba060f866d520c84d1189fb76c1b6c6c85341c9d7aa35861365739235dece  $patch' | sha256sum --check --strict") == 0
+    or die "accepted paper patch checksum mismatch\n";
+system("cd '$root' && git apply --check --include=paper/kdd2027/main.tex '$patch'") == 0
+    or die "accepted paper patch preflight failed\n";
+system("cd '$root' && git apply --include=paper/kdd2027/main.tex '$patch'") == 0
+    or die "accepted paper patch application failed\n";
+system("cd '$root' && echo 'e61d6e078d7afe15d73343f28c792a0f787d8128110f4795ee0b26e4c4489ad1  paper/kdd2027/main.tex' | sha256sum --check --strict") == 0
+    or die "accepted main.tex checksum mismatch\n";
+system("cd '$root' && echo 'da1a545f652b189d98071a04d9cf4df16a630c086705a3f89976d0bf339389d8  paper/kdd2027/missing_references.bib' | sha256sum --check --strict") == 0
+    or die "accepted bibliography checksum mismatch\n";
+system("rm -rf '$root/.github/paper-import-payload-fable-vfinal3'") == 0
+    or die "failed to remove temporary accepted-patch payload\n";
+unlink File::Spec->catfile($root, 'paper', 'overleaf', 'latexmkrc')
+    or die "failed to remove temporary latexmkrc\n";
+
+1;
