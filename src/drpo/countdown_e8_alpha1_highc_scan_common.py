@@ -13,6 +13,14 @@ Here ``x = relu(current_sequence_surprisal / 2 - tau_code)``.  The reciprocal
 shape screen runs only the eight new reciprocal method points.  Positive-only,
 Global, and the completed EXP anchor are historical references and are not
 rerun in this profile.
+
+The dense joint fitted-reference beta-TOPR profile is intentionally distinct
+from canonical frozen-behavior TOPR.  It trains a policy adapter and a branch-
+balanced bank-density reference adapter together, then applies a detached
+full-sequence likelihood-ratio taper on the negative branch.  The dense grid
+resolves the transition between no ratio taper and the previously observed
+beta=0.25 anchor without changing learning rates, data, horizon, or reference
+training.
 """
 from __future__ import annotations
 
@@ -49,6 +57,9 @@ ASYMRE_DELTAV_EXPERIMENT_ID = (
 )
 ASYMRE_DELTAV_BOUNDARY_DENSE_EXPERIMENT_ID = (
     "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-BOUNDARY-DENSE-0.5B-01"
+)
+JOINT_FITTED_REFERENCE_TOPR_DENSE_EXPERIMENT_ID = (
+    "EXT-C-E8-ORACLE-OFFLINE-V2-JOINT-FITTED-REFERENCE-BETA-TOPR-DENSE-0.5B-01"
 )
 ROUND1_PARAMETER_POINTS = (
     (0.0, 0.0),
@@ -121,11 +132,27 @@ ASYMRE_BOUNDARY_DENSE_DELTA_VS = (
     -0.6,
     -0.5,
 )
+JOINT_FITTED_REFERENCE_TOPR_DENSE_BETAS = (
+    0.0,
+    0.01,
+    0.02,
+    0.04,
+    0.08,
+    0.125,
+    0.25,
+    0.5,
+)
+JOINT_FITTED_REFERENCE_TOPR_DENSE_POINTS = tuple(
+    ("joint_fitted_reference_topr", 1.0, beta)
+    for beta in JOINT_FITTED_REFERENCE_TOPR_DENSE_BETAS
+)
 SEED_OFFSETS = (4000, 5000)
 ROUND1_RESULT_MANIFEST_SHA256 = (
     "24635fbb634b23450cdfb560fd7b16a2dc0fe4a6d0586f10e1cf385e58bab333"
 )
 TAU_CODE = 0.125
+TOPR_POLICY_ADAPTER = "default"
+TOPR_REFERENCE_ADAPTER = "reference"
 
 
 class FamilyCoefficient(float):
@@ -158,6 +185,8 @@ class Cell:
     def method(self) -> str:
         if self.family == "asymre":
             return "asymre"
+        if self.family == "joint_fitted_reference_topr":
+            return "joint_fitted_reference_topr"
         if self.alpha == 0.0 or self.family == "positive_only":
             return "positive_only"
         if self.coefficient == 0.0 or self.family == "global":
@@ -174,6 +203,11 @@ class Cell:
         if self.family == "asymre":
             return (
                 f"base_asymre_delta_v{tag(self.delta_v)}_seed{self.seed_offset}"
+            )
+        if self.family == "joint_fitted_reference_topr":
+            return (
+                "base_joint_fitted_reference_topr_"
+                f"beta{tag(self.coefficient)}_seed{self.seed_offset}"
             )
         return (
             f"base_{self.method}_alpha{tag(self.alpha)}_"
@@ -275,6 +309,20 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "requires_positive_only": False,
         "kind": "asymre_scan",
     },
+    JOINT_FITTED_REFERENCE_TOPR_DENSE_EXPERIMENT_ID: {
+        "experiment_id": JOINT_FITTED_REFERENCE_TOPR_DENSE_EXPERIMENT_ID,
+        "version": "0.3.0-dev-code-first-joint-fitted-reference-beta-topr-dense",
+        "default_grid_config": (
+            "configs/countdown_e8_oracle_offline_v2_"
+            "joint_fitted_reference_beta_topr_dense_0p5b.yaml"
+        ),
+        "parameter_points": JOINT_FITTED_REFERENCE_TOPR_DENSE_POINTS,
+        "seed_offsets": SEED_OFFSETS,
+        "expected_points": 8,
+        "expected_cells": 16,
+        "requires_positive_only": False,
+        "kind": "joint_fitted_reference_topr",
+    },
 }
 
 EXPERIMENT_ID = ROUND1_EXPERIMENT_ID
@@ -296,6 +344,90 @@ weight_diagnostics = _base.weight_diagnostics
 git_state = _base.git_state
 
 
+def full_sequence_log_probability(stats: Mapping[str, torch.Tensor]) -> torch.Tensor:
+    """Recover summed completion log-probability from arena completion statistics."""
+    seq_lp = stats["seq_lp"]
+    lengths = stats["lengths"]
+    if seq_lp.ndim != 1 or lengths.ndim != 1 or seq_lp.shape != lengths.shape:
+        raise ValueError("seq_lp and lengths must be same-shaped rank-1 tensors")
+    if bool(torch.any(lengths <= 0)):
+        raise ValueError("completion lengths must be strictly positive")
+    return seq_lp.float() * lengths.detach().float()
+
+
+def joint_topr_negative_weights(
+    policy_stats: Mapping[str, torch.Tensor],
+    reference_stats: Mapping[str, torch.Tensor],
+    *,
+    beta: float = 1.0,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return detached beta-TOPR weights and full-sequence log ratios."""
+    if not math.isfinite(beta) or beta < 0.0:
+        raise ValueError("TOPR beta must be finite and non-negative")
+    policy_lengths = policy_stats["lengths"]
+    reference_lengths = reference_stats["lengths"]
+    if policy_lengths.shape != reference_lengths.shape or not torch.equal(
+        policy_lengths.detach().cpu(), reference_lengths.detach().cpu()
+    ):
+        raise ValueError("policy/reference completion lengths changed")
+    log_ratio = (
+        full_sequence_log_probability(policy_stats)
+        - full_sequence_log_probability(reference_stats).detach()
+    )
+    weights = torch.exp(float(beta) * torch.clamp(log_ratio, max=0.0)).detach()
+    return weights, log_ratio.detach()
+
+
+def branch_balanced_reference_loss(
+    positive_mean_lp: torch.Tensor,
+    negative_mean_lp: torch.Tensor,
+    bank_row_index: torch.Tensor,
+    unique_counts: torch.Tensor,
+) -> torch.Tensor:
+    """Fit 0.5 positive-branch mass and 0.5 total negative-branch mass per prompt."""
+    ones = torch.ones_like(negative_mean_lp)
+    negative_branch_mean = mean_unique_negative_term(
+        negative_mean_lp,
+        ones,
+        bank_row_index,
+        unique_counts,
+    )
+    return -(0.5 * positive_mean_lp + 0.5 * negative_branch_mean)
+
+
+def joint_topr_diagnostics(
+    log_ratio: torch.Tensor,
+    weights: torch.Tensor,
+    unique_counts: torch.Tensor,
+    raw_bank_counts: torch.Tensor,
+) -> dict[str, float]:
+    """Diagnostics for behavior-relative ratio taper and bank multiplicity."""
+    ratio = log_ratio.detach().float()
+    detached_weights = weights.detach().float()
+
+    def quantile(values: torch.Tensor, q: float) -> float:
+        return float(torch.quantile(values, q).item())
+
+    return {
+        "log_ratio_mean": float(ratio.mean().item()),
+        "log_ratio_p10": quantile(ratio, 0.10),
+        "log_ratio_p50": quantile(ratio, 0.50),
+        "log_ratio_p90": quantile(ratio, 0.90),
+        "weight_mean": float(detached_weights.mean().item()),
+        "weight_p10": quantile(detached_weights, 0.10),
+        "weight_p50": quantile(detached_weights, 0.50),
+        "weight_p90": quantile(detached_weights, 0.90),
+        "clipped_at_one_fraction": float(
+            (detached_weights == 1.0).float().mean().item()
+        ),
+        "unique_negative_count_mean": float(unique_counts.float().mean().item()),
+        "raw_bank_count_mean": float(raw_bank_counts.float().mean().item()),
+        "duplicates_removed_mean": float(
+            (raw_bank_counts - unique_counts).float().mean().item()
+        ),
+    }
+
+
 def continuous_exp_weights(
     seq_lp: torch.Tensor,
     *,
@@ -303,17 +435,15 @@ def continuous_exp_weights(
     c: float,
     reference_distance: float = _base.REFERENCE_DISTANCE,
 ) -> torch.Tensor:
-    """Return the active profile's detached taper weight.
-
-    The old trainer passes ``cell.c`` as a float.  New cells return a
-    ``FamilyCoefficient`` so the family crosses that unchanged interface.
-    """
+    """Return the active profile's detached taper weight."""
     if not math.isfinite(alpha) or alpha < 0.0:
         raise ValueError("alpha must be finite and non-negative")
     coefficient = float(c)
     if not math.isfinite(coefficient) or coefficient < 0.0:
         raise ValueError("c must be finite and non-negative")
     family = str(getattr(c, "family", "exponential"))
+    if family == "joint_fitted_reference_topr":
+        raise ValueError("TOPR weights require policy/reference sequence likelihoods")
     u = continuous_remoteness(seq_lp, reference_distance=reference_distance)
     if family in {"positive_only", "global", "asymre"}:
         shape = torch.ones_like(u)
@@ -345,6 +475,12 @@ _PATCH_KEYS = (
     "EXPECTED_CELLS",
     "Cell",
     "continuous_exp_weights",
+    "full_sequence_log_probability",
+    "joint_topr_negative_weights",
+    "branch_balanced_reference_loss",
+    "joint_topr_diagnostics",
+    "TOPR_POLICY_ADAPTER",
+    "TOPR_REFERENCE_ADAPTER",
     "validate_grid_config",
     "parameter_points",
     "build_cells",
@@ -431,6 +567,11 @@ def _identity(
             "family": cell.family,
             "alpha": cell.alpha,
             "c": float(cell.c),
+            "topr_beta": (
+                float(cell.c)
+                if cell.family == "joint_fitted_reference_topr"
+                else None
+            ),
             "seed_offset": cell.seed_offset,
         },
         "smoke": bool(smoke),
@@ -449,6 +590,12 @@ def _apply() -> None:
         "EXPECTED_CELLS": EXPECTED_CELLS,
         "Cell": Cell,
         "continuous_exp_weights": continuous_exp_weights,
+        "full_sequence_log_probability": full_sequence_log_probability,
+        "joint_topr_negative_weights": joint_topr_negative_weights,
+        "branch_balanced_reference_loss": branch_balanced_reference_loss,
+        "joint_topr_diagnostics": joint_topr_diagnostics,
+        "TOPR_POLICY_ADAPTER": TOPR_POLICY_ADAPTER,
+        "TOPR_REFERENCE_ADAPTER": TOPR_REFERENCE_ADAPTER,
         "validate_grid_config": validate_grid_config,
         "parameter_points": parameter_points,
         "build_cells": build_cells,
@@ -460,7 +607,11 @@ def _apply() -> None:
 
 @contextmanager
 def activated(profile: Mapping[str, Any] | None = None) -> Iterator[None]:
-    previous_base = {name: getattr(_base, name) for name in _PATCH_KEYS}
+    previous_base = {
+        name: getattr(_base, name, None)
+        for name in _PATCH_KEYS
+    }
+    previous_missing = {name for name in _PATCH_KEYS if not hasattr(_base, name)}
     previous_profile = {name: globals()[name] for name in _PROFILE_KEYS}
     if profile is not None:
         _set_profile(profile)
@@ -471,7 +622,10 @@ def activated(profile: Mapping[str, Any] | None = None) -> Iterator[None]:
         for name, value in previous_profile.items():
             globals()[name] = value
         for name, value in previous_base.items():
-            setattr(_base, name, value)
+            if name in previous_missing:
+                delattr(_base, name)
+            else:
+                setattr(_base, name, value)
 
 
 def activate(profile: Mapping[str, Any] | None = None) -> None:
@@ -583,7 +737,10 @@ def _validate_asymre_config(config: Mapping[str, Any], profile: Mapping[str, Any
         "secondary_selection_metric",
     }
     if legacy_fields.intersection(evaluation):
-        raise ValueError("AsymRE evaluation must use reporting-role fields, not legacy selection/tuning fields")
+        raise ValueError(
+            "AsymRE evaluation must use reporting-role fields, not legacy "
+            "selection/tuning fields"
+        )
     if evaluation.get("split_role") != "structurally_disjoint_held_out_evaluation":
         raise ValueError("AsymRE split role must remain structurally disjoint held-out evaluation")
     if evaluation.get("enters_training_loss") is not False:
@@ -600,8 +757,152 @@ def _validate_asymre_config(config: Mapping[str, Any], profile: Mapping[str, Any
         raise ValueError("Best checkpoint metric must remain supplementary only")
 
 
+def _validate_joint_topr_config(
+    config: Mapping[str, Any], profile: Mapping[str, Any]
+) -> None:
+    if config.get("result_status") != "pilot":
+        raise ValueError("Joint fitted-reference beta-TOPR dense scan must remain a pilot")
+    if config.get("registration_state") != "dev_code_first_unregistered":
+        raise ValueError("Joint fitted-reference beta-TOPR dense scan must remain code-first unregistered")
+    if (
+        config.get("method_identity")
+        != "joint_fitted_reference_beta_topr_dense_scan_not_canonical_topr"
+    ):
+        raise ValueError("Joint fitted-reference beta-TOPR dense method identity changed")
+
+    model = config.get("model", {})
+    if model.get("shared_frozen_backbone") is not True:
+        raise ValueError("TOPR must use one shared frozen backbone")
+    if model.get("policy_adapter") != TOPR_POLICY_ADAPTER:
+        raise ValueError("TOPR policy adapter must remain default")
+    if model.get("reference_adapter") != TOPR_REFERENCE_ADAPTER:
+        raise ValueError("TOPR reference adapter must remain reference")
+    if model.get("copy_policy_adapter_to_reference_at_initialization") is not True:
+        raise ValueError("TOPR adapters must start from identical parameters")
+
+    reference = config.get("reference_policy", {})
+    if reference.get("training_mode") != "joint_branch_balanced_bank_sft":
+        raise ValueError("TOPR reference training mode changed")
+    if float(reference.get("positive_branch_mass", float("nan"))) != 0.5:
+        raise ValueError("TOPR positive branch mass must remain 0.5")
+    if float(reference.get("negative_branch_mass", float("nan"))) != 0.5:
+        raise ValueError("TOPR negative branch mass must remain 0.5")
+    if reference.get("negative_within_branch") != "uniform_over_unique_negatives_per_prompt":
+        raise ValueError("TOPR negative reference mass must remain uniform within prompt")
+    if reference.get("receives_ratio_gradient") is not False:
+        raise ValueError("TOPR reference must not receive ratio gradients")
+    if reference.get("update_frequency_per_policy_step") != 1:
+        raise ValueError("TOPR reference update frequency must remain 1:1")
+    if float(reference.get("learning_rate_multiplier", float("nan"))) != 1.0:
+        raise ValueError("TOPR reference learning-rate multiplier must remain 1")
+
+    objective = config.get("objective", {})
+    if objective.get("policy_formula") != (
+        "positive_mean_lp-mean_unique_negative(weight*negative_mean_lp)"
+    ):
+        raise ValueError("TOPR policy objective changed")
+    if (
+        objective.get("negative_weight")
+        != "exp(beta*min(sum_logpi-sum_logmu,0))"
+    ):
+        raise ValueError("TOPR beta ratio formula changed")
+    if objective.get("taper_parameter") != "beta":
+        raise ValueError("TOPR taper parameter must remain beta")
+    if float(objective.get("historical_anchor_beta", float("nan"))) != 0.25:
+        raise ValueError("TOPR historical response-curve anchor beta must remain 0.25")
+    if float(objective.get("boundary_control_beta", float("nan"))) != 0.0:
+        raise ValueError("TOPR no-ratio-taper boundary beta must remain 0")
+    if objective.get("ratio_coordinate") != "full_completion_summed_log_probability":
+        raise ValueError("TOPR ratio must use summed sequence log-probability")
+    if objective.get("task_loss_log_probability") != "mean_completion_token_log_probability":
+        raise ValueError("TOPR task loss normalization changed")
+    if objective.get("reference_and_weight_detached") is not True:
+        raise ValueError("TOPR denominator and weights must remain detached")
+    if objective.get("positive_weight") != 1.0:
+        raise ValueError("TOPR positive coefficient must remain 1")
+    if objective.get("weight_range") != "[0,1]":
+        raise ValueError("TOPR negative weight range changed")
+
+    bank = config.get("bank", {})
+    if bank.get("use_all_unique_negatives") is not True:
+        raise ValueError("Every unique negative must participate in TOPR")
+    if bank.get("behavior_policy_logged") is not False:
+        raise ValueError("Model-independent bank must not be relabeled as logged behavior data")
+
+    sweep = config.get("sweep", {})
+    configured = tuple(
+        (str(item["family"]), float(item["alpha"]), float(item["coefficient"]))
+        for item in sweep.get("parameter_points", ())
+    )
+    expected = tuple(profile["parameter_points"])
+    if configured != expected:
+        raise ValueError("Joint fitted-reference beta-TOPR dense parameter points changed")
+    if tuple(int(value) for value in sweep.get("seed_offsets", ())) != SEED_OFFSETS:
+        raise ValueError("Joint fitted-reference TOPR development seed offsets changed")
+    if int(sweep.get("unique_parameter_points", -1)) != int(
+        profile["expected_points"]
+    ):
+        raise ValueError("Joint fitted-reference beta-TOPR dense scan requires eight beta points")
+    if int(sweep.get("cells", -1)) != int(profile["expected_cells"]):
+        raise ValueError("Joint fitted-reference beta-TOPR dense scan requires 16 paired cells")
+    if sweep.get("cartesian_product") is not False:
+        raise ValueError("Joint fitted-reference TOPR must remain an explicit point list")
+
+    training = config.get("training", {})
+    if int(training.get("steps", -1)) != 1200 or training.get("early_stop") is not False:
+        raise ValueError("Joint fitted-reference TOPR requires fixed 1200 steps")
+    if int(training.get("eval_every", -1)) != 100:
+        raise ValueError("TOPR Greedy/Pass@8 evaluation cadence must remain 100")
+    if int(training.get("pass64_every", -1)) != 200:
+        raise ValueError("TOPR Pass@64 evaluation cadence must remain 200")
+    if training.get("denominator") != "unique_negative_count_per_prompt":
+        raise ValueError("TOPR denominator must remain unique negative count per prompt")
+    if training.get("normalize_by_weight_sum") is not False:
+        raise ValueError("TOPR weight-sum normalization is forbidden")
+    if float(training.get("initial_ratio_max_abs_tolerance", -1.0)) != 1.0e-5:
+        raise ValueError("TOPR initial ratio tolerance must remain 1e-5")
+
+    execution = config.get("execution", {})
+    if execution.get("default_gpus") != [0, 1]:
+        raise ValueError("Joint fitted-reference TOPR dense profile requires GPU 0-1")
+    if int(execution.get("parallel_cells_per_gpu", -1)) != 1:
+        raise ValueError("Joint fitted-reference TOPR requires one cell per GPU")
+    if int(execution.get("expected_full_waves", -1)) != 8:
+        raise ValueError("Joint fitted-reference beta-TOPR dense scan requires eight full waves")
+    if execution.get("identity_checked_resume") is not True:
+        raise ValueError("Identity-checked resume is required")
+    liveness = execution.get("liveness", {})
+    if float(liveness.get("representative_c", float("nan"))) != 0.25:
+        raise ValueError("TOPR dense liveness must use the historical beta=0.25 anchor")
+    if liveness.get("checkpoint_reload_required") is not True:
+        raise ValueError("TOPR dense liveness must require dual-adapter checkpoint reload")
+
+    evaluation = config.get("evaluation", {})
+    if evaluation.get("split_role") != "structurally_disjoint_held_out_evaluation":
+        raise ValueError("TOPR split role must remain structurally disjoint held-out evaluation")
+    if evaluation.get("enters_training_loss") is not False:
+        raise ValueError("TOPR held-out evaluation must not enter training loss")
+    if evaluation.get("separate_test_split_access") is not False:
+        raise ValueError("TOPR separate test split access must remain false")
+    if evaluation.get("evaluated_adapter") != TOPR_POLICY_ADAPTER:
+        raise ValueError("Only the TOPR policy adapter may be evaluated")
+    if evaluation.get("primary_reporting_metric") != "late_window_pass_at_8":
+        raise ValueError("TOPR primary reporting metric must remain late_window_pass_at_8")
+    if evaluation.get("secondary_reporting_metric") != "terminal_pass_at_8":
+        raise ValueError("TOPR secondary reporting metric must remain terminal_pass_at_8")
+    if evaluation.get("paper_facing_checkpoint_policy") != "late_window_and_terminal":
+        raise ValueError(
+            "TOPR paper-facing checkpoint policy must remain late_window_and_terminal"
+        )
+    if evaluation.get("best_checkpoint_metric_is_supplementary_only") is not True:
+        raise ValueError("TOPR best checkpoint metric must remain supplementary only")
+
+
 def validate_grid_config(config: Mapping[str, Any]) -> None:
     profile = _profile_for_config(config)
+    if profile["kind"] == "joint_fitted_reference_topr":
+        _validate_joint_topr_config(config, profile)
+        return
     if profile["kind"] == "asymre_scan":
         _validate_asymre_config(config, profile)
         return
@@ -671,7 +972,11 @@ def validate_grid_config(config: Mapping[str, Any]) -> None:
 def parameter_points(config: Mapping[str, Any]) -> tuple[Any, ...]:
     validate_grid_config(config)
     profile = _profile_for_config(config)
-    if profile["kind"] in {"reciprocal_screen", "asymre_scan"}:
+    if profile["kind"] in {
+        "reciprocal_screen",
+        "asymre_scan",
+        "joint_fitted_reference_topr",
+    }:
         return tuple(profile["parameter_points"])
     points = tuple(
         (float(item["alpha"]), float(item["c"]))
@@ -700,7 +1005,10 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
             for delta_v in points
             for seed_offset in seed_offsets
         )
-    elif profile["kind"] == "reciprocal_screen":
+    elif profile["kind"] in {
+        "reciprocal_screen",
+        "joint_fitted_reference_topr",
+    }:
         cells = tuple(
             Cell(
                 alpha=alpha,
