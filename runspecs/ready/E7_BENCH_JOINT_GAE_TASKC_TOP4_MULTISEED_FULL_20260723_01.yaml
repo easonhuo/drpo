@@ -131,3 +131,5 @@ delivery:
 publish:
   enabled: false
   auto: false
+
+# CI synchronize after merging current main; protected E7 identity paths unchanged.
