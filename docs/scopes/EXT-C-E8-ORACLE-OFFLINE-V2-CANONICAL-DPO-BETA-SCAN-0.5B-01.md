@@ -27,7 +27,8 @@ On the frozen model-independent E8 V2 oracle-offline bank, measure the developme
 - pair aggregation: average DPO loss over unique rejected completions within a prompt, then average prompts
 - sequence score: summed completion-token log probability
 - loss: canonical sigmoid DPO with zero label smoothing
-- beta development grid: `[0.03, 0.1, 0.3, 1.0]`
+- beta development grid: `[0.01, 0.03, 0.05, 0.1, 0.2, 0.3, 0.5, 1.0]`
+- matrix size: 8 beta points × 2 paired development seeds = 16 cells
 
 For prompt `x`, chosen completion `y+`, and each rejected completion `y-_j`, the pair margin is
 
