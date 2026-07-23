@@ -1,5 +1,5 @@
 {
-  "experiment_id": "EXT-H-E7-SQEXP-GAE-01",
+  "experiment_id": "EXT-H-E7-SQEXP-GAE-TASKC-MS-01",
   "profile_id": "d4rl9_task_specific_c_top4_multiseed",
   "parent_experiment_id": "EXT-H-E7-BENCH-01",
   "run_kind": "pilot",
