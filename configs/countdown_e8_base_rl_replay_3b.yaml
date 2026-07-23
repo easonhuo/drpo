@@ -1,0 +1,61 @@
+experiment_id: EXT-C-E8-BASE-RL-REPLAY-3B-01
+result_status: pilot
+model:
+  identity: Qwen2.5-3B-Instruct
+  parameterization: lora
+  memory_mode: bf16
+  dtype: auto
+  load_in_4bit: false
+  max_length: 256
+  max_new_tokens: 80
+data:
+  source_base_config: configs/countdown_e8_base_rl_replay_0p5b.yaml
+  generation_seed: 1234
+  train_rows: 6000
+  validation_rows: 500
+  test_rows: 1000
+  numbers_per_problem: 4
+  split_protocol: structural_family_holdout
+  offline_bank_rows: 6000
+  offline_bank_size: 16
+evaluation:
+  examples: 500
+  test_examples: 1000
+  batch_size: 8
+  pass_ks: [8, 64]
+  selection_metric: pass_at_8
+  selection_delta: 0.002
+  seed: 2026070801
+  test_seed: 2026070802
+offline_training:
+  seed: 2026070803
+  steps: 1200
+  min_steps: 400
+  early_stop_patience: 6
+  early_stop_delta: 0.002
+  selection_metric: pass_at_k
+  micro_batch: 1
+  gradient_accumulation: 8
+  learning_rate: 5.0e-5
+  warmup_ratio: 0.03
+  maximum_gradient_norm: 1.0
+  eval_every: 100
+  log_every: 10
+  diagnostic_examples: 32
+  diagnostic_gradient_examples: 8
+  diagnostic_batch: 8
+  num_workers: 2
+transfer_contract:
+  source_model: Qwen2.5-0.5B-Instruct
+  target_model: Qwen2.5-3B-Instruct
+  keep_optimizer_and_schedule: true
+  keep_batch_and_accumulation: true
+  keep_horizon_and_evaluation: true
+  retune_learning_rate: false
+  retune_lora: false
+scope_guards:
+  no_countdown_sft_warmstart: true
+  starts_from_qwen_pretrained_base: true
+  random_initialization_forbidden: true
+  test_split_access_forbidden: true
+  model_weights_not_in_update_package: true
