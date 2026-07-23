@@ -1,0 +1,59 @@
+{
+  "aggregation": {
+    "absolute_advantage": "far |A| divided by matched near |A|",
+    "bootstrap": "hierarchical: dataset cells, then seeds within sampled cells",
+    "bootstrap_draws": 10000,
+    "bootstrap_seed": 20260723,
+    "dataset_weighting": "equal",
+    "distance": "far standardized distance divided by its matched near standardized distance",
+    "gradient": "far full-parameter gradient norm divided by its matched near gradient norm",
+    "main_support": "intersection of dataset-level far-distance support; no extrapolation",
+    "unit": "original matched near/far pair"
+  },
+  "counts": {
+    "datasets": 9,
+    "pairs": 5760,
+    "point_rows": 11520,
+    "seeds": 10
+  },
+  "experiment_id": "EXT-H-E7-FIG1-D4RL9-GRADIENT-COVERAGE-01",
+  "formal_evidence_allowed": false,
+  "outputs": {
+    "dataset_plot_data.csv": {
+      "bytes": 10995,
+      "sha256": "b8a0ba0d8c82aa1eff4c81f2a4c66877689c8a647e88d2d5c8d4a542aaee27fb"
+    },
+    "dataset_seed_curves.csv": {
+      "bytes": 59694,
+      "sha256": "3a885619236ec383620097e7de811874d25e4e282cae5d19c153dea51cd6d664"
+    },
+    "main_aggregate.csv": {
+      "bytes": 728,
+      "sha256": "206f9b5c73ea16baf08ef186871d71da682cd08c7c2367899808b8350da07b4e"
+    },
+    "pairwise_points.csv": {
+      "bytes": 1139783,
+      "sha256": "63c20da14b0494a19fa03ff13d6f71ca7980563fe7b30d0ce8d8274eb3ff1c7a"
+    },
+    "sensitivity.json": {
+      "bytes": 386,
+      "sha256": "4719d68e80ec0bb175979e15384c3575743a9cf759cf8bd8a00194056ff678b4"
+    }
+  },
+  "pairwise_absolute_advantage": {
+    "max_absolute_deviation_from_one": 0.04338945544934081,
+    "mean_ratio": 1.000026425272458
+  },
+  "scientific_status": "pilot",
+  "sensitivity": {
+    "common_support_max_relative_distance": 3.3653326989590355,
+    "log_interpolation_endpoint_relative_gradient": 3.606636259815185,
+    "max_abs_cross_dataset_mean_vs_median": 0.07719365788425137,
+    "max_abs_linear_vs_log_distance_interpolation": 0.19996216000274947,
+    "median_endpoint_relative_gradient": 3.6412927868449785,
+    "primary_endpoint_relative_gradient": 3.564099128960727
+  },
+  "source_commit": "97250aa3d8b53080b6801a6dac507c51180ed2c9",
+  "source_path": "runs/e7/E7_FIG1_D4RL9_GRADIENT_COVERAGE_20260723_01/files/outputs/e7_figure1_d4rl9/run_001/aggregate/d4rl9_gradient_probe_points.csv",
+  "source_sha256": "70fc9bada426920f239b160a8832a583bc0459284347af5ed12d831a70cf2b13"
+}

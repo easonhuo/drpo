@@ -1045,14 +1045,14 @@ evaluation targets, including fields whose formal runs have not yet closed.
 \subsection{Environments and Datasets}
 \label{sec:environments_datasets}
 
-We use two controlled environments and two external diagnostic domains. C-U1
-is a contextual bandit with a Gaussian policy over continuous actions, while
-D-U1 uses unordered categorical actions with shared representations. They
-provide known ground truth for source isolation, policy dynamics, and
-held-out-context generalization. D4RL Hopper and Countdown arithmetic
-generation provide continuous offline-control and autoregressive sequence
-diagnostics, respectively. Full configurations are in
-Appendix~\ref{app:experimental_details}.
+We use two controlled environments and two external diagnostic domains.
+C-U1 is a contextual bandit with a Gaussian policy over continuous actions,
+while D-U1 uses unordered categorical actions with shared representations.
+They provide known ground truth for source isolation, policy dynamics, and
+held-out-context generalization. The nine D4RL locomotion dataset cells and
+Countdown arithmetic generation provide continuous offline-control and
+autoregressive sequence diagnostics, respectively. Full configurations are
+in Appendix~\ref{app:experimental_details}.
 
 \paragraph{Measurement conventions.}
 When the policy coordinate is controlled, source claims use policy-score
@@ -1073,49 +1073,65 @@ Appendix~\ref{app:controlled_protocols}.
     \centering
     \includegraphics[
         width=\columnwidth
-    ]{figures/figure1_external_gradient_bottom_labels.pdf}
+    ]{figures/figure1_external_gradient_d4rl9.pdf}
 
     \caption{
         \textbf{External diagnostic of far-field negative-update magnitude.}
-        \textbf{(a)} Hopper: relative implemented actor-gradient diagnostic
-        and matched absolute advantage as functions of relative standardized
-        distance for transitions with negative learned-critic advantages.
-        Values are normalized to the near-field reference within each seed.
-        Lines report averages across 10 seeds, and shaded regions denote
-        seed-level bootstrap 95\% confidence intervals.
+        \textbf{(a)} D4RL locomotion: equal-weight aggregate across
+        HalfCheetah, Hopper, and Walker2d under the medium, medium-replay,
+        and medium-expert datasets. For negative learned-critic advantages,
+        values are normalized to the near-field reference within seed and
+        dataset. The line reports the cross-dataset mean, the shaded region
+        denotes a hierarchical bootstrap 95\% confidence interval over
+        datasets and seeds, and the matched far/near absolute-advantage ratio
+        is reported as a diagnostic.
         \textbf{(b)} Countdown: relative implemented actor-gradient diagnostic
         and fixed negative coefficient magnitude as functions of current-policy
         mean-token surprisal deciles among verifier-matched unsuccessful
         responses. Values are normalized to the lowest-surprisal decile, and
         shaded regions denote puzzle-level bootstrap 95\% confidence intervals.
     }
-    \Description{Two-panel diagnostic figure. The Hopper panel compares relative actor-gradient magnitude and matched absolute advantage across standardized-distance bins. The Countdown panel compares relative actor-gradient magnitude and fixed negative coefficient across mean-token-surprisal deciles.}
+    \Description{Two-panel external diagnostic figure. The D4RL locomotion
+    panel reports an equal-weight aggregate of relative implemented actor-gradient
+    magnitude across nine dataset cells, with hierarchical uncertainty. The
+    Countdown panel compares relative implemented actor-gradient magnitude and
+    fixed negative coefficient across mean-token-surprisal deciles.}
     \label{fig:external_far_field}
 \end{figure}
 
-Hopper provides a continuous-control setting with a state-conditioned Gaussian
-policy,
-where remoteness is measured by standardized distance from the current
-policy. Countdown provides an autoregressive discrete setting, where
-remoteness is measured by current-policy mean-token surprisal.
+For each D4RL dataset, we first fit a canonical value critic and freeze the
+resulting transition-level advantages. We then train Positive-only Gaussian
+reference actors using only positive-advantage transitions, fix their terminal
+checkpoints, and probe negative-advantage transitions without further policy
+updates. Remoteness is measured by policy-relative standardized distance, and
+near/far samples are matched by absolute frozen advantage. Full training,
+matching, gradient-probe, and aggregation details are provided in
+Appendix~\ref{app:d4rl_gradient_diagnostic}.
 
-The diagnostic controls the sample-quality coefficient in each setting.
-In Hopper, we compare negative-advantage transitions after matching their
-absolute advantage magnitudes. In Countdown, we compare verifier-matched
-unsuccessful responses while holding the negative coefficient magnitude
-fixed. These matches test whether remoteness is reflected in implemented actor
-updates independently of the sample-quality coefficient.
+Countdown provides an autoregressive discrete setting, where remoteness is
+measured by current-policy mean-token surprisal. The diagnostic controls the
+sample-quality coefficient in each setting. Across the D4RL datasets, we
+compare negative-advantage transitions after matching their absolute frozen
+advantages. In Countdown, we compare verifier-matched unsuccessful responses
+while holding the negative coefficient magnitude fixed. These matches test
+whether remoteness is reflected in implemented actor updates independently of
+the sample-quality coefficient.
 
-Figure~\ref{fig:external_far_field} shows signatures specific to each policy
-family. In Hopper, the implemented actor-gradient diagnostic
-increases with standardized distance while matched absolute advantage
-remains approximately flat. In Countdown, the fixed-coefficient
-diagnostic remains substantial at high mean-token surprisal. We interpret
-the latter as persistent suppression in a categorical sequence policy,
-not as an unbounded direct-logit score; implemented parameter gradients
-also contain the network Jacobian. These diagnostics show that
-remoteness-correlated update magnitude appears in realistic neural actors, but
-they do not identify its source or causal effect.
+Figure~\ref{fig:external_far_field} shows signatures specific to each
+policy family. Across all nine D4RL locomotion dataset cells, the implemented
+full-parameter actor-gradient diagnostic increases strongly with
+policy-relative standardized distance. The equal-weight aggregate exhibits
+the same near-to-far amplification, while the per-dataset panels in
+Figure~\ref{fig:app_d4rl9_gradient_panels} show that the result is not driven
+by a single environment or dataset quality. The aggregate scaling is
+approximately linear in standardized distance, consistent with the theoretical
+prediction that the squared Gaussian score norm scales with squared
+standardized distance. In Countdown, the fixed-coefficient diagnostic remains
+substantial at high mean-token surprisal. We interpret the latter as persistent
+suppression in a categorical sequence policy, not as an unbounded direct-logit
+score; implemented parameter gradients also contain the network Jacobian.
+These diagnostics show that remoteness-correlated update magnitude appears in
+realistic neural actors, but they do not identify its source or causal effect.
 
 
 
@@ -3761,6 +3777,83 @@ support and replacing the weighted terms by their worst case.
 
 \section{Experimental Details}
 \label{app:experimental_details}
+
+\subsection{D4RL Locomotion Gradient-Diagnostic Protocol}
+\label{app:d4rl_gradient_diagnostic}
+
+\paragraph{Critic fitting and frozen advantages.}
+For each of the nine D4RL locomotion dataset cells, we train one canonical
+value critic for 100,000 optimizer updates. We then compute, standardize, and
+freeze the transition-level learned-critic advantages. All actor seeds for a
+given dataset use the same frozen critic outputs.
+
+\paragraph{Positive-only reference actors.}
+For seeds 100--109, we train a Gaussian reference actor for 100,000 optimizer
+updates using only transitions with positive frozen advantage. The terminal
+actor checkpoint is fixed before the gradient diagnostic and serves only to
+define learner-relative distance and the implemented-gradient measurement.
+
+\paragraph{Matched negative-transition probe.}
+The probe population contains transitions with negative frozen advantage.
+Near and far pools use standardized-distance quantiles 0.25 and 0.75. We match
+absolute advantage using 20 bins and a 5\% relative tolerance, retain 256
+matched pairs per seed, and evaluate the full actor-parameter gradient on 64
+pairs per seed. Seven far-distance bins are reported. The probe performs no
+optimizer update.
+
+\paragraph{Aggregation and provenance.}
+Every far point is normalized by its original matched near partner. Curves are
+first aggregated within seed and dataset; the main panel then assigns equal
+weight to the nine dataset cells on their shared distance support. Its 95\%
+confidence interval uses 10,000 hierarchical bootstrap draws, resampling
+dataset cells and then seeds, with bootstrap seed 20260723. The archived
+point-level output records dataset, critic, actor, RunSpec, source, and
+checkpoint provenance.
+
+\begin{table*}[t]
+\centering
+\caption{Configuration of the D4RL locomotion gradient diagnostic.}
+\label{tab:app_d4rl_gradient_protocol}
+\small
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{ll}
+\toprule
+Component & Configuration \\
+\midrule
+Datasets & HalfCheetah, Hopper, Walker2d $\times$ medium, medium-replay, medium-expert \\
+Critic & One learned value critic per dataset; 100,000 optimizer updates \\
+Advantage & Transition-level learned-critic advantage; standardized and frozen \\
+Reference actor & Positive-only Gaussian actor; 100,000 optimizer updates \\
+Seeds & 100--109 \\
+Probe population & Negative frozen-advantage transitions \\
+Near/far pools & Standardized-distance quantiles 0.25 / 0.75 \\
+Advantage matching & 20 bins; 5\% relative tolerance \\
+Matched pool & 256 pairs per seed \\
+Full-gradient subset & 64 pairs per seed \\
+Distance summary & Seven far-distance bins with original-pair normalization \\
+Probe updates & None \\
+Cross-dataset summary & Within-seed/dataset normalization; equal dataset-cell weighting \\
+Uncertainty & Hierarchical bootstrap over dataset cells and seeds \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{figures/fig_app_d4rl9_gradient_panels.pdf}
+    \caption{
+    \textbf{Per-dataset D4RL locomotion gradient diagnostics.}
+    Rows correspond to HalfCheetah, Hopper, and Walker2d; columns correspond to
+    the medium, medium-replay, and medium-expert datasets. Each panel reports the
+    relative implemented full-parameter actor-gradient diagnostic and matched
+    absolute frozen advantage as functions of policy-relative standardized
+    distance. Values are normalized to the near-field reference within seed;
+    lines show 10-seed means and shaded regions show seed-level bootstrap 95\%
+    confidence intervals. The common near-to-far increase across all nine dataset
+    cells demonstrates that the aggregate result is not driven by a single task.
+    }
+    \label{fig:app_d4rl9_gradient_panels}
+\end{figure*}
 
 \subsection{Unified Continuous Environment C-U1}
 \label{app:cu1_environment}
