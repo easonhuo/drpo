@@ -3,8 +3,8 @@ run_id: E7_BENCH_JOINT_GAE_TASKC_TOP4_MULTISEED_FULL_20260723_01
 lane: e7
 priority: 155
 created_at: "2026-07-23T16:30:00Z"
-experiment_id: EXT-H-E7-SQEXP-GAE-01
-repo_commit: d93cf385779c7466e33cf19bd6cc573b2c6e32f4
+experiment_id: EXT-H-E7-SQEXP-GAE-TASKC-MS-01
+repo_commit: e51f368c7108b8705eb685844b44335ca0c414a0
 
 registration:
   mode: deferred
@@ -28,7 +28,8 @@ provenance:
     - scripts/agent/runspec_delivery_policy.py
 
 purpose: >
-  Execute the predeclared 180-branch D4RL-9 task-specific c multi-seed pilot.
+  Execute the predeclared 180-branch D4RL-9 task-specific c multi-seed pilot
+  under the independent experiment identity EXT-H-E7-SQEXP-GAE-TASKC-MS-01.
   Each task uses its strict top four observed finite-c points from completed
   P1/P2/P3 development response curves and five development seeds. Preserve all
   five seeds and full trajectories while producing the predeclared top-3-of-5
@@ -70,7 +71,9 @@ outputs:
   audit_file: outputs/e7/taskc_top4_multiseed_001/aggregate/terminal_audit.json
 
 success_criteria:
-  - run-local Python profile shim resolves the reviewed bootstrap profile whitelist without adding a new Python module
+  - grid, branch configs, branch manifests, aggregate summaries, and terminal audit all use experiment identity EXT-H-E7-SQEXP-GAE-TASKC-MS-01
+  - no output from this run is deposited under parent experiment EXT-H-E7-SQEXP-GAE-01
+  - run-local Python identity/profile shim binds the reviewed runner, bootstrap, and aggregate reader without changing historical P1/P2/P3 identities
   - candidate c values are the strict per-task top four finite points by late-window mean across completed P1, P2, and P3 development curves
   - matrix contains exactly 180 branches from nine D4RL-v2 tasks, four task-specific c values, and five seeds
   - development seeds are exactly 200, 201, 202, 203, and 208
@@ -128,5 +131,3 @@ delivery:
 publish:
   enabled: false
   auto: false
-
-# PR synchronize trigger after the final implementation freeze; no protected path changed.
