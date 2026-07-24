@@ -1,0 +1,250 @@
+name: TEMP PR272 exact protocol compression and PDF-only figures v2
+
+on:
+  push:
+    branches:
+      - dev/paper-kdd2027-fig1-d4rl9-01
+
+permissions:
+  contents: write
+
+jobs:
+  apply-audit-commit:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: dev/paper-kdd2027-fig1-d4rl9-01
+
+      - name: Verify lineage and apply exact approved changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline='69c106968837d1ece07443122019f48666df300c'
+          git merge-base --is-ancestor "$baseline" HEAD
+          python - <<'PY'
+          from pathlib import Path
+
+          old = """For each D4RL dataset, we first fit a canonical value critic and freeze the
+          resulting transition-level advantages. We then train Positive-only Gaussian
+          reference actors using only positive-advantage transitions, fix their terminal
+          checkpoints, and probe negative-advantage transitions without further policy
+          updates. Remoteness is measured by policy-relative standardized distance, and
+          near/far samples are matched by absolute frozen advantage. Full training,
+          matching, gradient-probe, and aggregation details are provided in
+          Appendix~\\ref{app:d4rl_gradient_diagnostic}.""".replace("          ", "")
+          new = """For D4RL, we evaluate negative-advantage transitions around fixed
+          Positive-only Gaussian reference actors. Remoteness is defined by
+          policy-relative standardized distance, and near/far transitions are matched
+          by absolute frozen learned-critic advantage; no policy update is performed
+          during probing. Full critic fitting, actor training, matching, gradient-probe,
+          and aggregation details are provided in
+          Appendix~\\ref{app:d4rl_gradient_diagnostic}.""".replace("          ", "")
+          for path in map(Path, [
+              "paper/kdd2027/main.tex",
+              "paper/kdd2027/source_locked.tex",
+              "paper/overleaf/main_replacement.tex",
+          ]):
+              text = path.read_text(encoding="utf-8")
+              if text.count(old) != 1 or new in text:
+                  raise SystemExit(f"{path}: exact paragraph precondition failed")
+              path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          path = Path("scripts/figures/plot_figure1_external_gradient.py")
+          text = path.read_text(encoding="utf-8")
+          old_save = """def save_all(figure, stem: Path) -> None:
+              stem.parent.mkdir(parents=True, exist_ok=True)
+              for extension in ["pdf", "svg", "png"]:
+                  figure.savefig(
+                      str(stem) + "." + extension,
+                      dpi=320 if extension == "png" else None,
+                      bbox_inches="tight",
+                      pad_inches=0.03,
+                  )
+          """.replace("          ", "")
+          new_save = """def save_all(figure, stem: Path) -> None:
+              stem.parent.mkdir(parents=True, exist_ok=True)
+              figure.savefig(
+                  str(stem) + ".pdf",
+                  bbox_inches="tight",
+                  pad_inches=0.03,
+              )
+          """.replace("          ", "")
+          if text.count(old_save) != 1:
+              raise SystemExit("plotter PDF-only precondition failed")
+          path.write_text(text.replace(old_save, new_save, 1), encoding="utf-8")
+          PY
+          rm -f \
+            paper/kdd2027/figures/figure1_external_gradient_d4rl9.png \
+            paper/kdd2027/figures/figure1_external_gradient_d4rl9.svg \
+            paper/kdd2027/figures/fig_app_d4rl9_gradient_panels.png \
+            paper/kdd2027/figures/fig_app_d4rl9_gradient_panels.svg
+
+      - name: Regenerate both figures as PDF only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check -q numpy pandas matplotlib
+          python scripts/figures/plot_figure1_external_gradient.py \
+            --d4rl-main results/FIGURE1_EXTERNAL_GRADIENT_D4RL9/main_aggregate.csv \
+            --d4rl-panels results/FIGURE1_EXTERNAL_GRADIENT_D4RL9/dataset_plot_data.csv \
+            --d4rl-manifest results/FIGURE1_EXTERNAL_GRADIENT_D4RL9/MANIFEST.json \
+            --countdown paper/kdd2027/figures/figure1_external_gradient_d4rl9_countdown_deciles.csv \
+            --out paper/kdd2027/figures/figure1_external_gradient_d4rl9 \
+            --appendix-out paper/kdd2027/figures/fig_app_d4rl9_gradient_panels
+          cp paper/kdd2027/figures/figure1_external_gradient_d4rl9.pdf paper/overleaf/figures/
+          cp paper/kdd2027/figures/fig_app_d4rl9_gradient_panels.pdf paper/overleaf/figures/
+          python -m py_compile scripts/figures/plot_figure1_external_gradient.py
+
+      - name: Two-round audit - six completeness plus six scope reviews
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          baseline = "69c106968837d1ece07443122019f48666df300c"
+          tex_paths = list(map(Path, [
+              "paper/kdd2027/main.tex",
+              "paper/kdd2027/source_locked.tex",
+              "paper/overleaf/main_replacement.tex",
+          ]))
+          old = """For each D4RL dataset, we first fit a canonical value critic and freeze the
+          resulting transition-level advantages. We then train Positive-only Gaussian
+          reference actors using only positive-advantage transitions, fix their terminal
+          checkpoints, and probe negative-advantage transitions without further policy
+          updates. Remoteness is measured by policy-relative standardized distance, and
+          near/far samples are matched by absolute frozen advantage. Full training,
+          matching, gradient-probe, and aggregation details are provided in
+          Appendix~\\ref{app:d4rl_gradient_diagnostic}.""".replace("          ", "")
+          new = """For D4RL, we evaluate negative-advantage transitions around fixed
+          Positive-only Gaussian reference actors. Remoteness is defined by
+          policy-relative standardized distance, and near/far transitions are matched
+          by absolute frozen learned-critic advantage; no policy update is performed
+          during probing. Full critic fitting, actor training, matching, gradient-probe,
+          and aggregation details are provided in
+          Appendix~\\ref{app:d4rl_gradient_diagnostic}.""".replace("          ", "")
+          texts = [p.read_text(encoding="utf-8") for p in tex_paths]
+
+          assert [t.count(new) for t in texts] == [1, 1, 1]
+          print("R1 compressed paragraph present exactly once in all mirrors: PASS")
+          assert all("fixed\nPositive-only Gaussian reference actors" in t for t in texts)
+          print("R2 fixed reference-actor identity retained: PASS")
+          assert all("absolute frozen learned-critic advantage" in t for t in texts)
+          print("R3 matching control retained: PASS")
+          assert all("no policy update is performed\nduring probing" in t for t in texts)
+          print("R4 no-update probe boundary retained: PASS")
+          assert all("Appendix~\\ref{app:d4rl_gradient_diagnostic}" in t for t in texts)
+          print("R5 appendix pointer retained: PASS")
+          for stem in [
+              "paper/kdd2027/figures/figure1_external_gradient_d4rl9",
+              "paper/kdd2027/figures/fig_app_d4rl9_gradient_panels",
+          ]:
+              assert Path(stem + ".pdf").read_bytes().startswith(b"%PDF-")
+              assert not Path(stem + ".png").exists()
+              assert not Path(stem + ".svg").exists()
+          print("R6 both figures are valid PDF-only assets: PASS")
+
+          for path in tex_paths:
+              before = subprocess.check_output(["git", "show", f"{baseline}:{path}"], text=True)
+              after = path.read_text(encoding="utf-8")
+              assert after == before.replace(old, new, 1)
+          print("S1 each TeX file differs by exactly one approved replacement: PASS")
+          appendix = "\\subsection{D4RL Locomotion Gradient-Diagnostic Protocol}"
+          for path in tex_paths:
+              before = subprocess.check_output(["git", "show", f"{baseline}:{path}"], text=True)
+              after = path.read_text(encoding="utf-8")
+              assert before.split(appendix, 1)[1] == after.split(appendix, 1)[1]
+          print("S2 appendix is byte-for-byte unchanged: PASS")
+          next_para = "Countdown provides an autoregressive discrete setting"
+          for path in tex_paths:
+              before = subprocess.check_output(["git", "show", f"{baseline}:{path}"], text=True)
+              after = path.read_text(encoding="utf-8")
+              assert before.split(next_para, 1)[1] == after.split(next_para, 1)[1]
+          print("S3 all prose after the approved paragraph is unchanged: PASS")
+          for path in tex_paths:
+              before = subprocess.check_output(["git", "show", f"{baseline}:{path}"], text=True)
+              after = path.read_text(encoding="utf-8")
+              start = "\\subsection{External Diagnostic of Far-Field Repulsion}"
+              assert before.split(start, 1)[0] == after.split(start, 1)[0]
+          print("S4 all prose before the target subsection is unchanged: PASS")
+          plot = Path("scripts/figures/plot_figure1_external_gradient.py")
+          before = subprocess.check_output(["git", "show", f"{baseline}:{plot}"], text=True)
+          after = plot.read_text(encoding="utf-8")
+          old_save = """def save_all(figure, stem: Path) -> None:
+              stem.parent.mkdir(parents=True, exist_ok=True)
+              for extension in ["pdf", "svg", "png"]:
+                  figure.savefig(
+                      str(stem) + "." + extension,
+                      dpi=320 if extension == "png" else None,
+                      bbox_inches="tight",
+                      pad_inches=0.03,
+                  )
+          """.replace("          ", "")
+          new_save = """def save_all(figure, stem: Path) -> None:
+              stem.parent.mkdir(parents=True, exist_ok=True)
+              figure.savefig(
+                  str(stem) + ".pdf",
+                  bbox_inches="tight",
+                  pad_inches=0.03,
+              )
+          """.replace("          ", "")
+          assert after == before.replace(old_save, new_save, 1)
+          print("S5 plotter differs only by the PDF-only save rule: PASS")
+          for protected in ["docs/handoff.md", "experiments/registry.yaml"]:
+              assert subprocess.run(["git", "diff", "--quiet", baseline, "--", protected]).returncode == 0
+          print("S6 handoff, registry, data, and all unapproved scientific text unchanged: PASS")
+          PY
+
+      - name: Compile with canonical TeX Live 2025
+        uses: xu-cheng/texlive-action@v3
+        with:
+          texlive_version: 2025
+          os: debian
+          run: |
+            cd paper/kdd2027
+            pdflatex --version | tee /tmp/tl-version.txt
+            grep -Fq 'TeX Live 2025' /tmp/tl-version.txt
+            latexmk -C main.tex >/dev/null 2>&1 || true
+            latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+            test -s main.pdf
+            if grep -Eqi 'Undefined control sequence|LaTeX Error|Citation .* undefined|Reference .* undefined|There were undefined references|There were undefined citations|Fatal error' main.log; then
+              exit 1
+            fi
+
+      - name: Verify exact path set, remove transports, and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline='69c106968837d1ece07443122019f48666df300c'
+          rm -f \
+            .github/workflows/temp-pr272-protocol-pdf-only.yml \
+            .github/workflows/temp-pr272-protocol-pdf-only-v2.yml \
+            PR272_PROTOCOL_PDF_TRIGGER.txt
+          git add -A
+          cat > /tmp/expected.txt <<'EOF'
+          paper/kdd2027/figures/fig_app_d4rl9_gradient_panels.pdf
+          paper/kdd2027/figures/fig_app_d4rl9_gradient_panels.png
+          paper/kdd2027/figures/fig_app_d4rl9_gradient_panels.svg
+          paper/kdd2027/figures/figure1_external_gradient_d4rl9.pdf
+          paper/kdd2027/figures/figure1_external_gradient_d4rl9.png
+          paper/kdd2027/figures/figure1_external_gradient_d4rl9.svg
+          paper/kdd2027/main.tex
+          paper/kdd2027/source_locked.tex
+          paper/overleaf/figures/fig_app_d4rl9_gradient_panels.pdf
+          paper/overleaf/figures/figure1_external_gradient_d4rl9.pdf
+          paper/overleaf/main_replacement.tex
+          scripts/figures/plot_figure1_external_gradient.py
+          EOF
+          sed -i 's/^          //' /tmp/expected.txt
+          git diff --cached --name-only "$baseline" | sort > /tmp/actual.txt
+          sort -o /tmp/expected.txt /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'PAPER-FIG1-D4RL9: apply approved body compression and PDF-only figures'
+          git push origin HEAD:dev/paper-kdd2027-fig1-d4rl9-01
