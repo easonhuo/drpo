@@ -1,1 +1,1 @@
-Trigger exact PR #272 replacement diagnostics before the audited correction rerun.
+Trigger isolated precondition checks for the exact PR #272 correction.
