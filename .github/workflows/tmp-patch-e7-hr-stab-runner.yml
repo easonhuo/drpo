@@ -42,13 +42,11 @@ jobs:
           PY
           test "$(sha256sum scripts/run_e7_hopper_replay_stability_hps.sh | awk '{print $1}')" = "6214f2de8d8cea56acc1cf4266eb687bc7913a456ccecd4cd254f6aa8a174343"
           test "$(git hash-object scripts/run_e7_hopper_replay_stability_hps.sh)" = "a046c18c082786b4f5c0e23b6b27770d04f3fef6"
-          bash scripts/test_e7_hopper_replay_stability_hps.sh
-      - name: Commit audited runner
-        shell: bash
-        run: |
-          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add scripts/run_e7_hopper_replay_stability_hps.sh
           git commit -m "Audit Hopper replay trajectory snapshot batch"
-          git push origin HEAD:dev/ext-h-e7-hopper-replay-stab-hps-01
+      - name: Validate committed audited runner
+        run: bash scripts/test_e7_hopper_replay_stability_hps.sh
+      - name: Push audited runner
+        run: git push origin HEAD:dev/ext-h-e7-hopper-replay-stab-hps-01
