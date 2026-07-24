@@ -1,0 +1,69 @@
+name: TEMP publish exact PR272 release PDF
+
+on:
+  push:
+    branches:
+      - fix/paper-release-pdf-pr272
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: fix/paper-release-pdf-pr272
+
+      - name: Download exact compiled artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: DRPO_PR272_Exact_Preview
+          path: /tmp/pr272-artifact
+          repository: easonhuo/drpo
+          run-id: 30076856300
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install and verify the exact release PDF
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git merge-base HEAD origin/main)" = "59d04c9699d534e8e8bfeaa35dc91c901df75af4"
+          unzip -q /tmp/pr272-artifact/DRPO_PR272_Exact_Preview.zip -d /tmp/pr272-package
+          src=/tmp/pr272-package/DRPO_PR272_Exact_Preview/DRPO_KDD2027_PR272_preview.pdf
+          test -s "$src"
+          test "$(sha256sum "$src" | awk '{print $1}')" = "1f5d2fdedb95c8d181e94639b266744aaa04dc25a19ce160698b8bf4276e02e1"
+          python -m pip install --disable-pip-version-check -q pypdf
+          python - <<'PY'
+          from pathlib import Path
+          from pypdf import PdfReader
+          path = Path('/tmp/pr272-package/DRPO_PR272_Exact_Preview/DRPO_KDD2027_PR272_preview.pdf')
+          data = path.read_bytes()
+          assert data.startswith(b'%PDF-')
+          reader = PdfReader(str(path))
+          assert len(reader.pages) == 28
+          text = '\n'.join((page.extract_text() or '') for page in reader.pages)
+          assert 'D4RL locomotion: equal-weight aggregate' in text
+          assert 'For D4RL, we evaluate negative-advantage transitions around fixed' in text
+          assert 'D4RL Locomotion Gradient-Diagnostic' in text
+          PY
+          cp "$src" paper/releases/DRPO_KDD2027_STAGE_A.pdf
+
+      - name: Commit only the release PDF
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/temp-publish-pr272-release-pdf.yml
+          git add paper/releases/DRPO_KDD2027_STAGE_A.pdf
+          git add -u .github/workflows/temp-publish-pr272-release-pdf.yml
+          git diff --cached --name-only origin/main > /tmp/changed.txt
+          test "$(cat /tmp/changed.txt)" = "paper/releases/DRPO_KDD2027_STAGE_A.pdf"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'PAPER-FIG1-D4RL9-RELEASE-01: publish updated compiled PDF'
+          git push origin HEAD:fix/paper-release-pdf-pr272
