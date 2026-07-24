@@ -11,4 +11,4 @@ jobs:
     if: false
     runs-on: ubuntu-latest
     steps:
-      - run: echo disabled
+      - run: echo preview packaging completed and disabled
