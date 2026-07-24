@@ -26,6 +26,7 @@ docker run --rm \
       texlive-latex-base \
       texlive-latex-extra \
       texlive-latex-recommended \
+      texlive-plain-generic \
       texlive-publishers \
       texlive-science >/dev/null
     pdflatex --version | head -n 2
