@@ -21,6 +21,7 @@ docker run --rm \
       latexmk \
       poppler-utils \
       texlive-bibtex-extra \
+      texlive-fonts-extra \
       texlive-fonts-recommended \
       texlive-latex-base \
       texlive-latex-extra \
@@ -36,14 +37,15 @@ docker run --rm \
     }
     tail -n 10 /tmp/latexmk.log
     test -s main.pdf
-    echo "PAGES=$(pdfinfo main.pdf | awk '\''/^Pages:/ {print $2}'\'')"
+    pdfinfo main.pdf > REPAIR_PDFINFO.txt
+    echo "PAGES=$(awk '\''/^Pages:/ {print $2}'\'' REPAIR_PDFINFO.txt)"
     echo "SIZE=$(stat -c %s main.pdf)"
     echo "SHA256=$(sha256sum main.pdf | awk '\''{print $1}'\'')"
   '
 
 echo "GIT_BLOB=$(git hash-object paper/kdd2027/main.pdf)"
 
-test "$(pdfinfo paper/kdd2027/main.pdf | awk '/^Pages:/ {print $2}')" = '27'
+test "$(awk '/^Pages:/ {print $2}' paper/kdd2027/REPAIR_PDFINFO.txt)" = '27'
 test "$(stat -c '%s' paper/kdd2027/main.pdf)" = '999042'
 echo '4c1f576f79c2e6809fd86978515a7104a0f75719ca8361fbe5078dd8f7c6a1fb  paper/kdd2027/main.pdf' | sha256sum --check --strict
 test "$(git hash-object paper/kdd2027/main.pdf)" = '50b8f320c21e677d81f8eda464e0d767983c5a8d'
