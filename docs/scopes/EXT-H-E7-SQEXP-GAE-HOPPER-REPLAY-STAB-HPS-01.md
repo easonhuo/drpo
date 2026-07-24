@@ -103,4 +103,14 @@ Required aggregate outputs:
 - `aggregate/final_selected_config.json`;
 - `aggregate/terminal_audit.json`.
 
+## Pre-run validation
+
+The training-free validation command
+
+```bash
+bash scripts/test_e7_hopper_replay_stability_hps.sh
+```
+
+passed against runner blob `f6958d3658e82cbcde623cc0d5b354b7fdb1b4c6`. This validates Python extraction/compilation, shell syntax, the frozen 48+10 matrix, optimizer-control self-test, and held-out-seed exclusion. It is not D4RL liveness or scientific evidence.
+
 The RunSpec must bind the exact frozen implementation commit, use deferred registration with closure required, preserve protected implementation paths, and automatically deliver text-first evidence to `easonhuo/drpo-results@ingest/e7` only after terminal audit completion.
