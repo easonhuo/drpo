@@ -12,3 +12,5 @@ python -m compileall -q \
 bash -n scripts/run_e7_hopper_replay_stability_hps.sh
 E7_HR_STAB_WORK_DIR=outputs/e7/hopper_replay_stability_hps_validation \
   bash scripts/run_e7_hopper_replay_stability_hps.sh validate
+
+# The validation path is intentionally training-free.
