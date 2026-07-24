@@ -1,0 +1,67 @@
+name: Repair Fable VFINAL3 release PDF
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'dev/paper-fable-vfinal3-release-repair'
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_DATE_EPOCH: '1784815980'
+      FORCE_SOURCE_DATE: '1'
+      TZ: UTC
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Compile exact accepted manuscript source
+        uses: xu-cheng/texlive-action@v3
+        with:
+          texlive_version: 2025
+          os: debian
+          run: |
+            set -euo pipefail
+            cd paper/kdd2027
+            latexmk -C main.tex >/dev/null 2>&1 || true
+            latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+            test -s main.pdf
+
+      - name: Verify exact PDF identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq poppler-utils
+          test "$(pdfinfo paper/kdd2027/main.pdf | awk '/^Pages:/ {print $2}')" = '27'
+          echo '4c1f576f79c2e6809fd86978515a7104a0f75719ca8361fbe5078dd8f7c6a1fb  paper/kdd2027/main.pdf' | sha256sum --check --strict
+          test "$(git hash-object paper/kdd2027/main.pdf)" = '50b8f320c21e677d81f8eda464e0d767983c5a8d'
+
+      - name: Replace incorrect release PDF
+        shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          cp paper/kdd2027/main.pdf paper/releases/DRPO_KDD2027_FABLE_VFINAL3_ACCEPTED.pdf
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add paper/releases/DRPO_KDD2027_FABLE_VFINAL3_ACCEPTED.pdf
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'PAPER-FABLE-VFINAL3-RELEASE-FIX-01: replace incorrect release PDF'
+          git push origin "HEAD:${HEAD_BRANCH}"
