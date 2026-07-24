@@ -1,1 +1,1 @@
-Retrigger the exact approved PR #272 correction workflow against the temporary execution base.
+Trigger exact PR #272 replacement diagnostics before the audited correction rerun.
