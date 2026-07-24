@@ -164,14 +164,11 @@ def load_countdown_deciles(path: Path, bootstrap: int) -> pd.DataFrame:
 
 def save_all(figure, stem: Path) -> None:
     stem.parent.mkdir(parents=True, exist_ok=True)
-    for extension in ["pdf", "svg", "png"]:
-        figure.savefig(
-            str(stem) + "." + extension,
-            dpi=320 if extension == "png" else None,
-            bbox_inches="tight",
-            pad_inches=0.03,
-        )
-
+    figure.savefig(
+        str(stem) + ".pdf",
+        bbox_inches="tight",
+        pad_inches=0.03,
+    )
 
 def validate_d4rl(main: pd.DataFrame, panels: pd.DataFrame, manifest: dict) -> None:
     main_columns = {

@@ -1099,13 +1099,12 @@ Appendix~\ref{app:controlled_protocols}.
     \label{fig:external_far_field}
 \end{figure}
 
-For each D4RL dataset, we first fit a canonical value critic and freeze the
-resulting transition-level advantages. We then train Positive-only Gaussian
-reference actors using only positive-advantage transitions, fix their terminal
-checkpoints, and probe negative-advantage transitions without further policy
-updates. Remoteness is measured by policy-relative standardized distance, and
-near/far samples are matched by absolute frozen advantage. Full training,
-matching, gradient-probe, and aggregation details are provided in
+For D4RL, we evaluate negative-advantage transitions around fixed
+Positive-only Gaussian reference actors. Remoteness is defined by
+policy-relative standardized distance, and near/far transitions are matched
+by absolute frozen learned-critic advantage; no policy update is performed
+during probing. Full critic fitting, actor training, matching, gradient-probe,
+and aggregation details are provided in
 Appendix~\ref{app:d4rl_gradient_diagnostic}.
 
 Countdown provides an autoregressive discrete setting, where remoteness is
