@@ -218,7 +218,7 @@ def plot_main(main: pd.DataFrame, countdown: pd.DataFrame, manifest: dict, out: 
     figure, axes = plt.subplots(
         1,
         2,
-        figsize=(7.25, 2.85),
+        figsize=(7.25, 2.95),
         gridspec_kw={"width_ratios": [1.22, 1.0]},
     )
     axis = axes[0]
@@ -227,8 +227,9 @@ def plot_main(main: pd.DataFrame, countdown: pd.DataFrame, manifest: dict, out: 
         x,
         main["relative_gradient_ci_low"],
         main["relative_gradient_ci_high"],
-        alpha=0.18,
+        alpha=0.20,
         linewidth=0,
+        label="95% hierarchical bootstrap CI",
     )
     axis.plot(
         x,
@@ -236,28 +237,28 @@ def plot_main(main: pd.DataFrame, countdown: pd.DataFrame, manifest: dict, out: 
         marker="o",
         linewidth=1.75,
         markersize=4.2,
-        label="Gradient norm",
+        label="D4RL-9 equal-weight mean",
     )
-    axis.axhline(1.0, linestyle=":", linewidth=1.0)
+    axis.axhline(1.0, linestyle="--", linewidth=1.0)
     advantage_ratio = float(manifest["pairwise_absolute_advantage"]["mean_ratio"])
     axis.text(
         0.035,
         0.955,
         "9 datasets × 10 seeds\n"
-        + rf"pair-matched $|A|$ far/near = {advantage_ratio:.3f}",
+        + rf"original-pair $|A|$ far/near = {advantage_ratio:.3f}",
         transform=axis.transAxes,
         ha="left",
         va="top",
         fontsize=7.7,
     )
-    axis.set_title("(a) D4RL locomotion aggregate", fontsize=11.1, pad=3)
+    axis.set_title("(a) D4RL Locomotion Aggregate", fontsize=11.1, pad=3)
     axis.set_xlabel("Relative standardized distance", fontsize=9.7)
-    axis.set_ylabel("Relative magnitude", fontsize=9.7)
+    axis.set_ylabel("Relative gradient diagnostic", fontsize=9.4)
     axis.tick_params(labelsize=8.4)
-    axis.grid(axis="y", linestyle="--", linewidth=0.45, alpha=0.33)
+    axis.grid(True, linestyle="--", linewidth=0.45, alpha=0.33)
     axis.spines["top"].set_visible(False)
     axis.spines["right"].set_visible(False)
-    axis.legend(fontsize=7.9, frameon=True, loc="lower right")
+    axis.legend(fontsize=7.4, frameon=False, loc="lower right")
 
     axis = axes[1]
     x_countdown = countdown["surprisal_decile"].to_numpy()
@@ -327,7 +328,7 @@ def plot_appendix(panels: pd.DataFrame, out: Path) -> None:
     if set(panels["dataset_id"]) != set(order):
         raise ValueError("unexpected D4RL dataset inventory")
     y_max = math.ceil(float(panels["relative_gradient_ci_high"].max()) + 0.25)
-    figure, axes = plt.subplots(3, 3, figsize=(10.5, 8.0))
+    figure, axes = plt.subplots(3, 3, figsize=(11.25, 8.35))
     for axis, dataset in zip(axes.flat, order):
         data = panels[panels["dataset_id"] == dataset].sort_values("relative_distance")
         x = data["relative_distance"].to_numpy(float)
@@ -335,22 +336,22 @@ def plot_appendix(panels: pd.DataFrame, out: Path) -> None:
             x,
             data["relative_gradient_ci_low"],
             data["relative_gradient_ci_high"],
-            alpha=0.18,
+            alpha=0.20,
             linewidth=0,
         )
         axis.plot(
             x,
             data["relative_gradient_mean"],
             marker="o",
-            linewidth=1.75,
-            markersize=3.4,
+            linewidth=2.15,
+            markersize=4.2,
             label="Relative gradient",
         )
         axis.fill_between(
             x,
             data["relative_abs_advantage_ci_low"],
             data["relative_abs_advantage_ci_high"],
-            alpha=0.10,
+            alpha=0.11,
             linewidth=0,
         )
         axis.plot(
@@ -358,22 +359,22 @@ def plot_appendix(panels: pd.DataFrame, out: Path) -> None:
             data["relative_abs_advantage_mean"],
             marker="s",
             linestyle="--",
-            linewidth=1.2,
-            markersize=2.9,
-            label=r"Relative $|A|$",
+            linewidth=1.45,
+            markersize=3.5,
+            label=r"Original-pair relative $|A|$",
         )
         axis.axhline(1.0, linestyle=":", linewidth=0.9)
-        axis.set_title(titles[dataset], fontsize=9.2, pad=3)
+        axis.set_title(titles[dataset], fontsize=10.2, pad=5)
         axis.set_xlim(0.9, float(x.max()) + 0.15)
         axis.set_ylim(0.45, y_max)
-        axis.grid(axis="y", linestyle="--", linewidth=0.4, alpha=0.3)
+        axis.grid(True, linestyle="--", linewidth=0.50, alpha=0.28)
         axis.spines["top"].set_visible(False)
         axis.spines["right"].set_visible(False)
-        axis.tick_params(labelsize=7.2)
+        axis.tick_params(labelsize=8.0)
     for axis in axes[-1, :]:
-        axis.set_xlabel("Relative standardized distance", fontsize=8.0)
+        axis.set_xlabel("Relative standardized distance", fontsize=8.8)
     for axis in axes[:, 0]:
-        axis.set_ylabel("Relative magnitude", fontsize=8.0)
+        axis.set_ylabel("Relative magnitude", fontsize=8.8)
     handles, labels = axes[0, 0].get_legend_handles_labels()
     figure.legend(
         handles,
@@ -381,10 +382,10 @@ def plot_appendix(panels: pd.DataFrame, out: Path) -> None:
         loc="upper center",
         ncol=2,
         frameon=False,
-        fontsize=8.0,
+        fontsize=9.0,
         bbox_to_anchor=(0.5, 1.005),
     )
-    figure.tight_layout(rect=(0, 0, 1, 0.975), h_pad=1.0, w_pad=0.8)
+    figure.tight_layout(rect=(0, 0, 1, 0.965), h_pad=1.05, w_pad=0.95)
     save_all(figure, out)
     plt.close(figure)
 

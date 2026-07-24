@@ -1080,8 +1080,8 @@ Appendix~\ref{app:controlled_protocols}.
         \textbf{(a)} D4RL locomotion: equal-weight aggregate across
         HalfCheetah, Hopper, and Walker2d under the medium, medium-replay,
         and medium-expert datasets. For negative learned-critic advantages,
-        values are normalized to the near-field reference within seed and
-        dataset. The line reports the cross-dataset mean, the shaded region
+        each far transition is normalized by its original matched near partner
+        within seed and dataset. The line reports the cross-dataset mean, the shaded region
         denotes a hierarchical bootstrap 95\% confidence interval over
         datasets and seeds, and the matched far/near absolute-advantage ratio
         is reported as a diagnostic.
@@ -3847,8 +3847,8 @@ Uncertainty & Hierarchical bootstrap over dataset cells and seeds \\
     the medium, medium-replay, and medium-expert datasets. Each panel reports the
     relative implemented full-parameter actor-gradient diagnostic and matched
     absolute frozen advantage as functions of policy-relative standardized
-    distance. Values are normalized to the near-field reference within seed;
-    lines show 10-seed means and shaded regions show seed-level bootstrap 95\%
+    distance. Each far transition is normalized by its original matched near
+    partner within seed; lines show 10-seed means and shaded regions show seed-level bootstrap 95\%
     confidence intervals. The common near-to-far increase across all nine dataset
     cells demonstrates that the aggregate result is not driven by a single task.
     }
