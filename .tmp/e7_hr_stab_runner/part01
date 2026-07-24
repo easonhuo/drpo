@@ -1,0 +1,183 @@
+ValueError(f"unsupported stability batch_size={batch_size}")
+    if multiplier not in ALLOWED_MULTIPLIERS:
+        raise ValueError(f"unsupported stability actor_lr_multiplier={multiplier}")
+
+    original_flag_value = suite._flag_value  # noqa: SLF001
+
+    def compatible_flag_value(tokens: list[str], flag: str) -> str:
+        value = original_flag_value(tokens, flag)
+        return "256" if flag == "--batch" else value
+
+    suite._flag_value = compatible_flag_value  # type: ignore[assignment]  # noqa: SLF001
+
+    original_provider = bootstrap.TrajectorySnapshotAdvantage
+
+    class BatchAwareProvider(original_provider):
+        def __init__(self, replay: Any, estimator: str, batch_size_arg: int = 256) -> None:
+            del batch_size_arg
+            super().__init__(replay, estimator, batch_size=batch_size)
+
+    bootstrap.TrajectorySnapshotAdvantage = BatchAwareProvider
+
+    original_patch = bootstrap.patch_canonical_module
+    state_holder: dict[str, Any] = {}
+
+    def patched_module(*args: Any, **kwargs: Any) -> Any:
+        result = original_patch(*args, **kwargs)
+        module = args[0]
+        contract = args[1]
+        state_holder["optimizer"] = _install_actor_lr_multiplier(
+            module,
+            contract.target_class,
+            multiplier,
+        )
+        return result
+
+    bootstrap.patch_canonical_module = patched_module
+    result = int(bootstrap.main(argv))
+    state = state_holder.get("optimizer")
+    if not isinstance(state, dict) or state.get("applied_count") != 1:
+        raise RuntimeError("actor optimizer control was not applied exactly once")
+    state = {
+        **state,
+        "batch_size": batch_size,
+        "trajectory_snapshot_batch_size": batch_size,
+        "profile_id": PROFILE_ID,
+        "experiment_id": EXPERIMENT_ID,
+    }
+    optimizer_path = branch_config_path.parent / "OPTIMIZER_CONTROL.json"
+    _atomic_json(optimizer_path, state)
+    manifest_path = branch_config_path.parent / "branch_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["optimizer_control"] = state
+    manifest["trajectory_snapshot_batch_size"] = batch_size
+    _atomic_json(manifest_path, manifest)
+    return result
+
+
+def main() -> int:
+    if sys.argv[1:] == ["--self-test"]:
+        return _self_test()
+    return _run_bootstrap(sys.argv[1:])
+
+
+raise SystemExit(main())
+PYWRAP
+
+export PYTHONPATH="${REPO_ROOT}/src${PYTHONPATH:+:${PYTHONPATH}}"
+python -m py_compile "${BOOTSTRAP_WRAPPER}"
+python "${BOOTSTRAP_WRAPPER}" --self-test >/dev/null
+
+python - \
+  "${COMMAND}" \
+  "${CONTRACT}" \
+  "${RUN_SPEC}" \
+  "${GRID}" \
+  "${WORK_DIR}" \
+  "${MAX_WORKERS}" \
+  "${BOOTSTRAP_WRAPPER}" <<'PY'
+from __future__ import annotations
+
+import copy
+import json
+import math
+import os
+import statistics
+import sys
+from collections import defaultdict
+from pathlib import Path
+from typing import Any, Mapping, Sequence
+
+from drpo import e7_canonical_sweep as base
+from drpo import e7_squared_exp_night as suite
+from drpo import e7_squared_exp_night_aggregate as agg
+from drpo.e7_canonical_injection import sha256_file
+from drpo.e7_squared_exp_kernel import THRESHOLDED_FORMULA
+
+EXPERIMENT_ID = "EXT-H-E7-SQEXP-GAE-HOPPER-REPLAY-STAB-HPS-01"
+PROFILE_ID = "hopper_replay_stability_hps_v1"
+SCIENTIFIC_STATUS = (
+    "hopper_replay_joint_critic_gae_stability_hyperparameter_screening_pilot_only"
+)
+RUNNER_VERSION = "5.5.0-hopper-replay-stability-hps"
+FULL_RUN_ENV = "DRPO_E7_HOPPER_REPLAY_STABILITY_HPS_FULL_RUN"
+DATASET_ID = "hopper-medium-replay-v2"
+PHASE_A = "phase_a"
+PHASE_B = "phase_b"
+EXPECTED_PHASE_A_BRANCHES = 48
+EXPECTED_PHASE_B_BRANCHES = 10
+EXPECTED_TOTAL_BRANCHES = 58
+HELD_OUT_SEEDS = (204, 205, 206, 207)
+
+COMMAND, CONTRACT, RUN_SPEC, GRID, WORK_DIR, MAX_WORKERS, WRAPPER = sys.argv[1:]
+WORK_ROOT = Path(WORK_DIR)
+WRAPPER_PATH = Path(WRAPPER).resolve()
+
+ORIGINAL_CONFIGURE = suite.configure_execution
+ORIGINAL_LOAD_GRID = suite.load_grid
+ORIGINAL_LOAD_RUN_SPEC = suite.load_run_spec
+ORIGINAL_GAE_BRANCHES = suite._gae_branches  # noqa: SLF001
+ORIGINAL_BRANCH_COMMAND = suite.branch_command
+ORIGINAL_AGGREGATE = suite.aggregate_results
+ORIGINAL_IS_TUNING = suite._is_tuning  # noqa: SLF001
+ORIGINAL_IS_P3 = suite._is_p3  # noqa: SLF001
+ORIGINAL_ACTIVE_STATUS = suite.active_scientific_status
+ORIGINAL_ACTIVE_COUNT = suite.active_expected_branch_count
+
+
+def _mean(values: Sequence[float]) -> float:
+    if not values:
+        raise RuntimeError("cannot average an empty sequence")
+    return statistics.fmean(values)
+
+
+def _std(values: Sequence[float]) -> float | None:
+    return statistics.stdev(values) if len(values) >= 2 else None
+
+
+def _config_id(c_value: float, lr_multiplier: float, batch_size: int) -> str:
+    c_label = f"{c_value:g}".replace(".", "p")
+    lr_label = f"{lr_multiplier:g}".replace(".", "p")
+    return f"c{c_label}__alr{lr_label}__b{batch_size}"
+
+
+def _atomic_json(path: Path, payload: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    os.replace(temporary, path)
+
+
+def _load_config(path: str | Path) -> tuple[dict[str, Any], str]:
+    source = Path(path)
+    raw = json.loads(source.read_text(encoding="utf-8"))
+    required = {
+        "experiment_id": EXPERIMENT_ID,
+        "profile_id": PROFILE_ID,
+        "parent_experiment_id": "EXT-H-E7-BENCH-01",
+        "predecessor_experiment_id": "EXT-H-E7-SQEXP-GAE-TASKC-MS-01",
+        "run_kind": "pilot",
+        "status": "not_run",
+        "scientific_status": SCIENTIFIC_STATUS,
+        "dataset": DATASET_ID,
+        "held_out_seeds": list(HELD_OUT_SEEDS),
+        "steps": suite.EXPECTED_STEPS,
+        "evaluation_interval": 50_000,
+        "evaluation_episodes": 10,
+        "actor_update_mode": "a2c",
+        "advantage_mode": "gae_lambda_0p95",
+        "expected_total_new_branches": EXPECTED_TOTAL_BRANCHES,
+        "screening_only": True,
+        "formal_evidence_allowed": False,
+    }
+    changed = [key for key, value in required.items() if raw.get(key) != value]
+    if changed:
+        raise ValueError(f"Hopper replay stability grid changed: {changed}")
+    phase_a = raw.get(PHASE_A, {})
+    if phase_a != {
+        "remoteness_scales": [0.08, 0.125],
+        "actor_lr_multipliers": [1.0, 0.5, 0.25],
+        "batch_sizes": [256, 512],
+        "seeds": [200, 202, 203, 208],
+        "expected_branches": EXPECTED_PHASE_A_BRANCHES,
+        "select

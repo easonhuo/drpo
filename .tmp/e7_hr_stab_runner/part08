@@ -1,0 +1,28 @@
+ EXPECTED_PHASE_A_BRANCHES,
+            "phase_b_branches": EXPECTED_PHASE_B_BRANCHES,
+            "total_branches": EXPECTED_TOTAL_BRANCHES,
+            "held_out_seeds_touched": False,
+        }
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return 0
+    phase_a_configs = _phase_configs(raw, PHASE_A)
+    _run_phase(raw, PHASE_A, phase_a_configs, COMMAND)
+    planned = {
+        "experiment_id": EXPERIMENT_ID,
+        "profile_id": PROFILE_ID,
+        "phase_a_branches": EXPECTED_PHASE_A_BRANCHES,
+        "phase_b_branches_after_selection": EXPECTED_PHASE_B_BRANCHES,
+        "expected_total_branches": EXPECTED_TOTAL_BRANCHES,
+        "phase_b_fresh_rerun": True,
+    }
+    _atomic_json(WORK_ROOT / "PLANNED_PHASES.json", planned)
+    if COMMAND == "plan":
+        return 0
+    phase_b_configs = _phase_configs(raw, PHASE_B)
+    _run_phase(raw, PHASE_B, phase_b_configs, COMMAND)
+    _finalize(raw)
+    return 0
+
+
+raise SystemExit(main())
+PY

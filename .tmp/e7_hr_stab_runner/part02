@@ -1,0 +1,105 @@
+ed_config_count": 2,
+    }:
+        raise ValueError("Phase A stability matrix changed")
+    phase_b = raw.get(PHASE_B, {})
+    if phase_b != {
+        "seeds": [200, 201, 202, 203, 208],
+        "fresh_rerun": True,
+        "expected_branches": EXPECTED_PHASE_B_BRANCHES,
+    }:
+        raise ValueError("Phase B stability matrix changed")
+    if set(phase_a["seeds"]) & set(HELD_OUT_SEEDS) or set(phase_b["seeds"]) & set(
+        HELD_OUT_SEEDS
+    ):
+        raise ValueError("held-out seeds entered the stability matrix")
+    weight = raw.get("weight_control", {})
+    expected_weight = {
+        "formula": THRESHOLDED_FORMULA,
+        "coordinate": "normalized_squared_standardized_distance",
+        "weight_at_zero": 1.0,
+        "reference_distance": 2.0,
+        "taper_lambda": 1.0,
+        "remoteness_threshold": 0.0,
+    }
+    if weight != expected_weight:
+        raise ValueError("Hopper replay stability taper contract changed")
+    optimizer = raw.get("optimizer_control", {})
+    if optimizer != {
+        "optimizer_family": "Adam",
+        "canonical_base_lr": 0.0003,
+        "critic_lr_frozen": 0.0003,
+        "actor_lr_formula": "canonical_base_lr * actor_lr_multiplier",
+    }:
+        raise ValueError("Hopper replay stability optimizer contract changed")
+    return raw, sha256_file(source)
+
+
+def _phase_configs(raw: Mapping[str, Any], phase: str) -> list[dict[str, Any]]:
+    if phase == PHASE_A:
+        phase_a = raw[PHASE_A]
+        configs = [
+            {
+                "remoteness_scale": float(c_value),
+                "actor_lr_multiplier": float(multiplier),
+                "batch_size": int(batch_size),
+            }
+            for c_value in phase_a["remoteness_scales"]
+            for multiplier in phase_a["actor_lr_multipliers"]
+            for batch_size in phase_a["batch_sizes"]
+        ]
+        if len(configs) != 12:
+            raise RuntimeError("Phase A must contain exactly twelve configurations")
+        return configs
+    manifest_path = WORK_ROOT / PHASE_A / "aggregate" / "phase_a_selection_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("experiment_id") != EXPERIMENT_ID or manifest.get("status") != "PASS":
+        raise RuntimeError("Phase A selection manifest identity/status mismatch")
+    configs = manifest.get("selected_configs")
+    if not isinstance(configs, list) or len(configs) != 2:
+        raise RuntimeError("Phase A must select exactly two configurations")
+    normalized = [
+        {
+            "remoteness_scale": float(item["remoteness_scale"]),
+            "actor_lr_multiplier": float(item["actor_lr_multiplier"]),
+            "batch_size": int(item["batch_size"]),
+        }
+        for item in configs
+    ]
+    config_ids = {
+        _config_id(
+            float(item["remoteness_scale"]),
+            float(item["actor_lr_multiplier"]),
+            int(item["batch_size"]),
+        )
+        for item in normalized
+    }
+    if len(config_ids) != 2:
+        raise RuntimeError("Phase B selected configurations are not unique")
+    return normalized
+
+
+def _phase_seeds(raw: Mapping[str, Any], phase: str) -> tuple[int, ...]:
+    return tuple(int(value) for value in raw[phase]["seeds"])
+
+
+def _reset_profile_hooks() -> None:
+    suite.configure_execution = ORIGINAL_CONFIGURE
+    suite.load_grid = ORIGINAL_LOAD_GRID
+    suite.load_run_spec = ORIGINAL_LOAD_RUN_SPEC
+    suite._gae_branches = ORIGINAL_GAE_BRANCHES  # noqa: SLF001
+    suite.branch_command = ORIGINAL_BRANCH_COMMAND
+    suite.aggregate_results = ORIGINAL_AGGREGATE
+    suite._is_tuning = ORIGINAL_IS_TUNING  # noqa: SLF001
+    suite._is_p3 = ORIGINAL_IS_P3  # noqa: SLF001
+    suite.active_scientific_status = ORIGINAL_ACTIVE_STATUS
+    suite.active_expected_branch_count = ORIGINAL_ACTIVE_COUNT
+
+
+def _install_phase_profile(
+    raw: Mapping[str, Any],
+    phase: str,
+    configs: list[dict[str, Any]],
+) -> None:
+    _reset_profile_hooks()
+    seeds = _phase_seeds(raw, phase)
+    

@@ -1,0 +1,38 @@
+name: Materialize Hopper replay stability runner
+
+on:
+  push:
+    branches:
+      - dev/ext-h-e7-hopper-replay-stab-hps-01
+    paths:
+      - '.tmp/e7_hr_stab_runner/**'
+      - '.github/workflows/materialize-e7-hr-stab-runner.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reconstruct reviewed runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .tmp/e7_hr_stab_runner/part* > scripts/run_e7_hopper_replay_stability_hps.sh
+          chmod +x scripts/run_e7_hopper_replay_stability_hps.sh
+          test "$(sha256sum scripts/run_e7_hopper_replay_stability_hps.sh | awk '{print $1}')" = "81bb8e2265e89e77bbf1d234bd24a694a6b93cf53a67a5fa8350ff21e8c3f31a"
+          test "$(git hash-object scripts/run_e7_hopper_replay_stability_hps.sh)" = "f6958d3658e82cbcde623cc0d5b354b7fdb1b4c6"
+          bash -n scripts/run_e7_hopper_replay_stability_hps.sh
+      - name: Commit reconstructed runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/run_e7_hopper_replay_stability_hps.sh
+          git commit -m "Materialize Hopper replay stability runner"
+          git push origin HEAD:dev/ext-h-e7-hopper-replay-stab-hps-01

@@ -1,0 +1,89 @@
+expected_branches = (
+        EXPECTED_PHASE_A_BRANCHES if phase == PHASE_A else EXPECTED_PHASE_B_BRANCHES
+    )
+    suite.GAE_EXPERIMENT_ID = EXPERIMENT_ID
+    suite.TUNING_PROFILE_ID = PROFILE_ID
+    suite.TUNING_SEEDS = seeds
+    suite.TUNING_EXPECTED_BRANCHES = expected_branches
+    suite.TUNING_RUNNER_VERSION = RUNNER_VERSION
+    suite.TUNING_FULL_RUN_ENV = FULL_RUN_ENV
+    agg.GAE_EXPERIMENT_ID = EXPERIMENT_ID
+    agg.TUNING_PROFILE_ID = PROFILE_ID
+    agg.TUNING_SEEDS = seeds
+
+    def is_tuning() -> bool:
+        return (
+            suite._ACTIVE_EXPERIMENT_ID == EXPERIMENT_ID  # noqa: SLF001
+            and suite._ACTIVE_PROFILE_ID == PROFILE_ID  # noqa: SLF001
+        )
+
+    suite._is_tuning = is_tuning  # type: ignore[assignment]  # noqa: SLF001
+    suite._is_p3 = lambda: False  # type: ignore[assignment]  # noqa: SLF001
+    suite.active_scientific_status = lambda: SCIENTIFIC_STATUS
+    suite.active_expected_branch_count = lambda: expected_branches
+
+    def configure_execution(
+        grid_path: str | Path,
+        *,
+        liveness_pair: bool = False,
+        liveness_steps: int | None = None,
+    ) -> None:
+        if liveness_pair or liveness_steps is not None:
+            raise ValueError("the Hopper replay stability profile has no liveness submatrix")
+        loaded, _ = _load_config(grid_path)
+        suite._ACTIVE_EXPERIMENT_ID = str(loaded["experiment_id"])  # noqa: SLF001
+        suite._ACTIVE_PROFILE_ID = str(loaded["profile_id"])  # noqa: SLF001
+        suite._LIVENESS_STEPS = None  # noqa: SLF001
+
+    suite.configure_execution = configure_execution
+    suite.load_grid = _load_config
+
+    def load_run_spec(path: str | Path) -> tuple[dict[str, Any], str]:
+        loaded, digest = ORIGINAL_LOAD_RUN_SPEC(path)
+        loaded = copy.deepcopy(loaded)
+        by_id = {str(item["id"]): item for item in loaded["datasets"]}
+        if DATASET_ID not in by_id:
+            raise ValueError("canonical run spec is missing hopper-medium-replay-v2")
+        loaded["datasets"] = [copy.deepcopy(by_id[DATASET_ID])]
+        loaded["seeds"] = list(seeds)
+        argv = [str(value) for value in loaded["trainer_argv_template"]]
+        if suite._flag_value(argv, "--batch") != "256":  # noqa: SLF001
+            raise ValueError("canonical source batch changed before stability injection")
+        if suite._flag_value(argv, "--lr") != "0.0003":  # noqa: SLF001
+            raise ValueError("canonical source learning rate changed")
+        argv[argv.index("--batch") + 1] = "{batch_size}"
+        loaded["trainer_argv_template"] = argv
+        return loaded, digest
+
+    suite.load_run_spec = load_run_spec
+
+    def gae_branches(
+        run_spec: Mapping[str, Any],
+        grid: Mapping[str, Any],
+    ) -> list[base.Branch]:
+        del grid
+        datasets = [base.DatasetSpec.from_mapping(item) for item in run_spec["datasets"]]
+        if len(datasets) != 1 or datasets[0].id != DATASET_ID:
+            raise ValueError("stability profile must contain only hopper-medium-replay-v2")
+        dataset = datasets[0]
+        branches: list[base.Branch] = []
+        for config in configs:
+            c_value = float(config["remoteness_scale"])
+            multiplier = float(config["actor_lr_multiplier"])
+            batch_size = int(config["batch_size"])
+            config_id = _config_id(c_value, multiplier, batch_size)
+            coefficient = 1.0 / c_value
+            for seed in seeds:
+                branches.append(
+                    base.Branch(
+                        branch_id=(
+                            f"{dataset.id}__{phase}__seed{seed}__{config_id}__"
+                            "gae__a2c__steps1m"
+                        ),
+                        branch_kind="injected",
+                        dataset=dataset,
+                        seed=seed,
+                        template_values={
+                            "steps": str(suite.EXPECTED_STEPS),
+                            "stage": phase,
+                           
