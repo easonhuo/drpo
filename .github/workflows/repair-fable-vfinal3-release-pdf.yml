@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm \
+          if ! docker run --rm \
             -e SOURCE_DATE_EPOCH \
             -e FORCE_SOURCE_DATE \
             -e TZ \
@@ -59,7 +59,11 @@ jobs:
               latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
               test -s main.pdf
               test "$(pdfinfo main.pdf | awk '\''/^Pages:/ {print $2}'\'')" = 27
-            '
+            ' > repair-build.log 2>&1; then
+            tail -n 200 repair-build.log
+            exit 1
+          fi
+          tail -n 30 repair-build.log
 
       - name: Verify exact PDF identity
         shell: bash
