@@ -1,1 +1,1 @@
-Trigger isolated precondition checks for the exact PR #272 correction.
+Trigger the repaired exact PR #272 protocol/PDF-only correction workflow.
