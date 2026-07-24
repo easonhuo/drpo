@@ -1,0 +1,157 @@
+version: 1
+run_id: E7_HOPPER_REPLAY_STABILITY_HPS_20260724_01
+lane: e7
+priority: 156
+created_at: "2026-07-24T07:20:00Z"
+experiment_id: EXT-H-E7-SQEXP-GAE-HOPPER-REPLAY-STAB-HPS-01
+repo_commit: d1325089ed444a0901098cd0a7f6ed6dadecdc3e
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/e7_hopper_replay_stability_hps.json
+    - docs/scopes/EXT-H-E7-SQEXP-GAE-HOPPER-REPLAY-STAB-HPS-01.md
+    - scripts/run_e7_hopper_replay_stability_hps.sh
+    - scripts/test_e7_hopper_replay_stability_hps.sh
+    - configs/e7_bench_joint_gae_taskc_top4_multiseed.json
+    - docs/scopes/EXT-H-E7-SQEXP-GAE-TASKC-MS-01.md
+    - src/drpo/e7_squared_exp_kernel.py
+    - src/drpo/e7_squared_exp_night.py
+    - src/drpo/e7_squared_exp_night_bootstrap.py
+    - src/drpo/e7_squared_exp_night_aggregate.py
+    - scripts/run_e7_taskc_top4_multiseed.sh
+    - scripts/run_e7_taskc_top4_multiseed_entrypoint.sh
+    - scripts/agent/run_claimed_runspec.py
+    - scripts/agent/runspec_results_delivery.py
+    - scripts/agent/runspec_safety.py
+    - scripts/agent/runspec_delivery_policy.py
+
+purpose: >
+  Execute a two-phase, 58-branch Hopper-medium-replay stability hyperparameter
+  pilot. Phase A screens two c values, three actor learning-rate multipliers, and
+  two batch sizes on four difficult development seeds. Phase B freshly reruns the
+  top two Phase-A configurations on five development seeds. Preserve every seed,
+  every curve, and branch-level optimizer provenance. This finite-horizon pilot
+  does not establish convergence, steady state, task-collapse rates, universal
+  superiority, or a formal method ranking.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    E7_HR_STAB_GRID=configs/e7_hopper_replay_stability_hps.json
+    E7_HR_STAB_WORK_DIR=outputs/e7/hopper_replay_stability_hps_001
+    bash scripts/run_e7_hopper_replay_stability_hps.sh run
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: >-
+    E7_HR_STAB_GRID=configs/e7_hopper_replay_stability_hps.json
+    E7_HR_STAB_WORK_DIR=outputs/e7/hopper_replay_stability_hps_001
+    bash scripts/run_e7_hopper_replay_stability_hps.sh run
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e7/hopper_replay_stability_hps_001/PLANNED_PHASES.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_a/EXECUTION_PLAN.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_a/RUN_IDENTITY.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_a/branches/**/COMPLETED.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_a/aggregate/phase_a_selection_manifest.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_b/EXECUTION_PLAN.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_b/RUN_IDENTITY.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_b/branches/**/COMPLETED.json
+  backoff_seconds: 60
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  scientific_aggregation_allowed: true
+  formal_evidence_allowed: false
+
+outputs:
+  run_dir: outputs/e7/hopper_replay_stability_hps_001
+  summary_file: outputs/e7/hopper_replay_stability_hps_001/RUN_SUMMARY.json
+  audit_file: outputs/e7/hopper_replay_stability_hps_001/aggregate/terminal_audit.json
+
+success_criteria:
+  - all grid, branch, manifest, aggregate, and audit identities equal EXT-H-E7-SQEXP-GAE-HOPPER-REPLAY-STAB-HPS-01
+  - dataset is exactly hopper-medium-replay-v2
+  - Phase A contains exactly 48 fresh branches from c values 0.08 and 0.125, actor LR multipliers 1.0, 0.5, and 0.25, batch sizes 256 and 512, and seeds 200, 202, 203, and 208
+  - Phase A ranks all twelve configurations by late median, worst-two late mean, final median, mean best-to-final drop, and the frozen exact-tie rules
+  - Phase A selects exactly two unique configurations before Phase B starts
+  - Phase B contains exactly ten fresh branches from the two selected configurations and seeds 200, 201, 202, 203, and 208
+  - Phase B does not reuse Phase-A trajectories or branch directories
+  - held-out seeds 204 through 207 are untouched
+  - every branch uses canonical A2C, a jointly updated critic, and trajectory-snapshot GAE lambda 0.95
+  - every branch reaches exactly 1000000 optimizer updates with evaluation every 50000 updates and ten evaluation episodes
+  - remoteness threshold remains 0, taper lambda remains 1, reference distance remains 2, and only c values 0.08 and 0.125 are used
+  - actor optimizer learning rate equals 0.0003 multiplied by the branch actor LR multiplier
+  - critic optimizer learning rate remains exactly 0.0003 in every branch
+  - batch size is exactly 256 or 512 and the trajectory-snapshot refresh interval uses the branch batch size
+  - all seed results, complete evaluation trajectories, and exact optimizer-control records are retained
+  - all-five statistics, worst-two late mean, top-three-of-five secondary summary, and selected seed IDs are retained for Phase B
+  - failed and low-performing runs are not deleted
+  - task-performance degradation, support or variance boundary, rollout failure, and NaN or Inf remain separately reported
+  - no task-collapse rate is asserted because no task-performance-collapse threshold is registered
+  - fixed one-million-update horizon is not convergence or steady-state evidence
+  - combined terminal audit observes exactly 58 branches and passes before result delivery
+  - completed text-first evidence is delivered to drpo-results branch ingest/e7
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e7/hopper_replay_stability_hps_001/*.json
+    - outputs/e7/hopper_replay_stability_hps_001/aggregate/*.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_a/*.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_a/aggregate/*.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_a/aggregate/*.csv
+    - outputs/e7/hopper_replay_stability_hps_001/phase_a/branches/**/branch_config.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_a/branches/**/branch_manifest.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_a/branches/**/OPTIMIZER_CONTROL.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_a/branches/**/COMPLETED.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_a/branches/**/FAILED.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_a/branches/**/GEOMETRY_DIAGNOSTICS_LATEST.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_a/branches/**/trainer_output/*.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_b/*.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_b/aggregate/*.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_b/aggregate/*.csv
+    - outputs/e7/hopper_replay_stability_hps_001/phase_b/branches/**/branch_config.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_b/branches/**/branch_manifest.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_b/branches/**/OPTIMIZER_CONTROL.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_b/branches/**/COMPLETED.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_b/branches/**/FAILED.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_b/branches/**/GEOMETRY_DIAGNOSTICS_LATEST.json
+    - outputs/e7/hopper_replay_stability_hps_001/phase_b/branches/**/trainer_output/*.json
+  exclude:
+    - "**/*.pt"
+    - "**/*.pth"
+    - "**/*.ckpt"
+    - "**/*.safetensors"
+    - "**/*.bin"
+    - "**/checkpoint*"
+    - "**/checkpoints/**"
+    - "**/model*"
+    - "**/optimizer*"
+    - "**/wandb/**"
+  max_package_size_mb: 30
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e7
+  export_profile: manifest_text_v1
+  max_total_size_mb: 30
+  max_file_size_mb: 10
+
+publish:
+  enabled: false
+  auto: false
