@@ -1,0 +1,139 @@
+name: TEMP complete Figure 1 visual and canonical layout fix
+
+on:
+  pull_request:
+    branches: [main]
+    types: [synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-build:
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      github.event.pull_request.head.ref == 'dev/paper-kdd2027-fig1-d4rl9-01'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Install plotting and PDF audit dependencies
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y poppler-utils
+          python -m pip install --disable-pip-version-check -q numpy pandas matplotlib
+
+      - name: Reuse the reviewed visual patch from v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          awk '
+            /python - <<.PY./ {inside=1; next}
+            inside && /^          PY$/ {exit}
+            inside {sub(/^          /, ""); print}
+          ' .github/workflows/temp-fix-fig1-layout-tl2025-v2.yml > /tmp/apply_visual_fix.py
+          test -s /tmp/apply_visual_fix.py
+          python /tmp/apply_visual_fix.py
+
+      - name: Regenerate figures
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/figures/plot_figure1_external_gradient.py \
+            --d4rl-main results/FIGURE1_EXTERNAL_GRADIENT_D4RL9/main_aggregate.csv \
+            --d4rl-panels results/FIGURE1_EXTERNAL_GRADIENT_D4RL9/dataset_plot_data.csv \
+            --d4rl-manifest results/FIGURE1_EXTERNAL_GRADIENT_D4RL9/MANIFEST.json \
+            --countdown paper/kdd2027/figures/figure1_external_gradient_d4rl9_countdown_deciles.csv \
+            --out paper/kdd2027/figures/figure1_external_gradient_d4rl9 \
+            --appendix-out paper/kdd2027/figures/fig_app_d4rl9_gradient_panels
+          cp paper/kdd2027/figures/figure1_external_gradient_d4rl9.pdf paper/overleaf/figures/
+          cp paper/kdd2027/figures/fig_app_d4rl9_gradient_panels.pdf paper/overleaf/figures/
+          python -m py_compile scripts/figures/plot_figure1_external_gradient.py
+
+      - name: Compile with canonical TeX Live 2025
+        uses: xu-cheng/texlive-action@v3
+        with:
+          texlive_version: 2025
+          os: debian
+          run: |
+            cd paper/kdd2027
+            pdflatex --version | tee TEXLIVE_ENVIRONMENT.txt
+            latexmk -C main.tex >/dev/null 2>&1 || true
+            latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+            test -s main.pdf
+            grep -Fq 'TeX Live 2025' TEXLIVE_ENVIRONMENT.txt
+
+      - name: Match the original Stage-A abstract wrapping and package preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/layout-audit /tmp/corrected-preview/renders
+          pdftotext -bbox-layout -f 1 -l 1 paper/releases/DRPO_KDD2027_STAGE_A.pdf /tmp/layout-audit/original.xml
+          pdftotext -bbox-layout -f 1 -l 1 paper/kdd2027/main.pdf /tmp/layout-audit/revised.xml
+          python - <<'PY' | tee /tmp/layout-audit/ABSTRACT_LAYOUT_AUDIT.txt
+          import xml.etree.ElementTree as ET
+
+          def count(path):
+              root = ET.parse(path).getroot()
+              rows = []
+              for node in root.iter():
+                  if node.tag.endswith('line'):
+                      text = ' '.join(
+                          ''.join(word.itertext()).strip()
+                          for word in node if word.tag.endswith('word')
+                      ).strip()
+                      if text:
+                          rows.append((text, float(node.attrib['xMin']), float(node.attrib['yMin'])))
+              abstract_y = min(y for text, _, y in rows if text == 'Abstract')
+              keywords_y = min(y for text, _, y in rows if text == 'Keywords')
+              return sum(1 for _, x, y in rows if x < 310 and abstract_y < y < keywords_y)
+
+          original = count('/tmp/layout-audit/original.xml')
+          revised = count('/tmp/layout-audit/revised.xml')
+          print(f'original_abstract_lines={original}')
+          print(f'revised_abstract_lines={revised}')
+          print(f'line_count_match={original == revised}')
+          if original != revised:
+              raise SystemExit('abstract wrapping differs from canonical release')
+          PY
+          pdfinfo paper/kdd2027/main.pdf > /tmp/layout-audit/revised_pdfinfo.txt
+          pdffonts paper/kdd2027/main.pdf > /tmp/layout-audit/revised_pdffonts.txt
+          pdftoppm -png -r 130 paper/kdd2027/main.pdf /tmp/corrected-preview/renders/page >/dev/null 2>&1
+          cp paper/kdd2027/main.pdf /tmp/corrected-preview/DRPO_KDD2027_Figure1_D4RL9_TL2025_preview.pdf
+          cp paper/kdd2027/main.tex /tmp/corrected-preview/main.tex
+          cp paper/kdd2027/figures/figure1_external_gradient_d4rl9.png /tmp/corrected-preview/
+          cp paper/kdd2027/figures/fig_app_d4rl9_gradient_panels.png /tmp/corrected-preview/
+          cp /tmp/layout-audit/* /tmp/corrected-preview/
+
+      - name: Commit corrected assets and remove temporary workflows
+        shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/temp-fix-fig1-layout-tl2025*.yml
+          git add \
+            paper/kdd2027/main.tex \
+            paper/kdd2027/source_locked.tex \
+            paper/overleaf/main_replacement.tex \
+            scripts/figures/plot_figure1_external_gradient.py \
+            paper/kdd2027/figures/figure1_external_gradient_d4rl9.* \
+            paper/kdd2027/figures/fig_app_d4rl9_gradient_panels.* \
+            paper/overleaf/figures/figure1_external_gradient_d4rl9.pdf \
+            paper/overleaf/figures/fig_app_d4rl9_gradient_panels.pdf
+          git add -u .github/workflows/
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'PAPER-FIG1-D4RL9: fix visuals and canonical TL2025 layout'
+          git push origin "HEAD:${HEAD_BRANCH}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: drpo-fig1-d4rl9-corrected-tl2025-preview-v3
+          path: /tmp/corrected-preview
+          if-no-files-found: error
+          retention-days: 14
