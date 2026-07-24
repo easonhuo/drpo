@@ -1,13 +1,7 @@
 name: TEMP package PR272 exact preview
 
 on:
-  push:
-    branches:
-      - temp/pr272-executor
-  pull_request:
-    branches:
-      - main
-    types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 permissions:
   contents: read
