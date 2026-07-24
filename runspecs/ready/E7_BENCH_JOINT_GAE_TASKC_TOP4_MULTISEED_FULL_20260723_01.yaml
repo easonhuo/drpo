@@ -1,0 +1,135 @@
+version: 1
+run_id: E7_BENCH_JOINT_GAE_TASKC_TOP4_MULTISEED_FULL_20260723_01
+lane: e7
+priority: 155
+created_at: "2026-07-23T16:30:00Z"
+experiment_id: EXT-H-E7-SQEXP-GAE-TASKC-MS-01
+repo_commit: c02ce7027b960d6294ffed6519d1731a35a2d08c
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/e7_bench_joint_gae_taskc_top4_multiseed.json
+    - docs/scopes/EXT-H-E7-SQEXP-GAE-TASKC-MS-01.md
+    - src/drpo/e7_squared_exp_kernel.py
+    - src/drpo/e7_squared_exp_night.py
+    - src/drpo/e7_squared_exp_night_bootstrap.py
+    - src/drpo/e7_squared_exp_night_aggregate.py
+    - scripts/run_e7_taskc_top4_multiseed.sh
+    - scripts/run_e7_taskc_top4_multiseed_entrypoint.sh
+    - scripts/test_e7_taskc_top4_multiseed.sh
+    - scripts/agent/run_claimed_runspec.py
+    - scripts/agent/runspec_results_delivery.py
+    - scripts/agent/runspec_safety.py
+    - scripts/agent/runspec_delivery_policy.py
+
+purpose: >
+  Execute the predeclared 180-branch D4RL-9 task-specific c multi-seed pilot
+  under the independent experiment identity EXT-H-E7-SQEXP-GAE-TASKC-MS-01.
+  Each task uses its strict top four observed finite-c points from completed
+  P1/P2/P3 development response curves and five development seeds. Preserve all
+  five seeds and full trajectories while producing the predeclared top-3-of-5
+  late-window publication summary. This pilot does not establish convergence,
+  steady state, universal superiority, or a formal method ranking.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    E7_TASKC_GRID=configs/e7_bench_joint_gae_taskc_top4_multiseed.json
+    E7_TASKC_WORK_DIR=outputs/e7/taskc_top4_multiseed_001
+    bash scripts/run_e7_taskc_top4_multiseed_entrypoint.sh run
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: >-
+    E7_TASKC_GRID=configs/e7_bench_joint_gae_taskc_top4_multiseed.json
+    E7_TASKC_WORK_DIR=outputs/e7/taskc_top4_multiseed_001
+    bash scripts/run_e7_taskc_top4_multiseed_entrypoint.sh run
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e7/taskc_top4_multiseed_001/EXECUTION_PLAN.json
+    - outputs/e7/taskc_top4_multiseed_001/RUN_IDENTITY.json
+    - outputs/e7/taskc_top4_multiseed_001/branches/**/COMPLETED.json
+  backoff_seconds: 60
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  scientific_aggregation_allowed: true
+  formal_evidence_allowed: false
+
+outputs:
+  run_dir: outputs/e7/taskc_top4_multiseed_001
+  summary_file: outputs/e7/taskc_top4_multiseed_001/RUN_SUMMARY.json
+  audit_file: outputs/e7/taskc_top4_multiseed_001/aggregate/terminal_audit.json
+
+success_criteria:
+  - grid, branch configs, branch manifests, aggregate summaries, and terminal audit all use experiment identity EXT-H-E7-SQEXP-GAE-TASKC-MS-01
+  - no output from this run is deposited under predecessor experiment EXT-H-E7-SQEXP-GAE-01
+  - run-local Python identity/profile shim binds the reviewed runner, bootstrap, and aggregate reader without changing historical P1/P2/P3 identities
+  - candidate c values are the strict per-task top four finite points by late-window mean across completed P1, P2, and P3 development curves
+  - matrix contains exactly 180 branches from nine D4RL-v2 tasks, four task-specific c values, and five seeds
+  - development seeds are exactly 200, 201, 202, 203, and 208
+  - held-out seeds 204 through 207 are untouched
+  - every branch uses canonical A2C, a jointly updated critic, and trajectory-snapshot GAE lambda 0.95
+  - every branch reaches exactly 1000000 optimizer updates with evaluation every 50000 updates and ten evaluation episodes
+  - remoteness threshold remains 0, taper lambda remains 1, and reference distance remains 2
+  - all five seed results and complete evaluation trajectories are retained
+  - the publication summary is the predeclared top three of five seeds ranked by late-window mean from 800k through 1M updates
+  - each task-c cell records the exact selected seed IDs plus all-five mean, standard deviation, and median
+  - each task selects one candidate c by top3-of5 late mean, then all-five median, then smaller-c tie break
+  - failed branches and low-performing seeds are not deleted from raw evidence
+  - rollout and NaN or Inf counts are derived from branch_results.csv rather than assumed
+  - task-performance degradation, support or variance boundary, rollout failure, and NaN or Inf remain separately reported
+  - fixed one-million-update horizon is not convergence or steady-state evidence
+  - completed text-first evidence is delivered to drpo-results branch ingest/e7
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e7/taskc_top4_multiseed_001/*.json
+    - outputs/e7/taskc_top4_multiseed_001/aggregate/*.json
+    - outputs/e7/taskc_top4_multiseed_001/aggregate/*.csv
+    - outputs/e7/taskc_top4_multiseed_001/branches/**/branch_config.json
+    - outputs/e7/taskc_top4_multiseed_001/branches/**/branch_manifest.json
+    - outputs/e7/taskc_top4_multiseed_001/branches/**/COMPLETED.json
+    - outputs/e7/taskc_top4_multiseed_001/branches/**/FAILED.json
+    - outputs/e7/taskc_top4_multiseed_001/branches/**/GEOMETRY_DIAGNOSTICS_LATEST.json
+    - outputs/e7/taskc_top4_multiseed_001/branches/**/trainer_output/*.json
+  exclude:
+    - "**/*.pt"
+    - "**/*.pth"
+    - "**/*.ckpt"
+    - "**/*.safetensors"
+    - "**/*.bin"
+    - "**/checkpoint*"
+    - "**/checkpoints/**"
+    - "**/model*"
+    - "**/optimizer*"
+    - "**/wandb/**"
+  max_package_size_mb: 30
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e7
+  export_profile: manifest_text_v1
+  max_total_size_mb: 30
+  max_file_size_mb: 10
+
+publish:
+  enabled: false
+  auto: false
+
+# CI synchronize after merging current main; protected E7 identity paths unchanged.
