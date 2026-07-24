@@ -1,0 +1,8 @@
+{
+  "common_support_max_relative_distance": 3.3653326989590355,
+  "log_interpolation_endpoint_relative_gradient": 3.606636259815185,
+  "max_abs_cross_dataset_mean_vs_median": 0.07719365788425137,
+  "max_abs_linear_vs_log_distance_interpolation": 0.19996216000274947,
+  "median_endpoint_relative_gradient": 3.6412927868449785,
+  "primary_endpoint_relative_gradient": 3.564099128960727
+}
