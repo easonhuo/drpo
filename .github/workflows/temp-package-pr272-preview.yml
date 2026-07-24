@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - temp/pr272-executor
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
