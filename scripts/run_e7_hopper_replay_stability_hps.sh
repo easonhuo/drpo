@@ -642,6 +642,14 @@ def _aggregate_phase(
             raise RuntimeError(f"critic LR audit failed for {branch_dir.name}")
         if int(optimizer.get("batch_size", -1)) != batch_size:
             raise RuntimeError(f"batch audit failed for {branch_dir.name}")
+        if int(row["snapshot_refresh_interval"]) != batch_size:
+            raise RuntimeError(
+                f"trajectory-snapshot refresh interval mismatch for {branch_dir.name}"
+            )
+        if int(manifest.get("trajectory_snapshot_batch_size", -1)) != batch_size:
+            raise RuntimeError(
+                f"trajectory-snapshot batch provenance mismatch for {branch_dir.name}"
+            )
         row.update(
             stability_phase=phase,
             config_id=str(values["config_id"]),
