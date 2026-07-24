@@ -32,10 +32,10 @@ docker run --rm \
     cd paper/kdd2027
     latexmk -C main.tex >/dev/null 2>&1 || true
     latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex >/tmp/latexmk.log 2>&1 || {
-      tail -n 100 /tmp/latexmk.log
+      tail -n 30 /tmp/latexmk.log
       exit 1
     }
-    tail -n 10 /tmp/latexmk.log
+    tail -n 5 /tmp/latexmk.log
     test -s main.pdf
     pdfinfo main.pdf > REPAIR_PDFINFO.txt
     echo "PAGES=$(awk '\''/^Pages:/ {print $2}'\'' REPAIR_PDFINFO.txt)"
