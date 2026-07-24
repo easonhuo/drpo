@@ -28,46 +28,53 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.ref }}
 
-      - name: Compile exact accepted manuscript source
-        uses: xu-cheng/texlive-action@v3
-        with:
-          texlive_version: 2025
-          os: debian
-          run: |
-            set -euo pipefail
-            cd paper/kdd2027
-            latexmk -C main.tex >/dev/null 2>&1 || true
-            latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
-            test -s main.pdf
-
-      - name: Report compiled PDF identity
+      - name: Compile in matching Debian 13 TeX environment
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq poppler-utils
-          echo "PAGES=$(pdfinfo paper/kdd2027/main.pdf | awk '/^Pages:/ {print $2}')"
-          echo "SIZE=$(stat -c '%s' paper/kdd2027/main.pdf)"
-          echo "SHA256=$(sha256sum paper/kdd2027/main.pdf | awk '{print $1}')"
-          echo "GIT_BLOB=$(git hash-object paper/kdd2027/main.pdf)"
+          docker run --rm \
+            -e SOURCE_DATE_EPOCH \
+            -e FORCE_SOURCE_DATE \
+            -e TZ \
+            -v "$PWD:/work" \
+            -w /work \
+            debian:trixie-slim \
+            bash -lc '
+              set -euo pipefail
+              apt-get update -qq
+              DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+                ca-certificates \
+                latexmk \
+                poppler-utils \
+                texlive-bibtex-extra \
+                texlive-fonts-recommended \
+                texlive-latex-base \
+                texlive-latex-extra \
+                texlive-latex-recommended \
+                texlive-publishers \
+                texlive-science
+              pdflatex --version | head -n 2
+              cd paper/kdd2027
+              latexmk -C main.tex >/dev/null 2>&1 || true
+              latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+              test -s main.pdf
+              test "$(pdfinfo main.pdf | awk '\''/^Pages:/ {print $2}'\'')" = 27
+            '
 
-      - name: Upload compiled PDF diagnostic
-        uses: actions/upload-artifact@v4
-        with:
-          name: fable-vfinal3-runner-pdf
-          path: paper/kdd2027/main.pdf
-          if-no-files-found: error
-          retention-days: 7
+      - name: Verify exact PDF identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(stat -c '%s' paper/kdd2027/main.pdf)" = '999042'
+          echo '4c1f576f79c2e6809fd86978515a7104a0f75719ca8361fbe5078dd8f7c6a1fb  paper/kdd2027/main.pdf' | sha256sum --check --strict
+          test "$(git hash-object paper/kdd2027/main.pdf)" = '50b8f320c21e677d81f8eda464e0d767983c5a8d'
 
-      - name: Verify exact PDF identity and replace release
+      - name: Replace incorrect release PDF
         shell: bash
         env:
           HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
-          test "$(pdfinfo paper/kdd2027/main.pdf | awk '/^Pages:/ {print $2}')" = '27'
-          echo '4c1f576f79c2e6809fd86978515a7104a0f75719ca8361fbe5078dd8f7c6a1fb  paper/kdd2027/main.pdf' | sha256sum --check --strict
-          test "$(git hash-object paper/kdd2027/main.pdf)" = '50b8f320c21e677d81f8eda464e0d767983c5a8d'
           cp paper/kdd2027/main.pdf paper/releases/DRPO_KDD2027_FABLE_VFINAL3_ACCEPTED.pdf
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
