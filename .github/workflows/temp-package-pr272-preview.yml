@@ -1,0 +1,79 @@
+name: TEMP package PR272 exact preview
+
+on:
+  push:
+    branches:
+      - temp/pr272-executor
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 00663a958b4290c0ed5a0a43c3812d838b023343
+          fetch-depth: 1
+
+      - name: Compile exact manuscript with TeX Live 2025
+        uses: xu-cheng/texlive-action@v3
+        with:
+          texlive_version: 2025
+          os: debian
+          run: |
+            set -euo pipefail
+            cd paper/kdd2027
+            pdflatex --version | tee /tmp/texlive-version.txt
+            grep -Fq 'TeX Live 2025' /tmp/texlive-version.txt
+            latexmk -C main.tex >/dev/null 2>&1 || true
+            latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+            test -s main.pdf
+            if grep -Eqi 'Undefined control sequence|LaTeX Error|Citation .* undefined|Reference .* undefined|There were undefined references|There were undefined citations|Fatal error' main.log; then
+              exit 1
+            fi
+
+      - name: Build compact preview package
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=/tmp/DRPO_PR272_Exact_Preview
+          rm -rf "$root"
+          mkdir -p "$root/figures"
+          cp paper/kdd2027/main.pdf "$root/DRPO_KDD2027_PR272_preview.pdf"
+          cp paper/kdd2027/main.tex "$root/main.tex"
+          cp paper/kdd2027/source_locked.tex "$root/source_locked.tex"
+          cp paper/overleaf/main_replacement.tex "$root/main_replacement.tex"
+          cp paper/kdd2027/figures/figure1_external_gradient_d4rl9.pdf "$root/figures/"
+          cp paper/kdd2027/figures/fig_app_d4rl9_gradient_panels.pdf "$root/figures/"
+          cat > "$root/PREVIEW_INFO.txt" <<'EOF'
+          Repository: https://github.com/easonhuo/drpo
+          Pull request: #272
+          Exact head: 00663a958b4290c0ed5a0a43c3812d838b023343
+          Original PR base: a105ead8ae235ccd3bb8d1a545f41b11dad0219a
+          Narrow follow-up baseline: 69c106968837d1ece07443122019f48666df300c
+          Toolchain: pdfLaTeX, TeX Live 2025
+          Status: Draft PR, not merged
+          Figures: PDF-only
+          EOF
+          sed -i 's/^          //' "$root/PREVIEW_INFO.txt"
+          pdfinfo "$root/DRPO_KDD2027_PR272_preview.pdf" > "$root/PDFINFO.txt"
+          sha256sum \
+            "$root/DRPO_KDD2027_PR272_preview.pdf" \
+            "$root/main.tex" \
+            "$root/source_locked.tex" \
+            "$root/main_replacement.tex" \
+            "$root/figures/figure1_external_gradient_d4rl9.pdf" \
+            "$root/figures/fig_app_d4rl9_gradient_panels.pdf" \
+            > "$root/SHA256SUMS.txt"
+          cd /tmp
+          zip -qr DRPO_PR272_Exact_Preview.zip DRPO_PR272_Exact_Preview
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DRPO_PR272_Exact_Preview
+          path: /tmp/DRPO_PR272_Exact_Preview.zip
+          if-no-files-found: error
+          retention-days: 14
