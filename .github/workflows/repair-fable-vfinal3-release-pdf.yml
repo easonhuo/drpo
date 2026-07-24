@@ -22,16 +22,22 @@ jobs:
       SOURCE_DATE_EPOCH: '1784815980'
       FORCE_SOURCE_DATE: '1'
       TZ: UTC
+      HEAD_BRANCH: dev/paper-fable-vfinal3-release-repair
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Clone repair branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git clone --quiet --branch "$HEAD_BRANCH" \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" repo
 
       - name: Compile in matching Debian 13 TeX environment
         shell: bash
         run: |
           set -euo pipefail
+          cd repo
           if ! docker run --rm \
             -e SOURCE_DATE_EPOCH \
             -e FORCE_SOURCE_DATE \
@@ -60,25 +66,19 @@ jobs:
               test -s main.pdf
               test "$(pdfinfo main.pdf | awk '\''/^Pages:/ {print $2}'\'')" = 27
             ' > repair-build.log 2>&1; then
-            tail -n 200 repair-build.log
+            tail -n 250 repair-build.log
             exit 1
           fi
           tail -n 30 repair-build.log
 
-      - name: Verify exact PDF identity
+      - name: Verify exact PDF identity and replace release
         shell: bash
         run: |
           set -euo pipefail
+          cd repo
           test "$(stat -c '%s' paper/kdd2027/main.pdf)" = '999042'
           echo '4c1f576f79c2e6809fd86978515a7104a0f75719ca8361fbe5078dd8f7c6a1fb  paper/kdd2027/main.pdf' | sha256sum --check --strict
           test "$(git hash-object paper/kdd2027/main.pdf)" = '50b8f320c21e677d81f8eda464e0d767983c5a8d'
-
-      - name: Replace incorrect release PDF
-        shell: bash
-        env:
-          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
-        run: |
-          set -euo pipefail
           cp paper/kdd2027/main.pdf paper/releases/DRPO_KDD2027_FABLE_VFINAL3_ACCEPTED.pdf
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
