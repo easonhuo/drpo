@@ -111,6 +111,6 @@ The training-free validation command
 bash scripts/test_e7_hopper_replay_stability_hps.sh
 ```
 
-passed against runner blob `f6958d3658e82cbcde623cc0d5b354b7fdb1b4c6`. This validates Python extraction/compilation, shell syntax, the frozen 48+10 matrix, optimizer-control self-test, and held-out-seed exclusion. It is not D4RL liveness or scientific evidence.
+passed against runner blob `a046c18c082786b4f5c0e23b6b27770d04f3fef6`. This validates Python extraction/compilation, shell syntax, the frozen 48+10 matrix, optimizer-control self-test, held-out-seed exclusion, and exact branch-level agreement among batch size, trajectory-snapshot refresh interval, and recorded snapshot-batch provenance. It is not D4RL liveness or scientific evidence.
 
 The RunSpec must bind the exact frozen implementation commit, use deferred registration with closure required, preserve protected implementation paths, and automatically deliver text-first evidence to `easonhuo/drpo-results@ingest/e7` only after terminal audit completion.
