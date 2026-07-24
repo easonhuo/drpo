@@ -1,1 +1,1 @@
-Trigger the repaired exact PR #272 protocol/PDF-only correction workflow.
+Trigger the final exact PR #272 correction with explicit approved-file staging.
