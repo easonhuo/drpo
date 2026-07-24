@@ -1,0 +1,26 @@
+name: Temporary Hopper replay stability validation
+
+on:
+  push:
+    branches:
+      - dev/ext-h-e7-hopper-replay-stab-hps-01
+    paths:
+      - '.github/workflows/tmp-test-e7-hr-stab.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Validate exact Hopper replay stability runner
+        run: bash scripts/test_e7_hopper_replay_stability_hps.sh
