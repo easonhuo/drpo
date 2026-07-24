@@ -1,0 +1,80 @@
+{
+  "experiment_id": "EXT-H-E7-SQEXP-GAE-HOPPER-REPLAY-STAB-HPS-01",
+  "profile_id": "hopper_replay_stability_hps_v1",
+  "parent_experiment_id": "EXT-H-E7-BENCH-01",
+  "predecessor_experiment_id": "EXT-H-E7-SQEXP-GAE-TASKC-MS-01",
+  "run_kind": "pilot",
+  "status": "not_run",
+  "scientific_status": "hopper_replay_joint_critic_gae_stability_hyperparameter_screening_pilot_only",
+  "dataset": "hopper-medium-replay-v2",
+  "held_out_seeds": [204, 205, 206, 207],
+  "steps": 1000000,
+  "evaluation_interval": 50000,
+  "evaluation_episodes": 10,
+  "actor_update_mode": "a2c",
+  "advantage_mode": "gae_lambda_0p95",
+  "phase_a": {
+    "remoteness_scales": [0.08, 0.125],
+    "actor_lr_multipliers": [1.0, 0.5, 0.25],
+    "batch_sizes": [256, 512],
+    "seeds": [200, 202, 203, 208],
+    "expected_branches": 48,
+    "selected_config_count": 2
+  },
+  "phase_b": {
+    "seeds": [200, 201, 202, 203, 208],
+    "fresh_rerun": true,
+    "expected_branches": 10
+  },
+  "selection_protocol": {
+    "primary_metric": "late_window_mean_800k_1m",
+    "ranking": [
+      "larger_late_median",
+      "larger_worst2_late_mean",
+      "larger_final_median",
+      "smaller_mean_best_to_final_drop",
+      "smaller_actor_lr_multiplier_exact_tie_only",
+      "larger_batch_size_exact_tie_only",
+      "smaller_remoteness_scale_exact_tie_only"
+    ],
+    "confirmation_top3_of5_secondary": true,
+    "retain_all_seed_results": true,
+    "retain_complete_training_curves": true,
+    "failed_runs_may_be_deleted": false
+  },
+  "weight_control": {
+    "formula": "w(D)=w(0)*exp(-taper_lambda*relu((D-remoteness_threshold)/remoteness_scale))",
+    "coordinate": "normalized_squared_standardized_distance",
+    "weight_at_zero": 1.0,
+    "reference_distance": 2.0,
+    "taper_lambda": 1.0,
+    "remoteness_threshold": 0.0
+  },
+  "trajectory_snapshot": {
+    "gae_lambda": 0.95,
+    "batch_size_matches_branch": true,
+    "refresh_once_per_replay_equivalent_epoch": true,
+    "critic_updated_every_step": true,
+    "prepared_advantage_artifact": false,
+    "terminal_bootstrap": false,
+    "timeout_bootstrap": true,
+    "terminal_timeout_recursion_stop": true,
+    "dataset_tail_recursion_stop": true
+  },
+  "optimizer_control": {
+    "optimizer_family": "Adam",
+    "canonical_base_lr": 0.0003,
+    "critic_lr_frozen": 0.0003,
+    "actor_lr_formula": "canonical_base_lr * actor_lr_multiplier"
+  },
+  "expected_total_new_branches": 58,
+  "screening_only": true,
+  "formal_evidence_allowed": false,
+  "non_claims": [
+    "convergence_from_fixed_1m_horizon",
+    "steady_state_method_ranking",
+    "universal_superiority",
+    "task_collapse_rate_without_registered_threshold",
+    "support_or_variance_boundary_without_instrumentation"
+  ]
+}
