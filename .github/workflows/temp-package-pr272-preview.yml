@@ -63,7 +63,6 @@ jobs:
           Figures: PDF-only
           EOF
           sed -i 's/^          //' "$root/PREVIEW_INFO.txt"
-          pdfinfo "$root/DRPO_KDD2027_PR272_preview.pdf" > "$root/PDFINFO.txt"
           sha256sum \
             "$root/DRPO_KDD2027_PR272_preview.pdf" \
             "$root/main.tex" \
