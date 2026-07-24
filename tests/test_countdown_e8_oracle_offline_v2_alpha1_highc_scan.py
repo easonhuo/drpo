@@ -640,3 +640,128 @@ def test_runtime_plan_selects_asymre_boundary_dense_profile(tmp_path: Path) -> N
     assert plan["cell_count"] == 16
     assert {row["method"] for row in plan["cells"]} == {"asymre"}
     assert {row["seed_offset"] for row in plan["cells"]} == {4000, 5000}
+
+
+DRPO_C_CONFIRMATION_CONFIG = (
+    ROOT
+    / "configs"
+    / "countdown_e8_oracle_offline_v2_drpo_c_confirmation_0p5b.yaml"
+)
+DRPO_C_CONFIRMATION_RUNSPEC = (
+    ROOT
+    / "runspecs"
+    / "ready"
+    / "E8_DRPO_C_CONFIRMATION_20260724_01.yaml"
+)
+
+
+def test_drpo_c_confirmation_has_four_points_and_sixteen_paired_cells() -> None:
+    config = _load_path(DRPO_C_CONFIRMATION_CONFIG)
+    points = scan.parameter_points(config)
+    cells = scan.build_cells(config)
+    assert points == scan.DRPO_C_CONFIRMATION_PARAMETER_POINTS
+    assert points == (
+        (1.0, 1.897119985),
+        (1.0, 3.0),
+        (1.0, 5.0),
+        (1.0, 8.0),
+    )
+    assert len(cells) == 16
+    assert len({cell.name for cell in cells}) == 16
+    assert {cell.seed_offset for cell in cells} == {17000, 18000, 19000, 20000}
+    assert {cell.alpha for cell in cells} == {1.0}
+    assert {cell.method for cell in cells} == {"continuous_exp"}
+    assert {float(cell.c) for cell in cells} == {1.897119985, 3.0, 5.0, 8.0}
+    assert config["evaluation"]["late_window_steps"] == [800, 900, 1000, 1100, 1200]
+    assert config["selection"]["aggregate_unit"] == "seed_level_late_window_mean"
+    assert config["selection"]["checkpoint_values_are_not_independent_samples"] is True
+    assert config["reporting"]["method_ranking_claim_allowed"] is False
+    assert config["reporting"]["seed_11000_exclusion_forbidden"] is True
+
+
+def test_drpo_c_confirmation_rejects_parameter_seed_or_metric_drift() -> None:
+    config = _load_path(DRPO_C_CONFIRMATION_CONFIG)
+    config["sweep"]["parameter_points"][2]["c"] = 6.0
+    with pytest.raises(ValueError, match="parameter points changed"):
+        scan.validate_grid_config(config)
+
+    config = _load_path(DRPO_C_CONFIRMATION_CONFIG)
+    config["sweep"]["seed_offsets"][0] = 16000
+    with pytest.raises(ValueError, match="seed offsets changed"):
+        scan.validate_grid_config(config)
+
+    config = _load_path(DRPO_C_CONFIRMATION_CONFIG)
+    config["evaluation"]["late_window_steps"] = [900, 1000, 1100, 1200]
+    with pytest.raises(ValueError, match="late window changed"):
+        scan.validate_grid_config(config)
+
+    config = _load_path(DRPO_C_CONFIRMATION_CONFIG)
+    config["selection"]["winner_rule"] = "best_terminal_pass_at_8"
+    with pytest.raises(ValueError, match="winner rule changed"):
+        scan.validate_grid_config(config)
+
+
+def test_runtime_plan_selects_drpo_c_confirmation_profile(tmp_path: Path) -> None:
+    model = tmp_path / "model"
+    model.mkdir()
+    bank = tmp_path / "bank.jsonl"
+    val = tmp_path / "val.jsonl"
+    bank.write_text("{}\n", encoding="utf-8")
+    val.write_text("{}\n", encoding="utf-8")
+    work = tmp_path / "work"
+    subprocess.run(
+        [
+            sys.executable,
+            str(RUNTIME),
+            "plan",
+            "--model_path",
+            str(model),
+            "--bank",
+            str(bank),
+            "--val",
+            str(val),
+            "--base_config",
+            str(ROOT / "configs/countdown_e8_base_rl_replay_0p5b.yaml"),
+            "--grid_config",
+            str(DRPO_C_CONFIRMATION_CONFIG),
+            "--work_dir",
+            str(work),
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    plan = json.loads((work / "SWEEP_PLAN.json").read_text(encoding="utf-8"))
+    assert plan["experiment_id"] == scan.DRPO_C_CONFIRMATION_EXPERIMENT_ID
+    assert plan["parameter_points"] == 4
+    assert plan["cell_count"] == 16
+    assert {row["method"] for row in plan["cells"]} == {"continuous_exp"}
+    assert {row["seed_offset"] for row in plan["cells"]} == {
+        17000,
+        18000,
+        19000,
+        20000,
+    }
+    assert {row["c"] for row in plan["cells"]} == {1.897119985, 3.0, 5.0, 8.0}
+
+
+def test_drpo_c_confirmation_runspec_is_frozen_and_deliverable() -> None:
+    spec = _load_path(DRPO_C_CONFIRMATION_RUNSPEC)
+    assert spec["experiment_id"] == scan.DRPO_C_CONFIRMATION_EXPERIMENT_ID
+    assert spec["registration"] == {"mode": "deferred", "closure_required": True}
+    assert "countdown_e8_oracle_offline_v2_drpo_c_confirmation_0p5b.yaml" in spec[
+        "entrypoint"
+    ]["command"]
+    assert any("4 parameter points and 16 cells" in item for item in spec["success_criteria"])
+    assert any("17000, 18000, 19000, and 20000" in item for item in spec["success_criteria"])
+    assert spec["delivery"] == {
+        "enabled": True,
+        "auto": True,
+        "mode": "results_repo",
+        "repository": "easonhuo/drpo-results",
+        "branch": "ingest/e8",
+        "export_profile": "manifest_text_v1",
+        "max_total_size_mb": 30,
+        "max_file_size_mb": 10,
+    }
