@@ -4,7 +4,7 @@ lane: e7
 priority: 156
 created_at: "2026-07-24T07:20:00Z"
 experiment_id: EXT-H-E7-SQEXP-GAE-HOPPER-REPLAY-STAB-HPS-01
-repo_commit: d1325089ed444a0901098cd0a7f6ed6dadecdc3e
+repo_commit: ebc9bec182bb868eb66128e0b005d8b050033620
 
 registration:
   mode: deferred
