@@ -1,0 +1,100 @@
+{
+  "experiment_id": "EXT-H-E7-SQEXP-GAE-HOPPER-REPLAY-ADVSHIFT-200K-01",
+  "profile_id": "hopper_replay_advantage_shift_200k_v1",
+  "parent_experiment_id": "EXT-H-E7-BENCH-01",
+  "predecessor_experiment_id": "EXT-H-E7-SQEXP-GAE-HOPPER-REPLAY-STAB-HPS-01",
+  "run_kind": "pilot",
+  "status": "not_run",
+  "scientific_status": "hopper_replay_fixed_advantage_baseline_shift_200k_screening_pilot_only",
+  "dataset": "hopper-medium-replay-v2",
+  "development_seeds": [200, 202, 203, 208],
+  "held_out_seeds": [204, 205, 206, 207],
+  "steps": 200000,
+  "evaluation_interval": 20000,
+  "evaluation_episodes": 10,
+  "actor_update_mode": "a2c",
+  "advantage_mode": "gae_lambda_0p95",
+  "batch_size": 512,
+  "actor_lr": 0.0003,
+  "critic_lr": 0.0003,
+  "controls": [
+    {
+      "id": "positive_only",
+      "weight_method": "positive_only",
+      "advantage_baseline": 0.0
+    },
+    {
+      "id": "drpo_b0",
+      "weight_method": "thresholded_exponential",
+      "advantage_baseline": 0.0
+    },
+    {
+      "id": "drpo_b0p25",
+      "weight_method": "thresholded_exponential",
+      "advantage_baseline": 0.25
+    },
+    {
+      "id": "drpo_b0p5",
+      "weight_method": "thresholded_exponential",
+      "advantage_baseline": 0.5
+    },
+    {
+      "id": "drpo_b1",
+      "weight_method": "thresholded_exponential",
+      "advantage_baseline": 1.0
+    }
+  ],
+  "advantage_shift": {
+    "formula": "shifted_advantage = raw_trajectory_snapshot_gae - fixed_baseline",
+    "baseline_units": "raw_trajectory_snapshot_gae",
+    "shift_applied_before_positive_negative_split": true,
+    "sample_deletion": false,
+    "sample_masking": false,
+    "positive_and_negative_samples_retained": true
+  },
+  "weight_control": {
+    "formula": "w(D)=w(0)*exp(-taper_lambda*relu((D-remoteness_threshold)/remoteness_scale))",
+    "coordinate": "normalized_squared_standardized_distance",
+    "weight_at_zero": 1.0,
+    "reference_distance": 2.0,
+    "taper_lambda": 1.0,
+    "remoteness_threshold": 0.0,
+    "remoteness_scale": 0.08
+  },
+  "trajectory_snapshot": {
+    "gae_lambda": 0.95,
+    "batch_size": 512,
+    "refresh_once_per_replay_equivalent_epoch": true,
+    "critic_updated_every_step": true,
+    "prepared_advantage_artifact": false,
+    "terminal_bootstrap": false,
+    "timeout_bootstrap": true,
+    "terminal_timeout_recursion_stop": true,
+    "dataset_tail_recursion_stop": true
+  },
+  "reporting": {
+    "early_window": [20000, 100000],
+    "late_window": [120000, 200000],
+    "trend_window": [100000, 200000],
+    "primary_metrics": [
+      "late_window_mean_120k_200k",
+      "final_score_200k",
+      "trend_slope_per_100k_100k_200k",
+      "best_to_final_drop"
+    ],
+    "paired_comparators": ["positive_only", "drpo_b0"],
+    "retain_all_seed_results": true,
+    "retain_complete_training_curves": true,
+    "failed_and_low_performing_runs_may_be_deleted": false
+  },
+  "expected_branches": 20,
+  "screening_only": true,
+  "formal_evidence_allowed": false,
+  "non_claims": [
+    "convergence_from_fixed_200k_horizon",
+    "steady_state_method_ranking",
+    "task_collapse_rate_without_registered_threshold",
+    "support_or_variance_boundary_without_instrumentation",
+    "universal_superiority"
+  ]
+}
