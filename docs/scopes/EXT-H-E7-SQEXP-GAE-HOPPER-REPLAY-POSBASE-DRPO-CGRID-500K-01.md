@@ -147,6 +147,7 @@ The implementation must preserve, per branch:
 - sampled raw actor-gradient norm;
 - sampled Adam actor parameter-update norm;
 - sampled actor `log_std` extrema and support/variance-boundary fractions;
+- the support/variance boundary is the canonical actor's exact output clamp, `log_std <= -5` or `log_std >= 2`;
 - rollout failure;
 - NaN/Inf numerical failure.
 
