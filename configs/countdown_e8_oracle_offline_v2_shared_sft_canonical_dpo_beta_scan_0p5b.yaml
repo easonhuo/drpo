@@ -1,0 +1,169 @@
+schema_version: 1
+experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-SHARED-SFT-CANONICAL-DPO-BETA-SCAN-0.5B-01
+result_status: pilot
+registration_state: dev_code_first_unregistered
+method_identity: canonical_sigmoid_dpo_shared_v2_oracle_sft_frozen_reference
+claim: >-
+  On the frozen model-independent E8 V2 bank, train one shared one-epoch
+  oracle-SFT LoRA adapter and use that identical persisted adapter to initialize
+  every canonical prompt-balanced multi-negative sigmoid-DPO cell. Scan eight
+  beta values on two paired development seeds. This code-first pilot separates
+  the cold-start limitation from the DPO objective while making no convergence,
+  steady-state, significance, best-beta, test-performance, or formal-ranking
+  claim.
+model:
+  identity: Qwen2.5-0.5B-Instruct
+  initialization: shared_v2_oracle_sft_epoch1_adapter
+  parameterization: lora
+  shared_frozen_backbone: true
+  policy_adapter: default
+  reference_adapter: reference
+  copy_policy_adapter_to_reference_at_initialization: true
+  reference_trainable: false
+  disable_dropout: true
+  merge_sft_into_base_model: false
+shared_warmstart:
+  source_corpus: EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01
+  objective: oracle_positive_sft
+  training_runs: 1
+  epochs: 1
+  min_epochs: 1
+  seed: 2026070700
+  eval_seed: 2026070790
+  learning_rate: 2.0e-4
+  micro_batch: 2
+  gradient_accumulation: 32
+  warmup_ratio: 0.05
+  maximum_gradient_norm: 1.0
+  parameterization: lora
+  dtype: bf16
+  checkpoint_role: shared_epoch_1_adapter
+  reuse_across_all_dpo_cells: true
+  read_only_during_dpo: true
+  adaptive_metric_stopping: false
+  test_split_access: false
+  output_subdir: shared_sft/epoch_1_adapter
+  persist_complete_marker: shared_sft/SFT_COMPLETE.json
+  persist_gate_marker: shared_sft/SFT_WARMSTART_GATE.json
+bank:
+  source_experiment: EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01
+  use_all_unique_negatives: true
+  deduplicate_expression_rule: arena_clean_expression_first_occurrence
+  behavior_policy_logged: false
+  explicit_near_far_training_classes: false
+  extreme_selection_forbidden: true
+preference_data:
+  chosen: oracle_completion
+  rejected: all_unique_verifier_wrong_completions
+  pair_aggregation: mean_within_prompt_then_mean_prompts
+  hard_negative_mining: false
+  label_smoothing: 0.0
+reference_policy:
+  role: exact_frozen_shared_sft_initial_policy
+  adapter: reference
+  copied_from_policy_before_update_1: true
+  update_frequency_per_policy_step: 0
+  receives_gradient: false
+  precomputed_log_probabilities: false
+objective:
+  loss_type: sigmoid_dpo
+  formula: mean_prompt(mean_unique_negative(-logsigmoid(beta*reference_relative_pair_margin)))
+  beta_parameter: dpo_beta
+  sequence_log_probability: full_completion_summed_log_probability
+  pair_margin: policy_chosen_minus_rejected_minus_reference_chosen_minus_rejected
+  reference_detached: true
+  distance_control: false
+  value_network: false
+sweep:
+  cartesian_product: false
+  parameter_points:
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.01, role: near_zero_boundary}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.03, role: low_anchor}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.05, role: low_transition}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.1, role: canonical_center}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.2, role: middle_transition}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.3, role: middle_anchor}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.5, role: high_transition}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 1.0, role: strong_anchor}
+  seed_offsets: [4000, 5000]
+  unique_parameter_points: 8
+  cells: 16
+training:
+  steps: 1200
+  early_stop: false
+  eval_every: 100
+  pass64_every: 200
+  denominator: unique_negative_count_per_prompt
+  normalize_by_weight_sum: false
+  gradient_budget_matching: false
+  initial_pair_margin_max_abs_tolerance: 1.0e-5
+execution:
+  profile_mode: fixed_profile_fixed_matrix_only
+  generic_config_driven_reactivation: false
+  default_gpus: [0, 1]
+  parallel_cells_per_gpu: 2
+  expected_full_waves: 4
+  identity_checked_resume: true
+  continue_after_cell_failure: true
+  liveness:
+    required_before_full_run: true
+    representative_family: canonical_dpo
+    representative_alpha: 1.0
+    representative_c: 0.1
+    steps: 2
+    validation_examples: 8
+    checkpoint_reload_required: true
+    scientific_evidence: false
+evaluation:
+  split_file: val.jsonl
+  split_role: structurally_disjoint_held_out_evaluation
+  enters_training_loss: false
+  train_structure_overlap: none
+  train_problem_key_overlap: none
+  evaluated_adapter: default
+  separate_test_split_access: false
+  greedy_every: 100
+  pass_at_8_every: 100
+  pass_at_64_every: 200
+  primary_reporting_metric: late_window_pass_at_8
+  secondary_reporting_metric: terminal_pass_at_8
+  paper_facing_checkpoint_policy: late_window_and_terminal
+  best_checkpoint_saved: true
+  best_checkpoint_metric_is_supplementary_only: true
+  best_checkpoint_role: supplementary_local_diagnostic_and_recovery_only
+  late_window_steps: [800, 900, 1000, 1100, 1200]
+reporting:
+  distinguish_task_performance: true
+  distinguish_support_or_structure_boundary: true
+  distinguish_nan_inf_numerical_failure: true
+  report_sft_initial_metrics: true
+  report_dpo_pair_margin_distribution: true
+  report_preference_accuracy: true
+  report_logit_saturation_fraction: true
+  beta_response_curve_only: true
+  fixed_horizon_is_not_convergence: true
+  method_ranking_claim_allowed: false
+  countdown_role: external_validity_only
+  compare_terminal_and_late_window: true
+  separate_test_jsonl_used: false
+exclusions:
+  - per_cell_sft_retraining
+  - per_seed_sft_retraining
+  - sft_checkpoint_selection_by_dpo_result
+  - sft_metric_adaptive_stopping
+  - merged_full_model_checkpoint
+  - jointly_fitted_reference
+  - behavior_policy_reference_claim
+  - remoteness_or_distance_taper
+  - current_near_current_far_selection
+  - binary_near_far_mixture
+  - hard_negative_mining
+  - label_smoothing
+  - ipo_or_hinge_or_robust_dpo
+  - length_normalized_dpo
+  - value_network
+  - learned_baseline
+  - dpo_early_stopping
+  - test_split_access
+  - best_beta_or_formal_method_ranking_claim
+  - saturation_or_convergence_claim_from_1200_steps

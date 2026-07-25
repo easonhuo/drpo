@@ -1,0 +1,139 @@
+version: 1
+run_id: E8_SHARED_SFT_CANONICAL_DPO_BETA_SCAN_20260725_01
+lane: e8
+priority: 166
+created_at: "2026-07-25T00:00:00Z"
+experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-SHARED-SFT-CANONICAL-DPO-BETA-SCAN-0.5B-01
+repo_commit: 2836e44527f7bd73f07a11bff81aaa37ff26e2aa
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/countdown_e8_base_rl_replay_0p5b.yaml
+    - configs/countdown_e8_oracle_offline_v2_canonical_dpo_beta_scan_0p5b.yaml
+    - configs/countdown_e8_oracle_offline_v2_shared_sft_canonical_dpo_beta_scan_0p5b.yaml
+    - docs/scopes/EXT-C-E8-ORACLE-OFFLINE-V2-CANONICAL-DPO-BETA-SCAN-0.5B-01.md
+    - docs/scopes/EXT-C-E8-ORACLE-OFFLINE-V2-SHARED-SFT-CANONICAL-DPO-BETA-SCAN-0.5B-01.md
+    - scripts/v2_sft.py
+    - scripts/run_countdown_e8_canonical_dpo_beta_scan.sh
+    - scripts/run_countdown_e8_shared_sft_canonical_dpo_beta_scan.sh
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_common.py
+    - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    - src/drpo/countdown_e8_alpha1_c_scan_runtime.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+
+purpose: >-
+  Execute a two-stage external-validity pilot on the frozen E8 V2 bank. First,
+  train exactly one one-epoch oracle-positive SFT LoRA adapter and persist it once.
+  Second, initialize every canonical sigmoid-DPO cell from that identical read-only
+  adapter, copy the initialized policy exactly to a permanently frozen reference
+  before update 1, and scan eight beta values over two paired development seeds.
+  The foundation model is shared by path and is not merged or duplicated. Preserve
+  the fixed 1200-step DPO horizon, prompt-balanced all-unique-negative loss,
+  structurally disjoint held-out evaluation, no-test-access boundary, terminal
+  audit, and separate task/support/numerical reporting. This run does not test the
+  DRPO/TOPR remoteness mechanism and does not authorize convergence, steady state,
+  significance, best-beta, or formal method-ranking claims.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    E8_WARM_DPO_EXPECTED_COMMIT=2836e44527f7bd73f07a11bff81aaa37ff26e2aa
+    E8_WARM_DPO_WORK_ROOT=outputs/e8/shared_sft_warmstarted_dpo_001
+    E8_WARM_DPO_FORMAL_RUN_AUTHORIZED=1
+    bash scripts/run_countdown_e8_shared_sft_canonical_dpo_beta_scan.sh full
+
+recovery:
+  enabled: false
+  reason: >-
+    The one-epoch SFT stage is identity-bound and fail-closed on a partial non-empty
+    directory. Preserve failed evidence and choose a reviewed new work root rather
+    than silently deleting or mixing partial SFT state. DPO cell-level resume remains
+    available through the direct runner after the SFT and liveness gates exist.
+
+policy:
+  existing_script_required: true
+  fixed_profile_only: true
+  generic_config_driven_runtime_forbidden: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  scientific_aggregation_allowed: true
+  formal_evidence_allowed: false
+
+outputs:
+  run_dir: outputs/e8/shared_sft_warmstarted_dpo_001
+  sft_complete_file: outputs/e8/shared_sft_warmstarted_dpo_001/shared_sft/SFT_COMPLETE.json
+  sft_gate_file: outputs/e8/shared_sft_warmstarted_dpo_001/shared_sft/SFT_WARMSTART_GATE.json
+  summary_file: outputs/e8/shared_sft_warmstarted_dpo_001/dpo/SWEEP_COMPLETE.json
+  audit_file: outputs/e8/shared_sft_warmstarted_dpo_001/dpo/aggregate/terminal_audit.json
+
+success_criteria:
+  - source checkout is clean and every protected implementation path is unchanged from commit 2836e44527f7bd73f07a11bff81aaa37ff26e2aa
+  - the shared V2 oracle-SFT stage executes exactly once with seed 2026070700, exactly one epoch, no adaptive metric stopping, and no test access
+  - SFT_COMPLETE.json and SFT_WARMSTART_GATE.json both exist and identify the same persisted epoch_1_adapter
+  - the shared adapter config and single LoRA weight file match the SHA-256 values recorded by the SFT gate
+  - no SFT adapter is merged into or saved as a duplicated full Qwen foundation model
+  - every one of the sixteen DPO cell run identities records the exact same shared-SFT adapter path and hashes
+  - every DPO cell copies its initialized policy adapter exactly to a permanently frozen reference before update 1 and satisfies the 1e-5 initial pair-margin tolerance
+  - beta values are exactly 0.01, 0.03, 0.05, 0.1, 0.2, 0.3, 0.5, and 1.0
+  - paired development seed offsets are exactly 4000 and 5000, yielding sixteen unique cells
+  - execution uses GPU 0 and 1 with two cells per GPU and four full waves
+  - the beta=0.1 two-step warm-started DPO liveness and fresh-process policy/reference checkpoint reload gates pass before the full matrix
+  - every full DPO cell uses exactly 1200 optimizer updates, no early stopping, Greedy and Pass@8 every 100 updates, and Pass@64 every 200 updates
+  - every expected cell summary is present, failed cells are explicitly indexed, and aggregate/terminal_audit.json exists
+  - the held-out evaluation split never enters the training loss and the separate test split is not accessed
+  - task-performance degradation, valid-structure or support behavior, and NaN/Inf numerical failure are reported separately
+  - fixed 1200-step training is not reported as convergence, steady state, saturation proof, significance, best-beta selection, or formal method ranking
+
+artifacts:
+  mode: manifest_only
+  include:
+    - outputs/e8/shared_sft_warmstarted_dpo_001/shared_sft/SFT_COMPLETE.json
+    - outputs/e8/shared_sft_warmstarted_dpo_001/shared_sft/SFT_WARMSTART_GATE.json
+    - outputs/e8/shared_sft_warmstarted_dpo_001/shared_sft/sft_metrics.csv
+    - outputs/e8/shared_sft_warmstarted_dpo_001/dpo/SWEEP_PLAN.json
+    - outputs/e8/shared_sft_warmstarted_dpo_001/dpo/SWEEP_STATUS.json
+    - outputs/e8/shared_sft_warmstarted_dpo_001/dpo/SWEEP_COMPLETE.json
+    - outputs/e8/shared_sft_warmstarted_dpo_001/dpo/SMOKE_GATE.json
+    - outputs/e8/shared_sft_warmstarted_dpo_001/dpo/CHECKPOINT_RELOAD_GATE.json
+    - outputs/e8/shared_sft_warmstarted_dpo_001/dpo/RUNTIME_SELECTION.json
+    - outputs/e8/shared_sft_warmstarted_dpo_001/dpo/RUNTIME_SLOTS.json
+    - outputs/e8/shared_sft_warmstarted_dpo_001/dpo/aggregate/*.json
+    - outputs/e8/shared_sft_warmstarted_dpo_001/dpo/aggregate/*.csv
+    - outputs/e8/shared_sft_warmstarted_dpo_001/dpo/methods/*/summary.json
+    - outputs/e8/shared_sft_warmstarted_dpo_001/dpo/methods/*/manifest.json
+    - outputs/e8/shared_sft_warmstarted_dpo_001/dpo/methods/*/metrics.csv
+    - outputs/e8/shared_sft_warmstarted_dpo_001/dpo/methods/*/training_diagnostics.jsonl
+    - outputs/e8/shared_sft_warmstarted_dpo_001/dpo/methods/*/validation_diagnostics.jsonl
+    - outputs/e8/shared_sft_warmstarted_dpo_001/dpo/logs/*.log
+  exclude:
+    - "**/adapter_model.safetensors"
+    - "**/adapter_model.bin"
+    - "**/adapter_config.json"
+    - "**/pytorch_model.bin"
+    - "**/model.safetensors"
+    - "**/optimizer.pt"
+    - "**/scheduler.pt"
+    - "**/trainer_state.json"
+    - "**/checkpoint-*"
+    - "**/wandb/**"
+  max_total_size_mb: 30
+  max_file_size_mb: 10
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e8
+  export_profile: manifest_text_v1
+  max_total_size_mb: 30
+  max_file_size_mb: 10
+
+publish:
+  enabled: false
