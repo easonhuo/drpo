@@ -31,7 +31,7 @@ jobs:
           source = (root/'source_locked.tex').read_text(encoding='utf-8')
           kdd = (root/'main.tex').read_text(encoding='utf-8')
           verifier = (root/'verify_content_lock.py').read_text(encoding='utf-8')
-          ns = {}
+          ns = {'__file__': str(root/'verify_content_lock.py')}
           exec(verifier[:verifier.index('source = SOURCE.read_text')], ns)
           original = ns['canonical_original'](source)
           current = ns['canonical_kdd'](kdd)
