@@ -1,9 +1,13 @@
 name: TEMP export KDD batch2 base
 
 on:
-  push:
+  pull_request:
     branches:
-      - tmp/paper-kdd2027-batch2-preview-20260726
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
 
 permissions:
   contents: read
