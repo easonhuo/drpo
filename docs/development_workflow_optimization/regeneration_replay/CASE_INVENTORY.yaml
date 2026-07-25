@@ -1,0 +1,189 @@
+schema_version: 1
+benchmark_id: GOV-CODE-REGENERATION-REPLAY-01
+candidate_rule: GOV-CODE-CHANGE-BUDGET-02
+candidate_gate_sha: 7826f5d60c83d8a58a11dc526b487cc09078d818
+benchmark_branch: dev/gov-code-regeneration-replay-01
+benchmark_base_sha: dd355642df2ba2479715c9620749c1e9f75f76ba
+inventory_status: frozen_before_generation
+phase_1_case_count: 6
+selection_rule: >-
+  Cover code-bloat reduction, small-change proportionality, legitimate new-module
+  creation, wrapper/integration work, stale-lineage reuse, and a task with real
+  runtime failures. Cases are retained regardless of candidate outcome.
+
+cases:
+  - case_id: REGEN-GAE-CANONICAL-EXTENSION-01
+    priority: 1
+    stratum: large_existing_stack_extension
+    historical_task_base_sha: aedbe8cc7e50f730cb6fcde90ca1816b97d79173
+    source_prs: [92, 102, 107]
+    experiment_or_claim: EXT-H-E7-SQEXP-GAE-01
+    historical_descriptive_evidence:
+      initial_large_pr:
+        pr: 92
+        additions: 5093
+        changed_files: 24
+        production_python_approx: 3255
+        actor_branches_reaching_update_1: 0
+      later_compact_pr:
+        pr: 107
+        additions: 1363
+        changed_files: 15
+        production_python_approx: 896
+    selection_reason: >-
+      Highest observed duplicate-stack cost and three real integration defects;
+      tests whether candidate feedback leads to reuse of canonical E7 planning,
+      trainer, A2C/PPO, evaluation, resume, and diagnostics.
+    required_hidden_checks:
+      - exact 192-branch matrix
+      - frozen datasets, seeds, coefficients, critic budget, actor horizon, gamma, lambda and PPO settings
+      - terminal, timeout and dataset-tail GAE semantics
+      - lambda_zero_equals_one_step_td
+      - prepared advantage identity and frozen critic hash
+      - focused and full repository tests
+      - real A2C plus TD liveness reaches actor update
+      - real PPO-K4 plus GAE liveness reaches actor update
+    replayability: reconstructed
+    execution_status: task_packet_preparation
+
+  - case_id: REGEN-E8-LINEAR-TAPER-INPLACE-01
+    priority: 2
+    stratum: small_in_place_formula_and_matrix_change
+    historical_task_base_sha: 929142930a3e2efaa7cafc8e4afe3866600027a5
+    source_prs: [98, 101]
+    experiment_or_claim: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01
+    historical_descriptive_evidence:
+      overgrown_pr:
+        pr: 98
+        additions: 1075
+        production_python_churn: 635
+        new_production_python_files: 4
+      compact_pr:
+        pr: 101
+        additions: 317
+        deletions: 107
+        production_python_churn: 98
+        new_production_python_files: 0
+    selection_reason: >-
+      Clean small-change control with a known one-line scientific correction and
+      a frozen matrix; tests whether the rule avoids unnecessary adapters while
+      not overburdening a legitimate in-place repair.
+    required_hidden_checks:
+      - replace only alpha_times_exp_minus_c_u_squared with alpha_times_exp_minus_c_u
+      - detached u equals current sequence surprisal divided by 2
+      - Positive-only plus fifteen alpha=1 points
+      - paired seed offsets 4000 and 5000
+      - trainer, runtime, scheduler and launcher behavior preserved
+      - focused and full repository tests
+    replayability: complete
+    execution_status: queued
+
+  - case_id: REGEN-E8-RNG-RUNSPEC-WRAPPER-01
+    priority: 3
+    stratum: legitimate_wrapper_and_runspec_integration
+    historical_task_base_sha: aedbe8cc7e50f730cb6fcde90ca1816b97d79173
+    source_prs: [91]
+    experiment_or_claim: EXT-C-E8-ORACLE-OFFLINE-V2-REPRO-RNG-AUDIT-0.5B-01
+    selection_reason: >-
+      Tests whether the rule permits a necessary thin current-main wrapper and
+      RunSpec while requiring byte-preservation of the frozen scientific code.
+    required_hidden_checks:
+      - frozen 12-cell protocol unchanged
+      - protected scientific blobs byte-identical
+      - descendant RunSpec commit accepted only with protected files unchanged
+      - exact-head override remains fail closed
+      - test split forbidden
+      - RunSpec, focused and full repository tests
+    replayability: reconstructed
+    execution_status: queued
+
+  - case_id: REGEN-RUNTIME-ACCEPTANCE-HARNESS-01
+    priority: 4
+    stratum: legitimate_large_new_subsystem
+    historical_task_base_sha: aacaa5cb2425ebbcd5f5666b331694a37545d27a
+    source_prs: [73]
+    experiment_or_claim: GOV-RUNTIME-RESOURCE-ACCEPTANCE-HARNESS-01
+    selection_reason: >-
+      Negative control against an over-aggressive anti-new-file rule. The task
+      legitimately owns a new runtime acceptance subsystem and cannot be reduced
+      to a one-line change. The candidate must demand necessity and reuse without
+      forcing an incomplete implementation.
+    required_hidden_checks:
+      - permanent external workloads are observation-only
+      - competing DRPO processes block duplicate work
+      - E7 and E8 resource ceilings remain non-overlapping and fail closed
+      - launch-time capacity revalidation
+      - cleanup affects owned process groups only
+      - final affinity, orphan, checkout, OOM and NaN/Inf audit
+      - focused and full repository tests
+    replayability: reconstructed
+    execution_status: queued
+
+  - case_id: REGEN-FASTPATH-ACTIVATION-SMALL-01
+    priority: 5
+    stratum: small_governance_activation_control
+    historical_task_base_sha: cd3f293f1aa5d53696ed7a95f4d5a525bbbfe2bd
+    source_prs: [84]
+    experiment_or_claim: GOV-DEV-PILOT-REGISTRATION-FASTPATH-ACTIVATION-01
+    selection_reason: >-
+      Proportionality control. The accepted task is a small activation and
+      documentation update; candidate overhead should be close to zero and must
+      not encourage a new framework or validator.
+    required_hidden_checks:
+      - only declared four-file surface changes
+      - neighboring AGENTS sections preserved
+      - no handoff or registry change
+      - no automatic push, PR, merge or publication behavior
+      - rollback and explicit fallback remain documented
+      - full repository tests
+    replayability: complete
+    execution_status: queued
+
+  - case_id: REGEN-E8-CURRENT-MAIN-INTEGRATION-01
+    priority: 6
+    stratum: stale_lineage_current_main_reuse
+    historical_task_base_sha: 892b712b2393dc1589b0e061070a48de5845dc0b
+    source_prs: [106]
+    experiment_or_claim: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01
+    selection_reason: >-
+      Tests current-main integration without reimplementation. The correct path
+      reuses reviewed common/runtime/launcher blobs and changes only the required
+      scientific formula and current-main provenance/RunSpec surface.
+    required_hidden_checks:
+      - reviewed lineage blobs reused or semantically identical
+      - formula is alpha_times_exp_minus_c_u
+      - 32-cell matrix and 16-slot runtime unchanged
+      - no new trainer or scheduler
+      - smoke remains non-scientific and required before sweep
+      - focused and full repository tests
+    replayability: reconstructed
+    execution_status: queued
+
+phase_2_reserve_cases:
+  - case_id: REGEN-RUNTIME-STACK-INTEGRATION-01
+    source_prs: [99]
+    reason: >-
+      Very large multi-PR integration; reserved until Phase 1 confirms the
+      evaluator can score a legitimate broad change without exhausting the
+      generation budget.
+  - case_id: REGEN-CHANGE-SURFACE-DOC-CONTROL-01
+    source_prs: [108]
+    reason: >-
+      Documentation-only proportionality control for measuring whether the
+      candidate process adds unnecessary evidence burden when production Python
+      is unchanged.
+
+frozen_aggregate_thresholds:
+  unsafe_pass: 0
+  correct_final_false_rejection: 0
+  accepted_task_completeness: 1.0
+  arm_b_repair_at_2_min: 0.8
+  median_production_python_churn_reduction_min: 0.3
+  median_total_wall_time_regression_max: 0.2
+  scientific_or_governance_scope_drift: 0
+  required_liveness_regression: 0
+
+limitations:
+  - Exact backend model build and token counts may not be exposed by the product.
+  - External D4RL and Countdown assets are required only for declared liveness checks, not for code generation.
+  - Historical descriptive comparisons are not substituted for fresh-arm outcomes.
