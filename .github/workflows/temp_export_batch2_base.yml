@@ -1,4 +1,4 @@
-name: TEMP export KDD batch2 base
+name: TEMP compile KDD batch2 preview
 
 on:
   pull_request:
@@ -13,45 +13,63 @@ permissions:
   contents: read
 
 jobs:
-  export:
+  compile-preview:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: tmp/paper-kdd2027-batch2-preview-20260726
           fetch-depth: 0
-      - name: Verify exact Batch-1 base and collect contexts
+
+      - name: Check preview state
+        id: state
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git hash-object paper/kdd2027/main.tex)" = "55866f6eb5b6f41fddcae683ff793357644009b1"
-          mkdir -p batch2_export
-          cp paper/kdd2027/main.tex batch2_export/main_batch1.tex
-          python - <<'PY'
-          from pathlib import Path
-          text = Path('paper/kdd2027/main.tex').read_text(encoding='utf-8')
-          labels = [
-              'app:gaussian_reuse_rate',
-              'app:categorical_self_limiting',
-              'app:categorical_restoring_balance',
-              'app:finite_measure_variational',
-              'app:topr_relation',
-              'app:gaussian_drpo_boundedness',
-          ]
-          lines = text.splitlines()
-          out = []
-          for label in labels:
-              needle = f'\\label{{{label}}}'
-              hits = [i for i, line in enumerate(lines) if needle in line]
-              out.append(f'===== {label}: {hits} =====')
-              for i in hits:
-                  lo=max(0,i-25); hi=min(len(lines),i+120)
-                  out.extend(f'{j+1:05d}: {lines[j]}' for j in range(lo,hi))
-          Path('batch2_export/appendix_contexts.txt').write_text('\n'.join(out)+'\n',encoding='utf-8')
-          PY
-          git diff --exit-code
-      - uses: actions/upload-artifact@v4
+          blob="$(git hash-object paper/kdd2027/main.tex)"
+          echo "blob=${blob}" >> "$GITHUB_OUTPUT"
+          if [[ "${blob}" == "a68cebe5e69e6cc22ccc3c1ed30aa9bd68aceda6" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          elif [[ "${blob}" == "55866f6eb5b6f41fddcae683ff793357644009b1" ]]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Batch-2 preview main.tex has not been uploaded yet."
+          else
+            echo "Unexpected main.tex blob: ${blob}" >&2
+            exit 1
+          fi
+
+      - name: Compile current Batch-2 preview with TeX Live 2025
+        if: steps.state.outputs.ready == 'true'
+        uses: xu-cheng/texlive-action@v3
         with:
-          name: temp-kdd-batch2-base-export
-          path: batch2_export/
+          run: |
+            set -euo pipefail
+            cd paper/kdd2027
+            latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+            if grep -Eq 'LaTeX Warning: (Reference|Citation).*undefined|There were undefined references|There were undefined citations' main.log; then
+              echo 'Undefined references or citations detected.' >&2
+              exit 1
+            fi
+            mkdir -p batch2_preview_renders
+            pdftoppm -png -r 120 main.pdf batch2_preview_renders/page >/dev/null 2>&1
+            pages="$(pdfinfo main.pdf | awk '/^Pages:/ {print $2}')"
+            {
+              echo 'compile=PASS'
+              echo 'undefined_refs_or_citations=0'
+              echo "pages=${pages}"
+              echo 'input_git_blob=a68cebe5e69e6cc22ccc3c1ed30aa9bd68aceda6'
+              sha256sum main.tex main.pdf
+            } > batch2_preview_audit.txt
+            cat batch2_preview_audit.txt
+
+      - uses: actions/upload-artifact@v4
+        if: steps.state.outputs.ready == 'true'
+        with:
+          name: temp-kdd-batch2-preview
+          path: |
+            paper/kdd2027/main.tex
+            paper/kdd2027/main.pdf
+            paper/kdd2027/main.log
+            paper/kdd2027/batch2_preview_audit.txt
+            paper/kdd2027/batch2_preview_renders/
           if-no-files-found: error
