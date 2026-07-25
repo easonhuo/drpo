@@ -27,11 +27,37 @@ from runspec_lib import (
     move_state,
     read_yaml,
     state_path,
+    write_yaml,
 )
 from runspec_recovery import run_entrypoint_with_recovery, validate_recovery_policy
 from runspec_registration import validate_registration_block
 from runspec_results_delivery import validate_delivery_block
 from runspec_safety import package_artifacts_safe, validate_provenance
+
+DEFAULT_AUTO_DELIVERY_LANES = frozenset({"e7", "e8"})
+DEFAULT_RESULTS_REPOSITORY = "easonhuo/drpo-results"
+
+
+def apply_default_results_delivery(spec: dict[str, Any]) -> None:
+    """Default E7/E8 RunSpecs to scoped results-repository delivery.
+
+    An explicit delivery block remains authoritative, including an explicit
+    ``enabled: false`` local-only choice.
+    """
+
+    lane = str(spec.get("lane") or "")
+    if "delivery" in spec or lane not in DEFAULT_AUTO_DELIVERY_LANES:
+        return
+    spec["delivery"] = {
+        "enabled": True,
+        "auto": True,
+        "mode": "results_repo",
+        "repository": DEFAULT_RESULTS_REPOSITORY,
+        "branch": f"ingest/{lane}",
+        "export_profile": "manifest_text_v1",
+        "max_total_size_mb": 30,
+        "max_file_size_mb": 10,
+    }
 
 
 def add_runtime_resource_args(parser: argparse.ArgumentParser) -> None:
@@ -351,6 +377,7 @@ def execute_claimed_runspec(
     runtime_resources: Mapping[str, Any] | None = None,
 ) -> tuple[dict[str, Any], int]:
     spec = read_yaml(claimed)
+    apply_default_results_delivery(spec)
     registration = validate_registration_block(spec)
     spec["registration"] = registration
     validate_provenance(repo, spec)
@@ -362,6 +389,9 @@ def execute_claimed_runspec(
         from publish_runspec_result import validate_publish_block
 
         validate_publish_block(spec, str(spec.get("lane") or ""))
+    # Persist the effective contract before entering RUNNING so completion,
+    # retries, and later delivery audits see the same normalized delivery policy.
+    write_yaml(claimed, spec)
     running = move_state(
         repo,
         claimed,
