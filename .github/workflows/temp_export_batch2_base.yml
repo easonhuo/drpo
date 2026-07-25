@@ -49,7 +49,14 @@ jobs:
             if test -f main.pdf; then
               mkdir -p batch2_preview_renders
               pdftoppm -png -r 120 main.pdf batch2_preview_renders/page >/dev/null 2>&1 || true
-              pages="$(pdfinfo main.pdf | awk '/^Pages:/ {print $2}')"
+              pages="$(python - <<'PY'
+            import re
+            from pathlib import Path
+            text = Path('main.log').read_text(encoding='utf-8', errors='replace')
+            m = re.findall(r'Output written on main\.pdf \((\d+) pages?', text)
+            print(m[-1] if m else 'unknown')
+            PY
+              )"
             fi
             {
               echo "latex_status=${latex_status}"
@@ -60,7 +67,7 @@ jobs:
               if test -f main.pdf; then sha256sum main.pdf; fi
             } > batch2_preview_audit.txt
             cat batch2_preview_audit.txt
-            tail -n 160 batch2_compile_stdout.txt || true
+            tail -n 80 batch2_compile_stdout.txt || true
 
       - uses: actions/upload-artifact@v4
         if: always()
