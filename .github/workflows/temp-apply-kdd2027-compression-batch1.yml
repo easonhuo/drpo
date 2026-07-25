@@ -1,11 +1,13 @@
 name: TEMP apply KDD 2027 compression batch 1
 
 on:
-  push:
+  pull_request:
     branches:
-      - dev/paper-kdd2027-compression-batch1-01
-    paths:
-      - .github/workflows/temp-apply-kdd2027-compression-batch1.yml
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
 
 permissions:
   contents: write
