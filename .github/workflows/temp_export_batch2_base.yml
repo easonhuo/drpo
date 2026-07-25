@@ -21,25 +21,17 @@ jobs:
           ref: tmp/paper-kdd2027-batch2-preview-20260726
           fetch-depth: 0
 
-      - name: Check preview state
-        id: state
+      - name: Apply exact Batch-2 preview patch
         shell: bash
         run: |
           set -euo pipefail
-          blob="$(git hash-object paper/kdd2027/main.tex)"
-          echo "blob=${blob}" >> "$GITHUB_OUTPUT"
-          if [[ "${blob}" == "a68cebe5e69e6cc22ccc3c1ed30aa9bd68aceda6" ]]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          elif [[ "${blob}" == "55866f6eb5b6f41fddcae683ff793357644009b1" ]]; then
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "Batch-2 preview main.tex has not been uploaded yet."
-          else
-            echo "Unexpected main.tex blob: ${blob}" >&2
-            exit 1
-          fi
+          test "$(git hash-object paper/kdd2027/main.tex)" = "55866f6eb5b6f41fddcae683ff793357644009b1"
+          git apply --check tmp/batch2_preview.patch
+          git apply tmp/batch2_preview.patch
+          test "$(git hash-object paper/kdd2027/main.tex)" = "a68cebe5e69e6cc22ccc3c1ed30aa9bd68aceda6"
+          test "$(git diff --name-only | tr -d '\r')" = "paper/kdd2027/main.tex"
 
       - name: Compile current Batch-2 preview with TeX Live 2025
-        if: steps.state.outputs.ready == 'true'
         uses: xu-cheng/texlive-action@v3
         with:
           run: |
@@ -63,7 +55,6 @@ jobs:
             cat batch2_preview_audit.txt
 
       - uses: actions/upload-artifact@v4
-        if: steps.state.outputs.ready == 'true'
         with:
           name: temp-kdd-batch2-preview
           path: |
