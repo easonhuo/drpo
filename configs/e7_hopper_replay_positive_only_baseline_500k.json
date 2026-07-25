@@ -1,0 +1,91 @@
+{
+  "experiment_id": "EXT-H-E7-SQEXP-GAE-HOPPER-REPLAY-POSBASE-500K-01",
+  "profile_id": "hopper_replay_positive_only_baseline_500k_v1",
+  "parent_experiment_id": "EXT-H-E7-BENCH-01",
+  "predecessor_experiment_id": "EXT-H-E7-SQEXP-GAE-HOPPER-REPLAY-ADVSHIFT-200K-01",
+  "run_kind": "pilot",
+  "status": "not_run",
+  "scientific_status": "hopper_replay_positive_only_fixed_baseline_response_500k_pilot_only",
+  "dataset": "hopper-medium-replay-v2",
+  "development_seeds": [200, 201, 202, 203, 208, 209],
+  "held_out_seeds": [204, 205, 206, 207],
+  "steps": 500000,
+  "evaluation_interval": 20000,
+  "evaluation_episodes": 10,
+  "actor_update_mode": "a2c",
+  "advantage_mode": "gae_lambda_0p95",
+  "batch_size": 512,
+  "actor_lr": 0.0003,
+  "critic_lr": 0.0003,
+  "baselines": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  "controls": [
+    {"id": "pos_b0", "weight_method": "positive_only", "advantage_baseline": 0},
+    {"id": "pos_b1", "weight_method": "positive_only", "advantage_baseline": 1},
+    {"id": "pos_b2", "weight_method": "positive_only", "advantage_baseline": 2},
+    {"id": "pos_b3", "weight_method": "positive_only", "advantage_baseline": 3},
+    {"id": "pos_b4", "weight_method": "positive_only", "advantage_baseline": 4},
+    {"id": "pos_b5", "weight_method": "positive_only", "advantage_baseline": 5},
+    {"id": "pos_b6", "weight_method": "positive_only", "advantage_baseline": 6},
+    {"id": "pos_b7", "weight_method": "positive_only", "advantage_baseline": 7},
+    {"id": "pos_b8", "weight_method": "positive_only", "advantage_baseline": 8},
+    {"id": "pos_b9", "weight_method": "positive_only", "advantage_baseline": 9},
+    {"id": "pos_b10", "weight_method": "positive_only", "advantage_baseline": 10}
+  ],
+  "advantage_shift": {
+    "formula": "shifted_advantage = raw_trajectory_snapshot_gae - fixed_baseline",
+    "baseline_units": "raw_trajectory_snapshot_gae",
+    "shift_applied_before_positive_only_mask": true,
+    "replay_sample_deletion": false,
+    "replay_sample_masking": false,
+    "actor_contribution_rule": "max(shifted_advantage, 0) times log_probability",
+    "negative_shifted_advantage_actor_contribution": 0
+  },
+  "trajectory_snapshot": {
+    "gae_lambda": 0.95,
+    "batch_size": 512,
+    "refresh_once_per_replay_equivalent_epoch": true,
+    "critic_updated_every_step": true,
+    "prepared_advantage_artifact": false,
+    "terminal_bootstrap": false,
+    "timeout_bootstrap": true,
+    "terminal_timeout_recursion_stop": true,
+    "dataset_tail_recursion_stop": true
+  },
+  "reporting": {
+    "early_window": [20000, 200000],
+    "middle_window": [220000, 340000],
+    "late_window": [360000, 500000],
+    "trend_window": [200000, 500000],
+    "primary_metrics": [
+      "late_window_mean_360k_500k",
+      "late_window_median_across_seeds",
+      "worst_two_seed_late_mean",
+      "final_score_500k",
+      "trend_slope_per_100k_200k_500k",
+      "best_to_final_drop"
+    ],
+    "advantage_diagnostics": [
+      "raw_advantage_mean_std",
+      "effective_positive_fraction",
+      "baseline_over_raw_std",
+      "selected_raw_advantage_mean",
+      "selected_shifted_advantage_mean",
+      "full_snapshot_series"
+    ],
+    "paired_comparator": "pos_b0",
+    "retain_all_seed_results": true,
+    "retain_complete_training_curves": true,
+    "retain_complete_snapshot_diagnostics": true,
+    "failed_and_low_performing_runs_may_be_deleted": false
+  },
+  "expected_branches": 66,
+  "screening_only": true,
+  "formal_evidence_allowed": false,
+  "non_claims": [
+    "convergence_from_fixed_500k_horizon",
+    "steady_state_method_ranking",
+    "task_collapse_rate_without_registered_threshold",
+    "support_or_variance_boundary_without_instrumentation",
+    "universal_superiority"
+  ]
+}
