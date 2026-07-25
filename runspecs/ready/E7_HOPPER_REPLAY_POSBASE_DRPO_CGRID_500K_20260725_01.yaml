@@ -4,7 +4,7 @@ lane: e7
 priority: 159
 created_at: "2026-07-25T14:55:00Z"
 experiment_id: EXT-H-E7-SQEXP-GAE-HOPPER-REPLAY-POSBASE-DRPO-CGRID-500K-01
-repo_commit: bd2c7e23617849d397196c063c7fd6e1128b2766
+repo_commit: 6812c7e869826c9b6d48482d937d22d01d764ff7
 
 registration:
   mode: deferred
@@ -108,6 +108,7 @@ success_criteria:
   - positive shifted advantages remain unattenuated; Positive-only zeros negative shifted advantages; DRPO applies only the detached thresholded squared-exponential taper
   - taper lambda is 1, threshold is 0, and reference distance is 2
   - complete evaluation, advantage-snapshot, near/far effective-mass, raw-gradient, Adam-update, log-standard-deviation, and support-boundary trajectories are retained
+  - support or variance boundary uses the canonical actor output clamp exactly, log_std at or below -5 or at or above 2
   - paired DRPO-minus-Positive-only at common baseline and shifted-DRPO-minus-baseline-zero at common scale are reported
   - the frozen finite-horizon screening order is applied without claiming convergence, steady state, held-out confirmation, or formal method ranking
   - task-performance degradation, support or variance boundary, rollout failure, and NaN or Inf are separately reported; task-collapse rate is not adjudicated
