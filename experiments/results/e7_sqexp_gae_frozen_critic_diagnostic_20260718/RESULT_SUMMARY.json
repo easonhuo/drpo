@@ -15,9 +15,26 @@
     "finished_utc": "2026-07-17T19:10:59.387776+00:00",
     "runner_version": "1.0.0-e7-sqexp-gae",
     "scientific_status": "frozen_critic_trajectory_gae_development_pilot_only",
-    "source_repository_commit": null,
-    "source_commit_missing": true,
+    "source_repository_commit": "14fceaf18ce827acabc4a04a4662ae0fa99cb9a7",
+    "source_commit_missing": false,
+    "source_commit_was_missing_from_reviewed_zip": true,
+    "source_commit_resolution": {
+      "resolved_from": "easonhuo/drpo-results RESULT_MANIFEST.json",
+      "remotely_resolvable": true,
+      "correction_record": "experiments/results/e7_sqexp_gae_frozen_critic_diagnostic_20260718/PROVENANCE_CORRECTION.md"
+    },
     "formal_launch_allowed": false
+  },
+  "raw_evidence_locator": {
+    "locator_path": "experiments/results/e7_sqexp_gae_frozen_critic_diagnostic_20260718/EVIDENCE_LOCATOR.yaml",
+    "primary_run_id": "E7_SQEXP_GAE_PILOT_20260717_04",
+    "source_commit": "14fceaf18ce827acabc4a04a4662ae0fa99cb9a7",
+    "results_repository": "easonhuo/drpo-results",
+    "results_branch": "ingest/e7",
+    "results_commit": "8a06e4ed9b5ae282fffd4bac1f6ac99b21feb197",
+    "result_path": "runs/e7/E7_SQEXP_GAE_PILOT_20260717_04",
+    "manifest_sha256": "2449b1872bf70533c63d5b4446884bdb967ba1cba4961c63d38f584b4c86fc10",
+    "export_profile": "manifest_text_v1"
   },
   "matrix": {
     "datasets": [
@@ -83,6 +100,8 @@
   },
   "compact_evidence": {
     "detailed_report": "docs/results/E7_SQEXP_GAE_FROZEN_CRITIC_DIAGNOSTIC_2026-07-18.md",
+    "evidence_locator": "experiments/results/e7_sqexp_gae_frozen_critic_diagnostic_20260718/EVIDENCE_LOCATOR.yaml",
+    "provenance_correction": "experiments/results/e7_sqexp_gae_frozen_critic_diagnostic_20260718/PROVENANCE_CORRECTION.md",
     "group_scores": "experiments/results/e7_sqexp_gae_frozen_critic_diagnostic_20260718/group_summary.csv",
     "paired_comparisons": "experiments/results/e7_sqexp_gae_frozen_critic_diagnostic_20260718/gae_vs_td.csv",
     "advantage_diagnostics": "experiments/results/e7_sqexp_gae_frozen_critic_diagnostic_20260718/advantage_diagnostics_summary.csv",
