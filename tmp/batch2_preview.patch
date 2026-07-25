@@ -1,0 +1,379 @@
+diff --git a/paper/kdd2027/main.tex b/paper/kdd2027/main.tex
+--- a/paper/kdd2027/main.tex
++++ b/paper/kdd2027/main.tex
+@@ -405,26 +405,9 @@
+ yields unbounded amplification for fixed-covariance Gaussian mean updates
+ and bounded but persistent amplification for categorical logits.
+ 
+-\begin{proposition}[Quantitative Gaussian reuse rates]
+-\label{prop:reuse_rate}
+-For an isotropic Gaussian mean policy with covariance \(\sigma^2I\),
+-one fixed negative sample of mass \(q>0\), and
+-\(X_t=D_t-C_\Sigma>0\), the uncontrolled update satisfies
+-\[
+- X_{t+1}=\left(1+\eta q/\sigma^2\right)^2X_t,
+-\]
+-so remoteness grows geometrically. Anticipating the taper introduced in
+-Section~\ref{sec:drpo}, if the same sample is weighted by
+-\(\exp\{-a[D_t-\tau]_+\}\), \(a>0\), then its continuous-time
+-remoteness is \(O(a^{-1}\log t)\), and the discrete update obeys
+-\[
+- X_t\le a^{-1}\{\log t+\log\log t+O(1)\}.
+-\]
+-The proof is in Appendix~\ref{app:gaussian_reuse_rate}. This slowdown
+-does not by itself prove aggregate boundedness; that requires the
+-closed-loop attraction established in
+-Theorem~\ref{thm:gaussian_drpo_boundedness}.
+-\end{proposition}
++For an isolated isotropic-Gaussian negative sample, repeated
++uncontrolled reuse produces geometric growth in remoteness; the exact
++rate is given in Appendix~\ref{app:gaussian_reuse_rate}.
+ 
+ \subsection{Aggregate Equilibria under Historical Reuse}
+ \label{sec:aggregate_equilibria}
+@@ -442,9 +425,8 @@
+ \(p,q,\rho\) from Equation~\eqref{eq:aggregate_masses}, let
+ \(\mathbf m_+\) denote the positive-only target, the mean-parameter point
+ selected by positive feedback alone. When \(q>0\), let \(\mathbf m_-\)
+-denote the magnitude-weighted moment of negative samples. It is not an
+-attraction target: the negative actor contribution repels the learner from
+-this moment.
++denote the magnitude-weighted negative-sample moment (a repulsion moment,
++not an attraction target).
+ 
+ \begin{theorem}[Aggregate attraction--repulsion regimes]
+ \label{thm:aggregate_equilibria}
+@@ -500,11 +482,7 @@
+ interpretation: while positive feedback remains dominant, negative
+ feedback displaces the equilibrium from \(\mathbf m_+\) in the direction
+ \(\mathbf m_+-\mathbf m_-\), and therefore away from
+-\(\mathbf m_-\). For fixed moments, the multiplier
+-\(\rho/(1-\rho)\) increases with the relative negative strength and
+-diverges as \(\rho\to1^-\). These conclusions concern policy geometry
+-and stability; they do not imply that the resulting displacement
+-improves task utility.
++\(\mathbf m_-\).
+ 
+ % ------------------------------------------------------------------
+ % SECTION 4: METHODOLOGY
+@@ -614,13 +592,11 @@
+ Appendix~\ref{app:regularized_restoration}.
+ \end{proposition}
+ 
+-Corollary~\ref{cor:selective_vs_global} provides the mechanism-level
+-justification for Section~\ref{sec:drpo}: selective tapering changes the
+-far-field sign by removing the remote source, whereas a constant global scale
+-must be tuned to the negative-to-positive mass ratio. These conclusions assume
+-frozen data, fixed advantages, and unbounded reuse. Data refresh, actor--critic
+-coupling, and reference regularization change the field; the proposition above
+-shows how regularization instead restores stability by tethering the policy.
++Corollary~\ref{cor:selective_vs_global} justifies selective tapering: it
++removes the remote source, whereas a constant global scale must be tuned to
++the negative-to-positive mass ratio. These conclusions assume frozen data,
++fixed advantages, and unbounded reuse; data refresh and actor--critic
++coupling alter the field.
+ 
+ \section{Dynamic Remoteness-Aware Policy Optimization}
+ \label{sec:drpo}
+@@ -679,18 +655,20 @@
+ used as a coefficient; DRPO is therefore a dynamic weighting rule rather than
+ a differentiable distance regularizer.
+ 
+-At each policy iterate, tapering preserves the algebraic regime structure of
+-Theorem~\ref{thm:aggregate_equilibria} after replacing the negative mass and
+-moment by
++At each policy iterate, tapering preserves the aggregate regime structure
++after replacing the negative mass and moment by
+ \[
+ q_\omega=\mathbb E_\nu[\widehat A^-\omega],
+ \qquad
+ \mathbf M_{-,\omega}=\mathbb E_\nu[\widehat A^-\omega T(a)].
+ \]
+-When \(0<q_\omega<p\), the controlled signed target is
+-\(\mathbf m_\omega^\star=(p\mathbf m_+-\mathbf M_{-,\omega})/(p-q_\omega)\);
+-when \(q_\omega=0\), use \(\mathbf M_{-,\omega}=0\) without defining a
+-normalized negative moment.
++For \(0\le q_\omega<p\), the controlled signed target is
++\[
++\mathbf m_\omega^\star
++=
++\frac{p\mathbf m_+-\mathbf M_{-,\omega}}{p-q_\omega},
++\]
++with \(\mathbf M_{-,\omega}=0\) when \(q_\omega=0\).
+ 
+ \paragraph{Gaussian policies.}
+ For a Gaussian policy with mean \(\mu_\theta(s)\) and fixed covariance
+@@ -732,8 +710,18 @@
+     \right\}.
+     \label{eq:drpo_categorical_weight}
+ \end{equation}
+-Thus, the same actor update uses squared standardized distance for Gaussian
+-policies and surprisal for categorical policies.
++\paragraph{Relation to existing negative-update controls.}
++Positive-only sets the negative-branch weight to zero, whereas fixed
++HPO/global-\(\alpha\) applies a constant weight \(\alpha\) to all
++negative advantages \citep{sana2026hpo}. AsymRE changes the
++positive--negative balance through the reward baseline rather than
++learner-relative remoteness \citep{arnal2025asymmetric}. At the
++atomic-action level, canonical TOPR's \(\min\{\pi/\mu,1\}\) is the
++\(\beta=1\), behavior-threshold member of the categorical taper family
++\citep{leroux2025tapered}; DRPO instead uses learner-relative threshold,
++scale, and decay parameters to satisfy L0--L3. Exact identities,
++extensions, and the fitted-reference experimental variant are given in
++Appendix~\ref{app:topr_relation}.
+ 
+ \subsection{Loop-Gain Order}
+ \label{subsec:min_order_control}
+@@ -755,11 +743,13 @@
+ \end{proposition}
+ 
+ At the exact matching rate \(\omega(D)=\Theta(D^{-1})\), the weighted
+-parameter force is \(\Theta(D^{-1/2})\to0\), but the weighted reuse loop gain
+-is \(\Theta(1)\). An isolated reused atom can therefore keep driving
+-remoteness outward at a constant order. Quantitatively, uncontrolled Gaussian
+-reuse gives geometric growth, matching-order tapering gives linear growth,
+-and DRPO's exponential taper gives logarithmic growth.
++parameter force is \(\Theta(D^{-1/2})\to0\), but the weighted reuse loop
++gain is \(\Theta(1)\). An isolated reused atom can therefore keep driving
++remoteness outward at a constant order. For isolated Gaussian reuse,
++this yields geometric growth without control, linear growth under
++matching-order reciprocal tapering, and logarithmic growth under
++DRPO's exponential taper
++(Appendix~\ref{app:gaussian_reuse_rate}).
+ 
+ \paragraph{Utility boundary.}
+ \label{subsec:distance_dependent_utility}
+@@ -792,9 +782,8 @@
+ rather than merely bounding it.
+ \end{proposition}
+ 
+-The exponential form is not unique; it is a simple smooth envelope that
+-dominates finite-order growth. The proof is given in
+-Appendix~\ref{app:exp_vanishing_influence}.
++(Proof: Appendix~\ref{app:exp_vanishing_influence}; the exponential form is
++a convenient envelope, not the unique choice.)
+ 
+ The control conditions form a guarantee hierarchy. L0,
+ \(\omega(D)\to0\), gives eventual inward Gaussian radial drift for each
+@@ -803,8 +792,7 @@
+ Gaussian reuse loop gain; and L3,
+ \(D^k\omega(D)\to0\) for every finite \(k\), removes all finite-order
+ tails. Global scaling fails L0, reciprocal-quadratic tapering is critical at
+-L2, and exponential tapering satisfies L0--L3. This hierarchy ranks
+-guarantees, not task performance.
++L2, and exponential tapering satisfies L0--L3. 
+ 
+ This hierarchy also organizes the experimental controls. Positive-only and
+ global scaling ignore remoteness; reciprocal tapers have polynomial tails, and the quadratic member meets the matching
+@@ -839,16 +827,22 @@
+ \(\limsup_{t\to\infty}\|\mu(t)-m_+\|_2\le R^*\), and the field has at
+ least one finite equilibrium. If an uncontrolled stable equilibrium
+ places every negative atom strictly below its threshold, the controlled
+-field and Jacobian coincide with the original ones in a neighborhood of
++and original fields have the same local linearization in a neighborhood of
+ that equilibrium.
+ \end{theorem}
+ 
+-The proof gives an explicit branch-wise bound on \(B_\omega\); a separate
+-branch is required when the shifted threshold is negative because the taper is
+-then active at radius zero. Along every escaping sequence,
+-\(\rho_{\mathrm{eff}}(\mu)=p^{-1}\sum_iq_i\omega_i(D_i)\to0\). This is a
+-diagnostic consequence, not the boundedness argument. See
+-Appendix~\ref{app:gaussian_drpo_boundedness}.
++Appendix~\ref{app:gaussian_drpo_boundedness} gives an explicit
++branch-wise bound, including the case where the shifted threshold is
++negative and tapering is active from radius zero. Along every escaping
++sequence,
++\[
++\rho_{\mathrm{eff}}(\mu)
++=
++p^{-1}\sum_i q_i\omega_i(D_i)
++\longrightarrow 0;
++\]
++this explains how the remote negative source disappears, but it is a
++diagnostic consequence rather than the boundedness argument.
+ 
+ \begin{theorem}[Categorical self-limiting suppression]
+ \label{thm:categorical_self_limiting}
+@@ -860,92 +854,25 @@
+ \qquad \frac K{K-1}\le c_K(t)\le2.
+ \]
+ Hence \(y_i\) eventually decreases linearly and \(\pi_i\) exponentially.
+-If one off-target action is initially the unique maximum then
+-\(c_K(t)\to2\); under complete off-target symmetry,
+-\(c_K(t)\equiv K/(K-1)\). With
+-\(\omega_i=\min\{1,(e^{\tau_i}\pi_i)^\beta\}\), \(\beta=\lambda/c\),
+-the far branch instead satisfies
++With \(\omega_i=\min\{1,(e^{\tau_i}\pi_i)^\beta\}\),
++\(\beta=\lambda/c\), the far branch instead satisfies
+ \[
+ y_i(t)=-\beta^{-1}\log t+O(1),
+ \qquad \pi_i(t)=\Theta(t^{-1/\beta}).
+ \]
+ Thus tapering changes persistent suppression from exponential to
+ polynomial probability decay; it does not freeze the action probability.
+-The output-coordinate proof is in
+-Appendix~\ref{app:categorical_self_limiting}; shared-network parameter
+-gradients additionally contain the network Jacobian and cross-sample
+-interference.
+ \end{theorem}
+ 
+-\begin{remark}[Restoring-force balance]
+-A stable finite crossing requires the restoring-minus-suppression field to
+-change sign from positive to negative as the log-odds increase; equivalently,
+-at a hyperbolic crossing, \([S_{\mathrm{tap}}-E]'(y^*)>0\). Entropy regularization with
+-\(\beta\ge1\) satisfies only the required far-tail ordering in the binary or
+-symmetric one-vs-rest reduction; a full stability result additionally uses
+-the stated phase-line conditions. See
+-Appendix~\ref{app:categorical_restoring_balance}.
+-\end{remark}
+-
+-\subsection{Variational Interpretation}
+-
+-DRPO's exponential attenuation admits an optimistic finite-measure
+-reweighting interpretation analogous to divergence-ball DRO, with the
+-constraint expressed in generalized I-divergence
+-\citep{csiszar1975divergence}. Optimistic or best-case distributional
+-optimization also has a formal precedent in likelihood approximation
+-and policy optimization
+-\citep{nguyen2019optimistic,song2020optimistic}. Our construction is
+-related but distinct: it reweights a finite measure of negative-update
+-mass according to learner-relative remoteness and may reduce that
+-measure's total mass. It is therefore an analogue of optimistic
+-divergence-ball reweighting, not a standard ambiguity set over normalized
+-probability distributions. The analogy is deliberately qualified: unlike
+-standard ambiguity sets over normalized probability measures, the present
+-construction permits attenuation of the total negative-update mass. Let
+-\(d\xi^-(z)=\widehat A^-(z)d\nu(z)\) and
+-\(h(z)=[D(z)-\tau(z)]_+\). Consider
+-\begin{equation}
+-\min_{0\le w\le1}\int wh\,d\xi^-
+-\quad\mathrm{s.t.}\quad
+-\int(w\log w-w+1)d\xi^-\le\delta.
+-\label{eq:finite_measure_variational}
+-\end{equation}
+-
+-\begin{proposition}[Finite-measure exponential reweighting]
+-\label{prop:finite_measure_variational}
+-Let \(\delta_0=\xi^-(\{h>0\})\). For
+-\(0<\delta<\delta_0\), the constraint in
+-Equation~\eqref{eq:finite_measure_variational} is active and has a unique
+-finite \(\kappa>0\) with
+-\(w_\kappa(z)=e^{-h(z)/\kappa}\). At \(\delta=\delta_0\), the endpoint is
+-\(w_0=\mathbf1\{h=0\}\); for \(\delta>\delta_0\), zero objective is
+-already attainable and no finite one-to-one \(\kappa\)--\(\delta\)
+-relation remains. The later endpoint \(\delta\ge|\xi^-|\) merely makes
+-\(w\equiv0\) feasible. The proof is in
+-Appendix~\ref{app:finite_measure_variational}.
+-\end{proposition}
+-
+-\subsection{Relation to TOPR}
+-
+-At the atomic-action or total-trajectory-surprisal level, canonical TOPR's
+-negative coefficient satisfies
+-\(e^{-[-\log\pi+\log\mu]_+}=\min\{\pi/\mu,1\}\): it is exactly the
+-\(\beta=1\), sample-specific-threshold member of the taper family in
+-Equation~\eqref{eq:drpo_exp_weight}; length-normalizing both log
+-probabilities would instead yield the algebraic analogue
+-\(\min\{\pi/\mu,1\}^{1/L}\). The structural difference is that TOPR's
+-threshold is the behavior probability, whereas DRPO's threshold, scale,
+-and decay are learner-relative design parameters chosen to satisfy
+-L0--L3. The Gaussian extension under a common dominating measure,
+-conditional-versus-population constants, and the corresponding
+-boundedness bound are deferred to Appendix~\ref{app:topr_relation}.
+-
+-The exact identity above characterizes canonical TOPR, whose threshold is
+-the behavior probability; our experimental arm is the joint fitted-reference
+-\(\beta\)-TOPR variant, which uses a full-completion policy/reference
+-log-ratio and is not the length-normalized identity above
+-(Appendix~\ref{app:topr_relation}).
++The output-coordinate proof and finite-crossing conditions are given in
++Appendices~\ref{app:categorical_self_limiting}
++and~\ref{app:categorical_restoring_balance}.
++
++DRPO's exponential taper also arises as the optimizer of a
++generalized-I-divergence-constrained reweighting of the finite
++negative-update measure; unlike standard DRO over normalized distributions,
++this construction may reduce total negative-update mass
++(Appendix~\ref{app:finite_measure_variational}).
+ 
+ \section{Experiments}
+ \label{sec:experiments}
+@@ -1042,7 +969,7 @@
+ standardized distance. In Countdown, the fixed-coefficient diagnostic remains
+ substantial at high mean-token surprisal. We interpret the latter as persistent
+ suppression in a categorical sequence policy, not as an unbounded direct-logit
+-score; implemented parameter gradients also contain the network Jacobian.
++score.
+ These diagnostics show that remoteness-correlated update magnitude appears in
+ realistic neural actors, but they do not identify its source or causal effect.
+ 
+@@ -1873,6 +1800,25 @@
+ 
+ \subsection{Quantitative Gaussian Reuse Rates}
+ \label{app:gaussian_reuse_rate}
++
++\begin{proposition}[Quantitative Gaussian reuse rates]
++\label{prop:reuse_rate}
++For an isotropic Gaussian mean policy with covariance \(\sigma^2I\),
++one fixed negative sample of mass \(q>0\), and
++\(X_t=D_t-C_\Sigma>0\), the uncontrolled update satisfies
++\[
++ X_{t+1}=\left(1+\eta q/\sigma^2\right)^2X_t,
++\]
++so remoteness grows geometrically. If the same sample is weighted by
++\(\exp\{-a[D_t-\tau]_+\}\), \(a>0\), then its continuous-time
++remoteness is \(O(a^{-1}\log t)\), and the discrete update obeys
++\[
++ X_t\le a^{-1}\{\log t+\log\log t+O(1)\}.
++\]
++This slowdown does not by itself prove aggregate boundedness; that requires
++the closed-loop attraction established in
++Theorem~\ref{thm:gaussian_drpo_boundedness}.
++\end{proposition}
+ 
+ \begin{proof}[Proof of Proposition~\ref{prop:reuse_rate}]
+ Let \(\delta_t=\mu_t-a\) and
+@@ -3600,6 +3546,42 @@
+ \subsection{Finite-Measure I-Divergence Attenuation}
+ \label{app:finite_measure_variational}
+ 
++DRPO's exponential attenuation admits an optimistic finite-measure
++reweighting interpretation analogous to divergence-ball DRO, with the
++constraint expressed in generalized I-divergence
++\citep{csiszar1975divergence}. Optimistic or best-case distributional
++optimization also has a formal precedent in likelihood approximation
++and policy optimization
++\citep{nguyen2019optimistic,song2020optimistic}. Our construction is
++related but distinct: it reweights a finite measure of negative-update
++mass according to learner-relative remoteness and may reduce that
++measure's total mass. It is therefore an analogue of optimistic
++divergence-ball reweighting, not a standard ambiguity set over normalized
++probability distributions. The analogy is deliberately qualified: unlike
++standard ambiguity sets over normalized probability measures, the present
++construction permits attenuation of the total negative-update mass. Let
++\(d\xi^-(z)=\widehat A^-(z)d\nu(z)\) and
++\(h(z)=[D(z)-\tau(z)]_+\). Consider
++\begin{equation}
++\min_{0\le w\le1}\int wh\,d\xi^-
++\quad\mathrm{s.t.}\quad
++\int(w\log w-w+1)d\xi^-\le\delta.
++\label{eq:finite_measure_variational}
++\end{equation}
++
++\begin{proposition}[Finite-measure exponential reweighting]
++\label{prop:finite_measure_variational}
++Let \(\delta_0=\xi^-(\{h>0\})\). For
++\(0<\delta<\delta_0\), the constraint in
++Equation~\eqref{eq:finite_measure_variational} is active and has a unique
++finite \(\kappa>0\) with
++\(w_\kappa(z)=e^{-h(z)/\kappa}\). At \(\delta=\delta_0\), the endpoint is
++\(w_0=\mathbf1\{h=0\}\); for \(\delta>\delta_0\), zero objective is
++already attainable and no finite one-to-one \(\kappa\)--\(\delta\)
++relation remains. The later endpoint \(\delta\ge|\xi^-|\) merely makes
++\(w\equiv0\) feasible.
++\end{proposition}
++
+ \begin{proof}[Proof of Proposition~\ref{prop:finite_measure_variational}]
+ Use the convention
+ \(\phi(0)=1\) for
