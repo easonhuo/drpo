@@ -36,8 +36,10 @@ jobs:
           test "$(git hash-object paper/kdd2027/missing_references.bib)" = "3e5c85468a3787b12f32cba94a56b3af31e765f4"
           git merge-base --is-ancestor 620758fd2f2bc1037a26a791c7e9521d814f6814 HEAD
 
-      - name: Compile deterministic applicator
-        run: python -m py_compile scripts/temp_apply_kdd2027_compression_batch1.py
+      - name: Compile deterministic applicators
+        run: |
+          python -m py_compile scripts/temp_apply_kdd2027_compression_batch1.py
+          python -m py_compile scripts/temp_normalize_kdd2027_mirrors_batch1.py
 
       - name: Apply approved prose changes to all manuscript mirrors
         shell: bash
@@ -46,6 +48,10 @@ jobs:
           python scripts/temp_apply_kdd2027_compression_batch1.py \
             paper/kdd2027/main.tex \
             paper/kdd2027/missing_references.bib
+          python scripts/temp_normalize_kdd2027_mirrors_batch1.py \
+            paper/kdd2027/source_locked.tex
+          python scripts/temp_normalize_kdd2027_mirrors_batch1.py \
+            paper/overleaf/main_replacement.tex
           python scripts/temp_apply_kdd2027_compression_batch1.py \
             paper/kdd2027/source_locked.tex
           python scripts/temp_apply_kdd2027_compression_batch1.py \
@@ -99,6 +105,7 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           rm scripts/temp_apply_kdd2027_compression_batch1.py
+          rm scripts/temp_normalize_kdd2027_mirrors_batch1.py
           rm .github/workflows/temp-apply-kdd2027-compression-batch1.yml
           git add -A
           git commit -m "PAPER-KDD2027-COMPRESSION-BATCH1-01: apply approved prose compression"
