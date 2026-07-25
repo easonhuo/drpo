@@ -1,0 +1,58 @@
+name: TEMP compile KDD Batch 1 directly
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: read
+
+jobs:
+  compile-direct:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/paper-kdd2027-compression-batch1-01
+          fetch-depth: 0
+
+      - name: Compile current KDD source with TeX Live 2025
+        uses: xu-cheng/texlive-action@v3
+        with:
+          run: |
+            set -euo pipefail
+            cd paper/kdd2027
+            latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+            if grep -Eq 'LaTeX Warning: (Reference|Citation).*undefined|There were undefined references|There were undefined citations' main.log; then
+              echo 'Undefined references or citations detected.'
+              exit 1
+            fi
+            python -m pip install --quiet pypdf
+            python - <<'PY'
+            from pathlib import Path
+            from pypdf import PdfReader
+            pdf = Path('main.pdf')
+            pages = len(PdfReader(str(pdf)).pages)
+            text = [
+                f'pages={pages}',
+                f'pdf_bytes={pdf.stat().st_size}',
+                'undefined_refs_or_citations=0',
+                'direct_compile=PASS',
+            ]
+            Path('direct_compile_audit.txt').write_text('\n'.join(text)+'\n', encoding='utf-8')
+            print('\n'.join(text))
+            PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: temp-kdd-batch1-direct-compile
+          path: |
+            paper/kdd2027/main.pdf
+            paper/kdd2027/main.log
+            paper/kdd2027/direct_compile_audit.txt
+          if-no-files-found: error
