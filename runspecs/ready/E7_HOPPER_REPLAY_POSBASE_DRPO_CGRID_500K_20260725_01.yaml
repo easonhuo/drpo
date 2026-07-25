@@ -1,0 +1,161 @@
+version: 1
+run_id: E7_HOPPER_REPLAY_POSBASE_DRPO_CGRID_500K_20260725_01
+lane: e7
+priority: 159
+created_at: "2026-07-25T14:55:00Z"
+experiment_id: EXT-H-E7-SQEXP-GAE-HOPPER-REPLAY-POSBASE-DRPO-CGRID-500K-01
+repo_commit: 6812c7e869826c9b6d48482d937d22d01d764ff7
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/e7_hopper_replay_posbase_drpo_cgrid_500k.json
+    - docs/scopes/EXT-H-E7-SQEXP-GAE-HOPPER-REPLAY-POSBASE-DRPO-CGRID-500K-01.md
+    - scripts/run_e7_hopper_replay_posbase_drpo_cgrid_500k.sh
+    - scripts/test_e7_hopper_replay_posbase_drpo_cgrid_500k.sh
+    - scripts/e7_hopper_replay_posbase_drpo_cgrid_500k_runtime/bootstrap_01.inc
+    - scripts/e7_hopper_replay_posbase_drpo_cgrid_500k_runtime/bootstrap_02.inc
+    - scripts/e7_hopper_replay_posbase_drpo_cgrid_500k_runtime/bootstrap_03.inc
+    - scripts/e7_hopper_replay_posbase_drpo_cgrid_500k_runtime/bootstrap_04.inc
+    - scripts/e7_hopper_replay_posbase_drpo_cgrid_500k_runtime/bootstrap_05.inc
+    - scripts/e7_hopper_replay_posbase_drpo_cgrid_500k_runtime/bootstrap_06.inc
+    - scripts/e7_hopper_replay_posbase_drpo_cgrid_500k_runtime/bootstrap_07.inc
+    - scripts/e7_hopper_replay_posbase_drpo_cgrid_500k_runtime/driver_01.inc
+    - scripts/e7_hopper_replay_posbase_drpo_cgrid_500k_runtime/driver_02.inc
+    - scripts/e7_hopper_replay_posbase_drpo_cgrid_500k_runtime/driver_03.inc
+    - scripts/e7_hopper_replay_posbase_drpo_cgrid_500k_runtime/driver_04.inc
+    - scripts/e7_hopper_replay_posbase_drpo_cgrid_500k_runtime/driver_05.inc
+    - scripts/e7_hopper_replay_posbase_drpo_cgrid_500k_runtime/driver_06.inc
+    - scripts/e7_hopper_replay_posbase_drpo_cgrid_500k_runtime/driver_07.inc
+    - scripts/e7_hopper_replay_posbase_drpo_cgrid_500k_runtime/driver_08.inc
+    - scripts/e7_hopper_replay_posbase_drpo_cgrid_500k_runtime/driver_09.inc
+    - scripts/e7_hopper_replay_posbase_drpo_cgrid_500k_runtime/driver_10.inc
+    - scripts/e7_hopper_replay_posbase_drpo_cgrid_500k_runtime/driver_11.inc
+    - src/drpo/e7_squared_exp_kernel.py
+    - src/drpo/e7_squared_exp_night.py
+    - src/drpo/e7_squared_exp_night_bootstrap.py
+    - src/drpo/e7_squared_exp_night_aggregate.py
+    - src/drpo/e7_canonical_injection.py
+    - src/drpo/e7_w0_geometry_diagnostics.py
+    - scripts/agent/run_claimed_runspec.py
+    - scripts/agent/runspec_results_delivery.py
+    - scripts/agent/runspec_safety.py
+    - scripts/agent/runspec_delivery_policy.py
+
+purpose: >
+  Execute a 180-branch, 500,000-update Hopper-medium-replay pilot crossing four
+  fixed raw trajectory-snapshot GAE baselines with four thresholded
+  squared-exponential DRPO remoteness scales, while retaining Positive-only at
+  every baseline. Use nine development seeds and preserve complete evaluation,
+  snapshot, geometry, raw-gradient, Adam-update, and support-boundary
+  diagnostics. This pilot screens finite-horizon baseline-by-control interactions;
+  it does not establish convergence, steady state, held-out confirmation,
+  task-collapse rates, universal superiority, or a formal method ranking.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    E7_HR_POSDRPO_GRID=configs/e7_hopper_replay_posbase_drpo_cgrid_500k.json
+    E7_HR_POSDRPO_WORK_DIR=outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001
+    E7_HR_POSDRPO_MAX_WORKERS=180
+    bash scripts/run_e7_hopper_replay_posbase_drpo_cgrid_500k.sh run
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: >-
+    E7_HR_POSDRPO_GRID=configs/e7_hopper_replay_posbase_drpo_cgrid_500k.json
+    E7_HR_POSDRPO_WORK_DIR=outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001
+    E7_HR_POSDRPO_MAX_WORKERS=180
+    bash scripts/run_e7_hopper_replay_posbase_drpo_cgrid_500k.sh run
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/EXECUTION_PLAN.json
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/RUN_IDENTITY.json
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/branches/**/COMPLETED.json
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/branches/**/FAILED.json
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/branches/**/ADVANTAGE_SHIFT_SNAPSHOTS.jsonl
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/branches/**/geometry_diagnostics.jsonl
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/branches/**/ACTOR_TRAINING_DYNAMICS.jsonl
+  backoff_seconds: 60
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  scientific_aggregation_allowed: true
+  formal_evidence_allowed: false
+
+outputs:
+  run_dir: outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001
+  summary_file: outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/RUN_SUMMARY.json
+  audit_file: outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/aggregate/terminal_audit.json
+
+success_criteria:
+  - all identities equal EXT-H-E7-SQEXP-GAE-HOPPER-REPLAY-POSBASE-DRPO-CGRID-500K-01
+  - dataset is exactly hopper-medium-replay-v2
+  - the matrix is exactly twenty controls by nine development seeds for 180 branches
+  - baselines are exactly 0, 4, 5, and 6; DRPO scales are exactly 0.06, 0.08, 0.10, and 0.125
+  - development seeds are 200, 201, 202, 203, 208, 209, 210, 211, and 212; held-out 204 through 207 remain untouched
+  - canonical A2C, jointly updated critic, trajectory-snapshot GAE lambda 0.95, batch 512, and actor/critic LR 0.0003 remain unchanged
+  - every successful branch reaches 500000 updates with evaluation every 20000 updates and ten episodes; no result-conditioned early stop or pruning occurs
+  - raw trajectory-snapshot GAE is shifted by the fixed baseline before sign split without deleting or masking replay samples
+  - positive shifted advantages remain unattenuated; Positive-only zeros negative shifted advantages; DRPO applies only the detached thresholded squared-exponential taper
+  - taper lambda is 1, threshold is 0, and reference distance is 2
+  - complete evaluation, advantage-snapshot, near/far effective-mass, raw-gradient, Adam-update, log-standard-deviation, and support-boundary trajectories are retained
+  - support or variance boundary uses the canonical actor output clamp exactly, log_std at or below -5 or at or above 2
+  - paired DRPO-minus-Positive-only at common baseline and shifted-DRPO-minus-baseline-zero at common scale are reported
+  - the frozen finite-horizon screening order is applied without claiming convergence, steady state, held-out confirmation, or formal method ranking
+  - task-performance degradation, support or variance boundary, rollout failure, and NaN or Inf are separately reported; task-collapse rate is not adjudicated
+  - terminal audit observes exactly 180 branches and passes before text-first delivery to drpo-results branch ingest/e7
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/*.json
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/aggregate/*.json
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/aggregate/*.csv
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/branches/**/branch_config.json
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/branches/**/branch_manifest.json
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/branches/**/POSBASE_DRPO_CONTROL.json
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/branches/**/ADVANTAGE_SHIFT_SNAPSHOTS.jsonl
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/branches/**/geometry_diagnostics.jsonl
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/branches/**/ACTOR_TRAINING_DYNAMICS.jsonl
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/branches/**/ACTOR_TRAINING_DYNAMICS_LATEST.json
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/branches/**/OPTIMIZER_CONTROL.json
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/branches/**/COMPLETED.json
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/branches/**/FAILED.json
+    - outputs/e7/hopper_replay_posbase_drpo_cgrid_500k_001/branches/**/trainer_output/*.json
+  exclude:
+    - "**/*.pt"
+    - "**/*.pth"
+    - "**/*.ckpt"
+    - "**/*.safetensors"
+    - "**/*.bin"
+    - "**/checkpoint*"
+    - "**/checkpoints/**"
+    - "**/model*"
+    - "**/optimizer*"
+    - "**/wandb/**"
+  max_package_size_mb: 160
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e7
+  export_profile: manifest_text_v1
+  max_total_size_mb: 160
+  max_file_size_mb: 25
+
+publish:
+  enabled: false
+  auto: false
