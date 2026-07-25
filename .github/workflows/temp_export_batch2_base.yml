@@ -1,0 +1,53 @@
+name: TEMP export KDD batch2 base
+
+on:
+  push:
+    branches:
+      - tmp/paper-kdd2027-batch2-preview-20260726
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp/paper-kdd2027-batch2-preview-20260726
+          fetch-depth: 0
+      - name: Verify exact Batch-1 base and collect contexts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object paper/kdd2027/main.tex)" = "55866f6eb5b6f41fddcae683ff793357644009b1"
+          mkdir -p batch2_export
+          cp paper/kdd2027/main.tex batch2_export/main_batch1.tex
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('paper/kdd2027/main.tex').read_text(encoding='utf-8')
+          labels = [
+              'app:gaussian_reuse_rate',
+              'app:categorical_self_limiting',
+              'app:categorical_restoring_balance',
+              'app:finite_measure_variational',
+              'app:topr_relation',
+              'app:gaussian_drpo_boundedness',
+          ]
+          lines = text.splitlines()
+          out = []
+          for label in labels:
+              needle = f'\\label{{{label}}}'
+              hits = [i for i, line in enumerate(lines) if needle in line]
+              out.append(f'===== {label}: {hits} =====')
+              for i in hits:
+                  lo=max(0,i-25); hi=min(len(lines),i+120)
+                  out.extend(f'{j+1:05d}: {lines[j]}' for j in range(lo,hi))
+          Path('batch2_export/appendix_contexts.txt').write_text('\n'.join(out)+'\n',encoding='utf-8')
+          PY
+          git diff --exit-code
+      - uses: actions/upload-artifact@v4
+        with:
+          name: temp-kdd-batch2-base-export
+          path: batch2_export/
+          if-no-files-found: error
