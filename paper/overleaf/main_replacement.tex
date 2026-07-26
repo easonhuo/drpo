@@ -980,29 +980,6 @@ Appendix~\ref{app:controlled_protocols}.
 \subsection{External Diagnostic of Far-Field Repulsion}
 \label{sec:external_far_field}
 
-\begin{figure}[t]
-    \centering
-    \includegraphics[
-        width=\columnwidth
-    ]{figures/figure1_external_gradient_d4rl9.pdf}
-
-    \caption{
-        \textbf{External far-field diagnostics.}
-        \textbf{(a)} D4RL-9 equal-weight aggregate of relative implemented
-        actor-gradient magnitude for negative frozen-advantage transitions versus
-        policy-relative standardized distance. Each far transition is normalized by
-        its matched near partner within seed and dataset; the matched far/near
-        absolute-advantage ratio checks matching quality (shading:
-        hierarchical-bootstrap 95\% CI; per-dataset panels:
-        Figure~\ref{fig:app_d4rl9_gradient_panels}).
-        \textbf{(b)} Countdown relative implemented actor-gradient diagnostic and
-        fixed negative coefficient versus mean-token surprisal decile among
-        verifier-matched unsuccessful responses, normalized to the lowest-surprisal
-        decile (shading: puzzle-level bootstrap 95\% CI).
-    }
-    \label{fig:external_far_field}
-\end{figure}
-
 For D4RL, probing is performed around fixed Positive-only Gaussian reference
 actors without policy updates; Countdown provides the autoregressive
 counterpart. In both domains, learner-relative remoteness varies while
@@ -1035,6 +1012,29 @@ environments vary coefficient magnitude and remoteness independently and
 intervene directly on near- and far-field negative updates. Full constructions
 and protocols are provided in
 Appendix~\ref{app:controlled_protocols}.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[
+        width=\columnwidth
+    ]{figures/figure1_external_gradient_d4rl9.pdf}
+
+    \caption{
+        \textbf{External far-field diagnostics.}
+        \textbf{(a)} D4RL-9 equal-weight aggregate of relative implemented
+        actor-gradient magnitude for negative frozen-advantage transitions versus
+        policy-relative standardized distance. Each far transition is normalized by
+        its matched near partner within seed and dataset; the matched far/near
+        absolute-advantage ratio checks matching quality (shading:
+        hierarchical-bootstrap 95\% CI; per-dataset panels:
+        Figure~\ref{fig:app_d4rl9_gradient_panels}).
+        \textbf{(b)} Countdown relative implemented actor-gradient diagnostic and
+        fixed negative coefficient versus mean-token surprisal decile among
+        verifier-matched unsuccessful responses, normalized to the lowest-surprisal
+        decile (shading: puzzle-level bootstrap 95\% CI).
+    }
+    \label{fig:external_far_field}
+\end{figure}
 
 \subsubsection{Remoteness as an Independent Source of Update Magnitude}
 \label{sec:controlled_source}

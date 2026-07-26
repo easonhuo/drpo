@@ -28,7 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           test -s paper/kdd2027/source_locked.tex
-          echo 'e806281a5f244e5ee3c437626e3705ba84124705bb57d954326b35d92f933765  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
+          echo '9f7415af1a60898266c99d31cc8573c030dfbcf274ca58ed8828a8842a7575e7  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
           python scripts/generate_kdd2027_stage_a.py
           python scripts/postprocess_kdd2027_stage_a.py
           python paper/kdd2027/verify_content_lock.py
@@ -99,8 +99,8 @@ jobs:
         run: |
           set -euo pipefail
           bash paper/kdd2027/build.sh
-          grep -Fxq 'source_sha256=e806281a5f244e5ee3c437626e3705ba84124705bb57d954326b35d92f933765' paper/kdd2027/BUILD_AUDIT.txt
-          grep -Fxq 'canonical_content_sha256=d5f312cecc39b23e9f49224df837da8c7fede18cc1f9d5421565508f3cb3c069' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'source_sha256=9f7415af1a60898266c99d31cc8573c030dfbcf274ca58ed8828a8842a7575e7' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'canonical_content_sha256=c20958a1e307633d80ddca46cf017e407ad80cfc629c56aec63f3ce2a36a2bdd' paper/kdd2027/BUILD_AUDIT.txt
           grep -Fxq 'pages=27' paper/kdd2027/BUILD_AUDIT.txt
           grep -Fxq 'required_figures=7' paper/kdd2027/BUILD_AUDIT.txt
           grep -Fxq 'rendered_pages=27' paper/kdd2027/BUILD_AUDIT.txt
