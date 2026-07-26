@@ -90,7 +90,6 @@ jobs:
           for path in [
               root / 'scripts/generate_kdd2027_stage_a.py',
               root / 'scripts/postprocess_kdd2027_stage_a.py',
-              root / '.github/workflows/build-kdd2027-stage-a.yml',
           ]:
               text = path.read_text(encoding='utf-8')
               if text.count(OLD_SOURCE) + text.count(OLD_CONTENT) == 0:
@@ -120,14 +119,10 @@ jobs:
           echo "source_sha=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
           echo "content_sha=${CONTENT_SHA}" >> "$GITHUB_OUTPUT"
           echo "main_sha=${MAIN_SHA}" >> "$GITHUB_OUTPUT"
-          rm -f .github/workflows/temp-apply-kdd-fig1-float-placement.yml
-          rm -f .github/workflows/temp-fix-kdd-fig1-workflow.yml
-          rm -f .github/workflows/temp-fix2-kdd-fig1-workflow.yml
 
           python - <<'PY'
           import subprocess
           allowed = {
-              '.github/workflows/build-kdd2027-stage-a.yml',
               'paper/kdd2027/CONTENT_LOCK.txt',
               'paper/kdd2027/build.sh',
               'paper/kdd2027/main.tex',
@@ -137,13 +132,8 @@ jobs:
               'scripts/generate_kdd2027_stage_a.py',
               'scripts/postprocess_kdd2027_stage_a.py',
           }
-          temporary = {
-              '.github/workflows/temp-apply-kdd-fig1-float-placement.yml',
-              '.github/workflows/temp-fix-kdd-fig1-workflow.yml',
-              '.github/workflows/temp-fix2-kdd-fig1-workflow.yml',
-          }
           changed = set(subprocess.check_output(['git', 'diff', '--name-only'], text=True).splitlines())
-          unexpected = changed - allowed - temporary
+          unexpected = changed - allowed
           if unexpected:
               raise SystemExit(f'scope-purity gate failed: {sorted(unexpected)}')
           required = {'paper/kdd2027/main.tex', 'paper/kdd2027/source_locked.tex', 'paper/overleaf/main_replacement.tex'}
@@ -153,7 +143,7 @@ jobs:
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
+          git add paper/kdd2027/CONTENT_LOCK.txt paper/kdd2027/build.sh paper/kdd2027/main.tex paper/kdd2027/source_locked.tex paper/kdd2027/verify_content_lock.py paper/overleaf/main_replacement.tex scripts/generate_kdd2027_stage_a.py scripts/postprocess_kdd2027_stage_a.py
           git commit -m 'PAPER-KDD2027-FIG1-FLOAT-PLACEMENT-01: move Figure 1 before controlled source'
           echo "source_commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
