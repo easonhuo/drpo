@@ -24,8 +24,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "3a5268996530137a1e7b71b854c104eb6a18388c"
-          mkdir -p final_merge_inputs/paper/kdd2027 final_merge_inputs/paper/overleaf final_merge_inputs/scripts final_merge_inputs/.github/workflows
+          mkdir -p final_merge_inputs/paper/kdd2027 final_merge_inputs/paper/overleaf final_merge_inputs/.github/workflows
+          for f in \
+            paper/kdd2027/main.tex \
+            paper/kdd2027/source_locked.tex \
+            paper/kdd2027/verify_content_lock.py \
+            paper/kdd2027/build.sh \
+            paper/kdd2027/example_paper.bib \
+            paper/kdd2027/missing_references.bib \
+            paper/overleaf/main_replacement.tex \
+            .github/workflows/build-kdd2027-stage-a.yml; do
+            test -f "$f"
+          done
           cp paper/kdd2027/main.tex final_merge_inputs/paper/kdd2027/
           cp paper/kdd2027/source_locked.tex final_merge_inputs/paper/kdd2027/
           cp paper/kdd2027/verify_content_lock.py final_merge_inputs/paper/kdd2027/
@@ -34,9 +44,6 @@ jobs:
           cp paper/kdd2027/missing_references.bib final_merge_inputs/paper/kdd2027/
           cp paper/overleaf/main_replacement.tex final_merge_inputs/paper/overleaf/
           cp .github/workflows/build-kdd2027-stage-a.yml final_merge_inputs/.github/workflows/
-          cp scripts/generate_kdd2027_stage_a.py final_merge_inputs/scripts/
-          cp scripts/postprocess_kdd2027_stage_a.py final_merge_inputs/scripts/
-          cp -r paper/kdd2027/figures final_merge_inputs/paper/kdd2027/
           git show 620758fd2f2bc1037a26a791c7e9521d814f6814:paper/kdd2027/main.tex > final_merge_inputs/paper/kdd2027/main_base_620758f.tex
           git diff 620758fd2f2bc1037a26a791c7e9521d814f6814..f4ecddfc58ad11a2f7a7082e79a9e0038b25d582 -- paper/kdd2027/main.tex > final_merge_inputs/batch1_main.patch
           find final_merge_inputs -type f -print0 | sort -z | xargs -0 sha256sum > final_merge_inputs/SHA256SUMS.txt
