@@ -1,22 +1,26 @@
 name: TEMP run approved DRPO manuscript import
 
 on:
-  push:
+  pull_request:
     branches:
-      - dev/paper-kdd2027-major-text-results-03
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 permissions:
   contents: write
 
 jobs:
   import-build-publish:
-    if: github.actor != 'github-actions[bot]'
+    if: github.event.pull_request.head.ref == 'dev/paper-kdd2027-major-text-results-03'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: dev/paper-kdd2027-major-text-results-03
+          ref: ${{ github.event.pull_request.head.ref }}
           persist-credentials: true
 
       - name: Install plotting and PDF audit dependencies
