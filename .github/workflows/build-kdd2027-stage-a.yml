@@ -39,8 +39,6 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p paper/kdd2027/figures
-          cp paper/overleaf/example_paper.bib paper/kdd2027/example_paper.bib
-          cp paper/overleaf/missing_references.bib paper/kdd2027/missing_references.bib
           required_figures=(
             figure1_external_gradient_d4rl9.pdf
             fig_6_3_1_source_heatmap.pdf
