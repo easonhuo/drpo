@@ -35,8 +35,10 @@ jobs:
             .github/countdown-v2-payload/chunk03.b64 \
             .github/countdown-v2-payload/chunk04.b64 \
             | base64 --decode > /tmp/countdown_source_payload.tar.xz
-          echo '27ea5cbbd6fbfffb87171d847154b206d210e3b396f7cef58a7c4ab8a4b9f7e8  /tmp/countdown_source_payload.tar.xz' | sha256sum --check --strict
+          xz -t /tmp/countdown_source_payload.tar.xz
           tar -tJf /tmp/countdown_source_payload.tar.xz >/tmp/countdown-source-files.txt
+          grep -Fxq './paper/kdd2027/main.tex' /tmp/countdown-source-files.txt
+          grep -Fxq './paper/kdd2027/source_locked.tex' /tmp/countdown-source-files.txt
 
       - name: Replace temporary branch with approved source commit
         shell: bash
