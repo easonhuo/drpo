@@ -27,8 +27,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "62fa06a19bac92c84772755eda223843a1a3189e" || test "$(git rev-parse HEAD)" = "62fa06a19bac92c84772755eda223843a1a3189e"
-          python - <<'PY' > /tmp/fig1_hashes.env
+          git merge-base --is-ancestor 62fa06a19bac92c84772755eda223843a1a3189e HEAD
+          python - <<'PY'
           from __future__ import annotations
 
           import hashlib
@@ -135,10 +135,17 @@ jobs:
               raise SystemExit("exactness gate failed: main_replacement.tex changed beyond the approved move")
 
           subprocess.run(["python3", "paper/kdd2027/verify_content_lock.py"], check=True)
-
-          print(f"SOURCE_SHA={new_source}")
-          print(f"CONTENT_SHA={new_content}")
-          print(f"MAIN_SHA={hashlib.sha256(generated_main.encode()).hexdigest()}")
+          Path("/tmp/fig1_hashes.env").write_text(
+              "\n".join(
+                  [
+                      f"SOURCE_SHA={new_source}",
+                      f"CONTENT_SHA={new_content}",
+                      f"MAIN_SHA={hashlib.sha256(generated_main.encode()).hexdigest()}",
+                  ]
+              )
+              + "\n",
+              encoding="utf-8",
+          )
           PY
           source /tmp/fig1_hashes.env
           echo "source_sha=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
@@ -146,9 +153,11 @@ jobs:
           echo "main_sha=${MAIN_SHA}" >> "$GITHUB_OUTPUT"
 
           rm -f .github/workflows/temp-apply-kdd-fig1-float-placement.yml
+          rm -f .github/workflows/temp-fix-kdd-fig1-workflow.yml
+          rm -f .github/workflows/temp-fix2-kdd-fig1-workflow.yml
 
           python - <<'PY'
-          from pathlib import Path
+          import subprocess
 
           allowed = {
               ".github/workflows/build-kdd2027-stage-a.yml",
@@ -161,9 +170,13 @@ jobs:
               "scripts/generate_kdd2027_stage_a.py",
               "scripts/postprocess_kdd2027_stage_a.py",
           }
-          import subprocess
+          temporary = {
+              ".github/workflows/temp-apply-kdd-fig1-float-placement.yml",
+              ".github/workflows/temp-fix-kdd-fig1-workflow.yml",
+              ".github/workflows/temp-fix2-kdd-fig1-workflow.yml",
+          }
           changed = set(subprocess.check_output(["git", "diff", "--name-only"], text=True).splitlines())
-          unexpected = changed - allowed - {".github/workflows/temp-apply-kdd-fig1-float-placement.yml"}
+          unexpected = changed - allowed - temporary
           if unexpected:
               raise SystemExit(f"scope-purity gate failed; unexpected files: {sorted(unexpected)}")
           required = {
