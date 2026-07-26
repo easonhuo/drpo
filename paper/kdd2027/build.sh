@@ -53,8 +53,8 @@ pdftoppm -png -r 150 main.pdf renders/page >/dev/null 2>&1
 render_count="$(find renders -maxdepth 1 -name 'page-*.png' -type f | wc -l | tr -d ' ')"
 [[ "$render_count" == "$pages" ]] || { echo "render count mismatch: pages=$pages renders=$render_count" >&2; exit 1; }
 {
-  echo "source_sha256=e806281a5f244e5ee3c437626e3705ba84124705bb57d954326b35d92f933765"
-  echo "canonical_content_sha256=d5f312cecc39b23e9f49224df837da8c7fede18cc1f9d5421565508f3cb3c069"
+  echo "source_sha256=9f7415af1a60898266c99d31cc8573c030dfbcf274ca58ed8828a8842a7575e7"
+  echo "canonical_content_sha256=c20958a1e307633d80ddca46cf017e407ad80cfc629c56aec63f3ce2a36a2bdd"
   echo "pages=$pages"
   echo "page_size=$page_size"
   echo "texlive_version=2025"

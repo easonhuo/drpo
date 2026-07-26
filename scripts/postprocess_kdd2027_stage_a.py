@@ -185,7 +185,7 @@ def main() -> None:
     MAIN.write_text(text, encoding="utf-8")
 
     verify = VERIFY.read_text(encoding="utf-8")
-    hash_line = 'EXPECTED_CONTENT_SHA256 = "d5f312cecc39b23e9f49224df837da8c7fede18cc1f9d5421565508f3cb3c069"'
+    hash_line = 'EXPECTED_CONTENT_SHA256 = "c20958a1e307633d80ddca46cf017e407ad80cfc629c56aec63f3ce2a36a2bdd"'
     verify = replace_once(verify, hash_line, hash_line + VERIFY_CONSTANTS, "content hash line")
     strip_fn = '''def strip_descriptions(text: str) -> str:\n    return re.sub(r"\\n?\\s*\\\\Description\\{[^{}]*\\}", "", text)\n'''
     verify = replace_once(verify, strip_fn, strip_fn + FORMAT_HELPER, "description stripper")
