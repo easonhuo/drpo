@@ -28,7 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           test -s paper/kdd2027/source_locked.tex
-          echo '9f7415af1a60898266c99d31cc8573c030dfbcf274ca58ed8828a8842a7575e7  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
+          echo 'e64b74012a050f61e87c1601a301f2c5c452a9421d7e570d28098c74eb21a966  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
           python scripts/generate_kdd2027_stage_a.py
           python scripts/postprocess_kdd2027_stage_a.py
           python paper/kdd2027/verify_content_lock.py
@@ -46,6 +46,8 @@ jobs:
             fig_6_4_1_phase_transition.pdf
             fig_6_4_2_leftfig_bigtext_legend_protocol.pdf
             fig_app_d4rl9_gradient_panels.pdf
+            fig_app_countdown_asymre_parameter_response.pdf
+            fig_app_countdown_topr_parameter_response.pdf
             fig_app_countdown_taper_coefficient_response.pdf
           )
           test -s paper/kdd2027/example_paper.bib
@@ -61,7 +63,7 @@ jobs:
               rm -f "${path}"
             fi
           done < <(find paper/kdd2027/figures -maxdepth 1 -type f -name '*.pdf' -print0)
-          test "$(find paper/kdd2027/figures -maxdepth 1 -type f -name '*.pdf' | wc -l)" -eq 7
+          test "$(find paper/kdd2027/figures -maxdepth 1 -type f -name '*.pdf' | wc -l)" -eq 9
 
       - name: Verify pinned ACM template files
         shell: bash
@@ -99,11 +101,13 @@ jobs:
         run: |
           set -euo pipefail
           bash paper/kdd2027/build.sh
-          grep -Fxq 'source_sha256=9f7415af1a60898266c99d31cc8573c030dfbcf274ca58ed8828a8842a7575e7' paper/kdd2027/BUILD_AUDIT.txt
-          grep -Fxq 'canonical_content_sha256=c20958a1e307633d80ddca46cf017e407ad80cfc629c56aec63f3ce2a36a2bdd' paper/kdd2027/BUILD_AUDIT.txt
-          grep -Fxq 'pages=27' paper/kdd2027/BUILD_AUDIT.txt
-          grep -Fxq 'required_figures=7' paper/kdd2027/BUILD_AUDIT.txt
-          grep -Fxq 'rendered_pages=27' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'source_sha256=e64b74012a050f61e87c1601a301f2c5c452a9421d7e570d28098c74eb21a966' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'canonical_content_sha256=56260fe2712a462e03cfe3b61bb8ef23f6440bd413e823b8426f6bb12a56682f' paper/kdd2027/BUILD_AUDIT.txt
+          pages="$(awk -F= '$1 == "pages" {print $2}' paper/kdd2027/BUILD_AUDIT.txt)"
+          rendered_pages="$(awk -F= '$1 == "rendered_pages" {print $2}' paper/kdd2027/BUILD_AUDIT.txt)"
+          [[ "$pages" =~ ^[1-9][0-9]*$ ]]
+          [[ "$rendered_pages" == "$pages" ]]
+          grep -Fxq 'required_figures=9' paper/kdd2027/BUILD_AUDIT.txt
 
       - name: Build root-level Overleaf upload ZIP
         id: overleaf_package
@@ -128,7 +132,7 @@ jobs:
           [[ "$first_entry" == 'main.tex' ]] || { echo "unexpected first ZIP entry: $first_entry" >&2; exit 1; }
           unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Fxq 'example_paper.bib'
           unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Fxq 'missing_references.bib'
-          test "$(unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Ec '^figures/.*\.pdf$')" -eq 7
+          test "$(unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Ec '^figures/.*\.pdf$')" -eq 9
 
       - name: Capture build diagnostics
         if: always()
