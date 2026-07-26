@@ -1,4 +1,4 @@
-name: TEMP materialize approved Countdown manuscript release
+name: TEMP materialize approved Countdown manuscript source
 
 on:
   pull_request:
@@ -23,231 +23,56 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           persist-credentials: true
 
-      - name: Reconstruct approved payload outside the worktree
+      - name: Reconstruct approved source payload
         shell: bash
         run: |
           set -euo pipefail
-          base_sha='fd38cf0ce7a08a31ae2d601c343e83f1656811b7'
-          test "$(git rev-parse origin/main)" = "$base_sha"
-          test "$(git merge-base HEAD origin/main)" = "$base_sha"
-          for file in \
-            chunk00.b64 chunk01.b64 fix02a.b64 fix02b.b64 \
-            chunk03.b64 chunk04.b64 chunk05.b64 \
-            fix06a.b64 fix06b.b64 chunk07.b64; do
-            test -s ".github/countdown-release-payload/${file}"
-          done
+          test "$(git rev-parse origin/main)" = 'fd38cf0ce7a08a31ae2d601c343e83f1656811b7'
           cat \
-            .github/countdown-release-payload/chunk00.b64 \
-            .github/countdown-release-payload/chunk01.b64 \
-            .github/countdown-release-payload/fix02a.b64 \
-            .github/countdown-release-payload/fix02b.b64 \
-            .github/countdown-release-payload/chunk03.b64 \
-            .github/countdown-release-payload/chunk04.b64 \
-            .github/countdown-release-payload/chunk05.b64 \
-            .github/countdown-release-payload/fix06a.b64 \
-            .github/countdown-release-payload/fix06b.b64 \
-            .github/countdown-release-payload/chunk07.b64 \
-            | base64 --decode > /tmp/countdown_release_payload.tar.xz
-          xz -t /tmp/countdown_release_payload.tar.xz
-          tar -tJf /tmp/countdown_release_payload.tar.xz > /tmp/payload-files.txt
-          test "$(grep -Ec '^paper/kdd2027/main.tex$' /tmp/payload-files.txt)" -eq 1
-          sha256sum /tmp/countdown_release_payload.tar.xz
+            .github/countdown-v2-payload/chunk00.b64 \
+            .github/countdown-v2-payload/chunk01.b64 \
+            .github/countdown-v2-payload/chunk02.b64 \
+            .github/countdown-v2-payload/chunk03.b64 \
+            .github/countdown-v2-payload/chunk04.b64 \
+            | base64 --decode > /tmp/countdown_source_payload.tar.xz
+          echo '27ea5cbbd6fbfffb87171d847154b206d210e3b396f7cef58a7c4ab8a4b9f7e8  /tmp/countdown_source_payload.tar.xz' | sha256sum --check --strict
+          tar -tJf /tmp/countdown_source_payload.tar.xz >/tmp/countdown-source-files.txt
 
-      - name: Reset to exact main and materialize approved files
+      - name: Replace temporary branch with approved source commit
         shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+          EXPECTED_REMOTE_HEAD: ${{ github.sha }}
         run: |
           set -euo pipefail
           git reset --hard origin/main
           git clean -fdx
-          tar -xJf /tmp/countdown_release_payload.tar.xz -C .
+          tar -xJf /tmp/countdown_source_payload.tar.xz -C .
+
           echo '043e6cfcd7fc7abe3c2baf17c4f4fc1d883199f58c89ccd21103a683c6c90326  paper/kdd2027/main.tex' | sha256sum --check --strict
           echo 'e64b74012a050f61e87c1601a301f2c5c452a9421d7e570d28098c74eb21a966  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
           cmp -s paper/kdd2027/source_locked.tex paper/overleaf/main_replacement.tex
-          echo '1a6f5e17f01b6c2e2ddb84a5b372a2c328dccde84922b9a9fc891ebb3bf5bf6d  paper/kdd2027/figures/fig_app_countdown_asymre_parameter_response.pdf' | sha256sum --check --strict
-          echo 'ac618aa02359679fc40aa09899a3ecfbaf1920286e5305d8ed681de34a4a3cef  paper/kdd2027/figures/fig_app_countdown_topr_parameter_response.pdf' | sha256sum --check --strict
-          cmp -s paper/kdd2027/figures/fig_app_countdown_asymre_parameter_response.pdf paper/overleaf/figures/fig_app_countdown_asymre_parameter_response.pdf
-          cmp -s paper/kdd2027/figures/fig_app_countdown_topr_parameter_response.pdf paper/overleaf/figures/fig_app_countdown_topr_parameter_response.pdf
-
-      - name: Synchronize canonical build workflow
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path('.github/workflows/build-kdd2027-stage-a.yml')
-          text = path.read_text(encoding='utf-8')
-
-          def replace_once(old: str, new: str, name: str) -> None:
-              global text
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f'{name}: expected one occurrence, found {count}')
-              text = text.replace(old, new, 1)
-
-          replace_once(
-              "echo '9f7415af1a60898266c99d31cc8573c030dfbcf274ca58ed8828a8842a7575e7  paper/kdd2027/source_locked.tex'",
-              "echo 'e64b74012a050f61e87c1601a301f2c5c452a9421d7e570d28098c74eb21a966  paper/kdd2027/source_locked.tex'",
-              'source hash',
-          )
-          replace_once(
-              '            fig_app_d4rl9_gradient_panels.pdf\n            fig_app_countdown_taper_coefficient_response.pdf',
-              '            fig_app_d4rl9_gradient_panels.pdf\n            fig_app_countdown_asymre_parameter_response.pdf\n            fig_app_countdown_topr_parameter_response.pdf\n            fig_app_countdown_taper_coefficient_response.pdf',
-              'figure list',
-          )
-          replace_once(')" -eq 7', ')" -eq 9', 'local figure count')
-          replace_once(
-              "grep -Fxq 'source_sha256=9f7415af1a60898266c99d31cc8573c030dfbcf274ca58ed8828a8842a7575e7'",
-              "grep -Fxq 'source_sha256=e64b74012a050f61e87c1601a301f2c5c452a9421d7e570d28098c74eb21a966'",
-              'audit source hash',
-          )
-          replace_once(
-              "grep -Fxq 'canonical_content_sha256=c20958a1e307633d80ddca46cf017e407ad80cfc629c56aec63f3ce2a36a2bdd'",
-              "grep -Fxq 'canonical_content_sha256=56260fe2712a462e03cfe3b61bb8ef23f6440bd413e823b8426f6bb12a56682f'",
-              'audit content hash',
-          )
-          replace_once("grep -Fxq 'required_figures=7'", "grep -Fxq 'required_figures=9'", 'audit figure count')
-          replace_once(
-              "grep -Ec '^figures/.*\\.pdf$')\" -eq 7",
-              "grep -Ec '^figures/.*\\.pdf$')\" -eq 9",
-              'Overleaf figure count',
-          )
-          path.write_text(text, encoding='utf-8')
-          PY
-
-      - name: Verify deterministic manuscript generation
-        shell: bash
-        run: |
-          set -euo pipefail
           python scripts/generate_kdd2027_stage_a.py
           python scripts/postprocess_kdd2027_stage_a.py
           python paper/kdd2027/verify_content_lock.py
           echo '043e6cfcd7fc7abe3c2baf17c4f4fc1d883199f58c89ccd21103a683c6c90326  paper/kdd2027/main.tex' | sha256sum --check --strict
-          echo 'e64b74012a050f61e87c1601a301f2c5c452a9421d7e570d28098c74eb21a966  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
 
-      - name: Commit approved scientific source
-        shell: bash
-        run: |
-          set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          expected=/tmp/expected-source-files.txt
-          cat > "$expected" <<'EOF'
-          .github/workflows/build-kdd2027-stage-a.yml
-          paper/kdd2027/CONTENT_LOCK.txt
-          paper/kdd2027/README.md
-          paper/kdd2027/build.sh
-          paper/kdd2027/figures/fig_app_countdown_asymre_parameter_response.pdf
-          paper/kdd2027/figures/fig_app_countdown_topr_parameter_response.pdf
-          paper/kdd2027/main.tex
-          paper/kdd2027/source_locked.tex
-          paper/kdd2027/verify_content_lock.py
-          paper/overleaf/figures/fig_app_countdown_asymre_parameter_response.pdf
-          paper/overleaf/figures/fig_app_countdown_topr_parameter_response.pdf
-          paper/overleaf/main_replacement.tex
-          scripts/generate_kdd2027_stage_a.py
-          scripts/postprocess_kdd2027_stage_a.py
-          EOF
-          sed -i 's/^          //' "$expected"
-          xargs -d '\n' git add -- < "$expected"
-          git diff --cached --name-only | sort > /tmp/actual-source-files.txt
-          sort -o "$expected" "$expected"
-          diff -u "$expected" /tmp/actual-source-files.txt
-          git commit -m 'PAPER-KDD2027-COUNTDOWN-TABLE-APPENDIX-01: integrate approved results and sensitivity figure'
-          git rev-parse HEAD > /tmp/scientific-commit.txt
-
-      - name: Install PDF audit and packaging tools
-        run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y poppler-utils zip xz-utils
-
-      - name: Compile approved manuscript with TeX Live 2025
-        uses: xu-cheng/texlive-action@v3
-        with:
-          texlive_version: 2025
-          os: debian
-          run: |
-            cd paper/kdd2027
-            pdflatex --version | tee TEXLIVE_ENVIRONMENT.txt
-            latexmk -C main.tex >/dev/null 2>&1 || true
-            latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
-            test -s main.pdf
-            grep -Fq 'TeX Live 2025' TEXLIVE_ENVIRONMENT.txt
-
-      - name: Audit, visually inventory, and package release
-        shell: bash
-        env:
-          DRPO_SKIP_LATEX_COMPILE: '1'
-        run: |
-          set -euo pipefail
-          bash paper/kdd2027/build.sh
-          grep -Fxq 'source_sha256=e64b74012a050f61e87c1601a301f2c5c452a9421d7e570d28098c74eb21a966' paper/kdd2027/BUILD_AUDIT.txt
-          grep -Fxq 'canonical_content_sha256=56260fe2712a462e03cfe3b61bb8ef23f6440bd413e823b8426f6bb12a56682f' paper/kdd2027/BUILD_AUDIT.txt
-          grep -Fxq 'pages=27' paper/kdd2027/BUILD_AUDIT.txt
-          grep -Fxq 'required_figures=9' paper/kdd2027/BUILD_AUDIT.txt
-          grep -Fxq 'rendered_pages=27' paper/kdd2027/BUILD_AUDIT.txt
-          pdftotext -f 8 -l 8 paper/kdd2027/main.pdf - | grep -Fq 'Performance on held-out Countdown puzzles'
-          pdftotext -f 26 -l 27 paper/kdd2027/main.pdf - | grep -Fq 'Countdown Baseline-Coefficient Sensitivity'
-          pdftotext -f 27 -l 27 paper/kdd2027/main.pdf - | grep -Fq 'Countdown-0.5B baseline-coefficient response'
-          mkdir -p paper/releases
-          cp paper/kdd2027/main.pdf paper/releases/DRPO_KDD2027_STAGE_A.pdf
-          rm -f paper/releases/DRPO_KDD2027_OVERLEAF.zip
-          (
-            cd paper/kdd2027
-            zip -q -r ../releases/DRPO_KDD2027_OVERLEAF.zip \
-              main.tex acmart.cls ACM-Reference-Format.bst \
-              example_paper.bib missing_references.bib figures README.md
-          )
-          test -s paper/releases/DRPO_KDD2027_OVERLEAF.zip
-          test "$(unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Ec '^figures/.*\.pdf$')" -eq 9
-          scientific_commit="$(cat /tmp/scientific-commit.txt)"
-          pdf_sha="$(sha256sum paper/releases/DRPO_KDD2027_STAGE_A.pdf | awk '{print $1}')"
-          zip_sha="$(sha256sum paper/releases/DRPO_KDD2027_OVERLEAF.zip | awk '{print $1}')"
-          cat > paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt <<EOF
-          claim=PAPER-KDD2027-COUNTDOWN-TABLE-APPENDIX-01
-          source_commit=${scientific_commit}
-          main_tex_sha256=043e6cfcd7fc7abe3c2baf17c4f4fc1d883199f58c89ccd21103a683c6c90326
-          source_sha256=e64b74012a050f61e87c1601a301f2c5c452a9421d7e570d28098c74eb21a966
-          canonical_content_sha256=56260fe2712a462e03cfe3b61bb8ef23f6440bd413e823b8426f6bb12a56682f
-          pages=27
-          main_text_pages=8
-          required_figures=9
-          texlive_version=2025
-          pdf_sha256=${pdf_sha}
-          overleaf_zip_sha256=${zip_sha}
-          content_lock=PASS
-          latex_diagnostics=PASS
-          font_embedding=PASS
-          render_gate=PASS
-          page8_countdown_table_visual_audit=PASS
-          page26_appendix_text_visual_audit=PASS
-          page27_appendix_figures_visual_audit=PASS
-          three_way_change_audit=PASS
-          EOF
-          sed -i 's/^          //' paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt
-
-      - name: Commit audited release and force-replace temporary branch history
-        shell: bash
-        env:
-          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
-        run: |
-          set -euo pipefail
-          expected=/tmp/expected-release-files.txt
-          cat > "$expected" <<'EOF'
-          paper/kdd2027/BUILD_AUDIT.txt
-          paper/releases/DRPO_KDD2027_OVERLEAF.zip
-          paper/releases/DRPO_KDD2027_STAGE_A.pdf
-          paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt
-          EOF
-          sed -i 's/^          //' "$expected"
-          xargs -d '\n' git add -- < "$expected"
-          git diff --cached --name-only | sort > /tmp/actual-release-files.txt
-          sort -o "$expected" "$expected"
-          diff -u "$expected" /tmp/actual-release-files.txt
-          git commit -m 'PAPER-KDD2027-COUNTDOWN-TABLE-APPENDIX-01: publish recompiled audited release'
-
-          cat /tmp/expected-source-files.txt /tmp/expected-release-files.txt | sort > /tmp/expected-final-files.txt
-          git diff --name-only origin/main..HEAD | sort > /tmp/actual-final-files.txt
-          diff -u /tmp/expected-final-files.txt /tmp/actual-final-files.txt
-          test "$(git rev-list --count origin/main..HEAD)" -eq 2
-          git push --force-with-lease origin "HEAD:${HEAD_BRANCH}"
+          git add \
+            .github/workflows/build-kdd2027-stage-a.yml \
+            paper/kdd2027/CONTENT_LOCK.txt \
+            paper/kdd2027/README.md \
+            paper/kdd2027/build.sh \
+            paper/kdd2027/figures/fig_app_countdown_asymre_parameter_response.pdf \
+            paper/kdd2027/figures/fig_app_countdown_topr_parameter_response.pdf \
+            paper/kdd2027/main.tex \
+            paper/kdd2027/source_locked.tex \
+            paper/kdd2027/verify_content_lock.py \
+            paper/overleaf/figures/fig_app_countdown_asymre_parameter_response.pdf \
+            paper/overleaf/figures/fig_app_countdown_topr_parameter_response.pdf \
+            paper/overleaf/main_replacement.tex \
+            scripts/generate_kdd2027_stage_a.py \
+            scripts/postprocess_kdd2027_stage_a.py
+          git commit -m 'PAPER-KDD2027-COUNTDOWN-TABLE-APPENDIX-01: integrate approved manuscript source'
+          git push --force-with-lease="refs/heads/${HEAD_BRANCH}:${EXPECTED_REMOTE_HEAD}" origin "HEAD:refs/heads/${HEAD_BRANCH}"
