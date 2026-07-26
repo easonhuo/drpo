@@ -1,0 +1,100 @@
+{
+  "experiment_id": "EXT-H-E7-D4RL9-GLQ-REFINE-01",
+  "source_experiment_id": "EXT-H-E7-BENCH-01",
+  "run_kind": "pilot",
+  "scientific_status": "d4rl9_taskwise_global_linear_quadratic_refinement_pilot_only",
+  "canonical_alpha": 0.11,
+  "reference_distance": 2.0,
+  "coefficients": {
+    "reciprocal_linear": 0.5,
+    "reciprocal_quadratic": 0.5,
+    "exponential": 0.374162511054291
+  },
+  "anchors": {},
+  "negative_scale_grid": {},
+  "global_scale_grid": {},
+  "coefficient_grid": {},
+  "taskwise_parameter_grids": {
+    "hopper-medium-v2": {
+      "global": [0.012, 0.018, 0.024, 0.045, 0.065],
+      "reciprocal_linear": [0.6, 0.75, 1.25, 1.6, 2.2],
+      "reciprocal_quadratic": [0.05, 0.1, 0.2, 0.3, 0.4]
+    },
+    "hopper-medium-replay-v2": {
+      "global": [0.15, 0.25, 0.4, 0.65, 1.0],
+      "reciprocal_linear": [0.6, 0.75, 1.25, 1.6, 2.2],
+      "reciprocal_quadratic": [0.05, 0.1, 0.2, 0.3, 0.4]
+    },
+    "hopper-medium-expert-v2": {
+      "global": [0.0015, 0.002, 0.0045, 0.006, 0.008],
+      "reciprocal_linear": [15.0, 20.0, 25.0, 40.0, 60.0],
+      "reciprocal_quadratic": [0.6, 0.75, 1.25, 1.6, 2.2]
+    },
+    "walker2d-medium-v2": {
+      "global": [0.0015, 0.002, 0.0045, 0.006, 0.008],
+      "reciprocal_linear": [1.5, 2.0, 4.5, 6.5, 8.0],
+      "reciprocal_quadratic": [0.05, 0.1, 0.2, 0.3, 0.4]
+    },
+    "walker2d-medium-replay-v2": {
+      "global": [0.0015, 0.002, 0.0045, 0.006, 0.008],
+      "reciprocal_linear": [0.05, 0.1, 0.2, 0.3, 0.4],
+      "reciprocal_quadratic": [45.0, 60.0, 90.0, 150.0, 300.0]
+    },
+    "walker2d-medium-expert-v2": {
+      "global": [0.15, 0.25, 0.4, 0.65, 1.0],
+      "reciprocal_linear": [0.6, 0.75, 1.25, 1.6, 2.2],
+      "reciprocal_quadratic": [45.0, 60.0, 90.0, 150.0, 300.0]
+    },
+    "halfcheetah-medium-v2": {
+      "global": [0.005, 0.007, 0.015, 0.02, 0.025],
+      "reciprocal_linear": [0.05, 0.1, 0.2, 0.3, 0.4],
+      "reciprocal_quadratic": [0.6, 0.75, 1.25, 1.6, 2.2]
+    },
+    "halfcheetah-medium-replay-v2": {
+      "global": [0.005, 0.007, 0.015, 0.02, 0.025],
+      "reciprocal_linear": [1.5, 2.0, 4.5, 6.5, 8.0],
+      "reciprocal_quadratic": [0.6, 0.75, 1.25, 1.6, 2.2]
+    },
+    "halfcheetah-medium-expert-v2": {
+      "global": [0.012, 0.018, 0.024, 0.045, 0.065],
+      "reciprocal_linear": [1.5, 2.0, 4.5, 6.5, 8.0],
+      "reciprocal_quadratic": [45.0, 60.0, 90.0, 150.0, 300.0]
+    }
+  },
+  "parent_terminal_audit": {
+    "path": "outputs/e7/d4rl9_glq_taskwise_tuning_run_001/TERMINAL_AUDIT.json",
+    "sha256": "8775edcb436ba759a52eb6b2ae9cdb2cbce966852fd5e8e3739798134523234b",
+    "result_repo_commit": "088b703c6df98e2fa5807d471260d3c7241c7614",
+    "source_code_commit": "a0e4be818cbd780ac6ac36e0a56fa44de89493bf",
+    "run_id": "E7_D4RL9_GLQ_TASKWISE_TUNING_20260726_01"
+  },
+  "expected_datasets": [
+    "hopper-medium-v2",
+    "hopper-medium-replay-v2",
+    "hopper-medium-expert-v2",
+    "walker2d-medium-v2",
+    "walker2d-medium-replay-v2",
+    "walker2d-medium-expert-v2",
+    "halfcheetah-medium-v2",
+    "halfcheetah-medium-replay-v2",
+    "halfcheetah-medium-expert-v2"
+  ],
+  "source_run_spec_seeds": [200, 201],
+  "tuning_seeds": [200, 201, 202, 203],
+  "held_out_seeds": [204, 205, 206, 207],
+  "fixed_max_workers": 60,
+  "branch_count_per_dataset_seed": 15,
+  "expected_total_branches": 540,
+  "combined_candidate_count_per_cell": 10,
+  "primary_selection_metric": "late_window_mean_750k_to_1m",
+  "late_window_steps": [750000, 800000, 850000, 900000, 950000, 1000000],
+  "selection_scope": "per_dataset_per_method",
+  "notes": [
+    "This is round-two development refinement, not held-out confirmation and not formal method ranking.",
+    "Every task/method cell receives exactly five new candidates selected from the delivered round-one curves; no round-one candidate is rerun.",
+    "Global tunes negative_scale. Reciprocal families fix negative_scale=1 and tune only c. R_ref remains fixed at 2.0.",
+    "The terminal audit is SHA-bound to the delivered round-one TERMINAL_AUDIT.json and selects from the combined ten candidates per task/method cell.",
+    "Development seeds remain 200-203. Held-out seeds 204-207 remain untouched until a separately registered confirmation stage.",
+    "Positive-only and Exponential are not included. Cross-method ranking, steady-state claims, and formal D4RL-9 table population remain forbidden."
+  ]
+}
