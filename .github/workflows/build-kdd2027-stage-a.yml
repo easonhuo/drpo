@@ -28,29 +28,40 @@ jobs:
         run: |
           set -euo pipefail
           test -s paper/kdd2027/source_locked.tex
-          echo '6e5ee53daf390f50ee2f2098826c02882a53257cbbe97ccee4a4ace1cde45dae  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
+          echo 'e806281a5f244e5ee3c437626e3705ba84124705bb57d954326b35d92f933765  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
           python scripts/generate_kdd2027_stage_a.py
           python scripts/postprocess_kdd2027_stage_a.py
           python paper/kdd2027/verify_content_lock.py
+          git diff --exit-code -- paper/kdd2027/main.tex paper/kdd2027/verify_content_lock.py paper/kdd2027/build.sh paper/kdd2027/README.md paper/kdd2027/CONTENT_LOCK.txt
 
       - name: Materialize self-contained Overleaf assets
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p paper/kdd2027/figures
-          cp paper/overleaf/example_paper.bib paper/kdd2027/example_paper.bib
-          cp paper/overleaf/missing_references.bib paper/kdd2027/missing_references.bib
-          for figure in \
-            figure1_external_gradient_bottom_labels.pdf \
-            fig_6_3_1_source_heatmap.pdf \
-            fig_6_3_2_rescue_plot.pdf \
-            fig_6_4_1_phase_transition.pdf \
-            fig_6_4_2_leftfig_bigtext_legend_protocol.pdf; do
-            cp "paper/overleaf/figures/${figure}" "paper/kdd2027/figures/${figure}"
-          done
+          required_figures=(
+            figure1_external_gradient_d4rl9.pdf
+            fig_6_3_1_source_heatmap.pdf
+            fig_6_3_2_rescue_plot.pdf
+            fig_6_4_1_phase_transition.pdf
+            fig_6_4_2_leftfig_bigtext_legend_protocol.pdf
+            fig_app_d4rl9_gradient_panels.pdf
+            fig_app_countdown_taper_coefficient_response.pdf
+          )
           test -s paper/kdd2027/example_paper.bib
           test -s paper/kdd2027/missing_references.bib
-          test "$(find paper/kdd2027/figures -maxdepth 1 -type f -name '*.pdf' | wc -l)" -eq 5
+          declare -A required_figure_set=()
+          for figure in "${required_figures[@]}"; do
+            test -s "paper/kdd2027/figures/${figure}"
+            required_figure_set["${figure}"]=1
+          done
+          while IFS= read -r -d '' path; do
+            name="$(basename "${path}")"
+            if [[ -z "${required_figure_set[${name}]+x}" ]]; then
+              rm -f "${path}"
+            fi
+          done < <(find paper/kdd2027/figures -maxdepth 1 -type f -name '*.pdf' -print0)
+          test "$(find paper/kdd2027/figures -maxdepth 1 -type f -name '*.pdf' | wc -l)" -eq 7
 
       - name: Verify pinned ACM template files
         shell: bash
@@ -67,13 +78,13 @@ jobs:
 
       - name: Compile with TeX Live 2025
         id: manuscript_compile
-        continue-on-error: true
         uses: xu-cheng/texlive-action@v3
         with:
           texlive_version: 2025
           os: debian
           run: |
             cd paper/kdd2027
+            rm -f BUILD_AUDIT.txt PDFINFO.txt PDFFONTS.txt main.log main.blg
             pdflatex --version | tee TEXLIVE_ENVIRONMENT.txt
             latexmk -C main.tex >/dev/null 2>&1 || true
             latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
@@ -82,14 +93,20 @@ jobs:
 
       - name: Audit compiled PDF and every rendered page
         id: manuscript_audit
-        continue-on-error: true
         env:
           DRPO_SKIP_LATEX_COMPILE: '1'
-        run: bash paper/kdd2027/build.sh
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash paper/kdd2027/build.sh
+          grep -Fxq 'source_sha256=e806281a5f244e5ee3c437626e3705ba84124705bb57d954326b35d92f933765' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'canonical_content_sha256=d5f312cecc39b23e9f49224df837da8c7fede18cc1f9d5421565508f3cb3c069' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'pages=27' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'required_figures=7' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'rendered_pages=27' paper/kdd2027/BUILD_AUDIT.txt
 
       - name: Build root-level Overleaf upload ZIP
         id: overleaf_package
-        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -111,7 +128,7 @@ jobs:
           [[ "$first_entry" == 'main.tex' ]] || { echo "unexpected first ZIP entry: $first_entry" >&2; exit 1; }
           unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Fxq 'example_paper.bib'
           unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Fxq 'missing_references.bib'
-          test "$(unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Ec '^figures/.*\.pdf$')" -eq 5
+          test "$(unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Ec '^figures/.*\.pdf$')" -eq 7
 
       - name: Capture build diagnostics
         if: always()
@@ -150,17 +167,17 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Enforce successful canonical build
-        if: >-
-          steps.manuscript_compile.outcome != 'success' ||
-          steps.manuscript_audit.outcome != 'success' ||
-          steps.overleaf_package.outcome != 'success'
+      - name: Enforce canonical build outputs
         shell: bash
         run: |
-          cat paper/kdd2027/TEXLIVE_ENVIRONMENT.txt 2>/dev/null || true
-          cat paper/kdd2027/diagnostics/main-log-tail.txt 2>/dev/null || true
-          cat paper/kdd2027/diagnostics/main.blg 2>/dev/null || true
-          exit 1
+          set -euo pipefail
+          test -s paper/kdd2027/main.pdf
+          test -s paper/kdd2027/BUILD_AUDIT.txt
+          test -s paper/releases/DRPO_KDD2027_OVERLEAF.zip
+          grep -Fxq 'content_lock=PASS' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'latex_diagnostics=PASS' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'font_embedding=PASS' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'render_gate=PASS' paper/kdd2027/BUILD_AUDIT.txt
 
       - name: Verify canonical release files are present
         shell: bash

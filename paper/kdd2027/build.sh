@@ -4,11 +4,13 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 python3 verify_content_lock.py
 required_figures=(
-  figures/figure1_external_gradient_bottom_labels.pdf
+  figures/figure1_external_gradient_d4rl9.pdf
   figures/fig_6_3_1_source_heatmap.pdf
   figures/fig_6_3_2_rescue_plot.pdf
   figures/fig_6_4_1_phase_transition.pdf
   figures/fig_6_4_2_leftfig_bigtext_legend_protocol.pdf
+  figures/fig_app_d4rl9_gradient_panels.pdf
+  figures/fig_app_countdown_taper_coefficient_response.pdf
 )
 for file in "${required_figures[@]}"; do test -s "$file" || { echo "missing figure: $file" >&2; exit 1; }; done
 for file in example_paper.bib missing_references.bib; do test -s "$file" || { echo "missing bibliography: $file" >&2; exit 1; }; done
@@ -51,8 +53,8 @@ pdftoppm -png -r 150 main.pdf renders/page >/dev/null 2>&1
 render_count="$(find renders -maxdepth 1 -name 'page-*.png' -type f | wc -l | tr -d ' ')"
 [[ "$render_count" == "$pages" ]] || { echo "render count mismatch: pages=$pages renders=$render_count" >&2; exit 1; }
 {
-  echo "source_sha256=6e5ee53daf390f50ee2f2098826c02882a53257cbbe97ccee4a4ace1cde45dae"
-  echo "canonical_content_sha256=842bc044055bf9695a23ce26411df6b93859d2582c6eb877ab7751bf8e5d6708"
+  echo "source_sha256=e806281a5f244e5ee3c437626e3705ba84124705bb57d954326b35d92f933765"
+  echo "canonical_content_sha256=d5f312cecc39b23e9f49224df837da8c7fede18cc1f9d5421565508f3cb3c069"
   echo "pages=$pages"
   echo "page_size=$page_size"
   echo "texlive_version=2025"
