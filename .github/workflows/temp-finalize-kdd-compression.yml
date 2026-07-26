@@ -22,36 +22,31 @@ jobs:
           ref: dev/paper-kdd2027-compression-batch1-01
           fetch-depth: 0
 
-      - name: Reconstruct and diagnose approved three-batch manuscript
+      - name: Reconstruct and apply approved three-batch manuscript
         shell: bash
         run: |
-          set -u
+          set -euo pipefail
           cat .github/paper-compression-finalize/chunk-*.zb64 > /tmp/finalizer.zb64
           python - <<'PY'
           import base64
           import zlib
           from pathlib import Path
           payload = Path('/tmp/finalizer.zb64').read_text(encoding='ascii')
-          Path('/tmp/apply_final.py').write_bytes(zlib.decompress(base64.b64decode(payload)))
+          Path('.github/paper-compression-finalize/apply_final.py').write_bytes(
+              zlib.decompress(base64.b64decode(payload))
+          )
           PY
-          set +e
-          python /tmp/apply_final.py > /tmp/finalizer.log 2>&1
-          status=$?
-          set -e
-          cat /tmp/finalizer.log
-          echo "$status" > /tmp/finalizer.status
+          python .github/paper-compression-finalize/apply_final.py
 
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: temp-finalizer-diagnostics
-          path: |
-            /tmp/finalizer.log
-            /tmp/finalizer.status
-          if-no-files-found: error
-
-      - name: Enforce diagnostic result
+      - name: Commit exact approved manuscript and remove temporary payload
         shell: bash
         run: |
           set -euo pipefail
-          test "$(cat /tmp/finalizer.status)" = '0'
+          rm -rf .github/paper-compression-finalize
+          rm -f .github/workflows/temp-finalize-kdd-compression.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          test -n "$(git status --porcelain)"
+          git commit -m 'PAPER-KDD2027-COMPRESSION-8PAGE-01: apply approved three-batch revision'
+          git push origin HEAD:dev/paper-kdd2027-compression-batch1-01
