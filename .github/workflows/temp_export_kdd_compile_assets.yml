@@ -1,0 +1,37 @@
+name: TEMP export KDD compile assets
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp/paper-kdd2027-batch2-preview-20260726
+      - name: Collect compile assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p export/figures
+          cp paper/kdd2027/acmart.cls export/
+          cp paper/kdd2027/ACM-Reference-Format.bst export/
+          cp paper/kdd2027/example_paper.bib export/
+          cp paper/kdd2027/missing_references.bib export/
+          cp paper/kdd2027/figures/figure1_external_gradient_d4rl9.pdf export/figures/
+          cp paper/kdd2027/figures/fig_app_d4rl9_gradient_panels.pdf export/figures/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: temp-kdd-compile-assets
+          path: export/
+          if-no-files-found: error
