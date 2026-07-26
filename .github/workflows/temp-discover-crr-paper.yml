@@ -1,0 +1,45 @@
+name: TEMP discover CRR paper paths
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    if: github.event.pull_request.head.ref == 'dev/crrbench-maintex-replacement-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/crrbench-maintex-replacement-01
+          fetch-depth: 0
+      - name: Inventory manuscript candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p discovery
+          git rev-parse HEAD > discovery/HEAD.txt
+          git ls-tree -r --name-only HEAD | sort > discovery/tree.txt
+          grep -Ei '(^|/)(crr|crr[-_]?bench)|contextual research reasoning|research reasoning' discovery/tree.txt > discovery/path_hits.txt || true
+          find . -type f \( -name '*.tex' -o -name '*.bib' -o -name '*.pdf' -o -name '*.png' \) -print | sed 's#^./##' | sort > discovery/manuscript_assets.txt
+          grep -RIl --include='*.tex' --include='*.md' --include='*.txt' -E 'CRR-Bench|Contextual Research Reasoning|Can AI Learn Contextual Research Reasoning' . > discovery/content_hits.txt || true
+          {
+            echo '=== PATH HITS ==='
+            cat discovery/path_hits.txt
+            echo '=== CONTENT HITS ==='
+            cat discovery/content_hits.txt
+            echo '=== PAPER DIRECTORIES ==='
+            find paper -maxdepth 4 -type f -print 2>/dev/null | sort || true
+          } > discovery/summary.txt
+          cat discovery/summary.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: crR-paper-discovery
+          path: discovery/
+          if-no-files-found: error
+          retention-days: 2
