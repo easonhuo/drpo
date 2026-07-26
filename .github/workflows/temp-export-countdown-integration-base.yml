@@ -1,0 +1,58 @@
+name: TEMP export Countdown integration base
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    if: github.event.pull_request.head.ref == 'dev/paper-kdd2027-countdown-table-appendix-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Verify exact base
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor fd38cf0ce7a08a31ae2d601c343e83f1656811b7 HEAD
+          test -s paper/kdd2027/source_locked.tex
+          test -s paper/kdd2027/main.tex
+          test -s paper/overleaf/main_replacement.tex
+
+      - name: Stage exact integration inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p export/paper/kdd2027 export/paper/overleaf export/scripts export/.github/workflows export/paper/releases
+          cp paper/kdd2027/source_locked.tex export/paper/kdd2027/
+          cp paper/kdd2027/main.tex export/paper/kdd2027/
+          cp paper/kdd2027/verify_content_lock.py export/paper/kdd2027/
+          cp paper/kdd2027/build.sh export/paper/kdd2027/
+          cp paper/kdd2027/README.md export/paper/kdd2027/
+          cp paper/kdd2027/CONTENT_LOCK.txt export/paper/kdd2027/
+          cp paper/kdd2027/BUILD_AUDIT.txt export/paper/kdd2027/ 2>/dev/null || true
+          cp paper/overleaf/main_replacement.tex export/paper/overleaf/
+          cp scripts/generate_kdd2027_stage_a.py export/scripts/
+          cp scripts/postprocess_kdd2027_stage_a.py export/scripts/
+          cp .github/workflows/build-kdd2027-stage-a.yml export/.github/workflows/
+          cp paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt export/paper/releases/
+          sha256sum $(find export -type f | sort) > export/SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: temp-countdown-integration-base
+          path: export
+          if-no-files-found: error
+          retention-days: 7
