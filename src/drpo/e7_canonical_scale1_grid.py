@@ -1,8 +1,9 @@
 """Scale-one coefficient grids and D4RL-9 task-wise GLQ tuning.
 
-The legacy scale-one pilot remains supported byte-for-byte at the protocol level.
-A second, fail-closed mode reuses the same canonical runner for a nine-task
-pilot that tunes only Global, Reciprocal-Linear, and Reciprocal-Quadratic.
+The legacy scale-one pilot remains supported at the protocol level. D4RL-9
+round one uses one shared coarse grid across all tasks. The refinement mode
+uses five new task-specific candidates per controller family and binds its
+combined ten-candidate selection to the delivered round-one terminal audit.
 """
 
 from __future__ import annotations
@@ -30,10 +31,20 @@ D4RL9_TUNING_METHODS = {
     "reciprocal_linear",
     "reciprocal_quadratic",
 }
+D4RL9_SOURCE_EXPERIMENT_ID = "EXT-H-E7-BENCH-01"
+D4RL9_REFINEMENT_EXPERIMENT_ID = "EXT-H-E7-D4RL9-GLQ-REFINE-01"
 D4RL9_SCIENTIFIC_STATUS = (
     "d4rl9_taskwise_global_linear_quadratic_tuning_pilot_only"
 )
+D4RL9_REFINEMENT_SCIENTIFIC_STATUS = (
+    "d4rl9_taskwise_global_linear_quadratic_refinement_pilot_only"
+)
+D4RL9_SCIENTIFIC_STATUSES = {
+    D4RL9_SCIENTIFIC_STATUS,
+    D4RL9_REFINEMENT_SCIENTIFIC_STATUS,
+}
 D4RL9_RUNNER_VERSION = "2.0.0-d4rl9-glq-taskwise-tuning"
+D4RL9_REFINEMENT_RUNNER_VERSION = "2.1.0-d4rl9-glq-taskwise-refinement"
 D4RL9_EXPECTED_DATASETS = (
     "hopper-medium-v2",
     "hopper-medium-replay-v2",
@@ -51,6 +62,14 @@ D4RL9_HELD_OUT_SEEDS = (204, 205, 206, 207)
 D4RL9_EXPECTED_MAX_WORKERS = 60
 D4RL9_EXPECTED_EVALUATION_STEPS = tuple(range(50_000, 1_000_001, 50_000))
 D4RL9_LATE_WINDOW_STEPS = (750_000, 800_000, 850_000, 900_000, 950_000, 1_000_000)
+D4RL9_ROUND1_GLOBAL_VALUES = (0.001, 0.003, 0.01, 0.03, 0.1)
+D4RL9_ROUND1_COEFFICIENT_VALUES = (0.5, 1.0, 3.0, 10.0, 30.0)
+D4RL9_PARENT_AUDIT_SHA256 = (
+    "8775edcb436ba759a52eb6b2ae9cdb2cbce966852fd5e8e3739798134523234b"
+)
+D4RL9_PARENT_RESULT_COMMIT = "088b703c6df98e2fa5807d471260d3c7241c7614"
+D4RL9_PARENT_SOURCE_COMMIT = "a0e4be818cbd780ac6ac36e0a56fa44de89493bf"
+D4RL9_PARENT_RUN_ID = "E7_D4RL9_GLQ_TASKWISE_TUNING_20260726_01"
 
 _BASE_LOAD_GRID = base.load_grid
 _BASE_LOAD_RUN_SPEC = base.load_run_spec
@@ -62,7 +81,19 @@ def _label(value: float) -> str:
 
 
 def _is_d4rl9_grid(grid: Mapping[str, Any]) -> bool:
-    return str(grid.get("scientific_status")) == D4RL9_SCIENTIFIC_STATUS
+    return str(grid.get("scientific_status")) in D4RL9_SCIENTIFIC_STATUSES
+
+
+def _is_refinement_grid(grid: Mapping[str, Any]) -> bool:
+    return str(grid.get("scientific_status")) == D4RL9_REFINEMENT_SCIENTIFIC_STATUS
+
+
+def _runner_version(grid: Mapping[str, Any]) -> str:
+    return (
+        D4RL9_REFINEMENT_RUNNER_VERSION
+        if _is_refinement_grid(grid)
+        else D4RL9_RUNNER_VERSION
+    )
 
 
 def _common_control_values(grid: Mapping[str, Any]) -> dict[str, float]:
@@ -76,6 +107,15 @@ def _common_control_values(grid: Mapping[str, Any]) -> dict[str, float]:
         ),
         "exponential_coefficient": float(coefficients["exponential"]),
     }
+
+
+def _positive_unique(values: Sequence[Any], *, label: str) -> list[float]:
+    parsed = [float(value) for value in values]
+    if not parsed or any(value <= 0.0 or not math.isfinite(value) for value in parsed):
+        raise ValueError(f"{label} must contain finite positive values")
+    if len(parsed) != len(set(parsed)):
+        raise ValueError(f"{label} contains duplicates")
+    return parsed
 
 
 def _expand_legacy_scale1_controls(grid: Mapping[str, Any]) -> list[NegativeControl]:
@@ -97,15 +137,10 @@ def _expand_legacy_scale1_controls(grid: Mapping[str, Any]) -> list[NegativeCont
             "reciprocal_quadratic, and exponential"
         )
     for method, coefficients in coefficient_grid.items():
-        if not coefficients:
-            raise ValueError(f"coefficient_grid[{method!r}] must not be empty")
         field = f"{method}_coefficient"
-        for coefficient in coefficients:
-            value = float(coefficient)
-            if value <= 0.0:
-                raise ValueError(
-                    f"coefficient_grid[{method!r}] values must be positive"
-                )
+        for value in _positive_unique(
+            coefficients, label=f"coefficient_grid[{method!r}]"
+        ):
             method_common = dict(common)
             method_common[field] = value
             controls.append(
@@ -118,43 +153,72 @@ def _expand_legacy_scale1_controls(grid: Mapping[str, Any]) -> list[NegativeCont
     return controls
 
 
-def _expand_d4rl9_controls(grid: Mapping[str, Any]) -> list[NegativeControl]:
+def _d4rl9_parameter_grid(
+    grid: Mapping[str, Any], dataset_id: str | None
+) -> tuple[list[float], dict[str, list[float]]]:
+    if _is_refinement_grid(grid):
+        if dataset_id is None:
+            raise ValueError("refinement controls require an explicit dataset_id")
+        taskwise = grid.get("taskwise_parameter_grids", {})
+        if dataset_id not in taskwise:
+            raise ValueError(f"missing task-specific grid for {dataset_id}")
+        cell = taskwise[dataset_id]
+        if set(cell) != D4RL9_TUNING_METHODS:
+            raise ValueError(
+                f"taskwise_parameter_grids[{dataset_id!r}] must contain exactly "
+                "global, reciprocal_linear, and reciprocal_quadratic"
+            )
+        global_scales = _positive_unique(
+            cell["global"], label=f"taskwise_parameter_grids[{dataset_id}].global"
+        )
+        coefficient_grid = {
+            method: _positive_unique(
+                cell[method],
+                label=f"taskwise_parameter_grids[{dataset_id}].{method}",
+            )
+            for method in ("reciprocal_linear", "reciprocal_quadratic")
+        }
+        return global_scales, coefficient_grid
+
+    global_scales = _positive_unique(
+        grid.get("global_scale_grid", []), label="global_scale_grid"
+    )
+    raw_coefficients = grid.get("coefficient_grid", {})
+    expected = {"reciprocal_linear", "reciprocal_quadratic"}
+    if set(raw_coefficients) != expected:
+        raise ValueError(
+            "D4RL-9 coefficient_grid must contain exactly reciprocal_linear and "
+            "reciprocal_quadratic"
+        )
+    coefficient_grid = {
+        method: _positive_unique(
+            raw_coefficients[method], label=f"coefficient_grid[{method!r}]"
+        )
+        for method in ("reciprocal_linear", "reciprocal_quadratic")
+    }
+    return global_scales, coefficient_grid
+
+
+def _expand_d4rl9_controls(
+    grid: Mapping[str, Any], dataset_id: str | None
+) -> list[NegativeControl]:
     common = _common_control_values(grid)
     if grid.get("anchors") not in ({}, None):
         raise ValueError("D4RL-9 GLQ tuning forbids injected anchor branches")
     if grid.get("negative_scale_grid") not in ({}, None):
         raise ValueError(
-            "D4RL-9 GLQ tuning uses global_scale_grid, not negative_scale_grid"
+            "D4RL-9 GLQ tuning uses controller-specific grids, not "
+            "negative_scale_grid"
         )
 
-    global_scales = [float(value) for value in grid.get("global_scale_grid", [])]
-    if not global_scales or any(value <= 0.0 for value in global_scales):
-        raise ValueError("global_scale_grid must contain positive values")
-    if len(global_scales) != len(set(global_scales)):
-        raise ValueError("global_scale_grid contains duplicates")
-
-    coefficient_grid = grid.get("coefficient_grid", {})
-    expected_coefficients = {"reciprocal_linear", "reciprocal_quadratic"}
-    if set(coefficient_grid) != expected_coefficients:
-        raise ValueError(
-            "D4RL-9 coefficient_grid must contain exactly reciprocal_linear and "
-            "reciprocal_quadratic"
-        )
-
+    global_scales, coefficient_grid = _d4rl9_parameter_grid(grid, dataset_id)
     controls = [
         NegativeControl(method="global", negative_scale=scale, **common)
         for scale in global_scales
     ]
     for method in ("reciprocal_linear", "reciprocal_quadratic"):
-        coefficients = [float(value) for value in coefficient_grid[method]]
-        if not coefficients or any(value <= 0.0 for value in coefficients):
-            raise ValueError(
-                f"coefficient_grid[{method!r}] must contain positive values"
-            )
-        if len(coefficients) != len(set(coefficients)):
-            raise ValueError(f"coefficient_grid[{method!r}] contains duplicates")
         field = f"{method}_coefficient"
-        for value in coefficients:
+        for value in coefficient_grid[method]:
             method_common = dict(common)
             method_common[field] = value
             controls.append(
@@ -167,11 +231,13 @@ def _expand_d4rl9_controls(grid: Mapping[str, Any]) -> list[NegativeControl]:
     return controls
 
 
-def expand_scale1_controls(grid: Mapping[str, Any]) -> list[NegativeControl]:
-    """Expand the legacy scale-one grid or the D4RL-9 GLQ tuning grid."""
+def expand_scale1_controls(
+    grid: Mapping[str, Any], dataset_id: str | None = None
+) -> list[NegativeControl]:
+    """Expand a legacy, shared D4RL-9, or task-specific D4RL-9 grid."""
 
     if _is_d4rl9_grid(grid):
-        controls = _expand_d4rl9_controls(grid)
+        controls = _expand_d4rl9_controls(grid, dataset_id)
     else:
         controls = _expand_legacy_scale1_controls(grid)
 
@@ -210,8 +276,11 @@ def build_scale1_branches(
     }
     branches: list[base.Branch] = []
     for dataset in datasets:
+        controls = expand_scale1_controls(
+            grid, dataset.id if _is_d4rl9_grid(grid) else None
+        )
         for seed in seeds:
-            for control in expand_scale1_controls(grid):
+            for control in controls:
                 if not math.isclose(
                     control.canonical_alpha,
                     contract.expected_canonical_alpha,
@@ -265,6 +334,24 @@ def build_scale1_branches(
     return branches
 
 
+def _validate_refinement_binding(raw: Mapping[str, Any]) -> None:
+    binding = raw.get("parent_terminal_audit")
+    if not isinstance(binding, Mapping):
+        raise ValueError("refinement grid requires parent_terminal_audit")
+    expected = {
+        "sha256": D4RL9_PARENT_AUDIT_SHA256,
+        "result_repo_commit": D4RL9_PARENT_RESULT_COMMIT,
+        "source_code_commit": D4RL9_PARENT_SOURCE_COMMIT,
+        "run_id": D4RL9_PARENT_RUN_ID,
+    }
+    for key, value in expected.items():
+        if str(binding.get(key)) != value:
+            raise ValueError(f"parent_terminal_audit.{key} changed")
+    path = str(binding.get("path", ""))
+    if not path or Path(path).is_absolute() or ".." in Path(path).parts:
+        raise ValueError("parent_terminal_audit.path must be a repository-relative path")
+
+
 def _validate_d4rl9_grid(raw: Mapping[str, Any]) -> None:
     if tuple(raw.get("expected_datasets", ())) != D4RL9_EXPECTED_DATASETS:
         raise ValueError("expected_datasets changed")
@@ -274,9 +361,9 @@ def _validate_d4rl9_grid(raw: Mapping[str, Any]) -> None:
         raise ValueError("source_run_spec_seeds changed")
     if tuple(int(value) for value in raw.get("tuning_seeds", ())) != D4RL9_TUNING_SEEDS:
         raise ValueError("tuning_seeds changed")
-    if tuple(
-        int(value) for value in raw.get("held_out_seeds", ())
-    ) != D4RL9_HELD_OUT_SEEDS:
+    if tuple(int(value) for value in raw.get("held_out_seeds", ())) != (
+        D4RL9_HELD_OUT_SEEDS
+    ):
         raise ValueError("held_out_seeds changed")
     if int(raw.get("fixed_max_workers", -1)) != D4RL9_EXPECTED_MAX_WORKERS:
         raise ValueError("fixed_max_workers must remain 60")
@@ -296,29 +383,76 @@ def _validate_d4rl9_grid(raw: Mapping[str, Any]) -> None:
         float(raw.get("reference_distance")), 2.0, rel_tol=0.0, abs_tol=1e-12
     ):
         raise ValueError("reference_distance must remain 2.0")
-    controls = expand_scale1_controls(raw)
-    method_counts = {
-        method: sum(control.method == method for control in controls)
-        for method in D4RL9_TUNING_METHODS
-    }
-    if set(method_counts.values()) != {5}:
-        raise ValueError(
-            "D4RL-9 GLQ tuning requires exactly five candidates per method"
-        )
-    expected = (
-        len(D4RL9_EXPECTED_DATASETS)
-        * len(D4RL9_TUNING_SEEDS)
-        * len(controls)
-    )
+    if int(raw.get("branch_count_per_dataset_seed", -1)) != 15:
+        raise ValueError("branch_count_per_dataset_seed must remain 15")
+
+    if _is_refinement_grid(raw):
+        if raw.get("experiment_id") != D4RL9_REFINEMENT_EXPERIMENT_ID:
+            raise ValueError("refinement experiment_id changed")
+        if raw.get("source_experiment_id") != D4RL9_SOURCE_EXPERIMENT_ID:
+            raise ValueError("source_experiment_id changed")
+        if raw.get("global_scale_grid") not in ({}, None):
+            raise ValueError("refinement uses taskwise_parameter_grids only")
+        if raw.get("coefficient_grid") not in ({}, None):
+            raise ValueError("refinement uses taskwise_parameter_grids only")
+        taskwise = raw.get("taskwise_parameter_grids")
+        if not isinstance(taskwise, Mapping):
+            raise ValueError("taskwise_parameter_grids must be an object")
+        if tuple(taskwise) != D4RL9_EXPECTED_DATASETS:
+            raise ValueError("taskwise_parameter_grids dataset order changed")
+        _validate_refinement_binding(raw)
+        if int(raw.get("combined_candidate_count_per_cell", -1)) != 10:
+            raise ValueError("combined_candidate_count_per_cell must remain 10")
+        for dataset_id in D4RL9_EXPECTED_DATASETS:
+            controls = expand_scale1_controls(raw, dataset_id)
+            for method in D4RL9_TUNING_METHODS:
+                method_controls = [item for item in controls if item.method == method]
+                if len(method_controls) != 5:
+                    raise ValueError(
+                        f"refinement requires five candidates for {dataset_id}/{method}"
+                    )
+                values = {
+                    _candidate_metadata(item)[2] for item in method_controls
+                }
+                old_values = set(
+                    D4RL9_ROUND1_GLOBAL_VALUES
+                    if method == "global"
+                    else D4RL9_ROUND1_COEFFICIENT_VALUES
+                )
+                overlap = sorted(values & old_values)
+                if overlap:
+                    raise ValueError(
+                        f"refinement duplicates round-one values for "
+                        f"{dataset_id}/{method}: {overlap}"
+                    )
+    else:
+        if raw.get("experiment_id") != D4RL9_SOURCE_EXPERIMENT_ID:
+            raise ValueError("round-one experiment_id changed")
+        controls = expand_scale1_controls(raw)
+        method_counts = {
+            method: sum(control.method == method for control in controls)
+            for method in D4RL9_TUNING_METHODS
+        }
+        if set(method_counts.values()) != {5}:
+            raise ValueError(
+                "D4RL-9 GLQ tuning requires exactly five candidates per method"
+            )
+
+    expected = len(D4RL9_EXPECTED_DATASETS) * len(D4RL9_TUNING_SEEDS) * 15
     if int(raw.get("expected_total_branches", -1)) != expected:
         raise ValueError(f"expected_total_branches must remain {expected}")
 
 
 def load_scale1_grid(path: str | Path) -> tuple[dict[str, Any], str]:
+    source = Path(path)
+    raw_direct = json.loads(source.read_text())
+    if _is_d4rl9_grid(raw_direct):
+        if raw_direct.get("run_kind") not in {"pilot", "smoke"}:
+            raise ValueError("D4RL-9 tuning only supports pilot/smoke runs")
+        _validate_d4rl9_grid(raw_direct)
+        return raw_direct, base.sha256_file(source)
+
     raw, digest = _BASE_LOAD_GRID(path)
-    if _is_d4rl9_grid(raw):
-        _validate_d4rl9_grid(raw)
-        return raw, digest
     if raw.get("negative_scale_grid") not in ({}, None):
         raise ValueError("scale-one coefficient tuning forbids negative_scale_grid")
     if raw.get("primary_selection_metric") != "final_score":
@@ -339,8 +473,8 @@ def load_d4rl9_run_spec(path: str | Path) -> tuple[dict[str, Any], str]:
 
     raw, digest = _BASE_LOAD_RUN_SPEC(path)
     run_spec = copy.deepcopy(raw)
-    if run_spec.get("experiment_id") != base.EXPERIMENT_ID:
-        raise ValueError("run_spec experiment_id changed")
+    if run_spec.get("experiment_id") != D4RL9_SOURCE_EXPERIMENT_ID:
+        raise ValueError("source run_spec experiment_id changed")
     dataset_ids = tuple(str(item["id"]) for item in run_spec["datasets"])
     if dataset_ids != D4RL9_EXPECTED_DATASETS:
         raise ValueError(f"run_spec datasets changed: {dataset_ids}")
@@ -586,7 +720,9 @@ def _aggregate_candidates(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, A
     return groups
 
 
-def _select_taskwise(groups: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+def _select_taskwise(
+    groups: Sequence[Mapping[str, Any]], *, expected_candidate_count: int = 5
+) -> list[dict[str, Any]]:
     by_cell: dict[tuple[str, str], list[Mapping[str, Any]]] = {}
     for row in groups:
         by_cell.setdefault((str(row["dataset_id"]), str(row["method"])), []).append(row)
@@ -595,10 +731,10 @@ def _select_taskwise(groups: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]
     for dataset_id in D4RL9_EXPECTED_DATASETS:
         for method in ("global", "reciprocal_linear", "reciprocal_quadratic"):
             candidates = by_cell.get((dataset_id, method), [])
-            if len(candidates) != 5:
+            if len(candidates) != expected_candidate_count:
                 raise RuntimeError(
-                    f"expected five candidates for {dataset_id}/{method}, "
-                    f"found {len(candidates)}"
+                    f"expected {expected_candidate_count} candidates for "
+                    f"{dataset_id}/{method}, found {len(candidates)}"
                 )
             ranked = sorted(
                 candidates,
@@ -622,22 +758,135 @@ def _select_taskwise(groups: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]
     return selections
 
 
+def _candidate_key(row: Mapping[str, Any]) -> tuple[str, str, float]:
+    return (
+        str(row["dataset_id"]),
+        str(row["method"]),
+        float(row["parameter_value"]),
+    )
+
+
+def _load_parent_candidate_groups(
+    grid: Mapping[str, Any], repo_root: Path
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    binding = grid["parent_terminal_audit"]
+    audit_path = (repo_root / str(binding["path"])).resolve()
+    try:
+        audit_path.relative_to(repo_root.resolve())
+    except ValueError as exc:
+        raise RuntimeError("parent terminal audit escapes repository root") from exc
+    if not audit_path.is_file():
+        raise FileNotFoundError(f"parent terminal audit is missing: {audit_path}")
+    actual_sha = base.sha256_file(audit_path)
+    if actual_sha != str(binding["sha256"]):
+        raise RuntimeError(
+            "parent terminal audit SHA-256 mismatch: "
+            f"expected {binding['sha256']}, got {actual_sha}"
+        )
+    payload = _read_json(audit_path)
+    expected_fields = {
+        "experiment_id": D4RL9_SOURCE_EXPERIMENT_ID,
+        "scientific_status": D4RL9_SCIENTIFIC_STATUS,
+        "runner_version": D4RL9_RUNNER_VERSION,
+        "status": "PASS",
+        "expected_branch_count": 540,
+        "audited_branch_count": 540,
+        "primary_metric": "late_window_mean_750k_to_1m",
+        "selection_scope": "per_dataset_per_method",
+    }
+    mismatches = {
+        key: {"expected": value, "actual": payload.get(key)}
+        for key, value in expected_fields.items()
+        if payload.get(key) != value
+    }
+    if mismatches:
+        raise RuntimeError(f"parent terminal audit identity mismatch: {mismatches}")
+    if payload.get("tuning_seeds") != list(D4RL9_TUNING_SEEDS):
+        raise RuntimeError("parent tuning seeds changed")
+    if payload.get("held_out_seeds_untouched") != list(D4RL9_HELD_OUT_SEEDS):
+        raise RuntimeError("parent held-out seed record changed")
+    groups = payload.get("candidate_groups")
+    if not isinstance(groups, list) or len(groups) != 135:
+        raise RuntimeError("parent terminal audit must contain 135 candidate groups")
+
+    seen: set[tuple[str, str, float]] = set()
+    normalized: list[dict[str, Any]] = []
+    for raw in groups:
+        if not isinstance(raw, Mapping):
+            raise RuntimeError("parent candidate group is not an object")
+        row = dict(raw)
+        key = _candidate_key(row)
+        if key in seen:
+            raise RuntimeError(f"duplicate parent candidate group: {key}")
+        seen.add(key)
+        expected_values = set(
+            D4RL9_ROUND1_GLOBAL_VALUES
+            if key[1] == "global"
+            else D4RL9_ROUND1_COEFFICIENT_VALUES
+        )
+        if key[0] not in D4RL9_EXPECTED_DATASETS or key[1] not in D4RL9_TUNING_METHODS:
+            raise RuntimeError(f"unexpected parent candidate identity: {key}")
+        if key[2] not in expected_values:
+            raise RuntimeError(f"unexpected parent candidate value: {key}")
+        normalized.append(row)
+    _select_taskwise(normalized, expected_candidate_count=5)
+    return normalized, {
+        "path": str(audit_path.relative_to(repo_root.resolve())),
+        "sha256": actual_sha,
+        "result_repo_commit": str(binding["result_repo_commit"]),
+        "source_code_commit": str(binding["source_code_commit"]),
+        "run_id": str(binding["run_id"]),
+    }
+
+
+def _combine_refinement_groups(
+    parent_groups: Sequence[Mapping[str, Any]],
+    refinement_groups: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    combined: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, float]] = set()
+    for source, rows in (("round1", parent_groups), ("round2", refinement_groups)):
+        for raw in rows:
+            row = dict(raw)
+            key = _candidate_key(row)
+            if key in seen:
+                raise RuntimeError(f"duplicate combined candidate {key}")
+            seen.add(key)
+            row["candidate_round"] = source
+            combined.append(row)
+    _select_taskwise(combined, expected_candidate_count=10)
+    return sorted(combined, key=_candidate_key)
+
+
 def build_d4rl9_terminal_audit(
     *, work_dir: Path, branches: Sequence[base.Branch], grid: Mapping[str, Any]
 ) -> dict[str, Any]:
-    """Audit all 540 tuning branches and select one setting per task/method."""
+    """Audit one 540-branch round and select task-specific settings."""
 
     expected = int(grid["expected_total_branches"])
     if len(branches) != expected:
         raise RuntimeError(f"audit expected {expected} branches, found {len(branches)}")
     rows = [_audit_branch(work_dir, branch) for branch in branches]
-    groups = _aggregate_candidates(rows)
-    selections = _select_taskwise(groups)
+    round_groups = _aggregate_candidates(rows)
+    round_selections = _select_taskwise(round_groups, expected_candidate_count=5)
+
+    parent_binding: dict[str, Any] | None = None
+    if _is_refinement_grid(grid):
+        repo_root = Path.cwd().resolve()
+        parent_groups, parent_binding = _load_parent_candidate_groups(grid, repo_root)
+        candidate_groups = _combine_refinement_groups(parent_groups, round_groups)
+        selections = _select_taskwise(candidate_groups, expected_candidate_count=10)
+    else:
+        parent_groups = []
+        candidate_groups = round_groups
+        selections = round_selections
+
     payload = {
-        "schema_version": 1,
-        "experiment_id": base.EXPERIMENT_ID,
-        "scientific_status": D4RL9_SCIENTIFIC_STATUS,
-        "runner_version": D4RL9_RUNNER_VERSION,
+        "schema_version": 2 if _is_refinement_grid(grid) else 1,
+        "experiment_id": str(grid["experiment_id"]),
+        "source_experiment_id": D4RL9_SOURCE_EXPERIMENT_ID,
+        "scientific_status": str(grid["scientific_status"]),
+        "runner_version": _runner_version(grid),
         "status": "PASS",
         "expected_branch_count": expected,
         "audited_branch_count": len(rows),
@@ -655,8 +904,14 @@ def build_d4rl9_terminal_audit(
         "positive_only_rerun_included": False,
         "exponential_rerun_included": False,
         "branches": rows,
-        "candidate_groups": groups,
+        "round_candidate_groups": round_groups,
+        "round_taskwise_selections": round_selections,
+        "candidate_groups": candidate_groups,
         "taskwise_selections": selections,
+        "candidate_count_per_task_method": 10 if _is_refinement_grid(grid) else 5,
+        "parent_candidate_groups": parent_groups,
+        "parent_terminal_audit_binding": parent_binding,
+        "confirmation_required_before_method_ranking": True,
         "event_separation_summary": {
             "task_performance_collapse": "not_classified_without_registered_threshold",
             "support_or_variance_boundary_event": (
@@ -671,13 +926,18 @@ def build_d4rl9_terminal_audit(
     base.atomic_write_json(
         work_dir / "TASKWISE_SELECTION.json",
         {
-            "schema_version": 1,
-            "experiment_id": base.EXPERIMENT_ID,
-            "scientific_status": D4RL9_SCIENTIFIC_STATUS,
+            "schema_version": payload["schema_version"],
+            "experiment_id": payload["experiment_id"],
+            "source_experiment_id": D4RL9_SOURCE_EXPERIMENT_ID,
+            "scientific_status": payload["scientific_status"],
             "primary_metric": payload["primary_metric"],
             "tuning_seeds": list(D4RL9_TUNING_SEEDS),
             "held_out_seeds_untouched": list(D4RL9_HELD_OUT_SEEDS),
             "selection_scope": payload["selection_scope"],
+            "candidate_count_per_task_method": payload[
+                "candidate_count_per_task_method"
+            ],
+            "parent_terminal_audit_binding": parent_binding,
             "taskwise_selections": selections,
             "confirmation_required_before_method_ranking": True,
         },
@@ -692,12 +952,12 @@ def _extract_option(argv: Sequence[str], name: str) -> str:
     return str(argv[positions[0] + 1])
 
 
-def _d4rl9_mode_from_argv(argv: Sequence[str]) -> bool:
+def _d4rl9_grid_from_argv(argv: Sequence[str]) -> dict[str, Any] | None:
     if "--grid" not in argv:
-        return False
+        return None
     path = Path(_extract_option(argv, "--grid"))
     raw = json.loads(path.read_text())
-    return _is_d4rl9_grid(raw)
+    return raw if _is_d4rl9_grid(raw) else None
 
 
 def _normalized_d4rl9_argv(argv: Sequence[str]) -> list[str]:
@@ -722,7 +982,7 @@ def _prepare_d4rl9_audit(
     run_spec, _ = load_d4rl9_run_spec(run_spec_path)
     grid, _ = load_scale1_grid(grid_path)
     if not _is_d4rl9_grid(grid):
-        raise ValueError("audit is only available for the D4RL-9 GLQ tuning grid")
+        raise ValueError("audit is only available for a D4RL-9 GLQ grid")
     branches = build_scale1_branches(contract, run_spec, grid)
     for dataset in {branch.dataset for branch in branches}:
         dataset.verify()
@@ -743,7 +1003,7 @@ def _audit_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run legacy scale-one tuning or the D4RL-9 task-wise GLQ pilot."""
+    """Run legacy scale-one tuning or either D4RL-9 task-wise GLQ round."""
 
     values = list(sys.argv[1:] if argv is None else argv)
     if values and values[0] == "audit":
@@ -771,19 +1031,22 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
-    d4rl9_mode = _d4rl9_mode_from_argv(values)
+    d4rl9_grid = _d4rl9_grid_from_argv(values)
+    d4rl9_mode = d4rl9_grid is not None
     delegated = _normalized_d4rl9_argv(values) if d4rl9_mode else values
     previous_load_grid = base.load_grid
     previous_load_run_spec = base.load_run_spec
     previous_build_branches = base.build_branches
+    previous_experiment_id = base.EXPERIMENT_ID
     previous_status = base.SCIENTIFIC_STATUS
     previous_version = base.RUNNER_VERSION
     base.load_grid = load_scale1_grid
     base.build_branches = build_scale1_branches
-    if d4rl9_mode:
+    if d4rl9_grid is not None:
         base.load_run_spec = load_d4rl9_run_spec
-        base.SCIENTIFIC_STATUS = D4RL9_SCIENTIFIC_STATUS
-        base.RUNNER_VERSION = D4RL9_RUNNER_VERSION
+        base.EXPERIMENT_ID = str(d4rl9_grid["experiment_id"])
+        base.SCIENTIFIC_STATUS = str(d4rl9_grid["scientific_status"])
+        base.RUNNER_VERSION = _runner_version(d4rl9_grid)
     try:
         returncode = base.main(delegated)
         if returncode == 0 and d4rl9_mode and delegated and delegated[0] == "run":
@@ -801,6 +1064,7 @@ def main(argv: list[str] | None = None) -> int:
         base.load_grid = previous_load_grid
         base.load_run_spec = previous_load_run_spec
         base.build_branches = previous_build_branches
+        base.EXPERIMENT_ID = previous_experiment_id
         base.SCIENTIFIC_STATUS = previous_status
         base.RUNNER_VERSION = previous_version
 
