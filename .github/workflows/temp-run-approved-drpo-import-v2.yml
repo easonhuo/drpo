@@ -93,7 +93,7 @@ jobs:
           )
           test "$(unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Ec '^figures/.*\.pdf$')" -eq 9
 
-      - name: Commit approved manuscript and release to dev branch
+      - name: Commit approved manuscript and export bundle
         shell: bash
         run: |
           set -euo pipefail
@@ -103,6 +103,7 @@ jobs:
           git rm .github/workflows/temp-run-approved-drpo-import.yml
           git rm .github/workflows/temp-run-approved-drpo-import-v2.yml
           git rm .github/workflows/temp-debug-approved-import.yml
+          git rm .github/workflows/temp-debug-stage-import.yml
           git rm .github/temp_apply_drpo_manuscript.py
           git add \
             .github/workflows/build-kdd2027-stage-a.yml \
@@ -124,9 +125,15 @@ jobs:
             scripts/postprocess_kdd2027_stage_a.py
           git diff --cached --check
           git commit -m 'PAPER-KDD2027-MAJOR-TEXT-RESULTS-01: replace manuscript and release PDF'
-          git push origin HEAD:dev/paper-kdd2027-major-text-results-03
+          git bundle create paper/releases/DRPO_KDD2027_MAJOR_TEXT_RESULTS.bundle origin/main..HEAD
+          git format-patch --stdout origin/main..HEAD > paper/releases/DRPO_KDD2027_MAJOR_TEXT_RESULTS.patch
+          set +e
+          git push origin HEAD:dev/paper-kdd2027-major-text-results-03 > paper/releases/DRPO_KDD2027_PUSH_LOG.txt 2>&1
+          push_code=$?
+          set -e
+          echo "push_exit_code=${push_code}" >> paper/releases/DRPO_KDD2027_PUSH_LOG.txt
 
-      - name: Upload compiled release and visual audit material
+      - name: Upload compiled release, bundle, and visual audit material
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -143,5 +150,8 @@ jobs:
             paper/releases/DRPO_KDD2027_STAGE_A.pdf
             paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt
             paper/releases/DRPO_KDD2027_OVERLEAF.zip
+            paper/releases/DRPO_KDD2027_MAJOR_TEXT_RESULTS.bundle
+            paper/releases/DRPO_KDD2027_MAJOR_TEXT_RESULTS.patch
+            paper/releases/DRPO_KDD2027_PUSH_LOG.txt
           if-no-files-found: warn
           retention-days: 30
