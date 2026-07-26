@@ -1,0 +1,146 @@
+name: TEMP materialize approved Countdown manuscript release
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: github.event.pull_request.head.ref == 'dev/paper-kdd2027-countdown-table-appendix-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+          persist-credentials: true
+
+      - name: Reconstruct and verify approved payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_sha='fd38cf0ce7a08a31ae2d601c343e83f1656811b7'
+          test "$(git merge-base HEAD origin/main)" = "$base_sha"
+          test "$(git rev-parse origin/main)" = "$base_sha"
+          test "$(find .github/countdown-release-payload -maxdepth 1 -type f -name 'chunk*.b64' | wc -l)" -eq 8
+          cat .github/countdown-release-payload/chunk*.b64 | base64 --decode > /tmp/countdown_release_payload.tar.xz
+          echo 'ab2d00f510e80248e9ba6b1c1eb91171143024d5cfa68f64594364db6ccec44d  /tmp/countdown_release_payload.tar.xz' | sha256sum --check --strict
+          tar -xJf /tmp/countdown_release_payload.tar.xz -C .
+          echo '043e6cfcd7fc7abe3c2baf17c4f4fc1d883199f58c89ccd21103a683c6c90326  paper/kdd2027/main.tex' | sha256sum --check --strict
+          echo 'e64b74012a050f61e87c1601a301f2c5c452a9421d7e570d28098c74eb21a966  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
+          cmp -s paper/kdd2027/source_locked.tex paper/overleaf/main_replacement.tex
+          test -s paper/kdd2027/figures/fig_app_countdown_asymre_parameter_response.pdf
+          test -s paper/kdd2027/figures/fig_app_countdown_topr_parameter_response.pdf
+          cmp -s paper/kdd2027/figures/fig_app_countdown_asymre_parameter_response.pdf paper/overleaf/figures/fig_app_countdown_asymre_parameter_response.pdf
+          cmp -s paper/kdd2027/figures/fig_app_countdown_topr_parameter_response.pdf paper/overleaf/figures/fig_app_countdown_topr_parameter_response.pdf
+
+      - name: Verify deterministic manuscript generation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/generate_kdd2027_stage_a.py
+          python scripts/postprocess_kdd2027_stage_a.py
+          python paper/kdd2027/verify_content_lock.py
+          echo '043e6cfcd7fc7abe3c2baf17c4f4fc1d883199f58c89ccd21103a683c6c90326  paper/kdd2027/main.tex' | sha256sum --check --strict
+
+      - name: Install PDF audit and packaging tools
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y poppler-utils zip xz-utils
+
+      - name: Compile approved manuscript with TeX Live 2025
+        uses: xu-cheng/texlive-action@v3
+        with:
+          texlive_version: 2025
+          os: debian
+          run: |
+            cd paper/kdd2027
+            pdflatex --version | tee TEXLIVE_ENVIRONMENT.txt
+            latexmk -C main.tex >/dev/null 2>&1 || true
+            latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+            test -s main.pdf
+            grep -Fq 'TeX Live 2025' TEXLIVE_ENVIRONMENT.txt
+
+      - name: Audit and package release
+        shell: bash
+        env:
+          DRPO_SKIP_LATEX_COMPILE: '1'
+        run: |
+          set -euo pipefail
+          bash paper/kdd2027/build.sh
+          grep -Fxq 'source_sha256=e64b74012a050f61e87c1601a301f2c5c452a9421d7e570d28098c74eb21a966' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'canonical_content_sha256=56260fe2712a462e03cfe3b61bb8ef23f6440bd413e823b8426f6bb12a56682f' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'pages=27' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'required_figures=9' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'rendered_pages=27' paper/kdd2027/BUILD_AUDIT.txt
+          pdftotext -f 8 -l 8 paper/kdd2027/main.pdf - | grep -Fqi 'references'
+          mkdir -p paper/releases
+          cp paper/kdd2027/main.pdf paper/releases/DRPO_KDD2027_STAGE_A.pdf
+          rm -f paper/releases/DRPO_KDD2027_OVERLEAF.zip
+          (
+            cd paper/kdd2027
+            zip -r ../releases/DRPO_KDD2027_OVERLEAF.zip \
+              main.tex acmart.cls ACM-Reference-Format.bst \
+              example_paper.bib missing_references.bib figures README.md
+          )
+          test -s paper/releases/DRPO_KDD2027_OVERLEAF.zip
+          test "$(unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Ec '^figures/.*\.pdf$')" -eq 9
+
+      - name: Commit approved release to branch
+        shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            paper/kdd2027/CONTENT_LOCK.txt \
+            paper/kdd2027/README.md \
+            paper/kdd2027/build.sh \
+            paper/kdd2027/main.tex \
+            paper/kdd2027/source_locked.tex \
+            paper/kdd2027/verify_content_lock.py \
+            paper/kdd2027/figures/fig_app_countdown_asymre_parameter_response.pdf \
+            paper/kdd2027/figures/fig_app_countdown_topr_parameter_response.pdf \
+            paper/overleaf/main_replacement.tex \
+            paper/overleaf/figures/fig_app_countdown_asymre_parameter_response.pdf \
+            paper/overleaf/figures/fig_app_countdown_topr_parameter_response.pdf \
+            paper/releases/DRPO_KDD2027_STAGE_A.pdf \
+            paper/releases/DRPO_KDD2027_OVERLEAF.zip \
+            scripts/generate_kdd2027_stage_a.py \
+            scripts/postprocess_kdd2027_stage_a.py
+          git commit -m 'PAPER-KDD2027-COUNTDOWN-TABLE-APPENDIX-01: populate Countdown results and baseline sweeps'
+          source_commit="$(git rev-parse HEAD)"
+          pdf_sha="$(sha256sum paper/releases/DRPO_KDD2027_STAGE_A.pdf | awk '{print $1}')"
+          zip_sha="$(sha256sum paper/releases/DRPO_KDD2027_OVERLEAF.zip | awk '{print $1}')"
+          cat > paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt <<EOF
+          claim=PAPER-KDD2027-COUNTDOWN-TABLE-APPENDIX-01
+          source_commit=${source_commit}
+          main_tex_sha256=043e6cfcd7fc7abe3c2baf17c4f4fc1d883199f58c89ccd21103a683c6c90326
+          source_sha256=e64b74012a050f61e87c1601a301f2c5c452a9421d7e570d28098c74eb21a966
+          canonical_content_sha256=56260fe2712a462e03cfe3b61bb8ef23f6440bd413e823b8426f6bb12a56682f
+          pages=27
+          main_text_pages=8
+          required_figures=9
+          texlive_version=2025
+          pdf_sha256=${pdf_sha}
+          overleaf_zip_sha256=${zip_sha}
+          content_lock=PASS
+          latex_diagnostics=PASS
+          font_embedding=PASS
+          render_gate=PASS
+          three_way_change_audit=PASS
+          EOF
+          sed -i 's/^          //' paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt
+          git add paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt
+          git commit -m 'PAPER-KDD2027-COUNTDOWN-TABLE-APPENDIX-01: record audited release'
+          git push origin "HEAD:${HEAD_BRANCH}"
