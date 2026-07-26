@@ -80,13 +80,23 @@ jobs:
             pdflatex --version > TEXLIVE_ENVIRONMENT.txt
             latexmk -C main.tex >/dev/null 2>&1 || true
             latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
-            DRPO_SKIP_LATEX_COMPILE=1 bash build.sh
-            grep -Fxq 'pages=27' BUILD_AUDIT.txt
-            grep -Fxq 'required_figures=7' BUILD_AUDIT.txt
-            grep -Fxq 'content_lock=PASS' BUILD_AUDIT.txt
-            grep -Fxq 'latex_diagnostics=PASS' BUILD_AUDIT.txt
-            grep -Fxq 'font_embedding=PASS' BUILD_AUDIT.txt
-            grep -Fxq 'render_gate=PASS' BUILD_AUDIT.txt
+            test -s main.pdf
+            grep -Fq 'TeX Live 2025' TEXLIVE_ENVIRONMENT.txt
+
+      - name: Audit compiled canonical release
+        if: steps.release_state.outputs.current != 'true'
+        env:
+          DRPO_SKIP_LATEX_COMPILE: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash paper/kdd2027/build.sh
+          grep -Fxq 'pages=27' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'required_figures=7' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'content_lock=PASS' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'latex_diagnostics=PASS' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'font_embedding=PASS' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'render_gate=PASS' paper/kdd2027/BUILD_AUDIT.txt
 
       - name: Commit canonical release PDF and audit
         if: steps.release_state.outputs.current != 'true'
