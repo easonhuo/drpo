@@ -31,7 +31,7 @@ bash paper/kdd2027/build.sh
 ```
 
 The build requires TeX Live 2025 and verifies the locked source hash,
-character-equivalent manuscript content, seven local figure assets, resolved
+character-equivalent manuscript content, nine local figure assets, resolved
 LaTeX references/citations, anonymous PDF text and metadata, US Letter page
 size, embedded fonts, and a complete PNG render of every page. Page count is
 recorded but not gated in Stage A.

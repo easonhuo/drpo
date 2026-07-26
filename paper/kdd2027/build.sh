@@ -10,6 +10,8 @@ required_figures=(
   figures/fig_6_4_1_phase_transition.pdf
   figures/fig_6_4_2_leftfig_bigtext_legend_protocol.pdf
   figures/fig_app_d4rl9_gradient_panels.pdf
+  figures/fig_app_countdown_asymre_parameter_response.pdf
+  figures/fig_app_countdown_topr_parameter_response.pdf
   figures/fig_app_countdown_taper_coefficient_response.pdf
 )
 for file in "${required_figures[@]}"; do test -s "$file" || { echo "missing figure: $file" >&2; exit 1; }; done
@@ -53,8 +55,8 @@ pdftoppm -png -r 150 main.pdf renders/page >/dev/null 2>&1
 render_count="$(find renders -maxdepth 1 -name 'page-*.png' -type f | wc -l | tr -d ' ')"
 [[ "$render_count" == "$pages" ]] || { echo "render count mismatch: pages=$pages renders=$render_count" >&2; exit 1; }
 {
-  echo "source_sha256=9f7415af1a60898266c99d31cc8573c030dfbcf274ca58ed8828a8842a7575e7"
-  echo "canonical_content_sha256=c20958a1e307633d80ddca46cf017e407ad80cfc629c56aec63f3ce2a36a2bdd"
+  echo "source_sha256=e64b74012a050f61e87c1601a301f2c5c452a9421d7e570d28098c74eb21a966"
+  echo "canonical_content_sha256=56260fe2712a462e03cfe3b61bb8ef23f6440bd413e823b8426f6bb12a56682f"
   echo "pages=$pages"
   echo "page_size=$page_size"
   echo "texlive_version=2025"

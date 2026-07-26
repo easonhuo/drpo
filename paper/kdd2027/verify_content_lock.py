@@ -7,8 +7,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 SOURCE = ROOT / "source_locked.tex"
 KDD = ROOT / "main.tex"
-EXPECTED_SOURCE_SHA256 = "9f7415af1a60898266c99d31cc8573c030dfbcf274ca58ed8828a8842a7575e7"
-EXPECTED_CONTENT_SHA256 = "c20958a1e307633d80ddca46cf017e407ad80cfc629c56aec63f3ce2a36a2bdd"
+EXPECTED_SOURCE_SHA256 = "e64b74012a050f61e87c1601a301f2c5c452a9421d7e570d28098c74eb21a966"
+EXPECTED_CONTENT_SHA256 = "56260fe2712a462e03cfe3b61bb8ef23f6440bd413e823b8426f6bb12a56682f"
 VERIFIER_ORIGINAL = r'''\begin{equation}
     R(x,y)
     =
@@ -153,11 +153,11 @@ for forbidden in [r"\usepackage[preprint]{icml2026}", r"\icmlauthor", r"\icmlaff
     if forbidden in kdd:
         raise SystemExit(f"anonymous KDD source contains forbidden token: {forbidden}")
 figures = re.findall(r"\\includegraphics(?:\[[^]]*\])?\{([^{}]+)\}", kdd, flags=re.S)
-expected_figures = ['figures/figure1_external_gradient_d4rl9.pdf', 'figures/fig_6_3_1_source_heatmap.pdf', 'figures/fig_6_3_2_rescue_plot.pdf', 'figures/fig_6_4_1_phase_transition.pdf', 'figures/fig_6_4_2_leftfig_bigtext_legend_protocol.pdf', 'figures/fig_app_d4rl9_gradient_panels.pdf', 'figures/fig_app_countdown_taper_coefficient_response.pdf']
+expected_figures = ['figures/figure1_external_gradient_d4rl9.pdf', 'figures/fig_6_3_1_source_heatmap.pdf', 'figures/fig_6_3_2_rescue_plot.pdf', 'figures/fig_6_4_1_phase_transition.pdf', 'figures/fig_6_4_2_leftfig_bigtext_legend_protocol.pdf', 'figures/fig_app_d4rl9_gradient_panels.pdf', 'figures/fig_app_countdown_asymre_parameter_response.pdf', 'figures/fig_app_countdown_topr_parameter_response.pdf', 'figures/fig_app_countdown_taper_coefficient_response.pdf']
 if figures != expected_figures:
     raise SystemExit(f"figure inventory mismatch: {figures!r}")
-if kdd.count("\\Description{") != 5:
-    raise SystemExit("expected five ACM figure descriptions")
+if kdd.count("\\Description{") != 6:
+    raise SystemExit("expected six ACM figure descriptions")
 print(f"source_sha256={source_sha}")
 print(f"canonical_content_sha256={content_sha}")
 print("content_lock=PASS")
