@@ -4,10 +4,7 @@ on:
   pull_request:
     branches:
       - main
-    types:
-      - opened
-      - reopened
-      - synchronize
+    types: [opened, reopened, synchronize]
 
 permissions:
   contents: write
@@ -30,169 +27,134 @@ jobs:
           git merge-base --is-ancestor 62fa06a19bac92c84772755eda223843a1a3189e HEAD
           python - <<'PY'
           from __future__ import annotations
-
           import hashlib
           import subprocess
           from pathlib import Path
 
           OLD_SOURCE = "e806281a5f244e5ee3c437626e3705ba84124705bb57d954326b35d92f933765"
           OLD_CONTENT = "d5f312cecc39b23e9f49224df837da8c7fede18cc1f9d5421565508f3cb3c069"
-          TARGET = (
-              "\\subsubsection{Remoteness as an Independent Source of Update Magnitude}\n"
-              "\\label{sec:controlled_source}"
-          )
-
-          root = Path(".")
-          source_path = root / "paper/kdd2027/source_locked.tex"
-          main_path = root / "paper/kdd2027/main.tex"
-          mirror_path = root / "paper/overleaf/main_replacement.tex"
-
-          original_source = source_path.read_text(encoding="utf-8")
-          original_main = main_path.read_text(encoding="utf-8")
-          original_mirror = mirror_path.read_text(encoding="utf-8")
-
+          TARGET = "\\subsubsection{Remoteness as an Independent Source of Update Magnitude}\n\\label{sec:controlled_source}"
+          root = Path('.')
+          source_path = root / 'paper/kdd2027/source_locked.tex'
+          main_path = root / 'paper/kdd2027/main.tex'
+          mirror_path = root / 'paper/overleaf/main_replacement.tex'
+          original_source = source_path.read_text(encoding='utf-8')
+          original_main = main_path.read_text(encoding='utf-8')
+          original_mirror = mirror_path.read_text(encoding='utf-8')
           if hashlib.sha256(original_source.encode()).hexdigest() != OLD_SOURCE:
-              raise SystemExit("unexpected source_locked.tex base hash")
+              raise SystemExit('unexpected source_locked.tex base hash')
 
           def move_external_figure(text: str, name: str) -> tuple[str, str]:
-              label = "\\label{fig:external_far_field}"
+              label = '\\label{fig:external_far_field}'
               if text.count(label) != 1:
-                  raise SystemExit(f"{name}: expected exactly one Figure 1 label")
+                  raise SystemExit(f'{name}: expected exactly one Figure 1 label')
               label_pos = text.index(label)
-              start = text.rfind("\\begin{figure}[t]", 0, label_pos)
-              end_token = "\\end{figure}"
+              start = text.rfind('\\begin{figure}[t]', 0, label_pos)
+              end_token = '\\end{figure}'
               end = text.find(end_token, label_pos)
               if start < 0 or end < 0:
-                  raise SystemExit(f"{name}: could not isolate Figure 1 environment")
+                  raise SystemExit(f'{name}: could not isolate Figure 1 environment')
               end += len(end_token)
               block = text[start:end]
-              if text.count(block) != 1:
-                  raise SystemExit(f"{name}: Figure 1 environment is not unique")
-              if TARGET not in text or text.count(TARGET) != 1:
-                  raise SystemExit(f"{name}: controlled-source target is not unique")
+              if text.count(block) != 1 or text.count(TARGET) != 1:
+                  raise SystemExit(f'{name}: non-unique move anchors')
               if start > text.index(TARGET):
-                  raise SystemExit(f"{name}: Figure 1 is not at the expected original location")
-              suffix = block + "\n\n"
+                  raise SystemExit(f'{name}: unexpected original Figure 1 position')
+              suffix = block + '\n\n'
               if suffix not in text:
-                  raise SystemExit(f"{name}: unexpected whitespace after Figure 1")
-              moved = text.replace(suffix, "", 1)
-              moved = moved.replace(TARGET, block + "\n\n" + TARGET, 1)
+                  raise SystemExit(f'{name}: unexpected whitespace after Figure 1')
+              moved = text.replace(suffix, '', 1)
+              moved = moved.replace(TARGET, block + '\n\n' + TARGET, 1)
               if moved.count(block) != 1:
-                  raise SystemExit(f"{name}: Figure 1 count changed during move")
-              if not (
-                  moved.index("\\subsection{Controlled Identification of the Causal Mechanism}")
-                  < moved.index(block)
-                  < moved.index(TARGET)
-              ):
-                  raise SystemExit(f"{name}: Figure 1 did not land before the controlled-source subsubsection")
+                  raise SystemExit(f'{name}: Figure 1 count changed')
+              if not (moved.index('\\subsection{Controlled Identification of the Causal Mechanism}') < moved.index(block) < moved.index(TARGET)):
+                  raise SystemExit(f'{name}: Figure 1 did not land at the approved position')
               return moved, block
 
-          expected_source, source_block = move_external_figure(original_source, "source_locked.tex")
-          expected_main, main_block = move_external_figure(original_main, "main.tex")
-          expected_mirror, mirror_block = move_external_figure(original_mirror, "main_replacement.tex")
-
+          expected_source, source_block = move_external_figure(original_source, 'source_locked.tex')
+          expected_main, _ = move_external_figure(original_main, 'main.tex')
+          expected_mirror, mirror_block = move_external_figure(original_mirror, 'main_replacement.tex')
           if source_block != mirror_block:
-              raise SystemExit("locked-source and Overleaf Figure 1 environments differ before the move")
+              raise SystemExit('locked-source and Overleaf Figure 1 blocks differ')
+          source_path.write_text(expected_source, encoding='utf-8')
+          mirror_path.write_text(expected_mirror, encoding='utf-8')
 
-          source_path.write_text(expected_source, encoding="utf-8")
-          mirror_path.write_text(expected_mirror, encoding="utf-8")
-
-          verify_code = (root / "paper/kdd2027/verify_content_lock.py").read_text(encoding="utf-8")
-          prefix = verify_code.split("\nsource = SOURCE.read_text", 1)[0]
-          namespace: dict[str, object] = {}
+          verify_code = (root / 'paper/kdd2027/verify_content_lock.py').read_text(encoding='utf-8')
+          prefix = verify_code.split('\nsource = SOURCE.read_text', 1)[0]
+          namespace: dict[str, object] = {'__file__': str(root / 'paper/kdd2027/verify_content_lock.py')}
           exec(prefix, namespace)
-          canonical_original = namespace["canonical_original"]
-
+          canonical_original = namespace['canonical_original']
           new_source = hashlib.sha256(expected_source.encode()).hexdigest()
-          canonical = canonical_original(expected_source)
-          new_content = hashlib.sha256(canonical.encode()).hexdigest()
+          new_content = hashlib.sha256(canonical_original(expected_source).encode()).hexdigest()
 
-          hash_files = [
-              root / "scripts/generate_kdd2027_stage_a.py",
-              root / "scripts/postprocess_kdd2027_stage_a.py",
-              root / ".github/workflows/build-kdd2027-stage-a.yml",
-          ]
-          for path in hash_files:
-              text = path.read_text(encoding="utf-8")
-              source_count = text.count(OLD_SOURCE)
-              content_count = text.count(OLD_CONTENT)
-              if source_count + content_count == 0:
-                  raise SystemExit(f"{path}: no content-lock hash found to update")
-              text = text.replace(OLD_SOURCE, new_source).replace(OLD_CONTENT, new_content)
-              path.write_text(text, encoding="utf-8")
+          for path in [
+              root / 'scripts/generate_kdd2027_stage_a.py',
+              root / 'scripts/postprocess_kdd2027_stage_a.py',
+              root / '.github/workflows/build-kdd2027-stage-a.yml',
+          ]:
+              text = path.read_text(encoding='utf-8')
+              if text.count(OLD_SOURCE) + text.count(OLD_CONTENT) == 0:
+                  raise SystemExit(f'{path}: no content-lock hash found')
+              path.write_text(text.replace(OLD_SOURCE, new_source).replace(OLD_CONTENT, new_content), encoding='utf-8')
 
-          subprocess.run(["python3", "scripts/generate_kdd2027_stage_a.py"], check=True)
-          subprocess.run(["python3", "scripts/postprocess_kdd2027_stage_a.py"], check=True)
-
-          generated_main = main_path.read_text(encoding="utf-8")
-          generated_source = source_path.read_text(encoding="utf-8")
-          generated_mirror = mirror_path.read_text(encoding="utf-8")
+          subprocess.run(['python3', 'scripts/generate_kdd2027_stage_a.py'], check=True)
+          subprocess.run(['python3', 'scripts/postprocess_kdd2027_stage_a.py'], check=True)
+          generated_main = main_path.read_text(encoding='utf-8')
           if generated_main != expected_main:
-              raise SystemExit("exactness gate failed: generated main.tex differs from move-only expectation")
-          if generated_source != expected_source:
-              raise SystemExit("exactness gate failed: source_locked.tex changed beyond the approved move")
-          if generated_mirror != expected_mirror:
-              raise SystemExit("exactness gate failed: main_replacement.tex changed beyond the approved move")
-
-          subprocess.run(["python3", "paper/kdd2027/verify_content_lock.py"], check=True)
-          Path("/tmp/fig1_hashes.env").write_text(
-              "\n".join(
-                  [
-                      f"SOURCE_SHA={new_source}",
-                      f"CONTENT_SHA={new_content}",
-                      f"MAIN_SHA={hashlib.sha256(generated_main.encode()).hexdigest()}",
-                  ]
-              )
-              + "\n",
-              encoding="utf-8",
+              raise SystemExit('exactness gate failed: main.tex differs from move-only expectation')
+          if source_path.read_text(encoding='utf-8') != expected_source:
+              raise SystemExit('exactness gate failed: source_locked.tex changed beyond move')
+          if mirror_path.read_text(encoding='utf-8') != expected_mirror:
+              raise SystemExit('exactness gate failed: main_replacement.tex changed beyond move')
+          subprocess.run(['python3', 'paper/kdd2027/verify_content_lock.py'], check=True)
+          Path('/tmp/fig1_hashes.env').write_text(
+              '\n'.join([
+                  f'SOURCE_SHA={new_source}',
+                  f'CONTENT_SHA={new_content}',
+                  f'MAIN_SHA={hashlib.sha256(generated_main.encode()).hexdigest()}',
+              ]) + '\n',
+              encoding='utf-8',
           )
           PY
           source /tmp/fig1_hashes.env
           echo "source_sha=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
           echo "content_sha=${CONTENT_SHA}" >> "$GITHUB_OUTPUT"
           echo "main_sha=${MAIN_SHA}" >> "$GITHUB_OUTPUT"
-
           rm -f .github/workflows/temp-apply-kdd-fig1-float-placement.yml
           rm -f .github/workflows/temp-fix-kdd-fig1-workflow.yml
           rm -f .github/workflows/temp-fix2-kdd-fig1-workflow.yml
 
           python - <<'PY'
           import subprocess
-
           allowed = {
-              ".github/workflows/build-kdd2027-stage-a.yml",
-              "paper/kdd2027/CONTENT_LOCK.txt",
-              "paper/kdd2027/build.sh",
-              "paper/kdd2027/main.tex",
-              "paper/kdd2027/source_locked.tex",
-              "paper/kdd2027/verify_content_lock.py",
-              "paper/overleaf/main_replacement.tex",
-              "scripts/generate_kdd2027_stage_a.py",
-              "scripts/postprocess_kdd2027_stage_a.py",
+              '.github/workflows/build-kdd2027-stage-a.yml',
+              'paper/kdd2027/CONTENT_LOCK.txt',
+              'paper/kdd2027/build.sh',
+              'paper/kdd2027/main.tex',
+              'paper/kdd2027/source_locked.tex',
+              'paper/kdd2027/verify_content_lock.py',
+              'paper/overleaf/main_replacement.tex',
+              'scripts/generate_kdd2027_stage_a.py',
+              'scripts/postprocess_kdd2027_stage_a.py',
           }
           temporary = {
-              ".github/workflows/temp-apply-kdd-fig1-float-placement.yml",
-              ".github/workflows/temp-fix-kdd-fig1-workflow.yml",
-              ".github/workflows/temp-fix2-kdd-fig1-workflow.yml",
+              '.github/workflows/temp-apply-kdd-fig1-float-placement.yml',
+              '.github/workflows/temp-fix-kdd-fig1-workflow.yml',
+              '.github/workflows/temp-fix2-kdd-fig1-workflow.yml',
           }
-          changed = set(subprocess.check_output(["git", "diff", "--name-only"], text=True).splitlines())
+          changed = set(subprocess.check_output(['git', 'diff', '--name-only'], text=True).splitlines())
           unexpected = changed - allowed - temporary
           if unexpected:
-              raise SystemExit(f"scope-purity gate failed; unexpected files: {sorted(unexpected)}")
-          required = {
-              "paper/kdd2027/main.tex",
-              "paper/kdd2027/source_locked.tex",
-              "paper/overleaf/main_replacement.tex",
-          }
-          missing = required - changed
-          if missing:
-              raise SystemExit(f"completeness gate failed; missing manuscript files: {sorted(missing)}")
+              raise SystemExit(f'scope-purity gate failed: {sorted(unexpected)}')
+          required = {'paper/kdd2027/main.tex', 'paper/kdd2027/source_locked.tex', 'paper/overleaf/main_replacement.tex'}
+          if required - changed:
+              raise SystemExit(f'completeness gate failed: {sorted(required - changed)}')
           PY
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m "PAPER-KDD2027-FIG1-FLOAT-PLACEMENT-01: move Figure 1 before controlled source"
+          git commit -m 'PAPER-KDD2027-FIG1-FLOAT-PLACEMENT-01: move Figure 1 before controlled source'
           echo "source_commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Compile revised canonical manuscript with TeX Live 2025
@@ -220,21 +182,17 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq poppler-utils >/dev/null
           DRPO_SKIP_LATEX_COMPILE=1 bash paper/kdd2027/build.sh
-
           pages="$(awk '/^Pages:/ {print $2}' paper/kdd2027/PDFINFO.txt)"
-          test "${pages}" = "27"
-          test "$(find paper/kdd2027/renders -maxdepth 1 -name 'page-*.png' -type f | wc -l | tr -d ' ')" = "27"
-
+          test "${pages}" = '27'
+          test "$(find paper/kdd2027/renders -maxdepth 1 -name 'page-*.png' -type f | wc -l | tr -d ' ')" = '27'
           pdftotext -f 6 -l 6 -layout paper/kdd2027/main.pdf /tmp/page6.txt
           grep -Fq 'External Diagnostic of Far-Field Repulsion' /tmp/page6.txt
           grep -Fq 'External far-field diagnostics' /tmp/page6.txt
           grep -Fq 'Controlled Identification of the Causal' /tmp/page6.txt
           grep -Fq 'Controlled source isolation and causal transmission' /tmp/page6.txt
-
           pdftotext -f 8 -l 8 -layout paper/kdd2027/main.pdf /tmp/page8.txt
           grep -Fq 'Conclusion' /tmp/page8.txt
           grep -Fq 'References' /tmp/page8.txt
-
           cp paper/kdd2027/main.pdf paper/releases/DRPO_KDD2027_STAGE_A.pdf
           pdf_sha="$(sha256sum paper/releases/DRPO_KDD2027_STAGE_A.pdf | awk '{print $1}')"
           cat > paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt <<EOF
@@ -254,9 +212,8 @@ jobs:
           render_gate=PASS
           page6_float_layout=PASS
           EOF
-
           git add paper/releases/DRPO_KDD2027_STAGE_A.pdf paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt
-          git commit -m "PAPER-KDD2027-FIG1-FLOAT-PLACEMENT-01: publish recompiled PDF"
+          git commit -m 'PAPER-KDD2027-FIG1-FLOAT-PLACEMENT-01: publish recompiled PDF'
           git push origin HEAD:dev/paper-kdd2027-fig1-float-placement-01
 
       - uses: actions/upload-artifact@v4
