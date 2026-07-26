@@ -25,6 +25,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # This workflow only repairs the temporary executor and removes itself.
           python - <<'PY'
           from pathlib import Path
           path = Path('.github/workflows/temp-apply-kdd-fig1-float-placement.yml')
