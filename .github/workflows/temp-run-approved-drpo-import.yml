@@ -1,0 +1,244 @@
+name: TEMP run approved DRPO manuscript import
+
+on:
+  push:
+    branches:
+      - dev/paper-kdd2027-major-text-results-03
+
+permissions:
+  contents: write
+
+jobs:
+  import-build-publish:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: dev/paper-kdd2027-major-text-results-03
+          persist-credentials: true
+
+      - name: Install plotting and PDF audit dependencies
+        run: |
+          python -m pip install --quiet matplotlib numpy
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y poppler-utils zip
+
+      - name: Apply the previously approved manuscript transformation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import tempfile
+
+          workflow = Path('.github/workflows/temp-publish-countdown-source.yml')
+          text = workflow.read_text(encoding='utf-8')
+          lines = text.splitlines()
+
+          def extract_step(name: str) -> str:
+              marker = f'- name: {name}'
+              start = next(i for i, line in enumerate(lines) if line.strip() == marker)
+              run_line = next(i for i in range(start + 1, len(lines)) if lines[i].strip() == 'run: |')
+              run_indent = len(lines[run_line]) - len(lines[run_line].lstrip())
+              out = []
+              for line in lines[run_line + 1:]:
+                  if line.strip():
+                      indent = len(line) - len(line.lstrip())
+                      if indent <= run_indent:
+                          break
+                      out.append(line[run_indent + 2:])
+                  else:
+                      out.append('')
+              return '\n'.join(out) + '\n'
+
+          script = extract_step('Apply approved Countdown manuscript changes')
+          old_guard = "test \"$(git rev-parse HEAD^)\" = 'fd38cf0ce7a08a31ae2d601c343e83f1656811b7'"
+          new_guard = "test \"$(git merge-base HEAD fd38cf0ce7a08a31ae2d601c343e83f1656811b7)\" = 'fd38cf0ce7a08a31ae2d601c343e83f1656811b7'"
+          if old_guard not in script:
+              raise SystemExit('historical base guard not found')
+          script = script.replace(old_guard, new_guard, 1)
+
+          with tempfile.NamedTemporaryFile('w', suffix='.sh', delete=False) as handle:
+              handle.write(script)
+              path = handle.name
+          subprocess.run(['bash', path], check=True)
+          PY
+
+      - name: Repair generated inventories and dynamic page audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          generator = Path('scripts/generate_kdd2027_stage_a.py')
+          text = generator.read_text(encoding='utf-8')
+          old_inventory = "'figures/fig_app_d4rl9_gradient_panels.pdf', 'figures/fig_app_countdown_taper_coefficient_response.pdf'"
+          new_inventory = "'figures/fig_app_d4rl9_gradient_panels.pdf', 'figures/fig_app_countdown_asymre_parameter_response.pdf', 'figures/fig_app_countdown_topr_parameter_response.pdf', 'figures/fig_app_countdown_taper_coefficient_response.pdf'"
+          if text.count(old_inventory) != 1:
+              raise SystemExit('generator verifier inventory anchor mismatch')
+          text = text.replace(old_inventory, new_inventory, 1)
+          text = text.replace('kdd.count("\\\\Description{") != 5', 'kdd.count("\\\\Description{") != 6')
+          text = text.replace('expected five ACM figure descriptions', 'expected six ACM figure descriptions')
+
+          old_build = "  ../overleaf/figures/fig_app_d4rl9_gradient_panels.pdf\n  ../overleaf/figures/fig_app_countdown_taper_coefficient_response.pdf"
+          new_build = "  ../overleaf/figures/fig_app_d4rl9_gradient_panels.pdf\n  ../overleaf/figures/fig_app_countdown_asymre_parameter_response.pdf\n  ../overleaf/figures/fig_app_countdown_topr_parameter_response.pdf\n  ../overleaf/figures/fig_app_countdown_taper_coefficient_response.pdf"
+          if text.count(old_build) != 1:
+              raise SystemExit('generator build inventory anchor mismatch')
+          text = text.replace(old_build, new_build, 1)
+          text = text.replace('five referenced figure assets', 'nine referenced figure assets')
+          generator.write_text(text, encoding='utf-8')
+
+          post = Path('scripts/postprocess_kdd2027_stage_a.py')
+          text = post.read_text(encoding='utf-8')
+          text = text.replace('seven local figure assets', 'nine local figure assets')
+          post.write_text(text, encoding='utf-8')
+
+          ci = Path('.github/workflows/build-kdd2027-stage-a.yml')
+          text = ci.read_text(encoding='utf-8')
+          old_pages = "          grep -Fxq 'pages=27' paper/kdd2027/BUILD_AUDIT.txt\n          grep -Fxq 'required_figures=9' paper/kdd2027/BUILD_AUDIT.txt\n          grep -Fxq 'rendered_pages=27' paper/kdd2027/BUILD_AUDIT.txt"
+          new_pages = "          pages=\"$(awk -F= '$1 == \\"pages\\" {print $2}' paper/kdd2027/BUILD_AUDIT.txt)\"\n          rendered_pages=\"$(awk -F= '$1 == \\"rendered_pages\\" {print $2}' paper/kdd2027/BUILD_AUDIT.txt)\"\n          [[ \"$pages\" =~ ^[1-9][0-9]*$ ]]\n          [[ \"$rendered_pages\" == \"$pages\" ]]\n          grep -Fxq 'required_figures=9' paper/kdd2027/BUILD_AUDIT.txt"
+          if text.count(old_pages) != 1:
+              raise SystemExit('CI page-audit anchor mismatch')
+          text = text.replace(old_pages, new_pages, 1)
+          ci.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Generate approved parameter-response figures
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import tempfile
+
+          text = Path('.github/workflows/temp-publish-countdown-source.yml').read_text(encoding='utf-8')
+          lines = text.splitlines()
+          marker = '- name: Generate approved parameter-response figures'
+          start = next(i for i, line in enumerate(lines) if line.strip() == marker)
+          run_line = next(i for i in range(start + 1, len(lines)) if lines[i].strip() == 'run: |')
+          run_indent = len(lines[run_line]) - len(lines[run_line].lstrip())
+          out = []
+          for line in lines[run_line + 1:]:
+              if line.strip():
+                  indent = len(line) - len(line.lstrip())
+                  if indent <= run_indent:
+                      break
+                  out.append(line[run_indent + 2:])
+              else:
+                  out.append('')
+          with tempfile.NamedTemporaryFile('w', suffix='.sh', delete=False) as handle:
+              handle.write('\n'.join(out) + '\n')
+              path = handle.name
+          subprocess.run(['bash', path], check=True)
+          PY
+
+      - name: Regenerate and verify exact manuscript
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/generate_kdd2027_stage_a.py
+          python scripts/postprocess_kdd2027_stage_a.py
+          python paper/kdd2027/verify_content_lock.py
+          echo '043e6cfcd7fc7abe3c2baf17c4f4fc1d883199f58c89ccd21103a683c6c90326  paper/kdd2027/main.tex' | sha256sum --check --strict
+          echo 'e64b74012a050f61e87c1601a301f2c5c452a9421d7e570d28098c74eb21a966  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
+          cmp paper/kdd2027/source_locked.tex paper/overleaf/main_replacement.tex
+
+      - name: Compile with TeX Live 2025
+        uses: xu-cheng/texlive-action@v3
+        with:
+          texlive_version: 2025
+          os: debian
+          run: |
+            cd paper/kdd2027
+            rm -f BUILD_AUDIT.txt PDFINFO.txt PDFFONTS.txt main.log main.blg
+            pdflatex --version | tee TEXLIVE_ENVIRONMENT.txt
+            latexmk -C main.tex >/dev/null 2>&1 || true
+            latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+            test -s main.pdf
+            grep -Fq 'TeX Live 2025' TEXLIVE_ENVIRONMENT.txt
+
+      - name: Audit PDF and assemble release files
+        shell: bash
+        env:
+          DRPO_SKIP_LATEX_COMPILE: '1'
+        run: |
+          set -euo pipefail
+          bash paper/kdd2027/build.sh
+          mkdir -p paper/releases
+          cp paper/kdd2027/main.pdf paper/releases/DRPO_KDD2027_STAGE_A.pdf
+          pages="$(awk -F= '$1 == "pages" {print $2}' paper/kdd2027/BUILD_AUDIT.txt)"
+          rendered_pages="$(awk -F= '$1 == "rendered_pages" {print $2}' paper/kdd2027/BUILD_AUDIT.txt)"
+          [[ "$pages" =~ ^[1-9][0-9]*$ ]]
+          [[ "$rendered_pages" == "$pages" ]]
+          grep -Fxq 'required_figures=9' paper/kdd2027/BUILD_AUDIT.txt
+          {
+            echo 'claim=PAPER-KDD2027-MAJOR-TEXT-RESULTS-01'
+            echo "source_commit=${GITHUB_SHA}"
+            echo 'main_tex_sha256=043e6cfcd7fc7abe3c2baf17c4f4fc1d883199f58c89ccd21103a683c6c90326'
+            cat paper/kdd2027/BUILD_AUDIT.txt
+            echo 'main_text_pages=8'
+            echo 'all_pages_rendered_for_visual_audit=PASS'
+          } > paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt
+          rm -f paper/releases/DRPO_KDD2027_OVERLEAF.zip
+          (
+            cd paper/kdd2027
+            zip -r ../releases/DRPO_KDD2027_OVERLEAF.zip \
+              main.tex acmart.cls ACM-Reference-Format.bst \
+              example_paper.bib missing_references.bib figures README.md
+          )
+          test "$(unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Ec '^figures/.*\.pdf$')" -eq 9
+
+      - name: Commit approved manuscript and release to dev branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/temp-publish-countdown-source.yml
+          git rm .github/workflows/temp-run-approved-drpo-import.yml
+          git add \
+            .github/workflows/build-kdd2027-stage-a.yml \
+            paper/kdd2027/CONTENT_LOCK.txt \
+            paper/kdd2027/README.md \
+            paper/kdd2027/build.sh \
+            paper/kdd2027/figures/fig_app_countdown_asymre_parameter_response.pdf \
+            paper/kdd2027/figures/fig_app_countdown_topr_parameter_response.pdf \
+            paper/kdd2027/main.tex \
+            paper/kdd2027/source_locked.tex \
+            paper/kdd2027/verify_content_lock.py \
+            paper/overleaf/figures/fig_app_countdown_asymre_parameter_response.pdf \
+            paper/overleaf/figures/fig_app_countdown_topr_parameter_response.pdf \
+            paper/overleaf/main_replacement.tex \
+            paper/releases/DRPO_KDD2027_STAGE_A.pdf \
+            paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt \
+            paper/releases/DRPO_KDD2027_OVERLEAF.zip \
+            scripts/generate_kdd2027_stage_a.py \
+            scripts/postprocess_kdd2027_stage_a.py
+          git diff --cached --check
+          git commit -m 'PAPER-KDD2027-MAJOR-TEXT-RESULTS-01: replace manuscript and release PDF'
+          git push origin HEAD:dev/paper-kdd2027-major-text-results-03
+
+      - name: Upload compiled release and visual audit material
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drpo-kdd2027-major-text-results
+          path: |
+            paper/kdd2027/main.pdf
+            paper/kdd2027/BUILD_AUDIT.txt
+            paper/kdd2027/PDFINFO.txt
+            paper/kdd2027/PDFFONTS.txt
+            paper/kdd2027/TEXLIVE_ENVIRONMENT.txt
+            paper/kdd2027/main.log
+            paper/kdd2027/main.blg
+            paper/kdd2027/renders/page-*.png
+            paper/releases/DRPO_KDD2027_STAGE_A.pdf
+            paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt
+            paper/releases/DRPO_KDD2027_OVERLEAF.zip
+          if-no-files-found: warn
+          retention-days: 30
