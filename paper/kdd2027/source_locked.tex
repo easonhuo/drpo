@@ -249,7 +249,8 @@ a replay buffer, or trajectories collected by earlier or stale behavior
 policies. Let $\pi_\theta(a \mid s)$ denote the current policy and let
 $\widehat{A}(s,a)$ denote the advantage-like signal used by the actor
 update. During an actor step, the update distribution and the associated
-advantage estimates are treated as fixed with respect to $\theta$. The resulting empirical actor field is
+advantage estimates are treated as fixed with respect to $\theta$. The resulting empirical signed actor field has the score-function form
+\citep{williams1992simple,sutton2000policy}:
 \begin{equation}
     \mathbf{F}(\theta)
     =
@@ -474,26 +475,9 @@ feedback loop. Combined with Proposition~\ref{prop:distance_strength}, it
 yields unbounded amplification for fixed-covariance Gaussian mean updates
 and bounded but persistent amplification for categorical logits.
 
-\begin{proposition}[Quantitative Gaussian reuse rates]
-\label{prop:reuse_rate}
-For an isotropic Gaussian mean policy with covariance \(\sigma^2I\),
-one fixed negative sample of mass \(q>0\), and
-\(X_t=D_t-C_\Sigma>0\), the uncontrolled update satisfies
-\[
- X_{t+1}=\left(1+\eta q/\sigma^2\right)^2X_t,
-\]
-so remoteness grows geometrically. Anticipating the taper introduced in
-Section~\ref{sec:drpo}, if the same sample is weighted by
-\(\exp\{-a[D_t-\tau]_+\}\), \(a>0\), then its continuous-time
-remoteness is \(O(a^{-1}\log t)\), and the discrete update obeys
-\[
- X_t\le a^{-1}\{\log t+\log\log t+O(1)\}.
-\]
-The proof is in Appendix~\ref{app:gaussian_reuse_rate}. This slowdown
-does not by itself prove aggregate boundedness; that requires the
-closed-loop attraction established in
-Theorem~\ref{thm:gaussian_drpo_boundedness}.
-\end{proposition}
+For an isolated isotropic-Gaussian negative sample, repeated
+uncontrolled reuse produces geometric growth in remoteness; the exact
+rate is given in Appendix~\ref{app:gaussian_reuse_rate}.
 
 \subsection{Aggregate Equilibria under Historical Reuse}
 \label{sec:aggregate_equilibria}
@@ -511,9 +495,8 @@ Appendix~\ref{app:aggregate_equilibrium}. Using the aggregate masses
 \(p,q,\rho\) from Equation~\eqref{eq:aggregate_masses}, let
 \(\mathbf m_+\) denote the positive-only target, the mean-parameter point
 selected by positive feedback alone. When \(q>0\), let \(\mathbf m_-\)
-denote the magnitude-weighted moment of negative samples. It is not an
-attraction target: the negative actor contribution repels the learner from
-this moment.
+denote the magnitude-weighted negative-sample moment (a repulsion moment,
+not an attraction target).
 
 \begin{theorem}[Aggregate attraction--repulsion regimes]
 \label{thm:aggregate_equilibria}
@@ -569,11 +552,7 @@ Equation~\eqref{eq:signed_target_ratio} gives the central geometric
 interpretation: while positive feedback remains dominant, negative
 feedback displaces the equilibrium from \(\mathbf m_+\) in the direction
 \(\mathbf m_+-\mathbf m_-\), and therefore away from
-\(\mathbf m_-\). For fixed moments, the multiplier
-\(\rho/(1-\rho)\) increases with the relative negative strength and
-diverges as \(\rho\to1^-\). These conclusions concern policy geometry
-and stability; they do not imply that the resulting displacement
-improves task utility.
+\(\mathbf m_-\).
 
 % ------------------------------------------------------------------
 % SECTION 4: METHODOLOGY
@@ -683,13 +662,11 @@ source. The proof and the Euclidean-spring variant are in
 Appendix~\ref{app:regularized_restoration}.
 \end{proposition}
 
-Corollary~\ref{cor:selective_vs_global} provides the mechanism-level
-justification for Section~\ref{sec:drpo}: selective tapering changes the
-far-field sign by removing the remote source, whereas a constant global scale
-must be tuned to the negative-to-positive mass ratio. These conclusions assume
-frozen data, fixed advantages, and unbounded reuse. Data refresh, actor--critic
-coupling, and reference regularization change the field; the proposition above
-shows how regularization instead restores stability by tethering the policy.
+Corollary~\ref{cor:selective_vs_global} justifies selective tapering: it
+removes the remote source, whereas a constant global scale must be tuned to
+the negative-to-positive mass ratio. These conclusions assume frozen data,
+fixed advantages, and unbounded reuse; data refresh and actor--critic
+coupling alter the field.
 
 \section{Dynamic Remoteness-Aware Policy Optimization}
 \label{sec:drpo}
@@ -748,18 +725,20 @@ Remoteness is recomputed under the current policy but detached before it is
 used as a coefficient; DRPO is therefore a dynamic weighting rule rather than
 a differentiable distance regularizer.
 
-At each policy iterate, tapering preserves the algebraic regime structure of
-Theorem~\ref{thm:aggregate_equilibria} after replacing the negative mass and
-moment by
+At each policy iterate, tapering preserves the aggregate regime structure
+after replacing the negative mass and moment by
 \[
 q_\omega=\mathbb E_\nu[\widehat A^-\omega],
 \qquad
 \mathbf M_{-,\omega}=\mathbb E_\nu[\widehat A^-\omega T(a)].
 \]
-When \(0<q_\omega<p\), the controlled signed target is
-\(\mathbf m_\omega^\star=(p\mathbf m_+-\mathbf M_{-,\omega})/(p-q_\omega)\);
-when \(q_\omega=0\), use \(\mathbf M_{-,\omega}=0\) without defining a
-normalized negative moment.
+For \(0\le q_\omega<p\), the controlled signed target is
+\[
+\mathbf m_\omega^\star
+=
+\frac{p\mathbf m_+-\mathbf M_{-,\omega}}{p-q_\omega},
+\]
+with \(\mathbf M_{-,\omega}=0\) when \(q_\omega=0\).
 
 \paragraph{Gaussian policies.}
 For a Gaussian policy with mean \(\mu_\theta(s)\) and fixed covariance
@@ -801,8 +780,18 @@ Equation~\eqref{eq:drpo_exp_weight} gives
     \right\}.
     \label{eq:drpo_categorical_weight}
 \end{equation}
-Thus, the same actor update uses squared standardized distance for Gaussian
-policies and surprisal for categorical policies.
+\paragraph{Relation to existing negative-update controls.}
+Positive-only sets the negative-branch weight to zero, whereas fixed
+HPO/global-\(\alpha\) applies a constant weight \(\alpha\) to all
+negative advantages \citep{sana2026hpo}. AsymRE changes the
+positive--negative balance through the reward baseline rather than
+learner-relative remoteness \citep{arnal2025asymmetric}. At the
+atomic-action level, canonical TOPR's \(\min\{\pi/\mu,1\}\) is the
+\(\beta=1\), behavior-threshold member of the categorical taper family
+\citep{leroux2025tapered}; DRPO instead uses learner-relative threshold,
+scale, and decay parameters to satisfy L0--L3. Exact identities,
+extensions, and the fitted-reference experimental variant are given in
+Appendix~\ref{app:topr_relation}.
 
 \subsection{Loop-Gain Order}
 \label{subsec:min_order_control}
@@ -824,11 +813,13 @@ Appendix~\ref{app:min_order_control}.
 \end{proposition}
 
 At the exact matching rate \(\omega(D)=\Theta(D^{-1})\), the weighted
-parameter force is \(\Theta(D^{-1/2})\to0\), but the weighted reuse loop gain
-is \(\Theta(1)\). An isolated reused atom can therefore keep driving
-remoteness outward at a constant order. Quantitatively, uncontrolled Gaussian
-reuse gives geometric growth, matching-order tapering gives linear growth,
-and DRPO's exponential taper gives logarithmic growth.
+parameter force is \(\Theta(D^{-1/2})\to0\), but the weighted reuse loop
+gain is \(\Theta(1)\). An isolated reused atom can therefore keep driving
+remoteness outward at a constant order. For isolated Gaussian reuse,
+this yields geometric growth without control, linear growth under
+matching-order reciprocal tapering, and logarithmic growth under
+DRPO's exponential taper
+(Appendix~\ref{app:gaussian_reuse_rate}).
 
 \paragraph{Utility boundary.}
 \label{subsec:distance_dependent_utility}
@@ -861,9 +852,8 @@ Thus, the exponential taper eliminates any finite-order far-field tail
 rather than merely bounding it.
 \end{proposition}
 
-The exponential form is not unique; it is a simple smooth envelope that
-dominates finite-order growth. The proof is given in
-Appendix~\ref{app:exp_vanishing_influence}.
+(Proof: Appendix~\ref{app:exp_vanishing_influence}; the exponential form is
+a convenient envelope, not the unique choice.)
 
 The control conditions form a guarantee hierarchy. L0,
 \(\omega(D)\to0\), gives eventual inward Gaussian radial drift for each
@@ -872,8 +862,7 @@ absolute negative far-field force; L2, \(\omega(D)D=O(1)\), bounds the
 Gaussian reuse loop gain; and L3,
 \(D^k\omega(D)\to0\) for every finite \(k\), removes all finite-order
 tails. Global scaling fails L0, reciprocal-quadratic tapering is critical at
-L2, and exponential tapering satisfies L0--L3. This hierarchy ranks
-guarantees, not task performance.
+L2, and exponential tapering satisfies L0--L3. 
 
 This hierarchy also organizes the experimental controls. Positive-only and
 global scaling ignore remoteness; reciprocal tapers have polynomial tails, and the quadratic member meets the matching
@@ -908,16 +897,22 @@ Every continuous trajectory satisfies
 \(\limsup_{t\to\infty}\|\mu(t)-m_+\|_2\le R^*\), and the field has at
 least one finite equilibrium. If an uncontrolled stable equilibrium
 places every negative atom strictly below its threshold, the controlled
-field and Jacobian coincide with the original ones in a neighborhood of
+and original fields have the same local linearization in a neighborhood of
 that equilibrium.
 \end{theorem}
 
-The proof gives an explicit branch-wise bound on \(B_\omega\); a separate
-branch is required when the shifted threshold is negative because the taper is
-then active at radius zero. Along every escaping sequence,
-\(\rho_{\mathrm{eff}}(\mu)=p^{-1}\sum_iq_i\omega_i(D_i)\to0\). This is a
-diagnostic consequence, not the boundedness argument. See
-Appendix~\ref{app:gaussian_drpo_boundedness}.
+Appendix~\ref{app:gaussian_drpo_boundedness} gives an explicit
+branch-wise bound, including the case where the shifted threshold is
+negative and tapering is active from radius zero. Along every escaping
+sequence,
+\[
+\rho_{\mathrm{eff}}(\mu)
+=
+p^{-1}\sum_i q_i\omega_i(D_i)
+\longrightarrow 0;
+\]
+this explains how the remote negative source disappears, but it is a
+diagnostic consequence rather than the boundedness argument.
 
 \begin{theorem}[Categorical self-limiting suppression]
 \label{thm:categorical_self_limiting}
@@ -929,104 +924,25 @@ Under an uncontrolled negative atom of mass \(q>0\),
 \qquad \frac K{K-1}\le c_K(t)\le2.
 \]
 Hence \(y_i\) eventually decreases linearly and \(\pi_i\) exponentially.
-If one off-target action is initially the unique maximum then
-\(c_K(t)\to2\); under complete off-target symmetry,
-\(c_K(t)\equiv K/(K-1)\). With
-\(\omega_i=\min\{1,(e^{\tau_i}\pi_i)^\beta\}\), \(\beta=\lambda/c\),
-the far branch instead satisfies
+With \(\omega_i=\min\{1,(e^{\tau_i}\pi_i)^\beta\}\),
+\(\beta=\lambda/c\), the far branch instead satisfies
 \[
 y_i(t)=-\beta^{-1}\log t+O(1),
 \qquad \pi_i(t)=\Theta(t^{-1/\beta}).
 \]
 Thus tapering changes persistent suppression from exponential to
 polynomial probability decay; it does not freeze the action probability.
-The output-coordinate proof is in
-Appendix~\ref{app:categorical_self_limiting}; shared-network parameter
-gradients additionally contain the network Jacobian and cross-sample
-interference.
 \end{theorem}
 
-\begin{remark}[Restoring-force balance]
-A stable finite crossing requires the restoring-minus-suppression field to
-change sign from positive to negative as the log-odds increase; equivalently,
-at a hyperbolic crossing, \([S_{\mathrm{tap}}-E]'(y^*)>0\). Entropy regularization with
-\(\beta\ge1\) satisfies only the required far-tail ordering in the binary or
-symmetric one-vs-rest reduction; a full stability result additionally uses
-the stated phase-line conditions. See
-Appendix~\ref{app:categorical_restoring_balance}.
-\end{remark}
+The output-coordinate proof and finite-crossing conditions are given in
+Appendices~\ref{app:categorical_self_limiting}
+and~\ref{app:categorical_restoring_balance}.
 
-\subsection{Variational Interpretation}
-
-DRPO's exponential attenuation admits an optimistic finite-measure
-reweighting interpretation analogous to divergence-ball DRO. The analogy
-is deliberately qualified: unlike standard ambiguity sets over normalized
-probability measures, the present construction permits attenuation of the
-total negative-update mass. Let
-\(d\xi^-(z)=\widehat A^-(z)d\nu(z)\) and
-\(h(z)=[D(z)-\tau(z)]_+\). Consider
-\begin{equation}
-\min_{0\le w\le1}\int wh\,d\xi^-
-\quad\mathrm{s.t.}\quad
-\int(w\log w-w+1)d\xi^-\le\delta.
-\label{eq:finite_measure_variational}
-\end{equation}
-
-\begin{proposition}[Finite-measure exponential reweighting]
-\label{prop:finite_measure_variational}
-Let \(\delta_0=\xi^-(\{h>0\})\). For
-\(0<\delta<\delta_0\), the constraint in
-Equation~\eqref{eq:finite_measure_variational} is active and has a unique
-finite \(\kappa>0\) with
-\(w_\kappa(z)=e^{-h(z)/\kappa}\). At \(\delta=\delta_0\), the endpoint is
-\(w_0=\mathbf1\{h=0\}\); for \(\delta>\delta_0\), zero objective is
-already attainable and no finite one-to-one \(\kappa\)--\(\delta\)
-relation remains. The later endpoint \(\delta\ge|\xi^-|\) merely makes
-\(w\equiv0\) feasible. The proof is in
-Appendix~\ref{app:finite_measure_variational}.
-\end{proposition}
-
-\subsection{Relation to TOPR}
-
-For sequence policies, token surprisal sums to total trajectory surprisal
-\(-\log\pi_\theta(y\mid x)\); mean-token surprisal divides this quantity by
-\(|y|\). The two coordinates have the same ordering at fixed length but need
-not agree across variable-length responses. TOPR attenuates negative updates
-by the truncated ratio \(\min\{\pi/\mu,1\}\).
-
-At the atomic-action or total-trajectory-surprisal level, canonical TOPR's
-negative coefficient is the \(\beta=1\), sample-specific-threshold member of the
-taper family. Our mean-token-surprisal Countdown implementation is instead a
-length-normalized analogue. Applying the same density-ratio coefficient to
-Gaussian policies is an extension under a common dominating measure, not a
-claim about the scope of the original TOPR analysis. Algebraically,
-\begin{align}
-e^{-[-\log\pi+\log\mu]_+}
-&=\min\{\pi/\mu,1\},
-\label{eq:topr_exact_identity}\\
-e^{-[-L^{-1}\log\pi+L^{-1}\log\mu]_+}
-&=\min\{\pi/\mu,1\}^{1/L}.
-\label{eq:topr_length_normalized}
-\end{align}
-The Gaussian extension assumes a common dominating measure,
-\(\mu(a_i)>0\), and finite support or integrable tails; using a direct
-log-density ratio avoids conflating sample thresholds with unequal
-normalization constants.
-
-For a fixed reused sample, the far-branch conditional vector field contains
-a \(\mu^{-1}\) coefficient, while the resulting absolute probability has a \(\mu\)
-prefactor and the normalized ratio \(\pi/\mu\) decays as \(t^{-1}\). In the population
-TOPR field, the outer sampling mass \(\mu\) cancels this denominator. We therefore
-report weighted aggregate constants first and label any \(\mu_{\min}\) expression as
-a finite-support worst-case relaxation. In particular, under the applicable
-plateau branch,
-\[
-B_\omega^{\mathrm{TOPR}}
-\le\sqrt{\lambda_{\max}(\Sigma^{-1})}
-\sum_iq_i\sqrt{2\{\log(1/\mu_i)-C_\Sigma\}};
-\]
-otherwise the full branch-wise bound in
-Appendix~\ref{app:gaussian_drpo_boundedness} is used.
+DRPO's exponential taper also arises as the optimizer of a
+generalized-I-divergence-constrained reweighting of the finite
+negative-update measure; unlike standard DRO over normalized distributions,
+this construction may reduce total negative-update mass
+(Appendix~\ref{app:finite_measure_variational}).
 
 \section{Experiments}
 \label{sec:experiments}
@@ -1071,56 +987,41 @@ Appendix~\ref{app:controlled_protocols}.
     ]{figures/figure1_external_gradient_d4rl9.pdf}
 
     \caption{
-        \textbf{External diagnostic of far-field negative-update magnitude.}
-        \textbf{(a)} D4RL locomotion: equal-weight aggregate across
-        HalfCheetah, Hopper, and Walker2d under the medium, medium-replay,
-        and medium-expert datasets. For negative learned-critic advantages,
-        each far transition is normalized by its original matched near partner
-        within seed and dataset. The line reports the cross-dataset mean, the shaded region
-        denotes a hierarchical bootstrap 95\% confidence interval over
-        datasets and seeds, and the matched far/near absolute-advantage ratio
-        is reported as a diagnostic.
-        \textbf{(b)} Countdown: relative implemented actor-gradient diagnostic
-        and fixed negative coefficient magnitude as functions of current-policy
-        mean-token surprisal deciles among verifier-matched unsuccessful
-        responses. Values are normalized to the lowest-surprisal decile, and
-        shaded regions denote puzzle-level bootstrap 95\% confidence intervals.
+        \textbf{External far-field diagnostics.}
+        \textbf{(a)} D4RL-9 equal-weight aggregate of relative implemented
+        actor-gradient magnitude for negative frozen-advantage transitions versus
+        policy-relative standardized distance. Each far transition is normalized by
+        its matched near partner within seed and dataset; the matched far/near
+        absolute-advantage ratio checks matching quality (shading:
+        hierarchical-bootstrap 95\% CI; per-dataset panels:
+        Figure~\ref{fig:app_d4rl9_gradient_panels}).
+        \textbf{(b)} Countdown relative implemented actor-gradient diagnostic and
+        fixed negative coefficient versus mean-token surprisal decile among
+        verifier-matched unsuccessful responses, normalized to the lowest-surprisal
+        decile (shading: puzzle-level bootstrap 95\% CI).
     }
     \label{fig:external_far_field}
 \end{figure}
 
-For D4RL, we evaluate negative-advantage transitions around fixed
-Positive-only Gaussian reference actors. Remoteness is defined by
-policy-relative standardized distance, and near/far transitions are matched
-by absolute frozen learned-critic advantage; no policy update is performed
-during probing. Full critic fitting, actor training, matching, gradient-probe,
-and aggregation details are provided in
-Appendix~\ref{app:d4rl_gradient_diagnostic}.
+For D4RL, probing is performed around fixed Positive-only Gaussian reference
+actors without policy updates; Countdown provides the autoregressive
+counterpart. In both domains, learner-relative remoteness varies while
+sample-quality magnitude is held fixed. Full protocols are given in
+Appendices~\ref{app:d4rl_gradient_diagnostic}
+and~\ref{app:countdown_methods}.
 
-Countdown provides an autoregressive discrete setting, where remoteness is
-measured by current-policy mean-token surprisal. The diagnostic controls the
-sample-quality coefficient in each setting. Across the D4RL datasets, we
-compare negative-advantage transitions after matching their absolute frozen
-advantages. In Countdown, we compare verifier-matched unsuccessful responses
-while holding the negative coefficient magnitude fixed. These matches test
-whether remoteness is reflected in implemented actor updates independently of
-the sample-quality coefficient.
-
-Figure~\ref{fig:external_far_field} shows signatures specific to each
-policy family. Across all nine D4RL locomotion dataset cells, the implemented
+Across all nine D4RL locomotion dataset cells, the implemented
 full-parameter actor-gradient diagnostic increases strongly with
-policy-relative standardized distance. The equal-weight aggregate exhibits
-the same near-to-far amplification, while the per-dataset panels in
-Figure~\ref{fig:app_d4rl9_gradient_panels} show that the result is not driven
-by a single environment or dataset quality. The aggregate scaling is
-approximately linear in standardized distance, consistent with the theoretical
-prediction that the squared Gaussian score norm scales with squared
-standardized distance. In Countdown, the fixed-coefficient diagnostic remains
-substantial at high mean-token surprisal. We interpret the latter as persistent
-suppression in a categorical sequence policy, not as an unbounded direct-logit
-score; implemented parameter gradients also contain the network Jacobian.
-These diagnostics show that remoteness-correlated update magnitude appears in
-realistic neural actors, but they do not identify its source or causal effect.
+policy-relative standardized distance, with per-dataset panels
+(Figure~\ref{fig:app_d4rl9_gradient_panels}) showing that the pattern is not
+driven by a single environment or dataset quality. The approximately linear
+scaling agrees with the Gaussian prediction that mean-score magnitude grows
+linearly with standardized distance. In Countdown, the fixed-coefficient
+diagnostic remains substantial at high mean-token surprisal, consistent with
+persistent categorical suppression. These probes show that the predicted
+near-to-far pattern appears in realistic neural policies; the controlled
+experiments below separate remoteness from coefficient magnitude and test
+whether far-field updates drive instability.
 
 
 
@@ -1159,14 +1060,11 @@ Appendix~\ref{app:controlled_protocols}.
 
 \caption{
     \textbf{Controlled source isolation and causal transmission.}
-    \textbf{Top:} source-isolation factorization across
-    learner-relative remoteness bins, normalized to the near bin.
-    COE denotes coefficient magnitude and SC denotes policy-score
-    response; C rows report the C-U1 continuous protocol, and D rows
-    show the corresponding direct-softmax categorical reference.
-    \textbf{Bottom:} C-U1 causal-intervention summary. Ret. denotes
-    reward retention; points show 20-seed means with bootstrap
-    confidence intervals, and Task coll. reports task-performance
+    \textbf{Top:} coefficient magnitude (COE) and policy-score response (SC)
+    across remoteness bins, normalized to the near bin, for the C-U1 Gaussian
+    protocol and the direct-softmax categorical reference.
+    \textbf{Bottom:} C-U1 interventions; Ret. denotes reward retention
+    (20-seed means with bootstrap CIs), and Task coll. denotes task-performance
     collapse counts.
 }
     \label{fig:controlled_6_3}
@@ -1188,15 +1086,14 @@ by farther samples having larger advantages; it is generated by the
 policy-score geometry itself. The manifestation differs across action
 spaces: Gaussian policies exhibit amplitude amplification, while
 categorical policies approach a bounded direct-logit score but continue
-to suppress the selected action toward the simplex boundary. This
-experiment identifies the source of the update difference, not its downstream
-causal effect.
+to suppress the selected action toward the simplex boundary. The source-isolation experiment establishes where the update difference comes
+from; the next intervention tests whether it propagates into drift and
+collapse.
 
 \subsubsection{Causal Transmission into Drift and Collapse}
 \label{sec:controlled_transmission}
 
-We next test whether the far-field update causally propagates into
-instability. In the C-U1 intervention protocol, all branches share the
+In the C-U1 intervention protocol, all branches share the
 same data, fixed labels, initialization, optimizer, and training horizon,
 and differ only in how near- and far-field negative updates are retained,
 removed, capped, or globally rescaled. These matched-control invariants are
@@ -1214,8 +1111,7 @@ preserving the same total negative-update budget.
 
 These interventions identify the far-field negative update, rather than
 negative feedback in general, as a causal transmission path to policy
-instability in the controlled Gaussian environment. Outcomes follow the
-taxonomy in Section~\ref{sec:environments_datasets}.
+instability in the controlled Gaussian environment.
 
 \subsection{From Useful Repulsion to DRPO Control}
 \label{sec:repulsion_control}
@@ -1238,11 +1134,10 @@ dominance and permits controlled comparisons of taper shape.
     \vspace{-0.35em}
 \caption{
     \textbf{Stable extrapolation from controlled negative feedback.}
-    Increasing the effective negative strength $q/p$ first improves
-    held-out-context reward beyond the positive-only ceiling, then causes
-    over-extrapolation and task-performance collapse. Policy shift
-    measures displacement from the positive-only target. The color strip
-    reports task collapse, boundary events, and NaN/Inf failures
+    Increasing \(q/p\) first lifts held-out-context reward above the
+    positive-only ceiling, then causes over-extrapolation and task-performance
+    collapse; policy shift measures displacement from the positive-only target.
+    The strip reports task collapse, boundary events, and NaN/Inf failures
     separately.
 }
     \label{fig:phase_transition_6_4_1}
@@ -1262,11 +1157,9 @@ indicating over-extrapolation rather than additional useful
 generalization. At the largest strengths, task-performance collapse and
 boundary events appear; numerical failures remain a separate outcome class.
 
-This strength sweep supplies the missing link between causal rescue and
-tapered control: positive-only learning removes the harmful tail but also
-removes the beneficial intermediate regime. Remoteness-aware control
-should therefore preserve useful local repulsion while preventing the
-far-field tail from dominating.
+Positive-only learning removes the harmful tail but also the beneficial
+intermediate regime; remoteness-aware control should preserve local repulsion
+while suppressing the far-field tail.
 
 
 \begin{figure}[t]
@@ -1293,32 +1186,28 @@ far-field tail from dominating.
     \toprule
     Method & Hop. & Cnt. \\
     \midrule
-    Pos.        & \texttt{--} & \texttt{--} \\
-    G-$\alpha$  & \texttt{--} & \texttt{--} \\
-    Rec.-L      & \texttt{--} & \texttt{--} \\
-    Rec.-Q      & \texttt{--} & \texttt{--} \\
-    DRPO        & \textbf{\texttt{--}} & \textbf{\texttt{--}} \\
+    Pos.        & \texttt{--} & 14.0 \\
+    G-$\alpha$  & \texttt{--} & 2.4 \\
+    Rec.-L      & \texttt{--} & 13.6 \\
+    Rec.-Q      & \texttt{--} & 14.5 \\
+    DRPO        & \textbf{\texttt{--}} & \textbf{15.7} \\
     \bottomrule
     \end{tabular}
     }
 
-    \vspace{0.25em}
-    {\scriptsize
-    Hop.: Hopper return.\\
-    Cnt.: Countdown success.
-    }
 \end{minipage}
 
 \vspace{-0.35em}
 \caption{
 \textbf{Controlled taper comparison and external transfer.}
-\textbf{(a)} Matched operating-point comparison in the controlled taper
-protocol. For each method, the left bar is the near-field-retention matched
-operating point and the right bar is the aggregate-budget matched operating
-point. Bars decompose retained negative-update magnitude into near- and
-far-field components, and dashed traces report held-out-context reward.
-\textbf{(b)} Reserved external validation summary for Hopper and Countdown;
-dashes mark outcomes awaiting the corresponding formal runs.
+\textbf{(a)} Matched operating points (left: near-field-retention matched;
+right: aggregate-budget matched); bars decompose retained negative-update
+magnitude into near- and far-field components, and dashed traces show
+held-out-context reward.
+\textbf{(b)} Countdown-0.5B fixed-budget transfer reports the best observed
+two-seed late-window Pass@8 from each registered development sweep (full
+curves: Figure~\ref{fig:app_countdown_taper_coefficient_response}); Hopper
+remains pending the formal run and terminal audit.
 }
 \label{fig:taper_control_and_transfer}
 \end{figure}
@@ -1335,36 +1224,25 @@ decay, whereas aggregate-budget matching tests whether a selective taper
 outperforms a global reduction with the same total negative-update
 budget.
 
-As shown in Figure~\ref{fig:taper_control_and_transfer}, DRPO's exponential taper
-provides the strongest stability--utility trade-off under both matched
-comparisons. Positive-only learning avoids far-field instability but
-remains at the positive-support ceiling. Global scaling suppresses useful
-near- and harmful far-field feedback indiscriminately. Reciprocal
-tapering introduces remoteness-aware suppression, but its tail remains
-heavier than the exponential rule. The exponential taper instead retains
-near-field repulsion while rapidly suppressing the far-field tail,
-yielding higher task performance and held-out-context generalization
-than the matched alternatives.
+Under both matched comparisons, exponential tapering retains near-field
+repulsion while suppressing the far-field tail more rapidly than polynomial
+tapers. Positive-only removes both components, whereas global scaling reduces
+them indiscriminately. In the fixed-budget Countdown transfer summary, the
+best observed point in the two-seed development sweep is DRPO's 15.7\%
+late-window Pass@8, followed by Reciprocal-Quadratic (14.5\%), Positive-only
+(14.0\%), Reciprocal-Linear (13.6\%), and Global-\(\alpha\) (2.4\%)
+(full curves: Figure~\ref{fig:app_countdown_taper_coefficient_response}).
 
 \subsubsection{External Validation of Remoteness Tapering}
 \label{sec:external_tapers}
 
-We finally transfer the same control principle to Hopper and Countdown.
-DRPO weights Hopper transitions by their standardized remoteness from
-the current Gaussian policy and Countdown responses by their current
-mean token surprisal. Within each task, all methods share the dataset,
-initialization, labels, optimizer, and training budget. Because these
-external tasks do not provide known counterfactual geometry or exact
-near-field utility matching, they test transfer rather than repeat the
-controlled causal identification.
-
-The external summary in Figure~\ref{fig:taper_control_and_transfer}
-pre-registers the transfer comparison, but its cells remain open pending
-the formal runs and terminal audit. We therefore make no task-level
-ranking claim from this panel. The controlled results establish the
-stability--utility mechanism; the external panel tests whether that
-principle transfers to continuous offline control and autoregressive
-policy optimization.
+The same principle is tested externally: DRPO weights Hopper transitions by
+standardized remoteness from the current Gaussian policy and Countdown
+responses by mean-token surprisal, with protocol-matched methods sharing
+data, labels, initialization, optimizer, and budget. Because external tasks
+lack counterfactual near/far geometry, Figure~\ref{fig:taper_control_and_transfer}b
+provides transfer evidence rather than a closed cross-task ranking; Hopper
+entries remain open pending the formal run and terminal audit.
 
 \subsection{Overall Task Performance}
 \label{sec:overall_performance}
@@ -1391,7 +1269,9 @@ Hopper, and Walker2d under the medium, medium-replay, and medium-expert
 datasets. These datasets vary in behavior quality and coverage, with
 medium-replay containing the broadest mixture of historical policies.
 Table~\ref{tab:d4rl_performance} compares DRPO with published offline-RL
-baselines under the D4RL evaluation protocol. The shared objectives and
+baselines---CQL \citep{kumar2020conservative}, TD3+BC
+\citep{fujimoto2021minimalist}, and IQL \citep{kostrikov2021offline}---%
+under the D4RL evaluation protocol \citep{fu2020d4rl,todorov2012mujoco}. The shared objectives and
 taper functions are defined in Appendix~\ref{app:shared_methods};
 D4RL-specific score provenance, uncertainty statistics, remoteness
 construction, and implementation details are provided in
@@ -1461,45 +1341,41 @@ walker2d-expert
 
 \begin{minipage}{\columnwidth}
 \small
-\textit{Note.}
-Dataset names are shortened for compactness: ``replay'' denotes
-``medium-replay'', ``expert'' denotes ``medium-expert'', and the D4RL
-``-v2'' suffix is omitted. Results marked by $\dagger$ are reported by
-prior work rather than protocol-matched reruns. Rows report task-level
-normalized returns, and \textit{D4RL-9 total} sums the nine task means.
-Bold and underlined values denote the best and second-best results among
-the methods shown in this table. DRPO results are averaged over 10 runs;
-standard deviations and seed-level results are reported in
-Appendix~\ref{app:d4rl_methods}.
+\textit{Note.} ``replay'' and ``expert'' abbreviate ``medium-replay'' and
+``medium-expert'', respectively. $\dagger$: published results rather than
+protocol-matched reruns. Bold/underline: best/second-best among the methods
+shown. DRPO reports the mean over 10 runs; standard deviations and seed-level
+results are in Appendix~\ref{app:d4rl_methods}.
 \end{minipage}
 
 \end{table}
 
-The populated candidate table gives DRPO a D4RL-9 total normalized
-return of 716.6. This aggregate and the apparent medium-replay advantage
-remain provisional until the registered seed-level and terminal audits
-close; no causal explanation is inferred from the task-level ranking.
-
 \subsubsection{Countdown}
 \label{sec:countdown_performance}
 
-We evaluate DRPO on held-out Countdown puzzles, where a response is
+We evaluate DRPO on held-out Countdown puzzles using
+Qwen2.5-0.5B-Instruct~\citep{qwen2024qwen25}, where a response is
 successful only if it forms a valid arithmetic expression that uses the
 provided numbers and reaches the target value. Greedy verifier success
-is the primary metric, while pass@$k$ measures sampling-level solution
+is the primary metric, while Pass@$k$ measures sampling-level solution
 coverage and valid-expression rate distinguishes reasoning failure from
 formatting or execution failure.
 
-All compared policy-optimization methods start from the same SFT
-checkpoint and use the same frozen response bank, training budget,
-validation split, and test puzzles. We compare DRPO with
+We use a four-number Countdown variant \citep{hutton2002countdown}, following
+the verifier-guided formulation of TinyZero \citep{pan2025tinyzero}. A
+registered model-independent generator constructs one frozen prompt-indexed
+bank of verified oracle solutions and verifier-incorrect completions, shared
+with fixed labels and update budget by all protocol-matched methods;
+method-specific learner-relative statistics are recomputed during training.
+This zero-refresh limit isolates stale-negative reuse
+(Appendices~\ref{app:countdown_dataset} and~\ref{app:countdown_methods}).
+
+We compare DRPO with
 AsymRE~\citep{arnal2025asymmetric} and
-TOPR~\citep{leroux2025tapered} as off-policy baselines.
+the Joint Fitted-Reference \(\beta\)-TOPR
+variant~\citep{leroux2025tapered} as off-policy baselines.
 The shared objectives and taper functions are defined in
-Appendix~\ref{app:shared_methods}; Countdown-specific baseline
-implementations, response-bank construction, checkpoint selection, and
-evaluation details are provided in
-Appendix~\ref{app:countdown_methods}.
+Appendix~\ref{app:shared_methods}.
 
 \begin{table}[t]
 \centering
@@ -1516,7 +1392,7 @@ Metric
 &
 AsymRE
 &
-TOPR
+\makecell{\(\beta\)-TOPR\\(joint fitted ref.)}
 &
 \textbf{DRPO}
 \\
@@ -1548,15 +1424,18 @@ Valid expression (\%)
 \begin{minipage}{\columnwidth}
 \small
 \textit{Note.}
-All methods use the same SFT checkpoint, frozen response bank,
-validation split, test puzzles, and training budget. A dash denotes a
-result pending the formal run.
+All methods initialize a fresh policy LoRA on the same
+Qwen2.5-0.5B-Instruct backbone and share the frozen V2 negative bank,
+validation split, test puzzles, and training budget. The TOPR arm
+implements the joint fitted-reference \(\beta\)-TOPR variant; it is not a
+canonical frozen-behavior reproduction of \citet{leroux2025tapered}. A
+dash denotes a result pending the formal run.
 \end{minipage}
 
 \end{table}
 
 Table~\ref{tab:countdown_performance} reserves the greedy success,
-pass@$k$, and validity fields for the formal run. Because all entries are
+Pass@$k$, and validity fields for the formal run. Because all entries are
 pending, we make no Countdown ranking or improvement claim in this
 version.
 
@@ -1937,6 +1816,25 @@ This proves both claims.
 
 \subsection{Quantitative Gaussian Reuse Rates}
 \label{app:gaussian_reuse_rate}
+
+\begin{proposition}[Quantitative Gaussian reuse rates]
+\label{prop:reuse_rate}
+For an isotropic Gaussian mean policy with covariance \(\sigma^2I\),
+one fixed negative sample of mass \(q>0\), and
+\(X_t=D_t-C_\Sigma>0\), the uncontrolled update satisfies
+\[
+ X_{t+1}=\left(1+\eta q/\sigma^2\right)^2X_t,
+\]
+so remoteness grows geometrically. If the same sample is weighted by
+\(\exp\{-a[D_t-\tau]_+\}\), \(a>0\), then its continuous-time
+remoteness is \(O(a^{-1}\log t)\), and the discrete update obeys
+\[
+ X_t\le a^{-1}\{\log t+\log\log t+O(1)\}.
+\]
+This slowdown does not by itself prove aggregate boundedness; that requires
+the closed-loop attraction established in
+Theorem~\ref{thm:gaussian_drpo_boundedness}.
+\end{proposition}
 
 \begin{proof}[Proof of Proposition~\ref{prop:reuse_rate}]
 Let \(\delta_t=\mu_t-a\) and
@@ -3664,6 +3562,42 @@ conditions of Proposition~\ref{prop:categorical_restoring_crossing}.
 \subsection{Finite-Measure I-Divergence Attenuation}
 \label{app:finite_measure_variational}
 
+DRPO's exponential attenuation admits an optimistic finite-measure
+reweighting interpretation analogous to divergence-ball DRO, with the
+constraint expressed in generalized I-divergence
+\citep{csiszar1975divergence}. Optimistic or best-case distributional
+optimization also has a formal precedent in likelihood approximation
+and policy optimization
+\citep{nguyen2019optimistic,song2020optimistic}. Our construction is
+related but distinct: it reweights a finite measure of negative-update
+mass according to learner-relative remoteness and may reduce that
+measure's total mass. It is therefore an analogue of optimistic
+divergence-ball reweighting, not a standard ambiguity set over normalized
+probability distributions. The analogy is deliberately qualified: unlike
+standard ambiguity sets over normalized probability measures, the present
+construction permits attenuation of the total negative-update mass. Let
+\(d\xi^-(z)=\widehat A^-(z)d\nu(z)\) and
+\(h(z)=[D(z)-\tau(z)]_+\). Consider
+\begin{equation}
+\min_{0\le w\le1}\int wh\,d\xi^-
+\quad\mathrm{s.t.}\quad
+\int(w\log w-w+1)d\xi^-\le\delta.
+\label{eq:finite_measure_variational}
+\end{equation}
+
+\begin{proposition}[Finite-measure exponential reweighting]
+\label{prop:finite_measure_variational}
+Let \(\delta_0=\xi^-(\{h>0\})\). For
+\(0<\delta<\delta_0\), the constraint in
+Equation~\eqref{eq:finite_measure_variational} is active and has a unique
+finite \(\kappa>0\) with
+\(w_\kappa(z)=e^{-h(z)/\kappa}\). At \(\delta=\delta_0\), the endpoint is
+\(w_0=\mathbf1\{h=0\}\); for \(\delta>\delta_0\), zero objective is
+already attainable and no finite one-to-one \(\kappa\)--\(\delta\)
+relation remains. The later endpoint \(\delta\ge|\xi^-|\) merely makes
+\(w\equiv0\) feasible.
+\end{proposition}
+
 \begin{proof}[Proof of Proposition~\ref{prop:finite_measure_variational}]
 Use the convention
 \(\phi(0)=1\) for
@@ -3719,8 +3653,8 @@ e^{-[D_\pi-\tau]_+}
 =\min\{\pi/\mu,1\}.
 \]
 Replacing both log probabilities by their length-normalized values
-raises the ratio to the \(1/L\) power, proving
-Equations~\eqref{eq:topr_exact_identity}--\eqref{eq:topr_length_normalized}.
+raises the ratio to the \(1/L\) power, proving the
+length-normalized identity above.
 
 For a conditionally reused far-branch sample, the coefficient contains
 \(\pi/\mu\), so the vector-field prefactor contains \(\mu^{-1}\).
@@ -3731,7 +3665,22 @@ outer sampling mass gives
 \[
 \mu\min\{\pi/\mu,1\}=\min\{\pi,\mu\},
 \]
-and cancels that denominator on the far branch. For Gaussian atoms the
+and cancels that denominator on the far branch.
+
+The TOPR arm implements the joint fitted-reference
+\(\beta\)-TOPR variant; it is not a canonical frozen-behavior
+reproduction of \citet{leroux2025tapered}.
+
+The canonical population cancellation above requires the same
+\(\mu\) to serve as both the outer sampling mass and the ratio
+denominator. It therefore does not apply to the experimental variant,
+whose outer measure is induced by prompt-uniform replay with a
+per-prompt unique-negative mean and whose denominator is
+\(\mu_{\mathrm{ref}}\). The experimental arm also uses
+full-completion summed log probabilities rather than the
+length-normalized ratio identity above.
+
+For Gaussian atoms the
 triangle inequality and the one-atom \(G_i\) calculation in
 Appendix~\ref{app:gaussian_drpo_boundedness} give weighted constants
 first. A \(\mu_{\min}\) expression follows only after imposing finite
@@ -4296,8 +4245,13 @@ near/far intervention logic of D-U1, but it does not use the 64-action
 shared-semantic catalogue and does not support the E6 semantic
 generalization claim.
 
-\subsection{D4RL Hopper Datasets}
+\subsection{D4RL Locomotion Datasets}
 \label{app:hopper_datasets}
+
+The task-level evaluation uses HalfCheetah, Hopper, and Walker2d under
+the medium, medium-replay, and medium-expert datasets
+\citep{fu2020d4rl}; the mechanism diagnostics use Hopper, described
+below.
 
 Hopper is a continuous-control task with an
 11-dimensional observation space and a three-dimensional bounded action
@@ -4321,6 +4275,11 @@ a multiset of integers and a target value, and must generate an
 arithmetic expression that evaluates exactly to the target. A valid
 output must use every supplied number exactly once and may contain only
 addition, subtraction, multiplication, division, and parentheses.
+
+Puzzle instances and the frozen replay pool are constructed by our
+registered model-independent generator; the cited works establish
+the task provenance and prior LLM use, not the provenance of our
+generated corpus.
 
 Let
 $x=(\mathcal N,T)$
@@ -4356,6 +4315,29 @@ Countdown provides an external discrete-action setting with
 autoregressive sequence generation and shared Transformer parameters.
 For the diagnostic in Figure~\ref{fig:external_far_field}, unsuccessful
 responses are verifier-matched and grouped by current mean-token surprisal.
+
+\paragraph{Corpus construction and audit.}
+The procedurally generated puzzle source contains 6{,}000 training,
+500 validation, and 1{,}000 test puzzles, separated by canonical
+arithmetic-structure family. For each training puzzle, the positive is
+a verified oracle solution, while negatives are generated without a
+learner model and stratified into detail-wrong, near-value,
+mid-value, and far-value error bins. The corpus contains 9--16 unique
+negative expressions per prompt. A fixed-width representation with
+16 negative slots was also materialized for downstream compatibility:
+4{,}943 prompts already contained 16 unique negatives, while 1{,}057
+prompts were padded by cycling existing exact expressions. No new
+synthetic negative is introduced by this conversion. This representation
+records conversion provenance rather than the multiplicity used by the
+paper-facing objectives. The paper-facing trainers deduplicate exact
+expressions and optimize over all unique negatives available for each
+prompt. Failure statistics recorded at construction time are for
+analysis only: learner-relative near/far status is never stored and is
+recomputed only by methods that use the corresponding remoteness
+coordinate. The corpus and its replay-pool hash are shared by the
+protocol-matched V2 methods; initialization, sampling, calibration,
+and ratio-denominator rules are method-specific and are reported in
+their corresponding protocol subsections.
 
 \subsection{Training and Evaluation Protocols}
 
@@ -4803,41 +4785,31 @@ the far-field control mechanism, whereas the latter reports final
 environment return.
 
 \paragraph{Countdown.}
-The Countdown offline dataset is generated once from a frozen SFT
-policy. For each puzzle, it contains a verified positive response, a
-near negative response with low mean token surprisal, and a far negative
-response with high mean token surprisal. Mean token surprisal is
-\begin{equation}
-    D_{\mathrm{Countdown}}(x,y)
-    =
-    -\frac{1}{|y|}
-    \sum_{t=1}^{|y|}
-    \log
-    \pi_\theta
-    \left(
-        y_t
-        \mid
-        x,y_{<t}
-    \right).
-    \label{eq:countdown_taper_remoteness}
-\end{equation}
-During method training, the responses remain fixed but their surprisal is
-recomputed under the current policy. The sequence-level taper weight is
-computed from the detached current surprisal and multiplies the negative
-sequence objective.
+For each replay prompt, the V2 record contains a verified oracle
+solution and 9--16 unique programmatically generated negative
+expressions stratified by construction-time error type. A fixed-width
+representation with 16 negative slots was also materialized for
+downstream compatibility: 4{,}943 prompts already contained 16 unique
+negatives, while 1{,}057 prompts were padded by cycling existing exact
+expressions. This representation records conversion provenance rather
+than the multiplicity used by the paper-facing objectives. The
+paper-facing trainers deduplicate exact expressions and optimize over
+all unique negatives available for each prompt. Learner-relative
+near/far status is never stored and is recomputed only by methods that
+use the corresponding remoteness coordinate.
 
-All Countdown methods start from the same SFT checkpoint and use the
-same positive, near-negative, and far-negative responses, mixture
-coefficients, validation set, and maximum training budget. Checkpoint
-selection uses the registered validation task metric, and final verifier
-success is measured only on the held-out test puzzles.
+All protocol-matched V2 Countdown methods use the same prompt set,
+verified oracle solutions, frozen V2 negative bank, validation set,
+and maximum training budget. Initialization, sampling, calibration,
+and ratio-denominator rules are method-specific and are stated
+separately.
 
 \paragraph{Comparisons and reporting.}
 The common external comparisons are Positive-only, Uncontrolled,
 Global scaling, and exponential DRPO. Domain-specific baselines are
 reported in the overall-performance section rather than treated as
 controlled taper variants. Hopper reports normalized return and policy
-statistics; Countdown reports greedy verifier success, pass@$k$, valid
+statistics; Countdown reports greedy verifier success, Pass@$k$, valid
 expression rate, surprisal, and support statistics. Task-performance,
 boundary, and NaN/Inf outcomes remain separate in both domains.
 \subsection{Shared Objectives and Negative-Update Controls}
@@ -5167,64 +5139,124 @@ binary rewards and simplified normalization they are closely related,
 but the formal comparison preserves their native objectives and tuning
 rules.
 
-\paragraph{TOPR.}
+\paragraph{\(\beta\)-TOPR (joint fitted reference).}
 
-Let \(\mu(y\mid x)\) denote the frozen response-generating policy and
+Let \(\mathcal X\) be the training-prompt set. For each
+\(x\in\mathcal X\), let \(y_x^+\) be the verified oracle solution and
+let \(\mathcal N_x\) be the set of unique negative expressions after
+exact-expression deduplication. Define the mean completion-token log
+probability
+
+\[
+\bar{\ell}_\theta(x,y)
+=
+\frac{1}{|y|}
+\sum_{t=1}^{|y|}
+\log\pi_\theta(y_t\mid x,y_{<t}),
+\]
+
+and the full-completion summed log probability used only for the ratio,
+
+\[
+s_\theta(x,y)
+=
+|y|\,\bar{\ell}_\theta(x,y)
+=
+\sum_{t=1}^{|y|}
+\log\pi_\theta(y_t\mid x,y_{<t}).
+\]
+
+For the jointly fitted reference adapter \(\mu_{\mathrm{ref}}\), define
+
+\[
+s_{\mathrm{ref}}(x,y)
+=
+\sum_{t=1}^{|y|}
+\log\mu_{\mathrm{ref}}(y_t\mid x,y_{<t}),
+\]
 
 \[
 \rho_\theta(x,y)
 =
-\frac{\pi_\theta(y\mid x)}
-     {\mu(y\mid x)}
+\exp\!\left(s_\theta(x,y)-s_{\mathrm{ref}}(x,y)\right),
 \]
 
-the sequence-level importance ratio. Let
-\(R(x,y)\) denote the signed reward used by TOPR and define
-
-\[
-\mathcal{T}^{+}
-=
-\{(x,y):R(x,y)\geq 0\},
-\qquad
-\mathcal{T}^{-}
-=
-\{(x,y):R(x,y)<0\}.
-\]
-
-We implement canonical TOPR, whose expected update is
+and
 
 \[
 \begin{aligned}
-g_{\mathrm{TOPR}}(\theta)
-={}&
-\mathbb{E}_{(x,y)\sim\mu}
-\Big[
-\mathbf{1}\{(x,y)\in\mathcal{T}^{+}\}
-R(x,y)
-\nabla_\theta\log\pi_\theta(y\mid x)
-\Big]
-\\
-&+
-\mathbb{E}_{(x,y)\sim\mu}
-\Big[
-\mathbf{1}\{(x,y)\in\mathcal{T}^{-}\}
-\min\{\rho_\theta(x,y),1\}
-R(x,y)
-\nabla_\theta\log\pi_\theta(y\mid x)
-\Big].
+w_\beta(x,y)
+&=
+\exp\!\left(
+\beta\min\{s_\theta(x,y)-s_{\mathrm{ref}}(x,y),0\}
+\right) \\
+&=
+\min\{\rho_\theta(x,y)^\beta,1\}.
 \end{aligned}
 \]
 
-Thus, positive responses receive the SFT-style unit coefficient, while
-negative responses are attenuated using a truncated importance ratio.
-The behavior-policy log probability required by the ratio is stored
-when the frozen response bank is constructed.
+The policy objective is
 
-\paragraph{Countdown remoteness.}
+\[
+\begin{aligned}
+\mathcal J_{\beta\text{-}\mathrm{TOPR}}(\theta)
+={}&
+\mathbb E_{x\sim\operatorname{Unif}(\mathcal X)}
+\Bigg[
+\bar{\ell}_\theta(x,y_x^+) \\
+&-
+\frac{1}{|\mathcal N_x|}
+\sum_{y\in\mathcal N_x}
+\operatorname{sg}[w_\beta(x,y)]
+\bar{\ell}_\theta(x,y)
+\Bigg].
+\end{aligned}
+\]
 
-For a prompt \(x\) and completion
-\(y=(y_1,\ldots,y_T)\), learner-relative remoteness is the current mean
-completion-token surprisal
+with actor update
+
+\[
+g_{\beta\text{-}\mathrm{TOPR}}(\theta)
+=
+\nabla_\theta\mathcal J_{\beta\text{-}\mathrm{TOPR}}(\theta).
+\]
+
+This objective samples prompts uniformly, assigns unit total
+coefficient to the positive branch and unit total coefficient to the
+negative branch, and averages unique negatives within each prompt. It
+is not a simple uniform average over all response rows. The
+ratio-derived weight is detached from the policy gradient.
+
+The reference adapter is fitted with
+
+\[
+\mathcal J_{\mathrm{ref}}
+=
+\mathbb E_{x\sim\operatorname{Unif}(\mathcal X)}
+\left[
+\frac{1}{2}\bar{\ell}_{\mathrm{ref}}(x,y_x^+)
++
+\frac{1}{2|\mathcal N_x|}
+\sum_{y\in\mathcal N_x}
+\bar{\ell}_{\mathrm{ref}}(x,y)
+\right].
+\]
+
+The reference adapter is updated once per policy step. Reference
+outputs and ratio-derived weights are detached from the policy
+gradient. The 0.5/0.5 masses belong only to the reference-fitting
+objective, not to the policy objective. The data records do not contain
+behavior-policy log probabilities; the ratio denominator is supplied by
+the jointly fitted reference adapter during training. The completed
+dense \(\beta\) scan is a provenance-limited development pilot and does
+not establish convergence, statistical significance, steady state, or
+a formal method ranking.
+
+\paragraph{Method-specific remoteness.}
+
+For DRPO and the other remoteness-taper controls, the learner-relative
+coordinate for a prompt \(x\) and completion
+\(y=(y_1,\ldots,y_T)\) is the current mean completion-token surprisal
 
 \[
 D_{\mathrm{CD}}(x,y)
@@ -5240,31 +5272,38 @@ y_t\mid x,y_{<t}
 
 Only completion tokens are included; prompt tokens and padding positions
 are excluded. Mean rather than summed surprisal is used so that response
-length does not mechanically determine remoteness. The remoteness score
-is detached before applying the shared taper functions.
+length does not mechanically determine DRPO remoteness. The remoteness
+score is detached before applying the shared taper functions. AsymRE
+does not use remoteness and applies its signed reward directly. The
+Joint Fitted-Reference \(\beta\)-TOPR variant instead uses the dynamic
+full-completion policy/reference log-ratio defined above, not DRPO's
+mean-token remoteness.
 
 \paragraph{Frozen response-bank construction.}
 
-The response bank is generated before policy optimization and then held
-fixed. Each record contains the puzzle, generated response, verifier
-outcome, response length, and the behavior-policy log probability
-required by methods that use importance ratios. The same bank and
-training split are supplied to every protocol-matched method.
-
-A response is marked successful only when it forms a valid arithmetic
-expression, uses the supplied numbers according to the task rules, and
-evaluates to the target. Invalid syntax, illegal number use, and
-incorrect arithmetic results remain distinct verifier outcomes in the
-stored diagnostics, even when they share the same binary training
-reward.
+Before policy optimization, the registered model-independent generator
+constructs a frozen prompt-indexed V2 bank. Each training prompt has one
+verified oracle solution and 9--16 unique programmatically generated
+negative expressions stratified by construction-time error type. The
+paper-facing trainers deduplicate exact expressions and use all unique
+negatives available for each prompt. The bank stores no learner-relative
+near/far label and no behavior-policy log probability. Verifier outcome,
+response length, syntax status, number-use status, and arithmetic result
+remain separate stored diagnostics even when they share the same binary
+training reward.
 
 \paragraph{Training and checkpoint selection.}
 
-All methods start from the same SFT checkpoint and share the optimizer,
-learning-rate schedule, minibatch construction, number of optimizer
-steps, validation split, test puzzles, and random seeds. Hyperparameters
-are selected using the registered validation rule. The held-out test set
-is evaluated only after checkpoint selection.
+All protocol-matched methods initialize a fresh policy LoRA on the same
+Qwen2.5-0.5B-Instruct backbone~\citep{qwen2024qwen25}. The Joint
+Fitted-Reference \(\beta\)-TOPR arm additionally creates a fresh
+reference LoRA with parameters copied from the initial policy adapter.
+The registered methods share the AdamW
+optimizer~\citep{loshchilov2019decoupled}, learning-rate schedule,
+minibatch construction, number of optimizer steps, validation split,
+and paired development seeds unless a method-specific protocol states
+otherwise. Hyperparameters are selected using the registered validation
+rule. The held-out test set is evaluated only after checkpoint selection.
 
 The registered training and selection configuration is summarized in
 Table~\ref{tab:countdown_registered_config}. All entries must be
@@ -5302,7 +5341,7 @@ Taper-strength candidates, $\lambda$
 & \textbf{[registered grid]} \\
 Global-scaling candidates, $\alpha$
 & \textbf{[registered grid]} \\
-Number of samples for pass@$k$
+Number of samples for Pass@$k$
 & \textbf{[registered value]} \\
 \bottomrule
 \end{tabular}
@@ -5311,7 +5350,7 @@ Number of samples for pass@$k$
 \paragraph{Verifier-based evaluation.}
 
 Greedy verifier success is the fraction of held-out puzzles solved by
-greedy decoding. Pass@\(k\) is the fraction solved by at least one of
+greedy decoding. Pass@$k$ is the fraction solved by at least one of
 the registered \(k\) sampled responses. Valid-expression rate is the
 fraction of generated responses that satisfy the parser and number-use
 constraints, irrespective of whether they reach the target.
@@ -5325,4 +5364,48 @@ events, and NaN/Inf numerical failures are audited independently.
 Claims about stability or final method ranking use the registered
 terminal checkpoint audit rather than finite-step pilot behavior.
 
+
+\subsection{Countdown Taper-Coefficient Sensitivity}
+\label{app:countdown_taper_sensitivity}
+
+Figure~\ref{fig:app_countdown_taper_coefficient_response} reports the
+complete stored late-window Pass@8 coefficient response for the
+Countdown-0.5B taper study under the fixed 1,200-step budget. Here the
+late-window metric averages the final five evaluations (steps 800, 900,
+1000, 1100, and 1200). Each point is the mean of the two paired
+development seeds, and each error bar spans the corresponding pair of
+seed values. The horizontal reference is the Positive-only late-window
+mean of 14.0\%.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[
+        width=\columnwidth
+    ]{figures/fig_app_countdown_taper_coefficient_response.pdf}
+    \caption{
+        \textbf{Countdown-0.5B taper-coefficient response.}
+        Late-window Pass@8 is shown against the taper coefficient $\lambda$
+        under the fixed 1,200-step budget. Curves report two-seed late-window means;
+        error bars span the paired seed values, and the dashed horizontal
+        line denotes Positive-only. Exp./DRPO is shown over
+        $\lambda\in[0.01,9.2103]$, Reciprocal-Linear through $319$, and
+        Reciprocal-Quadratic through $1279$.
+    }
+    \label{fig:app_countdown_taper_coefficient_response}
+\end{figure}
+
+The exponential response rises above Positive-only over an intermediate
+coefficient region, reaches a maximum two-seed late-window mean of 15.7\%,
+and returns toward the Positive-only level at the largest evaluated
+coefficients. Reciprocal-Linear increases toward a broad plateau but
+remains slightly below Positive-only, with a maximum late-window mean of
+13.6\%. Reciprocal-Quadratic reaches 14.5\% at $\lambda=24$ and then
+fluctuates around a broad reference-level plateau through $\lambda=1279$.
+These complete curves show that the observed difference is a
+response-shape effect rather than a comparison of isolated best points.
+Because this study uses two paired development seeds and a fixed horizon,
+it supports a bounded tail-shape sensitivity claim, not convergence,
+statistical significance, or a universal method ranking.
+
+\clearpage
 \end{document}
