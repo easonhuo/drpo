@@ -1,0 +1,72 @@
+name: TEMP debug DRPO staging
+
+on:
+  pull_request:
+    branches: [main]
+    types: [synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  debug-stage:
+    if: github.event.pull_request.head.ref == 'dev/paper-kdd2027-major-text-results-03'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+      - run: python -m pip install --quiet matplotlib numpy
+      - name: Prepare and stage with diagnostics
+        shell: bash
+        run: |
+          set +e
+          python .github/temp_apply_drpo_manuscript.py > stage-debug.txt 2>&1
+          prep=$?
+          if [[ $prep -eq 0 ]]; then
+            python scripts/generate_kdd2027_stage_a.py >> stage-debug.txt 2>&1
+            python scripts/postprocess_kdd2027_stage_a.py >> stage-debug.txt 2>&1
+            python paper/kdd2027/verify_content_lock.py >> stage-debug.txt 2>&1
+          fi
+          {
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git rm .github/workflows/temp-publish-countdown-source.yml
+            git rm .github/workflows/temp-run-approved-drpo-import.yml
+            git rm .github/workflows/temp-run-approved-drpo-import-v2.yml
+            git rm .github/workflows/temp-debug-approved-import.yml
+            git rm .github/workflows/temp-debug-stage-import.yml
+            git rm .github/temp_apply_drpo_manuscript.py
+            git add \
+              .github/workflows/build-kdd2027-stage-a.yml \
+              paper/kdd2027/CONTENT_LOCK.txt \
+              paper/kdd2027/README.md \
+              paper/kdd2027/build.sh \
+              paper/kdd2027/figures/fig_app_countdown_asymre_parameter_response.pdf \
+              paper/kdd2027/figures/fig_app_countdown_topr_parameter_response.pdf \
+              paper/kdd2027/main.tex \
+              paper/kdd2027/source_locked.tex \
+              paper/kdd2027/verify_content_lock.py \
+              paper/overleaf/figures/fig_app_countdown_asymre_parameter_response.pdf \
+              paper/overleaf/figures/fig_app_countdown_topr_parameter_response.pdf \
+              paper/overleaf/main_replacement.tex \
+              scripts/generate_kdd2027_stage_a.py \
+              scripts/postprocess_kdd2027_stage_a.py
+            git status --short
+            git diff --cached --check
+            git commit -m 'TEMP dry-run approved manuscript stage'
+          } >> stage-debug.txt 2>&1
+          code=$?
+          echo "PREP_CODE=$prep" >> stage-debug.txt
+          echo "STAGE_CODE=$code" >> stage-debug.txt
+          cat stage-debug.txt
+          exit $code
+      - name: Upload staging diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drpo-stage-debug
+          path: stage-debug.txt
+          if-no-files-found: error
+          retention-days: 2
