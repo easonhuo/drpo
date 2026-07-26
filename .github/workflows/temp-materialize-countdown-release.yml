@@ -30,8 +30,24 @@ jobs:
           base_sha='fd38cf0ce7a08a31ae2d601c343e83f1656811b7'
           test "$(git merge-base HEAD origin/main)" = "$base_sha"
           test "$(git rev-parse origin/main)" = "$base_sha"
-          test "$(find .github/countdown-release-payload -maxdepth 1 -type f -name 'chunk*.b64' | wc -l)" -eq 8
-          cat .github/countdown-release-payload/chunk*.b64 | base64 --decode > /tmp/countdown_release_payload.tar.xz
+          for file in \
+            chunk00.b64 chunk01.b64 fix02a.b64 fix02b.b64 \
+            chunk03.b64 chunk04.b64 chunk05.b64 \
+            fix06a.b64 fix06b.b64 chunk07.b64; do
+            test -s ".github/countdown-release-payload/${file}"
+          done
+          cat \
+            .github/countdown-release-payload/chunk00.b64 \
+            .github/countdown-release-payload/chunk01.b64 \
+            .github/countdown-release-payload/fix02a.b64 \
+            .github/countdown-release-payload/fix02b.b64 \
+            .github/countdown-release-payload/chunk03.b64 \
+            .github/countdown-release-payload/chunk04.b64 \
+            .github/countdown-release-payload/chunk05.b64 \
+            .github/countdown-release-payload/fix06a.b64 \
+            .github/countdown-release-payload/fix06b.b64 \
+            .github/countdown-release-payload/chunk07.b64 \
+            | base64 --decode > /tmp/countdown_release_payload.tar.xz
           echo 'ab2d00f510e80248e9ba6b1c1eb91171143024d5cfa68f64594364db6ccec44d  /tmp/countdown_release_payload.tar.xz' | sha256sum --check --strict
           tar -xJf /tmp/countdown_release_payload.tar.xz -C .
           echo '043e6cfcd7fc7abe3c2baf17c4f4fc1d883199f58c89ccd21103a683c6c90326  paper/kdd2027/main.tex' | sha256sum --check --strict
