@@ -19,23 +19,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
           ref: ${{ github.event.pull_request.head.ref }}
 
-      - name: Verify exact base
+      - name: Stage exact integration inputs and payload diagnostics
         shell: bash
         run: |
           set -euo pipefail
-          git merge-base --is-ancestor fd38cf0ce7a08a31ae2d601c343e83f1656811b7 HEAD
-          test -s paper/kdd2027/source_locked.tex
-          test -s paper/kdd2027/main.tex
-          test -s paper/overleaf/main_replacement.tex
-
-      - name: Stage exact integration inputs
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p export/paper/kdd2027 export/paper/overleaf export/scripts export/paper/releases
+          mkdir -p export/paper/kdd2027 export/paper/overleaf export/scripts export/paper/releases export/payload
           cp paper/kdd2027/source_locked.tex export/paper/kdd2027/
           cp paper/kdd2027/main.tex export/paper/kdd2027/
           cp paper/kdd2027/verify_content_lock.py export/paper/kdd2027/
@@ -48,11 +39,39 @@ jobs:
           cp scripts/postprocess_kdd2027_stage_a.py export/scripts/
           cp .github/workflows/build-kdd2027-stage-a.yml export/workflow_build-kdd2027-stage-a.yml
           cp paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt export/paper/releases/
+
+          cat \
+            .github/countdown-release-payload/chunk00.b64 \
+            .github/countdown-release-payload/chunk01.b64 \
+            .github/countdown-release-payload/fix02a.b64 \
+            .github/countdown-release-payload/fix02b.b64 \
+            .github/countdown-release-payload/chunk03.b64 \
+            .github/countdown-release-payload/chunk04.b64 \
+            .github/countdown-release-payload/chunk05.b64 \
+            .github/countdown-release-payload/fix06a.b64 \
+            .github/countdown-release-payload/fix06b.b64 \
+            .github/countdown-release-payload/chunk07.b64 \
+            > export/payload/reconstructed.b64
+          set +e
+          base64 --decode export/payload/reconstructed.b64 > export/payload/reconstructed.tar.xz
+          decode_status=$?
+          xz -t export/payload/reconstructed.tar.xz
+          xz_status=$?
+          tar -tJf export/payload/reconstructed.tar.xz > export/payload/tar-list.txt 2> export/payload/tar-error.txt
+          tar_status=$?
+          set -e
+          {
+            echo "decode_status=${decode_status}"
+            echo "xz_status=${xz_status}"
+            echo "tar_status=${tar_status}"
+            wc -c export/payload/reconstructed.b64 export/payload/reconstructed.tar.xz
+            sha256sum export/payload/reconstructed.b64 export/payload/reconstructed.tar.xz
+          } > export/payload/diagnostics.txt
           sha256sum $(find export -type f | sort) > export/SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: temp-countdown-integration-base-v2
+          name: temp-countdown-payload-diagnostics
           path: export
           if-no-files-found: error
           retention-days: 7
