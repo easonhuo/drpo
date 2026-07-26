@@ -22,7 +22,7 @@ jobs:
           ref: dev/paper-kdd2027-compression-batch1-01
           fetch-depth: 0
 
-      - name: Reconstruct and apply approved three-batch manuscript
+      - name: Apply and diagnose final commit
         shell: bash
         run: |
           set -euo pipefail
@@ -36,17 +36,42 @@ jobs:
               zlib.decompress(base64.b64decode(payload))
           )
           PY
-          python .github/paper-compression-finalize/apply_final.py
-
-      - name: Commit exact approved manuscript and remove temporary payload
-        shell: bash
-        run: |
-          set -euo pipefail
+          python .github/paper-compression-finalize/apply_final.py > /tmp/apply.log 2>&1
           rm -rf .github/paper-compression-finalize
           rm -f .github/workflows/temp-finalize-kdd-compression.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          test -n "$(git status --porcelain)"
-          git commit -m 'PAPER-KDD2027-COMPRESSION-8PAGE-01: apply approved three-batch revision'
-          git push origin HEAD:dev/paper-kdd2027-compression-batch1-01
+          git status --short > /tmp/status.log
+          set +e
+          git commit -m 'PAPER-KDD2027-COMPRESSION-8PAGE-01: apply approved three-batch revision' > /tmp/commit.log 2>&1
+          commit_status=$?
+          git push origin HEAD:dev/paper-kdd2027-compression-batch1-01 > /tmp/push.log 2>&1
+          push_status=$?
+          set -e
+          printf '%s\n' "$commit_status" > /tmp/commit.status
+          printf '%s\n' "$push_status" > /tmp/push.status
+          cat /tmp/apply.log
+          cat /tmp/status.log
+          cat /tmp/commit.log
+          cat /tmp/push.log
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: temp-final-commit-diagnostics
+          path: |
+            /tmp/apply.log
+            /tmp/status.log
+            /tmp/commit.log
+            /tmp/push.log
+            /tmp/commit.status
+            /tmp/push.status
+          if-no-files-found: error
+
+      - name: Enforce commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(cat /tmp/commit.status)" = '0'
+          test "$(cat /tmp/push.status)" = '0'
