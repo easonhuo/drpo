@@ -35,7 +35,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p export/paper/kdd2027 export/paper/overleaf export/scripts export/.github/workflows export/paper/releases
+          mkdir -p export/paper/kdd2027 export/paper/overleaf export/scripts export/paper/releases
           cp paper/kdd2027/source_locked.tex export/paper/kdd2027/
           cp paper/kdd2027/main.tex export/paper/kdd2027/
           cp paper/kdd2027/verify_content_lock.py export/paper/kdd2027/
@@ -46,13 +46,13 @@ jobs:
           cp paper/overleaf/main_replacement.tex export/paper/overleaf/
           cp scripts/generate_kdd2027_stage_a.py export/scripts/
           cp scripts/postprocess_kdd2027_stage_a.py export/scripts/
-          cp .github/workflows/build-kdd2027-stage-a.yml export/.github/workflows/
+          cp .github/workflows/build-kdd2027-stage-a.yml export/workflow_build-kdd2027-stage-a.yml
           cp paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt export/paper/releases/
           sha256sum $(find export -type f | sort) > export/SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: temp-countdown-integration-base
+          name: temp-countdown-integration-base-v2
           path: export
           if-no-files-found: error
           retention-days: 7
