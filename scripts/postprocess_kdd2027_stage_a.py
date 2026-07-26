@@ -128,7 +128,7 @@ bash paper/kdd2027/build.sh
 ```
 
 The build requires TeX Live 2025 and verifies the locked source hash,
-character-equivalent manuscript content, seven local figure assets, resolved
+character-equivalent manuscript content, nine local figure assets, resolved
 LaTeX references/citations, anonymous PDF text and metadata, US Letter page
 size, embedded fonts, and a complete PNG render of every page. Page count is
 recorded but not gated in Stage A.
@@ -182,10 +182,25 @@ def main() -> None:
         pass
     # The compressed main text may move the full TOPR equation to the appendix
     # or remove the displayed relation entirely; absence is therefore valid.
+    countdown_description_anchor = r'''    }
+    \label{fig:app_countdown_baseline_parameter_response}'''
+    countdown_description_block = r'''    }
+    \Description{Single-column two-panel figure showing late-window Pass@8
+    parameter-response curves for AsymRE and joint fitted-reference beta-TOPR.
+    Both panels include the DRPO reference and mark the selected baseline
+    setting.}
+    \label{fig:app_countdown_baseline_parameter_response}'''
+    if countdown_description_anchor in text:
+        text = replace_once(
+            text,
+            countdown_description_anchor,
+            countdown_description_block,
+            "Countdown baseline sensitivity description",
+        )
     MAIN.write_text(text, encoding="utf-8")
 
     verify = VERIFY.read_text(encoding="utf-8")
-    hash_line = 'EXPECTED_CONTENT_SHA256 = "c20958a1e307633d80ddca46cf017e407ad80cfc629c56aec63f3ce2a36a2bdd"'
+    hash_line = 'EXPECTED_CONTENT_SHA256 = "56260fe2712a462e03cfe3b61bb8ef23f6440bd413e823b8426f6bb12a56682f"'
     verify = replace_once(verify, hash_line, hash_line + VERIFY_CONSTANTS, "content hash line")
     strip_fn = '''def strip_descriptions(text: str) -> str:\n    return re.sub(r"\\n?\\s*\\\\Description\\{[^{}]*\\}", "", text)\n'''
     verify = replace_once(verify, strip_fn, strip_fn + FORMAT_HELPER, "description stripper")
