@@ -1,0 +1,101 @@
+schema_version: 1
+experiment_id: EXT-H-E7-D4RL9-EXP-3WAVE-TUNE-01
+source_experiment_id: EXT-H-E7-BENCH-01
+claim: >-
+  On the same nine public D4RL locomotion tasks, canonical one-step-TD actor
+  path, development seeds, training budget, and evaluation cadence used by the
+  GLQ development sweeps, tune only the Exponential coefficient c through three
+  deterministic task-specific five-candidate waves, then freeze one Exp
+  coefficient per task from the combined fifteen-candidate late-window
+  comparison without touching held-out seeds or making a cross-method ranking
+  claim.
+role: external_validity_development_hyperparameter_tuning
+environment: Hopper_Walker2d_HalfCheetah_D4RL_v2
+execution_class: pilot
+result_status: not_run
+implementation_state: implemented_pending_sha_freeze
+code_entrypoint: scripts/run_e7_canonical_sweep.py
+one_click_entrypoint: scripts/run_e7_canonical_d4rl9_exp_three_wave_one_click.sh
+config_path: configs/e7_canonical_d4rl9_exp_three_wave_v1.json
+protocol_path: docs/e7_canonical_d4rl9_exp_three_wave_v1.md
+methods:
+  - exponential
+controls:
+  canonical_alpha: 0.11
+  negative_scale: 1.0
+  effective_zero_remoteness_negative_coefficient: 0.11
+  reference_distance: 2.0
+  positive_advantages_unchanged: true
+  detached_remoteness_geometry: true
+  global_rerun_included: false
+  reciprocal_linear_rerun_included: false
+  reciprocal_quadratic_rerun_included: false
+  positive_only_rerun_included: false
+tuned_variables:
+  - exponential_coefficient_c
+frozen_variables:
+  trainer_variant: iqlv_exp_rank
+  trainer_alpha: 0.11
+  trainer_tau: 0.5
+  trainer_temperature: 5.0
+  policy_updates: 1000000
+  batch_size: 256
+  learning_rate: 0.0003
+  evaluation_interval: 50000
+  evaluation_episodes: 10
+  reference_distance: 2.0
+  negative_scale: 1.0
+metrics:
+  primary: late_window_mean_750k_to_1m
+  diagnostics:
+    - final_score
+    - best_score_and_step
+    - best_to_final_drop
+    - best_to_late_window_drop
+    - terminal_slope_per_100k
+    - finite_history_and_zero_exit
+seeds:
+  development: [200, 201, 202, 203]
+  held_out_untouched: [204, 205, 206, 207]
+matrix:
+  datasets: 9
+  waves: 3
+  candidates_per_task_per_wave: 5
+  seeds: 4
+  branches_per_wave: 180
+  expected_total_branches: 540
+  final_candidates_per_task: 15
+wave_generation:
+  wave1: frozen_task_specific_prior_centered_grid
+  wave2: deterministic_registered_multiplier_pool_around_wave1_winner
+  wave3: deterministic_registered_multiplier_pool_around_combined_wave1_wave2_winner
+  manual_post_result_candidate_edits_allowed: false
+selection:
+  scope: per_dataset_exponential_c
+  rule:
+    - maximize_late_window_mean_across_seeds
+    - maximize_late_window_min_across_seeds
+    - minimize_best_to_late_window_drop
+    - choose_smaller_numeric_c
+parallelism:
+  maximum_parallel_workers: 60
+  parallel_units: 15
+  workers_per_unit: 4
+terminal_audit:
+  required: true
+  fixed_horizon_is_convergence: false
+  task_performance_collapse: unclassified_without_registered_threshold
+  support_or_variance_boundary: unavailable_in_unchanged_trainer
+  nan_inf_numerical_failure: separate_finite_history_audit
+claims_forbidden:
+  - cross_method_ranking
+  - formal_d4rl9_table_population
+  - steady_state_or_convergence
+  - held_out_confirmation
+  - positive_only_comparison_from_this_matrix
+expected_output_root: outputs/e7/d4rl9_exp_three_wave_run_001
+registration_state: code_first_input_only_not_authoritative
+notes:
+  - The exact implementation SHA must be filled by the deterministic preparation transaction after CI freezes the branch head.
+  - This file is an input to the merged code-first registration route; it does not itself modify handoff or registry authority.
+  - Historical GAE/squared-Exp results are search-range priors only and are not imported as current-run evidence.
