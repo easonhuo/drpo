@@ -28,22 +28,79 @@ jobs:
           echo '2a3196380a7611ede4b309e94f2d4eb8aec4b0902c90fa07c51dca79b2d35900  /tmp/payload.tar.xz' | sha256sum --check --strict
           tar -xJf /tmp/payload.tar.xz -C .
           python3 - <<'PY'
+          from hashlib import sha256
           from pathlib import Path
-          old='6a840123406580a5f155db1da0978a06d3b9210aa248260daf964fa637b64c43'; new='67524d4d3fd614b3d084054aaab1afe9b1638d7cc97f19c8928fc0c5dccb4adb'
-          for p in [Path('paper/kdd2027/source_locked.tex'),Path('paper/overleaf/main_replacement.tex')]:
-              s=p.read_text(encoding='utf-8')
-              if '\\usepackage{makecell}\n' not in s:
-                  s=s.replace('\\usepackage{booktabs}\n','\\usepackage{booktabs}\n\\usepackage{makecell}\n',1)
-              p.write_text(s,encoding='utf-8')
-          for p in [Path('scripts/generate_kdd2027_stage_a.py'),Path('.github/workflows/build-kdd2027-stage-a.yml')]:
-              s=p.read_text(encoding='utf-8')
-              if old not in s: raise SystemExit(f'missing source hash in {p}')
-              p.write_text(s.replace(old,new),encoding='utf-8')
+
+          source_paths = [
+              Path('paper/kdd2027/source_locked.tex'),
+              Path('paper/overleaf/main_replacement.tex'),
+          ]
+          old_author_block = '''  \\begin{icmlauthorlist}
+    \\icmlauthor{Jie Jiang}{equal,comp}
+    \\icmlauthor{Yusen Huo}{equal,comp}
+    \\icmlauthor{Changping Wang}{comp}
+    \\icmlauthor{Jun Zhang}{comp}
+  \\end{icmlauthorlist}
+  \\icmlaffiliation{comp}{Tencent Inc, China}
+
+  \\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}
+'''
+          new_author_block = '''  \\begin{icmlauthorlist}
+    \\icmlauthor{Yusen Huo}{equal,comp}
+    \\icmlauthor{Changping Wang}{comp}
+    \\icmlauthor{Yangru Huang}{comp}
+    \\icmlauthor{Jun Zhang}{comp}
+    \\icmlauthor{Jie Jiang}{equal,comp}
+  \\end{icmlauthorlist}
+  \\icmlaffiliation{comp}{Tencent Inc, China}
+
+  \\icmlcorrespondingauthor{Yangru Huang}{yarayrhuang@tencent.com}
+  \\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}
+'''
+          for path in source_paths:
+              text = path.read_text(encoding='utf-8')
+              if '\\usepackage{makecell}\n' not in text:
+                  text = text.replace(
+                      '\\usepackage{booktabs}\n',
+                      '\\usepackage{booktabs}\n\\usepackage{makecell}\n',
+                      1,
+                  )
+              if old_author_block not in text:
+                  raise SystemExit(f'expected author block not found in {path}')
+              text = text.replace(old_author_block, new_author_block, 1)
+              path.write_text(text, encoding='utf-8')
+
+          locked = source_paths[0].read_bytes()
+          new_hash = sha256(locked).hexdigest()
+          if source_paths[1].read_bytes() != locked:
+              raise SystemExit('KDD locked source and Overleaf mirror differ')
+
+          known_hashes = {
+              '6a840123406580a5f155db1da0978a06d3b9210aa248260daf964fa637b64c43',
+              '67524d4d3fd614b3d084054aaab1afe9b1638d7cc97f19c8928fc0c5dccb4adb',
+          }
+          for path in [
+              Path('scripts/generate_kdd2027_stage_a.py'),
+              Path('.github/workflows/build-kdd2027-stage-a.yml'),
+          ]:
+              text = path.read_text(encoding='utf-8')
+              if not any(old in text for old in known_hashes):
+                  raise SystemExit(f'missing known source hash in {path}')
+              for old in known_hashes:
+                  text = text.replace(old, new_hash)
+              path.write_text(text, encoding='utf-8')
+          Path('/tmp/kdd_source_sha256').write_text(new_hash + '\n', encoding='utf-8')
+          print(f'updated_source_sha256={new_hash}')
           PY
-          echo '67524d4d3fd614b3d084054aaab1afe9b1638d7cc97f19c8928fc0c5dccb4adb  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
           cmp -s paper/kdd2027/source_locked.tex paper/overleaf/main_replacement.tex
           cmp -s paper/kdd2027/example_paper.bib paper/overleaf/example_paper.bib
           cmp -s paper/kdd2027/missing_references.bib paper/overleaf/missing_references.bib
+          grep -Fq '\icmlauthor{Yusen Huo}{equal,comp}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlauthor{Changping Wang}{comp}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlauthor{Yangru Huang}{comp}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlauthor{Jun Zhang}{comp}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlauthor{Jie Jiang}{equal,comp}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlcorrespondingauthor{Yangru Huang}{yarayrhuang@tencent.com}' paper/overleaf/main_replacement.tex
           mkdir -p paper/overleaf/figures
           cp -a paper/kdd2027/figures/. paper/overleaf/figures/
 
@@ -81,8 +138,9 @@ jobs:
           DRPO_SKIP_LATEX_COMPILE: '1'
         run: |
           set -euo pipefail
+          source_sha="$(sha256sum paper/kdd2027/source_locked.tex | awk '{print $1}')"
           bash paper/kdd2027/build.sh
-          grep -Fxq 'source_sha256=67524d4d3fd614b3d084054aaab1afe9b1638d7cc97f19c8928fc0c5dccb4adb' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq "source_sha256=${source_sha}" paper/kdd2027/BUILD_AUDIT.txt
           grep -Fxq 'canonical_content_sha256=e19c7b65da96ffd92611c083e8d6a2c7dc8a4865fd531013026badfe9d6d9717' paper/kdd2027/BUILD_AUDIT.txt
           for gate in content_lock overleaf_content_mirror bibliography_mirror anonymous_pdf latex_diagnostics font_embedding render_gate; do
             grep -Fxq "${gate}=PASS" paper/kdd2027/BUILD_AUDIT.txt
@@ -102,7 +160,7 @@ jobs:
           claim=PAPER-KDD2027-LATEST-CONTENT-SYNC-01
           build_input_commit=${BUILD_INPUT_COMMIT}
           main_tex_sha256=$(sha256sum paper/kdd2027/main.tex | awk '{print $1}')
-          source_sha256=67524d4d3fd614b3d084054aaab1afe9b1638d7cc97f19c8928fc0c5dccb4adb
+          source_sha256=${source_sha}
           canonical_content_sha256=e19c7b65da96ffd92611c083e8d6a2c7dc8a4865fd531013026badfe9d6d9717
           pages=${pages}
           page_size=${page_size}
@@ -120,6 +178,8 @@ jobs:
           anonymous_pdf=PASS
           latex_diagnostics=PASS
           overleaf_arxiv_compile=PASS
+          author_order=Yusen_Huo;Changping_Wang;Yangru_Huang;Jun_Zhang;Jie_Jiang
+          yangru_huang_email=yarayrhuang@tencent.com
           font_embedding=PASS
           render_gate=PASS
           main_text_pages=8
@@ -135,11 +195,17 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf .github/kdd-sync-payload
-          rm -f .github/workflows/materialize*-kdd2027-latest-content-sync.yml .github/workflows/diagnose*-kdd2027-latest-content-sync.yml
+          rm -f .github/workflows/materialize*-kdd2027-latest-content-sync.yml
+          rm -f .github/workflows/diagnose*-kdd2027-latest-content-sync.yml
+          rm -f .github/workflows/export-overleaf-pdf-preview.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/workflows/build-kdd2027-stage-a.yml paper/kdd2027/source_locked.tex paper/kdd2027/main.tex paper/kdd2027/verify_content_lock.py paper/kdd2027/build.sh paper/kdd2027/README.md paper/kdd2027/CONTENT_LOCK.txt paper/overleaf/main_replacement.tex paper/overleaf/missing_references.bib paper/overleaf/figures scripts/generate_kdd2027_stage_a.py scripts/postprocess_kdd2027_stage_a.py paper/releases/DRPO_KDD2027_STAGE_A.pdf paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt paper/releases/DRPO_KDD2027_OVERLEAF.zip
+          git add .github/workflows/build-kdd2027-stage-a.yml paper/kdd2027/source_locked.tex paper/kdd2027/main.tex paper/kdd2027/verify_content_lock.py paper/kdd2027/build.sh paper/kdd2027/README.md paper/kdd2027/CONTENT_LOCK.txt paper/overleaf/main_replacement.tex paper/overleaf/missing_references.bib paper/overleaf/figures paper/overleaf/main.pdf scripts/generate_kdd2027_stage_a.py scripts/postprocess_kdd2027_stage_a.py paper/releases/DRPO_KDD2027_STAGE_A.pdf paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt paper/releases/DRPO_KDD2027_OVERLEAF.zip
           git add -A .github
           git status --short
-          git commit -m 'PAPER-KDD2027-LATEST-CONTENT-SYNC-01: synchronize KDD and preprint sources'
+          git commit -m 'PAPER-KDD2027-LATEST-CONTENT-SYNC-01: synchronize manuscripts and author metadata'
+          git fetch origin "${HEAD_BRANCH}"
+          if ! git merge-base --is-ancestor "origin/${HEAD_BRANCH}" HEAD; then
+            git merge -s ours --no-edit "origin/${HEAD_BRANCH}"
+          fi
           git push origin "HEAD:${HEAD_BRANCH}"
