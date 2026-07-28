@@ -6,21 +6,19 @@ on:
     types: [opened, synchronize, reopened]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   materialize:
-    if: >-
-      github.actor != 'github-actions[bot]' &&
-      github.event.pull_request.head.ref == 'dev/paper-kdd2027-latest-content-sync-01'
+    if: github.event.pull_request.head.ref == 'dev/paper-kdd2027-latest-content-sync-01'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
           ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 1
 
-      - name: Reconstruct canonical sources
+      - name: Reconstruct approved source and update author metadata
         shell: bash
         run: |
           set -euo pipefail
@@ -29,168 +27,61 @@ jobs:
           tar -xJf /tmp/payload.tar.xz -C .
           python3 - <<'PY'
           from pathlib import Path
-          old='6a840123406580a5f155db1da0978a06d3b9210aa248260daf964fa637b64c43'
-          new='67524d4d3fd614b3d084054aaab1afe9b1638d7cc97f19c8928fc0c5dccb4adb'
-          for p in [Path('paper/kdd2027/source_locked.tex'), Path('paper/overleaf/main_replacement.tex')]:
-              s=p.read_text(encoding='utf-8')
-              if '\\usepackage{makecell}\n' not in s:
-                  s=s.replace('\\usepackage{booktabs}\n','\\usepackage{booktabs}\n\\usepackage{makecell}\n',1)
-              p.write_text(s,encoding='utf-8')
-          for p in [Path('scripts/generate_kdd2027_stage_a.py'),Path('.github/workflows/build-kdd2027-stage-a.yml')]:
-              s=p.read_text(encoding='utf-8')
-              if old not in s: raise SystemExit(f'missing hash in {p}')
-              p.write_text(s.replace(old,new),encoding='utf-8')
+          p = Path('paper/overleaf/main_replacement.tex')
+          s = p.read_text(encoding='utf-8')
+          if '\\usepackage{makecell}\n' not in s:
+              s = s.replace('\\usepackage{booktabs}\n', '\\usepackage{booktabs}\n\\usepackage{makecell}\n', 1)
+          old = '''  \\begin{icmlauthorlist}
+    \\icmlauthor{Jie Jiang}{equal,comp}
+    \\icmlauthor{Yusen Huo}{equal,comp}
+    \\icmlauthor{Changping Wang}{comp}
+    \\icmlauthor{Jun Zhang}{comp}
+  \\end{icmlauthorlist}
+  \\icmlaffiliation{comp}{Tencent Inc, China}
+
+  \\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}
+'''
+          new = '''  \\begin{icmlauthorlist}
+    \\icmlauthor{Yusen Huo}{equal,comp}
+    \\icmlauthor{Changping Wang}{comp}
+    \\icmlauthor{Yangru Huang}{comp}
+    \\icmlauthor{Jun Zhang}{comp}
+    \\icmlauthor{Jie Jiang}{equal,comp}
+  \\end{icmlauthorlist}
+  \\icmlaffiliation{comp}{Tencent Inc, China}
+
+  \\icmlcorrespondingauthor{Yangru Huang}{yarayrhuang@tencent.com}
+  \\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}
+'''
+          if old not in s:
+              raise SystemExit('expected author block not found')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
           PY
-          echo '67524d4d3fd614b3d084054aaab1afe9b1638d7cc97f19c8928fc0c5dccb4adb  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
-          cmp -s paper/kdd2027/source_locked.tex paper/overleaf/main_replacement.tex
-          cmp -s paper/kdd2027/example_paper.bib paper/overleaf/example_paper.bib
-          cmp -s paper/kdd2027/missing_references.bib paper/overleaf/missing_references.bib
+          grep -Fq '\icmlauthor{Yusen Huo}{equal,comp}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlauthor{Changping Wang}{comp}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlauthor{Yangru Huang}{comp}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlauthor{Jun Zhang}{comp}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlauthor{Jie Jiang}{equal,comp}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlcorrespondingauthor{Yangru Huang}{yarayrhuang@tencent.com}' paper/overleaf/main_replacement.tex
           mkdir -p paper/overleaf/figures
           cp -a paper/kdd2027/figures/. paper/overleaf/figures/
 
-      - name: Install host audit tools
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y poppler-utils
-
-      - name: Generate and compile both formats
+      - name: Compile author-updated Overleaf PDF with TeX Live 2025
         uses: xu-cheng/texlive-action@v3
         with:
           texlive_version: 2025
           os: debian
           run: |
             set -euo pipefail
-            python3 scripts/generate_kdd2027_stage_a.py
-            python3 scripts/postprocess_kdd2027_stage_a.py
-            python3 paper/kdd2027/verify_content_lock.py
-            cd paper/kdd2027
-            rm -f main.log main.blg BUILD_AUDIT.txt PDFINFO.txt PDFFONTS.txt
-            pdflatex --version | tee TEXLIVE_ENVIRONMENT.txt
-            latexmk -C main.tex >/dev/null 2>&1 || true
-            latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
-            test -s main.pdf
-            cd ../overleaf
+            cd paper/overleaf
             latexmk -C main.tex >/dev/null 2>&1 || true
             bash build.sh
             test -s main.pdf
 
-      - name: Perform terminal PDF audit and package releases
-        shell: bash
-        env:
-          BUILD_INPUT_COMMIT: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from __future__ import annotations
-          import hashlib
-          import os
-          import re
-          import shutil
-          import subprocess
-          import zipfile
-          from pathlib import Path
-
-          root=Path('.')
-          kdd=root/'paper/kdd2027'
-          pre=root/'paper/overleaf'
-          rel=root/'paper/releases'
-          rel.mkdir(parents=True,exist_ok=True)
-
-          def run(*args:str)->str:
-              return subprocess.run(args,check=True,text=True,stdout=subprocess.PIPE).stdout
-
-          log=(kdd/'main.log').read_text(encoding='utf-8',errors='replace')
-          bad=re.compile(r'Undefined control sequence|LaTeX Error|Citation .* undefined|Reference .* undefined|There were undefined references|There were undefined citations|multiply defined|Fatal error',re.I)
-          if bad.search(log): raise SystemExit('KDD LaTeX diagnostics failed')
-          if 'Overfull \\hbox' in log: raise SystemExit('KDD overfull hbox detected')
-          plog=(pre/'main.log').read_text(encoding='utf-8',errors='replace')
-          if bad.search(plog): raise SystemExit('Overleaf/arXiv LaTeX diagnostics failed')
-
-          info=run('pdfinfo',str(kdd/'main.pdf'))
-          (kdd/'PDFINFO.txt').write_text(info,encoding='utf-8')
-          pages=int(re.search(r'^Pages:\s+(\d+)',info,re.M).group(1))
-          page_size=re.search(r'^Page size:\s+(.+)$',info,re.M).group(1)
-          if '612 x 792 pts' not in page_size: raise SystemExit(page_size)
-          fonts=run('pdffonts',str(kdd/'main.pdf'))
-          (kdd/'PDFFONTS.txt').write_text(fonts,encoding='utf-8')
-          for line in fonts.splitlines()[2:]:
-              cols=line.split()
-              if len(cols)>=6 and (cols[4]!='yes' or cols[5]!='yes'):
-                  raise SystemExit(f'font embedding failed: {line}')
-          text=run('pdftotext',str(kdd/'main.pdf'),'-')
-          for token in ['Yusen Huo','Changping Wang','Yangru Huang','Jun Zhang','Jie Jiang','Tencent Inc','neoxzhang@tencent.com']:
-              if token.lower() in text.lower() or token.lower() in info.lower():
-                  raise SystemExit(f'anonymous PDF token: {token}')
-          page8=run('pdftotext','-f','8','-l','8',str(kdd/'main.pdf'),'-')
-          if 'References' not in page8: raise SystemExit('references do not begin by page 8')
-          render_dir=kdd/'renders'
-          shutil.rmtree(render_dir,ignore_errors=True)
-          render_dir.mkdir()
-          subprocess.run(['pdftoppm','-png','-r','150',str(kdd/'main.pdf'),str(render_dir/'page')],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-          rendered=len(list(render_dir.glob('page-*.png')))
-          if rendered!=pages: raise SystemExit(f'render mismatch {rendered}/{pages}')
-
-          release_pdf=rel/'DRPO_KDD2027_STAGE_A.pdf'
-          shutil.copy2(kdd/'main.pdf',release_pdf)
-          release_zip=rel/'DRPO_KDD2027_OVERLEAF.zip'
-          if release_zip.exists(): release_zip.unlink()
-          entries=['main.tex','acmart.cls','ACM-Reference-Format.bst','example_paper.bib','missing_references.bib','README.md']
-          entries += sorted(str(p.relative_to(kdd)) for p in (kdd/'figures').glob('*.pdf'))
-          with zipfile.ZipFile(release_zip,'w',compression=zipfile.ZIP_DEFLATED) as zf:
-              for name in entries: zf.write(kdd/name,name)
-          with zipfile.ZipFile(release_zip) as zf:
-              names=zf.namelist()
-              if names[0]!='main.tex': raise SystemExit('zip root main.tex missing')
-              if len([n for n in names if n.startswith('figures/') and n.endswith('.pdf')])!=9: raise SystemExit('zip figure count')
-
-          overleaf_info=run('pdfinfo',str(pre/'main.pdf'))
-          overleaf_pages=int(re.search(r'^Pages:\s+(\d+)',overleaf_info,re.M).group(1))
-          sha=lambda p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
-          audit=f'''claim=PAPER-KDD2027-LATEST-CONTENT-SYNC-01
-          build_input_commit={os.environ['BUILD_INPUT_COMMIT']}
-          main_tex_sha256={sha(kdd/'main.tex')}
-          source_sha256=67524d4d3fd614b3d084054aaab1afe9b1638d7cc97f19c8928fc0c5dccb4adb
-          canonical_content_sha256=e19c7b65da96ffd92611c083e8d6a2c7dc8a4865fd531013026badfe9d6d9717
-          pages={pages}
-          page_size={page_size}
-          texlive_version=2025
-          required_figures=9
-          rendered_pages={rendered}
-          pdf_sha256={sha(release_pdf)}
-          kdd_overleaf_zip_sha256={sha(release_zip)}
-          overleaf_arxiv_pages={overleaf_pages}
-          overleaf_arxiv_pdf_sha256={sha(pre/'main.pdf')}
-          content_lock=PASS
-          overleaf_content_mirror=PASS
-          bibliography_mirror=PASS
-          figure_mirror=PASS
-          anonymous_pdf=PASS
-          latex_diagnostics=PASS
-          overleaf_arxiv_compile=PASS
-          font_embedding=PASS
-          render_gate=PASS
-          main_text_pages=8
-          all_pages_rendered_for_visual_audit=PASS
-          '''
-          audit='\n'.join(line.strip() for line in audit.splitlines() if line.strip())+'\n'
-          (rel/'DRPO_KDD2027_STAGE_A_AUDIT.txt').write_text(audit,encoding='utf-8')
-          (kdd/'BUILD_AUDIT.txt').write_text(audit,encoding='utf-8')
-          print(audit)
-          PY
-
-      - name: Commit canonical files and remove temporary transport
-        shell: bash
-        env:
-          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
-        run: |
-          set -euo pipefail
-          rm -rf .github/kdd-sync-payload
-          rm -f .github/workflows/materialize*-kdd2027-latest-content-sync.yml .github/workflows/diagnose*-kdd2027-latest-content-sync.yml
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/workflows/build-kdd2027-stage-a.yml paper/kdd2027/source_locked.tex paper/kdd2027/main.tex paper/kdd2027/verify_content_lock.py paper/kdd2027/build.sh paper/kdd2027/README.md paper/kdd2027/CONTENT_LOCK.txt paper/overleaf/main_replacement.tex paper/overleaf/missing_references.bib paper/overleaf/figures scripts/generate_kdd2027_stage_a.py scripts/postprocess_kdd2027_stage_a.py paper/releases/DRPO_KDD2027_STAGE_A.pdf paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt paper/releases/DRPO_KDD2027_OVERLEAF.zip
-          git add -A .github
-          git status --short
-          git commit -m 'PAPER-KDD2027-LATEST-CONTENT-SYNC-01: synchronize KDD and preprint sources'
-          git push origin "HEAD:${HEAD_BRANCH}"
+      - name: Upload author-updated PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: drpo-overleaf-author-updated-pdf
+          path: paper/overleaf/main.pdf
+          if-no-files-found: error
+          retention-days: 7
