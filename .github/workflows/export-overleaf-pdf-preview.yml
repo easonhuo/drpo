@@ -27,40 +27,50 @@ jobs:
           tar -xJf /tmp/payload.tar.xz -C .
           python3 - <<'PY'
           from pathlib import Path
+
           p = Path('paper/overleaf/main_replacement.tex')
           s = p.read_text(encoding='utf-8')
           if '\\usepackage{makecell}\n' not in s:
               s = s.replace('\\usepackage{booktabs}\n', '\\usepackage{booktabs}\n\\usepackage{makecell}\n', 1)
+
           old = '''  \\begin{icmlauthorlist}
-    \\icmlauthor{Jie Jiang}{equal,comp}
-    \\icmlauthor{Yusen Huo}{equal,comp}
-    \\icmlauthor{Changping Wang}{comp}
-    \\icmlauthor{Jun Zhang}{comp}
-  \\end{icmlauthorlist}
-  \\icmlaffiliation{comp}{Tencent Inc, China}
+            \\icmlauthor{Jie Jiang}{equal,comp}
+            \\icmlauthor{Yusen Huo}{equal,comp}
+            \\icmlauthor{Changping Wang}{comp}
+            \\icmlauthor{Jun Zhang}{comp}
+          \\end{icmlauthorlist}
+          \\icmlaffiliation{comp}{Tencent Inc, China}
 
-  \\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}
-'''
+          \\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}
+          '''
           new = '''  \\begin{icmlauthorlist}
-    \\icmlauthor{Yusen Huo}{equal,comp}
-    \\icmlauthor{Changping Wang}{comp}
-    \\icmlauthor{Yangru Huang}{comp}
-    \\icmlauthor{Jun Zhang}{comp}
-    \\icmlauthor{Jie Jiang}{equal,comp}
-  \\end{icmlauthorlist}
-  \\icmlaffiliation{comp}{Tencent Inc, China}
+            \\icmlauthor{Yusen Huo}{comp}
+            \\icmlauthor{Changping Wang}{comp}
+            \\icmlauthor{Yangru Huang}{comp}
+            \\icmlauthor{Jun Zhang}{comp}
+            \\icmlauthor{Jie Jiang}{comp}
+          \\end{icmlauthorlist}
+          \\icmlaffiliation{comp}{Tencent Inc, China}
 
-  \\icmlcorrespondingauthor{Yangru Huang}{yarayrhuang@tencent.com}
-  \\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}
-'''
+          \\icmlcorrespondingauthor{Yangru Huang}{yarayrhuang@tencent.com}
+          \\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}
+          '''
           if old not in s:
               raise SystemExit('expected author block not found')
           s = s.replace(old, new, 1)
+          s = s.replace(
+              '\\printAffiliationsAndNotice{\\icmlEqualContribution}',
+              '\\printAffiliationsAndNotice{}',
+              1,
+          )
           p.write_text(s, encoding='utf-8')
           PY
-          grep -Fq '\icmlauthor{Yusen Huo}{equal,comp}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlauthor{Yusen Huo}{comp}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlauthor{Jie Jiang}{comp}' paper/overleaf/main_replacement.tex
           grep -Fq '\icmlauthor{Yangru Huang}{comp}' paper/overleaf/main_replacement.tex
           grep -Fq '\icmlcorrespondingauthor{Yangru Huang}{yarayrhuang@tencent.com}' paper/overleaf/main_replacement.tex
+          ! grep -Fq 'equal,comp' paper/overleaf/main_replacement.tex
+          ! grep -Fq '\printAffiliationsAndNotice{\icmlEqualContribution}' paper/overleaf/main_replacement.tex
           mkdir -p paper/overleaf/figures
           cp -a paper/kdd2027/figures/. paper/overleaf/figures/
 
@@ -79,7 +89,7 @@ jobs:
       - name: Upload Overleaf PDF preview
         uses: actions/upload-artifact@v4
         with:
-          name: drpo-overleaf-main-pdf-preview
+          name: drpo-overleaf-main-pdf-no-equal-contribution
           path: paper/overleaf/main.pdf
           if-no-files-found: error
           retention-days: 7
