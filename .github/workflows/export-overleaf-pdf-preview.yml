@@ -1,0 +1,57 @@
+name: Export Overleaf PDF preview
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    if: github.event.pull_request.head.ref == 'dev/paper-kdd2027-latest-content-sync-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 1
+
+      - name: Reconstruct approved Overleaf source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/kdd-sync-payload/chunk-* | base64 --decode > /tmp/payload.tar.xz
+          echo '2a3196380a7611ede4b309e94f2d4eb8aec4b0902c90fa07c51dca79b2d35900  /tmp/payload.tar.xz' | sha256sum --check --strict
+          tar -xJf /tmp/payload.tar.xz -C .
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('paper/overleaf/main_replacement.tex')
+          s = p.read_text(encoding='utf-8')
+          if '\\usepackage{makecell}\n' not in s:
+              s = s.replace('\\usepackage{booktabs}\n', '\\usepackage{booktabs}\n\\usepackage{makecell}\n', 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+          mkdir -p paper/overleaf/figures
+          cp -a paper/kdd2027/figures/. paper/overleaf/figures/
+
+      - name: Compile Overleaf/arXiv PDF with TeX Live 2025
+        uses: xu-cheng/texlive-action@v3
+        with:
+          texlive_version: 2025
+          os: debian
+          run: |
+            set -euo pipefail
+            cd paper/overleaf
+            latexmk -C main.tex >/dev/null 2>&1 || true
+            bash build.sh
+            test -s main.pdf
+
+      - name: Upload Overleaf PDF preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: drpo-overleaf-main-pdf-preview
+          path: paper/overleaf/main.pdf
+          if-no-files-found: error
+          retention-days: 7
