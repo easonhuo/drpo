@@ -86,3 +86,26 @@ def test_repository_grid_declares_31_injected_branches() -> None:
     controls = expand_injected_controls(raw)
     assert len(controls) == 31
     assert raw["branch_count_per_dataset_seed"] == 31
+
+
+def test_exp_joint_grid_accepts_zero_scale_and_zero_coefficient() -> None:
+    raw = {
+        "experiment_id": "EXT-H-E7-D4RL9-EXP-ALPHA-C-JOINT-TUNE-01",
+        "run_kind": "pilot",
+        "canonical_alpha": 0.11,
+        "reference_distance": 2.0,
+        "coefficients": {
+            "reciprocal_linear": 0.5,
+            "reciprocal_quadratic": 0.5,
+            "exponential": 0.0,
+        },
+        "anchors": {},
+        "negative_scale_grid": {"exponential": [0.0]},
+    }
+    controls = expand_injected_controls(raw)
+    assert len(controls) == 1
+    control = controls[0]
+    assert control.method == "exponential"
+    assert control.negative_scale == 0.0
+    assert control.exponential_coefficient == 0.0
+    assert control.effective_alpha == 0.0
