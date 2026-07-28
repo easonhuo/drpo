@@ -44,7 +44,7 @@ jobs:
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y poppler-utils zip
 
-      - name: Generate, compile, and audit both manuscript formats
+      - name: Generate and compile both manuscript formats with TeX Live 2025
         uses: xu-cheng/texlive-action@v3
         with:
           texlive_version: 2025
@@ -54,13 +54,20 @@ jobs:
             python3 scripts/generate_kdd2027_stage_a.py
             python3 scripts/postprocess_kdd2027_stage_a.py
             python3 paper/kdd2027/verify_content_lock.py
-            if ! bash paper/kdd2027/build.sh > /tmp/kdd-build.log 2>&1; then
-              echo 'KDD build failed; final log follows' >&2
-              tail -n 180 /tmp/kdd-build.log >&2
+
+            cd paper/kdd2027
+            rm -f BUILD_AUDIT.txt PDFINFO.txt PDFFONTS.txt main.log main.blg
+            pdflatex --version | tee TEXLIVE_ENVIRONMENT.txt
+            latexmk -C main.tex >/dev/null 2>&1 || true
+            if ! latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex > /tmp/kdd-compile.log 2>&1; then
+              echo 'KDD compile failed; final log follows' >&2
+              tail -n 180 /tmp/kdd-compile.log >&2
               exit 1
             fi
+            test -s main.pdf
+            grep -Fq 'TeX Live 2025' TEXLIVE_ENVIRONMENT.txt
 
-            cd paper/overleaf
+            cd ../overleaf
             latexmk -C main.tex >/dev/null 2>&1 || true
             if ! bash build.sh > /tmp/overleaf-build.log 2>&1; then
               echo 'Overleaf/arXiv build failed; final log follows' >&2
@@ -77,14 +84,23 @@ jobs:
                 main.log >&2 || true
               exit 1
             fi
-            echo 'KDD and Overleaf/arXiv manuscript builds passed.'
+            echo 'KDD and Overleaf/arXiv manuscript compilation passed.'
 
-      - name: Publish exact compiled release files and audit
+      - name: Audit and publish exact compiled release files
         shell: bash
         env:
           BUILD_INPUT_COMMIT: ${{ github.sha }}
+          DRPO_SKIP_LATEX_COMPILE: '1'
         run: |
           set -euo pipefail
+          bash paper/kdd2027/build.sh
+          grep -Fxq 'source_sha256=6a840123406580a5f155db1da0978a06d3b9210aa248260daf964fa637b64c43' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'canonical_content_sha256=e19c7b65da96ffd92611c083e8d6a2c7dc8a4865fd531013026badfe9d6d9717' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'content_lock=PASS' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'latex_diagnostics=PASS' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'font_embedding=PASS' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'render_gate=PASS' paper/kdd2027/BUILD_AUDIT.txt
+
           mkdir -p paper/releases
           cp paper/kdd2027/main.pdf paper/releases/DRPO_KDD2027_STAGE_A.pdf
           rm -f paper/releases/DRPO_KDD2027_OVERLEAF.zip
