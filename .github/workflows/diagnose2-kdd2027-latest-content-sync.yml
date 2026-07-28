@@ -1,0 +1,60 @@
+name: Diagnose2 KDD latest-content sync
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    if: >-
+      github.event.pull_request.head.ref == 'dev/paper-kdd2027-latest-content-sync-01'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Quiet branch checkout and payload reconstruction
+        shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          git clone -q --depth=1 --branch "$HEAD_BRANCH" https://github.com/easonhuo/drpo.git repo
+          cd repo
+          cat .github/kdd-sync-payload/chunk-* | base64 --decode > /tmp/payload.tar.xz
+          echo '2a3196380a7611ede4b309e94f2d4eb8aec4b0902c90fa07c51dca79b2d35900  /tmp/payload.tar.xz' | sha256sum --check --strict
+          tar -xJf /tmp/payload.tar.xz -C .
+
+      - name: Diagnose manuscript generation and builds
+        uses: xu-cheng/texlive-action@v3
+        with:
+          texlive_version: 2025
+          os: debian
+          run: |
+            set -euo pipefail
+            cd repo
+            run_checked() {
+              label="$1"
+              shift
+              log="/tmp/${label}.log"
+              if ! "$@" >"$log" 2>&1; then
+                echo "=== ${label} FAILED ===" >&2
+                tail -n 60 "$log" >&2
+                exit 1
+              fi
+              echo "=== ${label} PASS ==="
+            }
+            run_checked generate python scripts/generate_kdd2027_stage_a.py
+            run_checked postprocess python scripts/postprocess_kdd2027_stage_a.py
+            run_checked content-lock python paper/kdd2027/verify_content_lock.py
+            run_checked kdd-build bash paper/kdd2027/build.sh
+            cd paper/overleaf
+            latexmk -C main.tex >/dev/null 2>&1 || true
+            run_checked overleaf-build bash build.sh
+            if grep -Eqi 'Undefined control sequence|LaTeX Error|Citation .* undefined|Reference .* undefined|There were undefined references|There were undefined citations|multiply defined|Fatal error' main.log; then
+              echo '=== overleaf-diagnostics FAILED ===' >&2
+              grep -Ein 'Undefined control sequence|LaTeX Error|Citation .* undefined|Reference .* undefined|There were undefined references|There were undefined citations|multiply defined|Fatal error' main.log >&2 || true
+              exit 1
+            fi
+            echo '=== overleaf-diagnostics PASS ==='
