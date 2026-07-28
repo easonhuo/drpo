@@ -21,6 +21,15 @@ w_{\mathrm{neg}}(d)
 
 where `s=negative_scale` controls the overall negative-gradient magnitude and `c=exponential_coefficient` controls distance decay. Positive advantages remain unchanged. The standardized-distance geometry is detached.
 
+## Development-prior provenance
+
+The frozen candidate matrix uses two development-only prior sources and binds them by result repository commit and Git blob identity:
+
+- task-specific `c_star` values come from `E7_D4RL9_EXP_3WAVE_TUNE_20260727_01_FULL`, result commit `992efa5f23d099ad222140ca2b3cfa75de3d7448`, terminal-audit blob `aab7bd511b382d3e940d3ad58e74bcae18401284`, produced from source commit `a9aa9bfd62a470c18955a32fb25c6e239aecf4ca`;
+- task-specific scale ranges use the Global selections from `E7_D4RL9_GLQ_TASKWISE_REFINEMENT_20260727_01`, result commit `a9f40ce65a45456a3be57cf0205f8ed37e320180`, taskwise-selection blob `efe9b37c00de019c61b18e93bc465f38ab01650e`, produced from source commit `23cc332ce7e0a1156d752a3354782142ef57d470`.
+
+These sources define search priors only. Their development scores are not imported into this experiment's selection, and the Global winners are not assumed to be the Exp optima.
+
 ## Frozen canonical training contract
 
 The experiment reuses the same canonical one-step-TD joint actor--critic path and exact source RunSpec as the GLQ and predecessor Exp development sweeps.
