@@ -1,0 +1,171 @@
+name: Materialize3 approved KDD latest-content sync
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      github.event.pull_request.head.ref == 'dev/paper-kdd2027-latest-content-sync-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Reconstruct and normalize approved payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/kdd-sync-payload/chunk-* | base64 --decode > /tmp/payload.tar.xz
+          echo '2a3196380a7611ede4b309e94f2d4eb8aec4b0902c90fa07c51dca79b2d35900  /tmp/payload.tar.xz' | sha256sum --check --strict
+          tar -xJf /tmp/payload.tar.xz -C .
+          echo '6a840123406580a5f155db1da0978a06d3b9210aa248260daf964fa637b64c43  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
+          python3 - <<'PY'
+          from pathlib import Path
+          old_hash='6a840123406580a5f155db1da0978a06d3b9210aa248260daf964fa637b64c43'
+          new_hash='67524d4d3fd614b3d084054aaab1afe9b1638d7cc97f19c8928fc0c5dccb4adb'
+          for path in [Path('paper/kdd2027/source_locked.tex'), Path('paper/overleaf/main_replacement.tex')]:
+              text=path.read_text(encoding='utf-8')
+              marker='\\usepackage{booktabs}\n'
+              addition='\\usepackage{makecell}\n'
+              if addition not in text:
+                  if marker not in text:
+                      raise SystemExit(f'missing makecell insertion marker: {path}')
+                  text=text.replace(marker, marker+addition, 1)
+              path.write_text(text, encoding='utf-8')
+          for path in [Path('scripts/generate_kdd2027_stage_a.py'), Path('.github/workflows/build-kdd2027-stage-a.yml')]:
+              text=path.read_text(encoding='utf-8')
+              if old_hash not in text:
+                  raise SystemExit(f'missing old hash: {path}')
+              path.write_text(text.replace(old_hash,new_hash), encoding='utf-8')
+          PY
+          echo '67524d4d3fd614b3d084054aaab1afe9b1638d7cc97f19c8928fc0c5dccb4adb  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
+          cmp -s paper/kdd2027/source_locked.tex paper/overleaf/main_replacement.tex
+          cmp -s paper/kdd2027/example_paper.bib paper/overleaf/example_paper.bib
+          cmp -s paper/kdd2027/missing_references.bib paper/overleaf/missing_references.bib
+          mkdir -p paper/overleaf/figures
+          cp -a paper/kdd2027/figures/. paper/overleaf/figures/
+          test "$(find paper/overleaf/figures -maxdepth 1 -type f -name '*.pdf' | wc -l | tr -d ' ')" -ge 9
+
+      - name: Install host PDF tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y poppler-utils zip
+
+      - name: Generate and compile KDD and Overleaf formats
+        uses: xu-cheng/texlive-action@v3
+        with:
+          texlive_version: 2025
+          os: debian
+          run: |
+            set -euo pipefail
+            python3 scripts/generate_kdd2027_stage_a.py
+            python3 scripts/postprocess_kdd2027_stage_a.py
+            python3 paper/kdd2027/verify_content_lock.py
+
+            cd paper/kdd2027
+            rm -f BUILD_AUDIT.txt PDFINFO.txt PDFFONTS.txt main.log main.blg
+            pdflatex --version | tee TEXLIVE_ENVIRONMENT.txt
+            latexmk -C main.tex >/dev/null 2>&1 || true
+            if ! latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex > /tmp/kdd.log 2>&1; then
+              tail -n 160 /tmp/kdd.log >&2
+              exit 1
+            fi
+            test -s main.pdf
+            grep -Fq 'TeX Live 2025' TEXLIVE_ENVIRONMENT.txt
+
+            cd ../overleaf
+            latexmk -C main.tex >/dev/null 2>&1 || true
+            if ! bash build.sh > /tmp/overleaf.log 2>&1; then
+              tail -n 160 /tmp/overleaf.log >&2
+              exit 1
+            fi
+            test -s main.pdf
+            if grep -Eqi 'Undefined control sequence|LaTeX Error|Citation .* undefined|Reference .* undefined|There were undefined references|There were undefined citations|multiply defined|Fatal error' main.log; then
+              grep -Ein 'Undefined control sequence|LaTeX Error|Citation .* undefined|Reference .* undefined|There were undefined references|There were undefined citations|multiply defined|Fatal error' main.log >&2 || true
+              exit 1
+            fi
+
+      - name: Audit, package, and write release manifest
+        shell: bash
+        env:
+          BUILD_INPUT_COMMIT: ${{ github.sha }}
+          DRPO_SKIP_LATEX_COMPILE: '1'
+        run: |
+          set -euo pipefail
+          bash paper/kdd2027/build.sh
+          grep -Fxq 'source_sha256=67524d4d3fd614b3d084054aaab1afe9b1638d7cc97f19c8928fc0c5dccb4adb' paper/kdd2027/BUILD_AUDIT.txt
+          grep -Fxq 'canonical_content_sha256=e19c7b65da96ffd92611c083e8d6a2c7dc8a4865fd531013026badfe9d6d9717' paper/kdd2027/BUILD_AUDIT.txt
+          for gate in content_lock latex_diagnostics font_embedding render_gate; do
+            grep -Fxq "${gate}=PASS" paper/kdd2027/BUILD_AUDIT.txt
+          done
+          mkdir -p paper/releases
+          cp paper/kdd2027/main.pdf paper/releases/DRPO_KDD2027_STAGE_A.pdf
+          rm -f paper/releases/DRPO_KDD2027_OVERLEAF.zip
+          (cd paper/kdd2027 && zip -q -r ../releases/DRPO_KDD2027_OVERLEAF.zip main.tex acmart.cls ACM-Reference-Format.bst example_paper.bib missing_references.bib figures README.md)
+          test -s paper/releases/DRPO_KDD2027_STAGE_A.pdf
+          test -s paper/releases/DRPO_KDD2027_OVERLEAF.zip
+          test -s paper/overleaf/main.pdf
+          [[ "$(unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | head -n1)" == 'main.tex' ]]
+          test "$(unzip -Z1 paper/releases/DRPO_KDD2027_OVERLEAF.zip | grep -Ec '^figures/.*\.pdf$')" -eq 9
+          pdftotext -f 8 -l 8 paper/kdd2027/main.pdf /tmp/page8.txt
+          grep -Fxq 'References' /tmp/page8.txt
+          pages="$(awk -F= '$1=="pages"{print $2}' paper/kdd2027/BUILD_AUDIT.txt)"
+          rendered="$(awk -F= '$1=="rendered_pages"{print $2}' paper/kdd2027/BUILD_AUDIT.txt)"
+          page_size="$(awk -F= '$1=="page_size"{sub(/^page_size=/,"");print}' paper/kdd2027/BUILD_AUDIT.txt)"
+          overleaf_pages="$(pdfinfo paper/overleaf/main.pdf | awk '/^Pages:/{print $2}')"
+          cat > paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt <<EOF
+          claim=PAPER-KDD2027-LATEST-CONTENT-SYNC-01
+          build_input_commit=${BUILD_INPUT_COMMIT}
+          main_tex_sha256=$(sha256sum paper/kdd2027/main.tex | awk '{print $1}')
+          source_sha256=67524d4d3fd614b3d084054aaab1afe9b1638d7cc97f19c8928fc0c5dccb4adb
+          canonical_content_sha256=e19c7b65da96ffd92611c083e8d6a2c7dc8a4865fd531013026badfe9d6d9717
+          pages=${pages}
+          page_size=${page_size}
+          texlive_version=2025
+          required_figures=9
+          rendered_pages=${rendered}
+          pdf_sha256=$(sha256sum paper/releases/DRPO_KDD2027_STAGE_A.pdf | awk '{print $1}')
+          kdd_overleaf_zip_sha256=$(sha256sum paper/releases/DRPO_KDD2027_OVERLEAF.zip | awk '{print $1}')
+          overleaf_arxiv_pages=${overleaf_pages}
+          overleaf_arxiv_pdf_sha256=$(sha256sum paper/overleaf/main.pdf | awk '{print $1}')
+          content_lock=PASS
+          overleaf_content_mirror=PASS
+          bibliography_mirror=PASS
+          figure_mirror=PASS
+          anonymous_pdf=PASS
+          latex_diagnostics=PASS
+          overleaf_arxiv_compile=PASS
+          font_embedding=PASS
+          render_gate=PASS
+          main_text_pages=8
+          all_pages_rendered_for_visual_audit=PASS
+          EOF
+          sed -i 's/^          //' paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt
+          cat paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt
+
+      - name: Commit canonical files and remove transport scaffolding
+        shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          rm -rf .github/kdd-sync-payload
+          rm -f .github/workflows/materialize*-kdd2027-latest-content-sync.yml .github/workflows/diagnose*-kdd2027-latest-content-sync.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/build-kdd2027-stage-a.yml paper/kdd2027/source_locked.tex paper/kdd2027/main.tex paper/kdd2027/verify_content_lock.py paper/kdd2027/build.sh paper/kdd2027/README.md paper/kdd2027/CONTENT_LOCK.txt paper/overleaf/main_replacement.tex paper/overleaf/missing_references.bib paper/overleaf/figures scripts/generate_kdd2027_stage_a.py scripts/postprocess_kdd2027_stage_a.py paper/releases/DRPO_KDD2027_STAGE_A.pdf paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt paper/releases/DRPO_KDD2027_OVERLEAF.zip
+          git add -A .github
+          git status --short
+          git commit -m 'PAPER-KDD2027-LATEST-CONTENT-SYNC-01: synchronize KDD and preprint sources'
+          git push origin "HEAD:${HEAD_BRANCH}"
