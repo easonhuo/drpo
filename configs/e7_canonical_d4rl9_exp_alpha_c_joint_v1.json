@@ -1,0 +1,377 @@
+{
+  "experiment_id": "EXT-H-E7-D4RL9-EXP-ALPHA-C-JOINT-TUNE-01",
+  "source_experiment_id": "EXT-H-E7-BENCH-01",
+  "predecessor_experiment_id": "EXT-H-E7-D4RL9-EXP-3WAVE-TUNE-01",
+  "development_prior_bindings": {
+    "predecessor_exp_result": {
+      "repository": "easonhuo/drpo-results",
+      "run_id": "E7_D4RL9_EXP_3WAVE_TUNE_20260727_01_FULL",
+      "result_commit": "992efa5f23d099ad222140ca2b3cfa75de3d7448",
+      "source_code_commit": "a9aa9bfd62a470c18955a32fb25c6e239aecf4ca",
+      "terminal_audit_path": "runs/e7/E7_D4RL9_EXP_3WAVE_TUNE_20260727_01_FULL/files/outputs/e7/d4rl9_exp_three_wave_run_001/TERMINAL_AUDIT.json",
+      "terminal_audit_git_blob": "aab7bd511b382d3e940d3ad58e74bcae18401284",
+      "use": "taskwise_c_star_prior_only"
+    },
+    "glq_result": {
+      "repository": "easonhuo/drpo-results",
+      "run_id": "E7_D4RL9_GLQ_TASKWISE_REFINEMENT_20260727_01",
+      "result_commit": "a9f40ce65a45456a3be57cf0205f8ed37e320180",
+      "source_code_commit": "23cc332ce7e0a1156d752a3354782142ef57d470",
+      "taskwise_selection_path": "runs/e7/E7_D4RL9_GLQ_TASKWISE_REFINEMENT_20260727_01/files/outputs/e7/d4rl9_glq_taskwise_refinement_run_001/TASKWISE_SELECTION.json",
+      "taskwise_selection_git_blob": "efe9b37c00de019c61b18e93bc465f38ab01650e",
+      "use": "taskwise_scale_grid_prior_only"
+    }
+  },
+  "run_kind": "pilot",
+  "scientific_status": "d4rl9_taskwise_exponential_alpha_c_joint_tuning_pilot_only",
+  "runner_version": "1.0.0-d4rl9-exp-alpha-c-joint",
+  "canonical_alpha": 0.11,
+  "reference_distance": 2.0,
+  "fixed_max_workers": 60,
+  "parallel_units": 15,
+  "workers_per_unit": 4,
+  "source_run_spec_seeds": [
+    200,
+    201
+  ],
+  "tuning_seeds": [
+    200,
+    201,
+    202,
+    203
+  ],
+  "held_out_seeds": [
+    204,
+    205,
+    206,
+    207
+  ],
+  "expected_datasets": [
+    "hopper-medium-v2",
+    "hopper-medium-replay-v2",
+    "hopper-medium-expert-v2",
+    "walker2d-medium-v2",
+    "walker2d-medium-replay-v2",
+    "walker2d-medium-expert-v2",
+    "halfcheetah-medium-v2",
+    "halfcheetah-medium-replay-v2",
+    "halfcheetah-medium-expert-v2"
+  ],
+  "candidate_count_per_task": 15,
+  "expected_unit_count": 135,
+  "expected_total_branches": 540,
+  "primary_selection_metric": "late_window_mean_750k_to_1m",
+  "late_window_steps": [
+    750000,
+    800000,
+    850000,
+    900000,
+    950000,
+    1000000
+  ],
+  "taskwise_search": {
+    "hopper-medium-v2": {
+      "mode": "alpha_primary_local_c",
+      "c_star": 0.15,
+      "scale_grid": [
+        0.02,
+        0.065,
+        0.2,
+        1.0
+      ],
+      "c_multipliers": [
+        0.5,
+        1.0,
+        2.0
+      ],
+      "positive_only_c": 0.15,
+      "extra_pairs": [
+        {
+          "negative_scale": 0.065,
+          "c_multiplier": 0.75
+        },
+        {
+          "negative_scale": 0.065,
+          "c_multiplier": 1.5
+        }
+      ]
+    },
+    "hopper-medium-replay-v2": {
+      "mode": "alpha_primary_local_c",
+      "c_star": 0.122666666667,
+      "scale_grid": [
+        0.3,
+        0.6,
+        1.0,
+        2.0
+      ],
+      "c_multipliers": [
+        0.5,
+        1.0,
+        2.0
+      ],
+      "positive_only_c": 0.122666666667,
+      "extra_pairs": [
+        {
+          "negative_scale": 1.0,
+          "c_multiplier": 0.75
+        },
+        {
+          "negative_scale": 1.0,
+          "c_multiplier": 1.5
+        }
+      ]
+    },
+    "hopper-medium-expert-v2": {
+      "mode": "alpha_primary_local_c",
+      "c_star": 0.425,
+      "scale_grid": [
+        0.003,
+        0.01,
+        0.1,
+        1.0
+      ],
+      "c_multipliers": [
+        0.5,
+        1.0,
+        2.0
+      ],
+      "positive_only_c": 0.425,
+      "extra_pairs": [
+        {
+          "negative_scale": 0.01,
+          "c_multiplier": 0.75
+        },
+        {
+          "negative_scale": 0.01,
+          "c_multiplier": 1.5
+        }
+      ]
+    },
+    "walker2d-medium-v2": {
+      "mode": "alpha_primary_local_c",
+      "c_star": 0.2,
+      "scale_grid": [
+        0.001,
+        0.003,
+        0.03,
+        1.0
+      ],
+      "c_multipliers": [
+        0.5,
+        1.0,
+        2.0
+      ],
+      "positive_only_c": 0.2,
+      "extra_pairs": [
+        {
+          "negative_scale": 0.003,
+          "c_multiplier": 0.75
+        },
+        {
+          "negative_scale": 0.003,
+          "c_multiplier": 1.5
+        }
+      ]
+    },
+    "walker2d-medium-replay-v2": {
+      "mode": "c_boundary_joint_scale",
+      "c_star": 0.0096,
+      "explicit_pairs": [
+        {
+          "negative_scale": 1.0,
+          "exponential_coefficient": 0.0
+        },
+        {
+          "negative_scale": 1.0,
+          "exponential_coefficient": 0.0006
+        },
+        {
+          "negative_scale": 1.0,
+          "exponential_coefficient": 0.0012
+        },
+        {
+          "negative_scale": 1.0,
+          "exponential_coefficient": 0.0024
+        },
+        {
+          "negative_scale": 1.0,
+          "exponential_coefficient": 0.0048
+        },
+        {
+          "negative_scale": 1.0,
+          "exponential_coefficient": 0.0072
+        },
+        {
+          "negative_scale": 1.0,
+          "exponential_coefficient": 0.0096
+        },
+        {
+          "negative_scale": 0.003,
+          "exponential_coefficient": 0.0
+        },
+        {
+          "negative_scale": 0.003,
+          "exponential_coefficient": 0.0024
+        },
+        {
+          "negative_scale": 0.003,
+          "exponential_coefficient": 0.0096
+        },
+        {
+          "negative_scale": 0.03,
+          "exponential_coefficient": 0.0
+        },
+        {
+          "negative_scale": 0.03,
+          "exponential_coefficient": 0.0024
+        },
+        {
+          "negative_scale": 0.03,
+          "exponential_coefficient": 0.0096
+        },
+        {
+          "negative_scale": 0.1,
+          "exponential_coefficient": 0.0024
+        },
+        {
+          "negative_scale": 0.0,
+          "exponential_coefficient": 0.0096
+        }
+      ]
+    },
+    "walker2d-medium-expert-v2": {
+      "mode": "alpha_primary_local_c",
+      "c_star": 0.64,
+      "scale_grid": [
+        0.03,
+        0.1,
+        0.3,
+        1.0
+      ],
+      "c_multipliers": [
+        0.5,
+        1.0,
+        2.0
+      ],
+      "positive_only_c": 0.64,
+      "extra_pairs": [
+        {
+          "negative_scale": 0.1,
+          "c_multiplier": 0.75
+        },
+        {
+          "negative_scale": 0.1,
+          "c_multiplier": 1.5
+        }
+      ]
+    },
+    "halfcheetah-medium-v2": {
+      "mode": "alpha_primary_local_c",
+      "c_star": 0.0416666666666,
+      "scale_grid": [
+        0.005,
+        0.02,
+        0.1,
+        1.0
+      ],
+      "c_multipliers": [
+        0.5,
+        1.0,
+        2.0
+      ],
+      "positive_only_c": 0.0416666666666,
+      "extra_pairs": [
+        {
+          "negative_scale": 0.02,
+          "c_multiplier": 0.75
+        },
+        {
+          "negative_scale": 0.02,
+          "c_multiplier": 1.5
+        }
+      ]
+    },
+    "halfcheetah-medium-replay-v2": {
+      "mode": "alpha_primary_local_c",
+      "c_star": 0.0046875,
+      "scale_grid": [
+        0.003,
+        0.01,
+        0.05,
+        1.0
+      ],
+      "c_multipliers": [
+        0.5,
+        1.0,
+        2.0
+      ],
+      "positive_only_c": 0.0046875,
+      "extra_pairs": [
+        {
+          "negative_scale": 0.01,
+          "c_multiplier": 0.75
+        },
+        {
+          "negative_scale": 0.01,
+          "c_multiplier": 1.5
+        }
+      ]
+    },
+    "halfcheetah-medium-expert-v2": {
+      "mode": "alpha_primary_local_c",
+      "c_star": 2.3,
+      "scale_grid": [
+        0.01,
+        0.03,
+        0.1,
+        1.0
+      ],
+      "c_multipliers": [
+        0.5,
+        1.0,
+        2.0
+      ],
+      "positive_only_c": 2.3,
+      "extra_pairs": [
+        {
+          "negative_scale": 0.03,
+          "c_multiplier": 0.75
+        },
+        {
+          "negative_scale": 0.03,
+          "c_multiplier": 1.5
+        }
+      ]
+    }
+  },
+  "rounding_significant_digits": 12,
+  "fixed_trainer_flags": {
+    "--variant": "iqlv_exp_rank",
+    "--alpha": "0.11",
+    "--tau": "0.5",
+    "--temp": "5.0",
+    "--steps": "1000000",
+    "--batch": "256",
+    "--lr": "0.0003",
+    "--eval_interval": "50000",
+    "--eval_episodes": "10"
+  },
+  "selection_rule": [
+    "maximize late_window_mean_across_seeds",
+    "then maximize late_window_min_across_seeds",
+    "then minimize best_to_late_mean_drop_mean",
+    "then choose the smaller negative_scale",
+    "then choose the smaller exponential_coefficient",
+    "then choose the earlier frozen candidate_index"
+  ],
+  "notes": [
+    "This is a development-only joint tuning pilot over the Exponential controller's global negative-scale multiplier s and distance coefficient c.",
+    "The canonical trainer alpha remains 0.11. The injected effective near-field coefficient is 0.11 * negative_scale.",
+    "Eight tasks use four task-specific nonzero scales crossed with three local c values, one exact zero-negative anchor, and two extra local interaction points.",
+    "walker2d-medium-replay-v2 prioritizes lower-c boundary closure and includes c=0 global-shape anchors plus selected low-scale interactions.",
+    "Development seeds remain 200-203. Held-out seeds 204-207 are never loaded.",
+    "The fixed one-million-update horizon is not convergence. Cross-method ranking, steady-state claims, and formal D4RL-9 table population remain forbidden until separately registered held-out confirmation.",
+    "Task-performance collapse, support/variance boundary events, and NaN/Inf numerical failures must be reported separately."
+  ]
+}

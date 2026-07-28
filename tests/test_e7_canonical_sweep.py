@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import subprocess
 from pathlib import Path
 
 from drpo.e7_canonical_injection import CanonicalContract
@@ -86,3 +88,48 @@ def test_repository_grid_declares_31_injected_branches() -> None:
     controls = expand_injected_controls(raw)
     assert len(controls) == 31
     assert raw["branch_count_per_dataset_seed"] == 31
+
+
+def test_exp_joint_grid_accepts_zero_scale_and_zero_coefficient() -> None:
+    raw = {
+        "experiment_id": "EXT-H-E7-D4RL9-EXP-ALPHA-C-JOINT-TUNE-01",
+        "run_kind": "pilot",
+        "canonical_alpha": 0.11,
+        "reference_distance": 2.0,
+        "coefficients": {
+            "reciprocal_linear": 0.5,
+            "reciprocal_quadratic": 0.5,
+            "exponential": 0.0,
+        },
+        "anchors": {},
+        "negative_scale_grid": {"exponential": [0.0]},
+    }
+    controls = expand_injected_controls(raw)
+    assert len(controls) == 1
+    control = controls[0]
+    assert control.method == "exponential"
+    assert control.negative_scale == 0.0
+    assert control.exponential_coefficient == 0.0
+    assert control.effective_alpha == 0.0
+
+
+def test_exp_joint_one_click_validates_frozen_540_matrix() -> None:
+    completed = subprocess.run(
+        [
+            "bash",
+            "scripts/run_e7_canonical_d4rl9_exp_alpha_c_joint_one_click.sh",
+            "--validate-only",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(completed.stdout.strip().splitlines()[-1])
+    assert payload == {
+        "branches": 540,
+        "candidates_per_task": 15,
+        "experiment_id": "EXT-H-E7-D4RL9-EXP-ALPHA-C-JOINT-TUNE-01",
+        "status": "PASS",
+        "tasks": 9,
+        "units": 135,
+    }

@@ -1,0 +1,124 @@
+schema_version: 1
+experiment_id: EXT-H-E7-D4RL9-EXP-ALPHA-C-JOINT-TUNE-01
+source_experiment_id: EXT-H-E7-BENCH-01
+predecessor_experiment_id: EXT-H-E7-D4RL9-EXP-3WAVE-TUNE-01
+claim: On the same nine public D4RL locomotion tasks, canonical one-step-TD actor
+  path, development seeds, one-million-update budget, and evaluation cadence used
+  by the predecessor Exp development sweep, jointly tune the Exponential controller's
+  global negative-scale multiplier s and distance coefficient c. Close the remaining
+  lower-c boundary on walker2d-medium-replay-v2, locally recheck c after scale changes
+  on the other eight tasks, and freeze one development pair per task without touching
+  held-out seeds or making a cross-method, convergence, or formal-table claim.
+role: external_validity_development_hyperparameter_tuning
+environment: Hopper_Walker2d_HalfCheetah_D4RL_v2
+execution_class: pilot
+result_status: not_run
+implementation_state: implemented_pending_registration_transaction
+implementation_commit: f048b9e7a891e3c76d89916b4288d296f197d8ac
+implementation_branch: dev/e7-d4rl9-exp-alpha-c-joint-tuning-01
+development_prior_bindings:
+  predecessor_exp_result_commit: 992efa5f23d099ad222140ca2b3cfa75de3d7448
+  predecessor_exp_terminal_audit_git_blob: aab7bd511b382d3e940d3ad58e74bcae18401284
+  glq_result_commit: a9f40ce65a45456a3be57cf0205f8ed37e320180
+  glq_taskwise_selection_git_blob: efe9b37c00de019c61b18e93bc465f38ab01650e
+  scope: development_search_priors_only
+code_entrypoint: scripts/run_e7_canonical_sweep.py
+one_click_entrypoint: scripts/run_e7_canonical_d4rl9_exp_alpha_c_joint_one_click.sh
+config_path: configs/e7_canonical_d4rl9_exp_alpha_c_joint_v1.json
+protocol_path: docs/e7_canonical_d4rl9_exp_alpha_c_joint_v1.md
+methods:
+- exponential
+controller:
+  formula: w_neg(d)=0.11*s*exp(-c*(d/2))
+  canonical_alpha: 0.11
+  reference_distance: 2.0
+  positive_advantages_unchanged: true
+  detached_remoteness_geometry: true
+  zero_scale_is_positive_only_equivalent: true
+  zero_c_is_global_shape_limit: true
+tuned_variables:
+- negative_scale_s
+- exponential_coefficient_c
+frozen_variables:
+  trainer_variant: iqlv_exp_rank
+  trainer_alpha: 0.11
+  trainer_tau: 0.5
+  trainer_temperature: 5.0
+  policy_updates: 1000000
+  batch_size: 256
+  learning_rate: 0.0003
+  evaluation_interval: 50000
+  evaluation_episodes: 10
+  reference_distance: 2.0
+metrics:
+  primary: late_window_mean_750k_to_1m
+  diagnostics:
+  - late_window_minimum_across_seeds
+  - late_window_standard_deviation
+  - final_score
+  - best_score_and_step
+  - best_to_final_drop
+  - best_to_late_window_drop
+  - terminal_slope_per_100k
+  - finite_history_and_zero_exit
+seeds:
+  development:
+  - 200
+  - 201
+  - 202
+  - 203
+  held_out_untouched:
+  - 204
+  - 205
+  - 206
+  - 207
+matrix:
+  datasets: 9
+  candidates_per_task: 15
+  seeds: 4
+  expected_units: 135
+  expected_total_branches: 540
+search_design:
+  alpha_primary_tasks: 8
+  alpha_primary_structure: one_zero_scale_anchor_plus_four_scales_cross_three_local_c_values_plus_two_extra_interaction_points
+  c_boundary_task: walker2d-medium-replay-v2
+  c_boundary_structure: seven_scale_one_lower_c_points_plus_low_scale_interactions_plus_zero_scale_anchor
+  predecessor_winner_anchor_required: true
+  duplicate_pairs_forbidden: true
+  manual_post_result_candidate_edits_allowed: false
+selection:
+  scope: per_dataset_exponential_negative_scale_and_c_pair
+  rule:
+  - maximize_late_window_mean_across_seeds
+  - maximize_late_window_min_across_seeds
+  - minimize_best_to_late_window_drop
+  - choose_smaller_negative_scale_as_tie_break_only
+  - choose_smaller_exponential_coefficient_as_tie_break_only
+  - choose_earlier_frozen_candidate_index
+parallelism:
+  maximum_parallel_workers: 60
+  parallel_units: 15
+  workers_per_unit: 4
+terminal_audit:
+  required: true
+  fixed_horizon_is_convergence: false
+  task_performance_collapse: unclassified_without_registered_threshold
+  support_or_variance_boundary: unavailable_in_unchanged_trainer
+  nan_inf_numerical_failure: separate_finite_history_and_zero_exit_audit
+claims_forbidden:
+- cross_method_ranking
+- formal_d4rl9_table_population
+- steady_state_or_convergence
+- held_out_confirmation
+- universal_best_alpha_or_c
+- guaranteed_benefit_from_reducing_negative_scale
+- unique_causal_attribution_to_gae_or_global_alpha
+expected_output_root: outputs/e7/d4rl9_exp_alpha_c_joint_run_001
+registration_state: code_first_input_only_not_authoritative
+notes:
+- The implementation commit is the frozen code-and-document head before this registration-input
+  file is added.
+- This file is an input to the deterministic registration route; it does not itself
+  modify handoff or registry authority.
+- The development run must not start until the registration transaction and required
+  CI gates complete.
