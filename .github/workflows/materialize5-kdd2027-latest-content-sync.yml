@@ -36,27 +36,27 @@ jobs:
               Path('paper/overleaf/main_replacement.tex'),
           ]
           old_author_block = '''  \\begin{icmlauthorlist}
-    \\icmlauthor{Jie Jiang}{equal,comp}
-    \\icmlauthor{Yusen Huo}{equal,comp}
-    \\icmlauthor{Changping Wang}{comp}
-    \\icmlauthor{Jun Zhang}{comp}
-  \\end{icmlauthorlist}
-  \\icmlaffiliation{comp}{Tencent Inc, China}
+            \\icmlauthor{Jie Jiang}{equal,comp}
+            \\icmlauthor{Yusen Huo}{equal,comp}
+            \\icmlauthor{Changping Wang}{comp}
+            \\icmlauthor{Jun Zhang}{comp}
+          \\end{icmlauthorlist}
+          \\icmlaffiliation{comp}{Tencent Inc, China}
 
-  \\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}
-'''
+          \\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}
+          '''
           new_author_block = '''  \\begin{icmlauthorlist}
-    \\icmlauthor{Yusen Huo}{equal,comp}
-    \\icmlauthor{Changping Wang}{comp}
-    \\icmlauthor{Yangru Huang}{comp}
-    \\icmlauthor{Jun Zhang}{comp}
-    \\icmlauthor{Jie Jiang}{equal,comp}
-  \\end{icmlauthorlist}
-  \\icmlaffiliation{comp}{Tencent Inc, China}
+            \\icmlauthor{Yusen Huo}{comp}
+            \\icmlauthor{Changping Wang}{comp}
+            \\icmlauthor{Yangru Huang}{comp}
+            \\icmlauthor{Jun Zhang}{comp}
+            \\icmlauthor{Jie Jiang}{comp}
+          \\end{icmlauthorlist}
+          \\icmlaffiliation{comp}{Tencent Inc, China}
 
-  \\icmlcorrespondingauthor{Yangru Huang}{yarayrhuang@tencent.com}
-  \\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}
-'''
+          \\icmlcorrespondingauthor{Yangru Huang}{yarayrhuang@tencent.com}
+          \\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}
+          '''
           for path in source_paths:
               text = path.read_text(encoding='utf-8')
               if '\\usepackage{makecell}\n' not in text:
@@ -68,6 +68,11 @@ jobs:
               if old_author_block not in text:
                   raise SystemExit(f'expected author block not found in {path}')
               text = text.replace(old_author_block, new_author_block, 1)
+              text = text.replace(
+                  '\\printAffiliationsAndNotice{\\icmlEqualContribution}',
+                  '\\printAffiliationsAndNotice{}',
+                  1,
+              )
               path.write_text(text, encoding='utf-8')
 
           locked = source_paths[0].read_bytes()
@@ -95,12 +100,14 @@ jobs:
           cmp -s paper/kdd2027/source_locked.tex paper/overleaf/main_replacement.tex
           cmp -s paper/kdd2027/example_paper.bib paper/overleaf/example_paper.bib
           cmp -s paper/kdd2027/missing_references.bib paper/overleaf/missing_references.bib
-          grep -Fq '\icmlauthor{Yusen Huo}{equal,comp}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlauthor{Yusen Huo}{comp}' paper/overleaf/main_replacement.tex
           grep -Fq '\icmlauthor{Changping Wang}{comp}' paper/overleaf/main_replacement.tex
           grep -Fq '\icmlauthor{Yangru Huang}{comp}' paper/overleaf/main_replacement.tex
           grep -Fq '\icmlauthor{Jun Zhang}{comp}' paper/overleaf/main_replacement.tex
-          grep -Fq '\icmlauthor{Jie Jiang}{equal,comp}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlauthor{Jie Jiang}{comp}' paper/overleaf/main_replacement.tex
           grep -Fq '\icmlcorrespondingauthor{Yangru Huang}{yarayrhuang@tencent.com}' paper/overleaf/main_replacement.tex
+          ! grep -Fq 'equal,comp' paper/overleaf/main_replacement.tex
+          ! grep -Fq '\printAffiliationsAndNotice{\icmlEqualContribution}' paper/overleaf/main_replacement.tex
           mkdir -p paper/overleaf/figures
           cp -a paper/kdd2027/figures/. paper/overleaf/figures/
 
@@ -179,6 +186,7 @@ jobs:
           latex_diagnostics=PASS
           overleaf_arxiv_compile=PASS
           author_order=Yusen_Huo;Changping_Wang;Yangru_Huang;Jun_Zhang;Jie_Jiang
+          equal_contribution=NONE
           yangru_huang_email=yarayrhuang@tencent.com
           font_embedding=PASS
           render_gate=PASS
