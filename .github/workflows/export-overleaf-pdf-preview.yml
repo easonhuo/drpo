@@ -1,4 +1,4 @@
-name: Export Overleaf PDF preview
+name: Export complete Overleaf package
 
 on:
   pull_request:
@@ -62,14 +62,17 @@ jobs:
           p.write_text(s, encoding='utf-8')
           PY
           grep -Fq '\icmlauthor{Yusen Huo}{comp}' paper/overleaf/main_replacement.tex
-          grep -Fq '\icmlauthor{Jie Jiang}{comp}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlauthor{Changping Wang}{comp}' paper/overleaf/main_replacement.tex
           grep -Fq '\icmlauthor{Yangru Huang}{comp}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlauthor{Jun Zhang}{comp}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlauthor{Jie Jiang}{comp}' paper/overleaf/main_replacement.tex
           grep -Fq '\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}' paper/overleaf/main_replacement.tex
           ! grep -Fq '\icmlcorrespondingauthor{Yangru Huang}' paper/overleaf/main_replacement.tex
           ! grep -Fq 'equal,comp' paper/overleaf/main_replacement.tex
           ! grep -Fq '\printAffiliationsAndNotice{\icmlEqualContribution}' paper/overleaf/main_replacement.tex
           mkdir -p paper/overleaf/figures
           cp -a paper/kdd2027/figures/. paper/overleaf/figures/
+          test "$(find paper/overleaf/figures -maxdepth 1 -type f -name '*.pdf' | wc -l)" -eq 9
 
       - name: Compile Overleaf/arXiv PDF with TeX Live 2025
         uses: xu-cheng/texlive-action@v3
@@ -83,10 +86,109 @@ jobs:
             bash build.sh
             test -s main.pdf
 
-      - name: Upload Overleaf PDF preview
+      - name: Audit and assemble upload-ready ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update >/dev/null
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y poppler-utils >/dev/null
+          pages="$(pdfinfo paper/overleaf/main.pdf | awk '/^Pages:/{print $2}')"
+          test "$pages" -eq 46
+          python3 - <<'PY'
+          from __future__ import annotations
+          import hashlib
+          import zipfile
+          from pathlib import Path
+
+          root = Path('paper/overleaf')
+          output = Path('/tmp/DRPO_OVERLEAF_FINAL_PACKAGE.zip')
+          audit = root / 'PACKAGE_AUDIT.txt'
+          pdf = root / 'main.pdf'
+          source = root / 'main_replacement.tex'
+
+          required = [
+              root / 'main.tex',
+              source,
+              root / 'icml2026.sty',
+              root / 'example_paper.bib',
+              root / 'missing_references.bib',
+              root / 'build.sh',
+              root / 'README.md',
+              root / 'BUILD.md',
+              pdf,
+          ]
+          missing = [str(p) for p in required if not p.is_file()]
+          if missing:
+              raise SystemExit(f'missing required Overleaf files: {missing}')
+
+          figures = sorted((root / 'figures').glob('*.pdf'))
+          if len(figures) != 9:
+              raise SystemExit(f'expected 9 figures, found {len(figures)}')
+
+          sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+          audit.write_text(
+              '\n'.join([
+                  'claim=PAPER-KDD2027-LATEST-CONTENT-SYNC-01',
+                  'author_order=Yusen_Huo;Changping_Wang;Yangru_Huang;Jun_Zhang;Jie_Jiang',
+                  'equal_contribution=NONE',
+                  'corresponding_author=Jun_Zhang',
+                  'corresponding_email=neoxzhang@tencent.com',
+                  'overleaf_compile=PASS',
+                  'pages=46',
+                  'figures=9',
+                  f'main_replacement_tex_sha256={sha(source)}',
+                  f'main_pdf_sha256={sha(pdf)}',
+              ]) + '\n',
+              encoding='utf-8',
+          )
+
+          generated_names = {
+              'main.aux', 'main.bbl', 'main.blg', 'main.fdb_latexmk',
+              'main.fls', 'main.log', 'main.out', 'main.toc',
+              'main.synctex.gz',
+          }
+          files = []
+          for path in root.rglob('*'):
+              if not path.is_file():
+                  continue
+              rel = path.relative_to(root)
+              if path.name in generated_names:
+                  continue
+              if any(part in {'__pycache__', 'renders'} for part in rel.parts):
+                  continue
+              files.append(path)
+
+          if output.exists():
+              output.unlink()
+          with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+              for path in sorted(files, key=lambda p: str(p.relative_to(root))):
+                  zf.write(path, path.relative_to(root))
+
+          with zipfile.ZipFile(output) as zf:
+              names = set(zf.namelist())
+              required_names = {
+                  'main.tex', 'main_replacement.tex', 'icml2026.sty',
+                  'example_paper.bib', 'missing_references.bib',
+                  'build.sh', 'README.md', 'BUILD.md', 'main.pdf',
+                  'PACKAGE_AUDIT.txt',
+              }
+              missing_names = sorted(required_names - names)
+              if missing_names:
+                  raise SystemExit(f'package missing: {missing_names}')
+              figure_names = [n for n in names if n.startswith('figures/') and n.endswith('.pdf')]
+              if len(figure_names) != 9:
+                  raise SystemExit(f'package figure count={len(figure_names)}')
+
+          print(f'package={output}')
+          print(f'package_sha256={sha(output)}')
+          print(f'package_files={len(files)}')
+          PY
+          test -s /tmp/DRPO_OVERLEAF_FINAL_PACKAGE.zip
+
+      - name: Upload complete Overleaf package
         uses: actions/upload-artifact@v4
         with:
-          name: drpo-overleaf-main-pdf-final-authors
-          path: paper/overleaf/main.pdf
+          name: DRPO_OVERLEAF_FINAL_PACKAGE
+          path: /tmp/DRPO_OVERLEAF_FINAL_PACKAGE.zip
           if-no-files-found: error
           retention-days: 7
