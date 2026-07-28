@@ -31,8 +31,36 @@ jobs:
           s = p.read_text(encoding='utf-8')
           if '\\usepackage{makecell}\n' not in s:
               s = s.replace('\\usepackage{booktabs}\n', '\\usepackage{booktabs}\n\\usepackage{makecell}\n', 1)
+          old = '''  \\begin{icmlauthorlist}
+    \\icmlauthor{Jie Jiang}{equal,comp}
+    \\icmlauthor{Yusen Huo}{equal,comp}
+    \\icmlauthor{Changping Wang}{comp}
+    \\icmlauthor{Jun Zhang}{comp}
+  \\end{icmlauthorlist}
+  \\icmlaffiliation{comp}{Tencent Inc, China}
+
+  \\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}
+'''
+          new = '''  \\begin{icmlauthorlist}
+    \\icmlauthor{Yusen Huo}{equal,comp}
+    \\icmlauthor{Changping Wang}{comp}
+    \\icmlauthor{Yangru Huang}{comp}
+    \\icmlauthor{Jun Zhang}{comp}
+    \\icmlauthor{Jie Jiang}{equal,comp}
+  \\end{icmlauthorlist}
+  \\icmlaffiliation{comp}{Tencent Inc, China}
+
+  \\icmlcorrespondingauthor{Yangru Huang}{yarayrhuang@tencent.com}
+  \\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}
+'''
+          if old not in s:
+              raise SystemExit('expected author block not found')
+          s = s.replace(old, new, 1)
           p.write_text(s, encoding='utf-8')
           PY
+          grep -Fq '\icmlauthor{Yusen Huo}{equal,comp}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlauthor{Yangru Huang}{comp}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlcorrespondingauthor{Yangru Huang}{yarayrhuang@tencent.com}' paper/overleaf/main_replacement.tex
           mkdir -p paper/overleaf/figures
           cp -a paper/kdd2027/figures/. paper/overleaf/figures/
 
