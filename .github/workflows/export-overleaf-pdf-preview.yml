@@ -49,7 +49,6 @@ jobs:
               '    \\icmlauthor{Jie Jiang}{comp}\n'
               '  \\end{icmlauthorlist}\n'
               '  \\icmlaffiliation{comp}{Tencent Inc, China}\n\n'
-              '  \\icmlcorrespondingauthor{Yangru Huang}{yarayrhuang@tencent.com}\n'
               '  \\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}\n'
           )
           s, count = pattern.subn(lambda _: replacement, s, count=1)
@@ -65,7 +64,8 @@ jobs:
           grep -Fq '\icmlauthor{Yusen Huo}{comp}' paper/overleaf/main_replacement.tex
           grep -Fq '\icmlauthor{Jie Jiang}{comp}' paper/overleaf/main_replacement.tex
           grep -Fq '\icmlauthor{Yangru Huang}{comp}' paper/overleaf/main_replacement.tex
-          grep -Fq '\icmlcorrespondingauthor{Yangru Huang}{yarayrhuang@tencent.com}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}' paper/overleaf/main_replacement.tex
+          ! grep -Fq '\icmlcorrespondingauthor{Yangru Huang}' paper/overleaf/main_replacement.tex
           ! grep -Fq 'equal,comp' paper/overleaf/main_replacement.tex
           ! grep -Fq '\printAffiliationsAndNotice{\icmlEqualContribution}' paper/overleaf/main_replacement.tex
           mkdir -p paper/overleaf/figures
@@ -86,7 +86,7 @@ jobs:
       - name: Upload Overleaf PDF preview
         uses: actions/upload-artifact@v4
         with:
-          name: drpo-overleaf-main-pdf-no-equal-contribution
+          name: drpo-overleaf-main-pdf-final-authors
           path: paper/overleaf/main.pdf
           if-no-files-found: error
           retention-days: 7
