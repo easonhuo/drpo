@@ -25,6 +25,7 @@ jobs:
           cat .github/kdd-sync-payload/chunk-* | base64 --decode > /tmp/payload.tar.xz
           echo '2a3196380a7611ede4b309e94f2d4eb8aec4b0902c90fa07c51dca79b2d35900  /tmp/payload.tar.xz' | sha256sum --check --strict
           tar -xJf /tmp/payload.tar.xz -C .
+          mkdir -p diagnostics
 
       - name: Diagnose manuscript generation and builds
         uses: xu-cheng/texlive-action@v3
@@ -34,13 +35,15 @@ jobs:
           run: |
             set -euo pipefail
             cd repo
+            WORKROOT="$(pwd)"
+            mkdir -p "$WORKROOT/diagnostics"
             run_checked() {
               label="$1"
               shift
-              log="/tmp/${label}.log"
+              log="$WORKROOT/diagnostics/${label}.log"
               if ! "$@" >"$log" 2>&1; then
                 echo "=== ${label} FAILED ===" >&2
-                tail -n 60 "$log" >&2
+                tail -n 40 "$log" >&2
                 exit 1
               fi
               echo "=== ${label} PASS ==="
@@ -52,9 +55,18 @@ jobs:
             cd paper/overleaf
             latexmk -C main.tex >/dev/null 2>&1 || true
             run_checked overleaf-build bash build.sh
+            cp main.log "$WORKROOT/diagnostics/overleaf-main.log"
             if grep -Eqi 'Undefined control sequence|LaTeX Error|Citation .* undefined|Reference .* undefined|There were undefined references|There were undefined citations|multiply defined|Fatal error' main.log; then
               echo '=== overleaf-diagnostics FAILED ===' >&2
               grep -Ein 'Undefined control sequence|LaTeX Error|Citation .* undefined|Reference .* undefined|There were undefined references|There were undefined citations|multiply defined|Fatal error' main.log >&2 || true
               exit 1
             fi
             echo '=== overleaf-diagnostics PASS ==='
+
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kdd-content-sync-diagnostics
+          path: repo/diagnostics
+          if-no-files-found: error
