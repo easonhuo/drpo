@@ -6,6 +6,7 @@
 \usepackage{microtype}
 \usepackage{graphicx}
 \usepackage{booktabs}
+\usepackage{makecell}
 
 % hyperref makes hyperlinks in the resulting PDF.
 % If your build breaks (sometimes temporarily if a hyperlink spans a page)
@@ -70,13 +71,12 @@
   % You can specify symbols, otherwise they are numbered in order. Ideally, you
   % should not use this facility. Affiliations will be numbered in order of
   % appearance and this is the preferred way.
-  \icmlsetsymbol{equal}{*}
-
   \begin{icmlauthorlist}
-    \icmlauthor{Jie Jiang}{equal,comp}
-    \icmlauthor{Yusen Huo}{equal,comp}
+    \icmlauthor{Yusen Huo}{comp}
     \icmlauthor{Changping Wang}{comp}
+    \icmlauthor{Yangru Huang}{comp}
     \icmlauthor{Jun Zhang}{comp}
+    \icmlauthor{Jie Jiang}{comp}
   \end{icmlauthorlist}
   \icmlaffiliation{comp}{Tencent Inc, China}
 
@@ -103,8 +103,7 @@
 % \printAffiliationsAndNotice{}  % no special notice (required even if empty)
 % Or, if applicable, use the standard equal contribution text:
 
-\printAffiliationsAndNotice{\icmlEqualContribution}
-
+\printAffiliationsAndNotice{}
 
 \begin{abstract}
 Off-policy policy optimization reuses historical behavior, including
@@ -134,9 +133,11 @@ without discarding useful local feedback.
 
 Policy-based methods learn from signed feedback: positive updates attract the
 policy toward actions estimated to be preferable, whereas negative updates
-suppress actions estimated to be undesirable. Negative feedback can therefore
-encode useful boundaries and exclusion information that positive-only learning
-lacks \citep{zhu2025negative,song2025good}. In off-policy settings, however,
+suppress actions estimated to be undesirable. Negative feedback can therefore encode useful boundaries and exclusion
+information that positive-only learning lacks
+\citep{zhu2025negative,song2025good}. Such information can displace the
+policy beyond the solution supported by positive feedback alone, although
+whether that displacement improves task utility is an empirical question. In off-policy settings, however,
 the same historical sample may be reused after earlier updates have already
 changed its probability under the current policy. This raises a single
 question: when does repeated reuse turn useful negative feedback into
@@ -210,9 +211,12 @@ preference and verifier-labeled corpora in language-model post-training.
 Classical approaches correct behavior--learner mismatch or constrain policy
 support through importance weighting, clipping, trust regions, and
 conservative or behavior-regularized objectives
-\citep{precup2000eligibility,munos2016safe,schulman2015trust,
+\citep{precup2000eligibility,schulman2015trust,
 schulman2017proximal,fujimoto2019off,kumar2020conservative,
-fujimoto2021minimalist,kostrikov2021offline}. Across both continuous and
+fujimoto2021minimalist,kostrikov2021offline}. Truncated importance ratios also underlie corrected off-policy return
+estimators such as Retrace and V-trace
+\citep{munos2016safe,espeholt2018impala}; their primary role is
+distribution correction rather than learner-relative negative-tail control. Across both continuous and
 discrete policies, our focus is narrower: repeated reuse of signed actor
 feedback, especially the negative branch, after the learner has moved away
 from the historical action.
@@ -222,11 +226,12 @@ Existing controls span positive filtering, which removes the negative branch
 \citep{peng2019advantage,nair2020awac,kostrikov2021offline}; fixed global
 down-weighting of negative advantages, as in HPO's hysteretic weight
 \citep{sana2026hpo}; baseline-based positive--negative rebalancing in
-AsymRE \citep{arnal2025asymmetric}; and probability-aware tapering in TOPR
-\citep{leroux2025tapered}. Failed or rejected behavior is also exploited in
-unlikelihood and preference-based training
-\citep{welleck2019neural,rafailov2023direct,ethayarajh2024kto,
-duan2024negating,zhang2024negative,zhu2025negative,song2025good}.
+AsymRE \citep{arnal2025asymmetric}; reference-relative preference
+optimization in DPO \citep{rafailov2023direct}; and probability-aware
+tapering in TOPR \citep{leroux2025tapered}. Failed or rejected behavior is
+also exploited in unlikelihood and preference-based training
+\citep{welleck2019neural,ethayarajh2024kto,duan2024negating,
+zhang2024negative,zhu2025negative,song2025good}.
 DRPO differs by treating learner-relative remoteness as a dynamical state
 created by repeated reuse and by selectively attenuating only the far-field
 negative tail.
@@ -539,10 +544,10 @@ persistent drift and admits no finite equilibrium. If
 \(\mathbf m_+=\mathbf m_-\), every point is stationary, but no point is
 an isolated asymptotically stable equilibrium.
 
-\textbf{Negative-dominant regime \((\rho>1)\).}
+\textit{Negative-dominant regime (\(\rho>1\)).}
 Every finite stationary point, if one exists, is unstable in continuous
-time and under every discrete update with positive step size. Hence,
-this regime admits no locally asymptotically stable finite equilibrium.
+time and under every discrete update with positive step size. Hence, this
+regime admits no locally asymptotically stable finite equilibrium.
 \end{theorem}
 
 The proof, including the exponential-family actor field and the exact
@@ -780,17 +785,22 @@ Equation~\eqref{eq:drpo_exp_weight} gives
     \right\}.
     \label{eq:drpo_categorical_weight}
 \end{equation}
-\paragraph{Relation to existing negative-update controls.}
-Positive-only sets the negative-branch weight to zero, whereas fixed
-HPO/global-\(\alpha\) applies a constant weight \(\alpha\) to all
-negative advantages \citep{sana2026hpo}. AsymRE changes the
-positive--negative balance through the reward baseline rather than
-learner-relative remoteness \citep{arnal2025asymmetric}. At the
-atomic-action level, canonical TOPR's \(\min\{\pi/\mu,1\}\) is the
-\(\beta=1\), behavior-threshold member of the categorical taper family
-\citep{leroux2025tapered}; DRPO instead uses learner-relative threshold,
-scale, and decay parameters to satisfy L0--L3. Exact identities,
-extensions, and the fitted-reference experimental variant are given in
+\paragraph{Where existing off-policy controls intervene.}
+Existing controls intervene at different points without sharing a design
+goal. Importance weighting changes the influence of historical samples,
+PPO-style methods constrain movement relative to a refreshed anchor
+\citep{schulman2017proximal}, and reference regularization tethers the
+policy. DRPO shares the sample-influence intervention point with importance
+weighting, but replaces behavior-determined attenuation with a
+learner-relative control law: remoteness is recomputed under the current
+policy, the threshold and decay rate are designed, and only the negative
+branch is weighted. With likelihood-defined remoteness, the clipped behavior
+ratio \(\min\{(\pi_\theta/\mu)^\beta,1\}\) is itself an exponential taper,
+with canonical TOPR as the \(\beta=1\) behavior-threshold case
+\citep{leroux2025tapered}. Compared with movement- and location-based
+constraints, DRPO directly suppresses the remote negative source while
+preserving positive and near-field feedback. Exact identities,
+anchor-refresh effects, and scope conditions are given in
 Appendix~\ref{app:topr_relation}.
 
 \subsection{Loop-Gain Order}
@@ -954,7 +964,7 @@ continuous-control and autoregressive policies. Controlled environments then
 separate coefficient magnitude from policy geometry, trace the resulting
 update into policy behavior, and compare negative-weighting rules under known
 near/far structure. The final task-level sections retain the D4RL and Countdown
-evaluation targets, including fields whose formal runs have not yet closed.
+evaluation targets.
 
 \subsection{Environments and Datasets}
 \label{sec:environments_datasets}
@@ -1184,13 +1194,13 @@ while suppressing the far-field tail.
     \resizebox{\linewidth}{!}{
     \begin{tabular}{lcc}
     \toprule
-    Method & Hop. & Cnt. \\
+    Method & D4RL& Cnt. \\
     \midrule
-    Pos.        & \texttt{--} & 14.0 \\
-    G-$\alpha$  & \texttt{--} & 2.4 \\
-    Rec.-L      & \texttt{--} & 13.6 \\
-    Rec.-Q      & \texttt{--} & 14.5 \\
-    DRPO        & \textbf{\texttt{--}} & \textbf{15.7} \\
+    Pos.        & 70.1& 14.0 \\
+    G-$\alpha$  & 72.9& 14.2\\
+    Rec.-L      & 74.3& 13.6 \\
+    Rec.-Q      & 72.1& 14.5 \\
+    DRPO        & \textbf{77.7}& \textbf{15.7} \\
     \bottomrule
     \end{tabular}
     }
@@ -1206,8 +1216,7 @@ magnitude into near- and far-field components, and dashed traces show
 held-out-context reward.
 \textbf{(b)} Countdown-0.5B fixed-budget transfer reports the best observed
 two-seed late-window Pass@8 from each registered development sweep (full
-curves: Figure~\ref{fig:app_countdown_taper_coefficient_response}); Hopper
-remains pending the formal run and terminal audit.
+curves: Figure~\ref{fig:app_countdown_taper_coefficient_response}); D4RL locomotion remains pending the formal run and terminal audit.
 }
 \label{fig:taper_control_and_transfer}
 \end{figure}
@@ -1230,13 +1239,13 @@ tapers. Positive-only removes both components, whereas global scaling reduces
 them indiscriminately. In the fixed-budget Countdown transfer summary, the
 best observed point in the two-seed development sweep is DRPO's 15.7\%
 late-window Pass@8, followed by Reciprocal-Quadratic (14.5\%), Positive-only
-(14.0\%), Reciprocal-Linear (13.6\%), and Global-\(\alpha\) (2.4\%)
+(14.0\%), Reciprocal-Linear (13.6\%), and Global-\(\alpha\) (14.2\%)
 (full curves: Figure~\ref{fig:app_countdown_taper_coefficient_response}).
 
 \subsubsection{External Validation of Remoteness Tapering}
 \label{sec:external_tapers}
 
-The same principle is tested externally: DRPO weights Hopper transitions by
+The same principle is tested externally: DRPO weights D4RL locomotion transitions by
 standardized remoteness from the current Gaussian policy and Countdown
 responses by mean-token surprisal, with protocol-matched methods sharing
 data, labels, initialization, optimizer, and budget. Because external tasks
@@ -1252,7 +1261,7 @@ a complete policy-optimization method on D4RL locomotion and Countdown.
 We compare it with published domain-specific baselines and
 protocol-matched controls spanning positive-only learning, global
 negative scaling, and alternative remoteness tapers. All
-protocol-matched methods use the same data and compute budgets. We
+protocol-matched methods use the same data and continuation budget. We
 report normalized return for D4RL and verifier success for Countdown,
 while task-performance failures, support or variance-boundary events,
 and NaN/Inf numerical failures remain separate outcomes.
@@ -1273,9 +1282,17 @@ baselines---CQL \citep{kumar2020conservative}, TD3+BC
 \citep{fujimoto2021minimalist}, and IQL \citep{kostrikov2021offline}---%
 under the D4RL evaluation protocol \citep{fu2020d4rl,todorov2012mujoco}. The shared objectives and
 taper functions are defined in Appendix~\ref{app:shared_methods};
-D4RL-specific score provenance, uncertainty statistics, remoteness
+D4RL-specific score provenance, remoteness
 construction, and implementation details are provided in
 Appendix~\ref{app:d4rl_methods}.
+
+Without adding an explicit behavior-policy constraint or a conservative
+value penalty on top of the shared advantage-weighted actor form, DRPO
+remains competitive on the D4RL-9 total; its only method-specific
+component is a detached remoteness taper on the negative branch. This is
+consistent with the far-field source-control route of
+Section~\ref{sec:selective_tapering_bridge}, but should be read as
+task-level transfer rather than a causal test of the mechanism.
 
 \begin{table}[t]
 \centering
@@ -1302,8 +1319,10 @@ IQL$^\dagger$
 
 halfcheetah-medium
 & 44.0 & \textbf{48.3} & \underline{47.4} & 47.3 \\
+
 hopper-medium
-& 58.5 & 59.3 & \textbf{66.3} & \underline{63.3} \\
+& 58.5 & \underline{59.3} & \textbf{66.3} & 57.3 \\
+
 walker2d-medium
 & 72.5 & \underline{83.7} & 78.3 & \textbf{85.5} \\
 
@@ -1311,8 +1330,10 @@ walker2d-medium
 
 halfcheetah-replay
 & \textbf{45.5} & \underline{44.6} & 44.2 & 43.3 \\
+
 hopper-replay
-& \underline{95.0} & 60.9 & 94.7 & \textbf{95.8} \\
+& \textbf{95.0} & 60.9 & \underline{94.7} & 87.8 \\
+
 walker2d-replay
 & 77.2 & \textbf{81.8} & 73.9 & \underline{78.1} \\
 
@@ -1320,8 +1341,10 @@ walker2d-replay
 
 halfcheetah-expert
 & \textbf{91.6} & 90.7 & 86.7 & \underline{91.1} \\
+
 hopper-expert
-& \textbf{105.4} & 98.0 & 91.5 & \underline{101.8} \\
+& \textbf{105.4} & \underline{98.0} & 91.5 & \underline{98.0} \\
+
 walker2d-expert
 & 108.8 & \underline{110.1} & 109.6 & \textbf{110.4} \\
 
@@ -1331,7 +1354,7 @@ walker2d-expert
 & \textit{\underline{698.5}}
 & \textit{677.4}
 & \textit{692.4}
-& \textbf{\textit{716.6}}
+& \textbf{\textit{698.8}}
 \\
 
 \bottomrule
@@ -1344,8 +1367,7 @@ walker2d-expert
 \textit{Note.} ``replay'' and ``expert'' abbreviate ``medium-replay'' and
 ``medium-expert'', respectively. $\dagger$: published results rather than
 protocol-matched reruns. Bold/underline: best/second-best among the methods
-shown. DRPO reports the mean over 10 runs; standard deviations and seed-level
-results are in Appendix~\ref{app:d4rl_methods}.
+shown. DRPO reports the mean over 10 runs.
 \end{minipage}
 
 \end{table}
@@ -1372,11 +1394,12 @@ This zero-refresh limit isolates stale-negative reuse
 (Appendices~\ref{app:countdown_dataset} and~\ref{app:countdown_methods}).
 
 We compare DRPO with
-AsymRE~\citep{arnal2025asymmetric} and
-the Joint Fitted-Reference \(\beta\)-TOPR
-variant~\citep{leroux2025tapered} as off-policy baselines.
-The corresponding validation sweeps and selected coefficients are
-reported in Appendix~\ref{app:countdown_baseline_sensitivity}.
+AsymRE~\citep{arnal2025asymmetric}, the Joint Fitted-Reference
+\(\beta\)-TOPR variant~\citep{leroux2025tapered}, and canonical
+DPO~\citep{rafailov2023direct}, preceded by a short SFT stage to ensure
+a task-capable initialization. The corresponding validation sweeps and
+selected coefficients are reported in
+Appendix~\ref{app:countdown_baseline_sensitivity}.
 The shared objectives and taper functions are defined in
 Appendix~\ref{app:shared_methods}.
 
@@ -1387,15 +1410,17 @@ Appendix~\ref{app:shared_methods}.
 
 \small
 \renewcommand{\arraystretch}{1.10}
-\setlength{\tabcolsep}{5.0pt}
+\setlength{\tabcolsep}{3.2pt}
 
-\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lccc}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lcccc}
 \toprule
 Metric
 &
 AsymRE
 &
-\makecell{\(\beta\)-TOPR\\(joint fitted ref.)}
+\makecell{\(\beta\)-TOPR\\(joint ref.)}
+&
+DPO\(^{\ddagger}\)
 &
 \textbf{DRPO}
 \\
@@ -1404,18 +1429,21 @@ AsymRE
 Greedy success (\%)
 & 6.80
 & 7.53
+& 2.32
 & \textbf{7.62}
 \\
 
 Pass@8 (\%)
 & 14.38
 & 14.41
+& 8.48
 & \textbf{15.72}
 \\
 
 Valid expression (\%)
 & \textbf{99.48}
 & 99.14
+& 66.24
 & 99.40
 \\
 
@@ -1427,21 +1455,21 @@ Valid expression (\%)
 \begin{minipage}{\columnwidth}
 \small
 \textit{Note.}
-All methods initialize a fresh policy LoRA on the same
-Qwen2.5-0.5B-Instruct backbone. All entries are arithmetic means over
-evaluation steps 800, 900, 1000, 1100, and 1200 on the held-out
-validation split. The TOPR arm implements the joint fitted-reference
-\(\beta\)-TOPR variant; it is not a canonical frozen-behavior
-reproduction of \citet{leroux2025tapered}. Bold indicates the highest
-observed value in each row.
+AsymRE, \(\beta\)-TOPR, and DRPO initialize their trainable LoRA
+adapters directly from the same Qwen2.5-0.5B-Instruct backbone;
+\(^{\ddagger}\)DPO uses the same parameterization but initializes
+its policy and frozen reference from the short SFT checkpoint
+described in Appendix~\ref{app:countdown_methods}.
+All entries are arithmetic means over evaluation steps 800, 900, 1000,
+1100, and 1200 on the held-out validation split. The TOPR arm implements
+the joint fitted-reference \(\beta\)-TOPR variant; it is not a canonical
+frozen-behavior reproduction of \citet{leroux2025tapered}. Bold indicates
+the highest observed value in each row.
 \end{minipage}
 
 \end{table}
 
-DRPO delivers the strongest observed task performance among the
-compared methods. The near-saturated valid-expression rates across all
-three methods indicate that this difference is not obtained through a
-loss of output well-formedness.
+DRPO delivers the strongest observed task performance while retaining a near-saturated valid-expression rate. Despite its task-capable warm start, DPO does not preserve its initial validation performance under repeated frozen-bank reuse in this setting.
 
 \section{Conclusion}
 
@@ -3646,49 +3674,141 @@ reweighting views, but one controls remoteness under a finite negative
 measure and the other selects a quality region. Neither problem implies
 the other.
 
-\subsection{TOPR Identities and Conditional-versus-Population Constants}
+\subsection{Relation to Ratio- and Constraint-Based Controls}
 \label{app:topr_relation}
 
-For total surprisal and \(\beta=1\), substituting
-\(D_\pi=-\log\pi\) and \(\tau=-\log\mu\) gives
+\paragraph{Behavior-ratio identity.}
+For total log probabilities, define
 \[
-e^{-[D_\pi-\tau]_+}
-=e^{-[-\log(\pi/\mu)]_+}
-=\min\{\pi/\mu,1\}.
+r_{\mathrm{beh},\theta}(s,a)
+=
+\frac{\pi_\theta(a\mid s)}{\mu(a\mid s)},
+\qquad
+D_\theta(s,a)
+=
+-\log\pi_\theta(a\mid s),
+\qquad
+D_\mu(s,a)
+=
+-\log\mu(a\mid s),
 \]
-Replacing both log probabilities by their length-normalized values
-raises the ratio to the \(1/L\) power, proving the
-length-normalized identity above.
+where \(\mu\) is the behavior policy. For any \(\beta>0\),
+\[
+\begin{aligned}
+\min\left\{
+    r_{\mathrm{beh},\theta}(s,a)^\beta,
+    1
+\right\}
+&=
+\min\left\{
+    \left(
+        \frac{\pi_\theta(a\mid s)}
+             {\mu(a\mid s)}
+    \right)^\beta,
+    1
+\right\} \\
+&=
+\exp\left\{
+    -\beta
+    \left[
+        D_\theta(s,a)-D_\mu(s,a)
+    \right]_+
+\right\}.
+\end{aligned}
+\]
+Thus, the clipped behavior ratio is exactly
+Equation~\eqref{eq:drpo_exp_weight} with the sample-specific threshold
+\(\tau=D_\mu(s,a)\) and rate \(\lambda/c=\beta\). At the atomic-action
+level, canonical TOPR is the \(\beta=1\) case
+\citep{leroux2025tapered}. The corresponding untruncated power weight
+\(r_{\mathrm{beh},\theta}^{\beta}\) has the same far-field decay but may
+exceed one when \(D_\theta<D_\mu\), whereas the thresholded taper remains
+capped at one. Replacing both log probabilities by their
+length-normalized values replaces
+\(r_{\mathrm{beh},\theta}\) by
+\(r_{\mathrm{beh},\theta}^{1/L}\).
+
+Relative to this behavior-ratio form, DRPO treats the threshold and decay
+rate as design quantities, recomputes remoteness under the current policy,
+and applies the taper only to the negative branch.
+
+\paragraph{Conditional-versus-population constants.}
 
 For a conditionally reused far-branch sample, the coefficient contains
-\(\pi/\mu\), so the vector-field prefactor contains \(\mu^{-1}\).
-Solving the asymptotic scalar equation yields
-\(\pi(t)\asymp\mu/(Cqt)\) and
-\(\pi(t)/\mu\asymp1/(Cqt)\). In the population field, however, the
-outer sampling mass gives
+\(\pi/\mu\), so the conditional vector field retains a factor of
+\(\mu^{-1}\). In the population field, however, the outer sampling mass
+gives
 \[
-\mu\min\{\pi/\mu,1\}=\min\{\pi,\mu\},
+\mu\min\{\pi/\mu,1\}
+=
+\min\{\pi,\mu\},
 \]
-and cancels that denominator on the far branch.
+and cancels the ratio denominator on the far branch.
 
+\paragraph{Experimental fitted-reference variant.}
 The TOPR arm implements the joint fitted-reference
 \(\beta\)-TOPR variant; it is not a canonical frozen-behavior
-reproduction of \citet{leroux2025tapered}.
-
-The canonical population cancellation above requires the same
-\(\mu\) to serve as both the outer sampling mass and the ratio
-denominator. It therefore does not apply to the experimental variant,
-whose outer measure is induced by prompt-uniform replay with a
-per-prompt unique-negative mean and whose denominator is
-\(\mu_{\mathrm{ref}}\). The experimental arm also uses
+reproduction of \citet{leroux2025tapered}. The canonical population
+cancellation above requires the same \(\mu\) to serve as both the outer
+sampling mass and the ratio denominator. It therefore does not apply to
+the experimental variant, whose outer measure is induced by
+prompt-uniform replay with a per-prompt unique-negative mean and whose
+denominator is \(\mu_{\mathrm{ref}}\). The experimental arm also uses
 full-completion summed log probabilities rather than the
 length-normalized ratio identity above.
 
-For Gaussian atoms the
-triangle inequality and the one-atom \(G_i\) calculation in
-Appendix~\ref{app:gaussian_drpo_boundedness} give weighted constants
-first. A \(\mu_{\min}\) expression follows only after imposing finite
-support and replacing the weighted terms by their worst case.
+For Gaussian atoms, the triangle inequality and the one-atom \(G_i\)
+calculation in Appendix~\ref{app:gaussian_drpo_boundedness} first give
+weighted constants. A \(\mu_{\min}\) expression follows only after
+imposing finite support and replacing the weighted terms by their
+worst-case bounds.
+
+\paragraph{Refreshed proximal ratios.}
+For a PPO-style proximal update, define
+\[
+r_{\mathrm{prox},\theta}(s,a)
+=
+\frac{\pi_\theta(a\mid s)}
+     {\pi_{\mathrm{old}}(a\mid s)}.
+\]
+For the clipped surrogate
+\citep{schulman2017proximal}, when \(\widehat A<0\), the effective
+coefficient relative to
+\(\widehat A\nabla_\theta\log\pi_\theta(a\mid s)\), away from the clipping
+boundary, is
+\[
+r_{\mathrm{prox},\theta}
+\mathbf 1
+\left\{
+    r_{\mathrm{prox},\theta}
+    \geq
+    1-\epsilon
+\right\},
+\]
+rather than a pure indicator. The activation boundary is hard, but the
+retained coefficient remains the proximal policy ratio. Refreshing
+\(\pi_{\mathrm{old}}\) resets this ratio to one at the beginning of each
+outer iteration. The resulting gate therefore constrains movement relative
+to the latest anchor but does not directly encode the cumulative
+learner-relative remoteness that increases under
+Theorem~\ref{thm:reuse_dynamics}.
+
+\paragraph{Movement, tethering, and source control.}
+Reducing a fixed positive step size does not restore a stable finite
+equilibrium under negative dominance
+(Theorem~\ref{thm:aggregate_equilibria}). Reference regularization instead
+restores an inward force by tethering the whole policy. When \(q>p\),
+stability requires
+\[
+\gamma>q-p.
+\]
+When \(p>q\), strengthening the tether contracts the equilibrium toward
+the reference
+(Proposition~\ref{prop:regularized_restoration}). DRPO instead attenuates
+the learner-relative remote negative source while leaving the positive
+branch and near-field negative feedback unchanged. These mechanisms are
+not mutually exclusive, but the dynamics of their combination lie outside
+the fixed-data, fixed-advantage analysis considered here.
 
 \section{Experimental Details}
 \label{app:experimental_details}
@@ -4299,10 +4419,13 @@ by a deterministic verifier:
     =
     \mathbf 1
     \left[
-        y
+    \begin{aligned}
+        &y
         \text{ is syntactically valid, uses }
         \mathcal N
-        \text{ exactly once, and evaluates to }T
+        \text{ exactly once,} \\
+        &\text{and evaluates to }T
+    \end{aligned}
     \right].
     \label{eq:countdown_reward}
 \end{equation}
@@ -4968,10 +5091,7 @@ Within each task, \(\tau\), \(c\), \(\lambda\), and the
 Global-\(\alpha\) coefficient are selected using the registered
 validation protocol only. Test-task performance is not used for
 hyperparameter selection. All protocol-matched methods share the same
-candidate budgets and checkpoint-selection rule. The task-specific
-search spaces and selected values are reported in
-Appendices~\ref{app:d4rl_methods} and
-\ref{app:countdown_methods}.
+candidate budgets and checkpoint-selection rule.
 
 
 \subsection{D4RL Baselines and Experimental Protocol}
@@ -5043,39 +5163,43 @@ alter the data distribution in order to improve its actor result.
 \paragraph{Hyperparameters.}
 
 The registered training and selection configuration is summarized in
-Table~\ref{tab:d4rl_registered_config}. All entries must be populated
-directly from the frozen experiment configuration rather than
-reconstructed after observing the test results.
+Table~\ref{tab:d4rl_registered_config}. Although the remoteness
+coordinate is defined consistently across tasks, its empirical
+distribution depends on the dataset. We therefore register
+task-specific development grids so that each controller covers
+comparable operating regimes under the corresponding remoteness
+distribution. All grids and selection rules are frozen before
+held-out evaluation and are populated directly from the experiment
+configuration, rather than reconstructed or adjusted after observing
+test results.
 
 \begin{table}[t]
 \centering
-\caption{Registered configuration for the D4RL performance experiments.}
+\caption{Configuration of the D4RL-9 development sweeps. Each
+task-specific grid contains ten candidates: five from the coarse sweep
+and five from refinement.}
 \label{tab:d4rl_registered_config}
 
 \small
-\setlength{\tabcolsep}{8pt}
-\renewcommand{\arraystretch}{1.12}
+\setlength{\tabcolsep}{6pt}
+\renewcommand{\arraystretch}{1.10}
 
 \begin{tabular}{@{}ll@{}}
 \toprule
-Configuration & Registered value \\
+Configuration & Value \\
 \midrule
-Actor-update budget
-& \textbf{[registered value]} \\
-Evaluation interval
-& \textbf{[registered value]} \\
-Evaluation episodes
-& \textbf{[registered value]} \\
-Random seeds
-& \textbf{[registered seed set]} \\
-Near-field threshold candidates, $\tau$
-& \textbf{[registered grid]} \\
-Remoteness-scale candidates, $c$
-& \textbf{[registered grid]} \\
-Taper-strength candidates, $\lambda$
-& \textbf{[registered grid]} \\
-Global-scaling candidates, $\alpha$
-& \textbf{[registered grid]} \\
+Policy-update budget
+& $1{,}000{,}000$ \\
+Evaluation
+& Every $50{,}000$ updates; $10$ episodes \\
+Fixed geometry
+& $\tau=0$ \\
+Global scaling, $\alpha$
+& Task-specific grid \\
+Reciprocal coefficients, $c$
+& Task-specific grids for Linear and Quadratic \\
+Exponential multiplier
+& $\alpha_{\mathrm{Exp}}=1$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -5084,8 +5208,7 @@ Global-scaling candidates, $\alpha$
 
 Task performance is reported using the standard D4RL normalized return.
 For every protocol-matched method, the main table reports the mean over
-the registered seeds, while seed-level values and uncertainty
-statistics are reported in the appendix. The D4RL-9 total is the sum of
+the registered seeds. The D4RL-9 total is the sum of
 the nine task-level means.
 
 Task-performance collapse is assessed from normalized return and
@@ -5102,9 +5225,10 @@ intermediate checkpoint.
 
 Positive-only, Global-\(\alpha\), Reciprocal-Linear,
 Reciprocal-Quadratic, and DRPO follow the shared definitions in
-Appendix~\ref{app:shared_methods}. This section defines the two
-published off-policy baselines and the Countdown-specific response-bank,
-remoteness, training, and evaluation protocols.
+Appendix~\ref{app:shared_methods}. This section defines AsymRE, the
+Joint Fitted-Reference \(\beta\)-TOPR variant, and canonical DPO,
+together with the Countdown-specific response-bank, remoteness,
+training, and evaluation protocols.
 
 \paragraph{AsymRE.}
 
@@ -5131,7 +5255,11 @@ and optimizes
 
 For a binary verifier reward, lowering \(V\) emphasizes successful
 responses, whereas increasing \(V\) strengthens suppression of failed
-responses. The baseline is selected using the validation protocol and
+responses. In our branch-balanced signed-reward implementation,
+\(r\in\{-1,+1\}\) gives the empirical baseline
+\(\widehat V=0\). The swept offset therefore determines the
+objective baseline as
+\(V=\widehat V+\delta_v=\delta_v\). The baseline is selected using the validation protocol and
 is held fixed within each run.
 
 Global-\(\alpha\) and AsymRE remain separate comparisons because they
@@ -5252,9 +5380,45 @@ gradient. The 0.5/0.5 masses belong only to the reference-fitting
 objective, not to the policy objective. The data records do not contain
 behavior-policy log probabilities; the ratio denominator is supplied by
 the jointly fitted reference adapter during training. The completed
-dense \(\beta\) scan is a provenance-limited development pilot and does
+TOPR coefficient scan is a provenance-limited development pilot and does
 not establish convergence, statistical significance, steady state, or
 a formal method ranking.
+
+\paragraph{Canonical DPO.}
+Canonical DPO~\citep{rafailov2023direct} uses the same LoRA
+parameterization as the other Countdown methods and is preceded by a
+short oracle-positive SFT stage so that preference optimization starts
+from a task-capable policy rather than a near-random solver. The
+resulting SFT LoRA checkpoint reaches held-out Pass@8 in the
+\(0.10\)--\(0.14\) range and initializes both the trainable policy
+adapter and the frozen reference adapter. For each prompt \(x\), the verified oracle solution
+\(y_x^+\) is paired with every unique verifier-incorrect completion
+\(y\in\mathcal N_x\). Using the summed completion log probability
+\(s_\theta\) defined above, the loss is
+
+\[
+\begin{aligned}
+\mathcal L_{\mathrm{DPO}}(\theta)
+={}&-
+\mathbb E_{x\sim\operatorname{Unif}(\mathcal X)}
+\Bigg[
+\frac{1}{|\mathcal N_x|}
+\sum_{y\in\mathcal N_x}
+\log\sigma\Bigl(
+\beta\bigl[
+ s_\theta(x,y_x^+)-s_{\mathrm{ref}}(x,y_x^+) \\
+&\hspace{8.2em}
+-s_\theta(x,y)+s_{\mathrm{ref}}(x,y)
+\bigr]
+\Bigr)
+\Bigg].
+\end{aligned}
+\]
+
+The loss is averaged over unique negatives within each prompt and then
+uniformly across prompts. The reference remains frozen throughout the
+fixed 1,200-step continuation, and \(\beta\) is selected using the
+registered validation sweep.
 
 \paragraph{Method-specific remoteness.}
 
@@ -5279,9 +5443,10 @@ are excluded. Mean rather than summed surprisal is used so that response
 length does not mechanically determine DRPO remoteness. The remoteness
 score is detached before applying the shared taper functions. AsymRE
 does not use remoteness and applies its signed reward directly. The
-Joint Fitted-Reference \(\beta\)-TOPR variant instead uses the dynamic
-full-completion policy/reference log-ratio defined above, not DRPO's
-mean-token remoteness.
+Joint Fitted-Reference \(\beta\)-TOPR variant uses the dynamic
+full-completion policy/reference log-ratio defined above. Canonical DPO
+instead optimizes the frozen-reference pairwise log-ratio in its own
+objective; neither baseline uses DRPO's mean-token remoteness.
 
 \paragraph{Frozen response-bank construction.}
 
@@ -5298,14 +5463,17 @@ training reward.
 
 \paragraph{Training and checkpoint selection.}
 
-All protocol-matched methods initialize a fresh policy LoRA on the same
-Qwen2.5-0.5B-Instruct backbone~\citep{qwen2024qwen25}. The Joint
-Fitted-Reference \(\beta\)-TOPR arm additionally creates a fresh
-reference LoRA with parameters copied from the initial policy adapter.
-The registered methods share the AdamW
-optimizer~\citep{loshchilov2019decoupled}, learning-rate schedule,
-minibatch construction, number of optimizer steps, validation split,
-and paired development seeds unless a method-specific protocol states
+AsymRE, the Joint Fitted-Reference \(\beta\)-TOPR variant, and DRPO
+initialize their trainable policy LoRA adapters directly from the same
+Qwen2.5-0.5B-Instruct backbone~\citep{qwen2024qwen25}. The TOPR arm
+additionally creates a reference LoRA copied from its initial policy
+adapter. Canonical DPO uses the same LoRA parameterization but instead
+initializes both its trainable policy adapter and permanently frozen
+reference adapter from the short SFT LoRA checkpoint before the first
+DPO update. The registered continuation
+methods share the AdamW optimizer~\citep{loshchilov2019decoupled},
+learning-rate schedule, minibatch construction, number of optimizer
+steps, and validation split unless a method-specific protocol states
 otherwise. Hyperparameters are selected using the registered validation
 rule.
 
@@ -5314,42 +5482,50 @@ Table~\ref{tab:countdown_registered_config}. All entries must be
 populated directly from the frozen experiment configuration rather than
 reconstructed after observing the test results.
 
+
 \begin{table}[t]
 \centering
 \caption{Registered configuration for the Countdown performance experiments.}
 \label{tab:countdown_registered_config}
 
-\small
-\setlength{\tabcolsep}{8pt}
-\renewcommand{\arraystretch}{1.12}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.10}
 
-\begin{tabular}{@{}ll@{}}
+\begin{tabular}{@{}p{0.38\columnwidth}p{0.56\columnwidth}@{}}
 \toprule
 Configuration & Registered value \\
 \midrule
-Optimizer-step budget
-& \textbf{[registered value]} \\
-Batch size
-& \textbf{[registered value]} \\
-Learning-rate schedule
-& \textbf{[registered value]} \\
-Random seeds
-& \textbf{[registered seed set]} \\
-AsymRE baseline candidates, $V$
-& \textbf{[registered grid]} \\
-Near-field threshold candidates, $\tau$
-& \textbf{[registered grid]} \\
-Remoteness-scale candidates, $c$
-& \textbf{[registered grid]} \\
-Taper-strength candidates, $\lambda$
-& \textbf{[registered grid]} \\
-Global-scaling candidates, $\alpha$
-& \textbf{[registered grid]} \\
-Number of samples for Pass@$k$
-& \textbf{[registered value]} \\
+
+Training horizon
+& $1{,}200$ optimizer steps; no early stopping \\
+
+Update configuration
+& Micro-batch $1$, gradient accumulation $8$; AdamW with learning rate
+$5\times10^{-5}$, weight decay $0.01$, cosine decay, and $3\%$ warmup \\
+
+AsymRE
+& Selected $V=\delta_v=-1$ \\
+
+Joint fitted-reference TOPR
+& Selected $\beta=0.25$ \\
+
+Canonical DPO
+& One-epoch SFT warm start; selected $\beta=1.0$ \\
+
+DRPO
+& $\tau=0$, $c=2$, and selected $\lambda=1.897119985$ \\
+
+Global reference
+& $\alpha=0.03125$ ($1/32$) \\
+
+Evaluation
+& Pass@8 primary; Pass@64 supplementary \\
+
 \bottomrule
 \end{tabular}
 \end{table}
+
 
 \paragraph{Verifier-based evaluation.}
 
@@ -5373,17 +5549,18 @@ terminal checkpoint audit rather than finite-step pilot behavior.
 \label{app:countdown_baseline_sensitivity}
 
 Figure~\ref{fig:app_countdown_baseline_parameter_response} reports the
-complete parameter-response sweeps of the two tuned Countdown baselines.
-For AsymRE, performance is maximized at \(\delta_v=-1\) and drops
-substantially as \(\delta_v\) increases, placing the strongest tested
-finite-horizon configuration at the zero-negative boundary. For joint
-fitted-reference \(\beta\)-TOPR, \(\beta=0\) performs poorly, while
-positive \(\beta\) values recover performance and form a broad plateau
-rather than a sharply isolated optimum. We therefore use
-\(\delta_v=-1\) for AsymRE and \(\beta=0.25\) for joint
-fitted-reference \(\beta\)-TOPR in the main comparison. The complete
-sweeps show that DRPO's advantage is not an artifact of comparing
-against isolated or untuned baseline settings.
+complete parameter-response sweeps of AsymRE and the Joint
+Fitted-Reference \(\beta\)-TOPR variant. For AsymRE, performance is
+maximized at \(\delta_v=-1\) and drops substantially as \(\delta_v\)
+increases, placing the strongest tested finite-horizon configuration at
+the zero-negative boundary. For joint fitted-reference \(\beta\)-TOPR,
+\(\beta=0\) performs poorly, while positive \(\beta\) values recover
+performance and form a broad plateau rather than a sharply isolated
+optimum. We therefore use \(\delta_v=-1\) for AsymRE and \(\beta=0.25\)
+for joint fitted-reference \(\beta\)-TOPR in the main comparison.
+Across the registered \(\beta\) sweep, warm-started canonical DPO
+fails to preserve its initial task capability and collapses under
+every tested setting.
 
 \begin{figure}[t]
     \centering
@@ -5391,7 +5568,10 @@ against isolated or untuned baseline settings.
     \begin{minipage}[t]{0.49\columnwidth}
         \centering
         \vspace{0pt}
-        \textbf{(a) AsymRE}\\[0.05em]
+        \parbox[t][2.8em][t]{\linewidth}{
+            \centering
+            \textbf{(a) AsymRE}
+        }
         \includegraphics[
             width=\linewidth
         ]{figures/fig_app_countdown_asymre_parameter_response.pdf}
@@ -5400,7 +5580,11 @@ against isolated or untuned baseline settings.
     \begin{minipage}[t]{0.49\columnwidth}
         \centering
         \vspace{0pt}
-        \textbf{(b) Joint fitted-reference \(\beta\)-TOPR}\\[0.05em]
+        \parbox[t][2.8em][t]{\linewidth}{
+            \centering
+            \textbf{(b) Joint fitted-reference}\\[-0.1em]
+            \textbf{\(\beta\)-TOPR}
+        }
         \includegraphics[
             width=\linewidth
         ]{figures/fig_app_countdown_topr_parameter_response.pdf}
@@ -5413,8 +5597,9 @@ against isolated or untuned baseline settings.
         \textbf{(b)} Joint fitted-reference \(\beta\)-TOPR late-window
         Pass@8 versus \(\beta\). Points denote means over the available
         development trajectories; error bars span their minimum--maximum
-        range. The dashed line denotes DRPO at \(c=1.897\), and stars mark
-        the baseline settings used in Table~\ref{tab:countdown_performance}:
+        range. The dashed line denotes DRPO at
+        \(\lambda=1.897\) with \(c=2\), and stars mark the baseline
+        settings used in Table~\ref{tab:countdown_performance}:
         \(\delta_v=-1\) and \(\beta=0.25\).
     }
     \label{fig:app_countdown_baseline_parameter_response}
