@@ -1,0 +1,243 @@
+\begin{thebibliography}{35}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Arnal et~al.(2025)Arnal, Narozniak, Cabannes, Tang, Kempe, and
+  Munos]{arnal2025asymmetric}
+Arnal, C., Narozniak, G., Cabannes, V., Tang, Y., Kempe, J., and Munos, R.
+\newblock Asymmetric {REINFORCE} for off-policy reinforcement learning:
+  Balancing positive and negative rewards.
+\newblock \emph{arXiv preprint arXiv:2506.20520}, 2025.
+
+\bibitem[Csisz{\'a}r(1975)]{csiszar1975divergence}
+Csisz{\'a}r, I.
+\newblock I-divergence geometry of probability distributions and minimization
+  problems.
+\newblock \emph{The Annals of Probability}, 3\penalty0 (1):\penalty0 146--158,
+  1975.
+
+\bibitem[Duan et~al.(2024)Duan, Yi, Zhang, Liu, Liu, Lu, Xie, and
+  Gu]{duan2024negating}
+Duan, S., Yi, X., Zhang, P., Liu, Y., Liu, Z., Lu, T., Xie, X., and Gu, N.
+\newblock Negating negatives: Alignment with human negative samples via
+  distributional dispreference optimization.
+\newblock In \emph{Findings of the Association for Computational Linguistics:
+  EMNLP}, 2024.
+\newblock arXiv:2403.03419.
+
+\bibitem[Espeholt et~al.(2018)Espeholt, Soyer, Munos, Simonyan, Mnih, Ward,
+  Doron, Firoiu, Harley, Dunning, Legg, and Kavukcuoglu]{espeholt2018impala}
+Espeholt, L., Soyer, H., Munos, R., Simonyan, K., Mnih, V., Ward, T., Doron,
+  Y., Firoiu, V., Harley, T., Dunning, I., Legg, S., and Kavukcuoglu, K.
+\newblock {IMPALA}: Scalable distributed deep-rl with importance weighted
+  actor-learner architectures.
+\newblock In \emph{International Conference on Machine Learning (ICML)}, 2018.
+
+\bibitem[Ethayarajh et~al.(2024)Ethayarajh, Xu, Muennighoff, Jurafsky, and
+  Kiela]{ethayarajh2024kto}
+Ethayarajh, K., Xu, W., Muennighoff, N., Jurafsky, D., and Kiela, D.
+\newblock {KTO}: Model alignment as prospect theoretic optimization.
+\newblock In \emph{International Conference on Machine Learning (ICML)}, 2024.
+\newblock arXiv:2402.01306.
+
+\bibitem[Fakoor et~al.(2020)Fakoor, Chaudhari, and Smola]{fakoor2020p3o}
+Fakoor, R., Chaudhari, P., and Smola, A.~J.
+\newblock {P3O}: Policy-on policy-off policy optimization.
+\newblock In \emph{Proceedings of the 35th Uncertainty in Artificial
+  Intelligence Conference}, volume 115 of \emph{Proceedings of Machine Learning
+  Research}, pp.\  1017--1027. PMLR, 2020.
+
+\bibitem[Fu et~al.(2020)Fu, Kumar, Nachum, Tucker, and Levine]{fu2020d4rl}
+Fu, J., Kumar, A., Nachum, O., Tucker, G., and Levine, S.
+\newblock D4rl: Datasets for deep data-driven reinforcement learning.
+\newblock \emph{arXiv preprint arXiv:2004.07219}, 2020.
+
+\bibitem[Fujimoto \& Gu(2021)Fujimoto and Gu]{fujimoto2021minimalist}
+Fujimoto, S. and Gu, S.~S.
+\newblock A minimalist approach to offline reinforcement learning.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, 2021.
+
+\bibitem[Fujimoto et~al.(2019)Fujimoto, Meger, and Precup]{fujimoto2019off}
+Fujimoto, S., Meger, D., and Precup, D.
+\newblock Off-policy deep reinforcement learning without exploration.
+\newblock In \emph{International Conference on Machine Learning (ICML)}, pp.\
+  2052--2062, 2019.
+
+\bibitem[Grigsby \& Qi(2021)Grigsby and Qi]{grigsby2021closer}
+Grigsby, J. and Qi, Y.
+\newblock A closer look at advantage-filtered behavioral cloning in high-noise
+  datasets.
+\newblock \emph{arXiv preprint arXiv:2110.04698}, 2021.
+
+\bibitem[Hutton(2002)]{hutton2002countdown}
+Hutton, G.
+\newblock The countdown problem.
+\newblock \emph{Journal of Functional Programming}, 12\penalty0 (6):\penalty0
+  609--616, 2002.
+\newblock \doi{10.1017/S0956796801004300}.
+
+\bibitem[Kostrikov et~al.(2021)Kostrikov, Nair, and
+  Levine]{kostrikov2021offline}
+Kostrikov, I., Nair, A., and Levine, S.
+\newblock Offline reinforcement learning with implicit q-learning.
+\newblock \emph{arXiv preprint arXiv:2110.06169}, 2021.
+
+\bibitem[Kumar et~al.(2020)Kumar, Zhou, Tucker, and
+  Levine]{kumar2020conservative}
+Kumar, A., Zhou, A., Tucker, G., and Levine, S.
+\newblock Conservative q-learning for offline reinforcement learning.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~33, pp.\  1179--1191, 2020.
+
+\bibitem[Le~Roux et~al.(2025)Le~Roux, Bellemare, Lebensold, Bergeron, Greaves,
+  Fr{\'e}chette, Pelletier, Thibodeau-Laufer, Toth, and
+  Work]{leroux2025tapered}
+Le~Roux, N., Bellemare, M.~G., Lebensold, J., Bergeron, A., Greaves, J.,
+  Fr{\'e}chette, A., Pelletier, C., Thibodeau-Laufer, E., Toth, S., and Work,
+  S.
+\newblock Tapered off-policy {REINFORCE}: Stable and efficient reinforcement
+  learning for {LLM}s.
+\newblock \emph{arXiv preprint arXiv:2503.14286}, 2025.
+
+\bibitem[Loshchilov \& Hutter(2019)Loshchilov and
+  Hutter]{loshchilov2019decoupled}
+Loshchilov, I. and Hutter, F.
+\newblock Decoupled weight decay regularization.
+\newblock In \emph{International Conference on Learning Representations}, 2019.
+
+\bibitem[Munos et~al.(2016)Munos, Stepleton, Harutyunyan, and
+  Bellemare]{munos2016safe}
+Munos, R., Stepleton, T., Harutyunyan, A., and Bellemare, M.~G.
+\newblock Safe and efficient off-policy reinforcement learning.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, 2016.
+
+\bibitem[Nair et~al.(2020)Nair, Gupta, Dalal, and Levine]{nair2020awac}
+Nair, A., Gupta, A., Dalal, M., and Levine, S.
+\newblock Accelerating online reinforcement learning with offline datasets.
+\newblock In \emph{arXiv preprint arXiv:2006.09359}, 2020.
+
+\bibitem[Nguyen et~al.(2019)Nguyen, Shafieezadeh-Abadeh, Yue, Kuhn, and
+  Wiesemann]{nguyen2019optimistic}
+Nguyen, V.~A., Shafieezadeh-Abadeh, S., Yue, M.-C., Kuhn, D., and Wiesemann, W.
+\newblock Optimistic distributionally robust optimization for nonparametric
+  likelihood approximation.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~32, 2019.
+
+\bibitem[Novati \& Koumoutsakos(2019)Novati and
+  Koumoutsakos]{novati2019remember}
+Novati, G. and Koumoutsakos, P.
+\newblock Remember and forget for experience replay.
+\newblock In \emph{Proceedings of the 36th International Conference on Machine
+  Learning}, volume~97 of \emph{Proceedings of Machine Learning Research}, pp.\
+   4851--4860. PMLR, 2019.
+
+\bibitem[Pan et~al.(2025)Pan, Zhang, Wang, Yuan, Peng, and
+  Suhr]{pan2025tinyzero}
+Pan, J., Zhang, J., Wang, X., Yuan, L., Peng, H., and Suhr, A.
+\newblock Tinyzero.
+\newblock \url{https://github.com/Jiayi-Pan/TinyZero}, 2025.
+\newblock Minimal reproduction of DeepSeek R1-Zero on Countdown; accessed 2025.
+
+\bibitem[Peng et~al.(2019)Peng, Kumar, et~al.]{peng2019advantage}
+Peng, X.~B., Kumar, A., et~al.
+\newblock Advantage-weighted regression: Simple and scalable off-policy
+  reinforcement learning.
+\newblock \emph{arXiv preprint arXiv:1910.00177}, 2019.
+
+\bibitem[Precup et~al.(2000)Precup, Sutton, and Singh]{precup2000eligibility}
+Precup, D., Sutton, R.~S., and Singh, S.
+\newblock Eligibility traces for off-policy policy evaluation.
+\newblock In \emph{International Conference on Machine Learning (ICML)}, 2000.
+
+\bibitem[Rafailov et~al.(2023)Rafailov, Sharma, Mitchell, Ermon, Manning, and
+  Finn]{rafailov2023direct}
+Rafailov, R., Sharma, A., Mitchell, E., Ermon, S., Manning, C.~D., and Finn, C.
+\newblock Direct preference optimization: Your language model is secretly a
+  reward model.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, 2023.
+
+\bibitem[Sana et~al.(2026)Sana, Piovesan, De~Domenico, Ayed, and
+  Zhang]{sana2026hpo}
+Sana, M., Piovesan, N., De~Domenico, A., Ayed, F., and Zhang, H.
+\newblock Hpo: Hysteretic policy optimization for stable and efficient training
+  under sparse-reward regime.
+\newblock \emph{arXiv preprint arXiv:2605.30201}, 2026.
+
+\bibitem[Schulman et~al.(2015)Schulman, Levine, Abbeel, Jordan, and
+  Moritz]{schulman2015trust}
+Schulman, J., Levine, S., Abbeel, P., Jordan, M.~I., and Moritz, P.
+\newblock Trust region policy optimization.
+\newblock In \emph{International Conference on Machine Learning (ICML)}, 2015.
+
+\bibitem[Schulman et~al.(2017)Schulman, Wolski, Dhariwal, Radford, and
+  Klimov]{schulman2017proximal}
+Schulman, J., Wolski, F., Dhariwal, P., Radford, A., and Klimov, O.
+\newblock Proximal policy optimization algorithms.
+\newblock \emph{arXiv preprint arXiv:1707.06347}, 2017.
+
+\bibitem[Song \& Zhao(2020)Song and Zhao]{song2020optimistic}
+Song, J. and Zhao, C.
+\newblock Optimistic distributionally robust policy optimization.
+\newblock \emph{arXiv preprint arXiv:2006.07815}, 2020.
+
+\bibitem[Song(2025)]{song2025good}
+Song, M.
+\newblock Good actions succeed, bad actions generalize: A case study on why
+  {RL} generalizes better.
+\newblock \emph{arXiv preprint arXiv:2503.15693}, 2025.
+
+\bibitem[Sutton et~al.(2000)Sutton, McAllester, Singh, and
+  Mansour]{sutton2000policy}
+Sutton, R.~S., McAllester, D., Singh, S., and Mansour, Y.
+\newblock Policy gradient methods for reinforcement learning with function
+  approximation.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, 2000.
+
+\bibitem[Todorov et~al.(2012)Todorov, Erez, and Tassa]{todorov2012mujoco}
+Todorov, E., Erez, T., and Tassa, Y.
+\newblock Mujoco: A physics engine for model-based control.
+\newblock In \emph{2012 IEEE/RSJ International Conference on Intelligent Robots
+  and Systems}, pp.\  5026--5033. IEEE, 2012.
+
+\bibitem[Welleck et~al.(2020)Welleck, Kulikov, Roller, Dinan, Cho, and
+  Weston]{welleck2019neural}
+Welleck, S., Kulikov, I., Roller, S., Dinan, E., Cho, K., and Weston, J.
+\newblock Neural text generation with unlikelihood training.
+\newblock In \emph{International Conference on Learning Representations
+  (ICLR)}, 2020.
+
+\bibitem[Williams(1992)]{williams1992simple}
+Williams, R.~J.
+\newblock Simple statistical gradient-following algorithms for connectionist
+  reinforcement learning.
+\newblock \emph{Machine Learning}, 8\penalty0 (3--4):\penalty0 229--256, 1992.
+
+\bibitem[Yang et~al.(2024)Yang, Yang, Zhang, Hui, Zheng, Yu, Li, Liu, Huang,
+  Wei, et~al.]{qwen2024qwen25}
+Yang, A., Yang, B., Zhang, B., Hui, B., Zheng, B., Yu, B., Li, C., Liu, D.,
+  Huang, F., Wei, H., et~al.
+\newblock Qwen2.5 technical report, 2024.
+\newblock arXiv:2412.15115.
+
+\bibitem[Zhang et~al.(2024)Zhang, Lin, Bai, and Mei]{zhang2024negative}
+Zhang, R., Lin, L., Bai, Y., and Mei, S.
+\newblock Negative preference optimization: From catastrophic collapse to
+  effective unlearning.
+\newblock In \emph{Conference on Language Modeling (COLM)}, 2024.
+\newblock arXiv:2404.05868.
+
+\bibitem[Zhu et~al.(2025)Zhu, Xia, Wei, Chen, Chen, and Meng]{zhu2025negative}
+Zhu, X., Xia, M., Wei, Z., Chen, W.-L., Chen, D., and Meng, Y.
+\newblock The surprising effectiveness of negative reinforcement in {LLM}
+  reasoning.
+\newblock \emph{arXiv preprint arXiv:2506.01347}, 2025.
+
+\end{thebibliography}
