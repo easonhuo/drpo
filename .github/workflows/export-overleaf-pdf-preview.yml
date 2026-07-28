@@ -70,6 +70,7 @@ jobs:
           ! grep -Fq '\icmlcorrespondingauthor{Yangru Huang}' paper/overleaf/main_replacement.tex
           ! grep -Fq 'equal,comp' paper/overleaf/main_replacement.tex
           ! grep -Fq '\printAffiliationsAndNotice{\icmlEqualContribution}' paper/overleaf/main_replacement.tex
+          rm -rf paper/overleaf/figures
           mkdir -p paper/overleaf/figures
           cp -a paper/kdd2027/figures/. paper/overleaf/figures/
           test "$(find paper/overleaf/figures -maxdepth 1 -type f -name '*.pdf' | wc -l)" -eq 9
