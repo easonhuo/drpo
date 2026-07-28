@@ -29,9 +29,9 @@ jobs:
         run: |
           set -euo pipefail
           cat .github/kdd-sync-payload/chunk-* > /tmp/kdd-sync-payload.b64
-          base64 --decode /tmp/kdd-sync-payload.b64 > /tmp/kdd-sync-payload.tar.gz
-          echo '38ff5991fb063cbbcae5dc1d7dd7ea62739c5a0ddbdbf9fe7e63aab8375dd3bf  /tmp/kdd-sync-payload.tar.gz' | sha256sum --check --strict
-          tar -xzf /tmp/kdd-sync-payload.tar.gz -C .
+          base64 --decode /tmp/kdd-sync-payload.b64 > /tmp/kdd-sync-payload.tar.xz
+          echo '2a3196380a7611ede4b309e94f2d4eb8aec4b0902c90fa07c51dca79b2d35900  /tmp/kdd-sync-payload.tar.xz' | sha256sum --check --strict
+          tar -xJf /tmp/kdd-sync-payload.tar.xz -C .
           echo '6a840123406580a5f155db1da0978a06d3b9210aa248260daf964fa637b64c43  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
           cmp -s paper/kdd2027/source_locked.tex paper/overleaf/main_replacement.tex
           cmp -s paper/kdd2027/example_paper.bib paper/overleaf/example_paper.bib
