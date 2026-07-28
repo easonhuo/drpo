@@ -1,0 +1,108 @@
+name: Diagnose4 KDD terminal audit
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    if: github.event.pull_request.head.ref == 'dev/paper-kdd2027-latest-content-sync-01'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Quiet checkout and source reconstruction
+        shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          git clone -q --depth=1 --branch "$HEAD_BRANCH" https://github.com/easonhuo/drpo.git repo
+          cd repo
+          cat .github/kdd-sync-payload/chunk-* | base64 --decode > /tmp/payload.tar.xz
+          echo '2a3196380a7611ede4b309e94f2d4eb8aec4b0902c90fa07c51dca79b2d35900  /tmp/payload.tar.xz' | sha256sum --check --strict
+          tar -xJf /tmp/payload.tar.xz -C .
+          python3 - <<'PY'
+          from pathlib import Path
+          old='6a840123406580a5f155db1da0978a06d3b9210aa248260daf964fa637b64c43'; new='67524d4d3fd614b3d084054aaab1afe9b1638d7cc97f19c8928fc0c5dccb4adb'
+          for p in [Path('paper/kdd2027/source_locked.tex'),Path('paper/overleaf/main_replacement.tex')]:
+              s=p.read_text(); s=s.replace('\\usepackage{booktabs}\n','\\usepackage{booktabs}\n\\usepackage{makecell}\n',1); p.write_text(s)
+          for p in [Path('scripts/generate_kdd2027_stage_a.py'),Path('.github/workflows/build-kdd2027-stage-a.yml')]:
+              p.write_text(p.read_text().replace(old,new))
+          PY
+          mkdir -p paper/overleaf/figures diagnostics
+          cp -a paper/kdd2027/figures/. paper/overleaf/figures/
+
+      - name: Install host audit tools
+        shell: bash
+        run: |
+          sudo apt-get update >/dev/null
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y poppler-utils >/dev/null
+
+      - name: Quietly compile both formats
+        uses: xu-cheng/texlive-action@v3
+        with:
+          texlive_version: 2025
+          os: debian
+          run: |
+            set -euo pipefail
+            cd repo
+            python3 scripts/generate_kdd2027_stage_a.py > diagnostics/generate.log 2>&1
+            python3 scripts/postprocess_kdd2027_stage_a.py > diagnostics/postprocess.log 2>&1
+            python3 paper/kdd2027/verify_content_lock.py > diagnostics/content-lock.log 2>&1
+            cd paper/kdd2027
+            rm -f main.log main.blg
+            pdflatex --version > TEXLIVE_ENVIRONMENT.txt
+            latexmk -C main.tex >/dev/null 2>&1 || true
+            latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex > ../../diagnostics/kdd-compile.log 2>&1
+            cd ../overleaf
+            latexmk -C main.tex >/dev/null 2>&1 || true
+            bash build.sh > ../../diagnostics/overleaf-build.log 2>&1
+
+      - name: Run terminal audit with captured diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd repo
+          if ! python3 - <<'PY' > diagnostics/audit.log 2>&1
+          import hashlib,re,shutil,subprocess,zipfile
+          from pathlib import Path
+          kdd=Path('paper/kdd2027'); pre=Path('paper/overleaf'); rel=Path('paper/releases'); rel.mkdir(exist_ok=True)
+          def run(*a): return subprocess.run(a,check=True,text=True,stdout=subprocess.PIPE).stdout
+          bad=re.compile(r'Undefined control sequence|LaTeX Error|Citation .* undefined|Reference .* undefined|There were undefined references|There were undefined citations|multiply defined|Fatal error',re.I)
+          log=(kdd/'main.log').read_text(errors='replace'); plog=(pre/'main.log').read_text(errors='replace')
+          assert not bad.search(log), 'KDD diagnostic'; assert not bad.search(plog), 'preprint diagnostic'; assert 'Overfull \\hbox' not in log, 'overfull'
+          info=run('pdfinfo',str(kdd/'main.pdf')); pages=int(re.search(r'^Pages:\s+(\d+)',info,re.M).group(1)); page_size=re.search(r'^Page size:\s+(.+)$',info,re.M).group(1); assert '612 x 792 pts' in page_size
+          fonts=run('pdffonts',str(kdd/'main.pdf'))
+          for line in fonts.splitlines()[2:]:
+              cols=line.split()
+              if len(cols)>=6: assert cols[4]=='yes' and cols[5]=='yes', line
+          text=run('pdftotext',str(kdd/'main.pdf'),'-')
+          for token in ['Yusen Huo','Changping Wang','Yangru Huang','Jun Zhang','Jie Jiang','Tencent Inc','neoxzhang@tencent.com']: assert token.lower() not in text.lower(), token
+          page8=run('pdftotext','-f','8','-l','8',str(kdd/'main.pdf'),'-'); assert 'References' in page8
+          render=kdd/'renders'; shutil.rmtree(render,ignore_errors=True); render.mkdir(); subprocess.run(['pdftoppm','-png','-r','150',str(kdd/'main.pdf'),str(render/'page')],check=True); assert len(list(render.glob('page-*.png')))==pages
+          shutil.copy2(kdd/'main.pdf',rel/'DRPO_KDD2027_STAGE_A.pdf')
+          z=rel/'DRPO_KDD2027_OVERLEAF.zip'; z.unlink(missing_ok=True)
+          entries=['main.tex','acmart.cls','ACM-Reference-Format.bst','example_paper.bib','missing_references.bib','README.md']+sorted(str(p.relative_to(kdd)) for p in (kdd/'figures').glob('*.pdf'))
+          with zipfile.ZipFile(z,'w',zipfile.ZIP_DEFLATED) as f:
+              for n in entries: f.write(kdd/n,n)
+          with zipfile.ZipFile(z) as f:
+              names=f.namelist(); assert names[0]=='main.tex'; assert len([n for n in names if n.startswith('figures/') and n.endswith('.pdf')])==9
+          overleaf_info=run('pdfinfo',str(pre/'main.pdf')); assert re.search(r'^Pages:\s+\d+',overleaf_info,re.M)
+          print(f'PASS pages={pages} page_size={page_size}')
+          PY
+          then
+            cat diagnostics/audit.log >&2
+            exit 1
+          fi
+          cat diagnostics/audit.log
+
+      - name: Upload audit diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kdd-terminal-audit-diagnostics
+          path: repo/diagnostics
+          if-no-files-found: error
