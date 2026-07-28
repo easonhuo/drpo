@@ -37,6 +37,7 @@ jobs:
                   '\\usepackage{booktabs}\n\\usepackage{makecell}\n',
                   1,
               )
+          s = s.replace('  \\icmlsetsymbol{equal}{*}\n\n', '', 1)
 
           pattern = re.compile(
               r'  \\begin\{icmlauthorlist\}\n'
@@ -73,6 +74,7 @@ jobs:
           grep -Fq '\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}' paper/overleaf/main_replacement.tex
           ! grep -Fq '\icmlcorrespondingauthor{Yangru Huang}' paper/overleaf/main_replacement.tex
           ! grep -Fq 'equal,comp' paper/overleaf/main_replacement.tex
+          ! grep -Fq '\icmlsetsymbol{equal}' paper/overleaf/main_replacement.tex
           ! grep -Fq '\printAffiliationsAndNotice{\icmlEqualContribution}' paper/overleaf/main_replacement.tex
 
           rm -rf paper/overleaf/figures
