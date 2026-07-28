@@ -27,7 +27,7 @@ jobs:
           tar -xJf /tmp/payload.tar.xz -C .
           mkdir -p diagnostics
 
-      - name: Diagnose manuscript generation and builds
+      - name: Diagnose manuscript generation and compilation
         uses: xu-cheng/texlive-action@v3
         with:
           texlive_version: 2025
@@ -51,8 +51,13 @@ jobs:
             run_checked generate python3 scripts/generate_kdd2027_stage_a.py
             run_checked postprocess python3 scripts/postprocess_kdd2027_stage_a.py
             run_checked content-lock python3 paper/kdd2027/verify_content_lock.py
-            run_checked kdd-build bash paper/kdd2027/build.sh
-            cd paper/overleaf
+
+            cd paper/kdd2027
+            latexmk -C main.tex >/dev/null 2>&1 || true
+            run_checked kdd-compile latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+            cp main.log "$WORKROOT/diagnostics/kdd-main.log"
+
+            cd ../overleaf
             latexmk -C main.tex >/dev/null 2>&1 || true
             run_checked overleaf-build bash build.sh
             cp main.log "$WORKROOT/diagnostics/overleaf-main.log"
