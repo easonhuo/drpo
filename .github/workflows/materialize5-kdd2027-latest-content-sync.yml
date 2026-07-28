@@ -54,7 +54,6 @@ jobs:
           \\end{icmlauthorlist}
           \\icmlaffiliation{comp}{Tencent Inc, China}
 
-          \\icmlcorrespondingauthor{Yangru Huang}{yarayrhuang@tencent.com}
           \\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}
           '''
           for path in source_paths:
@@ -105,7 +104,8 @@ jobs:
           grep -Fq '\icmlauthor{Yangru Huang}{comp}' paper/overleaf/main_replacement.tex
           grep -Fq '\icmlauthor{Jun Zhang}{comp}' paper/overleaf/main_replacement.tex
           grep -Fq '\icmlauthor{Jie Jiang}{comp}' paper/overleaf/main_replacement.tex
-          grep -Fq '\icmlcorrespondingauthor{Yangru Huang}{yarayrhuang@tencent.com}' paper/overleaf/main_replacement.tex
+          grep -Fq '\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}' paper/overleaf/main_replacement.tex
+          ! grep -Fq '\icmlcorrespondingauthor{Yangru Huang}' paper/overleaf/main_replacement.tex
           ! grep -Fq 'equal,comp' paper/overleaf/main_replacement.tex
           ! grep -Fq '\printAffiliationsAndNotice{\icmlEqualContribution}' paper/overleaf/main_replacement.tex
           mkdir -p paper/overleaf/figures
@@ -187,7 +187,8 @@ jobs:
           overleaf_arxiv_compile=PASS
           author_order=Yusen_Huo;Changping_Wang;Yangru_Huang;Jun_Zhang;Jie_Jiang
           equal_contribution=NONE
-          yangru_huang_email=yarayrhuang@tencent.com
+          corresponding_author=Jun_Zhang
+          corresponding_email=neoxzhang@tencent.com
           font_embedding=PASS
           render_gate=PASS
           main_text_pages=8
