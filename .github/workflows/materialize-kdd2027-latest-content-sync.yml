@@ -50,21 +50,34 @@ jobs:
           texlive_version: 2025
           os: debian
           run: |
+            set -euo pipefail
             python scripts/generate_kdd2027_stage_a.py
             python scripts/postprocess_kdd2027_stage_a.py
             python paper/kdd2027/verify_content_lock.py
-            bash paper/kdd2027/build.sh
+            if ! bash paper/kdd2027/build.sh > /tmp/kdd-build.log 2>&1; then
+              echo 'KDD build failed; final log follows' >&2
+              tail -n 180 /tmp/kdd-build.log >&2
+              exit 1
+            fi
 
             cd paper/overleaf
             latexmk -C main.tex >/dev/null 2>&1 || true
-            bash build.sh
+            if ! bash build.sh > /tmp/overleaf-build.log 2>&1; then
+              echo 'Overleaf/arXiv build failed; final log follows' >&2
+              tail -n 180 /tmp/overleaf-build.log >&2
+              exit 1
+            fi
             test -s main.pdf
             if grep -Eqi \
               'Undefined control sequence|LaTeX Error|Citation .* undefined|Reference .* undefined|There were undefined references|There were undefined citations|multiply defined|Fatal error' \
               main.log; then
               echo 'Unresolved Overleaf/arXiv LaTeX diagnostic detected' >&2
+              grep -Ein \
+                'Undefined control sequence|LaTeX Error|Citation .* undefined|Reference .* undefined|There were undefined references|There were undefined citations|multiply defined|Fatal error' \
+                main.log >&2 || true
               exit 1
             fi
+            echo 'KDD and Overleaf/arXiv manuscript builds passed.'
 
       - name: Publish exact compiled release files and audit
         shell: bash
