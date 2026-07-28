@@ -1,2 +1,3 @@
 author_order=Yusen Huo; Changping Wang; Yangru Huang; Jun Zhang; Jie Jiang
 yangru_huang_email=yarayrhuang@tencent.com
+preview_trigger=2
