@@ -1,4 +1,4 @@
-name: Export arXiv 2602.10430 replacement package
+name: Sync final Overleaf manuscript tree
 
 on:
   pull_request:
@@ -6,10 +6,15 @@ on:
     types: [opened, synchronize, reopened]
 
 permissions:
-  contents: read
+  contents: write
+
+env:
+  SOURCE_DATE_EPOCH: "1785206400"
+  FORCE_SOURCE_DATE: "1"
+  TZ: UTC
 
 jobs:
-  export:
+  sync:
     if: github.event.pull_request.head.ref == 'dev/paper-kdd2027-latest-content-sync-01'
     runs-on: ubuntu-latest
     steps:
@@ -18,7 +23,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 1
 
-      - name: Reconstruct approved arXiv source
+      - name: Reconstruct approved final Overleaf source
         shell: bash
         run: |
           set -euo pipefail
@@ -66,6 +71,7 @@ jobs:
           )
           p.write_text(s, encoding='utf-8')
           PY
+
           grep -Fq '\icmlauthor{Yusen Huo}{comp}' paper/overleaf/main_replacement.tex
           grep -Fq '\icmlauthor{Changping Wang}{comp}' paper/overleaf/main_replacement.tex
           grep -Fq '\icmlauthor{Yangru Huang}{comp}' paper/overleaf/main_replacement.tex
@@ -77,7 +83,6 @@ jobs:
           ! grep -Fq '\icmlsetsymbol{equal}' paper/overleaf/main_replacement.tex
           ! grep -Fq '\printAffiliationsAndNotice{\icmlEqualContribution}' paper/overleaf/main_replacement.tex
 
-          rm -rf paper/overleaf/figures
           mkdir -p paper/overleaf/figures
           for figure in \
             figure1_external_gradient_d4rl9.pdf \
@@ -93,23 +98,8 @@ jobs:
             test -s "paper/kdd2027/figures/${figure}"
             cp "paper/kdd2027/figures/${figure}" paper/overleaf/figures/
           done
-          test "$(find paper/overleaf/figures -maxdepth 1 -type f -name '*.pdf' | wc -l)" -eq 9
 
-      - name: Compile final source with TeX Live 2025
-        uses: xu-cheng/texlive-action@v3
-        with:
-          texlive_version: 2025
-          os: debian
-          run: |
-            set -euo pipefail
-            cd paper/overleaf
-            latexmk -C main.tex >/dev/null 2>&1 || true
-            latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
-            test -s main.pdf
-            test -s main.bbl
-            ! grep -Eiq 'undefined references|undefined citations|Citation .* undefined|Reference .* undefined|Fatal error|LaTeX Error' main.log
-
-      - name: Assemble and clean-room test arXiv package
+      - name: Compile and audit final Overleaf PDF
         uses: xu-cheng/texlive-action@v3
         with:
           texlive_version: 2025
@@ -117,56 +107,48 @@ jobs:
           run: |
             set -euo pipefail
             apt-get update >/dev/null
-            DEBIAN_FRONTEND=noninteractive apt-get install -y poppler-utils zip unzip >/dev/null
-            rm -rf .arxiv-stage .arxiv-test
-            mkdir -p .arxiv-stage/figures .arxiv-test
-            cp paper/overleaf/main.tex .arxiv-stage/
-            cp paper/overleaf/main_replacement.tex .arxiv-stage/
-            cp paper/overleaf/icml2026.sty .arxiv-stage/
-            cp paper/overleaf/icml2026.bst .arxiv-stage/
-            cp paper/overleaf/example_paper.bib .arxiv-stage/
-            cp paper/overleaf/missing_references.bib .arxiv-stage/
-            cp paper/overleaf/main.bbl .arxiv-stage/
-            cp paper/overleaf/figures/*.pdf .arxiv-stage/figures/
-            test "$(find .arxiv-stage/figures -maxdepth 1 -type f -name '*.pdf' | wc -l)" -eq 9
-
-            cd .arxiv-stage
-            zip -q -r ../DRPO_ARXIV_2602.10430_REPLACEMENT.zip \
-              main.tex main_replacement.tex icml2026.sty icml2026.bst \
-              example_paper.bib missing_references.bib main.bbl figures
-            cd ..
-
-            cd .arxiv-test
-            unzip -q ../DRPO_ARXIV_2602.10430_REPLACEMENT.zip
-            test "$(find . -maxdepth 2 -type f | wc -l)" -eq 16
-            test ! -e main.pdf
-            test ! -e build.sh
-            test ! -e README.md
-            test ! -e BUILD.md
-            test ! -e PACKAGE_AUDIT.txt
-            test "$(find figures -maxdepth 1 -type f -name '*.pdf' | wc -l)" -eq 9
+            DEBIAN_FRONTEND=noninteractive apt-get install -y poppler-utils >/dev/null
+            cd paper/overleaf
+            latexmk -C main.tex >/dev/null 2>&1 || true
             latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
             test -s main.pdf
             test -s main.bbl
             ! grep -Eiq 'undefined references|undefined citations|Citation .* undefined|Reference .* undefined|Fatal error|LaTeX Error' main.log
             pages="$(pdfinfo main.pdf | awk '/^Pages:/{print $2}')"
             test "$pages" -eq 46
-            pdftotext -f 1 -l 1 main.pdf /tmp/arxiv-page1.txt
-            grep -Fq 'Yusen Huo' /tmp/arxiv-page1.txt
-            grep -Fq 'Changping Wang' /tmp/arxiv-page1.txt
-            grep -Fq 'Yangru Huang' /tmp/arxiv-page1.txt
-            grep -Fq 'Jun Zhang' /tmp/arxiv-page1.txt
-            grep -Fq 'Jie Jiang' /tmp/arxiv-page1.txt
-            grep -Fq 'neoxzhang@tencent.com' /tmp/arxiv-page1.txt
-            ! grep -Fiq 'Equal contribution' /tmp/arxiv-page1.txt
-            ! grep -Fiq 'yarayrhuang@tencent.com' /tmp/arxiv-page1.txt
-            cd ..
-            sha256sum DRPO_ARXIV_2602.10430_REPLACEMENT.zip
+            pdftotext -f 1 -l 1 main.pdf /tmp/overleaf-page1.txt
+            grep -Fq 'Yusen Huo' /tmp/overleaf-page1.txt
+            grep -Fq 'Changping Wang' /tmp/overleaf-page1.txt
+            grep -Fq 'Yangru Huang' /tmp/overleaf-page1.txt
+            grep -Fq 'Jun Zhang' /tmp/overleaf-page1.txt
+            grep -Fq 'Jie Jiang' /tmp/overleaf-page1.txt
+            grep -Fq 'neoxzhang@tencent.com' /tmp/overleaf-page1.txt
+            ! grep -Fiq 'Equal contribution' /tmp/overleaf-page1.txt
+            ! grep -Fiq 'yarayrhuang@tencent.com' /tmp/overleaf-page1.txt
+            sha256sum main_replacement.tex missing_references.bib main.pdf main.bbl
 
-      - name: Upload arXiv replacement package
+      - name: Commit final Overleaf tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add paper/overleaf/main_replacement.tex
+          git add paper/overleaf/missing_references.bib
+          git add paper/overleaf/figures
+          git add -f paper/overleaf/main.pdf paper/overleaf/main.bbl
+          git status --short
+          if git diff --cached --quiet; then
+            echo 'Final Overleaf tree is already synchronized.'
+            exit 0
+          fi
+          git commit -m 'PAPER-KDD2027-LATEST-CONTENT-SYNC-01: sync final Overleaf tree [overleaf-sync-final]'
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+
+      - name: Upload synchronized Overleaf PDF
         uses: actions/upload-artifact@v4
         with:
-          name: DRPO_ARXIV_2602.10430_REPLACEMENT
-          path: DRPO_ARXIV_2602.10430_REPLACEMENT.zip
+          name: DRPO_OVERLEAF_SYNCHRONIZED_PDF
+          path: paper/overleaf/main.pdf
           if-no-files-found: error
           retention-days: 7
