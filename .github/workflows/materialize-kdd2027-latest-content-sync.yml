@@ -51,9 +51,9 @@ jobs:
           os: debian
           run: |
             set -euo pipefail
-            python scripts/generate_kdd2027_stage_a.py
-            python scripts/postprocess_kdd2027_stage_a.py
-            python paper/kdd2027/verify_content_lock.py
+            python3 scripts/generate_kdd2027_stage_a.py
+            python3 scripts/postprocess_kdd2027_stage_a.py
+            python3 paper/kdd2027/verify_content_lock.py
             if ! bash paper/kdd2027/build.sh > /tmp/kdd-build.log 2>&1; then
               echo 'KDD build failed; final log follows' >&2
               tail -n 180 /tmp/kdd-build.log >&2
@@ -147,7 +147,10 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf .github/kdd-sync-payload
-          rm -f .github/workflows/materialize-kdd2027-latest-content-sync.yml
+          rm -f \
+            .github/workflows/materialize-kdd2027-latest-content-sync.yml \
+            .github/workflows/diagnose-kdd2027-latest-content-sync.yml \
+            .github/workflows/diagnose2-kdd2027-latest-content-sync.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add \
@@ -165,7 +168,11 @@ jobs:
             paper/releases/DRPO_KDD2027_STAGE_A.pdf \
             paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt \
             paper/releases/DRPO_KDD2027_OVERLEAF.zip
-          git add -A .github/kdd-sync-payload .github/workflows/materialize-kdd2027-latest-content-sync.yml
+          git add -A \
+            .github/kdd-sync-payload \
+            .github/workflows/materialize-kdd2027-latest-content-sync.yml \
+            .github/workflows/diagnose-kdd2027-latest-content-sync.yml \
+            .github/workflows/diagnose2-kdd2027-latest-content-sync.yml
           git status --short
           git commit -m 'PAPER-KDD2027-LATEST-CONTENT-SYNC-01: synchronize KDD and preprint sources'
           git push origin "HEAD:${HEAD_BRANCH}"
