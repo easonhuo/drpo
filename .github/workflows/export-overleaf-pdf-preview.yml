@@ -26,6 +26,7 @@ jobs:
           echo '2a3196380a7611ede4b309e94f2d4eb8aec4b0902c90fa07c51dca79b2d35900  /tmp/payload.tar.xz' | sha256sum --check --strict
           tar -xJf /tmp/payload.tar.xz -C .
           python3 - <<'PY'
+          import re
           from pathlib import Path
 
           p = Path('paper/overleaf/main_replacement.tex')
@@ -33,31 +34,27 @@ jobs:
           if '\\usepackage{makecell}\n' not in s:
               s = s.replace('\\usepackage{booktabs}\n', '\\usepackage{booktabs}\n\\usepackage{makecell}\n', 1)
 
-          old = '''  \\begin{icmlauthorlist}
-            \\icmlauthor{Jie Jiang}{equal,comp}
-            \\icmlauthor{Yusen Huo}{equal,comp}
-            \\icmlauthor{Changping Wang}{comp}
-            \\icmlauthor{Jun Zhang}{comp}
-          \\end{icmlauthorlist}
-          \\icmlaffiliation{comp}{Tencent Inc, China}
-
-          \\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}
-          '''
-          new = '''  \\begin{icmlauthorlist}
-            \\icmlauthor{Yusen Huo}{comp}
-            \\icmlauthor{Changping Wang}{comp}
-            \\icmlauthor{Yangru Huang}{comp}
-            \\icmlauthor{Jun Zhang}{comp}
-            \\icmlauthor{Jie Jiang}{comp}
-          \\end{icmlauthorlist}
-          \\icmlaffiliation{comp}{Tencent Inc, China}
-
-          \\icmlcorrespondingauthor{Yangru Huang}{yarayrhuang@tencent.com}
-          \\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}
-          '''
-          if old not in s:
-              raise SystemExit('expected author block not found')
-          s = s.replace(old, new, 1)
+          pattern = re.compile(
+              r'  \\begin\{icmlauthorlist\}\n'
+              r'.*?'
+              r'  \\icmlcorrespondingauthor\{Jun Zhang\}\{neoxzhang@tencent\.com\}\n',
+              re.S,
+          )
+          replacement = (
+              '  \\begin{icmlauthorlist}\n'
+              '    \\icmlauthor{Yusen Huo}{comp}\n'
+              '    \\icmlauthor{Changping Wang}{comp}\n'
+              '    \\icmlauthor{Yangru Huang}{comp}\n'
+              '    \\icmlauthor{Jun Zhang}{comp}\n'
+              '    \\icmlauthor{Jie Jiang}{comp}\n'
+              '  \\end{icmlauthorlist}\n'
+              '  \\icmlaffiliation{comp}{Tencent Inc, China}\n\n'
+              '  \\icmlcorrespondingauthor{Yangru Huang}{yarayrhuang@tencent.com}\n'
+              '  \\icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}\n'
+          )
+          s, count = pattern.subn(lambda _: replacement, s, count=1)
+          if count != 1:
+              raise SystemExit(f'author block replacement count={count}')
           s = s.replace(
               '\\printAffiliationsAndNotice{\\icmlEqualContribution}',
               '\\printAffiliationsAndNotice{}',
