@@ -2,6 +2,26 @@
   "experiment_id": "EXT-H-E7-D4RL9-EXP-ALPHA-C-JOINT-TUNE-01",
   "source_experiment_id": "EXT-H-E7-BENCH-01",
   "predecessor_experiment_id": "EXT-H-E7-D4RL9-EXP-3WAVE-TUNE-01",
+  "development_prior_bindings": {
+    "predecessor_exp_result": {
+      "repository": "easonhuo/drpo-results",
+      "run_id": "E7_D4RL9_EXP_3WAVE_TUNE_20260727_01_FULL",
+      "result_commit": "992efa5f23d099ad222140ca2b3cfa75de3d7448",
+      "source_code_commit": "a9aa9bfd62a470c18955a32fb25c6e239aecf4ca",
+      "terminal_audit_path": "runs/e7/E7_D4RL9_EXP_3WAVE_TUNE_20260727_01_FULL/files/outputs/e7/d4rl9_exp_three_wave_run_001/TERMINAL_AUDIT.json",
+      "terminal_audit_git_blob": "aab7bd511b382d3e940d3ad58e74bcae18401284",
+      "use": "taskwise_c_star_prior_only"
+    },
+    "glq_result": {
+      "repository": "easonhuo/drpo-results",
+      "run_id": "E7_D4RL9_GLQ_TASKWISE_REFINEMENT_20260727_01",
+      "result_commit": "a9f40ce65a45456a3be57cf0205f8ed37e320180",
+      "source_code_commit": "23cc332ce7e0a1156d752a3354782142ef57d470",
+      "taskwise_selection_path": "runs/e7/E7_D4RL9_GLQ_TASKWISE_REFINEMENT_20260727_01/files/outputs/e7/d4rl9_glq_taskwise_refinement_run_001/TASKWISE_SELECTION.json",
+      "taskwise_selection_git_blob": "efe9b37c00de019c61b18e93bc465f38ab01650e",
+      "use": "taskwise_scale_grid_prior_only"
+    }
+  },
   "run_kind": "pilot",
   "scientific_status": "d4rl9_taskwise_exponential_alpha_c_joint_tuning_pilot_only",
   "runner_version": "1.0.0-d4rl9-exp-alpha-c-joint",
