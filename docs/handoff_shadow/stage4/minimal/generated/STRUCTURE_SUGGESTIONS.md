@@ -120,7 +120,7 @@
 
 ## candidate_split_module: `global_core_governance`
 
-- Reason: source content has 57640 characters, above the configured 50000 threshold
+- Reason: source content has 58594 characters, above the configured 50000 threshold
 - Automatic action: `false`
 
 ## candidate_split_module: `continuous_e4_taper`
@@ -135,7 +135,7 @@
 
 ## candidate_split_module: `hopper_e7`
 
-- Reason: source content has 64046 characters, above the configured 50000 threshold
+- Reason: source content has 66446 characters, above the configured 50000 threshold
 - Automatic action: `false`
 
 ## candidate_split_module: `countdown_e8`

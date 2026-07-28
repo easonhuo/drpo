@@ -7,7 +7,7 @@
 - Responsibility: Cover learned-critic far-field mechanism validation and D4RL method-effect evidence while preserving the external-validity boundary.
 - Content contract topics: none
 - Deduplicated overlapping source chunks: 0
-- Source hash: `12b391ac8e4c5fefb1795f740513c725b88c411f09bd252b647f2d2195a79451`
+- Source hash: `51c7774487e4faf152e31cc4c07309c526039cb5141fa81cb2c0e2fb66b3bb89`
 
 ## Source 1: docs/handoff.md: # 15. Learned-Critic External Mechanism Validation on D4RL -> # Part V. Bandit 稳定外推子实验的收敛审计（完整保留）
 
@@ -1078,3 +1078,62 @@ entries:
         - independent_reviewer_gate
         - short_liveness_gate
         - merge_to_clean_main_commit
+  development_tuning_closure_20260728:
+    schema_version: 1
+    closure_id: E7-D4RL9-GLQ-TUNING-REFINEMENT-CLOSURE-2026-07-28
+    scientific_status: pilot
+    formal_benchmark_status: not_run
+    coarse_run:
+      experiment_id: EXT-H-E7-BENCH-01
+      run_id: E7_D4RL9_GLQ_TASKWISE_TUNING_20260726_01
+      completed_branches: 540
+      failed_branches: 0
+      source_code_commit: a0e4be818cbd780ac6ac36e0a56fa44de89493bf
+      source_pull_request: 288
+      source_code_merged_to_main: false
+      result_repository: easonhuo/drpo-results
+      result_commit: 088b703c6df98e2fa5807d471260d3c7241c7614
+      taskwise_selection_blob: c595afe6e056ccface0995913f041f73cc06a5bb
+      terminal_audit_sha256: 8775edcb436ba759a52eb6b2ae9cdb2cbce966852fd5e8e3739798134523234b
+    refinement_run:
+      substage_id: EXT-H-E7-D4RL9-GLQ-REFINE-01
+      run_id: E7_D4RL9_GLQ_TASKWISE_REFINEMENT_20260727_01
+      completed_branches: 540
+      failed_branches: 0
+      source_code_commit: 23cc332ce7e0a1156d752a3354782142ef57d470
+      source_pull_request: 293
+      source_code_merged_to_main: false
+      result_repository: easonhuo/drpo-results
+      result_commit: a9f40ce65a45456a3be57cf0205f8ed37e320180
+      ready_manifest_sha256: f1beaff7516b45cff692d6040a40e8100d52f9db6dbe03f57739ed19a1ad895c
+      taskwise_selection_blob: efe9b37c00de019c61b18e93bc465f38ab01650e
+      terminal_audit_blob: dae98a2789719fbf29eaee61a16424d01a005509
+    selection:
+      methods:
+      - global
+      - reciprocal_linear
+      - reciprocal_quadratic
+      development_seeds:
+      - 200
+      - 201
+      - 202
+      - 203
+      held_out_seeds_untouched:
+      - 204
+      - 205
+      - 206
+      - 207
+      combined_candidates_per_task_method: 10
+      selected_task_method_cells: 27
+      primary_metric: late_window_mean_750k_to_1m
+      all_selected_terminal_classification: fixed_horizon_inconclusive
+    reporting_separation:
+      task_performance_collapse: not_adjudicated_without_registered_threshold
+      support_or_variance_boundary: unavailable_in_unchanged_canonical_trainer
+      nan_inf_numerical_failure: audited_separately
+    claim_boundary:
+      cross_method_ranking_allowed: false
+      formal_d4rl9_table_population_allowed: false
+      convergence_or_steady_state_claim_allowed: false
+      held_out_confirmation_claim_allowed: false
+      positive_only_or_exponential_rerun_included: false

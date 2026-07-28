@@ -7,7 +7,7 @@
 - Responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
 - Content contract topics: `unique_master_document`, `document_before_experiment`, `non_destructive_history`, `terminal_audit_governance`, `controlled_external_validity_boundary`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `87e3c495d44db3548aa2fc3da897415c4faac65a87302cfe33e940bfee569414`
+- Source hash: `0deb05fe693262a998a2019f68727aa5227c2183cbcf984ada23d72cc0a9bb29`
 
 ## Content contract evidence
 
@@ -146,6 +146,9 @@
 - **并行与启动门禁：**56 branches 以 `dataset_seed_method` 为调度单元，默认 `40` 个可恢复 subprocess workers、每 worker `2` 个 OMP threads；seed 与 method 顶层串行均禁止。完整 sweep 启动前必须依次通过 independent reviewer、短程真实 liveness、authority/governance tests，并 merge 到 clean `main` commit；dev-branch 或未审查 commit 不得作为正式启动来源。
 - **报告分离：**任务性能崩溃、support/variance-boundary event 与 NaN/Inf numerical failure 继续分别统计。该阶段仍是 two-dataset pilot，`formal_evidence_allowed=false`；正式 D4RL-9 protocol lock 继续 blocked。
 <!-- HANDOFF-DELTA-BLOCK:section_end:e7-canonical-shortlist-1m-pilot-gate:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:e7-d4rl9-glq-result-closure-2026-07-28:START -->
+- **E7 D4RL-9 GLQ development-tuning closure:** coarse and refinement runs each completed `540/540` branches with zero failures. The combined audit freezes 27 development selections from ten candidates per cell using seeds `200--203`; held-out seeds `204--207` remain untouched. The evidence is **pilot** and the formal benchmark remains **not_run**. Every selected cell is `fixed_horizon_inconclusive`; no convergence, steady-state, held-out-confirmation, cross-method-ranking, or formal-table claim is allowed. Positive-only and Exponential were not rerun. Task collapse is not adjudicated without a registered threshold, support/variance instrumentation is unavailable, and NaN/Inf is separately audited. Draft PRs `#288` and `#293` remain unmerged; this is a result-only closure.
+<!-- HANDOFF-DELTA-BLOCK:section_end:e7-d4rl9-glq-result-closure-2026-07-28:END -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:e7-ppo-w0-exp-grid-running-pilot:START -->
 - **Hopper/Walker E7 PPO direct-`w(0)` × EXP 网格 pilot（`EXT-H-E7-PPO-W0-EXP-GRID-01`）：**登记为正在运行的 development screening pilot，是 `EXT-H-E7-PPO-STABILITY-01` 的非破坏性 successor；旧实验协议与历史结果完整保留。实验公开参数化固定为 `u=d/2`、`w(d)=w(0)exp(-cu)`，不再暴露 `scale` 或 `canonical_alpha`；`w(0)=0.11` 与旧 `alpha=0.11 × scale=1` 仅作为实现等价锚点。网格为 `w(0)={0,0.025,0.05,0.11,0.25,0.5,1}` 与 `c={0,0.25,0.5,1,1.5}`，`w(0)=0` 去重为 Positive-only，共 31 个参数点；在 `hopper-medium-expert-v2`、`walker2d-medium-v2`、`walker2d-medium-replay-v2` 和 development seeds `200,201` 上形成 186 个 PPO-only、500k branches。held-out seeds `204--207` 保持未使用；自动资源探测只决定安全 subprocess 数，不得改变科学矩阵。用户已报告服务器启动，但当前无终态结果，禁止把运行中状态、500k endpoint、smoke/liveness 或 dev-seed 筛选升级为收敛、稳态或正式方法排名。任务性能退化/崩溃、support/variance boundary 与 NaN/Inf 必须分开审计；最终应寻找跨三任务共同稳健的 `(w(0),c)`，不得按数据集事后挑选不同 cell 冒充统一方法。Hopper/Walker 只承担 external validity，不替代 C-U1/D-U1 受控机制识别。
 <!-- HANDOFF-DELTA-BLOCK:section_end:e7-ppo-w0-exp-grid-running-pilot:END -->
