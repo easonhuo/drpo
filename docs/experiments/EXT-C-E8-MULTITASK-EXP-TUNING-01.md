@@ -30,7 +30,9 @@ The suite is:
 8. graph coloring;
 9. WikiSQL.
 
-The eight new tasks reuse the exact qualified P0 banks and exact 100-update task-positive LoRA warm starts. Countdown remains a separate archived external task and is supplied through explicit train-bank, validation, and reference-adapter paths. The runner fails closed if any bank, adapter, source, split, or configuration identity changes.
+The eight new tasks reuse the exact qualified P0 banks, pinned task sources, generators, and verifiers. They do **not** reuse the P0 100-update adapters, because those diagnostic adapters were trained on all 6000 bank prompts and would expose later validation/test prompts. After the deterministic 5000/500/500 split is frozen, this experiment creates one new train-only 100-update positive reference per P0 task. The reference manifest must record `validation_rows_seen=0` and `test_rows_seen=0`.
+
+Countdown remains a separate archived external task and is supplied through explicit train-bank, structurally disjoint validation, and reference-adapter paths. Its test file is not an input. The runner fails closed if any bank, adapter, source, split, base model, or configuration identity changes.
 
 ## Frozen 72-cell tuning matrix
 
@@ -53,7 +55,7 @@ w(u) = exp(-lambda * u)
 lambda = -log(rho)
 ```
 
-`tau` and `scale` are calibrated once per task from the frozen reference policy and frozen training-only calibration prompts. `tau` is the current-near median and `scale` is current-far median minus current-near median, so `u=0` at the near anchor and `u=1` at the far anchor. A degenerate or non-finite scale fails closed.
+`tau` and `scale` are calibrated once per task from the frozen train-only reference policy and frozen training-only calibration prompts. `tau` is the current-near median and `scale` is current-far median minus current-near median, so `u=0` at the near anchor and `u=1` at the far anchor. A degenerate or non-finite scale fails closed.
 
 All seven exponential points share the same task-specific initial negative-gradient target. For each `rho`, a frozen multiplier matches the combined `0.5/0.5` near/far raw negative-gradient norm to `1/32` of that task's initial positive-gradient norm. Thus the grid primarily changes remoteness shape instead of initial total pressure. Positive-only has no negative branch and is not part of this budget matching.
 
@@ -67,20 +69,33 @@ validation = 500 prompts
 test = 500 prompts
 ```
 
-Countdown preserves its historical structural split: the tuning runner hash-selects 5000 rows from the frozen train bank and reads 500 rows from the separately supplied frozen validation file. Its test file is not an input to this pilot.
+Countdown preserves its historical structural split: the tuning runner hash-selects 5000 rows from the frozen train bank and reads 500 rows from the separately supplied frozen validation file.
 
-The split manifest is frozen before calibration or training. Tuning and candidate selection may use only validation. P0 test partitions are written for identity separation but are never opened by training, evaluation, aggregation, or selection. Bank rows are never relabeled with permanent near/far identities; current near/far are reselected from each prompt's frozen 16-negative bank under the current learner.
+The split manifest is frozen before reference preparation, calibration, or method training. P0 train-only references, calibration, and all optimizer updates may open only train rows. Tuning and candidate selection may open only validation rows. P0 test partitions are written for identity separation but are never opened by reference preparation, training, evaluation, aggregation, or selection. Bank rows are never relabeled with permanent near/far identities; current near/far are reselected from each prompt's frozen 16-negative bank under the current learner.
 
-## Training contract
+## Reference preparation
 
-Each cell starts from the same task-specific reference adapter and trains an independent writable copy of its LoRA parameters. The candidate contract is:
+Before calibration, each P0 task receives one new reference adapter:
+
+- fresh Qwen2.5-0.5B-Instruct LoRA initialized under the inherited P0 LoRA contract;
+- exactly 100 optimizer updates;
+- only the task's 5000 train oracle completions;
+- fixed train-only NLL audit;
+- no validation/test metric, early stopping, or method response used for checkpoint selection;
+- terminal adapter selected only by the fixed update count.
+
+Countdown uses its supplied archived reference adapter and structurally disjoint validation protocol. Reference preparation is an engineering prerequisite, not method evidence.
+
+## Method-training contract
+
+Each cell starts from the same task-specific reference adapter and loads an independent writable copy of its LoRA parameters. The candidate method-training contract inherits the established Countdown offline-RL budget where applicable:
 
 - Qwen2.5-0.5B-Instruct backbone;
-- inherited LoRA rank 32, alpha 64, dropout 0.05;
+- LoRA rank 32, alpha 64, dropout 0.05 for the eight new task references;
 - fixed 1200 optimizer updates;
-- AdamW, learning rate `2e-4`, weight decay `0.01`;
-- cosine schedule with 5% warmup;
-- microbatch 2 and gradient accumulation 32;
+- AdamW, learning rate `5e-5`, weight decay `0.01`;
+- cosine schedule with 3% warmup;
+- microbatch 1 and gradient accumulation 8;
 - maximum gradient norm 1.0;
 - no early stopping and no checkpoint-based stopping;
 - evaluation every 100 updates;
@@ -103,7 +118,9 @@ exponential:
            + negative_scale * 0.5 * mean(w(u_far)  * log pi(negative_far))
 ```
 
-The positive term is minimized to increase oracle likelihood. The signed negative terms are minimized to decrease wrong-completion likelihood. The implementation preserves the unique-negative denominator and does not normalize by the sum of taper weights. A real two-step liveness gate must show finite nonzero positive and repulsive gradients, a parameter update, and reloadable adapter state before the full matrix is launched.
+The positive term is minimized to increase oracle likelihood. The signed negative terms are minimized to decrease wrong-completion likelihood. The implementation preserves the unique-negative denominator and does not normalize by the sum of taper weights.
+
+A real two-step liveness gate must show finite nonzero positive loss, finite nonzero repulsive scalar, finite nonzero raw gradient, changed adapter weights, and successful fresh-process reload before the full matrix is launched. These are engineering gates, not scientific evidence.
 
 ## Evaluation and selection
 
@@ -121,6 +138,20 @@ For each task, the selected `rho` is the maximum validation late-window Pass@8 s
 
 If all Exp points are below Positive-only, the report must say so. If the selected Exp point lies at `rho=0.125`, the strong-taper boundary is not closed and only that task may later receive an explicitly registered boundary extension. No task may be silently dropped or assigned a post-hoc private grid.
 
+## Execution order
+
+```text
+prepare
+-> reference          # eight train-only P0-task references
+-> calibrate          # nine task-specific remoteness/budget calibrations
+-> liveness           # one real two-step Exp cell and reload gate
+-> run-wave 1..5
+-> aggregate
+-> audit
+```
+
+No full wave may start before all required references and calibrations are complete and liveness passes.
+
 ## Scheduling
 
 The deterministic plan contains five waves with at most 16 cells each. The first three waves contain all four coarse anchors plus one Positive-only per task; the last two waves contain the three refinement points. The aggregate plan contains all 72 cells and every result is keyed by task, method, `rho`, and seed.
@@ -135,4 +166,4 @@ The pilot must separately report:
 2. valid-format or other registered structure diagnostics;
 3. NaN/Inf numerical failure.
 
-A fixed 1200-update horizon is not convergence. P0 remains the occurrence diagnostic; this experiment is task-performance tuning only; D-U1 remains categorical causal authority.
+No task-collapse threshold is registered in this tuning pilot, so collapse is reported as `not_adjudicated` rather than inferred post hoc. Valid-format rate remains a structure diagnostic, not a formal support-boundary event. A fixed 1200-update horizon is not convergence. P0 remains the occurrence diagnostic; this experiment is task-performance tuning only; D-U1 remains categorical causal authority.
