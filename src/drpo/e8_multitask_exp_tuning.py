@@ -52,6 +52,7 @@ from drpo.e8_multitask_p0 import (
     resolve_torch_dtype,
     sha256_file,
     stable_config_hash,
+    train_task_positive_warmstart,
     validate_work_dir,
 )
 from drpo.e8_multitask_tasks import (
@@ -91,7 +92,7 @@ class Cell:
 class TaskInputs:
     task: str
     bank: Path
-    reference_adapter: Path
+    reference_adapter: Path | None
     sources_root: Path
     p0_config: Path
     countdown_validation: Path | None = None
@@ -135,6 +136,13 @@ def validate_config(config: Mapping[str, Any]) -> None:
         raise ValueError("suite.p0_tasks must be the exact eight P0 tasks")
     if tuple(config["suite"].get("external_tasks", ())) != ("countdown",):
         raise ValueError("Countdown must be the only external task")
+    reference = config["reference"]
+    if reference["checkpoint_kind"] != "train_only_task_positive_warmstart_100":
+        raise ValueError("P0 task references must be train-only 100-update warm starts")
+    if int(reference["optimizer_updates"]) != 100:
+        raise ValueError("Train-only P0 references must remain fixed at 100 updates")
+    if int(reference["validation_rows_seen"]) != 0 or int(reference["test_rows_seen"]) != 0:
+        raise ValueError("Train-only reference preparation must not see validation or test rows")
 
     split = config["split"]
     expected_split = {
@@ -153,8 +161,12 @@ def validate_config(config: Mapping[str, Any]) -> None:
     training = config["training"]
     if int(training["optimizer_updates"]) != 1200:
         raise ValueError("The tuning horizon must remain 1200 updates")
-    if int(training["micro_batch"]) != 2 or int(training["gradient_accumulation"]) != 32:
-        raise ValueError("The effective prompt batch must remain 64")
+    if int(training["micro_batch"]) != 1 or int(training["gradient_accumulation"]) != 8:
+        raise ValueError("The method-training effective prompt batch must remain 8")
+    if not math.isclose(float(training["learning_rate"]), 5.0e-5, rel_tol=0.0, abs_tol=1.0e-12):
+        raise ValueError("The method-training learning rate must remain 5e-5")
+    if not math.isclose(float(training["warmup_ratio"]), 0.03, rel_tol=0.0, abs_tol=1.0e-12):
+        raise ValueError("The method-training warmup ratio must remain 0.03")
     if int(training["evaluation_every_updates"]) != 100:
         raise ValueError("Evaluation cadence must remain 100 updates")
     if bool(training.get("early_stopping", True)):
@@ -219,11 +231,11 @@ def coefficient_from_rho(rho: float) -> float:
 
 
 def normalized_distance(
-    sequence_log_probability: "torch.Tensor",
+    sequence_log_probability: torch.Tensor,
     *,
     tau: float,
     scale: float,
-) -> "torch.Tensor":
+) -> torch.Tensor:
     if not math.isfinite(tau) or tau < 0.0:
         raise ValueError("tau must be finite and non-negative")
     if not math.isfinite(scale) or scale <= 0.0:
@@ -231,7 +243,7 @@ def normalized_distance(
     return torch.sqrt(torch.relu(-sequence_log_probability.detach() - tau) / scale)
 
 
-def taper_weight(distance: "torch.Tensor", rho: float) -> "torch.Tensor":
+def taper_weight(distance: torch.Tensor, rho: float) -> torch.Tensor:
     return torch.exp(-coefficient_from_rho(rho) * distance)
 
 
@@ -246,10 +258,7 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
         cells.append(Cell(task, METHOD_POSITIVE_ONLY, None, seed, "coarse"))
         cells.extend(Cell(task, METHOD_EXPONENTIAL, rho, seed, "coarse") for rho in coarse)
     for task in tasks:
-        cells.extend(
-            Cell(task, METHOD_EXPONENTIAL, rho, seed, "refinement")
-            for rho in refinement
-        )
+        cells.extend(Cell(task, METHOD_EXPONENTIAL, rho, seed, "refinement") for rho in refinement)
     if len(cells) != 72 or len({cell.key for cell in cells}) != 72:
         raise AssertionError("Internal 72-cell identity failure")
     return tuple(cells)
@@ -263,8 +272,7 @@ def build_waves(config: Mapping[str, Any]) -> tuple[tuple[Cell, ...], ...]:
 
     def chunk(values: tuple[Cell, ...]) -> tuple[tuple[Cell, ...], ...]:
         return tuple(
-            tuple(values[index : index + capacity])
-            for index in range(0, len(values), capacity)
+            tuple(values[index : index + capacity]) for index in range(0, len(values), capacity)
         )
 
     waves = chunk(coarse) + chunk(refinement)
@@ -426,8 +434,8 @@ def split_p0_rows(
     config: Mapping[str, Any],
 ) -> dict[str, list[dict[str, Any]]]:
     split = config["split"]
-    required = int(split["p0_train_rows"]) + int(split["p0_validation_rows"]) + int(
-        split["p0_test_rows"]
+    required = (
+        int(split["p0_train_rows"]) + int(split["p0_validation_rows"]) + int(split["p0_test_rows"])
     )
     if len(rows) != required:
         raise RuntimeError(f"{task} P0 bank must contain exactly {required} rows")
@@ -456,9 +464,7 @@ def split_countdown_rows(
 ) -> dict[str, list[dict[str, Any]]]:
     split = config["split"]
     normalized_train = [_normalize_countdown_train_row(row) for row in train_rows]
-    normalized_validation = [
-        _normalize_countdown_validation_row(row) for row in validation_rows
-    ]
+    normalized_validation = [_normalize_countdown_validation_row(row) for row in validation_rows]
     train = _ordered_by_prompt_hash(
         normalized_train,
         task="countdown",
@@ -494,25 +500,24 @@ def resolve_task_inputs(
         or p0_config_value.get("experiment_id") != PARENT_EXPERIMENT_ID
     ):
         raise RuntimeError("P0 config identity mismatch")
-    warmstart_path = p0_work_dir / "warmstart" / "warmstart_manifest.json"
-    if not warmstart_path.is_file():
-        raise FileNotFoundError(f"Missing P0 warm-start manifest: {warmstart_path}")
-    warmstart = json.loads(warmstart_path.read_text(encoding="utf-8"))
-    if warmstart.get("experiment_id") != PARENT_EXPERIMENT_ID or not warmstart.get("complete"):
-        raise RuntimeError("P0 warm-start manifest identity or completeness mismatch")
-    if warmstart.get("checkpoint_kind") != config["parent"]["required_checkpoint_kind"]:
-        raise RuntimeError("P0 checkpoint kind mismatch")
+    qualification_path = p0_work_dir / "qualification_audit.json"
+    if not qualification_path.is_file():
+        raise FileNotFoundError(f"Missing P0 qualification audit: {qualification_path}")
+    qualification = json.loads(qualification_path.read_text(encoding="utf-8"))
+    if qualification.get("experiment_id") != PARENT_EXPERIMENT_ID or not qualification.get(
+        "passed"
+    ):
+        raise RuntimeError("P0 bank qualification identity or pass status mismatch")
 
     result: dict[str, TaskInputs] = {}
     for task_value in config["suite"]["p0_tasks"]:
         task = str(task_value)
-        task_manifest = warmstart.get("tasks", {}).get(task)
-        if not task_manifest or not task_manifest.get("complete"):
-            raise RuntimeError(f"Missing complete P0 warm start for {task}")
+        if not qualification.get("tasks", {}).get(task, {}).get("passed", False):
+            raise RuntimeError(f"P0 bank is not qualified for {task}")
         result[task] = TaskInputs(
             task=task,
             bank=bank_path(p0_work_dir, task).resolve(),
-            reference_adapter=Path(str(task_manifest["adapter_path"])).resolve(),
+            reference_adapter=None,
             sources_root=(p0_work_dir / "sources").resolve(),
             p0_config=p0_config.resolve(),
         )
@@ -527,16 +532,16 @@ def resolve_task_inputs(
     for task, inputs in result.items():
         if not inputs.bank.is_file():
             raise FileNotFoundError(f"Missing bank for {task}: {inputs.bank}")
-        if not (inputs.reference_adapter / "adapter_config.json").is_file():
-            raise FileNotFoundError(
-                f"Missing reference adapter for {task}: {inputs.reference_adapter}"
-            )
+        if task == "countdown":
+            if (
+                inputs.reference_adapter is None
+                or not (inputs.reference_adapter / "adapter_config.json").is_file()
+            ):
+                raise FileNotFoundError("Missing supplied Countdown reference adapter")
+            if inputs.countdown_validation is None or not inputs.countdown_validation.is_file():
+                raise FileNotFoundError("Missing Countdown validation file")
         if not inputs.sources_root.is_dir():
             raise FileNotFoundError(f"Missing sources root for {task}: {inputs.sources_root}")
-        if task == "countdown" and (
-            inputs.countdown_validation is None or not inputs.countdown_validation.is_file()
-        ):
-            raise FileNotFoundError("Missing Countdown validation file")
     if set(result) != set(config["suite"]["tasks"]):
         raise AssertionError("Resolved inputs do not match the nine-task suite")
     return result
@@ -575,10 +580,14 @@ def write_split_manifest(
         task_records[task] = {
             "bank": str(inputs.bank),
             "bank_sha256": sha256_file(inputs.bank),
-            "reference_adapter": str(inputs.reference_adapter),
-            "reference_adapter_identity": model_identity(
-                "unresolved_backbone", str(inputs.reference_adapter)
-            )["adapter"],
+            "reference_adapter": (
+                str(inputs.reference_adapter) if inputs.reference_adapter is not None else None
+            ),
+            "reference_adapter_identity": (
+                model_identity("unresolved_backbone", str(inputs.reference_adapter))["adapter"]
+                if inputs.reference_adapter is not None
+                else None
+            ),
             "sources_root": str(inputs.sources_root),
             "p0_config": str(inputs.p0_config),
             "countdown_validation_source": (
@@ -627,7 +636,9 @@ def cmd_prepare(
     serialized_inputs = {
         task: {
             "bank": str(value.bank),
-            "reference_adapter": str(value.reference_adapter),
+            "reference_adapter": (
+                str(value.reference_adapter) if value.reference_adapter is not None else None
+            ),
             "sources_root": str(value.sources_root),
             "p0_config": str(value.p0_config),
             "countdown_validation": (
@@ -648,6 +659,158 @@ def cmd_prepare(
     }
     atomic_json(output_root / "prepare_manifest.json", manifest)
     return manifest
+
+
+def reference_manifest_path(output_root: Path) -> Path:
+    return output_root / "references" / "reference_manifest.json"
+
+
+def cmd_reference(
+    config: Mapping[str, Any],
+    output_root: Path,
+    *,
+    base_model_path: str,
+    tasks: Sequence[str] | None,
+    force: bool,
+) -> dict[str, Any]:
+    splits, inputs = _load_prepared(output_root, config)
+    requested = list(tasks or config["suite"]["p0_tasks"])
+    unknown = sorted(set(requested) - set(config["suite"]["p0_tasks"]))
+    if unknown:
+        raise ValueError(f"Only the eight P0 tasks require train-only references: {unknown}")
+    p0_config_value = (
+        yaml.safe_load(inputs[requested[0]].p0_config.read_text(encoding="utf-8"))
+        if requested
+        else {}
+    )
+    if not isinstance(p0_config_value, dict):
+        raise TypeError("P0 config root is not a mapping")
+    warmstart_config = copy.deepcopy(p0_config_value["positive_warmstart"])
+    warmstart_config["checkpoint_kind"] = str(config["reference"]["checkpoint_kind"])
+    if int(warmstart_config["optimizer_updates"]) != int(config["reference"]["optimizer_updates"]):
+        raise RuntimeError("Inherited P0 reference optimizer-update contract mismatch")
+    base_identity = model_identity(base_model_path, None)["model"]
+    frozen_indices = {str(task): index for index, task in enumerate(config["suite"]["tasks"])}
+    root = output_root / "references"
+    root.mkdir(parents=True, exist_ok=True)
+    completed: dict[str, Any] = {}
+    existing_manifest = reference_manifest_path(output_root)
+    if existing_manifest.is_file():
+        existing = json.loads(existing_manifest.read_text(encoding="utf-8"))
+        completed.update(existing.get("tasks", {}))
+    for task in requested:
+        task_root = root / task
+        train_path = Path(splits["tasks"][task]["paths"]["train"])
+        seed = int(warmstart_config["seed"]) + frozen_indices[task] * 100_003
+        identity = {
+            "schema_version": 1,
+            "experiment_id": EXPERIMENT_ID,
+            "task": task,
+            "config_hash": stable_config_hash(config),
+            "train_prompt_hash": splits["tasks"][task]["prompt_id_hashes"]["train"],
+            "train_rows_sha256": sha256_file(train_path),
+            "base_model_identity": base_identity,
+            "reference_config": warmstart_config,
+            "seed": seed,
+        }
+        identity["identity_hash"] = stable_hash(identity)
+        task_manifest_path = task_root / "task_manifest.json"
+        if task_manifest_path.is_file() and not force:
+            task_manifest = json.loads(task_manifest_path.read_text(encoding="utf-8"))
+            adapter_path = Path(str(task_manifest.get("adapter_path", "")))
+            if (
+                task_manifest.get("identity_hash") == identity["identity_hash"]
+                and task_manifest.get("complete")
+                and (adapter_path / "adapter_config.json").is_file()
+            ):
+                completed[task] = task_manifest
+                continue
+            raise RuntimeError(f"Existing train-only reference identity mismatch for {task}")
+        if task_root.exists():
+            if not force:
+                raise RuntimeError(f"Reference directory exists without reusable identity: {task}")
+            if root.resolve() not in task_root.resolve().parents:
+                raise RuntimeError(f"Refusing unsafe reference removal: {task_root}")
+            shutil.rmtree(task_root)
+        task_root.mkdir(parents=True, exist_ok=False)
+        result = train_task_positive_warmstart(
+            task=task,
+            rows=read_jsonl(train_path),
+            model_path=base_model_path,
+            output_dir=task_root,
+            warmstart_config=warmstart_config,
+            seed=seed,
+        )
+        result.update(identity)
+        result["train_only_reference"] = True
+        result["validation_rows_seen"] = 0
+        result["test_rows_seen"] = 0
+        atomic_json(task_manifest_path, result)
+        completed[task] = result
+        atomic_json(
+            reference_manifest_path(output_root),
+            {
+                "schema_version": 1,
+                "experiment_id": EXPERIMENT_ID,
+                "config_hash": stable_config_hash(config),
+                "base_model_identity": base_identity,
+                "checkpoint_kind": warmstart_config["checkpoint_kind"],
+                "tasks": completed,
+                "complete": all(
+                    task_name in completed and completed[task_name].get("complete")
+                    for task_name in config["suite"]["p0_tasks"]
+                ),
+                "validation_rows_seen": 0,
+                "test_rows_seen": 0,
+                "scientific_status": "not_run",
+            },
+        )
+    manifest = json.loads(reference_manifest_path(output_root).read_text(encoding="utf-8"))
+    return manifest
+
+
+def _attach_references(
+    output_root: Path,
+    config: Mapping[str, Any],
+    inputs: Mapping[str, TaskInputs],
+    *,
+    base_model_path: str,
+) -> dict[str, TaskInputs]:
+    path = reference_manifest_path(output_root)
+    if not path.is_file():
+        raise RuntimeError("Run train-only reference preparation before calibration")
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    if (
+        manifest.get("experiment_id") != EXPERIMENT_ID
+        or manifest.get("config_hash") != stable_config_hash(config)
+        or not manifest.get("complete")
+        or manifest.get("validation_rows_seen") != 0
+        or manifest.get("test_rows_seen") != 0
+        or manifest.get("base_model_identity") != model_identity(base_model_path, None)["model"]
+    ):
+        raise RuntimeError("Train-only reference manifest identity or leakage audit mismatch")
+    attached: dict[str, TaskInputs] = {}
+    for task, value in inputs.items():
+        if task == "countdown":
+            if value.reference_adapter is None:
+                raise RuntimeError("Countdown supplied reference adapter is missing")
+            attached[task] = value
+            continue
+        task_manifest = manifest.get("tasks", {}).get(task)
+        if not task_manifest or not task_manifest.get("complete"):
+            raise RuntimeError(f"Missing train-only reference for {task}")
+        adapter = Path(str(task_manifest["adapter_path"]))
+        if not (adapter / "adapter_config.json").is_file():
+            raise FileNotFoundError(f"Missing train-only adapter for {task}: {adapter}")
+        attached[task] = TaskInputs(
+            task=value.task,
+            bank=value.bank,
+            reference_adapter=adapter,
+            sources_root=value.sources_root,
+            p0_config=value.p0_config,
+            countdown_validation=value.countdown_validation,
+        )
+    return attached
 
 
 def _load_prepared(
@@ -674,18 +837,33 @@ def _load_prepared(
         task: TaskInputs(
             task=task,
             bank=Path(value["bank"]),
-            reference_adapter=Path(value["reference_adapter"]),
+            reference_adapter=(
+                Path(value["reference_adapter"]) if value.get("reference_adapter") else None
+            ),
             sources_root=Path(value["sources_root"]),
             p0_config=Path(value["p0_config"]),
             countdown_validation=(
-                Path(value["countdown_validation"])
-                if value.get("countdown_validation")
-                else None
+                Path(value["countdown_validation"]) if value.get("countdown_validation") else None
             ),
         )
         for task, value in prepare["inputs"].items()
     }
     return splits, inputs
+
+
+def _load_ready_inputs(
+    output_root: Path,
+    config: Mapping[str, Any],
+    *,
+    base_model_path: str,
+) -> tuple[dict[str, Any], dict[str, TaskInputs]]:
+    splits, inputs = _load_prepared(output_root, config)
+    return splits, _attach_references(
+        output_root,
+        config,
+        inputs,
+        base_model_path=base_model_path,
+    )
 
 
 def _seed_everything(seed: int) -> None:
@@ -697,7 +875,7 @@ def _seed_everything(seed: int) -> None:
             torch.cuda.manual_seed_all(seed)
 
 
-def _move_batch(batch: Mapping[str, Any], device: "torch.device") -> dict[str, Any]:
+def _move_batch(batch: Mapping[str, Any], device: torch.device) -> dict[str, Any]:
     return {
         key: value.to(device) if hasattr(value, "to") else value for key, value in batch.items()
     }
@@ -845,7 +1023,7 @@ def _load_reference_model(
     return model, tokenizer, get_cosine_schedule_with_warmup
 
 
-def _raw_gradient_norm(grads: Sequence["torch.Tensor | None"]) -> float:
+def _raw_gradient_norm(grads: Sequence[torch.Tensor | None]) -> float:
     total = torch.zeros((), dtype=torch.float64)
     for gradient in grads:
         if gradient is not None:
@@ -897,6 +1075,8 @@ def calibrate_task(
             return existing
         raise RuntimeError(f"Existing calibration identity mismatch for {task}")
 
+    if inputs.reference_adapter is None:
+        raise RuntimeError(f"Reference adapter is missing for {task}")
     model, tokenizer, _ = _load_reference_model(
         base_model_path,
         inputs.reference_adapter,
@@ -1016,7 +1196,11 @@ def cmd_calibrate(
     tasks: Sequence[str] | None,
     force: bool,
 ) -> dict[str, Any]:
-    splits, inputs = _load_prepared(output_root, config)
+    splits, inputs = _load_ready_inputs(
+        output_root,
+        config,
+        base_model_path=base_model_path,
+    )
     requested = list(tasks or config["suite"]["tasks"])
     unknown = sorted(set(requested) - set(config["suite"]["tasks"]))
     if unknown:
@@ -1038,9 +1222,8 @@ def cmd_calibrate(
         "experiment_id": EXPERIMENT_ID,
         "config_hash": stable_config_hash(config),
         "tasks": results,
-        "complete": len(results) == len(requested) and all(
-            result.get("complete") for result in results.values()
-        ),
+        "complete": len(results) == len(requested)
+        and all(result.get("complete") for result in results.values()),
         "scientific_status": "not_run",
     }
     atomic_json(output_root / "calibration" / "calibration_manifest.json", manifest)
@@ -1055,7 +1238,7 @@ def _load_task_adapter_and_instances(
 ) -> tuple[Any, dict[str, TaskInstance]]:
     p0_config = yaml.safe_load(inputs.p0_config.read_text(encoding="utf-8"))
     if not isinstance(p0_config, dict):
-        raise RuntimeError("P0 config root is not a mapping")
+        raise TypeError("P0 config root is not a mapping")
     adapter_config = copy.deepcopy(p0_config)
     adapter_config["tasks"]["names"] = [task]
     adapter = build_adapters(adapter_config, inputs.sources_root)[task]
@@ -1225,13 +1408,9 @@ def evaluate_model(
         "generation_seed",
     }
     if not all(
-        math.isfinite(float(value))
-        for key, value in metrics.items()
-        if key not in integer_fields
+        math.isfinite(float(value)) for key, value in metrics.items() if key not in integer_fields
     ):
-        raise RuntimeError(
-            f"{task} produced non-finite validation metrics at update {update}"
-        )
+        raise RuntimeError(f"{task} produced non-finite validation metrics at update {update}")
     return metrics
 
 
@@ -1244,6 +1423,8 @@ def _cell_identity(
     config: Mapping[str, Any],
     calibration: Mapping[str, Any],
 ) -> dict[str, Any]:
+    if inputs.reference_adapter is None:
+        raise RuntimeError(f"Reference adapter is missing for {cell.task}")
     value = {
         "schema_version": 1,
         "experiment_id": EXPERIMENT_ID,
@@ -1360,6 +1541,8 @@ def _train_cell_impl(
     cell_root.mkdir(parents=True, exist_ok=False)
 
     _seed_everything(cell.seed)
+    if inputs.reference_adapter is None:
+        raise RuntimeError(f"Reference adapter is missing for {cell.task}")
     model, tokenizer, scheduler_factory = _load_reference_model(
         base_model_path,
         inputs.reference_adapter,
@@ -1368,9 +1551,7 @@ def _train_cell_impl(
     )
     training = config["training"]
     train_rows = read_jsonl(Path(split_manifest["tasks"][cell.task]["paths"]["train"]))
-    validation_rows = read_jsonl(
-        Path(split_manifest["tasks"][cell.task]["paths"]["validation"])
-    )
+    validation_rows = read_jsonl(Path(split_manifest["tasks"][cell.task]["paths"]["validation"]))
     adapter, validation_instances = _load_task_adapter_and_instances(
         cell.task,
         inputs=inputs,
@@ -1457,8 +1638,7 @@ def _train_cell_impl(
                 far_weight = taper_weight(far_distance, cell.rho).detach()
                 negative_scale = float(calibration["negative_scales"][f"{cell.rho:.12g}"])
                 negative_scalar = negative_scale * (
-                    0.5 * (near_weight * near_lp).mean()
-                    + 0.5 * (far_weight * far_lp).mean()
+                    0.5 * (near_weight * near_lp).mean() + 0.5 * (far_weight * far_lp).mean()
                 )
                 loss = loss + negative_scalar
                 negative_scalar_total += float(negative_scalar.detach().cpu())
@@ -1491,12 +1671,8 @@ def _train_cell_impl(
                     "learning_rate": float(scheduler.get_last_lr()[0]),
                 },
             )
-        should_evaluate = (
-            not engineering_liveness
-            and (
-                update % int(training["evaluation_every_updates"]) == 0
-                or update == updates
-            )
+        should_evaluate = not engineering_liveness and (
+            update % int(training["evaluation_every_updates"]) == 0 or update == updates
         )
         if should_evaluate:
             metrics = evaluate_model(
@@ -1544,9 +1720,9 @@ def _train_cell_impl(
         "effective_prompt_batch": int(training["micro_batch"])
         * int(training["gradient_accumulation"]),
         "terminal_adapter": str(terminal_adapter.resolve()),
-        "terminal_adapter_identity": model_identity(
-            base_model_path, str(terminal_adapter)
-        )["adapter"],
+        "terminal_adapter_identity": model_identity(base_model_path, str(terminal_adapter))[
+            "adapter"
+        ],
         "training_metrics": str(training_path.resolve()),
         "evaluation_metrics": (
             str(evaluation_path.resolve()) if evaluation_path.is_file() else None
@@ -1603,8 +1779,7 @@ def train_cell(
                 "traceback": traceback.format_exc(),
                 "scientific_status": "not_run" if engineering_liveness else "pilot",
                 "nan_inf_failure": (
-                    "non-finite" in str(exc).lower()
-                    or "nan/inf" in str(exc).lower()
+                    "non-finite" in str(exc).lower() or "nan/inf" in str(exc).lower()
                 ),
                 "complete": False,
             },
@@ -1623,7 +1798,11 @@ def cmd_train_cell(
     cells = {cell.key: cell for cell in build_cells(config)}
     if cell_key not in cells:
         raise ValueError(f"Unknown cell key: {cell_key}")
-    splits, inputs = _load_prepared(output_root, config)
+    splits, inputs = _load_ready_inputs(
+        output_root,
+        config,
+        base_model_path=base_model_path,
+    )
     cell = cells[cell_key]
     return train_cell(
         cell,
@@ -1649,7 +1828,11 @@ def cmd_liveness(
         raise ValueError(f"Unknown liveness task: {task}")
     if rho not in _tuple_floats(config["sweep"]["all_rho"]):
         raise ValueError("Liveness rho must be one frozen grid point")
-    splits, inputs = _load_prepared(output_root, config)
+    splits, inputs = _load_ready_inputs(
+        output_root,
+        config,
+        base_model_path=base_model_path,
+    )
     cell = Cell(task, METHOD_EXPONENTIAL, rho, int(config["sweep"]["tuning_seed"]), "liveness")
     result = train_cell(
         cell,
@@ -1682,8 +1865,46 @@ def cmd_liveness(
     )
     if not finite:
         raise RuntimeError("Reloaded liveness adapter contains non-finite parameters")
-    result["reload_gate_pending"] = False
-    result["reload_gate_passed"] = True
+    training_rows = read_jsonl(Path(result["training_metrics"]))
+    if not training_rows:
+        raise RuntimeError("Liveness training metrics are missing")
+    terminal_metrics = training_rows[-1]
+    positive_loss = float(terminal_metrics["positive_loss"])
+    negative_scalar = float(terminal_metrics["negative_scalar"])
+    raw_gradient_norm = float(terminal_metrics["raw_gradient_norm_before_clip"])
+    if not math.isfinite(positive_loss) or positive_loss <= 0.0:
+        raise RuntimeError("Liveness positive loss is not finite and positive")
+    if not math.isfinite(negative_scalar) or negative_scalar == 0.0:
+        raise RuntimeError("Liveness repulsive scalar is not finite and nonzero")
+    if not math.isfinite(raw_gradient_norm) or raw_gradient_norm <= 0.0:
+        raise RuntimeError("Liveness raw gradient norm is not finite and positive")
+
+    def adapter_weight_file(adapter_root: Path) -> Path:
+        for name in ("adapter_model.safetensors", "adapter_model.bin"):
+            candidate = adapter_root / name
+            if candidate.is_file():
+                return candidate
+        raise FileNotFoundError(f"Adapter weight file is missing: {adapter_root}")
+
+    reference_adapter = inputs[task].reference_adapter
+    if reference_adapter is None:
+        raise RuntimeError("Liveness reference adapter is missing")
+    reference_hash = sha256_file(adapter_weight_file(reference_adapter))
+    terminal_hash = sha256_file(adapter_weight_file(Path(result["terminal_adapter"])))
+    if reference_hash == terminal_hash:
+        raise RuntimeError("Liveness adapter weights did not change after two updates")
+    result.update(
+        {
+            "reload_gate_pending": False,
+            "reload_gate_passed": True,
+            "positive_loss_finite_nonzero": True,
+            "repulsive_scalar_finite_nonzero": True,
+            "raw_gradient_finite_nonzero": True,
+            "adapter_weight_changed": True,
+            "reference_adapter_weight_sha256": reference_hash,
+            "terminal_adapter_weight_sha256": terminal_hash,
+        }
+    )
     atomic_json(
         output_root / "liveness" / cell.key / "cell_manifest.json",
         result,
@@ -1859,9 +2080,7 @@ def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any
                 "terminal_pass8": value["validation_terminal_pass8"],
                 "late_window_greedy_mean": value["validation_late_window_greedy_mean"],
                 "terminal_greedy": value["validation_terminal_greedy"],
-                "terminal_greedy_valid_rate": value[
-                    "validation_terminal_greedy_valid_rate"
-                ],
+                "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
                 "nan_inf_failure": bool(value["nan_inf_failure"]),
             }
         )
@@ -1922,15 +2141,9 @@ def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any
                 "selected_late_window_pass8_mean": (
                     None if selected is None else selected["late_window_pass8_mean"]
                 ),
-                "positive_only_late_window_pass8_mean": positive[
-                    "late_window_pass8_mean"
-                ],
-                "all_exp_below_positive_only": summary[
-                    "all_exp_below_positive_only"
-                ],
-                "strong_taper_boundary_unclosed": summary[
-                    "strong_taper_boundary_unclosed"
-                ],
+                "positive_only_late_window_pass8_mean": positive["late_window_pass8_mean"],
+                "all_exp_below_positive_only": summary["all_exp_below_positive_only"],
+                "strong_taper_boundary_unclosed": summary["strong_taper_boundary_unclosed"],
             }
         )
     _write_csv(output_root / "aggregate" / "selected_exp_by_task.csv", selected_rows)
@@ -2010,6 +2223,11 @@ def make_parser() -> argparse.ArgumentParser:
     prepare.add_argument("--countdown-validation", required=True)
     prepare.add_argument("--countdown-adapter", required=True)
 
+    reference = subparsers.add_parser("reference")
+    reference.add_argument("--base-model-path", required=True)
+    reference.add_argument("--tasks", nargs="+")
+    reference.add_argument("--force", action="store_true")
+
     calibrate = subparsers.add_parser("calibrate")
     calibrate.add_argument("--base-model-path", required=True)
     calibrate.add_argument("--tasks", nargs="+")
@@ -2055,6 +2273,14 @@ def main(argv: Sequence[str] | None = None) -> None:
             countdown_bank=Path(args.countdown_bank).resolve(),
             countdown_validation=Path(args.countdown_validation).resolve(),
             countdown_adapter=Path(args.countdown_adapter).resolve(),
+        )
+    elif args.command == "reference":
+        result = cmd_reference(
+            config,
+            output_root,
+            base_model_path=args.base_model_path,
+            tasks=args.tasks,
+            force=bool(args.force),
         )
     elif args.command == "calibrate":
         result = cmd_calibrate(
