@@ -75,6 +75,8 @@ jobs:
             cat /tmp/test_append.py >> tests/test_e8_multitask_p0.py
           fi
           grep -q "$marker" tests/test_e8_multitask_p0.py
+          python -m ruff format tests/test_e8_multitask_p0.py
+          python -m ruff check --fix tests/test_e8_multitask_p0.py
 
       - name: Run exact matrix and targeted validation
         shell: bash
