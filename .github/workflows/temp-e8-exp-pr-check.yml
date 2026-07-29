@@ -35,13 +35,17 @@ jobs:
           transport_dir=.github/e8-exp-source
           printf '%s  %s\n' '976eebc09d9b31968dbe41dff0290d21b3288facf47095a687de434bf8fa37ff' "$transport_dir/e8_multitask_exp_tuning.py.gz.b64.part00" | sha256sum --check --strict
           printf '%s  %s\n' 'c225907f1277b05461084441232155bbbe7dfdb3be96a91a58d8c89e6e89aa4c' "$transport_dir/e8_multitask_exp_tuning.py.gz.b64.part01" | sha256sum --check --strict
-          printf '%s  %s\n' '7c8bbb2f37e068947c564f09a10f6f9b23322594074519032ad90050f86ec2a9' "$transport_dir/e8_multitask_exp_tuning.py.gz.b64.part02" | sha256sum --check --strict
+          printf '%s  %s\n' '595a7c05eaa53b1f415dd1bd08744fd7a7febe66f7fd6c60e9dba15bb562dcf4' "$transport_dir/e8_multitask_exp_tuning.py.gz.b64.part02a" | sha256sum --check --strict
+          printf '%s  %s\n' 'abe02e2dfa5aff36cc3b5cc4900294b74ad6d64a7a8a0dff85c5863eba425f32' "$transport_dir/e8_multitask_exp_tuning.py.gz.b64.part02b" | sha256sum --check --strict
+          printf '%s  %s\n' '1de1250cbc797d0c3550caab8afc0b476e2fb695409777ffaa54d09ce02ad279' "$transport_dir/e8_multitask_exp_tuning.py.gz.b64.part02c" | sha256sum --check --strict
           printf '%s  %s\n' '55835aff64116978a22ea7a72bd366df4ea4d249b47bca8b0eb1550c739faf86' "$transport_dir/e8_multitask_exp_tuning.py.gz.b64.part03" | sha256sum --check --strict
           printf '%s  %s\n' 'cf7ddd5f8ac0ccf852283b49e8cca92f2a54dd20452ef6d0f52df5877182d966' "$transport_dir/e8_multitask_exp_tuning.py.gz.b64.part04" | sha256sum --check --strict
           cat \
             "$transport_dir/e8_multitask_exp_tuning.py.gz.b64.part00" \
             "$transport_dir/e8_multitask_exp_tuning.py.gz.b64.part01" \
-            "$transport_dir/e8_multitask_exp_tuning.py.gz.b64.part02" \
+            "$transport_dir/e8_multitask_exp_tuning.py.gz.b64.part02a" \
+            "$transport_dir/e8_multitask_exp_tuning.py.gz.b64.part02b" \
+            "$transport_dir/e8_multitask_exp_tuning.py.gz.b64.part02c" \
             "$transport_dir/e8_multitask_exp_tuning.py.gz.b64.part03" \
             "$transport_dir/e8_multitask_exp_tuning.py.gz.b64.part04" \
             | base64 --decode > /tmp/e8_multitask_exp_tuning.py.gz
