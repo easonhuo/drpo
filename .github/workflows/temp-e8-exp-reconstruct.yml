@@ -1,0 +1,70 @@
+name: TEMP E8 Exp source reconstruction
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-exp-tuning-01
+    paths:
+      - .github/e8-exp-source/**
+      - .github/workflows/temp-e8-exp-reconstruct.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-e8-exp-source-reconstruction
+  cancel-in-progress: false
+
+jobs:
+  reconstruct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-exp-tuning-01
+          fetch-depth: 0
+
+      - name: Reconstruct exact reviewed source
+        shell: bash
+        run: |
+          set -euo pipefail
+          transport_dir=.github/e8-exp-source
+          cat \
+            "$transport_dir/e8_multitask_exp_tuning.py.gz.b64.part00" \
+            "$transport_dir/e8_multitask_exp_tuning.py.gz.b64.part01" \
+            "$transport_dir/e8_multitask_exp_tuning.py.gz.b64.part02" \
+            | base64 --decode > /tmp/e8_multitask_exp_tuning.py.gz
+          printf '%s  %s\n' \
+            'a1d04f3111e0e2a39d938048a15f9057a6b76d8c1367d483cd393e1de3f8accb' \
+            '/tmp/e8_multitask_exp_tuning.py.gz' \
+            | sha256sum --check --strict
+          gzip --decompress --stdout /tmp/e8_multitask_exp_tuning.py.gz \
+            > /tmp/e8_multitask_exp_tuning.py
+          printf '%s  %s\n' \
+            '0f9efd483e63d0fa87ae29768baf1589ab1587a94ca686b32a8e90237f880e0f' \
+            '/tmp/e8_multitask_exp_tuning.py' \
+            | sha256sum --check --strict
+          test "$(wc -l < /tmp/e8_multitask_exp_tuning.py)" -eq 2113
+          python -m py_compile /tmp/e8_multitask_exp_tuning.py
+          install -m 0644 /tmp/e8_multitask_exp_tuning.py \
+            src/drpo/e8_multitask_exp_tuning.py
+          printf '%s  %s\n' \
+            '0f9efd483e63d0fa87ae29768baf1589ab1587a94ca686b32a8e90237f880e0f' \
+            'src/drpo/e8_multitask_exp_tuning.py' \
+            | sha256sum --check --strict
+
+      - name: Commit reconstructed source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/drpo/e8_multitask_exp_tuning.py
+          if git diff --cached --quiet; then
+            echo 'Exact source already present.'
+            exit 0
+          fi
+          git commit -m 'EXT-C-E8-MULTITASK-EXP-TUNING-01: install exact reviewed source'
+          git push origin HEAD:dev/e8-multitask-exp-tuning-01
