@@ -43,6 +43,9 @@ ROUND1_EXPERIMENT_ID = (
 C_EXTENSION_EXPERIMENT_ID = (
     "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-C-EXTENSION-0.5B-01"
 )
+DRPO_C_CONFIRMATION_EXPERIMENT_ID = (
+    "EXT-C-E8-ORACLE-OFFLINE-V2-DRPO-C-CONFIRMATION-0.5B-01"
+)
 RECIPROCAL_SCREEN_EXPERIMENT_ID = (
     "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-SHAPE-SCREEN-0.5B-01"
 )
@@ -89,6 +92,13 @@ C_EXTENSION_PARAMETER_POINTS = (
     (1.0, 6.907755279),
     (1.0, 9.210340372),
 )
+DRPO_C_CONFIRMATION_PARAMETER_POINTS = (
+    (1.0, 1.897119985),
+    (1.0, 3.0),
+    (1.0, 5.0),
+    (1.0, 8.0),
+)
+DRPO_C_CONFIRMATION_SEED_OFFSETS = (17000, 18000, 19000, 20000)
 RECIPROCAL_LAMBDAS = (1.0, 3.0, 7.0, 19.0)
 RECIPROCAL_SCREEN_POINTS = (
     *(("reciprocal_linear", 1.0, value) for value in RECIPROCAL_LAMBDAS),
@@ -241,6 +251,19 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "expected_cells": 16,
         "requires_positive_only": False,
         "kind": "legacy_exp",
+    },
+    DRPO_C_CONFIRMATION_EXPERIMENT_ID: {
+        "experiment_id": DRPO_C_CONFIRMATION_EXPERIMENT_ID,
+        "version": "0.4.0-dev-code-first-drpo-c-confirmation",
+        "default_grid_config": (
+            "configs/countdown_e8_oracle_offline_v2_drpo_c_confirmation_0p5b.yaml"
+        ),
+        "parameter_points": DRPO_C_CONFIRMATION_PARAMETER_POINTS,
+        "seed_offsets": DRPO_C_CONFIRMATION_SEED_OFFSETS,
+        "expected_points": 4,
+        "expected_cells": 16,
+        "requires_positive_only": False,
+        "kind": "drpo_c_confirmation",
     },
     RECIPROCAL_SCREEN_EXPERIMENT_ID: {
         "experiment_id": RECIPROCAL_SCREEN_EXPERIMENT_ID,
@@ -639,6 +662,155 @@ def activate_for_grid_config(path: str | Path) -> None:
     activate(_profile_for_config(config))
 
 
+def _validate_drpo_c_confirmation_config(
+    config: Mapping[str, Any], profile: Mapping[str, Any]
+) -> None:
+    if config.get("result_status") != "pilot":
+        raise ValueError("DRPO c confirmation must remain a pilot")
+    if config.get("registration_state") != "dev_code_first_unregistered":
+        raise ValueError("DRPO c confirmation must remain code-first unregistered")
+
+    model = config.get("model", {})
+    if model.get("identity") != "Qwen2.5-0.5B-Instruct":
+        raise ValueError("DRPO c confirmation model identity changed")
+    if model.get("initialization") != "pretrained_base_plus_fresh_lora":
+        raise ValueError("DRPO c confirmation initialization changed")
+    if model.get("parameterization") != "lora":
+        raise ValueError("DRPO c confirmation parameterization changed")
+
+    bank = config.get("bank", {})
+    if bank.get("use_all_unique_negatives") is not True:
+        raise ValueError("Every unique negative must participate")
+    if bank.get("explicit_near_far_training_classes") is not False:
+        raise ValueError("Explicit near/far training classes are forbidden")
+    if bank.get("extreme_selection_forbidden") is not True:
+        raise ValueError("Current-bank extreme selection must remain forbidden")
+
+    remoteness = config.get("remoteness", {})
+    if remoteness.get("coordinate") != "u=d/2":
+        raise ValueError("The frozen remoteness coordinate must remain u=d/2")
+    if remoteness.get("weight") != "alpha*exp(-c*u)":
+        raise ValueError("The paper-aligned weight must remain alpha*exp(-c*u)")
+    if remoteness.get("detached") is not True:
+        raise ValueError("DRPO c-confirmation weights must remain detached")
+    if float(remoteness.get("reference_distance", -1.0)) != 2.0:
+        raise ValueError("reference_distance must remain 2.0")
+    if remoteness.get("extra_square_forbidden") is not True:
+        raise ValueError("The extra square must remain forbidden")
+
+    basis = config.get("selection_basis", {})
+    if basis.get("purpose") != "frozen_parameter_confirmation":
+        raise ValueError("DRPO c confirmation purpose changed")
+    if basis.get("candidates_frozen_before_new_seed_results") is not True:
+        raise ValueError("Candidates must be frozen before new-seed results")
+    excluded_prior = tuple(
+        int(value)
+        for value in basis.get("prior_seed_offsets_excluded_from_confirmation_aggregate", ())
+    )
+    if excluded_prior != (4000, 5000, 9000, 10000, 11000, 12000):
+        raise ValueError("Prior development seed provenance changed")
+
+    sweep = config.get("sweep", {})
+    configured = tuple(
+        (float(item["alpha"]), float(item["c"]))
+        for item in sweep.get("parameter_points", ())
+    )
+    expected = tuple(profile["parameter_points"])
+    if configured != expected:
+        raise ValueError("DRPO c-confirmation parameter points changed")
+    configured_seeds = tuple(int(value) for value in sweep.get("seed_offsets", ()))
+    expected_seeds = tuple(int(value) for value in profile["seed_offsets"])
+    if configured_seeds != expected_seeds:
+        raise ValueError("DRPO c-confirmation seed offsets changed")
+    if int(sweep.get("unique_parameter_points", -1)) != int(profile["expected_points"]):
+        raise ValueError("DRPO c confirmation requires four coefficient points")
+    if int(sweep.get("cells", -1)) != int(profile["expected_cells"]):
+        raise ValueError("DRPO c confirmation requires 16 paired cells")
+    if sweep.get("cartesian_product") is not False:
+        raise ValueError("DRPO c confirmation must remain an explicit point list")
+    if any(alpha != 1.0 for alpha, _ in configured):
+        raise ValueError("DRPO c confirmation must keep alpha fixed at 1")
+    if any(coefficient <= 0.0 for _, coefficient in configured):
+        raise ValueError("DRPO c confirmation contains only positive c values")
+    if sweep.get("positive_only_same_seed_control") is not False:
+        raise ValueError("DRPO c confirmation must not rerun Positive-only")
+    if sweep.get("historical_positive_only_reference_only") is not False:
+        raise ValueError("DRPO c confirmation does not use a Positive-only comparison")
+
+    training = config.get("training", {})
+    if int(training.get("steps", -1)) != 1200 or training.get("early_stop") is not False:
+        raise ValueError("DRPO c confirmation requires fixed 1200 steps")
+    if int(training.get("eval_every", -1)) != 100:
+        raise ValueError("Greedy/Pass@8 evaluation cadence must remain 100")
+    if int(training.get("pass64_every", -1)) != 200:
+        raise ValueError("Pass@64 evaluation cadence must remain 200")
+    if training.get("denominator") != "unique_negative_count_per_prompt":
+        raise ValueError("Loss denominator must remain unique negative count per prompt")
+    if training.get("normalize_by_weight_sum") is not False:
+        raise ValueError("Weight-sum normalization is forbidden")
+    if training.get("hidden_negative_scale") is not False:
+        raise ValueError("Hidden negative scaling is forbidden")
+    if training.get("gradient_budget_matching") is not False:
+        raise ValueError("Gradient-budget matching is forbidden")
+
+    execution = config.get("execution", {})
+    if execution.get("default_gpus") != list(range(8)):
+        raise ValueError("DRPO c confirmation requires GPU 0-7")
+    if int(execution.get("parallel_cells_per_gpu", -1)) != 2:
+        raise ValueError("DRPO c confirmation requires two cells per GPU")
+    if int(execution.get("expected_full_waves", -1)) != 1:
+        raise ValueError("DRPO c confirmation requires one full 16-cell wave")
+    if execution.get("identity_checked_resume") is not True:
+        raise ValueError("Identity-checked resume is required")
+    liveness = execution.get("liveness", {})
+    if float(liveness.get("representative_c", float("nan"))) != 5.0:
+        raise ValueError("DRPO c-confirmation liveness must use c=5")
+    if int(liveness.get("steps", -1)) != 2:
+        raise ValueError("DRPO c-confirmation liveness must remain two steps")
+    if liveness.get("scientific_evidence") is not False:
+        raise ValueError("Liveness must not be scientific evidence")
+
+    evaluation = config.get("evaluation", {})
+    if evaluation.get("validation_only_during_tuning") is not True:
+        raise ValueError("DRPO c confirmation must remain validation-only")
+    if evaluation.get("test_access_forbidden") is not True:
+        raise ValueError("DRPO c confirmation must forbid test access")
+    if evaluation.get("primary_selection_metric") != "late_window_pass_at_8":
+        raise ValueError("Primary selection metric must remain late_window_pass_at_8")
+    if evaluation.get("secondary_selection_metric") != "terminal_pass_at_8":
+        raise ValueError("Secondary selection metric must remain terminal_pass_at_8")
+    if evaluation.get("best_checkpoint_metric_is_supplementary_only") is not True:
+        raise ValueError("Best checkpoint metric must remain supplementary only")
+    if tuple(int(value) for value in evaluation.get("late_window_steps", ())) != (
+        800,
+        900,
+        1000,
+        1100,
+        1200,
+    ):
+        raise ValueError("DRPO c-confirmation late window changed")
+
+    selection = config.get("selection", {})
+    if selection.get("aggregate_unit") != "seed_level_late_window_mean":
+        raise ValueError("Selection must aggregate seed-level late-window means")
+    if selection.get("checkpoint_values_are_not_independent_samples") is not True:
+        raise ValueError("Checkpoint values must not be counted as independent samples")
+    if selection.get("winner_rule") != "highest_mean_late_window_pass_at_8":
+        raise ValueError("DRPO c-confirmation winner rule changed")
+    if selection.get("no_posthoc_candidate_change") is not True:
+        raise ValueError("Post-hoc candidate changes are forbidden")
+    if selection.get("report_all_paired_seed_values") is not True:
+        raise ValueError("All paired seed values must be reported")
+
+    reporting = config.get("reporting", {})
+    if reporting.get("method_ranking_claim_allowed") is not False:
+        raise ValueError("Cross-method ranking claims must remain forbidden")
+    if reporting.get("countdown_role") != "external_validity_only":
+        raise ValueError("Countdown must remain external-validity evidence")
+    if reporting.get("seed_11000_exclusion_forbidden") is not True:
+        raise ValueError("Historical low-performing seed exclusion must remain forbidden")
+
+
 def _validate_shared_screen_config(config: Mapping[str, Any]) -> None:
     if config.get("result_status") != "pilot":
         raise ValueError("Reciprocal shape screen must remain a pilot")
@@ -900,6 +1072,9 @@ def _validate_joint_topr_config(
 
 def validate_grid_config(config: Mapping[str, Any]) -> None:
     profile = _profile_for_config(config)
+    if profile["kind"] == "drpo_c_confirmation":
+        _validate_drpo_c_confirmation_config(config, profile)
+        return
     if profile["kind"] == "joint_fitted_reference_topr":
         _validate_joint_topr_config(config, profile)
         return
