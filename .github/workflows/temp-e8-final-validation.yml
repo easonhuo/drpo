@@ -4,13 +4,16 @@ on:
   push:
     branches:
       - dev/e8-multitask-p0-01
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
 
 concurrency:
-  group: temp-e8-final-validation
-  cancel-in-progress: false
+  group: temp-e8-final-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate:
