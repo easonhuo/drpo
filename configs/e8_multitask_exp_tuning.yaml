@@ -40,9 +40,11 @@ suite:
     - countdown
 
 split:
-  train_rows: 5000
-  validation_rows: 500
-  test_rows: 500
+  p0_train_rows: 5000
+  p0_validation_rows: 500
+  p0_test_rows: 500
+  countdown_train_rows: 5000
+  countdown_validation_rows: 500
   hash_seed: 2026072901
   test_access_allowed: false
 
@@ -55,17 +57,25 @@ training:
   warmup_ratio: 0.05
   max_grad_norm: 1.0
   evaluation_every_updates: 100
-  pass_k: 8
-  generation_max_new_tokens: 256
-  validation_generation_seed: 2026072902
   late_window_updates: [800, 900, 1000, 1100, 1200]
   early_stopping: false
   terminal_adapter_required: true
+
+evaluation:
+  greedy_prompt_rows: 500
+  passk_prompt_rows: 128
+  pass_k: 8
+  batch_size: 16
+  sampling_temperature: 0.8
+  top_p: 0.95
+  max_new_tokens: 256
+  generation_seed: 2026072902
 
 negative_sampling:
   negatives_per_prompt: 16
   selected_current_near: 1
   selected_current_far: 1
+  near_far_mix: [0.5, 0.5]
   selection_stop_gradient: true
   unique_negative_denominator: true
   weight_sum_normalization: false
@@ -79,6 +89,7 @@ remoteness_calibration:
   scale: current_far_median_minus_current_near_median
   coordinate: sqrt_relu_excess_surprisal
   match_initial_negative_gradient_rms: true
+  target_negative_to_positive_gradient_ratio: 0.03125
 
 sweep:
   method: exponential
@@ -102,6 +113,8 @@ selection:
 
 execution:
   max_concurrent_cells: 16
+  gpu_ids: [0, 1, 2, 3, 4, 5, 6, 7]
+  slots_per_gpu: 2
   expected_waves: 5
   identity_checked_resume: true
   fail_closed: true
