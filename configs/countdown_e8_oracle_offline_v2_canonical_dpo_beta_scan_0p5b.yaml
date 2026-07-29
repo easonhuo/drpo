@@ -1,0 +1,145 @@
+schema_version: 1
+experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-CANONICAL-DPO-BETA-SCAN-0.5B-01
+result_status: pilot
+registration_state: dev_code_first_unregistered
+method_identity: canonical_sigmoid_dpo_frozen_initial_reference
+claim: >-
+  On the frozen model-independent E8 V2 bank, measure the development response
+  of canonical prompt-balanced multi-negative sigmoid DPO with an exact frozen
+  initialization reference. Scan eight beta values on two paired development
+  seeds. This code-first round does not establish a formal method ranking,
+  convergence, steady state, statistical significance, or test performance.
+model:
+  identity: Qwen2.5-0.5B-Instruct
+  initialization: pretrained_base_plus_two_identical_fresh_lora_adapters
+  parameterization: lora
+  shared_frozen_backbone: true
+  policy_adapter: default
+  reference_adapter: reference
+  copy_policy_adapter_to_reference_at_initialization: true
+  reference_trainable: false
+  disable_dropout: true
+bank:
+  source_experiment: EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01
+  use_all_unique_negatives: true
+  deduplicate_expression_rule: arena_clean_expression_first_occurrence
+  behavior_policy_logged: false
+  explicit_near_far_training_classes: false
+  extreme_selection_forbidden: true
+preference_data:
+  chosen: oracle_completion
+  rejected: all_unique_verifier_wrong_completions
+  pair_aggregation: mean_within_prompt_then_mean_prompts
+  hard_negative_mining: false
+  label_smoothing: 0.0
+reference_policy:
+  role: exact_frozen_initial_policy
+  adapter: reference
+  copied_from_policy_before_update_1: true
+  update_frequency_per_policy_step: 0
+  receives_gradient: false
+  precomputed_log_probabilities: false
+objective:
+  loss_type: sigmoid_dpo
+  formula: mean_prompt(mean_unique_negative(-logsigmoid(beta*reference_relative_pair_margin)))
+  beta_parameter: dpo_beta
+  sequence_log_probability: full_completion_summed_log_probability
+  pair_margin: policy_chosen_minus_rejected_minus_reference_chosen_minus_rejected
+  reference_detached: true
+  distance_control: false
+  value_network: false
+sweep:
+  cartesian_product: false
+  parameter_points:
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.01, role: near_zero_boundary}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.03, role: low_anchor}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.05, role: low_transition}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.1, role: canonical_center}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.2, role: middle_transition}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.3, role: middle_anchor}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 0.5, role: high_transition}
+    - {family: canonical_dpo, alpha: 1.0, coefficient: 1.0, role: strong_anchor}
+  seed_offsets: [4000, 5000]
+  unique_parameter_points: 8
+  cells: 16
+training:
+  steps: 1200
+  early_stop: false
+  eval_every: 100
+  pass64_every: 200
+  denominator: unique_negative_count_per_prompt
+  normalize_by_weight_sum: false
+  gradient_budget_matching: false
+  initial_pair_margin_max_abs_tolerance: 1.0e-5
+execution:
+  profile_mode: fixed_profile_fixed_matrix_only
+  generic_config_driven_reactivation: false
+  default_gpus: [0, 1]
+  parallel_cells_per_gpu: 2
+  expected_full_waves: 4
+  runtime_scope: GOV-RUNTIME-E8-GPU-SLOT-HOTFIX-01
+  identity_checked_resume: true
+  continue_after_cell_failure: true
+  autotune:
+    enabled: true
+    required_free_gpu_memory_gib: 36.0
+    required_host_memory_gib_per_gpu: 8.0
+    gpu_memory_headroom_fraction: 0.12
+    host_memory_headroom_fraction: 0.15
+    maximum_gpu_utilization_percent: 20.0
+  liveness:
+    required_before_full_run: true
+    representative_family: canonical_dpo
+    representative_alpha: 1.0
+    representative_c: 0.1
+    steps: 2
+    validation_examples: 8
+    checkpoint_reload_required: true
+    scientific_evidence: false
+evaluation:
+  split_file: val.jsonl
+  split_role: structurally_disjoint_held_out_evaluation
+  enters_training_loss: false
+  train_structure_overlap: none
+  train_problem_key_overlap: none
+  evaluated_adapter: default
+  separate_test_split_access: false
+  greedy_every: 100
+  pass_at_8_every: 100
+  pass_at_64_every: 200
+  primary_reporting_metric: late_window_pass_at_8
+  secondary_reporting_metric: terminal_pass_at_8
+  paper_facing_checkpoint_policy: late_window_and_terminal
+  best_checkpoint_saved: true
+  best_checkpoint_metric_is_supplementary_only: true
+  best_checkpoint_role: supplementary_local_diagnostic_and_recovery_only
+  late_window_steps: [800, 900, 1000, 1100, 1200]
+reporting:
+  distinguish_task_performance: true
+  distinguish_support_or_structure_boundary: true
+  distinguish_nan_inf_numerical_failure: true
+  report_dpo_pair_margin_distribution: true
+  report_preference_accuracy: true
+  report_logit_saturation_fraction: true
+  beta_response_curve_only: true
+  fixed_horizon_is_not_convergence: true
+  method_ranking_claim_allowed: false
+  countdown_role: external_validity_only
+  compare_terminal_and_late_window: true
+  separate_test_jsonl_used: false
+exclusions:
+  - jointly_fitted_reference
+  - behavior_policy_reference_claim
+  - remoteness_or_distance_taper
+  - current_near_current_far_selection
+  - binary_near_far_mixture
+  - hard_negative_mining
+  - label_smoothing
+  - ipo_or_hinge_or_robust_dpo
+  - length_normalized_dpo
+  - value_network
+  - learned_baseline
+  - early_stopping
+  - test_split_access
+  - best_beta_or_formal_method_ranking_claim
+  - saturation_or_convergence_claim_from_1200_steps
