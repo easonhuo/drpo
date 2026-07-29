@@ -163,9 +163,19 @@ def validate_config(config: Mapping[str, Any]) -> None:
         raise ValueError("The tuning horizon must remain 1200 updates")
     if int(training["micro_batch"]) != 1 or int(training["gradient_accumulation"]) != 8:
         raise ValueError("The method-training effective prompt batch must remain 8")
-    if not math.isclose(float(training["learning_rate"]), 5.0e-5, rel_tol=0.0, abs_tol=1.0e-12):
+    if not math.isclose(
+        float(training["learning_rate"]),
+        5.0e-5,
+        rel_tol=0.0,
+        abs_tol=1.0e-12,
+    ):
         raise ValueError("The method-training learning rate must remain 5e-5")
-    if not math.isclose(float(training["warmup_ratio"]), 0.03, rel_tol=0.0, abs_tol=1.0e-12):
+    if not math.isclose(
+        float(training["warmup_ratio"]),
+        0.03,
+        rel_tol=0.0,
+        abs_tol=1.0e-12,
+    ):
         raise ValueError("The method-training warmup ratio must remain 0.03")
     if int(training["evaluation_every_updates"]) != 100:
         raise ValueError("Evaluation cadence must remain 100 updates")
@@ -427,6 +437,24 @@ def _audit_training_rows(task: str, rows: Sequence[Mapping[str, Any]], expected:
             raise RuntimeError(f"{task}/{row['prompt_id']} contains a verifier-correct negative")
 
 
+def _audit_partition_prompt_ids(
+    task: str,
+    partitions: Mapping[str, Sequence[Mapping[str, Any]]],
+) -> None:
+    seen: dict[str, str] = {}
+    for partition, rows in partitions.items():
+        prompt_ids = [str(row["prompt_id"]) for row in rows]
+        if len(set(prompt_ids)) != len(prompt_ids):
+            raise RuntimeError(f"{task} has duplicate prompt IDs within {partition}")
+        for prompt_id in prompt_ids:
+            previous = seen.get(prompt_id)
+            if previous is not None:
+                raise RuntimeError(
+                    f"{task} prompt ID {prompt_id} overlaps {previous} and {partition}"
+                )
+            seen[prompt_id] = partition
+
+
 def split_p0_rows(
     rows: Sequence[Mapping[str, Any]],
     *,
@@ -453,6 +481,7 @@ def split_p0_rows(
         "test": ordered[validation_end:],
     }
     _audit_training_rows(task, partitions["train"], int(split["p0_train_rows"]))
+    _audit_partition_prompt_ids(task, partitions)
     return partitions
 
 
@@ -480,9 +509,9 @@ def split_countdown_rows(
     _audit_training_rows("countdown", train, int(split["countdown_train_rows"]))
     if len(validation) != int(split["countdown_validation_rows"]):
         raise RuntimeError("Countdown validation file does not contain 500 rows")
-    if {row["prompt_id"] for row in train} & {row["prompt_id"] for row in validation}:
-        raise RuntimeError("Countdown train and validation prompt IDs overlap")
-    return {"train": train, "validation": validation}
+    partitions = {"train": train, "validation": validation}
+    _audit_partition_prompt_ids("countdown", partitions)
+    return partitions
 
 
 def resolve_task_inputs(
@@ -504,8 +533,10 @@ def resolve_task_inputs(
     if not qualification_path.is_file():
         raise FileNotFoundError(f"Missing P0 qualification audit: {qualification_path}")
     qualification = json.loads(qualification_path.read_text(encoding="utf-8"))
-    if qualification.get("experiment_id") != PARENT_EXPERIMENT_ID or not qualification.get(
-        "passed"
+    if (
+        qualification.get("experiment_id") != PARENT_EXPERIMENT_ID
+        or qualification.get("config_hash") != stable_config_hash(p0_config_value)
+        or not qualification.get("passed")
     ):
         raise RuntimeError("P0 bank qualification identity or pass status mismatch")
 
@@ -590,6 +621,7 @@ def write_split_manifest(
             ),
             "sources_root": str(inputs.sources_root),
             "p0_config": str(inputs.p0_config),
+            "p0_config_sha256": sha256_file(inputs.p0_config),
             "countdown_validation_source": (
                 str(inputs.countdown_validation) if inputs.countdown_validation else None
             ),
@@ -665,6 +697,156 @@ def reference_manifest_path(output_root: Path) -> Path:
     return output_root / "references" / "reference_manifest.json"
 
 
+def _reference_warmstart_config(
+    config: Mapping[str, Any],
+    p0_config_path: Path,
+) -> dict[str, Any]:
+    p0_config = yaml.safe_load(p0_config_path.read_text(encoding="utf-8"))
+    if not isinstance(p0_config, dict) or p0_config.get("experiment_id") != PARENT_EXPERIMENT_ID:
+        raise RuntimeError("P0 config identity mismatch during reference preparation")
+    inherited = copy.deepcopy(p0_config.get("positive_warmstart"))
+    if not isinstance(inherited, dict):
+        raise TypeError("P0 positive-warm-start contract is missing")
+    if inherited.get("checkpoint_kind") != "task_positive_warmstart_100":
+        raise RuntimeError("Unexpected inherited P0 checkpoint kind")
+    if str(inherited.get("parameterization")) != "lora":
+        raise RuntimeError("P0 reference preparation must inherit LoRA parameterization")
+    if int(inherited.get("optimizer_updates", 0)) != int(config["reference"]["optimizer_updates"]):
+        raise RuntimeError("Inherited P0 reference optimizer-update contract mismatch")
+    if (
+        int(inherited.get("micro_batch", 0)) != 2
+        or int(inherited.get("gradient_accumulation", 0)) != 32
+    ):
+        raise RuntimeError("Inherited reference warm start must remain 2 x 32")
+
+    model_contract = {
+        "lora_rank": int(config["model"]["lora_rank"]),
+        "lora_alpha": int(config["model"]["lora_alpha"]),
+        "lora_dropout": float(config["model"]["lora_dropout"]),
+        "max_length": int(config["model"]["max_length"]),
+        "gradient_checkpointing": bool(config["model"]["gradient_checkpointing"]),
+        "dtype": str(config["model"]["dtype"]),
+    }
+    inherited_contract = {
+        "lora_rank": int(inherited["lora_rank"]),
+        "lora_alpha": int(inherited["lora_alpha"]),
+        "lora_dropout": float(inherited["lora_dropout"]),
+        "max_length": int(inherited["max_length"]),
+        "gradient_checkpointing": bool(inherited["gradient_checkpointing"]),
+        "dtype": str(inherited["dtype"]),
+    }
+    if inherited_contract != model_contract:
+        raise RuntimeError("Inherited P0 LoRA/model contract does not match tuning config")
+
+    inherited["checkpoint_kind"] = str(config["reference"]["checkpoint_kind"])
+    return inherited
+
+
+def _reference_identity(
+    *,
+    task: str,
+    config: Mapping[str, Any],
+    split_manifest: Mapping[str, Any],
+    warmstart_config: Mapping[str, Any],
+    base_model_identity: Mapping[str, Any],
+    seed: int,
+) -> dict[str, Any]:
+    train_path = Path(split_manifest["tasks"][task]["paths"]["train"])
+    identity = {
+        "schema_version": 1,
+        "experiment_id": EXPERIMENT_ID,
+        "task": task,
+        "config_hash": stable_config_hash(config),
+        "p0_config_sha256": split_manifest["tasks"][task]["p0_config_sha256"],
+        "train_prompt_hash": split_manifest["tasks"][task]["prompt_id_hashes"]["train"],
+        "train_rows_sha256": sha256_file(train_path),
+        "base_model_identity": base_model_identity,
+        "reference_config": dict(warmstart_config),
+        "seed": seed,
+    }
+    identity["identity_hash"] = stable_hash(identity)
+    return identity
+
+
+def _reference_manifest_payload(
+    *,
+    config: Mapping[str, Any],
+    base_model_identity: Mapping[str, Any],
+    tasks: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any]:
+    expected_tasks = tuple(str(task) for task in config["suite"]["p0_tasks"])
+    complete = set(tasks) == set(expected_tasks) and all(
+        bool(tasks[task].get("complete"))
+        and bool(tasks[task].get("train_only_reference"))
+        and int(tasks[task].get("validation_rows_seen", -1)) == 0
+        and int(tasks[task].get("test_rows_seen", -1)) == 0
+        for task in expected_tasks
+    )
+    return {
+        "schema_version": 1,
+        "experiment_id": EXPERIMENT_ID,
+        "config_hash": stable_config_hash(config),
+        "base_model_identity": base_model_identity,
+        "checkpoint_kind": str(config["reference"]["checkpoint_kind"]),
+        "tasks": dict(tasks),
+        "complete": complete,
+        "validation_rows_seen": 0,
+        "test_rows_seen": 0,
+        "scientific_status": "not_run",
+    }
+
+
+def _validate_reference_manifest_header(
+    manifest: Mapping[str, Any],
+    *,
+    config: Mapping[str, Any],
+    base_model_identity: Mapping[str, Any],
+) -> None:
+    if (
+        manifest.get("experiment_id") != EXPERIMENT_ID
+        or manifest.get("config_hash") != stable_config_hash(config)
+        or manifest.get("checkpoint_kind") != config["reference"]["checkpoint_kind"]
+        or manifest.get("base_model_identity") != base_model_identity
+        or int(manifest.get("validation_rows_seen", -1)) != 0
+        or int(manifest.get("test_rows_seen", -1)) != 0
+    ):
+        raise RuntimeError("Train-only reference manifest identity or leakage audit mismatch")
+    recorded_tasks = manifest.get("tasks")
+    if not isinstance(recorded_tasks, dict):
+        raise TypeError("Train-only reference manifest tasks are malformed")
+    unknown = set(recorded_tasks) - set(config["suite"]["p0_tasks"])
+    if unknown:
+        raise RuntimeError(f"Train-only reference manifest has unknown tasks: {sorted(unknown)}")
+
+
+def _validate_reference_task_manifest(
+    task_manifest: Mapping[str, Any],
+    *,
+    expected_identity: Mapping[str, Any],
+    expected_train_rows: int,
+) -> Path:
+    if (
+        task_manifest.get("identity_hash") != expected_identity["identity_hash"]
+        or task_manifest.get("checkpoint_kind")
+        != expected_identity["reference_config"]["checkpoint_kind"]
+        or not task_manifest.get("complete")
+        or not task_manifest.get("train_only_reference")
+        or int(task_manifest.get("train_rows_seen", -1)) != expected_train_rows
+        or int(task_manifest.get("validation_rows_seen", -1)) != 0
+        or int(task_manifest.get("test_rows_seen", -1)) != 0
+    ):
+        raise RuntimeError(
+            f"Train-only reference identity or leakage audit mismatch for "
+            f"{expected_identity['task']}"
+        )
+    adapter = Path(str(task_manifest.get("adapter_path", "")))
+    if not (adapter / "adapter_config.json").is_file():
+        raise FileNotFoundError(
+            f"Missing train-only adapter for {expected_identity['task']}: {adapter}"
+        )
+    return adapter
+
+
 def cmd_reference(
     config: Mapping[str, Any],
     output_root: Path,
@@ -674,58 +856,77 @@ def cmd_reference(
     force: bool,
 ) -> dict[str, Any]:
     splits, inputs = _load_prepared(output_root, config)
-    requested = list(tasks or config["suite"]["p0_tasks"])
-    unknown = sorted(set(requested) - set(config["suite"]["p0_tasks"]))
+    p0_tasks = tuple(str(task) for task in config["suite"]["p0_tasks"])
+    requested = tuple(str(task) for task in (tasks or p0_tasks))
+    if not requested or len(set(requested)) != len(requested):
+        raise ValueError("Reference tasks must be a non-empty unique list")
+    unknown = sorted(set(requested) - set(p0_tasks))
     if unknown:
         raise ValueError(f"Only the eight P0 tasks require train-only references: {unknown}")
-    p0_config_value = (
-        yaml.safe_load(inputs[requested[0]].p0_config.read_text(encoding="utf-8"))
-        if requested
-        else {}
-    )
-    if not isinstance(p0_config_value, dict):
-        raise TypeError("P0 config root is not a mapping")
-    warmstart_config = copy.deepcopy(p0_config_value["positive_warmstart"])
-    warmstart_config["checkpoint_kind"] = str(config["reference"]["checkpoint_kind"])
-    if int(warmstart_config["optimizer_updates"]) != int(config["reference"]["optimizer_updates"]):
-        raise RuntimeError("Inherited P0 reference optimizer-update contract mismatch")
+
+    p0_config_path = inputs[requested[0]].p0_config
+    if any(inputs[task].p0_config != p0_config_path for task in requested):
+        raise RuntimeError("P0 tasks do not share one frozen config path")
+    warmstart_config = _reference_warmstart_config(config, p0_config_path)
     base_identity = model_identity(base_model_path, None)["model"]
-    frozen_indices = {str(task): index for index, task in enumerate(config["suite"]["tasks"])}
+    task_indices = {task: index for index, task in enumerate(p0_tasks)}
+    task_seeds = {
+        task: int(warmstart_config["seed"]) + task_indices[task] * 100_003 for task in p0_tasks
+    }
+
     root = output_root / "references"
     root.mkdir(parents=True, exist_ok=True)
+    manifest_path = reference_manifest_path(output_root)
     completed: dict[str, Any] = {}
-    existing_manifest = reference_manifest_path(output_root)
-    if existing_manifest.is_file():
-        existing = json.loads(existing_manifest.read_text(encoding="utf-8"))
-        completed.update(existing.get("tasks", {}))
+    if manifest_path.is_file():
+        existing_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        _validate_reference_manifest_header(
+            existing_manifest,
+            config=config,
+            base_model_identity=base_identity,
+        )
+        for task, recorded in existing_manifest["tasks"].items():
+            task_manifest_path = root / task / "task_manifest.json"
+            if not task_manifest_path.is_file():
+                raise FileNotFoundError(
+                    f"Reference manifest points to a missing task manifest: {task}"
+                )
+            task_manifest = json.loads(task_manifest_path.read_text(encoding="utf-8"))
+            if task_manifest != recorded:
+                raise RuntimeError(f"Reference task/top-level manifest mismatch for {task}")
+            expected = _reference_identity(
+                task=task,
+                config=config,
+                split_manifest=splits,
+                warmstart_config=warmstart_config,
+                base_model_identity=base_identity,
+                seed=task_seeds[task],
+            )
+            try:
+                _validate_reference_task_manifest(
+                    task_manifest,
+                    expected_identity=expected,
+                    expected_train_rows=int(config["split"]["p0_train_rows"]),
+                )
+            except (FileNotFoundError, RuntimeError):
+                if not force or task not in requested:
+                    raise
+                continue
+            completed[task] = task_manifest
+
     for task in requested:
         task_root = root / task
         train_path = Path(splits["tasks"][task]["paths"]["train"])
-        seed = int(warmstart_config["seed"]) + frozen_indices[task] * 100_003
-        identity = {
-            "schema_version": 1,
-            "experiment_id": EXPERIMENT_ID,
-            "task": task,
-            "config_hash": stable_config_hash(config),
-            "train_prompt_hash": splits["tasks"][task]["prompt_id_hashes"]["train"],
-            "train_rows_sha256": sha256_file(train_path),
-            "base_model_identity": base_identity,
-            "reference_config": warmstart_config,
-            "seed": seed,
-        }
-        identity["identity_hash"] = stable_hash(identity)
-        task_manifest_path = task_root / "task_manifest.json"
-        if task_manifest_path.is_file() and not force:
-            task_manifest = json.loads(task_manifest_path.read_text(encoding="utf-8"))
-            adapter_path = Path(str(task_manifest.get("adapter_path", "")))
-            if (
-                task_manifest.get("identity_hash") == identity["identity_hash"]
-                and task_manifest.get("complete")
-                and (adapter_path / "adapter_config.json").is_file()
-            ):
-                completed[task] = task_manifest
-                continue
-            raise RuntimeError(f"Existing train-only reference identity mismatch for {task}")
+        identity = _reference_identity(
+            task=task,
+            config=config,
+            split_manifest=splits,
+            warmstart_config=warmstart_config,
+            base_model_identity=base_identity,
+            seed=task_seeds[task],
+        )
+        if task in completed and not force:
+            continue
         if task_root.exists():
             if not force:
                 raise RuntimeError(f"Reference directory exists without reusable identity: {task}")
@@ -733,84 +934,42 @@ def cmd_reference(
                 raise RuntimeError(f"Refusing unsafe reference removal: {task_root}")
             shutil.rmtree(task_root)
         task_root.mkdir(parents=True, exist_ok=False)
+        train_rows = read_jsonl(train_path)
         result = train_task_positive_warmstart(
             task=task,
-            rows=read_jsonl(train_path),
+            rows=train_rows,
             model_path=base_model_path,
             output_dir=task_root,
             warmstart_config=warmstart_config,
-            seed=seed,
+            seed=task_seeds[task],
         )
         result.update(identity)
-        result["train_only_reference"] = True
-        result["validation_rows_seen"] = 0
-        result["test_rows_seen"] = 0
-        atomic_json(task_manifest_path, result)
-        completed[task] = result
-        atomic_json(
-            reference_manifest_path(output_root),
+        result.update(
             {
-                "schema_version": 1,
-                "experiment_id": EXPERIMENT_ID,
-                "config_hash": stable_config_hash(config),
-                "base_model_identity": base_identity,
-                "checkpoint_kind": warmstart_config["checkpoint_kind"],
-                "tasks": completed,
-                "complete": all(
-                    task_name in completed and completed[task_name].get("complete")
-                    for task_name in config["suite"]["p0_tasks"]
-                ),
+                "train_only_reference": True,
+                "train_rows_seen": len(train_rows),
                 "validation_rows_seen": 0,
                 "test_rows_seen": 0,
-                "scientific_status": "not_run",
-            },
+            }
         )
-    manifest = json.loads(reference_manifest_path(output_root).read_text(encoding="utf-8"))
+        atomic_json(task_root / "task_manifest.json", result)
+        completed[task] = result
+        atomic_json(
+            manifest_path,
+            _reference_manifest_payload(
+                config=config,
+                base_model_identity=base_identity,
+                tasks=completed,
+            ),
+        )
+
+    manifest = _reference_manifest_payload(
+        config=config,
+        base_model_identity=base_identity,
+        tasks=completed,
+    )
+    atomic_json(manifest_path, manifest)
     return manifest
-
-
-def _attach_references(
-    output_root: Path,
-    config: Mapping[str, Any],
-    inputs: Mapping[str, TaskInputs],
-    *,
-    base_model_path: str,
-) -> dict[str, TaskInputs]:
-    path = reference_manifest_path(output_root)
-    if not path.is_file():
-        raise RuntimeError("Run train-only reference preparation before calibration")
-    manifest = json.loads(path.read_text(encoding="utf-8"))
-    if (
-        manifest.get("experiment_id") != EXPERIMENT_ID
-        or manifest.get("config_hash") != stable_config_hash(config)
-        or not manifest.get("complete")
-        or manifest.get("validation_rows_seen") != 0
-        or manifest.get("test_rows_seen") != 0
-        or manifest.get("base_model_identity") != model_identity(base_model_path, None)["model"]
-    ):
-        raise RuntimeError("Train-only reference manifest identity or leakage audit mismatch")
-    attached: dict[str, TaskInputs] = {}
-    for task, value in inputs.items():
-        if task == "countdown":
-            if value.reference_adapter is None:
-                raise RuntimeError("Countdown supplied reference adapter is missing")
-            attached[task] = value
-            continue
-        task_manifest = manifest.get("tasks", {}).get(task)
-        if not task_manifest or not task_manifest.get("complete"):
-            raise RuntimeError(f"Missing train-only reference for {task}")
-        adapter = Path(str(task_manifest["adapter_path"]))
-        if not (adapter / "adapter_config.json").is_file():
-            raise FileNotFoundError(f"Missing train-only adapter for {task}: {adapter}")
-        attached[task] = TaskInputs(
-            task=value.task,
-            bank=value.bank,
-            reference_adapter=adapter,
-            sources_root=value.sources_root,
-            p0_config=value.p0_config,
-            countdown_validation=value.countdown_validation,
-        )
-    return attached
 
 
 def _load_prepared(
@@ -833,6 +992,11 @@ def _load_prepared(
         or not splits.get("complete")
     ):
         raise RuntimeError("Prepared input identity mismatch")
+    expected_tasks = set(config["suite"]["tasks"])
+    if set(prepare.get("inputs", {})) != expected_tasks or set(splits.get("tasks", {})) != (
+        expected_tasks
+    ):
+        raise RuntimeError("Prepared input task set mismatch")
     inputs = {
         task: TaskInputs(
             task=task,
@@ -848,7 +1012,105 @@ def _load_prepared(
         )
         for task, value in prepare["inputs"].items()
     }
+    for task, inputs_for_task in inputs.items():
+        split_record = splits["tasks"][task]
+        if not inputs_for_task.bank.is_file() or sha256_file(inputs_for_task.bank) != (
+            split_record.get("bank_sha256")
+        ):
+            raise RuntimeError(f"Prepared bank identity mismatch for {task}")
+        if not inputs_for_task.p0_config.is_file() or sha256_file(
+            inputs_for_task.p0_config
+        ) != split_record.get("p0_config_sha256"):
+            raise RuntimeError(f"Prepared P0 config identity mismatch for {task}")
+        if not inputs_for_task.sources_root.is_dir():
+            raise FileNotFoundError(f"Prepared sources root is missing for {task}")
+        if inputs_for_task.countdown_validation is not None and (
+            not inputs_for_task.countdown_validation.is_file()
+            or sha256_file(inputs_for_task.countdown_validation)
+            != split_record.get("countdown_validation_sha256")
+        ):
+            raise RuntimeError("Prepared Countdown validation identity mismatch")
+        if inputs_for_task.reference_adapter is not None:
+            if not (inputs_for_task.reference_adapter / "adapter_config.json").is_file():
+                raise FileNotFoundError(f"Prepared reference adapter is missing for {task}")
+            current_identity = model_identity(
+                "unresolved_backbone",
+                str(inputs_for_task.reference_adapter),
+            )["adapter"]
+            if current_identity != split_record.get("reference_adapter_identity"):
+                raise RuntimeError(f"Prepared reference adapter identity mismatch for {task}")
     return splits, inputs
+
+
+def _attach_references(
+    output_root: Path,
+    config: Mapping[str, Any],
+    splits: Mapping[str, Any],
+    inputs: Mapping[str, TaskInputs],
+    *,
+    base_model_path: str,
+) -> dict[str, TaskInputs]:
+    path = reference_manifest_path(output_root)
+    if not path.is_file():
+        raise RuntimeError("Run train-only reference preparation before calibration")
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    base_identity = model_identity(base_model_path, None)["model"]
+    _validate_reference_manifest_header(
+        manifest,
+        config=config,
+        base_model_identity=base_identity,
+    )
+    p0_tasks = tuple(str(task) for task in config["suite"]["p0_tasks"])
+    if not manifest.get("complete") or set(manifest["tasks"]) != set(p0_tasks):
+        raise RuntimeError("Train-only reference manifest is incomplete")
+
+    p0_config_path = inputs[p0_tasks[0]].p0_config
+    warmstart_config = _reference_warmstart_config(config, p0_config_path)
+    task_indices = {task: index for index, task in enumerate(p0_tasks)}
+    attached: dict[str, TaskInputs] = {}
+    for task, value in inputs.items():
+        if task == "countdown":
+            if value.reference_adapter is None:
+                raise RuntimeError("Countdown supplied reference adapter is missing")
+            attached[task] = value
+            continue
+
+        task_manifest_path = output_root / "references" / task / "task_manifest.json"
+        if not task_manifest_path.is_file():
+            raise FileNotFoundError(f"Missing train-only task manifest for {task}")
+        task_manifest = json.loads(task_manifest_path.read_text(encoding="utf-8"))
+        if task_manifest != manifest["tasks"].get(task):
+            raise RuntimeError(f"Reference task/top-level manifest mismatch for {task}")
+        expected_identity = _reference_identity(
+            task=task,
+            config=config,
+            split_manifest=splits,
+            warmstart_config=warmstart_config,
+            base_model_identity=base_identity,
+            seed=int(warmstart_config["seed"]) + task_indices[task] * 100_003,
+        )
+        adapter = _validate_reference_task_manifest(
+            task_manifest,
+            expected_identity=expected_identity,
+            expected_train_rows=int(config["split"]["p0_train_rows"]),
+        )
+        if (
+            task_manifest.get("adapter_identity")
+            != model_identity(
+                base_model_path,
+                str(adapter),
+            )["adapter"]
+        ):
+            raise RuntimeError(f"Train-only adapter content identity mismatch for {task}")
+        attached[task] = TaskInputs(
+            task=value.task,
+            bank=value.bank,
+            reference_adapter=adapter,
+            sources_root=value.sources_root,
+            p0_config=value.p0_config,
+            countdown_validation=value.countdown_validation,
+        )
+    return attached
 
 
 def _load_ready_inputs(
@@ -861,6 +1123,7 @@ def _load_ready_inputs(
     return splits, _attach_references(
         output_root,
         config,
+        splits,
         inputs,
         base_model_path=base_model_path,
     )
@@ -1045,6 +1308,33 @@ def _calibration_rows(
     return selected
 
 
+def _calibration_identity(
+    task: str,
+    *,
+    inputs: TaskInputs,
+    split_manifest: Mapping[str, Any],
+    base_model_path: str,
+    config: Mapping[str, Any],
+) -> dict[str, Any]:
+    if inputs.reference_adapter is None:
+        raise RuntimeError(f"Reference adapter is missing for {task}")
+    identity = {
+        "schema_version": 1,
+        "experiment_id": EXPERIMENT_ID,
+        "config_hash": stable_config_hash(config),
+        "task": task,
+        "bank_sha256": split_manifest["tasks"][task]["bank_sha256"],
+        "train_prompt_hash": split_manifest["tasks"][task]["prompt_id_hashes"]["train"],
+        "base_model_identity": model_identity(base_model_path, None)["model"],
+        "reference_adapter_identity": model_identity(
+            base_model_path,
+            str(inputs.reference_adapter),
+        )["adapter"],
+    }
+    identity["identity_hash"] = stable_hash(identity)
+    return identity
+
+
 def calibrate_task(
     task: str,
     *,
@@ -1056,19 +1346,13 @@ def calibrate_task(
     force: bool,
 ) -> dict[str, Any]:
     path = output_root / "calibration" / f"{task}.json"
-    identity = {
-        "schema_version": 1,
-        "experiment_id": EXPERIMENT_ID,
-        "config_hash": stable_config_hash(config),
-        "task": task,
-        "bank_sha256": split_manifest["tasks"][task]["bank_sha256"],
-        "train_prompt_hash": split_manifest["tasks"][task]["prompt_id_hashes"]["train"],
-        "base_model_identity": model_identity(base_model_path, None)["model"],
-        "reference_adapter_identity": model_identity(
-            base_model_path, str(inputs.reference_adapter)
-        )["adapter"],
-    }
-    identity["identity_hash"] = stable_hash(identity)
+    identity = _calibration_identity(
+        task,
+        inputs=inputs,
+        split_manifest=split_manifest,
+        base_model_path=base_model_path,
+        config=config,
+    )
     if path.is_file() and not force:
         existing = json.loads(path.read_text(encoding="utf-8"))
         if existing.get("identity_hash") == identity["identity_hash"] and existing.get("complete"):
@@ -1202,10 +1486,12 @@ def cmd_calibrate(
         base_model_path=base_model_path,
     )
     requested = list(tasks or config["suite"]["tasks"])
+    if not requested or len(set(requested)) != len(requested):
+        raise ValueError("Calibration tasks must be a non-empty unique list")
     unknown = sorted(set(requested) - set(config["suite"]["tasks"]))
     if unknown:
         raise ValueError(f"Unknown calibration tasks: {unknown}")
-    results = {
+    requested_results = {
         task: calibrate_task(
             task,
             inputs=inputs[task],
@@ -1217,12 +1503,34 @@ def cmd_calibrate(
         )
         for task in requested
     }
+    results: dict[str, Any] = {}
+    for task in config["suite"]["tasks"]:
+        path = output_root / "calibration" / f"{task}.json"
+        if not path.is_file():
+            continue
+        result = json.loads(path.read_text(encoding="utf-8"))
+        expected_identity = _calibration_identity(
+            task,
+            inputs=inputs[task],
+            split_manifest=splits,
+            base_model_path=base_model_path,
+            config=config,
+        )
+        if result.get("identity_hash") != expected_identity["identity_hash"] or not result.get(
+            "complete"
+        ):
+            if task in requested_results:
+                raise RuntimeError(f"Calibration identity mismatch after writing {task}")
+            continue
+        results[task] = result
+    expected_tasks = set(config["suite"]["tasks"])
     manifest = {
         "schema_version": 1,
         "experiment_id": EXPERIMENT_ID,
         "config_hash": stable_config_hash(config),
+        "requested_tasks": requested,
         "tasks": results,
-        "complete": len(results) == len(requested)
+        "complete": set(results) == expected_tasks
         and all(result.get("complete") for result in results.values()),
         "scientific_status": "not_run",
     }
@@ -1491,6 +1799,18 @@ def _summarize_evaluations(
     }
 
 
+def _load_cell_splits(
+    split_manifest: Mapping[str, Any],
+    task: str,
+    *,
+    engineering_liveness: bool,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    paths = split_manifest["tasks"][task]["paths"]
+    train_rows = read_jsonl(Path(paths["train"]))
+    validation_rows = [] if engineering_liveness else read_jsonl(Path(paths["validation"]))
+    return train_rows, validation_rows
+
+
 def _train_cell_impl(
     cell: Cell,
     *,
@@ -1550,13 +1870,19 @@ def _train_cell_impl(
         train_mode=True,
     )
     training = config["training"]
-    train_rows = read_jsonl(Path(split_manifest["tasks"][cell.task]["paths"]["train"]))
-    validation_rows = read_jsonl(Path(split_manifest["tasks"][cell.task]["paths"]["validation"]))
-    adapter, validation_instances = _load_task_adapter_and_instances(
+    train_rows, validation_rows = _load_cell_splits(
+        split_manifest,
         cell.task,
-        inputs=inputs,
-        validation_rows=validation_rows,
+        engineering_liveness=engineering_liveness,
     )
+    adapter = None
+    validation_instances: dict[str, TaskInstance] = {}
+    if not engineering_liveness:
+        adapter, validation_instances = _load_task_adapter_and_instances(
+            cell.task,
+            inputs=inputs,
+            validation_rows=validation_rows,
+        )
     dataset = RowDataset(train_rows)
     generator = torch.Generator()
     generator.manual_seed(cell.seed)
@@ -1675,6 +2001,8 @@ def _train_cell_impl(
             update % int(training["evaluation_every_updates"]) == 0 or update == updates
         )
         if should_evaluate:
+            if adapter is None:
+                raise AssertionError("Validation adapter is unavailable outside liveness")
             metrics = evaluate_model(
                 model,
                 tokenizer,
@@ -1815,8 +2143,48 @@ def cmd_train_cell(
     )
 
 
+def cmd_reload_adapter(
+    config: Mapping[str, Any],
+    *,
+    base_model_path: str,
+    adapter_path: Path,
+) -> dict[str, Any]:
+    if torch is None:
+        raise RuntimeError("Reload verification requires Torch")
+    try:
+        from peft import PeftModel
+        from transformers import AutoModelForCausalLM
+    except ImportError as exc:
+        raise RuntimeError("Reload verification requires transformers and peft") from exc
+    kwargs: dict[str, Any] = {
+        "trust_remote_code": True,
+        "torch_dtype": resolve_torch_dtype(str(config["model"]["dtype"])),
+    }
+    if torch.cuda.is_available():
+        kwargs["device_map"] = {"": int(os.environ.get("LOCAL_RANK", "0"))}
+    base = AutoModelForCausalLM.from_pretrained(base_model_path, **kwargs)
+    reloaded = PeftModel.from_pretrained(base, str(adapter_path), is_trainable=False)
+    finite = all(
+        bool(torch.isfinite(parameter).all())
+        for parameter in reloaded.parameters()
+        if parameter.is_floating_point()
+    )
+    if not finite:
+        raise RuntimeError("Reloaded adapter contains non-finite parameters")
+    return {
+        "schema_version": 1,
+        "experiment_id": EXPERIMENT_ID,
+        "process_id": os.getpid(),
+        "base_model_identity": model_identity(base_model_path, None)["model"],
+        "adapter_identity": model_identity(base_model_path, str(adapter_path))["adapter"],
+        "finite": True,
+        "complete": True,
+    }
+
+
 def cmd_liveness(
     config: Mapping[str, Any],
+    config_path: Path,
     output_root: Path,
     *,
     task: str,
@@ -1845,26 +2213,42 @@ def cmd_liveness(
         updates_override=2,
         engineering_liveness=True,
     )
-    try:
-        from peft import PeftModel
-        from transformers import AutoModelForCausalLM
-    except ImportError as exc:
-        raise RuntimeError("Reload liveness requires transformers and peft") from exc
-    kwargs: dict[str, Any] = {
-        "trust_remote_code": True,
-        "torch_dtype": resolve_torch_dtype(str(config["model"]["dtype"])),
-    }
-    if torch.cuda.is_available():
-        kwargs["device_map"] = {"": int(os.environ.get("LOCAL_RANK", "0"))}
-    base = AutoModelForCausalLM.from_pretrained(base_model_path, **kwargs)
-    reloaded = PeftModel.from_pretrained(base, result["terminal_adapter"], is_trainable=False)
-    finite = all(
-        bool(torch.isfinite(parameter).all())
-        for parameter in reloaded.parameters()
-        if parameter.is_floating_point()
+    reload_command = [
+        sys.executable,
+        "-m",
+        "drpo.e8_multitask_exp_tuning",
+        "--config",
+        str(config_path.resolve()),
+        "--output-root",
+        str(output_root.resolve()),
+        "reload-adapter",
+        "--base-model-path",
+        base_model_path,
+        "--adapter-path",
+        str(result["terminal_adapter"]),
+    ]
+    reload_process = subprocess.run(
+        reload_command,
+        capture_output=True,
+        text=True,
+        env=os.environ.copy(),
+        check=False,
     )
-    if not finite:
-        raise RuntimeError("Reloaded liveness adapter contains non-finite parameters")
+    if reload_process.returncode != 0:
+        raise RuntimeError(f"Fresh-process adapter reload failed: {reload_process.stderr[-2000:]}")
+    try:
+        reload_result = json.loads(reload_process.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Fresh-process adapter reload returned invalid JSON") from exc
+    if (
+        not reload_result.get("complete")
+        or not reload_result.get("finite")
+        or int(reload_result.get("process_id", os.getpid())) == os.getpid()
+        or reload_result.get("base_model_identity")
+        != model_identity(base_model_path, None)["model"]
+        or reload_result.get("adapter_identity") != result["terminal_adapter_identity"]
+    ):
+        raise RuntimeError("Fresh-process adapter reload identity or finiteness mismatch")
     training_rows = read_jsonl(Path(result["training_metrics"]))
     if not training_rows:
         raise RuntimeError("Liveness training metrics are missing")
@@ -1901,6 +2285,9 @@ def cmd_liveness(
             "repulsive_scalar_finite_nonzero": True,
             "raw_gradient_finite_nonzero": True,
             "adapter_weight_changed": True,
+            "fresh_process_reload_passed": True,
+            "liveness_parent_process_id": os.getpid(),
+            "reload_process_id": int(reload_result["process_id"]),
             "reference_adapter_weight_sha256": reference_hash,
             "terminal_adapter_weight_sha256": terminal_hash,
         }
@@ -1965,6 +2352,81 @@ def _run_subprocess_cell(
     }
 
 
+def _require_calibration_gate(
+    config: Mapping[str, Any],
+    output_root: Path,
+    *,
+    base_model_path: str,
+) -> None:
+    path = output_root / "calibration" / "calibration_manifest.json"
+    if not path.is_file():
+        raise RuntimeError("Run all nine calibrations before launching a wave")
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    expected_tasks = set(config["suite"]["tasks"])
+    if (
+        manifest.get("experiment_id") != EXPERIMENT_ID
+        or manifest.get("config_hash") != stable_config_hash(config)
+        or not manifest.get("complete")
+        or set(manifest.get("tasks", {})) != expected_tasks
+    ):
+        raise RuntimeError("Calibration manifest is incomplete or has the wrong identity")
+
+    splits, inputs = _load_ready_inputs(
+        output_root,
+        config,
+        base_model_path=base_model_path,
+    )
+    for task in config["suite"]["tasks"]:
+        result = manifest["tasks"][task]
+        expected_identity = _calibration_identity(
+            task,
+            inputs=inputs[task],
+            split_manifest=splits,
+            base_model_path=base_model_path,
+            config=config,
+        )
+        if result.get("identity_hash") != expected_identity["identity_hash"] or not result.get(
+            "complete"
+        ):
+            raise RuntimeError(f"Calibration gate identity mismatch for {task}")
+
+
+def _require_liveness_gate(
+    config: Mapping[str, Any],
+    output_root: Path,
+    *,
+    base_model_path: str,
+) -> None:
+    root = output_root / "liveness"
+    if not root.is_dir():
+        raise RuntimeError("Run and pass the two-update liveness gate before launching a wave")
+    base_identity = model_identity(base_model_path, None)["model"]
+    passed: list[str] = []
+    for path in sorted(root.glob("*/cell_manifest.json")):
+        result = json.loads(path.read_text(encoding="utf-8"))
+        if (
+            result.get("experiment_id") == EXPERIMENT_ID
+            and result.get("config_hash") == stable_config_hash(config)
+            and result.get("base_model_identity") == base_identity
+            and result.get("engineering_liveness") is True
+            and int(result.get("optimizer_updates", 0)) == 2
+            and result.get("complete") is True
+            and result.get("reload_gate_passed") is True
+            and result.get("positive_loss_finite_nonzero") is True
+            and result.get("repulsive_scalar_finite_nonzero") is True
+            and result.get("raw_gradient_finite_nonzero") is True
+            and result.get("adapter_weight_changed") is True
+            and result.get("fresh_process_reload_passed") is True
+            and result.get("reload_process_id") != result.get("liveness_parent_process_id")
+            and result.get("nan_inf_failure") is False
+            and result.get("reference_adapter_weight_sha256")
+            != result.get("terminal_adapter_weight_sha256")
+        ):
+            passed.append(str(result.get("cell", {}).get("task", path.parent.name)))
+    if not passed:
+        raise RuntimeError("No identity-matched liveness result passes every engineering gate")
+
+
 def cmd_run_wave(
     config: Mapping[str, Any],
     config_path: Path,
@@ -1974,6 +2436,16 @@ def cmd_run_wave(
     base_model_path: str,
     force: bool,
 ) -> dict[str, Any]:
+    _require_calibration_gate(
+        config,
+        output_root,
+        base_model_path=base_model_path,
+    )
+    _require_liveness_gate(
+        config,
+        output_root,
+        base_model_path=base_model_path,
+    )
     waves = build_waves(config)
     if not 1 <= wave_index <= len(waves):
         raise ValueError(f"wave must be in [1,{len(waves)}]")
@@ -2228,6 +2700,10 @@ def make_parser() -> argparse.ArgumentParser:
     reference.add_argument("--tasks", nargs="+")
     reference.add_argument("--force", action="store_true")
 
+    reload_adapter = subparsers.add_parser("reload-adapter", help=argparse.SUPPRESS)
+    reload_adapter.add_argument("--base-model-path", required=True)
+    reload_adapter.add_argument("--adapter-path", required=True)
+
     calibrate = subparsers.add_parser("calibrate")
     calibrate.add_argument("--base-model-path", required=True)
     calibrate.add_argument("--tasks", nargs="+")
@@ -2282,6 +2758,12 @@ def main(argv: Sequence[str] | None = None) -> None:
             tasks=args.tasks,
             force=bool(args.force),
         )
+    elif args.command == "reload-adapter":
+        result = cmd_reload_adapter(
+            config,
+            base_model_path=args.base_model_path,
+            adapter_path=Path(args.adapter_path).resolve(),
+        )
     elif args.command == "calibrate":
         result = cmd_calibrate(
             config,
@@ -2293,6 +2775,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     elif args.command == "liveness":
         result = cmd_liveness(
             config,
+            config_path,
             output_root,
             task=args.task,
             rho=float(args.rho),
