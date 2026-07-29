@@ -17,6 +17,8 @@ from drpo.e8_multitask_tasks import (
     REASONING_GYM_COMMIT,
     WIKISQL_COMMIT,
     CountdownAdapter,
+    ReasoningGymAdapter,
+    TaskInstance,
     WikiSQLAdapter,
 )
 
@@ -34,7 +36,11 @@ def small_config() -> dict:
 
 
 def qualified_row(task: str, prompt_id: str, *, one_class: bool = False) -> dict:
-    classes = ["numeric_offset"] * 4 if one_class else ["class_a", "class_b"] * 2
+    classes = (
+        ["path_length_overestimate"] * 4
+        if one_class
+        else ["path_length_underestimate", "path_length_overestimate"] * 2
+    )
     return {
         "task": task,
         "prompt_id": prompt_id,
@@ -58,7 +64,6 @@ def test_config_pins_and_frozen_task_list() -> None:
     assert config["sources"]["reasoning_gym"]["commit"] == REASONING_GYM_COMMIT
     assert config["sources"]["wikisql"]["commit"] == WIKISQL_COMMIT
     assert config["tasks"]["names"] == [
-        "countdown",
         "word_sorting",
         "spiral_matrix",
         "mini_sudoku",
@@ -68,6 +73,9 @@ def test_config_pins_and_frozen_task_list() -> None:
         "graph_color",
         "wikisql",
     ]
+
+    assert config["positive_warmstart"]["optimizer_updates"] == 100
+    assert config["positive_warmstart"]["checkpoint_kind"] == ("task_positive_warmstart_100")
 
 
 @pytest.mark.skipif(torch is None, reason="Countdown dependency stack requires Torch")
@@ -85,6 +93,48 @@ def test_countdown_bank_is_model_independent_and_diverse() -> None:
         assert forbidden not in serialized
 
 
+class FakeMazeDataset:
+    def score_answer(self, completion, source_entry):
+        return float(int(completion) == int(source_entry["answer"]))
+
+
+def fake_maze_adapter_and_instance() -> tuple[ReasoningGymAdapter, TaskInstance]:
+    adapter = object.__new__(ReasoningGymAdapter)
+    adapter.name = "maze"
+    adapter.output_structure = "single_integer_shortest_path_length"
+    adapter.dataset = FakeMazeDataset()
+    instance = TaskInstance(
+        task="maze",
+        prompt_id="maze-0",
+        prompt="Return the shortest path length.",
+        oracle_completion="12",
+        metadata={"shortest_path_length": 12},
+        source_entry={"answer": "12"},
+    )
+    return adapter, instance
+
+
+def test_maze_verifier_uses_signed_residual_error_taxonomy() -> None:
+    adapter, instance = fake_maze_adapter_and_instance()
+    underestimate = adapter.verify(instance, "10", mutation_class="numeric_offset")
+    overestimate = adapter.verify(instance, "15", mutation_class="numeric_offset")
+    assert underestimate.error_class == "path_length_underestimate"
+    assert underestimate.details["signed_residual"] == -2
+    assert overestimate.error_class == "path_length_overestimate"
+    assert overestimate.details["signed_residual"] == 3
+
+
+def test_maze_bank_contains_two_scalar_error_classes() -> None:
+    adapter, instance = fake_maze_adapter_and_instance()
+    row, audit = adapter.build_bank_row(instance, negative_count=16, seed=19)
+    assert row is not None, audit
+    assert {item["error_class"] for item in row["negatives"]} == {
+        "path_length_underestimate",
+        "path_length_overestimate",
+    }
+    assert len({item["canonical_completion"] for item in row["negatives"]}) == 16
+
+
 def test_qualification_rejects_official_scalar_shape_with_one_error_class() -> None:
     config = small_config()
     rows = [
@@ -95,6 +145,24 @@ def test_qualification_rejects_official_scalar_shape_with_one_error_class() -> N
     assert not audit["passed"]
     assert not audit["gates"]["prompt_pass_fraction"]
     assert not audit["gates"]["task_error_class_count"]
+
+
+def test_qualification_accepts_two_sided_scalar_residual_classes() -> None:
+    config = small_config()
+    rows = [
+        qualified_row("maze", "maze-0"),
+        qualified_row("maze", "maze-1"),
+    ]
+    audit = p0.qualify_task("maze", rows, config)
+    assert audit["passed"]
+    assert all(audit["gates"].values())
+
+
+def test_oracle_nll_audit_selection_is_deterministic() -> None:
+    rows = [{"prompt_id": f"p{index}"} for index in range(20)]
+    first = p0.select_oracle_nll_audit_rows(rows, task="maze", limit=5, seed=11)
+    second = p0.select_oracle_nll_audit_rows(rows, task="maze", limit=5, seed=11)
+    assert first == second
 
 
 def test_qualification_accepts_structured_verified_bank() -> None:
@@ -247,7 +315,7 @@ def test_diagnostic_resume_identity_is_fail_closed(tmp_path: Path) -> None:
             config,
             tmp_path,
             model_path="tiny",
-            adapter_path=None,
+            adapter_path="tiny-adapter",
             model_and_tokenizer=None,
         )
 
@@ -311,6 +379,71 @@ def test_all_stops_before_model_when_any_task_fails(
             adapter_path=None,
         )
     assert not called
+
+
+def test_all_runs_warmstart_before_diagnose(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    config = small_config()
+    order: list[str] = []
+    monkeypatch.setattr(
+        p0,
+        "cmd_prepare",
+        lambda *args, **kwargs: order.append("prepare") or {"complete": True},
+    )
+    monkeypatch.setattr(
+        p0,
+        "cmd_qualify",
+        lambda *args, **kwargs: order.append("qualify") or {"passed": True, "failed_tasks": []},
+    )
+    monkeypatch.setattr(
+        p0,
+        "cmd_warmstart",
+        lambda *args, **kwargs: order.append("warmstart") or {"complete": True},
+    )
+    monkeypatch.setattr(
+        p0,
+        "cmd_diagnose",
+        lambda *args, **kwargs: order.append("diagnose") or {"complete": True},
+    )
+    monkeypatch.setattr(
+        p0,
+        "cmd_aggregate",
+        lambda *args, **kwargs: order.append("aggregate") or {"complete": True},
+    )
+    result = p0.cmd_all(
+        config,
+        tmp_path,
+        force=False,
+        skip_download=True,
+        model_path="base-model",
+        adapter_path=None,
+    )
+    assert order == ["prepare", "qualify", "warmstart", "diagnose", "aggregate"]
+    assert result["warmstart"]["complete"]
+
+
+def test_all_rejects_supplied_adapter_override(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    config = small_config()
+    monkeypatch.setattr(p0, "cmd_prepare", lambda *args, **kwargs: {"complete": True})
+    monkeypatch.setattr(
+        p0,
+        "cmd_qualify",
+        lambda *args, **kwargs: {"passed": True, "failed_tasks": []},
+    )
+    with pytest.raises(ValueError, match="diagnose-only"):
+        p0.cmd_all(
+            config,
+            tmp_path,
+            force=False,
+            skip_download=True,
+            model_path="base-model",
+            adapter_path="shared-adapter",
+        )
 
 
 def test_wikisql_official_logical_form_verifier_and_mutations(tmp_path: Path) -> None:

@@ -556,18 +556,40 @@ class ReasoningGymAdapter(TaskAdapter):
                 format_valid = False
                 score = 0.0
         correct = score >= 1.0 - 1.0e-12
-        error_class = (
-            "correct"
-            if correct
-            else ("invalid_format" if not format_valid else mutation_class or "wrong_answer")
-        )
+        details: dict[str, Any] = {"official_scorer": self.name}
+        if self.name == "maze" and format_valid:
+            predicted = int(canonical)
+            oracle = int(instance.metadata["shortest_path_length"])
+            signed_residual = predicted - oracle
+            details.update(
+                {
+                    "predicted_path_length": predicted,
+                    "oracle_path_length": oracle,
+                    "signed_residual": signed_residual,
+                    "absolute_residual": abs(signed_residual),
+                }
+            )
+            if correct:
+                error_class = "correct"
+            elif signed_residual < 0:
+                error_class = "path_length_underestimate"
+            elif signed_residual > 0:
+                error_class = "path_length_overestimate"
+            else:
+                error_class = "official_scorer_disagreement"
+        else:
+            error_class = (
+                "correct"
+                if correct
+                else ("invalid_format" if not format_valid else mutation_class or "wrong_answer")
+            )
         return VerificationResult(
             score=score,
             correct=correct,
             format_valid=format_valid,
             error_class=error_class,
             canonical_completion=canonical,
-            details={"official_scorer": self.name},
+            details=details,
         )
 
     def mutation_candidates(self, instance: TaskInstance, rng: random.Random) -> Iterable[Mutation]:
@@ -642,9 +664,9 @@ class ReasoningGymAdapter(TaskAdapter):
         del rng
         answer = int(instance.metadata["shortest_path_length"])
         for offset in range(1, 33):
-            yield Mutation(str(answer + offset), "numeric_offset")
+            yield Mutation(str(answer + offset), "path_length_overestimate")
             if answer - offset >= 0:
-                yield Mutation(str(answer - offset), "numeric_offset")
+                yield Mutation(str(answer - offset), "path_length_underestimate")
         yield Mutation(f"{answer} steps", "invalid_format")
 
     def _mutate_word_ladder(self, instance: TaskInstance, rng: random.Random) -> Iterable[Mutation]:

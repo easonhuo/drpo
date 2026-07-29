@@ -13,7 +13,6 @@ sources:
 
 tasks:
   names:
-    - countdown
     - word_sorting
     - spiral_matrix
     - mini_sudoku
@@ -56,6 +55,28 @@ tasks:
   wikisql:
     split: train
 
+positive_warmstart:
+  enabled: true
+  checkpoint_kind: task_positive_warmstart_100
+  optimizer_updates: 100
+  seed: 2026072900
+  parameterization: lora
+  lora_rank: 32
+  lora_alpha: 64
+  lora_dropout: 0.05
+  micro_batch: 2
+  gradient_accumulation: 32
+  learning_rate: 2.0e-4
+  weight_decay: 0.01
+  warmup_ratio: 0.05
+  max_grad_norm: 1.0
+  max_length: 512
+  dtype: auto
+  gradient_checkpointing: true
+  oracle_nll_audit_examples: 128
+  minimum_oracle_nll_decrease: 0.0
+  log_every_updates: 10
+
 bank:
   generation_seed: 271828
   rows_per_task: 6000
@@ -80,7 +101,7 @@ diagnostics:
   dtype: auto
   full_parameter_gradient: true
   matched_absolute_advantage: 1.0
-  checkpoint_kind: supplied_policy
+  checkpoint_kind: task_positive_warmstart_100
   save_every_point: true
   resume_identity_required: true
 
