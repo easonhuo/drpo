@@ -1,0 +1,28 @@
+from pathlib import Path
+p=Path('/tmp/e8_multitask_baseline_tuning.py')
+s=p.read_text()
+s=s.replace('import random\n','').replace('import numpy as np\n','')
+needle='def _copy_adapter_parameters(model: Any, source: str, destination: str) -> None:\n'
+idx=s.index(needle)
+next_marker='\n\ndef _flatten_negative_batch('
+insert_at=s.index(next_marker, idx)
+helpers='''\n\ndef _capture_rng_state() -> tuple[Any, list[Any] | None]:\n    cpu_state = torch.get_rng_state().clone()\n    cuda_states = (\n        [state.clone() for state in torch.cuda.get_rng_state_all()]\n        if torch.cuda.is_available()\n        else None\n    )\n    return cpu_state, cuda_states\n\n\ndef _restore_rng_state(state: tuple[Any, list[Any] | None]) -> None:\n    cpu_state, cuda_states = state\n    torch.set_rng_state(cpu_state)\n    if cuda_states is not None:\n        torch.cuda.set_rng_state_all(cuda_states)\n\n\ndef _joint_optimizer_step_with_finite_guard(\n    policy_optimizer: Any,\n    reference_optimizer: Any | None,\n    policy_parameters: Sequence[Any],\n    reference_parameters: Sequence[Any],\n) -> bool:\n    all_parameters = [*policy_parameters, *reference_parameters]\n    snapshots = [parameter.detach().clone() for parameter in all_parameters]\n    if reference_optimizer is not None:\n        reference_optimizer.step()\n    policy_optimizer.step()\n    if all(bool(torch.isfinite(parameter).all()) for parameter in all_parameters):\n        return True\n    with torch.no_grad():\n        for parameter, snapshot in zip(all_parameters, snapshots, strict=True):\n            parameter.copy_(snapshot)\n    return False\n'''
+s=s[:insert_at]+helpers+s[insert_at:]
+old='''            reference_loss = torch.zeros((), device=device)\n            reference_negative_stats = None\n            if is_topr:\n                model.set_adapter(REFERENCE_ADAPTER)\n'''
+new='''            reference_loss = torch.zeros((), device=device)\n            reference_negative_stats = None\n            rng_state = None\n            if is_topr:\n                rng_state = _capture_rng_state()\n                model.set_adapter(REFERENCE_ADAPTER)\n'''
+assert old in s
+s=s.replace(old,new,1)
+old='''                (reference_loss / accumulation).backward()\n                model.set_adapter(POLICY_ADAPTER)\n\n            positive_lp = shared.completion_stats_batch(model, positive_batch)["seq_lp"].mean()\n'''
+new='''                (reference_loss / accumulation).backward()\n                model.set_adapter(POLICY_ADAPTER)\n                assert rng_state is not None\n                _restore_rng_state(rng_state)\n\n            positive_lp = shared.completion_stats_batch(model, positive_batch)["seq_lp"].mean()\n'''
+assert old in s
+s=s.replace(old,new,1)
+old='''        if reference_optimizer is not None:\n            reference_optimizer.step()\n        policy_optimizer.step()\n        if reference_scheduler is not None:\n'''
+new='''        if not _joint_optimizer_step_with_finite_guard(\n            policy_optimizer,\n            reference_optimizer,\n            policy_parameters,\n            reference_parameters,\n        ):\n            raise RuntimeError(\n                f"{cell.key} non-finite adapter parameter after optimizer step; "\n                "both adapters were restored"\n            )\n        if reference_scheduler is not None:\n'''
+assert old in s
+s=s.replace(old,new,1)
+s=s.replace('def build_waves(config: Mapping[str, Any], exp_config: Mapping[str, Any]) -> tuple[tuple[Cell, ...], ...]:', 'def build_waves(\n    config: Mapping[str, Any],\n    exp_config: Mapping[str, Any],\n) -> tuple[tuple[Cell, ...], ...]:')
+s=s.replace('''        if (int(counts.get("train", -1)), int(counts.get("validation", -1)), int(counts.get("test", -1))) != (5000, 500, 500):''','''        split_counts = (\n            int(counts.get("train", -1)),\n            int(counts.get("validation", -1)),\n            int(counts.get("test", -1)),\n        )\n        if split_counts != (5000, 500, 500):''')
+s=s.replace('''                weights = torch.exp(\n                    float(cell.parameter) * torch.minimum(log_ratio.detach(), torch.zeros_like(log_ratio))\n                )''','''                weights = torch.exp(\n                    float(cell.parameter)\n                    * torch.minimum(log_ratio.detach(), torch.zeros_like(log_ratio))\n                )''')
+s=s.replace('''                policy_loss = -(positive_coefficient * positive_lp - negative_coefficient * negative_lp)''','''                policy_loss = -(\n                    positive_coefficient * positive_lp\n                    - negative_coefficient * negative_lp\n                )''')
+s=s.replace('''        policy_before = [parameter.detach().float().cpu().clone() for parameter in policy_parameters]''','''        policy_before = [\n            parameter.detach().float().cpu().clone() for parameter in policy_parameters\n        ]''')
+p.write_text(s)
