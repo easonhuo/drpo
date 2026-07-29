@@ -1,0 +1,66 @@
+schema_version: 1
+claim_id: GOV-DRPO-MAINTENANCE-RUNNER-REPLAYAB-01
+evidence_status: template
+identity:
+  task_id: TASK_ID_REQUIRED
+  plan_commit: FULL_SHA_REQUIRED
+  plan_file_sha256: SHA256_REQUIRED
+  packet_sha256: SHA256_REQUIRED
+  base_commit: FULL_SHA_REQUIRED
+  target_branch: BRANCH_REQUIRED
+  expected_head: null
+preobject:
+  started_at_utc: TIMESTAMP_REQUIRED
+  current_main_sha: FULL_SHA_REQUIRED
+  target_ref_before: ABSENT_OR_FULL_SHA
+  path_audit: PASS_OR_FAIL
+  content_review: PASS_OR_FAIL
+  secret_rule: PASS_OR_FAIL
+  hash_size_mode_audit: PASS_OR_FAIL
+  approvals_audit: PASS_OR_FAIL
+  decision: PASS_OR_BLOCKED_PREOBJECT
+objects:
+  blobs: []
+  tree_sha: null
+  commit_sha: null
+  commit_parent_sha: null
+  final_tree_audit: NOT_RUN
+  objects_created_ref_unchanged: false
+publication:
+  pre_ref_main_sha: null
+  pre_ref_target_sha: null
+  operation: NOT_RUN_OR_CREATE_OR_NON_FORCE_UPDATE
+  ref_result: NOT_RUN
+  remote_ref_after: null
+  remote_commit_reread: NOT_RUN
+pull_request:
+  url: null
+  number: null
+  base: null
+  head_branch: null
+  exact_head_sha: null
+  draft: null
+checks:
+  runs: []
+  pr_gate_log: NOT_OBSERVED
+  evidence_locator_gate: NOT_OBSERVED
+  all_required_exact_head_checks: NOT_OBSERVED
+diff_audit:
+  changed_paths: []
+  file_modes: {}
+  additions: null
+  deletions: null
+  protected_path_result: NOT_RUN
+  scientific_invariant_result: NOT_RUN
+terminal:
+  state: TERMINAL_STATE_REQUIRED
+  recovery_class: RECOVERY_CLASS_REQUIRED
+  complete_evidence_claim: false
+metrics:
+  evidence_layer: remote_operational_context
+  connector_tool_actions: 0
+  active_operator_actions: 0
+  controlled_wall_time_ns: null
+  github_elapsed_time_seconds: null
+  note: controlled timing belongs to ReplayAB local-git evidence; GitHub elapsed time is separate context
+uncertainties: []
