@@ -1,0 +1,49 @@
+schema_version: 1
+preparation_id: REPLAYAB-C01-PR116-HISTORICAL-ARM-A
+source:
+  repository: easonhuo/drpo
+  remote: origin
+  main_ref: refs/heads/main
+  expected_main_sha: 96f09f7fe00719392cb52e0534e79c7c7d1ab0cd
+  dev_branch: dev/replayab-r1-gap-audit-01
+  expected_dev_sha: bbbb3d52f080a41970f7c8c15b8f1352ad072d95
+  result_commit_sha: bbbb3d52f080a41970f7c8c15b8f1352ad072d95
+  result_git_dirty: false
+subject:
+  experiment_id: GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01
+  governance_claims:
+    - GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01
+implementation:
+  operations:
+    - op: add
+      source_path: docs/development_workflow_optimization/R1_GAP_AUDIT.md
+      destination_path: docs/development_workflow_optimization/R1_GAP_AUDIT.md
+      expected_blob_sha: a35f1fcc4279e5e2d5041c6ff5b3ef1de2929197
+      expected_old_blob_sha: null
+      expected_mode: '100644'
+review:
+  reviewer_id: replayab-c01-pr116-historical-arm-a-reviewer
+  decision_token: pr116-merged-r1-gap-audit-accepted
+  decision:
+    approved: true
+    code_integration_eligible: true
+    evidence_level: formal
+    result_status: not_run
+    claim_support_level: none
+    terminal_audit: not_required
+    task_performance_collapse: not_assessed
+    support_boundary: not_assessed
+    numerical_failure: not_assessed
+  limitations:
+    - historical documentation integration validation only
+    - Candidate B is not invoked
+    - no efficiency conclusion is authorized
+    - actual merge commit 2f677f4b00954ea71d0efa7def552a1ea3daa565 is provenance only
+  unresolved: []
+registration:
+  mode: none
+  update_id: null
+  expected_before_semantic_sha256: null
+  experiment: null
+  handoff_operations: []
+  registry_changes: []

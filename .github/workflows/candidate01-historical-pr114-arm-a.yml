@@ -1,0 +1,88 @@
+name: Candidate01 historical PR116 Arm-A
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  historical-arm-a:
+    if: github.head_ref == 'exec/candidate01-historical-pr114-arm-a-01'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: python -m pip install -e '.[dev]'
+      - run: git worktree add --detach /tmp/replayab-toolchain 19c75edeb6530faf9faed713fef1633379b28672
+      - name: Run Arm A
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, sys
+          from pathlib import Path
+          from types import SimpleNamespace
+          import yaml
+          repo = Path(os.environ['GITHUB_WORKSPACE']).resolve()
+          tool = Path('/tmp/replayab-toolchain')
+          sys.path[:0] = [str(tool / 'src'), str(tool / 'scripts')]
+          from dev_integration_write_path import load_json, write_json
+          import run_workflow_replay as replay
+          base = '96f09f7fe00719392cb52e0534e79c7c7d1ab0cd'
+          source = 'bbbb3d52f080a41970f7c8c15b8f1352ad072d95'
+          toolchain = '19c75edeb6530faf9faed713fef1633379b28672'
+          packet = repo / 'tests/fixtures/workflow_replay/candidate01_c1/c01_pr116_historical_arm_a_packet.yaml'
+          spec = yaml.safe_load(packet.read_text())
+          paths = tuple(sorted(x.get('destination_path') or x['source_path'] for x in spec['implementation']['operations']))
+          contract = SimpleNamespace(base=SimpleNamespace(historical_task={'base_sha': base, 'frozen_implementation_sha': source}, benchmark={'toolchain_sha': toolchain, 'expected_changed_paths': paths}), sha256='pr116-historical-arm-a-control-plane-split')
+          root = Path('/tmp/replayab-pr116-historical-arm-a')
+          root.mkdir()
+          checkout = replay._clone(repo, root, spec['source'], contract)
+          before = replay._commit_workspace(root / 'source.git', base)
+          identity = SimpleNamespace(run_id='f' * 64, arm='A', case_id='C01-PR116-HISTORICAL-ARM-A', pair_id='arm-a', order_position=0)
+          journal = replay.Journal(root / 'events.jsonl', identity, contract.sha256, before, checkout.workspace, control_plane=checkout.control_plane, historical_base_sha=base, toolchain_sha=toolchain)
+          summary = {'case_id': identity.case_id, 'candidate_invoked': False, 'toolchain_sha': toolchain, 'historical_base_sha': base, 'source_sha': source, 'terminal_state': 'BLOCKED'}
+          try:
+              completed = replay._explicit(checkout.workspace, packet, root / 'preparations', root / 'transactions', sys.executable, journal)
+              tx = Path(completed.transaction_dir)
+              ready = load_json(tx / 'READY_COMMIT.json', 'ready')
+              gate = load_json(tx / 'GATE_REPORT.json', 'gate')
+              actual = tuple(sorted(ready['changed_paths']))
+              replay._assert_historical_result(tx / 'integration-repo', completed.ready_commit_sha, base, actual, paths)
+              assert ready['authority_verify']['status'] == 'PASS'
+              assert all(item['passed'] for item in gate['outcomes'])
+              after = replay._workspace(tx / 'integration-repo')
+              timing = journal.finish('READY', after, len(journal.commands) + len(journal.placements))
+              summary.update(terminal_state='READY', ready_commit_sha=completed.ready_commit_sha, tree_sha=ready['tree_sha'], parent_sha=ready['parent_sha'], changed_paths=actual, file_modes=replay._modes(tx / 'integration-repo', completed.ready_commit_sha, actual), gate_results={x['label']: 'PASS' for x in gate['outcomes']}, timing=timing)
+          except BaseException as exc:
+              if not journal.handle.closed:
+                  journal.finish('BLOCKED', before, len(journal.commands))
+              summary.update(exception_type=type(exc).__name__, exception_message=str(exc))
+              write_json(root / 'ARM_A_SUMMARY.json', summary)
+              raise
+          write_json(root / 'ARM_A_SUMMARY.json', summary)
+          print(json.dumps(summary, sort_keys=True))
+          PY
+      - name: Package compact evidence
+        if: always()
+        run: |
+          set -euo pipefail
+          ROOT=/tmp/replayab-pr116-historical-arm-a
+          find "$ROOT" -type f \( -name '*.json' -o -name '*.jsonl' -o -name '*.yaml' -o -name '*.log' \) ! -path '*/workspace/*' ! -path '*/control-plane/*' ! -path '*/source.git/*' ! -path '*/integration-repo/*' -print0 | tar --null -T - -czf replayab-pr116-historical-arm-a.tar.gz
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: replayab-pr116-historical-arm-a-${{ github.run_id }}
+          path: replayab-pr116-historical-arm-a.tar.gz
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,55 @@
+name: Switch historical Arm-A to PR159
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  switch:
+    if: github.head_ref == 'exec/candidate01-historical-pr114-arm-a-01'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: exec/candidate01-historical-pr114-arm-a-01
+          fetch-depth: 0
+
+      - name: Replace the rejected PR114 probe with PR159
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET=.github/workflows/candidate01-historical-pr114-arm-a.yml
+          if ! grep -q 'C01-PR114-HISTORICAL-ARM-A' "$TARGET"; then
+            exit 0
+          fi
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/candidate01-historical-pr114-arm-a.yml')
+          text = path.read_text(encoding='utf-8')
+          replacements = {
+              'Candidate01 historical PR114 Arm-A': 'Candidate01 historical PR159 Arm-A',
+              'candidate01-historical-pr114-arm-a': 'candidate01-historical-pr159-arm-a',
+              'cd770f47b89f8971923945c19caec49720c0e139': 'e99489e7435bc26e2a7e30cd8d1a3aa10f4fc67a',
+              'df6c7a2a506bffebe64f41a92d5611a94116c828': '989ac6dbae8c9e574bda7ac7e334ea764847fd19',
+              'c01_pr114_historical_arm_a_packet.yaml': 'c01_pr159_historical_arm_a_packet.yaml',
+              'C01-PR114-HISTORICAL-ARM-A': 'C01-PR159-HISTORICAL-ARM-A',
+              'pr114-historical-arm-a-control-plane-split': 'pr159-historical-arm-a-control-plane-split',
+              'replayab-pr114-historical-arm-a': 'replayab-pr159-historical-arm-a',
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f'missing expected token: {old}')
+              text = text.replace(old, new)
+          path.write_text(text, encoding='utf-8')
+          PY
+          git config user.name 'DRPO Replay Executor'
+          git config user.email 'drpo-replay@local.invalid'
+          git add "$TARGET"
+          git diff --cached --check
+          git commit -m 'Run PR159 historical Arm-A validation'
+          git push origin HEAD:exec/candidate01-historical-pr114-arm-a-01
