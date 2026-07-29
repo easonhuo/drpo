@@ -1,4 +1,4 @@
-name: TEMP E8 Exp append and validate tests
+name: TEMP E8 Exp append targeted tests
 
 on:
   push:
@@ -17,9 +17,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  append-and-validate:
+  append:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,46 +40,12 @@ jobs:
               >> tests/test_e8_multitask_p0.py
           fi
           grep -q "$marker" tests/test_e8_multitask_p0.py
-
-      - name: Install project test dependencies
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pip install --upgrade pip
-          python -m pip install -e '.[dev]'
-
-      - name: Validate source, plan, and targeted tests
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m ruff check \
-            src/drpo/e8_multitask_exp_tuning.py \
-            tests/test_e8_multitask_p0.py
-          python -m ruff format --check \
-            src/drpo/e8_multitask_exp_tuning.py \
-            tests/test_e8_multitask_p0.py
           python -m py_compile \
             src/drpo/e8_multitask_exp_tuning.py \
             tests/test_e8_multitask_p0.py
-          bash -n scripts/run_e8_multitask_exp_tuning.sh
-          tmp_dir="$(mktemp -d)"
-          scripts/run_e8_multitask_exp_tuning.sh \
-            --output-root "$tmp_dir/output" \
-            plan > "$tmp_dir/plan_stdout.json"
-          python - "$tmp_dir/output/plan.json" <<'PY'
-          import json
-          import sys
-          from pathlib import Path
-
-          plan = json.loads(Path(sys.argv[1]).read_text())
-          assert plan['cell_count'] == 72
-          assert plan['wave_sizes'] == [16, 16, 13, 16, 11]
-          assert sum(row['method'] == 'positive_only' for row in plan['rows']) == 9
-          PY
-          python -m pytest -q tests/test_e8_multitask_p0.py
           git diff --check
 
-      - name: Commit validated targeted tests
+      - name: Commit targeted tests for PR validation
         shell: bash
         run: |
           set -euo pipefail
