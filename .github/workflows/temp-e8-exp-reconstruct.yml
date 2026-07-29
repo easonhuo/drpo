@@ -59,3 +59,5 @@ jobs:
           fi
           git commit -m 'EXT-C-E8-MULTITASK-EXP-TUNING-01: install leakage-safe reviewed source'
           git push origin HEAD:dev/e8-multitask-exp-tuning-01
+
+# Triggered through the Contents API so the push workflow is scheduled.
