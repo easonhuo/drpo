@@ -6,7 +6,7 @@ environment: Hopper_Walker2d_HalfCheetah_D4RL_v2
 execution_class: pilot
 result_status: not_run
 implementation_state: implemented_pending_registration_transaction
-implementation_commit: PENDING_FREEZE
+implementation_commit: d473416d3daa9e5fa808aa78811e31a962d6018f
 implementation_branch: dev/e7-d4rl9-exp-tau-tuning-01
 claim: >-
   On three frozen Exponential (negative_scale, coefficient) operating points per
