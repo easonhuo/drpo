@@ -56,28 +56,6 @@ jobs:
           printf '%s  %s\n' cd206ca89e66938c280579b6748fd9c2d00b86d398c12d1245aba3aecbc2bae6 /tmp/e8_multitask_exp_tuning.py.gz | sha256sum --check --strict
           gzip --decompress --stdout /tmp/e8_multitask_exp_tuning.py.gz > /tmp/e8_multitask_exp_tuning.py
           printf '%s  %s\n' 4fb580228e1832f6f04f47cf28ff4fdca665698dc435bb3ebd1a655eefa564c4 /tmp/e8_multitask_exp_tuning.py | sha256sum --check --strict
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path('/tmp/e8_multitask_exp_tuning.py')
-          text = path.read_text()
-          replacements = (
-              ('int(training["micro_batch"]) != 2', 'int(training["micro_batch"]) != 1'),
-              (
-                  'int(training["gradient_accumulation"]) != 32',
-                  'int(training["gradient_accumulation"]) != 8',
-              ),
-              (
-                  'The effective prompt batch must remain 64',
-                  'The inherited Countdown method-training batch must remain 1 x 8',
-              ),
-          )
-          for old, new in replacements:
-              if text.count(old) != 1:
-                  raise SystemExit(f'expected one stale Exp token: {old}')
-              text = text.replace(old, new)
-          path.write_text(text)
-          PY
           python -m py_compile /tmp/e8_multitask_exp_tuning.py
           install -m 0644 /tmp/e8_multitask_exp_tuning.py src/drpo/e8_multitask_exp_tuning.py
 
