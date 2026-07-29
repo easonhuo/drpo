@@ -470,3 +470,625 @@ def test_wikisql_official_logical_form_verifier_and_mutations(tmp_path: Path) ->
     row, audit = adapter.build_bank_row(instance, negative_count=4, seed=0)
     assert row is not None, audit
     assert len({item["error_class"] for item in row["negatives"]}) >= 2
+
+
+def test_exp_tuning_matrix_has_one_positive_and_seven_exp_per_task() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_tuning.yaml"))
+    cells = exp_tuning.build_cells(config)
+    waves = exp_tuning.build_waves(config)
+
+    assert len(cells) == 72
+    assert len({cell.key for cell in cells}) == 72
+    assert sum(cell.method == exp_tuning.METHOD_POSITIVE_ONLY for cell in cells) == 9
+    assert sum(cell.method == exp_tuning.METHOD_EXPONENTIAL for cell in cells) == 63
+    assert sum(cell.stage == "coarse" for cell in cells) == 45
+    assert sum(cell.stage == "refinement" for cell in cells) == 27
+    assert [len(wave) for wave in waves] == [16, 16, 13, 16, 11]
+    assert all(cell.stage == "coarse" for wave in waves[:3] for cell in wave)
+    assert all(cell.stage == "refinement" for wave in waves[3:] for cell in wave)
+
+    for task in config["suite"]["tasks"]:
+        task_cells = [cell for cell in cells if cell.task == task]
+        assert sum(cell.method == exp_tuning.METHOD_POSITIVE_ONLY for cell in task_cells) == 1
+        assert {
+            cell.rho for cell in task_cells if cell.method == exp_tuning.METHOD_EXPONENTIAL
+        } == {0.9, 0.75, 0.6, 0.5, 0.35, 0.25, 0.125}
+
+
+def test_exp_tuning_config_rejects_matrix_or_budget_drift() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_tuning.yaml"))
+    changed = json.loads(json.dumps(config))
+    changed["sweep"]["refinement_rho"] = [0.8, 0.5, 0.25]
+    with pytest.raises(ValueError, match="refinement"):
+        exp_tuning.validate_config(changed)
+
+    changed = json.loads(json.dumps(config))
+    changed["remoteness_calibration"]["target_negative_to_positive_gradient_ratio"] = 0.1
+    with pytest.raises(ValueError, match="1/32"):
+        exp_tuning.validate_config(changed)
+
+    changed = json.loads(json.dumps(config))
+    changed["execution"]["slots_per_gpu"] = 1
+    with pytest.raises(ValueError, match="two slots"):
+        exp_tuning.validate_config(changed)
+
+    assert config["training"]["micro_batch"] == 1
+    assert config["training"]["gradient_accumulation"] == 8
+    reference_config = exp_tuning._reference_warmstart_config(
+        config,
+        Path("configs/e8_multitask_p0.yaml"),
+    )
+    assert reference_config["micro_batch"] == 2
+    assert reference_config["gradient_accumulation"] == 32
+
+    changed = json.loads(json.dumps(config))
+    changed["training"].update({"micro_batch": 2, "gradient_accumulation": 32})
+    with pytest.raises(ValueError, match="method-training effective prompt batch"):
+        exp_tuning.validate_config(changed)
+
+
+def test_exp_tuning_rejects_qualification_from_another_p0_config(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_tuning.yaml"))
+    p0.atomic_json(
+        tmp_path / "qualification_audit.json",
+        {
+            "experiment_id": exp_tuning.PARENT_EXPERIMENT_ID,
+            "config_hash": "stale-p0-config",
+            "passed": True,
+            "tasks": {task: {"passed": True} for task in config["suite"]["p0_tasks"]},
+        },
+    )
+    with pytest.raises(RuntimeError, match="qualification identity"):
+        exp_tuning.resolve_task_inputs(
+            config,
+            p0_work_dir=tmp_path,
+            p0_config=Path("configs/e8_multitask_p0.yaml").resolve(),
+            countdown_bank=tmp_path / "countdown-bank.jsonl",
+            countdown_validation=tmp_path / "countdown-validation.jsonl",
+            countdown_adapter=tmp_path / "countdown-adapter",
+        )
+
+
+def test_exp_tuning_builds_only_train_split_references_and_rejects_leakage(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_tuning.yaml"))
+    config = json.loads(json.dumps(config))
+    config["split"]["p0_train_rows"] = 2
+    p0_config = Path("configs/e8_multitask_p0.yaml").resolve()
+    p0_tasks = tuple(config["suite"]["p0_tasks"])
+    splits: dict[str, object] = {"tasks": {}}
+    inputs: dict[str, exp_tuning.TaskInputs] = {}
+    for task in p0_tasks:
+        train_path = tmp_path / "splits" / task / "train.jsonl"
+        p0.atomic_jsonl(
+            train_path,
+            [
+                {
+                    "prompt_id": f"{task}-train-{index}",
+                    "prompt": f"{task} train prompt {index}",
+                    "oracle_completion": f"{task} answer {index}",
+                    "negatives": [],
+                }
+                for index in range(2)
+            ],
+        )
+        splits["tasks"][task] = {
+            "paths": {
+                "train": str(train_path),
+                "validation": str(tmp_path / "must-not-read" / task / "validation.jsonl"),
+                "test": str(tmp_path / "must-not-read" / task / "test.jsonl"),
+            },
+            "prompt_id_hashes": {"train": f"{task}-train-hash"},
+            "p0_config_sha256": exp_tuning.sha256_file(p0_config),
+        }
+        inputs[task] = exp_tuning.TaskInputs(
+            task=task,
+            bank=tmp_path / "unused-bank.jsonl",
+            reference_adapter=None,
+            sources_root=tmp_path,
+            p0_config=p0_config,
+        )
+    countdown_adapter = tmp_path / "countdown-adapter"
+    countdown_adapter.mkdir()
+    (countdown_adapter / "adapter_config.json").write_text("{}", encoding="utf-8")
+    inputs["countdown"] = exp_tuning.TaskInputs(
+        task="countdown",
+        bank=tmp_path / "unused-countdown-bank.jsonl",
+        reference_adapter=countdown_adapter,
+        sources_root=tmp_path,
+        p0_config=p0_config,
+    )
+
+    monkeypatch.setattr(
+        exp_tuning,
+        "_load_prepared",
+        lambda *args, **kwargs: (splits, inputs),
+    )
+
+    def fake_model_identity(model_path: str, adapter_path: str | None) -> dict:
+        return {
+            "model": {"path": model_path},
+            "adapter": {"path": adapter_path},
+        }
+
+    observed: dict[str, dict[str, object]] = {}
+
+    def fake_train_task_positive_warmstart(**kwargs: object) -> dict:
+        task = str(kwargs["task"])
+        rows = list(kwargs["rows"])
+        output_dir = Path(str(kwargs["output_dir"]))
+        adapter = output_dir / "adapter"
+        adapter.mkdir()
+        (adapter / "adapter_config.json").write_text("{}", encoding="utf-8")
+        (adapter / "adapter_model.safetensors").write_bytes(task.encode("utf-8"))
+        observed[task] = {
+            "prompt_ids": [str(row["prompt_id"]) for row in rows],
+            "seed": int(kwargs["seed"]),
+            "warmstart_config": dict(kwargs["warmstart_config"]),
+        }
+        return {
+            "task": task,
+            "checkpoint_kind": kwargs["warmstart_config"]["checkpoint_kind"],
+            "adapter_path": str(adapter),
+            "adapter_identity": fake_model_identity(
+                str(kwargs["model_path"]),
+                str(adapter),
+            )["adapter"],
+            "complete": True,
+            "scientific_status": "not_run",
+        }
+
+    monkeypatch.setattr(exp_tuning, "model_identity", fake_model_identity)
+    monkeypatch.setattr(
+        exp_tuning,
+        "train_task_positive_warmstart",
+        fake_train_task_positive_warmstart,
+    )
+
+    manifest = exp_tuning.cmd_reference(
+        config,
+        tmp_path,
+        base_model_path="base-model",
+        tasks=None,
+        force=False,
+    )
+    assert manifest["complete"]
+    assert set(observed) == set(p0_tasks)
+    base_seed = int(p0.load_config(p0_config)["positive_warmstart"]["seed"])
+    for index, task in enumerate(p0_tasks):
+        assert observed[task]["prompt_ids"] == [
+            f"{task}-train-0",
+            f"{task}-train-1",
+        ]
+        assert observed[task]["seed"] == base_seed + index * 100_003
+        assert observed[task]["warmstart_config"]["micro_batch"] == 2
+        assert observed[task]["warmstart_config"]["gradient_accumulation"] == 32
+        assert manifest["tasks"][task]["train_rows_seen"] == 2
+        assert manifest["tasks"][task]["validation_rows_seen"] == 0
+        assert manifest["tasks"][task]["test_rows_seen"] == 0
+
+    attached = exp_tuning._attach_references(
+        tmp_path,
+        config,
+        splits,
+        inputs,
+        base_model_path="base-model",
+    )
+    assert attached["countdown"].reference_adapter == countdown_adapter
+    assert all(attached[task].reference_adapter is not None for task in p0_tasks)
+
+    victim = p0_tasks[0]
+    victim_manifest_path = tmp_path / "references" / victim / "task_manifest.json"
+    victim_manifest = json.loads(victim_manifest_path.read_text(encoding="utf-8"))
+    victim_manifest["validation_rows_seen"] = 1
+    p0.atomic_json(victim_manifest_path, victim_manifest)
+    top_manifest_path = exp_tuning.reference_manifest_path(tmp_path)
+    top_manifest = json.loads(top_manifest_path.read_text(encoding="utf-8"))
+    top_manifest["tasks"][victim] = victim_manifest
+    p0.atomic_json(top_manifest_path, top_manifest)
+    with pytest.raises(RuntimeError, match="leakage audit mismatch"):
+        exp_tuning.cmd_reference(
+            config,
+            tmp_path,
+            base_model_path="base-model",
+            tasks=[victim],
+            force=False,
+        )
+
+
+def test_exp_tuning_partial_calibration_preserves_prior_task_results(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_tuning.yaml"))
+    inputs = {
+        task: SimpleNamespace(reference_adapter=tmp_path / task)
+        for task in config["suite"]["tasks"]
+    }
+    monkeypatch.setattr(
+        exp_tuning,
+        "_load_ready_inputs",
+        lambda *args, **kwargs: ({"tasks": {}}, inputs),
+    )
+
+    def fake_identity(task: str, **kwargs: object) -> dict:
+        del kwargs
+        return {"identity_hash": f"identity-{task}"}
+
+    def fake_calibrate(task: str, **kwargs: object) -> dict:
+        del kwargs
+        result = {
+            "experiment_id": exp_tuning.EXPERIMENT_ID,
+            "config_hash": exp_tuning.stable_config_hash(config),
+            "task": task,
+            "identity_hash": f"identity-{task}",
+            "complete": True,
+        }
+        p0.atomic_json(tmp_path / "calibration" / f"{task}.json", result)
+        return result
+
+    monkeypatch.setattr(exp_tuning, "_calibration_identity", fake_identity)
+    monkeypatch.setattr(exp_tuning, "calibrate_task", fake_calibrate)
+    first = exp_tuning.cmd_calibrate(
+        config,
+        tmp_path,
+        base_model_path="base-model",
+        tasks=["word_sorting"],
+        force=False,
+    )
+    assert not first["complete"]
+    assert set(first["tasks"]) == {"word_sorting"}
+
+    second = exp_tuning.cmd_calibrate(
+        config,
+        tmp_path,
+        base_model_path="base-model",
+        tasks=["spiral_matrix"],
+        force=False,
+    )
+    assert not second["complete"]
+    assert set(second["tasks"]) == {"word_sorting", "spiral_matrix"}
+
+
+def test_exp_tuning_wave_requires_calibration_and_liveness_gates(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_tuning.yaml"))
+    with pytest.raises(RuntimeError, match="calibrations"):
+        exp_tuning.cmd_run_wave(
+            config,
+            Path("configs/e8_multitask_exp_tuning.yaml"),
+            tmp_path,
+            wave_index=1,
+            base_model_path="base-model",
+            force=False,
+        )
+
+    calibration_tasks = {
+        task: {"identity_hash": f"calibration-{task}", "complete": True}
+        for task in config["suite"]["tasks"]
+    }
+    p0.atomic_json(
+        tmp_path / "calibration" / "calibration_manifest.json",
+        {
+            "experiment_id": exp_tuning.EXPERIMENT_ID,
+            "config_hash": exp_tuning.stable_config_hash(config),
+            "tasks": calibration_tasks,
+            "complete": True,
+        },
+    )
+    monkeypatch.setattr(
+        exp_tuning,
+        "_load_ready_inputs",
+        lambda *args, **kwargs: (
+            {"tasks": {}},
+            {task: SimpleNamespace() for task in config["suite"]["tasks"]},
+        ),
+    )
+    monkeypatch.setattr(
+        exp_tuning,
+        "_calibration_identity",
+        lambda task, **kwargs: {"identity_hash": f"calibration-{task}"},
+    )
+    with pytest.raises(RuntimeError, match="liveness"):
+        exp_tuning.cmd_run_wave(
+            config,
+            Path("configs/e8_multitask_exp_tuning.yaml"),
+            tmp_path,
+            wave_index=1,
+            base_model_path="base-model",
+            force=False,
+        )
+
+
+def test_exp_tuning_liveness_uses_fresh_process_reload(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_tuning.yaml"))
+    task = "word_sorting"
+    reference_adapter = tmp_path / "reference-adapter"
+    terminal_adapter = tmp_path / "terminal-adapter"
+    for adapter, payload in (
+        (reference_adapter, b"reference"),
+        (terminal_adapter, b"terminal"),
+    ):
+        adapter.mkdir()
+        (adapter / "adapter_config.json").write_text("{}", encoding="utf-8")
+        (adapter / "adapter_model.safetensors").write_bytes(payload)
+    training_metrics = tmp_path / "training_metrics.jsonl"
+    p0.atomic_jsonl(
+        training_metrics,
+        [
+            {
+                "positive_loss": 1.0,
+                "negative_scalar": -0.25,
+                "raw_gradient_norm_before_clip": 0.5,
+            }
+        ],
+    )
+
+    inputs = {
+        task: exp_tuning.TaskInputs(
+            task=task,
+            bank=tmp_path / "bank.jsonl",
+            reference_adapter=reference_adapter,
+            sources_root=tmp_path,
+            p0_config=Path("configs/e8_multitask_p0.yaml"),
+        )
+    }
+    monkeypatch.setattr(
+        exp_tuning,
+        "_load_ready_inputs",
+        lambda *args, **kwargs: ({"tasks": {}}, inputs),
+    )
+
+    def fake_model_identity(model_path: str, adapter_path: str | None) -> dict:
+        return {
+            "model": {"path": model_path},
+            "adapter": {"path": adapter_path},
+        }
+
+    monkeypatch.setattr(exp_tuning, "model_identity", fake_model_identity)
+    monkeypatch.setattr(
+        exp_tuning,
+        "train_cell",
+        lambda *args, **kwargs: {
+            "terminal_adapter": str(terminal_adapter),
+            "terminal_adapter_identity": fake_model_identity(
+                "base-model",
+                str(terminal_adapter),
+            )["adapter"],
+            "training_metrics": str(training_metrics),
+            "complete": True,
+            "nan_inf_failure": False,
+        },
+    )
+    observed_command: list[str] = []
+
+    def fake_run(command: list[str], **kwargs: object) -> SimpleNamespace:
+        del kwargs
+        observed_command.extend(command)
+        return SimpleNamespace(
+            returncode=0,
+            stderr="",
+            stdout=json.dumps(
+                {
+                    "complete": True,
+                    "finite": True,
+                    "process_id": 999_999,
+                    "base_model_identity": fake_model_identity(
+                        "base-model",
+                        None,
+                    )["model"],
+                    "adapter_identity": fake_model_identity(
+                        "base-model",
+                        str(terminal_adapter),
+                    )["adapter"],
+                }
+            ),
+        )
+
+    monkeypatch.setattr(exp_tuning.subprocess, "run", fake_run)
+    result = exp_tuning.cmd_liveness(
+        config,
+        Path("configs/e8_multitask_exp_tuning.yaml"),
+        tmp_path,
+        task=task,
+        rho=0.5,
+        base_model_path="base-model",
+        force=False,
+    )
+    assert "reload-adapter" in observed_command
+    assert result["fresh_process_reload_passed"]
+    assert result["reload_process_id"] == 999_999
+    assert result["adapter_weight_changed"]
+
+
+def test_exp_tuning_p0_split_is_deterministic_and_disjoint() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_tuning.yaml"))
+    config = json.loads(json.dumps(config))
+    config["split"].update({"p0_train_rows": 5, "p0_validation_rows": 2, "p0_test_rows": 1})
+    rows = [
+        {
+            "prompt_id": f"p{index}",
+            "prompt": f"prompt {index}",
+            "oracle_completion": f"answer {index}",
+            "negatives": [
+                {
+                    "negative_id": f"p{index}-n{negative}",
+                    "completion": f"wrong {index} {negative}",
+                    "binary_correct": False,
+                }
+                for negative in range(16)
+            ],
+        }
+        for index in range(8)
+    ]
+
+    first = exp_tuning.split_p0_rows(rows, task="word_sorting", config=config)
+    second = exp_tuning.split_p0_rows(rows, task="word_sorting", config=config)
+    assert first == second
+    assert {name: len(values) for name, values in first.items()} == {
+        "train": 5,
+        "validation": 2,
+        "test": 1,
+    }
+    prompt_sets = {name: {row["prompt_id"] for row in values} for name, values in first.items()}
+    assert not prompt_sets["train"] & prompt_sets["validation"]
+    assert not prompt_sets["train"] & prompt_sets["test"]
+    assert not prompt_sets["validation"] & prompt_sets["test"]
+
+    duplicate_rows = json.loads(json.dumps(rows))
+    duplicate_rows[-1]["prompt_id"] = duplicate_rows[0]["prompt_id"]
+    with pytest.raises(RuntimeError, match="duplicate prompt IDs|overlaps"):
+        exp_tuning.split_p0_rows(
+            duplicate_rows,
+            task="word_sorting",
+            config=config,
+        )
+
+
+def test_exp_tuning_countdown_normalization_preserves_frozen_split() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_tuning.yaml"))
+    config = json.loads(json.dumps(config))
+    config["split"].update({"countdown_train_rows": 2, "countdown_validation_rows": 1})
+    train_rows = [
+        {
+            "row_id": f"train-{index}",
+            "prompt": f"use numbers {index}",
+            "oracle_positive": "1 + 2",
+            "numbers": [1, 2, 3, 4],
+            "target": 3,
+            "negatives": [
+                {
+                    "expression": f"1 + 2 + {negative}",
+                    "valid_format": True,
+                    "correct": False,
+                    "negative_bin": "near_value_wrong",
+                }
+                for negative in range(16)
+            ],
+        }
+        for index in range(3)
+    ]
+    validation_rows = [
+        {
+            "id": "validation-0",
+            "prompt": "use validation numbers",
+            "oracle": "1 + 2",
+            "numbers": [1, 2, 3, 4],
+            "target": 3,
+        }
+    ]
+    partitions = exp_tuning.split_countdown_rows(
+        train_rows,
+        validation_rows,
+        config=config,
+    )
+    assert len(partitions["train"]) == 2
+    assert len(partitions["validation"]) == 1
+    assert partitions["validation"][0]["source_schema"] == ("countdown_structural_validation")
+    assert all(len(row["negatives"]) == 16 for row in partitions["train"])
+    assert not {row["prompt_id"] for row in partitions["train"]} & {
+        row["prompt_id"] for row in partitions["validation"]
+    }
+
+
+def test_exp_tuning_liveness_does_not_open_validation_split(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    train_path = tmp_path / "train.jsonl"
+    p0.atomic_jsonl(
+        train_path,
+        [{"prompt_id": "train-0", "prompt": "train", "oracle_completion": "answer"}],
+    )
+    validation_path = tmp_path / "validation-must-not-be-opened.jsonl"
+    split_manifest = {
+        "tasks": {
+            "word_sorting": {
+                "paths": {
+                    "train": str(train_path),
+                    "validation": str(validation_path),
+                }
+            }
+        }
+    }
+    train_rows, validation_rows = exp_tuning._load_cell_splits(
+        split_manifest,
+        "word_sorting",
+        engineering_liveness=True,
+    )
+    assert [row["prompt_id"] for row in train_rows] == ["train-0"]
+    assert validation_rows == []
+    with pytest.raises(FileNotFoundError):
+        exp_tuning._load_cell_splits(
+            split_manifest,
+            "word_sorting",
+            engineering_liveness=False,
+        )
+
+
+@pytest.mark.skipif(torch is None, reason="Torch is unavailable in the test runtime")
+def test_exp_tuning_distance_and_rho_parameterization() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    sequence_lp = torch.tensor([-1.0, -2.0, -5.0], requires_grad=True)
+    distance = exp_tuning.normalized_distance(sequence_lp, tau=1.0, scale=4.0)
+    assert distance.tolist() == pytest.approx([0.0, 0.5, 1.0])
+    weights = exp_tuning.taper_weight(distance, rho=0.25)
+    assert weights.tolist() == pytest.approx([1.0, 0.5, 0.25])
+    assert not distance.requires_grad
+
+
+def test_exp_tuning_aggregate_selects_declared_late_window_winner(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_tuning.yaml"))
+    for cell in exp_tuning.build_cells(config):
+        if cell.method == exp_tuning.METHOD_POSITIVE_ONLY:
+            late = 0.20
+        else:
+            late = 0.30 - abs(float(cell.rho) - 0.5)
+        manifest = {
+            "complete": True,
+            "evaluation_status": "complete",
+            "validation_late_window_pass8_mean": late,
+            "validation_terminal_pass8": late - 0.01,
+            "validation_late_window_greedy_mean": late - 0.02,
+            "validation_terminal_greedy": late - 0.03,
+            "validation_terminal_greedy_valid_rate": 0.99,
+            "nan_inf_failure": False,
+        }
+        p0.atomic_json(
+            tmp_path / "cells" / cell.key / "cell_manifest.json",
+            manifest,
+        )
+
+    summary = exp_tuning.cmd_aggregate(config, tmp_path)
+    assert summary["cell_count"] == 72
+    for task_summary in summary["tasks"].values():
+        assert task_summary["selected_exp"]["rho"] == pytest.approx(0.5)
+        assert not task_summary["strong_taper_boundary_unclosed"]
+        assert not task_summary["all_exp_below_positive_only"]

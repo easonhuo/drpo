@@ -1,0 +1,137 @@
+schema_version: 1
+experiment_id: EXT-C-E8-MULTITASK-EXP-TUNING-01
+result_status: not_run
+
+parent:
+  experiment_id: EXT-C-E8-MULTITASK-P0-01
+  qualified_banks_required: true
+
+reference:
+  checkpoint_kind: train_only_task_positive_warmstart_100
+  optimizer_updates: 100
+  validation_rows_seen: 0
+  test_rows_seen: 0
+  countdown_uses_supplied_structurally_disjoint_reference: true
+
+model:
+  base_model: Qwen2.5-0.5B-Instruct
+  parameterization: lora
+  lora_rank: 32
+  lora_alpha: 64
+  lora_dropout: 0.05
+  dtype: auto
+  max_length: 512
+  gradient_checkpointing: true
+
+suite:
+  tasks:
+    - countdown
+    - word_sorting
+    - spiral_matrix
+    - mini_sudoku
+    - maze
+    - word_ladder
+    - knights_knaves
+    - graph_color
+    - wikisql
+  p0_tasks:
+    - word_sorting
+    - spiral_matrix
+    - mini_sudoku
+    - maze
+    - word_ladder
+    - knights_knaves
+    - graph_color
+    - wikisql
+  external_tasks:
+    - countdown
+
+split:
+  p0_train_rows: 5000
+  p0_validation_rows: 500
+  p0_test_rows: 500
+  countdown_train_rows: 5000
+  countdown_validation_rows: 500
+  hash_seed: 2026072901
+  test_access_allowed: false
+
+training:
+  optimizer_updates: 1200
+  micro_batch: 1
+  gradient_accumulation: 8
+  learning_rate: 5.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.03
+  max_grad_norm: 1.0
+  evaluation_every_updates: 100
+  late_window_updates: [800, 900, 1000, 1100, 1200]
+  early_stopping: false
+  terminal_adapter_required: true
+
+evaluation:
+  greedy_prompt_rows: 500
+  passk_prompt_rows: 128
+  pass_k: 8
+  batch_size: 16
+  sampling_temperature: 0.8
+  top_p: 0.95
+  max_new_tokens: 128
+  generation_seed: 2026072902
+
+negative_sampling:
+  negatives_per_prompt: 16
+  selected_current_near: 1
+  selected_current_far: 1
+  near_far_mix: [0.5, 0.5]
+  selection_stop_gradient: true
+  unique_negative_denominator: true
+  weight_sum_normalization: false
+
+remoteness_calibration:
+  prompt_rows: 128
+  gradient_prompt_rows: 8
+  seed: 2026072903
+  minimum_surprisal_scale: 1.0e-6
+  threshold: current_near_median
+  scale: current_far_median_minus_current_near_median
+  coordinate: sqrt_relu_excess_surprisal
+  match_initial_negative_gradient_rms: true
+  target_negative_to_positive_gradient_ratio: 0.03125
+
+sweep:
+  method: exponential
+  coarse_rho: [0.9, 0.6, 0.35, 0.125]
+  refinement_rho: [0.75, 0.5, 0.25]
+  all_rho: [0.9, 0.75, 0.6, 0.5, 0.35, 0.25, 0.125]
+  positive_only_per_task: 1
+  tuning_seed: 2026072904
+  expected_cells: 72
+
+selection:
+  primary_metric: validation_late_window_pass8_mean
+  finite_required: true
+  terminal_valid_rate_minimum: 0.95
+  tie_breakers:
+    - validation_terminal_pass8
+    - validation_late_window_greedy_mean
+    - validation_terminal_greedy
+    - larger_rho
+  boundary_rho: 0.125
+
+execution:
+  max_concurrent_cells: 16
+  gpu_ids: [0, 1, 2, 3, 4, 5, 6, 7]
+  slots_per_gpu: 2
+  expected_waves: 5
+  identity_checked_resume: true
+  fail_closed: true
+  test_partition_forbidden: true
+
+reporting:
+  separate_events:
+    - task_performance
+    - valid_or_structure_diagnostic
+    - nan_inf_numerical_failure
+  convergence_claim_allowed: false
+  method_ranking_allowed: false
+  causal_identification_environment: D-U1
