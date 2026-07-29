@@ -61,16 +61,21 @@ jobs:
 
           path = Path('/tmp/e8_multitask_exp_tuning.py')
           text = path.read_text()
-          old = 'int(training["micro_batch"]) != 2 or int(training["gradient_accumulation"]) != 32'
-          new = 'int(training["micro_batch"]) != 1 or int(training["gradient_accumulation"]) != 8'
-          if text.count(old) != 1:
-              raise SystemExit('expected one stale Exp batch-contract guard')
-          text = text.replace(old, new)
-          text = text.replace(
-              'The effective prompt batch must remain 64',
-              'The inherited Countdown method-training batch must remain 1 x 8',
-              1,
+          replacements = (
+              ('int(training["micro_batch"]) != 2', 'int(training["micro_batch"]) != 1'),
+              (
+                  'int(training["gradient_accumulation"]) != 32',
+                  'int(training["gradient_accumulation"]) != 8',
+              ),
+              (
+                  'The effective prompt batch must remain 64',
+                  'The inherited Countdown method-training batch must remain 1 x 8',
+              ),
           )
+          for old, new in replacements:
+              if text.count(old) != 1:
+                  raise SystemExit(f'expected one stale Exp token: {old}')
+              text = text.replace(old, new)
           path.write_text(text)
           PY
           python -m py_compile /tmp/e8_multitask_exp_tuning.py
