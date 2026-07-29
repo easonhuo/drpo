@@ -3,6 +3,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "pr-gate-log.yml"
+AUTHORITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "handoff-authority.yml"
+AUTHORITY_RUNNER = REPO_ROOT / "scripts" / "run_handoff_authority_gate.sh"
 
 
 def _workflow_text() -> str:
@@ -40,3 +42,35 @@ def test_shadow_phase_preserves_read_only_checkout_and_legacy_full_gates() -> No
     assert "python scripts/validate_governance_pipeline_stage_status.py --repo-root ." in text
     assert "python -m pytest -q" in text
     assert "ruff check ." in text
+
+
+def test_handoff_authority_workflow_is_path_scoped_and_read_only() -> None:
+    text = AUTHORITY_WORKFLOW.read_text()
+
+    assert "pull_request:" in text
+    assert "paths:" in text
+    assert '"docs/handoff_deltas/**"' in text
+    assert '"experiments/registry.yaml"' in text
+    assert '"scripts/handoff_authority.py"' in text
+    assert "permissions:\n  contents: read" in text
+    assert "contents: write" not in text
+    assert "git push" not in text
+    assert "workflow_dispatch" not in text
+    assert "fetch-depth: 0" in text
+    assert "python -m pip install -e '.[dev]'" in text
+    assert "bash -n scripts/run_handoff_authority_gate.sh" in text
+    assert "bash scripts/run_handoff_authority_gate.sh" in text
+    assert "github.event.pull_request.base.sha" in text
+    assert "github.event.pull_request.head.sha" in text
+
+
+def test_handoff_authority_runner_is_exact_diff_read_only_gate() -> None:
+    text = AUTHORITY_RUNNER.read_text()
+
+    assert 'git diff --name-only "$base_sha" "$head_sha"' in text
+    assert "docs/handoff_deltas/*/HANDOFF_DELTA.yaml" in text
+    assert "scripts/handoff_authority.py verify --repo-root . --json" in text
+    assert "scripts/build_stage4_context.py --repo-root . --json check" in text
+    assert "scripts/validate_governance_pipeline_stage_status.py --repo-root ." in text
+    assert "normalize" not in text
+    assert "git push" not in text
