@@ -1,0 +1,94 @@
+name: TEMP E8 Exp append and validate tests
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-exp-tuning-01
+    paths:
+      - .github/e8-exp-source/test_e8_multitask_exp_append.txt
+      - .github/workflows/temp-e8-exp-test-append.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-e8-exp-test-append
+  cancel-in-progress: false
+
+jobs:
+  append-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-exp-tuning-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Append governed tests without creating another Python path
+        shell: bash
+        run: |
+          set -euo pipefail
+          marker='def test_exp_tuning_matrix_has_one_positive_and_seven_exp_per_task'
+          if ! grep -q "$marker" tests/test_e8_multitask_p0.py; then
+            cat .github/e8-exp-source/test_e8_multitask_exp_append.txt \
+              >> tests/test_e8_multitask_p0.py
+          fi
+          grep -q "$marker" tests/test_e8_multitask_p0.py
+
+      - name: Install project test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+
+      - name: Validate source, plan, and targeted tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m ruff check \
+            src/drpo/e8_multitask_exp_tuning.py \
+            tests/test_e8_multitask_p0.py
+          python -m ruff format --check \
+            src/drpo/e8_multitask_exp_tuning.py \
+            tests/test_e8_multitask_p0.py
+          python -m py_compile \
+            src/drpo/e8_multitask_exp_tuning.py \
+            tests/test_e8_multitask_p0.py
+          bash -n scripts/run_e8_multitask_exp_tuning.sh
+          tmp_dir="$(mktemp -d)"
+          scripts/run_e8_multitask_exp_tuning.sh \
+            --output-root "$tmp_dir/output" \
+            plan > "$tmp_dir/plan_stdout.json"
+          python - "$tmp_dir/output/plan.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          plan = json.loads(Path(sys.argv[1]).read_text())
+          assert plan['cell_count'] == 72
+          assert plan['wave_sizes'] == [16, 16, 13, 16, 11]
+          assert sum(row['method'] == 'positive_only' for row in plan['rows']) == 9
+          PY
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          git diff --check
+
+      - name: Commit validated targeted tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add tests/test_e8_multitask_p0.py
+          if git diff --cached --quiet; then
+            echo 'Targeted tests already present.'
+            exit 0
+          fi
+          git commit -m 'EXT-C-E8-MULTITASK-EXP-TUNING-01: add targeted tests'
+          git push origin HEAD:dev/e8-multitask-exp-tuning-01
