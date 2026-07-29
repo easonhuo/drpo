@@ -4,7 +4,14 @@ result_status: not_run
 
 parent:
   experiment_id: EXT-C-E8-MULTITASK-P0-01
-  required_checkpoint_kind: task_positive_warmstart_100
+  qualified_banks_required: true
+
+reference:
+  checkpoint_kind: train_only_task_positive_warmstart_100
+  optimizer_updates: 100
+  validation_rows_seen: 0
+  test_rows_seen: 0
+  countdown_uses_supplied_structurally_disjoint_reference: true
 
 model:
   base_model: Qwen2.5-0.5B-Instruct
@@ -50,11 +57,11 @@ split:
 
 training:
   optimizer_updates: 1200
-  micro_batch: 2
-  gradient_accumulation: 32
-  learning_rate: 2.0e-4
+  micro_batch: 1
+  gradient_accumulation: 8
+  learning_rate: 5.0e-5
   weight_decay: 0.01
-  warmup_ratio: 0.05
+  warmup_ratio: 0.03
   max_grad_norm: 1.0
   evaluation_every_updates: 100
   late_window_updates: [800, 900, 1000, 1100, 1200]
@@ -68,7 +75,7 @@ evaluation:
   batch_size: 16
   sampling_temperature: 0.8
   top_p: 0.95
-  max_new_tokens: 256
+  max_new_tokens: 128
   generation_seed: 2026072902
 
 negative_sampling:
