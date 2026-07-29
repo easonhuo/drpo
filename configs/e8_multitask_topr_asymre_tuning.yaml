@@ -1,0 +1,85 @@
+schema_version: 1
+experiment_id: EXT-C-E8-MULTITASK-TOPR-ASYMRE-TUNING-01
+result_status: not_run
+registration_state: dev_code_first_unregistered
+
+parent:
+  experiment_id: EXT-C-E8-MULTITASK-EXP-TUNING-01
+  shared_split_required: true
+  shared_reference_required: true
+  inherited_training_contract_required: true
+
+suite:
+  tasks:
+    - word_sorting
+    - spiral_matrix
+    - mini_sudoku
+    - maze
+    - word_ladder
+    - knights_knaves
+    - graph_color
+    - wikisql
+  countdown_rerun: false
+  positive_only_rerun: false
+
+shared_reference:
+  checkpoint_kind: train_only_task_positive_warmstart_100
+  validation_rows_seen: 0
+  test_rows_seen: 0
+  exact_adapter_identity_required: true
+
+sweep:
+  topr_beta: [0.0, 0.04, 0.08, 0.25, 0.5]
+  asymre_delta_v: [-1.0, -0.9, -0.7, -0.5, 0.0]
+  tuning_seed: 2026072904
+  expected_cells: 80
+
+topr:
+  method_identity: joint_fitted_reference_beta_topr_not_canonical_frozen_behavior_topr
+  ratio_coordinate: full_completion_summed_log_probability
+  task_loss_coordinate: mean_completion_token_log_probability
+  reference_training: joint_branch_balanced_positive_and_all_unique_negatives
+  reference_learning_rate_multiplier: 1.0
+  initial_ratio_max_abs_tolerance: 1.0e-5
+  boundary_beta: 0.0
+  boundary_role: uncontrolled_negative_ratio_boundary_not_active_topr_candidate
+
+asymre:
+  formula: A=R-delta_v
+  positive_coefficient: 1-delta_v
+  negative_repulsion_coefficient: 1+delta_v
+  use_all_unique_negatives: true
+  remoteness_control: false
+  boundary_delta_v: -1.0
+  boundary_role: zero_negative_repulsion_boundary_not_active_asymre_candidate
+
+selection:
+  primary_metric: validation_late_window_pass8_mean
+  terminal_valid_rate_minimum: 0.95
+  finite_required: true
+  select_active_parameter_only: true
+  tie_breakers:
+    - validation_terminal_pass8
+    - validation_late_window_greedy_mean
+    - validation_terminal_greedy
+    - weaker_absolute_parameter
+
+execution:
+  max_concurrent_cells: 16
+  gpu_ids: [0, 1, 2, 3, 4, 5, 6, 7]
+  slots_per_gpu: 2
+  expected_waves: 5
+  identity_checked_resume: true
+  continue_after_cell_failure: false
+  method_specific_liveness_required: true
+
+reporting:
+  separate_events:
+    - task_performance
+    - valid_or_structure_diagnostic
+    - nan_inf_numerical_failure
+  fixed_horizon_is_convergence: false
+  method_ranking_allowed: false
+  causal_identification_environment: D-U1
+  countdown_reused_historical_tuning_only: true
+  positive_only_reused_from_exp_server: true
