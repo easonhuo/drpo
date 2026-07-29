@@ -70,7 +70,6 @@ jobs:
           python -m ruff check --fix src/drpo/e8_multitask_baseline_tuning.py
           cp .github/e8-baseline-source/test_append.txt /tmp/test_append.py
           python -m ruff format /tmp/test_append.py
-          python -m ruff check --fix /tmp/test_append.py
           marker='def test_multitask_baseline_tuning_has_exact_80_cell_five_wave_matrix'
           if ! grep -q "$marker" tests/test_e8_multitask_p0.py; then
             cat /tmp/test_append.py >> tests/test_e8_multitask_p0.py
