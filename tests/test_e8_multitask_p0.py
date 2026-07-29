@@ -522,9 +522,7 @@ def test_exp_tuning_p0_split_is_deterministic_and_disjoint() -> None:
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_tuning.yaml"))
     config = json.loads(json.dumps(config))
-    config["split"].update(
-        {"p0_train_rows": 5, "p0_validation_rows": 2, "p0_test_rows": 1}
-    )
+    config["split"].update({"p0_train_rows": 5, "p0_validation_rows": 2, "p0_test_rows": 1})
     rows = [
         {
             "prompt_id": f"p{index}",
@@ -550,9 +548,7 @@ def test_exp_tuning_p0_split_is_deterministic_and_disjoint() -> None:
         "validation": 2,
         "test": 1,
     }
-    prompt_sets = {
-        name: {row["prompt_id"] for row in values} for name, values in first.items()
-    }
+    prompt_sets = {name: {row["prompt_id"] for row in values} for name, values in first.items()}
     assert not prompt_sets["train"] & prompt_sets["validation"]
     assert not prompt_sets["train"] & prompt_sets["test"]
     assert not prompt_sets["validation"] & prompt_sets["test"]
@@ -599,13 +595,11 @@ def test_exp_tuning_countdown_normalization_preserves_frozen_split() -> None:
     )
     assert len(partitions["train"]) == 2
     assert len(partitions["validation"]) == 1
-    assert partitions["validation"][0]["source_schema"] == (
-        "countdown_structural_validation"
-    )
+    assert partitions["validation"][0]["source_schema"] == ("countdown_structural_validation")
     assert all(len(row["negatives"]) == 16 for row in partitions["train"])
-    assert not {
-        row["prompt_id"] for row in partitions["train"]
-    } & {row["prompt_id"] for row in partitions["validation"]}
+    assert not {row["prompt_id"] for row in partitions["train"]} & {
+        row["prompt_id"] for row in partitions["validation"]
+    }
 
 
 @pytest.mark.skipif(torch is None, reason="Torch is unavailable in the test runtime")
@@ -650,3 +644,127 @@ def test_exp_tuning_aggregate_selects_declared_late_window_winner(tmp_path: Path
         assert task_summary["selected_exp"]["rho"] == pytest.approx(0.5)
         assert not task_summary["strong_taper_boundary_unclosed"]
         assert not task_summary["all_exp_below_positive_only"]
+
+
+def test_multitask_baseline_tuning_has_exact_80_cell_five_wave_matrix() -> None:
+    from drpo import e8_multitask_baseline_tuning as baseline
+
+    config, exp_config = baseline.load_config(
+        Path("configs/e8_multitask_topr_asymre_tuning.yaml"),
+        Path("configs/e8_multitask_exp_tuning.yaml"),
+    )
+    cells = baseline.build_cells(config, exp_config)
+    waves = baseline.build_waves(config, exp_config)
+
+    assert len(cells) == 80
+    assert len({cell.key for cell in cells}) == 80
+    assert [len(wave) for wave in waves] == [16, 16, 16, 16, 16]
+    assert sum(cell.method == baseline.METHOD_TOPR for cell in cells) == 40
+    assert sum(cell.method == baseline.METHOD_ASYMRE for cell in cells) == 40
+    assert "countdown" not in {cell.task for cell in cells}
+    for task in config["suite"]["tasks"]:
+        task_cells = [cell for cell in cells if cell.task == task]
+        assert {cell.parameter for cell in task_cells if cell.method == baseline.METHOD_TOPR} == {
+            0.0,
+            0.04,
+            0.08,
+            0.25,
+            0.5,
+        }
+        assert {cell.parameter for cell in task_cells if cell.method == baseline.METHOD_ASYMRE} == {
+            -1.0,
+            -0.9,
+            -0.7,
+            -0.5,
+            0.0,
+        }
+
+
+def test_multitask_baseline_tuning_rejects_grid_or_reference_drift() -> None:
+    from drpo import e8_multitask_baseline_tuning as baseline
+
+    config, exp_config = baseline.load_config(
+        Path("configs/e8_multitask_topr_asymre_tuning.yaml"),
+        Path("configs/e8_multitask_exp_tuning.yaml"),
+    )
+    changed = json.loads(json.dumps(config))
+    changed["sweep"]["topr_beta"] = [0.0, 0.04, 0.08, 0.25, 0.75]
+    with pytest.raises(ValueError, match="TOPR beta"):
+        baseline.validate_config(changed, exp_config)
+
+    changed = json.loads(json.dumps(config))
+    changed["shared_reference"]["validation_rows_seen"] = 1
+    with pytest.raises(ValueError, match="validation or test"):
+        baseline.validate_config(changed, exp_config)
+
+    changed = json.loads(json.dumps(config))
+    changed["suite"]["tasks"][0] = "countdown"
+    with pytest.raises(ValueError, match="exact ordered eight"):
+        baseline.validate_config(changed, exp_config)
+
+
+def test_multitask_baseline_aggregate_excludes_boundary_controls(tmp_path: Path) -> None:
+    from drpo import e8_multitask_baseline_tuning as baseline
+
+    config, exp_config = baseline.load_config(
+        Path("configs/e8_multitask_topr_asymre_tuning.yaml"),
+        Path("configs/e8_multitask_exp_tuning.yaml"),
+    )
+    for cell in baseline.build_cells(config, exp_config):
+        if cell.method == baseline.METHOD_TOPR:
+            late = 0.90 if cell.parameter == 0.0 else 0.50 - abs(cell.parameter - 0.25)
+        else:
+            late = 0.90 if cell.parameter == -1.0 else 0.50 - abs(cell.parameter + 0.5)
+        p0.atomic_json(
+            tmp_path / "cells" / cell.key / "cell_manifest.json",
+            {
+                "complete": True,
+                "evaluation_status": "complete",
+                "validation_late_window_pass8_mean": late,
+                "validation_terminal_pass8": late - 0.01,
+                "validation_late_window_greedy_mean": late - 0.02,
+                "validation_terminal_greedy": late - 0.03,
+                "validation_terminal_greedy_valid_rate": 0.99,
+                "nan_inf_failure": False,
+            },
+        )
+
+    summary = baseline.cmd_aggregate(config, exp_config, tmp_path)
+    assert summary["cell_count"] == 80
+    for methods in summary["tasks"].values():
+        topr = methods[baseline.METHOD_TOPR]
+        asymre = methods[baseline.METHOD_ASYMRE]
+        assert topr["selected_active"]["parameter"] == pytest.approx(0.25)
+        assert asymre["selected_active"]["parameter"] == pytest.approx(-0.5)
+        assert topr["boundary"]["parameter"] == pytest.approx(0.0)
+        assert asymre["boundary"]["parameter"] == pytest.approx(-1.0)
+        assert topr["all_active_below_boundary"]
+        assert asymre["all_active_below_boundary"]
+
+
+@pytest.mark.skipif(torch is None, reason="Torch is unavailable in the test runtime")
+def test_multitask_baseline_rng_pairing_and_joint_step_rollback() -> None:
+    from drpo import e8_multitask_baseline_tuning as baseline
+
+    torch.manual_seed(123)
+    state = baseline._capture_rng_state()
+    first = torch.rand(4)
+    baseline._restore_rng_state(state)
+    second = torch.rand(4)
+    assert torch.equal(first, second)
+
+    policy = torch.nn.Parameter(torch.tensor([1.0]))
+    reference = torch.nn.Parameter(torch.tensor([2.0]))
+    policy_optimizer = torch.optim.SGD([policy], lr=1.0)
+    reference_optimizer = torch.optim.SGD([reference], lr=1.0)
+    policy.grad = torch.tensor([float("inf")])
+    reference.grad = torch.tensor([1.0])
+    passed = baseline._joint_optimizer_step_with_finite_guard(
+        policy_optimizer,
+        reference_optimizer,
+        [policy],
+        [reference],
+    )
+    assert not passed
+    assert policy.item() == pytest.approx(1.0)
+    assert reference.item() == pytest.approx(2.0)
