@@ -1,0 +1,70 @@
+schema_version: 1
+experiment_id: EXT-H-E7-D4RL9-EXP-TAU-TUNE-01
+parent_experiment_id: EXT-H-E7-BENCH-01
+predecessor_experiment_id: EXT-H-E7-D4RL9-EXP-ALPHA-C-JOINT-TUNE-01
+environment: Hopper_Walker2d_HalfCheetah_D4RL_v2
+execution_class: pilot
+result_status: not_run
+implementation_state: implemented_pending_registration_transaction
+implementation_commit: d473416d3daa9e5fa808aa78811e31a962d6018f
+implementation_branch: dev/e7-d4rl9-exp-tau-tuning-01
+claim: >-
+  On three frozen Exponential (negative_scale, coefficient) operating points per
+  D4RL-9 task, test whether a small DRPO taper-onset threshold changes late-window
+  performance and training variability while leaving the canonical one-step-TD
+  trainer and its critic expectile tau unchanged.
+code_entrypoint: scripts/run_e7_canonical_d4rl9_exp_tau_tuning_one_click.sh
+config: configs/e7_canonical_d4rl9_exp_tau_tuning_v1.json
+protocol: docs/e7_canonical_d4rl9_exp_tau_tuning_v1.md
+development_prior_binding:
+  repository: easonhuo/drpo-results
+  ref: ingest/e7
+  run_id: E7_D4RL9_EXP_ALPHA_C_JOINT_TUNE_20260728_01
+  source_code_commit: 0cbc199f9484b8da1e8b11cba8df58ddddfcfcae
+  taskwise_selection_git_blob: 9c7c2b197864db2d5f73dc4f7b209b25b6893037
+  terminal_audit_git_blob: 4907ac520a0317ae4a1da426f36dd25f537409a5
+scientific_variables:
+  datasets: 9
+  operating_points_per_task: 3
+  taper_onset_tau_grid: [0.0, 0.125, 0.25, 0.375, 0.5]
+  development_seeds: [200, 201, 202, 203]
+  held_out_seeds: [204, 205, 206, 207]
+  expected_units: 135
+  expected_branches: 540
+  trainer_updates: 1000000
+  eval_interval: 50000
+  eval_episodes: 10
+  reference_distance: 2.0
+  canonical_alpha: 0.11
+  trainer_expectile_tau: 0.5
+parameter_semantics:
+  tuned_name: taper_onset_tau
+  coordinate: normalized_rms_standardized_distance
+  formula: exp(-exponential_coefficient * max(u - taper_onset_tau, 0))
+  tau_zero_identity: exact_predecessor_e7_exponential_formula
+  forbidden_alias: bare_tau
+reporting:
+  primary_metric: late_window_mean_750k_to_1m
+  stability_diagnostics:
+    - late_window_std_across_seeds
+    - late_temporal_std_mean_across_seeds
+    - late_instantaneous_seed_std_mean
+    - final_std_across_seeds
+    - best_to_late_mean_drop_mean
+    - best_to_final_drop_mean
+  event_separation:
+    - task_performance_collapse
+    - support_or_variance_boundary_event
+    - nan_inf_numerical_failure
+prohibited_claims:
+  - held_out_confirmation
+  - convergence_or_steady_state
+  - cross_method_ranking
+  - formal_d4rl9_table_population
+  - post_hoc_seed_exclusion
+  - OOD_generalization
+registration_note: >-
+  This file is a non-authoritative code-first registration input. It does not
+  modify docs/handoff.md or experiments/registry.yaml and does not authorize a
+  run until the implementation commit is frozen and the deterministic
+  registration transaction is completed.

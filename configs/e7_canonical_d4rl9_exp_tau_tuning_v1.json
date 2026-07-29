@@ -1,0 +1,122 @@
+{
+  "experiment_id": "EXT-H-E7-D4RL9-EXP-TAU-TUNE-01",
+  "source_experiment_id": "EXT-H-E7-BENCH-01",
+  "predecessor_experiment_id": "EXT-H-E7-D4RL9-EXP-ALPHA-C-JOINT-TUNE-01",
+  "development_prior_binding": {
+    "repository": "easonhuo/drpo-results",
+    "result_ref": "ingest/e7",
+    "run_id": "E7_D4RL9_EXP_ALPHA_C_JOINT_TUNE_20260728_01",
+    "source_code_commit": "0cbc199f9484b8da1e8b11cba8df58ddddfcfcae",
+    "taskwise_selection_path": "runs/e7/E7_D4RL9_EXP_ALPHA_C_JOINT_TUNE_20260728_01/files/outputs/e7/d4rl9_exp_alpha_c_joint_run_001/TASKWISE_SELECTION.json",
+    "taskwise_selection_git_blob": "9c7c2b197864db2d5f73dc4f7b209b25b6893037",
+    "terminal_audit_path": "runs/e7/E7_D4RL9_EXP_ALPHA_C_JOINT_TUNE_20260728_01/files/outputs/e7/d4rl9_exp_alpha_c_joint_run_001/TERMINAL_AUDIT.json",
+    "terminal_audit_git_blob": "4907ac520a0317ae4a1da426f36dd25f537409a5",
+    "use": "freeze_three_taskwise_operating_points_per_dataset_only"
+  },
+  "run_kind": "pilot",
+  "scientific_status": "d4rl9_taskwise_exponential_taper_onset_tau_tuning_pilot_only",
+  "runner_version": "1.0.0-d4rl9-exp-taper-onset-tau",
+  "canonical_alpha": 0.11,
+  "reference_distance": 2.0,
+  "taper_coordinate": "normalized_rms_standardized_distance_u_equals_distance_over_reference_distance",
+  "taper_formula": "exp(-exponential_coefficient * max(u - taper_onset_tau, 0))",
+  "taper_onset_tau_grid": [0.0, 0.125, 0.25, 0.375, 0.5],
+  "fixed_max_workers": 60,
+  "parallel_units": 15,
+  "workers_per_unit": 4,
+  "source_run_spec_seeds": [200, 201],
+  "tuning_seeds": [200, 201, 202, 203],
+  "held_out_seeds": [204, 205, 206, 207],
+  "expected_datasets": [
+    "hopper-medium-v2",
+    "hopper-medium-replay-v2",
+    "hopper-medium-expert-v2",
+    "walker2d-medium-v2",
+    "walker2d-medium-replay-v2",
+    "walker2d-medium-expert-v2",
+    "halfcheetah-medium-v2",
+    "halfcheetah-medium-replay-v2",
+    "halfcheetah-medium-expert-v2"
+  ],
+  "operating_points_per_task": 3,
+  "candidate_count_per_task": 15,
+  "expected_unit_count": 135,
+  "expected_total_branches": 540,
+  "primary_selection_metric": "late_window_mean_750k_to_1m",
+  "late_window_steps": [750000, 800000, 850000, 900000, 950000, 1000000],
+  "taskwise_operating_points": {
+    "hopper-medium-v2": [
+      {"role": "performance", "negative_scale": 1.0, "exponential_coefficient": 0.15},
+      {"role": "stronger_taper_contrast", "negative_scale": 1.0, "exponential_coefficient": 0.3},
+      {"role": "scale_contrast", "negative_scale": 0.065, "exponential_coefficient": 0.15}
+    ],
+    "hopper-medium-replay-v2": [
+      {"role": "performance", "negative_scale": 1.0, "exponential_coefficient": 0.122666666667},
+      {"role": "local_c_contrast", "negative_scale": 1.0, "exponential_coefficient": 0.184},
+      {"role": "scale_contrast", "negative_scale": 0.6, "exponential_coefficient": 0.122666666667}
+    ],
+    "hopper-medium-expert-v2": [
+      {"role": "performance", "negative_scale": 0.01, "exponential_coefficient": 0.425},
+      {"role": "lowest_seed_std", "negative_scale": 0.01, "exponential_coefficient": 0.2125},
+      {"role": "robust_worst_seed", "negative_scale": 0.003, "exponential_coefficient": 0.85}
+    ],
+    "walker2d-medium-v2": [
+      {"role": "performance", "negative_scale": 0.003, "exponential_coefficient": 0.15},
+      {"role": "local_c_contrast", "negative_scale": 0.003, "exponential_coefficient": 0.2},
+      {"role": "scale_contrast", "negative_scale": 0.03, "exponential_coefficient": 0.2}
+    ],
+    "walker2d-medium-replay-v2": [
+      {"role": "performance", "negative_scale": 1.0, "exponential_coefficient": 0.0096},
+      {"role": "local_c_contrast", "negative_scale": 1.0, "exponential_coefficient": 0.0048},
+      {"role": "scale_contrast", "negative_scale": 0.03, "exponential_coefficient": 0.0096}
+    ],
+    "walker2d-medium-expert-v2": [
+      {"role": "performance", "negative_scale": 1.0, "exponential_coefficient": 0.64},
+      {"role": "stronger_taper_contrast", "negative_scale": 1.0, "exponential_coefficient": 1.28},
+      {"role": "scale_contrast", "negative_scale": 0.1, "exponential_coefficient": 0.64}
+    ],
+    "halfcheetah-medium-v2": [
+      {"role": "performance", "negative_scale": 1.0, "exponential_coefficient": 0.0416666666666},
+      {"role": "stronger_taper_contrast", "negative_scale": 1.0, "exponential_coefficient": 0.0833333333332},
+      {"role": "scale_contrast", "negative_scale": 0.02, "exponential_coefficient": 0.0416666666666}
+    ],
+    "halfcheetah-medium-replay-v2": [
+      {"role": "performance", "negative_scale": 1.0, "exponential_coefficient": 0.0046875},
+      {"role": "stronger_taper_contrast", "negative_scale": 1.0, "exponential_coefficient": 0.009375},
+      {"role": "scale_contrast", "negative_scale": 0.01, "exponential_coefficient": 0.0046875}
+    ],
+    "halfcheetah-medium-expert-v2": [
+      {"role": "performance", "negative_scale": 1.0, "exponential_coefficient": 2.3},
+      {"role": "stronger_taper_contrast", "negative_scale": 1.0, "exponential_coefficient": 4.6},
+      {"role": "scale_contrast", "negative_scale": 0.03, "exponential_coefficient": 2.3}
+    ]
+  },
+  "fixed_trainer_flags": {
+    "--variant": "iqlv_exp_rank",
+    "--alpha": "0.11",
+    "--tau": "0.5",
+    "--temp": "5.0",
+    "--steps": "1000000",
+    "--batch": "256",
+    "--lr": "0.0003",
+    "--eval_interval": "50000",
+    "--eval_episodes": "10"
+  },
+  "selection_rule": [
+    "maximize late_window_mean_across_seeds",
+    "then maximize late_window_min_across_seeds",
+    "then minimize best_to_late_mean_drop_mean",
+    "then choose the smaller taper_onset_tau",
+    "then choose the smaller negative_scale",
+    "then choose the smaller exponential_coefficient",
+    "then choose the earlier frozen candidate_index"
+  ],
+  "notes": [
+    "The trainer CLI flag --tau remains frozen at 0.5 and is the canonical critic expectile; it is not the DRPO taper threshold.",
+    "The tuned DRPO parameter is named taper_onset_tau everywhere to prevent name collision.",
+    "taper_onset_tau=0 is the exact current E7 Exponential formula anchor.",
+    "The five-point grid is deliberately local in normalized RMS-distance coordinates.",
+    "The three (s,c) operating points per task are frozen before execution and are not re-selected after observing tau results.",
+    "Held-out seeds 204-207 remain untouched; this is development tuning only."
+  ]
+}
