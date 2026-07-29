@@ -22,15 +22,22 @@ from drpo.workflow_replay.execute import (  # noqa: E402
     ExecutionError,
     build_paired_plans,
     build_plan,
+    normalize_fixture_attempt,
     run_fixture_plan,
 )
 from dev_integration_write_path import sha256, write_json  # noqa: E402
 from drpo.workflow_replay.evidence import (  # noqa: E402
+    EvidenceLocator,
     RunIdentity,
+    canonical_sha256,
     load_run_artifact,
     validate_r1_case_contract,
 )
 from drpo.workflow_replay.model import load_case_manifest  # noqa: E402
+from drpo.workflow_replay.trajectory import (  # noqa: E402
+    summarize_trajectory,
+    validate_r3_run_artifact,
+)
 from drpo.workflow_replay.orchestrate import (  # noqa: E402
     CandidateOutcome,
     OrchestrationError,
@@ -216,8 +223,6 @@ def test_real_pair_parser_preserves_candidate_and_adds_local_backend() -> None:
     )
     assert candidate.command == "candidate"
     assert pair.backend_id == "local-git-v1"
-
-
 def test_local_ref_reconstruction_and_workspace_identity(tmp_path: Path) -> None:
     source = tmp_path / "source"
     source.mkdir()
@@ -386,13 +391,7 @@ def test_historical_result_requires_exact_parent_and_paths(tmp_path: Path) -> No
 
 
 def test_real_journal_binds_commands_placements_and_operator_actions(tmp_path: Path) -> None:
-    identity = SimpleNamespace(
-        run_id="a" * 64,
-        arm="A",
-        case_id="CASE-001",
-        pair_id="pair-0",
-        order_position=0,
-    )
+    identity = RunIdentity.build("CASE-001", "A", "pair-0", 0, 0, "fixture-v1")
     journal = Journal(tmp_path / "events.jsonl", identity, "b" * 64, "c" * 64, tmp_path)
     result = journal.invoke(CommandSpec("child", (sys.executable, "-c", "pass")))
     journal.place(("repository:file.txt",))
@@ -405,6 +404,13 @@ def test_real_journal_binds_commands_placements_and_operator_actions(tmp_path: P
     assert events[-1]["payload"]["placement_path_count"] == 1
     assert events[-1]["payload"]["operator_action_count"] == 2
     assert timing["total_ns"] >= timing["child_ns"]
+    attempt = normalize_fixture_attempt(
+        identity, 0, _r3_locator(tmp_path, "events.jsonl", "real-jsonl"), tmp_path,
+        "real-binding.json", timing=timing,
+        output_artifact_locator=_r3_candidate(tmp_path, identity, 0),
+    )
+    assert attempt["observed_resources"]["command_count"] == 1
+    assert attempt["observed_resources"]["active_ns"] == timing["child_ns"]
 
 
 def _r1_contract(packet: Path, *, ready: bool, artifact_sha: str | None = None):
@@ -590,3 +596,163 @@ def test_adapter_stale_boundary_is_accepted_without_target_mutation(
     assert normalized.execution_terminal == "BLOCKED"
     assert normalized.outcome is not None
     assert normalized.outcome.diagnostic_codes == ("SOURCE_DRIFT",)
+
+R3_CAPABILITIES = {
+    "command_count": "OBSERVED", "active_ns": "OBSERVED", "retained_bytes": "OBSERVED",
+    "tool_operation_count": "UNAVAILABLE", "token_count": "UNAVAILABLE",
+    "message_count": "UNAVAILABLE", "monetary_microunits": "UNAVAILABLE",
+}
+
+
+def _r3_locator(root: Path, path: str, kind: str) -> EvidenceLocator:
+    raw = (root / path).read_bytes()
+    return EvidenceLocator(kind, path, sha256(root / path), len(raw))
+
+
+def _r3_json(root: Path, path: str, kind: str, payload: dict) -> EvidenceLocator:
+    write_json(root / path, payload)
+    return _r3_locator(root, path, kind)
+
+
+def _r3_candidate(root: Path, identity: RunIdentity, ordinal: int) -> EvidenceLocator:
+    attempt_id = canonical_sha256({"run_id": identity.run_id, "ordinal": ordinal})
+    return _r3_json(root, f"candidate-{ordinal}.json", f"candidate-{attempt_id}", {})
+
+
+def _r3_feedback(root: Path, identity: RunIdentity, ordinal: int) -> EvidenceLocator:
+    parent = canonical_sha256({"run_id": identity.run_id, "ordinal": ordinal - 1})
+    attempt = canonical_sha256({"run_id": identity.run_id, "ordinal": ordinal})
+    digest = canonical_sha256({"parent_attempt_id": parent, "repair_attempt_id": attempt})
+    return _r3_json(root, f"feedback-{ordinal}.json", f"feedback-{digest}", {})
+
+
+def _r3_run_payload(
+    root: Path, identity: RunIdentity, attempts: list[dict], acceptance: str
+) -> dict:
+    final_id = attempts[-1]["attempt_id"]
+    outcome = accepted = None
+    if acceptance != "NOT_AVAILABLE":
+        binding = {
+            "schema_version": 1, "case_id": identity.case_id, "arm": identity.arm,
+            "run_id": identity.run_id, "final_attempt_id": final_id,
+        }
+        outcome = _r3_json(root, "final-outcome.json", "final-outcome", binding)
+        accepted = _r3_json(
+            root, "acceptance.json", "acceptance",
+            {**binding, "final_acceptance": acceptance},
+        )
+    aggregate = {
+        name: sum(item["observed_resources"][name] for item in attempts)
+        for name, state in R3_CAPABILITIES.items() if state == "OBSERVED"
+    }
+    payload = {
+        "schema_version": 1,
+        "run_identity": {
+            "case_id": identity.case_id, "arm": identity.arm, "pair_id": identity.pair_id,
+            "repetition": identity.repetition, "order_position": identity.order_position,
+            "backend_id": identity.backend_id, "run_id": identity.run_id,
+        },
+        "base_sha": "1" * 40, "toolchain_sha": "2" * 40,
+        "environment_id": "linux-py311-fixture-v1", "cache_policy": "cold",
+        "backend_id": identity.backend_id, "resource_capabilities": R3_CAPABILITIES,
+        "attempts": attempts, "first_attempt_id": attempts[0]["attempt_id"],
+        "final_attempt_id": final_id,
+        "final_outcome_locator": None if outcome is None else vars(outcome),
+        "final_acceptance": acceptance,
+        "acceptance_evidence_locator": None if accepted is None else vars(accepted),
+        "aggregate_observed_resources": aggregate, "run_artifact_sha256": "",
+    }
+    unsigned = {key: value for key, value in payload.items() if key != "run_artifact_sha256"}
+    payload["run_artifact_sha256"] = canonical_sha256(unsigned)
+    return payload
+
+
+def _r3_fixture_attempt(
+    root: Path,
+    identity: RunIdentity,
+    ordinal: int,
+    status: int | BaseException,
+    *,
+    disposition: str | None = None,
+    feedback: bool = False,
+) -> dict:
+    raw = root / f"raw-{ordinal}.jsonl"
+    plan = build_plan(manifest(), identity.arm, (commands(f"r3-{ordinal}")[0],))
+    runner = (
+        (lambda _: (_ for _ in ()).throw(status))
+        if isinstance(status, BaseException) else (lambda _: status)
+    )
+    if isinstance(status, BaseException):
+        with pytest.raises(type(status)):
+            run_fixture_plan(plan, raw, identity.run_id, runner)
+    else:
+        run_fixture_plan(plan, raw, identity.run_id, runner)
+    needs_output = not isinstance(status, BaseException) and disposition != "ENVIRONMENT"
+    feedback_locator = _r3_feedback(root, identity, ordinal) if feedback else None
+    return normalize_fixture_attempt(
+        identity, ordinal, _r3_locator(root, raw.name, f"fixture-jsonl-{ordinal}"),
+        root, f"binding-{ordinal}.json", disposition=disposition,
+        output_artifact_locator=_r3_candidate(root, identity, ordinal) if needs_output else None,
+        feedback_class="EVALUATOR" if feedback else "NONE",
+        feedback_locator=feedback_locator,
+    )
+
+
+@pytest.mark.parametrize(
+    ("status", "acceptance", "terminal", "candidate_failures", "interruptions"),
+    [(0, "PASS", "SUCCEEDED", 0, 0), (7, "REJECTED", "FAILED", 1, 0),
+     (KeyboardInterrupt(), "NOT_AVAILABLE", "INTERRUPTED", 0, 1)],
+)
+def test_r3_fixture_normalization_single_attempts(
+    tmp_path: Path,
+    status: int | BaseException,
+    acceptance: str,
+    terminal: str,
+    candidate_failures: int,
+    interruptions: int,
+) -> None:
+    identity = RunIdentity.build(manifest().case_id, "A", "r3-single", 0, 0, "fixture-v1")
+    attempt = _r3_fixture_attempt(tmp_path, identity, 0, status)
+    summary = summarize_trajectory(
+        validate_r3_run_artifact(
+            _r3_run_payload(tmp_path, identity, [attempt], acceptance), tmp_path
+        )
+    )
+    assert summary.final_attempt_terminal == terminal
+    assert summary.candidate_failure_count == candidate_failures
+    assert summary.interruption_count == interruptions
+
+
+def test_r3_fixture_repair_success_retains_failed_initial_attempt(tmp_path: Path) -> None:
+    identity = RunIdentity.build(manifest().case_id, "B", "r3-repair", 0, 1, "fixture-v1")
+    attempts = [
+        _r3_fixture_attempt(tmp_path, identity, 0, 5),
+        _r3_fixture_attempt(tmp_path, identity, 1, 0, feedback=True),
+    ]
+    summary = summarize_trajectory(
+        validate_r3_run_artifact(_r3_run_payload(tmp_path, identity, attempts, "PASS"), tmp_path)
+    )
+    assert (summary.initial_terminal, summary.repair_count) == ("FAILED", 1)
+    assert (summary.candidate_failure_count, summary.final_attempt_terminal) == (1, "SUCCEEDED")
+
+
+def test_r3_fixture_environment_block_is_an_invalidation(tmp_path: Path) -> None:
+    identity = RunIdentity.build(manifest().case_id, "A", "r3-invalid", 0, 0, "fixture-v1")
+    attempt = _r3_fixture_attempt(tmp_path, identity, 0, 7, disposition="ENVIRONMENT")
+    summary = summarize_trajectory(
+        validate_r3_run_artifact(
+            _r3_run_payload(tmp_path, identity, [attempt], "NOT_AVAILABLE"), tmp_path
+        )
+    )
+    assert summary.invalidation_count == 1
+    assert summary.candidate_failure_count == 0
+
+
+def test_r3_fixture_and_historical_payload_share_run_schema(tmp_path: Path) -> None:
+    identity = RunIdentity.build(manifest().case_id, "A", "r3-history", 0, 0, "fixture-v1")
+    attempt = _r3_fixture_attempt(tmp_path, identity, 0, 0)
+    fixture = _r3_run_payload(tmp_path, identity, [attempt], "PASS")
+    historical = json.loads(json.dumps(fixture))
+    assert validate_r3_run_artifact(fixture, tmp_path) == validate_r3_run_artifact(
+        historical, tmp_path
+    )
