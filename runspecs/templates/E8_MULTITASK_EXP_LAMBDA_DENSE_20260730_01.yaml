@@ -4,7 +4,7 @@ lane: e8
 priority: 150
 created_at: "2026-07-30T07:33:42Z"
 experiment_id: EXT-C-E8-MULTITASK-EXP-LAMBDA-DENSE-01
-repo_commit: f4d3ec66a91a1f63a47ff152916a9453cfc1e15a
+repo_commit: 9af9155b9651c0b271368855cfb779d50a6c1adc
 
 registration:
   mode: deferred
@@ -33,7 +33,7 @@ purpose: >-
 entrypoint:
   cwd: repo_root
   command: >-
-    E8_DENSE_EXPECTED_COMMIT=f4d3ec66a91a1f63a47ff152916a9453cfc1e15a
+    E8_DENSE_EXPECTED_COMMIT=9af9155b9651c0b271368855cfb779d50a6c1adc
     E8_DENSE_PARENT_OUTPUT_ROOT=/root/experiment_output/e8_multitask_exp_tuning_01
     E8_DENSE_BASE_MODEL_PATH=/root/models/Qwen2.5-0.5B-Instruct
     E8_DENSE_OUTPUT_ROOT=outputs/e8/e8_multitask_exp_lambda_dense_001
@@ -43,7 +43,7 @@ recovery:
   enabled: true
   max_attempts: 2
   resume_command: >-
-    E8_DENSE_EXPECTED_COMMIT=f4d3ec66a91a1f63a47ff152916a9453cfc1e15a
+    E8_DENSE_EXPECTED_COMMIT=9af9155b9651c0b271368855cfb779d50a6c1adc
     E8_DENSE_PARENT_OUTPUT_ROOT=/root/experiment_output/e8_multitask_exp_tuning_01
     E8_DENSE_BASE_MODEL_PATH=/root/models/Qwen2.5-0.5B-Instruct
     E8_DENSE_OUTPUT_ROOT=outputs/e8/e8_multitask_exp_lambda_dense_001
@@ -70,7 +70,7 @@ outputs:
   audit_file: outputs/e8/e8_multitask_exp_lambda_dense_001/terminal_audit.json
 
 success_criteria:
-  - source checkout is clean and exactly matches implementation commit f4d3ec66a91a1f63a47ff152916a9453cfc1e15a
+  - source checkout is clean and exactly matches implementation commit 9af9155b9651c0b271368855cfb779d50a6c1adc
   - predecessor identity is E8_MULTITASK_EXP_TUNING_20260729_01 at drpo-results commit 26cf09102e4eaea9b58844fac158dc3cfc33314d
   - predecessor plan, split, reference, and aggregate artifacts match their frozen SHA-256 identities
   - Countdown and Spiral Matrix are not present in the new training matrix
