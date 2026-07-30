@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -495,6 +496,53 @@ def test_exp_tuning_matrix_has_one_positive_and_seven_exp_per_task() -> None:
         assert {
             cell.rho for cell in task_cells if cell.method == exp_tuning.METHOD_EXPONENTIAL
         } == {0.9, 0.75, 0.6, 0.5, 0.35, 0.25, 0.125}
+
+
+def test_exp_dense_matrix_is_seven_task_local_sixteen_cell_waves() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_dense.yaml"))
+    cells = exp_tuning.build_cells(config)
+    waves = exp_tuning.build_waves(config)
+
+    assert len(cells) == 112
+    assert len({cell.key for cell in cells}) == 112
+    assert {cell.task for cell in cells} == set(exp_tuning.TASK_NAMES) - {
+        "countdown",
+        "spiral_matrix",
+    }
+    assert all(cell.method == exp_tuning.METHOD_EXPONENTIAL for cell in cells)
+    assert all(cell.lambda_value is not None for cell in cells)
+    assert [len(wave) for wave in waves] == [16] * 7
+    assert all(len({cell.task for cell in wave}) == 1 for wave in waves)
+    predecessor_lambdas = {-math.log(rho) for rho in (0.9, 0.75, 0.6, 0.5, 0.35, 0.25, 0.125)}
+    for task in config["suite"]["tasks"]:
+        task_cells = [cell for cell in cells if cell.task == task]
+        lambdas = {float(cell.lambda_value) for cell in task_cells}
+        bridge = float(config["sweep"]["bridge_lambda"][task])
+        assert len(lambdas) == 16
+        assert bridge in lambdas
+        assert lambdas & predecessor_lambdas == {bridge}
+
+
+def test_exp_dense_config_rejects_task_grid_or_bridge_drift() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_dense.yaml"))
+    changed = json.loads(json.dumps(config))
+    changed["sweep"]["task_lambda"]["maze"][-1] = changed["sweep"]["task_lambda"]["maze"][-2]
+    with pytest.raises(ValueError, match="16 unique"):
+        exp_tuning.validate_config(changed)
+
+    changed = json.loads(json.dumps(config))
+    changed["sweep"]["bridge_lambda"]["wikisql"] = 9.0
+    with pytest.raises(ValueError, match="bridge lambda"):
+        exp_tuning.validate_config(changed)
+
+    changed = json.loads(json.dumps(config))
+    changed["execution"]["expected_waves"] = 6
+    with pytest.raises(ValueError, match="7 waves"):
+        exp_tuning.validate_config(changed)
 
 
 def test_exp_tuning_config_rejects_matrix_or_budget_drift() -> None:
@@ -1016,6 +1064,23 @@ def test_exp_tuning_countdown_normalization_preserves_frozen_split() -> None:
     }
 
 
+def test_exp_tuning_duplicate_negative_allowance_is_countdown_only() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    negatives = [
+        {
+            "negative_id": f"negative-{index}",
+            "completion": "cycle-padded completion",
+            "binary_correct": False,
+        }
+        for index in range(16)
+    ]
+    row = {"prompt_id": "prompt-0", "negatives": negatives}
+    exp_tuning._audit_training_rows("countdown", [row], 1)
+    with pytest.raises(RuntimeError, match="duplicate negative completions"):
+        exp_tuning._audit_training_rows("word_sorting", [row], 1)
+
+
 def test_exp_tuning_liveness_does_not_open_validation_split(tmp_path: Path) -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
@@ -1092,3 +1157,257 @@ def test_exp_tuning_aggregate_selects_declared_late_window_winner(tmp_path: Path
         assert task_summary["selected_exp"]["rho"] == pytest.approx(0.5)
         assert not task_summary["strong_taper_boundary_unclosed"]
         assert not task_summary["all_exp_below_positive_only"]
+
+
+def test_exp_dense_aggregate_combines_parent_anchors_and_bridge_reruns(
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_dense.yaml"))
+    parent_rows: list[dict] = []
+    parent_rhos = (None, 0.9, 0.75, 0.6, 0.5, 0.35, 0.25, 0.125)
+    for task in config["suite"]["tasks"]:
+        for index, rho in enumerate(parent_rhos):
+            method = (
+                exp_tuning.METHOD_POSITIVE_ONLY if rho is None else exp_tuning.METHOD_EXPONENTIAL
+            )
+            parent_rows.append(
+                {
+                    "source": "predecessor",
+                    "task": task,
+                    "method": method,
+                    "rho": rho,
+                    "lambda": None if rho is None else -math.log(rho),
+                    "seed": 2026072904,
+                    "cell_key": f"{task}-parent-{index}",
+                    "late_window_pass8_mean": 0.40 if rho is None else 0.42,
+                    "terminal_pass8": 0.41,
+                    "late_window_greedy_mean": 0.39,
+                    "terminal_greedy": 0.38,
+                    "terminal_greedy_valid_rate": 0.99,
+                    "nan_inf_failure": False,
+                }
+            )
+    p0.atomic_json(
+        tmp_path / "inherited" / "parent_response.json",
+        {
+            "experiment_id": exp_tuning.DENSE_EXPERIMENT_ID,
+            "config_hash": exp_tuning.stable_config_hash(config),
+            "rows": parent_rows,
+            "complete": True,
+        },
+    )
+
+    expected_selected: dict[str, float] = {}
+    for task in config["suite"]["tasks"]:
+        task_lambdas = [float(value) for value in config["sweep"]["task_lambda"][task]]
+        target = task_lambdas[len(task_lambdas) // 2]
+        expected_selected[task] = target
+        for cell in [value for value in exp_tuning.build_cells(config) if value.task == task]:
+            late = 0.55 - abs(float(cell.lambda_value) - target) * 0.01
+            p0.atomic_json(
+                tmp_path / "cells" / cell.key / "cell_manifest.json",
+                {
+                    "complete": True,
+                    "evaluation_status": "complete",
+                    "validation_late_window_pass8_mean": late,
+                    "validation_terminal_pass8": late - 0.01,
+                    "validation_late_window_greedy_mean": late - 0.02,
+                    "validation_terminal_greedy": late - 0.03,
+                    "validation_terminal_greedy_valid_rate": 0.99,
+                    "nan_inf_failure": False,
+                },
+            )
+
+    summary = exp_tuning.cmd_aggregate(config, tmp_path)
+    assert summary["cell_count"] == 112
+    assert summary["combined_response_point_count"] == 168
+    assert summary["positive_only_source"] == "inherited_parent"
+    for task, task_summary in summary["tasks"].items():
+        assert task_summary["selected_dense_exp"]["lambda"] == pytest.approx(
+            expected_selected[task]
+        )
+        assert not task_summary["selected_on_grid_edge"]
+        assert task_summary["bridge"]["report_only"]
+
+
+def test_exp_dense_inherit_pins_parent_and_rebinds_train_only_references(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_dense.yaml"))
+    config = json.loads(json.dumps(config))
+    parent_config = exp_tuning.load_config(Path("configs/e8_multitask_exp_tuning.yaml"))
+    parent_root = tmp_path / "parent"
+    child_root = tmp_path / "child"
+    sources_root = tmp_path / "sources"
+    sources_root.mkdir()
+    parent_hash = exp_tuning.stable_config_hash(parent_config)
+    tasks = tuple(str(task) for task in config["suite"]["tasks"])
+
+    parent_splits: dict[str, object] = {
+        "experiment_id": exp_tuning.EXPERIMENT_ID,
+        "config_hash": parent_hash,
+        "tasks": {},
+        "complete": True,
+    }
+    parent_inputs: dict[str, exp_tuning.TaskInputs] = {}
+    reference_tasks: dict[str, dict] = {}
+    for task in tasks:
+        train_path = parent_root / "splits" / task / "train.jsonl"
+        p0.atomic_jsonl(train_path, [{"prompt_id": f"{task}-train-0"}])
+        bank_path = tmp_path / f"{task}-bank.jsonl"
+        p0.atomic_jsonl(bank_path, [{"prompt_id": f"{task}-bank-0"}])
+        p0_config_path = Path("configs/e8_multitask_p0.yaml").resolve()
+        parent_splits["tasks"][task] = {
+            "paths": {"train": str(train_path)},
+            "prompt_id_hashes": {"train": f"{task}-train-hash"},
+            "p0_config_sha256": exp_tuning.sha256_file(p0_config_path),
+            "bank_sha256": exp_tuning.sha256_file(bank_path),
+        }
+        parent_inputs[task] = exp_tuning.TaskInputs(
+            task=task,
+            bank=bank_path,
+            reference_adapter=None,
+            sources_root=sources_root,
+            p0_config=p0_config_path,
+        )
+        adapter = parent_root / "references" / task / "adapter"
+        adapter.mkdir(parents=True)
+        (adapter / "adapter_config.json").write_text("{}", encoding="utf-8")
+        (adapter / "adapter_model.safetensors").write_bytes(task.encode("utf-8"))
+        task_manifest = {
+            "experiment_id": exp_tuning.EXPERIMENT_ID,
+            "task": task,
+            "identity_hash": f"parent-{task}",
+            "checkpoint_kind": config["reference"]["checkpoint_kind"],
+            "adapter_path": str(adapter),
+            "adapter_identity": {"path": str(adapter)},
+            "complete": True,
+            "train_only_reference": True,
+            "train_rows_seen": 5000,
+            "validation_rows_seen": 0,
+            "test_rows_seen": 0,
+        }
+        p0.atomic_json(
+            parent_root / "references" / task / "task_manifest.json",
+            task_manifest,
+        )
+        reference_tasks[task] = task_manifest
+
+    p0.atomic_json(
+        parent_root / "plan.json",
+        {
+            "experiment_id": exp_tuning.EXPERIMENT_ID,
+            "config_hash": parent_hash,
+            "cell_count": 72,
+        },
+    )
+    p0.atomic_json(
+        parent_root / "aggregate" / "aggregate_summary.json",
+        {
+            "experiment_id": exp_tuning.EXPERIMENT_ID,
+            "cell_count": 72,
+            "test_partition_accessed": False,
+        },
+    )
+    p0.atomic_json(
+        exp_tuning.reference_manifest_path(parent_root),
+        {
+            "experiment_id": exp_tuning.EXPERIMENT_ID,
+            "config_hash": parent_hash,
+            "checkpoint_kind": config["reference"]["checkpoint_kind"],
+            "tasks": reference_tasks,
+            "complete": True,
+            "validation_rows_seen": 0,
+            "test_rows_seen": 0,
+        },
+    )
+    for cell in exp_tuning.build_cells(parent_config):
+        if cell.task not in tasks:
+            continue
+        p0.atomic_json(
+            parent_root / "cells" / cell.key / "cell_manifest.json",
+            {
+                "experiment_id": exp_tuning.EXPERIMENT_ID,
+                "config_hash": parent_hash,
+                "complete": True,
+                "evaluation_status": "complete",
+                "validation_late_window_pass8_mean": 0.5,
+                "validation_terminal_pass8": 0.49,
+                "validation_late_window_greedy_mean": 0.48,
+                "validation_terminal_greedy": 0.47,
+                "validation_terminal_greedy_valid_rate": 0.99,
+                "nan_inf_failure": False,
+            },
+        )
+
+    config["parent"]["config_hash"] = parent_hash
+    artifact_paths = {
+        "plan": parent_root / "plan.json",
+        "split_manifest": parent_root / "split_manifest.json",
+        "reference_manifest": exp_tuning.reference_manifest_path(parent_root),
+        "aggregate_summary": parent_root / "aggregate" / "aggregate_summary.json",
+    }
+    p0.atomic_json(parent_root / "split_manifest.json", parent_splits)
+    config["parent"]["artifact_sha256"] = {
+        name: exp_tuning.sha256_file(path) for name, path in artifact_paths.items()
+    }
+
+    calls: list[Path] = []
+
+    def fake_load_ready_inputs(
+        output_root: Path,
+        loaded_config: dict,
+        **kwargs: object,
+    ) -> tuple[dict, dict]:
+        del kwargs
+        calls.append(output_root)
+        if output_root == parent_root:
+            assert loaded_config == parent_config
+            return parent_splits, parent_inputs
+        assert output_root == child_root
+        return json.loads((child_root / "split_manifest.json").read_text()), parent_inputs
+
+    monkeypatch.setattr(exp_tuning, "_load_ready_inputs", fake_load_ready_inputs)
+    monkeypatch.setattr(
+        exp_tuning,
+        "model_identity",
+        lambda model_path, adapter_path: {
+            "model": {"path": model_path},
+            "adapter": {"path": adapter_path},
+        },
+    )
+    monkeypatch.setattr(
+        exp_tuning,
+        "_reference_warmstart_config",
+        lambda *args, **kwargs: {
+            "checkpoint_kind": config["reference"]["checkpoint_kind"],
+            "micro_batch": 2,
+            "gradient_accumulation": 32,
+        },
+    )
+
+    snapshot = exp_tuning.cmd_inherit(
+        config,
+        child_root,
+        parent_output_root=parent_root,
+        parent_config_path=Path("configs/e8_multitask_exp_tuning.yaml"),
+        base_model_path="base-model",
+    )
+    assert snapshot["complete"]
+    assert calls == [parent_root, child_root]
+    assert json.loads((child_root / "plan.json").read_text())["cell_count"] == 112
+    parent_response = json.loads((child_root / "inherited" / "parent_response.json").read_text())
+    assert len(parent_response["rows"]) == 56
+    child_reference = json.loads(exp_tuning.reference_manifest_path(child_root).read_text())
+    for task in tasks:
+        assert (
+            child_reference["tasks"][task]["adapter_path"] == reference_tasks[task]["adapter_path"]
+        )
+        assert child_reference["tasks"][task]["inherited_from"]["parent_identity_hash"] == (
+            f"parent-{task}"
+        )

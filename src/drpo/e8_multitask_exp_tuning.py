@@ -1,9 +1,9 @@
-"""Nine-task exponential taper tuning on frozen P0 banks and reference adapters.
+"""Exponential-taper response tuning on frozen multitask banks and references.
 
 The module keeps the P0 occurrence/gradient diagnostic separate from downstream
-method tuning.  It constructs one deterministic 72-cell development matrix:
-seven exponential retentions and one Positive-only baseline for each of nine
-external discrete tasks.
+method tuning.  It supports the original nine-task 72-cell rho sweep and its
+seven-task, 112-cell task-local lambda refinement successor without changing the
+training, validation, or no-test-access contracts.
 """
 
 from __future__ import annotations
@@ -54,6 +54,7 @@ from drpo.e8_multitask_p0 import (
     stable_config_hash,
     train_task_positive_warmstart,
     validate_work_dir,
+    with_smoke_overrides,
 )
 from drpo.e8_multitask_tasks import (
     TASK_NAMES,
@@ -63,11 +64,17 @@ from drpo.e8_multitask_tasks import (
 )
 
 EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-TUNING-01"
-PARENT_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-P0-01"
+DENSE_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-DENSE-01"
+SUPPORTED_EXPERIMENT_IDS = (EXPERIMENT_ID, DENSE_EXPERIMENT_ID)
+P0_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-P0-01"
+# Backward-compatible name used by predecessor tests and downstream callers.
+PARENT_EXPERIMENT_ID = P0_EXPERIMENT_ID
 DEFAULT_CONFIG = Path("configs/e8_multitask_exp_tuning.yaml")
 DEFAULT_P0_CONFIG = Path("configs/e8_multitask_p0.yaml")
 METHOD_POSITIVE_ONLY = "positive_only"
 METHOD_EXPONENTIAL = "exponential"
+SWEEP_PROFILE_RHO = "nine_task_rho_v1"
+SWEEP_PROFILE_DENSE = "task_lambda_dense_v1"
 
 
 @dataclass(frozen=True)
@@ -77,6 +84,7 @@ class Cell:
     rho: float | None
     seed: int
     stage: str
+    lambda_value: float | None = None
 
     @property
     def key(self) -> str:
@@ -84,6 +92,9 @@ class Cell:
             return f"{self.task}__positive_only__seed{self.seed}"
         if self.rho is None:
             raise AssertionError("Exponential cell requires rho")
+        if self.lambda_value is not None:
+            tag = f"{self.lambda_value:.12g}".replace(".", "p")
+            return f"{self.task}__exp_lambda{tag}__seed{self.seed}"
         tag = f"{self.rho:.6f}".rstrip("0").rstrip(".").replace(".", "p")
         return f"{self.task}__exp_rho{tag}__seed{self.seed}"
 
@@ -121,21 +132,87 @@ def _tuple_floats(values: Sequence[Any]) -> tuple[float, ...]:
     return tuple(float(value) for value in values)
 
 
+def experiment_id(config: Mapping[str, Any]) -> str:
+    value = str(config.get("experiment_id", ""))
+    if value not in SUPPORTED_EXPERIMENT_IDS:
+        raise ValueError(f"Unsupported experiment_id: {value}")
+    return value
+
+
+def sweep_profile(config: Mapping[str, Any]) -> str:
+    return str(config.get("sweep", {}).get("profile", SWEEP_PROFILE_RHO))
+
+
+def _is_dense(config: Mapping[str, Any]) -> bool:
+    return sweep_profile(config) == SWEEP_PROFILE_DENSE
+
+
+def _dense_tasks() -> set[str]:
+    return set(TASK_NAMES) - {"countdown", "spiral_matrix"}
+
+
+def _task_lambdas(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
+    if not _is_dense(config):
+        raise ValueError("Task-local lambdas are only defined for the dense profile")
+    values = _tuple_floats(config["sweep"]["task_lambda"][task])
+    if any(not math.isfinite(value) or value <= 0.0 for value in values):
+        raise ValueError(f"{task} lambda values must be finite and positive")
+    return values
+
+
+def _task_rhos(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
+    if _is_dense(config):
+        return tuple(math.exp(-value) for value in _task_lambdas(config, task))
+    return _tuple_floats(config["sweep"]["all_rho"])
+
+
+def _reference_seed(
+    config: Mapping[str, Any],
+    warmstart_config: Mapping[str, Any],
+    task: str,
+) -> int:
+    configured = config.get("reference", {}).get("task_seeds")
+    if isinstance(configured, Mapping):
+        if task not in configured:
+            raise ValueError(f"reference.task_seeds is missing {task}")
+        return int(configured[task])
+    p0_tasks = tuple(str(value) for value in config["suite"]["p0_tasks"])
+    return int(warmstart_config["seed"]) + p0_tasks.index(task) * 100_003
+
+
 def validate_config(config: Mapping[str, Any]) -> None:
     if config.get("schema_version") != 1:
         raise ValueError("Expected schema_version: 1")
-    if config.get("experiment_id") != EXPERIMENT_ID:
-        raise ValueError(f"Expected experiment_id: {EXPERIMENT_ID}")
-    if config.get("parent", {}).get("experiment_id") != PARENT_EXPERIMENT_ID:
+    current_experiment = experiment_id(config)
+    profile = sweep_profile(config)
+    if profile not in (SWEEP_PROFILE_RHO, SWEEP_PROFILE_DENSE):
+        raise ValueError(f"Unsupported sweep profile: {profile}")
+    expected_parent = EXPERIMENT_ID if profile == SWEEP_PROFILE_DENSE else P0_EXPERIMENT_ID
+    if config.get("parent", {}).get("experiment_id") != expected_parent:
         raise ValueError("Unexpected parent experiment")
 
     tasks = tuple(config.get("suite", {}).get("tasks", ()))
-    if len(tasks) != 9 or len(set(tasks)) != 9 or set(tasks) != set(TASK_NAMES):
-        raise ValueError("The tuning suite must be Countdown plus the exact eight P0 tasks")
-    if set(config["suite"].get("p0_tasks", ())) != set(TASK_NAMES) - {"countdown"}:
-        raise ValueError("suite.p0_tasks must be the exact eight P0 tasks")
-    if tuple(config["suite"].get("external_tasks", ())) != ("countdown",):
-        raise ValueError("Countdown must be the only external task")
+    if profile == SWEEP_PROFILE_RHO:
+        if len(tasks) != 9 or len(set(tasks)) != 9 or set(tasks) != set(TASK_NAMES):
+            raise ValueError("The rho suite must be Countdown plus the exact eight P0 tasks")
+        if set(config["suite"].get("p0_tasks", ())) != set(TASK_NAMES) - {"countdown"}:
+            raise ValueError("suite.p0_tasks must be the exact eight P0 tasks")
+        if tuple(config["suite"].get("external_tasks", ())) != ("countdown",):
+            raise ValueError("Countdown must be the only external task")
+    else:
+        if (
+            current_experiment != DENSE_EXPERIMENT_ID
+            or len(tasks) != 7
+            or len(set(tasks)) != 7
+            or set(tasks) != _dense_tasks()
+        ):
+            raise ValueError(
+                "The dense suite must be the exact seven non-Countdown, non-Spiral tasks"
+            )
+        if tuple(config["suite"].get("p0_tasks", ())) != tasks:
+            raise ValueError("Dense suite.p0_tasks must preserve the exact task order")
+        if tuple(config["suite"].get("external_tasks", ())) != ():
+            raise ValueError("Dense refinement has no external Countdown task")
     reference = config["reference"]
     if reference["checkpoint_kind"] != "train_only_task_positive_warmstart_100":
         raise ValueError("P0 task references must be train-only 100-update warm starts")
@@ -149,9 +226,14 @@ def validate_config(config: Mapping[str, Any]) -> None:
         "p0_train_rows": 5000,
         "p0_validation_rows": 500,
         "p0_test_rows": 500,
-        "countdown_train_rows": 5000,
-        "countdown_validation_rows": 500,
     }
+    if profile == SWEEP_PROFILE_RHO:
+        expected_split.update(
+            {
+                "countdown_train_rows": 5000,
+                "countdown_validation_rows": 500,
+            }
+        )
     for key, expected in expected_split.items():
         if int(split[key]) != expected:
             raise ValueError(f"{key} must remain {expected}")
@@ -216,22 +298,50 @@ def validate_config(config: Mapping[str, Any]) -> None:
         raise ValueError("Initial negative-gradient target must remain 1/32 of positive")
 
     sweep = config["sweep"]
-    if _tuple_floats(sweep["coarse_rho"]) != (0.9, 0.6, 0.35, 0.125):
-        raise ValueError("Unexpected coarse rho grid")
-    if _tuple_floats(sweep["refinement_rho"]) != (0.75, 0.5, 0.25):
-        raise ValueError("Unexpected refinement rho grid")
-    if _tuple_floats(sweep["all_rho"]) != (0.9, 0.75, 0.6, 0.5, 0.35, 0.25, 0.125):
-        raise ValueError("Unexpected full rho grid")
-    if int(sweep["positive_only_per_task"]) != 1 or int(sweep["expected_cells"]) != 72:
-        raise ValueError("The frozen matrix must be 7 Exp plus 1 Positive-only per task")
+    if profile == SWEEP_PROFILE_RHO:
+        if _tuple_floats(sweep["coarse_rho"]) != (0.9, 0.6, 0.35, 0.125):
+            raise ValueError("Unexpected coarse rho grid")
+        if _tuple_floats(sweep["refinement_rho"]) != (0.75, 0.5, 0.25):
+            raise ValueError("Unexpected refinement rho grid")
+        if _tuple_floats(sweep["all_rho"]) != (
+            0.9,
+            0.75,
+            0.6,
+            0.5,
+            0.35,
+            0.25,
+            0.125,
+        ):
+            raise ValueError("Unexpected full rho grid")
+        if int(sweep["positive_only_per_task"]) != 1 or int(sweep["expected_cells"]) != 72:
+            raise ValueError("The rho matrix must be 7 Exp plus 1 Positive-only per task")
+    else:
+        task_lambda = sweep.get("task_lambda")
+        bridges = sweep.get("bridge_lambda")
+        if not isinstance(task_lambda, Mapping) or set(task_lambda) != set(tasks):
+            raise ValueError("Dense task_lambda must contain the exact seven tasks")
+        if not isinstance(bridges, Mapping) or set(bridges) != set(tasks):
+            raise ValueError("Dense bridge_lambda must contain the exact seven tasks")
+        for task in tasks:
+            values = _task_lambdas(config, task)
+            if len(values) != 16 or len(set(values)) != 16:
+                raise ValueError(f"{task} must contain 16 unique lambda values")
+            bridge = float(bridges[task])
+            if bridge not in values:
+                raise ValueError(f"{task} bridge lambda must be one of its 16 cells")
+        if int(sweep["positive_only_per_task"]) != 0 or int(sweep["expected_cells"]) != 112:
+            raise ValueError("The dense matrix must be 16 Exp cells for each of seven tasks")
+        if int(sweep["tuning_seed"]) != 2026072904:
+            raise ValueError("Dense shape discovery must preserve the predecessor tuning seed")
 
     execution = config["execution"]
     if int(execution["max_concurrent_cells"]) != 16:
         raise ValueError("The scheduler must expose exactly 16 slots")
     if tuple(int(value) for value in execution["gpu_ids"]) != tuple(range(8)):
         raise ValueError("The default GPU pool must remain 0--7")
-    if int(execution["slots_per_gpu"]) != 2 or int(execution["expected_waves"]) != 5:
-        raise ValueError("The frozen topology is two slots per GPU and five waves")
+    expected_waves = 7 if profile == SWEEP_PROFILE_DENSE else 5
+    if int(execution["slots_per_gpu"]) != 2 or int(execution["expected_waves"]) != expected_waves:
+        raise ValueError(f"The frozen topology is two slots per GPU and {expected_waves} waves")
 
 
 def coefficient_from_rho(rho: float) -> float:
@@ -261,6 +371,22 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
     validate_config(config)
     tasks = tuple(str(task) for task in config["suite"]["tasks"])
     seed = int(config["sweep"]["tuning_seed"])
+    if _is_dense(config):
+        cells = tuple(
+            Cell(
+                task,
+                METHOD_EXPONENTIAL,
+                math.exp(-lambda_value),
+                seed,
+                "dense",
+                lambda_value,
+            )
+            for task in tasks
+            for lambda_value in _task_lambdas(config, task)
+        )
+        if len(cells) != 112 or len({cell.key for cell in cells}) != 112:
+            raise AssertionError("Internal 112-cell identity failure")
+        return cells
     coarse = _tuple_floats(config["sweep"]["coarse_rho"])
     refinement = _tuple_floats(config["sweep"]["refinement_rho"])
     cells: list[Cell] = []
@@ -277,6 +403,14 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
 def build_waves(config: Mapping[str, Any]) -> tuple[tuple[Cell, ...], ...]:
     cells = build_cells(config)
     capacity = int(config["execution"]["max_concurrent_cells"])
+    if _is_dense(config):
+        waves = tuple(
+            tuple(cell for cell in cells if cell.task == str(task))
+            for task in config["suite"]["tasks"]
+        )
+        if len(waves) != 7 or any(len(wave) != capacity for wave in waves):
+            raise AssertionError("Dense wave geometry must be seven task-local 16-cell waves")
+        return waves
     coarse = tuple(cell for cell in cells if cell.stage == "coarse")
     refinement = tuple(cell for cell in cells if cell.stage == "refinement")
 
@@ -310,14 +444,18 @@ def write_plan(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
                     "task": cell.task,
                     "method": cell.method,
                     "rho": cell.rho,
-                    "lambda": None if cell.rho is None else coefficient_from_rho(cell.rho),
+                    "lambda": (
+                        cell.lambda_value
+                        if cell.lambda_value is not None
+                        else (None if cell.rho is None else coefficient_from_rho(cell.rho))
+                    ),
                     "seed": cell.seed,
                     "stage": cell.stage,
                 }
             )
     plan = {
         "schema_version": 1,
-        "experiment_id": EXPERIMENT_ID,
+        "experiment_id": experiment_id(config),
         "config_hash": stable_config_hash(config),
         "cell_count": len(rows),
         "wave_count": len(waves),
@@ -431,7 +569,7 @@ def _audit_training_rows(task: str, rows: Sequence[Mapping[str, Any]], expected:
                 f"{task}/{row['prompt_id']} must have exactly 16 negatives, found {len(negatives)}"
             )
         completions = [str(item["completion"]) for item in negatives]
-        if len(set(completions)) != 16:
+        if task != "countdown" and len(set(completions)) != 16:
             raise RuntimeError(f"{task}/{row['prompt_id']} has duplicate negative completions")
         if any(bool(item.get("binary_correct", item.get("correct", False))) for item in negatives):
             raise RuntimeError(f"{task}/{row['prompt_id']} contains a verifier-correct negative")
@@ -526,7 +664,7 @@ def resolve_task_inputs(
     p0_config_value = yaml.safe_load(p0_config.read_text(encoding="utf-8"))
     if (
         not isinstance(p0_config_value, dict)
-        or p0_config_value.get("experiment_id") != PARENT_EXPERIMENT_ID
+        or p0_config_value.get("experiment_id") != P0_EXPERIMENT_ID
     ):
         raise RuntimeError("P0 config identity mismatch")
     qualification_path = p0_work_dir / "qualification_audit.json"
@@ -534,8 +672,15 @@ def resolve_task_inputs(
         raise FileNotFoundError(f"Missing P0 qualification audit: {qualification_path}")
     qualification = json.loads(qualification_path.read_text(encoding="utf-8"))
     if (
-        qualification.get("experiment_id") != PARENT_EXPERIMENT_ID
-        or qualification.get("config_hash") != stable_config_hash(p0_config_value)
+        qualification.get("experiment_id") != P0_EXPERIMENT_ID
+        or qualification.get("config_hash")
+        != stable_config_hash(
+            with_smoke_overrides(
+                p0_config_value,
+                rows=None,
+                negatives=None,
+            )
+        )
         or not qualification.get("passed")
     ):
         raise RuntimeError("P0 bank qualification identity or pass status mismatch")
@@ -574,7 +719,7 @@ def resolve_task_inputs(
         if not inputs.sources_root.is_dir():
             raise FileNotFoundError(f"Missing sources root for {task}: {inputs.sources_root}")
     if set(result) != set(config["suite"]["tasks"]):
-        raise AssertionError("Resolved inputs do not match the nine-task suite")
+        raise AssertionError("Resolved inputs do not match the configured suite")
     return result
 
 
@@ -634,11 +779,11 @@ def write_split_manifest(
         }
     manifest = {
         "schema_version": 1,
-        "experiment_id": EXPERIMENT_ID,
+        "experiment_id": experiment_id(config),
         "config_hash": stable_config_hash(config),
         "test_access_allowed": False,
         "tasks": task_records,
-        "complete": len(task_records) == 9,
+        "complete": len(task_records) == len(config["suite"]["tasks"]),
         "scientific_status": "not_run",
     }
     atomic_json(output_root / "split_manifest.json", manifest)
@@ -655,6 +800,8 @@ def cmd_prepare(
     countdown_validation: Path,
     countdown_adapter: Path,
 ) -> dict[str, Any]:
+    if _is_dense(config):
+        raise RuntimeError("Dense refinement must use inherit, not prepare")
     inputs = resolve_task_inputs(
         config,
         p0_work_dir=p0_work_dir,
@@ -681,16 +828,236 @@ def cmd_prepare(
     }
     manifest = {
         "schema_version": 1,
-        "experiment_id": EXPERIMENT_ID,
+        "experiment_id": experiment_id(config),
         "config_hash": stable_config_hash(config),
         "plan": str((output_root / "plan.json").resolve()),
         "split_manifest": str((output_root / "split_manifest.json").resolve()),
         "inputs": serialized_inputs,
-        "complete": plan["cell_count"] == 72 and splits["complete"],
+        "complete": plan["cell_count"] == int(config["sweep"]["expected_cells"])
+        and splits["complete"],
         "scientific_status": "not_run",
     }
     atomic_json(output_root / "prepare_manifest.json", manifest)
     return manifest
+
+
+def _parent_response_rows(
+    parent_config: Mapping[str, Any],
+    parent_output_root: Path,
+    tasks: set[str],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    expected_hash = stable_config_hash(parent_config)
+    for cell in build_cells(parent_config):
+        if cell.task not in tasks:
+            continue
+        path = parent_output_root / "cells" / cell.key / "cell_manifest.json"
+        if not path.is_file():
+            raise FileNotFoundError(f"Missing predecessor cell manifest: {path}")
+        value = json.loads(path.read_text(encoding="utf-8"))
+        if (
+            value.get("experiment_id") != experiment_id(parent_config)
+            or value.get("config_hash") != expected_hash
+            or not value.get("complete")
+            or value.get("evaluation_status") != "complete"
+            or value.get("nan_inf_failure") is not False
+        ):
+            raise RuntimeError(f"Predecessor cell is not reusable: {cell.key}")
+        rows.append(
+            {
+                "source": "predecessor",
+                "task": cell.task,
+                "method": cell.method,
+                "rho": cell.rho,
+                "lambda": None if cell.rho is None else coefficient_from_rho(cell.rho),
+                "seed": cell.seed,
+                "cell_key": cell.key,
+                "late_window_pass8_mean": value["validation_late_window_pass8_mean"],
+                "terminal_pass8": value["validation_terminal_pass8"],
+                "late_window_greedy_mean": value["validation_late_window_greedy_mean"],
+                "terminal_greedy": value["validation_terminal_greedy"],
+                "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
+                "nan_inf_failure": False,
+            }
+        )
+    expected = len(tasks) * 8
+    if len(rows) != expected:
+        raise RuntimeError(f"Expected {expected} predecessor response rows, found {len(rows)}")
+    return rows
+
+
+def cmd_inherit(
+    config: Mapping[str, Any],
+    output_root: Path,
+    *,
+    parent_output_root: Path,
+    parent_config_path: Path,
+    base_model_path: str,
+) -> dict[str, Any]:
+    if not _is_dense(config):
+        raise RuntimeError("inherit is only valid for the dense refinement profile")
+    parent_config = load_config(parent_config_path)
+    parent_contract = config["parent"]
+    if (
+        experiment_id(parent_config) != EXPERIMENT_ID
+        or stable_config_hash(parent_config) != parent_contract["config_hash"]
+        or int(parent_config["sweep"]["expected_cells"]) != int(parent_contract["expected_cells"])
+    ):
+        raise RuntimeError("Predecessor config identity mismatch")
+
+    parent_artifacts = {
+        "plan": parent_output_root / "plan.json",
+        "split_manifest": parent_output_root / "split_manifest.json",
+        "reference_manifest": reference_manifest_path(parent_output_root),
+        "aggregate_summary": parent_output_root / "aggregate" / "aggregate_summary.json",
+    }
+    for name, path in parent_artifacts.items():
+        if not path.is_file():
+            raise FileNotFoundError(f"Missing predecessor {name}: {path}")
+        expected_sha = str(parent_contract["artifact_sha256"][name])
+        if sha256_file(path) != expected_sha:
+            raise RuntimeError(f"Predecessor {name} does not match the delivered result")
+
+    parent_plan = json.loads(parent_artifacts["plan"].read_text(encoding="utf-8"))
+    parent_aggregate = json.loads(parent_artifacts["aggregate_summary"].read_text(encoding="utf-8"))
+    if (
+        parent_plan.get("experiment_id") != EXPERIMENT_ID
+        or parent_plan.get("config_hash") != parent_contract["config_hash"]
+        or int(parent_plan.get("cell_count", 0)) != int(parent_contract["expected_cells"])
+        or parent_aggregate.get("experiment_id") != EXPERIMENT_ID
+        or parent_aggregate.get("test_partition_accessed") is not False
+        or int(parent_aggregate.get("cell_count", 0)) != int(parent_contract["expected_cells"])
+    ):
+        raise RuntimeError("Predecessor plan or aggregate contract mismatch")
+
+    parent_splits, parent_inputs = _load_ready_inputs(
+        parent_output_root,
+        parent_config,
+        base_model_path=base_model_path,
+    )
+    tasks = tuple(str(task) for task in config["suite"]["tasks"])
+    child_config_hash = stable_config_hash(config)
+    child_split_tasks = {task: copy.deepcopy(parent_splits["tasks"][task]) for task in tasks}
+    child_splits = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "config_hash": child_config_hash,
+        "test_access_allowed": False,
+        "tasks": child_split_tasks,
+        "complete": True,
+        "scientific_status": "not_run",
+        "inherited_from": {
+            "experiment_id": EXPERIMENT_ID,
+            "run_id": parent_contract["run_id"],
+            "result_commit": parent_contract["result_commit"],
+            "split_manifest_sha256": parent_contract["artifact_sha256"]["split_manifest"],
+        },
+    }
+    atomic_json(output_root / "split_manifest.json", child_splits)
+
+    plan = write_plan(config, output_root)
+    serialized_inputs = {
+        task: {
+            "bank": str(parent_inputs[task].bank),
+            "reference_adapter": None,
+            "sources_root": str(parent_inputs[task].sources_root),
+            "p0_config": str(parent_inputs[task].p0_config),
+            "countdown_validation": None,
+        }
+        for task in tasks
+    }
+    prepare = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "config_hash": child_config_hash,
+        "plan": str((output_root / "plan.json").resolve()),
+        "split_manifest": str((output_root / "split_manifest.json").resolve()),
+        "inputs": serialized_inputs,
+        "complete": plan["cell_count"] == int(config["sweep"]["expected_cells"]),
+        "scientific_status": "not_run",
+        "inherited_from": {
+            "experiment_id": EXPERIMENT_ID,
+            "run_id": parent_contract["run_id"],
+            "result_commit": parent_contract["result_commit"],
+        },
+    }
+    atomic_json(output_root / "prepare_manifest.json", prepare)
+
+    base_identity = model_identity(base_model_path, None)["model"]
+    warmstart = _reference_warmstart_config(config, parent_inputs[tasks[0]].p0_config)
+    parent_reference = json.loads(
+        parent_artifacts["reference_manifest"].read_text(encoding="utf-8")
+    )
+    inherited_reference_tasks: dict[str, Any] = {}
+    for task in tasks:
+        parent_task = copy.deepcopy(parent_reference["tasks"][task])
+        expected_identity = _reference_identity(
+            task=task,
+            config=config,
+            split_manifest=child_splits,
+            warmstart_config=warmstart,
+            base_model_identity=base_identity,
+            seed=_reference_seed(config, warmstart, task),
+        )
+        parent_task.update(expected_identity)
+        parent_task["inherited_from"] = {
+            "experiment_id": EXPERIMENT_ID,
+            "run_id": parent_contract["run_id"],
+            "parent_identity_hash": parent_reference["tasks"][task]["identity_hash"],
+            "parent_task_manifest_sha256": sha256_file(
+                parent_output_root / "references" / task / "task_manifest.json"
+            ),
+        }
+        inherited_reference_tasks[task] = parent_task
+        atomic_json(output_root / "references" / task / "task_manifest.json", parent_task)
+    child_reference = _reference_manifest_payload(
+        config=config,
+        base_model_identity=base_identity,
+        tasks=inherited_reference_tasks,
+    )
+    child_reference["inherited_from"] = {
+        "experiment_id": EXPERIMENT_ID,
+        "run_id": parent_contract["run_id"],
+        "result_commit": parent_contract["result_commit"],
+        "reference_manifest_sha256": parent_contract["artifact_sha256"]["reference_manifest"],
+    }
+    atomic_json(reference_manifest_path(output_root), child_reference)
+
+    response_rows = _parent_response_rows(parent_config, parent_output_root, set(tasks))
+    parent_response = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "config_hash": child_config_hash,
+        "parent_experiment_id": EXPERIMENT_ID,
+        "parent_run_id": parent_contract["run_id"],
+        "parent_result_commit": parent_contract["result_commit"],
+        "rows": response_rows,
+        "complete": True,
+    }
+    atomic_json(output_root / "inherited" / "parent_response.json", parent_response)
+    snapshot = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "config_hash": child_config_hash,
+        "parent_run_id": parent_contract["run_id"],
+        "parent_result_repository": parent_contract["result_repository"],
+        "parent_result_commit": parent_contract["result_commit"],
+        "parent_source_commit": parent_contract["source_commit"],
+        "parent_config_hash": parent_contract["config_hash"],
+        "parent_artifact_sha256": dict(parent_contract["artifact_sha256"]),
+        "tasks": list(tasks),
+        "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
+        "inherited_split": True,
+        "inherited_train_only_references": True,
+        "inherited_positive_only_anchor": True,
+        "calibration_must_be_rerun": True,
+        "test_partition_accessed": False,
+        "complete": True,
+        "scientific_status": "not_run",
+    }
+    atomic_json(output_root / "inherited" / "parent_snapshot.json", snapshot)
+    _load_ready_inputs(output_root, config, base_model_path=base_model_path)
+    return snapshot
 
 
 def reference_manifest_path(output_root: Path) -> Path:
@@ -702,7 +1069,7 @@ def _reference_warmstart_config(
     p0_config_path: Path,
 ) -> dict[str, Any]:
     p0_config = yaml.safe_load(p0_config_path.read_text(encoding="utf-8"))
-    if not isinstance(p0_config, dict) or p0_config.get("experiment_id") != PARENT_EXPERIMENT_ID:
+    if not isinstance(p0_config, dict) or p0_config.get("experiment_id") != P0_EXPERIMENT_ID:
         raise RuntimeError("P0 config identity mismatch during reference preparation")
     inherited = copy.deepcopy(p0_config.get("positive_warmstart"))
     if not isinstance(inherited, dict):
@@ -754,7 +1121,7 @@ def _reference_identity(
     train_path = Path(split_manifest["tasks"][task]["paths"]["train"])
     identity = {
         "schema_version": 1,
-        "experiment_id": EXPERIMENT_ID,
+        "experiment_id": experiment_id(config),
         "task": task,
         "config_hash": stable_config_hash(config),
         "p0_config_sha256": split_manifest["tasks"][task]["p0_config_sha256"],
@@ -784,7 +1151,7 @@ def _reference_manifest_payload(
     )
     return {
         "schema_version": 1,
-        "experiment_id": EXPERIMENT_ID,
+        "experiment_id": experiment_id(config),
         "config_hash": stable_config_hash(config),
         "base_model_identity": base_model_identity,
         "checkpoint_kind": str(config["reference"]["checkpoint_kind"]),
@@ -803,7 +1170,7 @@ def _validate_reference_manifest_header(
     base_model_identity: Mapping[str, Any],
 ) -> None:
     if (
-        manifest.get("experiment_id") != EXPERIMENT_ID
+        manifest.get("experiment_id") != experiment_id(config)
         or manifest.get("config_hash") != stable_config_hash(config)
         or manifest.get("checkpoint_kind") != config["reference"]["checkpoint_kind"]
         or manifest.get("base_model_identity") != base_model_identity
@@ -862,17 +1229,14 @@ def cmd_reference(
         raise ValueError("Reference tasks must be a non-empty unique list")
     unknown = sorted(set(requested) - set(p0_tasks))
     if unknown:
-        raise ValueError(f"Only the eight P0 tasks require train-only references: {unknown}")
+        raise ValueError(f"Only configured P0 tasks require train-only references: {unknown}")
 
     p0_config_path = inputs[requested[0]].p0_config
     if any(inputs[task].p0_config != p0_config_path for task in requested):
         raise RuntimeError("P0 tasks do not share one frozen config path")
     warmstart_config = _reference_warmstart_config(config, p0_config_path)
     base_identity = model_identity(base_model_path, None)["model"]
-    task_indices = {task: index for index, task in enumerate(p0_tasks)}
-    task_seeds = {
-        task: int(warmstart_config["seed"]) + task_indices[task] * 100_003 for task in p0_tasks
-    }
+    task_seeds = {task: _reference_seed(config, warmstart_config, task) for task in p0_tasks}
 
     root = output_root / "references"
     root.mkdir(parents=True, exist_ok=True)
@@ -984,8 +1348,8 @@ def _load_prepared(
     splits = json.loads(split_path.read_text(encoding="utf-8"))
     expected_hash = stable_config_hash(config)
     if (
-        prepare.get("experiment_id") != EXPERIMENT_ID
-        or splits.get("experiment_id") != EXPERIMENT_ID
+        prepare.get("experiment_id") != experiment_id(config)
+        or splits.get("experiment_id") != experiment_id(config)
         or prepare.get("config_hash") != expected_hash
         or splits.get("config_hash") != expected_hash
         or not prepare.get("complete")
@@ -1066,7 +1430,6 @@ def _attach_references(
 
     p0_config_path = inputs[p0_tasks[0]].p0_config
     warmstart_config = _reference_warmstart_config(config, p0_config_path)
-    task_indices = {task: index for index, task in enumerate(p0_tasks)}
     attached: dict[str, TaskInputs] = {}
     for task, value in inputs.items():
         if task == "countdown":
@@ -1087,7 +1450,7 @@ def _attach_references(
             split_manifest=splits,
             warmstart_config=warmstart_config,
             base_model_identity=base_identity,
-            seed=int(warmstart_config["seed"]) + task_indices[task] * 100_003,
+            seed=_reference_seed(config, warmstart_config, task),
         )
         adapter = _validate_reference_task_manifest(
             task_manifest,
@@ -1320,7 +1683,7 @@ def _calibration_identity(
         raise RuntimeError(f"Reference adapter is missing for {task}")
     identity = {
         "schema_version": 1,
-        "experiment_id": EXPERIMENT_ID,
+        "experiment_id": experiment_id(config),
         "config_hash": stable_config_hash(config),
         "task": task,
         "bank_sha256": split_manifest["tasks"][task]["bank_sha256"],
@@ -1427,7 +1790,7 @@ def calibrate_task(
     far_lp = completion_stats_batch(model, _move_batch(far_batch, device))["seq_lp"]
     near_distance = normalized_distance(near_lp, tau=tau, scale=scale)
     far_distance = normalized_distance(far_lp, tau=tau, scale=scale)
-    rhos = _tuple_floats(config["sweep"]["all_rho"])
+    rhos = _task_rhos(config, task)
     raw_negative_norms: dict[str, float] = {}
     for index, rho in enumerate(rhos):
         scalar = 0.5 * (taper_weight(near_distance, rho).detach() * near_lp).mean()
@@ -1526,7 +1889,7 @@ def cmd_calibrate(
     expected_tasks = set(config["suite"]["tasks"])
     manifest = {
         "schema_version": 1,
-        "experiment_id": EXPERIMENT_ID,
+        "experiment_id": experiment_id(config),
         "config_hash": stable_config_hash(config),
         "requested_tasks": requested,
         "tasks": results,
@@ -1735,12 +2098,17 @@ def _cell_identity(
         raise RuntimeError(f"Reference adapter is missing for {cell.task}")
     value = {
         "schema_version": 1,
-        "experiment_id": EXPERIMENT_ID,
+        "experiment_id": experiment_id(config),
         "config_hash": stable_config_hash(config),
         "cell": {
             "task": cell.task,
             "method": cell.method,
             "rho": cell.rho,
+            "lambda": (
+                cell.lambda_value
+                if cell.lambda_value is not None
+                else (None if cell.rho is None else coefficient_from_rho(cell.rho))
+            ),
             "seed": cell.seed,
             "stage": cell.stage,
         },
@@ -2100,7 +2468,7 @@ def train_cell(
             failure_root / "failure.json",
             {
                 "schema_version": 1,
-                "experiment_id": EXPERIMENT_ID,
+                "experiment_id": experiment_id(config),
                 "cell_key": cell.key,
                 "error_type": type(exc).__name__,
                 "error": str(exc),
@@ -2173,7 +2541,7 @@ def cmd_reload_adapter(
         raise RuntimeError("Reloaded adapter contains non-finite parameters")
     return {
         "schema_version": 1,
-        "experiment_id": EXPERIMENT_ID,
+        "experiment_id": experiment_id(config),
         "process_id": os.getpid(),
         "base_model_identity": model_identity(base_model_path, None)["model"],
         "adapter_identity": model_identity(base_model_path, str(adapter_path))["adapter"],
@@ -2194,14 +2562,28 @@ def cmd_liveness(
 ) -> dict[str, Any]:
     if task not in config["suite"]["tasks"]:
         raise ValueError(f"Unknown liveness task: {task}")
-    if rho not in _tuple_floats(config["sweep"]["all_rho"]):
+    if rho not in _task_rhos(config, task):
         raise ValueError("Liveness rho must be one frozen grid point")
     splits, inputs = _load_ready_inputs(
         output_root,
         config,
         base_model_path=base_model_path,
     )
-    cell = Cell(task, METHOD_EXPONENTIAL, rho, int(config["sweep"]["tuning_seed"]), "liveness")
+    lambda_value = None
+    if _is_dense(config):
+        lambda_value = next(
+            value
+            for value in _task_lambdas(config, task)
+            if math.isclose(math.exp(-value), rho, rel_tol=0.0, abs_tol=1.0e-15)
+        )
+    cell = Cell(
+        task,
+        METHOD_EXPONENTIAL,
+        rho,
+        int(config["sweep"]["tuning_seed"]),
+        "liveness",
+        lambda_value,
+    )
     result = train_cell(
         cell,
         inputs=inputs[task],
@@ -2360,11 +2742,11 @@ def _require_calibration_gate(
 ) -> None:
     path = output_root / "calibration" / "calibration_manifest.json"
     if not path.is_file():
-        raise RuntimeError("Run all nine calibrations before launching a wave")
+        raise RuntimeError("Run all configured calibrations before launching a wave")
     manifest = json.loads(path.read_text(encoding="utf-8"))
     expected_tasks = set(config["suite"]["tasks"])
     if (
-        manifest.get("experiment_id") != EXPERIMENT_ID
+        manifest.get("experiment_id") != experiment_id(config)
         or manifest.get("config_hash") != stable_config_hash(config)
         or not manifest.get("complete")
         or set(manifest.get("tasks", {})) != expected_tasks
@@ -2405,7 +2787,7 @@ def _require_liveness_gate(
     for path in sorted(root.glob("*/cell_manifest.json")):
         result = json.loads(path.read_text(encoding="utf-8"))
         if (
-            result.get("experiment_id") == EXPERIMENT_ID
+            result.get("experiment_id") == experiment_id(config)
             and result.get("config_hash") == stable_config_hash(config)
             and result.get("base_model_identity") == base_identity
             and result.get("engineering_liveness") is True
@@ -2474,7 +2856,7 @@ def cmd_run_wave(
     failures = [row for row in results if int(row["returncode"]) != 0]
     manifest = {
         "schema_version": 1,
-        "experiment_id": EXPERIMENT_ID,
+        "experiment_id": experiment_id(config),
         "wave": wave_index,
         "expected_cells": len(wave),
         "results": results,
@@ -2510,7 +2892,7 @@ def cmd_run_all(
         )
     manifest = {
         "schema_version": 1,
-        "experiment_id": EXPERIMENT_ID,
+        "experiment_id": experiment_id(config),
         "waves": results,
         "complete": all(result["complete"] for result in results),
         "scientific_status": "pilot",
@@ -2529,6 +2911,166 @@ def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
         writer.writerows(rows)
 
 
+def _aggregate_dense(
+    config: Mapping[str, Any],
+    output_root: Path,
+    rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    parent_path = output_root / "inherited" / "parent_response.json"
+    if not parent_path.is_file():
+        raise FileNotFoundError("Dense aggregation requires inherited parent_response.json")
+    parent = json.loads(parent_path.read_text(encoding="utf-8"))
+    if (
+        parent.get("experiment_id") != experiment_id(config)
+        or parent.get("config_hash") != stable_config_hash(config)
+        or not parent.get("complete")
+    ):
+        raise RuntimeError("Inherited parent response identity mismatch")
+    parent_rows = list(parent.get("rows", ()))
+    if len(parent_rows) != len(config["suite"]["tasks"]) * 8:
+        raise RuntimeError("Inherited parent response does not contain eight anchors per task")
+    combined_rows = parent_rows + rows
+    _write_csv(output_root / "aggregate" / "combined_response.csv", combined_rows)
+
+    task_summaries: dict[str, Any] = {}
+    selected_rows: list[dict[str, Any]] = []
+    minimum_valid = float(config["selection"]["terminal_valid_rate_minimum"])
+    for task_value in config["suite"]["tasks"]:
+        task = str(task_value)
+        task_dense = [row for row in rows if row["task"] == task]
+        task_parent = [row for row in parent_rows if row["task"] == task]
+        positive_rows = [row for row in task_parent if row["method"] == METHOD_POSITIVE_ONLY]
+        parent_exp = [row for row in task_parent if row["method"] == METHOD_EXPONENTIAL]
+        if len(task_dense) != 16 or len(positive_rows) != 1 or len(parent_exp) != 7:
+            raise RuntimeError(f"{task} dense/predecessor response geometry is incomplete")
+        eligible = [
+            row
+            for row in task_dense
+            if not row["nan_inf_failure"]
+            and float(row["terminal_greedy_valid_rate"]) >= minimum_valid
+        ]
+        selected = (
+            max(
+                eligible,
+                key=lambda row: (
+                    float(row["late_window_pass8_mean"]),
+                    float(row["terminal_pass8"]),
+                    float(row["late_window_greedy_mean"]),
+                    float(row["terminal_greedy"]),
+                    -float(row["lambda"]),
+                ),
+            )
+            if eligible
+            else None
+        )
+        positive = positive_rows[0]
+        best_observed = max(
+            task_dense,
+            key=lambda row: float(row["late_window_pass8_mean"]),
+        )
+        task_lambdas = _task_lambdas(config, task)
+        bridge_lambda = float(config["sweep"]["bridge_lambda"][task])
+        bridge_dense = next(
+            row
+            for row in task_dense
+            if math.isclose(
+                float(row["lambda"]),
+                bridge_lambda,
+                rel_tol=0.0,
+                abs_tol=1.0e-12,
+            )
+        )
+        bridge_parent = next(
+            row
+            for row in parent_exp
+            if math.isclose(
+                float(row["rho"]),
+                math.exp(-bridge_lambda),
+                rel_tol=0.0,
+                abs_tol=1.0e-12,
+            )
+        )
+        selected_lambda = None if selected is None else float(selected["lambda"])
+        selected_on_grid_edge = bool(
+            selected is not None
+            and (
+                math.isclose(selected_lambda, min(task_lambdas))
+                or math.isclose(selected_lambda, max(task_lambdas))
+            )
+        )
+        strong_boundary_unclosed = bool(
+            selected is not None and math.isclose(selected_lambda, max(task_lambdas))
+        )
+        summary = {
+            "task": task,
+            "task_role": config["sweep"]["task_role"][task],
+            "positive_only": positive,
+            "eligible_dense_count": len(eligible),
+            "selected_dense_exp": selected,
+            "selected_on_grid_edge": selected_on_grid_edge,
+            "strong_taper_boundary_unclosed": strong_boundary_unclosed,
+            "all_dense_below_positive_only": float(best_observed["late_window_pass8_mean"])
+            < float(positive["late_window_pass8_mean"]),
+            "bridge": {
+                "lambda": bridge_lambda,
+                "rho": math.exp(-bridge_lambda),
+                "parent": bridge_parent,
+                "dense_rerun": bridge_dense,
+                "late_window_pass8_delta": float(bridge_dense["late_window_pass8_mean"])
+                - float(bridge_parent["late_window_pass8_mean"]),
+                "terminal_pass8_delta": float(bridge_dense["terminal_pass8"])
+                - float(bridge_parent["terminal_pass8"]),
+                "late_window_greedy_delta": float(bridge_dense["late_window_greedy_mean"])
+                - float(bridge_parent["late_window_greedy_mean"]),
+                "report_only": True,
+            },
+            "selection_metric": config["selection"]["primary_metric"],
+        }
+        task_summaries[task] = summary
+        selected_rows.append(
+            {
+                "task": task,
+                "task_role": summary["task_role"],
+                "selected_lambda": selected_lambda,
+                "selected_rho": None if selected is None else selected["rho"],
+                "selected_late_window_pass8_mean": (
+                    None if selected is None else selected["late_window_pass8_mean"]
+                ),
+                "positive_only_late_window_pass8_mean": positive["late_window_pass8_mean"],
+                "all_dense_below_positive_only": summary["all_dense_below_positive_only"],
+                "selected_on_grid_edge": selected_on_grid_edge,
+                "strong_taper_boundary_unclosed": strong_boundary_unclosed,
+                "bridge_late_window_pass8_delta": summary["bridge"]["late_window_pass8_delta"],
+            }
+        )
+    _write_csv(output_root / "aggregate" / "selected_exp_by_task.csv", selected_rows)
+    summary = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "cell_count": len(rows),
+        "combined_response_point_count": len(combined_rows),
+        "tasks": task_summaries,
+        "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
+        "parent_run_id": config["parent"]["run_id"],
+        "parent_result_commit": config["parent"]["result_commit"],
+        "positive_only_source": "inherited_parent",
+        "test_partition_accessed": False,
+        "task_performance_reported_separately": True,
+        "structure_diagnostic_reported_separately": True,
+        "nan_inf_reported_separately": True,
+        "single_seed_shape_discovery": True,
+        "fresh_seed_confirmation_required": True,
+        "fixed_horizon_is_convergence": False,
+        "scientific_status": "pilot",
+        "claim_boundary": (
+            "Development response-shape refinement only; no significance, convergence, "
+            "universal superiority, or categorical causal-identification claim."
+        ),
+    }
+    atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
+    return summary
+
+
 def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
     cells = build_cells(config)
     rows: list[dict[str, Any]] = []
@@ -2544,9 +3086,16 @@ def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any
             continue
         rows.append(
             {
+                "source": "dense" if _is_dense(config) else "current",
                 "task": cell.task,
                 "method": cell.method,
                 "rho": cell.rho,
+                "lambda": (
+                    cell.lambda_value
+                    if cell.lambda_value is not None
+                    else (None if cell.rho is None else coefficient_from_rho(cell.rho))
+                ),
+                "seed": cell.seed,
                 "cell_key": cell.key,
                 "late_window_pass8_mean": value["validation_late_window_pass8_mean"],
                 "terminal_pass8": value["validation_terminal_pass8"],
@@ -2559,6 +3108,8 @@ def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any
     if missing:
         raise RuntimeError(f"Cannot aggregate; missing/incomplete cells: {missing}")
     _write_csv(output_root / "aggregate" / "all_cells.csv", rows)
+    if _is_dense(config):
+        return _aggregate_dense(config, output_root, rows)
 
     task_summaries: dict[str, Any] = {}
     selected_rows: list[dict[str, Any]] = []
@@ -2621,7 +3172,7 @@ def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any
     _write_csv(output_root / "aggregate" / "selected_exp_by_task.csv", selected_rows)
     summary = {
         "schema_version": 1,
-        "experiment_id": EXPERIMENT_ID,
+        "experiment_id": experiment_id(config),
         "cell_count": len(rows),
         "tasks": task_summaries,
         "test_partition_accessed": False,
@@ -2662,10 +3213,23 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             incomplete.append(cell.key)
         if value.get("nan_inf_failure"):
             nan_inf.append(cell.key)
-    all_complete = not missing and not incomplete and not nan_inf
+    inherited_complete = True
+    aggregate_complete = True
+    if _is_dense(config):
+        snapshot_path = output_root / "inherited" / "parent_snapshot.json"
+        aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
+        inherited_complete = snapshot_path.is_file() and bool(
+            json.loads(snapshot_path.read_text(encoding="utf-8")).get("complete")
+        )
+        aggregate_complete = aggregate_path.is_file() and int(
+            json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0)
+        ) == len(cells)
+    all_complete = (
+        not missing and not incomplete and not nan_inf and inherited_complete and aggregate_complete
+    )
     audit = {
         "schema_version": 1,
-        "experiment_id": EXPERIMENT_ID,
+        "experiment_id": experiment_id(config),
         "expected_cells": len(cells),
         "missing_cells": sorted(set(missing)),
         "incomplete_cells": sorted(set(incomplete)),
@@ -2675,6 +3239,11 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "task_performance_event": "not_adjudicated_without_registered_collapse_threshold",
         "structure_event": "greedy_and_sampled_valid_rate_diagnostic_only",
         "nan_inf_event_count": len(set(nan_inf)),
+        "inherited_parent_inputs_complete": inherited_complete,
+        "aggregate_complete": aggregate_complete,
+        "excluded_tasks": (dict(config["suite"]["excluded_tasks"]) if _is_dense(config) else {}),
+        "single_seed_shape_discovery": _is_dense(config),
+        "fresh_seed_confirmation_required": _is_dense(config),
         "fixed_horizon_is_convergence": False,
         "scientific_status": "pilot" if all_complete else "not_run",
     }
@@ -2695,6 +3264,11 @@ def make_parser() -> argparse.ArgumentParser:
     prepare.add_argument("--countdown-validation", required=True)
     prepare.add_argument("--countdown-adapter", required=True)
 
+    inherit = subparsers.add_parser("inherit")
+    inherit.add_argument("--parent-output-root", required=True)
+    inherit.add_argument("--parent-config", default=str(DEFAULT_CONFIG))
+    inherit.add_argument("--base-model-path", required=True)
+
     reference = subparsers.add_parser("reference")
     reference.add_argument("--base-model-path", required=True)
     reference.add_argument("--tasks", nargs="+")
@@ -2711,7 +3285,9 @@ def make_parser() -> argparse.ArgumentParser:
 
     liveness = subparsers.add_parser("liveness")
     liveness.add_argument("--task", required=True)
-    liveness.add_argument("--rho", type=float, default=0.5)
+    liveness_values = liveness.add_mutually_exclusive_group()
+    liveness_values.add_argument("--rho", type=float)
+    liveness_values.add_argument("--lambda", dest="lambda_value", type=float)
     liveness.add_argument("--base-model-path", required=True)
     liveness.add_argument("--force", action="store_true")
 
@@ -2750,6 +3326,14 @@ def main(argv: Sequence[str] | None = None) -> None:
             countdown_validation=Path(args.countdown_validation).resolve(),
             countdown_adapter=Path(args.countdown_adapter).resolve(),
         )
+    elif args.command == "inherit":
+        result = cmd_inherit(
+            config,
+            output_root,
+            parent_output_root=Path(args.parent_output_root).resolve(),
+            parent_config_path=Path(args.parent_config).resolve(),
+            base_model_path=args.base_model_path,
+        )
     elif args.command == "reference":
         result = cmd_reference(
             config,
@@ -2773,12 +3357,17 @@ def main(argv: Sequence[str] | None = None) -> None:
             force=bool(args.force),
         )
     elif args.command == "liveness":
+        rho = args.rho
+        if args.lambda_value is not None:
+            rho = math.exp(-float(args.lambda_value))
+        if rho is None:
+            rho = _task_rhos(config, str(args.task))[0]
         result = cmd_liveness(
             config,
             config_path,
             output_root,
             task=args.task,
-            rho=float(args.rho),
+            rho=float(rho),
             base_model_path=args.base_model_path,
             force=bool(args.force),
         )

@@ -1,0 +1,144 @@
+version: 1
+run_id: E8_MULTITASK_EXP_LAMBDA_DENSE_20260730_01
+lane: e8
+priority: 150
+created_at: "2026-07-30T07:33:42Z"
+experiment_id: EXT-C-E8-MULTITASK-EXP-LAMBDA-DENSE-01
+repo_commit: 9af9155b9651c0b271368855cfb779d50a6c1adc
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/e8_multitask_exp_lambda_dense.yaml
+    - docs/experiments/EXT-C-E8-MULTITASK-EXP-LAMBDA-DENSE-01.md
+    - docs/scopes/EXT-C-E8-MULTITASK-EXP-LAMBDA-DENSE-01.md
+    - src/drpo/e8_multitask_exp_tuning.py
+    - scripts/run_e8_multitask_exp_lambda_dense.sh
+    - tests/test_e8_multitask_p0.py
+
+purpose: >-
+  Resolve task-local exponential-taper response shapes on seven external
+  discrete tasks using exactly sixteen lambda cells per task and one task per
+  sixteen-slot wave. Reuse the immutable predecessor split, train-only
+  reference adapters, and Positive-only anchors; rerun lambda-dependent
+  calibration; preserve the fixed training and validation contracts; and
+  automatically deliver text-first evidence. This single-seed development
+  stage does not establish significance, convergence, universal superiority,
+  or categorical causal identification.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    E8_DENSE_EXPECTED_COMMIT=9af9155b9651c0b271368855cfb779d50a6c1adc
+    E8_DENSE_PARENT_OUTPUT_ROOT=/root/experiment_output/e8_multitask_exp_tuning_01
+    E8_DENSE_BASE_MODEL_PATH=/root/models/Qwen2.5-0.5B-Instruct
+    E8_DENSE_OUTPUT_ROOT=outputs/e8/e8_multitask_exp_lambda_dense_001
+    bash scripts/run_e8_multitask_exp_lambda_dense.sh full
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: >-
+    E8_DENSE_EXPECTED_COMMIT=9af9155b9651c0b271368855cfb779d50a6c1adc
+    E8_DENSE_PARENT_OUTPUT_ROOT=/root/experiment_output/e8_multitask_exp_tuning_01
+    E8_DENSE_BASE_MODEL_PATH=/root/models/Qwen2.5-0.5B-Instruct
+    E8_DENSE_OUTPUT_ROOT=outputs/e8/e8_multitask_exp_lambda_dense_001
+    bash scripts/run_e8_multitask_exp_lambda_dense.sh full
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e8/e8_multitask_exp_lambda_dense_001/plan.json
+    - outputs/e8/e8_multitask_exp_lambda_dense_001/inherited/parent_snapshot.json
+    - outputs/e8/e8_multitask_exp_lambda_dense_001/calibration/calibration_manifest.json
+    - outputs/e8/e8_multitask_exp_lambda_dense_001/waves/all_waves.json
+    - outputs/e8/e8_multitask_exp_lambda_dense_001/terminal_audit.json
+  backoff_seconds: 60
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  fixed_profile_only: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+
+outputs:
+  run_dir: outputs/e8/e8_multitask_exp_lambda_dense_001
+  summary_file: outputs/e8/e8_multitask_exp_lambda_dense_001/aggregate/aggregate_summary.json
+  audit_file: outputs/e8/e8_multitask_exp_lambda_dense_001/terminal_audit.json
+
+success_criteria:
+  - source checkout is clean and exactly matches implementation commit 9af9155b9651c0b271368855cfb779d50a6c1adc
+  - predecessor identity is E8_MULTITASK_EXP_TUNING_20260729_01 at drpo-results commit 26cf09102e4eaea9b58844fac158dc3cfc33314d
+  - predecessor plan, split, reference, and aggregate artifacts match their frozen SHA-256 identities
+  - Countdown and Spiral Matrix are not present in the new training matrix
+  - the exact task set is word sorting, Mini Sudoku, maze, word ladder, knights and knaves, graph coloring, and WikiSQL
+  - the matrix contains 112 exponential cells, seven waves, and exactly 16 cells from one task in every wave
+  - every task contains 15 new lambda values and one exact predecessor-selected bridge lambda
+  - no Positive-only cell is rerun and Positive-only comparisons use the inherited predecessor anchor
+  - all cells preserve tuning seed 2026072904 and this stage remains single-seed shape discovery
+  - the exact predecessor train, validation, and unopened test partitions are inherited without repartitioning
+  - each inherited reference is the exact train-only 100-update task adapter and has seen zero validation and test rows
+  - lambda-dependent initial-gradient calibration is rerun for all 16 lambda values on every task
+  - one two-update adapter-change and fresh-process reload liveness gate passes before the first full wave
+  - Qwen2.5-0.5B-Instruct, LoRA rank 32, alpha 64, dropout 0.05, and the parent optimizer contract remain unchanged
+  - every cell performs exactly 1200 optimizer updates with microbatch 1 and gradient accumulation 8
+  - validation is evaluated every 100 updates and the late window remains updates 800, 900, 1000, 1100, and 1200
+  - all 112 cell manifests are complete and contain no NaN or Inf failure
+  - aggregation emits 112 new rows, 56 inherited anchors, and a combined 168-point response table
+  - selected grid-edge status, strong-taper boundary status, inherited Positive-only delta, and same-lambda bridge delta are recorded per task
+  - graph coloring is reported only as a saturation control
+  - task performance, validity or structure diagnostics, and NaN or Inf failure are reported separately
+  - the test partition remains unopened
+  - no significance, convergence, universal superiority, formal ranking, or categorical causal claim is inferred
+  - completed text-first evidence is delivered to drpo-results ingest/e8
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e8/e8_multitask_exp_lambda_dense_001/*.json
+    - outputs/e8/e8_multitask_exp_lambda_dense_001/plan.jsonl
+    - outputs/e8/e8_multitask_exp_lambda_dense_001/inherited/*.json
+    - outputs/e8/e8_multitask_exp_lambda_dense_001/references/reference_manifest.json
+    - outputs/e8/e8_multitask_exp_lambda_dense_001/references/*/task_manifest.json
+    - outputs/e8/e8_multitask_exp_lambda_dense_001/calibration/*.json
+    - outputs/e8/e8_multitask_exp_lambda_dense_001/liveness/*/*.json
+    - outputs/e8/e8_multitask_exp_lambda_dense_001/liveness/*/*.jsonl
+    - outputs/e8/e8_multitask_exp_lambda_dense_001/cells/*/cell_manifest.json
+    - outputs/e8/e8_multitask_exp_lambda_dense_001/cells/*/training_metrics.jsonl
+    - outputs/e8/e8_multitask_exp_lambda_dense_001/cells/*/evaluation_metrics.jsonl
+    - outputs/e8/e8_multitask_exp_lambda_dense_001/waves/*.json
+    - outputs/e8/e8_multitask_exp_lambda_dense_001/aggregate/*.json
+    - outputs/e8/e8_multitask_exp_lambda_dense_001/aggregate/*.csv
+    - outputs/e8/e8_multitask_exp_lambda_dense_001/logs/*.log
+  exclude:
+    - "**/*.pt"
+    - "**/*.pth"
+    - "**/*.ckpt"
+    - "**/*.safetensors"
+    - "**/*.bin"
+    - "**/adapter/**"
+    - "**/terminal_adapter/**"
+    - "**/checkpoint*"
+    - "**/checkpoints/**"
+    - "**/optimizer*"
+    - "**/wandb/**"
+  max_package_size_mb: 30
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e8
+  export_profile: manifest_text_v1
+  max_total_size_mb: 30
+  max_file_size_mb: 10
+
+publish:
+  enabled: false
+  auto: false
