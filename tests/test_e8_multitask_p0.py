@@ -1426,7 +1426,7 @@ def test_exp_coldstart_matrix_is_eight_by_twenty_and_preserves_old_anchors() -> 
     assert [len(wave) for wave in waves] == [16] * 10
     assert config["execution"]["scheduler"] == "dynamic_slot_queue"
     assert set(config["suite"]["tasks"]) == set(exp_tuning.TASK_NAMES) - {"spiral_matrix"}
-    anchors = set(float(value) for value in config["sweep"]["shared_warmstart_anchor_lambda"])
+    anchors = set(float(value) for value in config["sweep"]["shared_historical_anchor_lambda"])
     for task in config["suite"]["tasks"]:
         task_cells = [cell for cell in cells if cell.task == task]
         assert sum(cell.method == exp_tuning.METHOD_POSITIVE_ONLY for cell in task_cells) == 1
