@@ -1426,7 +1426,7 @@ def test_exp_coldstart_matrix_is_eight_by_twenty_and_preserves_old_anchors() -> 
     assert [len(wave) for wave in waves] == [16] * 10
     assert config["execution"]["scheduler"] == "dynamic_slot_queue"
     assert set(config["suite"]["tasks"]) == set(exp_tuning.TASK_NAMES) - {"spiral_matrix"}
-    anchors = set(float(value) for value in config["sweep"]["shared_historical_anchor_lambda"])
+    anchors = {float(value) for value in config["sweep"]["shared_historical_anchor_lambda"]}
     for task in config["suite"]["tasks"]:
         task_cells = [cell for cell in cells if cell.task == task]
         assert sum(cell.method == exp_tuning.METHOD_POSITIVE_ONLY for cell in task_cells) == 1
@@ -1530,9 +1530,8 @@ def test_exp_coldstart_dynamic_queue_has_no_nominal_batch_barrier(
             maximum_by_gpu[gpu_id] = max(maximum_by_gpu.get(gpu_id, 0), active_by_gpu[gpu_id])
         if cell in cells[16:]:
             replacement_started.set()
-        if cell.key == cells[0].key:
-            if replacement_started.wait(timeout=1.0):
-                first_cell_released_by_replacement.set()
+        if cell.key == cells[0].key and replacement_started.wait(timeout=1.0):
+            first_cell_released_by_replacement.set()
         with lock:
             active_by_gpu[gpu_id] -= 1
             finishes[cell.key] = time.monotonic()
