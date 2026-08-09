@@ -113,7 +113,7 @@ sweep:
   tuning_seed: 2026070803
   positive_only_per_task: 1
   expected_cells: 160
-  shared_warmstart_anchor_lambda:
+  shared_historical_anchor_lambda:
     - 0.10536051565782628
     - 0.2876820724517809
     - 0.5108256237659907
