@@ -149,7 +149,8 @@ rate、best/terminal step、stop reason、seed、源码 commit 和是否旧网�
 
 ## 8. 当前验证状态
 
-交付时已完成的本地验证应记录在 PR：Ruff、Python compilation、shell syntax、160-cell
-plan、动态无屏障队列测试、schema adapter 测试、canonical blob audit、aggregate/CSV
-测试和旧 taper 单测。没有 8-GPU/CUDA 的环境不得声称通过正式 liveness 或完成正式
-160-cell 实验。
+本地无 PyTorch/GPU 环境已通过 37 个测试，另有 3 个依赖 PyTorch 的测试按设计跳过；
+同时通过 Ruff、Python compilation、shell syntax、160-cell plan、动态无屏障队列、
+schema adapter、canonical blob audit 和 aggregate/CSV 检查。服务器 `setup` 阶段会在
+CUDA 环境补跑旧 taper 单测，随后才允许执行两步 liveness。没有 8-GPU/CUDA 的环境
+不得声称通过正式 liveness 或完成正式 160-cell 实验。
