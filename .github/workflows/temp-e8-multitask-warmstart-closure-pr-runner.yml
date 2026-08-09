@@ -19,5 +19,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.tmp/e8_multitask_warmstart_result_closure_materialize.sh')
+          text = path.read_text(encoding='utf-8')
+          old = 'registry_after = registry_before.rstrip("\\n") + registry_append + "\\n"'
+          new = 'registry_after = registry_before.rstrip("\\n") + registry_append.rstrip("\\n") + "\\n"'
+          if text.count(old) != 1:
+              raise SystemExit('expected exactly one registry EOF construction')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
           bash -n .tmp/e8_multitask_warmstart_result_closure_materialize.sh
           bash .tmp/e8_multitask_warmstart_result_closure_materialize.sh
