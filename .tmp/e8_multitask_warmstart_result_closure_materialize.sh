@@ -1,0 +1,475 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE=e6f6406455841be10fd9857e0526533ebbdf9e63
+TARGET=dev/e8-multitask-warmstart-result-closure-01
+UPDATE_ID=EXT-C-E8-MULTITASK-WARMSTART-RESULT-CLOSURE-2026-08-09
+
+git config user.name "github-actions[bot]"
+git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+git fetch origin main "$TARGET"
+test "$(git rev-parse origin/main)" = "$BASE"
+test "$(git rev-parse origin/$TARGET)" = "$BASE"
+python -m pip install --disable-pip-version-check -q pyyaml
+
+rm -rf /tmp/drpo-e8-source /tmp/drpo-e8-trusted
+git worktree add --detach /tmp/drpo-e8-source "$BASE"
+git worktree add --detach /tmp/drpo-e8-trusted "$BASE"
+
+cd /tmp/drpo-e8-source
+python - <<'PY'
+from __future__ import annotations
+import hashlib
+import json
+from pathlib import Path
+import sys
+import yaml
+
+BASE = "e6f6406455841be10fd9857e0526533ebbdf9e63"
+UPDATE_ID = "EXT-C-E8-MULTITASK-WARMSTART-RESULT-CLOSURE-2026-08-09"
+HANDOFF_HASH_EXPECTED = "865d790a99aea62f6906f0a1e23cd764f607006d148ed4bc21fc715bfe6b7c87"
+REGISTRY_HASH_EXPECTED = "aa97eadd8bd348d8fe337ab4232f44feca1cd6d9c02dacaed8968726162c132f"
+RESULT_REPO = "easonhuo/drpo-results"
+
+def sha_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+handoff_path = Path("docs/handoff.md")
+registry_path = Path("experiments/registry.yaml")
+handoff_before = handoff_path.read_text(encoding="utf-8")
+registry_before = registry_path.read_text(encoding="utf-8")
+assert sha_text(handoff_before) == HANDOFF_HASH_EXPECTED
+assert sha_text(registry_before) == REGISTRY_HASH_EXPECTED
+
+result_doc = """# E8 multitask warm-started pilot result closure — 2026-08-09
+
+This record preserves three linked E8 multitask development pilots and records a post-run initialization-protocol correction. It does not delete or rewrite the delivered results.
+
+## 1. P0 implemented-gradient diagnostic
+
+- Experiment: `EXT-C-E8-MULTITASK-P0-01`
+- Run: `E8_MULTITASK_P0_FIG1_20260729_01`
+- Durable result: `easonhuo/drpo-results@a5541e6487d74988f07a381a837972bdc5d3282c`
+- Eight new tasks, 256 diagnostic points per task, 2,048 total points.
+- Task-equal relative implemented actor-gradient curve from lowest to highest surprisal bin:
+  `1.000, 1.111, 1.239, 1.554, 2.028, 2.389, 3.100, 2.949, 3.226, 3.638`.
+- Highest-bin 95% bootstrap CI: `[3.256, 4.095]`.
+
+The diagnostic intentionally used a task-specific Positive-only LoRA prepared for exactly 100 optimizer updates before the full-parameter gradient probe. That preparation created a nontrivial reference policy for the gradient diagnostic. Therefore the curve is a diagnostic **at the 100-step Positive-only reference policy**, not at untouched Qwen initialization. This is a scope condition of P0, not by itself a defect in the diagnostic.
+
+## 2. Exp multitask tuning
+
+- Experiment: `EXT-C-E8-MULTITASK-EXP-TUNING-01`
+- Run: `E8_MULTITASK_EXP_TUNING_20260729_01`
+- Durable result: `easonhuo/drpo-results@26cf09102e4eaea9b58844fac158dc3cfc33314d`
+- Completed: `72/72` cells; NaN/Inf events `0`; separate test partition unused.
+- One tuning seed; fixed 1,200-update horizon, which is not convergence.
+
+| Task | selected rho | late-window Pass@8 | Positive-only late-window Pass@8 | boundary note |
+|---|---:|---:|---:|---|
+| Countdown | 0.35 | 0.184375 | 0.176563 | closed in tested grid |
+| Word Sorting | 0.25 | 0.734375 | 0.728125 | closed in tested grid |
+| Spiral Matrix | 0.90 | 1.000000 | 1.000000 | performance ceiling |
+| Mini Sudoku | 0.125 | 0.979688 | 0.982813 | all tested Exp below PO; strong-taper boundary unclosed |
+| Maze | 0.75 | 0.742188 | 0.735938 | closed in tested grid |
+| Word Ladder | 0.25 | 0.178125 | 0.168750 | closed in tested grid |
+| Knights & Knaves | 0.35 | 0.693750 | 0.679688 | closed in tested grid |
+| Graph Color | 0.25 | 1.000000 | 0.996875 | performance ceiling |
+| WikiSQL | 0.125 | 0.837500 | 0.817188 | strong-taper boundary unclosed |
+
+Post-run review found that method training inherited the P0 `train_only_task_positive_warmstart_100` reference. That warm start was introduced for the gradient diagnostic; carrying it into downstream method training was not required by the historical Countdown cold-start protocol. The Exp response remains descriptive **conditional on this warmstarted initialization**, but it is not a fresh-LoRA/cold-start reproduction.
+
+## 3. Fitted-reference TOPR / AsymRE multitask tuning
+
+- Experiment: `EXT-C-E8-MULTITASK-TOPR-ASYMRE-TUNING-01`
+- Run: `E8_MULTITASK_TOPR_ASYMRE_TUNING_20260731_01`
+- Durable result: `easonhuo/drpo-results@6479320012da4a83120d0700a3df71525cc28aef`
+- Current durable delivery: **71/80 cells**, waves 1--4 partial; no final complete aggregate is claimed.
+- Eight new tasks only; Countdown was not rerun in this matrix.
+- TOPR grid: `beta={0,0.04,0.08,0.25,0.5}`; `beta=0` is the uncontrolled-negative ratio boundary.
+- AsymRE grid: `delta_v={-1,-0.9,-0.7,-0.5,0}`; `delta_v=-1` is the zero-negative boundary.
+
+These cells explicitly inherited `train_only_task_positive_warmstart_100`. This is a **warm-start carryover protocol error for method-training comparison**: the initialization choice from the P0 diagnostic was reused as if it were a neutral training default. The delivered per-cell trends are retained as warmstarted development-pilot evidence, but they are not protocol-matched cold-start reproductions of the historical Countdown TOPR/AsymRE experiments.
+
+## 4. Replacement interpretation
+
+The old Countdown DRPO/Positive-only/AsymRE/TOPR comparison used pretrained Qwen plus a fresh LoRA per method cell; the later multitask method-training runs above used a 100-step Positive-only reference policy first. Therefore old Countdown and new multitask method curves must not be combined into a strict apples-to-apples nine-task method comparison.
+
+A future cold-start rerun is required before these multitask training curves become the authoritative protocol-matched method comparison. Until then:
+
+- P0 remains a valid warmstarted-reference implemented-gradient occurrence diagnostic;
+- Exp remains a complete but warmstarted single-seed development tuning curve;
+- TOPR/AsymRE remain partial warmstarted development-pilot evidence;
+- no convergence, significance, universal method ranking, or categorical causal-identification claim is authorized;
+- D-U1 remains the categorical causal-identification environment;
+- task performance, valid/structure behavior, and NaN/Inf numerical failure remain separate.
+
+## Durable correction notes in `drpo-results`
+
+- P0 note commit: `c4c23860ed9f52732e96e7b6571a87bd53ea3e69`
+- Exp note commit: `30e3388571e54c63cdcf8fd7062cb866c8407a6a`
+- TOPR/AsymRE note commit: `7a13fcfe648d9b31bb09e122076183280511944f`
+"""
+result_doc_path = Path("docs/results/E8_MULTITASK_WARMSTARTED_PILOTS_RESULT_2026-08-09.md")
+result_doc_path.parent.mkdir(parents=True, exist_ok=True)
+result_doc_path.write_text(result_doc, encoding="utf-8")
+
+closure = {
+    "schema_version": 1,
+    "closure_id": "E8-MULTITASK-WARMSTARTED-PILOTS-CLOSURE-2026-08-09",
+    "scientific_status": "pilot",
+    "result_repository": RESULT_REPO,
+    "latest_protocol_annotation_commit": "7a13fcfe648d9b31bb09e122076183280511944f",
+    "records": [
+        {
+            "experiment_id": "EXT-C-E8-MULTITASK-P0-01",
+            "run_id": "E8_MULTITASK_P0_FIG1_20260729_01",
+            "result_commit": "a5541e6487d74988f07a381a837972bdc5d3282c",
+            "protocol_note_commit": "c4c23860ed9f52732e96e7b6571a87bd53ea3e69",
+            "delivery_state": "complete_dev_pilot_diagnostic",
+            "tasks": 8,
+            "diagnostic_points": 2048,
+            "reference_initialization": "task_positive_warmstart_100",
+            "warmstart_optimizer_updates": 100,
+            "warmstart_assessment": "intentional_reference_policy_preparation_for_gradient_diagnostic",
+            "far_bin_relative_implemented_actor_gradient": 3.637847735066695,
+            "far_bin_ci95": [3.255530168090851, 4.095154853282352],
+            "source_pull_request": 298,
+            "validated_remote_science_tree_commit": "72f63bb58960dc60822ae6c9ad1b41bb0c6a7076",
+            "run_recorded_local_orchestration_commit": "c6512fe20bafc96bd6b7313baa6d99ce96f168fc",
+        },
+        {
+            "experiment_id": "EXT-C-E8-MULTITASK-EXP-TUNING-01",
+            "run_id": "E8_MULTITASK_EXP_TUNING_20260729_01",
+            "result_commit": "26cf09102e4eaea9b58844fac158dc3cfc33314d",
+            "protocol_note_commit": "30e3388571e54c63cdcf8fd7062cb866c8407a6a",
+            "delivery_state": "complete_dev_pilot_tuning",
+            "completed_cells": 72,
+            "expected_cells": 72,
+            "nan_inf_events": 0,
+            "test_partition_accessed": False,
+            "training_horizon_updates": 1200,
+            "fixed_horizon_is_convergence": False,
+            "reference_initialization": "train_only_task_positive_warmstart_100",
+            "warmstart_assessment": "downstream_training_carryover_protocol_error",
+            "source_pull_request": 300,
+            "source_head": "83c30d310e31417c6c51d1f22c5e440b87e8f297",
+        },
+        {
+            "experiment_id": "EXT-C-E8-MULTITASK-TOPR-ASYMRE-TUNING-01",
+            "run_id": "E8_MULTITASK_TOPR_ASYMRE_TUNING_20260731_01",
+            "result_commit": "6479320012da4a83120d0700a3df71525cc28aef",
+            "protocol_note_commit": "7a13fcfe648d9b31bb09e122076183280511944f",
+            "delivery_state": "partial_dev_pilot_71_of_80",
+            "durable_cells": 71,
+            "expected_cells": 80,
+            "final_complete_aggregate_available": False,
+            "countdown_rerun": False,
+            "reference_initialization": "train_only_task_positive_warmstart_100",
+            "warmstart_assessment": "downstream_training_carryover_protocol_error",
+            "source_pull_request": 301,
+            "source_head": "6575065007187d2a106abc28ec89863655b438a0",
+            "topr_identity": "joint_fitted_reference_beta_topr_not_canonical_frozen_behavior_topr",
+            "topr_beta_zero_role": "uncontrolled_negative_ratio_boundary",
+            "asymre_delta_v_minus_one_role": "zero_negative_boundary",
+        },
+    ],
+    "cross_run_correction": {
+        "old_countdown_initialization": "pretrained_qwen_plus_fresh_lora_per_method_cell",
+        "multitask_training_initialization": "100_step_positive_only_reference_then_method_training",
+        "strict_nine_task_apples_to_apples_comparison_allowed": False,
+        "authoritative_cold_start_method_comparison_requires_rerun": True,
+        "p0_gradient_diagnostic_retracted": False,
+        "delivered_training_results_deleted": False,
+    },
+    "claim_boundary": {
+        "formal_method_ranking_allowed": False,
+        "convergence_or_steady_state_claim_allowed": False,
+        "significance_claim_allowed": False,
+        "categorical_causal_identification_claim_allowed": False,
+        "categorical_causal_identification_environment": "D-U1",
+    },
+    "reporting_separation": {
+        "task_performance": "separate",
+        "valid_or_structure_behavior": "separate",
+        "nan_inf_numerical_failure": "separate",
+    },
+}
+closure_path = Path("experiments/results/e8_multitask_warmstarted_pilots_20260809/RESULT_CLOSURE.json")
+closure_path.parent.mkdir(parents=True, exist_ok=True)
+closure_path.write_text(json.dumps(closure, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+registry_append = r'''
+
+- id: EXT-C-E8-MULTITASK-P0-01
+  environment: EXT-C
+  name: e8_multitask_implemented_gradient_diagnostic
+  status: pilot
+  result_status: pilot
+  role: external_discrete_occurrence_and_implemented_gradient_diagnostic
+  execution_class: pilot
+  implementation_state: unmerged_development_candidate_with_delivered_pilot_result
+  source_pull_request: 298
+  source_validated_science_tree_commit: 72f63bb58960dc60822ae6c9ad1b41bb0c6a7076
+  result:
+    run_id: E8_MULTITASK_P0_FIG1_20260729_01
+    repository: easonhuo/drpo-results
+    commit: a5541e6487d74988f07a381a837972bdc5d3282c
+    protocol_note_commit: c4c23860ed9f52732e96e7b6571a87bd53ea3e69
+    complete: true
+    tasks: 8
+    diagnostic_points: 2048
+    far_bin_relative_implemented_actor_gradient: 3.637847735066695
+    far_bin_ci95: [3.255530168090851, 4.095154853282352]
+  initialization:
+    checkpoint_kind: task_positive_warmstart_100
+    optimizer_updates: 100
+    assessment: intentional_reference_policy_preparation_for_gradient_diagnostic
+    scope_limitation: diagnostic_is_at_warmstarted_reference_policy_not_untouched_qwen_initialization
+  claim_boundary:
+    formal_evidence_allowed: false
+    method_ranking_allowed: false
+    convergence_claim_allowed: false
+    categorical_causal_identification_allowed: false
+    causal_identification_environment: D-U1
+  reporting_separation: [implemented_gradient_occurrence, task_performance, valid_or_structure_behavior, nan_inf_numerical_failure]
+
+- id: EXT-C-E8-MULTITASK-EXP-TUNING-01
+  environment: EXT-C
+  name: e8_multitask_exponential_response_tuning_warmstarted
+  status: pilot
+  result_status: pilot
+  role: external_validity_warmstarted_method_response_tuning
+  execution_class: pilot
+  implementation_state: unmerged_development_candidate_with_delivered_pilot_result
+  source_pull_request: 300
+  source_head: 83c30d310e31417c6c51d1f22c5e440b87e8f297
+  result:
+    run_id: E8_MULTITASK_EXP_TUNING_20260729_01
+    repository: easonhuo/drpo-results
+    commit: 26cf09102e4eaea9b58844fac158dc3cfc33314d
+    protocol_note_commit: 30e3388571e54c63cdcf8fd7062cb866c8407a6a
+    completed_cells: 72
+    expected_cells: 72
+    nan_inf_events: 0
+    test_partition_accessed: false
+    fixed_horizon_updates: 1200
+  initialization:
+    checkpoint_kind: train_only_task_positive_warmstart_100
+    assessment: downstream_training_carryover_protocol_error
+    origin_of_choice: inherited_from_P0_gradient_diagnostic_reference_preparation
+    historical_countdown_protocol_match: false
+  interpretation:
+    response_curve_valid_conditionally_on_warmstarted_initialization: true
+    cold_start_reproduction: false
+    authoritative_protocol_matched_method_comparison: false
+    cold_start_rerun_required_before_authoritative_comparison: true
+  claim_boundary:
+    formal_evidence_allowed: false
+    method_ranking_allowed: false
+    convergence_or_steady_state_claim_allowed: false
+    significance_claim_allowed: false
+    categorical_causal_identification_allowed: false
+    causal_identification_environment: D-U1
+  reporting_separation: [task_performance, valid_or_structure_behavior, nan_inf_numerical_failure]
+
+- id: EXT-C-E8-MULTITASK-TOPR-ASYMRE-TUNING-01
+  environment: EXT-C
+  name: e8_multitask_topr_asymre_response_tuning_warmstarted_partial
+  status: pilot
+  result_status: pilot
+  role: external_validity_warmstarted_baseline_response_tuning
+  execution_class: pilot
+  implementation_state: unmerged_development_candidate_with_partial_delivered_pilot_result
+  source_pull_request: 301
+  source_head: 6575065007187d2a106abc28ec89863655b438a0
+  methods: [joint_fitted_reference_beta_topr, asymre]
+  result:
+    run_id: E8_MULTITASK_TOPR_ASYMRE_TUNING_20260731_01
+    repository: easonhuo/drpo-results
+    commit: 6479320012da4a83120d0700a3df71525cc28aef
+    protocol_note_commit: 7a13fcfe648d9b31bb09e122076183280511944f
+    durable_cells: 71
+    expected_cells: 80
+    delivery_state: partial_waves_1_to_4_of_5
+    final_complete_aggregate_available: false
+    countdown_rerun: false
+  initialization:
+    checkpoint_kind: train_only_task_positive_warmstart_100
+    assessment: downstream_training_carryover_protocol_error
+    origin_of_choice: inherited_from_P0_gradient_diagnostic_reference_preparation_via_EXP_tuning
+    historical_countdown_protocol_match: false
+  method_boundaries:
+    topr_identity: joint_fitted_reference_beta_topr_not_canonical_frozen_behavior_topr
+    topr_beta_zero: uncontrolled_negative_ratio_boundary
+    asymre_delta_v_minus_one: zero_negative_boundary
+  interpretation:
+    per_cell_response_descriptive_under_warmstarted_initialization: true
+    cold_start_reproduction: false
+    strict_nine_task_apples_to_apples_comparison_allowed: false
+    cold_start_rerun_required_before_authoritative_comparison: true
+  claim_boundary:
+    formal_evidence_allowed: false
+    method_ranking_allowed: false
+    convergence_or_steady_state_claim_allowed: false
+    significance_claim_allowed: false
+    categorical_causal_identification_allowed: false
+    causal_identification_environment: D-U1
+  reporting_separation: [task_performance, valid_or_structure_behavior, nan_inf_numerical_failure]
+'''
+registry_after = registry_before.rstrip("\n") + registry_append + "\n"
+registry_path.write_text(registry_after, encoding="utf-8")
+registry_after_hash = sha_text(registry_after)
+
+handoff_content = (
+    "- **E8 multitask warm-started pilot result closure（2026-08-09）：**"
+    "保留 `EXT-C-E8-MULTITASK-P0-01`、`EXT-C-E8-MULTITASK-EXP-TUNING-01` 与 "
+    "`EXT-C-E8-MULTITASK-TOPR-ASYMRE-TUNING-01` 的 development-pilot 结果并新增初始化协议纠错记录。"
+    "P0 八任务 implemented-gradient diagnostic 已完成，最高 surprisal bin 的 task-equal relative implemented actor-gradient 为 `3.638`（95% CI `[3.256,4.095]`）；"
+    "其 100-step Positive-only warm start 是为获得可诊断的 task-specific reference policy 而有意设置，因此 P0 只应解释为 **100-step warmstarted reference policy 上的 occurrence/implemented-gradient diagnostic**，而不是 untouched-Qwen 初始化诊断。"
+    "后续 Exp method tuning（`72/72` cells）以及 fitted-reference TOPR/AsymRE tuning（当前 durable delivery `71/80` cells，partial）却把 `train_only_task_positive_warmstart_100` 继续作为方法训练初始化；"
+    "post-run review 将这一继承认定为 **warm-start carryover protocol error**：该 warm start 来自梯度诊断的 reference-policy preparation，并非旧 Countdown 方法训练协议的必要组成。"
+    "旧 Countdown DRPO/Positive-only/AsymRE/TOPR 使用 pretrained Qwen + fresh LoRA，而新 multitask training 先经过 100-step Positive-only，因此两者不得组成严格 apples-to-apples 的九任务 cold-start 方法比较。"
+    "现有 Exp/TOPR/AsymRE 曲线不删除，可继续作为 **conditional on the warmstarted initialization** 的 pilot response evidence；在 authoritative protocol-matched 方法比较前必须执行 cold-start rerun。"
+    "TOPR 仍是 joint fitted-reference beta-TOPR（`beta=0` 为 uncontrolled-negative boundary），AsymRE `delta_v=-1` 仍是 zero-negative boundary；固定 1200 steps 不等于 convergence，单 tuning seed/partial delivery 不授权 significance 或正式 method ranking。"
+    "D-U1 继续是 categorical causal-identification authority；task performance、valid/structure behavior 与 NaN/Inf numerical failure 必须分开报告。"
+    "完整闭环见 `docs/results/E8_MULTITASK_WARMSTARTED_PILOTS_RESULT_2026-08-09.md` 与 `experiments/results/e8_multitask_warmstarted_pilots_20260809/RESULT_CLOSURE.json`。"
+)
+operations = [{
+    "operation_id": "append-e8-multitask-warmstart-result-closure",
+    "op": "append_to_section",
+    "heading_path": [
+        "0. 研究与执行原则（每次新会话首先阅读）",
+        "0.1 当前执行门禁",
+    ],
+    "block_id": "e8-multitask-warmstart-result-closure-2026-08-09",
+    "content": handoff_content,
+}]
+
+sys.path.insert(0, str(Path("scripts").resolve()))
+import handoff_delta_shadow as shadow
+candidate = shadow.render(handoff_before, operations).text
+candidate_hash = sha_text(candidate)
+
+delta_path = Path(f"docs/handoff_deltas/{UPDATE_ID}/HANDOFF_DELTA.yaml")
+evidence = [
+    "experiments/registry.yaml",
+    delta_path.as_posix(),
+    result_doc_path.as_posix(),
+    closure_path.as_posix(),
+]
+delta = {
+    "schema_version": 3,
+    "update_id": UPDATE_ID,
+    "mode": "authoritative",
+    "base": {
+        "commit": BASE,
+        "handoff_sha256": HANDOFF_HASH_EXPECTED,
+        "registry_sha256": REGISTRY_HASH_EXPECTED,
+    },
+    "renderer_version": 1,
+    "operations": operations,
+    "registry": {
+        "mode": "expected_after",
+        "exact_base_after_sha256": registry_after_hash,
+        "changes": [
+            {
+                "change_id": "add-e8-multitask-p0-pilot-result",
+                "kind": "add_entity",
+                "entity_id": "EXT-C-E8-MULTITASK-P0-01",
+                "evidence": evidence,
+            },
+            {
+                "change_id": "add-e8-multitask-exp-warmstarted-pilot-result",
+                "kind": "add_entity",
+                "entity_id": "EXT-C-E8-MULTITASK-EXP-TUNING-01",
+                "evidence": evidence,
+            },
+            {
+                "change_id": "add-e8-multitask-topr-asymre-warmstarted-partial-result",
+                "kind": "add_entity",
+                "entity_id": "EXT-C-E8-MULTITASK-TOPR-ASYMRE-TUNING-01",
+                "evidence": evidence,
+            },
+        ],
+    },
+    "expected": {"exact_base_candidate_sha256": candidate_hash},
+}
+delta_path.parent.mkdir(parents=True, exist_ok=True)
+delta_path.write_text(
+    yaml.safe_dump(delta, sort_keys=False, allow_unicode=True, width=120),
+    encoding="utf-8",
+)
+print(json.dumps({
+    "base_handoff_sha256": sha_text(handoff_before),
+    "base_registry_sha256": sha_text(registry_before),
+    "registry_after_sha256": registry_after_hash,
+    "candidate_handoff_sha256": candidate_hash,
+}, indent=2))
+PY
+
+git add docs/results/E8_MULTITASK_WARMSTARTED_PILOTS_RESULT_2026-08-09.md \
+  experiments/results/e8_multitask_warmstarted_pilots_20260809/RESULT_CLOSURE.json \
+  experiments/registry.yaml \
+  "docs/handoff_deltas/$UPDATE_ID/HANDOFF_DELTA.yaml"
+git diff --cached --check
+git commit -m "E8 multitask warmstart pilots: author result closure"
+SOURCE_COMMIT="$(git rev-parse HEAD)"
+
+cd "$GITHUB_WORKSPACE"
+git checkout -B "$TARGET" "$BASE"
+git merge --no-ff --no-commit "$SOURCE_COMMIT"
+
+python scripts/handoff_authority.py validate-delta \
+  --repo-root . \
+  --delta "docs/handoff_deltas/$UPDATE_ID/HANDOFF_DELTA.yaml" \
+  --source-patch-commit "$SOURCE_COMMIT" \
+  --json
+
+python scripts/handoff_authority.py normalize \
+  --repo-root . \
+  --trusted-repo-root /tmp/drpo-e8-trusted \
+  --current-before "$BASE" \
+  --source-base "$BASE" \
+  --source-patch-commit "$SOURCE_COMMIT" \
+  --json
+
+git add -A
+git diff --cached --check
+git commit -m "E8 multitask warmstart pilots: materialize result closure"
+INTEGRATION_COMMIT="$(git rev-parse HEAD)"
+
+python scripts/handoff_authority.py verify --repo-root .
+python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+python scripts/validate_formal_execution_channel.py --repo-root .
+python - <<'PY'
+import json
+from pathlib import Path
+import yaml
+
+registry = yaml.safe_load(Path("experiments/registry.yaml").read_text())
+ids = [entry.get("id") for entry in registry["experiments"]]
+required = {
+    "EXT-C-E8-MULTITASK-P0-01",
+    "EXT-C-E8-MULTITASK-EXP-TUNING-01",
+    "EXT-C-E8-MULTITASK-TOPR-ASYMRE-TUNING-01",
+}
+assert required <= set(ids)
+assert all(ids.count(item) == 1 for item in required)
+closure = json.loads(Path("experiments/results/e8_multitask_warmstarted_pilots_20260809/RESULT_CLOSURE.json").read_text())
+assert closure["records"][0]["result_commit"] == "a5541e6487d74988f07a381a837972bdc5d3282c"
+assert closure["records"][1]["completed_cells"] == 72
+assert closure["records"][2]["durable_cells"] == 71
+assert closure["records"][2]["expected_cells"] == 80
+assert closure["cross_run_correction"]["strict_nine_task_apples_to_apples_comparison_allowed"] is False
+print("closure assertions: PASS")
+PY
+
+git diff --check "$BASE"...HEAD
+test "$(git rev-list --parents -n 1 HEAD | awk '{print NF}')" -eq 3
+test "$(git rev-parse HEAD^1)" = "$BASE"
+test "$(git rev-parse HEAD^2)" = "$SOURCE_COMMIT"
+test -z "$(git status --porcelain=v1)"
+
+git push origin HEAD:"$TARGET"
+printf 'source_commit=%s\nintegration_commit=%s\n' "$SOURCE_COMMIT" "$INTEGRATION_COMMIT"
