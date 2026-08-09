@@ -420,7 +420,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("Dense shape discovery must preserve the predecessor tuning seed")
     else:
         task_lambda = sweep.get("task_lambda")
-        shared_anchors = _tuple_floats(sweep.get("shared_warmstart_anchor_lambda", ()))
+        shared_anchors = _tuple_floats(sweep.get("shared_historical_anchor_lambda", ()))
         expected_anchors = tuple(
             coefficient_from_rho(rho) for rho in (0.9, 0.75, 0.6, 0.5, 0.35, 0.25, 0.125)
         )
@@ -439,7 +439,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
                 any(math.isclose(anchor, value, abs_tol=1e-15) for value in values)
                 for anchor in shared_anchors
             ):
-                raise ValueError(f"{task} is missing a shared warm-start anchor lambda")
+                raise ValueError(f"{task} is missing a shared historical anchor lambda")
         if int(sweep["positive_only_per_task"]) != 1 or int(sweep["expected_cells"]) != 160:
             raise ValueError("The cold-start matrix must be 19 Exp plus 1 Positive-only per task")
         initialization = config.get("initialization", {})
@@ -4462,7 +4462,7 @@ def _aggregate_coldstart(
     )
     run_id = str(provenance.get("run_id", output_root.name))
     source_commit = str(provenance.get("source_commit", "unrecorded"))
-    anchors = _tuple_floats(config["sweep"]["shared_warmstart_anchor_lambda"])
+    anchors = _tuple_floats(config["sweep"]["shared_historical_anchor_lambda"])
     plot_rows: list[dict[str, Any]] = []
     for row in rows:
         lambda_value = row["lambda"]
@@ -4475,7 +4475,7 @@ def _aggregate_coldstart(
                 "method": row["method"],
                 "lambda": lambda_value,
                 "rho": row["rho"],
-                "shared_warmstart_anchor": bool(
+                "shared_historical_anchor": bool(
                     lambda_value is not None
                     and any(
                         math.isclose(float(lambda_value), anchor, abs_tol=1e-15)
