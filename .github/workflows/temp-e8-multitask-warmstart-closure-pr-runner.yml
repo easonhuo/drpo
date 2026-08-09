@@ -25,9 +25,27 @@ jobs:
           path = Path('/tmp/e8_materialize.sh')
           text = path.read_text(encoding='utf-8')
           old = 'registry_after = registry_before.rstrip("\\n") + registry_append + "\\n"'
-          new = 'registry_after = registry_before.rstrip("\\n") + registry_append.rstrip("\\n") + "\\n"'
+          new = '''registry_lines = registry_before.splitlines(keepends=True)
+          experiments_start = next(
+              index for index, line in enumerate(registry_lines)
+              if line.strip() == "experiments:"
+          )
+          experiments_end = next(
+              index for index in range(experiments_start + 1, len(registry_lines))
+              if registry_lines[index].strip()
+              and not registry_lines[index][0].isspace()
+              and not registry_lines[index].startswith("-")
+              and ":" in registry_lines[index]
+          )
+          registry_after = (
+              "".join(registry_lines[:experiments_end]).rstrip("\\n")
+              + "\\n"
+              + registry_append.strip("\\n")
+              + "\\n"
+              + "".join(registry_lines[experiments_end:])
+          )'''
           if text.count(old) != 1:
-              raise SystemExit('expected exactly one registry EOF construction')
+              raise SystemExit('expected exactly one registry construction')
           path.write_text(text.replace(old, new), encoding='utf-8')
           PY
           bash -n /tmp/e8_materialize.sh
