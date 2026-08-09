@@ -1,0 +1,228 @@
+schema_version: 1
+experiment_id: EXT-C-E8-MULTITASK-EXP-COLDSTART-01
+result_status: not_run
+
+parent:
+  experiment_id: EXT-C-E8-MULTITASK-P0-01
+  qualified_banks_required: true
+
+reference:
+  checkpoint_kind: fresh_lora_from_base_model
+  optimizer_updates: 0
+  validation_rows_seen: 0
+  test_rows_seen: 0
+
+initialization:
+  source: base_model
+  optimizer_updates: 0
+  external_adapter_allowed: false
+  deterministic_fresh_lora: true
+  seed: 2026070803
+
+model:
+  base_model: Qwen/Qwen2.5-0.5B-Instruct
+  parameterization: lora
+  lora_rank: 32
+  lora_alpha: 64
+  lora_dropout: 0.05
+  dtype: auto
+  max_length: 256
+  max_new_tokens: 80
+  gradient_checkpointing: true
+
+suite:
+  tasks:
+    - countdown
+    - word_sorting
+    - mini_sudoku
+    - maze
+    - word_ladder
+    - knights_knaves
+    - graph_color
+    - wikisql
+  p0_tasks:
+    - word_sorting
+    - mini_sudoku
+    - maze
+    - word_ladder
+    - knights_knaves
+    - graph_color
+    - wikisql
+  external_tasks: [countdown]
+  excluded_tasks:
+    spiral_matrix: old_warmstart_positive_only_and_all_exp_cells_exactly_saturated
+
+split:
+  p0_train_rows: 5000
+  p0_validation_rows: 500
+  p0_test_rows: 500
+  countdown_train_rows: 5000
+  countdown_validation_rows: 500
+  hash_seed: 2026072901
+  test_access_allowed: false
+
+training:
+  optimizer_updates: 1200
+  micro_batch: 1
+  gradient_accumulation: 8
+  learning_rate: 5.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.03
+  max_grad_norm: 1.0
+  evaluation_every_updates: 100
+  min_steps: 400
+  early_stop_patience: 6
+  early_stop_delta: 0.002
+  early_stopping: true
+  terminal_adapter_required: true
+
+evaluation:
+  greedy_prompt_rows: 500
+  passk_prompt_rows: 500
+  pass_k: 8
+  batch_size: 8
+  sampling_temperature: 0.8
+  top_p: 0.95
+  max_new_tokens: 80
+  generation_seed: 2026070801
+
+negative_sampling:
+  negatives_per_prompt: 16
+  selected_current_near: 1
+  selected_current_far: 1
+  near_far_mix: [0.5, 0.5]
+  selection_stop_gradient: true
+  unique_negative_denominator: true
+  weight_sum_normalization: false
+
+remoteness_calibration:
+  prompt_rows: 256
+  gradient_prompt_rows: 16
+  seed: 2026070804
+  minimum_surprisal_scale: 1.0e-6
+  threshold: current_near_median
+  scale: current_far_median_minus_current_near_median
+  coordinate: sqrt_relu_excess_surprisal
+  match_initial_negative_gradient_rms: true
+  target_negative_to_positive_gradient_ratio: 0.03125
+
+sweep:
+  profile: eight_task_coldstart_lambda_v1
+  method: exponential
+  parameterization: lambda
+  tuning_seed: 2026070803
+  positive_only_per_task: 1
+  expected_cells: 160
+  shared_warmstart_anchor_lambda:
+    - 0.10536051565782628
+    - 0.2876820724517809
+    - 0.5108256237659907
+    - 0.6931471805599453
+    - 1.0498221244986778
+    - 1.3862943611198906
+    - 2.0794415416798357
+  task_lambda:
+    countdown:
+      [0.10536051565782628, 0.2876820724517809, 0.5108256237659907,
+       0.65, 0.6931471805599453, 0.75, 0.85, 0.92, 0.98, 1.00,
+       1.0498221244986778, 1.10, 1.16, 1.22, 1.30, 1.3862943611198906,
+       1.55, 2.0794415416798357, 2.50]
+    word_sorting:
+      [0.10536051565782628, 0.2876820724517809, 0.5108256237659907,
+       0.6931471805599453, 0.95, 1.0498221244986778, 1.10, 1.20, 1.28,
+       1.34, 1.3862943611198906, 1.43, 1.50, 1.60, 1.70, 1.80, 1.95,
+       2.0794415416798357, 2.30]
+    mini_sudoku:
+      [0.10536051565782628, 0.2876820724517809, 0.5108256237659907,
+       0.6931471805599453, 1.0498221244986778, 1.3862943611198906, 1.80,
+       2.0794415416798357, 2.20, 2.40, 2.60, 2.80, 3.00, 3.25, 3.50,
+       4.00, 4.50, 6.00, 8.00]
+    maze:
+      [0.10536051565782628, 0.14, 0.18, 0.22, 0.25,
+       0.2876820724517809, 0.32, 0.35, 0.38, 0.41, 0.44,
+       0.5108256237659907, 0.55, 0.6931471805599453, 0.70, 0.90,
+       1.0498221244986778, 1.3862943611198906, 2.0794415416798357]
+    word_ladder:
+      [0.10536051565782628, 0.2876820724517809, 0.5108256237659907,
+       0.6931471805599453, 0.95, 1.0498221244986778, 1.12, 1.24, 1.30,
+       1.34, 1.3862943611198906, 1.43, 1.48, 1.54, 1.60, 1.78, 1.90,
+       2.0794415416798357, 2.30]
+    knights_knaves:
+      [0.10536051565782628, 0.2876820724517809, 0.5108256237659907,
+       0.65, 0.6931471805599453, 0.72, 0.78, 0.84, 0.90, 0.96, 1.00,
+       1.0498221244986778, 1.10, 1.16, 1.22, 1.3862943611198906,
+       1.42, 1.65, 2.0794415416798357]
+    graph_color:
+      [0.10536051565782628, 0.15, 0.22, 0.2876820724517809, 0.38,
+       0.5108256237659907, 0.55, 0.6931471805599453, 0.75, 0.90,
+       1.0498221244986778, 1.20, 1.3862943611198906, 1.60, 1.80,
+       2.0794415416798357, 2.60, 3.50, 6.00]
+    wikisql:
+      [0.10536051565782628, 0.2876820724517809, 0.5108256237659907,
+       0.6931471805599453, 1.0498221244986778, 1.3862943611198906, 1.40,
+       1.55, 1.70, 1.85, 2.00, 2.0794415416798357, 2.20, 2.50, 2.90,
+       3.40, 3.80, 4.40, 5.20]
+  task_role:
+    countdown: broad_peak_refinement
+    word_sorting: local_peak_refinement
+    mini_sudoku: strong_taper_boundary_closure
+    maze: local_peak_refinement
+    word_ladder: noisy_peak_refinement
+    knights_knaves: local_peak_refinement
+    graph_color: saturation_control_broad_scan
+    wikisql: strong_taper_boundary_closure
+
+selection:
+  primary_metric: validation_best_pass8
+  finite_required: true
+  terminal_valid_rate_minimum: 0.95
+  tie_breakers:
+    - validation_terminal_pass8
+    - validation_best_greedy
+    - validation_terminal_greedy
+    - smaller_lambda
+  report_grid_edge: true
+
+canonical_coldstart:
+  scientific_kernel: import_only_no_loss_reimplementation
+  initialization: qwen_pretrained_base_plus_fresh_lora
+  positive_only_entry: countdown_e8_base_rl_replay.train_offline_method
+  exponential_entry: countdown_e8_oracle_offline_v2_taper_runtime.worker
+  paths:
+    arena: src/drpo/countdown_qwen_arena_onefile.py
+    positive_only: src/drpo/countdown_e8_base_rl_replay.py
+    taper_core: src/drpo/countdown_e8_oracle_offline_v2_taper_sweep.py
+    taper_runtime: src/drpo/countdown_e8_oracle_offline_v2_taper_runtime.py
+    base_config: configs/countdown_e8_base_rl_replay_0p5b.yaml
+    taper_template: configs/countdown_e8_oracle_offline_v2_taper_sweep_0p5b.yaml
+  expected_git_blob_shas:
+    arena: d8a04f3ae3edd08042aa1004b4cbf927fc5cea72
+    positive_only: 951f81a909fa73cb5af6a187b07691fd67921bd0
+    taper_core: 29825a4c5f496aff42470438efc1f7851993786e
+    taper_runtime: 88a51c8ad39764d71682118f9fd04db63d890e5f
+    base_config: 10f27f32719298376bdc7be7e01023626c6ad3f8
+    taper_template: bb941f3eb6fc08bc4ed82394e99f9f889e2249e7
+
+execution:
+  max_concurrent_cells: 16
+  gpu_ids: [0, 1, 2, 3, 4, 5, 6, 7]
+  slots_per_gpu: 2
+  expected_waves: 10
+  scheduler: dynamic_slot_queue
+  wave_barriers: false
+  identity_checked_resume: true
+  retry_incomplete_requires_explicit_flag: true
+  fail_closed: true
+  test_partition_forbidden: true
+
+reporting:
+  separate_events:
+    - task_performance
+    - valid_or_structure_diagnostic
+    - nan_inf_numerical_failure
+  single_seed_shape_discovery: true
+  later_fresh_seed_confirmation_required: true
+  convergence_claim_allowed: false
+  significance_claim_allowed: false
+  method_ranking_allowed: false
+  causal_identification_environment: D-U1
