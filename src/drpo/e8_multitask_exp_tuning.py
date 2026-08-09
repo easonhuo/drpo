@@ -2153,7 +2153,7 @@ def _calibration_identity(
 def _canonical_task_record(split_manifest: Mapping[str, Any], task: str) -> Mapping[str, Any]:
     value = split_manifest["tasks"][task].get("canonical_coldstart")
     if not isinstance(value, Mapping):
-        raise RuntimeError(f"Missing canonical cold-start task record for {task}")
+        raise TypeError(f"Missing canonical cold-start task record for {task}")
     return value
 
 
