@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Convert v2 oracle-offline corpus -> offline-bank jsonl for cmd_train_method.
 
 The v2 corpus (``countdown_e8_oracle_bank_v2.py``) is model-independent. The
@@ -25,8 +24,8 @@ Transformers, PEFT, or access to the model directory.
 
 from __future__ import annotations
 
-import hashlib
 import argparse
+import hashlib
 import json
 import sys
 from collections import Counter
@@ -124,7 +123,7 @@ def main(argv: list[str] | tuple[str, ...] = ()) -> int:
     prepared, padding_hist, unique_hist = _validate_and_pad_rows(rows)
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-    from drpo.countdown_qwen_arena_onefile import load_tokenizer  # noqa: E402
+    from drpo.countdown_qwen_arena_onefile import load_tokenizer
 
     tokenizer = load_tokenizer(str(args.model))
 
