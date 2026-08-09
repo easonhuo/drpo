@@ -1,0 +1,44 @@
+name: TEMP E8 multitask warmstart closure PR runner
+
+on:
+  pull_request:
+    branches:
+      - exec/e8-multitask-warmstart-result-closure-20260809
+
+permissions:
+  contents: write
+
+jobs:
+  run-materializer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Execute reviewed materializer from trusted base workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          source = Path('.github/workflows/temp-e8-multitask-warmstart-result-closure.yml').read_text(encoding='utf-8')
+          marker = '        run: |\n'
+          if source.count(marker) != 1:
+              raise SystemExit('expected exactly one materializer run block')
+          block = source.split(marker, 1)[1]
+          lines = block.splitlines()
+          script_lines = []
+          for line in lines:
+              if line.startswith('          '):
+                  script_lines.append(line[10:])
+              elif not line.strip():
+                  script_lines.append('')
+              else:
+                  break
+          script = '\n'.join(script_lines) + '\n'
+          if 'git push origin HEAD:"$TARGET"' not in script:
+              raise SystemExit('materializer push guard missing')
+          Path('/tmp/e8_materialize.sh').write_text(script, encoding='utf-8')
+          PY
+          bash -n /tmp/e8_materialize.sh
+          bash /tmp/e8_materialize.sh
