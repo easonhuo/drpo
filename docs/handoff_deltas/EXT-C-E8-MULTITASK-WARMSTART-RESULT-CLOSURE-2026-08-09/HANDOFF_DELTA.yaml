@@ -1,0 +1,51 @@
+schema_version: 3
+update_id: EXT-C-E8-MULTITASK-WARMSTART-RESULT-CLOSURE-2026-08-09
+mode: authoritative
+base:
+  commit: e6f6406455841be10fd9857e0526533ebbdf9e63
+  handoff_sha256: 865d790a99aea62f6906f0a1e23cd764f607006d148ed4bc21fc715bfe6b7c87
+  registry_sha256: aa97eadd8bd348d8fe337ab4232f44feca1cd6d9c02dacaed8968726162c132f
+renderer_version: 1
+operations:
+- operation_id: append-e8-multitask-warmstart-result-closure
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-multitask-warmstart-result-closure-2026-08-09
+  content: '- **E8 multitask warm-started pilot result closure（2026-08-09）：**保留 `EXT-C-E8-MULTITASK-P0-01`、`EXT-C-E8-MULTITASK-EXP-TUNING-01`
+    与 `EXT-C-E8-MULTITASK-TOPR-ASYMRE-TUNING-01` 的 development-pilot 结果并新增初始化协议纠错记录。P0 八任务 implemented-gradient diagnostic
+    已完成，最高 surprisal bin 的 task-equal relative implemented actor-gradient 为 `3.638`（95% CI `[3.256,4.095]`）；其 100-step Positive-only
+    warm start 是为获得可诊断的 task-specific reference policy 而有意设置，因此 P0 只应解释为 **100-step warmstarted reference policy 上的 occurrence/implemented-gradient
+    diagnostic**，而不是 untouched-Qwen 初始化诊断。后续 Exp method tuning（`72/72` cells）以及 fitted-reference TOPR/AsymRE tuning（当前 durable
+    delivery `71/80` cells，partial）却把 `train_only_task_positive_warmstart_100` 继续作为方法训练初始化；post-run review 将这一继承认定为 **warm-start
+    carryover protocol error**：该 warm start 来自梯度诊断的 reference-policy preparation，并非旧 Countdown 方法训练协议的必要组成。旧 Countdown DRPO/Positive-only/AsymRE/TOPR
+    使用 pretrained Qwen + fresh LoRA，而新 multitask training 先经过 100-step Positive-only，因此两者不得组成严格 apples-to-apples 的九任务 cold-start
+    方法比较。现有 Exp/TOPR/AsymRE 曲线不删除，可继续作为 **conditional on the warmstarted initialization** 的 pilot response evidence；在 authoritative
+    protocol-matched 方法比较前必须执行 cold-start rerun。TOPR 仍是 joint fitted-reference beta-TOPR（`beta=0` 为 uncontrolled-negative
+    boundary），AsymRE `delta_v=-1` 仍是 zero-negative boundary；固定 1200 steps 不等于 convergence，单 tuning seed/partial delivery 不授权
+    significance 或正式 method ranking。D-U1 继续是 categorical causal-identification authority；task performance、valid/structure
+    behavior 与 NaN/Inf numerical failure 必须分开报告。完整闭环见 `docs/results/E8_MULTITASK_WARMSTARTED_PILOTS_RESULT_2026-08-09.md`
+    与 `experiments/results/e8_multitask_warmstarted_pilots_20260809/RESULT_CLOSURE.json`。'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: bd89bbf971c8ae482616d8c26a7b51f1226d8c1a55128394585c1309f095d6fd
+  changes:
+  - change_id: add-e8-multitask-p0-pilot-result
+    kind: add_entity
+    entity_id: EXT-C-E8-MULTITASK-P0-01
+    evidence: &id001
+    - experiments/registry.yaml
+    - docs/handoff_deltas/EXT-C-E8-MULTITASK-WARMSTART-RESULT-CLOSURE-2026-08-09/HANDOFF_DELTA.yaml
+    - docs/results/E8_MULTITASK_WARMSTARTED_PILOTS_RESULT_2026-08-09.md
+    - experiments/results/e8_multitask_warmstarted_pilots_20260809/RESULT_CLOSURE.json
+  - change_id: add-e8-multitask-exp-warmstarted-pilot-result
+    kind: add_entity
+    entity_id: EXT-C-E8-MULTITASK-EXP-TUNING-01
+    evidence: *id001
+  - change_id: add-e8-multitask-topr-asymre-warmstarted-partial-result
+    kind: add_entity
+    entity_id: EXT-C-E8-MULTITASK-TOPR-ASYMRE-TUNING-01
+    evidence: *id001
+expected:
+  exact_base_candidate_sha256: b1eca7c90fac7dbe786a14380db07e0d1dc4819ce480f8ac000218005b0c2110
