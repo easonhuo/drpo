@@ -3,6 +3,8 @@ from __future__ import annotations
 import csv
 import json
 import math
+import threading
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -1411,3 +1413,190 @@ def test_exp_dense_inherit_pins_parent_and_rebinds_train_only_references(
         assert child_reference["tasks"][task]["inherited_from"]["parent_identity_hash"] == (
             f"parent-{task}"
         )
+
+
+def test_exp_coldstart_matrix_is_eight_by_twenty_and_preserves_old_anchors() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    cells = exp_tuning.build_cells(config)
+    waves = exp_tuning.build_waves(config)
+    assert len(cells) == 160
+    assert len({cell.key for cell in cells}) == 160
+    assert [len(wave) for wave in waves] == [16] * 10
+    assert config["execution"]["scheduler"] == "dynamic_slot_queue"
+    assert set(config["suite"]["tasks"]) == set(exp_tuning.TASK_NAMES) - {"spiral_matrix"}
+    anchors = set(float(value) for value in config["sweep"]["shared_warmstart_anchor_lambda"])
+    for task in config["suite"]["tasks"]:
+        task_cells = [cell for cell in cells if cell.task == task]
+        assert sum(cell.method == exp_tuning.METHOD_POSITIVE_ONLY for cell in task_cells) == 1
+        exp_cells = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_EXPONENTIAL]
+        assert len(exp_cells) == 19
+        assert anchors <= {float(cell.lambda_value) for cell in exp_cells}
+
+
+def test_exp_coldstart_rejects_adapter_or_warmstart_drift() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    changed = json.loads(json.dumps(config))
+    changed["initialization"]["external_adapter_allowed"] = True
+    with pytest.raises(ValueError, match="zero-update"):
+        exp_tuning.validate_config(changed)
+    changed = json.loads(json.dumps(config))
+    changed["reference"]["optimizer_updates"] = 100
+    with pytest.raises(ValueError, match="0 updates"):
+        exp_tuning.validate_config(changed)
+
+
+def test_exp_coldstart_imports_old_kernel_and_forbids_multitask_loader() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    assert config["canonical_coldstart"]["scientific_kernel"] == (
+        "import_only_no_loss_reimplementation"
+    )
+    assert config["canonical_coldstart"]["positive_only_entry"].endswith(".train_offline_method")
+    assert config["canonical_coldstart"]["exponential_entry"].endswith(".worker")
+    with pytest.raises(RuntimeError, match="old canonical"):
+        exp_tuning._load_reference_model(
+            "base-model",
+            None,
+            config,
+            train_mode=True,
+        )
+    source = Path(exp_tuning.__file__).read_text(encoding="utf-8")
+    assert "base_runner.train_offline_method(" in source
+    assert "runtime.worker(" in source
+    assert 'adapter_path_argument": None' in source
+
+
+def test_exp_coldstart_canonical_sources_and_schema_adapter_are_exact() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    audit = exp_tuning.audit_canonical_coldstart_sources(config)
+    assert audit["verified"]
+    assert audit["git_blob_shas"] == config["canonical_coldstart"]["expected_git_blob_shas"]
+    row = {
+        "task": "word_sorting",
+        "prompt_id": "p0",
+        "prompt": "sort",
+        "oracle_completion": "a b",
+        "metadata": {},
+        "negatives": [
+            {"completion": f"wrong-{index}", "binary_correct": False} for index in range(16)
+        ],
+    }
+    converted = exp_tuning._canonical_train_row(row)
+    assert converted["positive"] == "a b"
+    assert converted["pair_matched"] is True
+    assert converted["negative_bank_size"] == 16
+    assert [item["expression"] for item in converted["negative_bank"]] == [
+        f"wrong-{index}" for index in range(16)
+    ]
+    packs = exp_tuning._rho_packs(exp_tuning._task_rhos(config, "word_sorting"))
+    assert len(packs) == 3
+    assert all(len(pack) == len(set(pack)) == 8 for pack in packs)
+    assert set(exp_tuning._task_rhos(config, "word_sorting")) <= {
+        rho for pack in packs for rho in pack
+    }
+
+
+def test_exp_coldstart_dynamic_queue_has_no_nominal_batch_barrier(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    cells = exp_tuning.build_cells(config)
+    monkeypatch.setattr(exp_tuning, "_require_calibration_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)
+    lock = threading.Lock()
+    starts: dict[str, float] = {}
+    finishes: dict[str, float] = {}
+    active_by_gpu: dict[int, int] = {}
+    maximum_by_gpu: dict[int, int] = {}
+    replacement_started = threading.Event()
+    first_cell_released_by_replacement = threading.Event()
+
+    def fake_run(**kwargs: object) -> dict[str, object]:
+        cell = kwargs["cell"]
+        gpu_id = int(kwargs["gpu_id"])
+        with lock:
+            starts[cell.key] = time.monotonic()
+            active_by_gpu[gpu_id] = active_by_gpu.get(gpu_id, 0) + 1
+            maximum_by_gpu[gpu_id] = max(maximum_by_gpu.get(gpu_id, 0), active_by_gpu[gpu_id])
+        if cell in cells[16:]:
+            replacement_started.set()
+        if cell.key == cells[0].key:
+            if replacement_started.wait(timeout=1.0):
+                first_cell_released_by_replacement.set()
+        with lock:
+            active_by_gpu[gpu_id] -= 1
+            finishes[cell.key] = time.monotonic()
+        return {
+            "cell_key": cell.key,
+            "gpu_id": gpu_id,
+            "returncode": 0,
+            "log": "mock.log",
+            "started_unix": 0.0,
+            "finished_unix": 1.0,
+        }
+
+    monkeypatch.setattr(exp_tuning, "_run_subprocess_cell", fake_run)
+    result = exp_tuning.cmd_run_dynamic(
+        config,
+        Path("configs/e8_multitask_exp_coldstart.yaml"),
+        tmp_path,
+        base_model_path="base-model",
+        force=False,
+        retry_incomplete=True,
+    )
+    assert result["complete"]
+    assert result["completed_cells"] == 160
+    assert first_cell_released_by_replacement.is_set()
+    assert set(maximum_by_gpu) == set(range(8))
+    assert max(maximum_by_gpu.values()) <= 2
+
+
+def test_exp_coldstart_aggregate_emits_minimal_plot_csv(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    p0.atomic_json(
+        tmp_path / "source_provenance.json",
+        {"run_id": "cold-test", "source_commit": "abc123"},
+    )
+    for index, cell in enumerate(exp_tuning.build_cells(config)):
+        p0.atomic_json(
+            tmp_path / "cells" / cell.key / "cell_manifest.json",
+            {
+                "complete": True,
+                "evaluation_status": "complete",
+                "validation_best_pass8": index / 1000.0,
+                "validation_terminal_pass8": index / 1000.0,
+                "validation_best_greedy": index / 1000.0,
+                "validation_terminal_greedy": index / 1000.0,
+                "validation_best_greedy_valid_rate": 1.0,
+                "validation_terminal_greedy_valid_rate": 1.0,
+                "best_step": 100,
+                "terminal_step": 400,
+                "stop_reason": "early_stop_patience",
+                "nan_inf_failure": False,
+            },
+        )
+    summary = exp_tuning.cmd_aggregate(config, tmp_path)
+    rows = list(csv.DictReader((tmp_path / "aggregate/plot_curve_points.csv").open()))
+    assert summary["cell_count"] == 160
+    assert len(rows) == 160
+    assert set(rows[0]) >= {
+        "task",
+        "method",
+        "lambda",
+        "rho",
+        "best_validation_pass8",
+        "terminal_pass8",
+        "complete",
+    }
