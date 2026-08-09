@@ -1,0 +1,218 @@
+{
+  "current_before_commit": "e6f6406455841be10fd9857e0526533ebbdf9e63",
+  "current_handoff_before_sha256": "865d790a99aea62f6906f0a1e23cd764f607006d148ed4bc21fc715bfe6b7c87",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e8-multitask-p0-pilot-result",
+        "entity_id": "EXT-C-E8-MULTITASK-P0-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "bd89bbf971c8ae482616d8c26a7b51f1226d8c1a55128394585c1309f095d6fd"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-MULTITASK-WARMSTART-RESULT-CLOSURE-2026-08-09/HANDOFF_DELTA.yaml",
+            "sha256": "8d1ecfdb4898efbec700fa87cac53419c5e6ea142574398857a379e744b1db09"
+          },
+          {
+            "path": "docs/results/E8_MULTITASK_WARMSTARTED_PILOTS_RESULT_2026-08-09.md",
+            "sha256": "903bac5d45041ee8b47ce8d116d86f6394da3c2edd016cc51ba825b4d9070d63"
+          },
+          {
+            "path": "experiments/results/e8_multitask_warmstarted_pilots_20260809/RESULT_CLOSURE.json",
+            "sha256": "89c98eb969a39509eea5670e59cab97f58eacb7a83a5c0fc26b0059bb5a1edd0"
+          }
+        ],
+        "kind": "add_entity"
+      },
+      {
+        "change_id": "add-e8-multitask-exp-warmstarted-pilot-result",
+        "entity_id": "EXT-C-E8-MULTITASK-EXP-TUNING-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "bd89bbf971c8ae482616d8c26a7b51f1226d8c1a55128394585c1309f095d6fd"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-MULTITASK-WARMSTART-RESULT-CLOSURE-2026-08-09/HANDOFF_DELTA.yaml",
+            "sha256": "8d1ecfdb4898efbec700fa87cac53419c5e6ea142574398857a379e744b1db09"
+          },
+          {
+            "path": "docs/results/E8_MULTITASK_WARMSTARTED_PILOTS_RESULT_2026-08-09.md",
+            "sha256": "903bac5d45041ee8b47ce8d116d86f6394da3c2edd016cc51ba825b4d9070d63"
+          },
+          {
+            "path": "experiments/results/e8_multitask_warmstarted_pilots_20260809/RESULT_CLOSURE.json",
+            "sha256": "89c98eb969a39509eea5670e59cab97f58eacb7a83a5c0fc26b0059bb5a1edd0"
+          }
+        ],
+        "kind": "add_entity"
+      },
+      {
+        "change_id": "add-e8-multitask-topr-asymre-warmstarted-partial-result",
+        "entity_id": "EXT-C-E8-MULTITASK-TOPR-ASYMRE-TUNING-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "bd89bbf971c8ae482616d8c26a7b51f1226d8c1a55128394585c1309f095d6fd"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-MULTITASK-WARMSTART-RESULT-CLOSURE-2026-08-09/HANDOFF_DELTA.yaml",
+            "sha256": "8d1ecfdb4898efbec700fa87cac53419c5e6ea142574398857a379e744b1db09"
+          },
+          {
+            "path": "docs/results/E8_MULTITASK_WARMSTARTED_PILOTS_RESULT_2026-08-09.md",
+            "sha256": "903bac5d45041ee8b47ce8d116d86f6394da3c2edd016cc51ba825b4d9070d63"
+          },
+          {
+            "path": "experiments/results/e8_multitask_warmstarted_pilots_20260809/RESULT_CLOSURE.json",
+            "sha256": "89c98eb969a39509eea5670e59cab97f58eacb7a83a5c0fc26b0059bb5a1edd0"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-MULTITASK-EXP-TUNING-01",
+        "EXT-C-E8-MULTITASK-P0-01",
+        "EXT-C-E8-MULTITASK-TOPR-ASYMRE-TUNING-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 3,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "8d1ecfdb4898efbec700fa87cac53419c5e6ea142574398857a379e744b1db09",
+  "exact_base_candidate_sha256": "b1eca7c90fac7dbe786a14380db07e0d1dc4819ce480f8ac000218005b0c2110",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e8-multitask-p0-pilot-result",
+        "entity_id": "EXT-C-E8-MULTITASK-P0-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "bd89bbf971c8ae482616d8c26a7b51f1226d8c1a55128394585c1309f095d6fd"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-MULTITASK-WARMSTART-RESULT-CLOSURE-2026-08-09/HANDOFF_DELTA.yaml",
+            "sha256": "8d1ecfdb4898efbec700fa87cac53419c5e6ea142574398857a379e744b1db09"
+          },
+          {
+            "path": "docs/results/E8_MULTITASK_WARMSTARTED_PILOTS_RESULT_2026-08-09.md",
+            "sha256": "903bac5d45041ee8b47ce8d116d86f6394da3c2edd016cc51ba825b4d9070d63"
+          },
+          {
+            "path": "experiments/results/e8_multitask_warmstarted_pilots_20260809/RESULT_CLOSURE.json",
+            "sha256": "89c98eb969a39509eea5670e59cab97f58eacb7a83a5c0fc26b0059bb5a1edd0"
+          }
+        ],
+        "kind": "add_entity"
+      },
+      {
+        "change_id": "add-e8-multitask-exp-warmstarted-pilot-result",
+        "entity_id": "EXT-C-E8-MULTITASK-EXP-TUNING-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "bd89bbf971c8ae482616d8c26a7b51f1226d8c1a55128394585c1309f095d6fd"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-MULTITASK-WARMSTART-RESULT-CLOSURE-2026-08-09/HANDOFF_DELTA.yaml",
+            "sha256": "8d1ecfdb4898efbec700fa87cac53419c5e6ea142574398857a379e744b1db09"
+          },
+          {
+            "path": "docs/results/E8_MULTITASK_WARMSTARTED_PILOTS_RESULT_2026-08-09.md",
+            "sha256": "903bac5d45041ee8b47ce8d116d86f6394da3c2edd016cc51ba825b4d9070d63"
+          },
+          {
+            "path": "experiments/results/e8_multitask_warmstarted_pilots_20260809/RESULT_CLOSURE.json",
+            "sha256": "89c98eb969a39509eea5670e59cab97f58eacb7a83a5c0fc26b0059bb5a1edd0"
+          }
+        ],
+        "kind": "add_entity"
+      },
+      {
+        "change_id": "add-e8-multitask-topr-asymre-warmstarted-partial-result",
+        "entity_id": "EXT-C-E8-MULTITASK-TOPR-ASYMRE-TUNING-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "bd89bbf971c8ae482616d8c26a7b51f1226d8c1a55128394585c1309f095d6fd"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-MULTITASK-WARMSTART-RESULT-CLOSURE-2026-08-09/HANDOFF_DELTA.yaml",
+            "sha256": "8d1ecfdb4898efbec700fa87cac53419c5e6ea142574398857a379e744b1db09"
+          },
+          {
+            "path": "docs/results/E8_MULTITASK_WARMSTARTED_PILOTS_RESULT_2026-08-09.md",
+            "sha256": "903bac5d45041ee8b47ce8d116d86f6394da3c2edd016cc51ba825b4d9070d63"
+          },
+          {
+            "path": "experiments/results/e8_multitask_warmstarted_pilots_20260809/RESULT_CLOSURE.json",
+            "sha256": "89c98eb969a39509eea5670e59cab97f58eacb7a83a5c0fc26b0059bb5a1edd0"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-MULTITASK-EXP-TUNING-01",
+        "EXT-C-E8-MULTITASK-P0-01",
+        "EXT-C-E8-MULTITASK-TOPR-ASYMRE-TUNING-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 3,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "b1eca7c90fac7dbe786a14380db07e0d1dc4819ce480f8ac000218005b0c2110",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "bd89bbf971c8ae482616d8c26a7b51f1226d8c1a55128394585c1309f095d6fd",
+  "registry_before_sha256": "aa97eadd8bd348d8fe337ab4232f44feca1cd6d9c02dacaed8968726162c132f",
+  "report_schema_version": 1,
+  "source_base_commit": "e6f6406455841be10fd9857e0526533ebbdf9e63",
+  "source_patch_commit": "7b12f2aa86869801f7bcef81fb4dd6c7dd633270",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "2c86cc5b19df5d64cc3febf8b3317a0405b82ba5a0cdc9f2b38f60693161b4cc",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-C-E8-MULTITASK-WARMSTART-RESULT-CLOSURE-2026-08-09"
+}

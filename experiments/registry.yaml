@@ -7812,6 +7812,121 @@ experiments:
     state: p1_p2_development_curves_closed
     successor_registered: false
     successor_launched: false
+- id: EXT-C-E8-MULTITASK-P0-01
+  environment: EXT-C
+  name: e8_multitask_implemented_gradient_diagnostic
+  status: pilot
+  result_status: pilot
+  role: external_discrete_occurrence_and_implemented_gradient_diagnostic
+  execution_class: pilot
+  implementation_state: unmerged_development_candidate_with_delivered_pilot_result
+  source_pull_request: 298
+  source_validated_science_tree_commit: 72f63bb58960dc60822ae6c9ad1b41bb0c6a7076
+  result:
+    run_id: E8_MULTITASK_P0_FIG1_20260729_01
+    repository: easonhuo/drpo-results
+    commit: a5541e6487d74988f07a381a837972bdc5d3282c
+    protocol_note_commit: c4c23860ed9f52732e96e7b6571a87bd53ea3e69
+    complete: true
+    tasks: 8
+    diagnostic_points: 2048
+    far_bin_relative_implemented_actor_gradient: 3.637847735066695
+    far_bin_ci95: [3.255530168090851, 4.095154853282352]
+  initialization:
+    checkpoint_kind: task_positive_warmstart_100
+    optimizer_updates: 100
+    assessment: intentional_reference_policy_preparation_for_gradient_diagnostic
+    scope_limitation: diagnostic_is_at_warmstarted_reference_policy_not_untouched_qwen_initialization
+  claim_boundary:
+    formal_evidence_allowed: false
+    method_ranking_allowed: false
+    convergence_claim_allowed: false
+    categorical_causal_identification_allowed: false
+    causal_identification_environment: D-U1
+  reporting_separation: [implemented_gradient_occurrence, task_performance, valid_or_structure_behavior, nan_inf_numerical_failure]
+
+- id: EXT-C-E8-MULTITASK-EXP-TUNING-01
+  environment: EXT-C
+  name: e8_multitask_exponential_response_tuning_warmstarted
+  status: pilot
+  result_status: pilot
+  role: external_validity_warmstarted_method_response_tuning
+  execution_class: pilot
+  implementation_state: unmerged_development_candidate_with_delivered_pilot_result
+  source_pull_request: 300
+  source_head: 83c30d310e31417c6c51d1f22c5e440b87e8f297
+  result:
+    run_id: E8_MULTITASK_EXP_TUNING_20260729_01
+    repository: easonhuo/drpo-results
+    commit: 26cf09102e4eaea9b58844fac158dc3cfc33314d
+    protocol_note_commit: 30e3388571e54c63cdcf8fd7062cb866c8407a6a
+    completed_cells: 72
+    expected_cells: 72
+    nan_inf_events: 0
+    test_partition_accessed: false
+    fixed_horizon_updates: 1200
+  initialization:
+    checkpoint_kind: train_only_task_positive_warmstart_100
+    assessment: downstream_training_carryover_protocol_error
+    origin_of_choice: inherited_from_P0_gradient_diagnostic_reference_preparation
+    historical_countdown_protocol_match: false
+  interpretation:
+    response_curve_valid_conditionally_on_warmstarted_initialization: true
+    cold_start_reproduction: false
+    authoritative_protocol_matched_method_comparison: false
+    cold_start_rerun_required_before_authoritative_comparison: true
+  claim_boundary:
+    formal_evidence_allowed: false
+    method_ranking_allowed: false
+    convergence_or_steady_state_claim_allowed: false
+    significance_claim_allowed: false
+    categorical_causal_identification_allowed: false
+    causal_identification_environment: D-U1
+  reporting_separation: [task_performance, valid_or_structure_behavior, nan_inf_numerical_failure]
+
+- id: EXT-C-E8-MULTITASK-TOPR-ASYMRE-TUNING-01
+  environment: EXT-C
+  name: e8_multitask_topr_asymre_response_tuning_warmstarted_partial
+  status: pilot
+  result_status: pilot
+  role: external_validity_warmstarted_baseline_response_tuning
+  execution_class: pilot
+  implementation_state: unmerged_development_candidate_with_partial_delivered_pilot_result
+  source_pull_request: 301
+  source_head: 6575065007187d2a106abc28ec89863655b438a0
+  methods: [joint_fitted_reference_beta_topr, asymre]
+  result:
+    run_id: E8_MULTITASK_TOPR_ASYMRE_TUNING_20260731_01
+    repository: easonhuo/drpo-results
+    commit: 6479320012da4a83120d0700a3df71525cc28aef
+    protocol_note_commit: 7a13fcfe648d9b31bb09e122076183280511944f
+    durable_cells: 71
+    expected_cells: 80
+    delivery_state: partial_waves_1_to_4_of_5
+    final_complete_aggregate_available: false
+    countdown_rerun: false
+  initialization:
+    checkpoint_kind: train_only_task_positive_warmstart_100
+    assessment: downstream_training_carryover_protocol_error
+    origin_of_choice: inherited_from_P0_gradient_diagnostic_reference_preparation_via_EXP_tuning
+    historical_countdown_protocol_match: false
+  method_boundaries:
+    topr_identity: joint_fitted_reference_beta_topr_not_canonical_frozen_behavior_topr
+    topr_beta_zero: uncontrolled_negative_ratio_boundary
+    asymre_delta_v_minus_one: zero_negative_boundary
+  interpretation:
+    per_cell_response_descriptive_under_warmstarted_initialization: true
+    cold_start_reproduction: false
+    strict_nine_task_apples_to_apples_comparison_allowed: false
+    cold_start_rerun_required_before_authoritative_comparison: true
+  claim_boundary:
+    formal_evidence_allowed: false
+    method_ranking_allowed: false
+    convergence_or_steady_state_claim_allowed: false
+    significance_claim_allowed: false
+    categorical_causal_identification_allowed: false
+    causal_identification_environment: D-U1
+  reporting_separation: [task_performance, valid_or_structure_behavior, nan_inf_numerical_failure]
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1
