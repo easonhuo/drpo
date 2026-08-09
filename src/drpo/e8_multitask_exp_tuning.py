@@ -1,9 +1,9 @@
-"""Exponential-taper response tuning on frozen multitask banks and references.
+"""Exponential-taper response tuning on frozen multitask banks.
 
 The module keeps the P0 occurrence/gradient diagnostic separate from downstream
-method tuning.  It supports the original nine-task 72-cell rho sweep and its
-seven-task, 112-cell task-local lambda refinement successor without changing the
-training, validation, or no-test-access contracts.
+method tuning.  It supports the original warm-start sweeps and the eight-task,
+160-cell cold-start response sweep without changing the training, validation,
+or no-test-access contracts.
 """
 
 from __future__ import annotations
@@ -12,14 +12,20 @@ import argparse
 import copy
 import csv
 import gc
+import hashlib
+import importlib
 import json
 import math
 import os
+import queue
 import random
 import shutil
 import subprocess
 import sys
+import threading
+import time
 import traceback
+import zipfile
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -65,7 +71,8 @@ from drpo.e8_multitask_tasks import (
 
 EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-TUNING-01"
 DENSE_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-DENSE-01"
-SUPPORTED_EXPERIMENT_IDS = (EXPERIMENT_ID, DENSE_EXPERIMENT_ID)
+COLDSTART_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-COLDSTART-01"
+SUPPORTED_EXPERIMENT_IDS = (EXPERIMENT_ID, DENSE_EXPERIMENT_ID, COLDSTART_EXPERIMENT_ID)
 P0_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-P0-01"
 # Backward-compatible name used by predecessor tests and downstream callers.
 PARENT_EXPERIMENT_ID = P0_EXPERIMENT_ID
@@ -75,6 +82,14 @@ METHOD_POSITIVE_ONLY = "positive_only"
 METHOD_EXPONENTIAL = "exponential"
 SWEEP_PROFILE_RHO = "nine_task_rho_v1"
 SWEEP_PROFILE_DENSE = "task_lambda_dense_v1"
+SWEEP_PROFILE_COLDSTART = "eight_task_coldstart_lambda_v1"
+
+CANONICAL_COLD_MODULES = {
+    "arena": "drpo.countdown_qwen_arena_onefile",
+    "positive_only": "drpo.countdown_e8_base_rl_replay",
+    "taper_core": "drpo.countdown_e8_oracle_offline_v2_taper_sweep",
+    "taper_runtime": "drpo.countdown_e8_oracle_offline_v2_taper_runtime",
+}
 
 
 @dataclass(frozen=True)
@@ -147,13 +162,21 @@ def _is_dense(config: Mapping[str, Any]) -> bool:
     return sweep_profile(config) == SWEEP_PROFILE_DENSE
 
 
+def _is_coldstart(config: Mapping[str, Any]) -> bool:
+    return sweep_profile(config) == SWEEP_PROFILE_COLDSTART
+
+
+def _uses_task_lambdas(config: Mapping[str, Any]) -> bool:
+    return _is_dense(config) or _is_coldstart(config)
+
+
 def _dense_tasks() -> set[str]:
     return set(TASK_NAMES) - {"countdown", "spiral_matrix"}
 
 
 def _task_lambdas(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
-    if not _is_dense(config):
-        raise ValueError("Task-local lambdas are only defined for the dense profile")
+    if not _uses_task_lambdas(config):
+        raise ValueError("Task-local lambdas are not defined for this profile")
     values = _tuple_floats(config["sweep"]["task_lambda"][task])
     if any(not math.isfinite(value) or value <= 0.0 for value in values):
         raise ValueError(f"{task} lambda values must be finite and positive")
@@ -161,7 +184,7 @@ def _task_lambdas(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
 
 
 def _task_rhos(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
-    if _is_dense(config):
+    if _uses_task_lambdas(config):
         return tuple(math.exp(-value) for value in _task_lambdas(config, task))
     return _tuple_floats(config["sweep"]["all_rho"])
 
@@ -185,7 +208,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
         raise ValueError("Expected schema_version: 1")
     current_experiment = experiment_id(config)
     profile = sweep_profile(config)
-    if profile not in (SWEEP_PROFILE_RHO, SWEEP_PROFILE_DENSE):
+    if profile not in (SWEEP_PROFILE_RHO, SWEEP_PROFILE_DENSE, SWEEP_PROFILE_COLDSTART):
         raise ValueError(f"Unsupported sweep profile: {profile}")
     expected_parent = EXPERIMENT_ID if profile == SWEEP_PROFILE_DENSE else P0_EXPERIMENT_ID
     if config.get("parent", {}).get("experiment_id") != expected_parent:
@@ -199,7 +222,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("suite.p0_tasks must be the exact eight P0 tasks")
         if tuple(config["suite"].get("external_tasks", ())) != ("countdown",):
             raise ValueError("Countdown must be the only external task")
-    else:
+    elif profile == SWEEP_PROFILE_DENSE:
         if (
             current_experiment != DENSE_EXPERIMENT_ID
             or len(tasks) != 7
@@ -213,13 +236,43 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("Dense suite.p0_tasks must preserve the exact task order")
         if tuple(config["suite"].get("external_tasks", ())) != ():
             raise ValueError("Dense refinement has no external Countdown task")
+    else:
+        expected_tasks = set(TASK_NAMES) - {"spiral_matrix"}
+        if (
+            current_experiment != COLDSTART_EXPERIMENT_ID
+            or len(tasks) != 8
+            or len(set(tasks)) != 8
+            or set(tasks) != expected_tasks
+        ):
+            raise ValueError("The cold-start suite must be the exact eight non-Spiral tasks")
+        if set(config["suite"].get("p0_tasks", ())) != expected_tasks - {"countdown"}:
+            raise ValueError("Cold-start suite.p0_tasks must be the exact seven P0 tasks")
+        if tuple(config["suite"].get("external_tasks", ())) != ("countdown",):
+            raise ValueError("Countdown must be the only cold-start external task")
     reference = config["reference"]
-    if reference["checkpoint_kind"] != "train_only_task_positive_warmstart_100":
-        raise ValueError("P0 task references must be train-only 100-update warm starts")
-    if int(reference["optimizer_updates"]) != 100:
-        raise ValueError("Train-only P0 references must remain fixed at 100 updates")
+    expected_reference = (
+        "fresh_lora_from_base_model"
+        if _is_coldstart(config)
+        else "train_only_task_positive_warmstart_100"
+    )
+    if reference["checkpoint_kind"] != expected_reference:
+        raise ValueError(f"reference.checkpoint_kind must be {expected_reference}")
+    expected_reference_updates = 0 if _is_coldstart(config) else 100
+    if int(reference["optimizer_updates"]) != expected_reference_updates:
+        raise ValueError(f"Reference initialization must use {expected_reference_updates} updates")
     if int(reference["validation_rows_seen"]) != 0 or int(reference["test_rows_seen"]) != 0:
         raise ValueError("Train-only reference preparation must not see validation or test rows")
+    if _is_coldstart(config):
+        model = config["model"]
+        old_lora_contract = (
+            int(model["lora_rank"]),
+            int(model["lora_alpha"]),
+            float(model["lora_dropout"]),
+            int(model["max_length"]),
+            int(model["max_new_tokens"]),
+        )
+        if old_lora_contract != (32, 64, 0.05, 256, 80):
+            raise ValueError("Cold-start must preserve the old base-RL LoRA/model contract")
 
     split = config["split"]
     expected_split = {
@@ -227,7 +280,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
         "p0_validation_rows": 500,
         "p0_test_rows": 500,
     }
-    if profile == SWEEP_PROFILE_RHO:
+    if profile in (SWEEP_PROFILE_RHO, SWEEP_PROFILE_COLDSTART):
         expected_split.update(
             {
                 "countdown_train_rows": 5000,
@@ -261,22 +314,50 @@ def validate_config(config: Mapping[str, Any]) -> None:
         raise ValueError("The method-training warmup ratio must remain 0.03")
     if int(training["evaluation_every_updates"]) != 100:
         raise ValueError("Evaluation cadence must remain 100 updates")
-    if bool(training.get("early_stopping", True)):
-        raise ValueError("Early stopping is forbidden")
-    if tuple(int(value) for value in training["late_window_updates"]) != (
-        800,
-        900,
-        1000,
-        1100,
-        1200,
+    if not math.isclose(float(training["weight_decay"]), 0.01) or not math.isclose(
+        float(training["max_grad_norm"]), 1.0
     ):
-        raise ValueError("Unexpected late-window updates")
+        raise ValueError("The old optimizer weight-decay/gradient-clip contract changed")
+    if _is_coldstart(config):
+        if (
+            not bool(training.get("early_stopping", False))
+            or int(training.get("min_steps", -1)) != 400
+            or int(training.get("early_stop_patience", -1)) != 6
+            or not math.isclose(
+                float(training.get("early_stop_delta", -1.0)),
+                0.002,
+                rel_tol=0.0,
+                abs_tol=1.0e-12,
+            )
+        ):
+            raise ValueError("Cold-start must preserve the old base-RL early-stop protocol")
+    else:
+        if bool(training.get("early_stopping", True)):
+            raise ValueError("Early stopping is forbidden")
+        if tuple(int(value) for value in training["late_window_updates"]) != (
+            800,
+            900,
+            1000,
+            1100,
+            1200,
+        ):
+            raise ValueError("Unexpected late-window updates")
 
     evaluation = config["evaluation"]
     if int(evaluation["greedy_prompt_rows"]) != 500:
         raise ValueError("Greedy validation must use 500 prompts")
-    if int(evaluation["passk_prompt_rows"]) != 128 or int(evaluation["pass_k"]) != 8:
-        raise ValueError("Pass@8 validation must use the frozen 128-prompt subset")
+    expected_passk_rows = 500 if _is_coldstart(config) else 128
+    if (
+        int(evaluation["passk_prompt_rows"]) != expected_passk_rows
+        or int(evaluation["pass_k"]) != 8
+    ):
+        raise ValueError(
+            f"Pass@8 validation must use the frozen {expected_passk_rows}-prompt subset"
+        )
+    if _is_coldstart(config) and (
+        int(evaluation["batch_size"]) != 8 or int(evaluation["max_new_tokens"]) != 80
+    ):
+        raise ValueError("Cold-start must preserve the old evaluation batch/length contract")
 
     negative = config["negative_sampling"]
     if int(negative["negatives_per_prompt"]) != 16:
@@ -296,6 +377,10 @@ def validate_config(config: Mapping[str, Any]) -> None:
         abs_tol=1.0e-12,
     ):
         raise ValueError("Initial negative-gradient target must remain 1/32 of positive")
+    if _is_coldstart(config) and (
+        int(calibration["prompt_rows"]) != 256 or int(calibration["gradient_prompt_rows"]) != 16
+    ):
+        raise ValueError("Cold-start must preserve the old taper calibration row counts")
 
     sweep = config["sweep"]
     if profile == SWEEP_PROFILE_RHO:
@@ -315,7 +400,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("Unexpected full rho grid")
         if int(sweep["positive_only_per_task"]) != 1 or int(sweep["expected_cells"]) != 72:
             raise ValueError("The rho matrix must be 7 Exp plus 1 Positive-only per task")
-    else:
+    elif profile == SWEEP_PROFILE_DENSE:
         task_lambda = sweep.get("task_lambda")
         bridges = sweep.get("bridge_lambda")
         if not isinstance(task_lambda, Mapping) or set(task_lambda) != set(tasks):
@@ -333,21 +418,139 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("The dense matrix must be 16 Exp cells for each of seven tasks")
         if int(sweep["tuning_seed"]) != 2026072904:
             raise ValueError("Dense shape discovery must preserve the predecessor tuning seed")
+    else:
+        task_lambda = sweep.get("task_lambda")
+        shared_anchors = _tuple_floats(sweep.get("shared_warmstart_anchor_lambda", ()))
+        expected_anchors = tuple(
+            coefficient_from_rho(rho) for rho in (0.9, 0.75, 0.6, 0.5, 0.35, 0.25, 0.125)
+        )
+        if not isinstance(task_lambda, Mapping) or set(task_lambda) != set(tasks):
+            raise ValueError("Cold-start task_lambda must contain the exact eight tasks")
+        if len(shared_anchors) != 7 or any(
+            not math.isclose(left, right, rel_tol=0.0, abs_tol=1.0e-15)
+            for left, right in zip(shared_anchors, expected_anchors, strict=True)
+        ):
+            raise ValueError("Cold-start shared anchors must exactly match the old seven rho cells")
+        for task in tasks:
+            values = _task_lambdas(config, str(task))
+            if len(values) != 19 or len(set(values)) != 19:
+                raise ValueError(f"{task} must contain 19 unique lambda values")
+            if not all(
+                any(math.isclose(anchor, value, abs_tol=1e-15) for value in values)
+                for anchor in shared_anchors
+            ):
+                raise ValueError(f"{task} is missing a shared warm-start anchor lambda")
+        if int(sweep["positive_only_per_task"]) != 1 or int(sweep["expected_cells"]) != 160:
+            raise ValueError("The cold-start matrix must be 19 Exp plus 1 Positive-only per task")
+        initialization = config.get("initialization", {})
+        if (
+            initialization.get("source") != "base_model"
+            or int(initialization.get("optimizer_updates", -1)) != 0
+            or bool(initialization.get("external_adapter_allowed", True))
+        ):
+            raise ValueError("Cold-start must use a zero-update base-model LoRA initialization")
+        canonical = config.get("canonical_coldstart", {})
+        expected_paths = {
+            "arena": "src/drpo/countdown_qwen_arena_onefile.py",
+            "positive_only": "src/drpo/countdown_e8_base_rl_replay.py",
+            "taper_core": "src/drpo/countdown_e8_oracle_offline_v2_taper_sweep.py",
+            "taper_runtime": "src/drpo/countdown_e8_oracle_offline_v2_taper_runtime.py",
+            "base_config": "configs/countdown_e8_base_rl_replay_0p5b.yaml",
+            "taper_template": "configs/countdown_e8_oracle_offline_v2_taper_sweep_0p5b.yaml",
+        }
+        if canonical.get("paths") != expected_paths:
+            raise ValueError("Cold-start canonical paths must point to the old implementation")
+        blob_shas = canonical.get("expected_git_blob_shas", {})
+        if set(blob_shas) != set(expected_paths) or any(
+            len(str(value)) != 40 for value in blob_shas.values()
+        ):
+            raise ValueError("Cold-start must pin every old source/config Git blob SHA")
+        if canonical.get("scientific_kernel") != "import_only_no_loss_reimplementation":
+            raise ValueError("Cold-start scientific kernel must be imported, not reimplemented")
 
     execution = config["execution"]
     if int(execution["max_concurrent_cells"]) != 16:
         raise ValueError("The scheduler must expose exactly 16 slots")
     if tuple(int(value) for value in execution["gpu_ids"]) != tuple(range(8)):
         raise ValueError("The default GPU pool must remain 0--7")
-    expected_waves = 7 if profile == SWEEP_PROFILE_DENSE else 5
+    expected_waves = (
+        10 if profile == SWEEP_PROFILE_COLDSTART else (7 if profile == SWEEP_PROFILE_DENSE else 5)
+    )
     if int(execution["slots_per_gpu"]) != 2 or int(execution["expected_waves"]) != expected_waves:
         raise ValueError(f"The frozen topology is two slots per GPU and {expected_waves} waves")
+    if _is_coldstart(config) and execution.get("scheduler") != "dynamic_slot_queue":
+        raise ValueError("Cold-start execution must use the dynamic slot queue")
 
 
 def coefficient_from_rho(rho: float) -> float:
     if not math.isfinite(rho) or not 0.0 < rho < 1.0:
         raise ValueError("rho must be finite and strictly between zero and one")
     return -math.log(rho)
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _canonical_paths(config: Mapping[str, Any]) -> dict[str, Path]:
+    root = _repo_root()
+    return {
+        name: (root / str(relative)).resolve()
+        for name, relative in config["canonical_coldstart"]["paths"].items()
+    }
+
+
+def _git_blob_sha(path: Path) -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "hash-object", str(path)],
+            cwd=_repo_root(),
+            text=True,
+            stderr=subprocess.PIPE,
+        ).strip()
+    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+        raise RuntimeError(
+            f"Cannot compute Git blob identity for canonical source: {path}"
+        ) from exc
+
+
+def audit_canonical_coldstart_sources(config: Mapping[str, Any]) -> dict[str, Any]:
+    """Fail closed unless every imported old cold-start source is byte-identical."""
+
+    if not _is_coldstart(config):
+        raise RuntimeError("Canonical cold-start source audit is cold-profile only")
+    paths = _canonical_paths(config)
+    expected = config["canonical_coldstart"]["expected_git_blob_shas"]
+    observed: dict[str, str] = {}
+    for name, path in paths.items():
+        if not path.is_file():
+            raise FileNotFoundError(f"Missing canonical cold-start source: {path}")
+        observed[name] = _git_blob_sha(path)
+        if observed[name] != str(expected[name]):
+            raise RuntimeError(
+                f"Canonical cold-start source drift for {name}: "
+                f"expected {expected[name]}, found {observed[name]}"
+            )
+    return {
+        "paths": {name: str(path) for name, path in paths.items()},
+        "git_blob_shas": observed,
+        "verified": True,
+    }
+
+
+def _canonical_cold_modules(config: Mapping[str, Any]) -> dict[str, Any]:
+    audit_canonical_coldstart_sources(config)
+    modules = {
+        name: importlib.import_module(module_name)
+        for name, module_name in CANONICAL_COLD_MODULES.items()
+    }
+    core = modules["taper_core"]
+    runtime = modules["taper_runtime"]
+    positive = modules["positive_only"]
+    arena = modules["arena"]
+    if core.arena is not arena or core.base_runner is not positive or runtime.core is not core:
+        raise RuntimeError("Canonical cold-start modules do not share one old implementation graph")
+    return modules
 
 
 def normalized_distance(
@@ -387,6 +590,28 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
         if len(cells) != 112 or len({cell.key for cell in cells}) != 112:
             raise AssertionError("Internal 112-cell identity failure")
         return cells
+    if _is_coldstart(config):
+        cells = tuple(
+            cell
+            for task in tasks
+            for cell in (
+                Cell(task, METHOD_POSITIVE_ONLY, None, seed, "coldstart"),
+                *(
+                    Cell(
+                        task,
+                        METHOD_EXPONENTIAL,
+                        math.exp(-lambda_value),
+                        seed,
+                        "coldstart",
+                        lambda_value,
+                    )
+                    for lambda_value in _task_lambdas(config, task)
+                ),
+            )
+        )
+        if len(cells) != 160 or len({cell.key for cell in cells}) != 160:
+            raise AssertionError("Internal 160-cell identity failure")
+        return cells
     coarse = _tuple_floats(config["sweep"]["coarse_rho"])
     refinement = _tuple_floats(config["sweep"]["refinement_rho"])
     cells: list[Cell] = []
@@ -410,6 +635,13 @@ def build_waves(config: Mapping[str, Any]) -> tuple[tuple[Cell, ...], ...]:
         )
         if len(waves) != 7 or any(len(wave) != capacity for wave in waves):
             raise AssertionError("Dense wave geometry must be seven task-local 16-cell waves")
+        return waves
+    if _is_coldstart(config):
+        waves = tuple(
+            tuple(cells[index : index + capacity]) for index in range(0, len(cells), capacity)
+        )
+        if len(waves) != 10 or any(len(wave) != capacity for wave in waves):
+            raise AssertionError("Cold-start nominal geometry must be ten 16-cell batches")
         return waves
     coarse = tuple(cell for cell in cells if cell.stage == "coarse")
     refinement = tuple(cell for cell in cells if cell.stage == "refinement")
@@ -438,6 +670,7 @@ def write_plan(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             rows.append(
                 {
                     "wave": wave_index,
+                    "nominal_batch": wave_index,
                     "slot": slot,
                     "gpu_id": gpu_ids[slot % len(gpu_ids)],
                     "cell_key": cell.key,
@@ -461,6 +694,8 @@ def write_plan(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "wave_count": len(waves),
         "wave_sizes": [len(wave) for wave in waves],
         "max_concurrent_cells": int(config["execution"]["max_concurrent_cells"]),
+        "scheduler": str(config["execution"].get("scheduler", "wave_barrier")),
+        "wave_is_scheduling_barrier": not _is_coldstart(config),
         "rows": rows,
         "scientific_status": "not_run",
     }
@@ -507,7 +742,8 @@ def _normalize_p0_row(row: Mapping[str, Any]) -> dict[str, Any]:
 
 def _normalize_countdown_train_row(row: Mapping[str, Any]) -> dict[str, Any]:
     negatives = []
-    for index, item_value in enumerate(row["negatives"]):
+    source_negatives = row.get("negative_bank", row["negatives"])
+    for index, item_value in enumerate(source_negatives):
         item = dict(item_value)
         negatives.append(
             {
@@ -652,6 +888,154 @@ def split_countdown_rows(
     return partitions
 
 
+def _canonical_train_row(row: Mapping[str, Any]) -> dict[str, Any]:
+    """Translate only the task interface into the old arena's frozen row schema."""
+
+    task = str(row["task"])
+    prompt_id = str(row["prompt_id"])
+    negatives = list(row["negatives"])
+    if len(negatives) != 16:
+        raise RuntimeError(f"{task}/{prompt_id} canonical conversion requires 16 negatives")
+    bank = [
+        {
+            **dict(item),
+            "expression": str(item["completion"]),
+        }
+        for item in negatives
+    ]
+    oracle = str(row["oracle_completion"])
+    return {
+        **dict(row),
+        "id": prompt_id,
+        "oracle": oracle,
+        "positive": oracle,
+        "near_negative": str(bank[0]["expression"]),
+        "far_negative": str(bank[-1]["expression"]),
+        "negative_bank": bank,
+        "negative_bank_size": 16,
+        "pair_matched": True,
+        # The old core uses this only for balanced diagnostics.  Task correctness
+        # is supplied by the environment verifier, not Countdown expression parsing.
+        "oracle_structure": f"{task}:task_verifier",
+        "canonical_training_core": "countdown_qwen_arena_onefile.OfflineDataset",
+    }
+
+
+def _canonical_validation_row(row: Mapping[str, Any]) -> dict[str, Any]:
+    task = str(row["task"])
+    prompt_id = str(row["prompt_id"])
+    oracle = str(row["oracle_completion"])
+    return {
+        **dict(row),
+        "id": prompt_id,
+        "oracle": oracle,
+        "oracle_structure": f"{task}:task_verifier",
+    }
+
+
+def _rho_packs(rhos: Sequence[float]) -> tuple[tuple[float, ...], ...]:
+    """Build old-validator-compatible eight-rho packs without changing its guard."""
+
+    values = tuple(float(value) for value in rhos)
+    if len(values) != 19 or len(set(values)) != 19:
+        raise ValueError("Canonical cold-start packing requires 19 unique rho values")
+    packs: list[tuple[float, ...]] = []
+    for start in range(0, len(values), 8):
+        pack = list(values[start : start + 8])
+        for candidate in values:
+            if len(pack) == 8:
+                break
+            if candidate not in pack:
+                pack.append(candidate)
+        if len(pack) != 8 or len(set(pack)) != 8:
+            raise AssertionError("Could not construct an old-compatible eight-rho pack")
+        packs.append(tuple(pack))
+    return tuple(packs)
+
+
+def write_canonical_cold_inputs(
+    config: Mapping[str, Any],
+    output_root: Path,
+    split_manifest: dict[str, Any],
+) -> dict[str, Any]:
+    """Write schema adapters and valid old-core configs; never implement training math."""
+
+    if not _is_coldstart(config):
+        raise RuntimeError("Canonical input conversion is cold-profile only")
+    source_audit = audit_canonical_coldstart_sources(config)
+    canonical_paths = _canonical_paths(config)
+    template = yaml.safe_load(canonical_paths["taper_template"].read_text(encoding="utf-8"))
+    if not isinstance(template, dict):
+        raise TypeError("Canonical taper template root must be a mapping")
+
+    records: dict[str, Any] = {}
+    for task_value in config["suite"]["tasks"]:
+        task = str(task_value)
+        record = split_manifest["tasks"][task]
+        source_paths = record["paths"]
+        train_rows = [_canonical_train_row(row) for row in read_jsonl(Path(source_paths["train"]))]
+        validation_rows = [
+            _canonical_validation_row(row) for row in read_jsonl(Path(source_paths["validation"]))
+        ]
+        task_root = output_root / "canonical_inputs" / task
+        train_path = task_root / "train.jsonl"
+        validation_path = task_root / "validation.jsonl"
+        sealed_test_path = task_root / "SEALED_TEST_NOT_ACCESSED.jsonl"
+        atomic_jsonl(train_path, train_rows)
+        atomic_jsonl(validation_path, validation_rows)
+        sealed_test_path.parent.mkdir(parents=True, exist_ok=True)
+        sealed_test_path.write_text("", encoding="utf-8")
+
+        packs: list[dict[str, Any]] = []
+        for pack_index, rho_pack in enumerate(_rho_packs(_task_rhos(config, task)), start=1):
+            pack_config = copy.deepcopy(template)
+            pack_config["sweep"]["rho_values"] = list(rho_pack)
+            pack_path = task_root / f"taper_pack_{pack_index:02d}.yaml"
+            temporary = pack_path.with_suffix(".yaml.tmp")
+            temporary.write_text(
+                yaml.safe_dump(pack_config, sort_keys=False),
+                encoding="utf-8",
+            )
+            temporary.replace(pack_path)
+            packs.append(
+                {
+                    "path": str(pack_path.resolve()),
+                    "sha256": sha256_file(pack_path),
+                    "rhos": list(rho_pack),
+                }
+            )
+        canonical_record = {
+            "train": str(train_path.resolve()),
+            "validation": str(validation_path.resolve()),
+            "sealed_test": str(sealed_test_path.resolve()),
+            "base_config": str(canonical_paths["base_config"]),
+            "taper_packs": packs,
+            "train_sha256": sha256_file(train_path),
+            "validation_sha256": sha256_file(validation_path),
+            "sealed_test_sha256": sha256_file(sealed_test_path),
+            "train_rows": len(train_rows),
+            "validation_rows": len(validation_rows),
+            "test_rows": 0,
+        }
+        record["canonical_coldstart"] = canonical_record
+        records[task] = canonical_record
+
+    split_manifest["canonical_source_audit"] = source_audit
+    split_manifest["canonical_coldstart_complete"] = True
+    atomic_json(output_root / "split_manifest.json", split_manifest)
+    manifest = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "config_hash": stable_config_hash(config),
+        "source_audit": source_audit,
+        "tasks": records,
+        "test_partition_accessed": False,
+        "complete": set(records) == set(config["suite"]["tasks"]),
+    }
+    atomic_json(output_root / "canonical_inputs" / "manifest.json", manifest)
+    return manifest
+
+
 def resolve_task_inputs(
     config: Mapping[str, Any],
     *,
@@ -659,7 +1043,7 @@ def resolve_task_inputs(
     p0_config: Path,
     countdown_bank: Path,
     countdown_validation: Path,
-    countdown_adapter: Path,
+    countdown_adapter: Path | None,
 ) -> dict[str, TaskInputs]:
     p0_config_value = yaml.safe_load(p0_config.read_text(encoding="utf-8"))
     if (
@@ -700,7 +1084,7 @@ def resolve_task_inputs(
     result["countdown"] = TaskInputs(
         task="countdown",
         bank=countdown_bank.resolve(),
-        reference_adapter=countdown_adapter.resolve(),
+        reference_adapter=(countdown_adapter.resolve() if countdown_adapter is not None else None),
         sources_root=(p0_work_dir / "sources").resolve(),
         p0_config=p0_config.resolve(),
         countdown_validation=countdown_validation.resolve(),
@@ -709,13 +1093,13 @@ def resolve_task_inputs(
         if not inputs.bank.is_file():
             raise FileNotFoundError(f"Missing bank for {task}: {inputs.bank}")
         if task == "countdown":
-            if (
+            if inputs.countdown_validation is None or not inputs.countdown_validation.is_file():
+                raise FileNotFoundError("Missing Countdown validation file")
+            if not _is_coldstart(config) and (
                 inputs.reference_adapter is None
                 or not (inputs.reference_adapter / "adapter_config.json").is_file()
             ):
                 raise FileNotFoundError("Missing supplied Countdown reference adapter")
-            if inputs.countdown_validation is None or not inputs.countdown_validation.is_file():
-                raise FileNotFoundError("Missing Countdown validation file")
         if not inputs.sources_root.is_dir():
             raise FileNotFoundError(f"Missing sources root for {task}: {inputs.sources_root}")
     if set(result) != set(config["suite"]["tasks"]):
@@ -798,7 +1182,7 @@ def cmd_prepare(
     p0_config: Path,
     countdown_bank: Path,
     countdown_validation: Path,
-    countdown_adapter: Path,
+    countdown_adapter: Path | None,
 ) -> dict[str, Any]:
     if _is_dense(config):
         raise RuntimeError("Dense refinement must use inherit, not prepare")
@@ -812,6 +1196,9 @@ def cmd_prepare(
     )
     plan = write_plan(config, output_root)
     splits = write_split_manifest(inputs, config, output_root)
+    canonical_inputs = (
+        write_canonical_cold_inputs(config, output_root, splits) if _is_coldstart(config) else None
+    )
     serialized_inputs = {
         task: {
             "bank": str(value.bank),
@@ -832,12 +1219,19 @@ def cmd_prepare(
         "config_hash": stable_config_hash(config),
         "plan": str((output_root / "plan.json").resolve()),
         "split_manifest": str((output_root / "split_manifest.json").resolve()),
+        "canonical_inputs": (
+            str((output_root / "canonical_inputs" / "manifest.json").resolve())
+            if canonical_inputs is not None
+            else None
+        ),
         "inputs": serialized_inputs,
         "complete": plan["cell_count"] == int(config["sweep"]["expected_cells"])
-        and splits["complete"],
+        and splits["complete"]
+        and (canonical_inputs is None or bool(canonical_inputs["complete"])),
         "scientific_status": "not_run",
     }
     atomic_json(output_root / "prepare_manifest.json", manifest)
+    atomic_json(output_root / "frozen_config.json", dict(config))
     return manifest
 
 
@@ -1403,6 +1797,27 @@ def _load_prepared(
             )["adapter"]
             if current_identity != split_record.get("reference_adapter_identity"):
                 raise RuntimeError(f"Prepared reference adapter identity mismatch for {task}")
+        if _is_coldstart(config):
+            canonical = split_record.get("canonical_coldstart")
+            if not isinstance(canonical, Mapping):
+                raise RuntimeError(f"Missing canonical cold-start inputs for {task}")
+            identity_fields = (
+                ("train", "train_sha256"),
+                ("validation", "validation_sha256"),
+                ("sealed_test", "sealed_test_sha256"),
+            )
+            for path_key, sha_key in identity_fields:
+                path = Path(str(canonical[path_key]))
+                if not path.is_file() or sha256_file(path) != canonical[sha_key]:
+                    raise RuntimeError(
+                        f"Canonical cold-start {path_key} identity mismatch for {task}"
+                    )
+            if int(canonical.get("test_rows", -1)) != 0:
+                raise RuntimeError("Canonical tuning input must keep the test partition sealed")
+            for pack in canonical.get("taper_packs", ()):
+                pack_path = Path(str(pack["path"]))
+                if not pack_path.is_file() or sha256_file(pack_path) != pack["sha256"]:
+                    raise RuntimeError(f"Canonical taper-pack identity mismatch for {task}")
     return splits, inputs
 
 
@@ -1483,6 +1898,10 @@ def _load_ready_inputs(
     base_model_path: str,
 ) -> tuple[dict[str, Any], dict[str, TaskInputs]]:
     splits, inputs = _load_prepared(output_root, config)
+    if _is_coldstart(config):
+        if any(value.reference_adapter is not None for value in inputs.values()):
+            raise RuntimeError("Cold-start prepared inputs must not contain external adapters")
+        return splits, inputs
     return splits, _attach_references(
         output_root,
         config,
@@ -1607,11 +2026,18 @@ def _select_current_extremes(
 
 def _load_reference_model(
     base_model_path: str,
-    reference_adapter: Path,
+    reference_adapter: Path | None,
     config: Mapping[str, Any],
     *,
     train_mode: bool,
 ) -> tuple[Any, Any, Any]:
+    if _is_coldstart(config):
+        raise RuntimeError(
+            "Cold-start may not use the multitask model loader; the old canonical "
+            "arena.load_model(adapter_path=None) owns initialization"
+        )
+    if reference_adapter is None:
+        raise RuntimeError("Warm-start profile requires a reference adapter")
     if torch is None:
         raise RuntimeError("Training requires Torch")
     try:
@@ -1649,6 +2075,27 @@ def _load_reference_model(
     return model, tokenizer, get_cosine_schedule_with_warmup
 
 
+def _trainable_state_sha256(model: Any) -> str:
+    """Hash fresh/trainable state without serializing an adapter to disk."""
+
+    if torch is None:
+        raise RuntimeError("Torch is required")
+    digest = hashlib.sha256()
+    found = False
+    for name, parameter in sorted(model.named_parameters(), key=lambda item: item[0]):
+        if not parameter.requires_grad:
+            continue
+        found = True
+        value = parameter.detach().cpu().contiguous()
+        digest.update(name.encode("utf-8"))
+        digest.update(str(tuple(value.shape)).encode("ascii"))
+        digest.update(str(value.dtype).encode("ascii"))
+        digest.update(value.view(torch.uint8).numpy().tobytes())
+    if not found:
+        raise RuntimeError("No trainable parameters to hash")
+    return digest.hexdigest()
+
+
 def _raw_gradient_norm(grads: Sequence[torch.Tensor | None]) -> float:
     total = torch.zeros((), dtype=torch.float64)
     for gradient in grads:
@@ -1679,8 +2126,6 @@ def _calibration_identity(
     base_model_path: str,
     config: Mapping[str, Any],
 ) -> dict[str, Any]:
-    if inputs.reference_adapter is None:
-        raise RuntimeError(f"Reference adapter is missing for {task}")
     identity = {
         "schema_version": 1,
         "experiment_id": experiment_id(config),
@@ -1689,13 +2134,172 @@ def _calibration_identity(
         "bank_sha256": split_manifest["tasks"][task]["bank_sha256"],
         "train_prompt_hash": split_manifest["tasks"][task]["prompt_id_hashes"]["train"],
         "base_model_identity": model_identity(base_model_path, None)["model"],
-        "reference_adapter_identity": model_identity(
-            base_model_path,
-            str(inputs.reference_adapter),
-        )["adapter"],
+        "initialization": (
+            dict(config["initialization"])
+            if _is_coldstart(config)
+            else {
+                "source": "reference_adapter",
+                "reference_adapter_identity": model_identity(
+                    base_model_path,
+                    str(inputs.reference_adapter),
+                )["adapter"],
+            }
+        ),
     }
     identity["identity_hash"] = stable_hash(identity)
     return identity
+
+
+def _canonical_task_record(split_manifest: Mapping[str, Any], task: str) -> Mapping[str, Any]:
+    value = split_manifest["tasks"][task].get("canonical_coldstart")
+    if not isinstance(value, Mapping):
+        raise RuntimeError(f"Missing canonical cold-start task record for {task}")
+    return value
+
+
+def _canonical_calibration_identity(
+    task: str,
+    *,
+    split_manifest: Mapping[str, Any],
+    base_model_path: str,
+    config: Mapping[str, Any],
+) -> dict[str, Any]:
+    record = _canonical_task_record(split_manifest, task)
+    value = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "config_hash": stable_config_hash(config),
+        "task": task,
+        "base_model_identity": model_identity(base_model_path, None)["model"],
+        "canonical_train_sha256": record["train_sha256"],
+        "canonical_base_config_git_blob_sha": config["canonical_coldstart"][
+            "expected_git_blob_shas"
+        ]["base_config"],
+        "canonical_source_git_blob_shas": dict(
+            config["canonical_coldstart"]["expected_git_blob_shas"]
+        ),
+    }
+    value["identity_hash"] = stable_hash(value)
+    return value
+
+
+def _canonical_pack_for_rho(record: Mapping[str, Any], rho: float) -> tuple[Path, Path]:
+    matches = [
+        pack
+        for pack in record["taper_packs"]
+        if any(
+            math.isclose(float(value), rho, rel_tol=0.0, abs_tol=1.0e-15) for value in pack["rhos"]
+        )
+    ]
+    if not matches:
+        raise RuntimeError(f"No canonical old-validator taper pack contains rho={rho}")
+    # Prefer the first occurrence.  Padding duplicates in the final pack are
+    # calibration-only and never change a cell's scientific identity.
+    pack = matches[0]
+    pack_path = Path(str(pack["path"]))
+    pack_index = list(record["taper_packs"]).index(pack) + 1
+    calibration_path = pack_path.parent / f"taper_calibration_pack_{pack_index:02d}.json"
+    return pack_path, calibration_path
+
+
+def calibrate_canonical_cold_task(
+    task: str,
+    *,
+    split_manifest: Mapping[str, Any],
+    base_model_path: str,
+    config: Mapping[str, Any],
+    output_root: Path,
+    force: bool,
+) -> dict[str, Any]:
+    modules = _canonical_cold_modules(config)
+    base_runner = modules["positive_only"]
+    runtime = modules["taper_runtime"]
+    record = _canonical_task_record(split_manifest, task)
+    identity = _canonical_calibration_identity(
+        task,
+        split_manifest=split_manifest,
+        base_model_path=base_model_path,
+        config=config,
+    )
+    task_root = output_root / "calibration" / "canonical" / task
+    result_path = output_root / "calibration" / f"{task}.json"
+    if result_path.is_file() and not force:
+        existing = json.loads(result_path.read_text(encoding="utf-8"))
+        if existing.get("identity_hash") == identity["identity_hash"] and existing.get("complete"):
+            return existing
+        raise RuntimeError(f"Existing canonical calibration identity mismatch for {task}")
+    if force and task_root.exists():
+        expected_parent = (output_root / "calibration" / "canonical").resolve()
+        if expected_parent not in task_root.resolve().parents:
+            raise RuntimeError(f"Refusing unsafe canonical calibration removal: {task_root}")
+        shutil.rmtree(task_root)
+    task_root.mkdir(parents=True, exist_ok=True)
+
+    base_config_path = Path(str(record["base_config"]))
+    base_config = yaml.safe_load(base_config_path.read_text(encoding="utf-8"))
+    if not isinstance(base_config, dict):
+        raise TypeError("Canonical base config root must be a mapping")
+    bank_path = Path(str(record["train"]))
+    global_calibration = base_runner.calibrate_base_negative(
+        Path(base_model_path).resolve(),
+        task_root,
+        bank_path,
+        base_config,
+    )
+    pack_results: list[dict[str, Any]] = []
+    required_rhos = set(_task_rhos(config, task))
+    covered_rhos: set[float] = set()
+    for index, pack in enumerate(record["taper_packs"], start=1):
+        pack_path = Path(str(pack["path"]))
+        calibration_path = pack_path.parent / f"taper_calibration_pack_{index:02d}.json"
+        if calibration_path.exists() and force:
+            calibration_path.unlink()
+        value = runtime.calibrate(
+            model_path=Path(base_model_path).resolve(),
+            bank_path=bank_path,
+            global_calibration_path=Path(global_calibration),
+            base_config_path=base_config_path,
+            sweep_config_path=pack_path,
+            output_path=calibration_path,
+            repo=_repo_root(),
+        )
+        for rho in pack["rhos"]:
+            rho_value = float(rho)
+            if rho_value in required_rhos:
+                key = modules["taper_core"]._method_key(METHOD_EXPONENTIAL, rho_value)
+                if key not in value["methods"]:
+                    raise RuntimeError(f"Canonical calibration is missing {key}")
+                covered_rhos.add(rho_value)
+        pack_results.append(
+            {
+                "path": str(calibration_path.resolve()),
+                "sha256": sha256_file(calibration_path),
+                "sweep_config": str(pack_path.resolve()),
+                "sweep_config_sha256": sha256_file(pack_path),
+                "rhos": list(pack["rhos"]),
+                "runtime_version": value["runtime_version"],
+            }
+        )
+        gc.collect()
+        if torch is not None and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    if covered_rhos != required_rhos:
+        raise RuntimeError(f"Canonical calibration did not cover every rho for {task}")
+    result = {
+        **identity,
+        "canonical_positive_only_entry": "countdown_e8_base_rl_replay.calibrate_base_negative",
+        "canonical_taper_entry": "countdown_e8_oracle_offline_v2_taper_runtime.calibrate",
+        "global_calibration": str(Path(global_calibration).resolve()),
+        "global_calibration_sha256": sha256_file(global_calibration),
+        "taper_packs": pack_results,
+        "covered_exp_rhos": sorted(covered_rhos),
+        "task_metrics_used": False,
+        "test_data_used": False,
+        "complete": True,
+        "scientific_status": "not_run",
+    }
+    atomic_json(result_path, result)
+    return result
 
 
 def calibrate_task(
@@ -1708,6 +2312,8 @@ def calibrate_task(
     output_root: Path,
     force: bool,
 ) -> dict[str, Any]:
+    if _is_coldstart(config):
+        raise RuntimeError("Cold-start calibration must call the canonical base/taper modules")
     path = output_root / "calibration" / f"{task}.json"
     identity = _calibration_identity(
         task,
@@ -1722,14 +2328,19 @@ def calibrate_task(
             return existing
         raise RuntimeError(f"Existing calibration identity mismatch for {task}")
 
-    if inputs.reference_adapter is None:
-        raise RuntimeError(f"Reference adapter is missing for {task}")
+    initialization_seed = (
+        int(config["initialization"]["seed"])
+        if _is_coldstart(config)
+        else int(config["remoteness_calibration"]["seed"])
+    )
+    _seed_everything(initialization_seed)
     model, tokenizer, _ = _load_reference_model(
         base_model_path,
         inputs.reference_adapter,
         config,
         train_mode=False,
     )
+    initialization_state_sha256 = _trainable_state_sha256(model)
     model.eval()
     train_rows = read_jsonl(Path(split_manifest["tasks"][task]["paths"]["train"]))
     calibration = config["remoteness_calibration"]
@@ -1823,6 +2434,7 @@ def calibrate_task(
         "negative_scales": negative_scales,
         "prompt_rows": int(calibration["prompt_rows"]),
         "gradient_prompt_rows": int(calibration["gradient_prompt_rows"]),
+        "initialization_state_sha256": initialization_state_sha256,
         "complete": True,
         "scientific_status": "not_run",
         "note": "Training-only initialization calibration; not scientific outcome evidence.",
@@ -1854,30 +2466,52 @@ def cmd_calibrate(
     unknown = sorted(set(requested) - set(config["suite"]["tasks"]))
     if unknown:
         raise ValueError(f"Unknown calibration tasks: {unknown}")
-    requested_results = {
-        task: calibrate_task(
-            task,
-            inputs=inputs[task],
-            split_manifest=splits,
-            base_model_path=base_model_path,
-            config=config,
-            output_root=output_root,
-            force=force,
-        )
-        for task in requested
-    }
+    if _is_coldstart(config):
+        requested_results = {
+            task: calibrate_canonical_cold_task(
+                task,
+                split_manifest=splits,
+                base_model_path=base_model_path,
+                config=config,
+                output_root=output_root,
+                force=force,
+            )
+            for task in requested
+        }
+    else:
+        requested_results = {
+            task: calibrate_task(
+                task,
+                inputs=inputs[task],
+                split_manifest=splits,
+                base_model_path=base_model_path,
+                config=config,
+                output_root=output_root,
+                force=force,
+            )
+            for task in requested
+        }
     results: dict[str, Any] = {}
     for task in config["suite"]["tasks"]:
         path = output_root / "calibration" / f"{task}.json"
         if not path.is_file():
             continue
         result = json.loads(path.read_text(encoding="utf-8"))
-        expected_identity = _calibration_identity(
-            task,
-            inputs=inputs[task],
-            split_manifest=splits,
-            base_model_path=base_model_path,
-            config=config,
+        expected_identity = (
+            _canonical_calibration_identity(
+                task,
+                split_manifest=splits,
+                base_model_path=base_model_path,
+                config=config,
+            )
+            if _is_coldstart(config)
+            else _calibration_identity(
+                task,
+                inputs=inputs[task],
+                split_manifest=splits,
+                base_model_path=base_model_path,
+                config=config,
+            )
         )
         if result.get("identity_hash") != expected_identity["identity_hash"] or not result.get(
             "complete"
@@ -1899,6 +2533,35 @@ def cmd_calibrate(
     }
     atomic_json(output_root / "calibration" / "calibration_manifest.json", manifest)
     return manifest
+
+
+def cmd_calibrate_task(
+    config: Mapping[str, Any],
+    output_root: Path,
+    *,
+    base_model_path: str,
+    task: str,
+    force: bool,
+) -> dict[str, Any]:
+    """Calibrate one cold task without racing the shared top-level manifest."""
+
+    if not _is_coldstart(config):
+        raise RuntimeError("calibrate-task is available only for canonical cold-start")
+    if task not in config["suite"]["tasks"]:
+        raise ValueError(f"Unknown calibration task: {task}")
+    splits, _ = _load_ready_inputs(
+        output_root,
+        config,
+        base_model_path=base_model_path,
+    )
+    return calibrate_canonical_cold_task(
+        task,
+        split_manifest=splits,
+        base_model_path=base_model_path,
+        config=config,
+        output_root=output_root,
+        force=force,
+    )
 
 
 def _load_task_adapter_and_instances(
@@ -1942,6 +2605,138 @@ def _load_task_adapter_and_instances(
     if missing:
         raise RuntimeError(f"Could not reconstruct {task} validation instances: {missing[:5]}")
     return adapter, instances
+
+
+def _canonical_environment_evaluator(
+    *,
+    arena: Any,
+    task_adapter: Any,
+    instances: Mapping[str, TaskInstance],
+) -> Any:
+    """Return the old evaluator signature backed only by the selected task verifier."""
+
+    def evaluate_rows(
+        model: Any,
+        tokenizer: Any,
+        rows: Sequence[Mapping[str, Any]],
+        batch_size: int,
+        max_new_tokens: int,
+        pass_k: int,
+        seed: int,
+        known_structures: set[str] | None = None,
+    ) -> dict[str, Any]:
+        del known_structures
+        if not rows:
+            raise RuntimeError("Task validation rows must be non-empty")
+        arena.seed_all(seed)
+        was_training = bool(model.training)
+        greedy_correct: list[float] = []
+        greedy_valid: list[float] = []
+        pass_success: list[float] = []
+        sampled_valid: list[float] = []
+        for start in range(0, len(rows), int(batch_size)):
+            chunk = list(rows[start : start + int(batch_size)])
+            prompts = [str(row["prompt"]) for row in chunk]
+            greedy = arena.generate_outputs(
+                model,
+                tokenizer,
+                prompts,
+                int(max_new_tokens),
+                False,
+                1.0,
+                1.0,
+                1,
+            )
+            sampled = (
+                arena.generate_outputs(
+                    model,
+                    tokenizer,
+                    prompts,
+                    int(max_new_tokens),
+                    True,
+                    0.8,
+                    0.95,
+                    int(pass_k),
+                )
+                if int(pass_k) > 1
+                else greedy
+            )
+            for row, greedy_outputs, sampled_outputs in zip(chunk, greedy, sampled, strict=True):
+                instance = instances[str(row["prompt_id"])]
+                greedy_result = task_adapter.verify(instance, greedy_outputs[0])
+                greedy_correct.append(float(greedy_result.correct))
+                greedy_valid.append(float(greedy_result.format_valid))
+                sample_results = [
+                    task_adapter.verify(instance, completion) for completion in sampled_outputs
+                ]
+                pass_success.append(float(any(result.correct for result in sample_results)))
+                sampled_valid.extend(float(result.format_valid) for result in sample_results)
+        metrics = {
+            "greedy_success": float(np.mean(greedy_correct)),
+            "pass_at_k": float(np.mean(pass_success)),
+            "valid_rate": float(np.mean(greedy_valid)),
+            "sampled_valid_rate": float(np.mean(sampled_valid)),
+            "n_eval": float(len(rows)),
+            "task_verifier_interface": True,
+        }
+        numeric = [value for value in metrics.values() if isinstance(value, (int, float))]
+        if not all(math.isfinite(float(value)) for value in numeric):
+            raise RuntimeError("Task verifier evaluation produced a non-finite metric")
+        if was_training:
+            model.train()
+        return metrics
+
+    return evaluate_rows
+
+
+def _canonical_generic_posthoc(
+    *,
+    arena: Any,
+    evaluator: Any,
+    model_path: Path,
+    checkpoint: Path,
+    validation_path: Path,
+    base_config: Mapping[str, Any],
+    seed_offset: int,
+) -> dict[str, Any]:
+    tokenizer = arena.load_tokenizer(str(model_path))
+    model_cfg = base_config["model"]
+    model = arena.load_model(
+        str(model_path),
+        str(checkpoint),
+        trainable_adapter=False,
+        load_in_4bit=bool(model_cfg.get("load_in_4bit", False)),
+        dtype=str(model_cfg.get("dtype", "auto")),
+        gradient_checkpointing=False,
+        parameterization="lora",
+    )
+    rows = arena.read_jsonl(validation_path)
+    eval_cfg = base_config["evaluation"]
+    result: dict[str, Any] = {}
+    for pass_k_value in eval_cfg["pass_ks"]:
+        pass_k = int(pass_k_value)
+        metrics = evaluator(
+            model,
+            tokenizer,
+            rows[: int(eval_cfg["examples"])],
+            int(eval_cfg["batch_size"]),
+            int(model_cfg["max_new_tokens"]),
+            pass_k,
+            int(eval_cfg["seed"]) + int(seed_offset) + pass_k,
+        )
+        if pass_k == int(eval_cfg["pass_ks"][0]):
+            result["validation_greedy_success"] = float(metrics["greedy_success"])
+            result["validation_valid_rate"] = float(metrics["valid_rate"])
+            result["validation_sampled_valid_rate"] = float(
+                metrics.get("sampled_valid_rate", metrics["valid_rate"])
+            )
+            result["validation_n_eval"] = float(metrics["n_eval"])
+        result[f"validation_pass_at_{pass_k}"] = float(metrics["pass_at_k"])
+    del model
+    gc.collect()
+    if torch is not None and torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    return result
 
 
 def _generate_completions(
@@ -2094,8 +2889,6 @@ def _cell_identity(
     config: Mapping[str, Any],
     calibration: Mapping[str, Any],
 ) -> dict[str, Any]:
-    if inputs.reference_adapter is None:
-        raise RuntimeError(f"Reference adapter is missing for {cell.task}")
     value = {
         "schema_version": 1,
         "experiment_id": experiment_id(config),
@@ -2115,9 +2908,16 @@ def _cell_identity(
         "bank_sha256": split_manifest["tasks"][cell.task]["bank_sha256"],
         "split_prompt_hashes": split_manifest["tasks"][cell.task]["prompt_id_hashes"],
         "base_model_identity": model_identity(base_model_path, None)["model"],
-        "reference_adapter_identity": model_identity(
-            base_model_path, str(inputs.reference_adapter)
-        )["adapter"],
+        "initialization": (
+            dict(config["initialization"])
+            if _is_coldstart(config)
+            else {
+                "source": "reference_adapter",
+                "reference_adapter_identity": model_identity(
+                    base_model_path, str(inputs.reference_adapter)
+                )["adapter"],
+            }
+        ),
         "calibration_identity_hash": calibration["identity_hash"],
     }
     value["identity_hash"] = stable_hash(value)
@@ -2179,6 +2979,241 @@ def _load_cell_splits(
     return train_rows, validation_rows
 
 
+def _train_canonical_cold_cell(
+    cell: Cell,
+    *,
+    inputs: TaskInputs,
+    split_manifest: Mapping[str, Any],
+    base_model_path: str,
+    config: Mapping[str, Any],
+    output_root: Path,
+    force: bool,
+    root_name: str = "cells",
+    base_config_override: Path | None = None,
+) -> dict[str, Any]:
+    """Dispatch to the old cold-start entry points; this function owns no loss math."""
+
+    if not _is_coldstart(config):
+        raise RuntimeError("Canonical cold dispatch is cold-profile only")
+    modules = _canonical_cold_modules(config)
+    arena = modules["arena"]
+    base_runner = modules["positive_only"]
+    runtime = modules["taper_runtime"]
+    record = _canonical_task_record(split_manifest, cell.task)
+    calibration_path = output_root / "calibration" / f"{cell.task}.json"
+    if not calibration_path.is_file():
+        raise RuntimeError(f"Run canonical calibration before training {cell.task}")
+    calibration = json.loads(calibration_path.read_text(encoding="utf-8"))
+    expected_calibration = _canonical_calibration_identity(
+        cell.task,
+        split_manifest=split_manifest,
+        base_model_path=base_model_path,
+        config=config,
+    )
+    if calibration.get("identity_hash") != expected_calibration[
+        "identity_hash"
+    ] or not calibration.get("complete"):
+        raise RuntimeError(f"Canonical calibration identity mismatch for {cell.task}")
+    identity = _cell_identity(
+        cell,
+        inputs=inputs,
+        split_manifest=split_manifest,
+        base_model_path=base_model_path,
+        config=config,
+        calibration=calibration,
+    )
+    identity["canonical_source_git_blob_shas"] = dict(
+        config["canonical_coldstart"]["expected_git_blob_shas"]
+    )
+    identity["canonical_dispatch"] = (
+        "countdown_e8_base_rl_replay.train_offline_method"
+        if cell.method == METHOD_POSITIVE_ONLY
+        else "countdown_e8_oracle_offline_v2_taper_runtime.worker"
+    )
+    identity["identity_hash"] = stable_hash(identity)
+
+    cell_root = output_root / root_name / cell.key
+    manifest_path = cell_root / "cell_manifest.json"
+    if manifest_path.is_file() and not force:
+        existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if existing.get("identity_hash") == identity["identity_hash"] and existing.get("complete"):
+            return existing
+        raise RuntimeError(f"Existing canonical cell identity mismatch: {cell.key}")
+    if cell_root.exists():
+        if not force:
+            raise RuntimeError(f"Cell output exists without a reusable manifest: {cell_root}")
+        expected_parent = (output_root / root_name).resolve()
+        if expected_parent not in cell_root.resolve().parents:
+            raise RuntimeError(f"Refusing unsafe canonical cell removal: {cell_root}")
+        shutil.rmtree(cell_root)
+    cell_root.mkdir(parents=True, exist_ok=False)
+
+    bank = Path(str(record["train"]))
+    validation = Path(str(record["validation"]))
+    sealed_test = Path(str(record["sealed_test"]))
+    base_config_path = base_config_override or Path(str(record["base_config"]))
+    base_config = yaml.safe_load(base_config_path.read_text(encoding="utf-8"))
+    if not isinstance(base_config, dict):
+        raise TypeError("Canonical base config root must be a mapping")
+    validation_rows = read_jsonl(validation)
+    task_adapter, instances = _load_task_adapter_and_instances(
+        cell.task,
+        inputs=inputs,
+        validation_rows=validation_rows,
+    )
+    evaluator = _canonical_environment_evaluator(
+        arena=arena,
+        task_adapter=task_adapter,
+        instances=instances,
+    )
+    original_evaluate_rows = arena.evaluate_rows
+    canonical_root = cell_root / "canonical"
+
+    def posthoc_evaluator(
+        model_path: Path,
+        adapter_path: Path,
+        _data_paths: Mapping[str, Path],
+        loaded_config: Mapping[str, Any],
+        *,
+        seed_offset: int = 0,
+    ) -> dict[str, Any]:
+        return _canonical_generic_posthoc(
+            arena=arena,
+            evaluator=evaluator,
+            model_path=Path(model_path),
+            checkpoint=Path(adapter_path),
+            validation_path=validation,
+            base_config=loaded_config,
+            seed_offset=seed_offset,
+        )
+
+    try:
+        arena.evaluate_rows = evaluator
+        if cell.method == METHOD_POSITIVE_ONLY:
+            original_checkpoint_evaluator = base_runner.evaluate_adapter_checkpoint
+            base_runner.evaluate_adapter_checkpoint = posthoc_evaluator
+            try:
+                canonical_summary = base_runner.train_offline_method(
+                    Path(base_model_path).resolve(),
+                    canonical_root,
+                    {
+                        "train": bank,
+                        "validation": validation,
+                        "test": sealed_test,
+                        "split_manifest": bank,
+                    },
+                    bank,
+                    base_config,
+                    method=METHOD_POSITIVE_ONLY,
+                    output_name=METHOD_POSITIVE_ONLY,
+                    seed=cell.seed,
+                )
+            finally:
+                base_runner.evaluate_adapter_checkpoint = original_checkpoint_evaluator
+            canonical_output = canonical_root / "methods" / METHOD_POSITIVE_ONLY
+            underlying_manifest = json.loads(
+                (canonical_output / "manifest.json").read_text(encoding="utf-8")
+            )
+            canonical_summary_path = canonical_output / "summary.json"
+        elif cell.method == METHOD_EXPONENTIAL:
+            if cell.rho is None:
+                raise AssertionError("Canonical Exp cell is missing rho")
+            pack_path, taper_calibration = _canonical_pack_for_rho(record, cell.rho)
+            if not taper_calibration.is_file():
+                raise RuntimeError(f"Missing canonical taper calibration: {taper_calibration}")
+            seed_offset = cell.seed - int(base_config["offline_training"]["seed"])
+            original_posthoc = runtime.real_posthoc_evaluation
+
+            def runtime_posthoc(**kwargs: Any) -> dict[str, Any]:
+                return _canonical_generic_posthoc(
+                    arena=arena,
+                    evaluator=evaluator,
+                    model_path=Path(kwargs["model_path"]),
+                    checkpoint=Path(kwargs["checkpoint"]),
+                    validation_path=validation,
+                    base_config=kwargs["base_config"],
+                    seed_offset=int(kwargs["seed_offset"]),
+                )
+
+            runtime.real_posthoc_evaluation = runtime_posthoc
+            try:
+                returncode = runtime.worker(
+                    argparse.Namespace(
+                        method=METHOD_EXPONENTIAL,
+                        rho=float(cell.rho),
+                        seed_offset=seed_offset,
+                        output_dir=str(canonical_root),
+                        model_path=str(Path(base_model_path).resolve()),
+                        bank=str(bank),
+                        val=str(validation),
+                        test=str(sealed_test),
+                        base_config=str(base_config_path),
+                        sweep_config=str(pack_path),
+                        calibration=str(taper_calibration),
+                    )
+                )
+            finally:
+                runtime.real_posthoc_evaluation = original_posthoc
+            if int(returncode) != 0:
+                raise RuntimeError(f"Canonical taper runtime failed for {cell.key}")
+            canonical_summary_path = canonical_root / "summary.json"
+            canonical_summary = json.loads(canonical_summary_path.read_text(encoding="utf-8"))
+            underlying_manifest = json.loads(
+                (canonical_root / "manifest.json").read_text(encoding="utf-8")
+            )
+            canonical_output = canonical_root
+        else:
+            raise ValueError(f"Unsupported canonical cold-start method: {cell.method}")
+    finally:
+        arena.evaluate_rows = original_evaluate_rows
+
+    best_evaluation = canonical_summary.get("best_evaluation") or {}
+    terminal_evaluation = canonical_summary.get("terminal_evaluation") or {}
+    numerical_failure = underlying_manifest.get("numerical_failure")
+    best_adapter = canonical_output / "best_adapter"
+    terminal_adapter = canonical_output / (
+        "last_finite_adapter" if numerical_failure else "terminal_adapter"
+    )
+    result = {
+        **identity,
+        "canonical_summary": str(canonical_summary_path.resolve()),
+        "canonical_summary_sha256": sha256_file(canonical_summary_path),
+        "canonical_output": str(canonical_output.resolve()),
+        "canonical_training_metrics": str((canonical_output / "metrics.csv").resolve()),
+        "best_adapter": str(best_adapter.resolve()),
+        "terminal_adapter": str(terminal_adapter.resolve()),
+        "terminal_adapter_identity": model_identity(base_model_path, str(terminal_adapter))[
+            "adapter"
+        ],
+        "canonical_dispatch_verified": True,
+        "adapter_path_argument": None,
+        "sft_adapter_path_argument": None,
+        "initialization_optimizer_updates": 0,
+        "best_step": canonical_summary.get("best_step"),
+        "terminal_step": canonical_summary.get("terminal_step"),
+        "stop_reason": canonical_summary.get("stop_reason"),
+        "validation_best_pass8": best_evaluation.get("validation_pass_at_8"),
+        "validation_terminal_pass8": terminal_evaluation.get("validation_pass_at_8"),
+        "validation_best_greedy": best_evaluation.get("validation_greedy_success"),
+        "validation_terminal_greedy": terminal_evaluation.get("validation_greedy_success"),
+        "validation_best_greedy_valid_rate": best_evaluation.get("validation_valid_rate"),
+        "validation_terminal_greedy_valid_rate": terminal_evaluation.get("validation_valid_rate"),
+        "validation_terminal_sampled_valid_rate": terminal_evaluation.get(
+            "validation_sampled_valid_rate"
+        ),
+        "numerical_failure": numerical_failure,
+        "nan_inf_failure": numerical_failure is not None,
+        "evaluation_status": "complete"
+        if best_evaluation and terminal_evaluation
+        else "incomplete",
+        "test_partition_accessed": False,
+        "complete": bool(best_evaluation and terminal_evaluation and numerical_failure is None),
+        "scientific_status": "pilot",
+    }
+    atomic_json(manifest_path, result)
+    return result
+
+
 def _train_cell_impl(
     cell: Cell,
     *,
@@ -2191,6 +3226,11 @@ def _train_cell_impl(
     updates_override: int | None = None,
     engineering_liveness: bool = False,
 ) -> dict[str, Any]:
+    if _is_coldstart(config):
+        raise RuntimeError(
+            "The custom multitask training implementation is forbidden for cold-start; "
+            "dispatch through the canonical old code"
+        )
     if torch is None or DataLoader is None:
         raise RuntimeError("Training requires Torch")
     calibration_path = output_root / "calibration" / f"{cell.task}.json"
@@ -2228,15 +3268,25 @@ def _train_cell_impl(
         shutil.rmtree(cell_root)
     cell_root.mkdir(parents=True, exist_ok=False)
 
-    _seed_everything(cell.seed)
-    if inputs.reference_adapter is None:
-        raise RuntimeError(f"Reference adapter is missing for {cell.task}")
+    initialization_seed = (
+        int(config["initialization"]["seed"]) if _is_coldstart(config) else cell.seed
+    )
+    _seed_everything(initialization_seed)
     model, tokenizer, scheduler_factory = _load_reference_model(
         base_model_path,
         inputs.reference_adapter,
         config,
         train_mode=True,
     )
+    initialization_state_sha256 = _trainable_state_sha256(model)
+    if _is_coldstart(config) and initialization_state_sha256 != calibration.get(
+        "initialization_state_sha256"
+    ):
+        raise RuntimeError(
+            f"Fresh LoRA initialization identity mismatch for {cell.task}; "
+            "refusing a non-comparable cell"
+        )
+    _seed_everything(cell.seed)
     training = config["training"]
     train_rows, validation_rows = _load_cell_splits(
         split_manifest,
@@ -2392,6 +3442,7 @@ def _train_cell_impl(
                 tokenizer.save_pretrained(best_dir)
             model.train()
 
+    terminal_state_sha256 = _trainable_state_sha256(model)
     terminal_adapter = cell_root / "terminal_adapter"
     model.save_pretrained(terminal_adapter, safe_serialization=True)
     tokenizer.save_pretrained(terminal_adapter)
@@ -2419,6 +3470,8 @@ def _train_cell_impl(
         "terminal_adapter_identity": model_identity(base_model_path, str(terminal_adapter))[
             "adapter"
         ],
+        "initialization_state_sha256": initialization_state_sha256,
+        "terminal_trainable_state_sha256": terminal_state_sha256,
         "training_metrics": str(training_path.resolve()),
         "evaluation_metrics": (
             str(evaluation_path.resolve()) if evaluation_path.is_file() else None
@@ -2451,6 +3504,20 @@ def train_cell(
     root_name = "liveness" if engineering_liveness else "cells"
     failure_root = output_root / root_name / cell.key
     try:
+        if _is_coldstart(config):
+            if updates_override is not None or engineering_liveness:
+                raise RuntimeError(
+                    "Canonical cold liveness requires its derived old-core config path"
+                )
+            return _train_canonical_cold_cell(
+                cell,
+                inputs=inputs,
+                split_manifest=split_manifest,
+                base_model_path=base_model_path,
+                config=config,
+                output_root=output_root,
+                force=force,
+            )
         return _train_cell_impl(
             cell,
             inputs=inputs,
@@ -2550,6 +3617,144 @@ def cmd_reload_adapter(
     }
 
 
+def _adapter_weight_file(adapter_root: Path) -> Path:
+    for name in ("adapter_model.safetensors", "adapter_model.bin"):
+        candidate = adapter_root / name
+        if candidate.is_file():
+            return candidate
+    raise FileNotFoundError(f"Adapter weight file is missing: {adapter_root}")
+
+
+def _canonical_liveness_base_config(config: Mapping[str, Any], output_root: Path) -> Path:
+    base_path = _canonical_paths(config)["base_config"]
+    value = yaml.safe_load(base_path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise TypeError("Canonical base config root must be a mapping")
+    value["offline_training"].update(
+        {
+            "steps": 2,
+            "min_steps": 2,
+            "early_stop_patience": 10,
+            # Preserve the step-0 adapter so it can be compared bytewise with
+            # the terminal adapter after the canonical optimizer updates.
+            "early_stop_delta": 1.0e9,
+            "eval_every": 2,
+            "log_every": 1,
+            "diagnostic_examples": 2,
+            "diagnostic_gradient_examples": 1,
+            "diagnostic_batch": 1,
+            "num_workers": 0,
+        }
+    )
+    value["evaluation"].update(
+        {
+            "examples": 2,
+            "test_examples": 0,
+            "batch_size": 1,
+            "pass_ks": [8],
+        }
+    )
+    path = output_root / "liveness" / "canonical_liveness_base_config.yaml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".yaml.tmp")
+    temporary.write_text(yaml.safe_dump(value, sort_keys=False), encoding="utf-8")
+    temporary.replace(path)
+    return path
+
+
+def _cmd_canonical_cold_liveness(
+    config: Mapping[str, Any],
+    config_path: Path,
+    output_root: Path,
+    *,
+    cell: Cell,
+    inputs: TaskInputs,
+    splits: Mapping[str, Any],
+    base_model_path: str,
+    force: bool,
+) -> dict[str, Any]:
+    base_config_path = _canonical_liveness_base_config(config, output_root)
+    result = _train_canonical_cold_cell(
+        cell,
+        inputs=inputs,
+        split_manifest=splits,
+        base_model_path=base_model_path,
+        config=config,
+        output_root=output_root,
+        force=force,
+        root_name="liveness",
+        base_config_override=base_config_path,
+    )
+    if (
+        int(result.get("terminal_step") or -1) != 2
+        or result.get("numerical_failure") is not None
+        or result.get("canonical_dispatch") != "countdown_e8_oracle_offline_v2_taper_runtime.worker"
+    ):
+        raise RuntimeError("Canonical two-update liveness did not finish its old-core path")
+    initial_path = _adapter_weight_file(Path(result["best_adapter"]))
+    terminal_path = _adapter_weight_file(Path(result["terminal_adapter"]))
+    initial_hash = sha256_file(initial_path)
+    terminal_hash = sha256_file(terminal_path)
+    if initial_hash == terminal_hash:
+        raise RuntimeError("Canonical old-core adapter did not change after two updates")
+
+    reload_command = [
+        sys.executable,
+        "-m",
+        "drpo.e8_multitask_exp_tuning",
+        "--config",
+        str(config_path.resolve()),
+        "--output-root",
+        str(output_root.resolve()),
+        "reload-adapter",
+        "--base-model-path",
+        base_model_path,
+        "--adapter-path",
+        str(result["terminal_adapter"]),
+    ]
+    reload_process = subprocess.run(
+        reload_command,
+        capture_output=True,
+        text=True,
+        env=os.environ.copy(),
+        check=False,
+    )
+    if reload_process.returncode != 0:
+        raise RuntimeError(
+            f"Fresh-process canonical adapter reload failed: {reload_process.stderr[-2000:]}"
+        )
+    try:
+        reload_result = json.loads(reload_process.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Fresh-process canonical reload returned invalid JSON") from exc
+    if (
+        not reload_result.get("complete")
+        or not reload_result.get("finite")
+        or int(reload_result.get("process_id", os.getpid())) == os.getpid()
+        or reload_result.get("adapter_identity") != result["terminal_adapter_identity"]
+    ):
+        raise RuntimeError("Fresh-process canonical adapter reload gate failed")
+    result.update(
+        {
+            "engineering_liveness": True,
+            "optimizer_updates": 2,
+            "initial_adapter_weight_sha256": initial_hash,
+            "terminal_adapter_weight_sha256": terminal_hash,
+            "adapter_weight_changed": True,
+            "finite_old_core_updates": True,
+            "reload_gate_passed": True,
+            "fresh_process_reload_passed": True,
+            "liveness_parent_process_id": os.getpid(),
+            "reload_process_id": int(reload_result["process_id"]),
+        }
+    )
+    atomic_json(
+        output_root / "liveness" / cell.key / "cell_manifest.json",
+        result,
+    )
+    return result
+
+
 def cmd_liveness(
     config: Mapping[str, Any],
     config_path: Path,
@@ -2570,7 +3775,7 @@ def cmd_liveness(
         base_model_path=base_model_path,
     )
     lambda_value = None
-    if _is_dense(config):
+    if _uses_task_lambdas(config):
         lambda_value = next(
             value
             for value in _task_lambdas(config, task)
@@ -2584,6 +3789,17 @@ def cmd_liveness(
         "liveness",
         lambda_value,
     )
+    if _is_coldstart(config):
+        return _cmd_canonical_cold_liveness(
+            config,
+            config_path,
+            output_root,
+            cell=cell,
+            inputs=inputs[task],
+            splits=splits,
+            base_model_path=base_model_path,
+            force=force,
+        )
     result = train_cell(
         cell,
         inputs=inputs[task],
@@ -2652,12 +3868,17 @@ def cmd_liveness(
                 return candidate
         raise FileNotFoundError(f"Adapter weight file is missing: {adapter_root}")
 
-    reference_adapter = inputs[task].reference_adapter
-    if reference_adapter is None:
-        raise RuntimeError("Liveness reference adapter is missing")
-    reference_hash = sha256_file(adapter_weight_file(reference_adapter))
     terminal_hash = sha256_file(adapter_weight_file(Path(result["terminal_adapter"])))
-    if reference_hash == terminal_hash:
+    if _is_coldstart(config):
+        reference_hash = str(result["initialization_state_sha256"])
+        changed = reference_hash != str(result["terminal_trainable_state_sha256"])
+    else:
+        reference_adapter = inputs[task].reference_adapter
+        if reference_adapter is None:
+            raise RuntimeError("Liveness reference adapter is missing")
+        reference_hash = sha256_file(adapter_weight_file(reference_adapter))
+        changed = reference_hash != terminal_hash
+    if not changed:
         raise RuntimeError("Liveness adapter weights did not change after two updates")
     result.update(
         {
@@ -2672,6 +3893,8 @@ def cmd_liveness(
             "reload_process_id": int(reload_result["process_id"]),
             "reference_adapter_weight_sha256": reference_hash,
             "terminal_adapter_weight_sha256": terminal_hash,
+            "initialization_trainable_state_sha256": result.get("initialization_state_sha256"),
+            "terminal_trainable_state_sha256": result.get("terminal_trainable_state_sha256"),
         }
     )
     atomic_json(
@@ -2690,6 +3913,7 @@ def _run_subprocess_cell(
     gpu_id: int,
     force: bool,
 ) -> dict[str, Any]:
+    started_at = time.time()
     log_path = output_root / "logs" / f"{cell.key}.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
     command = [
@@ -2731,6 +3955,8 @@ def _run_subprocess_cell(
         "gpu_id": gpu_id,
         "returncode": completed.returncode,
         "log": str(log_path.resolve()),
+        "started_unix": started_at,
+        "finished_unix": time.time(),
     }
 
 
@@ -2760,12 +3986,21 @@ def _require_calibration_gate(
     )
     for task in config["suite"]["tasks"]:
         result = manifest["tasks"][task]
-        expected_identity = _calibration_identity(
-            task,
-            inputs=inputs[task],
-            split_manifest=splits,
-            base_model_path=base_model_path,
-            config=config,
+        expected_identity = (
+            _canonical_calibration_identity(
+                task,
+                split_manifest=splits,
+                base_model_path=base_model_path,
+                config=config,
+            )
+            if _is_coldstart(config)
+            else _calibration_identity(
+                task,
+                inputs=inputs[task],
+                split_manifest=splits,
+                base_model_path=base_model_path,
+                config=config,
+            )
         )
         if result.get("identity_hash") != expected_identity["identity_hash"] or not result.get(
             "complete"
@@ -2786,7 +4021,7 @@ def _require_liveness_gate(
     passed: list[str] = []
     for path in sorted(root.glob("*/cell_manifest.json")):
         result = json.loads(path.read_text(encoding="utf-8"))
-        if (
+        common = (
             result.get("experiment_id") == experiment_id(config)
             and result.get("config_hash") == stable_config_hash(config)
             and result.get("base_model_identity") == base_identity
@@ -2794,16 +4029,27 @@ def _require_liveness_gate(
             and int(result.get("optimizer_updates", 0)) == 2
             and result.get("complete") is True
             and result.get("reload_gate_passed") is True
-            and result.get("positive_loss_finite_nonzero") is True
-            and result.get("repulsive_scalar_finite_nonzero") is True
-            and result.get("raw_gradient_finite_nonzero") is True
             and result.get("adapter_weight_changed") is True
             and result.get("fresh_process_reload_passed") is True
             and result.get("reload_process_id") != result.get("liveness_parent_process_id")
             and result.get("nan_inf_failure") is False
+        )
+        canonical_cold = (
+            _is_coldstart(config)
+            and result.get("canonical_dispatch_verified") is True
+            and result.get("finite_old_core_updates") is True
+            and result.get("initial_adapter_weight_sha256")
+            != result.get("terminal_adapter_weight_sha256")
+        )
+        legacy = (
+            not _is_coldstart(config)
+            and result.get("positive_loss_finite_nonzero") is True
+            and result.get("repulsive_scalar_finite_nonzero") is True
+            and result.get("raw_gradient_finite_nonzero") is True
             and result.get("reference_adapter_weight_sha256")
             != result.get("terminal_adapter_weight_sha256")
-        ):
+        )
+        if common and (canonical_cold or legacy):
             passed.append(str(result.get("cell", {}).get("task", path.parent.name)))
     if not passed:
         raise RuntimeError("No identity-matched liveness result passes every engineering gate")
@@ -2818,6 +4064,8 @@ def cmd_run_wave(
     base_model_path: str,
     force: bool,
 ) -> dict[str, Any]:
+    if _is_coldstart(config):
+        raise RuntimeError("Cold-start has no wave barriers; use run-all dynamic scheduling")
     _require_calibration_gate(
         config,
         output_root,
@@ -2870,6 +4118,128 @@ def cmd_run_wave(
     return manifest
 
 
+def cmd_run_dynamic(
+    config: Mapping[str, Any],
+    config_path: Path,
+    output_root: Path,
+    *,
+    base_model_path: str,
+    force: bool,
+    retry_incomplete: bool,
+) -> dict[str, Any]:
+    """Run one shared queue on 16 fixed GPU slots, without batch barriers."""
+
+    if not _is_coldstart(config):
+        raise RuntimeError("Dynamic scheduling is frozen for the cold-start profile only")
+    _require_calibration_gate(config, output_root, base_model_path=base_model_path)
+    _require_liveness_gate(config, output_root, base_model_path=base_model_path)
+    cells = build_cells(config)
+    gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
+    slots_per_gpu = int(config["execution"]["slots_per_gpu"])
+    slot_count = len(gpu_ids) * slots_per_gpu
+    if slot_count != int(config["execution"]["max_concurrent_cells"]):
+        raise RuntimeError("Declared slot capacity is internally inconsistent")
+
+    pending: queue.Queue[Cell] = queue.Queue()
+    for cell in cells:
+        pending.put(cell)
+    stop = threading.Event()
+    lock = threading.Lock()
+    results: list[dict[str, Any]] = []
+    event_path = output_root / "scheduler" / "queue_events.jsonl"
+    event_path.parent.mkdir(parents=True, exist_ok=True)
+    scheduler_run_id = f"queue-{int(time.time())}-{os.getpid()}"
+
+    def record(event: Mapping[str, Any]) -> None:
+        with lock:
+            append_jsonl(event_path, {"scheduler_run_id": scheduler_run_id, **dict(event)})
+
+    def worker(slot: int, gpu_id: int) -> list[dict[str, Any]]:
+        local: list[dict[str, Any]] = []
+        while not stop.is_set():
+            try:
+                cell = pending.get_nowait()
+            except queue.Empty:
+                break
+            cell_root = output_root / "cells" / cell.key
+            cell_manifest_path = cell_root / "cell_manifest.json"
+            reusable_complete = False
+            if cell_manifest_path.is_file():
+                try:
+                    reusable_complete = bool(
+                        json.loads(cell_manifest_path.read_text(encoding="utf-8")).get("complete")
+                    )
+                except (OSError, json.JSONDecodeError):
+                    reusable_complete = False
+            child_force = force or (
+                retry_incomplete and cell_root.exists() and not reusable_complete
+            )
+            record(
+                {
+                    "event": "start",
+                    "cell_key": cell.key,
+                    "slot": slot,
+                    "gpu_id": gpu_id,
+                    "unix_time": time.time(),
+                    "retry_incomplete": child_force and not force,
+                }
+            )
+            result = _run_subprocess_cell(
+                config_path=config_path.resolve(),
+                output_root=output_root.resolve(),
+                base_model_path=base_model_path,
+                cell=cell,
+                gpu_id=gpu_id,
+                force=child_force,
+            )
+            result.update({"slot": slot, "nominal_batch": cells.index(cell) // slot_count + 1})
+            local.append(result)
+            record({"event": "finish", **result, "unix_time": time.time()})
+            pending.task_done()
+            if int(result["returncode"]) != 0:
+                stop.set()
+        return local
+
+    with ThreadPoolExecutor(max_workers=slot_count) as executor:
+        futures = [
+            executor.submit(worker, slot, gpu_ids[slot % len(gpu_ids)])
+            for slot in range(slot_count)
+        ]
+        for future in as_completed(futures):
+            results.extend(future.result())
+    results.sort(key=lambda row: str(row["cell_key"]))
+    failures = [row for row in results if int(row["returncode"]) != 0]
+    completed_keys = {str(row["cell_key"]) for row in results if int(row["returncode"]) == 0}
+    unscheduled = [
+        cell.key for cell in cells if cell.key not in {str(r["cell_key"]) for r in results}
+    ]
+    manifest = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "scheduler": "dynamic_slot_queue",
+        "scheduler_run_id": scheduler_run_id,
+        "wave_barriers": False,
+        "slot_count": slot_count,
+        "gpu_ids": list(gpu_ids),
+        "slots_per_gpu": slots_per_gpu,
+        "expected_cells": len(cells),
+        "completed_cells": len(completed_keys),
+        "results": results,
+        "failed_cells": [row["cell_key"] for row in failures],
+        "unscheduled_cells": unscheduled,
+        "queue_events": str(event_path.resolve()),
+        "complete": not failures and not unscheduled and len(completed_keys) == len(cells),
+        "scientific_status": "pilot",
+    }
+    atomic_json(output_root / "scheduler" / "dynamic_run.json", manifest)
+    if failures or unscheduled:
+        raise RuntimeError(
+            "Dynamic run stopped fail-closed; "
+            f"failed={manifest['failed_cells']} unscheduled={len(unscheduled)}"
+        )
+    return manifest
+
+
 def cmd_run_all(
     config: Mapping[str, Any],
     config_path: Path,
@@ -2877,7 +4247,17 @@ def cmd_run_all(
     *,
     base_model_path: str,
     force: bool,
+    retry_incomplete: bool = False,
 ) -> dict[str, Any]:
+    if _is_coldstart(config):
+        return cmd_run_dynamic(
+            config,
+            config_path,
+            output_root,
+            base_model_path=base_model_path,
+            force=force,
+            retry_incomplete=retry_incomplete,
+        )
     results = []
     for wave_index in range(1, int(config["execution"]["expected_waves"]) + 1):
         results.append(
@@ -3071,6 +4451,148 @@ def _aggregate_dense(
     return summary
 
 
+def _aggregate_coldstart(
+    config: Mapping[str, Any],
+    output_root: Path,
+    rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    provenance_path = output_root / "source_provenance.json"
+    provenance = (
+        json.loads(provenance_path.read_text(encoding="utf-8")) if provenance_path.is_file() else {}
+    )
+    run_id = str(provenance.get("run_id", output_root.name))
+    source_commit = str(provenance.get("source_commit", "unrecorded"))
+    anchors = _tuple_floats(config["sweep"]["shared_warmstart_anchor_lambda"])
+    plot_rows: list[dict[str, Any]] = []
+    for row in rows:
+        lambda_value = row["lambda"]
+        plot_rows.append(
+            {
+                "experiment_id": experiment_id(config),
+                "run_id": run_id,
+                "source_commit": source_commit,
+                "task": row["task"],
+                "method": row["method"],
+                "lambda": lambda_value,
+                "rho": row["rho"],
+                "shared_warmstart_anchor": bool(
+                    lambda_value is not None
+                    and any(
+                        math.isclose(float(lambda_value), anchor, abs_tol=1e-15)
+                        for anchor in anchors
+                    )
+                ),
+                "seed": row["seed"],
+                "best_validation_pass8": row["best_pass8"],
+                "terminal_pass8": row["terminal_pass8"],
+                "best_validation_greedy": row["best_greedy"],
+                "terminal_greedy": row["terminal_greedy"],
+                "best_greedy_valid_rate": row["best_greedy_valid_rate"],
+                "terminal_greedy_valid_rate": row["terminal_greedy_valid_rate"],
+                "best_step": row["best_step"],
+                "terminal_step": row["terminal_step"],
+                "stop_reason": row["stop_reason"],
+                "nan_inf_failure": row["nan_inf_failure"],
+                "complete": True,
+            }
+        )
+    _write_csv(output_root / "aggregate" / "plot_curve_points.csv", plot_rows)
+
+    minimum_valid = float(config["selection"]["terminal_valid_rate_minimum"])
+    summaries: dict[str, Any] = {}
+    summary_rows: list[dict[str, Any]] = []
+    for task_value in config["suite"]["tasks"]:
+        task = str(task_value)
+        task_rows = [row for row in rows if row["task"] == task]
+        positive_rows = [row for row in task_rows if row["method"] == METHOD_POSITIVE_ONLY]
+        exp_rows = [row for row in task_rows if row["method"] == METHOD_EXPONENTIAL]
+        if len(positive_rows) != 1 or len(exp_rows) != 19:
+            raise RuntimeError(f"{task} does not contain one Positive-only and nineteen Exp cells")
+        eligible = [
+            row
+            for row in exp_rows
+            if not row["nan_inf_failure"]
+            and float(row["terminal_greedy_valid_rate"]) >= minimum_valid
+        ]
+        selected = (
+            max(
+                eligible,
+                key=lambda row: (
+                    float(row["best_pass8"]),
+                    float(row["terminal_pass8"]),
+                    float(row["best_greedy"]),
+                    float(row["terminal_greedy"]),
+                    -float(row["lambda"]),
+                ),
+            )
+            if eligible
+            else None
+        )
+        positive = positive_rows[0]
+        max_lambda = max(float(row["lambda"]) for row in exp_rows)
+        selected_on_edge = bool(
+            selected is not None
+            and (
+                math.isclose(float(selected["lambda"]), max_lambda)
+                or math.isclose(
+                    float(selected["lambda"]),
+                    min(float(row["lambda"]) for row in exp_rows),
+                )
+            )
+        )
+        task_summary = {
+            "task": task,
+            "task_role": config["sweep"]["task_role"][task],
+            "positive_only": positive,
+            "eligible_exp_count": len(eligible),
+            "selected_exp": selected,
+            "selected_on_grid_edge": selected_on_edge,
+            "all_exp_below_positive_only": all(
+                float(row["best_pass8"]) < float(positive["best_pass8"]) for row in exp_rows
+            ),
+        }
+        summaries[task] = task_summary
+        summary_rows.append(
+            {
+                "task": task,
+                "task_role": task_summary["task_role"],
+                "positive_only_best_validation_pass8": positive["best_pass8"],
+                "selected_lambda": None if selected is None else selected["lambda"],
+                "selected_rho": None if selected is None else selected["rho"],
+                "selected_best_validation_pass8": (
+                    None if selected is None else selected["best_pass8"]
+                ),
+                "selected_on_grid_edge": selected_on_edge,
+                "all_exp_below_positive_only": task_summary["all_exp_below_positive_only"],
+            }
+        )
+    _write_csv(output_root / "aggregate" / "task_summary.csv", summary_rows)
+    summary = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "run_id": run_id,
+        "source_commit": source_commit,
+        "cell_count": len(rows),
+        "plot_curve_point_count": len(plot_rows),
+        "tasks": summaries,
+        "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
+        "initialization": dict(config["initialization"]),
+        "positive_only_and_exp_share_fresh_initialization": True,
+        "scientific_kernel": "canonical_old_coldstart_imports",
+        "canonical_source_git_blob_shas": dict(
+            config["canonical_coldstart"]["expected_git_blob_shas"]
+        ),
+        "old_warmstart_results": "historical_auxiliary_comparison_only",
+        "test_partition_accessed": False,
+        "single_seed_shape_discovery": True,
+        "fresh_seed_confirmation_required": True,
+        "fixed_horizon_is_convergence": False,
+        "scientific_status": "pilot",
+    }
+    atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
+    return summary
+
+
 def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
     cells = build_cells(config)
     rows: list[dict[str, Any]] = []
@@ -3084,30 +4606,50 @@ def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any
         if not value.get("complete") or value.get("evaluation_status") != "complete":
             missing.append(cell.key)
             continue
-        rows.append(
-            {
-                "source": "dense" if _is_dense(config) else "current",
-                "task": cell.task,
-                "method": cell.method,
-                "rho": cell.rho,
-                "lambda": (
-                    cell.lambda_value
-                    if cell.lambda_value is not None
-                    else (None if cell.rho is None else coefficient_from_rho(cell.rho))
-                ),
-                "seed": cell.seed,
-                "cell_key": cell.key,
-                "late_window_pass8_mean": value["validation_late_window_pass8_mean"],
-                "terminal_pass8": value["validation_terminal_pass8"],
-                "late_window_greedy_mean": value["validation_late_window_greedy_mean"],
-                "terminal_greedy": value["validation_terminal_greedy"],
-                "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
-                "nan_inf_failure": bool(value["nan_inf_failure"]),
-            }
-        )
+        common = {
+            "source": "dense" if _is_dense(config) else "current",
+            "task": cell.task,
+            "method": cell.method,
+            "rho": cell.rho,
+            "lambda": (
+                cell.lambda_value
+                if cell.lambda_value is not None
+                else (None if cell.rho is None else coefficient_from_rho(cell.rho))
+            ),
+            "seed": cell.seed,
+            "cell_key": cell.key,
+            "nan_inf_failure": bool(value["nan_inf_failure"]),
+        }
+        if _is_coldstart(config):
+            common.update(
+                {
+                    "best_pass8": value["validation_best_pass8"],
+                    "terminal_pass8": value["validation_terminal_pass8"],
+                    "best_greedy": value["validation_best_greedy"],
+                    "terminal_greedy": value["validation_terminal_greedy"],
+                    "best_greedy_valid_rate": value["validation_best_greedy_valid_rate"],
+                    "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
+                    "best_step": value["best_step"],
+                    "terminal_step": value["terminal_step"],
+                    "stop_reason": value["stop_reason"],
+                }
+            )
+        else:
+            common.update(
+                {
+                    "late_window_pass8_mean": value["validation_late_window_pass8_mean"],
+                    "terminal_pass8": value["validation_terminal_pass8"],
+                    "late_window_greedy_mean": value["validation_late_window_greedy_mean"],
+                    "terminal_greedy": value["validation_terminal_greedy"],
+                    "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
+                }
+            )
+        rows.append(common)
     if missing:
         raise RuntimeError(f"Cannot aggregate; missing/incomplete cells: {missing}")
     _write_csv(output_root / "aggregate" / "all_cells.csv", rows)
+    if _is_coldstart(config):
+        return _aggregate_coldstart(config, output_root, rows)
     if _is_dense(config):
         return _aggregate_dense(config, output_root, rows)
 
@@ -3224,6 +4766,11 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         aggregate_complete = aggregate_path.is_file() and int(
             json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0)
         ) == len(cells)
+    elif _is_coldstart(config):
+        aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
+        aggregate_complete = aggregate_path.is_file() and int(
+            json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0)
+        ) == len(cells)
     all_complete = (
         not missing and not incomplete and not nan_inf and inherited_complete and aggregate_complete
     )
@@ -3241,14 +4788,71 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "nan_inf_event_count": len(set(nan_inf)),
         "inherited_parent_inputs_complete": inherited_complete,
         "aggregate_complete": aggregate_complete,
-        "excluded_tasks": (dict(config["suite"]["excluded_tasks"]) if _is_dense(config) else {}),
-        "single_seed_shape_discovery": _is_dense(config),
-        "fresh_seed_confirmation_required": _is_dense(config),
+        "excluded_tasks": (
+            dict(config["suite"]["excluded_tasks"])
+            if (_is_dense(config) or _is_coldstart(config))
+            else {}
+        ),
+        "single_seed_shape_discovery": _is_dense(config) or _is_coldstart(config),
+        "fresh_seed_confirmation_required": _is_dense(config) or _is_coldstart(config),
         "fixed_horizon_is_convergence": False,
         "scientific_status": "pilot" if all_complete else "not_run",
     }
     atomic_json(output_root / "terminal_audit.json", audit)
     return audit
+
+
+def cmd_package(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
+    """Create a portable text-first result ZIP and expose the tiny plotting CSV."""
+
+    audit_path = output_root / "terminal_audit.json"
+    plot_path = output_root / "aggregate" / "plot_curve_points.csv"
+    if not audit_path.is_file() or not plot_path.is_file():
+        raise RuntimeError("Run aggregate and audit before packaging")
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    if not audit.get("all_training_and_evaluation_complete"):
+        raise RuntimeError("Refusing to package a non-terminal run")
+    package_root = output_root / "packages"
+    package_root.mkdir(parents=True, exist_ok=True)
+    zip_path = package_root / f"{output_root.name}_full_results.zip"
+    excluded_parts = {
+        "best_adapter",
+        "terminal_adapter",
+        "last_finite_adapter",
+        "supplementary_best_adapter",
+        "initial_adapter",
+    }
+    included: list[str] = []
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(output_root.rglob("*")):
+            if (
+                not path.is_file()
+                or zip_path == path
+                or "packages" in path.relative_to(output_root).parts
+            ):
+                continue
+            relative = path.relative_to(output_root)
+            if any(part in excluded_parts for part in relative.parts) or path.suffix in {
+                ".bin",
+                ".safetensors",
+            }:
+                continue
+            archive.write(path, arcname=str(relative))
+            included.append(str(relative))
+    result = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "full_results_zip": str(zip_path.resolve()),
+        "full_results_zip_sha256": sha256_file(zip_path),
+        "full_results_zip_bytes": zip_path.stat().st_size,
+        "plot_curve_points_csv": str(plot_path.resolve()),
+        "plot_curve_points_csv_sha256": sha256_file(plot_path),
+        "included_file_count": len(included),
+        "excluded_model_weights": sorted(excluded_parts),
+        "complete": True,
+    }
+    atomic_json(package_root / "package_manifest.json", result)
+    return result
 
 
 def make_parser() -> argparse.ArgumentParser:
@@ -3262,7 +4866,7 @@ def make_parser() -> argparse.ArgumentParser:
     prepare.add_argument("--p0-config", default=str(DEFAULT_P0_CONFIG))
     prepare.add_argument("--countdown-bank", required=True)
     prepare.add_argument("--countdown-validation", required=True)
-    prepare.add_argument("--countdown-adapter", required=True)
+    prepare.add_argument("--countdown-adapter")
 
     inherit = subparsers.add_parser("inherit")
     inherit.add_argument("--parent-output-root", required=True)
@@ -3282,6 +4886,11 @@ def make_parser() -> argparse.ArgumentParser:
     calibrate.add_argument("--base-model-path", required=True)
     calibrate.add_argument("--tasks", nargs="+")
     calibrate.add_argument("--force", action="store_true")
+
+    calibrate_task = subparsers.add_parser("calibrate-task", help=argparse.SUPPRESS)
+    calibrate_task.add_argument("--base-model-path", required=True)
+    calibrate_task.add_argument("--task", required=True)
+    calibrate_task.add_argument("--force", action="store_true")
 
     liveness = subparsers.add_parser("liveness")
     liveness.add_argument("--task", required=True)
@@ -3304,9 +4913,11 @@ def make_parser() -> argparse.ArgumentParser:
     run_all = subparsers.add_parser("run-all")
     run_all.add_argument("--base-model-path", required=True)
     run_all.add_argument("--force", action="store_true")
+    run_all.add_argument("--retry-incomplete", action="store_true")
 
     subparsers.add_parser("aggregate")
     subparsers.add_parser("audit")
+    subparsers.add_parser("package")
     subparsers.add_parser("plan")
     return parser
 
@@ -3324,7 +4935,9 @@ def main(argv: Sequence[str] | None = None) -> None:
             p0_config=Path(args.p0_config).resolve(),
             countdown_bank=Path(args.countdown_bank).resolve(),
             countdown_validation=Path(args.countdown_validation).resolve(),
-            countdown_adapter=Path(args.countdown_adapter).resolve(),
+            countdown_adapter=(
+                Path(args.countdown_adapter).resolve() if args.countdown_adapter else None
+            ),
         )
     elif args.command == "inherit":
         result = cmd_inherit(
@@ -3354,6 +4967,14 @@ def main(argv: Sequence[str] | None = None) -> None:
             output_root,
             base_model_path=args.base_model_path,
             tasks=args.tasks,
+            force=bool(args.force),
+        )
+    elif args.command == "calibrate-task":
+        result = cmd_calibrate_task(
+            config,
+            output_root,
+            base_model_path=args.base_model_path,
+            task=args.task,
             force=bool(args.force),
         )
     elif args.command == "liveness":
@@ -3395,11 +5016,14 @@ def main(argv: Sequence[str] | None = None) -> None:
             output_root,
             base_model_path=args.base_model_path,
             force=bool(args.force),
+            retry_incomplete=bool(args.retry_incomplete),
         )
     elif args.command == "aggregate":
         result = cmd_aggregate(config, output_root)
     elif args.command == "audit":
         result = cmd_audit(config, output_root)
+    elif args.command == "package":
+        result = cmd_package(config, output_root)
     elif args.command == "plan":
         result = write_plan(config, output_root)
     else:
