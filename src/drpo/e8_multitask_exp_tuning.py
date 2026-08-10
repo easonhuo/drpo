@@ -29,7 +29,7 @@ import zipfile
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import numpy as np
@@ -166,6 +166,11 @@ def _is_coldstart(config: Mapping[str, Any]) -> bool:
     return sweep_profile(config) == SWEEP_PROFILE_COLDSTART
 
 
+def _is_engineering_self_test(config: Mapping[str, Any]) -> bool:
+    value = config.get("engineering_self_test")
+    return isinstance(value, Mapping) and value.get("placeholder_backend") is True
+
+
 def _uses_task_lambdas(config: Mapping[str, Any]) -> bool:
     return _is_dense(config) or _is_coldstart(config)
 
@@ -275,18 +280,27 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("Cold-start must preserve the old base-RL LoRA/model contract")
 
     split = config["split"]
-    expected_split = {
-        "p0_train_rows": 5000,
-        "p0_validation_rows": 500,
-        "p0_test_rows": 500,
-    }
-    if profile in (SWEEP_PROFILE_RHO, SWEEP_PROFILE_COLDSTART):
-        expected_split.update(
-            {
-                "countdown_train_rows": 5000,
-                "countdown_validation_rows": 500,
-            }
-        )
+    if _is_engineering_self_test(config):
+        expected_split = {
+            "p0_train_rows": 2,
+            "p0_validation_rows": 1,
+            "p0_test_rows": 1,
+            "countdown_train_rows": 2,
+            "countdown_validation_rows": 1,
+        }
+    else:
+        expected_split = {
+            "p0_train_rows": 5000,
+            "p0_validation_rows": 500,
+            "p0_test_rows": 500,
+        }
+        if profile in (SWEEP_PROFILE_RHO, SWEEP_PROFILE_COLDSTART):
+            expected_split.update(
+                {
+                    "countdown_train_rows": 5000,
+                    "countdown_validation_rows": 500,
+                }
+            )
     for key, expected in expected_split.items():
         if int(split[key]) != expected:
             raise ValueError(f"{key} must remain {expected}")
@@ -742,7 +756,7 @@ def _normalize_p0_row(row: Mapping[str, Any]) -> dict[str, Any]:
 
 def _normalize_countdown_train_row(row: Mapping[str, Any]) -> dict[str, Any]:
     negatives = []
-    source_negatives = row.get("negative_bank", row["negatives"])
+    source_negatives = row["negative_bank"] if "negative_bank" in row else row["negatives"]
     for index, item_value in enumerate(source_negatives):
         item = dict(item_value)
         negatives.append(
@@ -4229,7 +4243,8 @@ def cmd_run_dynamic(
         "unscheduled_cells": unscheduled,
         "queue_events": str(event_path.resolve()),
         "complete": not failures and not unscheduled and len(completed_keys) == len(cells),
-        "scientific_status": "pilot",
+        "scientific_status": "not_run" if _is_engineering_self_test(config) else "pilot",
+        "engineering_placeholder_backend": _is_engineering_self_test(config),
     }
     atomic_json(output_root / "scheduler" / "dynamic_run.json", manifest)
     if failures or unscheduled:
@@ -4587,7 +4602,8 @@ def _aggregate_coldstart(
         "single_seed_shape_discovery": True,
         "fresh_seed_confirmation_required": True,
         "fixed_horizon_is_convergence": False,
-        "scientific_status": "pilot",
+        "scientific_status": "not_run" if _is_engineering_self_test(config) else "pilot",
+        "engineering_placeholder_backend": _is_engineering_self_test(config),
     }
     atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
     return summary
@@ -4733,6 +4749,13 @@ def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any
 
 
 def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
+    provenance_path = output_root / "source_provenance.json"
+    if not provenance_path.is_file():
+        raise RuntimeError("source_provenance.json is required before terminal audit")
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    base_commit = str(provenance.get("source_commit", ""))
+    if len(base_commit) != 40 or any(char not in "0123456789abcdef" for char in base_commit):
+        raise RuntimeError("source_provenance.json must contain one full lowercase Git SHA")
     cells = build_cells(config)
     missing: list[str] = []
     incomplete: list[str] = []
@@ -4777,6 +4800,7 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
     audit = {
         "schema_version": 1,
         "experiment_id": experiment_id(config),
+        "base_commit": base_commit,
         "expected_cells": len(cells),
         "missing_cells": sorted(set(missing)),
         "incomplete_cells": sorted(set(incomplete)),
@@ -4796,14 +4820,167 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "single_seed_shape_discovery": _is_dense(config) or _is_coldstart(config),
         "fresh_seed_confirmation_required": _is_dense(config) or _is_coldstart(config),
         "fixed_horizon_is_convergence": False,
-        "scientific_status": "pilot" if all_complete else "not_run",
+        "scientific_status": (
+            "not_run" if _is_engineering_self_test(config) or not all_complete else "pilot"
+        ),
+        "engineering_placeholder_backend": _is_engineering_self_test(config),
     }
     atomic_json(output_root / "terminal_audit.json", audit)
     return audit
 
 
+PACKAGE_REQUIRED_MEMBERS = {
+    "RUN_COMPLETE.json",
+    "run_manifest.json",
+    "scientific_run_manifest.json",
+    "source_provenance.json",
+    "terminal_audit.json",
+    "scheduler/dynamic_run.json",
+    "aggregate/plot_curve_points.csv",
+    "package_contents_manifest.json",
+    "SHA256SUMS.txt",
+}
+
+
+def _write_completion_manifests(
+    config: Mapping[str, Any],
+    output_root: Path,
+    audit: Mapping[str, Any],
+) -> None:
+    provenance_path = output_root / "source_provenance.json"
+    scheduler_path = output_root / "scheduler" / "dynamic_run.json"
+    aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
+    if (
+        not provenance_path.is_file()
+        or not scheduler_path.is_file()
+        or not aggregate_path.is_file()
+    ):
+        raise RuntimeError("Source provenance, scheduler result, and aggregate are required")
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    scheduler = json.loads(scheduler_path.read_text(encoding="utf-8"))
+    aggregate = json.loads(aggregate_path.read_text(encoding="utf-8"))
+    source_commit = str(provenance.get("source_commit", ""))
+    if len(source_commit) != 40 or any(char not in "0123456789abcdef" for char in source_commit):
+        raise RuntimeError("source_provenance.json must contain one full lowercase Git SHA")
+    expected_cells = len(build_cells(config))
+    if (
+        scheduler.get("experiment_id") != experiment_id(config)
+        or not scheduler.get("complete")
+        or int(scheduler.get("expected_cells", 0)) != expected_cells
+        or int(scheduler.get("completed_cells", 0)) != expected_cells
+        or int(aggregate.get("cell_count", 0)) != expected_cells
+    ):
+        raise RuntimeError("Scheduler or aggregate is not terminal-complete")
+    self_test = _is_engineering_self_test(config)
+    run_manifest = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "base_commit": source_commit,
+        "run_id": str(provenance.get("run_id", output_root.name)),
+        "source_commit": source_commit,
+        "config_hash": stable_config_hash(config),
+        "expected_cells": expected_cells,
+        "completed_cells": expected_cells,
+        "scheduler": "dynamic_slot_queue",
+        "scheduler_run_id": scheduler["scheduler_run_id"],
+        "test_partition_accessed": False,
+        "engineering_placeholder_backend": self_test,
+        "scientific_status": "not_run" if self_test else "pilot",
+        "artifact_state": "engineering_self_test_complete" if self_test else "raw_complete",
+    }
+    atomic_json(output_root / "run_manifest.json", run_manifest)
+    atomic_json(output_root / "scientific_run_manifest.json", run_manifest)
+    atomic_json(
+        output_root / "RUN_COMPLETE.json",
+        {
+            **run_manifest,
+            "all_training_and_evaluation_complete": bool(
+                audit["all_training_and_evaluation_complete"]
+            ),
+            "terminal_audit_sha256": sha256_file(output_root / "terminal_audit.json"),
+            "aggregate_sha256": sha256_file(aggregate_path),
+            "complete": True,
+        },
+    )
+
+
+def _result_payload_paths(output_root: Path, excluded_parts: set[str]) -> list[Path]:
+    paths: list[Path] = []
+    for path in sorted(output_root.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(output_root)
+        if path.is_symlink():
+            raise RuntimeError(f"Result package refuses symlink payload: {relative}")
+        if "packages" in relative.parts or relative.as_posix() in {
+            "package_contents_manifest.json",
+            "SHA256SUMS.txt",
+        }:
+            continue
+        if any(part in excluded_parts for part in relative.parts) or path.suffix in {
+            ".bin",
+            ".safetensors",
+        }:
+            continue
+        paths.append(path)
+    return paths
+
+
+def verify_result_package(
+    package_manifest_path: Path,
+    *,
+    zip_override: Path | None = None,
+) -> dict[str, Any]:
+    """Reopen a result ZIP and verify paths, inventory, hashes, and required members."""
+
+    manifest = json.loads(package_manifest_path.read_text(encoding="utf-8"))
+    zip_path = (zip_override or Path(str(manifest["full_results_zip"]))).resolve()
+    if not zip_path.is_file():
+        raise FileNotFoundError(f"Result ZIP is missing: {zip_path}")
+    observed_zip_sha = sha256_file(zip_path)
+    if observed_zip_sha != manifest["full_results_zip_sha256"]:
+        raise RuntimeError("Result ZIP SHA-256 does not match package_manifest.json")
+    with zipfile.ZipFile(zip_path) as archive:
+        names = archive.namelist()
+        if len(names) != len(set(names)):
+            raise RuntimeError("Result ZIP contains duplicate members")
+        for name in names:
+            member = PurePosixPath(name)
+            if member.is_absolute() or ".." in member.parts or not member.parts:
+                raise RuntimeError(f"Unsafe result ZIP member: {name}")
+        missing = sorted(PACKAGE_REQUIRED_MEMBERS - set(names))
+        if missing:
+            raise RuntimeError(f"Result ZIP is missing required members: {missing}")
+        contents = json.loads(archive.read("package_contents_manifest.json"))
+        inventory = {str(item["path"]): str(item["sha256"]) for item in contents.get("files", ())}
+        expected_names = set(inventory) | {"package_contents_manifest.json", "SHA256SUMS.txt"}
+        if set(names) != expected_names:
+            raise RuntimeError("Result ZIP members do not match package_contents_manifest.json")
+        for name, expected_sha in inventory.items():
+            observed = hashlib.sha256(archive.read(name)).hexdigest()
+            if observed != expected_sha:
+                raise RuntimeError(f"Result ZIP payload hash mismatch: {name}")
+        checksum_rows: dict[str, str] = {}
+        for line in archive.read("SHA256SUMS.txt").decode("utf-8").splitlines():
+            digest, separator, name = line.partition("  ")
+            if not separator or name in checksum_rows:
+                raise RuntimeError("Malformed or duplicate SHA256SUMS.txt entry")
+            checksum_rows[name] = digest
+        if checksum_rows != inventory:
+            raise RuntimeError("SHA256SUMS.txt does not match the package inventory")
+        if not any(name.startswith("logs/") for name in names):
+            raise RuntimeError("Result ZIP contains no execution logs")
+    return {
+        "verified": True,
+        "zip": str(zip_path),
+        "zip_sha256": observed_zip_sha,
+        "member_count": len(names),
+        "required_members_present": True,
+    }
+
+
 def cmd_package(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
-    """Create a portable text-first result ZIP and expose the tiny plotting CSV."""
+    """Create and independently reopen a portable text-first result ZIP."""
 
     audit_path = output_root / "terminal_audit.json"
     plot_path = output_root / "aggregate" / "plot_curve_points.csv"
@@ -4812,6 +4989,7 @@ def cmd_package(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
     audit = json.loads(audit_path.read_text(encoding="utf-8"))
     if not audit.get("all_training_and_evaluation_complete"):
         raise RuntimeError("Refusing to package a non-terminal run")
+    _write_completion_manifests(config, output_root, audit)
     package_root = output_root / "packages"
     package_root.mkdir(parents=True, exist_ok=True)
     zip_path = package_root / f"{output_root.name}_full_results.zip"
@@ -4822,37 +5000,567 @@ def cmd_package(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "supplementary_best_adapter",
         "initial_adapter",
     }
-    included: list[str] = []
+    payload_paths = _result_payload_paths(output_root, excluded_parts)
+    inventory = [
+        {
+            "path": path.relative_to(output_root).as_posix(),
+            "size": path.stat().st_size,
+            "sha256": sha256_file(path),
+        }
+        for path in payload_paths
+    ]
+    atomic_json(
+        output_root / "package_contents_manifest.json",
+        {
+            "schema_version": 1,
+            "experiment_id": experiment_id(config),
+            "engineering_placeholder_backend": _is_engineering_self_test(config),
+            "files": inventory,
+        },
+    )
+    (output_root / "SHA256SUMS.txt").write_text(
+        "".join(f"{item['sha256']}  {item['path']}\n" for item in inventory),
+        encoding="utf-8",
+    )
+    payload_paths.extend(
+        [output_root / "package_contents_manifest.json", output_root / "SHA256SUMS.txt"]
+    )
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-        for path in sorted(output_root.rglob("*")):
-            if (
-                not path.is_file()
-                or zip_path == path
-                or "packages" in path.relative_to(output_root).parts
-            ):
-                continue
-            relative = path.relative_to(output_root)
-            if any(part in excluded_parts for part in relative.parts) or path.suffix in {
-                ".bin",
-                ".safetensors",
-            }:
-                continue
-            archive.write(path, arcname=str(relative))
-            included.append(str(relative))
+        for path in payload_paths:
+            archive.write(path, arcname=path.relative_to(output_root).as_posix())
     result = {
         "schema_version": 1,
         "experiment_id": experiment_id(config),
+        "artifact_kind": (
+            "engineering_self_test" if _is_engineering_self_test(config) else "pilot_results"
+        ),
         "full_results_zip": str(zip_path.resolve()),
         "full_results_zip_sha256": sha256_file(zip_path),
         "full_results_zip_bytes": zip_path.stat().st_size,
         "plot_curve_points_csv": str(plot_path.resolve()),
         "plot_curve_points_csv_sha256": sha256_file(plot_path),
-        "included_file_count": len(included),
+        "included_file_count": len(payload_paths),
         "excluded_model_weights": sorted(excluded_parts),
         "complete": True,
     }
-    atomic_json(package_root / "package_manifest.json", result)
+    manifest_path = package_root / "package_manifest.json"
+    atomic_json(manifest_path, result)
+    verification = verify_result_package(manifest_path)
+    result["reopen_verification"] = verification
+    atomic_json(manifest_path, result)
     return result
+
+
+def cmd_finalize(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
+    """Finalize result markers while leaving archive ownership to the hardened guard."""
+
+    audit_path = output_root / "terminal_audit.json"
+    plot_path = output_root / "aggregate" / "plot_curve_points.csv"
+    if not audit_path.is_file() or not plot_path.is_file():
+        raise RuntimeError("Run aggregate and audit before finalizing")
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    if not audit.get("all_training_and_evaluation_complete"):
+        raise RuntimeError("Refusing to finalize a non-terminal run")
+    _write_completion_manifests(config, output_root, audit)
+    return {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "base_commit": audit["base_commit"],
+        "artifact_state": "raw_complete",
+        "canonical_archive_owner": "scripts/run_experiment_guard_hardened.py",
+        "plot_curve_points_csv": str(plot_path.resolve()),
+        "plot_curve_points_csv_sha256": sha256_file(plot_path),
+        "complete": True,
+    }
+
+
+def _engineering_self_test_config(config: Mapping[str, Any]) -> dict[str, Any]:
+    updated = copy.deepcopy(dict(config))
+    updated["split"].update(
+        {
+            "p0_train_rows": 2,
+            "p0_validation_rows": 1,
+            "p0_test_rows": 1,
+            "countdown_train_rows": 2,
+            "countdown_validation_rows": 1,
+        }
+    )
+    updated["engineering_self_test"] = {
+        "placeholder_backend": True,
+        "scientific_evidence_allowed": False,
+        "purpose": "non_gpu_end_to_end_delivery_acceptance",
+    }
+    validate_config(updated)
+    return updated
+
+
+def _write_engineering_input_fixtures(
+    config: Mapping[str, Any],
+    output_root: Path,
+) -> tuple[Path, Path, Path, Path]:
+    fixture_root = output_root / "engineering_fixtures"
+    p0_work_dir = fixture_root / "p0"
+    sources_root = p0_work_dir / "sources"
+    sources_root.mkdir(parents=True, exist_ok=True)
+    p0_config_path = _repo_root() / "configs" / "e8_multitask_p0.yaml"
+    p0_config = yaml.safe_load(p0_config_path.read_text(encoding="utf-8"))
+    if not isinstance(p0_config, dict):
+        raise TypeError("P0 configuration root must be a mapping")
+    row_count = (
+        int(config["split"]["p0_train_rows"])
+        + int(config["split"]["p0_validation_rows"])
+        + int(config["split"]["p0_test_rows"])
+    )
+    task_qualification: dict[str, Any] = {}
+    for task_value in config["suite"]["p0_tasks"]:
+        task = str(task_value)
+        rows: list[dict[str, Any]] = []
+        for row_index in range(row_count):
+            rows.append(
+                {
+                    "schema_version": 1,
+                    "task": task,
+                    "prompt_id": f"{task}-placeholder-{row_index:03d}",
+                    "prompt": f"[{task}] engineering prompt {row_index}",
+                    "oracle_completion": f"{task}-oracle-{row_index}",
+                    "metadata": {"engineering_placeholder": True},
+                    "generation_seed": 2026080901,
+                    "negatives": [
+                        {
+                            "negative_id": f"{task}-{row_index:03d}-neg-{negative:02d}",
+                            "completion": f"{task}-wrong-{row_index}-{negative}",
+                            "format_valid": True,
+                            "binary_correct": False,
+                            "error_class": "engineering_placeholder_wrong",
+                        }
+                        for negative in range(16)
+                    ],
+                }
+            )
+        atomic_jsonl(bank_path(p0_work_dir, task), rows)
+        task_qualification[task] = {"passed": True, "engineering_placeholder": True}
+    qualification = {
+        "schema_version": 1,
+        "experiment_id": P0_EXPERIMENT_ID,
+        "config_hash": stable_config_hash(
+            with_smoke_overrides(p0_config, rows=None, negatives=None)
+        ),
+        "tasks": task_qualification,
+        "passed": True,
+        "scientific_status": "not_run",
+        "engineering_placeholder_backend": True,
+    }
+    atomic_json(p0_work_dir / "qualification_audit.json", qualification)
+
+    countdown_bank = fixture_root / "countdown" / "offline_bank_v2.jsonl"
+    countdown_rows = []
+    for row_index in range(int(config["split"]["countdown_train_rows"])):
+        countdown_rows.append(
+            {
+                "row_id": f"countdown-placeholder-train-{row_index:03d}",
+                "source_prompt_id": f"countdown-placeholder-source-{row_index:03d}",
+                "prompt": f"Use 1 and 2 to make {3 + row_index}",
+                "oracle_positive": "1 + 2",
+                "numbers": [1, 2],
+                "target": 3 + row_index,
+                "negative_bank": [
+                    {
+                        "expression": f"1 - 2 + {negative}",
+                        "valid_format": True,
+                        "correct": False,
+                        "source": "engineering_placeholder_wrong",
+                    }
+                    for negative in range(16)
+                ],
+            }
+        )
+    atomic_jsonl(countdown_bank, countdown_rows)
+    countdown_validation = fixture_root / "countdown" / "val.jsonl"
+    atomic_jsonl(
+        countdown_validation,
+        [
+            {
+                "id": "countdown-placeholder-validation-000",
+                "prompt": "Use 2 and 2 to make 4",
+                "oracle": "2 + 2",
+                "numbers": [2, 2],
+                "target": 4,
+            }
+        ],
+    )
+    return p0_work_dir, p0_config_path, countdown_bank, countdown_validation
+
+
+def _write_engineering_gates(
+    config: Mapping[str, Any],
+    output_root: Path,
+    *,
+    base_model_path: str,
+) -> None:
+    splits, _ = _load_ready_inputs(output_root, config, base_model_path=base_model_path)
+    calibration_tasks: dict[str, Any] = {}
+    for task_value in config["suite"]["tasks"]:
+        task = str(task_value)
+        identity = _canonical_calibration_identity(
+            task,
+            split_manifest=splits,
+            base_model_path=base_model_path,
+            config=config,
+        )
+        result = {
+            **identity,
+            "complete": True,
+            "scientific_status": "not_run",
+            "engineering_placeholder_backend": True,
+        }
+        atomic_json(output_root / "calibration" / f"{task}.json", result)
+        calibration_tasks[task] = result
+        log_path = output_root / "logs" / "calibration" / f"{task}.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_path.write_text("engineering placeholder calibration complete\n", encoding="utf-8")
+    atomic_json(
+        output_root / "calibration" / "calibration_manifest.json",
+        {
+            "schema_version": 1,
+            "experiment_id": experiment_id(config),
+            "config_hash": stable_config_hash(config),
+            "requested_tasks": list(config["suite"]["tasks"]),
+            "tasks": calibration_tasks,
+            "complete": True,
+            "scientific_status": "not_run",
+            "engineering_placeholder_backend": True,
+        },
+    )
+    base_identity = model_identity(base_model_path, None)["model"]
+    liveness_key = "countdown__engineering_placeholder_liveness"
+    liveness = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "config_hash": stable_config_hash(config),
+        "base_model_identity": base_identity,
+        "engineering_liveness": True,
+        "engineering_placeholder_backend": True,
+        "optimizer_updates": 2,
+        "complete": True,
+        "reload_gate_passed": True,
+        "adapter_weight_changed": True,
+        "fresh_process_reload_passed": True,
+        "liveness_parent_process_id": 1001,
+        "reload_process_id": 1002,
+        "nan_inf_failure": False,
+        "canonical_dispatch_verified": True,
+        "finite_old_core_updates": True,
+        "initial_adapter_weight_sha256": "0" * 64,
+        "terminal_adapter_weight_sha256": "1" * 64,
+        "cell": {"task": "countdown"},
+        "scientific_status": "not_run",
+    }
+    atomic_json(output_root / "liveness" / liveness_key / "cell_manifest.json", liveness)
+    (output_root / "logs" / "liveness.log").write_text(
+        "engineering placeholder liveness complete\n",
+        encoding="utf-8",
+    )
+
+
+def _audit_engineering_queue(
+    config: Mapping[str, Any],
+    output_root: Path,
+    scheduler: Mapping[str, Any],
+) -> dict[str, Any]:
+    cells = build_cells(config)
+    cell_index = {cell.key: index for index, cell in enumerate(cells)}
+    events = [
+        json.loads(line)
+        for line in (output_root / "scheduler" / "queue_events.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.strip()
+    ]
+    events = [row for row in events if row["scheduler_run_id"] == scheduler["scheduler_run_id"]]
+    active_by_gpu = {int(gpu): 0 for gpu in config["execution"]["gpu_ids"]}
+    maximum_by_gpu = dict(active_by_gpu)
+    start_times: dict[str, float] = {}
+    finish_times: dict[str, float] = {}
+    for event in events:
+        gpu_id = int(event["gpu_id"])
+        cell_key = str(event["cell_key"])
+        if event["event"] == "start":
+            active_by_gpu[gpu_id] += 1
+            maximum_by_gpu[gpu_id] = max(maximum_by_gpu[gpu_id], active_by_gpu[gpu_id])
+            start_times[cell_key] = float(event["unix_time"])
+        elif event["event"] == "finish":
+            active_by_gpu[gpu_id] -= 1
+            finish_times[cell_key] = float(event["unix_time"])
+    if set(start_times) != set(cell_index) or set(finish_times) != set(cell_index):
+        raise RuntimeError("Engineering queue audit did not observe all 160 starts and finishes")
+    if any(value != 0 for value in active_by_gpu.values()) or max(maximum_by_gpu.values()) > 2:
+        raise RuntimeError("Engineering queue exceeded two slots per GPU or leaked an active slot")
+    first_batch = {cell.key for cell in cells[:16]}
+    later = {cell.key for cell in cells[16:]}
+    later_start = min(start_times[key] for key in later)
+    first_batch_last_finish = max(finish_times[key] for key in first_batch)
+    if not later_start < first_batch_last_finish:
+        raise RuntimeError("Engineering queue behaved like a 16-cell wave barrier")
+    return {
+        "all_cells_observed": True,
+        "maximum_active_by_gpu": maximum_by_gpu,
+        "later_cell_started_before_first_batch_finished": True,
+    }
+
+
+def cmd_engineering_self_test(
+    config: Mapping[str, Any],
+    output_root: Path,
+    *,
+    source_commit: str,
+) -> dict[str, Any]:
+    """Exercise the delivery pipeline with an isolated, non-scientific backend."""
+
+    if not _is_coldstart(config):
+        raise RuntimeError("Engineering self-test is available only for the cold-start profile")
+    if len(source_commit) != 40 or any(char not in "0123456789abcdef" for char in source_commit):
+        raise ValueError("Engineering self-test requires one full lowercase source commit")
+    output_root = validate_work_dir(output_root)
+    if any(output_root.iterdir()):
+        raise RuntimeError("Engineering self-test output root must be new and empty")
+    self_test_config = _engineering_self_test_config(config)
+    config_path = output_root / "engineering_self_test_config.yaml"
+    config_path.write_text(yaml.safe_dump(self_test_config, sort_keys=False), encoding="utf-8")
+    p0_work_dir, p0_config_path, countdown_bank, countdown_validation = (
+        _write_engineering_input_fixtures(self_test_config, output_root)
+    )
+    cmd_prepare(
+        self_test_config,
+        output_root,
+        p0_work_dir=p0_work_dir,
+        p0_config=p0_config_path,
+        countdown_bank=countdown_bank,
+        countdown_validation=countdown_validation,
+        countdown_adapter=None,
+    )
+    base_model = output_root / "engineering_fixtures" / "placeholder_model"
+    base_model.mkdir(parents=True, exist_ok=True)
+    atomic_json(base_model / "config.json", {"engineering_placeholder_backend": True})
+    atomic_json(
+        output_root / "source_provenance.json",
+        {
+            "schema_version": 1,
+            "run_id": output_root.name,
+            "source_commit": source_commit,
+            "model_repo": "engineering-placeholder-no-model-loaded",
+            "model_revision": "not_applicable",
+            "model_path": str(base_model.resolve()),
+            "test_partition_accessed": False,
+            "engineering_placeholder_backend": True,
+        },
+    )
+    _write_engineering_gates(
+        self_test_config,
+        output_root,
+        base_model_path=str(base_model),
+    )
+
+    cells = build_cells(self_test_config)
+    cell_index = {cell.key: index for index, cell in enumerate(cells)}
+    failed_once = False
+    failure_lock = threading.Lock()
+
+    def placeholder_cell_runner(
+        *,
+        config_path: Path,
+        output_root: Path,
+        base_model_path: str,
+        cell: Cell,
+        gpu_id: int,
+        force: bool,
+    ) -> dict[str, Any]:
+        del config_path, base_model_path, force
+        nonlocal failed_once
+        started_at = time.time()
+        cell_root = output_root / "cells" / cell.key
+        manifest_path = cell_root / "cell_manifest.json"
+        log_path = output_root / "logs" / f"{cell.key}.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        if manifest_path.is_file():
+            existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if (
+                existing.get("config_hash") != stable_config_hash(self_test_config)
+                or existing.get("engineering_placeholder_backend") is not True
+                or existing.get("complete") is not True
+            ):
+                raise RuntimeError(f"Placeholder resume identity mismatch: {cell.key}")
+            return {
+                "cell_key": cell.key,
+                "gpu_id": gpu_id,
+                "returncode": 0,
+                "log": str(log_path.resolve()),
+                "started_unix": started_at,
+                "finished_unix": time.time(),
+                "reused_complete": True,
+            }
+        with failure_lock:
+            should_fail = cell.key == cells[0].key and not failed_once
+            if should_fail:
+                failed_once = True
+        if should_fail:
+            cell_root.mkdir(parents=True, exist_ok=True)
+            log_path.write_text("intentional engineering failure\n", encoding="utf-8")
+            atomic_json(
+                cell_root / "failure.json",
+                {
+                    "experiment_id": experiment_id(self_test_config),
+                    "cell_key": cell.key,
+                    "engineering_placeholder_backend": True,
+                    "complete": False,
+                },
+            )
+            return {
+                "cell_key": cell.key,
+                "gpu_id": gpu_id,
+                "returncode": 73,
+                "log": str(log_path.resolve()),
+                "started_unix": started_at,
+                "finished_unix": time.time(),
+            }
+        if cell.key == cells[0].key:
+            time.sleep(0.05)
+        else:
+            time.sleep(0.001)
+        index = cell_index[cell.key]
+        score = round(0.1 + (index % 20) * 0.01, 6)
+        manifest = {
+            "schema_version": 1,
+            "experiment_id": experiment_id(self_test_config),
+            "config_hash": stable_config_hash(self_test_config),
+            "source_commit": source_commit,
+            "cell_key": cell.key,
+            "validation_best_pass8": score,
+            "validation_terminal_pass8": max(0.0, score - 0.005),
+            "validation_best_greedy": max(0.0, score - 0.02),
+            "validation_terminal_greedy": max(0.0, score - 0.025),
+            "validation_best_greedy_valid_rate": 1.0,
+            "validation_terminal_greedy_valid_rate": 1.0,
+            "best_step": 2,
+            "terminal_step": 2,
+            "stop_reason": "engineering_placeholder_complete",
+            "nan_inf_failure": False,
+            "evaluation_status": "complete",
+            "complete": True,
+            "scientific_status": "not_run",
+            "engineering_placeholder_backend": True,
+        }
+        atomic_json(manifest_path, manifest)
+        log_path.write_text("engineering placeholder cell complete\n", encoding="utf-8")
+        return {
+            "cell_key": cell.key,
+            "gpu_id": gpu_id,
+            "returncode": 0,
+            "log": str(log_path.resolve()),
+            "started_unix": started_at,
+            "finished_unix": time.time(),
+            "reused_complete": False,
+        }
+
+    original_runner = globals()["_run_subprocess_cell"]
+    globals()["_run_subprocess_cell"] = placeholder_cell_runner
+    first_failure: dict[str, Any]
+    try:
+        try:
+            cmd_run_dynamic(
+                self_test_config,
+                config_path,
+                output_root,
+                base_model_path=str(base_model),
+                force=False,
+                retry_incomplete=True,
+            )
+        except RuntimeError:
+            first_failure = json.loads(
+                (output_root / "scheduler" / "dynamic_run.json").read_text(encoding="utf-8")
+            )
+        else:
+            raise RuntimeError("Engineering failure injection did not fail closed")
+        if not first_failure["failed_cells"] or not first_failure["unscheduled_cells"]:
+            raise RuntimeError("Engineering failure did not preserve failed and unscheduled work")
+        resumed = cmd_run_dynamic(
+            self_test_config,
+            config_path,
+            output_root,
+            base_model_path=str(base_model),
+            force=False,
+            retry_incomplete=True,
+        )
+        queue_audit = _audit_engineering_queue(self_test_config, output_root, resumed)
+        before = {
+            cell.key: sha256_file(output_root / "cells" / cell.key / "cell_manifest.json")
+            for cell in cells
+        }
+        repeated = cmd_run_dynamic(
+            self_test_config,
+            config_path,
+            output_root,
+            base_model_path=str(base_model),
+            force=False,
+            retry_incomplete=True,
+        )
+        after = {
+            cell.key: sha256_file(output_root / "cells" / cell.key / "cell_manifest.json")
+            for cell in cells
+        }
+        if before != after or not repeated["complete"]:
+            raise RuntimeError("Engineering repeat run changed a completed cell")
+    finally:
+        globals()["_run_subprocess_cell"] = original_runner
+
+    aggregate = cmd_aggregate(self_test_config, output_root)
+    audit = cmd_audit(self_test_config, output_root)
+    finalized = cmd_finalize(self_test_config, output_root)
+    preliminary_package = cmd_package(self_test_config, output_root)
+    package_manifest_path = output_root / "packages" / "package_manifest.json"
+    tampered = output_root / "packages" / "tampered_self_test.zip"
+    shutil.copyfile(preliminary_package["full_results_zip"], tampered)
+    with tampered.open("ab") as handle:
+        handle.write(b"tamper")
+    tamper_rejected = False
+    try:
+        verify_result_package(package_manifest_path, zip_override=tampered)
+    except RuntimeError:
+        tamper_rejected = True
+    finally:
+        tampered.unlink(missing_ok=True)
+    if not tamper_rejected:
+        raise RuntimeError("Result-package verification accepted a tampered ZIP")
+    report = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(self_test_config),
+        "source_commit": source_commit,
+        "scientific_status": "not_run",
+        "engineering_placeholder_backend": True,
+        "prepare_complete": True,
+        "canonical_source_lock_passed": True,
+        "intentional_failure_returncode": 73,
+        "failure_preserved_unscheduled_work": True,
+        "resume_completed_cells": resumed["completed_cells"],
+        "repeat_run_preserved_cell_hashes": True,
+        "queue_audit": queue_audit,
+        "aggregate_cell_count": aggregate["cell_count"],
+        "terminal_audit_complete": audit["all_training_and_evaluation_complete"],
+        "canonical_archive_owner": finalized["canonical_archive_owner"],
+        "package_reopen_verification_passed": True,
+        "tampered_package_rejected": True,
+        "complete": True,
+        "note": "No model, GPU, optimizer, or scientific metric was executed.",
+    }
+    atomic_json(output_root / "ENGINEERING_SELF_TEST_REPORT.json", report)
+    final_package = cmd_package(self_test_config, output_root)
+    return {
+        **report,
+        "output_root": str(output_root.resolve()),
+        "full_results_zip": final_package["full_results_zip"],
+        "full_results_zip_sha256": final_package["full_results_zip_sha256"],
+        "plot_curve_points_csv": final_package["plot_curve_points_csv"],
+        "plot_curve_points_csv_sha256": final_package["plot_curve_points_csv_sha256"],
+    }
 
 
 def make_parser() -> argparse.ArgumentParser:
@@ -4917,8 +5625,11 @@ def make_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("aggregate")
     subparsers.add_parser("audit")
+    subparsers.add_parser("finalize")
     subparsers.add_parser("package")
     subparsers.add_parser("plan")
+    engineering_self_test = subparsers.add_parser("engineering-self-test")
+    engineering_self_test.add_argument("--source-commit", required=True)
     return parser
 
 
@@ -5022,10 +5733,18 @@ def main(argv: Sequence[str] | None = None) -> None:
         result = cmd_aggregate(config, output_root)
     elif args.command == "audit":
         result = cmd_audit(config, output_root)
+    elif args.command == "finalize":
+        result = cmd_finalize(config, output_root)
     elif args.command == "package":
         result = cmd_package(config, output_root)
     elif args.command == "plan":
         result = write_plan(config, output_root)
+    elif args.command == "engineering-self-test":
+        result = cmd_engineering_self_test(
+            config,
+            output_root,
+            source_commit=str(args.source_commit),
+        )
     else:
         raise AssertionError(args.command)
     print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))

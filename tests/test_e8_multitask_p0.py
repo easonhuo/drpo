@@ -3,8 +3,10 @@ from __future__ import annotations
 import csv
 import json
 import math
+import subprocess
 import threading
 import time
+import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -1599,3 +1601,76 @@ def test_exp_coldstart_aggregate_emits_minimal_plot_csv(tmp_path: Path) -> None:
         "terminal_pass8",
         "complete",
     }
+
+
+def test_countdown_canonical_normalizer_accepts_negative_bank_only() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    row = {
+        "row_id": "countdown-row",
+        "prompt": "Use 1 and 2 to make 3",
+        "oracle_positive": "1 + 2",
+        "numbers": [1, 2],
+        "target": 3,
+        "negative_bank": [
+            {"expression": f"wrong-{index}", "valid_format": True, "correct": False}
+            for index in range(16)
+        ],
+    }
+    normalized = exp_tuning._normalize_countdown_train_row(row)
+    assert len(normalized["negatives"]) == 16
+    assert normalized["negatives"][0]["completion"] == "wrong-0"
+
+
+def test_coldstart_engineering_self_test_runs_delivery_chain(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    source_commit = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"],
+        text=True,
+    ).strip()
+    result = exp_tuning.cmd_engineering_self_test(
+        config,
+        tmp_path / "engineering-self-test",
+        source_commit=source_commit,
+    )
+    assert result["complete"]
+    assert result["scientific_status"] == "not_run"
+    assert result["resume_completed_cells"] == 160
+    assert result["repeat_run_preserved_cell_hashes"]
+    assert result["queue_audit"]["later_cell_started_before_first_batch_finished"]
+    assert result["tampered_package_rejected"]
+    assert result["canonical_archive_owner"] == "scripts/run_experiment_guard_hardened.py"
+    package = Path(result["full_results_zip"])
+    with zipfile.ZipFile(package) as archive:
+        names = set(archive.namelist())
+    assert exp_tuning.PACKAGE_REQUIRED_MEMBERS <= names
+    assert "ENGINEERING_SELF_TEST_REPORT.json" in names
+
+
+def test_coldstart_runbook_starts_from_github_and_has_no_commit_placeholder() -> None:
+    runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md").read_text(
+        encoding="utf-8"
+    )
+    launcher = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    assert "https://github.com/easonhuo/drpo.git" in runbook
+    assert "git fetch origin refs/pull/309/head" in runbook
+    assert "run_e8_multitask_exp_coldstart.sh self-test" in runbook
+    assert "<reviewed-full-commit-sha>" not in runbook
+    assert "run_experiment_guard_hardened.py" in launcher
+    assert "engineering-self-test" in launcher
+    assert "status --porcelain=v1 --untracked-files=all" in launcher
+    self_test_setup_block = launcher.split("self_test_setup() {", 1)[1].split(
+        "engineering_self_test() {", 1
+    )[0]
+    assert "pip install --no-deps -e" not in self_test_setup_block
+    formal_block = launcher.split("guarded_full() {", 1)[1].split('case "${MODE}"', 1)[0]
+    assert formal_block.index("require_registered_ready") < formal_block.index("setup")
+    assert "--run-class formal" in formal_block
+    assert "--require-origin-main-match" in formal_block
+    assert "runspecs/ready/*.yaml" in launcher
+    assert "repo_commit:" in launcher
+    assert "run_module finalize" in launcher
+    assert "run_module package" not in formal_block
+    assert "RAW_COMPLETE_RESULTS_ZIP=" in launcher

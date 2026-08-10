@@ -2,14 +2,20 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-COLDSTART-01"
+EXPECTED_REPOSITORY="https://github.com/easonhuo/drpo.git"
 CONFIG_PATH="${E8_COLDSTART_CONFIG:-${ROOT_DIR}/configs/e8_multitask_exp_coldstart.yaml}"
 P0_CONFIG_PATH="${E8_COLDSTART_P0_CONFIG:-${ROOT_DIR}/configs/e8_multitask_p0.yaml}"
 RUN_ID="${E8_COLDSTART_RUN_ID:-E8_MULTITASK_EXP_COLDSTART_20260808_01}"
-OUTPUT_ROOT="${E8_COLDSTART_OUTPUT_ROOT:-${ROOT_DIR}/outputs/e8/${RUN_ID}}"
+RUNTIME_ROOT="${E8_COLDSTART_RUNTIME_ROOT:-${ROOT_DIR}/../drpo-e8-coldstart-runtime}"
+GUARD_ROOT="${E8_COLDSTART_GUARD_ROOT:-${RUNTIME_ROOT}/guard/${RUN_ID}}"
+OUTPUT_ROOT="${E8_COLDSTART_OUTPUT_ROOT:-${GUARD_ROOT}/workload}"
 P0_WORK_DIR="${E8_COLDSTART_P0_WORK_DIR:-${OUTPUT_ROOT}/p0_inputs}"
 COUNTDOWN_WORK_DIR="${E8_COLDSTART_COUNTDOWN_WORK_DIR:-${OUTPUT_ROOT}/countdown_inputs}"
-VENV_DIR="${E8_COLDSTART_VENV_DIR:-${ROOT_DIR}/.venv-e8-coldstart}"
-MODEL_DIR="${E8_COLDSTART_MODEL_DIR:-${ROOT_DIR}/models/Qwen2.5-0.5B-Instruct-7ae5576}"
+VENV_DIR="${E8_COLDSTART_VENV_DIR:-${RUNTIME_ROOT}/venv}"
+SELFTEST_VENV_DIR="${E8_COLDSTART_SELFTEST_VENV_DIR:-${RUNTIME_ROOT}/selftest-venv}"
+MODEL_DIR="${E8_COLDSTART_MODEL_DIR:-${RUNTIME_ROOT}/models/Qwen2.5-0.5B-Instruct-7ae5576}"
+GUARD_ARTIFACT="${E8_COLDSTART_GUARD_ARTIFACT:-${RUNTIME_ROOT}/packages/${RUN_ID}_guarded.zip}"
 EXPECTED_COMMIT="${E8_COLDSTART_EXPECTED_COMMIT:-}"
 MODEL_REPO="Qwen/Qwen2.5-0.5B-Instruct"
 MODEL_REVISION="7ae557604adf67be50417f59c2c2f167def9a775"
@@ -17,6 +23,7 @@ MODE="${1:-full}"
 
 export PYTHONPATH="${ROOT_DIR}/src${PYTHONPATH:+:${PYTHONPATH}}"
 export TOKENIZERS_PARALLELISM=false
+export PYTHONDONTWRITEBYTECODE=1
 
 fail() {
   echo "ERROR: $*" >&2
@@ -29,8 +36,15 @@ check_source() {
   current_commit="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
   [[ "${current_commit}" == "${EXPECTED_COMMIT}" ]] || \
     fail "source commit mismatch: expected ${EXPECTED_COMMIT}, found ${current_commit}"
-  git -C "${ROOT_DIR}" diff --quiet || fail "tracked source files are modified"
-  git -C "${ROOT_DIR}" diff --cached --quiet || fail "tracked staged source files are modified"
+  [[ "${EXPECTED_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "expected commit must be a full lowercase SHA"
+  local origin_url
+  origin_url="$(git -C "${ROOT_DIR}" remote get-url origin)"
+  case "${origin_url}" in
+    "${EXPECTED_REPOSITORY}"|"https://github.com/easonhuo/drpo"|"git@github.com:easonhuo/drpo.git") ;;
+    *) fail "unexpected origin remote: ${origin_url}" ;;
+  esac
+  [[ -z "$(git -C "${ROOT_DIR}" status --porcelain=v1 --untracked-files=all)" ]] || \
+    fail "source checkout must be fully clean; keep runtime files outside the repository"
 }
 
 activate_runtime() {
@@ -54,7 +68,7 @@ assert torch.cuda.device_count() >= 8, f"PyTorch sees {torch.cuda.device_count()
 print({"torch": torch.__version__, "cuda": torch.version.cuda, "gpus": torch.cuda.device_count()})
 PY
   local free_kb
-  free_kb="$(df -Pk "${ROOT_DIR}" | awk 'NR==2 {print $4}')"
+  free_kb="$(df -Pk "${RUNTIME_ROOT}" | awk 'NR==2 {print $4}')"
   [[ "${free_kb}" -ge 83886080 ]] || fail "at least 80 GiB free disk is required"
 }
 
@@ -68,6 +82,7 @@ run_module() {
 setup() {
   check_source
   command -v python3 >/dev/null || fail "python3 is unavailable"
+  mkdir -p "${RUNTIME_ROOT}"
   python3 - <<'PY'
 import sys
 assert sys.version_info >= (3, 10), sys.version
@@ -106,6 +121,127 @@ audit = audit_canonical_coldstart_sources(config)
 assert audit["verified"], audit
 print(audit)
 PY
+}
+
+self_test_setup() {
+  check_source
+  command -v python3 >/dev/null || fail "python3 is unavailable"
+  mkdir -p "${RUNTIME_ROOT}"
+  python3 - <<'PY'
+import sys
+assert sys.version_info >= (3, 10), sys.version
+PY
+  python3 -m venv --system-site-packages "${SELFTEST_VENV_DIR}"
+  # shellcheck disable=SC1091
+  source "${SELFTEST_VENV_DIR}/bin/activate"
+  if ! python - <<'PY'
+import numpy
+import yaml
+PY
+  then
+    python -m pip install --upgrade "pip==24.3.1" "setuptools==75.6.0" "wheel==0.45.1"
+    python -m pip install "numpy==1.26.4" "PyYAML==6.0.2"
+  fi
+}
+
+engineering_self_test() {
+  self_test_setup
+  local selftest_parent
+  if [[ -n "${E8_COLDSTART_SELFTEST_OUTPUT_ROOT:-}" ]]; then
+    selftest_parent="${E8_COLDSTART_SELFTEST_OUTPUT_ROOT}"
+    [[ ! -e "${selftest_parent}" ]] || fail "self-test output already exists: ${selftest_parent}"
+    mkdir -p "${selftest_parent}"
+  else
+    selftest_parent="$(mktemp -d "${TMPDIR:-/tmp}/e8-coldstart-selftest.XXXXXX")"
+  fi
+  local selftest_guard_root="${selftest_parent}/guard"
+  local selftest_output_root="${selftest_guard_root}/workload"
+  local selftest_artifact="${selftest_parent}/guarded_engineering_self_test.zip"
+  python "${ROOT_DIR}/scripts/run_experiment_guard_hardened.py" \
+    --experiment-id "${EXPERIMENT_ID}" \
+    --repo-root "${ROOT_DIR}" \
+    --output-root "${selftest_guard_root}" \
+    --artifact-output "${selftest_artifact}" \
+    --run-class pilot \
+    --expected-commit "${EXPECTED_COMMIT}" \
+    --large-file-persistence persistent_local \
+    --required-output workload/ENGINEERING_SELF_TEST_REPORT.json \
+    --required-output workload/RUN_COMPLETE.json \
+    --required-output workload/terminal_audit.json \
+    --required-output workload/run_manifest.json \
+    --required-output workload/scheduler/dynamic_run.json \
+    --required-output workload/aggregate/plot_curve_points.csv \
+    --source-file scripts/run_e8_multitask_exp_coldstart.sh \
+    --source-file src/drpo/e8_multitask_exp_tuning.py \
+    --source-file configs/e8_multitask_exp_coldstart.yaml \
+    --source-file docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md \
+    --progress-glob 'workload/scheduler/queue_events.jsonl' \
+    --progress-glob 'workload/logs/*.log' \
+    -- \
+    python -m drpo.e8_multitask_exp_tuning \
+      --config "${CONFIG_PATH}" \
+      --output-root "${selftest_output_root}" \
+      engineering-self-test \
+      --source-commit "${EXPECTED_COMMIT}"
+  python "${ROOT_DIR}/scripts/verify_experiment_package_hardened.py" \
+    --repo-root "${ROOT_DIR}" \
+    "${selftest_artifact}"
+  echo "ENGINEERING_SELF_TEST_ROOT=${selftest_output_root}"
+  echo "ENGINEERING_SELF_TEST_GUARD_ARTIFACT=${selftest_artifact}"
+}
+
+require_registered_ready() {
+  grep -Fq "${EXPERIMENT_ID}" "${ROOT_DIR}/docs/handoff.md" || \
+    fail "${EXPERIMENT_ID} is absent from docs/handoff.md"
+  grep -Fq "${EXPERIMENT_ID}" "${ROOT_DIR}/experiments/registry.yaml" || \
+    fail "${EXPERIMENT_ID} is absent from experiments/registry.yaml"
+  python3 - <<PY
+from pathlib import Path
+import re
+
+experiment_id = "${EXPERIMENT_ID}"
+registry_path = Path("${ROOT_DIR}/experiments/registry.yaml")
+lines = registry_path.read_text(encoding="utf-8").splitlines()
+starts = [index for index, line in enumerate(lines) if line == f"- id: {experiment_id}"]
+assert len(starts) == 1, f"expected exactly one registry entry for {experiment_id}, found {len(starts)}"
+start = starts[0]
+end = next(
+    (index for index in range(start + 1, len(lines)) if re.fullmatch(r"- id: .+", lines[index])),
+    len(lines),
+)
+block = lines[start:end]
+implementation = next(
+    (line.split(":", 1)[1].strip() for line in block if line.startswith("  implementation_state:")),
+    "",
+)
+assert implementation.startswith("implemented"), f"implementation_state is not implemented: {implementation!r}"
+gate_index = next((index for index, line in enumerate(block) if line == "  execution_gate:"), None)
+assert gate_index is not None, "execution_gate is absent"
+gate_state = next(
+    (
+        line.split(":", 1)[1].strip()
+        for line in block[gate_index + 1 :]
+        if line.startswith("    state:")
+    ),
+    "",
+)
+assert gate_state == "ready", f"{experiment_id} execution_gate is not ready: {gate_state!r}"
+print({"experiment_id": experiment_id, "execution_gate": "ready"})
+PY
+  local runspec_matches=()
+  mapfile -t runspec_matches < <(
+    grep -l -F "experiment_id: ${EXPERIMENT_ID}" "${ROOT_DIR}"/runspecs/ready/*.yaml || true
+  )
+  [[ "${#runspec_matches[@]}" -eq 1 ]] || \
+    fail "expected exactly one READY RunSpec for ${EXPERIMENT_ID}; found ${#runspec_matches[@]}"
+  grep -Eq "^repo_commit:[[:space:]]*${EXPECTED_COMMIT}[[:space:]]*$" "${runspec_matches[0]}" || \
+    fail "READY RunSpec does not bind reviewed commit ${EXPECTED_COMMIT}: ${runspec_matches[0]}"
+  grep -Fq "run_e8_multitask_exp_coldstart.sh full" "${runspec_matches[0]}" || \
+    fail "READY RunSpec does not call the reviewed full entrypoint: ${runspec_matches[0]}"
+}
+
+validate_registered_channel() {
+  python "${ROOT_DIR}/scripts/validate_formal_execution_channel.py" --repo-root "${ROOT_DIR}"
 }
 
 prepare() {
@@ -189,27 +325,86 @@ run_queue() {
   run_module run-all --base-model-path "${MODEL_DIR}" --retry-incomplete
 }
 
+run_queue_with_retry() {
+  local attempt=1
+  local maximum_attempts="${E8_COLDSTART_QUEUE_ATTEMPTS:-3}"
+  [[ "${maximum_attempts}" =~ ^[1-9][0-9]*$ ]] || fail "queue attempts must be a positive integer"
+  while ! run_queue; do
+    if [[ "${attempt}" -ge "${maximum_attempts}" ]]; then
+      fail "dynamic queue still failed after ${attempt} guarded attempts"
+    fi
+    attempt=$((attempt + 1))
+    echo "Retrying only incomplete/unscheduled cells inside the same guard: attempt ${attempt}"
+  done
+}
+
 finish() {
   check_source
   activate_runtime
   run_module aggregate
   run_module audit
-  run_module package
+  run_module finalize
   python - <<PY
 import json
 from pathlib import Path
 root = Path("${OUTPUT_ROOT}")
 audit = json.loads((root / "terminal_audit.json").read_text())
-package = json.loads((root / "packages/package_manifest.json").read_text())
 assert audit["all_training_and_evaluation_complete"], audit
-print("FULL_RESULTS_ZIP=" + package["full_results_zip"])
-print("FULL_RESULTS_SHA256=" + package["full_results_zip_sha256"])
-print("PLOT_CSV=" + package["plot_curve_points_csv"])
-print("PLOT_CSV_SHA256=" + package["plot_curve_points_csv_sha256"])
+plot = root / "aggregate" / "plot_curve_points.csv"
+print("RAW_RESULTS_ROOT=" + str(root.resolve()))
+print("PLOT_CSV=" + str(plot.resolve()))
 PY
 }
 
+guarded_full() {
+  require_registered_ready
+  setup
+  validate_registered_channel
+  [[ "${OUTPUT_ROOT}" == "${GUARD_ROOT}/workload" ]] || \
+    fail "formal output root must be the guard workload child: ${GUARD_ROOT}/workload"
+  [[ ! -e "${GUARD_ROOT}" ]] || fail "formal guard root must be new: ${GUARD_ROOT}"
+  [[ ! -e "${GUARD_ARTIFACT}" ]] || fail "guard artifact already exists: ${GUARD_ARTIFACT}"
+  mkdir -p "$(dirname "${GUARD_ARTIFACT}")"
+  python "${ROOT_DIR}/scripts/run_experiment_guard_hardened.py" \
+    --experiment-id "${EXPERIMENT_ID}" \
+    --repo-root "${ROOT_DIR}" \
+    --output-root "${GUARD_ROOT}" \
+    --artifact-output "${GUARD_ARTIFACT}" \
+    --run-class formal \
+    --expected-commit "${EXPECTED_COMMIT}" \
+    --require-origin-main-match \
+    --large-file-persistence persistent_local \
+    --required-output workload/RUN_COMPLETE.json \
+    --required-output workload/terminal_audit.json \
+    --required-output workload/run_manifest.json \
+    --required-output workload/scientific_run_manifest.json \
+    --required-output workload/scheduler/dynamic_run.json \
+    --required-output workload/aggregate/plot_curve_points.csv \
+    --source-file scripts/run_e8_multitask_exp_coldstart.sh \
+    --source-file src/drpo/e8_multitask_exp_tuning.py \
+    --source-file configs/e8_multitask_exp_coldstart.yaml \
+    --source-file requirements/e8_multitask_exp_coldstart.txt \
+    --source-file src/drpo/countdown_qwen_arena_onefile.py \
+    --source-file src/drpo/countdown_e8_base_rl_replay.py \
+    --source-file src/drpo/countdown_e8_oracle_offline_v2_taper_sweep.py \
+    --source-file src/drpo/countdown_e8_oracle_offline_v2_taper_runtime.py \
+    --source-file docs/handoff.md \
+    --source-file experiments/registry.yaml \
+    --progress-glob 'workload/scheduler/queue_events.jsonl' \
+    --progress-glob 'workload/logs/*.log' \
+    -- \
+    bash "${ROOT_DIR}/scripts/run_e8_multitask_exp_coldstart.sh" guarded-full-internal
+  python "${ROOT_DIR}/scripts/verify_experiment_package_hardened.py" \
+    --repo-root "${ROOT_DIR}" \
+    "${GUARD_ARTIFACT}"
+  echo "RAW_COMPLETE_RESULTS_ZIP=${GUARD_ARTIFACT}"
+  sha256sum "${GUARD_ARTIFACT}"
+  echo "PLOT_CSV=${OUTPUT_ROOT}/aggregate/plot_curve_points.csv"
+  sha256sum "${OUTPUT_ROOT}/aggregate/plot_curve_points.csv"
+}
+
 case "${MODE}" in
+  self-test) engineering_self_test ;;
   setup) setup ;;
   prepare) prepare ;;
   plan) check_source; activate_runtime; run_module plan ;;
@@ -217,13 +412,13 @@ case "${MODE}" in
   liveness) liveness ;;
   run|resume) run_queue ;;
   finish) finish ;;
-  full)
-    setup
+  guarded-full-internal)
     prepare
     calibrate
     liveness
-    run_queue
+    run_queue_with_retry
     finish
     ;;
-  *) fail "usage: $0 {setup|prepare|plan|calibrate|liveness|run|resume|finish|full}" ;;
+  full) guarded_full ;;
+  *) fail "usage: $0 {self-test|setup|prepare|plan|calibrate|liveness|run|resume|finish|full}" ;;
 esac
