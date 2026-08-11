@@ -15,6 +15,13 @@ fail() {
   if [[ "${BOOTSTRAP_OWNS_ROOT}" -eq 1 ]] && declare -F write_state >/dev/null; then
     BOOTSTRAP_STATUS="failed"
     write_state "${BOOTSTRAP_STATUS}"
+    if [[ -f "${CHECKOUT:-}/scripts/run_e8_multitask_exp_coldstart.sh" ]]; then
+      E8_COLDSTART_EXPECTED_COMMIT="${TARGET_COMMIT:-}" \
+        E8_COLDSTART_RUNTIME_ROOT="${RUNTIME_ROOT:-${BOOTSTRAP_ROOT:-.}/runtime}" \
+        E8_COLDSTART_BOOTSTRAP_STATE="${STATE_FILE}" \
+        bash "${CHECKOUT}/scripts/run_e8_multitask_exp_coldstart.sh" \
+          diagnose "bootstrap_${CURRENT_STAGE}" || true
+    fi
     echo "BOOTSTRAP_FAILED_STAGE=${CURRENT_STAGE}" >&2
     echo "BOOTSTRAP_STATE=${STATE_FILE}" >&2
   fi
@@ -62,14 +69,36 @@ on_error() {
   local status="$?"
   BOOTSTRAP_STATUS="failed"
   write_state "${BOOTSTRAP_STATUS}"
+  if [[ -f "${CHECKOUT}/scripts/run_e8_multitask_exp_coldstart.sh" ]]; then
+    E8_COLDSTART_EXPECTED_COMMIT="${TARGET_COMMIT:-}" \
+      E8_COLDSTART_RUNTIME_ROOT="${RUNTIME_ROOT}" \
+      E8_COLDSTART_BOOTSTRAP_STATE="${STATE_FILE}" \
+      bash "${CHECKOUT}/scripts/run_e8_multitask_exp_coldstart.sh" \
+        diagnose "bootstrap_${CURRENT_STAGE}" || true
+  fi
   echo "BOOTSTRAP_FAILED_STAGE=${CURRENT_STAGE}" >&2
   echo "BOOTSTRAP_STATE=${STATE_FILE}" >&2
   exit "${status}"
 }
 
-[[ ! -e "${BOOTSTRAP_ROOT}" ]] || \
-  fail "bootstrap root already exists; refusing to overwrite or reuse it: ${BOOTSTRAP_ROOT}"
-mkdir -p "${BOOTSTRAP_ROOT}"
+RESUME_BOOTSTRAP=0
+BOOTSTRAP_WAS_COMPLETE=0
+if [[ -e "${BOOTSTRAP_ROOT}" ]]; then
+  [[ -d "${BOOTSTRAP_ROOT}" ]] || fail "bootstrap root exists but is not a directory"
+  [[ -f "${STATE_FILE}" ]] || fail "existing bootstrap root has no identity state: ${STATE_FILE}"
+  [[ -d "${CHECKOUT}" ]] || fail "existing bootstrap root has no isolated checkout: ${CHECKOUT}"
+  grep -Fqx "experiment_id=${EXPERIMENT_ID}" "${STATE_FILE}" || \
+    fail "existing bootstrap state belongs to another experiment"
+  grep -Fqx "mode=${MODE}" "${STATE_FILE}" || \
+    fail "existing bootstrap state was created for another mode"
+  RESUME_BOOTSTRAP=1
+  if grep -Fqx "status=complete" "${STATE_FILE}"; then
+    BOOTSTRAP_WAS_COMPLETE=1
+  fi
+  BOOTSTRAP_STATUS="recovering"
+else
+  mkdir -p "${BOOTSTRAP_ROOT}"
+fi
 BOOTSTRAP_OWNS_ROOT=1
 write_state "${BOOTSTRAP_STATUS}"
 trap on_error ERR
@@ -111,15 +140,20 @@ add_candidate "/data/drpo"
 add_candidate "/mnt/data/drpo"
 add_candidate "$(pwd -P)"
 
-SOURCE_REPO=""
-SOURCE_REMOTE=""
-for candidate in "${candidates[@]}"; do
-  if resolved="$(canonical_checkout "${candidate}")"; then
-    SOURCE_REPO="${resolved}"
-    SOURCE_REMOTE="origin"
-    break
-  fi
-done
+if [[ "${RESUME_BOOTSTRAP}" -eq 1 ]]; then
+  SOURCE_REPO="${CHECKOUT}"
+  SOURCE_REMOTE="origin"
+else
+  SOURCE_REPO=""
+  SOURCE_REMOTE=""
+  for candidate in "${candidates[@]}"; do
+    if resolved="$(canonical_checkout "${candidate}")"; then
+      SOURCE_REPO="${resolved}"
+      SOURCE_REMOTE="origin"
+      break
+    fi
+  done
+fi
 
 if [[ -z "${SOURCE_REPO}" ]]; then
   IFS=: read -r -a search_roots <<< \
@@ -160,22 +194,28 @@ else
 fi
 
 CURRENT_STAGE="fetch_authoritative_ref"
-git -C "${SOURCE_REPO}" fetch --no-tags --force "${SOURCE_REMOTE}" \
-  "${TARGET_REF}:${LOCAL_FETCH_REF}"
-TARGET_COMMIT="$(git -C "${SOURCE_REPO}" rev-parse "${LOCAL_FETCH_REF}^{commit}")"
-[[ "${TARGET_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "resolved commit is not a full SHA"
+if [[ "${BOOTSTRAP_WAS_COMPLETE}" -eq 1 ]]; then
+  TARGET_COMMIT="$(git -C "${CHECKOUT}" rev-parse HEAD)"
+else
+  git -C "${SOURCE_REPO}" fetch --no-tags --force "${SOURCE_REMOTE}" \
+    "${TARGET_REF}:${LOCAL_FETCH_REF}"
+  TARGET_COMMIT="$(git -C "${SOURCE_REPO}" rev-parse "${LOCAL_FETCH_REF}^{commit}")"
+  [[ "${TARGET_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "resolved commit is not a full SHA"
 
-REMOTE_COMMIT="$(
-  git -C "${SOURCE_REPO}" ls-remote "${SOURCE_REMOTE}" "${TARGET_REF}" |
-    awk -v ref="${TARGET_REF}" '$2 == ref {print $1}'
-)"
-[[ "${REMOTE_COMMIT}" == "${TARGET_COMMIT}" ]] || \
-  fail "fetch/authoritative-ref mismatch for ${TARGET_REF}"
+  REMOTE_COMMIT="$(
+    git -C "${SOURCE_REPO}" ls-remote "${SOURCE_REMOTE}" "${TARGET_REF}" |
+      awk -v ref="${TARGET_REF}" '$2 == ref {print $1}'
+  )"
+  [[ "${REMOTE_COMMIT}" == "${TARGET_COMMIT}" ]] || \
+    fail "fetch/authoritative-ref mismatch for ${TARGET_REF}"
+fi
 
 CURRENT_STAGE="create_isolated_worktree"
-git -C "${SOURCE_REPO}" worktree add --detach "${CHECKOUT}" "${TARGET_COMMIT}"
+if [[ "${RESUME_BOOTSTRAP}" -eq 0 ]]; then
+  git -C "${SOURCE_REPO}" worktree add --detach "${CHECKOUT}" "${TARGET_COMMIT}"
+fi
 [[ "$(git -C "${CHECKOUT}" rev-parse HEAD)" == "${TARGET_COMMIT}" ]] || \
-  fail "isolated checkout commit mismatch"
+  fail "existing isolated checkout no longer matches authoritative ${TARGET_REF}; local AI review is required"
 [[ -z "$(git -C "${CHECKOUT}" status --porcelain=v1 --untracked-files=all)" ]] || \
   fail "isolated checkout is not clean"
 [[ -f "${CHECKOUT}/scripts/run_e8_multitask_exp_coldstart.sh" ]] || \
@@ -187,6 +227,7 @@ write_state "${BOOTSTRAP_STATUS}"
 CURRENT_STAGE="execute_${MODE}"
 export E8_COLDSTART_EXPECTED_COMMIT="${TARGET_COMMIT}"
 export E8_COLDSTART_RUNTIME_ROOT="${RUNTIME_ROOT}"
+export E8_COLDSTART_BOOTSTRAP_STATE="${STATE_FILE}"
 bash "${CHECKOUT}/scripts/run_e8_multitask_exp_coldstart.sh" "${MODE}"
 
 CURRENT_STAGE="complete"

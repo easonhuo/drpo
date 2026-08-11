@@ -22,6 +22,7 @@ import random
 import shutil
 import subprocess
 import sys
+import tarfile
 import threading
 import time
 import traceback
@@ -83,6 +84,23 @@ METHOD_EXPONENTIAL = "exponential"
 SWEEP_PROFILE_RHO = "nine_task_rho_v1"
 SWEEP_PROFILE_DENSE = "task_lambda_dense_v1"
 SWEEP_PROFILE_COLDSTART = "eight_task_coldstart_lambda_v1"
+
+RECOVERY_SNAPSHOT_SCHEMA_VERSION = 1
+RECOVERY_TRANSIENT_TOP_LEVEL = {
+    "aggregate",
+    "packages",
+    "recovery",
+    "scheduler",
+}
+RECOVERY_TRANSIENT_FILES = {
+    "ENGINEERING_SELF_TEST_REPORT.json",
+    "RUN_COMPLETE.json",
+    "SHA256SUMS.txt",
+    "package_contents_manifest.json",
+    "run_manifest.json",
+    "scientific_run_manifest.json",
+    "terminal_audit.json",
+}
 
 CANONICAL_COLD_MODULES = {
     "arena": "drpo.countdown_qwen_arena_onefile",
@@ -3918,6 +3936,612 @@ def cmd_liveness(
     return result
 
 
+def _read_json_object(path: Path) -> dict[str, Any]:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise TypeError(f"Expected one JSON object: {path}")
+    return value
+
+
+def _effective_recovery_config(
+    config: Mapping[str, Any],
+    output_root: Path,
+) -> dict[str, Any]:
+    engineering_config = output_root / "engineering_self_test_config.yaml"
+    if engineering_config.is_file():
+        recovered = load_config(engineering_config)
+        if not _is_engineering_self_test(recovered):
+            raise RuntimeError("Recovery engineering config is not a placeholder config")
+        return recovered
+    return dict(config)
+
+
+def _reusable_cell_manifests(
+    config: Mapping[str, Any],
+    output_root: Path,
+) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
+    reusable: dict[str, dict[str, Any]] = {}
+    rejected: dict[str, str] = {}
+    expected_hash = stable_config_hash(config)
+    expected_id = experiment_id(config)
+    for cell in build_cells(config):
+        manifest_path = output_root / "cells" / cell.key / "cell_manifest.json"
+        if not manifest_path.is_file():
+            rejected[cell.key] = "missing_cell_manifest"
+            continue
+        try:
+            value = _read_json_object(manifest_path)
+            if (
+                value.get("experiment_id") != expected_id
+                or value.get("config_hash") != expected_hash
+                or value.get("complete") is not True
+                or value.get("evaluation_status") != "complete"
+                or value.get("nan_inf_failure") is not False
+            ):
+                raise RuntimeError("identity_or_completion_fields_mismatch")
+            if _is_engineering_self_test(config):
+                if value.get("engineering_placeholder_backend") is not True:
+                    raise RuntimeError("placeholder_backend_marker_missing")
+            else:
+                if (
+                    not isinstance(value.get("identity_hash"), str)
+                    or len(str(value["identity_hash"])) != 64
+                    or value.get("canonical_dispatch_verified") is not True
+                ):
+                    raise RuntimeError("canonical_identity_or_dispatch_marker_missing")
+                summary = Path(str(value.get("canonical_summary", "")))
+                expected_summary_hash = str(value.get("canonical_summary_sha256", ""))
+                if (
+                    not summary.is_file()
+                    or len(expected_summary_hash) != 64
+                    or sha256_file(summary) != expected_summary_hash
+                ):
+                    raise RuntimeError("canonical_summary_missing_or_corrupt")
+                for field in ("best_adapter", "terminal_adapter"):
+                    adapter = Path(str(value.get(field, "")))
+                    if not (adapter / "adapter_config.json").is_file() or not any(
+                        (adapter / name).is_file()
+                        for name in ("adapter_model.safetensors", "adapter_model.bin")
+                    ):
+                        raise RuntimeError(f"{field}_missing_or_incomplete")
+            reusable[cell.key] = value
+        except (OSError, ValueError, TypeError, RuntimeError, json.JSONDecodeError) as exc:
+            rejected[cell.key] = f"{type(exc).__name__}: {exc}"
+    return reusable, rejected
+
+
+def _recovery_stage_plan(
+    config: Mapping[str, Any],
+    output_root: Path,
+    *,
+    base_model_path: str,
+) -> dict[str, Any]:
+    config = _effective_recovery_config(config, output_root)
+    prepare_error: str | None = None
+    calibration_error: str | None = None
+    liveness_error: str | None = None
+    try:
+        _load_prepared(output_root, config)
+        prepare_complete = True
+    except Exception as exc:  # The plan records the exact fail-closed reason.
+        prepare_complete = False
+        prepare_error = f"{type(exc).__name__}: {exc}"
+    if prepare_complete:
+        try:
+            _require_calibration_gate(config, output_root, base_model_path=base_model_path)
+            calibration_complete = True
+        except Exception as exc:
+            calibration_complete = False
+            calibration_error = f"{type(exc).__name__}: {exc}"
+    else:
+        calibration_complete = False
+        calibration_error = "prepare_incomplete"
+    if calibration_complete:
+        try:
+            _require_liveness_gate(config, output_root, base_model_path=base_model_path)
+            liveness_complete = True
+        except Exception as exc:
+            liveness_complete = False
+            liveness_error = f"{type(exc).__name__}: {exc}"
+    else:
+        liveness_complete = False
+        liveness_error = "calibration_incomplete"
+    reusable, rejected = _reusable_cell_manifests(config, output_root)
+    expected_cells = len(build_cells(config))
+    cells_complete = len(reusable) == expected_cells
+    aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
+    aggregate_complete = False
+    if aggregate_path.is_file():
+        try:
+            aggregate_complete = int(_read_json_object(aggregate_path).get("cell_count", 0)) == (
+                expected_cells
+            )
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            aggregate_complete = False
+    audit_path = output_root / "terminal_audit.json"
+    audit_complete = False
+    if audit_path.is_file():
+        try:
+            audit_complete = bool(
+                _read_json_object(audit_path).get("all_training_and_evaluation_complete")
+            )
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            audit_complete = False
+    finalized = False
+    complete_path = output_root / "RUN_COMPLETE.json"
+    if complete_path.is_file():
+        try:
+            finalized = bool(_read_json_object(complete_path).get("complete")) and audit_complete
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            finalized = False
+    if not prepare_complete:
+        next_stage = "prepare"
+    elif not calibration_complete:
+        next_stage = "calibrate"
+    elif not liveness_complete:
+        next_stage = "liveness"
+    elif not cells_complete:
+        next_stage = "run_queue"
+    elif not aggregate_complete:
+        next_stage = "aggregate"
+    elif not audit_complete:
+        next_stage = "audit"
+    elif not finalized:
+        next_stage = "finalize"
+    else:
+        next_stage = "delivery_preflight"
+    return {
+        "schema_version": RECOVERY_SNAPSHOT_SCHEMA_VERSION,
+        "experiment_id": experiment_id(config),
+        "config_hash": stable_config_hash(config),
+        "output_root": str(output_root.resolve()),
+        "prepare_complete": prepare_complete,
+        "prepare_error": prepare_error,
+        "calibration_complete": calibration_complete,
+        "calibration_error": calibration_error,
+        "liveness_complete": liveness_complete,
+        "liveness_error": liveness_error,
+        "expected_cells": expected_cells,
+        "reusable_completed_cells": len(reusable),
+        "reusable_cell_keys": sorted(reusable),
+        "rejected_cells": rejected,
+        "cells_complete": cells_complete,
+        "aggregate_complete": aggregate_complete,
+        "audit_complete": audit_complete,
+        "finalized": finalized,
+        "next_stage": next_stage,
+        "intra_cell_resume_supported": False,
+        "intra_cell_resume_reason": (
+            "locked canonical kernels do not persist complete optimizer, scheduler, RNG, "
+            "and dataloader state"
+        ),
+    }
+
+
+def cmd_recovery_plan(
+    config: Mapping[str, Any],
+    output_root: Path,
+    *,
+    base_model_path: str,
+) -> dict[str, Any]:
+    plan = _recovery_stage_plan(config, output_root, base_model_path=base_model_path)
+    atomic_json(output_root / "recovery" / "RECOVERY_PLAN.json", plan)
+    return plan
+
+
+def _hardlink_file(source: Path, destination: Path) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.link(source, destination)
+    except OSError as exc:
+        raise RuntimeError(
+            "Recovery requires source and destination on one hard-link-capable persistent "
+            f"filesystem; could not link {source} -> {destination}: {exc}"
+        ) from exc
+
+
+def _replace_path_prefix(value: Any, source: str, destination: str) -> Any:
+    if isinstance(value, str) and (value == source or value.startswith(source + os.sep)):
+        return destination + value[len(source) :]
+    if isinstance(value, list):
+        return [_replace_path_prefix(item, source, destination) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: _replace_path_prefix(item, source, destination) for key, item in value.items()
+        }
+    return value
+
+
+def cmd_import_recovery(
+    config: Mapping[str, Any],
+    output_root: Path,
+    *,
+    source_output_root: Path,
+    base_model_path: str,
+    source_commit: str,
+) -> dict[str, Any]:
+    source_output_root = source_output_root.resolve()
+    output_root = output_root.resolve()
+    if source_output_root == output_root:
+        raise ValueError("Recovery source and destination must differ")
+    if not source_output_root.is_dir():
+        raise FileNotFoundError(f"Recovery source does not exist: {source_output_root}")
+    if output_root.exists() and any(output_root.iterdir()):
+        raise RuntimeError("Recovery destination must be new and empty")
+    if len(source_commit) != 40 or any(
+        character not in "0123456789abcdef" for character in source_commit
+    ):
+        raise ValueError("Recovery import requires one full lowercase source commit")
+    provenance = _read_json_object(source_output_root / "source_provenance.json")
+    if provenance.get("source_commit") != source_commit:
+        raise RuntimeError(
+            "Recovery source commit does not match the reviewed execution commit"
+        )
+    output_root.mkdir(parents=True, exist_ok=True)
+    effective = _effective_recovery_config(config, source_output_root)
+    source_plan = _recovery_stage_plan(
+        effective,
+        source_output_root,
+        base_model_path=base_model_path,
+    )
+    reusable = (
+        set(source_plan["reusable_cell_keys"]) if source_plan["prepare_complete"] else set()
+    )
+    source_text = str(source_output_root)
+    destination_text = str(output_root)
+    linked_files = 0
+    linked_bytes = 0
+    source_cell_hashes = {
+        key: sha256_file(source_output_root / "cells" / key / "cell_manifest.json")
+        for key in reusable
+    }
+    if source_plan["prepare_complete"]:
+        recovery_label = source_output_root.parent.name
+        def mapped_relative(relative: Path) -> Path | None:
+            if relative.parts[0] in RECOVERY_TRANSIENT_TOP_LEVEL:
+                return None
+            if len(relative.parts) == 1 and relative.name in RECOVERY_TRANSIENT_FILES:
+                return None
+            if relative.parts[0] == "cells" and (
+                len(relative.parts) < 2 or relative.parts[1] not in reusable
+            ):
+                return None
+            if relative.parts[0] == "liveness" and not source_plan["liveness_complete"]:
+                return None
+            if relative.parts[0] == "logs":
+                return Path("logs") / f"recovered_{recovery_label}" / Path(*relative.parts[1:])
+            return relative
+
+        for source in sorted(path for path in source_output_root.rglob("*") if path.is_dir()):
+            if source.is_symlink():
+                raise RuntimeError(f"Recovery refuses symbolic links: {source}")
+            relative = mapped_relative(source.relative_to(source_output_root))
+            if relative is not None:
+                (output_root / relative).mkdir(parents=True, exist_ok=True)
+        for source in sorted(source_output_root.rglob("*")):
+            if source.is_symlink():
+                raise RuntimeError(f"Recovery refuses symbolic links: {source}")
+            if not source.is_file():
+                continue
+            relative = mapped_relative(source.relative_to(source_output_root))
+            if relative is None:
+                continue
+            destination = output_root / relative
+            _hardlink_file(source, destination)
+            linked_files += 1
+            linked_bytes += source.stat().st_size
+        path_manifest_targets = (
+            output_root / "prepare_manifest.json",
+            output_root / "split_manifest.json",
+            output_root / "source_provenance.json",
+        )
+        for path in path_manifest_targets:
+            if not path.is_file():
+                continue
+            try:
+                value = _read_json_object(path)
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                continue
+            updated = _replace_path_prefix(value, source_text, destination_text)
+            if updated != value:
+                atomic_json(path, updated)
+        for key, source_hash in sorted(source_cell_hashes.items()):
+            manifest_path = output_root / "cells" / key / "cell_manifest.json"
+            value = _read_json_object(manifest_path)
+            value = _replace_path_prefix(value, source_text, destination_text)
+            value["recovery_provenance"] = {
+                "source_output_root": source_text,
+                "source_manifest_sha256": source_hash,
+                "import_mode": "identity_checked_hardlink",
+                "scientific_variables_changed": False,
+            }
+            atomic_json(manifest_path, value)
+    imported_cell_manifests = [
+        {
+            "cell_key": key,
+            "source_manifest_sha256": source_cell_hashes[key],
+            "imported_manifest_sha256": sha256_file(
+                output_root / "cells" / key / "cell_manifest.json"
+            ),
+        }
+        for key in sorted(reusable)
+    ]
+    import_manifest = {
+        "schema_version": RECOVERY_SNAPSHOT_SCHEMA_VERSION,
+        "experiment_id": experiment_id(effective),
+        "source_commit": source_commit,
+        "source_output_root": source_text,
+        "destination_output_root": destination_text,
+        "source_plan": source_plan,
+        "imported_reusable_cells": sorted(reusable),
+        "imported_cell_manifests": imported_cell_manifests,
+        "linked_files": linked_files,
+        "linked_bytes": linked_bytes,
+        "copy_mode": "hardlink_read_only_then_copy_on_atomic_json_rewrite",
+        "incomplete_cells_imported": False,
+        "scientific_variables_changed": False,
+        "complete": True,
+    }
+    atomic_json(output_root / "recovery" / "IMPORT_MANIFEST.json", import_manifest)
+    return import_manifest
+
+
+def _recovery_checkpoint_snapshot(
+    config: Mapping[str, Any],
+    output_root: Path,
+    snapshot_root: Path,
+    *,
+    source_commit: str,
+) -> dict[str, Any]:
+    reusable, rejected = _reusable_cell_manifests(config, output_root)
+    temporary = snapshot_root.with_name(f".{snapshot_root.name}.tmp-{os.getpid()}-{time.time_ns()}")
+    if temporary.exists():
+        shutil.rmtree(temporary)
+    (temporary / "logs").mkdir(parents=True)
+    (temporary / "cell_manifests").mkdir(parents=True)
+    cells: list[dict[str, Any]] = []
+    for key, manifest in sorted(reusable.items()):
+        source = output_root / "cells" / key / "cell_manifest.json"
+        destination = temporary / "cell_manifests" / f"{key}.json"
+        shutil.copy2(source, destination)
+        cells.append(
+            {
+                "cell_key": key,
+                "manifest_sha256": sha256_file(source),
+                "manifest_path": str(source.resolve()),
+                "canonical_output": manifest.get("canonical_output"),
+                "terminal_adapter": manifest.get("terminal_adapter"),
+            }
+        )
+    payload = {
+        "schema_version": RECOVERY_SNAPSHOT_SCHEMA_VERSION,
+        "experiment_id": experiment_id(config),
+        "base_commit": source_commit,
+        "config_hash": stable_config_hash(config),
+        "output_root": str(output_root.resolve()),
+        "expected_cells": len(build_cells(config)),
+        "completed_cells": len(cells),
+        "cells": cells,
+        "rejected_cells": rejected,
+        "recovery_semantics": "reuse complete identity-checked cells; rerun incomplete cells",
+        "intra_cell_resume_supported": False,
+        "scientific_status": "not_run" if _is_engineering_self_test(config) else "pilot",
+    }
+    atomic_json(temporary / "RECOVERY_SNAPSHOT.json", payload)
+    atomic_json(
+        temporary / "run_manifest.json",
+        {
+            "schema_version": 1,
+            "experiment_id": experiment_id(config),
+            "base_commit": source_commit,
+            "run_id": output_root.parent.name,
+            "execution_state": "checkpoint",
+            "artifact_state": "checkpoint",
+            "completed_cells": len(cells),
+            "expected_cells": len(build_cells(config)),
+            "scientific_status": payload["scientific_status"],
+        },
+    )
+    (temporary / "logs" / "recovery_checkpoint.log").write_text(
+        f"completed_cells={len(cells)} expected_cells={len(build_cells(config))}\n",
+        encoding="utf-8",
+    )
+    if snapshot_root.exists():
+        shutil.rmtree(snapshot_root)
+    os.replace(temporary, snapshot_root)
+    return payload
+
+
+def _publish_recovery_checkpoint(
+    config: Mapping[str, Any],
+    output_root: Path,
+    *,
+    package_output: Path,
+) -> dict[str, Any]:
+    provenance = _read_json_object(output_root / "source_provenance.json")
+    source_commit = str(provenance.get("source_commit", ""))
+    if len(source_commit) != 40 or any(char not in "0123456789abcdef" for char in source_commit):
+        raise RuntimeError("Recovery checkpoint requires a full source commit")
+    snapshot_root = package_output.parent / "snapshot"
+    payload = _recovery_checkpoint_snapshot(
+        config,
+        output_root,
+        snapshot_root,
+        source_commit=source_commit,
+    )
+    command = [
+        sys.executable,
+        str(_repo_root() / "scripts" / "package_experiment_hardened.py"),
+        "--repo-root",
+        str(_repo_root()),
+        "--experiment-id",
+        experiment_id(config),
+        "--package-kind",
+        "experiment-checkpoint",
+        "--result-dir",
+        str(snapshot_root),
+        "--output",
+        str(package_output),
+        "--base-commit",
+        source_commit,
+        "--no-repository-changes",
+        "--large-file-persistence",
+        "persistent_local",
+        "--source-file",
+        "scripts/run_e8_multitask_exp_coldstart.sh",
+        "--source-file",
+        "src/drpo/e8_multitask_exp_tuning.py",
+    ]
+    if os.environ.get("E8_COLDSTART_RECOVERY_REQUIRE_ORIGIN_MAIN") == "1":
+        command.append("--require-origin-main-match")
+    completed = subprocess.run(command, text=True, capture_output=True, check=False)
+    if completed.returncode != 0:
+        raise RuntimeError(
+            "Recovery checkpoint packaging failed: "
+            + (completed.stderr.strip() or completed.stdout.strip())
+        )
+    mirror_value = os.environ.get("E8_COLDSTART_RECOVERY_MIRROR", "").strip()
+    mirror_path: Path | None = None
+    if mirror_value:
+        mirror_root = Path(mirror_value).resolve()
+        mirror_root.mkdir(parents=True, exist_ok=True)
+        mirror_path = mirror_root / package_output.name
+        temporary = mirror_path.with_name(f".{mirror_path.name}.tmp-{os.getpid()}")
+        shutil.copy2(package_output, temporary)
+        if sha256_file(temporary) != sha256_file(package_output):
+            temporary.unlink(missing_ok=True)
+            raise RuntimeError("Recovery mirror copy failed checksum verification")
+        os.replace(temporary, mirror_path)
+    status = {
+        **payload,
+        "package": str(package_output.resolve()),
+        "package_sha256": sha256_file(package_output),
+        "mirror": str(mirror_path) if mirror_path else None,
+        "mirror_configured": mirror_path is not None,
+        "complete": True,
+    }
+    atomic_json(package_output.parent / "RECOVERY_CHECKPOINT_STATUS.json", status)
+    return status
+
+
+def cmd_compact_logs(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
+    logs_root = output_root / "logs"
+    archive_root = output_root / "persistent_raw_archives"
+    archive = archive_root / "cell_and_stage_logs.tar.gz"
+    index_path = logs_root / "LOG_ARCHIVE_INDEX.json"
+    prepared_path = logs_root / "LOG_ARCHIVE_PREPARED.json"
+    if index_path.is_file() and archive.is_file():
+        value = _read_json_object(index_path)
+        if value.get("archive_sha256") == sha256_file(archive) and value.get("complete"):
+            return value
+    if prepared_path.is_file():
+        prepared = _read_json_object(prepared_path)
+        if (
+            not archive.is_file()
+            or prepared.get("archive_sha256") != sha256_file(archive)
+            or prepared.get("prepared") is not True
+        ):
+            raise RuntimeError("Prepared log archive transaction is missing or corrupt")
+        rows = list(prepared.get("members", ()))
+        if not rows or not all(isinstance(row, dict) for row in rows):
+            raise RuntimeError("Prepared log archive inventory is empty or invalid")
+    else:
+        log_files = [
+            path
+            for path in sorted(logs_root.rglob("*"))
+            if path.is_file()
+            and path not in {index_path, prepared_path}
+            and "tails" not in path.relative_to(logs_root).parts
+            and not path.is_symlink()
+        ]
+        if not log_files:
+            raise RuntimeError("No logs are available for transactional compaction")
+        archive_root.mkdir(parents=True, exist_ok=True)
+        temporary = archive.with_name(f".{archive.name}.tmp-{os.getpid()}")
+        rows = []
+        with tarfile.open(temporary, "w:gz") as handle:
+            for path in log_files:
+                relative = path.relative_to(logs_root)
+                rows.append(
+                    {
+                        "path": relative.as_posix(),
+                        "size_bytes": path.stat().st_size,
+                        "sha256": sha256_file(path),
+                    }
+                )
+                handle.add(path, arcname=relative.as_posix(), recursive=False)
+        os.replace(temporary, archive)
+        with tarfile.open(archive, "r:gz") as handle:
+            members = {member.name: member for member in handle.getmembers()}
+            for row in rows:
+                name = str(row["path"])
+                member = members.get(name)
+                extracted = handle.extractfile(member) if member is not None else None
+                if member is None or not member.isfile() or extracted is None:
+                    raise RuntimeError(f"Log archive member is missing or invalid: {name}")
+                digest = hashlib.sha256()
+                size = 0
+                while chunk := extracted.read(1024 * 1024):
+                    digest.update(chunk)
+                    size += len(chunk)
+                if size != row["size_bytes"] or digest.hexdigest() != row["sha256"]:
+                    raise RuntimeError(f"Log archive member verification failed: {name}")
+        tails_root = logs_root / "tails"
+        for path in log_files:
+            relative = path.relative_to(logs_root)
+            tail = tails_root / relative
+            tail.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("rb") as source:
+                size = path.stat().st_size
+                if size > 65536:
+                    source.seek(-65536, os.SEEK_END)
+                tail.write_bytes(source.read())
+        prepared = {
+            "schema_version": 1,
+            "experiment_id": experiment_id(config),
+            "archive": str(archive.resolve()),
+            "archive_sha256": sha256_file(archive),
+            "members": rows,
+            "prepared": True,
+        }
+        atomic_json(prepared_path, prepared)
+    for row in rows:
+        relative = Path(str(row.get("path", "")))
+        if (
+            not relative.parts
+            or relative.is_absolute()
+            or ".." in relative.parts
+            or "tails" in relative.parts
+        ):
+            raise RuntimeError(f"Unsafe prepared log path: {relative}")
+        path = logs_root / relative
+        tail = logs_root / "tails" / relative
+        if not tail.is_file():
+            raise RuntimeError(f"Prepared log tail is missing: {tail}")
+        if path.is_file():
+            if (
+                path.stat().st_size != int(row.get("size_bytes", -1))
+                or sha256_file(path) != row.get("sha256")
+            ):
+                raise RuntimeError(f"Log changed during compaction transaction: {path}")
+            path.unlink()
+    value = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "archive": str(archive.resolve()),
+        "archive_size_bytes": archive.stat().st_size,
+        "archive_sha256": sha256_file(archive),
+        "members": rows,
+        "tail_bytes_per_log": 65536,
+        "raw_logs_persist_locally": True,
+        "transactionally_resumable": True,
+        "complete": True,
+    }
+    atomic_json(index_path, value)
+    prepared_path.unlink(missing_ok=True)
+    return value
+
+
 def _run_subprocess_cell(
     *,
     config_path: Path,
@@ -4159,16 +4783,25 @@ def cmd_run_dynamic(
         pending.put(cell)
     stop = threading.Event()
     lock = threading.Lock()
+    checkpoint_lock = threading.Lock()
     results: list[dict[str, Any]] = []
     event_path = output_root / "scheduler" / "queue_events.jsonl"
     event_path.parent.mkdir(parents=True, exist_ok=True)
     scheduler_run_id = f"queue-{int(time.time())}-{os.getpid()}"
+    recovery_package_value = os.environ.get("E8_COLDSTART_RECOVERY_PACKAGE", "").strip()
+    recovery_package = Path(recovery_package_value).resolve() if recovery_package_value else None
+    recovery_interval = int(os.environ.get("E8_COLDSTART_RECOVERY_INTERVAL_CELLS", "5"))
+    if recovery_interval <= 0:
+        raise ValueError("E8_COLDSTART_RECOVERY_INTERVAL_CELLS must be positive")
+    initially_reusable, _ = _reusable_cell_manifests(config, output_root)
+    last_checkpoint_count = (len(initially_reusable) // recovery_interval) * recovery_interval
 
     def record(event: Mapping[str, Any]) -> None:
         with lock:
             append_jsonl(event_path, {"scheduler_run_id": scheduler_run_id, **dict(event)})
 
     def worker(slot: int, gpu_id: int) -> list[dict[str, Any]]:
+        nonlocal last_checkpoint_count
         local: list[dict[str, Any]] = []
         while not stop.is_set():
             try:
@@ -4206,6 +4839,23 @@ def cmd_run_dynamic(
                 gpu_id=gpu_id,
                 force=child_force,
             )
+            if int(result["returncode"]) == 0 and recovery_package is not None:
+                try:
+                    with checkpoint_lock:
+                        current_reusable, _ = _reusable_cell_manifests(config, output_root)
+                        completed_count = len(current_reusable)
+                        if completed_count >= last_checkpoint_count + recovery_interval:
+                            checkpoint = _publish_recovery_checkpoint(
+                                config,
+                                output_root,
+                                package_output=recovery_package,
+                            )
+                            last_checkpoint_count = int(checkpoint["completed_cells"])
+                            result["recovery_checkpoint"] = checkpoint["package"]
+                            result["recovery_checkpoint_completed_cells"] = last_checkpoint_count
+                except Exception as exc:
+                    result["returncode"] = 74
+                    result["recovery_checkpoint_error"] = f"{type(exc).__name__}: {exc}"
             result.update({"slot": slot, "nominal_batch": cells.index(cell) // slot_count + 1})
             local.append(result)
             record({"event": "finish", **result, "unix_time": time.time()})
@@ -5321,44 +5971,67 @@ def cmd_engineering_self_test(
     if len(source_commit) != 40 or any(char not in "0123456789abcdef" for char in source_commit):
         raise ValueError("Engineering self-test requires one full lowercase source commit")
     output_root = validate_work_dir(output_root)
-    if any(output_root.iterdir()):
-        raise RuntimeError("Engineering self-test output root must be new and empty")
+    fresh_run = not (output_root / "prepare_manifest.json").is_file()
     self_test_config = _engineering_self_test_config(config)
     config_path = output_root / "engineering_self_test_config.yaml"
-    config_path.write_text(yaml.safe_dump(self_test_config, sort_keys=False), encoding="utf-8")
-    p0_work_dir, p0_config_path, countdown_bank, countdown_validation = (
-        _write_engineering_input_fixtures(self_test_config, output_root)
-    )
-    cmd_prepare(
-        self_test_config,
-        output_root,
-        p0_work_dir=p0_work_dir,
-        p0_config=p0_config_path,
-        countdown_bank=countdown_bank,
-        countdown_validation=countdown_validation,
-        countdown_adapter=None,
-    )
     base_model = output_root / "engineering_fixtures" / "placeholder_model"
-    base_model.mkdir(parents=True, exist_ok=True)
-    atomic_json(base_model / "config.json", {"engineering_placeholder_backend": True})
-    atomic_json(
-        output_root / "source_provenance.json",
-        {
-            "schema_version": 1,
-            "run_id": output_root.name,
-            "source_commit": source_commit,
-            "model_repo": "engineering-placeholder-no-model-loaded",
-            "model_revision": "not_applicable",
-            "model_path": str(base_model.resolve()),
-            "test_partition_accessed": False,
-            "engineering_placeholder_backend": True,
-        },
-    )
-    _write_engineering_gates(
-        self_test_config,
-        output_root,
-        base_model_path=str(base_model),
-    )
+    if fresh_run:
+        config_path.write_text(yaml.safe_dump(self_test_config, sort_keys=False), encoding="utf-8")
+        p0_work_dir, p0_config_path, countdown_bank, countdown_validation = (
+            _write_engineering_input_fixtures(self_test_config, output_root)
+        )
+        cmd_prepare(
+            self_test_config,
+            output_root,
+            p0_work_dir=p0_work_dir,
+            p0_config=p0_config_path,
+            countdown_bank=countdown_bank,
+            countdown_validation=countdown_validation,
+            countdown_adapter=None,
+        )
+        base_model.mkdir(parents=True, exist_ok=True)
+        atomic_json(base_model / "config.json", {"engineering_placeholder_backend": True})
+        atomic_json(
+            output_root / "source_provenance.json",
+            {
+                "schema_version": 1,
+                "run_id": output_root.name,
+                "source_commit": source_commit,
+                "model_repo": "engineering-placeholder-no-model-loaded",
+                "model_revision": "not_applicable",
+                "model_path": str(base_model.resolve()),
+                "test_partition_accessed": False,
+                "engineering_placeholder_backend": True,
+            },
+        )
+        _write_engineering_gates(
+            self_test_config,
+            output_root,
+            base_model_path=str(base_model),
+        )
+    else:
+        recovered_config = load_config(config_path)
+        if recovered_config != self_test_config:
+            raise RuntimeError("Engineering recovery config differs from the reviewed config")
+        provenance = _read_json_object(output_root / "source_provenance.json")
+        if provenance.get("source_commit") != source_commit:
+            raise RuntimeError("Engineering recovery source commit mismatch")
+        _load_prepared(output_root, self_test_config)
+        _write_engineering_gates(
+            self_test_config,
+            output_root,
+            base_model_path=str(base_model),
+        )
+        _require_calibration_gate(
+            self_test_config,
+            output_root,
+            base_model_path=str(base_model),
+        )
+        _require_liveness_gate(
+            self_test_config,
+            output_root,
+            base_model_path=str(base_model),
+        )
 
     cells = build_cells(self_test_config)
     cell_index = {cell.key: index for index, cell in enumerate(cells)}
@@ -5389,6 +6062,8 @@ def cmd_engineering_self_test(
                 or existing.get("complete") is not True
             ):
                 raise RuntimeError(f"Placeholder resume identity mismatch: {cell.key}")
+            if cell.key == cells[0].key:
+                time.sleep(0.05)
             return {
                 "cell_key": cell.key,
                 "gpu_id": gpu_id,
@@ -5399,7 +6074,7 @@ def cmd_engineering_self_test(
                 "reused_complete": True,
             }
         with failure_lock:
-            should_fail = cell.key == cells[0].key and not failed_once
+            should_fail = fresh_run and cell.key == cells[0].key and not failed_once
             if should_fail:
                 failed_once = True
         if should_fail:
@@ -5463,10 +6138,27 @@ def cmd_engineering_self_test(
 
     original_runner = globals()["_run_subprocess_cell"]
     globals()["_run_subprocess_cell"] = placeholder_cell_runner
-    first_failure: dict[str, Any]
     try:
-        try:
-            cmd_run_dynamic(
+        if fresh_run:
+            first_failure: dict[str, Any]
+            try:
+                cmd_run_dynamic(
+                    self_test_config,
+                    config_path,
+                    output_root,
+                    base_model_path=str(base_model),
+                    force=False,
+                    retry_incomplete=True,
+                )
+            except RuntimeError:
+                first_failure = json.loads(
+                    (output_root / "scheduler" / "dynamic_run.json").read_text(encoding="utf-8")
+                )
+            else:
+                raise RuntimeError("Engineering failure injection did not fail closed")
+            if not first_failure["failed_cells"] or not first_failure["unscheduled_cells"]:
+                raise RuntimeError("Engineering failure did not preserve failed and unscheduled work")
+            resumed = cmd_run_dynamic(
                 self_test_config,
                 config_path,
                 output_root,
@@ -5474,22 +6166,15 @@ def cmd_engineering_self_test(
                 force=False,
                 retry_incomplete=True,
             )
-        except RuntimeError:
-            first_failure = json.loads(
-                (output_root / "scheduler" / "dynamic_run.json").read_text(encoding="utf-8")
-            )
         else:
-            raise RuntimeError("Engineering failure injection did not fail closed")
-        if not first_failure["failed_cells"] or not first_failure["unscheduled_cells"]:
-            raise RuntimeError("Engineering failure did not preserve failed and unscheduled work")
-        resumed = cmd_run_dynamic(
-            self_test_config,
-            config_path,
-            output_root,
-            base_model_path=str(base_model),
-            force=False,
-            retry_incomplete=True,
-        )
+            resumed = cmd_run_dynamic(
+                self_test_config,
+                config_path,
+                output_root,
+                base_model_path=str(base_model),
+                force=False,
+                retry_incomplete=True,
+            )
         queue_audit = _audit_engineering_queue(self_test_config, output_root, resumed)
         before = {
             cell.key: sha256_file(output_root / "cells" / cell.key / "cell_manifest.json")
@@ -5512,9 +6197,18 @@ def cmd_engineering_self_test(
     finally:
         globals()["_run_subprocess_cell"] = original_runner
 
+    failure_stage = os.environ.get("E8_COLDSTART_ENGINEERING_FAIL_STAGE", "").strip()
+    if failure_stage == "after_queue":
+        raise RuntimeError("Intentional engineering failure after all cells completed")
     aggregate = cmd_aggregate(self_test_config, output_root)
+    if failure_stage == "after_aggregate":
+        raise RuntimeError("Intentional engineering failure after aggregate")
     audit = cmd_audit(self_test_config, output_root)
+    if failure_stage == "after_audit":
+        raise RuntimeError("Intentional engineering failure after audit")
     finalized = cmd_finalize(self_test_config, output_root)
+    if failure_stage == "after_finalize":
+        raise RuntimeError("Intentional engineering failure after finalize")
     preliminary_package = cmd_package(self_test_config, output_root)
     package_manifest_path = output_root / "packages" / "package_manifest.json"
     tampered = output_root / "packages" / "tampered_self_test.zip"
@@ -5540,6 +6234,7 @@ def cmd_engineering_self_test(
         "canonical_source_lock_passed": True,
         "intentional_failure_returncode": 73,
         "failure_preserved_unscheduled_work": True,
+        "recovered_from_previous_attempt": not fresh_run,
         "resume_completed_cells": resumed["completed_cells"],
         "repeat_run_preserved_cell_hashes": True,
         "queue_audit": queue_audit,
@@ -5628,6 +6323,13 @@ def make_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("finalize")
     subparsers.add_parser("package")
     subparsers.add_parser("plan")
+    recovery_plan = subparsers.add_parser("recovery-plan")
+    recovery_plan.add_argument("--base-model-path", required=True)
+    import_recovery = subparsers.add_parser("import-recovery")
+    import_recovery.add_argument("--source-output-root", required=True)
+    import_recovery.add_argument("--base-model-path", required=True)
+    import_recovery.add_argument("--source-commit", required=True)
+    subparsers.add_parser("compact-logs")
     engineering_self_test = subparsers.add_parser("engineering-self-test")
     engineering_self_test.add_argument("--source-commit", required=True)
     return parser
@@ -5739,6 +6441,22 @@ def main(argv: Sequence[str] | None = None) -> None:
         result = cmd_package(config, output_root)
     elif args.command == "plan":
         result = write_plan(config, output_root)
+    elif args.command == "recovery-plan":
+        result = cmd_recovery_plan(
+            config,
+            output_root,
+            base_model_path=args.base_model_path,
+        )
+    elif args.command == "import-recovery":
+        result = cmd_import_recovery(
+            config,
+            output_root,
+            source_output_root=Path(args.source_output_root),
+            base_model_path=args.base_model_path,
+            source_commit=args.source_commit,
+        )
+    elif args.command == "compact-logs":
+        result = cmd_compact_logs(config, output_root)
     elif args.command == "engineering-self-test":
         result = cmd_engineering_self_test(
             config,

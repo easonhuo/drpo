@@ -1649,6 +1649,128 @@ def test_coldstart_engineering_self_test_runs_delivery_chain(tmp_path: Path) -> 
     assert "ENGINEERING_SELF_TEST_REPORT.json" in names
 
 
+def test_coldstart_postqueue_failure_imports_all_cells_and_finishes_without_retraining(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    source_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    first = tmp_path / "attempt-001"
+    second = tmp_path / "attempt-002"
+    monkeypatch.setenv("E8_COLDSTART_ENGINEERING_FAIL_STAGE", "after_queue")
+    with pytest.raises(RuntimeError, match="after all cells completed"):
+        exp_tuning.cmd_engineering_self_test(config, first, source_commit=source_commit)
+    source_hashes = {
+        cell.key: p0.sha256_file(first / "cells" / cell.key / "cell_manifest.json")
+        for cell in exp_tuning.build_cells(config)
+    }
+    plan = exp_tuning.cmd_recovery_plan(
+        config,
+        first,
+        base_model_path=str(first / "engineering_fixtures" / "placeholder_model"),
+    )
+    assert plan["reusable_completed_cells"] == 160
+    assert plan["next_stage"] == "aggregate"
+
+    with pytest.raises(RuntimeError, match="source commit"):
+        exp_tuning.cmd_import_recovery(
+            config,
+            tmp_path / "wrong-source-attempt",
+            source_output_root=first,
+            base_model_path=str(first / "engineering_fixtures" / "placeholder_model"),
+            source_commit="b" * 40,
+        )
+    imported = exp_tuning.cmd_import_recovery(
+        config,
+        second,
+        source_output_root=first,
+        base_model_path=str(first / "engineering_fixtures" / "placeholder_model"),
+        source_commit=source_commit,
+    )
+    assert len(imported["imported_reusable_cells"]) == 160
+    assert not imported["incomplete_cells_imported"]
+    assert {
+        row["cell_key"]: row["source_manifest_sha256"]
+        for row in imported["imported_cell_manifests"]
+    } == source_hashes
+
+    monkeypatch.delenv("E8_COLDSTART_ENGINEERING_FAIL_STAGE")
+    result = exp_tuning.cmd_engineering_self_test(config, second, source_commit=source_commit)
+    assert result["complete"]
+    assert result["recovered_from_previous_attempt"]
+    assert result["resume_completed_cells"] == 160
+    assert all(
+        json.loads((second / "cells" / cell.key / "cell_manifest.json").read_text())[
+            "recovery_provenance"
+        ]["source_manifest_sha256"]
+        == source_hashes[cell.key]
+        for cell in exp_tuning.build_cells(config)
+    )
+
+
+def test_coldstart_recovery_snapshot_and_log_compaction_are_small_and_auditable(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning._engineering_self_test_config(
+        exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    )
+    output = tmp_path / "workload"
+    output.mkdir()
+    for cell in exp_tuning.build_cells(config):
+        p0.atomic_json(
+            output / "cells" / cell.key / "cell_manifest.json",
+            {
+                "experiment_id": exp_tuning.experiment_id(config),
+                "config_hash": exp_tuning.stable_config_hash(config),
+                "evaluation_status": "complete",
+                "nan_inf_failure": False,
+                "engineering_placeholder_backend": True,
+                "complete": True,
+            },
+        )
+    snapshot = exp_tuning._recovery_checkpoint_snapshot(
+        config,
+        output,
+        tmp_path / "snapshot",
+        source_commit="a" * 40,
+    )
+    assert snapshot["completed_cells"] == 160
+    assert len(list((tmp_path / "snapshot" / "cell_manifests").glob("*.json"))) == 160
+    assert (tmp_path / "snapshot" / "run_manifest.json").is_file()
+
+    for index in range(3):
+        log = output / "logs" / f"cell-{index}.log"
+        log.parent.mkdir(parents=True, exist_ok=True)
+        log.write_text((f"cell={index}\n" * 20_000), encoding="utf-8")
+    original_atomic_json = exp_tuning.atomic_json
+
+    def interrupt_before_final_index(path: Path, payload: dict[str, object]) -> None:
+        if path.name == "LOG_ARCHIVE_INDEX.json":
+            raise RuntimeError("intentional compaction interruption")
+        original_atomic_json(path, payload)
+
+    monkeypatch.setattr(exp_tuning, "atomic_json", interrupt_before_final_index)
+    with pytest.raises(RuntimeError, match="intentional compaction interruption"):
+        exp_tuning.cmd_compact_logs(config, output)
+    assert (output / "logs" / "LOG_ARCHIVE_PREPARED.json").is_file()
+    monkeypatch.setattr(exp_tuning, "atomic_json", original_atomic_json)
+    compacted = exp_tuning.cmd_compact_logs(config, output)
+    archive = Path(compacted["archive"])
+    assert archive.is_file()
+    assert p0.sha256_file(archive) == compacted["archive_sha256"]
+    assert len(compacted["members"]) == 3
+    assert compacted["transactionally_resumable"]
+    assert len(list((output / "logs" / "tails").glob("*.log"))) == 3
+    assert not list(output.glob("logs/cell-*.log"))
+    assert not (output / "logs" / "LOG_ARCHIVE_PREPARED.json").exists()
+    assert exp_tuning.cmd_compact_logs(config, output) == compacted
+
+
 def test_coldstart_runbook_embeds_the_reviewed_one_click_bootstrap() -> None:
     runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md").read_text(
         encoding="utf-8"
@@ -1672,6 +1794,9 @@ def test_coldstart_runbook_embeds_the_reviewed_one_click_bootstrap() -> None:
     assert "worktree add --detach" in bootstrap
     assert "ls-remote" in bootstrap
     assert "BOOTSTRAP_FAILED_STAGE=" in bootstrap
+    assert "RESUME_BOOTSTRAP=0" in bootstrap
+    assert "BOOTSTRAP_WAS_COMPLETE=0" in bootstrap
+    assert "diagnose \"bootstrap_${CURRENT_STAGE}\"" in bootstrap
     assert 'status --porcelain=v1 --untracked-files=all' in bootstrap
     assert "git pull" not in bootstrap
     assert "git reset" not in bootstrap
@@ -1686,11 +1811,23 @@ def test_coldstart_runbook_embeds_the_reviewed_one_click_bootstrap() -> None:
     )[0]
     assert "pip install --no-deps -e" not in self_test_setup_block
     formal_block = launcher.split("guarded_full() {", 1)[1].split('case "${MODE}"', 1)[0]
-    assert formal_block.index("require_registered_ready") < formal_block.index("setup")
-    assert "--run-class formal" in formal_block
-    assert "--require-origin-main-match" in formal_block
+    guard_attempt_block = launcher.split("run_formal_guard_attempt() {", 1)[1].split(
+        "guarded_full() {", 1
+    )[0]
+    assert formal_block.index("require_registered_ready") < formal_block.index("ensure_setup")
+    assert "--run-class formal" in guard_attempt_block
+    assert "--require-origin-main-match" in guard_attempt_block
     assert "runspecs/ready/*.yaml" in launcher
     assert "repo_commit:" in launcher
     assert "run_module finalize" in launcher
     assert "run_module package" not in formal_block
     assert "RAW_COMPLETE_RESULTS_ZIP=" in launcher
+    assert "flock -n 9" in launcher
+    assert "import-recovery" in launcher
+    assert "E8_COLDSTART_RECOVERY_INTERVAL_CELLS" in launcher
+    assert "--max-package-mib 23" in launcher
+    assert "compact-logs" in launcher
+    assert "LOCAL_AI_RECOVERY_BUNDLE.zip" in launcher
+    assert "E8_COLDSTART_LOCAL_AI_COMMAND" in launcher
+    assert "invoke_local_ai_recovery formal_guard_attempts_exhausted" in launcher
+    assert '--source-commit "${EXPECTED_COMMIT}"' in launcher
