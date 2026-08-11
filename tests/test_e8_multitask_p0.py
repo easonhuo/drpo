@@ -1649,18 +1649,38 @@ def test_coldstart_engineering_self_test_runs_delivery_chain(tmp_path: Path) -> 
     assert "ENGINEERING_SELF_TEST_REPORT.json" in names
 
 
-def test_coldstart_runbook_starts_from_github_and_has_no_commit_placeholder() -> None:
+def test_coldstart_runbook_embeds_the_reviewed_one_click_bootstrap() -> None:
     runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md").read_text(
         encoding="utf-8"
     )
+    bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(
+        encoding="utf-8"
+    )
     launcher = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    embedded = runbook.split("<!-- ONE_CLICK_BOOTSTRAP_START -->", 1)[1].split(
+        "<!-- ONE_CLICK_BOOTSTRAP_END -->", 1
+    )[0]
+    assert embedded == f"\n```bash\n{bootstrap.rstrip()}\n```\n"
     assert "https://github.com/easonhuo/drpo.git" in runbook
-    assert "git fetch origin refs/pull/309/head" in runbook
-    assert "run_e8_multitask_exp_coldstart.sh self-test" in runbook
     assert "<reviewed-full-commit-sha>" not in runbook
+    assert 'MODE="${E8_COLDSTART_EXECUTION_MODE:-${1:-full}}"' in bootstrap
+    assert 'add_candidate "/root/drpo"' in bootstrap
+    assert 'add_candidate "/root/d4rl2"' in bootstrap
+    assert "-maxdepth 5" in bootstrap
+    assert "remote get-url origin" in bootstrap
+    assert "git clone --filter=blob:none --no-checkout" in bootstrap
+    assert "worktree add --detach" in bootstrap
+    assert "ls-remote" in bootstrap
+    assert "BOOTSTRAP_FAILED_STAGE=" in bootstrap
+    assert 'status --porcelain=v1 --untracked-files=all' in bootstrap
+    assert "git pull" not in bootstrap
+    assert "git reset" not in bootstrap
+    assert "git clean" not in bootstrap
+    assert "git stash" not in bootstrap
     assert "run_experiment_guard_hardened.py" in launcher
     assert "engineering-self-test" in launcher
     assert "status --porcelain=v1 --untracked-files=all" in launcher
+    assert "--source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh" in launcher
     self_test_setup_block = launcher.split("self_test_setup() {", 1)[1].split(
         "engineering_self_test() {", 1
     )[0]

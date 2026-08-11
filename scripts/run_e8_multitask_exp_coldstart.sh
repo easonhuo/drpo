@@ -3,7 +3,6 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-COLDSTART-01"
-EXPECTED_REPOSITORY="https://github.com/easonhuo/drpo.git"
 CONFIG_PATH="${E8_COLDSTART_CONFIG:-${ROOT_DIR}/configs/e8_multitask_exp_coldstart.yaml}"
 P0_CONFIG_PATH="${E8_COLDSTART_P0_CONFIG:-${ROOT_DIR}/configs/e8_multitask_p0.yaml}"
 RUN_ID="${E8_COLDSTART_RUN_ID:-E8_MULTITASK_EXP_COLDSTART_20260808_01}"
@@ -30,6 +29,13 @@ fail() {
   exit 2
 }
 
+is_expected_origin() {
+  local url="$1"
+  [[ "${url}" =~ ^https://([^/@]+(:[^/@]*)?@)?github\.com/easonhuo/drpo(\.git)?/?$ ]] ||
+    [[ "${url}" =~ ^git@github\.com:easonhuo/drpo(\.git)?$ ]] ||
+    [[ "${url}" =~ ^ssh://git@github\.com/easonhuo/drpo(\.git)?/?$ ]]
+}
+
 check_source() {
   [[ -n "${EXPECTED_COMMIT}" ]] || fail "set E8_COLDSTART_EXPECTED_COMMIT to the reviewed implementation commit"
   local current_commit
@@ -39,10 +45,7 @@ check_source() {
   [[ "${EXPECTED_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "expected commit must be a full lowercase SHA"
   local origin_url
   origin_url="$(git -C "${ROOT_DIR}" remote get-url origin)"
-  case "${origin_url}" in
-    "${EXPECTED_REPOSITORY}"|"https://github.com/easonhuo/drpo"|"git@github.com:easonhuo/drpo.git") ;;
-    *) fail "unexpected origin remote: ${origin_url}" ;;
-  esac
+  is_expected_origin "${origin_url}" || fail "origin is not the canonical easonhuo/drpo repository"
   [[ -z "$(git -C "${ROOT_DIR}" status --porcelain=v1 --untracked-files=all)" ]] || \
     fail "source checkout must be fully clean; keep runtime files outside the repository"
 }
@@ -172,6 +175,7 @@ engineering_self_test() {
     --required-output workload/scheduler/dynamic_run.json \
     --required-output workload/aggregate/plot_curve_points.csv \
     --source-file scripts/run_e8_multitask_exp_coldstart.sh \
+    --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh \
     --source-file src/drpo/e8_multitask_exp_tuning.py \
     --source-file configs/e8_multitask_exp_coldstart.yaml \
     --source-file docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md \
@@ -381,6 +385,7 @@ guarded_full() {
     --required-output workload/scheduler/dynamic_run.json \
     --required-output workload/aggregate/plot_curve_points.csv \
     --source-file scripts/run_e8_multitask_exp_coldstart.sh \
+    --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh \
     --source-file src/drpo/e8_multitask_exp_tuning.py \
     --source-file configs/e8_multitask_exp_coldstart.yaml \
     --source-file requirements/e8_multitask_exp_coldstart.txt \
