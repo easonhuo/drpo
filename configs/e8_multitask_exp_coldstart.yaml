@@ -21,6 +21,7 @@ initialization:
 
 model:
   base_model: Qwen/Qwen2.5-0.5B-Instruct
+  revision: 7ae557604adf67be50417f59c2c2f167def9a775
   parameterization: lora
   lora_rank: 32
   lora_alpha: 64
@@ -56,10 +57,11 @@ split:
   p0_train_rows: 5000
   p0_validation_rows: 500
   p0_test_rows: 500
-  countdown_train_rows: 5000
+  countdown_train_rows: 6000
   countdown_validation_rows: 500
   hash_seed: 2026072901
   test_access_allowed: false
+  countdown_subsampling_forbidden: true
 
 training:
   optimizer_updates: 1200
@@ -70,158 +72,186 @@ training:
   warmup_ratio: 0.03
   max_grad_norm: 1.0
   evaluation_every_updates: 100
-  min_steps: 400
-  early_stop_patience: 6
-  early_stop_delta: 0.002
-  early_stopping: true
+  early_stopping: false
+  late_window_updates: [800, 900, 1000, 1100, 1200]
   terminal_adapter_required: true
 
 evaluation:
   greedy_prompt_rows: 500
   passk_prompt_rows: 500
   pass_k: 8
+  auxiliary_pass_ks: [64]
   batch_size: 8
   sampling_temperature: 0.8
   top_p: 0.95
   max_new_tokens: 80
   generation_seed: 2026070801
+  primary_checkpoint_policy: late_window_and_terminal
+  best_checkpoint_role: supplementary_only
 
 negative_sampling:
   negatives_per_prompt: 16
-  selected_current_near: 1
-  selected_current_far: 1
-  near_far_mix: [0.5, 0.5]
+  consumer: all_unique_negatives_per_prompt
+  deduplicate_rule: first_canonical_completion_occurrence
+  denominator: unique_negative_count_per_prompt
+  near_far_selection: false
   selection_stop_gradient: true
-  unique_negative_denominator: true
   weight_sum_normalization: false
+  gradient_budget_matching: false
 
 remoteness_calibration:
-  prompt_rows: 256
-  gradient_prompt_rows: 16
-  seed: 2026070804
-  minimum_surprisal_scale: 1.0e-6
-  threshold: current_near_median
-  scale: current_far_median_minus_current_near_median
-  coordinate: sqrt_relu_excess_surprisal
-  match_initial_negative_gradient_rms: true
-  target_negative_to_positive_gradient_ratio: 0.03125
+  enabled: false
+  mode: paper_linear_surprisal_no_calibration
+  coordinate: current_sequence_surprisal_div_2
+  detached: true
+  extra_square: false
+  gradient_rms_matching: false
+
+# These are the only scientific-interface differences allowed outside Countdown.
+task_runtime:
+  override_whitelist:
+    - model.max_length
+    - model.max_new_tokens
+    - evaluation.batch_size
+    - evaluation.greedy_prompt_rows
+    - evaluation.passk_prompt_rows
+  countdown:
+    {max_length: 256, max_new_tokens: 80, evaluation_batch_size: 8,
+     greedy_prompt_rows: 500, passk_prompt_rows: 500}
+  word_sorting: &task_transfer_runtime
+    {max_length: 512, max_new_tokens: 128, evaluation_batch_size: 8,
+     greedy_prompt_rows: 500, passk_prompt_rows: 128}
+  mini_sudoku: *task_transfer_runtime
+  maze: *task_transfer_runtime
+  word_ladder: *task_transfer_runtime
+  knights_knaves: *task_transfer_runtime
+  graph_color: *task_transfer_runtime
+  wikisql: *task_transfer_runtime
 
 sweep:
   profile: eight_task_coldstart_lambda_v1
   method: exponential
-  parameterization: lambda
-  tuning_seed: 2026070803
+  parameterization: paper_coefficient_c
+  tuning_seed: 4000
+  countdown_seed_offsets: [4000, 5000]
+  task_transfer_seed_offsets: [4000]
   positive_only_per_task: 1
-  expected_cells: 160
-  shared_historical_anchor_lambda:
-    - 0.10536051565782628
-    - 0.2876820724517809
-    - 0.5108256237659907
-    - 0.6931471805599453
-    - 1.0498221244986778
-    - 1.3862943611198906
-    - 2.0794415416798357
+  expected_cells: 188
+  countdown_round1_coefficients:
+    [0.051293294, 0.105360516, 0.162518929, 0.223143551,
+     0.287682072, 0.430782916, 0.693147181, 0.916290732,
+     1.203972804, 1.386294361, 1.609437912, 1.897119985,
+     2.302585093, 2.995732274]
+  countdown_extension_coefficients:
+    [0.01, 0.025, 0.04, 3.506557897, 4.605170186,
+     5.298317367, 6.907755279, 9.210340372]
+  task_transfer_coefficients:
+    [0.051293294, 0.105360516, 0.162518929, 0.223143551,
+     0.287682072, 0.430782916, 0.693147181, 0.916290732,
+     1.203972804, 1.386294361, 1.609437912, 1.897119985,
+     2.302585093, 2.995732274, 3.506557897, 4.605170186,
+     5.298317367, 6.907755279, 9.210340372]
   task_lambda:
     countdown:
-      [0.10536051565782628, 0.2876820724517809, 0.5108256237659907,
-       0.65, 0.6931471805599453, 0.75, 0.85, 0.92, 0.98, 1.00,
-       1.0498221244986778, 1.10, 1.16, 1.22, 1.30, 1.3862943611198906,
-       1.55, 2.0794415416798357, 2.50]
-    word_sorting:
-      [0.10536051565782628, 0.2876820724517809, 0.5108256237659907,
-       0.6931471805599453, 0.95, 1.0498221244986778, 1.10, 1.20, 1.28,
-       1.34, 1.3862943611198906, 1.43, 1.50, 1.60, 1.70, 1.80, 1.95,
-       2.0794415416798357, 2.30]
-    mini_sudoku:
-      [0.10536051565782628, 0.2876820724517809, 0.5108256237659907,
-       0.6931471805599453, 1.0498221244986778, 1.3862943611198906, 1.80,
-       2.0794415416798357, 2.20, 2.40, 2.60, 2.80, 3.00, 3.25, 3.50,
-       4.00, 4.50, 6.00, 8.00]
-    maze:
-      [0.10536051565782628, 0.14, 0.18, 0.22, 0.25,
-       0.2876820724517809, 0.32, 0.35, 0.38, 0.41, 0.44,
-       0.5108256237659907, 0.55, 0.6931471805599453, 0.70, 0.90,
-       1.0498221244986778, 1.3862943611198906, 2.0794415416798357]
-    word_ladder:
-      [0.10536051565782628, 0.2876820724517809, 0.5108256237659907,
-       0.6931471805599453, 0.95, 1.0498221244986778, 1.12, 1.24, 1.30,
-       1.34, 1.3862943611198906, 1.43, 1.48, 1.54, 1.60, 1.78, 1.90,
-       2.0794415416798357, 2.30]
-    knights_knaves:
-      [0.10536051565782628, 0.2876820724517809, 0.5108256237659907,
-       0.65, 0.6931471805599453, 0.72, 0.78, 0.84, 0.90, 0.96, 1.00,
-       1.0498221244986778, 1.10, 1.16, 1.22, 1.3862943611198906,
-       1.42, 1.65, 2.0794415416798357]
-    graph_color:
-      [0.10536051565782628, 0.15, 0.22, 0.2876820724517809, 0.38,
-       0.5108256237659907, 0.55, 0.6931471805599453, 0.75, 0.90,
-       1.0498221244986778, 1.20, 1.3862943611198906, 1.60, 1.80,
-       2.0794415416798357, 2.60, 3.50, 6.00]
-    wikisql:
-      [0.10536051565782628, 0.2876820724517809, 0.5108256237659907,
-       0.6931471805599453, 1.0498221244986778, 1.3862943611198906, 1.40,
-       1.55, 1.70, 1.85, 2.00, 2.0794415416798357, 2.20, 2.50, 2.90,
-       3.40, 3.80, 4.40, 5.20]
-  task_role:
-    countdown: broad_peak_refinement
-    word_sorting: local_peak_refinement
-    mini_sudoku: strong_taper_boundary_closure
-    maze: local_peak_refinement
-    word_ladder: noisy_peak_refinement
-    knights_knaves: local_peak_refinement
-    graph_color: saturation_control_broad_scan
-    wikisql: strong_taper_boundary_closure
+      [0.01, 0.025, 0.04, 0.051293294, 0.105360516, 0.162518929,
+       0.223143551, 0.287682072, 0.430782916, 0.693147181,
+       0.916290732, 1.203972804, 1.386294361, 1.609437912,
+       1.897119985, 2.302585093, 2.995732274, 3.506557897,
+       4.605170186, 5.298317367, 6.907755279, 9.210340372]
+    word_sorting: &task_transfer_grid
+      [0.051293294, 0.105360516, 0.162518929, 0.223143551,
+       0.287682072, 0.430782916, 0.693147181, 0.916290732,
+       1.203972804, 1.386294361, 1.609437912, 1.897119985,
+       2.302585093, 2.995732274, 3.506557897, 4.605170186,
+       5.298317367, 6.907755279, 9.210340372]
+    mini_sudoku: *task_transfer_grid
+    maze: *task_transfer_grid
+    word_ladder: *task_transfer_grid
+    knights_knaves: *task_transfer_grid
+    graph_color: *task_transfer_grid
+    wikisql: *task_transfer_grid
 
 selection:
-  primary_metric: validation_best_pass8
+  primary_metric: validation_late_window_pass8_mean
   finite_required: true
   terminal_valid_rate_minimum: 0.95
   tie_breakers:
     - validation_terminal_pass8
-    - validation_best_greedy
-    - validation_terminal_greedy
+    - validation_late_window_greedy_mean
     - smaller_lambda
   report_grid_edge: true
 
 canonical_coldstart:
   scientific_kernel: import_only_no_loss_reimplementation
   initialization: qwen_pretrained_base_plus_fresh_lora
-  positive_only_entry: countdown_e8_base_rl_replay.train_offline_method
-  exponential_entry: countdown_e8_oracle_offline_v2_taper_runtime.worker
+  positive_only_entry: countdown_e8_alpha1_highc_scan_runtime.worker
+  exponential_entry: countdown_e8_alpha1_highc_scan_runtime.worker
+  formula: alpha_times_exp_minus_c_times_current_sequence_surprisal_div_2
   paths:
     arena: src/drpo/countdown_qwen_arena_onefile.py
-    positive_only: src/drpo/countdown_e8_base_rl_replay.py
-    taper_core: src/drpo/countdown_e8_oracle_offline_v2_taper_sweep.py
-    taper_runtime: src/drpo/countdown_e8_oracle_offline_v2_taper_runtime.py
+    scan_common: src/drpo/countdown_e8_alpha1_c_scan_common.py
+    scan_runtime: src/drpo/countdown_e8_alpha1_c_scan_runtime.py
+    scan_trainer: src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    paper_common: src/drpo/countdown_e8_alpha1_highc_scan_common.py
+    paper_runtime: src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
     base_config: configs/countdown_e8_base_rl_replay_0p5b.yaml
-    taper_template: configs/countdown_e8_oracle_offline_v2_taper_sweep_0p5b.yaml
+    round1_grid: configs/countdown_e8_oracle_offline_v2_alpha1_highc_scan_0p5b.yaml
+    extension_grid: configs/countdown_e8_oracle_offline_v2_linear_c_extension_0p5b.yaml
+    bank_generator: src/drpo/countdown_e8_oracle_bank_v2.py
+    bank_config: configs/countdown_e8_oracle_offline_bank_v2_0p5b.yaml
+    bank_converter: scripts/v2_bank_convert.py
+    p0_bank_pipeline: src/drpo/e8_multitask_p0.py
+    p0_task_adapters: src/drpo/e8_multitask_tasks.py
+    p0_config: configs/e8_multitask_p0.yaml
+    p0_launcher: scripts/run_e8_multitask_p0.sh
+    result_reference: experiments/results/e8_paper_aligned_linear_scan_round1_pilot/RESULT_SUMMARY.json
   expected_git_blob_shas:
     arena: d8a04f3ae3edd08042aa1004b4cbf927fc5cea72
-    positive_only: 951f81a909fa73cb5af6a187b07691fd67921bd0
-    taper_core: 29825a4c5f496aff42470438efc1f7851993786e
-    taper_runtime: 88a51c8ad39764d71682118f9fd04db63d890e5f
+    scan_common: 572f6ad98bf063c88e52a4594fde892842c4fe15
+    scan_runtime: b4ad8581f0afd6e4d24069524f909eaa1b0c9563
+    scan_trainer: e026afbefc09205bb1632b5dd1bd6db33b5df358
+    paper_common: 720415583e9e372fafa5aa3520e07de04e6494d8
+    paper_runtime: a57cd88287daf95864f7e30caf658473a32d3602
     base_config: 10f27f32719298376bdc7be7e01023626c6ad3f8
-    taper_template: bb941f3eb6fc08bc4ed82394e99f9f889e2249e7
+    round1_grid: e6d70895ad9e4caceb029425fbed523b8530c2d3
+    extension_grid: e7657ef7c8fbb1ae81e0a7b9dd6f4b9cea32262d
+    bank_generator: 545119fdf8e560b5e81a862e1e48134dd52ac869
+    bank_config: d1873efae15c778d2472a927206d8620aa43be71
+    bank_converter: a935e2d721b06437568556040475736bbf45ceee
+    p0_bank_pipeline: 3482967fe656156500f4598f16f5e7031e198d48
+    p0_task_adapters: 454f3076171ee25636109c33f5a177ee2201b5f8
+    p0_config: 14605ae3a79f18e435feafd3927bc21485edbbc9
+    p0_launcher: ffcad2a64cb2f42906cae67dabdcc98c3eb46ff0
+    result_reference: 972a67867aafb5ddea6e1625bacd337b6939f097
+
+countdown_reproduction_gate:
+  required: true
+  reference_run_id: E8_PAPER_ALIGNED_LINEAR_SCAN_20260716_01
+  require_exact_protocol_identity: true
+  require_round1_two_seed_cells: 32
+  late_window_pass8_absolute_tolerance: 0.002
+  require_peak_above_positive_only: true
 
 execution:
-  max_concurrent_cells: 16
+  max_concurrent_cells: 8
   gpu_ids: [0, 1, 2, 3, 4, 5, 6, 7]
-  slots_per_gpu: 2
-  expected_waves: 10
+  slots_per_gpu: 1
+  expected_waves: 24
   scheduler: dynamic_slot_queue
   wave_barriers: false
   identity_checked_resume: true
   retry_incomplete_requires_explicit_flag: true
   fail_closed: true
   test_partition_forbidden: true
+  oom_policy: one_cell_per_gpu_no_automatic_scientific_parameter_mutation
 
 reporting:
   separate_events:
     - task_performance
     - valid_or_structure_diagnostic
     - nan_inf_numerical_failure
-  single_seed_shape_discovery: true
-  later_fresh_seed_confirmation_required: true
+  countdown_exact_reproduction_required: true
+  other_tasks_task_interface_adaptation_only: true
   convergence_claim_allowed: false
   significance_claim_allowed: false
   method_ranking_allowed: false

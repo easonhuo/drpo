@@ -116,7 +116,7 @@ PY
   preflight_gpu
   python -m pytest -q \
     "${ROOT_DIR}/tests/test_e8_multitask_p0.py" \
-    "${ROOT_DIR}/tests/test_countdown_e8_oracle_offline_v2_taper_sweep.py"
+    "${ROOT_DIR}/tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py"
   python - <<PY
 from pathlib import Path
 from drpo.e8_multitask_exp_tuning import (
@@ -617,27 +617,8 @@ calibrate() {
   check_source
   activate_runtime
   mkdir -p "${OUTPUT_ROOT}/logs/calibration"
-  local tasks=(
-    countdown word_sorting mini_sudoku maze word_ladder knights_knaves graph_color wikisql
-  )
-  local pids=()
-  local task
-  local gpu
-  for gpu in "${!tasks[@]}"; do
-    task="${tasks[$gpu]}"
-    CUDA_VISIBLE_DEVICES="${gpu}" LOCAL_RANK=0 run_module calibrate-task \
-      --base-model-path "${MODEL_DIR}" \
-      --task "${task}" \
-      >"${OUTPUT_ROOT}/logs/calibration/${task}.log" 2>&1 &
-    pids+=("$!")
-  done
-  local status=0
-  local pid
-  for pid in "${pids[@]}"; do
-    wait "${pid}" || status=1
-  done
-  [[ "${status}" -eq 0 ]] || fail "one or more task calibrations failed; inspect logs/calibration"
-  CUDA_VISIBLE_DEVICES=0 LOCAL_RANK=0 run_module calibrate --base-model-path "${MODEL_DIR}"
+  run_module calibrate --base-model-path "${MODEL_DIR}" \
+    >"${OUTPUT_ROOT}/logs/calibration/no_calibration_identity_gate.log" 2>&1
 }
 
 liveness() {
@@ -645,7 +626,7 @@ liveness() {
   activate_runtime
   CUDA_VISIBLE_DEVICES=0 LOCAL_RANK=0 run_module liveness \
     --task countdown \
-    --lambda 1.0498221244986778 \
+    --lambda 0.693147181 \
     --base-model-path "${MODEL_DIR}"
 }
 
@@ -806,9 +787,17 @@ run_formal_guard_attempt() {
     --source-file configs/e8_multitask_exp_coldstart.yaml \
     --source-file requirements/e8_multitask_exp_coldstart.txt \
     --source-file src/drpo/countdown_qwen_arena_onefile.py \
-    --source-file src/drpo/countdown_e8_base_rl_replay.py \
-    --source-file src/drpo/countdown_e8_oracle_offline_v2_taper_sweep.py \
-    --source-file src/drpo/countdown_e8_oracle_offline_v2_taper_runtime.py \
+    --source-file src/drpo/countdown_e8_alpha1_c_scan_common.py \
+    --source-file src/drpo/countdown_e8_alpha1_c_scan_runtime.py \
+    --source-file src/drpo/countdown_e8_alpha1_c_scan_trainer.py \
+    --source-file src/drpo/countdown_e8_alpha1_highc_scan_common.py \
+    --source-file src/drpo/countdown_e8_alpha1_highc_scan_runtime.py \
+    --source-file src/drpo/countdown_e8_oracle_bank_v2.py \
+    --source-file scripts/v2_bank_convert.py \
+    --source-file src/drpo/e8_multitask_p0.py \
+    --source-file src/drpo/e8_multitask_tasks.py \
+    --source-file configs/e8_multitask_p0.yaml \
+    --source-file scripts/run_e8_multitask_p0.sh \
     --source-file docs/handoff.md \
     --source-file experiments/registry.yaml \
     --progress-glob 'workload/scheduler/queue_events.jsonl' \

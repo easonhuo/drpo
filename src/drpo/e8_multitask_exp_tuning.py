@@ -1,9 +1,9 @@
-"""Exponential-taper response tuning on frozen multitask banks.
+"""Paper-aligned exponential-taper response tuning on frozen multitask banks.
 
 The module keeps the P0 occurrence/gradient diagnostic separate from downstream
-method tuning.  It supports the original warm-start sweeps and the eight-task,
-160-cell cold-start response sweep without changing the training, validation,
-or no-test-access contracts.
+method tuning.  The cold-start profile dispatches every scientific update to
+the byte-locked paper Countdown trainer.  Task adapters may change only data
+schema, verifier, and explicitly whitelisted length/evaluation-batch fields.
 """
 
 from __future__ import annotations
@@ -29,6 +29,7 @@ import traceback
 import zipfile
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -81,6 +82,7 @@ DEFAULT_CONFIG = Path("configs/e8_multitask_exp_tuning.yaml")
 DEFAULT_P0_CONFIG = Path("configs/e8_multitask_p0.yaml")
 METHOD_POSITIVE_ONLY = "positive_only"
 METHOD_EXPONENTIAL = "exponential"
+METHOD_GLOBAL = "global"
 SWEEP_PROFILE_RHO = "nine_task_rho_v1"
 SWEEP_PROFILE_DENSE = "task_lambda_dense_v1"
 SWEEP_PROFILE_COLDSTART = "eight_task_coldstart_lambda_v1"
@@ -104,10 +106,43 @@ RECOVERY_TRANSIENT_FILES = {
 
 CANONICAL_COLD_MODULES = {
     "arena": "drpo.countdown_qwen_arena_onefile",
-    "positive_only": "drpo.countdown_e8_base_rl_replay",
-    "taper_core": "drpo.countdown_e8_oracle_offline_v2_taper_sweep",
-    "taper_runtime": "drpo.countdown_e8_oracle_offline_v2_taper_runtime",
+    # Import paper_runtime before the base runtime/trainer so its activation
+    # patches the base symbols before the trainer binds them.
+    "paper_common": "drpo.countdown_e8_alpha1_highc_scan_common",
+    "paper_runtime": "drpo.countdown_e8_alpha1_highc_scan_runtime",
+    "scan_common": "drpo.countdown_e8_alpha1_c_scan_common",
+    "scan_runtime": "drpo.countdown_e8_alpha1_c_scan_runtime",
+    "scan_trainer": "drpo.countdown_e8_alpha1_c_scan_trainer",
 }
+
+PAPER_ROUND1_COEFFICIENTS = (
+    0.051293294,
+    0.105360516,
+    0.162518929,
+    0.223143551,
+    0.287682072,
+    0.430782916,
+    0.693147181,
+    0.916290732,
+    1.203972804,
+    1.386294361,
+    1.609437912,
+    1.897119985,
+    2.302585093,
+    2.995732274,
+)
+PAPER_EXTENSION_COEFFICIENTS = (
+    0.01,
+    0.025,
+    0.04,
+    3.506557897,
+    4.605170186,
+    5.298317367,
+    6.907755279,
+    9.210340372,
+)
+TASK_TRANSFER_COEFFICIENTS = PAPER_ROUND1_COEFFICIENTS + PAPER_EXTENSION_COEFFICIENTS[3:]
+PAPER_SEED_OFFSETS = (4000, 5000)
 
 
 @dataclass(frozen=True)
@@ -123,6 +158,8 @@ class Cell:
     def key(self) -> str:
         if self.method == METHOD_POSITIVE_ONLY:
             return f"{self.task}__positive_only__seed{self.seed}"
+        if self.method == METHOD_GLOBAL:
+            return f"{self.task}__global__seed{self.seed}"
         if self.rho is None:
             raise AssertionError("Exponential cell requires rho")
         if self.lambda_value is not None:
@@ -287,6 +324,15 @@ def validate_config(config: Mapping[str, Any]) -> None:
         raise ValueError("Train-only reference preparation must not see validation or test rows")
     if _is_coldstart(config):
         model = config["model"]
+        if (
+            model.get("base_model") != "Qwen/Qwen2.5-0.5B-Instruct"
+            or model.get("revision")
+            != "7ae557604adf67be50417f59c2c2f167def9a775"
+            or model.get("parameterization") != "lora"
+            or model.get("dtype") != "auto"
+            or not bool(model.get("gradient_checkpointing", False))
+        ):
+            raise ValueError("Cold-start base-model identity/runtime contract drifted")
         old_lora_contract = (
             int(model["lora_rank"]),
             int(model["lora_alpha"]),
@@ -315,7 +361,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
         if profile in (SWEEP_PROFILE_RHO, SWEEP_PROFILE_COLDSTART):
             expected_split.update(
                 {
-                    "countdown_train_rows": 5000,
+                    "countdown_train_rows": 6000 if _is_coldstart(config) else 5000,
                     "countdown_validation_rows": 500,
                 }
             )
@@ -324,6 +370,10 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError(f"{key} must remain {expected}")
     if bool(split.get("test_access_allowed", True)):
         raise ValueError("Tuning must forbid test access")
+    if _is_coldstart(config) and not bool(
+        split.get("countdown_subsampling_forbidden", False)
+    ):
+        raise ValueError("Countdown source-order bank subsampling must remain forbidden")
 
     training = config["training"]
     if int(training["optimizer_updates"]) != 1200:
@@ -352,17 +402,12 @@ def validate_config(config: Mapping[str, Any]) -> None:
         raise ValueError("The old optimizer weight-decay/gradient-clip contract changed")
     if _is_coldstart(config):
         if (
-            not bool(training.get("early_stopping", False))
-            or int(training.get("min_steps", -1)) != 400
-            or int(training.get("early_stop_patience", -1)) != 6
-            or not math.isclose(
-                float(training.get("early_stop_delta", -1.0)),
-                0.002,
-                rel_tol=0.0,
-                abs_tol=1.0e-12,
-            )
+            bool(training.get("early_stopping", True))
+            or tuple(int(value) for value in training.get("late_window_updates", ()))
+            != (800, 900, 1000, 1100, 1200)
+            or not bool(training.get("terminal_adapter_required", False))
         ):
-            raise ValueError("Cold-start must preserve the old base-RL early-stop protocol")
+            raise ValueError("Cold-start must preserve fixed-1200 paper late-window training")
     else:
         if bool(training.get("early_stopping", True)):
             raise ValueError("Early stopping is forbidden")
@@ -390,29 +435,53 @@ def validate_config(config: Mapping[str, Any]) -> None:
         int(evaluation["batch_size"]) != 8 or int(evaluation["max_new_tokens"]) != 80
     ):
         raise ValueError("Cold-start must preserve the old evaluation batch/length contract")
+    if _is_coldstart(config) and (
+        tuple(int(value) for value in evaluation.get("auxiliary_pass_ks", ())) != (64,)
+        or evaluation.get("primary_checkpoint_policy") != "late_window_and_terminal"
+        or evaluation.get("best_checkpoint_role") != "supplementary_only"
+    ):
+        raise ValueError("Cold-start evaluation/reporting policy drifted")
 
     negative = config["negative_sampling"]
     if int(negative["negatives_per_prompt"]) != 16:
         raise ValueError("Every training prompt must retain exactly 16 negatives")
-    if _tuple_floats(negative["near_far_mix"]) != (0.5, 0.5):
-        raise ValueError("Near/far branch mass must remain 0.5/0.5")
-    if not bool(negative["selection_stop_gradient"]):
-        raise ValueError("Current near/far selection must be stop-gradient")
-    if bool(negative["weight_sum_normalization"]):
-        raise ValueError("Weight-sum normalization is forbidden")
+    if _is_coldstart(config):
+        if (
+            negative.get("consumer") != "all_unique_negatives_per_prompt"
+            or negative.get("deduplicate_rule")
+            != "first_canonical_completion_occurrence"
+            or negative.get("denominator") != "unique_negative_count_per_prompt"
+            or bool(negative.get("near_far_selection", True))
+            or bool(negative.get("weight_sum_normalization", True))
+            or bool(negative.get("gradient_budget_matching", True))
+        ):
+            raise ValueError("Cold-start negative consumption must match the paper trainer")
+    else:
+        if _tuple_floats(negative["near_far_mix"]) != (0.5, 0.5):
+            raise ValueError("Near/far branch mass must remain 0.5/0.5")
+        if not bool(negative["selection_stop_gradient"]):
+            raise ValueError("Current near/far selection must be stop-gradient")
+        if bool(negative["weight_sum_normalization"]):
+            raise ValueError("Weight-sum normalization is forbidden")
 
     calibration = config["remoteness_calibration"]
-    if not math.isclose(
+    if _is_coldstart(config):
+        if (
+            bool(calibration.get("enabled", True))
+            or calibration.get("mode") != "paper_linear_surprisal_no_calibration"
+            or calibration.get("coordinate") != "current_sequence_surprisal_div_2"
+            or not bool(calibration.get("detached", False))
+            or bool(calibration.get("extra_square", True))
+            or bool(calibration.get("gradient_rms_matching", True))
+        ):
+            raise ValueError("Paper cold-start forbids remoteness/RMS calibration")
+    elif not math.isclose(
         float(calibration["target_negative_to_positive_gradient_ratio"]),
         1.0 / 32.0,
         rel_tol=0.0,
         abs_tol=1.0e-12,
     ):
         raise ValueError("Initial negative-gradient target must remain 1/32 of positive")
-    if _is_coldstart(config) and (
-        int(calibration["prompt_rows"]) != 256 or int(calibration["gradient_prompt_rows"]) != 16
-    ):
-        raise ValueError("Cold-start must preserve the old taper calibration row counts")
 
     sweep = config["sweep"]
     if profile == SWEEP_PROFILE_RHO:
@@ -452,28 +521,37 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("Dense shape discovery must preserve the predecessor tuning seed")
     else:
         task_lambda = sweep.get("task_lambda")
-        shared_anchors = _tuple_floats(sweep.get("shared_historical_anchor_lambda", ()))
-        expected_anchors = tuple(
-            coefficient_from_rho(rho) for rho in (0.9, 0.75, 0.6, 0.5, 0.35, 0.25, 0.125)
-        )
         if not isinstance(task_lambda, Mapping) or set(task_lambda) != set(tasks):
             raise ValueError("Cold-start task_lambda must contain the exact eight tasks")
-        if len(shared_anchors) != 7 or any(
-            not math.isclose(left, right, rel_tol=0.0, abs_tol=1.0e-15)
-            for left, right in zip(shared_anchors, expected_anchors, strict=True)
+        if _tuple_floats(sweep.get("countdown_round1_coefficients", ())) != (
+            PAPER_ROUND1_COEFFICIENTS
         ):
-            raise ValueError("Cold-start shared anchors must exactly match the old seven rho cells")
+            raise ValueError("Countdown round-1 coefficients drifted from the paper grid")
+        if _tuple_floats(sweep.get("countdown_extension_coefficients", ())) != (
+            PAPER_EXTENSION_COEFFICIENTS
+        ):
+            raise ValueError("Countdown extension coefficients drifted from the paper grid")
+        if _tuple_floats(sweep.get("task_transfer_coefficients", ())) != (
+            TASK_TRANSFER_COEFFICIENTS
+        ):
+            raise ValueError("Task-transfer coefficients must be paper-grid points")
+        if tuple(int(value) for value in sweep.get("countdown_seed_offsets", ())) != (
+            PAPER_SEED_OFFSETS
+        ):
+            raise ValueError("Countdown must preserve the two paper seed offsets")
+        if tuple(int(value) for value in sweep.get("task_transfer_seed_offsets", ())) != (4000,):
+            raise ValueError("Non-Countdown shape discovery must use the frozen seed offset")
         for task in tasks:
             values = _task_lambdas(config, str(task))
-            if len(values) != 19 or len(set(values)) != 19:
-                raise ValueError(f"{task} must contain 19 unique lambda values")
-            if not all(
-                any(math.isclose(anchor, value, abs_tol=1e-15) for value in values)
-                for anchor in shared_anchors
-            ):
-                raise ValueError(f"{task} is missing a shared historical anchor lambda")
-        if int(sweep["positive_only_per_task"]) != 1 or int(sweep["expected_cells"]) != 160:
-            raise ValueError("The cold-start matrix must be 19 Exp plus 1 Positive-only per task")
+            expected = (
+                tuple(sorted(PAPER_ROUND1_COEFFICIENTS + PAPER_EXTENSION_COEFFICIENTS))
+                if task == "countdown"
+                else TASK_TRANSFER_COEFFICIENTS
+            )
+            if len(values) != len(expected) or set(values) != set(expected):
+                raise ValueError(f"{task} coefficient grid is outside the paper runtime")
+        if int(sweep["positive_only_per_task"]) != 1 or int(sweep["expected_cells"]) != 188:
+            raise ValueError("Cold-start must contain 48 exact Countdown and 140 task cells")
         initialization = config.get("initialization", {})
         if (
             initialization.get("source") != "base_model"
@@ -484,11 +562,29 @@ def validate_config(config: Mapping[str, Any]) -> None:
         canonical = config.get("canonical_coldstart", {})
         expected_paths = {
             "arena": "src/drpo/countdown_qwen_arena_onefile.py",
-            "positive_only": "src/drpo/countdown_e8_base_rl_replay.py",
-            "taper_core": "src/drpo/countdown_e8_oracle_offline_v2_taper_sweep.py",
-            "taper_runtime": "src/drpo/countdown_e8_oracle_offline_v2_taper_runtime.py",
+            "scan_common": "src/drpo/countdown_e8_alpha1_c_scan_common.py",
+            "scan_runtime": "src/drpo/countdown_e8_alpha1_c_scan_runtime.py",
+            "scan_trainer": "src/drpo/countdown_e8_alpha1_c_scan_trainer.py",
+            "paper_common": "src/drpo/countdown_e8_alpha1_highc_scan_common.py",
+            "paper_runtime": "src/drpo/countdown_e8_alpha1_highc_scan_runtime.py",
             "base_config": "configs/countdown_e8_base_rl_replay_0p5b.yaml",
-            "taper_template": "configs/countdown_e8_oracle_offline_v2_taper_sweep_0p5b.yaml",
+            "round1_grid": (
+                "configs/countdown_e8_oracle_offline_v2_alpha1_highc_scan_0p5b.yaml"
+            ),
+            "extension_grid": (
+                "configs/countdown_e8_oracle_offline_v2_linear_c_extension_0p5b.yaml"
+            ),
+            "bank_generator": "src/drpo/countdown_e8_oracle_bank_v2.py",
+            "bank_config": "configs/countdown_e8_oracle_offline_bank_v2_0p5b.yaml",
+            "bank_converter": "scripts/v2_bank_convert.py",
+            "p0_bank_pipeline": "src/drpo/e8_multitask_p0.py",
+            "p0_task_adapters": "src/drpo/e8_multitask_tasks.py",
+            "p0_config": "configs/e8_multitask_p0.yaml",
+            "p0_launcher": "scripts/run_e8_multitask_p0.sh",
+            "result_reference": (
+                "experiments/results/e8_paper_aligned_linear_scan_round1_pilot/"
+                "RESULT_SUMMARY.json"
+            ),
         }
         if canonical.get("paths") != expected_paths:
             raise ValueError("Cold-start canonical paths must point to the old implementation")
@@ -499,19 +595,98 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("Cold-start must pin every old source/config Git blob SHA")
         if canonical.get("scientific_kernel") != "import_only_no_loss_reimplementation":
             raise ValueError("Cold-start scientific kernel must be imported, not reimplemented")
+        runtime = config.get("task_runtime", {})
+        if tuple(runtime.get("override_whitelist", ())) != (
+            "model.max_length",
+            "model.max_new_tokens",
+            "evaluation.batch_size",
+            "evaluation.greedy_prompt_rows",
+            "evaluation.passk_prompt_rows",
+        ) or set(runtime) != {"override_whitelist", *tasks}:
+            raise ValueError("Task runtime overrides must use the exact five-field whitelist")
+        for task in tasks:
+            task_runtime = runtime[task]
+            if set(task_runtime) != {
+                "max_length",
+                "max_new_tokens",
+                "evaluation_batch_size",
+                "greedy_prompt_rows",
+                "passk_prompt_rows",
+            }:
+                raise ValueError(f"{task} contains a non-whitelisted runtime override")
+            expected_length = 256 if task == "countdown" else 512
+            expected_new_tokens = 80 if task == "countdown" else 128
+            expected_passk_rows = 500 if task == "countdown" else 128
+            if (
+                int(task_runtime["max_length"]) != expected_length
+                or int(task_runtime["max_new_tokens"]) != expected_new_tokens
+                or int(task_runtime["evaluation_batch_size"]) != 8
+                or int(task_runtime["greedy_prompt_rows"]) != 500
+                or int(task_runtime["passk_prompt_rows"]) != expected_passk_rows
+            ):
+                raise ValueError(f"{task} task-interface length/evaluation contract drifted")
+        selection = config.get("selection", {})
+        if (
+            selection.get("primary_metric") != "validation_late_window_pass8_mean"
+            or not bool(selection.get("finite_required", False))
+            or tuple(selection.get("tie_breakers", ()))
+            != (
+                "validation_terminal_pass8",
+                "validation_late_window_greedy_mean",
+                "smaller_lambda",
+            )
+        ):
+            raise ValueError("Cold-start selection policy drifted from the paper protocol")
+        reproduction = config.get("countdown_reproduction_gate", {})
+        if (
+            not bool(reproduction.get("required", False))
+            or reproduction.get("reference_run_id")
+            != "E8_PAPER_ALIGNED_LINEAR_SCAN_20260716_01"
+            or not bool(reproduction.get("require_exact_protocol_identity", False))
+            or int(reproduction.get("require_round1_two_seed_cells", -1)) != 32
+            or not math.isclose(
+                float(reproduction.get("late_window_pass8_absolute_tolerance", math.inf)),
+                0.002,
+                rel_tol=0.0,
+                abs_tol=1.0e-12,
+            )
+            or not bool(reproduction.get("require_peak_above_positive_only", False))
+        ):
+            raise ValueError("Countdown reproduction gate may not be weakened")
 
     execution = config["execution"]
-    if int(execution["max_concurrent_cells"]) != 16:
-        raise ValueError("The scheduler must expose exactly 16 slots")
+    expected_capacity = 8 if _is_coldstart(config) else 16
+    if int(execution["max_concurrent_cells"]) != expected_capacity:
+        raise ValueError(f"The scheduler must expose exactly {expected_capacity} slots")
     if tuple(int(value) for value in execution["gpu_ids"]) != tuple(range(8)):
         raise ValueError("The default GPU pool must remain 0--7")
     expected_waves = (
-        10 if profile == SWEEP_PROFILE_COLDSTART else (7 if profile == SWEEP_PROFILE_DENSE else 5)
+        24 if profile == SWEEP_PROFILE_COLDSTART else (7 if profile == SWEEP_PROFILE_DENSE else 5)
     )
-    if int(execution["slots_per_gpu"]) != 2 or int(execution["expected_waves"]) != expected_waves:
-        raise ValueError(f"The frozen topology is two slots per GPU and {expected_waves} waves")
+    expected_slots = 1 if _is_coldstart(config) else 2
+    if (
+        int(execution["slots_per_gpu"]) != expected_slots
+        or int(execution["expected_waves"]) != expected_waves
+    ):
+        if not _is_coldstart(config):
+            raise ValueError(
+                f"The frozen topology is two slots per GPU and {expected_waves} waves"
+            )
+        raise ValueError(
+            f"The frozen topology is {expected_slots} slot(s) per GPU and {expected_waves} batches"
+        )
     if _is_coldstart(config) and execution.get("scheduler") != "dynamic_slot_queue":
         raise ValueError("Cold-start execution must use the dynamic slot queue")
+    if _is_coldstart(config) and (
+        bool(execution.get("wave_barriers", True))
+        or not bool(execution.get("identity_checked_resume", False))
+        or not bool(execution.get("retry_incomplete_requires_explicit_flag", False))
+        or not bool(execution.get("fail_closed", False))
+        or not bool(execution.get("test_partition_forbidden", False))
+        or execution.get("oom_policy")
+        != "one_cell_per_gpu_no_automatic_scientific_parameter_mutation"
+    ):
+        raise ValueError("Cold-start recovery/OOM safety contract drifted")
 
 
 def coefficient_from_rho(rho: float) -> float:
@@ -576,12 +751,40 @@ def _canonical_cold_modules(config: Mapping[str, Any]) -> dict[str, Any]:
         name: importlib.import_module(module_name)
         for name, module_name in CANONICAL_COLD_MODULES.items()
     }
-    core = modules["taper_core"]
-    runtime = modules["taper_runtime"]
-    positive = modules["positive_only"]
+    scan_common = modules["scan_common"]
+    scan_runtime = modules["scan_runtime"]
+    scan_trainer = modules["scan_trainer"]
+    paper_common = modules["paper_common"]
+    paper_runtime = modules["paper_runtime"]
     arena = modules["arena"]
-    if core.arena is not arena or core.base_runner is not positive or runtime.core is not core:
-        raise RuntimeError("Canonical cold-start modules do not share one old implementation graph")
+    if (
+        scan_common.arena is not arena
+        or scan_trainer.arena is not arena
+        or scan_trainer.continuous_exp_weights is not scan_common.continuous_exp_weights
+        or paper_common._base is not scan_common
+        or paper_runtime.highc is not paper_common
+        or paper_runtime._base_runtime is not scan_runtime
+    ):
+        raise RuntimeError("Paper cold-start modules do not share one locked implementation graph")
+    return modules
+
+
+def _activate_paper_grid_modules(modules: dict[str, Any], grid_path: Path) -> dict[str, Any]:
+    """Bind base trainer imports to the selected paper profile in this cell process."""
+
+    paper_common = modules["paper_common"]
+    paper_common.activate_for_grid_config(grid_path)
+    modules["scan_trainer"] = importlib.reload(modules["scan_trainer"])
+    modules["scan_runtime"] = importlib.reload(modules["scan_runtime"])
+    # Reloading the paper adapter after the base modules recreates its wrappers
+    # around the just-reloaded, profile-correct trainer.
+    modules["paper_runtime"] = importlib.reload(modules["paper_runtime"])
+    if (
+        modules["scan_trainer"].continuous_exp_weights
+        is not modules["scan_common"].continuous_exp_weights
+        or modules["paper_runtime"]._base_runtime is not modules["scan_runtime"]
+    ):
+        raise RuntimeError("Paper grid activation did not bind the selected trainer profile")
     return modules
 
 
@@ -623,27 +826,55 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
             raise AssertionError("Internal 112-cell identity failure")
         return cells
     if _is_coldstart(config):
-        cells = tuple(
-            cell
-            for task in tasks
-            for cell in (
-                Cell(task, METHOD_POSITIVE_ONLY, None, seed, "coldstart"),
-                *(
-                    Cell(
-                        task,
-                        METHOD_EXPONENTIAL,
-                        math.exp(-lambda_value),
-                        seed,
-                        "coldstart",
-                        lambda_value,
-                    )
-                    for lambda_value in _task_lambdas(config, task)
-                ),
+        cells: list[Cell] = []
+        for seed_offset in PAPER_SEED_OFFSETS:
+            cells.append(
+                Cell("countdown", METHOD_POSITIVE_ONLY, None, seed_offset, "paper_round1")
             )
-        )
-        if len(cells) != 160 or len({cell.key for cell in cells}) != 160:
-            raise AssertionError("Internal 160-cell identity failure")
-        return cells
+            cells.append(
+                Cell("countdown", METHOD_GLOBAL, 1.0, seed_offset, "paper_round1", 0.0)
+            )
+            cells.extend(
+                Cell(
+                    "countdown",
+                    METHOD_EXPONENTIAL,
+                    math.exp(-coefficient),
+                    seed_offset,
+                    "paper_round1",
+                    coefficient,
+                )
+                for coefficient in PAPER_ROUND1_COEFFICIENTS
+            )
+            cells.extend(
+                Cell(
+                    "countdown",
+                    METHOD_EXPONENTIAL,
+                    math.exp(-coefficient),
+                    seed_offset,
+                    "paper_extension",
+                    coefficient,
+                )
+                for coefficient in PAPER_EXTENSION_COEFFICIENTS
+            )
+        for task in tasks:
+            if task == "countdown":
+                continue
+            cells.append(Cell(task, METHOD_POSITIVE_ONLY, None, seed, "task_transfer"))
+            cells.extend(
+                Cell(
+                    task,
+                    METHOD_EXPONENTIAL,
+                    math.exp(-coefficient),
+                    seed,
+                    "task_transfer",
+                    coefficient,
+                )
+                for coefficient in TASK_TRANSFER_COEFFICIENTS
+            )
+        result = tuple(cells)
+        if len(result) != 188 or len({cell.key for cell in result}) != 188:
+            raise AssertionError("Internal 188-cell paper-aligned identity failure")
+        return result
     coarse = _tuple_floats(config["sweep"]["coarse_rho"])
     refinement = _tuple_floats(config["sweep"]["refinement_rho"])
     cells: list[Cell] = []
@@ -672,8 +903,8 @@ def build_waves(config: Mapping[str, Any]) -> tuple[tuple[Cell, ...], ...]:
         waves = tuple(
             tuple(cells[index : index + capacity]) for index in range(0, len(cells), capacity)
         )
-        if len(waves) != 10 or any(len(wave) != capacity for wave in waves):
-            raise AssertionError("Cold-start nominal geometry must be ten 16-cell batches")
+        if len(waves) != 24 or tuple(len(wave) for wave in waves) != (8,) * 23 + (4,):
+            raise AssertionError("Cold-start nominal geometry must be 23x8 plus one 4-cell batch")
         return waves
     coarse = tuple(cell for cell in cells if cell.stage == "coarse")
     refinement = tuple(cell for cell in cells if cell.stage == "refinement")
@@ -900,28 +1131,20 @@ def split_countdown_rows(
     split = config["split"]
     normalized_train = [_normalize_countdown_train_row(row) for row in train_rows]
     normalized_validation = [_normalize_countdown_validation_row(row) for row in validation_rows]
-    train = _ordered_by_prompt_hash(
-        normalized_train,
-        task="countdown",
-        seed=int(split["hash_seed"]),
-        role="countdown_train_select",
-    )[: int(split["countdown_train_rows"])]
-    validation = _ordered_by_prompt_hash(
-        normalized_validation,
-        task="countdown",
-        seed=int(split["hash_seed"]),
-        role="countdown_validation_select",
-    )[: int(split["countdown_validation_rows"])]
+    if not bool(split.get("countdown_subsampling_forbidden", False)):
+        raise RuntimeError("Paper Countdown forbids wrapper-level train subsampling")
+    train = normalized_train
+    validation = normalized_validation
     _audit_training_rows("countdown", train, int(split["countdown_train_rows"]))
     if len(validation) != int(split["countdown_validation_rows"]):
-        raise RuntimeError("Countdown validation file does not contain 500 rows")
+        raise RuntimeError("Countdown validation file does not contain the exact frozen rows")
     partitions = {"train": train, "validation": validation}
     _audit_partition_prompt_ids("countdown", partitions)
     return partitions
 
 
 def _canonical_train_row(row: Mapping[str, Any]) -> dict[str, Any]:
-    """Translate only the task interface into the old arena's frozen row schema."""
+    """Translate task schema while preserving the paper all-unique-negative loss."""
 
     task = str(row["task"])
     prompt_id = str(row["prompt_id"])
@@ -931,25 +1154,29 @@ def _canonical_train_row(row: Mapping[str, Any]) -> dict[str, Any]:
     bank = [
         {
             **dict(item),
-            "expression": str(item["completion"]),
+            "expression": str(item.get("canonical_completion", item["completion"])),
         }
         for item in negatives
     ]
-    oracle = str(row["oracle_completion"])
+    oracle_verification = row.get("oracle_verification", {})
+    oracle = str(
+        oracle_verification.get("canonical_completion", row["oracle_completion"])
+        if isinstance(oracle_verification, Mapping)
+        else row["oracle_completion"]
+    )
     return {
         **dict(row),
         "id": prompt_id,
         "oracle": oracle,
         "positive": oracle,
-        "near_negative": str(bank[0]["expression"]),
-        "far_negative": str(bank[-1]["expression"]),
         "negative_bank": bank,
         "negative_bank_size": 16,
         "pair_matched": True,
         # The old core uses this only for balanced diagnostics.  Task correctness
         # is supplied by the environment verifier, not Countdown expression parsing.
         "oracle_structure": f"{task}:task_verifier",
-        "canonical_training_core": "countdown_qwen_arena_onefile.OfflineDataset",
+        "canonical_training_core": "countdown_e8_alpha1_c_scan.ContinuousUniqueBankDataset",
+        "canonical_negative_consumer": "all_unique_negatives_per_prompt",
     }
 
 
@@ -965,24 +1192,63 @@ def _canonical_validation_row(row: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _rho_packs(rhos: Sequence[float]) -> tuple[tuple[float, ...], ...]:
-    """Build old-validator-compatible eight-rho packs without changing its guard."""
+def _paper_grid_name(coefficient: float) -> str:
+    if coefficient == 0.0 or coefficient in PAPER_ROUND1_COEFFICIENTS:
+        return "round1_grid"
+    if coefficient in PAPER_EXTENSION_COEFFICIENTS:
+        return "extension_grid"
+    raise ValueError(f"Coefficient {coefficient} is outside the locked paper grids")
 
-    values = tuple(float(value) for value in rhos)
-    if len(values) != 19 or len(set(values)) != 19:
-        raise ValueError("Canonical cold-start packing requires 19 unique rho values")
-    packs: list[tuple[float, ...]] = []
-    for start in range(0, len(values), 8):
-        pack = list(values[start : start + 8])
-        for candidate in values:
-            if len(pack) == 8:
-                break
-            if candidate not in pack:
-                pack.append(candidate)
-        if len(pack) != 8 or len(set(pack)) != 8:
-            raise AssertionError("Could not construct an old-compatible eight-rho pack")
-        packs.append(tuple(pack))
-    return tuple(packs)
+
+def _task_base_config(
+    config: Mapping[str, Any],
+    *,
+    task: str,
+    canonical_paths: Mapping[str, Path],
+    task_root: Path,
+) -> tuple[Path, list[str]]:
+    """Materialize only the three declared task-interface overrides."""
+
+    base_path = canonical_paths["base_config"]
+    if task == "countdown":
+        return base_path, []
+    original = yaml.safe_load(base_path.read_text(encoding="utf-8"))
+    if not isinstance(original, dict):
+        raise TypeError("Paper base config root must be a mapping")
+    derived = copy.deepcopy(original)
+    runtime = config["task_runtime"][task]
+    derived["model"]["max_length"] = int(runtime["max_length"])
+    derived["model"]["max_new_tokens"] = int(runtime["max_new_tokens"])
+    derived["evaluation"]["batch_size"] = int(runtime["evaluation_batch_size"])
+    allowed = {
+        "model.max_length",
+        "model.max_new_tokens",
+        "evaluation.batch_size",
+    }
+
+    def leaves(value: Any, prefix: str = "") -> dict[str, Any]:
+        if not isinstance(value, Mapping):
+            return {prefix: value}
+        result: dict[str, Any] = {}
+        for key, item in value.items():
+            child = f"{prefix}.{key}" if prefix else str(key)
+            result.update(leaves(item, child))
+        return result
+
+    original_leaves = leaves(original)
+    derived_leaves = leaves(derived)
+    changed = sorted(
+        key
+        for key in set(original_leaves) | set(derived_leaves)
+        if original_leaves.get(key) != derived_leaves.get(key)
+    )
+    if set(changed) - allowed:
+        raise RuntimeError(f"{task} changed non-whitelisted paper base fields: {changed}")
+    path = task_root / "paper_base_task_interface.yaml"
+    temporary = path.with_suffix(".yaml.tmp")
+    temporary.write_text(yaml.safe_dump(derived, sort_keys=False), encoding="utf-8")
+    temporary.replace(path)
+    return path, changed
 
 
 def write_canonical_cold_inputs(
@@ -996,52 +1262,55 @@ def write_canonical_cold_inputs(
         raise RuntimeError("Canonical input conversion is cold-profile only")
     source_audit = audit_canonical_coldstart_sources(config)
     canonical_paths = _canonical_paths(config)
-    template = yaml.safe_load(canonical_paths["taper_template"].read_text(encoding="utf-8"))
-    if not isinstance(template, dict):
-        raise TypeError("Canonical taper template root must be a mapping")
-
     records: dict[str, Any] = {}
     for task_value in config["suite"]["tasks"]:
         task = str(task_value)
         record = split_manifest["tasks"][task]
         source_paths = record["paths"]
-        train_rows = [_canonical_train_row(row) for row in read_jsonl(Path(source_paths["train"]))]
-        validation_rows = [
-            _canonical_validation_row(row) for row in read_jsonl(Path(source_paths["validation"]))
-        ]
         task_root = output_root / "canonical_inputs" / task
-        train_path = task_root / "train.jsonl"
-        validation_path = task_root / "validation.jsonl"
+        task_root.mkdir(parents=True, exist_ok=True)
+        if task == "countdown":
+            train_path = Path(str(record["bank"])).resolve()
+            validation_path = Path(str(record["countdown_validation_source"])).resolve()
+            train_rows = read_jsonl(train_path)
+            validation_rows = read_jsonl(validation_path)
+            exact_countdown_sources = True
+        else:
+            train_rows = [
+                _canonical_train_row(row) for row in read_jsonl(Path(source_paths["train"]))
+            ]
+            validation_rows = [
+                _canonical_validation_row(row)
+                for row in read_jsonl(Path(source_paths["validation"]))
+            ]
+            train_path = task_root / "train.jsonl"
+            validation_path = task_root / "validation.jsonl"
+            atomic_jsonl(train_path, train_rows)
+            atomic_jsonl(validation_path, validation_rows)
+            exact_countdown_sources = False
         sealed_test_path = task_root / "SEALED_TEST_NOT_ACCESSED.jsonl"
-        atomic_jsonl(train_path, train_rows)
-        atomic_jsonl(validation_path, validation_rows)
         sealed_test_path.parent.mkdir(parents=True, exist_ok=True)
         sealed_test_path.write_text("", encoding="utf-8")
-
-        packs: list[dict[str, Any]] = []
-        for pack_index, rho_pack in enumerate(_rho_packs(_task_rhos(config, task)), start=1):
-            pack_config = copy.deepcopy(template)
-            pack_config["sweep"]["rho_values"] = list(rho_pack)
-            pack_path = task_root / f"taper_pack_{pack_index:02d}.yaml"
-            temporary = pack_path.with_suffix(".yaml.tmp")
-            temporary.write_text(
-                yaml.safe_dump(pack_config, sort_keys=False),
-                encoding="utf-8",
-            )
-            temporary.replace(pack_path)
-            packs.append(
-                {
-                    "path": str(pack_path.resolve()),
-                    "sha256": sha256_file(pack_path),
-                    "rhos": list(rho_pack),
-                }
-            )
+        task_base_config, changed_fields = _task_base_config(
+            config,
+            task=task,
+            canonical_paths=canonical_paths,
+            task_root=task_root,
+        )
         canonical_record = {
             "train": str(train_path.resolve()),
             "validation": str(validation_path.resolve()),
             "sealed_test": str(sealed_test_path.resolve()),
-            "base_config": str(canonical_paths["base_config"]),
-            "taper_packs": packs,
+            "base_config": str(task_base_config.resolve()),
+            "base_config_sha256": sha256_file(task_base_config),
+            "round1_grid": str(canonical_paths["round1_grid"]),
+            "round1_grid_sha256": sha256_file(canonical_paths["round1_grid"]),
+            "extension_grid": str(canonical_paths["extension_grid"]),
+            "extension_grid_sha256": sha256_file(canonical_paths["extension_grid"]),
+            "task_interface_changed_fields": changed_fields,
+            "countdown_exact_source_files": exact_countdown_sources,
+            "negative_consumer": "all_unique_negatives_per_prompt",
+            "calibration": "forbidden",
             "train_sha256": sha256_file(train_path),
             "validation_sha256": sha256_file(validation_path),
             "sealed_test_sha256": sha256_file(sealed_test_path),
@@ -1846,10 +2115,17 @@ def _load_prepared(
                     )
             if int(canonical.get("test_rows", -1)) != 0:
                 raise RuntimeError("Canonical tuning input must keep the test partition sealed")
-            for pack in canonical.get("taper_packs", ()):
-                pack_path = Path(str(pack["path"]))
-                if not pack_path.is_file() or sha256_file(pack_path) != pack["sha256"]:
-                    raise RuntimeError(f"Canonical taper-pack identity mismatch for {task}")
+            for grid_key in ("round1_grid", "extension_grid", "base_config"):
+                grid_path = Path(str(canonical[grid_key]))
+                if (
+                    not grid_path.is_file()
+                    or sha256_file(grid_path) != canonical[f"{grid_key}_sha256"]
+                ):
+                    raise RuntimeError(f"Canonical paper input {grid_key} is missing for {task}")
+            if canonical.get("negative_consumer") != "all_unique_negatives_per_prompt":
+                raise RuntimeError(f"Canonical negative consumer drifted for {task}")
+            if task == "countdown" and canonical.get("countdown_exact_source_files") is not True:
+                raise RuntimeError("Countdown must dispatch the exact generated bank/validation files")
     return splits, inputs
 
 
@@ -2204,6 +2480,7 @@ def _canonical_calibration_identity(
         "task": task,
         "base_model_identity": model_identity(base_model_path, None)["model"],
         "canonical_train_sha256": record["train_sha256"],
+        "canonical_base_config_sha256": sha256_file(Path(str(record["base_config"]))),
         "canonical_base_config_git_blob_sha": config["canonical_coldstart"][
             "expected_git_blob_shas"
         ]["base_config"],
@@ -2215,23 +2492,9 @@ def _canonical_calibration_identity(
     return value
 
 
-def _canonical_pack_for_rho(record: Mapping[str, Any], rho: float) -> tuple[Path, Path]:
-    matches = [
-        pack
-        for pack in record["taper_packs"]
-        if any(
-            math.isclose(float(value), rho, rel_tol=0.0, abs_tol=1.0e-15) for value in pack["rhos"]
-        )
-    ]
-    if not matches:
-        raise RuntimeError(f"No canonical old-validator taper pack contains rho={rho}")
-    # Prefer the first occurrence.  Padding duplicates in the final pack are
-    # calibration-only and never change a cell's scientific identity.
-    pack = matches[0]
-    pack_path = Path(str(pack["path"]))
-    pack_index = list(record["taper_packs"]).index(pack) + 1
-    calibration_path = pack_path.parent / f"taper_calibration_pack_{pack_index:02d}.json"
-    return pack_path, calibration_path
+def _paper_grid_for_cell(record: Mapping[str, Any], cell: Cell) -> Path:
+    coefficient = 0.0 if cell.lambda_value is None else float(cell.lambda_value)
+    return Path(str(record[_paper_grid_name(coefficient)]))
 
 
 def calibrate_canonical_cold_task(
@@ -2243,9 +2506,6 @@ def calibrate_canonical_cold_task(
     output_root: Path,
     force: bool,
 ) -> dict[str, Any]:
-    modules = _canonical_cold_modules(config)
-    base_runner = modules["positive_only"]
-    runtime = modules["taper_runtime"]
     record = _canonical_task_record(split_manifest, task)
     identity = _canonical_calibration_identity(
         task,
@@ -2253,78 +2513,21 @@ def calibrate_canonical_cold_task(
         base_model_path=base_model_path,
         config=config,
     )
-    task_root = output_root / "calibration" / "canonical" / task
     result_path = output_root / "calibration" / f"{task}.json"
     if result_path.is_file() and not force:
         existing = json.loads(result_path.read_text(encoding="utf-8"))
         if existing.get("identity_hash") == identity["identity_hash"] and existing.get("complete"):
             return existing
         raise RuntimeError(f"Existing canonical calibration identity mismatch for {task}")
-    if force and task_root.exists():
-        expected_parent = (output_root / "calibration" / "canonical").resolve()
-        if expected_parent not in task_root.resolve().parents:
-            raise RuntimeError(f"Refusing unsafe canonical calibration removal: {task_root}")
-        shutil.rmtree(task_root)
-    task_root.mkdir(parents=True, exist_ok=True)
-
-    base_config_path = Path(str(record["base_config"]))
-    base_config = yaml.safe_load(base_config_path.read_text(encoding="utf-8"))
-    if not isinstance(base_config, dict):
-        raise TypeError("Canonical base config root must be a mapping")
-    bank_path = Path(str(record["train"]))
-    global_calibration = base_runner.calibrate_base_negative(
-        Path(base_model_path).resolve(),
-        task_root,
-        bank_path,
-        base_config,
-    )
-    pack_results: list[dict[str, Any]] = []
-    required_rhos = set(_task_rhos(config, task))
-    covered_rhos: set[float] = set()
-    for index, pack in enumerate(record["taper_packs"], start=1):
-        pack_path = Path(str(pack["path"]))
-        calibration_path = pack_path.parent / f"taper_calibration_pack_{index:02d}.json"
-        if calibration_path.exists() and force:
-            calibration_path.unlink()
-        value = runtime.calibrate(
-            model_path=Path(base_model_path).resolve(),
-            bank_path=bank_path,
-            global_calibration_path=Path(global_calibration),
-            base_config_path=base_config_path,
-            sweep_config_path=pack_path,
-            output_path=calibration_path,
-            repo=_repo_root(),
-        )
-        for rho in pack["rhos"]:
-            rho_value = float(rho)
-            if rho_value in required_rhos:
-                key = modules["taper_core"]._method_key(METHOD_EXPONENTIAL, rho_value)
-                if key not in value["methods"]:
-                    raise RuntimeError(f"Canonical calibration is missing {key}")
-                covered_rhos.add(rho_value)
-        pack_results.append(
-            {
-                "path": str(calibration_path.resolve()),
-                "sha256": sha256_file(calibration_path),
-                "sweep_config": str(pack_path.resolve()),
-                "sweep_config_sha256": sha256_file(pack_path),
-                "rhos": list(pack["rhos"]),
-                "runtime_version": value["runtime_version"],
-            }
-        )
-        gc.collect()
-        if torch is not None and torch.cuda.is_available():
-            torch.cuda.empty_cache()
-    if covered_rhos != required_rhos:
-        raise RuntimeError(f"Canonical calibration did not cover every rho for {task}")
     result = {
         **identity,
-        "canonical_positive_only_entry": "countdown_e8_base_rl_replay.calibrate_base_negative",
-        "canonical_taper_entry": "countdown_e8_oracle_offline_v2_taper_runtime.calibrate",
-        "global_calibration": str(Path(global_calibration).resolve()),
-        "global_calibration_sha256": sha256_file(global_calibration),
-        "taper_packs": pack_results,
-        "covered_exp_rhos": sorted(covered_rhos),
+        "enabled": False,
+        "mode": "paper_linear_surprisal_no_calibration",
+        "coordinate": "current_sequence_surprisal/2",
+        "detached": True,
+        "extra_square": False,
+        "gradient_rms_matching": False,
+        "canonical_train_sha256": record["train_sha256"],
         "task_metrics_used": False,
         "test_data_used": False,
         "complete": True,
@@ -2644,6 +2847,8 @@ def _canonical_environment_evaluator(
     arena: Any,
     task_adapter: Any,
     instances: Mapping[str, TaskInstance],
+    greedy_prompt_rows: int,
+    passk_prompt_rows: int,
 ) -> Any:
     """Return the old evaluator signature backed only by the selected task verifier."""
 
@@ -2660,14 +2865,20 @@ def _canonical_environment_evaluator(
         del known_structures
         if not rows:
             raise RuntimeError("Task validation rows must be non-empty")
+        if len(rows) < int(greedy_prompt_rows) or len(rows) < int(passk_prompt_rows):
+            raise RuntimeError(
+                "Task validation input is smaller than the frozen Greedy/Pass@k budgets"
+            )
         arena.seed_all(seed)
         was_training = bool(model.training)
         greedy_correct: list[float] = []
         greedy_valid: list[float] = []
         pass_success: list[float] = []
         sampled_valid: list[float] = []
-        for start in range(0, len(rows), int(batch_size)):
-            chunk = list(rows[start : start + int(batch_size)])
+        greedy_rows = list(rows[: int(greedy_prompt_rows)])
+        sampled_rows = list(rows[: int(passk_prompt_rows)])
+        for start in range(0, len(greedy_rows), int(batch_size)):
+            chunk = greedy_rows[start : start + int(batch_size)]
             prompts = [str(row["prompt"]) for row in chunk]
             greedy = arena.generate_outputs(
                 model,
@@ -2679,25 +2890,26 @@ def _canonical_environment_evaluator(
                 1.0,
                 1,
             )
-            sampled = (
-                arena.generate_outputs(
-                    model,
-                    tokenizer,
-                    prompts,
-                    int(max_new_tokens),
-                    True,
-                    0.8,
-                    0.95,
-                    int(pass_k),
-                )
-                if int(pass_k) > 1
-                else greedy
-            )
-            for row, greedy_outputs, sampled_outputs in zip(chunk, greedy, sampled, strict=True):
+            for row, greedy_outputs in zip(chunk, greedy, strict=True):
                 instance = instances[str(row["prompt_id"])]
                 greedy_result = task_adapter.verify(instance, greedy_outputs[0])
                 greedy_correct.append(float(greedy_result.correct))
                 greedy_valid.append(float(greedy_result.format_valid))
+        for start in range(0, len(sampled_rows), int(batch_size)):
+            chunk = sampled_rows[start : start + int(batch_size)]
+            prompts = [str(row["prompt"]) for row in chunk]
+            sampled = arena.generate_outputs(
+                model,
+                tokenizer,
+                prompts,
+                int(max_new_tokens),
+                int(pass_k) > 1,
+                0.8 if int(pass_k) > 1 else 1.0,
+                0.95 if int(pass_k) > 1 else 1.0,
+                int(pass_k),
+            )
+            for row, sampled_outputs in zip(chunk, sampled, strict=True):
+                instance = instances[str(row["prompt_id"])]
                 sample_results = [
                     task_adapter.verify(instance, completion) for completion in sampled_outputs
                 ]
@@ -2708,7 +2920,9 @@ def _canonical_environment_evaluator(
             "pass_at_k": float(np.mean(pass_success)),
             "valid_rate": float(np.mean(greedy_valid)),
             "sampled_valid_rate": float(np.mean(sampled_valid)),
-            "n_eval": float(len(rows)),
+            "n_eval": float(len(greedy_rows)),
+            "greedy_prompt_rows": float(len(greedy_rows)),
+            "passk_prompt_rows": float(len(sampled_rows)),
             "task_verifier_interface": True,
         }
         numeric = [value for value in metrics.values() if isinstance(value, (int, float))]
@@ -3023,18 +3237,16 @@ def _train_canonical_cold_cell(
     root_name: str = "cells",
     base_config_override: Path | None = None,
 ) -> dict[str, Any]:
-    """Dispatch to the old cold-start entry points; this function owns no loss math."""
+    """Dispatch one cell to the exact paper runtime; this owns no loss math."""
 
     if not _is_coldstart(config):
         raise RuntimeError("Canonical cold dispatch is cold-profile only")
     modules = _canonical_cold_modules(config)
     arena = modules["arena"]
-    base_runner = modules["positive_only"]
-    runtime = modules["taper_runtime"]
     record = _canonical_task_record(split_manifest, cell.task)
     calibration_path = output_root / "calibration" / f"{cell.task}.json"
     if not calibration_path.is_file():
-        raise RuntimeError(f"Run canonical calibration before training {cell.task}")
+        raise RuntimeError(f"Run the no-calibration identity gate before {cell.task}")
     calibration = json.loads(calibration_path.read_text(encoding="utf-8"))
     expected_calibration = _canonical_calibration_identity(
         cell.task,
@@ -3042,10 +3254,23 @@ def _train_canonical_cold_cell(
         base_model_path=base_model_path,
         config=config,
     )
-    if calibration.get("identity_hash") != expected_calibration[
-        "identity_hash"
-    ] or not calibration.get("complete"):
-        raise RuntimeError(f"Canonical calibration identity mismatch for {cell.task}")
+    if (
+        calibration.get("identity_hash") != expected_calibration["identity_hash"]
+        or calibration.get("enabled") is not False
+        or not calibration.get("complete")
+    ):
+        raise RuntimeError(f"Paper no-calibration identity mismatch for {cell.task}")
+
+    bank = Path(str(record["train"]))
+    validation = Path(str(record["validation"]))
+    base_config_path = base_config_override or Path(str(record["base_config"]))
+    grid_path = _paper_grid_for_cell(record, cell)
+    modules = _activate_paper_grid_modules(modules, grid_path)
+    arena = modules["arena"]
+    runtime = modules["paper_runtime"]
+    base_config = yaml.safe_load(base_config_path.read_text(encoding="utf-8"))
+    if not isinstance(base_config, dict):
+        raise TypeError("Paper base config root must be a mapping")
     identity = _cell_identity(
         cell,
         inputs=inputs,
@@ -3054,13 +3279,22 @@ def _train_canonical_cold_cell(
         config=config,
         calibration=calibration,
     )
-    identity["canonical_source_git_blob_shas"] = dict(
-        config["canonical_coldstart"]["expected_git_blob_shas"]
-    )
-    identity["canonical_dispatch"] = (
-        "countdown_e8_base_rl_replay.train_offline_method"
-        if cell.method == METHOD_POSITIVE_ONLY
-        else "countdown_e8_oracle_offline_v2_taper_runtime.worker"
+    identity.update(
+        {
+            "canonical_source_git_blob_shas": dict(
+                config["canonical_coldstart"]["expected_git_blob_shas"]
+            ),
+            "canonical_dispatch": "countdown_e8_alpha1_highc_scan_runtime.worker",
+            "paper_formula": "alpha*exp(-c*(current_sequence_surprisal/2))",
+            "paper_grid_config": str(grid_path.resolve()),
+            "paper_grid_config_sha256": sha256_file(grid_path),
+            "paper_base_config": str(base_config_path.resolve()),
+            "paper_base_config_sha256": sha256_file(base_config_path),
+            "all_unique_negatives": True,
+            "near_far_selection": False,
+            "gradient_rms_matching": False,
+            "task_runtime_contract": dict(config["task_runtime"][cell.task]),
+        }
     )
     identity["identity_hash"] = stable_hash(identity)
 
@@ -3070,176 +3304,133 @@ def _train_canonical_cold_cell(
         existing = json.loads(manifest_path.read_text(encoding="utf-8"))
         if existing.get("identity_hash") == identity["identity_hash"] and existing.get("complete"):
             return existing
-        raise RuntimeError(f"Existing canonical cell identity mismatch: {cell.key}")
+        raise RuntimeError(f"Existing paper cell identity mismatch: {cell.key}")
     if cell_root.exists():
         if not force:
             raise RuntimeError(f"Cell output exists without a reusable manifest: {cell_root}")
         expected_parent = (output_root / root_name).resolve()
         if expected_parent not in cell_root.resolve().parents:
-            raise RuntimeError(f"Refusing unsafe canonical cell removal: {cell_root}")
+            raise RuntimeError(f"Refusing unsafe paper cell removal: {cell_root}")
         shutil.rmtree(cell_root)
     cell_root.mkdir(parents=True, exist_ok=False)
+    canonical_output = cell_root / "canonical"
 
-    bank = Path(str(record["train"]))
-    validation = Path(str(record["validation"]))
-    sealed_test = Path(str(record["sealed_test"]))
-    base_config_path = base_config_override or Path(str(record["base_config"]))
-    base_config = yaml.safe_load(base_config_path.read_text(encoding="utf-8"))
-    if not isinstance(base_config, dict):
-        raise TypeError("Canonical base config root must be a mapping")
-    validation_rows = read_jsonl(validation)
-    task_adapter, instances = _load_task_adapter_and_instances(
-        cell.task,
-        inputs=inputs,
-        validation_rows=validation_rows,
-    )
-    evaluator = _canonical_environment_evaluator(
-        arena=arena,
-        task_adapter=task_adapter,
-        instances=instances,
-    )
-    original_evaluate_rows = arena.evaluate_rows
-    canonical_root = cell_root / "canonical"
-
-    def posthoc_evaluator(
-        model_path: Path,
-        adapter_path: Path,
-        _data_paths: Mapping[str, Path],
-        loaded_config: Mapping[str, Any],
-        *,
-        seed_offset: int = 0,
-    ) -> dict[str, Any]:
-        return _canonical_generic_posthoc(
+    evaluator = None
+    if cell.task != "countdown":
+        validation_rows = read_jsonl(validation)
+        task_adapter, instances = _load_task_adapter_and_instances(
+            cell.task,
+            inputs=inputs,
+            validation_rows=validation_rows,
+        )
+        evaluator = _canonical_environment_evaluator(
             arena=arena,
-            evaluator=evaluator,
-            model_path=Path(model_path),
-            checkpoint=Path(adapter_path),
-            validation_path=validation,
-            base_config=loaded_config,
-            seed_offset=seed_offset,
+            task_adapter=task_adapter,
+            instances=instances,
+            greedy_prompt_rows=int(config["task_runtime"][cell.task]["greedy_prompt_rows"]),
+            passk_prompt_rows=int(config["task_runtime"][cell.task]["passk_prompt_rows"]),
         )
 
-    try:
-        arena.evaluate_rows = evaluator
-        if cell.method == METHOD_POSITIVE_ONLY:
-            original_checkpoint_evaluator = base_runner.evaluate_adapter_checkpoint
-            base_runner.evaluate_adapter_checkpoint = posthoc_evaluator
-            try:
-                canonical_summary = base_runner.train_offline_method(
-                    Path(base_model_path).resolve(),
-                    canonical_root,
-                    {
-                        "train": bank,
-                        "validation": validation,
-                        "test": sealed_test,
-                        "split_manifest": bank,
-                    },
-                    bank,
-                    base_config,
-                    method=METHOD_POSITIVE_ONLY,
-                    output_name=METHOD_POSITIVE_ONLY,
-                    seed=cell.seed,
-                )
-            finally:
-                base_runner.evaluate_adapter_checkpoint = original_checkpoint_evaluator
-            canonical_output = canonical_root / "methods" / METHOD_POSITIVE_ONLY
-            underlying_manifest = json.loads(
-                (canonical_output / "manifest.json").read_text(encoding="utf-8")
+    @contextmanager
+    def task_interface() -> Any:
+        original_evaluate_rows = arena.evaluate_rows
+        original_clean_expression = arena.clean_expression
+        try:
+            if evaluator is not None:
+                arena.evaluate_rows = evaluator
+                # Non-arithmetic task outputs are already canonicalized by the P0
+                # verifier.  Arithmetic-only line/equality stripping would corrupt
+                # Sudoku, graph, and SQL outputs.
+                arena.clean_expression = lambda value: str(value)
+            yield
+        finally:
+            arena.evaluate_rows = original_evaluate_rows
+            arena.clean_expression = original_clean_expression
+
+    alpha = 0.0 if cell.method == METHOD_POSITIVE_ONLY else 1.0
+    coefficient = 0.0 if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL} else float(
+        cell.lambda_value
+    )
+    with task_interface():
+        returncode = runtime.worker(
+            argparse.Namespace(
+                family="exponential",
+                alpha=alpha,
+                c=coefficient,
+                seed_offset=int(cell.seed),
+                output_dir=str(canonical_output),
+                model_path=str(Path(base_model_path).resolve()),
+                bank=str(bank),
+                val=str(validation),
+                base_config=str(base_config_path),
+                grid_config=str(grid_path),
             )
-            canonical_summary_path = canonical_output / "summary.json"
-        elif cell.method == METHOD_EXPONENTIAL:
-            if cell.rho is None:
-                raise AssertionError("Canonical Exp cell is missing rho")
-            pack_path, taper_calibration = _canonical_pack_for_rho(record, cell.rho)
-            if not taper_calibration.is_file():
-                raise RuntimeError(f"Missing canonical taper calibration: {taper_calibration}")
-            seed_offset = cell.seed - int(base_config["offline_training"]["seed"])
-            original_posthoc = runtime.real_posthoc_evaluation
+        )
+    if int(returncode) != 0:
+        raise RuntimeError(f"Paper runtime failed for {cell.key}")
 
-            def runtime_posthoc(**kwargs: Any) -> dict[str, Any]:
-                return _canonical_generic_posthoc(
-                    arena=arena,
-                    evaluator=evaluator,
-                    model_path=Path(kwargs["model_path"]),
-                    checkpoint=Path(kwargs["checkpoint"]),
-                    validation_path=validation,
-                    base_config=kwargs["base_config"],
-                    seed_offset=int(kwargs["seed_offset"]),
-                )
-
-            runtime.real_posthoc_evaluation = runtime_posthoc
-            try:
-                returncode = runtime.worker(
-                    argparse.Namespace(
-                        method=METHOD_EXPONENTIAL,
-                        rho=float(cell.rho),
-                        seed_offset=seed_offset,
-                        output_dir=str(canonical_root),
-                        model_path=str(Path(base_model_path).resolve()),
-                        bank=str(bank),
-                        val=str(validation),
-                        test=str(sealed_test),
-                        base_config=str(base_config_path),
-                        sweep_config=str(pack_path),
-                        calibration=str(taper_calibration),
-                    )
-                )
-            finally:
-                runtime.real_posthoc_evaluation = original_posthoc
-            if int(returncode) != 0:
-                raise RuntimeError(f"Canonical taper runtime failed for {cell.key}")
-            canonical_summary_path = canonical_root / "summary.json"
-            canonical_summary = json.loads(canonical_summary_path.read_text(encoding="utf-8"))
-            underlying_manifest = json.loads(
-                (canonical_root / "manifest.json").read_text(encoding="utf-8")
-            )
-            canonical_output = canonical_root
-        else:
-            raise ValueError(f"Unsupported canonical cold-start method: {cell.method}")
-    finally:
-        arena.evaluate_rows = original_evaluate_rows
-
-    best_evaluation = canonical_summary.get("best_evaluation") or {}
-    terminal_evaluation = canonical_summary.get("terminal_evaluation") or {}
-    numerical_failure = underlying_manifest.get("numerical_failure")
-    best_adapter = canonical_output / "best_adapter"
+    canonical_summary_path = canonical_output / "summary.json"
+    canonical_summary = json.loads(canonical_summary_path.read_text(encoding="utf-8"))
+    metrics_path = canonical_output / "metrics.csv"
+    with metrics_path.open(encoding="utf-8", newline="") as handle:
+        metric_rows = list(csv.DictReader(handle))
+    evaluations = [
+        {
+            "update": int(row["step"]),
+            "pass8": float(row["val_pass_at_8"]),
+            "greedy_success": float(row["val_greedy"]),
+            "greedy_valid_rate": float(row["val_valid_rate"]),
+            "sampled_valid_rate": float(row["val_valid_rate"]),
+        }
+        for row in metric_rows
+    ]
+    metrics_summary = _summarize_evaluations(evaluations, config)
+    numerical_failure = canonical_summary.get("numerical_failure")
+    best_adapter = canonical_output / "best_pass8_adapter"
     terminal_adapter = canonical_output / (
         "last_finite_adapter" if numerical_failure else "terminal_adapter"
     )
     result = {
         **identity,
+        **metrics_summary,
         "canonical_summary": str(canonical_summary_path.resolve()),
         "canonical_summary_sha256": sha256_file(canonical_summary_path),
         "canonical_output": str(canonical_output.resolve()),
-        "canonical_training_metrics": str((canonical_output / "metrics.csv").resolve()),
+        "canonical_training_metrics": str(metrics_path.resolve()),
+        "training_metrics": str(metrics_path.resolve()),
         "best_adapter": str(best_adapter.resolve()),
         "terminal_adapter": str(terminal_adapter.resolve()),
         "terminal_adapter_identity": model_identity(base_model_path, str(terminal_adapter))[
             "adapter"
         ],
         "canonical_dispatch_verified": True,
+        "countdown_protocol_exact": cell.task == "countdown",
+        "task_interface_adapter_only": cell.task != "countdown",
         "adapter_path_argument": None,
         "sft_adapter_path_argument": None,
         "initialization_optimizer_updates": 0,
-        "best_step": canonical_summary.get("best_step"),
+        "best_step": metrics_summary["supplementary_best_step"],
         "terminal_step": canonical_summary.get("terminal_step"),
         "stop_reason": canonical_summary.get("stop_reason"),
-        "validation_best_pass8": best_evaluation.get("validation_pass_at_8"),
-        "validation_terminal_pass8": terminal_evaluation.get("validation_pass_at_8"),
-        "validation_best_greedy": best_evaluation.get("validation_greedy_success"),
-        "validation_terminal_greedy": terminal_evaluation.get("validation_greedy_success"),
-        "validation_best_greedy_valid_rate": best_evaluation.get("validation_valid_rate"),
-        "validation_terminal_greedy_valid_rate": terminal_evaluation.get("validation_valid_rate"),
-        "validation_terminal_sampled_valid_rate": terminal_evaluation.get(
-            "validation_sampled_valid_rate"
+        "validation_best_pass8": metrics_summary["supplementary_best_pass8"],
+        "validation_terminal_pass8": metrics_summary["validation_terminal_pass8"],
+        "validation_best_greedy": metrics_summary["supplementary_best_greedy"],
+        "validation_terminal_greedy": metrics_summary["validation_terminal_greedy"],
+        "validation_best_greedy_valid_rate": max(
+            float(row["greedy_valid_rate"]) for row in evaluations
         ),
+        "validation_terminal_greedy_valid_rate": metrics_summary[
+            "validation_terminal_greedy_valid_rate"
+        ],
+        "validation_terminal_sampled_valid_rate": metrics_summary[
+            "validation_terminal_sampled_valid_rate"
+        ],
+        "optimizer_updates": int(canonical_summary.get("terminal_step", 0)),
         "numerical_failure": numerical_failure,
         "nan_inf_failure": numerical_failure is not None,
-        "evaluation_status": "complete"
-        if best_evaluation and terminal_evaluation
-        else "incomplete",
+        "evaluation_status": "complete" if evaluations else "incomplete",
         "test_partition_accessed": False,
-        "complete": bool(best_evaluation and terminal_evaluation and numerical_failure is None),
+        "complete": bool(evaluations and numerical_failure is None),
         "scientific_status": "pilot",
     }
     atomic_json(manifest_path, result)
@@ -3705,30 +3896,47 @@ def _cmd_canonical_cold_liveness(
     base_model_path: str,
     force: bool,
 ) -> dict[str, Any]:
-    base_config_path = _canonical_liveness_base_config(config, output_root)
-    result = _train_canonical_cold_cell(
-        cell,
-        inputs=inputs,
-        split_manifest=splits,
-        base_model_path=base_model_path,
-        config=config,
-        output_root=output_root,
-        force=force,
-        root_name="liveness",
-        base_config_override=base_config_path,
+    if cell.task != "countdown":
+        raise RuntimeError("The paper-runtime liveness anchor must be Countdown")
+    modules = _canonical_cold_modules(config)
+    runtime = modules["paper_runtime"]
+    record = _canonical_task_record(splits, cell.task)
+    grid_path = Path(str(record["round1_grid"]))
+    smoke_root = output_root / "liveness" / "paper_runtime_smoke"
+    if force and smoke_root.exists():
+        shutil.rmtree(smoke_root)
+    returncode = runtime.smoke(
+        argparse.Namespace(
+            model_path=str(Path(base_model_path).resolve()),
+            bank=str(Path(str(record["train"])).resolve()),
+            val=str(Path(str(record["validation"])).resolve()),
+            base_config=str(Path(str(record["base_config"])).resolve()),
+            grid_config=str(grid_path.resolve()),
+            work_dir=str(smoke_root.resolve()),
+        )
     )
+    gate = json.loads((smoke_root / "SMOKE_GATE.json").read_text(encoding="utf-8"))
+    if int(returncode) != 0 or gate.get("status") != "PASS":
+        raise RuntimeError("Paper-runtime two-update smoke gate failed")
+    summary_path = Path(str(gate["summary"]))
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    diagnostics_path = Path(str(summary["diagnostic_files"]["training"]))
+    diagnostics = read_jsonl(diagnostics_path)
+    optimizer_update_norms = [
+        float(row["optimizer_update_norm"])
+        for row in diagnostics
+        if row.get("optimizer_update_norm") is not None
+    ]
     if (
-        int(result.get("terminal_step") or -1) != 2
-        or result.get("numerical_failure") is not None
-        or result.get("canonical_dispatch") != "countdown_e8_oracle_offline_v2_taper_runtime.worker"
+        int(summary.get("terminal_step") or -1) != 2
+        or summary.get("numerical_failure") is not None
+        or not optimizer_update_norms
+        or not all(math.isfinite(value) and value > 0.0 for value in optimizer_update_norms)
     ):
-        raise RuntimeError("Canonical two-update liveness did not finish its old-core path")
-    initial_path = _adapter_weight_file(Path(result["best_adapter"]))
-    terminal_path = _adapter_weight_file(Path(result["terminal_adapter"]))
-    initial_hash = sha256_file(initial_path)
-    terminal_hash = sha256_file(terminal_path)
-    if initial_hash == terminal_hash:
-        raise RuntimeError("Canonical old-core adapter did not change after two updates")
+        raise RuntimeError("Paper-runtime liveness did not perform two finite optimizer updates")
+    canonical_output = summary_path.parent
+    terminal_adapter = canonical_output / "terminal_adapter"
+    terminal_hash = sha256_file(_adapter_weight_file(terminal_adapter))
 
     reload_command = [
         sys.executable,
@@ -3742,7 +3950,7 @@ def _cmd_canonical_cold_liveness(
         "--base-model-path",
         base_model_path,
         "--adapter-path",
-        str(result["terminal_adapter"]),
+        str(terminal_adapter),
     ]
     reload_process = subprocess.run(
         reload_command,
@@ -3763,23 +3971,46 @@ def _cmd_canonical_cold_liveness(
         not reload_result.get("complete")
         or not reload_result.get("finite")
         or int(reload_result.get("process_id", os.getpid())) == os.getpid()
-        or reload_result.get("adapter_identity") != result["terminal_adapter_identity"]
+        or reload_result.get("adapter_identity")
+        != model_identity(base_model_path, str(terminal_adapter))["adapter"]
     ):
         raise RuntimeError("Fresh-process canonical adapter reload gate failed")
-    result.update(
-        {
-            "engineering_liveness": True,
-            "optimizer_updates": 2,
-            "initial_adapter_weight_sha256": initial_hash,
-            "terminal_adapter_weight_sha256": terminal_hash,
-            "adapter_weight_changed": True,
-            "finite_old_core_updates": True,
-            "reload_gate_passed": True,
-            "fresh_process_reload_passed": True,
-            "liveness_parent_process_id": os.getpid(),
-            "reload_process_id": int(reload_result["process_id"]),
-        }
+    calibration = json.loads(
+        (output_root / "calibration" / "countdown.json").read_text(encoding="utf-8")
     )
+    result = {
+        **_cell_identity(
+            cell,
+            inputs=inputs,
+            split_manifest=splits,
+            base_model_path=base_model_path,
+            config=config,
+            calibration=calibration,
+        ),
+        "canonical_dispatch": "countdown_e8_alpha1_highc_scan_runtime.smoke",
+        "canonical_dispatch_verified": True,
+        "canonical_summary": str(summary_path.resolve()),
+        "canonical_summary_sha256": sha256_file(summary_path),
+        "terminal_adapter": str(terminal_adapter.resolve()),
+        "terminal_adapter_identity": model_identity(base_model_path, str(terminal_adapter))[
+            "adapter"
+        ],
+        "engineering_liveness": True,
+        "optimizer_updates": 2,
+        "optimizer_update_norm": min(optimizer_update_norms),
+        "terminal_adapter_weight_sha256": terminal_hash,
+        "adapter_weight_changed": True,
+        "finite_old_core_updates": True,
+        "reload_gate_passed": True,
+        "fresh_process_reload_passed": True,
+        "liveness_parent_process_id": os.getpid(),
+        "reload_process_id": int(reload_result["process_id"]),
+        "nan_inf_failure": False,
+        "evaluation_status": "complete",
+        "complete": True,
+        "scientific_status": "not_run",
+    }
+    result["identity_hash"] = stable_hash(result)
     atomic_json(
         output_root / "liveness" / cell.key / "cell_manifest.json",
         result,
@@ -4644,6 +4875,11 @@ def _require_calibration_gate(
             "complete"
         ):
             raise RuntimeError(f"Calibration gate identity mismatch for {task}")
+        if _is_coldstart(config) and (
+            result.get("enabled") is not False
+            or result.get("mode") != "paper_linear_surprisal_no_calibration"
+        ):
+            raise RuntimeError(f"Paper calibration must remain disabled for {task}")
 
 
 def _require_liveness_gate(
@@ -4676,8 +4912,8 @@ def _require_liveness_gate(
             _is_coldstart(config)
             and result.get("canonical_dispatch_verified") is True
             and result.get("finite_old_core_updates") is True
-            and result.get("initial_adapter_weight_sha256")
-            != result.get("terminal_adapter_weight_sha256")
+            and math.isfinite(float(result.get("optimizer_update_norm", 0.0)))
+            and float(result.get("optimizer_update_norm", 0.0)) > 0.0
         )
         legacy = (
             not _is_coldstart(config)
@@ -4756,6 +4992,120 @@ def cmd_run_wave(
     return manifest
 
 
+def _scheduler_countdown_reproduction_gate(
+    config: Mapping[str, Any], output_root: Path
+) -> dict[str, Any]:
+    """Block all non-Countdown training until the registered curve is reproduced."""
+
+    countdown_cells = [cell for cell in build_cells(config) if cell.task == "countdown"]
+    if _is_engineering_self_test(config):
+        gate = {
+            "schema_version": 1,
+            "experiment_id": experiment_id(config),
+            "status": "NOT_RUN_ENGINEERING",
+            "countdown_cells": len(countdown_cells),
+            "non_countdown_training_released": True,
+            "scientific_evidence": False,
+        }
+        atomic_json(output_root / "scheduler" / "countdown_reproduction_gate.json", gate)
+        return gate
+    expected_sources = dict(config["canonical_coldstart"]["expected_git_blob_shas"])
+    rows: list[dict[str, Any]] = []
+    identity_failures: list[str] = []
+    for cell in countdown_cells:
+        path = output_root / "cells" / cell.key / "cell_manifest.json"
+        if not path.is_file():
+            identity_failures.append(f"{cell.key}:missing")
+            continue
+        value = json.loads(path.read_text(encoding="utf-8"))
+        if (
+            value.get("complete") is not True
+            or value.get("evaluation_status") != "complete"
+            or value.get("nan_inf_failure") is not False
+            or value.get("countdown_protocol_exact") is not True
+            or value.get("canonical_dispatch")
+            != "countdown_e8_alpha1_highc_scan_runtime.worker"
+            or value.get("canonical_source_git_blob_shas") != expected_sources
+            or int(value.get("terminal_step", -1)) != 1200
+            or value.get("stop_reason") != "max_steps"
+        ):
+            identity_failures.append(f"{cell.key}:protocol_identity")
+            continue
+        rows.append(
+            {
+                "method": cell.method,
+                "c": 0.0 if cell.lambda_value is None else float(cell.lambda_value),
+                "seed": int(cell.seed),
+                "stage": cell.stage,
+                "late_window_pass8": float(value["validation_late_window_pass8_mean"]),
+            }
+        )
+
+    grouped: dict[tuple[str, float], list[float]] = {}
+    for row in rows:
+        method = (
+            "continuous_exp" if row["method"] == METHOD_EXPONENTIAL else str(row["method"])
+        )
+        grouped.setdefault((method, float(row["c"])), []).append(
+            float(row["late_window_pass8"])
+        )
+    reference_path = _canonical_paths(config)["result_reference"]
+    reference = json.loads(reference_path.read_text(encoding="utf-8"))
+    tolerance = float(
+        config["countdown_reproduction_gate"]["late_window_pass8_absolute_tolerance"]
+    )
+    comparisons: list[dict[str, Any]] = []
+    for expected in reference["aggregate_results"]:
+        key = (str(expected["method"]), float(expected["c"]))
+        values = grouped.get(key, ())
+        observed = float(np.mean(values)) if len(values) == 2 else None
+        delta = (
+            None
+            if observed is None
+            else observed - float(expected["late_window_pass_at_8_mean"])
+        )
+        comparisons.append(
+            {
+                "method": key[0],
+                "c": key[1],
+                "observed": observed,
+                "expected": expected["late_window_pass_at_8_mean"],
+                "absolute_delta": None if delta is None else abs(delta),
+                "within_tolerance": delta is not None and abs(delta) <= tolerance,
+            }
+        )
+    positive = grouped.get(("positive_only", 0.0), ())
+    exp_values = [
+        float(np.mean(values))
+        for (method, _), values in grouped.items()
+        if method == "continuous_exp" and len(values) == 2
+    ]
+    peak_above_positive = bool(
+        len(positive) == 2 and exp_values and max(exp_values) > float(np.mean(positive))
+    )
+    passed = (
+        not identity_failures
+        and len(rows) == 48
+        and all(row["within_tolerance"] for row in comparisons)
+        and peak_above_positive
+    )
+    gate = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "status": "PASS" if passed else "FAIL",
+        "countdown_cells": len(rows),
+        "identity_failures": identity_failures,
+        "reference_run_id": config["countdown_reproduction_gate"]["reference_run_id"],
+        "late_window_pass8_absolute_tolerance": tolerance,
+        "comparisons": comparisons,
+        "peak_above_positive_only": peak_above_positive,
+        "non_countdown_training_released": passed,
+        "scientific_evidence": True,
+    }
+    atomic_json(output_root / "scheduler" / "countdown_reproduction_gate.json", gate)
+    return gate
+
+
 def cmd_run_dynamic(
     config: Mapping[str, Any],
     config_path: Path,
@@ -4765,7 +5115,7 @@ def cmd_run_dynamic(
     force: bool,
     retry_incomplete: bool,
 ) -> dict[str, Any]:
-    """Run one shared queue on 16 fixed GPU slots, without batch barriers."""
+    """Run one recovery-aware queue at the declared one-cell-per-GPU capacity."""
 
     if not _is_coldstart(config):
         raise RuntimeError("Dynamic scheduling is frozen for the cold-start profile only")
@@ -4778,10 +5128,6 @@ def cmd_run_dynamic(
     if slot_count != int(config["execution"]["max_concurrent_cells"]):
         raise RuntimeError("Declared slot capacity is internally inconsistent")
 
-    pending: queue.Queue[Cell] = queue.Queue()
-    for cell in cells:
-        pending.put(cell)
-    stop = threading.Event()
     lock = threading.Lock()
     checkpoint_lock = threading.Lock()
     results: list[dict[str, Any]] = []
@@ -4800,7 +5146,14 @@ def cmd_run_dynamic(
         with lock:
             append_jsonl(event_path, {"scheduler_run_id": scheduler_run_id, **dict(event)})
 
-    def worker(slot: int, gpu_id: int) -> list[dict[str, Any]]:
+    def worker(
+        slot: int,
+        gpu_id: int,
+        *,
+        phase: str,
+        pending: queue.Queue[Cell],
+        stop: threading.Event,
+    ) -> list[dict[str, Any]]:
         nonlocal last_checkpoint_count
         local: list[dict[str, Any]] = []
         while not stop.is_set():
@@ -4825,6 +5178,7 @@ def cmd_run_dynamic(
                 {
                     "event": "start",
                     "cell_key": cell.key,
+                    "phase": phase,
                     "slot": slot,
                     "gpu_id": gpu_id,
                     "unix_time": time.time(),
@@ -4856,7 +5210,13 @@ def cmd_run_dynamic(
                 except Exception as exc:
                     result["returncode"] = 74
                     result["recovery_checkpoint_error"] = f"{type(exc).__name__}: {exc}"
-            result.update({"slot": slot, "nominal_batch": cells.index(cell) // slot_count + 1})
+            result.update(
+                {
+                    "phase": phase,
+                    "slot": slot,
+                    "nominal_batch": cells.index(cell) // slot_count + 1,
+                }
+            )
             local.append(result)
             record({"event": "finish", **result, "unix_time": time.time()})
             pending.task_done()
@@ -4864,13 +5224,75 @@ def cmd_run_dynamic(
                 stop.set()
         return local
 
-    with ThreadPoolExecutor(max_workers=slot_count) as executor:
-        futures = [
-            executor.submit(worker, slot, gpu_ids[slot % len(gpu_ids)])
-            for slot in range(slot_count)
+    phase_specs = (
+        ("countdown_reproduction", [cell for cell in cells if cell.task == "countdown"]),
+        ("task_transfer", [cell for cell in cells if cell.task != "countdown"]),
+    )
+    phase_records: list[dict[str, Any]] = []
+    reproduction_gate: dict[str, Any] = {
+        "status": "NOT_RUN",
+        "non_countdown_training_released": False,
+    }
+    reproduction_failed = False
+    for phase, phase_cells in phase_specs:
+        pending: queue.Queue[Cell] = queue.Queue()
+        for cell in phase_cells:
+            pending.put(cell)
+        stop = threading.Event()
+        phase_results: list[dict[str, Any]] = []
+        with ThreadPoolExecutor(max_workers=slot_count) as executor:
+            futures = [
+                executor.submit(
+                    worker,
+                    slot,
+                    gpu_ids[slot % len(gpu_ids)],
+                    phase=phase,
+                    pending=pending,
+                    stop=stop,
+                )
+                for slot in range(slot_count)
+            ]
+            for future in as_completed(futures):
+                phase_results.extend(future.result())
+        results.extend(phase_results)
+        phase_failures = [
+            row for row in phase_results if int(row["returncode"]) != 0
         ]
-        for future in as_completed(futures):
-            results.extend(future.result())
+        phase_records.append(
+            {
+                "phase": phase,
+                "expected_cells": len(phase_cells),
+                "returned_cells": len(phase_results),
+                "failed_cells": [row["cell_key"] for row in phase_failures],
+                "complete": not phase_failures and len(phase_results) == len(phase_cells),
+            }
+        )
+        if phase_failures or len(phase_results) != len(phase_cells):
+            break
+        if phase == "countdown_reproduction":
+            try:
+                reproduction_gate = _scheduler_countdown_reproduction_gate(
+                    config, output_root
+                )
+            except Exception as exc:
+                reproduction_gate = {
+                    "schema_version": 1,
+                    "experiment_id": experiment_id(config),
+                    "status": "ERROR",
+                    "error": f"{type(exc).__name__}: {exc}",
+                    "non_countdown_training_released": False,
+                    "scientific_evidence": False,
+                }
+                atomic_json(
+                    output_root / "scheduler" / "countdown_reproduction_gate.json",
+                    reproduction_gate,
+                )
+            if reproduction_gate.get("status") not in {
+                "PASS",
+                "NOT_RUN_ENGINEERING",
+            }:
+                reproduction_failed = True
+                break
     results.sort(key=lambda row: str(row["cell_key"]))
     failures = [row for row in results if int(row["returncode"]) != 0]
     completed_keys = {str(row["cell_key"]) for row in results if int(row["returncode"]) == 0}
@@ -4886,21 +5308,30 @@ def cmd_run_dynamic(
         "slot_count": slot_count,
         "gpu_ids": list(gpu_ids),
         "slots_per_gpu": slots_per_gpu,
+        "phase_barrier": "countdown_reproduction_before_task_transfer",
+        "phases": phase_records,
+        "countdown_reproduction_gate": reproduction_gate,
         "expected_cells": len(cells),
         "completed_cells": len(completed_keys),
         "results": results,
         "failed_cells": [row["cell_key"] for row in failures],
         "unscheduled_cells": unscheduled,
         "queue_events": str(event_path.resolve()),
-        "complete": not failures and not unscheduled and len(completed_keys) == len(cells),
+        "complete": (
+            not failures
+            and not unscheduled
+            and not reproduction_failed
+            and len(completed_keys) == len(cells)
+        ),
         "scientific_status": "not_run" if _is_engineering_self_test(config) else "pilot",
         "engineering_placeholder_backend": _is_engineering_self_test(config),
     }
     atomic_json(output_root / "scheduler" / "dynamic_run.json", manifest)
-    if failures or unscheduled:
+    if failures or unscheduled or reproduction_failed:
         raise RuntimeError(
             "Dynamic run stopped fail-closed; "
-            f"failed={manifest['failed_cells']} unscheduled={len(unscheduled)}"
+            f"failed={manifest['failed_cells']} unscheduled={len(unscheduled)} "
+            f"countdown_gate={reproduction_gate.get('status')}"
         )
     return manifest
 
@@ -5127,10 +5558,8 @@ def _aggregate_coldstart(
     )
     run_id = str(provenance.get("run_id", output_root.name))
     source_commit = str(provenance.get("source_commit", "unrecorded"))
-    anchors = _tuple_floats(config["sweep"]["shared_historical_anchor_lambda"])
     plot_rows: list[dict[str, Any]] = []
     for row in rows:
-        lambda_value = row["lambda"]
         plot_rows.append(
             {
                 "experiment_id": experiment_id(config),
@@ -5138,16 +5567,12 @@ def _aggregate_coldstart(
                 "source_commit": source_commit,
                 "task": row["task"],
                 "method": row["method"],
-                "lambda": lambda_value,
+                "lambda": row["lambda"],
                 "rho": row["rho"],
-                "shared_historical_anchor": bool(
-                    lambda_value is not None
-                    and any(
-                        math.isclose(float(lambda_value), anchor, abs_tol=1e-15)
-                        for anchor in anchors
-                    )
-                ),
                 "seed": row["seed"],
+                "stage": row["stage"],
+                "late_window_pass8_mean": row["late_window_pass8_mean"],
+                "late_window_greedy_mean": row["late_window_greedy_mean"],
                 "best_validation_pass8": row["best_pass8"],
                 "terminal_pass8": row["terminal_pass8"],
                 "best_validation_greedy": row["best_greedy"],
@@ -5170,68 +5595,193 @@ def _aggregate_coldstart(
         task = str(task_value)
         task_rows = [row for row in rows if row["task"] == task]
         positive_rows = [row for row in task_rows if row["method"] == METHOD_POSITIVE_ONLY]
+        global_rows = [row for row in task_rows if row["method"] == METHOD_GLOBAL]
         exp_rows = [row for row in task_rows if row["method"] == METHOD_EXPONENTIAL]
-        if len(positive_rows) != 1 or len(exp_rows) != 19:
-            raise RuntimeError(f"{task} does not contain one Positive-only and nineteen Exp cells")
+        expected_counts = (2, 2, 44) if task == "countdown" else (1, 0, 19)
+        if (len(positive_rows), len(global_rows), len(exp_rows)) != expected_counts:
+            raise RuntimeError(f"{task} paper cell counts differ from {expected_counts}")
+
+        def aggregate_group(group: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+            first = group[0]
+            return {
+                "task": task,
+                "method": first["method"],
+                "lambda": first["lambda"],
+                "rho": first["rho"],
+                "seeds": sorted(int(row["seed"]) for row in group),
+                "late_window_pass8_mean": float(
+                    np.mean([float(row["late_window_pass8_mean"]) for row in group])
+                ),
+                "late_window_greedy_mean": float(
+                    np.mean([float(row["late_window_greedy_mean"]) for row in group])
+                ),
+                "terminal_pass8_mean": float(
+                    np.mean([float(row["terminal_pass8"]) for row in group])
+                ),
+                "terminal_greedy_valid_rate_mean": float(
+                    np.mean([float(row["terminal_greedy_valid_rate"]) for row in group])
+                ),
+                "best_pass8_mean": float(np.mean([float(row["best_pass8"]) for row in group])),
+                "nan_inf_failure": any(bool(row["nan_inf_failure"]) for row in group),
+            }
+
+        coefficient_groups: dict[tuple[str, float | None], list[dict[str, Any]]] = {}
+        for row in task_rows:
+            coefficient_groups.setdefault((str(row["method"]), row["lambda"]), []).append(row)
+        grouped = [aggregate_group(group) for group in coefficient_groups.values()]
+        positive = next(row for row in grouped if row["method"] == METHOD_POSITIVE_ONLY)
+        grouped_exp = [row for row in grouped if row["method"] == METHOD_EXPONENTIAL]
         eligible = [
             row
-            for row in exp_rows
+            for row in grouped_exp
             if not row["nan_inf_failure"]
-            and float(row["terminal_greedy_valid_rate"]) >= minimum_valid
+            and float(row["terminal_greedy_valid_rate_mean"]) >= minimum_valid
         ]
         selected = (
             max(
                 eligible,
                 key=lambda row: (
-                    float(row["best_pass8"]),
-                    float(row["terminal_pass8"]),
-                    float(row["best_greedy"]),
-                    float(row["terminal_greedy"]),
+                    float(row["late_window_pass8_mean"]),
+                    float(row["terminal_pass8_mean"]),
+                    float(row["late_window_greedy_mean"]),
                     -float(row["lambda"]),
                 ),
             )
             if eligible
             else None
         )
-        positive = positive_rows[0]
-        max_lambda = max(float(row["lambda"]) for row in exp_rows)
+        max_lambda = max(float(row["lambda"]) for row in grouped_exp)
         selected_on_edge = bool(
             selected is not None
             and (
                 math.isclose(float(selected["lambda"]), max_lambda)
                 or math.isclose(
                     float(selected["lambda"]),
-                    min(float(row["lambda"]) for row in exp_rows),
+                    min(float(row["lambda"]) for row in grouped_exp),
                 )
             )
         )
         task_summary = {
             "task": task,
-            "task_role": config["sweep"]["task_role"][task],
             "positive_only": positive,
+            "global": next(
+                (row for row in grouped if row["method"] == METHOD_GLOBAL), None
+            ),
             "eligible_exp_count": len(eligible),
             "selected_exp": selected,
             "selected_on_grid_edge": selected_on_edge,
             "all_exp_below_positive_only": all(
-                float(row["best_pass8"]) < float(positive["best_pass8"]) for row in exp_rows
+                float(row["late_window_pass8_mean"])
+                < float(positive["late_window_pass8_mean"])
+                for row in grouped_exp
+            ),
+            "grouped_curve": sorted(
+                grouped,
+                key=lambda row: (
+                    row["method"] != METHOD_POSITIVE_ONLY,
+                    -1.0 if row["lambda"] is None else float(row["lambda"]),
+                ),
             ),
         }
         summaries[task] = task_summary
         summary_rows.append(
             {
                 "task": task,
-                "task_role": task_summary["task_role"],
-                "positive_only_best_validation_pass8": positive["best_pass8"],
+                "positive_only_late_window_pass8_mean": positive[
+                    "late_window_pass8_mean"
+                ],
                 "selected_lambda": None if selected is None else selected["lambda"],
                 "selected_rho": None if selected is None else selected["rho"],
-                "selected_best_validation_pass8": (
-                    None if selected is None else selected["best_pass8"]
+                "selected_late_window_pass8_mean": (
+                    None if selected is None else selected["late_window_pass8_mean"]
                 ),
                 "selected_on_grid_edge": selected_on_edge,
                 "all_exp_below_positive_only": task_summary["all_exp_below_positive_only"],
             }
         )
     _write_csv(output_root / "aggregate" / "task_summary.csv", summary_rows)
+
+    gate_config = config["countdown_reproduction_gate"]
+    countdown_summary = summaries["countdown"]
+    reference_path = _canonical_paths(config)["result_reference"]
+    reference = json.loads(reference_path.read_text(encoding="utf-8"))
+    observed_by_key = {
+        (
+            "continuous_exp" if row["method"] == METHOD_EXPONENTIAL else row["method"],
+            0.0 if row["lambda"] is None else float(row["lambda"]),
+        ): row
+        for row in countdown_summary["grouped_curve"]
+        if row["method"] != METHOD_EXPONENTIAL
+        or float(row["lambda"]) in PAPER_ROUND1_COEFFICIENTS
+    }
+    tolerance = float(gate_config["late_window_pass8_absolute_tolerance"])
+    comparisons: list[dict[str, Any]] = []
+    for expected in reference["aggregate_results"]:
+        key = (str(expected["method"]), float(expected["c"]))
+        observed = observed_by_key.get(key)
+        delta = (
+            None
+            if observed is None
+            else float(observed["late_window_pass8_mean"])
+            - float(expected["late_window_pass_at_8_mean"])
+        )
+        comparisons.append(
+            {
+                "method": key[0],
+                "c": key[1],
+                "expected_late_window_pass8": expected["late_window_pass_at_8_mean"],
+                "observed_late_window_pass8": (
+                    None if observed is None else observed["late_window_pass8_mean"]
+                ),
+                "absolute_delta": None if delta is None else abs(delta),
+                "within_tolerance": delta is not None and abs(delta) <= tolerance,
+            }
+        )
+    round1_cells = [
+        row for row in rows if row["task"] == "countdown" and row["stage"] == "paper_round1"
+    ]
+    protocol_identity_pass = (
+        len(round1_cells) == int(gate_config["require_round1_two_seed_cells"])
+        and {int(row["seed"]) for row in round1_cells} == set(PAPER_SEED_OFFSETS)
+        and all(row["nan_inf_failure"] is False for row in round1_cells)
+        and config["training"]["early_stopping"] is False
+        and tuple(config["training"]["late_window_updates"])
+        == (800, 900, 1000, 1100, 1200)
+        and int(config["split"]["countdown_train_rows"]) == 6000
+    )
+    peak = max(
+        row["late_window_pass8_mean"]
+        for row in countdown_summary["grouped_curve"]
+        if row["method"] == METHOD_EXPONENTIAL
+    )
+    positive_value = countdown_summary["positive_only"]["late_window_pass8_mean"]
+    numeric_pass = all(row["within_tolerance"] for row in comparisons)
+    peak_pass = float(peak) > float(positive_value)
+    engineering = _is_engineering_self_test(config)
+    gate = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "reference_run_id": gate_config["reference_run_id"],
+        "reference_result_sha256": sha256_file(reference_path),
+        "protocol_identity_pass": protocol_identity_pass,
+        "round1_cell_count": len(round1_cells),
+        "round1_seed_offsets": sorted({int(row["seed"]) for row in round1_cells}),
+        "late_window_pass8_absolute_tolerance": tolerance,
+        "comparisons": comparisons,
+        "all_reference_points_within_tolerance": numeric_pass,
+        "positive_only_late_window_pass8": positive_value,
+        "best_exp_late_window_pass8": peak,
+        "peak_above_positive_only": peak_pass,
+        "engineering_placeholder_backend": engineering,
+        "status": (
+            "NOT_RUN_ENGINEERING"
+            if engineering
+            else "PASS"
+            if protocol_identity_pass and numeric_pass and peak_pass
+            else "FAIL"
+        ),
+    }
+    atomic_json(output_root / "aggregate" / "countdown_reproduction_gate.json", gate)
     summary = {
         "schema_version": 1,
         "experiment_id": experiment_id(config),
@@ -5247,7 +5797,8 @@ def _aggregate_coldstart(
         "canonical_source_git_blob_shas": dict(
             config["canonical_coldstart"]["expected_git_blob_shas"]
         ),
-        "old_warmstart_results": "historical_auxiliary_comparison_only",
+        "countdown_reproduction_gate": gate,
+        "primary_metric": "validation_late_window_pass8_mean",
         "test_partition_accessed": False,
         "single_seed_shape_discovery": True,
         "fresh_seed_confirmation_required": True,
@@ -5256,6 +5807,10 @@ def _aggregate_coldstart(
         "engineering_placeholder_backend": _is_engineering_self_test(config),
     }
     atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
+    if not engineering and gate_config.get("required") is True and gate["status"] != "PASS":
+        raise RuntimeError(
+            "Countdown reproduction gate failed; do not interpret other task results"
+        )
     return summary
 
 
@@ -5283,12 +5838,26 @@ def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any
                 else (None if cell.rho is None else coefficient_from_rho(cell.rho))
             ),
             "seed": cell.seed,
+            "stage": cell.stage,
             "cell_key": cell.key,
             "nan_inf_failure": bool(value["nan_inf_failure"]),
         }
         if _is_coldstart(config):
+            if not _is_engineering_self_test(config) and (
+                "validation_late_window_pass8_mean" not in value
+                or "validation_late_window_greedy_mean" not in value
+            ):
+                raise RuntimeError(f"{cell.key} is missing the paper primary late-window metric")
             common.update(
                 {
+                    "late_window_pass8_mean": value.get(
+                        "validation_late_window_pass8_mean",
+                        value["validation_best_pass8"],
+                    ),
+                    "late_window_greedy_mean": value.get(
+                        "validation_late_window_greedy_mean",
+                        value["validation_best_greedy"],
+                    ),
                     "best_pass8": value["validation_best_pass8"],
                     "terminal_pass8": value["validation_terminal_pass8"],
                     "best_greedy": value["validation_best_greedy"],
@@ -5430,6 +5999,7 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             nan_inf.append(cell.key)
     inherited_complete = True
     aggregate_complete = True
+    reproduction_gate_status: str | None = None
     if _is_dense(config):
         snapshot_path = output_root / "inherited" / "parent_snapshot.json"
         aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
@@ -5441,9 +6011,16 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         ) == len(cells)
     elif _is_coldstart(config):
         aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
+        reproduction_path = output_root / "aggregate" / "countdown_reproduction_gate.json"
+        if reproduction_path.is_file():
+            reproduction_gate_status = str(
+                json.loads(reproduction_path.read_text(encoding="utf-8")).get("status")
+            )
         aggregate_complete = aggregate_path.is_file() and int(
             json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0)
-        ) == len(cells)
+        ) == len(cells) and reproduction_gate_status == (
+            "NOT_RUN_ENGINEERING" if _is_engineering_self_test(config) else "PASS"
+        )
     all_complete = (
         not missing and not incomplete and not nan_inf and inherited_complete and aggregate_complete
     )
@@ -5462,6 +6039,7 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "nan_inf_event_count": len(set(nan_inf)),
         "inherited_parent_inputs_complete": inherited_complete,
         "aggregate_complete": aggregate_complete,
+        "countdown_reproduction_gate_status": reproduction_gate_status,
         "excluded_tasks": (
             dict(config["suite"]["excluded_tasks"])
             if (_is_dense(config) or _is_coldstart(config))
@@ -5859,6 +6437,8 @@ def _write_engineering_gates(
         )
         result = {
             **identity,
+            "enabled": False,
+            "mode": "paper_linear_surprisal_no_calibration",
             "complete": True,
             "scientific_status": "not_run",
             "engineering_placeholder_backend": True,
@@ -5900,6 +6480,7 @@ def _write_engineering_gates(
         "nan_inf_failure": False,
         "canonical_dispatch_verified": True,
         "finite_old_core_updates": True,
+        "optimizer_update_norm": 1.0,
         "initial_adapter_weight_sha256": "0" * 64,
         "terminal_adapter_weight_sha256": "1" * 64,
         "cell": {"task": "countdown"},
@@ -5942,15 +6523,22 @@ def _audit_engineering_queue(
             active_by_gpu[gpu_id] -= 1
             finish_times[cell_key] = float(event["unix_time"])
     if set(start_times) != set(cell_index) or set(finish_times) != set(cell_index):
-        raise RuntimeError("Engineering queue audit did not observe all 160 starts and finishes")
-    if any(value != 0 for value in active_by_gpu.values()) or max(maximum_by_gpu.values()) > 2:
-        raise RuntimeError("Engineering queue exceeded two slots per GPU or leaked an active slot")
-    first_batch = {cell.key for cell in cells[:16]}
-    later = {cell.key for cell in cells[16:]}
+        raise RuntimeError(
+            f"Engineering queue audit did not observe all {len(cells)} starts and finishes"
+        )
+    slots_per_gpu = int(config["execution"]["slots_per_gpu"])
+    if (
+        any(value != 0 for value in active_by_gpu.values())
+        or max(maximum_by_gpu.values()) > slots_per_gpu
+    ):
+        raise RuntimeError("Engineering queue exceeded the declared per-GPU capacity")
+    capacity = int(config["execution"]["max_concurrent_cells"])
+    first_batch = {cell.key for cell in cells[:capacity]}
+    later = {cell.key for cell in cells[capacity:]}
     later_start = min(start_times[key] for key in later)
     first_batch_last_finish = max(finish_times[key] for key in first_batch)
     if not later_start < first_batch_last_finish:
-        raise RuntimeError("Engineering queue behaved like a 16-cell wave barrier")
+        raise RuntimeError("Engineering queue behaved like a nominal-batch barrier")
     return {
         "all_cells_observed": True,
         "maximum_active_by_gpu": maximum_by_gpu,

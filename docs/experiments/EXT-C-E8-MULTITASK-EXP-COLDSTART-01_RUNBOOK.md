@@ -12,14 +12,33 @@
 
 实验 ID：`EXT-C-E8-MULTITASK-EXP-COLDSTART-01`
 
-科学边界保持不变：
+科学边界（代码会 fail closed，不接受现场覆盖）：
 
 - 无 SFT warm start、无外部/reference adapter；
-- Positive-only 与 Exp 直接调用锁定的老 cold-start kernel；
-- 8 个任务 ×（1 Positive-only + 19 Exp）= 160 cells；
-- 8 GPU × 每卡 2 slot，共 16 个共享动态 slot，无同步波次屏障；
-- 任务、λ、seed、训练公式、optimizer、阈值、early stop 与结果解释均不得现场修改；
+- Countdown 的 Positive-only、Global 与 Exp 全部直接调用论文
+  `countdown_e8_alpha1_highc_scan_runtime.worker`，不允许重写 loss；
+- Countdown 精确复跑 round-1 与 c-extension：24 个参数点 × 2 个 seed = 48 cells；
+- 其余 7 个任务各 1 Positive-only + 19 个论文网格 Exp = 140 cells；总计 188 cells；
+- Countdown 使用原始 6000-row V2 train bank、500-row validation、固定 1200 updates、
+  seed offsets 4000/5000、late window 800/900/1000/1100/1200；
+- 所有任务按 prompt 使用全部 canonical unique negatives；禁止 near/far 选样、校准缩放、
+  gradient RMS matching、weight-sum normalization 和 extra square；
+- Countdown generator/converter 以及原 8-task P0 bank pipeline、task adapters、P0 config 和
+  launcher 都有 Git blob 硬锁；任一字节变化都会在 prepare/GPU 训练前失败；
+- 只有长度、evaluation batch 与 validation prompt 数五个任务接口字段可以按白名单变化；
+  Countdown 精确保留 256/80、Greedy 500、Pass@8 500；其余任务恢复原 8-task 接口的
+  512/128、Greedy 500、Pass@8 128。evaluation batch 统一降为 8 只用于显存安全；
+- 8 GPU × 每卡 1 cell，避免异构长序列任务把论文原来的同构双 slot 假设错误外推；调度器
+  不得在 OOM 后自动修改 batch、cell、loss、λ 或数据；
 - 工程自检、liveness、恢复验收和有限步训练不冒充收敛或正式方法排名。
+
+188-cell 调度器分成两个硬阶段。第一阶段只运行 48 个 Countdown cells；随后必须通过
+`scheduler/countdown_reproduction_gate.json`，才会释放其余 140 个 task-transfer cells。
+其中 32 个 round-1 Countdown cells 的代码/data/config/seed 身份必须精确匹配注册结果，
+late-window Pass@8 逐点偏差必须在预声明的 0.002 绝对容差内，且 Exp 峰值必须高于
+paired Positive-only。门禁失败时其余 7 个任务一个也不会启动。完成 aggregate 时还会
+再次生成并核验 `aggregate/countdown_reproduction_gate.json`；任一门禁失败都禁止
+finalize。
 
 正式模式默认运行 `full`。PR/stack 未合并、实验未登记、execution gate 不是
 `ready`，或没有唯一 READY RunSpec 绑定执行时的精确 `main` SHA 时，入口会在创建
@@ -292,7 +311,7 @@ echo "BOOTSTRAP_STATE=${STATE_FILE}"
 5. 把 venv、模型、输入、日志、attempt、checkpoint 与结果全部放在 worktree 外；
 6. 在任何重型操作前执行 registry、execution gate、READY RunSpec、source blob、
    origin/main、GPU、磁盘、依赖与测试门；
-7. 完成 prepare/qualification、八任务 calibration、两步 liveness、160-cell 动态队列、
+7. 完成 prepare/qualification、无校准身份门、两步论文 runtime liveness、188-cell 队列、
    aggregate、terminal audit、finalize、23 MiB delivery preflight、hardened guard 打包和
    独立复验；
 8. 成功时打印 raw-complete ZIP、plot CSV 与最新恢复 checkpoint 的绝对路径和 SHA-256。
@@ -308,7 +327,8 @@ runtime/guard/E8_MULTITASK_EXP_COLDSTART_20260808_01/attempt-002
 
 失败后不会修改、覆盖或删除旧 attempt。自动恢复会：
 
-- 对 prepare、calibration、liveness、cells、aggregate、audit 与 finalize 分阶段审计；
+- 对 prepare、no-calibration identity gate、liveness、cells、aggregate、Countdown 复现门、
+  audit 与 finalize 分阶段审计；
 - 从最近一个具备完整 prepare/source 身份的 attempt，只导入 identity、config、精确
   40 位 source commit、evaluation 与文件完整性均通过的 completed cells；
 - 使用同一文件系统硬链接复用完整输入、adapter 与原始结果，避免复制大 checkpoint；
@@ -323,7 +343,7 @@ runtime/guard/E8_MULTITASK_EXP_COLDSTART_20260808_01/attempt-002
 
 锁定老 kernel 没有保存完整 optimizer、scheduler、RNG 与 dataloader 状态，因此不宣称
 单 cell 内精确断点续训。一个 cell 在最终 manifest 写出前中断时，只重跑该 cell；其他
-完整 cell 均复用。正常机器/进程中断最多影响当时运行中的 16 个 cell，不会从 160 个
+完整 cell 均复用。正常机器/进程中断最多影响当时运行中的 8 个 cell，不会从 188 个
 cell 全部重跑。
 
 ## 4. 运行期间 checkpoint 与打包保护
