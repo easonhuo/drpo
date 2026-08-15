@@ -40,6 +40,11 @@
   wave N 的 16 个 cell 全部结束后才允许 wave N+1 开始。这个 barrier 只是 scheduling /
   recovery 边界，不是科学结果门禁；OOM 时 cell 失败并保留证据，禁止自动改 batch、λ、
   loss、数据或其他科学参数；
+- 每个 task 的冻结 cell 集合一旦在某个 hard wave barrier 后全部完成，立即在
+  `task_results/<task>/` 写出 `all_cells.csv`、`plot_curve_points.csv` 和最后发布的
+  `TASK_COMPLETE.json`。因此无需等待 208 cells 全部结束即可开始分析已经完成的任务；
+  这些 task-local 文件只是确定性的早期结果快照，不影响调度、选择或结果门禁，最终 208-cell
+  terminal aggregate 仍是正式汇总权威；
 - 选择 Exp c 时 primary 为 late-window Pass@8 mean；tie 依次使用 terminal Pass@8、
   late-window greedy、较小 c。terminal valid rate 只报告/审计，**不作为 selection
   eligibility**；

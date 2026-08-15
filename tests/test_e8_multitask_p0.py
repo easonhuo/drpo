@@ -1743,7 +1743,69 @@ def test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_barrier
     assert result["queue_audit"]["slots_per_gpu"] == 2
     assert result["repeat_run_preserved_cell_hashes"]
     assert result["tampered_package_rejected"]
+    assert set(result["analysis_ready_tasks"]) == set(config["suite"]["tasks"])
+    assert result["task_result_count"] == 9
+    output_root = tmp_path / "engineering-self-test"
+    with zipfile.ZipFile(result["full_results_zip"]) as archive:
+        packaged_names = set(archive.namelist())
+    for task in config["suite"]["tasks"]:
+        root = output_root / "task_results" / str(task)
+        marker = json.loads((root / "TASK_COMPLETE.json").read_text(encoding="utf-8"))
+        expected_cells = 16 if task == "countdown" else 24
+        assert marker["complete"]
+        assert marker["analysis_ready"]
+        assert marker["final_aggregate_authority"] is False
+        assert marker["cell_count"] == expected_cells
+        with (root / "all_cells.csv").open(encoding="utf-8", newline="") as handle:
+            assert len(list(csv.DictReader(handle))) == expected_cells
+        with (root / "plot_curve_points.csv").open(encoding="utf-8", newline="") as handle:
+            assert len(list(csv.DictReader(handle))) == expected_cells
+        assert f"task_results/{task}/TASK_COMPLETE.json" in packaged_names
 
+
+
+def test_coldstart_task_results_publish_before_global_aggregate(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning._engineering_self_test_config(
+        exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    )
+    p0.atomic_json(
+        tmp_path / "source_provenance.json",
+        {"run_id": "early-task-test", "source_commit": "a" * 40},
+    )
+    countdown_cells = [
+        cell for cell in exp_tuning.build_cells(config) if cell.task == "countdown"
+    ]
+    assert len(countdown_cells) == 16
+    for index, cell in enumerate(countdown_cells):
+        score = 0.1 + index * 0.01
+        p0.atomic_json(
+            tmp_path / "cells" / cell.key / "cell_manifest.json",
+            {
+                "experiment_id": exp_tuning.experiment_id(config),
+                "config_hash": exp_tuning.stable_config_hash(config),
+                "validation_best_pass8": score,
+                "validation_terminal_pass8": score,
+                "validation_best_greedy": score / 2,
+                "validation_terminal_greedy": score / 2,
+                "validation_best_greedy_valid_rate": 1.0,
+                "validation_terminal_greedy_valid_rate": 1.0,
+                "best_step": 2,
+                "terminal_step": 2,
+                "stop_reason": "engineering_placeholder_complete",
+                "nan_inf_failure": False,
+                "evaluation_status": "complete",
+                "complete": True,
+            },
+        )
+    ready = exp_tuning._materialize_completed_coldstart_task_results(config, tmp_path)
+    assert set(ready) == {"countdown"}
+    assert ready["countdown"]["analysis_ready"]
+    assert ready["countdown"]["cell_count"] == 16
+    assert not (tmp_path / "aggregate" / "aggregate_summary.json").exists()
+    assert (tmp_path / "task_results" / "countdown" / "TASK_COMPLETE.json").is_file()
+    assert "task_results" in exp_tuning.RECOVERY_TRANSIENT_TOP_LEVEL
 
 def test_coldstart_runbook_embeds_bootstrap_and_current_protocol() -> None:
     runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md").read_text(
@@ -1762,6 +1824,8 @@ def test_coldstart_runbook_embeds_bootstrap_and_current_protocol() -> None:
     assert "Pass@64" in runbook
     assert "结果门禁" in runbook
     assert "reference-remoteness" in runbook
+    assert "task_results/<task>" in runbook
+    assert "TASK_COMPLETE.json" in runbook
     assert "terminal valid rate" in runbook.lower()
     assert "0.002" not in runbook
     assert "峰值必须高于" not in runbook

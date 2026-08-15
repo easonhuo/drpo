@@ -93,6 +93,7 @@ RECOVERY_TRANSIENT_TOP_LEVEL = {
     "packages",
     "recovery",
     "scheduler",
+    "task_results",
 }
 RECOVERY_TRANSIENT_FILES = {
     "ENGINEERING_SELF_TEST_REPORT.json",
@@ -5608,6 +5609,7 @@ def cmd_run_dynamic(
         return result
 
     wave_records: list[dict[str, Any]] = []
+    task_results: dict[str, dict[str, Any]] = {}
     stopped = False
     for wave_index, wave in enumerate(waves, start=1):
         wave_results: list[dict[str, Any]] = []
@@ -5621,6 +5623,7 @@ def cmd_run_dynamic(
         wave_results.sort(key=lambda row: str(row["cell_key"]))
         results.extend(wave_results)
         failures = [row for row in wave_results if int(row["returncode"]) != 0]
+        task_results = _materialize_completed_coldstart_task_results(config, output_root)
         wave_records.append(
             {
                 "wave": wave_index,
@@ -5630,6 +5633,7 @@ def cmd_run_dynamic(
                 "complete": not failures and len(wave_results) == len(wave),
                 "scheduling_barrier": True,
                 "scientific_result_gate": False,
+                "analysis_ready_tasks": sorted(task_results),
             }
         )
         if failures or len(wave_results) != len(wave):
@@ -5669,6 +5673,8 @@ def cmd_run_dynamic(
         "failed_cells": [row["cell_key"] for row in failures],
         "unscheduled_cells": unscheduled,
         "queue_events": str(event_path.resolve()),
+        "analysis_ready_tasks": sorted(task_results),
+        "task_results": task_results,
         "complete": not failures and not unscheduled and len(completed_keys) == len(cells),
         "scientific_status": "not_run" if _is_engineering_self_test(config) else "pilot",
         "engineering_placeholder_backend": _is_engineering_self_test(config),
@@ -5736,6 +5742,184 @@ def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
+
+
+def _coldstart_completed_task_rows(
+    config: Mapping[str, Any],
+    output_root: Path,
+    task: str,
+) -> list[dict[str, Any]] | None:
+    """Return task-local response rows once every frozen cell for the task is complete."""
+
+    if not _is_coldstart(config):
+        raise RuntimeError("Per-task early result materialization is cold-start only")
+    expected = [cell for cell in build_cells(config) if cell.task == task]
+    expected_count = 16 if task == "countdown" else 24
+    if len(expected) != expected_count:
+        raise AssertionError(f"{task} expected {expected_count} cold-start cells")
+    expected_hash = stable_config_hash(config)
+    rows: list[dict[str, Any]] = []
+    for cell in expected:
+        path = output_root / "cells" / cell.key / "cell_manifest.json"
+        if not path.is_file():
+            return None
+        value = json.loads(path.read_text(encoding="utf-8"))
+        if value.get("complete") is not True or value.get("evaluation_status") != "complete":
+            return None
+        if (
+            value.get("experiment_id") != experiment_id(config)
+            or value.get("config_hash") != expected_hash
+        ):
+            raise RuntimeError(f"{cell.key} per-task result identity mismatch")
+        if not _is_engineering_self_test(config) and (
+            "validation_late_window_pass8_mean" not in value
+            or "validation_late_window_greedy_mean" not in value
+        ):
+            raise RuntimeError(f"{cell.key} is missing the paper primary late-window metric")
+        rows.append(
+            {
+                "source": "current",
+                "task": cell.task,
+                "method": cell.method,
+                "rho": cell.rho,
+                "lambda": (
+                    cell.lambda_value
+                    if cell.lambda_value is not None
+                    else (None if cell.rho is None else coefficient_from_rho(cell.rho))
+                ),
+                "seed": cell.seed,
+                "stage": cell.stage,
+                "cell_key": cell.key,
+                "nan_inf_failure": bool(value["nan_inf_failure"]),
+                "late_window_pass8_mean": value.get(
+                    "validation_late_window_pass8_mean",
+                    value["validation_best_pass8"],
+                ),
+                "late_window_greedy_mean": value.get(
+                    "validation_late_window_greedy_mean",
+                    value["validation_best_greedy"],
+                ),
+                "best_pass8": value["validation_best_pass8"],
+                "terminal_pass8": value["validation_terminal_pass8"],
+                "best_greedy": value["validation_best_greedy"],
+                "terminal_greedy": value["validation_terminal_greedy"],
+                "best_greedy_valid_rate": value["validation_best_greedy_valid_rate"],
+                "terminal_greedy_valid_rate": value[
+                    "validation_terminal_greedy_valid_rate"
+                ],
+                "best_step": value["best_step"],
+                "terminal_step": value["terminal_step"],
+                "stop_reason": value["stop_reason"],
+            }
+        )
+    return rows
+
+
+def _write_coldstart_task_result(
+    config: Mapping[str, Any],
+    output_root: Path,
+    task: str,
+    rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Publish deterministic task-local CSVs and write TASK_COMPLETE.json last."""
+
+    provenance_path = output_root / "source_provenance.json"
+    if not provenance_path.is_file():
+        raise RuntimeError("Per-task result materialization requires source_provenance.json")
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    source_commit = str(provenance.get("source_commit", ""))
+    if len(source_commit) != 40 or any(
+        character not in "0123456789abcdef" for character in source_commit
+    ):
+        raise RuntimeError("Per-task result materialization requires one full source commit")
+    run_id = str(provenance.get("run_id", output_root.name))
+    root = output_root / "task_results" / task
+    root.mkdir(parents=True, exist_ok=True)
+    marker_path = root / "TASK_COMPLETE.json"
+    marker_path.unlink(missing_ok=True)
+
+    all_cells_path = root / "all_cells.csv"
+    plot_path = root / "plot_curve_points.csv"
+    _write_csv(all_cells_path, rows)
+    plot_rows = [
+        {
+            "experiment_id": experiment_id(config),
+            "run_id": run_id,
+            "source_commit": source_commit,
+            "task": row["task"],
+            "method": row["method"],
+            "lambda": row["lambda"],
+            "rho": row["rho"],
+            "seed": row["seed"],
+            "stage": row["stage"],
+            "late_window_pass8_mean": row["late_window_pass8_mean"],
+            "late_window_greedy_mean": row["late_window_greedy_mean"],
+            "best_validation_pass8": row["best_pass8"],
+            "terminal_pass8": row["terminal_pass8"],
+            "best_validation_greedy": row["best_greedy"],
+            "terminal_greedy": row["terminal_greedy"],
+            "best_greedy_valid_rate": row["best_greedy_valid_rate"],
+            "terminal_greedy_valid_rate": row["terminal_greedy_valid_rate"],
+            "best_step": row["best_step"],
+            "terminal_step": row["terminal_step"],
+            "stop_reason": row["stop_reason"],
+            "nan_inf_failure": row["nan_inf_failure"],
+            "complete": True,
+        }
+        for row in rows
+    ]
+    _write_csv(plot_path, plot_rows)
+    cell_manifest_sha256 = {
+        row["cell_key"]: sha256_file(
+            output_root / "cells" / str(row["cell_key"]) / "cell_manifest.json"
+        )
+        for row in rows
+    }
+    marker = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "config_hash": stable_config_hash(config),
+        "run_id": run_id,
+        "source_commit": source_commit,
+        "task": task,
+        "expected_cells": 16 if task == "countdown" else 24,
+        "cell_count": len(rows),
+        "all_cells_csv": f"task_results/{task}/all_cells.csv",
+        "all_cells_csv_sha256": sha256_file(all_cells_path),
+        "plot_curve_points_csv": f"task_results/{task}/plot_curve_points.csv",
+        "plot_curve_points_csv_sha256": sha256_file(plot_path),
+        "cell_manifest_sha256": cell_manifest_sha256,
+        "analysis_ready": True,
+        "final_aggregate_authority": False,
+        "test_partition_accessed": False,
+        "method_ranking_allowed": False,
+        "complete": True,
+        "scientific_status": (
+            "not_run" if _is_engineering_self_test(config) else "pilot"
+        ),
+        "note": (
+            "Deterministic early task snapshot from completed identity-matched cells; "
+            "the terminal 208-cell aggregate remains the final reporting authority."
+        ),
+    }
+    atomic_json(marker_path, marker)
+    return marker
+
+
+def _materialize_completed_coldstart_task_results(
+    config: Mapping[str, Any],
+    output_root: Path,
+) -> dict[str, dict[str, Any]]:
+    """Publish every fully complete task after the current hard wave barrier."""
+
+    ready: dict[str, dict[str, Any]] = {}
+    for task_value in config["suite"]["tasks"]:
+        task = str(task_value)
+        rows = _coldstart_completed_task_rows(config, output_root, task)
+        if rows is None:
+            continue
+        ready[task] = _write_coldstart_task_result(config, output_root, task, rows)
+    return ready
 
 def _aggregate_dense(
     config: Mapping[str, Any],
@@ -7093,6 +7277,8 @@ def cmd_engineering_self_test(
         "recovered_from_previous_attempt": not fresh_run,
         "resume_completed_cells": resumed["completed_cells"],
         "repeat_run_preserved_cell_hashes": True,
+        "analysis_ready_tasks": sorted(repeated.get("analysis_ready_tasks", ())),
+        "task_result_count": len(repeated.get("task_results", {})),
         "queue_audit": queue_audit,
         "aggregate_cell_count": aggregate["cell_count"],
         "terminal_audit_complete": audit["all_training_and_evaluation_complete"],
