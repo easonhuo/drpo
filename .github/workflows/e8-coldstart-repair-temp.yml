@@ -18,7 +18,18 @@ jobs:
           fetch-depth: 0
 
       - name: Apply reviewed repair
-        run: bash .drpo_tmp/repair.sh
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.drpo_tmp/repair.sh')
+          text = path.read_text(encoding='utf-8')
+          old = "aggregate_end = '\\n\\ndef cmd_aggregate(\\n'"
+          new = "aggregate_end = '\\n\\ndef cmd_aggregate('"
+          assert text.count(old) == 1, text.count(old)
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          bash .drpo_tmp/repair.sh
 
       - name: Structural and scope checks
         shell: bash
