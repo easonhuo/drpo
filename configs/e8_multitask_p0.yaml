@@ -1,0 +1,122 @@
+schema_version: 1
+experiment_id: EXT-C-E8-MULTITASK-P0-01
+result_status: not_run
+
+sources:
+  reasoning_gym:
+    url: https://github.com/open-thought/reasoning-gym.git
+    commit: 49b07130b3fcd12f2d064bba7c43869543a0e7e7
+  wikisql:
+    url: https://github.com/salesforce/WikiSQL.git
+    commit: 7857cfd8aefcc9823245c370f9e39ecd55745ea6
+    archive: data.tar.bz2
+
+tasks:
+  names:
+    - word_sorting
+    - spiral_matrix
+    - mini_sudoku
+    - maze
+    - word_ladder
+    - knights_knaves
+    - graph_color
+    - wikisql
+  reasoning_gym:
+    word_sorting:
+      min_words: 6
+      max_words: 10
+      min_word_length: 3
+      max_word_length: 10
+    spiral_matrix:
+      min_n: 4
+      max_n: 6
+    mini_sudoku:
+      min_empty: 8
+      max_empty: 10
+    maze:
+      min_dist: 5
+      max_dist: 12
+      min_grid_size: 6
+      max_grid_size: 10
+    word_ladder:
+      min_word_length: 4
+      max_word_length: 4
+      min_chain_length: -1
+      max_chain_length: -1
+    knights_knaves:
+      n_people: 4
+      depth_constraint: 2
+      width_constraint: 2
+    graph_color:
+      num_colors: 3
+      min_num_vertices: 8
+      max_num_vertices: 10
+      edge_probability: 0.25
+  wikisql:
+    split: train
+
+positive_warmstart:
+  enabled: true
+  checkpoint_kind: task_positive_warmstart_100
+  optimizer_updates: 100
+  seed: 2026072900
+  parameterization: lora
+  lora_rank: 32
+  lora_alpha: 64
+  lora_dropout: 0.05
+  micro_batch: 2
+  gradient_accumulation: 32
+  learning_rate: 2.0e-4
+  weight_decay: 0.01
+  warmup_ratio: 0.05
+  max_grad_norm: 1.0
+  max_length: 512
+  dtype: auto
+  gradient_checkpointing: true
+  oracle_nll_audit_examples: 128
+  minimum_oracle_nll_decrease: 0.0
+  log_every_updates: 10
+
+bank:
+  generation_seed: 271828
+  rows_per_task: 6000
+  candidate_rows_per_task: 7500
+  negatives_per_prompt: 16
+  policy_relative_fields_forbidden: true
+
+qualification:
+  minimum_negatives_per_prompt: 16
+  minimum_error_classes_per_prompt: 2
+  minimum_error_classes_per_task: 2
+  minimum_oracle_verification_rate: 1.0
+  minimum_prompt_pass_fraction: 0.95
+  minimum_format_valid_negative_fraction: 1.0
+  maximum_completion_characters: 2048
+  fail_closed: true
+
+diagnostics:
+  sampling_seed: 314159
+  points_per_task: 256
+  max_length: 512
+  dtype: auto
+  full_parameter_gradient: true
+  matched_absolute_advantage: 1.0
+  checkpoint_kind: task_positive_warmstart_100
+  save_every_point: true
+  resume_identity_required: true
+
+aggregation:
+  quantile_bins: 10
+  within_task_coordinate: median_iqr_standardized_mean_token_surprisal
+  within_task_normalization_anchor: lowest_surprisal_bin
+  task_weighting: equal
+  bootstrap_unit: prompt_within_task
+  bootstrap_replicates: 2000
+  bootstrap_seed: 161803
+
+claim_boundary:
+  role: external_discrete_occurrence_and_implemented_gradient_diagnostic
+  causal_identification_environment: D-U1
+  method_ranking_allowed: false
+  convergence_claim_allowed: false
+  unbounded_categorical_gradient_claim_allowed: false

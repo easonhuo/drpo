@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Convert v2 oracle-offline corpus -> offline-bank jsonl for cmd_train_method.
 
 The v2 corpus (``countdown_e8_oracle_bank_v2.py``) is model-independent. The
@@ -22,8 +21,10 @@ Crucially, all source-row integrity checks run before tokenizer/model-stack
 initialization. Malformed input therefore fails closed without requiring CUDA,
 Transformers, PEFT, or access to the model directory.
 """
+
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import sys
@@ -32,13 +33,11 @@ from pathlib import Path
 from typing import Any
 
 V2_TRAIN = Path(
-    "/root/experiment_output/e8_oracle_bank_v2/data/"
-    "oracle_offline_bank_v2_train.jsonl"
+    "/root/experiment_output/e8_oracle_bank_v2/data/" "oracle_offline_bank_v2_train.jsonl"
 )
 OUT = Path("/root/experiment_output/e8_oracle_bank_v2/data/offline_bank_v2.jsonl")
 MANIFEST = Path(
-    "/root/experiment_output/e8_oracle_bank_v2/data/"
-    "offline_bank_v2.convert_manifest.json"
+    "/root/experiment_output/e8_oracle_bank_v2/data/" "offline_bank_v2.convert_manifest.json"
 )
 MODEL = "/root/models/Qwen2.5-0.5B-Instruct"
 BANK_SIZE = 16
@@ -103,17 +102,30 @@ def _validate_and_pad_rows(
     return prepared, padding_hist, unique_hist
 
 
-def main() -> int:
-    corpus_sha = _sha256(V2_TRAIN)
-    rows = [json.loads(line) for line in V2_TRAIN.open()]
+def parse_args(argv: list[str] | tuple[str, ...] = ()) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input", type=Path, default=V2_TRAIN)
+    parser.add_argument("--output", type=Path, default=OUT)
+    parser.add_argument("--manifest", type=Path, default=MANIFEST)
+    parser.add_argument("--model", default=MODEL)
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | tuple[str, ...] = ()) -> int:
+    args = parse_args(argv)
+    input_path = args.input.resolve()
+    output_path = args.output.resolve()
+    manifest_path = args.manifest.resolve()
+    corpus_sha = _sha256(input_path)
+    rows = [json.loads(line) for line in input_path.open()]
 
     # Integrity validation intentionally precedes tokenizer/HF-stack loading.
     prepared, padding_hist, unique_hist = _validate_and_pad_rows(rows)
 
-    sys.path.insert(0, "/root/drpo/src")
-    from drpo.countdown_qwen_arena_onefile import load_tokenizer  # noqa: E402
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+    from drpo.countdown_qwen_arena_onefile import load_tokenizer
 
-    tokenizer = load_tokenizer(MODEL)
+    tokenizer = load_tokenizer(str(args.model))
 
     def token_length(text: str) -> int:
         return len(tokenizer.encode(text, add_special_tokens=False))
@@ -136,9 +148,7 @@ def main() -> int:
 
         # Required collator fallbacks. Bank methods ignore these static choices and
         # dynamically reselect current-policy near/far from the full bank.
-        real_negatives = [
-            negative for negative in negatives if not negative.get("_padding", False)
-        ]
+        real_negatives = [negative for negative in negatives if not negative.get("_padding", False)]
         by_error = sorted(
             real_negatives,
             key=lambda item: float(item.get("value_error", 0.0)),
@@ -161,12 +171,12 @@ def main() -> int:
         )
         out_rows.append(converted)
 
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    with OUT.open("w") as handle:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w") as handle:
         for row in out_rows:
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
 
-    out_sha = _sha256(OUT)
+    out_sha = _sha256(output_path)
     sizes = {len(row["negative_bank"]) for row in out_rows}
     all_pair_matched = all(row.get("pair_matched") for row in out_rows)
     rows_with_repeated_bank_expressions = sum(
@@ -176,7 +186,7 @@ def main() -> int:
     )
     rows_with_padding = sum(count for padding, count in padding_hist.items() if padding > 0)
 
-    print(f"wrote {len(out_rows)} rows -> {OUT}")
+    print(f"wrote {len(out_rows)} rows -> {output_path}")
     print(
         "bank_sizes="
         f"{sizes} all_pair_matched={all_pair_matched} "
@@ -188,9 +198,9 @@ def main() -> int:
     print(f"sample keys: {sorted(out_rows[0].keys())}")
 
     manifest = {
-        "source_corpus": str(V2_TRAIN),
+        "source_corpus": str(input_path),
         "source_corpus_sha256": corpus_sha,
-        "output_bank": str(OUT),
+        "output_bank": str(output_path),
         "output_bank_sha256": out_sha,
         "bank_size": BANK_SIZE,
         "rows_in": len(rows),
@@ -205,10 +215,11 @@ def main() -> int:
         "base_surprisal": "null_by_design_provenance_only_training_reselects_near_far",
         "near_far_selection": "from_non_padded_negatives_by_value_error_collator_fallback_only",
     }
-    MANIFEST.write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
-    print(f"manifest -> {MANIFEST}")
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
+    print(f"manifest -> {manifest_path}")
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))

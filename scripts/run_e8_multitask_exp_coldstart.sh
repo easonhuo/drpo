@@ -1,0 +1,888 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-COLDSTART-01"
+CONFIG_PATH="${E8_COLDSTART_CONFIG:-${ROOT_DIR}/configs/e8_multitask_exp_coldstart.yaml}"
+P0_CONFIG_PATH="${E8_COLDSTART_P0_CONFIG:-${ROOT_DIR}/configs/e8_multitask_p0.yaml}"
+RUN_ID="${E8_COLDSTART_RUN_ID:-E8_MULTITASK_EXP_COLDSTART_20260808_01}"
+RUNTIME_ROOT="${E8_COLDSTART_RUNTIME_ROOT:-${ROOT_DIR}/../drpo-e8-coldstart-runtime}"
+ATTEMPTS_ROOT="${E8_COLDSTART_GUARD_ROOT:-${RUNTIME_ROOT}/guard/${RUN_ID}}"
+GUARD_ROOT="${ATTEMPTS_ROOT}/attempt-001"
+OUTPUT_ROOT="${E8_COLDSTART_OUTPUT_ROOT:-${GUARD_ROOT}/workload}"
+P0_WORK_DIR="${E8_COLDSTART_P0_WORK_DIR:-${OUTPUT_ROOT}/p0_inputs}"
+COUNTDOWN_WORK_DIR="${E8_COLDSTART_COUNTDOWN_WORK_DIR:-${OUTPUT_ROOT}/countdown_inputs}"
+VENV_DIR="${E8_COLDSTART_VENV_DIR:-${RUNTIME_ROOT}/venv}"
+SELFTEST_VENV_DIR="${E8_COLDSTART_SELFTEST_VENV_DIR:-${RUNTIME_ROOT}/selftest-venv}"
+MODEL_DIR="${E8_COLDSTART_MODEL_DIR:-${RUNTIME_ROOT}/models/Qwen2.5-0.5B-Instruct-7ae5576}"
+GUARD_ARTIFACT="${E8_COLDSTART_GUARD_ARTIFACT:-${RUNTIME_ROOT}/packages/${RUN_ID}_attempt-001_guarded.zip}"
+RECOVERY_ROOT="${E8_COLDSTART_RECOVERY_ROOT:-${RUNTIME_ROOT}/recovery/${RUN_ID}}"
+RECOVERY_PACKAGE="${RECOVERY_ROOT}/latest_checkpoint.zip"
+DELIVERY_PREFLIGHT_PACKAGE="${RECOVERY_ROOT}/delivery_preflight.zip"
+EXPECTED_COMMIT="${E8_COLDSTART_EXPECTED_COMMIT:-}"
+MODEL_REPO="Qwen/Qwen2.5-0.5B-Instruct"
+MODEL_REVISION="7ae557604adf67be50417f59c2c2f167def9a775"
+MODE="${1:-full}"
+
+export PYTHONPATH="${ROOT_DIR}/src${PYTHONPATH:+:${PYTHONPATH}}"
+export TOKENIZERS_PARALLELISM=false
+export PYTHONDONTWRITEBYTECODE=1
+
+fail() {
+  echo "ERROR: $*" >&2
+  exit 2
+}
+
+is_expected_origin() {
+  local url="$1"
+  [[ "${url}" =~ ^https://([^/@]+(:[^/@]*)?@)?github\.com/easonhuo/drpo(\.git)?/?$ ]] ||
+    [[ "${url}" =~ ^git@github\.com:easonhuo/drpo(\.git)?$ ]] ||
+    [[ "${url}" =~ ^ssh://git@github\.com/easonhuo/drpo(\.git)?/?$ ]]
+}
+
+check_source() {
+  [[ -n "${EXPECTED_COMMIT}" ]] || fail "set E8_COLDSTART_EXPECTED_COMMIT to the reviewed implementation commit"
+  local current_commit
+  current_commit="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
+  [[ "${current_commit}" == "${EXPECTED_COMMIT}" ]] || \
+    fail "source commit mismatch: expected ${EXPECTED_COMMIT}, found ${current_commit}"
+  [[ "${EXPECTED_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "expected commit must be a full lowercase SHA"
+  local origin_url
+  origin_url="$(git -C "${ROOT_DIR}" remote get-url origin)"
+  is_expected_origin "${origin_url}" || fail "origin is not the canonical easonhuo/drpo repository"
+  [[ -z "$(git -C "${ROOT_DIR}" status --porcelain=v1 --untracked-files=all)" ]] || \
+    fail "source checkout must be fully clean; keep runtime files outside the repository"
+}
+
+activate_runtime() {
+  [[ -x "${VENV_DIR}/bin/python" ]] || fail "runtime is absent; run '$0 setup' first"
+  # shellcheck disable=SC1091
+  source "${VENV_DIR}/bin/activate"
+}
+
+preflight_gpu() {
+  command -v nvidia-smi >/dev/null || fail "nvidia-smi is unavailable"
+  local gpu_count
+  gpu_count="$(nvidia-smi --query-gpu=index --format=csv,noheader | wc -l)"
+  [[ "${gpu_count}" -ge 8 ]] || fail "eight visible GPUs are required; found ${gpu_count}"
+  local small_gpu
+  small_gpu="$(nvidia-smi --query-gpu=index,memory.total --format=csv,noheader,nounits | awk -F, '$2+0 < 12000 {print $1":"$2}')"
+  [[ -z "${small_gpu}" ]] || fail "each GPU needs at least 12 GiB; undersized: ${small_gpu}"
+  python - <<'PY'
+import torch
+assert torch.cuda.is_available(), "PyTorch cannot see CUDA"
+assert torch.cuda.device_count() >= 8, f"PyTorch sees {torch.cuda.device_count()} GPUs"
+print({"torch": torch.__version__, "cuda": torch.version.cuda, "gpus": torch.cuda.device_count()})
+PY
+  local free_kb
+  free_kb="$(df -Pk "${RUNTIME_ROOT}" | awk 'NR==2 {print $4}')"
+  [[ "${free_kb}" -ge 83886080 ]] || fail "at least 80 GiB free disk is required"
+}
+
+run_module() {
+  python -m drpo.e8_multitask_exp_tuning \
+    --config "${CONFIG_PATH}" \
+    --output-root "${OUTPUT_ROOT}" \
+    "$@"
+}
+
+setup() {
+  check_source
+  command -v python3 >/dev/null || fail "python3 is unavailable"
+  mkdir -p "${RUNTIME_ROOT}"
+  python3 - <<'PY'
+import sys
+assert sys.version_info >= (3, 10), sys.version
+try:
+    import torch
+except ImportError as exc:
+    raise SystemExit("Install a CUDA-compatible PyTorch build before running setup") from exc
+assert torch.cuda.is_available(), "The system PyTorch build cannot see CUDA"
+PY
+  python3 -m venv --system-site-packages "${VENV_DIR}"
+  # shellcheck disable=SC1091
+  source "${VENV_DIR}/bin/activate"
+  python -m pip install --upgrade "pip==24.3.1" "setuptools==75.6.0" "wheel==0.45.1"
+  python -m pip install -r "${ROOT_DIR}/requirements/e8_multitask_exp_coldstart.txt"
+  python -m pip install --no-deps -e "${ROOT_DIR}"
+  python - <<PY
+from huggingface_hub import snapshot_download
+snapshot_download(
+    repo_id="${MODEL_REPO}",
+    revision="${MODEL_REVISION}",
+    local_dir="${MODEL_DIR}",
+)
+PY
+  preflight_gpu
+  python -m pytest -q \
+    "${ROOT_DIR}/tests/test_e8_multitask_p0.py" \
+    "${ROOT_DIR}/tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py"
+  python - <<PY
+from pathlib import Path
+from drpo.e8_multitask_exp_tuning import (
+    audit_canonical_coldstart_sources,
+    load_config,
+)
+config = load_config(Path("${CONFIG_PATH}"))
+audit = audit_canonical_coldstart_sources(config)
+assert audit["verified"], audit
+print(audit)
+PY
+  mkdir -p "${RECOVERY_ROOT}"
+  python - <<PY
+import json
+from pathlib import Path
+path = Path("${RECOVERY_ROOT}") / "SETUP_COMPLETE.json"
+path.write_text(json.dumps({
+    "schema_version": 1,
+    "experiment_id": "${EXPERIMENT_ID}",
+    "source_commit": "${EXPECTED_COMMIT}",
+    "model_revision": "${MODEL_REVISION}",
+    "venv": str(Path("${VENV_DIR}").resolve()),
+    "model": str(Path("${MODEL_DIR}").resolve()),
+    "complete": True,
+}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+}
+
+runtime_ready() {
+  [[ -x "${VENV_DIR}/bin/python" ]] || return 1
+  [[ -f "${MODEL_DIR}/config.json" ]] || return 1
+  [[ -f "${RECOVERY_ROOT}/SETUP_COMPLETE.json" ]] || return 1
+  # shellcheck disable=SC1091
+  source "${VENV_DIR}/bin/activate"
+  python - <<PY >/dev/null
+import json
+from pathlib import Path
+import numpy
+import torch
+import transformers
+import yaml
+value = json.loads((Path("${RECOVERY_ROOT}") / "SETUP_COMPLETE.json").read_text())
+assert value["experiment_id"] == "${EXPERIMENT_ID}"
+assert value["source_commit"] == "${EXPECTED_COMMIT}"
+assert value["model_revision"] == "${MODEL_REVISION}"
+assert torch.cuda.is_available()
+assert torch.cuda.device_count() >= 8
+PY
+  preflight_gpu
+}
+
+ensure_setup() {
+  if runtime_ready; then
+    echo "Reusing verified runtime and pinned model at ${RUNTIME_ROOT}"
+  else
+    setup
+  fi
+}
+
+self_test_setup() {
+  check_source
+  command -v python3 >/dev/null || fail "python3 is unavailable"
+  mkdir -p "${RUNTIME_ROOT}"
+  python3 - <<'PY'
+import sys
+assert sys.version_info >= (3, 10), sys.version
+PY
+  python3 -m venv --system-site-packages "${SELFTEST_VENV_DIR}"
+  # shellcheck disable=SC1091
+  source "${SELFTEST_VENV_DIR}/bin/activate"
+  if ! python - <<'PY'
+import numpy
+import yaml
+PY
+  then
+    python -m pip install --upgrade "pip==24.3.1" "setuptools==75.6.0" "wheel==0.45.1"
+    python -m pip install "numpy==1.26.4" "PyYAML==6.0.2"
+  fi
+}
+
+attempt_number() {
+  local attempt_dir="$1"
+  basename "${attempt_dir}" | sed -E 's/^attempt-0*([0-9]+)$/\1/'
+}
+
+latest_attempt_root() {
+  find "${ATTEMPTS_ROOT}" -mindepth 1 -maxdepth 1 -type d -name 'attempt-[0-9][0-9][0-9]' \
+    -print 2>/dev/null | sort | tail -n 1
+}
+
+latest_recoverable_output() {
+  local attempt
+  while IFS= read -r attempt; do
+    [[ -f "${attempt}/workload/prepare_manifest.json" ]] || continue
+    [[ -f "${attempt}/workload/split_manifest.json" ]] || continue
+    [[ -f "${attempt}/workload/source_provenance.json" ]] || continue
+    printf '%s\n' "${attempt}/workload"
+    return 0
+  done < <(
+    find "${ATTEMPTS_ROOT}" -mindepth 1 -maxdepth 1 -type d \
+      -name 'attempt-[0-9][0-9][0-9]' -print 2>/dev/null | sort -r
+  )
+  return 1
+}
+
+reuse_successful_attempt() {
+  local latest
+  latest="$(latest_attempt_root)"
+  [[ -n "${latest}" && -f "${latest}/RUN_RAW_COMPLETE.json" ]] || return 1
+  local number
+  number="$(attempt_number "${latest}")"
+  local artifact="${RUNTIME_ROOT}/packages/${RUN_ID}_attempt-$(printf '%03d' "${number}")_guarded.zip"
+  [[ -f "${artifact}" && -f "${latest}/workload/aggregate/plot_curve_points.csv" ]] || return 1
+  python "${ROOT_DIR}/scripts/verify_experiment_package_hardened.py" \
+    --repo-root "${ROOT_DIR}" "${artifact}" >/dev/null || return 1
+  GUARD_ROOT="${latest}"
+  OUTPUT_ROOT="${latest}/workload"
+  GUARD_ARTIFACT="${artifact}"
+  RECOVERY_SOURCE_OUTPUT=""
+  export GUARD_ROOT OUTPUT_ROOT GUARD_ARTIFACT RECOVERY_SOURCE_OUTPUT
+  return 0
+}
+
+select_next_attempt() {
+  mkdir -p "${ATTEMPTS_ROOT}" "${RUNTIME_ROOT}/packages" "${RECOVERY_ROOT}"
+  local latest
+  local next=1
+  latest="$(latest_attempt_root)"
+  if [[ -n "${latest}" ]]; then
+    next=$(( $(attempt_number "${latest}") + 1 ))
+  fi
+  local maximum="${E8_COLDSTART_MAX_TOTAL_ATTEMPTS:-20}"
+  [[ "${maximum}" =~ ^[1-9][0-9]*$ ]] || fail "maximum total attempts must be positive"
+  [[ "${next}" -le "${maximum}" ]] || \
+    fail "recovery attempt limit reached (${maximum}); local AI review is required"
+  GUARD_ROOT="${ATTEMPTS_ROOT}/attempt-$(printf '%03d' "${next}")"
+  OUTPUT_ROOT="${GUARD_ROOT}/workload"
+  GUARD_ARTIFACT="${RUNTIME_ROOT}/packages/${RUN_ID}_attempt-$(printf '%03d' "${next}")_guarded.zip"
+  RECOVERY_SOURCE_OUTPUT=""
+  RECOVERY_SOURCE_OUTPUT="$(latest_recoverable_output || true)"
+  export GUARD_ROOT OUTPUT_ROOT GUARD_ARTIFACT RECOVERY_SOURCE_OUTPUT
+  export E8_COLDSTART_OUTPUT_ROOT="${OUTPUT_ROOT}"
+  export E8_COLDSTART_RECOVERY_ROOT="${RECOVERY_ROOT}"
+  export E8_COLDSTART_EXPECTED_COMMIT="${EXPECTED_COMMIT}"
+}
+
+write_attempt_state() {
+  local status="$1"
+  mkdir -p "${RECOVERY_ROOT}"
+  {
+    printf 'experiment_id=%q\n' "${EXPERIMENT_ID}"
+    printf 'status=%q\n' "${status}"
+    printf 'source_commit=%q\n' "${EXPECTED_COMMIT}"
+    printf 'guard_root=%q\n' "${GUARD_ROOT}"
+    printf 'output_root=%q\n' "${OUTPUT_ROOT}"
+    printf 'artifact=%q\n' "${GUARD_ARTIFACT}"
+    printf 'recovery_source_output=%q\n' "${RECOVERY_SOURCE_OUTPUT:-}"
+    printf 'recovery_checkpoint=%q\n' "${RECOVERY_PACKAGE}"
+  } >"${RECOVERY_ROOT}/ATTEMPT_STATE.env"
+}
+
+write_local_ai_recovery() {
+  local failure_stage="$1"
+  local prompt="${RECOVERY_ROOT}/LOCAL_AI_RECOVERY.md"
+  local bundle="${RECOVERY_ROOT}/LOCAL_AI_RECOVERY_BUNDLE.zip"
+  mkdir -p "${RECOVERY_ROOT}"
+  python3 - "${prompt}" "${bundle}" "${failure_stage}" "${ROOT_DIR}" \
+    "${RUNTIME_ROOT}" "${EXPECTED_COMMIT}" "${EXPERIMENT_ID}" <<'PY'
+import sys
+import zipfile
+from pathlib import Path
+
+prompt = Path(sys.argv[1])
+bundle = Path(sys.argv[2])
+stage = sys.argv[3]
+repo = Path(sys.argv[4]).resolve()
+runtime = Path(sys.argv[5]).resolve()
+commit = sys.argv[6]
+experiment_id = sys.argv[7]
+text = f"""# Local AI recovery handoff
+
+Experiment: `{experiment_id}`
+
+Source commit: `{commit}`
+
+Failed stage: `{stage}`
+
+Repository: `{repo}`
+
+Runtime: `{runtime}`
+
+## Required local-AI procedure
+
+1. Read `ATTEMPT_STATE.env`, every available `RECOVERY_PLAN.json`, the latest
+   `scheduler/dynamic_run.json`, `recovery_package_status.json`, and the supervised log tail.
+2. Confirm no original guard/scheduler/cell process still holds the runtime lock. Never start a
+   second queue beside a live queue.
+3. Do not change tasks, lambdas, seeds, optimizer/training formulas, thresholds, adapters, or the
+   READY RunSpec. Do not edit the locked canonical cold-start kernels.
+4. First rerun the same reviewed one-click bootstrap. It automatically creates a fresh guard
+   attempt, hard-links only identity-checked completed cells, and resumes from the first incomplete
+   stage.
+5. If automatic recovery fails again, classify the first failure as source/registration, runtime,
+   storage, cell, aggregation/audit, or packaging. Repair only the causal engineering fault. Preserve
+   every prior attempt directory and artifact.
+6. A partially trained cell has no scientifically exact intra-cell optimizer/RNG resume. Rerun only
+   that cell; never manufacture a completion manifest.
+7. If source `main` advanced, identity/hash validation fails, disk is damaged, the hard-link
+   filesystem boundary is crossed, or the exact fix would alter a frozen scientific variable, stop
+   and report the blocker to the reviewer instead of bypassing a gate.
+
+Primary recovery checkpoint: `{runtime / 'recovery'}`
+"""
+prompt.write_text(text, encoding="utf-8")
+
+patterns = (
+    "**/ATTEMPT_STATE.env",
+    "**/BOOTSTRAP_STATE.env",
+    "**/RECOVERY_PLAN.json",
+    "**/IMPORT_MANIFEST.json",
+    "**/RECOVERY_CHECKPOINT_STATUS.json",
+    "**/dynamic_run.json",
+    "**/recovery_package_status.json",
+    "**/supervised_run.log",
+    "**/LOCAL_AI_ACTION.log",
+    "**/LOCAL_AI_INVOCATION.env",
+)
+candidates = {prompt}
+for pattern in patterns:
+    candidates.update(path for path in runtime.glob(pattern) if path.is_file())
+temporary = bundle.with_name(f".{bundle.name}.tmp")
+with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+    archive.write(prompt, "LOCAL_AI_RECOVERY.md")
+    bootstrap_state_value = __import__("os").environ.get("E8_COLDSTART_BOOTSTRAP_STATE", "")
+    bootstrap_state = Path(bootstrap_state_value) if bootstrap_state_value else None
+    if bootstrap_state is not None and bootstrap_state.is_file():
+        archive.write(bootstrap_state, "bootstrap/BOOTSTRAP_STATE.env")
+    for path in sorted(candidates - {prompt}):
+        try:
+            relative = path.relative_to(runtime).as_posix()
+        except ValueError:
+            continue
+        data = path.read_bytes()
+        if len(data) > 2 * 1024 * 1024:
+            data = data[-2 * 1024 * 1024 :]
+            relative += ".tail"
+        archive.writestr(relative, data)
+temporary.replace(bundle)
+print(f"LOCAL_AI_RECOVERY_PROMPT={prompt}")
+print(f"LOCAL_AI_RECOVERY_BUNDLE={bundle}")
+PY
+}
+
+invoke_local_ai_recovery() {
+  local failure_stage="$1"
+  local hook="${E8_COLDSTART_LOCAL_AI_COMMAND:-}"
+  [[ -n "${hook}" ]] || {
+    echo "No E8_COLDSTART_LOCAL_AI_COMMAND configured; use ${RECOVERY_ROOT}/LOCAL_AI_RECOVERY_BUNDLE.zip" >&2
+    return 1
+  }
+  [[ "${hook}" = /* && -f "${hook}" && -x "${hook}" ]] || {
+    echo "Configured local-AI command must be one absolute executable file: ${hook}" >&2
+    return 1
+  }
+  command -v timeout >/dev/null || {
+    echo "timeout is required to invoke the local-AI recovery hook safely" >&2
+    return 1
+  }
+  local timeout_seconds="${E8_COLDSTART_LOCAL_AI_TIMEOUT_SECONDS:-900}"
+  local maximum_invocations="${E8_COLDSTART_LOCAL_AI_MAX_INVOCATIONS:-3}"
+  [[ "${timeout_seconds}" =~ ^[1-9][0-9]*$ ]] || {
+    echo "local-AI timeout must be a positive integer" >&2
+    return 1
+  }
+  [[ "${maximum_invocations}" =~ ^[1-9][0-9]*$ ]] || {
+    echo "local-AI maximum invocation count must be positive" >&2
+    return 1
+  }
+  local count_file="${RECOVERY_ROOT}/LOCAL_AI_INVOCATION_COUNT"
+  local invocation_count=0
+  if [[ -f "${count_file}" ]]; then
+    read -r invocation_count <"${count_file}"
+    [[ "${invocation_count}" =~ ^[0-9]+$ ]] || {
+      echo "local-AI invocation counter is corrupt" >&2
+      return 1
+    }
+  fi
+  if [[ "${invocation_count}" -ge "${maximum_invocations}" ]]; then
+    echo "local-AI invocation limit reached (${maximum_invocations})" >&2
+    return 1
+  fi
+  invocation_count=$((invocation_count + 1))
+  printf '%s\n' "${invocation_count}" >"${count_file}.tmp"
+  mv "${count_file}.tmp" "${count_file}"
+  local prompt="${RECOVERY_ROOT}/LOCAL_AI_RECOVERY.md"
+  local bundle="${RECOVERY_ROOT}/LOCAL_AI_RECOVERY_BUNDLE.zip"
+  local action_log="${RECOVERY_ROOT}/LOCAL_AI_ACTION.log"
+  local state="${RECOVERY_ROOT}/LOCAL_AI_INVOCATION.env"
+  {
+    printf 'experiment_id=%q\n' "${EXPERIMENT_ID}"
+    printf 'source_commit=%q\n' "${EXPECTED_COMMIT}"
+    printf 'failure_stage=%q\n' "${failure_stage}"
+    printf 'invocation=%q\n' "${invocation_count}"
+    printf 'hook=%q\n' "${hook}"
+    printf 'status=%q\n' running
+  } >"${state}"
+  if DRPO_LOCAL_AI_PROMPT="${prompt}" \
+    DRPO_LOCAL_AI_BUNDLE="${bundle}" \
+    DRPO_LOCAL_AI_REPOSITORY="${ROOT_DIR}" \
+    DRPO_LOCAL_AI_RUNTIME="${RUNTIME_ROOT}" \
+    DRPO_LOCAL_AI_FAILURE_STAGE="${failure_stage}" \
+    timeout --signal=TERM "${timeout_seconds}" "${hook}" "${prompt}" "${bundle}" \
+      >"${action_log}" 2>&1
+  then
+    printf 'status=%q\n' completed >>"${state}"
+    check_source
+    echo "Local-AI hook completed; allowing one new guarded recovery attempt."
+    return 0
+  else
+    local hook_status="$?"
+    printf 'status=%q\n' failed >>"${state}"
+    printf 'returncode=%q\n' "${hook_status}" >>"${state}"
+    echo "Local-AI hook failed or timed out; inspect ${action_log}" >&2
+    return 1
+  fi
+}
+
+recover_import_if_requested() {
+  [[ -n "${RECOVERY_SOURCE_OUTPUT:-}" ]] || return 0
+  [[ -d "${RECOVERY_SOURCE_OUTPUT}" ]] || fail "recovery source vanished: ${RECOVERY_SOURCE_OUTPUT}"
+  local recovery_model="${MODEL_DIR}"
+  if [[ "${MODE}" == "self-test" || "${MODE}" == "engineering-self-test-internal" ]]; then
+    recovery_model="${RECOVERY_SOURCE_OUTPUT}/engineering_fixtures/placeholder_model"
+  fi
+  run_module import-recovery \
+    --source-output-root "${RECOVERY_SOURCE_OUTPUT}" \
+    --base-model-path "${recovery_model}" \
+    --source-commit "${EXPECTED_COMMIT}"
+}
+
+engineering_self_test_internal() {
+  recover_import_if_requested
+  export E8_COLDSTART_RECOVERY_PACKAGE="${RECOVERY_PACKAGE}"
+  export E8_COLDSTART_RECOVERY_INTERVAL_CELLS="${E8_COLDSTART_RECOVERY_INTERVAL_CELLS:-40}"
+  run_module engineering-self-test --source-commit "${EXPECTED_COMMIT}"
+}
+
+engineering_self_test() {
+  self_test_setup
+  ATTEMPTS_ROOT="${E8_COLDSTART_SELFTEST_OUTPUT_ROOT:-${RUNTIME_ROOT}/self-test-guard/${RUN_ID}}"
+  RECOVERY_ROOT="${RUNTIME_ROOT}/self-test-recovery/${RUN_ID}"
+  RECOVERY_PACKAGE="${RECOVERY_ROOT}/latest_checkpoint.zip"
+  command -v flock >/dev/null || fail "flock is required for single-writer recovery safety"
+  mkdir -p "${RECOVERY_ROOT}"
+  exec 8>"${RECOVERY_ROOT}/runtime.lock"
+  flock -n 8 || fail "another engineering self-test still holds the recovery lock"
+  if reuse_successful_attempt; then
+    echo "ENGINEERING_SELF_TEST_ROOT=${OUTPUT_ROOT}"
+    echo "ENGINEERING_SELF_TEST_GUARD_ARTIFACT=${GUARD_ARTIFACT}"
+    return 0
+  fi
+  local automatic_attempts="${E8_COLDSTART_AUTO_RECOVERY_ATTEMPTS:-3}"
+  local local_attempt=1
+  while [[ "${local_attempt}" -le "${automatic_attempts}" ]]; do
+    select_next_attempt
+    write_attempt_state running
+    if python "${ROOT_DIR}/scripts/run_experiment_guard_hardened.py" \
+      --experiment-id "${EXPERIMENT_ID}" \
+      --repo-root "${ROOT_DIR}" \
+      --output-root "${GUARD_ROOT}" \
+      --artifact-output "${GUARD_ARTIFACT}" \
+      --run-class pilot \
+      --expected-commit "${EXPECTED_COMMIT}" \
+      --large-file-persistence persistent_local \
+      --required-output workload/ENGINEERING_SELF_TEST_REPORT.json \
+      --required-output workload/RUN_COMPLETE.json \
+      --required-output workload/terminal_audit.json \
+      --required-output workload/run_manifest.json \
+      --required-output workload/scheduler/dynamic_run.json \
+      --required-output workload/aggregate/plot_curve_points.csv \
+      --source-file scripts/run_e8_multitask_exp_coldstart.sh \
+      --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh \
+      --source-file src/drpo/e8_multitask_exp_tuning.py \
+      --source-file configs/e8_multitask_exp_coldstart.yaml \
+      --source-file docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md \
+      --progress-glob 'workload/scheduler/queue_events.jsonl' \
+      --progress-glob 'workload/logs/*.log' \
+      -- \
+      bash "${ROOT_DIR}/scripts/run_e8_multitask_exp_coldstart.sh" engineering-self-test-internal
+    then
+      python "${ROOT_DIR}/scripts/verify_experiment_package_hardened.py" \
+        --repo-root "${ROOT_DIR}" "${GUARD_ARTIFACT}"
+      write_attempt_state complete
+      echo "ENGINEERING_SELF_TEST_ROOT=${OUTPUT_ROOT}"
+      echo "ENGINEERING_SELF_TEST_GUARD_ARTIFACT=${GUARD_ARTIFACT}"
+      return 0
+    fi
+    write_attempt_state failed
+    local_attempt=$((local_attempt + 1))
+  done
+  write_local_ai_recovery engineering_self_test
+  fail "engineering self-test exhausted automatic recovery attempts"
+}
+
+require_registered_ready() {
+  grep -Fq "${EXPERIMENT_ID}" "${ROOT_DIR}/docs/handoff.md" || \
+    fail "${EXPERIMENT_ID} is absent from docs/handoff.md"
+  grep -Fq "${EXPERIMENT_ID}" "${ROOT_DIR}/experiments/registry.yaml" || \
+    fail "${EXPERIMENT_ID} is absent from experiments/registry.yaml"
+  python3 - <<PY
+from pathlib import Path
+import re
+
+experiment_id = "${EXPERIMENT_ID}"
+registry_path = Path("${ROOT_DIR}/experiments/registry.yaml")
+lines = registry_path.read_text(encoding="utf-8").splitlines()
+starts = [index for index, line in enumerate(lines) if line == f"- id: {experiment_id}"]
+assert len(starts) == 1, f"expected exactly one registry entry for {experiment_id}, found {len(starts)}"
+start = starts[0]
+end = next(
+    (index for index in range(start + 1, len(lines)) if re.fullmatch(r"- id: .+", lines[index])),
+    len(lines),
+)
+block = lines[start:end]
+implementation = next(
+    (line.split(":", 1)[1].strip() for line in block if line.startswith("  implementation_state:")),
+    "",
+)
+assert implementation.startswith("implemented"), f"implementation_state is not implemented: {implementation!r}"
+gate_index = next((index for index, line in enumerate(block) if line == "  execution_gate:"), None)
+assert gate_index is not None, "execution_gate is absent"
+gate_state = next(
+    (
+        line.split(":", 1)[1].strip()
+        for line in block[gate_index + 1 :]
+        if line.startswith("    state:")
+    ),
+    "",
+)
+assert gate_state == "ready", f"{experiment_id} execution_gate is not ready: {gate_state!r}"
+print({"experiment_id": experiment_id, "execution_gate": "ready"})
+PY
+  local runspec_matches=()
+  mapfile -t runspec_matches < <(
+    grep -l -F "experiment_id: ${EXPERIMENT_ID}" "${ROOT_DIR}"/runspecs/ready/*.yaml || true
+  )
+  [[ "${#runspec_matches[@]}" -eq 1 ]] || \
+    fail "expected exactly one READY RunSpec for ${EXPERIMENT_ID}; found ${#runspec_matches[@]}"
+  grep -Eq "^repo_commit:[[:space:]]*${EXPECTED_COMMIT}[[:space:]]*$" "${runspec_matches[0]}" || \
+    fail "READY RunSpec does not bind reviewed commit ${EXPECTED_COMMIT}: ${runspec_matches[0]}"
+  grep -Fq "run_e8_multitask_exp_coldstart.sh full" "${runspec_matches[0]}" || \
+    fail "READY RunSpec does not call the reviewed full entrypoint: ${runspec_matches[0]}"
+}
+
+validate_registered_channel() {
+  python "${ROOT_DIR}/scripts/validate_formal_execution_channel.py" --repo-root "${ROOT_DIR}"
+}
+
+prepare() {
+  check_source
+  activate_runtime
+  preflight_gpu
+  "${ROOT_DIR}/scripts/run_e8_multitask_p0.sh" \
+    --work-dir "${P0_WORK_DIR}" prepare
+  "${ROOT_DIR}/scripts/run_e8_multitask_p0.sh" \
+    --work-dir "${P0_WORK_DIR}" qualify
+  python "${ROOT_DIR}/scripts/run_countdown_e8_oracle_bank_v2.py" \
+    --config "${ROOT_DIR}/configs/countdown_e8_oracle_offline_bank_v2_0p5b.yaml" \
+    --work_dir "${COUNTDOWN_WORK_DIR}"
+  python "${ROOT_DIR}/scripts/v2_bank_convert.py" \
+    --input "${COUNTDOWN_WORK_DIR}/data/oracle_offline_bank_v2_train.jsonl" \
+    --output "${COUNTDOWN_WORK_DIR}/data/offline_bank_v2.jsonl" \
+    --manifest "${COUNTDOWN_WORK_DIR}/data/offline_bank_v2.convert_manifest.json" \
+    --model "${MODEL_DIR}"
+  run_module prepare \
+    --p0-work-dir "${P0_WORK_DIR}" \
+    --p0-config "${P0_CONFIG_PATH}" \
+    --countdown-bank "${COUNTDOWN_WORK_DIR}/data/offline_bank_v2.jsonl" \
+    --countdown-validation "${COUNTDOWN_WORK_DIR}/data/val.jsonl"
+  python - <<PY
+import json
+from pathlib import Path
+value = {
+    "schema_version": 1,
+    "run_id": "${RUN_ID}",
+    "source_commit": "${EXPECTED_COMMIT}",
+    "model_repo": "${MODEL_REPO}",
+    "model_revision": "${MODEL_REVISION}",
+    "model_path": str(Path("${MODEL_DIR}").resolve()),
+    "test_partition_accessed": False,
+}
+path = Path("${OUTPUT_ROOT}") / "source_provenance.json"
+path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+}
+
+calibrate() {
+  check_source
+  activate_runtime
+  mkdir -p "${OUTPUT_ROOT}/logs/calibration"
+  run_module calibrate --base-model-path "${MODEL_DIR}" \
+    >"${OUTPUT_ROOT}/logs/calibration/no_calibration_identity_gate.log" 2>&1
+}
+
+liveness() {
+  check_source
+  activate_runtime
+  CUDA_VISIBLE_DEVICES=0 LOCAL_RANK=0 run_module liveness \
+    --task countdown \
+    --lambda 0.916290732 \
+    --base-model-path "${MODEL_DIR}"
+}
+
+run_queue() {
+  check_source
+  activate_runtime
+  preflight_gpu
+  run_module run-all --base-model-path "${MODEL_DIR}" --retry-incomplete
+}
+
+run_queue_with_retry() {
+  local attempt=1
+  local maximum_attempts="${E8_COLDSTART_QUEUE_ATTEMPTS:-3}"
+  [[ "${maximum_attempts}" =~ ^[1-9][0-9]*$ ]] || fail "queue attempts must be a positive integer"
+  while ! run_queue; do
+    if [[ "${attempt}" -ge "${maximum_attempts}" ]]; then
+      fail "dynamic queue still failed after ${attempt} guarded attempts"
+    fi
+    attempt=$((attempt + 1))
+    echo "Retrying only incomplete/unscheduled cells inside the same guard: attempt ${attempt}"
+  done
+}
+
+finish() {
+  check_source
+  activate_runtime
+  run_module aggregate
+  run_module audit
+  run_module finalize
+  python - <<PY
+import json
+from pathlib import Path
+root = Path("${OUTPUT_ROOT}")
+audit = json.loads((root / "terminal_audit.json").read_text())
+assert audit["all_training_and_evaluation_complete"], audit
+plot = root / "aggregate" / "plot_curve_points.csv"
+print("RAW_RESULTS_ROOT=" + str(root.resolve()))
+print("PLOT_CSV=" + str(plot.resolve()))
+PY
+}
+
+refresh_recovery_plan() {
+  run_module recovery-plan --base-model-path "${MODEL_DIR}" >/dev/null
+}
+
+plan_flag() {
+  local key="$1"
+  python - "${OUTPUT_ROOT}/recovery/RECOVERY_PLAN.json" "${key}" <<'PY'
+import json
+import sys
+value = json.loads(open(sys.argv[1], encoding="utf-8").read())[sys.argv[2]]
+raise SystemExit(0 if value is True else 1)
+PY
+}
+
+finish_from_plan() {
+  refresh_recovery_plan
+  if ! plan_flag aggregate_complete; then
+    run_module aggregate
+  fi
+  refresh_recovery_plan
+  if ! plan_flag audit_complete; then
+    run_module audit
+  fi
+  refresh_recovery_plan
+  if ! plan_flag finalized; then
+    run_module finalize
+  fi
+  refresh_recovery_plan
+  plan_flag finalized || fail "recovery plan is not finalized after aggregate/audit/finalize"
+}
+
+delivery_preflight() {
+  mkdir -p "${RECOVERY_ROOT}"
+  local log="${RECOVERY_ROOT}/delivery_preflight.log"
+  local command=(
+    python "${ROOT_DIR}/scripts/package_experiment_hardened.py"
+    --repo-root "${ROOT_DIR}"
+    --experiment-id "${EXPERIMENT_ID}"
+    --package-kind experiment-checkpoint
+    --result-dir "${OUTPUT_ROOT}"
+    --output "${DELIVERY_PREFLIGHT_PACKAGE}"
+    --base-commit "${EXPECTED_COMMIT}"
+    --no-repository-changes
+    --require-origin-main-match
+    --large-file-persistence persistent_local
+    --max-package-mib 23
+    --source-file scripts/run_e8_multitask_exp_coldstart.sh
+    --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh
+    --source-file src/drpo/e8_multitask_exp_tuning.py
+    --source-file configs/e8_multitask_exp_coldstart.yaml
+  )
+  if "${command[@]}" >"${log}" 2>&1; then
+    return 0
+  fi
+  if grep -Fq "exceeding hard limit" "${log}"; then
+    echo "Delivery preflight exceeded 23 MiB; compacting full logs with verified tails."
+    run_module compact-logs
+    "${command[@]}" >"${log}" 2>&1 || {
+      tail -n 80 "${log}" >&2
+      fail "delivery preflight still fails after deterministic log compaction"
+    }
+    return 0
+  fi
+  tail -n 80 "${log}" >&2
+  fail "delivery preflight failed for a non-size reason"
+}
+
+guarded_full_internal() {
+  recover_import_if_requested
+  export E8_COLDSTART_RECOVERY_PACKAGE="${RECOVERY_PACKAGE}"
+  export E8_COLDSTART_RECOVERY_INTERVAL_CELLS="${E8_COLDSTART_RECOVERY_INTERVAL_CELLS:-5}"
+  export E8_COLDSTART_RECOVERY_REQUIRE_ORIGIN_MAIN=1
+  refresh_recovery_plan
+  if ! plan_flag prepare_complete; then
+    prepare
+  fi
+  refresh_recovery_plan
+  if ! plan_flag calibration_complete; then
+    calibrate
+  fi
+  refresh_recovery_plan
+  if ! plan_flag liveness_complete; then
+    liveness
+  fi
+  refresh_recovery_plan
+  if ! plan_flag cells_complete; then
+    run_queue_with_retry
+  fi
+  finish_from_plan
+  delivery_preflight
+}
+
+run_formal_guard_attempt() {
+  [[ "${OUTPUT_ROOT}" == "${GUARD_ROOT}/workload" ]] || \
+    fail "formal output root must be the guard workload child: ${GUARD_ROOT}/workload"
+  [[ ! -e "${GUARD_ROOT}" ]] || fail "formal guard attempt root must be new: ${GUARD_ROOT}"
+  [[ ! -e "${GUARD_ARTIFACT}" ]] || fail "guard artifact already exists: ${GUARD_ARTIFACT}"
+  mkdir -p "$(dirname "${GUARD_ARTIFACT}")"
+  python "${ROOT_DIR}/scripts/run_experiment_guard_hardened.py" \
+    --experiment-id "${EXPERIMENT_ID}" \
+    --repo-root "${ROOT_DIR}" \
+    --output-root "${GUARD_ROOT}" \
+    --artifact-output "${GUARD_ARTIFACT}" \
+    --run-class formal \
+    --expected-commit "${EXPECTED_COMMIT}" \
+    --require-origin-main-match \
+    --large-file-persistence persistent_local \
+    --required-output workload/RUN_COMPLETE.json \
+    --required-output workload/terminal_audit.json \
+    --required-output workload/run_manifest.json \
+    --required-output workload/scientific_run_manifest.json \
+    --required-output workload/scheduler/dynamic_run.json \
+    --required-output workload/aggregate/plot_curve_points.csv \
+    --source-file scripts/run_e8_multitask_exp_coldstart.sh \
+    --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh \
+    --source-file src/drpo/e8_multitask_exp_tuning.py \
+    --source-file configs/e8_multitask_exp_coldstart.yaml \
+    --source-file requirements/e8_multitask_exp_coldstart.txt \
+    --source-file src/drpo/countdown_qwen_arena_onefile.py \
+    --source-file src/drpo/countdown_e8_alpha1_c_scan_common.py \
+    --source-file src/drpo/countdown_e8_alpha1_c_scan_runtime.py \
+    --source-file src/drpo/countdown_e8_alpha1_c_scan_trainer.py \
+    --source-file src/drpo/countdown_e8_alpha1_highc_scan_common.py \
+    --source-file src/drpo/countdown_e8_alpha1_highc_scan_runtime.py \
+    --source-file src/drpo/countdown_e8_oracle_bank_v2.py \
+    --source-file scripts/v2_bank_convert.py \
+    --source-file src/drpo/e8_multitask_p0.py \
+    --source-file src/drpo/e8_multitask_tasks.py \
+    --source-file configs/e8_multitask_p0.yaml \
+    --source-file scripts/run_e8_multitask_p0.sh \
+    --source-file docs/handoff.md \
+    --source-file experiments/registry.yaml \
+    --progress-glob 'workload/scheduler/queue_events.jsonl' \
+    --progress-glob 'workload/logs/*.log' \
+    -- \
+    bash "${ROOT_DIR}/scripts/run_e8_multitask_exp_coldstart.sh" guarded-full-internal
+}
+
+report_formal_success() {
+  python "${ROOT_DIR}/scripts/verify_experiment_package_hardened.py" \
+    --repo-root "${ROOT_DIR}" "${GUARD_ARTIFACT}"
+  write_attempt_state complete
+  echo "RAW_COMPLETE_RESULTS_ZIP=${GUARD_ARTIFACT}"
+  sha256sum "${GUARD_ARTIFACT}"
+  echo "PLOT_CSV=${OUTPUT_ROOT}/aggregate/plot_curve_points.csv"
+  sha256sum "${OUTPUT_ROOT}/aggregate/plot_curve_points.csv"
+  echo "RECOVERY_CHECKPOINT=${RECOVERY_PACKAGE}"
+  if [[ -f "${RECOVERY_PACKAGE}" ]]; then
+    sha256sum "${RECOVERY_PACKAGE}"
+  else
+    echo "RECOVERY_CHECKPOINT_UNAVAILABLE=completed_without_queue_checkpoint"
+  fi
+}
+
+guarded_full() {
+  require_registered_ready
+  ensure_setup
+  validate_registered_channel
+  command -v flock >/dev/null || fail "flock is required for single-writer recovery safety"
+  mkdir -p "${RECOVERY_ROOT}"
+  exec 9>"${RECOVERY_ROOT}/runtime.lock"
+  if ! flock -n 9; then
+    write_local_ai_recovery concurrent_runtime_lock
+    fail "another experiment or recovery process still holds ${RECOVERY_ROOT}/runtime.lock"
+  fi
+  if reuse_successful_attempt; then
+    write_attempt_state complete
+    echo "RAW_COMPLETE_RESULTS_ZIP=${GUARD_ARTIFACT}"
+    sha256sum "${GUARD_ARTIFACT}"
+    echo "PLOT_CSV=${OUTPUT_ROOT}/aggregate/plot_curve_points.csv"
+    sha256sum "${OUTPUT_ROOT}/aggregate/plot_curve_points.csv"
+    return 0
+  fi
+  local automatic_attempts="${E8_COLDSTART_AUTO_RECOVERY_ATTEMPTS:-3}"
+  [[ "${automatic_attempts}" =~ ^[1-9][0-9]*$ ]] || fail "automatic recovery attempts must be positive"
+  local local_attempt=1
+  while [[ "${local_attempt}" -le "${automatic_attempts}" ]]; do
+    select_next_attempt
+    write_attempt_state running
+    if run_formal_guard_attempt; then
+      report_formal_success
+      return 0
+    fi
+    write_attempt_state failed
+    echo "Guard attempt ${local_attempt} failed; starting a new isolated recovery attempt." >&2
+    local_attempt=$((local_attempt + 1))
+  done
+  write_local_ai_recovery formal_guard_attempts_exhausted
+  if invoke_local_ai_recovery formal_guard_attempts_exhausted; then
+    select_next_attempt
+    write_attempt_state running_after_local_ai
+    if run_formal_guard_attempt; then
+      report_formal_success
+      return 0
+    fi
+    write_attempt_state failed_after_local_ai
+    write_local_ai_recovery post_local_ai_guard_failure
+  else
+    write_local_ai_recovery local_ai_hook_unavailable_or_failed
+  fi
+  fail "formal run exhausted automatic recovery attempts; use the generated local-AI handoff"
+}
+
+case "${MODE}" in
+  self-test) engineering_self_test ;;
+  setup) setup ;;
+  prepare) prepare ;;
+  plan) check_source; activate_runtime; run_module plan ;;
+  calibrate) calibrate ;;
+  liveness) liveness ;;
+  run|resume) run_queue ;;
+  finish) finish ;;
+  engineering-self-test-internal) engineering_self_test_internal ;;
+  guarded-full-internal) guarded_full_internal ;;
+  diagnose) write_local_ai_recovery "${2:-manual_diagnosis}" ;;
+  full) guarded_full ;;
+  *) fail "usage: $0 {self-test|setup|prepare|plan|calibrate|liveness|run|resume|finish|full}" ;;
+esac
