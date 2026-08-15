@@ -1168,17 +1168,30 @@ def split_countdown_rows(
     split = config["split"]
     normalized_train = [_normalize_countdown_train_row(row) for row in train_rows]
     normalized_validation = [_normalize_countdown_validation_row(row) for row in validation_rows]
-    if not bool(split.get("countdown_subsampling_forbidden", False)):
-        raise RuntimeError("Paper Countdown forbids wrapper-level train subsampling")
-    train = normalized_train
-    validation = normalized_validation
+    if _is_coldstart(config):
+        if not bool(split.get("countdown_subsampling_forbidden", False)):
+            raise RuntimeError("Paper Countdown forbids wrapper-level train subsampling")
+        train = normalized_train
+        validation = normalized_validation
+    else:
+        train = _ordered_by_prompt_hash(
+            normalized_train,
+            task="countdown",
+            seed=int(split["hash_seed"]),
+            role="countdown_train_select",
+        )[: int(split["countdown_train_rows"])]
+        validation = _ordered_by_prompt_hash(
+            normalized_validation,
+            task="countdown",
+            seed=int(split["hash_seed"]),
+            role="countdown_validation_select",
+        )[: int(split["countdown_validation_rows"])]
     _audit_training_rows("countdown", train, int(split["countdown_train_rows"]))
     if len(validation) != int(split["countdown_validation_rows"]):
         raise RuntimeError("Countdown validation file does not contain the exact frozen rows")
     partitions = {"train": train, "validation": validation}
     _audit_partition_prompt_ids("countdown", partitions)
     return partitions
-
 
 def _canonical_train_row(row: Mapping[str, Any]) -> dict[str, Any]:
     """Translate task schema while preserving the paper all-unique-negative loss."""
@@ -5715,10 +5728,14 @@ def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
         raise ValueError(f"Cannot write empty CSV: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        fieldnames = list(rows[0])
+        for row in rows[1:]:
+            for key in row:
+                if key not in fieldnames:
+                    fieldnames.append(key)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
-
 
 def _aggregate_dense(
     config: Mapping[str, Any],
