@@ -17,10 +17,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Patch compatibility regressions on exact production tree
+      - name: Add per-task early result materialization on exact production tree
         shell: bash
         env:
-          PRODUCTION_COMMIT: d98fc674c468c1467a004c4dfb8bfb62319741d4
+          PRODUCTION_COMMIT: bbef2bba8efd8c89ea57a4e95f923008e3a10fbf
         run: |
           set -Eeuo pipefail
           git checkout --detach "${PRODUCTION_COMMIT}"
@@ -29,67 +29,331 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
-          path = Path("src/drpo/e8_multitask_exp_tuning.py")
-          text = path.read_text(encoding="utf-8")
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected one match, found {count}")
+              return text.replace(old, new, 1)
 
-          split_start = text.index("def split_countdown_rows(\n")
-          split_end = text.index("\ndef _canonical_train_row(", split_start)
-          new_split = '''def split_countdown_rows(
-              train_rows: Sequence[Mapping[str, Any]],
-              validation_rows: Sequence[Mapping[str, Any]],
-              *,
+          source = Path("src/drpo/e8_multitask_exp_tuning.py")
+          text = source.read_text(encoding="utf-8")
+
+          text = replace_once(
+              text,
+              '''RECOVERY_TRANSIENT_TOP_LEVEL = {
+              "aggregate",
+              "packages",
+              "recovery",
+              "scheduler",
+          }
+          '''.replace("          ", ""),
+              '''RECOVERY_TRANSIENT_TOP_LEVEL = {
+              "aggregate",
+              "packages",
+              "recovery",
+              "scheduler",
+              "task_results",
+          }
+          '''.replace("          ", ""),
+              "recovery transient task results",
+          )
+
+          text = replace_once(
+              text,
+              '''    wave_records: list[dict[str, Any]] = []
+              stopped = False
+          '''.replace("              ", "    "),
+              '''    wave_records: list[dict[str, Any]] = []
+              task_results: dict[str, dict[str, Any]] = {}
+              stopped = False
+          '''.replace("              ", "    "),
+              "scheduler task result state",
+          )
+          text = replace_once(
+              text,
+              '''        failures = [row for row in wave_results if int(row["returncode"]) != 0]
+              wave_records.append(
+          '''.replace("              ", "        "),
+              '''        failures = [row for row in wave_results if int(row["returncode"]) != 0]
+              task_results = _materialize_completed_coldstart_task_results(config, output_root)
+              wave_records.append(
+          '''.replace("              ", "        "),
+              "materialize after wave",
+          )
+          text = replace_once(
+              text,
+              '''                "scientific_result_gate": False,
+              }
+          '''.replace("              ", "                "),
+              '''                "scientific_result_gate": False,
+              "analysis_ready_tasks": sorted(task_results),
+              }
+          '''.replace("              ", "                "),
+              "wave analysis-ready tasks",
+          )
+          text = replace_once(
+              text,
+              '''        "queue_events": str(event_path.resolve()),
+              "complete": not failures and not unscheduled and len(completed_keys) == len(cells),
+          '''.replace("              ", "        "),
+              '''        "queue_events": str(event_path.resolve()),
+              "analysis_ready_tasks": sorted(task_results),
+              "task_results": task_results,
+              "complete": not failures and not unscheduled and len(completed_keys) == len(cells),
+          '''.replace("              ", "        "),
+              "scheduler task result manifest",
+          )
+
+          helper = r'''
+
+          def _coldstart_completed_task_rows(
               config: Mapping[str, Any],
-          ) -> dict[str, list[dict[str, Any]]]:
-              split = config["split"]
-              normalized_train = [_normalize_countdown_train_row(row) for row in train_rows]
-              normalized_validation = [_normalize_countdown_validation_row(row) for row in validation_rows]
-              if _is_coldstart(config):
-                  if not bool(split.get("countdown_subsampling_forbidden", False)):
-                      raise RuntimeError("Paper Countdown forbids wrapper-level train subsampling")
-                  train = normalized_train
-                  validation = normalized_validation
-              else:
-                  train = _ordered_by_prompt_hash(
-                      normalized_train,
-                      task="countdown",
-                      seed=int(split["hash_seed"]),
-                      role="countdown_train_select",
-                  )[: int(split["countdown_train_rows"])]
-                  validation = _ordered_by_prompt_hash(
-                      normalized_validation,
-                      task="countdown",
-                      seed=int(split["hash_seed"]),
-                      role="countdown_validation_select",
-                  )[: int(split["countdown_validation_rows"])]
-              _audit_training_rows("countdown", train, int(split["countdown_train_rows"]))
-              if len(validation) != int(split["countdown_validation_rows"]):
-                  raise RuntimeError("Countdown validation file does not contain the exact frozen rows")
-              partitions = {"train": train, "validation": validation}
-              _audit_partition_prompt_ids("countdown", partitions)
-              return partitions
-          '''
-          text = text[:split_start] + new_split + text[split_end:]
+              output_root: Path,
+              task: str,
+          ) -> list[dict[str, Any]] | None:
+              """Return one complete task response table, or None until every task cell is reusable."""
 
-          csv_start = text.index("def _write_csv(path: Path")
-          csv_end = text.index("\ndef _aggregate_dense(", csv_start)
-          new_csv = '''def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
-              if not rows:
-                  raise ValueError(f"Cannot write empty CSV: {path}")
-              path.parent.mkdir(parents=True, exist_ok=True)
-              with path.open("w", encoding="utf-8", newline="") as handle:
-                  fieldnames = list(rows[0])
-                  for row in rows[1:]:
-                      for key in row:
-                          if key not in fieldnames:
-                              fieldnames.append(key)
-                  writer = csv.DictWriter(handle, fieldnames=fieldnames)
-                  writer.writeheader()
-                  writer.writerows(rows)
+              if not _is_coldstart(config):
+                  raise RuntimeError("Per-task early result materialization is cold-start only")
+              expected = [cell for cell in build_cells(config) if cell.task == task]
+              expected_count = 16 if task == "countdown" else 24
+              if len(expected) != expected_count:
+                  raise AssertionError(f"{task} expected {expected_count} cold-start cells")
+              expected_hash = stable_config_hash(config)
+              rows: list[dict[str, Any]] = []
+              for cell in expected:
+                  path = output_root / "cells" / cell.key / "cell_manifest.json"
+                  if not path.is_file():
+                      return None
+                  value = json.loads(path.read_text(encoding="utf-8"))
+                  if value.get("complete") is not True or value.get("evaluation_status") != "complete":
+                      return None
+                  if (
+                      value.get("experiment_id") != experiment_id(config)
+                      or value.get("config_hash") != expected_hash
+                  ):
+                      raise RuntimeError(f"{cell.key} per-task result identity mismatch")
+                  if not _is_engineering_self_test(config) and (
+                      "validation_late_window_pass8_mean" not in value
+                      or "validation_late_window_greedy_mean" not in value
+                  ):
+                      raise RuntimeError(f"{cell.key} is missing the paper primary late-window metric")
+                  rows.append(
+                      {
+                          "source": "current",
+                          "task": cell.task,
+                          "method": cell.method,
+                          "rho": cell.rho,
+                          "lambda": (
+                              cell.lambda_value
+                              if cell.lambda_value is not None
+                              else (None if cell.rho is None else coefficient_from_rho(cell.rho))
+                          ),
+                          "seed": cell.seed,
+                          "stage": cell.stage,
+                          "cell_key": cell.key,
+                          "nan_inf_failure": bool(value["nan_inf_failure"]),
+                          "late_window_pass8_mean": value.get(
+                              "validation_late_window_pass8_mean",
+                              value["validation_best_pass8"],
+                          ),
+                          "late_window_greedy_mean": value.get(
+                              "validation_late_window_greedy_mean",
+                              value["validation_best_greedy"],
+                          ),
+                          "best_pass8": value["validation_best_pass8"],
+                          "terminal_pass8": value["validation_terminal_pass8"],
+                          "best_greedy": value["validation_best_greedy"],
+                          "terminal_greedy": value["validation_terminal_greedy"],
+                          "best_greedy_valid_rate": value["validation_best_greedy_valid_rate"],
+                          "terminal_greedy_valid_rate": value[
+                              "validation_terminal_greedy_valid_rate"
+                          ],
+                          "best_step": value["best_step"],
+                          "terminal_step": value["terminal_step"],
+                          "stop_reason": value["stop_reason"],
+                      }
+                  )
+              return rows
+
+
+          def _write_coldstart_task_result(
+              config: Mapping[str, Any],
+              output_root: Path,
+              task: str,
+              rows: list[dict[str, Any]],
+          ) -> dict[str, Any]:
+              """Write deterministic task-local curve data; publish TASK_COMPLETE.json last."""
+
+              provenance_path = output_root / "source_provenance.json"
+              if not provenance_path.is_file():
+                  raise RuntimeError("Per-task result materialization requires source_provenance.json")
+              provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+              source_commit = str(provenance.get("source_commit", ""))
+              if len(source_commit) != 40 or any(
+                  character not in "0123456789abcdef" for character in source_commit
+              ):
+                  raise RuntimeError("Per-task result materialization requires one full source commit")
+              run_id = str(provenance.get("run_id", output_root.name))
+              root = output_root / "task_results" / task
+              root.mkdir(parents=True, exist_ok=True)
+              marker_path = root / "TASK_COMPLETE.json"
+              marker_path.unlink(missing_ok=True)
+
+              all_cells_path = root / "all_cells.csv"
+              plot_path = root / "plot_curve_points.csv"
+              _write_csv(all_cells_path, rows)
+              plot_rows = [
+                  {
+                      "experiment_id": experiment_id(config),
+                      "run_id": run_id,
+                      "source_commit": source_commit,
+                      "task": row["task"],
+                      "method": row["method"],
+                      "lambda": row["lambda"],
+                      "rho": row["rho"],
+                      "seed": row["seed"],
+                      "stage": row["stage"],
+                      "late_window_pass8_mean": row["late_window_pass8_mean"],
+                      "late_window_greedy_mean": row["late_window_greedy_mean"],
+                      "best_validation_pass8": row["best_pass8"],
+                      "terminal_pass8": row["terminal_pass8"],
+                      "best_validation_greedy": row["best_greedy"],
+                      "terminal_greedy": row["terminal_greedy"],
+                      "best_greedy_valid_rate": row["best_greedy_valid_rate"],
+                      "terminal_greedy_valid_rate": row["terminal_greedy_valid_rate"],
+                      "best_step": row["best_step"],
+                      "terminal_step": row["terminal_step"],
+                      "stop_reason": row["stop_reason"],
+                      "nan_inf_failure": row["nan_inf_failure"],
+                      "complete": True,
+                  }
+                  for row in rows
+              ]
+              _write_csv(plot_path, plot_rows)
+              cell_manifest_sha256 = {
+                  row["cell_key"]: sha256_file(
+                      output_root / "cells" / str(row["cell_key"]) / "cell_manifest.json"
+                  )
+                  for row in rows
+              }
+              marker = {
+                  "schema_version": 1,
+                  "experiment_id": experiment_id(config),
+                  "config_hash": stable_config_hash(config),
+                  "run_id": run_id,
+                  "source_commit": source_commit,
+                  "task": task,
+                  "expected_cells": 16 if task == "countdown" else 24,
+                  "cell_count": len(rows),
+                  "all_cells_csv": str(all_cells_path.resolve()),
+                  "all_cells_csv_sha256": sha256_file(all_cells_path),
+                  "plot_curve_points_csv": str(plot_path.resolve()),
+                  "plot_curve_points_csv_sha256": sha256_file(plot_path),
+                  "cell_manifest_sha256": cell_manifest_sha256,
+                  "analysis_ready": True,
+                  "final_aggregate_authority": False,
+                  "test_partition_accessed": False,
+                  "method_ranking_allowed": False,
+                  "complete": True,
+                  "scientific_status": (
+                      "not_run" if _is_engineering_self_test(config) else "pilot"
+                  ),
+                  "note": (
+                      "Deterministic early task snapshot from completed identity-matched cells; "
+                      "the terminal 208-cell aggregate remains the final reporting authority."
+                  ),
+              }
+              atomic_json(marker_path, marker)
+              return marker
+
+
+          def _materialize_completed_coldstart_task_results(
+              config: Mapping[str, Any],
+              output_root: Path,
+          ) -> dict[str, dict[str, Any]]:
+              """Publish every newly complete task after a hard wave barrier."""
+
+              ready: dict[str, dict[str, Any]] = {}
+              for task_value in config["suite"]["tasks"]:
+                  task = str(task_value)
+                  rows = _coldstart_completed_task_rows(config, output_root, task)
+                  if rows is None:
+                      continue
+                  ready[task] = _write_coldstart_task_result(config, output_root, task, rows)
+              return ready
           '''
-          text = text[:csv_start] + new_csv + text[csv_end:]
-          path.write_text(text, encoding="utf-8")
+          helper = "\n".join(
+              line[10:] if line.startswith("          ") else line for line in helper.splitlines()
+          )
+          marker = "\ndef _aggregate_dense(\n"
+          if text.count(marker) != 1:
+              raise SystemExit(f"helper insertion marker count={text.count(marker)}")
+          text = text.replace(marker, helper + marker, 1)
+
+          report_old = '''        "repeat_run_preserved_cell_hashes": True,
+              "queue_audit": queue_audit,
+          '''.replace("              ", "        ")
+          report_new = '''        "repeat_run_preserved_cell_hashes": True,
+              "analysis_ready_tasks": sorted(repeated.get("analysis_ready_tasks", ())),
+              "task_result_count": len(repeated.get("task_results", {})),
+              "queue_audit": queue_audit,
+          '''.replace("              ", "        ")
+          text = replace_once(text, report_old, report_new, "self-test report task results")
+          source.write_text(text, encoding="utf-8")
+
+          tests = Path("tests/test_e8_multitask_p0.py")
+          test_text = tests.read_text(encoding="utf-8")
+          old_assertions = '''    assert result["repeat_run_preserved_cell_hashes"]
+              assert result["tampered_package_rejected"]
+          '''.replace("              ", "    ")
+          new_assertions = '''    assert result["repeat_run_preserved_cell_hashes"]
+              assert result["tampered_package_rejected"]
+              assert set(result["analysis_ready_tasks"]) == set(config["suite"]["tasks"])
+              assert result["task_result_count"] == 9
+              output_root = tmp_path / "engineering-self-test"
+              with zipfile.ZipFile(result["full_results_zip"]) as archive:
+                  packaged_names = set(archive.namelist())
+              for task in config["suite"]["tasks"]:
+                  root = output_root / "task_results" / str(task)
+                  marker = json.loads((root / "TASK_COMPLETE.json").read_text(encoding="utf-8"))
+                  expected_cells = 16 if task == "countdown" else 24
+                  assert marker["complete"]
+                  assert marker["analysis_ready"]
+                  assert marker["final_aggregate_authority"] is False
+                  assert marker["cell_count"] == expected_cells
+                  assert len(list(csv.DictReader((root / "all_cells.csv").open()))) == expected_cells
+                  assert len(list(csv.DictReader((root / "plot_curve_points.csv").open()))) == expected_cells
+                  assert f"task_results/{task}/TASK_COMPLETE.json" in packaged_names
+          '''.replace("              ", "    ")
+          test_text = replace_once(test_text, old_assertions, new_assertions, "self-test task result assertions")
+          runbook_assert = '''    assert "reference-remoteness" in runbook
+          '''
+          runbook_assert_new = '''    assert "reference-remoteness" in runbook
+              assert "task_results/<task>" in runbook
+              assert "TASK_COMPLETE.json" in runbook
+          '''.replace("              ", "    ")
+          test_text = replace_once(test_text, runbook_assert, runbook_assert_new, "runbook task result assertions")
+          tests.write_text(test_text, encoding="utf-8")
+
+          runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md")
+          runbook_text = runbook.read_text(encoding="utf-8")
+          old_bullet = '''- 调度容量固定为 8 GPU × 2 cells/GPU = **16-cell wave**。208 cells 正好 13 个 wave；
+            wave N 的 16 个 cell 全部结束后才允许 wave N+1 开始。这个 barrier 只是 scheduling /
+            recovery 边界，不是科学结果门禁；OOM 时 cell 失败并保留证据，禁止自动改 batch、λ、
+            loss、数据或其他科学参数；
+          '''.replace("          ", "")
+          new_bullet = old_bullet + '''- 每个 task 的冻结 cell 集合一旦在某个 hard wave barrier 后全部完成，立即在
+            `task_results/<task>/` 写出 `all_cells.csv`、`plot_curve_points.csv` 和最后发布的
+            `TASK_COMPLETE.json`。因此无需等待 208 cells 全部结束即可开始分析已经完成的任务；
+            这些 task-local 文件只是确定性的早期结果快照，不影响调度、选择或结果门禁，最终 208-cell
+            terminal aggregate 仍是正式汇总权威；
+          '''.replace("          ", "")
+          runbook_text = replace_once(runbook_text, old_bullet, new_bullet, "runbook early task output")
+          runbook.write_text(runbook_text, encoding="utf-8")
           PY
-          test "$(git diff --name-only)" = "src/drpo/e8_multitask_exp_tuning.py"
+
+          test "$(git diff --name-only | sort)" = $'docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md\nsrc/drpo/e8_multitask_exp_tuning.py\ntests/test_e8_multitask_p0.py'
           git diff --check
           python -m py_compile src/drpo/e8_multitask_exp_tuning.py
 
@@ -104,13 +368,13 @@ jobs:
 
           git config user.name 'drpo-validation-bot'
           git config user.email 'actions@users.noreply.github.com'
-          git add src/drpo/e8_multitask_exp_tuning.py
+          git add docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
           git diff --cached --check
-          git commit -m 'E8 coldstart: preserve predecessor compatibility'
+          git commit -m 'E8 coldstart: publish completed task results early'
           PATCHED_COMMIT="$(git rev-parse HEAD)"
 
           E8_COLDSTART_EXPECTED_COMMIT="${PATCHED_COMMIT}" \
-            E8_COLDSTART_RUNTIME_ROOT="${RUNNER_TEMP}/e8-coldstart-final-selftest" \
+            E8_COLDSTART_RUNTIME_ROOT="${RUNNER_TEMP}/e8-coldstart-task-results-selftest" \
             bash scripts/run_e8_multitask_exp_coldstart.sh self-test
 
           test "$(git hash-object src/drpo/countdown_qwen_arena_onefile.py)" = d8a04f3ae3edd08042aa1004b4cbf927fc5cea72
@@ -123,4 +387,4 @@ jobs:
           test "$(git hash-object src/drpo/e8_multitask_tasks.py)" = 454f3076171ee25636109c33f5a177ee2201b5f8
           test "$(git hash-object configs/e8_multitask_p0.yaml)" = 14605ae3a79f18e435feafd3927bc21485edbbc9
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
-          git push --force origin HEAD:refs/heads/dev/e8-coldstart-validation-fix-output-20260815
+          git push --force origin HEAD:refs/heads/dev/e8-coldstart-task-results-output-20260815
