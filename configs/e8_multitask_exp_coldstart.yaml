@@ -215,7 +215,8 @@ canonical_coldstart:
   scientific_kernel: import_only_no_loss_reimplementation
   initialization: qwen_pretrained_base_plus_fresh_lora
   positive_only_entry: countdown_e8_alpha1_highc_scan_runtime.worker
-  exponential_entry: countdown_e8_alpha1_c_scan_trainer.train_cell
+  countdown_exponential_entry: countdown_e8_alpha1_highc_scan_runtime.worker
+  task_transfer_exponential_entry: countdown_e8_alpha1_c_scan_trainer.train_cell
   formula: alpha_times_exp_minus_c_times_current_sequence_surprisal_div_2
   paths:
     arena: src/drpo/countdown_qwen_arena_onefile.py
