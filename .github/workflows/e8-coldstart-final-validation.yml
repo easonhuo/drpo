@@ -32,17 +32,16 @@ jobs:
           path = Path("src/drpo/e8_multitask_exp_tuning.py")
           text = path.read_text(encoding="utf-8")
 
-          old_split = '''    normalized_train = [_normalize_countdown_train_row(row) for row in train_rows]
-              normalized_validation = [_normalize_countdown_validation_row(row) for row in validation_rows]
-              if not bool(split.get("countdown_subsampling_forbidden", False)):
-                  raise RuntimeError("Paper Countdown forbids wrapper-level train subsampling")
-              train = normalized_train
-              validation = normalized_validation
-              _audit_training_rows("countdown", train, int(split["countdown_train_rows"]))
-              if len(validation) != int(split["countdown_validation_rows"]):
-                  raise RuntimeError("Countdown validation file does not contain the exact frozen rows")
-          '''.replace("              ", "    ")
-          new_split = '''    normalized_train = [_normalize_countdown_train_row(row) for row in train_rows]
+          split_start = text.index("def split_countdown_rows(\n")
+          split_end = text.index("\ndef _canonical_train_row(", split_start)
+          new_split = '''def split_countdown_rows(
+              train_rows: Sequence[Mapping[str, Any]],
+              validation_rows: Sequence[Mapping[str, Any]],
+              *,
+              config: Mapping[str, Any],
+          ) -> dict[str, list[dict[str, Any]]]:
+              split = config["split"]
+              normalized_train = [_normalize_countdown_train_row(row) for row in train_rows]
               normalized_validation = [_normalize_countdown_validation_row(row) for row in validation_rows]
               if _is_coldstart(config):
                   if not bool(split.get("countdown_subsampling_forbidden", False)):
@@ -65,16 +64,26 @@ jobs:
               _audit_training_rows("countdown", train, int(split["countdown_train_rows"]))
               if len(validation) != int(split["countdown_validation_rows"]):
                   raise RuntimeError("Countdown validation file does not contain the exact frozen rows")
-          '''.replace("              ", "    ")
-          if text.count(old_split) != 1:
-              raise SystemExit(f"split patch expected one match, found {text.count(old_split)}")
-          text = text.replace(old_split, new_split, 1)
+              partitions = {"train": train, "validation": validation}
+              _audit_partition_prompt_ids("countdown", partitions)
+              return partitions
+          '''
+          # The workflow YAML block contributes 10 spaces to every physical line;
+          # after YAML block de-indentation the literal above has the intended Python indentation.
+          new_split = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in new_split.splitlines()
+          ) + "\n"
+          text = text[:split_start] + new_split + text[split_end:]
 
-          old_csv = '''        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
-                  writer.writeheader()
-                  writer.writerows(rows)
-          '''.replace("                  ", "        ")
-          new_csv = '''        fieldnames = list(rows[0])
+          csv_start = text.index("def _write_csv(\n")
+          csv_end = text.index("\ndef _aggregate_dense(", csv_start)
+          new_csv = '''def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
+              if not rows:
+                  raise ValueError(f"Cannot write empty CSV: {path}")
+              path.parent.mkdir(parents=True, exist_ok=True)
+              with path.open("w", encoding="utf-8", newline="") as handle:
+                  fieldnames = list(rows[0])
                   for row in rows[1:]:
                       for key in row:
                           if key not in fieldnames:
@@ -82,14 +91,17 @@ jobs:
                   writer = csv.DictWriter(handle, fieldnames=fieldnames)
                   writer.writeheader()
                   writer.writerows(rows)
-          '''.replace("                  ", "        ")
-          if text.count(old_csv) != 1:
-              raise SystemExit(f"csv patch expected one match, found {text.count(old_csv)}")
-          text = text.replace(old_csv, new_csv, 1)
+          '''
+          new_csv = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in new_csv.splitlines()
+          ) + "\n"
+          text = text[:csv_start] + new_csv + text[csv_end:]
           path.write_text(text, encoding="utf-8")
           PY
           test "$(git diff --name-only)" = "src/drpo/e8_multitask_exp_tuning.py"
           git diff --check
+          python -m py_compile src/drpo/e8_multitask_exp_tuning.py
 
       - name: Full regression and 208-cell engineering self-test
         shell: bash
@@ -98,7 +110,6 @@ jobs:
         run: |
           set -Eeuo pipefail
           python -m pip install --disable-pip-version-check -q pytest==8.3.5 PyYAML==6.0.2 numpy==1.26.4
-          python -m py_compile src/drpo/e8_multitask_exp_tuning.py
           python -m pytest -q tests/test_e8_multitask_p0.py
 
           git config user.name 'drpo-validation-bot'
