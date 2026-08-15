@@ -6,7 +6,7 @@ on:
       - dev/e8-coldstart-final-validation-20260815
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate-production-commit:
@@ -16,20 +16,110 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Validate exact production commit
+
+      - name: Patch compatibility regressions on exact production tree
         shell: bash
         env:
           PRODUCTION_COMMIT: d98fc674c468c1467a004c4dfb8bfb62319741d4
-          PYTHONPATH: src
         run: |
           set -Eeuo pipefail
           git checkout --detach "${PRODUCTION_COMMIT}"
           test "$(git rev-parse HEAD)" = "${PRODUCTION_COMMIT}"
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/drpo/e8_multitask_exp_tuning.py")
+          text = path.read_text(encoding="utf-8")
+
+          old_split = '''    normalized_train = [_normalize_countdown_train_row(row) for row in train_rows]
+              normalized_validation = [_normalize_countdown_validation_row(row) for row in validation_rows]
+              if not bool(split.get("countdown_subsampling_forbidden", False)):
+                  raise RuntimeError("Paper Countdown forbids wrapper-level train subsampling")
+              train = normalized_train
+              validation = normalized_validation
+              _audit_training_rows("countdown", train, int(split["countdown_train_rows"]))
+              if len(validation) != int(split["countdown_validation_rows"]):
+                  raise RuntimeError("Countdown validation file does not contain the exact frozen rows")
+          '''.replace("              ", "    ")
+          new_split = '''    normalized_train = [_normalize_countdown_train_row(row) for row in train_rows]
+              normalized_validation = [_normalize_countdown_validation_row(row) for row in validation_rows]
+              if _is_coldstart(config):
+                  if not bool(split.get("countdown_subsampling_forbidden", False)):
+                      raise RuntimeError("Paper Countdown forbids wrapper-level train subsampling")
+                  train = normalized_train
+                  validation = normalized_validation
+              else:
+                  train = _ordered_by_prompt_hash(
+                      normalized_train,
+                      task="countdown",
+                      seed=int(split["hash_seed"]),
+                      role="countdown_train_select",
+                  )[: int(split["countdown_train_rows"])]
+                  validation = _ordered_by_prompt_hash(
+                      normalized_validation,
+                      task="countdown",
+                      seed=int(split["hash_seed"]),
+                      role="countdown_validation_select",
+                  )[: int(split["countdown_validation_rows"])]
+              _audit_training_rows("countdown", train, int(split["countdown_train_rows"]))
+              if len(validation) != int(split["countdown_validation_rows"]):
+                  raise RuntimeError("Countdown validation file does not contain the exact frozen rows")
+          '''.replace("              ", "    ")
+          if text.count(old_split) != 1:
+              raise SystemExit(f"split patch expected one match, found {text.count(old_split)}")
+          text = text.replace(old_split, new_split, 1)
+
+          old_csv = '''        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+                  writer.writeheader()
+                  writer.writerows(rows)
+          '''.replace("                  ", "        ")
+          new_csv = '''        fieldnames = list(rows[0])
+                  for row in rows[1:]:
+                      for key in row:
+                          if key not in fieldnames:
+                              fieldnames.append(key)
+                  writer = csv.DictWriter(handle, fieldnames=fieldnames)
+                  writer.writeheader()
+                  writer.writerows(rows)
+          '''.replace("                  ", "        ")
+          if text.count(old_csv) != 1:
+              raise SystemExit(f"csv patch expected one match, found {text.count(old_csv)}")
+          text = text.replace(old_csv, new_csv, 1)
+          path.write_text(text, encoding="utf-8")
+          PY
+          test "$(git diff --name-only)" = "src/drpo/e8_multitask_exp_tuning.py"
+          git diff --check
+
+      - name: Full regression and 208-cell engineering self-test
+        shell: bash
+        env:
+          PYTHONPATH: src
+        run: |
+          set -Eeuo pipefail
           python -m pip install --disable-pip-version-check -q pytest==8.3.5 PyYAML==6.0.2 numpy==1.26.4
           python -m py_compile src/drpo/e8_multitask_exp_tuning.py
           python -m pytest -q tests/test_e8_multitask_p0.py
-          E8_COLDSTART_EXPECTED_COMMIT="${PRODUCTION_COMMIT}" \
+
+          git config user.name 'drpo-validation-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add src/drpo/e8_multitask_exp_tuning.py
+          git diff --cached --check
+          git commit -m 'E8 coldstart: preserve predecessor compatibility'
+          PATCHED_COMMIT="$(git rev-parse HEAD)"
+
+          E8_COLDSTART_EXPECTED_COMMIT="${PATCHED_COMMIT}" \
             E8_COLDSTART_RUNTIME_ROOT="${RUNNER_TEMP}/e8-coldstart-final-selftest" \
             bash scripts/run_e8_multitask_exp_coldstart.sh self-test
+
+          test "$(git hash-object src/drpo/countdown_qwen_arena_onefile.py)" = d8a04f3ae3edd08042aa1004b4cbf927fc5cea72
+          test "$(git hash-object src/drpo/countdown_e8_alpha1_c_scan_common.py)" = 572f6ad98bf063c88e52a4594fde892842c4fe15
+          test "$(git hash-object src/drpo/countdown_e8_alpha1_c_scan_runtime.py)" = b4ad8581f0afd6e4d24069524f909eaa1b0c9563
+          test "$(git hash-object src/drpo/countdown_e8_alpha1_c_scan_trainer.py)" = e026afbefc09205bb1632b5dd1bd6db33b5df358
+          test "$(git hash-object src/drpo/countdown_e8_alpha1_highc_scan_common.py)" = 720415583e9e372fafa5aa3520e07de04e6494d8
+          test "$(git hash-object src/drpo/countdown_e8_alpha1_highc_scan_runtime.py)" = a57cd88287daf95864f7e30caf658473a32d3602
+          test "$(git hash-object src/drpo/e8_multitask_p0.py)" = 3482967fe656156500f4598f16f5e7031e198d48
+          test "$(git hash-object src/drpo/e8_multitask_tasks.py)" = 454f3076171ee25636109c33f5a177ee2201b5f8
+          test "$(git hash-object configs/e8_multitask_p0.yaml)" = 14605ae3a79f18e435feafd3927bc21485edbbc9
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          git push --force origin HEAD:refs/heads/dev/e8-coldstart-validation-fix-output-20260815
