@@ -1,0 +1,79 @@
+name: TEMP E8 coldstart task-results validation v2
+
+on:
+  push:
+    branches:
+      - dev/e8-coldstart-task-results-validation-20260815
+
+permissions:
+  contents: write
+
+jobs:
+  validate-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reuse reviewed patch authoring without trailing whitespace
+        shell: bash
+        env:
+          PRODUCTION_COMMIT: bbef2bba8efd8c89ea57a4e95f923008e3a10fbf
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          workflow = Path('.github/workflows/e8-coldstart-task-results-validation.yml').read_text(encoding='utf-8')
+          marker = '      - name: Patch exact reviewed production tree\n'
+          start = workflow.index(marker) + len(marker)
+          run_marker = '        run: |\n'
+          run_start = workflow.index(run_marker, start) + len(run_marker)
+          run_end = workflow.index('\n      - name: Run full regression and 208-cell recovery acceptance\n', run_start)
+          lines = workflow[run_start:run_end].splitlines()
+          script = '\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n'
+          needle = '          tests.write_text(test_text, encoding="utf-8")\n'
+          replacement = (
+              '          test_text = "\\n".join(line.rstrip() for line in test_text.splitlines()) + "\\n"\n'
+              '          tests.write_text(test_text, encoding="utf-8")\n'
+          )
+          if script.count(needle) != 1:
+              raise SystemExit(f'test write marker count={script.count(needle)}')
+          script = script.replace(needle, replacement, 1)
+          Path('/tmp/e8_task_results_patch.sh').write_text(script, encoding='utf-8')
+          PY
+          bash /tmp/e8_task_results_patch.sh
+
+      - name: Run full regression and 208-cell recovery acceptance
+        shell: bash
+        env:
+          PYTHONPATH: src
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --disable-pip-version-check -q pytest==8.3.5 PyYAML==6.0.2 numpy==1.26.4
+          python -m pytest -q tests/test_e8_multitask_p0.py
+
+          git config user.name 'drpo-validation-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          git diff --cached --check
+          git commit -m 'E8 coldstart: publish completed task results early'
+          PATCHED_COMMIT="$(git rev-parse HEAD)"
+
+          E8_COLDSTART_EXPECTED_COMMIT="${PATCHED_COMMIT}" \
+            E8_COLDSTART_RUNTIME_ROOT="${RUNNER_TEMP}/e8-coldstart-task-results-selftest" \
+            bash scripts/run_e8_multitask_exp_coldstart.sh self-test
+
+          test "$(git hash-object src/drpo/countdown_qwen_arena_onefile.py)" = d8a04f3ae3edd08042aa1004b4cbf927fc5cea72
+          test "$(git hash-object src/drpo/countdown_e8_alpha1_c_scan_common.py)" = 572f6ad98bf063c88e52a4594fde892842c4fe15
+          test "$(git hash-object src/drpo/countdown_e8_alpha1_c_scan_runtime.py)" = b4ad8581f0afd6e4d24069524f909eaa1b0c9563
+          test "$(git hash-object src/drpo/countdown_e8_alpha1_c_scan_trainer.py)" = e026afbefc09205bb1632b5dd1bd6db33b5df358
+          test "$(git hash-object src/drpo/countdown_e8_alpha1_highc_scan_common.py)" = 720415583e9e372fafa5aa3520e07de04e6494d8
+          test "$(git hash-object src/drpo/countdown_e8_alpha1_highc_scan_runtime.py)" = a57cd88287daf95864f7e30caf658473a32d3602
+          test "$(git hash-object src/drpo/e8_multitask_p0.py)" = 3482967fe656156500f4598f16f5e7031e198d48
+          test "$(git hash-object src/drpo/e8_multitask_tasks.py)" = 454f3076171ee25636109c33f5a177ee2201b5f8
+          test "$(git hash-object configs/e8_multitask_p0.yaml)" = 14605ae3a79f18e435feafd3927bc21485edbbc9
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          git push --force origin HEAD:refs/heads/dev/e8-coldstart-task-results-output-20260815
