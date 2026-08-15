@@ -61,6 +61,31 @@ jobs:
           path.write_text(text, encoding='utf-8')
           PY
           bash .drpo_tmp/repair.sh
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          text = path.read_text(encoding='utf-8')
+          audit_start = text.index('def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:')
+          start = text.index('    elif _is_coldstart(config):\n', audit_start)
+          end = text.index('    all_complete = (\n', start)
+          block = '''    elif _is_coldstart(config):
+              aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
+              protocol_path = output_root / "aggregate" / "countdown_protocol_diagnostic.json"
+              if protocol_path.is_file():
+                  reproduction_gate_status = str(
+                      json.loads(protocol_path.read_text(encoding="utf-8")).get("status")
+                  )
+              aggregate_complete = aggregate_path.is_file() and int(
+                  json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0)
+              ) == len(cells) and reproduction_gate_status == (
+                  "NOT_RUN_ENGINEERING" if _is_engineering_self_test(config) else "PASS"
+              )
+          '''
+          # The YAML block indentation above contributes ten leading spaces; normalize exactly.
+          block = '\n'.join(line[10:] if line.startswith('          ') else line for line in block.splitlines()) + '\n'
+          assert block.startswith('    elif _is_coldstart(config):\n        aggregate_path')
+          path.write_text(text[:start] + block + text[end:], encoding='utf-8')
+          PY
 
       - name: Structural and scope checks
         shell: bash
