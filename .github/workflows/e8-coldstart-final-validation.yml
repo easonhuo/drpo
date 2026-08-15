@@ -1,0 +1,35 @@
+name: TEMP E8 coldstart final validation
+
+on:
+  push:
+    branches:
+      - dev/e8-coldstart-final-validation-20260815
+
+permissions:
+  contents: read
+
+jobs:
+  validate-production-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate exact production commit
+        shell: bash
+        env:
+          PRODUCTION_COMMIT: d98fc674c468c1467a004c4dfb8bfb62319741d4
+          PYTHONPATH: src
+        run: |
+          set -Eeuo pipefail
+          git checkout --detach "${PRODUCTION_COMMIT}"
+          test "$(git rev-parse HEAD)" = "${PRODUCTION_COMMIT}"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          python -m pip install --disable-pip-version-check -q pytest==8.3.5 PyYAML==6.0.2 numpy==1.26.4
+          python -m py_compile src/drpo/e8_multitask_exp_tuning.py
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          E8_COLDSTART_EXPECTED_COMMIT="${PRODUCTION_COMMIT}" \
+            E8_COLDSTART_RUNTIME_ROOT="${RUNNER_TEMP}/e8-coldstart-final-selftest" \
+            bash scripts/run_e8_multitask_exp_coldstart.sh self-test
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
