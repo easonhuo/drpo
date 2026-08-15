@@ -38,7 +38,7 @@ purpose: >-
 
 entrypoint:
   cwd: repo_root
-  command: bash scripts/bootstrap_e8_multitask_exp_coldstart.sh full
+  command: E8_COLDSTART_RUN_ID=E8_MULTITASK_EXP_COLDSTART_20260815_01 bash scripts/bootstrap_e8_multitask_exp_coldstart.sh full
 
 recovery:
   enabled: false
