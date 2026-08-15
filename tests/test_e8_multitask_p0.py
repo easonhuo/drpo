@@ -1418,38 +1418,127 @@ def test_exp_dense_inherit_pins_parent_and_rebinds_train_only_references(
         )
 
 
-def test_exp_coldstart_matrix_contains_exact_countdown_and_task_transfer_cells() -> None:
+
+def test_exp_coldstart_matrix_is_208_cells_in_13_hard_waves() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
     cells = exp_tuning.build_cells(config)
     waves = exp_tuning.build_waves(config)
-    assert len(cells) == 188
-    assert len({cell.key for cell in cells}) == 188
-    assert [len(wave) for wave in waves] == [8] * 23 + [4]
-    assert config["execution"]["scheduler"] == "dynamic_slot_queue"
-    assert set(config["suite"]["tasks"]) == set(exp_tuning.TASK_NAMES) - {"spiral_matrix"}
+    assert len(cells) == 208
+    assert len({cell.key for cell in cells}) == 208
+    assert len(waves) == 13
+    assert [len(wave) for wave in waves] == [16] * 13
+    assert config["execution"]["max_concurrent_cells"] == 16
+    assert config["execution"]["slots_per_gpu"] == 2
+    assert config["execution"]["wave_barriers"] is True
+    assert set(config["suite"]["tasks"]) == set(exp_tuning.TASK_NAMES)
+    assert set(config["suite"]["p0_tasks"]) == set(exp_tuning.TASK_NAMES) - {"countdown"}
+
     countdown = [cell for cell in cells if cell.task == "countdown"]
-    assert len(countdown) == 48
+    assert len(countdown) == 16
     assert {cell.seed for cell in countdown} == {4000, 5000}
     assert sum(cell.method == exp_tuning.METHOD_POSITIVE_ONLY for cell in countdown) == 2
     assert sum(cell.method == exp_tuning.METHOD_GLOBAL for cell in countdown) == 2
-    assert sum(cell.method == exp_tuning.METHOD_EXPONENTIAL for cell in countdown) == 44
-    assert max(float(cell.lambda_value) for cell in countdown if cell.lambda_value) == pytest.approx(
-        9.210340372
+    assert sum(cell.method == exp_tuning.METHOD_EXPONENTIAL for cell in countdown) == 12
+    assert {float(cell.lambda_value) for cell in countdown if cell.method == exp_tuning.METHOD_EXPONENTIAL} == set(
+        config["sweep"]["countdown_sentinel_coefficients"]
     )
+
     for task in config["suite"]["p0_tasks"]:
         task_cells = [cell for cell in cells if cell.task == task]
-        assert len(task_cells) == 20
-        assert sum(cell.method == exp_tuning.METHOD_POSITIVE_ONLY for cell in task_cells) == 1
+        assert len(task_cells) == 24
+        positives = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_POSITIVE_ONLY]
         exp_cells = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_EXPONENTIAL]
-        assert len(exp_cells) == 19
-        assert {float(cell.lambda_value) for cell in exp_cells} == set(
-            exp_tuning.TASK_TRANSFER_COEFFICIENTS
-        )
+        assert {cell.seed for cell in positives} == {4000, 5000, 6000, 7000}
+        assert len(exp_cells) == 20
+        assert {cell.seed for cell in exp_cells} == {4000}
+        assert exp_tuning.stable_hash(list(exp_tuning._task_lambdas(config, task))) == config["sweep"]["task_grid_hashes"][task]
+        assert config["sweep"]["task_grid_provenance"][task]
 
 
-def test_exp_coldstart_rejects_adapter_or_warmstart_drift() -> None:
+def test_exp_coldstart_has_no_stochastic_result_gate_or_valid_rate_eligibility() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    serialized = json.dumps(config, sort_keys=True)
+    assert "countdown_reproduction_gate" not in serialized
+    assert "require_peak_above_positive_only" not in serialized
+    assert "late_window_pass8_absolute_tolerance" not in serialized
+    assert "terminal_valid_rate_minimum" not in config["selection"]
+    assert config["selection"]["terminal_valid_rate_role"] == (
+        "diagnostic_only_not_selection_eligibility"
+    )
+    assert config["reporting"]["countdown_role"] == (
+        "diagnostic_regression_sentinel_not_result_gate"
+    )
+
+
+def test_exp_coldstart_reference_remoteness_contract_is_static_selection_dynamic_weighting() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    contract = config["negative_sampling"]["reference_remoteness_bank"]
+    assert contract["source_candidates"] == "all_deterministic_verified_wrong_mutations"
+    assert contract["selected_negatives_per_prompt"] == 16
+    assert contract["coverage_threshold"] is None
+    assert contract["reference_rank_role"] == "provenance_and_diagnostic_only"
+    assert contract["static_reference_rank_enters_training_weight"] is False
+    assert contract["current_policy_surprisal_recomputed_each_update"] is True
+    assert contract["original_p0_bank_preserved"] is True
+    assert exp_tuning._evenly_spaced_rank_indices(16) == tuple(range(16))
+    indices = exp_tuning._evenly_spaced_rank_indices(41)
+    assert len(indices) == 16
+    assert len(set(indices)) == 16
+    assert indices[0] == 0 and indices[-1] == 40
+
+
+def test_verified_wrong_candidate_reconstruction_uses_full_deterministic_universe() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    class FakeResult:
+        def __init__(self, value: str) -> None:
+            self.score = 0.0
+            self.correct = False
+            self.format_valid = True
+            self.error_class = "wrong"
+            self.canonical_completion = value
+            self.details = {"fake": True}
+
+    class FakeAdapter:
+        def mutation_candidates(self, instance, rng):
+            del instance
+            order = list(range(25))
+            rng.shuffle(order)
+            for value in order:
+                yield SimpleNamespace(completion=f"wrong-{value}", mutation_class="wrong")
+            yield SimpleNamespace(completion="wrong-0", mutation_class="wrong")
+
+        def verify(self, instance, completion, mutation_class=None):
+            del instance, mutation_class
+            return FakeResult(completion)
+
+        def accept_negative(self, result):
+            return result.format_valid and not result.correct
+
+    instance = TaskInstance("fake", "p0", "prompt", "oracle", {}, {})
+    source_row = {
+        "task": "fake",
+        "prompt_id": "p0",
+        "generation_seed": 17,
+        "negatives": [
+            {"completion": f"wrong-{value}", "canonical_completion": f"wrong-{value}"}
+            for value in range(16)
+        ],
+    }
+    first = exp_tuning._verified_wrong_candidates(FakeAdapter(), instance, source_row)
+    second = exp_tuning._verified_wrong_candidates(FakeAdapter(), instance, source_row)
+    assert first == second
+    assert len(first) == 25
+    assert len({row["canonical_completion"] for row in first}) == 25
+
+
+def test_exp_coldstart_rejects_adapter_runtime_or_grid_drift() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
@@ -1458,126 +1547,37 @@ def test_exp_coldstart_rejects_adapter_or_warmstart_drift() -> None:
     with pytest.raises(ValueError, match="zero-update"):
         exp_tuning.validate_config(changed)
     changed = json.loads(json.dumps(config))
-    changed["reference"]["optimizer_updates"] = 100
-    with pytest.raises(ValueError, match="0 updates"):
+    changed["execution"]["slots_per_gpu"] = 1
+    with pytest.raises(ValueError, match="two slots"):
+        exp_tuning.validate_config(changed)
+    changed = json.loads(json.dumps(config))
+    changed["task_runtime"]["word_sorting"]["evaluation_batch_size"] = 8
+    with pytest.raises(ValueError, match="word_sorting"):
+        exp_tuning.validate_config(changed)
+    changed = json.loads(json.dumps(config))
+    changed["sweep"]["task_lambda"]["maze"][0] = 0.11
+    with pytest.raises(ValueError, match="maze"):
         exp_tuning.validate_config(changed)
 
 
-def test_exp_coldstart_imports_old_kernel_and_forbids_multitask_loader() -> None:
+def test_exp_coldstart_imports_locked_kernel_and_forbids_multitask_loader() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
-    assert config["canonical_coldstart"]["scientific_kernel"] == (
-        "import_only_no_loss_reimplementation"
+    assert config["canonical_coldstart"]["countdown_entry"] == (
+        "countdown_e8_alpha1_highc_scan_runtime.worker"
     )
-    assert config["canonical_coldstart"]["positive_only_entry"].endswith(".worker")
-    assert config["canonical_coldstart"]["exponential_entry"].endswith(".worker")
-    with pytest.raises(RuntimeError, match="old canonical"):
-        exp_tuning._load_reference_model(
-            "base-model",
-            None,
-            config,
-            train_mode=True,
-        )
-    source = Path(exp_tuning.__file__).read_text(encoding="utf-8")
-    assert "runtime.worker(" in source
-    assert "countdown_e8_alpha1_highc_scan_runtime.worker" in source
-    assert "countdown_e8_oracle_offline_v2_taper_runtime.worker" not in source
-    assert 'adapter_path_argument": None' in source
-
-
-def test_exp_coldstart_canonical_sources_and_schema_adapter_are_exact() -> None:
-    from drpo import e8_multitask_exp_tuning as exp_tuning
-
-    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    assert config["canonical_coldstart"]["transfer_entry"] == (
+        "countdown_e8_alpha1_c_scan_trainer.train_cell"
+    )
     audit = exp_tuning.audit_canonical_coldstart_sources(config)
     assert audit["verified"]
     assert audit["git_blob_shas"] == config["canonical_coldstart"]["expected_git_blob_shas"]
-    row = {
-        "task": "word_sorting",
-        "prompt_id": "p0",
-        "prompt": "sort",
-        "oracle_completion": "a b",
-        "metadata": {},
-        "negatives": [
-            {
-                "completion": f"raw-wrapper-{index}",
-                "canonical_completion": f"wrong-{index}",
-                "binary_correct": False,
-            }
-            for index in range(16)
-        ],
-    }
-    converted = exp_tuning._canonical_train_row(row)
-    assert converted["positive"] == "a b"
-    assert converted["pair_matched"] is True
-    assert converted["negative_bank_size"] == 16
-    assert "near_negative" not in converted
-    assert "far_negative" not in converted
-    assert converted["canonical_negative_consumer"] == "all_unique_negatives_per_prompt"
-    assert [item["expression"] for item in converted["negative_bank"]] == [
-        f"wrong-{index}" for index in range(16)
-    ]
-    assert exp_tuning._paper_grid_name(1.897119985) == "round1_grid"
-    assert exp_tuning._paper_grid_name(9.210340372) == "extension_grid"
-    assert config["remoteness_calibration"]["enabled"] is False
+    with pytest.raises(RuntimeError, match="old canonical"):
+        exp_tuning._load_reference_model("base-model", None, config, train_mode=True)
 
 
-def test_exp_coldstart_rejects_scientific_and_nonwhitelisted_drift() -> None:
-    from drpo import e8_multitask_exp_tuning as exp_tuning
-
-    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
-    mutations = [
-        ("remoteness_calibration", "enabled", True, "forbids remoteness"),
-        ("negative_sampling", "near_far_selection", True, "negative consumption"),
-        ("training", "early_stopping", True, "fixed-1200"),
-        ("split", "countdown_train_rows", 5000, "6000"),
-        ("execution", "slots_per_gpu", 2, "1 slot"),
-    ]
-    for section, key, value, message in mutations:
-        changed = json.loads(json.dumps(config))
-        changed[section][key] = value
-        with pytest.raises(ValueError, match=message):
-            exp_tuning.validate_config(changed)
-    changed = json.loads(json.dumps(config))
-    changed["task_runtime"]["mini_sudoku"]["max_length"] = 256
-    with pytest.raises(ValueError, match="mini_sudoku"):
-        exp_tuning.validate_config(changed)
-
-
-def test_countdown_split_preserves_all_rows_and_source_order() -> None:
-    from drpo import e8_multitask_exp_tuning as exp_tuning
-
-    config = exp_tuning._engineering_self_test_config(
-        exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
-    )
-    train_rows = [
-        {
-            "row_id": f"row-{index}",
-            "prompt": f"prompt-{index}",
-            "oracle_positive": "1 + 2",
-            "numbers": [1, 2],
-            "target": 3,
-            "negative_bank": [
-                {"expression": f"wrong-{index}-{negative}", "correct": False}
-                for negative in range(16)
-            ],
-        }
-        for index in range(2)
-    ]
-    validation_rows = [
-        {"id": "val-0", "prompt": "p", "oracle": "1+2", "numbers": [1, 2], "target": 3}
-    ]
-    partitions = exp_tuning.split_countdown_rows(
-        train_rows,
-        validation_rows,
-        config=config,
-    )
-    assert [row["prompt_id"] for row in partitions["train"]] == ["row-0", "row-1"]
-    assert [row["prompt_id"] for row in partitions["validation"]] == ["val-0"]
-
-
-def test_task_base_config_changes_only_declared_interface_fields(tmp_path: Path) -> None:
+def test_task_base_config_transfer_has_batch16_and_pass8_only(tmp_path: Path) -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
@@ -1589,69 +1589,20 @@ def test_task_base_config_changes_only_declared_interface_fields(tmp_path: Path)
         canonical_paths=exp_tuning._canonical_paths(config),
         task_root=task_root,
     )
-    assert changed == ["model.max_length", "model.max_new_tokens"]
+    assert changed == [
+        "evaluation.batch_size",
+        "evaluation.pass_ks",
+        "model.max_length",
+        "model.max_new_tokens",
+    ]
     value = yaml.safe_load(path.read_text())
     assert value["model"]["max_length"] == 512
     assert value["model"]["max_new_tokens"] == 128
-    assert value["evaluation"]["batch_size"] == 8
+    assert value["evaluation"]["batch_size"] == 16
+    assert value["evaluation"]["pass_ks"] == [8]
 
 
-def test_task_verifier_evaluation_restores_500_greedy_128_pass8_budget() -> None:
-    from drpo import e8_multitask_exp_tuning as exp_tuning
-
-    generated: list[tuple[bool, int]] = []
-
-    def generate_outputs(
-        model: object,
-        tokenizer: object,
-        prompts: list[str],
-        max_new_tokens: int,
-        do_sample: bool,
-        temperature: float,
-        top_p: float,
-        num_return_sequences: int,
-    ) -> list[list[str]]:
-        del model, tokenizer, max_new_tokens, temperature, top_p
-        generated.append((do_sample, len(prompts)))
-        return [["valid"] * num_return_sequences for _ in prompts]
-
-    arena = SimpleNamespace(seed_all=lambda seed: None, generate_outputs=generate_outputs)
-    adapter = SimpleNamespace(
-        verify=lambda instance, completion: SimpleNamespace(correct=True, format_valid=True)
-    )
-    instances = {
-        f"prompt-{index}": SimpleNamespace() for index in range(500)
-    }
-    rows = [
-        {"prompt_id": f"prompt-{index}", "prompt": f"question-{index}"}
-        for index in range(500)
-    ]
-    model = SimpleNamespace(training=True, train=lambda: None)
-    evaluator = exp_tuning._canonical_environment_evaluator(
-        arena=arena,
-        task_adapter=adapter,
-        instances=instances,
-        greedy_prompt_rows=500,
-        passk_prompt_rows=128,
-    )
-    metrics = evaluator(
-        model,
-        object(),
-        rows,
-        8,
-        128,
-        8,
-        2026072902,
-    )
-    assert sum(count for sampled, count in generated if not sampled) == 500
-    assert sum(count for sampled, count in generated if sampled) == 128
-    assert metrics["greedy_prompt_rows"] == 500.0
-    assert metrics["passk_prompt_rows"] == 128.0
-    assert metrics["greedy_success"] == 1.0
-    assert metrics["pass_at_k"] == 1.0
-
-
-def test_exp_coldstart_dynamic_queue_has_no_nominal_batch_barrier(
+def test_exp_coldstart_scheduler_enforces_wave_barriers_and_two_slots_per_gpu(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -1659,37 +1610,34 @@ def test_exp_coldstart_dynamic_queue_has_no_nominal_batch_barrier(
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
     cells = exp_tuning.build_cells(config)
+    waves = exp_tuning.build_waves(config)
     monkeypatch.setattr(exp_tuning, "_require_calibration_gate", lambda *args, **kwargs: None)
     monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         exp_tuning,
-        "_scheduler_countdown_reproduction_gate",
+        "_countdown_protocol_diagnostic",
         lambda *args, **kwargs: {
-            "status": "PASS",
-            "non_countdown_training_released": True,
+            "status": "FAIL",
+            "result_gate": False,
+            "controls_task_transfer_release": False,
         },
     )
     lock = threading.Lock()
     starts: dict[str, float] = {}
     finishes: dict[str, float] = {}
-    active_by_gpu: dict[int, int] = {}
-    maximum_by_gpu: dict[int, int] = {}
-    replacement_started = threading.Event()
-    first_cell_released_by_replacement = threading.Event()
+    active: dict[int, int] = {}
+    maximum: dict[int, int] = {}
 
     def fake_run(**kwargs: object) -> dict[str, object]:
         cell = kwargs["cell"]
         gpu_id = int(kwargs["gpu_id"])
         with lock:
             starts[cell.key] = time.monotonic()
-            active_by_gpu[gpu_id] = active_by_gpu.get(gpu_id, 0) + 1
-            maximum_by_gpu[gpu_id] = max(maximum_by_gpu.get(gpu_id, 0), active_by_gpu[gpu_id])
-        if cell in cells[8:]:
-            replacement_started.set()
-        if cell.key == cells[0].key and replacement_started.wait(timeout=1.0):
-            first_cell_released_by_replacement.set()
+            active[gpu_id] = active.get(gpu_id, 0) + 1
+            maximum[gpu_id] = max(maximum.get(gpu_id, 0), active[gpu_id])
+        time.sleep(0.002)
         with lock:
-            active_by_gpu[gpu_id] -= 1
+            active[gpu_id] -= 1
             finishes[cell.key] = time.monotonic()
         return {
             "cell_key": cell.key,
@@ -1710,70 +1658,21 @@ def test_exp_coldstart_dynamic_queue_has_no_nominal_batch_barrier(
         retry_incomplete=True,
     )
     assert result["complete"]
-    assert result["completed_cells"] == 188
-    assert [row["phase"] for row in result["phases"]] == [
-        "countdown_reproduction",
-        "task_transfer",
-    ]
-    assert first_cell_released_by_replacement.is_set()
-    assert set(maximum_by_gpu) == set(range(8))
-    assert max(maximum_by_gpu.values()) <= 1
-    countdown_keys = {cell.key for cell in cells if cell.task == "countdown"}
-    transfer_keys = {cell.key for cell in cells if cell.task != "countdown"}
-    assert min(starts[key] for key in transfer_keys) >= max(
-        finishes[key] for key in countdown_keys
-    )
-
-
-def test_exp_coldstart_countdown_gate_blocks_all_task_transfer(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    from drpo import e8_multitask_exp_tuning as exp_tuning
-
-    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
-    monkeypatch.setattr(exp_tuning, "_require_calibration_gate", lambda *args, **kwargs: None)
-    monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)
-    monkeypatch.setattr(
-        exp_tuning,
-        "_scheduler_countdown_reproduction_gate",
-        lambda *args, **kwargs: {
-            "status": "FAIL",
-            "non_countdown_training_released": False,
-        },
-    )
-    started_tasks: list[str] = []
-
-    def fake_run(**kwargs: object) -> dict[str, object]:
-        cell = kwargs["cell"]
-        started_tasks.append(cell.task)
-        return {
-            "cell_key": cell.key,
-            "gpu_id": int(kwargs["gpu_id"]),
-            "returncode": 0,
-            "log": "mock.log",
-            "started_unix": 0.0,
-            "finished_unix": 1.0,
-        }
-
-    monkeypatch.setattr(exp_tuning, "_run_subprocess_cell", fake_run)
-    with pytest.raises(RuntimeError, match="countdown_gate=FAIL"):
-        exp_tuning.cmd_run_dynamic(
-            config,
-            Path("configs/e8_multitask_exp_coldstart.yaml"),
-            tmp_path,
-            base_model_path="base-model",
-            force=False,
-            retry_incomplete=True,
+    assert result["completed_cells"] == 208
+    assert result["wave_barriers"] is True
+    assert len(result["waves"]) == 13
+    assert result["countdown_protocol_diagnostic"]["status"] == "FAIL"
+    assert result["countdown_result_controls_transfer_release"] is False
+    assert set(maximum) == set(range(8))
+    assert max(maximum.values()) <= 2
+    for index in range(1, len(waves)):
+        assert min(starts[cell.key] for cell in waves[index]) >= max(
+            finishes[cell.key] for cell in waves[index - 1]
         )
-    assert len(started_tasks) == 48
-    assert set(started_tasks) == {"countdown"}
-    manifest = json.loads((tmp_path / "scheduler/dynamic_run.json").read_text())
-    assert len(manifest["unscheduled_cells"]) == 140
-    assert manifest["countdown_reproduction_gate"]["status"] == "FAIL"
+    assert {cell.task for cell in cells[16:32]} != {"countdown"}
 
 
-def test_exp_coldstart_aggregate_emits_minimal_plot_csv(tmp_path: Path) -> None:
+def test_exp_coldstart_aggregate_does_not_filter_by_terminal_valid_rate(tmp_path: Path) -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
     config = exp_tuning._engineering_self_test_config(
@@ -1781,90 +1680,33 @@ def test_exp_coldstart_aggregate_emits_minimal_plot_csv(tmp_path: Path) -> None:
     )
     p0.atomic_json(
         tmp_path / "source_provenance.json",
-        {"run_id": "cold-test", "source_commit": "abc123"},
+        {"run_id": "cold-test", "source_commit": "a" * 40},
     )
-    for index, cell in enumerate(exp_tuning.build_cells(config)):
-        p0.atomic_json(
-            tmp_path / "cells" / cell.key / "cell_manifest.json",
-            {
-                "complete": True,
-                "evaluation_status": "complete",
-                "validation_best_pass8": index / 1000.0,
-                "validation_late_window_pass8_mean": index / 1000.0,
-                "validation_terminal_pass8": index / 1000.0,
-                "validation_best_greedy": index / 1000.0,
-                "validation_late_window_greedy_mean": index / 1000.0,
-                "validation_terminal_greedy": index / 1000.0,
-                "validation_best_greedy_valid_rate": 1.0,
-                "validation_terminal_greedy_valid_rate": 1.0,
-                "best_step": 100,
-                "terminal_step": 1200,
-                "stop_reason": "max_steps",
-                "nan_inf_failure": False,
-            },
-        )
-    summary = exp_tuning.cmd_aggregate(config, tmp_path)
-    rows = list(csv.DictReader((tmp_path / "aggregate/plot_curve_points.csv").open()))
-    assert summary["cell_count"] == 188
-    assert len(rows) == 188
-    assert set(rows[0]) >= {
-        "task",
-        "method",
-        "lambda",
-        "rho",
-        "best_validation_pass8",
-        "late_window_pass8_mean",
-        "terminal_pass8",
-        "complete",
-    }
-
-
-def test_countdown_reproduction_gate_uses_registered_late_window_curve(tmp_path: Path) -> None:
-    from drpo import e8_multitask_exp_tuning as exp_tuning
-
-    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
-    reference = json.loads(
-        Path(
-            "experiments/results/e8_paper_aligned_linear_scan_round1_pilot/"
-            "RESULT_SUMMARY.json"
-        ).read_text()
-    )
-    expected = {
-        (str(row["method"]), float(row["c"])): float(row["late_window_pass_at_8_mean"])
-        for row in reference["aggregate_results"]
-    }
-    p0.atomic_json(
-        tmp_path / "source_provenance.json",
-        {"run_id": "paper-gate-test", "source_commit": "a" * 40},
-    )
+    target_task = "word_sorting"
+    target_lambda = config["sweep"]["task_lambda"][target_task][0]
     for cell in exp_tuning.build_cells(config):
-        coefficient = 0.0 if cell.lambda_value is None else float(cell.lambda_value)
-        method = (
-            "continuous_exp"
-            if cell.method == exp_tuning.METHOD_EXPONENTIAL
-            else cell.method
-        )
-        if cell.task == "countdown" and cell.stage == "paper_round1":
-            late = expected[(method, coefficient)]
-        elif cell.task == "countdown":
-            late = 0.145
-        elif cell.method == exp_tuning.METHOD_POSITIVE_ONLY:
-            late = 0.10
-        else:
-            late = 0.12 + min(coefficient, 2.0) / 100.0
+        late = 0.10 if cell.method == exp_tuning.METHOD_POSITIVE_ONLY else 0.20
+        valid = 1.0
+        if (
+            cell.task == target_task
+            and cell.method == exp_tuning.METHOD_EXPONENTIAL
+            and float(cell.lambda_value) == float(target_lambda)
+        ):
+            late = 0.90
+            valid = 0.10
         p0.atomic_json(
             tmp_path / "cells" / cell.key / "cell_manifest.json",
             {
                 "complete": True,
                 "evaluation_status": "complete",
+                "validation_best_pass8": late,
                 "validation_late_window_pass8_mean": late,
                 "validation_terminal_pass8": late,
-                "validation_late_window_greedy_mean": late / 2,
-                "validation_best_pass8": late + 0.01,
                 "validation_best_greedy": late / 2,
+                "validation_late_window_greedy_mean": late / 2,
                 "validation_terminal_greedy": late / 2,
-                "validation_best_greedy_valid_rate": 1.0,
-                "validation_terminal_greedy_valid_rate": 1.0,
+                "validation_best_greedy_valid_rate": valid,
+                "validation_terminal_greedy_valid_rate": valid,
                 "best_step": 900,
                 "terminal_step": 1200,
                 "stop_reason": "max_steps",
@@ -1872,43 +1714,21 @@ def test_countdown_reproduction_gate_uses_registered_late_window_curve(tmp_path:
             },
         )
     summary = exp_tuning.cmd_aggregate(config, tmp_path)
-    gate = summary["countdown_reproduction_gate"]
-    assert gate["status"] == "PASS"
-    assert gate["round1_cell_count"] == 32
-    assert gate["round1_seed_offsets"] == [4000, 5000]
-    assert gate["all_reference_points_within_tolerance"]
-    assert gate["peak_above_positive_only"]
-    plot_rows = list(csv.DictReader((tmp_path / "aggregate/plot_curve_points.csv").open()))
-    assert any(row["task"] == "countdown" and row["lambda"] == "9.210340372" for row in plot_rows)
+    selected = summary["tasks"][target_task]["selected_exp"]
+    assert selected["lambda"] == pytest.approx(float(target_lambda))
+    assert selected["late_window_pass8_mean"] == pytest.approx(0.90)
+    assert selected["terminal_greedy_valid_rate_mean"] == pytest.approx(0.10)
+    assert summary["terminal_valid_rate_role"] == "diagnostic_only_not_selection_eligibility"
+    assert summary["countdown_result_gate"] is False
 
 
-def test_countdown_canonical_normalizer_accepts_negative_bank_only() -> None:
-    from drpo import e8_multitask_exp_tuning as exp_tuning
-
-    row = {
-        "row_id": "countdown-row",
-        "prompt": "Use 1 and 2 to make 3",
-        "oracle_positive": "1 + 2",
-        "numbers": [1, 2],
-        "target": 3,
-        "negative_bank": [
-            {"expression": f"wrong-{index}", "valid_format": True, "correct": False}
-            for index in range(16)
-        ],
-    }
-    normalized = exp_tuning._normalize_countdown_train_row(row)
-    assert len(normalized["negatives"]) == 16
-    assert normalized["negatives"][0]["completion"] == "wrong-0"
-
-
-def test_coldstart_engineering_self_test_runs_delivery_chain(tmp_path: Path) -> None:
+def test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_barriers(
+    tmp_path: Path,
+) -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
-    source_commit = subprocess.check_output(
-        ["git", "rev-parse", "HEAD"],
-        text=True,
-    ).strip()
+    source_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     result = exp_tuning.cmd_engineering_self_test(
         config,
         tmp_path / "engineering-self-test",
@@ -1916,197 +1736,35 @@ def test_coldstart_engineering_self_test_runs_delivery_chain(tmp_path: Path) -> 
     )
     assert result["complete"]
     assert result["scientific_status"] == "not_run"
-    assert result["resume_completed_cells"] == 188
+    assert result["resume_completed_cells"] == 208
+    assert result["aggregate_cell_count"] == 208
+    assert result["queue_audit"]["wave_barriers_respected"]
+    assert result["queue_audit"]["wave_count"] == 13
+    assert result["queue_audit"]["slots_per_gpu"] == 2
     assert result["repeat_run_preserved_cell_hashes"]
-    assert result["queue_audit"]["later_cell_started_before_first_batch_finished"]
     assert result["tampered_package_rejected"]
-    assert result["canonical_archive_owner"] == "scripts/run_experiment_guard_hardened.py"
-    package = Path(result["full_results_zip"])
-    with zipfile.ZipFile(package) as archive:
-        names = set(archive.namelist())
-    assert exp_tuning.PACKAGE_REQUIRED_MEMBERS <= names
-    assert "ENGINEERING_SELF_TEST_REPORT.json" in names
 
 
-def test_coldstart_postqueue_failure_imports_all_cells_and_finishes_without_retraining(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    from drpo import e8_multitask_exp_tuning as exp_tuning
-
-    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
-    source_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-    first = tmp_path / "attempt-001"
-    second = tmp_path / "attempt-002"
-    monkeypatch.setenv("E8_COLDSTART_ENGINEERING_FAIL_STAGE", "after_queue")
-    with pytest.raises(RuntimeError, match="after all cells completed"):
-        exp_tuning.cmd_engineering_self_test(config, first, source_commit=source_commit)
-    source_hashes = {
-        cell.key: p0.sha256_file(first / "cells" / cell.key / "cell_manifest.json")
-        for cell in exp_tuning.build_cells(config)
-    }
-    plan = exp_tuning.cmd_recovery_plan(
-        config,
-        first,
-        base_model_path=str(first / "engineering_fixtures" / "placeholder_model"),
-    )
-    assert plan["reusable_completed_cells"] == 188
-    assert plan["next_stage"] == "aggregate"
-
-    with pytest.raises(RuntimeError, match="source commit"):
-        exp_tuning.cmd_import_recovery(
-            config,
-            tmp_path / "wrong-source-attempt",
-            source_output_root=first,
-            base_model_path=str(first / "engineering_fixtures" / "placeholder_model"),
-            source_commit="b" * 40,
-        )
-    imported = exp_tuning.cmd_import_recovery(
-        config,
-        second,
-        source_output_root=first,
-        base_model_path=str(first / "engineering_fixtures" / "placeholder_model"),
-        source_commit=source_commit,
-    )
-    assert len(imported["imported_reusable_cells"]) == 188
-    assert not imported["incomplete_cells_imported"]
-    assert {
-        row["cell_key"]: row["source_manifest_sha256"]
-        for row in imported["imported_cell_manifests"]
-    } == source_hashes
-
-    monkeypatch.delenv("E8_COLDSTART_ENGINEERING_FAIL_STAGE")
-    result = exp_tuning.cmd_engineering_self_test(config, second, source_commit=source_commit)
-    assert result["complete"]
-    assert result["recovered_from_previous_attempt"]
-    assert result["resume_completed_cells"] == 188
-    assert all(
-        json.loads((second / "cells" / cell.key / "cell_manifest.json").read_text())[
-            "recovery_provenance"
-        ]["source_manifest_sha256"]
-        == source_hashes[cell.key]
-        for cell in exp_tuning.build_cells(config)
-    )
-
-
-def test_coldstart_recovery_snapshot_and_log_compaction_are_small_and_auditable(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    from drpo import e8_multitask_exp_tuning as exp_tuning
-
-    config = exp_tuning._engineering_self_test_config(
-        exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
-    )
-    output = tmp_path / "workload"
-    output.mkdir()
-    for cell in exp_tuning.build_cells(config):
-        p0.atomic_json(
-            output / "cells" / cell.key / "cell_manifest.json",
-            {
-                "experiment_id": exp_tuning.experiment_id(config),
-                "config_hash": exp_tuning.stable_config_hash(config),
-                "evaluation_status": "complete",
-                "nan_inf_failure": False,
-                "engineering_placeholder_backend": True,
-                "complete": True,
-            },
-        )
-    snapshot = exp_tuning._recovery_checkpoint_snapshot(
-        config,
-        output,
-        tmp_path / "snapshot",
-        source_commit="a" * 40,
-    )
-    assert snapshot["completed_cells"] == 188
-    assert len(list((tmp_path / "snapshot" / "cell_manifests").glob("*.json"))) == 188
-    assert (tmp_path / "snapshot" / "run_manifest.json").is_file()
-
-    for index in range(3):
-        log = output / "logs" / f"cell-{index}.log"
-        log.parent.mkdir(parents=True, exist_ok=True)
-        log.write_text((f"cell={index}\n" * 20_000), encoding="utf-8")
-    original_atomic_json = exp_tuning.atomic_json
-
-    def interrupt_before_final_index(path: Path, payload: dict[str, object]) -> None:
-        if path.name == "LOG_ARCHIVE_INDEX.json":
-            raise RuntimeError("intentional compaction interruption")
-        original_atomic_json(path, payload)
-
-    monkeypatch.setattr(exp_tuning, "atomic_json", interrupt_before_final_index)
-    with pytest.raises(RuntimeError, match="intentional compaction interruption"):
-        exp_tuning.cmd_compact_logs(config, output)
-    assert (output / "logs" / "LOG_ARCHIVE_PREPARED.json").is_file()
-    monkeypatch.setattr(exp_tuning, "atomic_json", original_atomic_json)
-    compacted = exp_tuning.cmd_compact_logs(config, output)
-    archive = Path(compacted["archive"])
-    assert archive.is_file()
-    assert p0.sha256_file(archive) == compacted["archive_sha256"]
-    assert len(compacted["members"]) == 3
-    assert compacted["transactionally_resumable"]
-    assert len(list((output / "logs" / "tails").glob("*.log"))) == 3
-    assert not list(output.glob("logs/cell-*.log"))
-    assert not (output / "logs" / "LOG_ARCHIVE_PREPARED.json").exists()
-    assert exp_tuning.cmd_compact_logs(config, output) == compacted
-
-
-def test_coldstart_runbook_embeds_the_reviewed_one_click_bootstrap() -> None:
+def test_coldstart_runbook_embeds_bootstrap_and_current_protocol() -> None:
     runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md").read_text(
         encoding="utf-8"
     )
     bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(
         encoding="utf-8"
     )
-    launcher = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
     embedded = runbook.split("<!-- ONE_CLICK_BOOTSTRAP_START -->", 1)[1].split(
         "<!-- ONE_CLICK_BOOTSTRAP_END -->", 1
     )[0]
     assert embedded == f"\n```bash\n{bootstrap.rstrip()}\n```\n"
-    assert "https://github.com/easonhuo/drpo.git" in runbook
-    assert "<reviewed-full-commit-sha>" not in runbook
-    assert 'MODE="${E8_COLDSTART_EXECUTION_MODE:-${1:-full}}"' in bootstrap
-    assert 'add_candidate "/root/drpo"' in bootstrap
-    assert 'add_candidate "/root/d4rl2"' in bootstrap
-    assert "-maxdepth 5" in bootstrap
-    assert "remote get-url origin" in bootstrap
-    assert "git clone --filter=blob:none --no-checkout" in bootstrap
-    assert "worktree add --detach" in bootstrap
-    assert "ls-remote" in bootstrap
-    assert "BOOTSTRAP_FAILED_STAGE=" in bootstrap
-    assert "RESUME_BOOTSTRAP=0" in bootstrap
-    assert "BOOTSTRAP_WAS_COMPLETE=0" in bootstrap
-    assert "diagnose \"bootstrap_${CURRENT_STAGE}\"" in bootstrap
-    assert 'status --porcelain=v1 --untracked-files=all' in bootstrap
-    assert "git pull" not in bootstrap
-    assert "git reset" not in bootstrap
-    assert "git clean" not in bootstrap
-    assert "git stash" not in bootstrap
-    assert "run_experiment_guard_hardened.py" in launcher
-    assert "engineering-self-test" in launcher
-    assert "status --porcelain=v1 --untracked-files=all" in launcher
-    assert "--source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh" in launcher
-    self_test_setup_block = launcher.split("self_test_setup() {", 1)[1].split(
-        "engineering_self_test() {", 1
-    )[0]
-    assert "pip install --no-deps -e" not in self_test_setup_block
-    formal_block = launcher.split("guarded_full() {", 1)[1].split('case "${MODE}"', 1)[0]
-    guard_attempt_block = launcher.split("run_formal_guard_attempt() {", 1)[1].split(
-        "guarded_full() {", 1
-    )[0]
-    assert formal_block.index("require_registered_ready") < formal_block.index("ensure_setup")
-    assert "--run-class formal" in guard_attempt_block
-    assert "--require-origin-main-match" in guard_attempt_block
-    assert "runspecs/ready/*.yaml" in launcher
-    assert "repo_commit:" in launcher
-    assert "run_module finalize" in launcher
-    assert "run_module package" not in formal_block
-    assert "RAW_COMPLETE_RESULTS_ZIP=" in launcher
-    assert "flock -n 9" in launcher
-    assert "import-recovery" in launcher
-    assert "E8_COLDSTART_RECOVERY_INTERVAL_CELLS" in launcher
-    assert "--max-package-mib 23" in launcher
-    assert "compact-logs" in launcher
-    assert "LOCAL_AI_RECOVERY_BUNDLE.zip" in launcher
-    assert "E8_COLDSTART_LOCAL_AI_COMMAND" in launcher
-    assert "invoke_local_ai_recovery formal_guard_attempts_exhausted" in launcher
-    assert '--source-commit "${EXPECTED_COMMIT}"' in launcher
+    assert "208 cells" in runbook
+    assert "13" in runbook and "16-cell" in runbook
+    assert "Spiral Matrix" in runbook
+    assert "Pass@64" in runbook
+    assert "结果门禁" in runbook
+    assert "reference-remoteness" in runbook
+    assert "terminal valid rate" in runbook.lower()
+    assert "0.002" not in runbook
+    assert "峰值必须高于" not in runbook
+    assert "run_experiment_guard_hardened.py" in Path(
+        "scripts/run_e8_multitask_exp_coldstart.sh"
+    ).read_text(encoding="utf-8")

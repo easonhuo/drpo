@@ -12,37 +12,43 @@
 
 实验 ID：`EXT-C-E8-MULTITASK-EXP-COLDSTART-01`
 
-科学边界（代码会 fail closed，不接受现场覆盖）：
+当前科学/执行边界（代码会 fail closed，不接受现场覆盖）：
 
-- 无 SFT warm start、无外部/reference adapter；
-- Countdown 的 Positive-only、Global 与 Exp 全部直接调用论文
-  `countdown_e8_alpha1_highc_scan_runtime.worker`，不允许重写 loss；
-- Countdown 精确复跑 round-1 与 c-extension：24 个参数点 × 2 个 seed = 48 cells；
-- 其余 7 个任务各 1 Positive-only + 19 个论文网格 Exp = 140 cells；总计 188 cells；
-- Countdown 使用原始 6000-row V2 train bank、500-row validation、固定 1200 updates、
-  seed offsets 4000/5000、late window 800/900/1000/1100/1200；
-- 所有任务按 prompt 使用全部 canonical unique negatives；禁止 near/far 选样、校准缩放、
-  gradient RMS matching、weight-sum normalization 和 extra square；
-- Countdown generator/converter 以及原 8-task P0 bank pipeline、task adapters、P0 config 和
-  launcher 都有 Git blob 硬锁；任一字节变化都会在 prepare/GPU 训练前失败；
-- 只有长度、evaluation batch 与 validation prompt 数五个任务接口字段可以按白名单变化；
-  Countdown 精确保留 256/80、Greedy 500、Pass@8 500；其余任务恢复原 8-task 接口的
-  512/128、Greedy 500、Pass@8 128。evaluation batch 统一降为 8 只用于显存安全；
-- 8 GPU × 每卡 1 cell，避免异构长序列任务把论文原来的同构双 slot 假设错误外推；调度器
-  不得在 OOM 后自动修改 batch、cell、loss、λ 或数据；
-- 工程自检、liveness、恢复验收和有限步训练不冒充收敛或正式方法排名。
+- 无 SFT warm start、无外部/reference adapter；所有 cell 从同一 Qwen2.5-0.5B base 的
+  zero-update LoRA 初始化语义出发；
+- 9 个任务全部进入本轮：Countdown + Word Sorting、Spiral Matrix、Mini Sudoku、Maze、
+  Word Ladder、Knights & Knaves、Graph Coloring、WikiSQL；
+- Countdown 只承担回归/外部有效性 sentinel：2 个历史 seed ×（Positive-only、Global、
+  6 个论文网格 Exp c）= 16 cells。它的代码、数据、seed 和终态身份会审计，但任何
+  stochastic performance 数值都**不是结果门禁**，不会决定后续任务是否启动；
+- 其余 8 个任务各 24 cells：4 个 Positive-only 历史 seed + 单一 tuning seed 上 20 个
+  task-local Exp c。总计 **208 cells**。这只能支持 response-shape/localization；若以后要做
+  最优 c 的正式多 seed 排名，必须另行登记确认实验；
+- 非 Countdown 训练不改原 P0 bank。prepare 后、训练前，从现有 task adapter/verifier
+  **重建每个 prompt 的全部 deterministic verified-wrong mutations**，用 zero-update
+  reference policy 的 mean completion-token surprisal 排序，再均匀取 16 个 rank（含两端）
+  形成 derived `reference-remoteness` training bank。reference rank/surprisal 只做 provenance
+  和诊断，不参与训练权重，也没有 coverage threshold；训练中的 Exp taper 仍在每次 update
+  按当前 policy surprisal 重新计算；
+- Countdown 精确保留 256/80、evaluation batch 8、Greedy 500、Pass@8 500，并保留
+  Pass@64 作为 Countdown 原协议的辅助诊断；8 个 transfer 任务使用 512/128、evaluation
+  batch 16、Greedy 500、Pass@8 128，**不运行隐藏 Pass@64**；
+- 固定 1200 optimizer updates、LR/optimizer/warmup/max-grad-norm、LoRA r/alpha/dropout、
+  数据 split、task prompt/verifier、采样 temperature/top-p 与论文 current-surprisal Exp
+  公式均不变；
+- 调度容量固定为 8 GPU × 2 cells/GPU = **16-cell wave**。208 cells 正好 13 个 wave；
+  wave N 的 16 个 cell 全部结束后才允许 wave N+1 开始。这个 barrier 只是 scheduling /
+  recovery 边界，不是科学结果门禁；OOM 时 cell 失败并保留证据，禁止自动改 batch、λ、
+  loss、数据或其他科学参数；
+- 选择 Exp c 时 primary 为 late-window Pass@8 mean；tie 依次使用 terminal Pass@8、
+  late-window greedy、较小 c。terminal valid rate 只报告/审计，**不作为 selection
+  eligibility**；
+- task performance、valid/structure 诊断事件与 NaN/Inf 数值崩溃分开报告。工程 self-test、
+  liveness、恢复验收和有限步运行都不能冒充正式科学结果或方法排名。
 
-188-cell 调度器分成两个硬阶段。第一阶段只运行 48 个 Countdown cells；随后必须通过
-`scheduler/countdown_reproduction_gate.json`，才会释放其余 140 个 task-transfer cells。
-其中 32 个 round-1 Countdown cells 的代码/data/config/seed 身份必须精确匹配注册结果，
-late-window Pass@8 逐点偏差必须在预声明的 0.002 绝对容差内，且 Exp 峰值必须高于
-paired Positive-only。门禁失败时其余 7 个任务一个也不会启动。完成 aggregate 时还会
-再次生成并核验 `aggregate/countdown_reproduction_gate.json`；任一门禁失败都禁止
-finalize。
-
-正式模式默认运行 `full`。PR/stack 未合并、实验未登记、execution gate 不是
-`ready`，或没有唯一 READY RunSpec 绑定执行时的精确 `main` SHA 时，入口会在创建
-训练环境、下载模型或接触 GPU 前停止。不得绕过。
+正式模式默认运行 `full`。PR/stack 未合并、实验未登记、execution gate 不是 `ready`，
+或没有唯一 READY RunSpec 绑定执行时的精确 `main` SHA 时，入口会在创建训练环境、下载
+模型或接触 GPU 前停止。不得绕过。
 
 ## 1. 唯一需要执行的代码块
 

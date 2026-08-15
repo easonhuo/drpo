@@ -35,6 +35,7 @@ suite:
   tasks:
     - countdown
     - word_sorting
+    - spiral_matrix
     - mini_sudoku
     - maze
     - word_ladder
@@ -43,6 +44,7 @@ suite:
     - wikisql
   p0_tasks:
     - word_sorting
+    - spiral_matrix
     - mini_sudoku
     - maze
     - word_ladder
@@ -50,8 +52,7 @@ suite:
     - graph_color
     - wikisql
   external_tasks: [countdown]
-  excluded_tasks:
-    spiral_matrix: old_warmstart_positive_only_and_all_exp_cells_exactly_saturated
+  excluded_tasks: {}
 
 split:
   p0_train_rows: 5000
@@ -98,6 +99,20 @@ negative_sampling:
   selection_stop_gradient: true
   weight_sum_normalization: false
   gradient_budget_matching: false
+  reference_remoteness_bank:
+    enabled: true
+    scope: non_countdown_training_only
+    source_candidates: all_deterministic_verified_wrong_mutations
+    reference_policy: zero_update_base_plus_fresh_lora
+    coordinate: mean_completion_token_surprisal
+    selected_negatives_per_prompt: 16
+    selection: evenly_spaced_reference_rank_including_extremes
+    coverage_threshold: null
+    reference_rank_role: provenance_and_diagnostic_only
+    static_reference_rank_enters_training_weight: false
+    current_policy_surprisal_recomputed_each_update: true
+    original_p0_bank_preserved: true
+    audit_quantiles: [min, q25, median, q75, max]
 
 remoteness_calibration:
   enabled: false
@@ -115,12 +130,14 @@ task_runtime:
     - evaluation.batch_size
     - evaluation.greedy_prompt_rows
     - evaluation.passk_prompt_rows
+    - evaluation.pass_ks
   countdown:
     {max_length: 256, max_new_tokens: 80, evaluation_batch_size: 8,
-     greedy_prompt_rows: 500, passk_prompt_rows: 500}
+     greedy_prompt_rows: 500, passk_prompt_rows: 500, auxiliary_pass_ks: [64]}
   word_sorting: &task_transfer_runtime
-    {max_length: 512, max_new_tokens: 128, evaluation_batch_size: 8,
-     greedy_prompt_rows: 500, passk_prompt_rows: 128}
+    {max_length: 512, max_new_tokens: 128, evaluation_batch_size: 16,
+     greedy_prompt_rows: 500, passk_prompt_rows: 128, auxiliary_pass_ks: []}
+  spiral_matrix: *task_transfer_runtime
   mini_sudoku: *task_transfer_runtime
   maze: *task_transfer_runtime
   word_ladder: *task_transfer_runtime
@@ -129,52 +146,87 @@ task_runtime:
   wikisql: *task_transfer_runtime
 
 sweep:
+  # Historical profile identifier retained; the config hash defines the new protocol identity.
   profile: eight_task_coldstart_lambda_v1
   method: exponential
   parameterization: paper_coefficient_c
   tuning_seed: 4000
   countdown_seed_offsets: [4000, 5000]
-  task_transfer_seed_offsets: [4000]
-  positive_only_per_task: 1
-  expected_cells: 188
-  countdown_round1_coefficients:
-    [0.051293294, 0.105360516, 0.162518929, 0.223143551,
-     0.287682072, 0.430782916, 0.693147181, 0.916290732,
-     1.203972804, 1.386294361, 1.609437912, 1.897119985,
-     2.302585093, 2.995732274]
-  countdown_extension_coefficients:
-    [0.01, 0.025, 0.04, 3.506557897, 4.605170186,
-     5.298317367, 6.907755279, 9.210340372]
-  task_transfer_coefficients:
-    [0.051293294, 0.105360516, 0.162518929, 0.223143551,
-     0.287682072, 0.430782916, 0.693147181, 0.916290732,
-     1.203972804, 1.386294361, 1.609437912, 1.897119985,
-     2.302585093, 2.995732274, 3.506557897, 4.605170186,
-     5.298317367, 6.907755279, 9.210340372]
+  transfer_positive_only_seed_offsets: [4000, 5000, 6000, 7000]
+  task_transfer_seed_offset: 4000
+  expected_cells: 208
+  countdown_sentinel_coefficients:
+    [0.105360516, 0.430782916, 0.916290732,
+     1.897119985, 2.302585093, 2.995732274]
+  task_grid_provenance:
+    word_sorting: historical_19_plus_dense_refinement_1.05
+    spiral_matrix: historical_7_anchors_plus_13_canonical_paper_coefficients
+    mini_sudoku: historical_19_plus_dense_refinement_2.00
+    maze: historical_19_plus_dense_refinement_0.10
+    word_ladder: historical_19_plus_dense_refinement_1.05
+    knights_knaves: historical_19_plus_dense_refinement_1.28
+    graph_color: historical_19_plus_dense_refinement_0.10
+    wikisql: historical_19_plus_dense_refinement_2.35
+  task_grid_hashes:
+    word_sorting: d24edbd6099f1d4f081318b305e62b39834db7ab94af6b4279d706f94e8d6de3
+    spiral_matrix: 805966b9e3e1774e748d1d96ca64667e23276782681e15c1e072e5536a02199a
+    mini_sudoku: 2340c4729b70ae5bafb7b6bf07049f38056b18368749bba3b967b4bbd950e29c
+    maze: 399732f8572faf670a0486cd5f838d3956bfa56cabbb5ae79b8521fbbfc45d33
+    word_ladder: 4fff6be5b923b9071ae0ee949e734087330463072d9be02015a661e51a2689e4
+    knights_knaves: 37f675c933e909ac1ca8a6464c8ed72497758b31d1c8a82c855cad10961c4cab
+    graph_color: 65c02a38a4339888d2e485c277fa1668a5e0309fab857e3ae2b2b2c0dc862f9d
+    wikisql: e42e516dbbe0bfd0f9fd00f5dec22949f88503253a2235c8c81bd908af4779a0
   task_lambda:
     countdown:
-      [0.01, 0.025, 0.04, 0.051293294, 0.105360516, 0.162518929,
-       0.223143551, 0.287682072, 0.430782916, 0.693147181,
-       0.916290732, 1.203972804, 1.386294361, 1.609437912,
-       1.897119985, 2.302585093, 2.995732274, 3.506557897,
-       4.605170186, 5.298317367, 6.907755279, 9.210340372]
-    word_sorting: &task_transfer_grid
-      [0.051293294, 0.105360516, 0.162518929, 0.223143551,
-       0.287682072, 0.430782916, 0.693147181, 0.916290732,
-       1.203972804, 1.386294361, 1.609437912, 1.897119985,
-       2.302585093, 2.995732274, 3.506557897, 4.605170186,
-       5.298317367, 6.907755279, 9.210340372]
-    mini_sudoku: *task_transfer_grid
-    maze: *task_transfer_grid
-    word_ladder: *task_transfer_grid
-    knights_knaves: *task_transfer_grid
-    graph_color: *task_transfer_grid
-    wikisql: *task_transfer_grid
+      [0.105360516, 0.430782916, 0.916290732,
+       1.897119985, 2.302585093, 2.995732274]
+    word_sorting:
+      [0.10536051565782628, 0.2876820724517809, 0.5108256237659907,
+       0.6931471805599453, 0.95, 1.0498221244986778, 1.05, 1.10,
+       1.20, 1.28, 1.34, 1.3862943611198906, 1.43, 1.50, 1.60,
+       1.70, 1.80, 1.95, 2.0794415416798357, 2.30]
+    spiral_matrix:
+      [0.051293294, 0.10536051565782628, 0.162518929, 0.223143551,
+       0.2876820724517809, 0.430782916, 0.5108256237659907,
+       0.6931471805599453, 0.916290732, 1.0498221244986778,
+       1.203972804, 1.3862943611198906, 1.609437912, 1.897119985,
+       2.0794415416798357, 2.302585093, 2.995732274, 3.506557897,
+       4.605170186, 6.907755279]
+    mini_sudoku:
+      [0.10536051565782628, 0.2876820724517809, 0.5108256237659907,
+       0.6931471805599453, 1.0498221244986778, 1.3862943611198906,
+       1.80, 2.00, 2.0794415416798357, 2.20, 2.40, 2.60, 2.80,
+       3.00, 3.25, 3.50, 4.00, 4.50, 6.00, 8.00]
+    maze:
+      [0.10, 0.10536051565782628, 0.14, 0.18, 0.22, 0.25,
+       0.2876820724517809, 0.32, 0.35, 0.38, 0.41, 0.44,
+       0.5108256237659907, 0.55, 0.6931471805599453, 0.70, 0.90,
+       1.0498221244986778, 1.3862943611198906, 2.0794415416798357]
+    word_ladder:
+      [0.10536051565782628, 0.2876820724517809, 0.5108256237659907,
+       0.6931471805599453, 0.95, 1.0498221244986778, 1.05, 1.12,
+       1.24, 1.30, 1.34, 1.3862943611198906, 1.43, 1.48, 1.54,
+       1.60, 1.78, 1.90, 2.0794415416798357, 2.30]
+    knights_knaves:
+      [0.10536051565782628, 0.2876820724517809, 0.5108256237659907,
+       0.65, 0.6931471805599453, 0.72, 0.78, 0.84, 0.90, 0.96,
+       1.00, 1.0498221244986778, 1.10, 1.16, 1.22, 1.28,
+       1.3862943611198906, 1.42, 1.65, 2.0794415416798357]
+    graph_color:
+      [0.10, 0.10536051565782628, 0.15, 0.22, 0.2876820724517809,
+       0.38, 0.5108256237659907, 0.55, 0.6931471805599453, 0.75,
+       0.90, 1.0498221244986778, 1.20, 1.3862943611198906, 1.60,
+       1.80, 2.0794415416798357, 2.60, 3.50, 6.00]
+    wikisql:
+      [0.10536051565782628, 0.2876820724517809, 0.5108256237659907,
+       0.6931471805599453, 1.0498221244986778, 1.3862943611198906,
+       1.40, 1.55, 1.70, 1.85, 2.00, 2.0794415416798357, 2.20,
+       2.35, 2.50, 2.90, 3.40, 3.80, 4.40, 5.20]
 
 selection:
   primary_metric: validation_late_window_pass8_mean
   finite_required: true
-  terminal_valid_rate_minimum: 0.95
+  terminal_valid_rate_role: diagnostic_only_not_selection_eligibility
   tie_breakers:
     - validation_terminal_pass8
     - validation_late_window_greedy_mean
@@ -184,8 +236,8 @@ selection:
 canonical_coldstart:
   scientific_kernel: import_only_no_loss_reimplementation
   initialization: qwen_pretrained_base_plus_fresh_lora
-  positive_only_entry: countdown_e8_alpha1_highc_scan_runtime.worker
-  exponential_entry: countdown_e8_alpha1_highc_scan_runtime.worker
+  countdown_entry: countdown_e8_alpha1_highc_scan_runtime.worker
+  transfer_entry: countdown_e8_alpha1_c_scan_trainer.train_cell
   formula: alpha_times_exp_minus_c_times_current_sequence_surprisal_div_2
   paths:
     arena: src/drpo/countdown_qwen_arena_onefile.py
@@ -224,34 +276,28 @@ canonical_coldstart:
     p0_launcher: ffcad2a64cb2f42906cae67dabdcc98c3eb46ff0
     result_reference: 972a67867aafb5ddea6e1625bacd337b6939f097
 
-countdown_reproduction_gate:
-  required: true
-  reference_run_id: E8_PAPER_ALIGNED_LINEAR_SCAN_20260716_01
-  require_exact_protocol_identity: true
-  require_round1_two_seed_cells: 32
-  late_window_pass8_absolute_tolerance: 0.002
-  require_peak_above_positive_only: true
-
 execution:
-  max_concurrent_cells: 8
+  max_concurrent_cells: 16
   gpu_ids: [0, 1, 2, 3, 4, 5, 6, 7]
-  slots_per_gpu: 1
-  expected_waves: 24
+  slots_per_gpu: 2
+  expected_waves: 13
   scheduler: dynamic_slot_queue
-  wave_barriers: false
+  wave_barriers: true
   identity_checked_resume: true
   retry_incomplete_requires_explicit_flag: true
   fail_closed: true
   test_partition_forbidden: true
-  oom_policy: one_cell_per_gpu_no_automatic_scientific_parameter_mutation
+  oom_policy: fail_cell_no_automatic_scientific_parameter_mutation
 
 reporting:
   separate_events:
     - task_performance
     - valid_or_structure_diagnostic
     - nan_inf_numerical_failure
-  countdown_exact_reproduction_required: true
+  countdown_role: diagnostic_regression_sentinel_not_result_gate
   other_tasks_task_interface_adaptation_only: true
+  transfer_exp_scope: single_seed_response_shape_localization
+  positive_only_seed_count_per_transfer_task: 4
   convergence_claim_allowed: false
   significance_claim_allowed: false
   method_ranking_allowed: false
