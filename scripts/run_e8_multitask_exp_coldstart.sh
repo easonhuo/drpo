@@ -565,8 +565,29 @@ PY
   )
   [[ "${#runspec_matches[@]}" -eq 1 ]] || \
     fail "expected exactly one READY RunSpec for ${EXPERIMENT_ID}; found ${#runspec_matches[@]}"
-  grep -Eq "^repo_commit:[[:space:]]*${EXPECTED_COMMIT}[[:space:]]*$" "${runspec_matches[0]}" || \
-    fail "READY RunSpec does not bind reviewed commit ${EXPECTED_COMMIT}: ${runspec_matches[0]}"
+  local runspec_commit
+  runspec_commit="$(sed -nE 's/^repo_commit:[[:space:]]*([0-9a-f]{40})[[:space:]]*$/\1/p' "${runspec_matches[0]}")"
+  [[ "${runspec_commit}" =~ ^[0-9a-f]{40}$ ]] || \
+    fail "READY RunSpec must bind one full reviewed implementation SHA: ${runspec_matches[0]}"
+  git -C "${ROOT_DIR}" cat-file -e "${runspec_commit}^{commit}" 2>/dev/null || \
+    fail "READY RunSpec implementation commit is unavailable: ${runspec_commit}"
+  git -C "${ROOT_DIR}" merge-base --is-ancestor "${runspec_commit}" "${EXPECTED_COMMIT}" || \
+    fail "READY RunSpec implementation commit is not an ancestor of execution main: ${runspec_commit}"
+  local protected_paths=(
+    configs/e8_multitask_exp_coldstart.yaml
+    configs/e8_multitask_p0.yaml
+    requirements/e8_multitask_exp_coldstart.txt
+    scripts/bootstrap_e8_multitask_exp_coldstart.sh
+    scripts/run_e8_multitask_exp_coldstart.sh
+    scripts/run_e8_multitask_p0.sh
+    scripts/v2_bank_convert.py
+    src/drpo/e8_multitask_exp_tuning.py
+    src/drpo/e8_multitask_p0.py
+    src/drpo/e8_multitask_tasks.py
+  )
+  git -C "${ROOT_DIR}" diff --quiet "${runspec_commit}" "${EXPECTED_COMMIT}" -- \
+    "${protected_paths[@]}" || \
+    fail "protected cold-start implementation changed after READY RunSpec commit ${runspec_commit}"
   grep -Fq "run_e8_multitask_exp_coldstart.sh full" "${runspec_matches[0]}" || \
     fail "READY RunSpec does not call the reviewed full entrypoint: ${runspec_matches[0]}"
 }
