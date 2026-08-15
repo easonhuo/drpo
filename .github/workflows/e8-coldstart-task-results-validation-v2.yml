@@ -34,10 +34,10 @@ jobs:
           run_end = workflow.index('\n      - name: Run full regression and 208-cell recovery acceptance\n', run_start)
           lines = workflow[run_start:run_end].splitlines()
           script = '\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n'
-          needle = '          tests.write_text(test_text, encoding="utf-8")\n'
+          needle = 'tests.write_text(test_text, encoding="utf-8")\n'
           replacement = (
-              '          test_text = "\\n".join(line.rstrip() for line in test_text.splitlines()) + "\\n"\n'
-              '          tests.write_text(test_text, encoding="utf-8")\n'
+              'test_text = "\\n".join(line.rstrip() for line in test_text.splitlines()) + "\\n"\n'
+              'tests.write_text(test_text, encoding="utf-8")\n'
           )
           if script.count(needle) != 1:
               raise SystemExit(f'test write marker count={script.count(needle)}')
