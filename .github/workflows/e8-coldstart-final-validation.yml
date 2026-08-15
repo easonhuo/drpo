@@ -68,15 +68,9 @@ jobs:
               _audit_partition_prompt_ids("countdown", partitions)
               return partitions
           '''
-          # The workflow YAML block contributes 10 spaces to every physical line;
-          # after YAML block de-indentation the literal above has the intended Python indentation.
-          new_split = "\n".join(
-              line[10:] if line.startswith("          ") else line
-              for line in new_split.splitlines()
-          ) + "\n"
           text = text[:split_start] + new_split + text[split_end:]
 
-          csv_start = text.index("def _write_csv(\n")
+          csv_start = text.index("def _write_csv(path: Path")
           csv_end = text.index("\ndef _aggregate_dense(", csv_start)
           new_csv = '''def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
               if not rows:
@@ -92,10 +86,6 @@ jobs:
                   writer.writeheader()
                   writer.writerows(rows)
           '''
-          new_csv = "\n".join(
-              line[10:] if line.startswith("          ") else line
-              for line in new_csv.splitlines()
-          ) + "\n"
           text = text[:csv_start] + new_csv + text[csv_end:]
           path.write_text(text, encoding="utf-8")
           PY
