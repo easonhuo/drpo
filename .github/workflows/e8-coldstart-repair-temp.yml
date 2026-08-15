@@ -22,6 +22,18 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+
+          bad_hash = "65c02a38a4339888d2e485c277fa1668a5e0309fab857e3ae2b2c0dc862f9d"
+          good_hash = "65c02a38a4339888d2e485c277fa1668a5e0309fab857e3ae2b2b2c0dc862f9d"
+          for filename in (
+              '.drpo_tmp/repair.sh',
+              '.drpo_tmp/e8_multitask_exp_coldstart.yaml.new',
+          ):
+              target = Path(filename)
+              payload = target.read_text(encoding='utf-8')
+              assert payload.count(bad_hash) == 1, (filename, payload.count(bad_hash))
+              target.write_text(payload.replace(bad_hash, good_hash, 1), encoding='utf-8')
+
           path = Path('.drpo_tmp/repair.sh')
           text = path.read_text(encoding='utf-8')
           old = "aggregate_end = '\\n\\ndef cmd_aggregate(\\n'"
