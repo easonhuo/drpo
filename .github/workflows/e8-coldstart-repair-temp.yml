@@ -27,7 +27,38 @@ jobs:
           old = "aggregate_end = '\\n\\ndef cmd_aggregate(\\n'"
           new = "aggregate_end = '\\n\\ndef cmd_aggregate('"
           assert text.count(old) == 1, text.count(old)
-          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          text = text.replace(old, new, 1)
+
+          start = text.index("old_audit_cold = '''")
+          end_marker = 'text = replace_once(text, old_audit_cold, new_audit_cold, "audit cold protocol")\n'
+          end = text.index(end_marker, start) + len(end_marker)
+          replacement = '''audit_function_start = text.index("def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:")
+          audit_cold_start = '    elif _is_coldstart(config):\\n'
+          audit_cold_end = '    all_complete = (\\n'
+          new_audit_cold = \'''    elif _is_coldstart(config):
+              aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
+              protocol_path = output_root / "aggregate" / "countdown_protocol_diagnostic.json"
+              if protocol_path.is_file():
+                  reproduction_gate_status = str(
+                      json.loads(protocol_path.read_text(encoding="utf-8")).get("status")
+                  )
+              aggregate_complete = aggregate_path.is_file() and int(
+                  json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0)
+              ) == len(cells) and reproduction_gate_status == (
+                  "NOT_RUN_ENGINEERING" if _is_engineering_self_test(config) else "PASS"
+              )
+          \'''
+          text = replace_region(
+              text,
+              audit_cold_start,
+              audit_cold_end,
+              new_audit_cold,
+              "audit cold protocol",
+              after=audit_function_start,
+          )
+          '''
+          text = text[:start] + replacement + text[end:]
+          path.write_text(text, encoding='utf-8')
           PY
           bash .drpo_tmp/repair.sh
 
