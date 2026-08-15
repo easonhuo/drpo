@@ -1,0 +1,100 @@
+version: 1
+run_id: E8_MULTITASK_EXP_COLDSTART_20260815_01
+lane: e8
+priority: 160
+created_at: "2026-08-15T08:28:00Z"
+experiment_id: EXT-C-E8-MULTITASK-EXP-COLDSTART-01
+repo_commit: ea2c6d60084acd3e87d6f4118161747364bfe9b4
+
+registration:
+  mode: pre_registered
+  closure_required: false
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/e8_multitask_exp_coldstart.yaml
+    - configs/e8_multitask_p0.yaml
+    - requirements/e8_multitask_exp_coldstart.txt
+    - scripts/bootstrap_e8_multitask_exp_coldstart.sh
+    - scripts/run_e8_multitask_exp_coldstart.sh
+    - scripts/run_e8_multitask_p0.sh
+    - scripts/v2_bank_convert.py
+    - src/drpo/e8_multitask_exp_tuning.py
+    - src/drpo/e8_multitask_p0.py
+    - src/drpo/e8_multitask_tasks.py
+    - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+    - docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md
+
+purpose: >-
+  Execute the registered nine-task E8 cold-start Exp response-shape study from
+  the reviewed canonical cold-start kernels. Preserve the frozen 208-cell,
+  13-wave, 16-cell concurrency, 1200-update, fresh-LoRA protocol and the
+  reference-surprisal rank-spread selection of 16 verified-wrong negatives per
+  transfer prompt. This run may support only the registered response-shape and
+  localization claims; it does not authorize convergence, universal best-c,
+  significance, or formal cross-method ranking claims.
+
+entrypoint:
+  cwd: repo_root
+  command: bash scripts/bootstrap_e8_multitask_exp_coldstart.sh full
+
+recovery:
+  enabled: false
+
+policy:
+  existing_script_required: true
+  fixed_profile_only: true
+  generic_config_driven_runtime_forbidden: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  formal_evidence_allowed: false
+
+outputs:
+  runbook: docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md
+
+success_criteria:
+  - bootstrap resolves authoritative origin/main and executes a clean isolated checkout
+  - bootstrap invokes scripts/run_e8_multitask_exp_coldstart.sh full on the resolved main commit
+  - registry contains exactly one EXT-C-E8-MULTITASK-EXP-COLDSTART-01 entry with implementation_state implemented and execution_gate state ready
+  - exactly one READY RunSpec exists for this experiment
+  - all protected cold-start scientific paths are unchanged from repo_commit to execution main
+  - nine tasks and exactly 208 frozen cells are executed in 13 hard waves with at most 16 concurrent cells
+  - every cell uses the frozen 1200-update no-early-stop fresh-LoRA protocol
+  - transfer-task reference banks use 16 evenly spaced frozen-reference surprisal ranks including both extremes
+  - current-policy surprisal is recomputed each update for the Exp taper
+  - engineering self-test and liveness evidence are never reported as scientific results
+  - fixed-horizon completion is not reported as convergence or steady state
+  - task-performance degradation, support or structure events, and NaN/Inf numerical failure are reported separately
+  - terminal aggregate and terminal audit complete before scientific interpretation
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - runspecs/ready/E8_MULTITASK_EXP_COLDSTART_20260815_01.yaml
+    - docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md
+  exclude:
+    - "**/*.pt"
+    - "**/*.pth"
+    - "**/*.ckpt"
+    - "**/*.safetensors"
+    - "**/*.bin"
+    - "**/best_adapter/**"
+    - "**/terminal_adapter/**"
+    - "**/last_finite_adapter/**"
+    - "**/checkpoint*"
+    - "**/checkpoints/**"
+    - "**/optimizer*"
+    - "**/wandb/**"
+  max_package_size_mb: 100
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: false
+  auto: false
+
+publish:
+  enabled: false
+  auto: false
