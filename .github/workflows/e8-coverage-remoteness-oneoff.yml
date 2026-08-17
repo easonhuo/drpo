@@ -24,39 +24,25 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
-          source_path = Path('src/drpo/e8_multitask_exp_tuning.py')
-          text = source_path.read_text(encoding='utf-8')
+          path = Path("src/drpo/e8_multitask_exp_tuning.py")
+          text = path.read_text(encoding="utf-8")
 
-          old_selector = '            "selection": "evenly_spaced_reference_rank_including_extremes",\n'
-          new_selector = (
-              '            "selection": '
-              '"coverage_first_error_class_round_robin_then_within_class_reference_rank_spread",\n'
+          old_selection_name = '"selection": "evenly_spaced_reference_rank_including_extremes"'
+          new_selection_name = (
+              '"selection": '
+              '"coverage_first_error_class_round_robin_then_within_class_reference_rank_spread"'
           )
-          assert text.count(old_selector) == 2, text.count(old_selector)
-          text = text.replace(old_selector, new_selector, 1)
+          print("old selection-name occurrences:", text.count(old_selection_name))
+          assert text.count(old_selection_name) == 2
+          text = text.replace(old_selection_name, new_selection_name)
 
-          rank_anchor = '''def _evenly_spaced_rank_indices(candidate_count: int, selected_count: int = 16) -> tuple[int, ...]:
-              if selected_count < 2:
-                  raise ValueError("Reference-remoteness selection requires at least two selected ranks")
-              if candidate_count < selected_count:
-                  raise ValueError(
-                      f"Reference-remoteness selection requires >= {selected_count} candidates; "
-                      f"found {candidate_count}"
-                  )
-              indices = tuple(
-                  (index * (candidate_count - 1)) // (selected_count - 1)
-                  for index in range(selected_count)
-              )
-              if len(set(indices)) != selected_count or indices[0] != 0 or indices[-1] != candidate_count - 1:
-                  raise AssertionError("Even rank selection must be unique and include both extremes")
-              return indices
-          '''
-          rank_anchor = '\n'.join(line[12:] if line.startswith('            ') else line for line in rank_anchor.splitlines()) + '\n'
-          assert text.count(rank_anchor) == 1
-          helpers = '''
+          helper_marker = "\ndef _reference_surprisal_summary(values: Sequence[float]) -> dict[str, float]:\n"
+          print("helper marker occurrences:", text.count(helper_marker))
+          assert text.count(helper_marker) == 1
+          helpers = r'''
 
           def _within_class_rank_indices(candidate_count: int, selected_count: int) -> tuple[int, ...]:
-              """Spread one error-class quota across its frozen-reference surprisal support."""
+              """Spread one class quota across its frozen-reference surprisal support."""
 
               if selected_count <= 0:
                   raise ValueError("Within-class selection requires a positive quota")
@@ -74,7 +60,7 @@ jobs:
               class_sizes: Mapping[str, int],
               selected_count: int = 16,
           ) -> dict[str, int]:
-              """Reproduce the July-29 P0 error-class round-robin allocation."""
+              """Allocate slots with the July-29 P0 error-class round-robin rule."""
 
               if selected_count <= 0:
                   raise ValueError("Coverage-first selection requires a positive target")
@@ -83,10 +69,11 @@ jobs:
                   for error_class, count in class_sizes.items()
                   if int(count) > 0
               }
-              if sum(remaining.values()) < selected_count:
+              candidate_count = sum(remaining.values())
+              if candidate_count < selected_count:
                   raise ValueError(
                       f"Coverage-first selection requires >= {selected_count} candidates; "
-                      f"found {sum(remaining.values())}"
+                      f"found {candidate_count}"
                   )
               quotas = {error_class: 0 for error_class in remaining}
               class_names = sorted(remaining)
@@ -94,10 +81,9 @@ jobs:
               chosen = 0
               while chosen < selected_count and class_names:
                   error_class = class_names[cursor % len(class_names)]
-                  if remaining[error_class] > 0:
-                      quotas[error_class] += 1
-                      remaining[error_class] -= 1
-                      chosen += 1
+                  quotas[error_class] += 1
+                  remaining[error_class] -= 1
+                  chosen += 1
                   if remaining[error_class] == 0:
                       class_names.remove(error_class)
                       cursor = 0
@@ -119,7 +105,7 @@ jobs:
               prompt_id: str,
               selected_count: int = 16,
           ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-              """Keep error-class coverage, then span reference surprisal inside each class."""
+              """Preserve error coverage, then span reference surprisal inside each class."""
 
               if len(scored) < selected_count:
                   raise ValueError(
@@ -209,10 +195,10 @@ jobs:
                   else:
                       cursor += 1
               if len(selected) != selected_count:
-                  raise AssertionError("Coverage-remoteness selection did not fill 16 negatives")
+                  raise AssertionError("Coverage-remoteness selection did not fill the target")
               canonical = [str(item["canonical_completion"]) for item in selected]
               if len(set(canonical)) != selected_count:
-                  raise AssertionError("Coverage-remoteness selection produced duplicate negatives")
+                  raise AssertionError("Coverage-remoteness selection produced duplicates")
               for slot, item in enumerate(selected):
                   item["negative_id"] = f"{prompt_id}_refrem_{slot:03d}"
 
@@ -226,204 +212,226 @@ jobs:
               }
               return selected, audit
           '''
-          helpers = '\n'.join(line[10:] if line.startswith('          ') else line for line in helpers.splitlines())
-          text = text.replace(rank_anchor, rank_anchor + helpers + '\n', 1)
+          helpers = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in helpers.splitlines()
+          )
+          text = text.replace(helper_marker, helpers + helper_marker, 1)
 
-          old_selection = '''                    selected_indices = _evenly_spaced_rank_indices(len(scored), 16)
-                              selected: list[dict[str, Any]] = []
-                              for slot, rank in enumerate(selected_indices):
-                                  item = dict(scored[rank])
-                                  item.update(
-                                      {
-                                          "negative_id": f"{prompt_id}_refrem_{slot:03d}",
-                                          "reference_rank": int(rank),
-                                          "reference_candidate_count": len(scored),
-                                          "reference_rank_role": "provenance_and_diagnostic_only",
-                                      }
-                                  )
-                                  selected.append(item)
+          old_block = '''                    selected_indices = _evenly_spaced_rank_indices(len(scored), 16)
+                    selected: list[dict[str, Any]] = []
+                    for slot, rank in enumerate(selected_indices):
+                        item = dict(scored[rank])
+                        item.update(
+                            {
+                                "negative_id": f"{prompt_id}_refrem_{slot:03d}",
+                                "reference_rank": int(rank),
+                                "reference_candidate_count": len(scored),
+                                "reference_rank_role": "provenance_and_diagnostic_only",
+                            }
+                        )
+                        selected.append(item)
           '''
-          old_selection = '\n'.join(line[20:] if line.startswith('                    ') else line for line in old_selection.splitlines()) + '\n'
-          new_selection = '''                    selected, coverage_audit = _select_coverage_remoteness_candidates(
-                                  scored,
-                                  task=task,
-                                  prompt_id=prompt_id,
-                                  selected_count=16,
-                              )
-                              selected_indices = tuple(int(item["reference_rank"]) for item in selected)
+          old_block = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in old_block.splitlines()
+          ) + "\n"
+          new_block = '''                    selected, coverage_audit = _select_coverage_remoteness_candidates(
+                        scored,
+                        task=task,
+                        prompt_id=prompt_id,
+                        selected_count=16,
+                    )
+                    selected_indices = tuple(int(item["reference_rank"]) for item in selected)
           '''
-          new_selection = '\n'.join(line[20:] if line.startswith('                    ') else line for line in new_selection.splitlines()) + '\n'
-          assert text.count(old_selection) == 1
-          text = text.replace(old_selection, new_selection, 1)
+          new_block = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in new_block.splitlines()
+          ) + "\n"
+          print("selection block occurrences:", text.count(old_block))
+          assert text.count(old_block) == 1
+          text = text.replace(old_block, new_block, 1)
 
-          old_metadata = '''                        "candidate_count": len(scored),
-                                  "selected_ranks": list(selected_indices),
-                                  "training_weight_uses_reference_rank": False,
-                                  "current_policy_surprisal_recomputed_each_update": True,
+          old_meta = '''                        "candidate_count": len(scored),
+                        "selected_ranks": list(selected_indices),
+                        "training_weight_uses_reference_rank": False,
+                        "current_policy_surprisal_recomputed_each_update": True,
           '''
-          old_metadata = '\n'.join(line[24:] if line.startswith('                        ') else line for line in old_metadata.splitlines()) + '\n'
-          new_metadata = '''                        "candidate_count": len(scored),
-                                  "selected_ranks": list(selected_indices),
-                                  "selection": str(selector["selection"]),
-                                  "selected_error_class_counts": coverage_audit[
-                                      "selected_error_class_counts"
-                                  ],
-                                  "selected_error_class_count": coverage_audit[
-                                      "selected_error_class_count"
-                                  ],
-                                  "training_weight_uses_reference_rank": False,
-                                  "current_policy_surprisal_recomputed_each_update": True,
+          old_meta = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in old_meta.splitlines()
+          ) + "\n"
+          new_meta = '''                        "candidate_count": len(scored),
+                        "selected_ranks": list(selected_indices),
+                        "selection": str(selector["selection"]),
+                        "selected_error_class_counts": coverage_audit[
+                            "selected_error_class_counts"
+                        ],
+                        "selected_error_class_count": coverage_audit[
+                            "selected_error_class_count"
+                        ],
+                        "training_weight_uses_reference_rank": False,
+                        "current_policy_surprisal_recomputed_each_update": True,
           '''
-          new_metadata = '\n'.join(line[24:] if line.startswith('                        ') else line for line in new_metadata.splitlines()) + '\n'
-          assert text.count(old_metadata) == 1
-          text = text.replace(old_metadata, new_metadata, 1)
+          new_meta = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in new_meta.splitlines()
+          ) + "\n"
+          print("metadata occurrences:", text.count(old_meta))
+          assert text.count(old_meta) == 1
+          text = text.replace(old_meta, new_meta, 1)
 
-          audit_anchor = '''                            "selected_reference_surprisal": _reference_surprisal_summary(
-                                      [float(item["reference_surprisal"]) for item in selected]
-                                  ),
-                                  "coverage_threshold": None,
+          old_audit = '''                            "selected_reference_surprisal": _reference_surprisal_summary(
+                                [float(item["reference_surprisal"]) for item in selected]
+                            ),
+                            "coverage_threshold": None,
+                            "coverage_gate": False,
           '''
-          audit_anchor = '\n'.join(line[28:] if line.startswith('                            ') else line for line in audit_anchor.splitlines()) + '\n'
-          audit_replacement = '''                            "selected_reference_surprisal": _reference_surprisal_summary(
-                                      [float(item["reference_surprisal"]) for item in selected]
-                                  ),
-                                  "selection": str(selector["selection"]),
-                                  **coverage_audit,
-                                  "coverage_threshold": None,
+          old_audit = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in old_audit.splitlines()
+          ) + "\n"
+          new_audit = '''                            "selected_reference_surprisal": _reference_surprisal_summary(
+                                [float(item["reference_surprisal"]) for item in selected]
+                            ),
+                            "selection": str(selector["selection"]),
+                            **coverage_audit,
+                            "coverage_threshold": None,
+                            "coverage_gate": False,
           '''
-          audit_replacement = '\n'.join(line[28:] if line.startswith('                            ') else line for line in audit_replacement.splitlines()) + '\n'
-          assert text.count(audit_anchor) == 1
-          text = text.replace(audit_anchor, audit_replacement, 1)
+          new_audit = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in new_audit.splitlines()
+          ) + "\n"
+          print("audit occurrences:", text.count(old_audit))
+          assert text.count(old_audit) == 1
+          text = text.replace(old_audit, new_audit, 1)
 
-          ranges_anchor = '''                ranges = [
-                              float(row["selected_reference_surprisal"]["range"])
-                              for row in audit_rows
-                          ]
+          old_ranges = '''                ranges = [
+                    float(row["selected_reference_surprisal"]["range"])
+                    for row in audit_rows
+                ]
           '''
-          ranges_anchor = '\n'.join(line[16:] if line.startswith('                ') else line for line in ranges_anchor.splitlines()) + '\n'
-          ranges_replacement = ranges_anchor + '''                selected_class_counts = [
-                              int(row["selected_error_class_count"]) for row in audit_rows
-                          ]
+          old_ranges = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in old_ranges.splitlines()
+          ) + "\n"
+          new_ranges = old_ranges + '''                selected_class_counts = [
+                    int(row["selected_error_class_count"]) for row in audit_rows
+                ]
           '''
-          ranges_replacement = ranges_anchor + '\n'.join(line[16:] if line.startswith('                ') else line for line in '''                selected_class_counts = [
-                              int(row["selected_error_class_count"]) for row in audit_rows
-                          ]
-          '''.splitlines()) + '\n'
-          assert text.count(ranges_anchor) == 1
-          text = text.replace(ranges_anchor, ranges_replacement, 1)
+          new_ranges = new_ranges.rstrip("\n") + "\n"
+          print("range block occurrences:", text.count(old_ranges))
+          assert text.count(old_ranges) == 1
+          text = text.replace(old_ranges, new_ranges, 1)
 
-          old_summary_selector = '                    "selection": "evenly_spaced_reference_rank_including_extremes",\n'
-          new_summary_selector = '                    "selection": str(selector["selection"]),\n'
-          assert text.count(old_summary_selector) == 1
-          text = text.replace(old_summary_selector, new_summary_selector, 1)
-
-          summary_anchor = '''                    "coverage_threshold": None,
-                              "selected_range_median": float(np.median(np.asarray(ranges, dtype=float))),
+          old_summary = '''                    "coverage_threshold": None,
+                    "selected_range_median": float(np.median(np.asarray(ranges, dtype=float))),
           '''
-          summary_anchor = '\n'.join(line[20:] if line.startswith('                    ') else line for line in summary_anchor.splitlines()) + '\n'
-          summary_replacement = '''                    "coverage_threshold": None,
-                              "coverage_first_error_class_balancing": True,
-                              "within_class_reference_rank_spread": True,
-                              "selected_error_class_count_median": float(
-                                  np.median(np.asarray(selected_class_counts, dtype=float))
-                              ),
-                              "selected_range_median": float(np.median(np.asarray(ranges, dtype=float))),
+          old_summary = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in old_summary.splitlines()
+          ) + "\n"
+          new_summary = '''                    "coverage_threshold": None,
+                    "coverage_first_error_class_balancing": True,
+                    "within_class_reference_rank_spread": True,
+                    "selected_error_class_count_median": float(
+                        np.median(np.asarray(selected_class_counts, dtype=float))
+                    ),
+                    "selected_range_median": float(np.median(np.asarray(ranges, dtype=float))),
           '''
-          summary_replacement = '\n'.join(line[20:] if line.startswith('                    ') else line for line in summary_replacement.splitlines()) + '\n'
-          assert text.count(summary_anchor) == 1
-          text = text.replace(summary_anchor, summary_replacement, 1)
+          new_summary = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in new_summary.splitlines()
+          ) + "\n"
+          print("summary block occurrences:", text.count(old_summary))
+          assert text.count(old_summary) == 1
+          text = text.replace(old_summary, new_summary, 1)
 
-          source_path.write_text(text, encoding='utf-8')
+          path.write_text(text, encoding="utf-8")
 
-          test_path = Path('tests/test_e8_multitask_p0.py')
-          tests = test_path.read_text(encoding='utf-8')
-          import_anchor = 'from drpo import e8_multitask_p0 as p0\n'
+          test_path = Path("tests/test_e8_multitask_p0.py")
+          tests = test_path.read_text(encoding="utf-8")
+          import_anchor = "from drpo import e8_multitask_p0 as p0\n"
           assert tests.count(import_anchor) == 1
           tests = tests.replace(
               import_anchor,
-              import_anchor + 'from drpo import e8_multitask_exp_tuning as tuning\n',
+              import_anchor + "from drpo import e8_multitask_exp_tuning as tuning\n",
               1,
           )
-          test_append = r'''
-
-          def test_coverage_first_class_quotas_preserve_july29_round_robin() -> None:
-              assert tuning._coverage_first_class_quotas(
-                  {"a": 10, "b": 10, "c": 10, "d": 10}, 16
-              ) == {"a": 4, "b": 4, "c": 4, "d": 4}
-              uneven = tuning._coverage_first_class_quotas(
-                  {"a": 1, "b": 20, "c": 20}, 16
-              )
-              assert uneven == {"a": 1, "b": 8, "c": 7}
-              assert sum(uneven.values()) == 16
-
-
-          def test_within_class_rank_spread_includes_extremes_when_possible() -> None:
-              assert tuning._within_class_rank_indices(10, 1) == (4,)
-              assert tuning._within_class_rank_indices(10, 2) == (0, 9)
-              ranks = tuning._within_class_rank_indices(10, 4)
-              assert ranks[0] == 0
-              assert ranks[-1] == 9
-              assert len(ranks) == len(set(ranks)) == 4
-
-
-          def test_coverage_remoteness_selection_balances_classes_and_spans_each_class() -> None:
-              scored = []
-              for class_index, error_class in enumerate(("a", "b", "c", "d")):
-                  for rank in range(10):
-                      scored.append(
-                          {
-                              "canonical_completion": f"{error_class}-{rank}",
-                              "completion": f"{error_class}-{rank}",
-                              "error_class": error_class,
-                              "reference_surprisal": float(rank) + class_index * 0.01,
-                              "binary_correct": False,
-                              "format_valid": True,
-                          }
-                      )
-              selected, audit = tuning._select_coverage_remoteness_candidates(
-                  scored,
-                  task="unit",
-                  prompt_id="p0",
-                  selected_count=16,
-              )
-              assert len(selected) == 16
-              assert len({item["canonical_completion"] for item in selected}) == 16
-              assert audit["selected_error_class_counts"] == {
-                  "a": 4,
-                  "b": 4,
-                  "c": 4,
-                  "d": 4,
-              }
-              for error_class in ("a", "b", "c", "d"):
-                  local = [
-                      item for item in selected if item["error_class"] == error_class
-                  ]
-                  local_ranks = {item["reference_error_class_rank"] for item in local}
-                  assert 0 in local_ranks
-                  assert 9 in local_ranks
-          '''
-          test_append = '\n'.join(line[10:] if line.startswith('          ') else line for line in test_append.splitlines())
-          marker = 'def test_coverage_first_class_quotas_preserve_july29_round_robin()'
+          marker = "def test_coverage_first_class_quotas_preserve_july29_round_robin()"
           assert marker not in tests
-          test_path.write_text(tests.rstrip() + '\n' + test_append + '\n', encoding='utf-8')
+          tests += r'''
+
+
+def test_coverage_first_class_quotas_preserve_july29_round_robin() -> None:
+    assert tuning._coverage_first_class_quotas(
+        {"a": 10, "b": 10, "c": 10, "d": 10}, 16
+    ) == {"a": 4, "b": 4, "c": 4, "d": 4}
+    assert tuning._coverage_first_class_quotas(
+        {"a": 1, "b": 20, "c": 20}, 16
+    ) == {"a": 1, "b": 8, "c": 7}
+
+
+def test_within_class_rank_spread_includes_extremes_when_possible() -> None:
+    assert tuning._within_class_rank_indices(10, 1) == (4,)
+    assert tuning._within_class_rank_indices(10, 2) == (0, 9)
+    ranks = tuning._within_class_rank_indices(10, 4)
+    assert ranks[0] == 0
+    assert ranks[-1] == 9
+    assert len(ranks) == len(set(ranks)) == 4
+
+
+def test_coverage_remoteness_selection_balances_classes_and_spans_each_class() -> None:
+    scored = []
+    for class_index, error_class in enumerate(("a", "b", "c", "d")):
+        for rank in range(10):
+            scored.append(
+                {
+                    "canonical_completion": f"{error_class}-{rank}",
+                    "completion": f"{error_class}-{rank}",
+                    "error_class": error_class,
+                    "reference_surprisal": float(rank) + class_index * 0.01,
+                    "binary_correct": False,
+                    "format_valid": True,
+                }
+            )
+    selected, audit = tuning._select_coverage_remoteness_candidates(
+        scored,
+        task="unit",
+        prompt_id="p0",
+        selected_count=16,
+    )
+    assert len(selected) == 16
+    assert len({item["canonical_completion"] for item in selected}) == 16
+    assert audit["selected_error_class_counts"] == {
+        "a": 4,
+        "b": 4,
+        "c": 4,
+        "d": 4,
+    }
+    for error_class in ("a", "b", "c", "d"):
+        local = [item for item in selected if item["error_class"] == error_class]
+        local_ranks = {item["reference_error_class_rank"] for item in local}
+        assert 0 in local_ranks
+        assert 9 in local_ranks
+'''
+          test_path.write_text(tests, encoding="utf-8")
           PY
 
-      - name: Static checks
+      - name: Static and targeted checks
         shell: bash
         run: |
           python -m py_compile src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
           git diff --check
-          python - <<'PY'
-          import ast
-          from pathlib import Path
-          tree = ast.parse(Path('src/drpo/e8_multitask_exp_tuning.py').read_text())
-          names = {node.name for node in tree.body if isinstance(node, ast.FunctionDef)}
-          required = {
-              '_coverage_first_class_quotas',
-              '_within_class_rank_indices',
-              '_select_coverage_remoteness_candidates',
-          }
-          assert required <= names, required - names
+          python -m pip install --quiet numpy PyYAML pytest
+          PYTHONPATH=src python -m pytest -q tests/test_e8_multitask_p0.py -k 'coverage_first_class_quotas or within_class_rank_spread or coverage_remoteness_selection'
+          PYTHONPATH=src python - <<'PY'
+          from drpo.e8_multitask_exp_tuning import build_cells, build_waves, load_config
+          config = load_config("configs/e8_multitask_exp_coldstart.yaml")
+          assert len(build_cells(config)) == 208
+          assert [len(wave) for wave in build_waves(config)] == [16] * 13
+          print("208-cell/13-wave frozen geometry preserved")
           PY
 
       - name: Commit reviewed edit and remove one-off workflow
