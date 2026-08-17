@@ -467,7 +467,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
             "reference_policy": "zero_update_base_plus_fresh_lora",
             "coordinate": "mean_completion_token_surprisal",
             "selected_negatives_per_prompt": 16,
-            "selection": "evenly_spaced_reference_rank_including_extremes",
+            "selection": "coverage_first_error_class_round_robin_then_within_class_reference_rank_spread",
             "coverage_threshold": None,
             "reference_rank_role": "provenance_and_diagnostic_only",
             "static_reference_rank_enters_training_weight": False,
@@ -1323,6 +1323,173 @@ def _evenly_spaced_rank_indices(candidate_count: int, selected_count: int = 16) 
     return indices
 
 
+
+
+def _within_class_rank_indices(candidate_count: int, selected_count: int) -> tuple[int, ...]:
+    """Spread one class quota across its frozen-reference surprisal support."""
+
+    if selected_count <= 0:
+        raise ValueError("Within-class selection requires a positive quota")
+    if candidate_count < selected_count:
+        raise ValueError(
+            f"Within-class selection requires >= {selected_count} candidates; "
+            f"found {candidate_count}"
+        )
+    if selected_count == 1:
+        return ((candidate_count - 1) // 2,)
+    return _evenly_spaced_rank_indices(candidate_count, selected_count)
+
+
+def _coverage_first_class_quotas(
+    class_sizes: Mapping[str, int],
+    selected_count: int = 16,
+) -> dict[str, int]:
+    """Allocate slots with the July-29 P0 error-class round-robin rule."""
+
+    if selected_count <= 0:
+        raise ValueError("Coverage-first selection requires a positive target")
+    remaining = {
+        str(error_class): int(count)
+        for error_class, count in class_sizes.items()
+        if int(count) > 0
+    }
+    candidate_count = sum(remaining.values())
+    if candidate_count < selected_count:
+        raise ValueError(
+            f"Coverage-first selection requires >= {selected_count} candidates; "
+            f"found {candidate_count}"
+        )
+    quotas = {error_class: 0 for error_class in remaining}
+    class_names = sorted(remaining)
+    cursor = 0
+    chosen = 0
+    while chosen < selected_count and class_names:
+        error_class = class_names[cursor % len(class_names)]
+        quotas[error_class] += 1
+        remaining[error_class] -= 1
+        chosen += 1
+        if remaining[error_class] == 0:
+            class_names.remove(error_class)
+            cursor = 0
+        else:
+            cursor += 1
+    if chosen != selected_count:
+        raise AssertionError("Coverage-first quota allocation did not fill the target")
+    return {
+        error_class: quotas[error_class]
+        for error_class in sorted(quotas)
+        if quotas[error_class] > 0
+    }
+
+
+def _select_coverage_remoteness_candidates(
+    scored: Sequence[Mapping[str, Any]],
+    *,
+    task: str,
+    prompt_id: str,
+    selected_count: int = 16,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Preserve error coverage, then span reference surprisal inside each class."""
+
+    if len(scored) < selected_count:
+        raise ValueError(
+            f"{task}/{prompt_id} needs >= {selected_count} scored candidates; "
+            f"found {len(scored)}"
+        )
+    ordered = sorted(
+        (dict(item) for item in scored),
+        key=lambda item: (
+            float(item["reference_surprisal"]),
+            stable_hash(
+                {
+                    "task": task,
+                    "prompt_id": prompt_id,
+                    "canonical_completion": item["canonical_completion"],
+                }
+            ),
+        ),
+    )
+    by_class: dict[str, list[tuple[int, dict[str, Any]]]] = {}
+    for global_rank, item in enumerate(ordered):
+        error_class = str(item["error_class"])
+        by_class.setdefault(error_class, []).append((global_rank, item))
+    quotas = _coverage_first_class_quotas(
+        {error_class: len(bucket) for error_class, bucket in by_class.items()},
+        selected_count,
+    )
+
+    queues: dict[str, list[dict[str, Any]]] = {}
+    class_audit: dict[str, Any] = {}
+    for error_class in sorted(by_class):
+        bucket = by_class[error_class]
+        quota = int(quotas.get(error_class, 0))
+        candidate_values = [float(item["reference_surprisal"]) for _, item in bucket]
+        if quota == 0:
+            class_audit[error_class] = {
+                "candidate_count": len(bucket),
+                "selected_count": 0,
+                "selected_ranks": [],
+                "candidate_reference_surprisal": _reference_surprisal_summary(candidate_values),
+                "selected_reference_surprisal": None,
+            }
+            continue
+        local_ranks = _within_class_rank_indices(len(bucket), quota)
+        queue: list[dict[str, Any]] = []
+        for local_rank in local_ranks:
+            global_rank, raw_item = bucket[local_rank]
+            item = dict(raw_item)
+            item.update(
+                {
+                    "reference_rank": int(global_rank),
+                    "reference_candidate_count": len(ordered),
+                    "reference_error_class_rank": int(local_rank),
+                    "reference_error_class_candidate_count": len(bucket),
+                    "reference_error_class_selected_count": quota,
+                    "reference_rank_role": "provenance_and_diagnostic_only",
+                }
+            )
+            queue.append(item)
+        queues[error_class] = queue
+        class_audit[error_class] = {
+            "candidate_count": len(bucket),
+            "selected_count": quota,
+            "selected_ranks": list(local_ranks),
+            "candidate_reference_surprisal": _reference_surprisal_summary(candidate_values),
+            "selected_reference_surprisal": _reference_surprisal_summary(
+                [float(item["reference_surprisal"]) for item in queue]
+            ),
+        }
+
+    selected: list[dict[str, Any]] = []
+    class_names = sorted(queues)
+    cursor = 0
+    while len(selected) < selected_count and class_names:
+        error_class = class_names[cursor % len(class_names)]
+        queue = queues[error_class]
+        selected.append(queue.pop(0))
+        if not queue:
+            class_names.remove(error_class)
+            cursor = 0
+        else:
+            cursor += 1
+    if len(selected) != selected_count:
+        raise AssertionError("Coverage-remoteness selection did not fill the target")
+    canonical = [str(item["canonical_completion"]) for item in selected]
+    if len(set(canonical)) != selected_count:
+        raise AssertionError("Coverage-remoteness selection produced duplicates")
+    for slot, item in enumerate(selected):
+        item["negative_id"] = f"{prompt_id}_refrem_{slot:03d}"
+
+    audit = {
+        "candidate_error_class_counts": {
+            error_class: len(by_class[error_class]) for error_class in sorted(by_class)
+        },
+        "selected_error_class_counts": dict(quotas),
+        "selected_error_class_count": len(quotas),
+        "error_class_reference_surprisal": class_audit,
+    }
+    return selected, audit
+
 def _reference_surprisal_summary(values: Sequence[float]) -> dict[str, float]:
     array = np.asarray([float(value) for value in values], dtype=float)
     if array.size == 0 or not np.all(np.isfinite(array)):
@@ -1543,19 +1710,13 @@ def _derive_reference_remoteness_banks(
                             ),
                         )
                     )
-                    selected_indices = _evenly_spaced_rank_indices(len(scored), 16)
-                    selected: list[dict[str, Any]] = []
-                    for slot, rank in enumerate(selected_indices):
-                        item = dict(scored[rank])
-                        item.update(
-                            {
-                                "negative_id": f"{prompt_id}_refrem_{slot:03d}",
-                                "reference_rank": int(rank),
-                                "reference_candidate_count": len(scored),
-                                "reference_rank_role": "provenance_and_diagnostic_only",
-                            }
-                        )
-                        selected.append(item)
+                    selected, coverage_audit = _select_coverage_remoteness_candidates(
+                        scored,
+                        task=task,
+                        prompt_id=prompt_id,
+                        selected_count=16,
+                    )
+                    selected_indices = tuple(int(item["reference_rank"]) for item in selected)
                     derived = dict(source_row)
                     derived["negatives"] = selected
                     derived["reference_remoteness_selection"] = {
@@ -1564,6 +1725,9 @@ def _derive_reference_remoteness_banks(
                         "coordinate": "mean_completion_token_surprisal",
                         "candidate_count": len(scored),
                         "selected_ranks": list(selected_indices),
+                        "selection": str(selector["selection"]),
+                        "selected_error_class_counts": coverage_audit["selected_error_class_counts"],
+                        "selected_error_class_count": coverage_audit["selected_error_class_count"],
                         "training_weight_uses_reference_rank": False,
                         "current_policy_surprisal_recomputed_each_update": True,
                     }
@@ -1580,6 +1744,8 @@ def _derive_reference_remoteness_banks(
                             "selected_reference_surprisal": _reference_surprisal_summary(
                                 [float(item["reference_surprisal"]) for item in selected]
                             ),
+                            "selection": str(selector["selection"]),
+                            **coverage_audit,
                             "coverage_threshold": None,
                             "coverage_gate": False,
                         }
@@ -1592,6 +1758,9 @@ def _derive_reference_remoteness_banks(
                 ranges = [
                     float(row["selected_reference_surprisal"]["range"])
                     for row in audit_rows
+                ]
+                selected_class_counts = [
+                    int(row["selected_error_class_count"]) for row in audit_rows
                 ]
                 summary = {
                     "schema_version": 1,
@@ -1606,11 +1775,16 @@ def _derive_reference_remoteness_banks(
                     "sha256": sha256_file(bank_path_value),
                     "rows": len(derived_rows),
                     "selected_negatives_per_prompt": 16,
-                    "selection": "evenly_spaced_reference_rank_including_extremes",
+                    "selection": "coverage_first_error_class_round_robin_then_within_class_reference_rank_spread",
                     "candidate_pool": "all_deterministic_verified_wrong_mutations",
                     "reference_rank_enters_training_weight": False,
                     "current_policy_surprisal_recomputed_each_update": True,
                     "coverage_threshold": None,
+                    "coverage_first_error_class_balancing": True,
+                    "within_class_reference_rank_spread": True,
+                    "selected_error_class_count_median": float(
+                        np.median(np.asarray(selected_class_counts, dtype=float))
+                    ),
                     "selected_range_median": float(np.median(np.asarray(ranges, dtype=float))),
                     "prompt_audit": str(audit_path.resolve()),
                     "prompt_audit_sha256": sha256_file(audit_path),

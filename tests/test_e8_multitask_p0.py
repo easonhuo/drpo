@@ -19,6 +19,7 @@ except ImportError:
     torch = None
 
 from drpo import e8_multitask_p0 as p0
+from drpo import e8_multitask_exp_tuning as tuning
 from drpo.e8_multitask_tasks import (
     REASONING_GYM_COMMIT,
     WIKISQL_COMMIT,
@@ -1832,3 +1833,57 @@ def test_coldstart_runbook_embeds_bootstrap_and_current_protocol() -> None:
     assert "run_experiment_guard_hardened.py" in Path(
         "scripts/run_e8_multitask_exp_coldstart.sh"
     ).read_text(encoding="utf-8")
+
+
+
+def test_coverage_first_class_quotas_preserve_july29_round_robin() -> None:
+    assert tuning._coverage_first_class_quotas(
+        {"a": 10, "b": 10, "c": 10, "d": 10}, 16
+    ) == {"a": 4, "b": 4, "c": 4, "d": 4}
+    assert tuning._coverage_first_class_quotas(
+        {"a": 1, "b": 20, "c": 20}, 16
+    ) == {"a": 1, "b": 8, "c": 7}
+
+
+def test_within_class_rank_spread_includes_extremes_when_possible() -> None:
+    assert tuning._within_class_rank_indices(10, 1) == (4,)
+    assert tuning._within_class_rank_indices(10, 2) == (0, 9)
+    ranks = tuning._within_class_rank_indices(10, 4)
+    assert ranks[0] == 0
+    assert ranks[-1] == 9
+    assert len(ranks) == len(set(ranks)) == 4
+
+
+def test_coverage_remoteness_selection_balances_classes_and_spans_each_class() -> None:
+    scored = []
+    for class_index, error_class in enumerate(("a", "b", "c", "d")):
+        for rank in range(10):
+            scored.append(
+                {
+                    "canonical_completion": f"{error_class}-{rank}",
+                    "completion": f"{error_class}-{rank}",
+                    "error_class": error_class,
+                    "reference_surprisal": float(rank) + class_index * 0.01,
+                    "binary_correct": False,
+                    "format_valid": True,
+                }
+            )
+    selected, audit = tuning._select_coverage_remoteness_candidates(
+        scored,
+        task="unit",
+        prompt_id="p0",
+        selected_count=16,
+    )
+    assert len(selected) == 16
+    assert len({item["canonical_completion"] for item in selected}) == 16
+    assert audit["selected_error_class_counts"] == {
+        "a": 4,
+        "b": 4,
+        "c": 4,
+        "d": 4,
+    }
+    for error_class in ("a", "b", "c", "d"):
+        local = [item for item in selected if item["error_class"] == error_class]
+        local_ranks = {item["reference_error_class_rank"] for item in local}
+        assert 0 in local_ranks
+        assert 9 in local_ranks
