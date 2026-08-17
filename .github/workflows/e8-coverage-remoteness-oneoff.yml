@@ -1,0 +1,438 @@
+name: E8 coverage-remoteness one-off edit
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-coverage-remoteness-01
+
+permissions:
+  contents: write
+
+jobs:
+  apply-reviewed-edit:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: dev/e8-multitask-coverage-remoteness-01
+
+      - name: Apply minimal in-place selector edit
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source_path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          text = source_path.read_text(encoding='utf-8')
+
+          old_selector = '            "selection": "evenly_spaced_reference_rank_including_extremes",\n'
+          new_selector = (
+              '            "selection": '
+              '"coverage_first_error_class_round_robin_then_within_class_reference_rank_spread",\n'
+          )
+          assert text.count(old_selector) == 2, text.count(old_selector)
+          text = text.replace(old_selector, new_selector, 1)
+
+          rank_anchor = '''def _evenly_spaced_rank_indices(candidate_count: int, selected_count: int = 16) -> tuple[int, ...]:
+              if selected_count < 2:
+                  raise ValueError("Reference-remoteness selection requires at least two selected ranks")
+              if candidate_count < selected_count:
+                  raise ValueError(
+                      f"Reference-remoteness selection requires >= {selected_count} candidates; "
+                      f"found {candidate_count}"
+                  )
+              indices = tuple(
+                  (index * (candidate_count - 1)) // (selected_count - 1)
+                  for index in range(selected_count)
+              )
+              if len(set(indices)) != selected_count or indices[0] != 0 or indices[-1] != candidate_count - 1:
+                  raise AssertionError("Even rank selection must be unique and include both extremes")
+              return indices
+          '''
+          rank_anchor = '\n'.join(line[12:] if line.startswith('            ') else line for line in rank_anchor.splitlines()) + '\n'
+          assert text.count(rank_anchor) == 1
+          helpers = '''
+
+          def _within_class_rank_indices(candidate_count: int, selected_count: int) -> tuple[int, ...]:
+              """Spread one error-class quota across its frozen-reference surprisal support."""
+
+              if selected_count <= 0:
+                  raise ValueError("Within-class selection requires a positive quota")
+              if candidate_count < selected_count:
+                  raise ValueError(
+                      f"Within-class selection requires >= {selected_count} candidates; "
+                      f"found {candidate_count}"
+                  )
+              if selected_count == 1:
+                  return ((candidate_count - 1) // 2,)
+              return _evenly_spaced_rank_indices(candidate_count, selected_count)
+
+
+          def _coverage_first_class_quotas(
+              class_sizes: Mapping[str, int],
+              selected_count: int = 16,
+          ) -> dict[str, int]:
+              """Reproduce the July-29 P0 error-class round-robin allocation."""
+
+              if selected_count <= 0:
+                  raise ValueError("Coverage-first selection requires a positive target")
+              remaining = {
+                  str(error_class): int(count)
+                  for error_class, count in class_sizes.items()
+                  if int(count) > 0
+              }
+              if sum(remaining.values()) < selected_count:
+                  raise ValueError(
+                      f"Coverage-first selection requires >= {selected_count} candidates; "
+                      f"found {sum(remaining.values())}"
+                  )
+              quotas = {error_class: 0 for error_class in remaining}
+              class_names = sorted(remaining)
+              cursor = 0
+              chosen = 0
+              while chosen < selected_count and class_names:
+                  error_class = class_names[cursor % len(class_names)]
+                  if remaining[error_class] > 0:
+                      quotas[error_class] += 1
+                      remaining[error_class] -= 1
+                      chosen += 1
+                  if remaining[error_class] == 0:
+                      class_names.remove(error_class)
+                      cursor = 0
+                  else:
+                      cursor += 1
+              if chosen != selected_count:
+                  raise AssertionError("Coverage-first quota allocation did not fill the target")
+              return {
+                  error_class: quotas[error_class]
+                  for error_class in sorted(quotas)
+                  if quotas[error_class] > 0
+              }
+
+
+          def _select_coverage_remoteness_candidates(
+              scored: Sequence[Mapping[str, Any]],
+              *,
+              task: str,
+              prompt_id: str,
+              selected_count: int = 16,
+          ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+              """Keep error-class coverage, then span reference surprisal inside each class."""
+
+              if len(scored) < selected_count:
+                  raise ValueError(
+                      f"{task}/{prompt_id} needs >= {selected_count} scored candidates; "
+                      f"found {len(scored)}"
+                  )
+              ordered = sorted(
+                  (dict(item) for item in scored),
+                  key=lambda item: (
+                      float(item["reference_surprisal"]),
+                      stable_hash(
+                          {
+                              "task": task,
+                              "prompt_id": prompt_id,
+                              "canonical_completion": item["canonical_completion"],
+                          }
+                      ),
+                  ),
+              )
+              by_class: dict[str, list[tuple[int, dict[str, Any]]]] = {}
+              for global_rank, item in enumerate(ordered):
+                  error_class = str(item["error_class"])
+                  by_class.setdefault(error_class, []).append((global_rank, item))
+              quotas = _coverage_first_class_quotas(
+                  {error_class: len(bucket) for error_class, bucket in by_class.items()},
+                  selected_count,
+              )
+
+              queues: dict[str, list[dict[str, Any]]] = {}
+              class_audit: dict[str, Any] = {}
+              for error_class in sorted(by_class):
+                  bucket = by_class[error_class]
+                  quota = int(quotas.get(error_class, 0))
+                  candidate_values = [
+                      float(item["reference_surprisal"]) for _, item in bucket
+                  ]
+                  if quota == 0:
+                      class_audit[error_class] = {
+                          "candidate_count": len(bucket),
+                          "selected_count": 0,
+                          "selected_ranks": [],
+                          "candidate_reference_surprisal": _reference_surprisal_summary(
+                              candidate_values
+                          ),
+                          "selected_reference_surprisal": None,
+                      }
+                      continue
+                  local_ranks = _within_class_rank_indices(len(bucket), quota)
+                  queue: list[dict[str, Any]] = []
+                  for local_rank in local_ranks:
+                      global_rank, raw_item = bucket[local_rank]
+                      item = dict(raw_item)
+                      item.update(
+                          {
+                              "reference_rank": int(global_rank),
+                              "reference_candidate_count": len(ordered),
+                              "reference_error_class_rank": int(local_rank),
+                              "reference_error_class_candidate_count": len(bucket),
+                              "reference_error_class_selected_count": quota,
+                              "reference_rank_role": "provenance_and_diagnostic_only",
+                          }
+                      )
+                      queue.append(item)
+                  queues[error_class] = queue
+                  class_audit[error_class] = {
+                      "candidate_count": len(bucket),
+                      "selected_count": quota,
+                      "selected_ranks": list(local_ranks),
+                      "candidate_reference_surprisal": _reference_surprisal_summary(
+                          candidate_values
+                      ),
+                      "selected_reference_surprisal": _reference_surprisal_summary(
+                          [float(item["reference_surprisal"]) for item in queue]
+                      ),
+                  }
+
+              selected: list[dict[str, Any]] = []
+              class_names = sorted(queues)
+              cursor = 0
+              while len(selected) < selected_count and class_names:
+                  error_class = class_names[cursor % len(class_names)]
+                  queue = queues[error_class]
+                  selected.append(queue.pop(0))
+                  if not queue:
+                      class_names.remove(error_class)
+                      cursor = 0
+                  else:
+                      cursor += 1
+              if len(selected) != selected_count:
+                  raise AssertionError("Coverage-remoteness selection did not fill 16 negatives")
+              canonical = [str(item["canonical_completion"]) for item in selected]
+              if len(set(canonical)) != selected_count:
+                  raise AssertionError("Coverage-remoteness selection produced duplicate negatives")
+              for slot, item in enumerate(selected):
+                  item["negative_id"] = f"{prompt_id}_refrem_{slot:03d}"
+
+              audit = {
+                  "candidate_error_class_counts": {
+                      error_class: len(by_class[error_class]) for error_class in sorted(by_class)
+                  },
+                  "selected_error_class_counts": dict(quotas),
+                  "selected_error_class_count": len(quotas),
+                  "error_class_reference_surprisal": class_audit,
+              }
+              return selected, audit
+          '''
+          helpers = '\n'.join(line[10:] if line.startswith('          ') else line for line in helpers.splitlines())
+          text = text.replace(rank_anchor, rank_anchor + helpers + '\n', 1)
+
+          old_selection = '''                    selected_indices = _evenly_spaced_rank_indices(len(scored), 16)
+                              selected: list[dict[str, Any]] = []
+                              for slot, rank in enumerate(selected_indices):
+                                  item = dict(scored[rank])
+                                  item.update(
+                                      {
+                                          "negative_id": f"{prompt_id}_refrem_{slot:03d}",
+                                          "reference_rank": int(rank),
+                                          "reference_candidate_count": len(scored),
+                                          "reference_rank_role": "provenance_and_diagnostic_only",
+                                      }
+                                  )
+                                  selected.append(item)
+          '''
+          old_selection = '\n'.join(line[20:] if line.startswith('                    ') else line for line in old_selection.splitlines()) + '\n'
+          new_selection = '''                    selected, coverage_audit = _select_coverage_remoteness_candidates(
+                                  scored,
+                                  task=task,
+                                  prompt_id=prompt_id,
+                                  selected_count=16,
+                              )
+                              selected_indices = tuple(int(item["reference_rank"]) for item in selected)
+          '''
+          new_selection = '\n'.join(line[20:] if line.startswith('                    ') else line for line in new_selection.splitlines()) + '\n'
+          assert text.count(old_selection) == 1
+          text = text.replace(old_selection, new_selection, 1)
+
+          old_metadata = '''                        "candidate_count": len(scored),
+                                  "selected_ranks": list(selected_indices),
+                                  "training_weight_uses_reference_rank": False,
+                                  "current_policy_surprisal_recomputed_each_update": True,
+          '''
+          old_metadata = '\n'.join(line[24:] if line.startswith('                        ') else line for line in old_metadata.splitlines()) + '\n'
+          new_metadata = '''                        "candidate_count": len(scored),
+                                  "selected_ranks": list(selected_indices),
+                                  "selection": str(selector["selection"]),
+                                  "selected_error_class_counts": coverage_audit[
+                                      "selected_error_class_counts"
+                                  ],
+                                  "selected_error_class_count": coverage_audit[
+                                      "selected_error_class_count"
+                                  ],
+                                  "training_weight_uses_reference_rank": False,
+                                  "current_policy_surprisal_recomputed_each_update": True,
+          '''
+          new_metadata = '\n'.join(line[24:] if line.startswith('                        ') else line for line in new_metadata.splitlines()) + '\n'
+          assert text.count(old_metadata) == 1
+          text = text.replace(old_metadata, new_metadata, 1)
+
+          audit_anchor = '''                            "selected_reference_surprisal": _reference_surprisal_summary(
+                                      [float(item["reference_surprisal"]) for item in selected]
+                                  ),
+                                  "coverage_threshold": None,
+          '''
+          audit_anchor = '\n'.join(line[28:] if line.startswith('                            ') else line for line in audit_anchor.splitlines()) + '\n'
+          audit_replacement = '''                            "selected_reference_surprisal": _reference_surprisal_summary(
+                                      [float(item["reference_surprisal"]) for item in selected]
+                                  ),
+                                  "selection": str(selector["selection"]),
+                                  **coverage_audit,
+                                  "coverage_threshold": None,
+          '''
+          audit_replacement = '\n'.join(line[28:] if line.startswith('                            ') else line for line in audit_replacement.splitlines()) + '\n'
+          assert text.count(audit_anchor) == 1
+          text = text.replace(audit_anchor, audit_replacement, 1)
+
+          ranges_anchor = '''                ranges = [
+                              float(row["selected_reference_surprisal"]["range"])
+                              for row in audit_rows
+                          ]
+          '''
+          ranges_anchor = '\n'.join(line[16:] if line.startswith('                ') else line for line in ranges_anchor.splitlines()) + '\n'
+          ranges_replacement = ranges_anchor + '''                selected_class_counts = [
+                              int(row["selected_error_class_count"]) for row in audit_rows
+                          ]
+          '''
+          ranges_replacement = ranges_anchor + '\n'.join(line[16:] if line.startswith('                ') else line for line in '''                selected_class_counts = [
+                              int(row["selected_error_class_count"]) for row in audit_rows
+                          ]
+          '''.splitlines()) + '\n'
+          assert text.count(ranges_anchor) == 1
+          text = text.replace(ranges_anchor, ranges_replacement, 1)
+
+          old_summary_selector = '                    "selection": "evenly_spaced_reference_rank_including_extremes",\n'
+          new_summary_selector = '                    "selection": str(selector["selection"]),\n'
+          assert text.count(old_summary_selector) == 1
+          text = text.replace(old_summary_selector, new_summary_selector, 1)
+
+          summary_anchor = '''                    "coverage_threshold": None,
+                              "selected_range_median": float(np.median(np.asarray(ranges, dtype=float))),
+          '''
+          summary_anchor = '\n'.join(line[20:] if line.startswith('                    ') else line for line in summary_anchor.splitlines()) + '\n'
+          summary_replacement = '''                    "coverage_threshold": None,
+                              "coverage_first_error_class_balancing": True,
+                              "within_class_reference_rank_spread": True,
+                              "selected_error_class_count_median": float(
+                                  np.median(np.asarray(selected_class_counts, dtype=float))
+                              ),
+                              "selected_range_median": float(np.median(np.asarray(ranges, dtype=float))),
+          '''
+          summary_replacement = '\n'.join(line[20:] if line.startswith('                    ') else line for line in summary_replacement.splitlines()) + '\n'
+          assert text.count(summary_anchor) == 1
+          text = text.replace(summary_anchor, summary_replacement, 1)
+
+          source_path.write_text(text, encoding='utf-8')
+
+          test_path = Path('tests/test_e8_multitask_p0.py')
+          tests = test_path.read_text(encoding='utf-8')
+          import_anchor = 'from drpo import e8_multitask_p0 as p0\n'
+          assert tests.count(import_anchor) == 1
+          tests = tests.replace(
+              import_anchor,
+              import_anchor + 'from drpo import e8_multitask_exp_tuning as tuning\n',
+              1,
+          )
+          test_append = r'''
+
+          def test_coverage_first_class_quotas_preserve_july29_round_robin() -> None:
+              assert tuning._coverage_first_class_quotas(
+                  {"a": 10, "b": 10, "c": 10, "d": 10}, 16
+              ) == {"a": 4, "b": 4, "c": 4, "d": 4}
+              uneven = tuning._coverage_first_class_quotas(
+                  {"a": 1, "b": 20, "c": 20}, 16
+              )
+              assert uneven == {"a": 1, "b": 8, "c": 7}
+              assert sum(uneven.values()) == 16
+
+
+          def test_within_class_rank_spread_includes_extremes_when_possible() -> None:
+              assert tuning._within_class_rank_indices(10, 1) == (4,)
+              assert tuning._within_class_rank_indices(10, 2) == (0, 9)
+              ranks = tuning._within_class_rank_indices(10, 4)
+              assert ranks[0] == 0
+              assert ranks[-1] == 9
+              assert len(ranks) == len(set(ranks)) == 4
+
+
+          def test_coverage_remoteness_selection_balances_classes_and_spans_each_class() -> None:
+              scored = []
+              for class_index, error_class in enumerate(("a", "b", "c", "d")):
+                  for rank in range(10):
+                      scored.append(
+                          {
+                              "canonical_completion": f"{error_class}-{rank}",
+                              "completion": f"{error_class}-{rank}",
+                              "error_class": error_class,
+                              "reference_surprisal": float(rank) + class_index * 0.01,
+                              "binary_correct": False,
+                              "format_valid": True,
+                          }
+                      )
+              selected, audit = tuning._select_coverage_remoteness_candidates(
+                  scored,
+                  task="unit",
+                  prompt_id="p0",
+                  selected_count=16,
+              )
+              assert len(selected) == 16
+              assert len({item["canonical_completion"] for item in selected}) == 16
+              assert audit["selected_error_class_counts"] == {
+                  "a": 4,
+                  "b": 4,
+                  "c": 4,
+                  "d": 4,
+              }
+              for error_class in ("a", "b", "c", "d"):
+                  local = [
+                      item for item in selected if item["error_class"] == error_class
+                  ]
+                  local_ranks = {item["reference_error_class_rank"] for item in local}
+                  assert 0 in local_ranks
+                  assert 9 in local_ranks
+          '''
+          test_append = '\n'.join(line[10:] if line.startswith('          ') else line for line in test_append.splitlines())
+          marker = 'def test_coverage_first_class_quotas_preserve_july29_round_robin()'
+          assert marker not in tests
+          test_path.write_text(tests.rstrip() + '\n' + test_append + '\n', encoding='utf-8')
+          PY
+
+      - name: Static checks
+        shell: bash
+        run: |
+          python -m py_compile src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          git diff --check
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          tree = ast.parse(Path('src/drpo/e8_multitask_exp_tuning.py').read_text())
+          names = {node.name for node in tree.body if isinstance(node, ast.FunctionDef)}
+          required = {
+              '_coverage_first_class_quotas',
+              '_within_class_rank_indices',
+              '_select_coverage_remoteness_candidates',
+          }
+          assert required <= names, required - names
+          PY
+
+      - name: Commit reviewed edit and remove one-off workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/e8-coverage-remoteness-oneoff.yml
+          git add src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          git diff --cached --check
+          git commit -m 'E8 coldstart: combine error coverage with remoteness spread'
+          git push origin HEAD:dev/e8-multitask-coverage-remoteness-01
