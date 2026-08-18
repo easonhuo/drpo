@@ -1,0 +1,32 @@
+schema_version: 3
+update_id: EXT-C-E8-MULTITASK-EXP-COLDSTART-01-REGISTRATION-2026-08-18
+mode: authoritative
+base:
+  commit: 3566629745b27b8287ffff826959cfb9ea7252c4
+  handoff_sha256: 865d790a99aea62f6906f0a1e23cd764f607006d148ed4bc21fc715bfe6b7c87
+  registry_sha256: aa97eadd8bd348d8fe337ab4232f44feca1cd6d9c02dacaed8968726162c132f
+renderer_version: 1
+operations:
+- operation_id: append-e8-multitask-coldstart-repaired-rerun
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-multitask-coldstart-repaired-rerun-20260818
+  content: '- **E8 九任务 repaired cold-start rerun（`EXT-C-E8-MULTITASK-EXP-COLDSTART-01`）：**已登记为 `not_run` 的 development pilot；科学实现冻结于 `3566629745b27b8287ffff826959cfb9ea7252c4`，唯一 READY RunSpec 为 `E8_MULTITASK_EXP_COLDSTART_20260818_01`。保持九任务、208 cells、1200 updates、fresh-LoRA、seeds、任务内 lambda 网格、batch、2 cells/GPU、评估预算与 Countdown 内核不变。transfer bank 继续使用 7 月 29 日 error-class coverage-first 规则，并只在 class 内按 frozen-reference mean-token surprisal 铺 near-to-far；每个 class 有至少两个 slot 时必须覆盖 class-local 两端。reference-bank calibration 在正式训练前输出逐 prompt/逐 class/逐 task coverage、singleton/multi-slot、reference-rank span、surprisal range/IQR 统计；不新增数值 spread 阈值。静态 reference rank 只用于选样/provenance，训练 taper 仍逐 update 重算 current-policy surprisal。结果自动以 text-first 包上传 `easonhuo/drpo-results:ingest/e8`；任务性能崩溃、support/structure 边界事件与 NaN/Inf 数值失败继续分开报告，terminal audit 前不得升级科学结论。'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: a16719c93d3bde0fe20af5ec31eebcf7131322518492361fc6bf2d6b11f6fe44
+  changes:
+  - change_id: add-e8-multitask-coldstart-repaired-rerun
+    kind: add_entity
+    entity_id: EXT-C-E8-MULTITASK-EXP-COLDSTART-01
+    evidence:
+    - experiments/registry.yaml
+    - docs/handoff_deltas/EXT-C-E8-MULTITASK-EXP-COLDSTART-01-REGISTRATION-2026-08-18/HANDOFF_DELTA.yaml
+    - runspecs/ready/E8_MULTITASK_EXP_COLDSTART_20260818_01.yaml
+    - configs/e8_multitask_exp_coldstart.yaml
+    - src/drpo/e8_multitask_exp_tuning.py
+    - docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md
+expected:
+  exact_base_candidate_sha256: cdbc492be0c599cf86259ecb75743181b6fa8f6f132272f2184a8112f267d96e
