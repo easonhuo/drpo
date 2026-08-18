@@ -1,0 +1,122 @@
+name: TEMP E8 coldstart selector audit apply
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'dev/e8-multitask-exp-coldstart-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Apply exact selector-audit diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          text = path.read_text(encoding='utf-8')
+
+          anchor = '''def _verified_wrong_candidates(\n'''
+          helper = '''def _reference_error_class_audit(\n    scored: Sequence[Mapping[str, Any]],\n    selected: Sequence[Mapping[str, Any]],\n    source_negatives: Sequence[Mapping[str, Any]],\n) -> dict[str, Any]:\n    source_classes = [str(item["error_class"]) for item in source_negatives]\n    selected_classes = [str(item["error_class"]) for item in selected]\n    if selected_classes != source_classes:\n        raise RuntimeError("Coverage-first selector changed the July-29 P0 error-class sequence")\n    candidate_buckets: dict[str, list[tuple[int, Mapping[str, Any]]]] = {}\n    selected_buckets: dict[str, list[Mapping[str, Any]]] = {}\n    for rank, item in enumerate(scored):\n        candidate_buckets.setdefault(str(item["error_class"]), []).append((rank, item))\n    for item in selected:\n        selected_buckets.setdefault(str(item["error_class"]), []).append(item)\n    class_audit: dict[str, Any] = {}\n    endpoint_total = 0\n    endpoint_covered = 0\n    for error_class, bucket in sorted(candidate_buckets.items()):\n        chosen = selected_buckets.get(error_class, [])\n        candidate_ranks = [rank for rank, _ in bucket]\n        selected_ranks = [int(item["reference_rank"]) for item in chosen]\n        endpoint_ok: bool | None = None\n        if len(chosen) >= 2:\n            endpoint_total += 1\n            endpoint_ok = (\n                candidate_ranks[0] in selected_ranks\n                and candidate_ranks[-1] in selected_ranks\n            )\n            if not endpoint_ok:\n                raise RuntimeError(\n                    f"Coverage-first selector missed a class-local endpoint: {error_class}"\n                )\n            endpoint_covered += 1\n        class_audit[error_class] = {\n            "candidate_count": len(bucket),\n            "source_p0_count": source_classes.count(error_class),\n            "selected_count": len(chosen),\n            "candidate_global_rank_min": candidate_ranks[0],\n            "candidate_global_rank_max": candidate_ranks[-1],\n            "selected_global_ranks": selected_ranks,\n            "candidate_reference_surprisal": _reference_surprisal_summary(\n                [float(item["reference_surprisal"]) for _, item in bucket]\n            ),\n            "selected_reference_surprisal": (\n                _reference_surprisal_summary(\n                    [float(item["reference_surprisal"]) for item in chosen]\n                )\n                if chosen\n                else None\n            ),\n            "near_far_endpoint_coverage": endpoint_ok,\n        }\n    selected_class_count = len(selected_buckets)\n    candidate_class_count = len(candidate_buckets)\n    selected_ranks = [int(item["reference_rank"]) for item in selected]\n    return {\n        "source_p0_error_class_sequence": source_classes,\n        "selected_error_class_sequence": selected_classes,\n        "coverage_sequence_matches_source_p0": True,\n        "candidate_error_class_counts": {\n            name: len(bucket) for name, bucket in sorted(candidate_buckets.items())\n        },\n        "source_p0_error_class_counts": {\n            name: source_classes.count(name) for name in sorted(set(source_classes))\n        },\n        "selected_error_class_counts": {\n            name: len(bucket) for name, bucket in sorted(selected_buckets.items())\n        },\n        "candidate_distinct_error_class_count": candidate_class_count,\n        "selected_distinct_error_class_count": selected_class_count,\n        "error_class_coverage_fraction": selected_class_count / candidate_class_count,\n        "singleton_selected_error_class_count": sum(\n            len(bucket) == 1 for bucket in selected_buckets.values()\n        ),\n        "multi_slot_selected_error_class_count": endpoint_total,\n        "multi_slot_endpoint_coverage_count": endpoint_covered,\n        "global_reference_rank_span_fraction": (\n            (max(selected_ranks) - min(selected_ranks)) / (len(scored) - 1)\n            if len(scored) > 1\n            else 0.0\n        ),\n        "error_class_reference_surprisal": class_audit,\n    }\n\n\n'''
+          if text.count(anchor) != 1:
+              raise SystemExit(f'helper anchor count={text.count(anchor)}')
+          text = text.replace(anchor, helper + anchor, 1)
+
+          old = '''                    derived = dict(source_row)\n                    derived["negatives"] = selected\n'''
+          new = '''                    coverage_audit = _reference_error_class_audit(\n                        scored, selected, list(source_row["negatives"])\n                    )\n                    derived = dict(source_row)\n                    derived["negatives"] = selected\n'''
+          if text.count(old) != 1:
+              raise SystemExit(f'coverage call anchor count={text.count(old)}')
+          text = text.replace(old, new, 1)
+
+          old = '''                            "coverage_threshold": None,\n                            "coverage_gate": False,\n'''
+          new = '''                            **coverage_audit,\n                            "coverage_threshold": None,\n                            "coverage_gate": False,\n'''
+          if text.count(old) != 1:
+              raise SystemExit(f'prompt audit anchor count={text.count(old)}')
+          text = text.replace(old, new, 1)
+
+          old = '''                ranges = [\n                    float(row["selected_reference_surprisal"]["range"])\n                    for row in audit_rows\n                ]\n                summary = {\n'''
+          new = '''                ranges = [\n                    float(row["selected_reference_surprisal"]["range"])\n                    for row in audit_rows\n                ]\n                class_rows = [\n                    value\n                    for row in audit_rows\n                    for value in row["error_class_reference_surprisal"].values()\n                ]\n                selected_class_rows = [\n                    value for value in class_rows if int(value["selected_count"]) > 0\n                ]\n                endpoint_total = sum(\n                    int(row["multi_slot_selected_error_class_count"]) for row in audit_rows\n                )\n                endpoint_covered = sum(\n                    int(row["multi_slot_endpoint_coverage_count"]) for row in audit_rows\n                )\n                summary = {\n'''
+          if text.count(old) != 1:
+              raise SystemExit(f'task summary prelude anchor count={text.count(old)}')
+          text = text.replace(old, new, 1)
+
+          old = '''                    "coverage_threshold": None,\n                    "selected_range_median": float(np.median(np.asarray(ranges, dtype=float))),\n                    "prompt_audit": str(audit_path.resolve()),\n'''
+          new = '''                    "coverage_threshold": None,\n                    "coverage_sequence_matches_all_prompts": all(\n                        bool(row["coverage_sequence_matches_source_p0"]) for row in audit_rows\n                    ),\n                    "error_class_coverage_fraction": _reference_surprisal_summary(\n                        [float(row["error_class_coverage_fraction"]) for row in audit_rows]\n                    ),\n                    "singleton_selected_error_class_instances": sum(\n                        int(row["singleton_selected_error_class_count"]) for row in audit_rows\n                    ),\n                    "multi_slot_selected_error_class_instances": endpoint_total,\n                    "multi_slot_endpoint_coverage_count": endpoint_covered,\n                    "multi_slot_endpoint_coverage_fraction": (\n                        endpoint_covered / endpoint_total if endpoint_total else None\n                    ),\n                    "global_reference_rank_span_fraction": _reference_surprisal_summary(\n                        [float(row["global_reference_rank_span_fraction"]) for row in audit_rows]\n                    ),\n                    "candidate_within_class_range": _reference_surprisal_summary(\n                        [float(row["candidate_reference_surprisal"]["range"]) for row in class_rows]\n                    ),\n                    "candidate_within_class_iqr": _reference_surprisal_summary(\n                        [float(row["candidate_reference_surprisal"]["iqr"]) for row in class_rows]\n                    ),\n                    "selected_within_class_range": _reference_surprisal_summary(\n                        [float(row["selected_reference_surprisal"]["range"]) for row in selected_class_rows]\n                    ),\n                    "selected_within_class_iqr": _reference_surprisal_summary(\n                        [float(row["selected_reference_surprisal"]["iqr"]) for row in selected_class_rows]\n                    ),\n                    "selected_range_median": float(np.median(np.asarray(ranges, dtype=float))),\n                    "prompt_audit": str(audit_path.resolve()),\n'''
+          if text.count(old) != 1:
+              raise SystemExit(f'task summary fields anchor count={text.count(old)}')
+          text = text.replace(old, new, 1)
+
+          old = '''    manifest = write_canonical_cold_inputs(config, output_root, splits)\n'''
+          new = '''    task_reference_summaries = {\n        str(task): dict(splits["tasks"][str(task)]["reference_remoteness_bank"])\n        for task in config["suite"]["p0_tasks"]\n    }\n    reference_summary_path = output_root / "reference_remoteness" / "summary.json"\n    atomic_json(\n        reference_summary_path,\n        {\n            "schema_version": 1,\n            "experiment_id": experiment_id(config),\n            "config_hash": stable_config_hash(config),\n            "task_count": len(task_reference_summaries),\n            "coverage_sequence_matches_all_prompts": all(\n                bool(value["coverage_sequence_matches_all_prompts"])\n                for value in task_reference_summaries.values()\n            ),\n            "tasks": {\n                task: {\n                    key: value[key]\n                    for key in (\n                        "rows",\n                        "selected_negatives_per_prompt",\n                        "coverage_sequence_matches_all_prompts",\n                        "error_class_coverage_fraction",\n                        "singleton_selected_error_class_instances",\n                        "multi_slot_selected_error_class_instances",\n                        "multi_slot_endpoint_coverage_count",\n                        "multi_slot_endpoint_coverage_fraction",\n                        "global_reference_rank_span_fraction",\n                        "candidate_within_class_range",\n                        "candidate_within_class_iqr",\n                        "selected_within_class_range",\n                        "selected_within_class_iqr",\n                        "selected_range_median",\n                    )\n                }\n                for task, value in sorted(task_reference_summaries.items())\n            },\n            "scientific_status": "not_run",\n        },\n    )\n    splits["reference_remoteness_audit"] = {\n        "path": str(reference_summary_path.resolve()),\n        "sha256": sha256_file(reference_summary_path),\n        "complete": True,\n    }\n    atomic_json(output_root / "split_manifest.json", splits)\n    manifest = write_canonical_cold_inputs(config, output_root, splits)\n'''
+          if text.count(old) != 1:
+              raise SystemExit(f'root summary anchor count={text.count(old)}')
+          text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Validate diagnostics without changing science
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          python -m py_compile src/drpo/e8_multitask_exp_tuning.py
+          python - <<'PY'
+          from drpo.e8_multitask_exp_tuning import _reference_error_class_audit
+
+          source = [
+              {"error_class": name}
+              for name in ("a", "b", "c", "a", "b", "c", "a", "b", "c", "a", "b", "c", "a", "b", "c", "a")
+          ]
+          scored = []
+          for rank in range(40):
+              name = ("a", "b", "c")[rank % 3]
+              scored.append({
+                  "error_class": name,
+                  "reference_surprisal": float(rank),
+                  "canonical_completion": f"{name}-{rank}",
+              })
+          # Construct selected rows with the same class sequence and class-local endpoints.
+          by_class = {name: [i for i, row in enumerate(scored) if row["error_class"] == name] for name in ("a", "b", "c")}
+          quotas = {name: sum(row["error_class"] == name for row in source) for name in ("a", "b", "c")}
+          positions = {}
+          for name in ("a", "b", "c"):
+              ranks = by_class[name]
+              q = quotas[name]
+              local = [round(i * (len(ranks) - 1) / (q - 1)) for i in range(q)] if q > 1 else [(len(ranks)-1)//2]
+              positions[name] = iter([ranks[i] for i in local])
+          selected = []
+          for row in source:
+              rank = next(positions[row["error_class"]])
+              selected.append({**scored[rank], "reference_rank": rank})
+          audit = _reference_error_class_audit(scored, selected, source)
+          assert audit["coverage_sequence_matches_source_p0"] is True
+          assert audit["multi_slot_endpoint_coverage_count"] == audit["multi_slot_selected_error_class_count"]
+          assert 0.0 < audit["error_class_coverage_fraction"] <= 1.0
+          PY
+
+      - name: Commit only the reviewed source change and remove this workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/temp-e8-coldstart-selector-audit-apply.yml
+          git add src/drpo/e8_multitask_exp_tuning.py
+          changed="$(git diff --cached --name-only)"
+          [[ "$changed" == "src/drpo/e8_multitask_exp_tuning.py"$'\n'".github/workflows/temp-e8-coldstart-selector-audit-apply.yml" || "$changed" == ".github/workflows/temp-e8-coldstart-selector-audit-apply.yml"$'\n'"src/drpo/e8_multitask_exp_tuning.py" ]]
+          git commit -m 'E8 coldstart: audit selector coverage and remoteness'
+          git push origin HEAD:dev/e8-multitask-exp-coldstart-01
