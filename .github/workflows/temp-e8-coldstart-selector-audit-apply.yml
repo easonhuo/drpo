@@ -72,6 +72,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          export PYTHONPATH="$PWD/src"
           git diff --check
           python -m py_compile src/drpo/e8_multitask_exp_tuning.py
           python - <<'PY'
@@ -89,7 +90,6 @@ jobs:
                   "reference_surprisal": float(rank),
                   "canonical_completion": f"{name}-{rank}",
               })
-          # Construct selected rows with the same class sequence and class-local endpoints.
           by_class = {name: [i for i, row in enumerate(scored) if row["error_class"] == name] for name in ("a", "b", "c")}
           quotas = {name: sum(row["error_class"] == name for row in source) for name in ("a", "b", "c")}
           positions = {}
