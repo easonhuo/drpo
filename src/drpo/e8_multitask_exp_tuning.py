@@ -83,6 +83,7 @@ DEFAULT_P0_CONFIG = Path("configs/e8_multitask_p0.yaml")
 METHOD_POSITIVE_ONLY = "positive_only"
 METHOD_EXPONENTIAL = "exponential"
 METHOD_GLOBAL = "global"
+TRANSFER_SYSTEM_PROMPT = "Answer with only the requested final output and no explanation."
 SWEEP_PROFILE_RHO = "nine_task_rho_v1"
 SWEEP_PROFILE_DENSE = "task_lambda_dense_v1"
 SWEEP_PROFILE_COLDSTART = "eight_task_coldstart_lambda_v1"
@@ -467,7 +468,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
             "reference_policy": "zero_update_base_plus_fresh_lora",
             "coordinate": "mean_completion_token_surprisal",
             "selected_negatives_per_prompt": 16,
-            "selection": "evenly_spaced_reference_rank_including_extremes",
+            "selection": "coverage_first_error_class_round_robin_then_within_class_reference_rank_spread",
             "coverage_threshold": None,
             "reference_rank_role": "provenance_and_diagnostic_only",
             "static_reference_rank_enters_training_weight": False,
@@ -1205,16 +1206,13 @@ def _canonical_train_row(row: Mapping[str, Any]) -> dict[str, Any]:
     bank = [
         {
             **dict(item),
-            "expression": str(item.get("canonical_completion", item["completion"])),
+            "expression": str(item["completion"]),
         }
         for item in negatives
     ]
-    oracle_verification = row.get("oracle_verification", {})
-    oracle = str(
-        oracle_verification.get("canonical_completion", row["oracle_completion"])
-        if isinstance(oracle_verification, Mapping)
-        else row["oracle_completion"]
-    )
+    oracle = str(row["oracle_completion"])
+    if any(item["expression"] == oracle for item in bank):
+        raise RuntimeError(f"{task}/{prompt_id} negative completion matches the positive")
     return {
         **dict(row),
         "id": prompt_id,
@@ -1323,6 +1321,36 @@ def _evenly_spaced_rank_indices(candidate_count: int, selected_count: int = 16) 
     return indices
 
 
+def _coverage_first_reference_rank_indices(
+    scored: Sequence[Mapping[str, Any]], selected_count: int = 16
+) -> tuple[int, ...]:
+    if len(scored) < selected_count:
+        raise RuntimeError(f"Coverage-first selection needs >= {selected_count} candidates")
+    buckets: dict[str, list[int]] = {}
+    for rank, item in enumerate(scored):
+        buckets.setdefault(str(item["error_class"]), []).append(rank)
+    remaining = {name: len(ranks) for name, ranks in buckets.items()}
+    class_order, names, cursor = [], sorted(remaining), 0
+    while len(class_order) < selected_count:
+        name = names[cursor % len(names)]
+        class_order.append(name)
+        remaining[name] -= 1
+        if remaining[name] == 0:
+            names.remove(name)
+            cursor = 0
+        else:
+            cursor += 1
+    queues = {}
+    for name in sorted(set(class_order)):
+        quota, ranks = class_order.count(name), buckets[name]
+        local = ((len(ranks) - 1) // 2,) if quota == 1 else _evenly_spaced_rank_indices(len(ranks), quota)
+        queues[name] = iter([ranks[index] for index in local])
+    selected = tuple(next(queues[name]) for name in class_order)
+    if len(set(selected)) != selected_count:
+        raise RuntimeError("Coverage-first selector produced duplicate negatives")
+    return selected
+
+
 def _reference_surprisal_summary(values: Sequence[float]) -> dict[str, float]:
     array = np.asarray([float(value) for value in values], dtype=float)
     if array.size == 0 or not np.all(np.isfinite(array)):
@@ -1416,7 +1444,7 @@ def _score_reference_candidates(
             arena.encode_prompt_completion(
                 tokenizer,
                 prompt,
-                str(item["canonical_completion"]),
+                str(item["completion"]),
                 max_length,
             )
             for item in chunk
@@ -1424,7 +1452,7 @@ def _score_reference_candidates(
         packed = arena.pad_encoded(encoded, int(tokenizer.pad_token_id))
         packed = arena.move_to_device(packed, device)
         with torch.no_grad():
-            surprisal = -arena.completion_stats(model, packed)["seq_lp"]
+            surprisal = arena.sequence_surprisal_only(model, packed)
         scores.extend(float(value) for value in surprisal.detach().cpu())
     if len(scores) != len(candidates) or not all(math.isfinite(value) for value in scores):
         raise RuntimeError("Reference-policy candidate scoring is incomplete or non-finite")
@@ -1462,7 +1490,9 @@ def _derive_reference_remoteness_banks(
                 "p0_config_sha256": record["p0_config_sha256"],
                 "base_model_identity": base_identity,
                 "task_runtime": dict(config["task_runtime"][task]),
+                "model_facing_text": "raw_completion_generic_prompt_v1",
                 "selector": selector,
+                "selector_implementation": "coverage_first_error_class_round_robin_then_within_class_reference_rank_spread_v1",
             }
         )
         identities[task] = identity
@@ -1499,8 +1529,10 @@ def _derive_reference_remoteness_banks(
         )
         model.eval()
         original_clean_expression = arena.clean_expression
+        original_system_prompt = arena.SYSTEM_PROMPT
         try:
             arena.clean_expression = lambda value: str(value)
+            arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
             for task in pending:
                 record = splits["tasks"][task]
                 train_rows = read_jsonl(Path(record["paths"]["train"]))
@@ -1543,7 +1575,7 @@ def _derive_reference_remoteness_banks(
                             ),
                         )
                     )
-                    selected_indices = _evenly_spaced_rank_indices(len(scored), 16)
+                    selected_indices = _coverage_first_reference_rank_indices(scored, 16)
                     selected: list[dict[str, Any]] = []
                     for slot, rank in enumerate(selected_indices):
                         item = dict(scored[rank])
@@ -1606,7 +1638,7 @@ def _derive_reference_remoteness_banks(
                     "sha256": sha256_file(bank_path_value),
                     "rows": len(derived_rows),
                     "selected_negatives_per_prompt": 16,
-                    "selection": "evenly_spaced_reference_rank_including_extremes",
+                    "selection": "coverage_first_error_class_round_robin_then_within_class_reference_rank_spread",
                     "candidate_pool": "all_deterministic_verified_wrong_mutations",
                     "reference_rank_enters_training_weight": False,
                     "current_policy_surprisal_recomputed_each_update": True,
@@ -1624,6 +1656,7 @@ def _derive_reference_remoteness_banks(
                 atomic_json(output_root / "split_manifest.json", splits)
         finally:
             arena.clean_expression = original_clean_expression
+            arena.SYSTEM_PROMPT = original_system_prompt
             del model
             gc.collect()
             if torch.cuda.is_available():
@@ -3770,10 +3803,14 @@ def _train_canonical_cold_cell(
     def task_interface() -> Any:
         original_evaluate_rows = arena.evaluate_rows
         original_clean_expression = arena.clean_expression
+        original_system_prompt = arena.SYSTEM_PROMPT
+        original_completion_stats = arena.completion_stats
         original_trainer_evaluate = scan_trainer._evaluate_validation
         try:
             if evaluator is not None:
                 arena.evaluate_rows = evaluator
+                arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
+                arena.completion_stats = lambda model, batch: {"seq_lp": -arena.sequence_surprisal_only(model, batch)}
                 # Non-arithmetic task outputs are already canonicalized by the P0
                 # verifier. Arithmetic-only cleanup would corrupt structured outputs.
                 arena.clean_expression = lambda value: str(value)
@@ -3787,6 +3824,8 @@ def _train_canonical_cold_cell(
         finally:
             arena.evaluate_rows = original_evaluate_rows
             arena.clean_expression = original_clean_expression
+            arena.SYSTEM_PROMPT = original_system_prompt
+            arena.completion_stats = original_completion_stats
             scan_trainer._evaluate_validation = original_trainer_evaluate
 
     alpha = 0.0 if cell.method == METHOD_POSITIVE_ONLY else 1.0
