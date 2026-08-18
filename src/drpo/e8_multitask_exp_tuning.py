@@ -1367,6 +1367,92 @@ def _reference_surprisal_summary(values: Sequence[float]) -> dict[str, float]:
     }
 
 
+def _reference_error_class_audit(
+    scored: Sequence[Mapping[str, Any]],
+    selected: Sequence[Mapping[str, Any]],
+    source_negatives: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    source_classes = [str(item["error_class"]) for item in source_negatives]
+    selected_classes = [str(item["error_class"]) for item in selected]
+    if selected_classes != source_classes:
+        raise RuntimeError("Coverage-first selector changed the July-29 P0 error-class sequence")
+    candidate_buckets: dict[str, list[tuple[int, Mapping[str, Any]]]] = {}
+    selected_buckets: dict[str, list[Mapping[str, Any]]] = {}
+    for rank, item in enumerate(scored):
+        candidate_buckets.setdefault(str(item["error_class"]), []).append((rank, item))
+    for item in selected:
+        selected_buckets.setdefault(str(item["error_class"]), []).append(item)
+    class_audit: dict[str, Any] = {}
+    endpoint_total = 0
+    endpoint_covered = 0
+    for error_class, bucket in sorted(candidate_buckets.items()):
+        chosen = selected_buckets.get(error_class, [])
+        candidate_ranks = [rank for rank, _ in bucket]
+        selected_ranks = [int(item["reference_rank"]) for item in chosen]
+        endpoint_ok: bool | None = None
+        if len(chosen) >= 2:
+            endpoint_total += 1
+            endpoint_ok = (
+                candidate_ranks[0] in selected_ranks
+                and candidate_ranks[-1] in selected_ranks
+            )
+            if not endpoint_ok:
+                raise RuntimeError(
+                    f"Coverage-first selector missed a class-local endpoint: {error_class}"
+                )
+            endpoint_covered += 1
+        class_audit[error_class] = {
+            "candidate_count": len(bucket),
+            "source_p0_count": source_classes.count(error_class),
+            "selected_count": len(chosen),
+            "candidate_global_rank_min": candidate_ranks[0],
+            "candidate_global_rank_max": candidate_ranks[-1],
+            "selected_global_ranks": selected_ranks,
+            "candidate_reference_surprisal": _reference_surprisal_summary(
+                [float(item["reference_surprisal"]) for _, item in bucket]
+            ),
+            "selected_reference_surprisal": (
+                _reference_surprisal_summary(
+                    [float(item["reference_surprisal"]) for item in chosen]
+                )
+                if chosen
+                else None
+            ),
+            "near_far_endpoint_coverage": endpoint_ok,
+        }
+    selected_class_count = len(selected_buckets)
+    candidate_class_count = len(candidate_buckets)
+    selected_ranks = [int(item["reference_rank"]) for item in selected]
+    return {
+        "source_p0_error_class_sequence": source_classes,
+        "selected_error_class_sequence": selected_classes,
+        "coverage_sequence_matches_source_p0": True,
+        "candidate_error_class_counts": {
+            name: len(bucket) for name, bucket in sorted(candidate_buckets.items())
+        },
+        "source_p0_error_class_counts": {
+            name: source_classes.count(name) for name in sorted(set(source_classes))
+        },
+        "selected_error_class_counts": {
+            name: len(bucket) for name, bucket in sorted(selected_buckets.items())
+        },
+        "candidate_distinct_error_class_count": candidate_class_count,
+        "selected_distinct_error_class_count": selected_class_count,
+        "error_class_coverage_fraction": selected_class_count / candidate_class_count,
+        "singleton_selected_error_class_count": sum(
+            len(bucket) == 1 for bucket in selected_buckets.values()
+        ),
+        "multi_slot_selected_error_class_count": endpoint_total,
+        "multi_slot_endpoint_coverage_count": endpoint_covered,
+        "global_reference_rank_span_fraction": (
+            (max(selected_ranks) - min(selected_ranks)) / (len(scored) - 1)
+            if len(scored) > 1
+            else 0.0
+        ),
+        "error_class_reference_surprisal": class_audit,
+    }
+
+
 def _verified_wrong_candidates(
     adapter: Any,
     instance: TaskInstance,
@@ -1588,6 +1674,9 @@ def _derive_reference_remoteness_banks(
                             }
                         )
                         selected.append(item)
+                    coverage_audit = _reference_error_class_audit(
+                        scored, selected, list(source_row["negatives"])
+                    )
                     derived = dict(source_row)
                     derived["negatives"] = selected
                     derived["reference_remoteness_selection"] = {
@@ -1612,6 +1701,7 @@ def _derive_reference_remoteness_banks(
                             "selected_reference_surprisal": _reference_surprisal_summary(
                                 [float(item["reference_surprisal"]) for item in selected]
                             ),
+                            **coverage_audit,
                             "coverage_threshold": None,
                             "coverage_gate": False,
                         }
@@ -1625,6 +1715,20 @@ def _derive_reference_remoteness_banks(
                     float(row["selected_reference_surprisal"]["range"])
                     for row in audit_rows
                 ]
+                class_rows = [
+                    value
+                    for row in audit_rows
+                    for value in row["error_class_reference_surprisal"].values()
+                ]
+                selected_class_rows = [
+                    value for value in class_rows if int(value["selected_count"]) > 0
+                ]
+                endpoint_total = sum(
+                    int(row["multi_slot_selected_error_class_count"]) for row in audit_rows
+                )
+                endpoint_covered = sum(
+                    int(row["multi_slot_endpoint_coverage_count"]) for row in audit_rows
+                )
                 summary = {
                     "schema_version": 1,
                     "experiment_id": experiment_id(config),
@@ -1643,6 +1747,35 @@ def _derive_reference_remoteness_banks(
                     "reference_rank_enters_training_weight": False,
                     "current_policy_surprisal_recomputed_each_update": True,
                     "coverage_threshold": None,
+                    "coverage_sequence_matches_all_prompts": all(
+                        bool(row["coverage_sequence_matches_source_p0"]) for row in audit_rows
+                    ),
+                    "error_class_coverage_fraction": _reference_surprisal_summary(
+                        [float(row["error_class_coverage_fraction"]) for row in audit_rows]
+                    ),
+                    "singleton_selected_error_class_instances": sum(
+                        int(row["singleton_selected_error_class_count"]) for row in audit_rows
+                    ),
+                    "multi_slot_selected_error_class_instances": endpoint_total,
+                    "multi_slot_endpoint_coverage_count": endpoint_covered,
+                    "multi_slot_endpoint_coverage_fraction": (
+                        endpoint_covered / endpoint_total if endpoint_total else None
+                    ),
+                    "global_reference_rank_span_fraction": _reference_surprisal_summary(
+                        [float(row["global_reference_rank_span_fraction"]) for row in audit_rows]
+                    ),
+                    "candidate_within_class_range": _reference_surprisal_summary(
+                        [float(row["candidate_reference_surprisal"]["range"]) for row in class_rows]
+                    ),
+                    "candidate_within_class_iqr": _reference_surprisal_summary(
+                        [float(row["candidate_reference_surprisal"]["iqr"]) for row in class_rows]
+                    ),
+                    "selected_within_class_range": _reference_surprisal_summary(
+                        [float(row["selected_reference_surprisal"]["range"]) for row in selected_class_rows]
+                    ),
+                    "selected_within_class_iqr": _reference_surprisal_summary(
+                        [float(row["selected_reference_surprisal"]["iqr"]) for row in selected_class_rows]
+                    ),
                     "selected_range_median": float(np.median(np.asarray(ranges, dtype=float))),
                     "prompt_audit": str(audit_path.resolve()),
                     "prompt_audit_sha256": sha256_file(audit_path),
@@ -1662,6 +1795,53 @@ def _derive_reference_remoteness_banks(
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
+    task_reference_summaries = {
+        str(task): dict(splits["tasks"][str(task)]["reference_remoteness_bank"])
+        for task in config["suite"]["p0_tasks"]
+    }
+    reference_summary_path = output_root / "reference_remoteness" / "summary.json"
+    atomic_json(
+        reference_summary_path,
+        {
+            "schema_version": 1,
+            "experiment_id": experiment_id(config),
+            "config_hash": stable_config_hash(config),
+            "task_count": len(task_reference_summaries),
+            "coverage_sequence_matches_all_prompts": all(
+                bool(value["coverage_sequence_matches_all_prompts"])
+                for value in task_reference_summaries.values()
+            ),
+            "tasks": {
+                task: {
+                    key: value[key]
+                    for key in (
+                        "rows",
+                        "selected_negatives_per_prompt",
+                        "coverage_sequence_matches_all_prompts",
+                        "error_class_coverage_fraction",
+                        "singleton_selected_error_class_instances",
+                        "multi_slot_selected_error_class_instances",
+                        "multi_slot_endpoint_coverage_count",
+                        "multi_slot_endpoint_coverage_fraction",
+                        "global_reference_rank_span_fraction",
+                        "candidate_within_class_range",
+                        "candidate_within_class_iqr",
+                        "selected_within_class_range",
+                        "selected_within_class_iqr",
+                        "selected_range_median",
+                    )
+                }
+                for task, value in sorted(task_reference_summaries.items())
+            },
+            "scientific_status": "not_run",
+        },
+    )
+    splits["reference_remoteness_audit"] = {
+        "path": str(reference_summary_path.resolve()),
+        "sha256": sha256_file(reference_summary_path),
+        "complete": True,
+    }
+    atomic_json(output_root / "split_manifest.json", splits)
     manifest = write_canonical_cold_inputs(config, output_root, splits)
     if not all(
         bool(manifest["tasks"][str(task)].get("reference_remoteness_bank_applied"))
