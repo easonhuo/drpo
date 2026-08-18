@@ -1,0 +1,84 @@
+name: TEMP E8 coldstart selector audit retry
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'dev/e8-multitask-exp-coldstart-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Apply exact patch embedded in the reviewed first workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow = Path('.github/workflows/temp-e8-coldstart-selector-audit-apply.yml').read_text(encoding='utf-8')
+          marker = "          python - <<'PY'\n"
+          start = workflow.index(marker) + len(marker)
+          end = workflow.index("\n          PY\n", start)
+          code = textwrap.dedent(workflow[start:end])
+          exec(compile(code, '<selector-audit-patch>', 'exec'), {})
+          PY
+
+      - name: Validate patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -q numpy pyyaml
+          export PYTHONPATH="$PWD/src"
+          git diff --check
+          python -m py_compile src/drpo/e8_multitask_exp_tuning.py
+          python - <<'PY'
+          from drpo.e8_multitask_exp_tuning import (
+              _coverage_first_reference_rank_indices,
+              _reference_error_class_audit,
+          )
+
+          scored = []
+          for error_class, count in (("a", 1), ("b", 20), ("c", 20)):
+              for index in range(count):
+                  scored.append({
+                      "error_class": error_class,
+                      "reference_surprisal": float(index) + {"a": 0.0, "b": 100.0, "c": 200.0}[error_class],
+                      "canonical_completion": f"{error_class}-{index}",
+                  })
+          scored.sort(key=lambda row: row["reference_surprisal"])
+          indices = _coverage_first_reference_rank_indices(scored, 16)
+          selected = [dict(scored[index], reference_rank=index) for index in indices]
+          source = [{"error_class": row["error_class"]} for row in selected]
+          audit = _reference_error_class_audit(scored, selected, source)
+          assert audit["coverage_sequence_matches_source_p0"] is True
+          assert audit["selected_error_class_counts"] == {"a": 1, "b": 8, "c": 7}
+          assert audit["multi_slot_endpoint_coverage_count"] == 2
+          assert audit["multi_slot_endpoint_coverage_count"] == audit["multi_slot_selected_error_class_count"]
+          assert audit["singleton_selected_error_class_count"] == 1
+          PY
+
+      - name: Commit only final source and remove temporary workflows
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/temp-e8-coldstart-selector-audit-apply.yml
+          git rm .github/workflows/temp-e8-coldstart-selector-audit-retry.yml
+          git add src/drpo/e8_multitask_exp_tuning.py
+          unexpected="$(git diff --cached --name-only | grep -v -E '^(src/drpo/e8_multitask_exp_tuning.py|\.github/workflows/temp-e8-coldstart-selector-audit-(apply|retry)\.yml)$' || true)"
+          [[ -z "$unexpected" ]]
+          git commit -m 'E8 coldstart: audit selector coverage and remoteness'
+          git push origin HEAD:dev/e8-multitask-exp-coldstart-01
