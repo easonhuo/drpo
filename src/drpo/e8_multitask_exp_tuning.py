@@ -1322,28 +1322,31 @@ def _evenly_spaced_rank_indices(candidate_count: int, selected_count: int = 16) 
 
 
 def _coverage_first_reference_rank_indices(
-    scored: Sequence[Mapping[str, Any]], selected_count: int = 16
+    scored: Sequence[Mapping[str, Any]],
+    source_negatives: Sequence[Mapping[str, Any]],
+    selected_count: int = 16,
 ) -> tuple[int, ...]:
     if len(scored) < selected_count:
         raise RuntimeError(f"Coverage-first selection needs >= {selected_count} candidates")
     buckets: dict[str, list[int]] = {}
     for rank, item in enumerate(scored):
         buckets.setdefault(str(item["error_class"]), []).append(rank)
-    remaining = {name: len(ranks) for name, ranks in buckets.items()}
-    class_order, names, cursor = [], sorted(remaining), 0
-    while len(class_order) < selected_count:
-        name = names[cursor % len(names)]
-        class_order.append(name)
-        remaining[name] -= 1
-        if remaining[name] == 0:
-            names.remove(name)
-            cursor = 0
-        else:
-            cursor += 1
+    class_order = [str(item["error_class"]) for item in source_negatives]
     queues = {}
     for name in sorted(set(class_order)):
         quota, ranks = class_order.count(name), buckets[name]
-        local = ((len(ranks) - 1) // 2,) if quota == 1 else _evenly_spaced_rank_indices(len(ranks), quota)
+        if quota == 1:
+            original = next(item for item in source_negatives if str(item["error_class"]) == name)
+            canonical = str(original.get("canonical_completion", original["completion"]))
+            local = tuple(
+                index
+                for index, rank in enumerate(ranks)
+                if str(scored[rank]["canonical_completion"]) == canonical
+            )
+            if len(local) != 1:
+                raise RuntimeError(f"Source P0 singleton not uniquely reconstructed for {name}")
+        else:
+            local = _evenly_spaced_rank_indices(len(ranks), quota)
         queues[name] = iter([ranks[index] for index in local])
     selected = tuple(next(queues[name]) for name in class_order)
     if len(set(selected)) != selected_count:
@@ -1578,7 +1581,7 @@ def _derive_reference_remoteness_banks(
                 "task_runtime": dict(config["task_runtime"][task]),
                 "model_facing_text": "raw_completion_generic_prompt_v1",
                 "selector": selector,
-                "selector_implementation": "coverage_first_error_class_round_robin_then_within_class_reference_rank_spread_v1",
+                "selector_implementation": "source_p0_error_class_sequence_then_within_class_reference_rank_spread_v1",
             }
         )
         identities[task] = identity
@@ -1661,7 +1664,7 @@ def _derive_reference_remoteness_banks(
                             ),
                         )
                     )
-                    selected_indices = _coverage_first_reference_rank_indices(scored, 16)
+                    selected_indices = _coverage_first_reference_rank_indices(scored, source_row["negatives"], 16)
                     selected: list[dict[str, Any]] = []
                     for slot, rank in enumerate(selected_indices):
                         item = dict(scored[rank])
@@ -1742,7 +1745,7 @@ def _derive_reference_remoteness_banks(
                     "sha256": sha256_file(bank_path_value),
                     "rows": len(derived_rows),
                     "selected_negatives_per_prompt": 16,
-                    "selection": "coverage_first_error_class_round_robin_then_within_class_reference_rank_spread",
+                    "selection": "source_p0_error_class_sequence_then_within_class_reference_rank_spread",
                     "candidate_pool": "all_deterministic_verified_wrong_mutations",
                     "reference_rank_enters_training_weight": False,
                     "current_policy_surprisal_recomputed_each_update": True,
