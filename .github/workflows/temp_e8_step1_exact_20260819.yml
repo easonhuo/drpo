@@ -1,0 +1,47 @@
+name: TEMP E8 Step1 exact selector label
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-coverage-remoteness-01
+
+permissions:
+  contents: write
+
+jobs:
+  apply-exact-step1:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-exp-coldstart-01
+          fetch-depth: 0
+      - name: Verify base and apply the single approved replacement
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "a648a1237161798d0c49829ee7333e8b0707e3d1"
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("src/drpo/e8_multitask_exp_tuning.py")
+          text = path.read_text(encoding="utf-8")
+          old = '''            "selected_negatives_per_prompt": 16,
+                      "selection": "coverage_first_error_class_round_robin_then_within_class_reference_rank_spread",
+                      "coverage_threshold": None,
+          '''
+          new = '''            "selected_negatives_per_prompt": 16,
+                      "selection": "source_p0_error_class_sequence_then_within_class_reference_rank_spread",
+                      "coverage_threshold": None,
+          '''
+          if text.count(old) != 1:
+              raise SystemExit(f"exact Step1 context count={text.count(old)}; refusing write")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+          git diff --check
+          test "$(git diff --numstat -- src/drpo/e8_multitask_exp_tuning.py)" = $'1\t1\tsrc/drpo/e8_multitask_exp_tuning.py'
+          test "$(git status --short | wc -l)" -eq 1
+          git config user.name "drpo-e8-step1-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/drpo/e8_multitask_exp_tuning.py
+          git commit -m "E8 coldstart: bind selector to source P0 class sequence"
+          git push origin HEAD:dev/e8-multitask-exp-coldstart-01
