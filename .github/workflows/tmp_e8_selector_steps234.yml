@@ -128,7 +128,7 @@ jobs:
           test "$(git status --short | awk '{print $2}')" = 'src/drpo/e8_multitask_exp_tuning.py'
           git diff --check
           python -m py_compile src/drpo/e8_multitask_exp_tuning.py
-          read ADDS DELS < <(git diff --numstat "$BASE" -- src/drpo/e8_multitask_exp_tuning.py)
+          read ADDS DELS PATH_IGNORED < <(git diff --numstat "$BASE" -- src/drpo/e8_multitask_exp_tuning.py)
           test $((ADDS + DELS)) -le 40
           git config user.name 'drpo-e8-step234-bot'
           git config user.email 'actions@users.noreply.github.com'
