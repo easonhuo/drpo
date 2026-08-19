@@ -22,11 +22,12 @@ jobs:
           TARGET='dev/e8-multitask-exp-coldstart-01'
           EXPECTED_HEAD='4b7c991cd8797412830cb34f76dfe35cc09eb90f'
           cp .github/tmp_e8_dynamic_queue_apply.py /tmp/tmp_e8_dynamic_queue_apply.py
+          cp .github/tmp_e8_dynamic_queue_apply_v2.py /tmp/tmp_e8_dynamic_queue_apply_v2.py
           git fetch origin "$TARGET"
           ACTUAL_HEAD="$(git rev-parse "origin/$TARGET")"
           test "$ACTUAL_HEAD" = "$EXPECTED_HEAD"
           git checkout -B "$TARGET" "$EXPECTED_HEAD"
-          python /tmp/tmp_e8_dynamic_queue_apply.py
+          python /tmp/tmp_e8_dynamic_queue_apply_v2.py
           mapfile -t CHANGED < <(git status --short | awk '{print $2}' | sort)
           test "${#CHANGED[@]}" -eq 3
           test "${CHANGED[0]}" = 'docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md'
