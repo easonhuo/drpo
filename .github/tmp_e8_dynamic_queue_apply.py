@@ -1,0 +1,369 @@
+from pathlib import Path
+from textwrap import dedent
+
+source_path = Path('src/drpo/e8_multitask_exp_tuning.py')
+source = source_path.read_text(encoding='utf-8')
+start = source.index('def cmd_run_dynamic(\n')
+end = source.index('\n\ndef cmd_run_all(\n', start)
+replacement = dedent(r'''
+def cmd_run_dynamic(
+    config: Mapping[str, Any],
+    config_path: Path,
+    output_root: Path,
+    *,
+    base_model_path: str,
+    force: bool,
+    retry_incomplete: bool,
+) -> dict[str, Any]:
+    """Run one recovery-aware queue on 16 fixed GPU slots, without wave barriers."""
+
+    if not _is_coldstart(config):
+        raise RuntimeError("Dynamic scheduling is frozen for the cold-start profile only")
+    _require_calibration_gate(config, output_root, base_model_path=base_model_path)
+    _require_liveness_gate(config, output_root, base_model_path=base_model_path)
+    cells = build_cells(config)
+    waves = build_waves(config)
+    gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
+    slots_per_gpu = int(config["execution"]["slots_per_gpu"])
+    slot_count = len(gpu_ids) * slots_per_gpu
+    if slot_count != int(config["execution"]["max_concurrent_cells"]) or slot_count != 16:
+        raise RuntimeError("Declared 16-slot capacity is internally inconsistent")
+
+    pending: queue.Queue[Cell] = queue.Queue()
+    for cell in cells:
+        pending.put(cell)
+    stop = threading.Event()
+    lock = threading.Lock()
+    checkpoint_lock = threading.Lock()
+    task_result_lock = threading.Lock()
+    results: list[dict[str, Any]] = []
+    task_results: dict[str, dict[str, Any]] = {}
+    event_path = output_root / "scheduler" / "queue_events.jsonl"
+    event_path.parent.mkdir(parents=True, exist_ok=True)
+    scheduler_run_id = f"queue-{int(time.time())}-{os.getpid()}"
+    recovery_package_value = os.environ.get("E8_COLDSTART_RECOVERY_PACKAGE", "").strip()
+    recovery_package = Path(recovery_package_value).resolve() if recovery_package_value else None
+    recovery_interval = int(os.environ.get("E8_COLDSTART_RECOVERY_INTERVAL_CELLS", "5"))
+    if recovery_interval <= 0:
+        raise ValueError("E8_COLDSTART_RECOVERY_INTERVAL_CELLS must be positive")
+    initially_reusable, _ = _reusable_cell_manifests(config, output_root)
+    last_checkpoint_count = (len(initially_reusable) // recovery_interval) * recovery_interval
+
+    def record(event: Mapping[str, Any]) -> None:
+        with lock:
+            append_jsonl(event_path, {"scheduler_run_id": scheduler_run_id, **dict(event)})
+
+    def worker(slot: int, gpu_id: int) -> list[dict[str, Any]]:
+        nonlocal last_checkpoint_count, task_results
+        local: list[dict[str, Any]] = []
+        while not stop.is_set():
+            try:
+                cell = pending.get_nowait()
+            except queue.Empty:
+                break
+            cell_root = output_root / "cells" / cell.key
+            manifest_path = cell_root / "cell_manifest.json"
+            reusable_complete = False
+            if manifest_path.is_file():
+                try:
+                    reusable_complete = bool(
+                        json.loads(manifest_path.read_text(encoding="utf-8")).get("complete")
+                    )
+                except (OSError, json.JSONDecodeError):
+                    reusable_complete = False
+            child_force = force or (
+                retry_incomplete and cell_root.exists() and not reusable_complete
+            )
+            nominal_wave = cells.index(cell) // slot_count + 1
+            record(
+                {
+                    "event": "start",
+                    "wave": nominal_wave,
+                    "cell_key": cell.key,
+                    "slot": slot,
+                    "gpu_id": gpu_id,
+                    "unix_time": time.time(),
+                    "retry_incomplete": child_force and not force,
+                }
+            )
+            result = _run_subprocess_cell(
+                config_path=config_path.resolve(),
+                output_root=output_root.resolve(),
+                base_model_path=base_model_path,
+                cell=cell,
+                gpu_id=gpu_id,
+                force=child_force,
+            )
+            if int(result["returncode"]) == 0 and recovery_package is not None:
+                try:
+                    with checkpoint_lock:
+                        current_reusable, _ = _reusable_cell_manifests(config, output_root)
+                        completed_count = len(current_reusable)
+                        if completed_count >= last_checkpoint_count + recovery_interval:
+                            checkpoint = _publish_recovery_checkpoint(
+                                config,
+                                output_root,
+                                package_output=recovery_package,
+                            )
+                            last_checkpoint_count = int(checkpoint["completed_cells"])
+                            result["recovery_checkpoint"] = checkpoint["package"]
+                            result["recovery_checkpoint_completed_cells"] = last_checkpoint_count
+                except Exception as exc:
+                    result["returncode"] = 74
+                    result["recovery_checkpoint_error"] = f"{type(exc).__name__}: {exc}"
+            result.update({"wave": nominal_wave, "slot": slot})
+            local.append(result)
+            record({"event": "finish", **result, "unix_time": time.time()})
+            pending.task_done()
+            with task_result_lock:
+                task_results = _materialize_completed_coldstart_task_results(
+                    config, output_root
+                )
+            if int(result["returncode"]) != 0:
+                stop.set()
+        return local
+
+    with ThreadPoolExecutor(max_workers=slot_count) as executor:
+        futures = [
+            executor.submit(worker, slot, gpu_ids[slot % len(gpu_ids)])
+            for slot in range(slot_count)
+        ]
+        for future in as_completed(futures):
+            results.extend(future.result())
+
+    results.sort(key=lambda row: str(row["cell_key"]))
+    failures = [row for row in results if int(row["returncode"]) != 0]
+    returned_keys = {str(row["cell_key"]) for row in results}
+    completed_keys = {
+        str(row["cell_key"]) for row in results if int(row["returncode"]) == 0
+    }
+    unscheduled = [cell.key for cell in cells if cell.key not in returned_keys]
+    stopped = bool(failures or unscheduled)
+    protocol_diagnostic = _countdown_protocol_diagnostic(
+        config,
+        output_root,
+        destination=output_root / "scheduler" / "countdown_protocol_diagnostic.json",
+    ) if not stopped else {
+        "status": "PENDING",
+        "result_gate": False,
+        "controls_task_transfer_release": False,
+    }
+    manifest = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "scheduler": "dynamic_slot_queue",
+        "scheduler_run_id": scheduler_run_id,
+        "wave_barriers": False,
+        "wave_count": len(waves),
+        "slot_count": slot_count,
+        "gpu_ids": list(gpu_ids),
+        "slots_per_gpu": slots_per_gpu,
+        "countdown_protocol_diagnostic": protocol_diagnostic,
+        "countdown_result_controls_transfer_release": False,
+        "expected_cells": len(cells),
+        "completed_cells": len(completed_keys),
+        "results": results,
+        "failed_cells": [row["cell_key"] for row in failures],
+        "unscheduled_cells": unscheduled,
+        "queue_events": str(event_path.resolve()),
+        "analysis_ready_tasks": sorted(task_results),
+        "task_results": task_results,
+        "complete": not failures and not unscheduled and len(completed_keys) == len(cells),
+        "scientific_status": "not_run" if _is_engineering_self_test(config) else "pilot",
+        "engineering_placeholder_backend": _is_engineering_self_test(config),
+    }
+    atomic_json(output_root / "scheduler" / "dynamic_run.json", manifest)
+    if failures or unscheduled:
+        raise RuntimeError(
+            "Cold-start dynamic queue stopped fail-closed; "
+            f"failed={manifest['failed_cells']} unscheduled={len(unscheduled)}"
+        )
+    return manifest
+''').lstrip()
+source = source[:start] + replacement + source[end:]
+
+audit_start = source.index('def _audit_engineering_queue(\n')
+audit_end = source.index('\n\ndef cmd_engineering_self_test(\n', audit_start)
+audit_replacement = dedent(r'''
+def _audit_engineering_queue(
+    config: Mapping[str, Any],
+    output_root: Path,
+    scheduler: Mapping[str, Any],
+) -> dict[str, Any]:
+    cells = build_cells(config)
+    cell_index = {cell.key: index for index, cell in enumerate(cells)}
+    events = [
+        json.loads(line)
+        for line in (output_root / "scheduler" / "queue_events.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.strip()
+    ]
+    events = [
+        row for row in events
+        if row["scheduler_run_id"] == scheduler["scheduler_run_id"]
+    ]
+    active_by_gpu = {int(gpu): 0 for gpu in config["execution"]["gpu_ids"]}
+    maximum_by_gpu = dict(active_by_gpu)
+    start_times: dict[str, float] = {}
+    finish_times: dict[str, float] = {}
+    for event in events:
+        gpu_id = int(event["gpu_id"])
+        cell_key = str(event["cell_key"])
+        if event["event"] == "start":
+            active_by_gpu[gpu_id] += 1
+            maximum_by_gpu[gpu_id] = max(
+                maximum_by_gpu[gpu_id], active_by_gpu[gpu_id]
+            )
+            start_times[cell_key] = float(event["unix_time"])
+        elif event["event"] == "finish":
+            active_by_gpu[gpu_id] -= 1
+            finish_times[cell_key] = float(event["unix_time"])
+    if set(start_times) != set(cell_index) or set(finish_times) != set(cell_index):
+        raise RuntimeError(
+            f"Engineering queue audit did not observe all {len(cells)} starts and finishes"
+        )
+    slots_per_gpu = int(config["execution"]["slots_per_gpu"])
+    if (
+        any(value != 0 for value in active_by_gpu.values())
+        or max(maximum_by_gpu.values()) > slots_per_gpu
+    ):
+        raise RuntimeError("Engineering queue exceeded the declared per-GPU capacity")
+    capacity = int(config["execution"]["max_concurrent_cells"])
+    first_batch = {cell.key for cell in cells[:capacity]}
+    later = {cell.key for cell in cells[capacity:]}
+    later_start = min(start_times[key] for key in later)
+    first_batch_last_finish = max(finish_times[key] for key in first_batch)
+    if not later_start < first_batch_last_finish:
+        raise RuntimeError("Engineering queue behaved like a nominal-batch barrier")
+    return {
+        "all_cells_observed": True,
+        "maximum_active_by_gpu": maximum_by_gpu,
+        "later_cell_started_before_first_batch_finished": True,
+        "wave_barriers_respected": False,
+        "wave_count": len(build_waves(config)),
+        "slots_per_gpu": slots_per_gpu,
+    }
+''').lstrip()
+source = source[:audit_start] + audit_replacement + source[audit_end:]
+source_path.write_text(source, encoding='utf-8')
+
+test_path = Path('tests/test_e8_multitask_p0.py')
+tests = test_path.read_text(encoding='utf-8')
+test_start = tests.index(
+    'def test_exp_coldstart_scheduler_enforces_wave_barriers_and_two_slots_per_gpu(\n'
+)
+test_end = tests.index(
+    '\n\ndef test_exp_coldstart_aggregate_does_not_filter_by_terminal_valid_rate',
+    test_start,
+)
+test_replacement = dedent(r'''
+def test_exp_coldstart_scheduler_refills_freed_slots_and_two_slots_per_gpu(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    cells = exp_tuning.build_cells(config)
+    monkeypatch.setattr(exp_tuning, "_require_calibration_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        exp_tuning,
+        "_countdown_protocol_diagnostic",
+        lambda *args, **kwargs: {
+            "status": "FAIL",
+            "result_gate": False,
+            "controls_task_transfer_release": False,
+        },
+    )
+    lock = threading.Lock()
+    starts: dict[str, float] = {}
+    finishes: dict[str, float] = {}
+    active: dict[int, int] = {}
+    maximum: dict[int, int] = {}
+    replacement_started = threading.Event()
+    first_cell_released_by_replacement = threading.Event()
+
+    def fake_run(**kwargs: object) -> dict[str, object]:
+        cell = kwargs["cell"]
+        gpu_id = int(kwargs["gpu_id"])
+        with lock:
+            starts[cell.key] = time.monotonic()
+            active[gpu_id] = active.get(gpu_id, 0) + 1
+            maximum[gpu_id] = max(maximum.get(gpu_id, 0), active[gpu_id])
+        if cell in cells[16:]:
+            replacement_started.set()
+        if cell.key == cells[0].key:
+            if replacement_started.wait(timeout=1.0):
+                first_cell_released_by_replacement.set()
+        else:
+            time.sleep(0.001)
+        with lock:
+            active[gpu_id] -= 1
+            finishes[cell.key] = time.monotonic()
+        return {
+            "cell_key": cell.key,
+            "gpu_id": gpu_id,
+            "returncode": 0,
+            "log": "mock.log",
+            "started_unix": 0.0,
+            "finished_unix": 1.0,
+        }
+
+    monkeypatch.setattr(exp_tuning, "_run_subprocess_cell", fake_run)
+    result = exp_tuning.cmd_run_dynamic(
+        config,
+        Path("configs/e8_multitask_exp_coldstart.yaml"),
+        tmp_path,
+        base_model_path="base-model",
+        force=False,
+        retry_incomplete=True,
+    )
+    assert result["complete"]
+    assert result["completed_cells"] == 208
+    assert result["wave_barriers"] is False
+    assert result["wave_count"] == 13
+    assert result["countdown_protocol_diagnostic"]["status"] == "FAIL"
+    assert result["countdown_result_controls_transfer_release"] is False
+    assert first_cell_released_by_replacement.is_set()
+    assert set(maximum) == set(range(8))
+    assert max(maximum.values()) <= 2
+    first_batch = {cell.key for cell in cells[:16]}
+    later = {cell.key for cell in cells[16:]}
+    assert min(starts[key] for key in later) < max(finishes[key] for key in first_batch)
+''').lstrip()
+tests = tests[:test_start] + test_replacement + tests[test_end:]
+tests = tests.replace(
+    'def test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_barriers(\n',
+    'def test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_dynamic_queue(\n',
+    1,
+)
+old_asserts = dedent('''
+    assert result["queue_audit"]["wave_barriers_respected"]
+    assert result["queue_audit"]["wave_count"] == 13
+    assert result["queue_audit"]["slots_per_gpu"] == 2
+''')
+new_asserts = dedent('''
+    assert result["queue_audit"]["wave_barriers_respected"] is False
+    assert result["queue_audit"]["later_cell_started_before_first_batch_finished"]
+    assert result["queue_audit"]["wave_count"] == 13
+    assert result["queue_audit"]["slots_per_gpu"] == 2
+''')
+if tests.count(old_asserts) != 1:
+    raise SystemExit(f'expected one engineering barrier assertion block, found {tests.count(old_asserts)}')
+tests = tests.replace(old_asserts, new_asserts, 1)
+tests = tests.replace(
+    '    assert "13" in runbook and "16-cell" in runbook\n',
+    '    assert "13" in runbook and "16 concurrent slots" in runbook\n',
+    1,
+)
+test_path.write_text(tests, encoding='utf-8')
+
+runbook_path = Path('docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md')
+runbook = runbook_path.read_text(encoding='utf-8')
+old_scheduler = '''- 调度容量固定为 8 GPU × 2 cells/GPU = **16-cell wave**。208 cells 正好 13 个 wave；\n  wave N 的 16 个 cell 全部结束后才允许 wave N+1 开始。这个 barrier 只是 scheduling /\n  recovery 边界，不是科学结果门禁；OOM 时 cell 失败并保留证据，禁止自动改 batch、λ、\n  loss、数据或其他科学参数；\n- 每个 task 的冻结 cell 集合一旦在某个 hard wave barrier 后全部完成，立即在\n'''
+new_scheduler = '''- 调度容量固定为 8 GPU × 2 cells/GPU = **16 concurrent slots**。208 cells 按冻结顺序进入\n  单一动态队列；任一 cell 结束后，其释放 slot 立即启动下一个 pending cell，不等待其余 cell。\n  13×16 仅保留为 nominal batch / audit 几何，不构成 scheduling barrier；OOM 时 cell 失败并保留\n  证据，禁止自动改 batch、λ、loss、数据或其他科学参数；\n- 每个 task 的冻结 cell 集合一旦全部完成，立即在\n'''
+if runbook.count(old_scheduler) != 1:
+    raise SystemExit(f'expected one hard-wave runbook block, found {runbook.count(old_scheduler)}')
+runbook_path.write_text(runbook.replace(old_scheduler, new_scheduler, 1), encoding='utf-8')
