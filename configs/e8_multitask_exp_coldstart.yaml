@@ -106,7 +106,7 @@ negative_sampling:
     reference_policy: zero_update_base_plus_fresh_lora
     coordinate: mean_completion_token_surprisal
     selected_negatives_per_prompt: 16
-    selection: coverage_first_error_class_round_robin_then_within_class_reference_rank_spread
+    selection: source_p0_error_class_sequence_then_within_class_reference_rank_spread
     coverage_threshold: null
     reference_rank_role: provenance_and_diagnostic_only
     static_reference_rank_enters_training_weight: false
