@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - exec/e8-selector-steps234-20260819
+  pull_request:
+    branches:
+      - exec/e8-selector-steps234-20260819
 
 permissions:
   contents: write
