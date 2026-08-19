@@ -1,10 +1,7 @@
-name: TEMP E8 selector steps 2-4
+name: TEMP E8 selector YAML alignment
 
 on:
   push:
-    branches:
-      - exec/e8-selector-steps234-20260819
-  pull_request:
     branches:
       - exec/e8-selector-steps234-20260819
 
@@ -18,120 +15,34 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Apply exact approved steps 2-4
+      - name: Apply exact approved YAML selector line
         shell: bash
         run: |
           set -euo pipefail
           TARGET='dev/e8-multitask-exp-coldstart-01'
-          EXPECTED_HEAD='f119f0c4066a696b81562df4f00b3dfb75244228'
-          BASE='a648a1237161798d0c49829ee7333e8b0707e3d1'
+          EXPECTED_HEAD='c33cc06eef1ae09e28efcb9c7c6985b71e373481'
           git fetch origin "$TARGET"
           ACTUAL_HEAD="$(git rev-parse "origin/$TARGET")"
           test "$ACTUAL_HEAD" = "$EXPECTED_HEAD"
           git checkout -B "$TARGET" "$EXPECTED_HEAD"
           python - <<'PY'
           from pathlib import Path
-
-          path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          path = Path('configs/e8_multitask_exp_coldstart.yaml')
           text = path.read_text(encoding='utf-8')
-
-          old_function = '''def _coverage_first_reference_rank_indices(
-              scored: Sequence[Mapping[str, Any]], selected_count: int = 16
-          ) -> tuple[int, ...]:
-              if len(scored) < selected_count:
-                  raise RuntimeError(f"Coverage-first selection needs >= {selected_count} candidates")
-              buckets: dict[str, list[int]] = {}
-              for rank, item in enumerate(scored):
-                  buckets.setdefault(str(item["error_class"]), []).append(rank)
-              remaining = {name: len(ranks) for name, ranks in buckets.items()}
-              class_order, names, cursor = [], sorted(remaining), 0
-              while len(class_order) < selected_count:
-                  name = names[cursor % len(names)]
-                  class_order.append(name)
-                  remaining[name] -= 1
-                  if remaining[name] == 0:
-                      names.remove(name)
-                      cursor = 0
-                  else:
-                      cursor += 1
-              queues = {}
-              for name in sorted(set(class_order)):
-                  quota, ranks = class_order.count(name), buckets[name]
-                  local = ((len(ranks) - 1) // 2,) if quota == 1 else _evenly_spaced_rank_indices(len(ranks), quota)
-                  queues[name] = iter([ranks[index] for index in local])
-              selected = tuple(next(queues[name]) for name in class_order)
-              if len(set(selected)) != selected_count:
-                  raise RuntimeError("Coverage-first selector produced duplicate negatives")
-              return selected
-          '''
-          new_function = '''def _coverage_first_reference_rank_indices(
-              scored: Sequence[Mapping[str, Any]],
-              source_negatives: Sequence[Mapping[str, Any]],
-              selected_count: int = 16,
-          ) -> tuple[int, ...]:
-              if len(scored) < selected_count:
-                  raise RuntimeError(f"Coverage-first selection needs >= {selected_count} candidates")
-              buckets: dict[str, list[int]] = {}
-              for rank, item in enumerate(scored):
-                  buckets.setdefault(str(item["error_class"]), []).append(rank)
-              class_order = [str(item["error_class"]) for item in source_negatives]
-              queues = {}
-              for name in sorted(set(class_order)):
-                  quota, ranks = class_order.count(name), buckets[name]
-                  if quota == 1:
-                      original = next(item for item in source_negatives if str(item["error_class"]) == name)
-                      canonical = str(original.get("canonical_completion", original["completion"]))
-                      local = tuple(
-                          index
-                          for index, rank in enumerate(ranks)
-                          if str(scored[rank]["canonical_completion"]) == canonical
-                      )
-                      if len(local) != 1:
-                          raise RuntimeError(f"Source P0 singleton not uniquely reconstructed for {name}")
-                  else:
-                      local = _evenly_spaced_rank_indices(len(ranks), quota)
-                  queues[name] = iter([ranks[index] for index in local])
-              selected = tuple(next(queues[name]) for name in class_order)
-              if len(set(selected)) != selected_count:
-                  raise RuntimeError("Coverage-first selector produced duplicate negatives")
-              return selected
-          '''
-
-          replacements = [
-              (
-                  old_function,
-                  new_function,
-              ),
-              (
-                  '                "selector_implementation": "coverage_first_error_class_round_robin_then_within_class_reference_rank_spread_v1",\n',
-                  '                "selector_implementation": "source_p0_error_class_sequence_then_within_class_reference_rank_spread_v1",\n',
-              ),
-              (
-                  '                    selected_indices = _coverage_first_reference_rank_indices(scored, 16)\n',
-                  '                    selected_indices = _coverage_first_reference_rank_indices(scored, source_row["negatives"], 16)\n',
-              ),
-              (
-                  '                    "selection": "coverage_first_error_class_round_robin_then_within_class_reference_rank_spread",\n',
-                  '                    "selection": "source_p0_error_class_sequence_then_within_class_reference_rank_spread",\n',
-              ),
-          ]
-
-          for old, new in replacements:
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f'expected exactly one approved old snippet, found {count}')
-              text = text.replace(old, new, 1)
-
-          path.write_text(text, encoding='utf-8')
+          old = '    selection: coverage_first_error_class_round_robin_then_within_class_reference_rank_spread\n'
+          new = '    selection: source_p0_error_class_sequence_then_within_class_reference_rank_spread\n'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected exactly one old selector line, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
           PY
           test "$(git status --short | wc -l)" -eq 1
-          test "$(git status --short | awk '{print $2}')" = 'src/drpo/e8_multitask_exp_tuning.py'
+          test "$(git status --short | awk '{print $2}')" = 'configs/e8_multitask_exp_coldstart.yaml'
           git diff --check
-          python -m py_compile src/drpo/e8_multitask_exp_tuning.py
-          read ADDS DELS PATH_IGNORED < <(git diff --numstat "$BASE" -- src/drpo/e8_multitask_exp_tuning.py)
-          test $((ADDS + DELS)) -le 40
-          git config user.name 'drpo-e8-step234-bot'
+          read ADDS DELS PATH_IGNORED < <(git diff --numstat -- configs/e8_multitask_exp_coldstart.yaml)
+          test "$ADDS" -eq 1
+          test "$DELS" -eq 1
+          git config user.name 'drpo-e8-yaml-bot'
           git config user.email 'actions@users.noreply.github.com'
-          git add src/drpo/e8_multitask_exp_tuning.py
-          git commit -m 'E8 coldstart: preserve source P0 selector slots'
+          git add configs/e8_multitask_exp_coldstart.yaml
+          git commit -m 'E8 coldstart: align selector config identity'
           git push origin "HEAD:refs/heads/$TARGET"
