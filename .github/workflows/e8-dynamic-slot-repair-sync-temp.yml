@@ -5,4 +5,4 @@ jobs:
   noop:
     runs-on: ubuntu-latest
     steps:
-      - run: echo sync
+      - run: echo sync2
