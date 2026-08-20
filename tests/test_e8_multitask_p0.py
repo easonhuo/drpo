@@ -1419,7 +1419,7 @@ def test_exp_dense_inherit_pins_parent_and_rebinds_train_only_references(
 
 
 
-def test_exp_coldstart_matrix_is_208_cells_in_13_hard_waves() -> None:
+def test_exp_coldstart_matrix_is_208_cells_in_13_nominal_batches() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
@@ -1431,7 +1431,7 @@ def test_exp_coldstart_matrix_is_208_cells_in_13_hard_waves() -> None:
     assert [len(wave) for wave in waves] == [16] * 13
     assert config["execution"]["max_concurrent_cells"] == 16
     assert config["execution"]["slots_per_gpu"] == 2
-    assert config["execution"]["wave_barriers"] is True
+    assert config["execution"]["wave_barriers"] is False
     assert set(config["suite"]["tasks"]) == set(exp_tuning.TASK_NAMES)
     assert set(config["suite"]["p0_tasks"]) == set(exp_tuning.TASK_NAMES) - {"countdown"}
 
@@ -1551,6 +1551,10 @@ def test_exp_coldstart_rejects_adapter_runtime_or_grid_drift() -> None:
     with pytest.raises(ValueError, match="two slots"):
         exp_tuning.validate_config(changed)
     changed = json.loads(json.dumps(config))
+    changed["execution"]["wave_barriers"] = True
+    with pytest.raises(ValueError, match="recovery/OOM"):
+        exp_tuning.validate_config(changed)
+    changed = json.loads(json.dumps(config))
     changed["task_runtime"]["word_sorting"]["evaluation_batch_size"] = 8
     with pytest.raises(ValueError, match="word_sorting"):
         exp_tuning.validate_config(changed)
@@ -1602,7 +1606,7 @@ def test_task_base_config_transfer_has_batch16_and_pass8_only(tmp_path: Path) ->
     assert value["evaluation"]["pass_ks"] == [8]
 
 
-def test_exp_coldstart_scheduler_enforces_wave_barriers_and_two_slots_per_gpu(
+def test_exp_coldstart_scheduler_refills_without_nominal_batch_barriers(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -1610,7 +1614,6 @@ def test_exp_coldstart_scheduler_enforces_wave_barriers_and_two_slots_per_gpu(
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
     cells = exp_tuning.build_cells(config)
-    waves = exp_tuning.build_waves(config)
     monkeypatch.setattr(exp_tuning, "_require_calibration_gate", lambda *args, **kwargs: None)
     monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)
     monkeypatch.setattr(
@@ -1627,6 +1630,8 @@ def test_exp_coldstart_scheduler_enforces_wave_barriers_and_two_slots_per_gpu(
     finishes: dict[str, float] = {}
     active: dict[int, int] = {}
     maximum: dict[int, int] = {}
+    replacement_started = threading.Event()
+    first_cell_released_by_replacement = threading.Event()
 
     def fake_run(**kwargs: object) -> dict[str, object]:
         cell = kwargs["cell"]
@@ -1635,7 +1640,13 @@ def test_exp_coldstart_scheduler_enforces_wave_barriers_and_two_slots_per_gpu(
             starts[cell.key] = time.monotonic()
             active[gpu_id] = active.get(gpu_id, 0) + 1
             maximum[gpu_id] = max(maximum.get(gpu_id, 0), active[gpu_id])
-        time.sleep(0.002)
+        if cell in cells[16:]:
+            replacement_started.set()
+        if cell.key == cells[0].key:
+            if replacement_started.wait(timeout=1.0):
+                first_cell_released_by_replacement.set()
+        else:
+            time.sleep(0.002)
         with lock:
             active[gpu_id] -= 1
             finishes[cell.key] = time.monotonic()
@@ -1659,16 +1670,18 @@ def test_exp_coldstart_scheduler_enforces_wave_barriers_and_two_slots_per_gpu(
     )
     assert result["complete"]
     assert result["completed_cells"] == 208
-    assert result["wave_barriers"] is True
-    assert len(result["waves"]) == 13
+    assert result["wave_barriers"] is False
+    assert result["wave_count"] == 13
+    assert result["wave_count_role"] == "nominal_audit_geometry_only_not_scheduling_barrier"
+    assert "waves" not in result
+    assert first_cell_released_by_replacement.is_set()
     assert result["countdown_protocol_diagnostic"]["status"] == "FAIL"
     assert result["countdown_result_controls_transfer_release"] is False
     assert set(maximum) == set(range(8))
     assert max(maximum.values()) <= 2
-    for index in range(1, len(waves)):
-        assert min(starts[cell.key] for cell in waves[index]) >= max(
-            finishes[cell.key] for cell in waves[index - 1]
-        )
+    assert min(starts[cell.key] for cell in cells[16:]) < max(
+        finishes[cell.key] for cell in cells[:16]
+    )
     assert {cell.task for cell in cells[16:32]} != {"countdown"}
 
 
@@ -1722,7 +1735,7 @@ def test_exp_coldstart_aggregate_does_not_filter_by_terminal_valid_rate(tmp_path
     assert summary["countdown_result_gate"] is False
 
 
-def test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_barriers(
+def test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_dynamic_refill(
     tmp_path: Path,
 ) -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
@@ -1738,8 +1751,9 @@ def test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_barrier
     assert result["scientific_status"] == "not_run"
     assert result["resume_completed_cells"] == 208
     assert result["aggregate_cell_count"] == 208
-    assert result["queue_audit"]["wave_barriers_respected"]
-    assert result["queue_audit"]["wave_count"] == 13
+    assert result["queue_audit"]["dynamic_refill_observed"]
+    assert result["queue_audit"]["nominal_batch_barrier_absent"]
+    assert result["queue_audit"]["nominal_batch_count"] == 13
     assert result["queue_audit"]["slots_per_gpu"] == 2
     assert result["repeat_run_preserved_cell_hashes"]
     assert result["tampered_package_rejected"]
