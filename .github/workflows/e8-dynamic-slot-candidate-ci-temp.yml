@@ -27,17 +27,17 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Materialize scheduler-only candidate from locked patcher
+      - name: Materialize scheduler-only candidate from locked patcher blob
         shell: bash
         run: |
           set -euo pipefail
           BASE=4b7c991cd8797412830cb34f76dfe35cc09eb90f
+          OLD_PATCHER_BLOB=c009d394717b65e8d9e251885f8f08ada59ea7b6
           git checkout "$BASE" -- \
             src/drpo/e8_multitask_exp_tuning.py \
             configs/e8_multitask_exp_coldstart.yaml \
             tests/test_e8_multitask_p0.py
-          git fetch origin dev/e8-dynamic-slot-repair-work-20260820:refs/remotes/origin/dev/e8-dynamic-slot-repair-work-20260820
-          git show origin/dev/e8-dynamic-slot-repair-work-20260820:.github/workflows/e8-dynamic-slot-repair-run-temp.yml > /tmp/patcher.yml
+          git show "$OLD_PATCHER_BLOB" > /tmp/patcher.yml
           python - <<'PY'
           from pathlib import Path
 
@@ -93,6 +93,20 @@ jobs:
             tests/test_e8_multitask_p0.py::test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_dynamic_refill \
             tests/test_e8_multitask_p0.py::test_coldstart_task_results_publish_before_global_aggregate
 
+      - name: Ten-pass focused dynamic-slot audit
+        env:
+          PYTHONPATH: src
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 10); do
+            echo "FOCUSED_AUDIT_PASS=$i"
+            python -m pytest -q \
+              tests/test_e8_multitask_p0.py::test_exp_coldstart_scheduler_refills_freed_slots_and_caps_two_per_gpu \
+              tests/test_e8_multitask_p0.py::test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_dynamic_refill \
+              tests/test_e8_multitask_p0.py::test_coldstart_task_results_publish_before_global_aggregate
+          done
+
       - name: Full E8 multitask test file
         env:
           PYTHONPATH: src
@@ -102,6 +116,9 @@ jobs:
         env:
           PYTHONPATH: src
         run: python -m pytest -q
+
+      - name: Ruff changed Python
+        run: python -m ruff check src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
 
       - name: Scope and scientific-protocol audit
         shell: bash
@@ -136,6 +153,8 @@ jobs:
           s=source.index('def cmd_run_dynamic(')
           e=source.index('\ndef cmd_run_all(', s)
           dynamic=source[s:e]
+          assert source.count('def cmd_run_dynamic(') == 1
+          assert source.count('def _audit_engineering_queue(') == 1
           assert 'pending: queue.Queue[Cell] = queue.Queue()' in dynamic
           assert 'executor.submit(worker, slot, gpu_ids[slot % len(gpu_ids)])' in dynamic
           assert '"wave_barriers": False' in dynamic
