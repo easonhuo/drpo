@@ -1,0 +1,520 @@
+REVIEW-ONLY CANDIDATE CODE SNAPSHOT
+
+Base commit: 4b7c991cd8797412830cb34f76dfe35cc09eb90f
+Experiment: EXT-C-E8-MULTITASK-EXP-COLDSTART-01
+Claim: replace the incorrect 16-cell hard-wave scheduling barrier with one shared pending queue served by 16 persistent GPU slots; a freed slot immediately takes the next pending cell.
+
+INTENDED FINAL MODIFIED FILES ONLY
+1. src/drpo/e8_multitask_exp_tuning.py
+2. configs/e8_multitask_exp_coldstart.yaml
+3. tests/test_e8_multitask_p0.py
+
+No runner, bootstrap, Runbook, handoff, registry, RunSpec, canonical trainer, task data, scientific hyperparameter, seed, lambda grid, evaluation protocol, or OOM scientific-parameter policy is intended to change.
+
+========================================================================
+SOURCE: src/drpo/e8_multitask_exp_tuning.py
+========================================================================
+
+[SMALL REPLACEMENT 1: validate_config execution contract]
+
+OLD:
+    if int(execution["slots_per_gpu"]) != 2 or int(execution["expected_waves"]) != expected_waves:
+        raise ValueError(
+            f"The frozen topology is two slots per GPU and {expected_waves} waves"
+        )
+    if _is_coldstart(config) and execution.get("scheduler") != "dynamic_slot_queue":
+        raise ValueError("Cold-start execution must use the recovery-aware slot scheduler")
+    if _is_coldstart(config) and (
+        not bool(execution.get("wave_barriers", False))
+        or not bool(execution.get("identity_checked_resume", False))
+        or not bool(execution.get("retry_incomplete_requires_explicit_flag", False))
+        or not bool(execution.get("fail_closed", False))
+        or not bool(execution.get("test_partition_forbidden", False))
+        or execution.get("oom_policy")
+        != "fail_cell_no_automatic_scientific_parameter_mutation"
+    ):
+        raise ValueError("Cold-start recovery/OOM safety contract drifted")
+
+NEW:
+    if int(execution["slots_per_gpu"]) != 2 or int(execution["expected_waves"]) != expected_waves:
+        raise ValueError(
+            f"The frozen topology is two slots per GPU and {expected_waves} nominal batches"
+        )
+    if _is_coldstart(config) and execution.get("scheduler") != "dynamic_slot_queue":
+        raise ValueError("Cold-start execution must use the recovery-aware slot scheduler")
+    if _is_coldstart(config) and (
+        bool(execution.get("wave_barriers", True))
+        or not bool(execution.get("identity_checked_resume", False))
+        or not bool(execution.get("retry_incomplete_requires_explicit_flag", False))
+        or not bool(execution.get("fail_closed", False))
+        or not bool(execution.get("test_partition_forbidden", False))
+        or execution.get("oom_policy")
+        != "fail_cell_no_automatic_scientific_parameter_mutation"
+    ):
+        raise ValueError("Cold-start recovery/OOM safety contract drifted")
+
+[SMALL REPLACEMENT 2: build_waves wording]
+
+OLD:
+            raise AssertionError("Cold-start geometry must be 13 exact 16-cell scheduling waves")
+NEW:
+            raise AssertionError("Cold-start geometry must be 13 exact nominal 16-cell batches")
+
+[SMALL REPLACEMENT 3: cmd_run_wave cold-start guard]
+
+OLD:
+        raise RuntimeError("Cold-start waves are owned by run-all to preserve recovery barriers")
+NEW:
+        raise RuntimeError("Cold-start has no wave barriers; use run-all dynamic scheduling")
+
+[COMPLETE REPLACEMENT: cmd_run_dynamic]
+
+def cmd_run_dynamic(
+    config: Mapping[str, Any],
+    config_path: Path,
+    output_root: Path,
+    *,
+    base_model_path: str,
+    force: bool,
+    retry_incomplete: bool,
+) -> dict[str, Any]:
+    """Run one recovery-aware shared queue on 16 fixed GPU slots."""
+
+    if not _is_coldstart(config):
+        raise RuntimeError("Dynamic scheduling is frozen for the cold-start profile only")
+    _require_calibration_gate(config, output_root, base_model_path=base_model_path)
+    _require_liveness_gate(config, output_root, base_model_path=base_model_path)
+    cells = build_cells(config)
+    nominal_batches = build_waves(config)
+    gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
+    slots_per_gpu = int(config["execution"]["slots_per_gpu"])
+    slot_count = len(gpu_ids) * slots_per_gpu
+    if slot_count != int(config["execution"]["max_concurrent_cells"]) or slot_count != 16:
+        raise RuntimeError("Declared 16-slot capacity is internally inconsistent")
+
+    pending: queue.Queue[Cell] = queue.Queue()
+    for cell in cells:
+        pending.put(cell)
+    stop = threading.Event()
+    lock = threading.Lock()
+    checkpoint_lock = threading.Lock()
+    task_result_lock = threading.Lock()
+    results: list[dict[str, Any]] = []
+    task_results: dict[str, dict[str, Any]] = {}
+    scheduler_errors: list[dict[str, str]] = []
+    event_path = output_root / "scheduler" / "queue_events.jsonl"
+    event_path.parent.mkdir(parents=True, exist_ok=True)
+    scheduler_run_id = f"queue-{int(time.time())}-{os.getpid()}"
+    recovery_package_value = os.environ.get("E8_COLDSTART_RECOVERY_PACKAGE", "").strip()
+    recovery_package = Path(recovery_package_value).resolve() if recovery_package_value else None
+    recovery_interval = int(os.environ.get("E8_COLDSTART_RECOVERY_INTERVAL_CELLS", "5"))
+    if recovery_interval <= 0:
+        raise ValueError("E8_COLDSTART_RECOVERY_INTERVAL_CELLS must be positive")
+    initially_reusable, _ = _reusable_cell_manifests(config, output_root)
+    last_checkpoint_count = (len(initially_reusable) // recovery_interval) * recovery_interval
+    cell_positions = {cell.key: index for index, cell in enumerate(cells)}
+
+    def record(event: Mapping[str, Any]) -> None:
+        with lock:
+            append_jsonl(event_path, {"scheduler_run_id": scheduler_run_id, **dict(event)})
+
+    def publish_completed_task(task: str) -> None:
+        try:
+            with task_result_lock:
+                if task in task_results:
+                    return
+                rows = _coldstart_completed_task_rows(config, output_root, task)
+                if rows is not None:
+                    task_results[task] = _write_coldstart_task_result(
+                        config,
+                        output_root,
+                        task,
+                        rows,
+                    )
+        except Exception as exc:
+            with lock:
+                scheduler_errors.append(
+                    {
+                        "stage": "task_result_publication",
+                        "task": task,
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+                )
+            stop.set()
+
+    def worker(slot: int, gpu_id: int) -> list[dict[str, Any]]:
+        nonlocal last_checkpoint_count
+        local: list[dict[str, Any]] = []
+        while not stop.is_set():
+            try:
+                cell = pending.get_nowait()
+            except queue.Empty:
+                break
+            nominal_batch = cell_positions[cell.key] // slot_count + 1
+            cell_root = output_root / "cells" / cell.key
+            manifest_path = cell_root / "cell_manifest.json"
+            reusable_complete = False
+            if manifest_path.is_file():
+                try:
+                    reusable_complete = bool(
+                        json.loads(manifest_path.read_text(encoding="utf-8")).get("complete")
+                    )
+                except (OSError, json.JSONDecodeError):
+                    reusable_complete = False
+            child_force = force or (
+                retry_incomplete and cell_root.exists() and not reusable_complete
+            )
+            record(
+                {
+                    "event": "start",
+                    "cell_key": cell.key,
+                    "slot": slot,
+                    "gpu_id": gpu_id,
+                    "nominal_batch": nominal_batch,
+                    "unix_time": time.time(),
+                    "retry_incomplete": child_force and not force,
+                }
+            )
+            result = _run_subprocess_cell(
+                config_path=config_path.resolve(),
+                output_root=output_root.resolve(),
+                base_model_path=base_model_path,
+                cell=cell,
+                gpu_id=gpu_id,
+                force=child_force,
+            )
+            if int(result["returncode"]) == 0 and recovery_package is not None:
+                try:
+                    with checkpoint_lock:
+                        current_reusable, _ = _reusable_cell_manifests(config, output_root)
+                        completed_count = len(current_reusable)
+                        if completed_count >= last_checkpoint_count + recovery_interval:
+                            checkpoint = _publish_recovery_checkpoint(
+                                config,
+                                output_root,
+                                package_output=recovery_package,
+                            )
+                            last_checkpoint_count = int(checkpoint["completed_cells"])
+                            result["recovery_checkpoint"] = checkpoint["package"]
+                            result["recovery_checkpoint_completed_cells"] = last_checkpoint_count
+                except Exception as exc:
+                    result["returncode"] = 74
+                    result["recovery_checkpoint_error"] = f"{type(exc).__name__}: {exc}"
+            result.update({"slot": slot, "nominal_batch": nominal_batch})
+            local.append(result)
+            record({"event": "finish", **result, "unix_time": time.time()})
+            pending.task_done()
+            if int(result["returncode"]) != 0:
+                stop.set()
+                break
+            publish_completed_task(cell.task)
+        return local
+
+    with ThreadPoolExecutor(max_workers=slot_count) as executor:
+        futures = [
+            executor.submit(worker, slot, gpu_ids[slot % len(gpu_ids)])
+            for slot in range(slot_count)
+        ]
+        for future in as_completed(futures):
+            results.extend(future.result())
+
+    results.sort(key=lambda row: str(row["cell_key"]))
+    failures = [row for row in results if int(row["returncode"]) != 0]
+    returned_keys = {str(row["cell_key"]) for row in results}
+    completed_keys = {
+        str(row["cell_key"]) for row in results if int(row["returncode"]) == 0
+    }
+    unscheduled = [cell.key for cell in cells if cell.key not in returned_keys]
+    result_by_key = {str(row["cell_key"]): row for row in results}
+    nominal_records: list[dict[str, Any]] = []
+    for batch_index, batch in enumerate(nominal_batches, start=1):
+        batch_results = [
+            result_by_key[cell.key] for cell in batch if cell.key in result_by_key
+        ]
+        batch_failures = [
+            row for row in batch_results if int(row["returncode"]) != 0
+        ]
+        nominal_records.append(
+            {
+                "wave": batch_index,
+                "expected_cells": len(batch),
+                "returned_cells": len(batch_results),
+                "failed_cells": [row["cell_key"] for row in batch_failures],
+                "complete": not batch_failures and len(batch_results) == len(batch),
+                "scheduling_barrier": False,
+                "scientific_result_gate": False,
+                "role": "nominal_audit_geometry_only",
+            }
+        )
+    run_complete = (
+        not failures
+        and not unscheduled
+        and not scheduler_errors
+        and len(completed_keys) == len(cells)
+    )
+    protocol_diagnostic = (
+        _countdown_protocol_diagnostic(
+            config,
+            output_root,
+            destination=output_root / "scheduler" / "countdown_protocol_diagnostic.json",
+        )
+        if run_complete
+        else {
+            "status": "PENDING",
+            "result_gate": False,
+            "controls_task_transfer_release": False,
+        }
+    )
+    manifest = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "scheduler": "dynamic_slot_queue",
+        "scheduler_run_id": scheduler_run_id,
+        "wave_barriers": False,
+        "wave_count": len(nominal_batches),
+        "slot_count": slot_count,
+        "gpu_ids": list(gpu_ids),
+        "slots_per_gpu": slots_per_gpu,
+        "waves": nominal_records,
+        "countdown_protocol_diagnostic": protocol_diagnostic,
+        "countdown_result_controls_transfer_release": False,
+        "expected_cells": len(cells),
+        "completed_cells": len(completed_keys),
+        "results": results,
+        "failed_cells": [row["cell_key"] for row in failures],
+        "unscheduled_cells": unscheduled,
+        "scheduler_errors": scheduler_errors,
+        "queue_events": str(event_path.resolve()),
+        "analysis_ready_tasks": sorted(task_results),
+        "task_results": task_results,
+        "complete": run_complete,
+        "scientific_status": "not_run" if _is_engineering_self_test(config) else "pilot",
+        "engineering_placeholder_backend": _is_engineering_self_test(config),
+    }
+    atomic_json(output_root / "scheduler" / "dynamic_run.json", manifest)
+    if failures or unscheduled or scheduler_errors:
+        raise RuntimeError(
+            "Cold-start dynamic scheduling stopped fail-closed; "
+            f"failed={manifest['failed_cells']} unscheduled={len(unscheduled)} "
+            f"scheduler_errors={len(scheduler_errors)}"
+        )
+    return manifest
+
+[SMALL REPLACEMENT 4: task-result helper docstring]
+
+OLD:
+    """Publish every fully complete task after the current hard wave barrier."""
+NEW:
+    """Publish each task as soon as its frozen cell set is complete."""
+
+[COMPLETE REPLACEMENT: _audit_engineering_queue]
+
+def _audit_engineering_queue(
+    config: Mapping[str, Any],
+    output_root: Path,
+    scheduler: Mapping[str, Any],
+) -> dict[str, Any]:
+    cells = build_cells(config)
+    events = [
+        json.loads(line)
+        for line in (output_root / "scheduler" / "queue_events.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.strip()
+    ]
+    events = [
+        row
+        for row in events
+        if row["scheduler_run_id"] == scheduler["scheduler_run_id"]
+    ]
+    active_by_gpu = {int(gpu): 0 for gpu in config["execution"]["gpu_ids"]}
+    maximum_by_gpu = dict(active_by_gpu)
+    starts: dict[str, float] = {}
+    finishes: dict[str, float] = {}
+    for event in events:
+        gpu_id = int(event["gpu_id"])
+        cell_key = str(event["cell_key"])
+        if event["event"] == "start":
+            active_by_gpu[gpu_id] += 1
+            maximum_by_gpu[gpu_id] = max(
+                maximum_by_gpu[gpu_id], active_by_gpu[gpu_id]
+            )
+            starts[cell_key] = float(event["unix_time"])
+        elif event["event"] == "finish":
+            active_by_gpu[gpu_id] -= 1
+            if active_by_gpu[gpu_id] < 0:
+                raise RuntimeError(
+                    "Engineering queue observed a finish without an active cell"
+                )
+            finishes[cell_key] = float(event["unix_time"])
+    expected_keys = {cell.key for cell in cells}
+    if set(starts) != expected_keys or set(finishes) != expected_keys:
+        raise RuntimeError(
+            f"Engineering queue did not observe all {len(cells)} starts/finishes"
+        )
+    slots_per_gpu = int(config["execution"]["slots_per_gpu"])
+    if (
+        any(value != 0 for value in active_by_gpu.values())
+        or max(maximum_by_gpu.values()) > slots_per_gpu
+    ):
+        raise RuntimeError("Engineering queue exceeded the declared per-GPU capacity")
+    slot_count = int(config["execution"]["max_concurrent_cells"])
+    first_nominal = cells[:slot_count]
+    replacements = cells[slot_count:]
+    first_nominal_finished = max(finishes[cell.key] for cell in first_nominal)
+    first_replacement_started = min(starts[cell.key] for cell in replacements)
+    if first_replacement_started >= first_nominal_finished:
+        raise RuntimeError(
+            "Engineering queue did not refill a freed slot before the first nominal batch finished"
+        )
+    return {
+        "all_cells_observed": True,
+        "maximum_active_by_gpu": maximum_by_gpu,
+        "dynamic_refill_observed": True,
+        "replacement_started_before_first_nominal_batch_finished": True,
+        "nominal_batch_count": len(build_waves(config)),
+        "slots_per_gpu": slots_per_gpu,
+    }
+
+========================================================================
+CONFIG: configs/e8_multitask_exp_coldstart.yaml
+========================================================================
+
+ONLY INTENDED CONFIG CHANGE:
+
+OLD:
+  wave_barriers: true
+NEW:
+  wave_barriers: false
+
+Everything else in this YAML must remain byte-for-byte/semantically identical to BASE.
+
+========================================================================
+TESTS: tests/test_e8_multitask_p0.py
+========================================================================
+
+[TEST NAME / ASSERTION]
+
+OLD:
+def test_exp_coldstart_matrix_is_208_cells_in_13_hard_waves() -> None:
+NEW:
+def test_exp_coldstart_matrix_is_208_cells_in_13_nominal_batches() -> None:
+
+OLD:
+    assert config["execution"]["wave_barriers"] is True
+NEW:
+    assert config["execution"]["wave_barriers"] is False
+
+[DRIFT GUARD TO ADD INSIDE test_exp_coldstart_rejects_adapter_runtime_or_grid_drift]
+
+    changed = json.loads(json.dumps(config))
+    changed["execution"]["wave_barriers"] = True
+    with pytest.raises(ValueError, match="recovery/OOM"):
+        exp_tuning.validate_config(changed)
+
+[COMPLETE REPLACEMENT: scheduler behavior test]
+
+def test_exp_coldstart_scheduler_refills_freed_slots_and_caps_two_per_gpu(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    cells = exp_tuning.build_cells(config)
+    monkeypatch.setattr(exp_tuning, "_require_calibration_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        exp_tuning,
+        "_countdown_protocol_diagnostic",
+        lambda *args, **kwargs: {
+            "status": "FAIL",
+            "result_gate": False,
+            "controls_task_transfer_release": False,
+        },
+    )
+    lock = threading.Lock()
+    active: dict[int, int] = {}
+    maximum: dict[int, int] = {}
+    replacement_started = threading.Event()
+    first_cell_released_by_replacement = threading.Event()
+
+    def fake_run(**kwargs: object) -> dict[str, object]:
+        cell = kwargs["cell"]
+        gpu_id = int(kwargs["gpu_id"])
+        with lock:
+            active[gpu_id] = active.get(gpu_id, 0) + 1
+            maximum[gpu_id] = max(maximum.get(gpu_id, 0), active[gpu_id])
+        if cell in cells[16:]:
+            replacement_started.set()
+        if cell.key == cells[0].key and replacement_started.wait(timeout=1.0):
+            first_cell_released_by_replacement.set()
+        with lock:
+            active[gpu_id] -= 1
+        return {
+            "cell_key": cell.key,
+            "gpu_id": gpu_id,
+            "returncode": 0,
+            "log": "mock.log",
+            "started_unix": 0.0,
+            "finished_unix": 1.0,
+        }
+
+    monkeypatch.setattr(exp_tuning, "_run_subprocess_cell", fake_run)
+    result = exp_tuning.cmd_run_dynamic(
+        config,
+        Path("configs/e8_multitask_exp_coldstart.yaml"),
+        tmp_path,
+        base_model_path="base-model",
+        force=False,
+        retry_incomplete=True,
+    )
+    assert result["complete"]
+    assert result["completed_cells"] == 208
+    assert result["wave_barriers"] is False
+    assert result["wave_count"] == 13
+    assert all(record["scheduling_barrier"] is False for record in result["waves"])
+    assert result["countdown_protocol_diagnostic"]["status"] == "FAIL"
+    assert result["countdown_result_controls_transfer_release"] is False
+    assert first_cell_released_by_replacement.is_set()
+    assert set(maximum) == set(range(8))
+    assert max(maximum.values()) <= 2
+    assert {cell.task for cell in cells[16:32]} != {"countdown"}
+
+[ENGINEERING SELF-TEST NAME]
+
+OLD:
+def test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_barriers(
+NEW:
+def test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_dynamic_refill(
+
+[ENGINEERING QUEUE ASSERTION REPLACEMENT]
+
+OLD:
+    assert result["queue_audit"]["wave_barriers_respected"]
+    assert result["queue_audit"]["wave_count"] == 13
+NEW:
+    assert result["queue_audit"]["dynamic_refill_observed"]
+    assert result["queue_audit"]["replacement_started_before_first_nominal_batch_finished"]
+    assert result["queue_audit"]["nominal_batch_count"] == 13
+
+Existing test_coldstart_task_results_publish_before_global_aggregate must remain and continue to pass.
+
+========================================================================
+REQUIRED REVIEW QUESTIONS
+========================================================================
+
+1. Does a worker immediately take the next pending cell after a successful cell, with no outer loop over nominal batches?
+2. Is the capacity still exactly 16 workers mapped as two slots per each GPU 0..7?
+3. Can any scientific parameter, seed, lambda grid, data size, training horizon, evaluation protocol, canonical trainer, or OOM scientific-parameter policy change through this patch? Expected answer: no.
+4. Are recovery checkpoint publication, identity-aware retry, fail-closed behavior, Countdown report-only diagnostic, and per-task early result publication preserved?
+5. Does task-result publication failure fail closed without fabricating a cell return code?
+6. Is the 13x16 grouping retained only as nominal/audit geometry and never as a scheduling barrier?
+7. Is any old scheduler implementation duplicated rather than replaced? Expected answer: no.
+8. Is there any scope outside the three intended files? Expected answer: no for the eventual materialized candidate.
+
+STATUS OF THIS REVIEW SNAPSHOT
+- This file is a persistent online review snapshot, not a scientific result.
+- The formal experiment branch is intentionally untouched.
+- A previous ephemeral CI generation attempt failed with IndentationError caused by an extra dedent in the temporary generator; that bad generated source was not committed to the formal branch.
+- The code above is the corrected intended implementation to be reviewed before final materialization.
