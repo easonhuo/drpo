@@ -53,9 +53,12 @@ jobs:
 
           test_path = Path("tests/test_e8_multitask_p0.py")
           tests = test_path.read_text(encoding="utf-8")
-          old_test = '    assert "13×16" in runbook and "shared dynamic queue" in runbook\n'
+          old_test = (
+              '    assert "13×16" in runbook and "shared dynamic queue" in runbook\n'
+              '    assert "hard wave barrier" not in runbook\n'
+          )
           new_test = '    assert "13" in runbook and "16-cell" in runbook\n'
-          assert tests.count(old_test) == 1, "unexpected runbook assertion occurrence count"
+          assert tests.count(old_test) == 1, "unexpected runbook assertion block occurrence count"
           test_path.write_text(tests.replace(old_test, new_test), encoding="utf-8")
           PY
           git add -A
@@ -93,9 +96,12 @@ jobs:
 
           test_path = Path("tests/test_e8_multitask_p0.py")
           tests = test_path.read_text(encoding="utf-8")
-          old_test = '    assert "13×16" in runbook and "shared dynamic queue" in runbook\n'
+          old_test = (
+              '    assert "13×16" in runbook and "shared dynamic queue" in runbook\n'
+              '    assert "hard wave barrier" not in runbook\n'
+          )
           new_test = '    assert "13" in runbook and "16-cell" in runbook\n'
-          assert tests.count(old_test) == 1, "unexpected runbook assertion occurrence count"
+          assert tests.count(old_test) == 1, "unexpected runbook assertion block occurrence count"
           test_path.write_text(tests.replace(old_test, new_test), encoding="utf-8")
           PY
           rm -rf .drpo_audit
