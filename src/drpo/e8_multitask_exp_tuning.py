@@ -715,12 +715,12 @@ def validate_config(config: Mapping[str, Any]) -> None:
     )
     if int(execution["slots_per_gpu"]) != 2 or int(execution["expected_waves"]) != expected_waves:
         raise ValueError(
-            f"The frozen topology is two slots per GPU and {expected_waves} waves"
+            f"The frozen topology is two slots per GPU and {expected_waves} {'nominal batches' if _is_coldstart(config) else 'waves'}"
         )
     if _is_coldstart(config) and execution.get("scheduler") != "dynamic_slot_queue":
         raise ValueError("Cold-start execution must use the recovery-aware slot scheduler")
     if _is_coldstart(config) and (
-        not bool(execution.get("wave_barriers", False))
+        bool(execution.get("wave_barriers", True))
         or not bool(execution.get("identity_checked_resume", False))
         or not bool(execution.get("retry_incomplete_requires_explicit_flag", False))
         or not bool(execution.get("fail_closed", False))
@@ -943,7 +943,7 @@ def build_waves(config: Mapping[str, Any]) -> tuple[tuple[Cell, ...], ...]:
             tuple(cells[index : index + capacity]) for index in range(0, len(cells), capacity)
         )
         if len(waves) != 13 or any(len(wave) != 16 for wave in waves):
-            raise AssertionError("Cold-start geometry must be 13 exact 16-cell scheduling waves")
+            raise AssertionError("Cold-start nominal geometry must be 13 exact 16-cell batches")
         return waves
     coarse = tuple(cell for cell in cells if cell.stage == "coarse")
     refinement = tuple(cell for cell in cells if cell.stage == "refinement")
@@ -5627,7 +5627,7 @@ def cmd_run_wave(
     force: bool,
 ) -> dict[str, Any]:
     if _is_coldstart(config):
-        raise RuntimeError("Cold-start waves are owned by run-all to preserve recovery barriers")
+        raise RuntimeError("Cold-start has no wave barriers; use run-all dynamic scheduling")
     _require_calibration_gate(
         config,
         output_root,
@@ -5744,23 +5744,28 @@ def cmd_run_dynamic(
     force: bool,
     retry_incomplete: bool,
 ) -> dict[str, Any]:
-    """Run recovery-aware 16-cell waves; every wave is a scheduling barrier only."""
+    """Run one shared recovery-aware queue on 16 fixed GPU slots, without batch barriers."""
 
     if not _is_coldstart(config):
         raise RuntimeError("Dynamic scheduling is frozen for the cold-start profile only")
     _require_calibration_gate(config, output_root, base_model_path=base_model_path)
     _require_liveness_gate(config, output_root, base_model_path=base_model_path)
     cells = build_cells(config)
-    waves = build_waves(config)
     gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
     slots_per_gpu = int(config["execution"]["slots_per_gpu"])
     slot_count = len(gpu_ids) * slots_per_gpu
     if slot_count != int(config["execution"]["max_concurrent_cells"]) or slot_count != 16:
         raise RuntimeError("Declared 16-slot capacity is internally inconsistent")
 
+    pending: queue.Queue[Cell] = queue.Queue()
+    for cell in cells:
+        pending.put(cell)
+    stop = threading.Event()
     lock = threading.Lock()
     checkpoint_lock = threading.Lock()
+    task_result_lock = threading.Lock()
     results: list[dict[str, Any]] = []
+    task_results: dict[str, dict[str, Any]] = {}
     event_path = output_root / "scheduler" / "queue_events.jsonl"
     event_path.parent.mkdir(parents=True, exist_ok=True)
     scheduler_run_id = f"queue-{int(time.time())}-{os.getpid()}"
@@ -5776,91 +5781,96 @@ def cmd_run_dynamic(
         with lock:
             append_jsonl(event_path, {"scheduler_run_id": scheduler_run_id, **dict(event)})
 
-    def run_one(cell: Cell, *, wave_index: int, slot: int) -> dict[str, Any]:
-        nonlocal last_checkpoint_count
-        gpu_id = gpu_ids[slot % len(gpu_ids)]
-        cell_root = output_root / "cells" / cell.key
-        manifest_path = cell_root / "cell_manifest.json"
-        reusable_complete = False
-        if manifest_path.is_file():
-            try:
-                reusable_complete = bool(
-                    json.loads(manifest_path.read_text(encoding="utf-8")).get("complete")
+    def publish_completed_task(task: str) -> None:
+        with task_result_lock:
+            if task in task_results:
+                return
+            rows = _coldstart_completed_task_rows(config, output_root, task)
+            if rows is not None:
+                task_results[task] = _write_coldstart_task_result(
+                    config,
+                    output_root,
+                    task,
+                    rows,
                 )
-            except (OSError, json.JSONDecodeError):
-                reusable_complete = False
-        child_force = force or (retry_incomplete and cell_root.exists() and not reusable_complete)
-        record(
-            {
-                "event": "start",
-                "wave": wave_index,
-                "cell_key": cell.key,
-                "slot": slot,
-                "gpu_id": gpu_id,
-                "unix_time": time.time(),
-                "retry_incomplete": child_force and not force,
-            }
-        )
-        result = _run_subprocess_cell(
-            config_path=config_path.resolve(),
-            output_root=output_root.resolve(),
-            base_model_path=base_model_path,
-            cell=cell,
-            gpu_id=gpu_id,
-            force=child_force,
-        )
-        if int(result["returncode"]) == 0 and recovery_package is not None:
-            try:
-                with checkpoint_lock:
-                    current_reusable, _ = _reusable_cell_manifests(config, output_root)
-                    completed_count = len(current_reusable)
-                    if completed_count >= last_checkpoint_count + recovery_interval:
-                        checkpoint = _publish_recovery_checkpoint(
-                            config,
-                            output_root,
-                            package_output=recovery_package,
-                        )
-                        last_checkpoint_count = int(checkpoint["completed_cells"])
-                        result["recovery_checkpoint"] = checkpoint["package"]
-                        result["recovery_checkpoint_completed_cells"] = last_checkpoint_count
-            except Exception as exc:
-                result["returncode"] = 74
-                result["recovery_checkpoint_error"] = f"{type(exc).__name__}: {exc}"
-        result.update({"wave": wave_index, "slot": slot})
-        record({"event": "finish", **result, "unix_time": time.time()})
-        return result
 
-    wave_records: list[dict[str, Any]] = []
-    task_results: dict[str, dict[str, Any]] = {}
-    stopped = False
-    for wave_index, wave in enumerate(waves, start=1):
-        wave_results: list[dict[str, Any]] = []
-        with ThreadPoolExecutor(max_workers=len(wave)) as executor:
-            futures = [
-                executor.submit(run_one, cell, wave_index=wave_index, slot=slot)
-                for slot, cell in enumerate(wave)
-            ]
-            for future in as_completed(futures):
-                wave_results.append(future.result())
-        wave_results.sort(key=lambda row: str(row["cell_key"]))
-        results.extend(wave_results)
-        failures = [row for row in wave_results if int(row["returncode"]) != 0]
-        task_results = _materialize_completed_coldstart_task_results(config, output_root)
-        wave_records.append(
-            {
-                "wave": wave_index,
-                "expected_cells": len(wave),
-                "returned_cells": len(wave_results),
-                "failed_cells": [row["cell_key"] for row in failures],
-                "complete": not failures and len(wave_results) == len(wave),
-                "scheduling_barrier": True,
-                "scientific_result_gate": False,
-                "analysis_ready_tasks": sorted(task_results),
-            }
-        )
-        if failures or len(wave_results) != len(wave):
-            stopped = True
-            break
+    def worker(slot: int, gpu_id: int) -> list[dict[str, Any]]:
+        nonlocal last_checkpoint_count
+        local: list[dict[str, Any]] = []
+        while not stop.is_set():
+            try:
+                cell = pending.get_nowait()
+            except queue.Empty:
+                break
+            cell_root = output_root / "cells" / cell.key
+            manifest_path = cell_root / "cell_manifest.json"
+            reusable_complete = False
+            if manifest_path.is_file():
+                try:
+                    reusable_complete = bool(
+                        json.loads(manifest_path.read_text(encoding="utf-8")).get("complete")
+                    )
+                except (OSError, json.JSONDecodeError):
+                    reusable_complete = False
+            child_force = force or (
+                retry_incomplete and cell_root.exists() and not reusable_complete
+            )
+            record(
+                {
+                    "event": "start",
+                    "cell_key": cell.key,
+                    "slot": slot,
+                    "gpu_id": gpu_id,
+                    "unix_time": time.time(),
+                    "retry_incomplete": child_force and not force,
+                }
+            )
+            result = _run_subprocess_cell(
+                config_path=config_path.resolve(),
+                output_root=output_root.resolve(),
+                base_model_path=base_model_path,
+                cell=cell,
+                gpu_id=gpu_id,
+                force=child_force,
+            )
+            if int(result["returncode"]) == 0 and recovery_package is not None:
+                try:
+                    with checkpoint_lock:
+                        current_reusable, _ = _reusable_cell_manifests(config, output_root)
+                        completed_count = len(current_reusable)
+                        if completed_count >= last_checkpoint_count + recovery_interval:
+                            checkpoint = _publish_recovery_checkpoint(
+                                config,
+                                output_root,
+                                package_output=recovery_package,
+                            )
+                            last_checkpoint_count = int(checkpoint["completed_cells"])
+                            result["recovery_checkpoint"] = checkpoint["package"]
+                            result["recovery_checkpoint_completed_cells"] = last_checkpoint_count
+                except Exception as exc:
+                    result["returncode"] = 74
+                    result["recovery_checkpoint_error"] = f"{type(exc).__name__}: {exc}"
+            result.update({"slot": slot, "nominal_batch": cells.index(cell) // slot_count + 1})
+            local.append(result)
+            record({"event": "finish", **result, "unix_time": time.time()})
+            pending.task_done()
+            if int(result["returncode"]) != 0:
+                stop.set()
+            else:
+                try:
+                    publish_completed_task(cell.task)
+                except Exception:
+                    stop.set()
+                    raise
+        return local
+
+    with ThreadPoolExecutor(max_workers=slot_count) as executor:
+        futures = [
+            executor.submit(worker, slot, gpu_ids[slot % len(gpu_ids)])
+            for slot in range(slot_count)
+        ]
+        for future in as_completed(futures):
+            results.extend(future.result())
 
     results.sort(key=lambda row: str(row["cell_key"]))
     failures = [row for row in results if int(row["returncode"]) != 0]
@@ -5871,7 +5881,7 @@ def cmd_run_dynamic(
         config,
         output_root,
         destination=output_root / "scheduler" / "countdown_protocol_diagnostic.json",
-    ) if not stopped and not unscheduled else {
+    ) if not failures and not unscheduled else {
         "status": "PENDING",
         "result_gate": False,
         "controls_task_transfer_release": False,
@@ -5881,12 +5891,12 @@ def cmd_run_dynamic(
         "experiment_id": experiment_id(config),
         "scheduler": "dynamic_slot_queue",
         "scheduler_run_id": scheduler_run_id,
-        "wave_barriers": True,
-        "wave_count": len(waves),
+        "wave_barriers": False,
+        "wave_count": len(build_waves(config)),
+        "wave_count_role": "nominal_audit_geometry_only_not_scheduling_barrier",
         "slot_count": slot_count,
         "gpu_ids": list(gpu_ids),
         "slots_per_gpu": slots_per_gpu,
-        "waves": wave_records,
         "countdown_protocol_diagnostic": protocol_diagnostic,
         "countdown_result_controls_transfer_release": False,
         "expected_cells": len(cells),
@@ -6132,7 +6142,7 @@ def _materialize_completed_coldstart_task_results(
     config: Mapping[str, Any],
     output_root: Path,
 ) -> dict[str, dict[str, Any]]:
-    """Publish every fully complete task after the current hard wave barrier."""
+    """Publish every fully complete task independently of nominal-batch boundaries."""
 
     ready: dict[str, dict[str, Any]] = {}
     for task_value in config["suite"]["tasks"]:
@@ -7185,7 +7195,6 @@ def _audit_engineering_queue(
     maximum_by_gpu = dict(active_by_gpu)
     starts: dict[str, float] = {}
     finishes: dict[str, float] = {}
-    waves_by_cell: dict[str, int] = {}
     for event in events:
         gpu_id = int(event["gpu_id"])
         cell_key = str(event["cell_key"])
@@ -7193,7 +7202,6 @@ def _audit_engineering_queue(
             active_by_gpu[gpu_id] += 1
             maximum_by_gpu[gpu_id] = max(maximum_by_gpu[gpu_id], active_by_gpu[gpu_id])
             starts[cell_key] = float(event["unix_time"])
-            waves_by_cell[cell_key] = int(event["wave"])
         elif event["event"] == "finish":
             active_by_gpu[gpu_id] -= 1
             finishes[cell_key] = float(event["unix_time"])
@@ -7203,19 +7211,21 @@ def _audit_engineering_queue(
     slots_per_gpu = int(config["execution"]["slots_per_gpu"])
     if any(value != 0 for value in active_by_gpu.values()) or max(maximum_by_gpu.values()) > slots_per_gpu:
         raise RuntimeError("Engineering queue exceeded the declared per-GPU capacity")
-    waves = build_waves(config)
-    for wave_index in range(1, len(waves)):
-        current_keys = {cell.key for cell in waves[wave_index - 1]}
-        next_keys = {cell.key for cell in waves[wave_index]}
-        if min(starts[key] for key in next_keys) < max(finishes[key] for key in current_keys):
-            raise RuntimeError(f"Wave {wave_index + 1} started before wave {wave_index} finished")
-    if set(waves_by_cell.values()) != set(range(1, len(waves) + 1)):
-        raise RuntimeError("Engineering queue did not record the exact wave identities")
+    slot_count = int(config["execution"]["max_concurrent_cells"])
+    initial_keys = {cell.key for cell in cells[:slot_count]}
+    replacement_keys = {cell.key for cell in cells[slot_count:]}
+    if not replacement_keys:
+        raise RuntimeError("Engineering queue requires replacement cells to audit dynamic refill")
+    if min(starts[key] for key in replacement_keys) >= max(
+        finishes[key] for key in initial_keys
+    ):
+        raise RuntimeError("Engineering queue did not refill before the initial 16 cells finished")
     return {
         "all_cells_observed": True,
         "maximum_active_by_gpu": maximum_by_gpu,
-        "wave_barriers_respected": True,
-        "wave_count": len(waves),
+        "dynamic_refill_observed": True,
+        "nominal_batch_barrier_absent": True,
+        "nominal_batch_count": len(build_waves(config)),
         "slots_per_gpu": slots_per_gpu,
     }
 

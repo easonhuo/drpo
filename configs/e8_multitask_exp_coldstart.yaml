@@ -282,7 +282,7 @@ execution:
   slots_per_gpu: 2
   expected_waves: 13
   scheduler: dynamic_slot_queue
-  wave_barriers: true
+  wave_barriers: false
   identity_checked_resume: true
   retry_incomplete_requires_explicit_flag: true
   fail_closed: true
