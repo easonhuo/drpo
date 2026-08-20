@@ -185,7 +185,9 @@ fi
 CURRENT_STAGE="verify_selected_origin"
 origin_url="$(git -C "${SOURCE_REPO}" remote get-url "${SOURCE_REMOTE}")"
 is_canonical_origin "${origin_url}" || fail "selected checkout does not have canonical origin"
-SOURCE_COMMIT="$(git -C "${SOURCE_REPO}" rev-parse HEAD^{commit})"
+CURRENT_STAGE="verify_selected_source_commit"
+SOURCE_COMMIT="$(git -C "${SOURCE_REPO}" rev-parse 'HEAD^{commit}')" || \
+  fail "selected checkout HEAD is not a commit"
 [[ "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "selected checkout HEAD is not a full SHA"
 
 if [[ "${MODE}" == "full" ]]; then
@@ -213,6 +215,7 @@ else
     fail "fetch/authoritative-ref mismatch for ${TARGET_REF}"
 fi
 
+CURRENT_STAGE="verify_full_source_identity"
 if [[ "${MODE}" == "full" && "${SOURCE_COMMIT}" != "${TARGET_COMMIT}" ]]; then
   fail "full mode refuses source commit switching: selected checkout HEAD ${SOURCE_COMMIT} != authoritative main ${TARGET_COMMIT}"
 fi
