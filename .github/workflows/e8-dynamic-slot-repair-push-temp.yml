@@ -31,9 +31,10 @@ jobs:
               configs/e8_multitask_exp_coldstart.yaml \
               tests/test_e8_multitask_p0.py; then
             python - <<'PY'
-          from pathlib import Path
+          import subprocess
 
-          workflow = Path('.github/workflows/e8-dynamic-slot-repair-run-temp.yml').read_text(encoding='utf-8')
+          OLD_PATCHER_BLOB = 'c009d394717b65e8d9e251885f8f08ada59ea7b6'
+          workflow = subprocess.check_output(['git', 'show', OLD_PATCHER_BLOB], text=True)
           start_marker = "          python - <<'PY'\n"
           start = workflow.index(start_marker) + len(start_marker)
           end = workflow.index("          PY\n", start)
