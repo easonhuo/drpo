@@ -37,6 +37,7 @@ jobs:
             src/drpo/e8_multitask_exp_tuning.py \
             configs/e8_multitask_exp_coldstart.yaml \
             tests/test_e8_multitask_p0.py
+          git fetch --no-tags origin dev/e8-dynamic-slot-repair-work-20260820:refs/remotes/origin/dev/e8-dynamic-slot-repair-work-20260820
           git show "$OLD_PATCHER_BLOB" > /tmp/patcher.yml
           python - <<'PY'
           from pathlib import Path
