@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - audit/e8-dynamic-refill-restore-20260820
+  pull_request:
+    branches:
+      - dev/e8-multitask-exp-coldstart-01
 
 permissions:
   contents: write
@@ -104,6 +107,7 @@ jobs:
           done
 
       - name: Commit validated materialized tree
+        if: github.event_name == 'push'
         shell: bash
         run: |
           set -euo pipefail
