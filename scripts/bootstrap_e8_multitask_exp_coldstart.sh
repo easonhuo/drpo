@@ -58,6 +58,7 @@ write_state() {
     printf 'stage=%q\n' "${CURRENT_STAGE}"
     printf 'source_repo=%q\n' "${SOURCE_REPO:-}"
     printf 'source_remote=%q\n' "${SOURCE_REMOTE:-}"
+    printf 'source_commit=%q\n' "${SOURCE_COMMIT:-}"
     printf 'target_ref=%q\n' "${TARGET_REF:-}"
     printf 'target_commit=%q\n' "${TARGET_COMMIT:-}"
     printf 'checkout=%q\n' "${CHECKOUT}"
@@ -184,6 +185,8 @@ fi
 CURRENT_STAGE="verify_selected_origin"
 origin_url="$(git -C "${SOURCE_REPO}" remote get-url "${SOURCE_REMOTE}")"
 is_canonical_origin "${origin_url}" || fail "selected checkout does not have canonical origin"
+SOURCE_COMMIT="$(git -C "${SOURCE_REPO}" rev-parse HEAD^{commit})"
+[[ "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "selected checkout HEAD is not a full SHA"
 
 if [[ "${MODE}" == "full" ]]; then
   TARGET_REF="refs/heads/main"
@@ -210,6 +213,10 @@ else
     fail "fetch/authoritative-ref mismatch for ${TARGET_REF}"
 fi
 
+if [[ "${MODE}" == "full" && "${SOURCE_COMMIT}" != "${TARGET_COMMIT}" ]]; then
+  fail "full mode refuses source commit switching: selected checkout HEAD ${SOURCE_COMMIT} != authoritative main ${TARGET_COMMIT}"
+fi
+
 CURRENT_STAGE="create_isolated_worktree"
 if [[ "${RESUME_BOOTSTRAP}" -eq 0 ]]; then
   git -C "${SOURCE_REPO}" worktree add --detach "${CHECKOUT}" "${TARGET_COMMIT}"
@@ -234,6 +241,7 @@ CURRENT_STAGE="complete"
 BOOTSTRAP_STATUS="complete"
 write_state "${BOOTSTRAP_STATUS}"
 echo "BOOTSTRAP_SOURCE_REPO=${SOURCE_REPO}"
+echo "BOOTSTRAP_SOURCE_COMMIT=${SOURCE_COMMIT}"
 echo "BOOTSTRAP_CHECKOUT=${CHECKOUT}"
 echo "BOOTSTRAP_TARGET_COMMIT=${TARGET_COMMIT}"
 echo "BOOTSTRAP_STATE=${STATE_FILE}"
