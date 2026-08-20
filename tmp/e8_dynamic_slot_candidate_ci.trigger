@@ -1,1 +1,1 @@
-trigger validator-base exact candidate 2026-08-20T09:42Z
+trigger validator-base exact candidate 2026-08-20T10:15Z
