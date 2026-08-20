@@ -136,6 +136,18 @@ jobs:
           assert before == after, "YAML changed outside execution.wave_barriers"
           PY
 
+      - name: Show exact materialized dynamic scheduler
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          text = Path("src/drpo/e8_multitask_exp_tuning.py").read_text(encoding="utf-8")
+          start = text.index("def cmd_run_dynamic(")
+          end = text.index("\ndef _coldstart_completed_task_rows", start)
+          print(text[start:end])
+          PY
+
       - name: Install project and dev dependencies
         run: python -m pip install -e '.[dev]'
 
