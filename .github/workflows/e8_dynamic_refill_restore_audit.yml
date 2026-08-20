@@ -20,22 +20,27 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Reconstruct frozen three-file patch
+      - name: Reconstruct frozen reviewed patch v2
         shell: bash
         run: |
           set -euo pipefail
-          cat .drpo_audit/e8_dynamic_refill_patch.part*.b64 | tr -d '\n' | base64 -d > /tmp/update.patch
-          sha256sum /tmp/update.patch
+          cat .drpo_audit/patchv2.part*.b64 | tr -d '\n' | base64 -d > /tmp/update.patch
+          echo "ce24ea20a09b48646635e6e7c60e02b72ab44bc82cf2f7fa03e5a73c0528aa28  /tmp/update.patch" | sha256sum -c -
 
-      - name: Exact BASE checkout and scope gate
+      - name: Exact BASE checkout and three-file scope gate
         shell: bash
         run: |
           set -euo pipefail
           BASE=4b7c991cd8797412830cb34f76dfe35cc09eb90f
+          INCLUDES=(
+            --include=configs/e8_multitask_exp_coldstart.yaml
+            --include=src/drpo/e8_multitask_exp_tuning.py
+            --include=tests/test_e8_multitask_p0.py
+          )
           git worktree add --detach /tmp/drpo-base "$BASE"
           cd /tmp/drpo-base
-          git apply --check /tmp/update.patch
-          git apply /tmp/update.patch
+          git apply --check "${INCLUDES[@]}" /tmp/update.patch
+          git apply "${INCLUDES[@]}" /tmp/update.patch
           git add -A
           printf '%s\n' \
             configs/e8_multitask_exp_coldstart.yaml \
@@ -47,13 +52,18 @@ jobs:
           EXPECTED_TREE="$(git write-tree)"
           echo "EXPECTED_TREE=$EXPECTED_TREE" >> "$GITHUB_ENV"
 
-      - name: Apply exact patch to staging tree
+      - name: Apply exact three-file subset to staging tree
         shell: bash
         run: |
           set -euo pipefail
           BASE=4b7c991cd8797412830cb34f76dfe35cc09eb90f
-          git apply --check /tmp/update.patch
-          git apply /tmp/update.patch
+          INCLUDES=(
+            --include=configs/e8_multitask_exp_coldstart.yaml
+            --include=src/drpo/e8_multitask_exp_tuning.py
+            --include=tests/test_e8_multitask_p0.py
+          )
+          git apply --check "${INCLUDES[@]}" /tmp/update.patch
+          git apply "${INCLUDES[@]}" /tmp/update.patch
           rm -rf .drpo_audit
           rm -f .github/workflows/e8_dynamic_refill_restore_audit.yml
           git add -A
