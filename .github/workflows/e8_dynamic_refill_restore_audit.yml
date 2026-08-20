@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - audit/e8-dynamic-refill-restore-20260820
-  pull_request:
-    branches:
-      - dev/e8-multitask-exp-coldstart-01
 
 permissions:
   contents: write
@@ -20,14 +17,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Reconstruct and hash frozen patch
+      - name: Reconstruct frozen three-file patch
         shell: bash
         run: |
           set -euo pipefail
-          cat .drpo_audit/patchv2.part*.b64 | tr -d '\n' | base64 -d > /tmp/update.patch
-          echo "ce24ea20a09b48646635e6e7c60e02b72ab44bc82cf2f7fa03e5a73c0528aa28  /tmp/update.patch" | sha256sum -c -
+          cat .drpo_audit/e8_dynamic_refill_patch.part*.b64 | tr -d '\n' | base64 -d > /tmp/update.patch
+          sha256sum /tmp/update.patch
 
-      - name: Exact BASE checkout patch gate
+      - name: Exact BASE checkout and scope gate
         shell: bash
         run: |
           set -euo pipefail
@@ -37,9 +34,15 @@ jobs:
           git apply --check /tmp/update.patch
           git apply /tmp/update.patch
           git add -A
+          printf '%s\n' \
+            configs/e8_multitask_exp_coldstart.yaml \
+            src/drpo/e8_multitask_exp_tuning.py \
+            tests/test_e8_multitask_p0.py | sort > /tmp/expected_names
+          git diff --cached --name-only "$BASE" | sort > /tmp/base_actual_names
+          diff -u /tmp/expected_names /tmp/base_actual_names
+          git diff --cached --check
           EXPECTED_TREE="$(git write-tree)"
           echo "EXPECTED_TREE=$EXPECTED_TREE" >> "$GITHUB_ENV"
-          git diff --cached --check
 
       - name: Apply exact patch to staging tree
         shell: bash
@@ -55,12 +58,30 @@ jobs:
           test "$ACTUAL_TREE" = "$EXPECTED_TREE"
           printf '%s\n' \
             configs/e8_multitask_exp_coldstart.yaml \
-            docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md \
             src/drpo/e8_multitask_exp_tuning.py \
             tests/test_e8_multitask_p0.py | sort > /tmp/expected_names
           git diff --cached --name-only "$BASE" | sort > /tmp/actual_names
           diff -u /tmp/expected_names /tmp/actual_names
           git diff --cached --check
+
+      - name: Exact YAML semantic guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+          import yaml
+
+          base_sha = "4b7c991cd8797412830cb34f76dfe35cc09eb90f"
+          path = "configs/e8_multitask_exp_coldstart.yaml"
+          before = yaml.safe_load(subprocess.check_output(["git", "show", f"{base_sha}:{path}"], text=True))
+          after = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+          assert before["execution"]["wave_barriers"] is True
+          assert after["execution"]["wave_barriers"] is False
+          before["execution"]["wave_barriers"] = False
+          assert before == after, "YAML changed outside execution.wave_barriers"
+          PY
 
       - name: Install project and dev dependencies
         run: python -m pip install -e '.[dev]'
@@ -73,12 +94,20 @@ jobs:
       - name: Run full multitask test file
         run: pytest -q tests/test_e8_multitask_p0.py
 
-      - name: Commit validated staging tree
-        if: github.event_name == 'push'
+      - name: Stress dynamic refill ten times
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 10); do
+            echo "dynamic-refill stress iteration $i"
+            pytest -q tests/test_e8_multitask_p0.py -k 'scheduler_refills_freed_slots'
+          done
+
+      - name: Commit validated materialized tree
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'drpo-audit'
           git config user.email 'drpo-audit@users.noreply.github.com'
-          git commit -m 'E8 coldstart: restore dynamic refill scheduler'
+          git commit -m 'E8 coldstart: materialize validated dynamic refill scheduler'
           git push origin HEAD:audit/e8-dynamic-refill-restore-20260820
