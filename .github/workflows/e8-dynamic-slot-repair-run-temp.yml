@@ -24,557 +24,50 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Apply scheduler-only repair from exact base
+      - name: Apply corrected scheduler-only patcher
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
-          from pathlib import Path
           import subprocess
 
-          BASE = "4b7c991cd8797412830cb34f76dfe35cc09eb90f"
-          SOURCE_BLOB = "b88d397775120b34a629302d3d92b9b4fc740278"
-          CONFIG_BLOB = "034a0c37a3893602a824a7180d858aa56b9114ce"
-          TEST_BLOB = "0cb9125482c682e481734fecc5a4226ffcbfa309"
-          source_path = Path("src/drpo/e8_multitask_exp_tuning.py")
-          config_path = Path("configs/e8_multitask_exp_coldstart.yaml")
-          test_path = Path("tests/test_e8_multitask_p0.py")
-
-          def blob(path: Path) -> str:
-              return subprocess.check_output(["git", "hash-object", str(path)], text=True).strip()
-
-          assert blob(source_path) == SOURCE_BLOB, (source_path, blob(source_path))
-          assert blob(config_path) == CONFIG_BLOB, (config_path, blob(config_path))
-          assert blob(test_path) == TEST_BLOB, (test_path, blob(test_path))
-
-          def replace_once(text: str, old: str, new: str, label: str) -> str:
-              count = text.count(old)
-              if count != 1:
-                  raise RuntimeError(f"{label}: expected exactly one match, found {count}")
-              return text.replace(old, new, 1)
-
-          def replace_function(text: str, name: str, next_name: str, replacement: str) -> str:
-              start = text.index(f"def {name}(")
-              end = text.index(f"\ndef {next_name}(", start)
-              return text[:start] + replacement.rstrip() + "\n\n" + text[end + 1:]
-
-          source = source_path.read_text(encoding="utf-8")
-          source = replace_once(
-              source,
-              '    if _is_coldstart(config) and (\n'
-              '        not bool(execution.get("wave_barriers", False))\n',
-              '    if _is_coldstart(config) and (\n'
-              '        bool(execution.get("wave_barriers", True))\n',
-              "coldstart wave-barrier contract",
-          )
-          source = replace_once(
-              source,
-              '            f"The frozen topology is two slots per GPU and {expected_waves} waves"\n',
-              '            f"The frozen topology is two slots per GPU and {expected_waves} nominal batches"\n',
-              "topology wording",
-          )
-          source = replace_once(
-              source,
-              '            raise AssertionError("Cold-start geometry must be 13 exact 16-cell scheduling waves")\n',
-              '            raise AssertionError("Cold-start geometry must be 13 exact nominal 16-cell batches")\n',
-              "nominal geometry wording",
-          )
-          source = replace_once(
-              source,
-              '        raise RuntimeError("Cold-start waves are owned by run-all to preserve recovery barriers")\n',
-              '        raise RuntimeError("Cold-start has no wave barriers; use run-all dynamic scheduling")\n',
-              "coldstart run-wave guard",
-          )
-
-          dynamic = '''def cmd_run_dynamic(
-              config: Mapping[str, Any],
-              config_path: Path,
-              output_root: Path,
-              *,
-              base_model_path: str,
-              force: bool,
-              retry_incomplete: bool,
-          ) -> dict[str, Any]:
-              """Run one recovery-aware shared queue on 16 fixed GPU slots."""
-
-              if not _is_coldstart(config):
-                  raise RuntimeError("Dynamic scheduling is frozen for the cold-start profile only")
-              _require_calibration_gate(config, output_root, base_model_path=base_model_path)
-              _require_liveness_gate(config, output_root, base_model_path=base_model_path)
-              cells = build_cells(config)
-              nominal_batches = build_waves(config)
-              gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
-              slots_per_gpu = int(config["execution"]["slots_per_gpu"])
-              slot_count = len(gpu_ids) * slots_per_gpu
-              if slot_count != int(config["execution"]["max_concurrent_cells"]) or slot_count != 16:
-                  raise RuntimeError("Declared 16-slot capacity is internally inconsistent")
-
-              pending: queue.Queue[Cell] = queue.Queue()
-              for cell in cells:
-                  pending.put(cell)
-              stop = threading.Event()
-              lock = threading.Lock()
-              checkpoint_lock = threading.Lock()
-              task_result_lock = threading.Lock()
-              results: list[dict[str, Any]] = []
-              task_results: dict[str, dict[str, Any]] = {}
-              scheduler_errors: list[dict[str, str]] = []
-              event_path = output_root / "scheduler" / "queue_events.jsonl"
-              event_path.parent.mkdir(parents=True, exist_ok=True)
-              scheduler_run_id = f"queue-{int(time.time())}-{os.getpid()}"
-              recovery_package_value = os.environ.get("E8_COLDSTART_RECOVERY_PACKAGE", "").strip()
-              recovery_package = Path(recovery_package_value).resolve() if recovery_package_value else None
-              recovery_interval = int(os.environ.get("E8_COLDSTART_RECOVERY_INTERVAL_CELLS", "5"))
-              if recovery_interval <= 0:
-                  raise ValueError("E8_COLDSTART_RECOVERY_INTERVAL_CELLS must be positive")
-              initially_reusable, _ = _reusable_cell_manifests(config, output_root)
-              last_checkpoint_count = (len(initially_reusable) // recovery_interval) * recovery_interval
-              cell_positions = {cell.key: index for index, cell in enumerate(cells)}
-
-              def record(event: Mapping[str, Any]) -> None:
-                  with lock:
-                      append_jsonl(event_path, {"scheduler_run_id": scheduler_run_id, **dict(event)})
-
-              def publish_completed_task(task: str) -> None:
-                  try:
-                      with task_result_lock:
-                          if task in task_results:
-                              return
-                          rows = _coldstart_completed_task_rows(config, output_root, task)
-                          if rows is not None:
-                              task_results[task] = _write_coldstart_task_result(
-                                  config,
-                                  output_root,
-                                  task,
-                                  rows,
-                              )
-                  except Exception as exc:
-                      with lock:
-                          scheduler_errors.append(
-                              {
-                                  "stage": "task_result_publication",
-                                  "task": task,
-                                  "error": f"{type(exc).__name__}: {exc}",
-                              }
-                          )
-                      stop.set()
-
-              def worker(slot: int, gpu_id: int) -> list[dict[str, Any]]:
-                  nonlocal last_checkpoint_count
-                  local: list[dict[str, Any]] = []
-                  while not stop.is_set():
-                      try:
-                          cell = pending.get_nowait()
-                      except queue.Empty:
-                          break
-                      nominal_batch = cell_positions[cell.key] // slot_count + 1
-                      cell_root = output_root / "cells" / cell.key
-                      manifest_path = cell_root / "cell_manifest.json"
-                      reusable_complete = False
-                      if manifest_path.is_file():
-                          try:
-                              reusable_complete = bool(
-                                  json.loads(manifest_path.read_text(encoding="utf-8")).get("complete")
-                              )
-                          except (OSError, json.JSONDecodeError):
-                              reusable_complete = False
-                      child_force = force or (
-                          retry_incomplete and cell_root.exists() and not reusable_complete
-                      )
-                      record(
-                          {
-                              "event": "start",
-                              "cell_key": cell.key,
-                              "slot": slot,
-                              "gpu_id": gpu_id,
-                              "nominal_batch": nominal_batch,
-                              "unix_time": time.time(),
-                              "retry_incomplete": child_force and not force,
-                          }
-                      )
-                      result = _run_subprocess_cell(
-                          config_path=config_path.resolve(),
-                          output_root=output_root.resolve(),
-                          base_model_path=base_model_path,
-                          cell=cell,
-                          gpu_id=gpu_id,
-                          force=child_force,
-                      )
-                      if int(result["returncode"]) == 0 and recovery_package is not None:
-                          try:
-                              with checkpoint_lock:
-                                  current_reusable, _ = _reusable_cell_manifests(config, output_root)
-                                  completed_count = len(current_reusable)
-                                  if completed_count >= last_checkpoint_count + recovery_interval:
-                                      checkpoint = _publish_recovery_checkpoint(
-                                          config,
-                                          output_root,
-                                          package_output=recovery_package,
-                                      )
-                                      last_checkpoint_count = int(checkpoint["completed_cells"])
-                                      result["recovery_checkpoint"] = checkpoint["package"]
-                                      result["recovery_checkpoint_completed_cells"] = last_checkpoint_count
-                          except Exception as exc:
-                              result["returncode"] = 74
-                              result["recovery_checkpoint_error"] = f"{type(exc).__name__}: {exc}"
-                      result.update({"slot": slot, "nominal_batch": nominal_batch})
-                      local.append(result)
-                      record({"event": "finish", **result, "unix_time": time.time()})
-                      pending.task_done()
-                      if int(result["returncode"]) != 0:
-                          stop.set()
-                          break
-                      publish_completed_task(cell.task)
-                  return local
-
-              with ThreadPoolExecutor(max_workers=slot_count) as executor:
-                  futures = [
-                      executor.submit(worker, slot, gpu_ids[slot % len(gpu_ids)])
-                      for slot in range(slot_count)
-                  ]
-                  for future in as_completed(futures):
-                      results.extend(future.result())
-
-              results.sort(key=lambda row: str(row["cell_key"]))
-              failures = [row for row in results if int(row["returncode"]) != 0]
-              returned_keys = {str(row["cell_key"]) for row in results}
-              completed_keys = {
-                  str(row["cell_key"]) for row in results if int(row["returncode"]) == 0
-              }
-              unscheduled = [cell.key for cell in cells if cell.key not in returned_keys]
-              result_by_key = {str(row["cell_key"]): row for row in results}
-              nominal_records: list[dict[str, Any]] = []
-              for batch_index, batch in enumerate(nominal_batches, start=1):
-                  batch_results = [
-                      result_by_key[cell.key] for cell in batch if cell.key in result_by_key
-                  ]
-                  batch_failures = [
-                      row for row in batch_results if int(row["returncode"]) != 0
-                  ]
-                  nominal_records.append(
-                      {
-                          "wave": batch_index,
-                          "expected_cells": len(batch),
-                          "returned_cells": len(batch_results),
-                          "failed_cells": [row["cell_key"] for row in batch_failures],
-                          "complete": not batch_failures and len(batch_results) == len(batch),
-                          "scheduling_barrier": False,
-                          "scientific_result_gate": False,
-                          "role": "nominal_audit_geometry_only",
-                      }
-                  )
-              run_complete = (
-                  not failures
-                  and not unscheduled
-                  and not scheduler_errors
-                  and len(completed_keys) == len(cells)
-              )
-              protocol_diagnostic = (
-                  _countdown_protocol_diagnostic(
-                      config,
-                      output_root,
-                      destination=output_root / "scheduler" / "countdown_protocol_diagnostic.json",
-                  )
-                  if run_complete
-                  else {
-                      "status": "PENDING",
-                      "result_gate": False,
-                      "controls_task_transfer_release": False,
-                  }
-              )
-              manifest = {
-                  "schema_version": 1,
-                  "experiment_id": experiment_id(config),
-                  "scheduler": "dynamic_slot_queue",
-                  "scheduler_run_id": scheduler_run_id,
-                  "wave_barriers": False,
-                  "wave_count": len(nominal_batches),
-                  "slot_count": slot_count,
-                  "gpu_ids": list(gpu_ids),
-                  "slots_per_gpu": slots_per_gpu,
-                  "waves": nominal_records,
-                  "countdown_protocol_diagnostic": protocol_diagnostic,
-                  "countdown_result_controls_transfer_release": False,
-                  "expected_cells": len(cells),
-                  "completed_cells": len(completed_keys),
-                  "results": results,
-                  "failed_cells": [row["cell_key"] for row in failures],
-                  "unscheduled_cells": unscheduled,
-                  "scheduler_errors": scheduler_errors,
-                  "queue_events": str(event_path.resolve()),
-                  "analysis_ready_tasks": sorted(task_results),
-                  "task_results": task_results,
-                  "complete": run_complete,
-                  "scientific_status": "not_run" if _is_engineering_self_test(config) else "pilot",
-                  "engineering_placeholder_backend": _is_engineering_self_test(config),
-              }
-              atomic_json(output_root / "scheduler" / "dynamic_run.json", manifest)
-              if failures or unscheduled or scheduler_errors:
-                  raise RuntimeError(
-                      "Cold-start dynamic scheduling stopped fail-closed; "
-                      f"failed={manifest['failed_cells']} unscheduled={len(unscheduled)} "
-                      f"scheduler_errors={len(scheduler_errors)}"
-                  )
-              return manifest'''
-          dynamic = "\n".join(
+          OLD_PATCHER_BLOB = 'c009d394717b65e8d9e251885f8f08ada59ea7b6'
+          workflow = subprocess.check_output(['git', 'show', OLD_PATCHER_BLOB], text=True)
+          start_marker = "          python - <<'PY'\n"
+          start = workflow.index(start_marker) + len(start_marker)
+          end = workflow.index("          PY\n", start)
+          body_lines = workflow[start:end].splitlines()
+          script = "\n".join(
+              line[10:] if line.startswith("          ") else line for line in body_lines
+          ) + "\n"
+          bad_dynamic = '''dynamic = "\\n".join(
               line[10:] if line.startswith("          ") else line
               for line in dynamic.splitlines()
           )
-          source = replace_function(source, "cmd_run_dynamic", "cmd_run_all", dynamic)
-          source = replace_once(
-              source,
-              '    """Publish every fully complete task after the current hard wave barrier."""\n',
-              '    """Publish each task as soon as its frozen cell set is complete."""\n',
-              "task-result docstring",
-          )
-
-          audit = '''def _audit_engineering_queue(
-              config: Mapping[str, Any],
-              output_root: Path,
-              scheduler: Mapping[str, Any],
-          ) -> dict[str, Any]:
-              cells = build_cells(config)
-              events = [
-                  json.loads(line)
-                  for line in (output_root / "scheduler" / "queue_events.jsonl")
-                  .read_text(encoding="utf-8")
-                  .splitlines()
-                  if line.strip()
-              ]
-              events = [
-                  row
-                  for row in events
-                  if row["scheduler_run_id"] == scheduler["scheduler_run_id"]
-              ]
-              active_by_gpu = {int(gpu): 0 for gpu in config["execution"]["gpu_ids"]}
-              maximum_by_gpu = dict(active_by_gpu)
-              starts: dict[str, float] = {}
-              finishes: dict[str, float] = {}
-              for event in events:
-                  gpu_id = int(event["gpu_id"])
-                  cell_key = str(event["cell_key"])
-                  if event["event"] == "start":
-                      active_by_gpu[gpu_id] += 1
-                      maximum_by_gpu[gpu_id] = max(
-                          maximum_by_gpu[gpu_id], active_by_gpu[gpu_id]
-                      )
-                      starts[cell_key] = float(event["unix_time"])
-                  elif event["event"] == "finish":
-                      active_by_gpu[gpu_id] -= 1
-                      if active_by_gpu[gpu_id] < 0:
-                          raise RuntimeError(
-                              "Engineering queue observed a finish without an active cell"
-                          )
-                      finishes[cell_key] = float(event["unix_time"])
-              expected_keys = {cell.key for cell in cells}
-              if set(starts) != expected_keys or set(finishes) != expected_keys:
-                  raise RuntimeError(
-                      f"Engineering queue did not observe all {len(cells)} starts/finishes"
-                  )
-              slots_per_gpu = int(config["execution"]["slots_per_gpu"])
-              if (
-                  any(value != 0 for value in active_by_gpu.values())
-                  or max(maximum_by_gpu.values()) > slots_per_gpu
-              ):
-                  raise RuntimeError("Engineering queue exceeded the declared per-GPU capacity")
-              slot_count = int(config["execution"]["max_concurrent_cells"])
-              first_nominal = cells[:slot_count]
-              replacements = cells[slot_count:]
-              first_nominal_finished = max(finishes[cell.key] for cell in first_nominal)
-              first_replacement_started = min(starts[cell.key] for cell in replacements)
-              if first_replacement_started >= first_nominal_finished:
-                  raise RuntimeError(
-                      "Engineering queue did not refill a freed slot before the first nominal batch finished"
-                  )
-              return {
-                  "all_cells_observed": True,
-                  "maximum_active_by_gpu": maximum_by_gpu,
-                  "dynamic_refill_observed": True,
-                  "replacement_started_before_first_nominal_batch_finished": True,
-                  "nominal_batch_count": len(build_waves(config)),
-                  "slots_per_gpu": slots_per_gpu,
-              }'''
-          audit = "\n".join(
+'''
+          bad_audit = '''audit = "\\n".join(
               line[10:] if line.startswith("          ") else line
               for line in audit.splitlines()
           )
-          source = replace_function(
-              source,
-              "_audit_engineering_queue",
-              "cmd_engineering_self_test",
-              audit,
-          )
-          source_path.write_text(source, encoding="utf-8")
-
-          config = config_path.read_text(encoding="utf-8")
-          config = replace_once(
-              config,
-              "  wave_barriers: true\n",
-              "  wave_barriers: false\n",
-              "config wave barrier",
-          )
-          config_path.write_text(config, encoding="utf-8")
-
-          tests = test_path.read_text(encoding="utf-8")
-          tests = replace_once(
-              tests,
-              "def test_exp_coldstart_matrix_is_208_cells_in_13_hard_waves() -> None:\n",
-              "def test_exp_coldstart_matrix_is_208_cells_in_13_nominal_batches() -> None:\n",
-              "matrix test name",
-          )
-          tests = replace_once(
-              tests,
-              '    assert config["execution"]["wave_barriers"] is True\n',
-              '    assert config["execution"]["wave_barriers"] is False\n',
-              "matrix wave-barrier assertion",
-          )
-
-          scheduler_start = tests.index(
-              "def test_exp_coldstart_scheduler_enforces_wave_barriers_and_two_slots_per_gpu("
-          )
-          scheduler_end = tests.index(
-              "\ndef test_exp_coldstart_aggregate_does_not_filter_by_terminal_valid_rate(",
-              scheduler_start,
-          )
-          scheduler_test = '''def test_exp_coldstart_scheduler_refills_freed_slots_and_caps_two_per_gpu(
-              monkeypatch: pytest.MonkeyPatch,
-              tmp_path: Path,
-          ) -> None:
-              from drpo import e8_multitask_exp_tuning as exp_tuning
-
-              config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
-              cells = exp_tuning.build_cells(config)
-              monkeypatch.setattr(exp_tuning, "_require_calibration_gate", lambda *args, **kwargs: None)
-              monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)
-              monkeypatch.setattr(
-                  exp_tuning,
-                  "_countdown_protocol_diagnostic",
-                  lambda *args, **kwargs: {
-                      "status": "FAIL",
-                      "result_gate": False,
-                      "controls_task_transfer_release": False,
-                  },
-              )
-              lock = threading.Lock()
-              active: dict[int, int] = {}
-              maximum: dict[int, int] = {}
-              replacement_started = threading.Event()
-              first_cell_released_by_replacement = threading.Event()
-
-              def fake_run(**kwargs: object) -> dict[str, object]:
-                  cell = kwargs["cell"]
-                  gpu_id = int(kwargs["gpu_id"])
-                  with lock:
-                      active[gpu_id] = active.get(gpu_id, 0) + 1
-                      maximum[gpu_id] = max(maximum.get(gpu_id, 0), active[gpu_id])
-                  if cell in cells[16:]:
-                      replacement_started.set()
-                  if cell.key == cells[0].key and replacement_started.wait(timeout=1.0):
-                      first_cell_released_by_replacement.set()
-                  with lock:
-                      active[gpu_id] -= 1
-                  return {
-                      "cell_key": cell.key,
-                      "gpu_id": gpu_id,
-                      "returncode": 0,
-                      "log": "mock.log",
-                      "started_unix": 0.0,
-                      "finished_unix": 1.0,
-                  }
-
-              monkeypatch.setattr(exp_tuning, "_run_subprocess_cell", fake_run)
-              result = exp_tuning.cmd_run_dynamic(
-                  config,
-                  Path("configs/e8_multitask_exp_coldstart.yaml"),
-                  tmp_path,
-                  base_model_path="base-model",
-                  force=False,
-                  retry_incomplete=True,
-              )
-              assert result["complete"]
-              assert result["completed_cells"] == 208
-              assert result["wave_barriers"] is False
-              assert result["wave_count"] == 13
-              assert all(record["scheduling_barrier"] is False for record in result["waves"])
-              assert result["countdown_protocol_diagnostic"]["status"] == "FAIL"
-              assert result["countdown_result_controls_transfer_release"] is False
-              assert first_cell_released_by_replacement.is_set()
-              assert set(maximum) == set(range(8))
-              assert max(maximum.values()) <= 2
-              assert {cell.task for cell in cells[16:32]} != {"countdown"}
-          '''
-          scheduler_test = "\n".join(
+'''
+          bad_scheduler = '''scheduler_test = "\\n".join(
               line[10:] if line.startswith("          ") else line
               for line in scheduler_test.splitlines()
-          ).rstrip() + "\n"
-          tests = (
-              tests[:scheduler_start]
-              + scheduler_test
-              + tests[scheduler_end + 1:]
-          )
-
-          tests = replace_once(
-              tests,
-              "def test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_barriers(\n",
-              "def test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_dynamic_refill(\n",
-              "engineering self-test name",
-          )
-          tests = replace_once(
-              tests,
-              '    assert result["queue_audit"]["wave_barriers_respected"]\n'
-              '    assert result["queue_audit"]["wave_count"] == 13\n',
-              '    assert result["queue_audit"]["dynamic_refill_observed"]\n'
-              '    assert result["queue_audit"]["replacement_started_before_first_nominal_batch_finished"]\n'
-              '    assert result["queue_audit"]["nominal_batch_count"] == 13\n',
-              "engineering queue audit assertions",
-          )
-
-          drift_start = tests.index(
-              "def test_exp_coldstart_rejects_adapter_runtime_or_grid_drift() -> None:"
-          )
-          drift_end = tests.index(
-              "\ndef test_exp_coldstart_imports_locked_kernel_and_forbids_multitask_loader(",
-              drift_start,
-          )
-          drift_block = tests[drift_start:drift_end]
-          drift_anchor = (
-              '    changed = json.loads(json.dumps(config))\n'
-              '    changed["execution"]["slots_per_gpu"] = 1\n'
-              '    with pytest.raises(ValueError, match="two slots"):\n'
-              '        exp_tuning.validate_config(changed)\n'
-          )
-          drift_block = replace_once(
-              drift_block,
-              drift_anchor,
-              drift_anchor
-              + '    changed = json.loads(json.dumps(config))\n'
-              + '    changed["execution"]["wave_barriers"] = True\n'
-              + '    with pytest.raises(ValueError, match="recovery/OOM"):\n'
-              + '        exp_tuning.validate_config(changed)\n',
-              "barrier drift guard",
-          )
-          tests = tests[:drift_start] + drift_block + tests[drift_end:]
-          test_path.write_text(tests, encoding="utf-8")
-
-          changed = set(
-              subprocess.check_output(["git", "diff", "--name-only", BASE], text=True).splitlines()
-          )
-          expected_code = {
-              "src/drpo/e8_multitask_exp_tuning.py",
-              "configs/e8_multitask_exp_coldstart.yaml",
-              "tests/test_e8_multitask_p0.py",
-          }
-          unexpected = {
-              path
-              for path in changed
-              if not path.startswith(".github/workflows/e8-dynamic-slot-repair-")
-              and path not in expected_code
-          }
-          if unexpected:
-              raise RuntimeError(f"unexpected changed files: {sorted(unexpected)}")
+          ).rstrip() + "\\n"
+'''
+          for label, old, new in (
+              ('dynamic', bad_dynamic, ''),
+              ('audit', bad_audit, ''),
+              ('scheduler-test', bad_scheduler, 'scheduler_test = scheduler_test.rstrip() + "\\n"\n'),
+          ):
+              count = script.count(old)
+              if count != 1:
+                  raise RuntimeError(f'{label}: expected one faulty dedent block, found {count}')
+              script = script.replace(old, new, 1)
+          exec(compile(script, '<corrected-dynamic-slot-patcher>', 'exec'), {})
           PY
 
-      - name: Install minimal test dependencies
+      - name: Install minimal dependencies
         run: python -m pip install -q pytest==8.3.5 PyYAML==6.0.2 numpy==1.26.4
 
       - name: Compile and run scheduler regressions
@@ -598,20 +91,15 @@ jobs:
           python - <<'PY'
           import subprocess
           import yaml
-          BASE = "4b7c991cd8797412830cb34f76dfe35cc09eb90f"
-          base = yaml.safe_load(
-              subprocess.check_output(
-                  ["git", "show", f"{BASE}:configs/e8_multitask_exp_coldstart.yaml"],
-                  text=True,
-              )
-          )
-          current = yaml.safe_load(
-              open("configs/e8_multitask_exp_coldstart.yaml", encoding="utf-8")
-          )
-          assert base["execution"]["wave_barriers"] is True
-          assert current["execution"]["wave_barriers"] is False
-          base["execution"]["wave_barriers"] = False
-          assert current == base, "config changed outside execution.wave_barriers"
+          BASE = '4b7c991cd8797412830cb34f76dfe35cc09eb90f'
+          base = yaml.safe_load(subprocess.check_output(
+              ['git', 'show', f'{BASE}:configs/e8_multitask_exp_coldstart.yaml'], text=True
+          ))
+          current = yaml.safe_load(open('configs/e8_multitask_exp_coldstart.yaml', encoding='utf-8'))
+          assert base['execution']['wave_barriers'] is True
+          assert current['execution']['wave_barriers'] is False
+          base['execution']['wave_barriers'] = False
+          assert current == base, 'config changed outside execution.wave_barriers'
           PY
           git diff --check 4b7c991cd8797412830cb34f76dfe35cc09eb90f
 
@@ -619,8 +107,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name "drpo-validation-bot"
-          git config user.email "actions@users.noreply.github.com"
+          git config user.name 'drpo-validation-bot'
+          git config user.email 'actions@users.noreply.github.com'
           git add \
             src/drpo/e8_multitask_exp_tuning.py \
             configs/e8_multitask_exp_coldstart.yaml \
@@ -631,5 +119,5 @@ jobs:
             src/drpo/e8_multitask_exp_tuning.py \
             tests/test_e8_multitask_p0.py | sort > /tmp/expected.txt
           diff -u /tmp/expected.txt /tmp/changed.txt
-          git commit -m "E8 coldstart: restore dynamic slot refill"
+          git commit -m 'E8 coldstart: restore dynamic slot refill'
           git push origin HEAD:dev/e8-dynamic-slot-repair-work-20260820
