@@ -4,13 +4,17 @@ on:
   push:
     branches:
       - dev/e8-dynamic-slot-candidate-ci-20260820
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - dev/e8-multitask-exp-coldstart-01
 
 permissions:
   contents: write
 
 jobs:
   build-test-publish:
-    if: ${{ !contains(github.event.head_commit.message, '[validated candidate]') }}
+    if: ${{ github.event_name == 'pull_request' || !contains(github.event.head_commit.message, '[validated candidate]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
