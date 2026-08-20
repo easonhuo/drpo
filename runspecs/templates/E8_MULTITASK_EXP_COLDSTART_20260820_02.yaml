@@ -1,0 +1,127 @@
+version: 1
+run_id: E8_MULTITASK_EXP_COLDSTART_20260820_02
+lane: e8
+priority: 180
+created_at: "2026-08-20T23:49:00Z"
+experiment_id: EXT-C-E8-MULTITASK-EXP-COLDSTART-01
+repo_commit: 4702c2e97af8df0f26a9e1ceb5a45084cdc1235d
+
+registration:
+  mode: pre_registered
+  closure_required: false
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/e8_multitask_exp_coldstart.yaml
+    - configs/e8_multitask_p0.yaml
+    - requirements/e8_multitask_exp_coldstart.txt
+    - scripts/bootstrap_e8_multitask_exp_coldstart.sh
+    - scripts/run_e8_multitask_exp_coldstart.sh
+    - scripts/run_e8_multitask_p0.sh
+    - scripts/v2_bank_convert.py
+    - src/drpo/e8_multitask_exp_tuning.py
+    - src/drpo/e8_multitask_p0.py
+    - src/drpo/e8_multitask_tasks.py
+    - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_common.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+
+purpose: >-
+  Execute the repaired nine-task E8 cold-start Exp response-shape pilot from
+  implementation freeze 4702c2e97af8df0f26a9e1ceb5a45084cdc1235d. Transfer-task
+  banks preserve the source P0 error-class sequence and span frozen-reference
+  mean-token surprisal within each class. The frozen 208-cell, 1200-update,
+  fresh-LoRA scientific protocol is unchanged. Scheduling uses one shared queue
+  over 16 persistent GPU slots with immediate refill; 13 x 16 is nominal audit
+  geometry only and is not a hard scheduling barrier. No universal best
+  coefficient, improvement, or convergence claim is assumed.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    E8_COLDSTART_RUN_ID=E8_MULTITASK_EXP_COLDSTART_20260820_02
+    E8_COLDSTART_BOOTSTRAP_PARENT=outputs/e8/E8_MULTITASK_EXP_COLDSTART_20260820_02
+    bash scripts/bootstrap_e8_multitask_exp_coldstart.sh full
+
+recovery:
+  enabled: false
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  fixed_profile_only: true
+  generic_config_driven_runtime_forbidden: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  formal_evidence_allowed: false
+
+outputs:
+  runbook: docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md
+  runtime_root: outputs/e8/E8_MULTITASK_EXP_COLDSTART_20260820_02/drpo-e8-coldstart-full/runtime
+
+success_criteria:
+  - RunSpec lane executor remains the top-level governed execution authority
+  - the checked-in RunSpec entrypoint remains scripts/bootstrap_e8_multitask_exp_coldstart.sh full
+  - bootstrap full continues to call the reviewed scripts/run_e8_multitask_exp_coldstart.sh full workload entrypoint
+  - registry contains exactly one EXT-C-E8-MULTITASK-EXP-COLDSTART-01 entry with implementation_state implemented and execution_gate state ready
+  - registry implementation_commit is exactly 4702c2e97af8df0f26a9e1ceb5a45084cdc1235d
+  - registry runspec_id is exactly E8_MULTITASK_EXP_COLDSTART_20260820_02
+  - exactly one READY RunSpec exists for this experiment
+  - protected scientific paths are unchanged after implementation freeze 4702c2e97af8df0f26a9e1ceb5a45084cdc1235d
+  - full bootstrap fails closed rather than switching a selected source checkout to another commit
+  - reference-remoteness calibration records source error-class sequence and within-class frozen-reference surprisal statistics before training
+  - every transfer prompt preserves the source P0 error-class sequence
+  - every selected error class with at least two slots includes its class-local near and far reference-surprisal endpoints
+  - no numerical remoteness-spread threshold is introduced
+  - nine tasks and exactly 208 frozen cells use the existing 1200-update no-early-stop fresh-LoRA protocol
+  - scheduling uses exactly 16 persistent slots over one shared pending queue with immediate refill and no hard wave barrier
+  - 13 x 16 remains nominal audit or recovery geometry only and never becomes a scheduling or scientific gate
+  - current-policy surprisal is recomputed each update for the Exp taper
+  - task-performance degradation, support or structure events, and NaN/Inf numerical failure are reported separately
+  - terminal aggregate and terminal audit complete before scientific interpretation
+  - the completed text-first review package is delivered to drpo-results ingest/e8
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - runspecs/ready/E8_MULTITASK_EXP_COLDSTART_20260820_02.yaml
+    - docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md
+    - outputs/e8/E8_MULTITASK_EXP_COLDSTART_20260820_02/drpo-e8-coldstart-full/BOOTSTRAP_STATE.env
+    - outputs/e8/E8_MULTITASK_EXP_COLDSTART_20260820_02/drpo-e8-coldstart-full/runtime/guard/E8_MULTITASK_EXP_COLDSTART_20260820_02/attempt-*/workload/reference_remoteness/summary.json
+    - outputs/e8/E8_MULTITASK_EXP_COLDSTART_20260820_02/drpo-e8-coldstart-full/runtime/guard/E8_MULTITASK_EXP_COLDSTART_20260820_02/attempt-*/workload/reference_remoteness/*/summary.json
+    - outputs/e8/E8_MULTITASK_EXP_COLDSTART_20260820_02/drpo-e8-coldstart-full/runtime/guard/E8_MULTITASK_EXP_COLDSTART_20260820_02/attempt-*/workload/task_results/*.json
+    - outputs/e8/E8_MULTITASK_EXP_COLDSTART_20260820_02/drpo-e8-coldstart-full/runtime/guard/E8_MULTITASK_EXP_COLDSTART_20260820_02/attempt-*/workload/aggregate/*.csv
+    - outputs/e8/E8_MULTITASK_EXP_COLDSTART_20260820_02/drpo-e8-coldstart-full/runtime/guard/E8_MULTITASK_EXP_COLDSTART_20260820_02/attempt-*/workload/terminal_audit.json
+    - outputs/e8/E8_MULTITASK_EXP_COLDSTART_20260820_02/drpo-e8-coldstart-full/runtime/guard/E8_MULTITASK_EXP_COLDSTART_20260820_02/attempt-*/workload/run_manifest.json
+    - outputs/e8/E8_MULTITASK_EXP_COLDSTART_20260820_02/drpo-e8-coldstart-full/runtime/guard/E8_MULTITASK_EXP_COLDSTART_20260820_02/attempt-*/workload/scientific_run_manifest.json
+    - outputs/e8/E8_MULTITASK_EXP_COLDSTART_20260820_02/drpo-e8-coldstart-full/runtime/guard/E8_MULTITASK_EXP_COLDSTART_20260820_02/attempt-*/workload/RUN_COMPLETE.json
+  exclude:
+    - '**/*.pt'
+    - '**/*.pth'
+    - '**/*.ckpt'
+    - '**/*.safetensors'
+    - '**/*.bin'
+    - '**/checkpoint*'
+    - '**/checkpoints/**'
+    - '**/model*'
+    - '**/models/**'
+    - '**/optimizer*'
+    - '**/wandb/**'
+  max_package_size_mb: 30
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e8
+  export_profile: manifest_text_v1
+  max_total_size_mb: 30
+  max_file_size_mb: 10
+
+publish:
+  enabled: false
+  auto: false
