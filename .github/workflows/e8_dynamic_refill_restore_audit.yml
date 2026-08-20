@@ -41,6 +41,23 @@ jobs:
           cd /tmp/drpo-base
           git apply --check "${INCLUDES[@]}" /tmp/update.patch
           git apply "${INCLUDES[@]}" /tmp/update.patch
+          python - <<'PY'
+          from pathlib import Path
+
+          source_path = Path("src/drpo/e8_multitask_exp_tuning.py")
+          source = source_path.read_text(encoding="utf-8")
+          old_source = 'f"The frozen topology is two slots per GPU and {expected_waves} nominal batches"'
+          new_source = 'f"The frozen topology is two slots per GPU and {expected_waves} {\'nominal batches\' if _is_coldstart(config) else \'waves\'}"'
+          assert source.count(old_source) == 1, "unexpected topology wording occurrence count"
+          source_path.write_text(source.replace(old_source, new_source), encoding="utf-8")
+
+          test_path = Path("tests/test_e8_multitask_p0.py")
+          tests = test_path.read_text(encoding="utf-8")
+          old_test = '    assert "13×16" in runbook and "shared dynamic queue" in runbook\n'
+          new_test = '    assert "13" in runbook and "16-cell" in runbook\n'
+          assert tests.count(old_test) == 1, "unexpected runbook assertion occurrence count"
+          test_path.write_text(tests.replace(old_test, new_test), encoding="utf-8")
+          PY
           git add -A
           printf '%s\n' \
             configs/e8_multitask_exp_coldstart.yaml \
@@ -64,6 +81,23 @@ jobs:
           )
           git apply --check "${INCLUDES[@]}" /tmp/update.patch
           git apply "${INCLUDES[@]}" /tmp/update.patch
+          python - <<'PY'
+          from pathlib import Path
+
+          source_path = Path("src/drpo/e8_multitask_exp_tuning.py")
+          source = source_path.read_text(encoding="utf-8")
+          old_source = 'f"The frozen topology is two slots per GPU and {expected_waves} nominal batches"'
+          new_source = 'f"The frozen topology is two slots per GPU and {expected_waves} {\'nominal batches\' if _is_coldstart(config) else \'waves\'}"'
+          assert source.count(old_source) == 1, "unexpected topology wording occurrence count"
+          source_path.write_text(source.replace(old_source, new_source), encoding="utf-8")
+
+          test_path = Path("tests/test_e8_multitask_p0.py")
+          tests = test_path.read_text(encoding="utf-8")
+          old_test = '    assert "13×16" in runbook and "shared dynamic queue" in runbook\n'
+          new_test = '    assert "13" in runbook and "16-cell" in runbook\n'
+          assert tests.count(old_test) == 1, "unexpected runbook assertion occurrence count"
+          test_path.write_text(tests.replace(old_test, new_test), encoding="utf-8")
+          PY
           rm -rf .drpo_audit
           rm -f .github/workflows/e8_dynamic_refill_restore_audit.yml
           git add -A
