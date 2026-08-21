@@ -50,10 +50,10 @@
 
 ## 3. 唯一允许的顶层执行入口
 
-服务器操作员/本地 AI 不应把 bootstrap 脚本当作顶层正式执行命令直接运行。顶层执行必须走 RunSpec lane executor：
+服务器操作员/本地 AI 不应把 bootstrap 脚本当作顶层正式执行命令直接运行。顶层执行必须走 RunSpec lane executor，并显式绑定 lane 与 RunSpec ID：
 
 ```bash
-python scripts/agent/run_lane.py --once
+python scripts/agent/run_lane.py --lane e8 --run-id E8_MULTITASK_EXP_COLDSTART_20260820_02 --once
 ```
 
 当且仅当 `E8_MULTITASK_EXP_COLDSTART_20260820_02` 已经通过注册并成为本实验唯一 READY RunSpec 时，lane executor 才可 claim 它。该 RunSpec 内部仍调用已经审查的：
