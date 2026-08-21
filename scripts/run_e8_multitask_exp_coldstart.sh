@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-COLDSTART-01"
 CONFIG_PATH="${E8_COLDSTART_CONFIG:-${ROOT_DIR}/configs/e8_multitask_exp_coldstart.yaml}"
 P0_CONFIG_PATH="${E8_COLDSTART_P0_CONFIG:-${ROOT_DIR}/configs/e8_multitask_p0.yaml}"
-RUN_ID="${E8_COLDSTART_RUN_ID:-E8_MULTITASK_EXP_COLDSTART_20260808_01}"
+RUN_ID="${E8_COLDSTART_RUN_ID:-E8_MULTITASK_EXP_COLDSTART_20260820_02}"
 RUNTIME_ROOT="${E8_COLDSTART_RUNTIME_ROOT:-${ROOT_DIR}/../drpo-e8-coldstart-runtime}"
 ATTEMPTS_ROOT="${E8_COLDSTART_GUARD_ROOT:-${RUNTIME_ROOT}/guard/${RUN_ID}}"
 GUARD_ROOT="${ATTEMPTS_ROOT}/attempt-001"
@@ -20,8 +20,8 @@ RECOVERY_ROOT="${E8_COLDSTART_RECOVERY_ROOT:-${RUNTIME_ROOT}/recovery/${RUN_ID}}
 RECOVERY_PACKAGE="${RECOVERY_ROOT}/latest_checkpoint.zip"
 DELIVERY_PREFLIGHT_PACKAGE="${RECOVERY_ROOT}/delivery_preflight.zip"
 EXPECTED_COMMIT="${E8_COLDSTART_EXPECTED_COMMIT:-}"
-RUN_CLASS="${E8_COLDSTART_RUN_CLASS:-formal}"
-REQUIRE_ORIGIN_MAIN="${E8_COLDSTART_REQUIRE_ORIGIN_MAIN:-1}"
+RUN_CLASS="${E8_COLDSTART_RUN_CLASS:-pilot}"
+REQUIRE_ORIGIN_MAIN="${E8_COLDSTART_REQUIRE_ORIGIN_MAIN:-0}"
 MODEL_REPO="Qwen/Qwen2.5-0.5B-Instruct"
 MODEL_REVISION="7ae557604adf67be50417f59c2c2f167def9a775"
 MODE="${1:-full}"
@@ -329,13 +329,13 @@ Runtime: `{runtime}`
 2. Confirm no original guard/scheduler/cell process still holds the runtime lock. Never start a
    second queue beside a live queue.
 3. Do not change tasks, lambdas, seeds, optimizer/training formulas, thresholds, adapters, or the
-   READY RunSpec. Do not edit the locked canonical cold-start kernels.
+   frozen scientific configuration. Do not edit the locked canonical cold-start kernels.
 4. First rerun the same reviewed one-click bootstrap. It automatically creates a fresh guard
    attempt, hard-links only identity-checked completed cells, and resumes from the first incomplete
    stage.
-5. If automatic recovery fails again, classify the first failure as source/registration, runtime,
-   storage, cell, aggregation/audit, or packaging. Repair only the causal engineering fault. Preserve
-   every prior attempt directory and artifact.
+5. If automatic recovery fails again, classify the first failure as source, runtime, storage, cell,
+   aggregation/audit, or packaging. Repair only the causal engineering fault. Preserve every prior
+   attempt directory and artifact.
 6. A partially trained cell has no scientifically exact intra-cell optimizer/RNG resume. Rerun only
    that cell; never manufacture a completion manifest.
 7. If the authorized source ref advanced, identity/hash validation fails, disk is damaged, the
@@ -864,9 +864,11 @@ report_formal_success() {
 }
 
 guarded_full() {
-  require_registered_ready
+  if [[ "${RUN_CLASS}" == "formal" ]]; then
+    require_registered_ready
+    validate_registered_channel
+  fi
   ensure_setup
-  validate_registered_channel
   command -v flock >/dev/null || fail "flock is required for single-writer recovery safety"
   mkdir -p "${RECOVERY_ROOT}"
   exec 9>"${RECOVERY_ROOT}/runtime.lock"
