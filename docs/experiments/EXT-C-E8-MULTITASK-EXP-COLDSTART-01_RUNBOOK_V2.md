@@ -4,15 +4,21 @@
 
 实验 ID：`EXT-C-E8-MULTITASK-EXP-COLDSTART-01`
 
-RunSpec ID：`E8_MULTITASK_EXP_COLDSTART_20260820_02`
+Run ID：`E8_MULTITASK_EXP_COLDSTART_20260820_02`
 
 冻结科学/执行实现：`452e9fefdca94e25d4cae2422ea2e0ada8ec01fe`
 
 授权执行分支：`dev/e8-multitask-exp-coldstart-01`，对应远端 ref 为 `refs/heads/dev/e8-multitask-exp-coldstart-01`。
 
-当前科学状态：`pilot / not_run`。本轮分支执行属于 pilot，`formal_evidence_allowed: false`；不得把 smoke、liveness、有限步工程检查或本次 pilot 自动升级为 formal result。
+当前科学状态：`pilot / not_run`。本轮是 branch pilot，`formal_evidence_allowed: false`；不得把 smoke、liveness、工程自检或本次 pilot 自动升级为 formal result。
 
-本 Runbook 只描述当前执行协议。只有 schema-v3 registration 已刷新、registry 指向上述 implementation freeze 与 RunSpec、且本实验在 `runspecs/ready/` 下恰好存在一个匹配 READY RunSpec 后，才允许启动。
+本 pilot 的启动链已明确取消以下三个前置治理依赖：
+
+1. READY RunSpec activation；
+2. registry execution-gate / implementation-identity activation；
+3. 为满足前两项而执行的 Stage-5 schema-v3 registration transaction。
+
+这些历史文件继续保留作 provenance，不再是本 pilot 的启动许可证，也不得因此修改或删除历史 handoff / registry 记录。真正保留的执行锁是：精确远端 branch commit、clean checkout、冻结科研配置/代码、GPU/模型/数据 preflight、foreground guard、recovery、terminal audit 与结果 provenance。
 
 旧版 Runbook 已封存为：
 `docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_20260818_SUPERSEDED.md`。
@@ -48,49 +54,41 @@ RunSpec ID：`E8_MULTITASK_EXP_COLDSTART_20260820_02`
 - 某个 task 的全部冻结 cells 一旦完成，可以立即发布该 task 的确定性 task-local snapshot，不需要等待 nominal batch 或全部 208 cells；
 - 最终权威仍是 208-cell terminal aggregate + terminal audit。
 
-## 3. 唯一允许的顶层执行入口
+## 3. 唯一顶层执行入口
 
-服务器操作员/本地 AI 不直接运行 bootstrap。顶层必须走 RunSpec lane executor，并显式绑定 lane 与 RunSpec ID：
-
-```bash
-python scripts/agent/run_lane.py --lane e8 --run-id E8_MULTITASK_EXP_COLDSTART_20260820_02 --once
-```
-
-READY RunSpec 内部显式设置：
-
-```text
-E8_COLDSTART_TARGET_REF=refs/heads/dev/e8-multitask-exp-coldstart-01
-E8_COLDSTART_RUN_CLASS=pilot
-E8_COLDSTART_REQUIRE_ORIGIN_MAIN=0
-```
-
-然后调用：
+服务器先确保已有 `drpo` checkout 位于授权分支且与远端同步：
 
 ```bash
-bash scripts/bootstrap_e8_multitask_exp_coldstart.sh full
+git fetch origin dev/e8-multitask-exp-coldstart-01
+git checkout dev/e8-multitask-exp-coldstart-01
+git merge --ff-only origin/dev/e8-multitask-exp-coldstart-01
 ```
 
-这里的 `full` 表示执行完整 cold-start workload，不再等价于“必须选择 main”。bootstrap 会 fetch RunSpec 指定的 authoritative branch ref，并要求 **selected source HEAD == remote target-ref HEAD**；不一致时在创建隔离 worktree 和接触训练前 fail closed。
+然后只运行：
 
-默认未显式覆盖时仍是 `refs/heads/main`；runner 默认仍是 `formal` 且强制 origin/main match。只有本 RunSpec 明确声明的 branch pilot 使用 `pilot + no-main-match`，因此没有放宽默认 formal 路径。
+```bash
+E8_COLDSTART_RUN_ID=E8_MULTITASK_EXP_COLDSTART_20260820_02 \
+  bash scripts/bootstrap_e8_multitask_exp_coldstart.sh full
+```
 
-## 4. 启动前 fail-closed 检查
+bootstrap 的 `full` 默认目标就是 `refs/heads/dev/e8-multitask-exp-coldstart-01`；runner 默认身份为 `pilot` 且 `E8_COLDSTART_REQUIRE_ORIGIN_MAIN=0`。不再通过 `scripts/agent/run_lane.py`、READY RunSpec、registry activation 或 Stage-5 registration 才能进入训练。
 
-在创建训练环境、下载模型或接触 GPU 前必须全部满足：
+`full` 仍然要求 selected source HEAD 与远端授权分支 HEAD 完全一致，然后创建/复用隔离 checkout；因此取消治理许可证不等于允许跑任意本地代码。
 
-1. `experiments/registry.yaml` 中恰好一个 `EXT-C-E8-MULTITASK-EXP-COLDSTART-01`；
-2. registry 为 `execution_class: pilot`、`result_status: not_run`、`implementation_state: implemented`；
-3. registry 的 `implementation_commit` 精确等于 `452e9fefdca94e25d4cae2422ea2e0ada8ec01fe`；
-4. registry 的 `runspec_id` 精确等于 `E8_MULTITASK_EXP_COLDSTART_20260820_02`；
-5. `runspecs/ready/` 对本实验恰好只有该 READY RunSpec；
-6. RunSpec `repo_commit` 精确等于上述 freeze，并且它是执行 HEAD 的祖先；
-7. RunSpec 中全部 protected paths 自该 freeze 后保持不变；
-8. 当前 checkout 干净，origin 为 `easonhuo/drpo`；
-9. RunSpec target ref 精确为 `refs/heads/dev/e8-multitask-exp-coldstart-01`，bootstrap 实际解析出的远端 commit 与当前 selected source HEAD 完全一致；
-10. branch pilot 使用 `E8_COLDSTART_RUN_CLASS=pilot` 与 `E8_COLDSTART_REQUIRE_ORIGIN_MAIN=0`；任何 `formal` 执行若试图关闭 origin/main match 必须被 runner 拒绝；
-11. handoff/registry schema-v3 authority、formal execution channel 和 repository governance gates 全部通过。
+## 4. 启动前仍保留的硬检查
 
-任一条件不满足都必须停止，不允许在服务器现场修改科研参数、RunSpec 或 source identity 后继续。
+在真正训练前必须满足：
+
+1. 当前 source commit 是远端 `dev/e8-multitask-exp-coldstart-01` 的精确 HEAD；
+2. checkout 完全干净，origin 为 `easonhuo/drpo`；
+3. experiment/run identity 分别为 `EXT-C-E8-MULTITASK-EXP-COLDSTART-01` 与 `E8_MULTITASK_EXP_COLDSTART_20260820_02`；
+4. runner 以 `pilot` 执行，且不要求 origin/main match；
+5. 8 张 CUDA GPU 可见且满足显存要求，运行盘满足空间要求；
+6. 固定 Qwen revision 可取得，runtime/依赖检查通过；
+7. frozen scientific config 与 canonical cold-start source audit 通过；
+8. prepare/qualification、liveness、shared dynamic queue、recovery、terminal aggregate/audit 和 durable package 路径保持原样。
+
+registry、READY RunSpec 和 schema-v3 registration 的状态不再参与上述启动判定。它们可以陈旧，但不得被错误解释为当前 pilot 的科学身份来源。
 
 ## 5. 恢复、结果与解释
 
