@@ -4,15 +4,15 @@
 
 实验 ID：`EXT-C-E8-MULTITASK-EXP-COLDSTART-01`
 
-候选 RunSpec ID：`E8_MULTITASK_EXP_COLDSTART_20260820_02`
+RunSpec ID：`E8_MULTITASK_EXP_COLDSTART_20260820_02`
 
-冻结科学实现：`031239031b721314e565da32bd254b46ed28f4db`
+冻结科学/执行实现：`452e9fefdca94e25d4cae2422ea2e0ada8ec01fe`
 
-该 freeze 是从当前 `main@ea2c6d60084acd3e87d6f4118161747364bfe9b4` 重新构造的干净实现提交；4 个科研/执行文件的 Git blob 与此前审查通过的 `4702c2e97af8df0f26a9e1ceb5a45084cdc1235d` 完全一致，重建只移除了旧 registration/handoff 历史对 V1 scope audit 的污染，没有改科研实现字节。
+授权执行分支：`dev/e8-multitask-exp-coldstart-01`，对应远端 ref 为 `refs/heads/dev/e8-multitask-exp-coldstart-01`。
 
-当前科学状态：`pilot / not_run`
+当前科学状态：`pilot / not_run`。本轮分支执行属于 pilot，`formal_evidence_allowed: false`；不得把 smoke、liveness、有限步工程检查或本次 pilot 自动升级为 formal result。
 
-本 Runbook 只描述当前候选执行协议。它本身不激活实验，也不构成科学结果。只有当 schema-v3 registration 已刷新、registry 指向上述 RunSpec、该实验在 `runspecs/ready/` 下恰好存在一个匹配的 READY RunSpec、来源与 provenance 门禁全部通过之后，才允许进入执行。
+本 Runbook 只描述当前执行协议。只有 schema-v3 registration 已刷新、registry 指向上述 implementation freeze 与 RunSpec、且本实验在 `runspecs/ready/` 下恰好存在一个匹配 READY RunSpec 后，才允许启动。
 
 旧版 Runbook 已封存为：
 `docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_20260818_SUPERSEDED.md`。
@@ -50,40 +50,51 @@
 
 ## 3. 唯一允许的顶层执行入口
 
-服务器操作员/本地 AI 不应把 bootstrap 脚本当作顶层正式执行命令直接运行。顶层执行必须走 RunSpec lane executor，并显式绑定 lane 与 RunSpec ID：
+服务器操作员/本地 AI 不直接运行 bootstrap。顶层必须走 RunSpec lane executor，并显式绑定 lane 与 RunSpec ID：
 
 ```bash
 python scripts/agent/run_lane.py --lane e8 --run-id E8_MULTITASK_EXP_COLDSTART_20260820_02 --once
 ```
 
-当且仅当 `E8_MULTITASK_EXP_COLDSTART_20260820_02` 已经通过注册并成为本实验唯一 READY RunSpec 时，lane executor 才可 claim 它。该 RunSpec 内部仍调用已经审查的：
+READY RunSpec 内部显式设置：
+
+```text
+E8_COLDSTART_TARGET_REF=refs/heads/dev/e8-multitask-exp-coldstart-01
+E8_COLDSTART_RUN_CLASS=pilot
+E8_COLDSTART_REQUIRE_ORIGIN_MAIN=0
+```
+
+然后调用：
 
 ```bash
 bash scripts/bootstrap_e8_multitask_exp_coldstart.sh full
 ```
 
-bootstrap / runner 是受 RunSpec provenance 约束的下层入口，不得绕过 RunSpec claim、package、delivery 和 source-identity gate 独立启动。
+这里的 `full` 表示执行完整 cold-start workload，不再等价于“必须选择 main”。bootstrap 会 fetch RunSpec 指定的 authoritative branch ref，并要求 **selected source HEAD == remote target-ref HEAD**；不一致时在创建隔离 worktree 和接触训练前 fail closed。
+
+默认未显式覆盖时仍是 `refs/heads/main`；runner 默认仍是 `formal` 且强制 origin/main match。只有本 RunSpec 明确声明的 branch pilot 使用 `pilot + no-main-match`，因此没有放宽默认 formal 路径。
 
 ## 4. 启动前 fail-closed 检查
 
 在创建训练环境、下载模型或接触 GPU 前必须全部满足：
 
 1. `experiments/registry.yaml` 中恰好一个 `EXT-C-E8-MULTITASK-EXP-COLDSTART-01`；
-2. registry 仍为 `execution_class: pilot`、`result_status: not_run`、`implementation_state: implemented`；
-3. registry 的 `implementation_commit` 精确等于 `031239031b721314e565da32bd254b46ed28f4db`；
+2. registry 为 `execution_class: pilot`、`result_status: not_run`、`implementation_state: implemented`；
+3. registry 的 `implementation_commit` 精确等于 `452e9fefdca94e25d4cae2422ea2e0ada8ec01fe`；
 4. registry 的 `runspec_id` 精确等于 `E8_MULTITASK_EXP_COLDSTART_20260820_02`；
-5. `runspecs/ready/` 对本实验恰好只有这一个 READY RunSpec；
-6. RunSpec `repo_commit` 精确等于上述冻结实现，并且它必须是执行 HEAD 的祖先；
-7. RunSpec 中全部 protected paths 自该实现 freeze 后保持不变；
-8. checkout 干净，origin 为 `easonhuo/drpo`；
-9. `full` bootstrap 不允许把当前 source checkout 静默切换到另一 commit；source identity 不一致必须停止；
-10. handoff/registry schema-v3 authority、formal execution channel 和 repository governance gates 全部通过。
+5. `runspecs/ready/` 对本实验恰好只有该 READY RunSpec；
+6. RunSpec `repo_commit` 精确等于上述 freeze，并且它是执行 HEAD 的祖先；
+7. RunSpec 中全部 protected paths 自该 freeze 后保持不变；
+8. 当前 checkout 干净，origin 为 `easonhuo/drpo`；
+9. RunSpec target ref 精确为 `refs/heads/dev/e8-multitask-exp-coldstart-01`，bootstrap 实际解析出的远端 commit 与当前 selected source HEAD 完全一致；
+10. branch pilot 使用 `E8_COLDSTART_RUN_CLASS=pilot` 与 `E8_COLDSTART_REQUIRE_ORIGIN_MAIN=0`；任何 `formal` 执行若试图关闭 origin/main match 必须被 runner 拒绝；
+11. handoff/registry schema-v3 authority、formal execution channel 和 repository governance gates 全部通过。
 
-任一条件不满足都必须停止，不允许在服务器现场“修一下再跑”。
+任一条件不满足都必须停止，不允许在服务器现场修改科研参数、RunSpec 或 source identity 后继续。
 
 ## 5. 恢复、结果与解释
 
-运行中断时只允许使用已有 guard/recovery 协议恢复已经身份校验通过的完成 cell；部分训练 cell 不视为完成 cell。不得通过恢复流程改变科研参数或 RunSpec。
+运行中断时只允许使用已有 guard/recovery 协议恢复已经身份校验通过的完成 cell；部分训练 cell 不视为完成 cell。branch pilot 的 recovery checkpoint 与 delivery preflight 沿用同一个 `pilot / no-origin-main-match` 身份，不得在恢复时切回 main 或另一 commit。
 
 每个已完成 task 可以先读取其 task-local snapshot 做过程分析，但它不替代最终 208-cell 汇总。任何 smoke test、self-test、liveness、静态检查或有限工程 pilot 都不能被表述为正式科学结果。
 
