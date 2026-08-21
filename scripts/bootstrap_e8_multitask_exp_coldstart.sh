@@ -191,8 +191,10 @@ SOURCE_COMMIT="$(git -C "${SOURCE_REPO}" rev-parse 'HEAD^{commit}')" || \
 [[ "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "selected checkout HEAD is not a full SHA"
 
 if [[ "${MODE}" == "full" ]]; then
-  TARGET_REF="refs/heads/main"
-  LOCAL_FETCH_REF="refs/remotes/origin/main"
+  TARGET_REF="${E8_COLDSTART_TARGET_REF:-refs/heads/main}"
+  git check-ref-format "${TARGET_REF}" >/dev/null 2>&1 || fail "invalid full target ref: ${TARGET_REF}"
+  [[ "${TARGET_REF}" == refs/heads/* ]] || fail "full target ref must be under refs/heads/: ${TARGET_REF}"
+  LOCAL_FETCH_REF="refs/e8-coldstart-bootstrap/full-target"
 else
   TARGET_REF="refs/pull/309/head"
   LOCAL_FETCH_REF="refs/e8-coldstart-bootstrap/pr-309-head"
@@ -217,7 +219,7 @@ fi
 
 CURRENT_STAGE="verify_full_source_identity"
 if [[ "${MODE}" == "full" && "${SOURCE_COMMIT}" != "${TARGET_COMMIT}" ]]; then
-  fail "full mode refuses source commit switching: selected checkout HEAD ${SOURCE_COMMIT} != authoritative main ${TARGET_COMMIT}"
+  fail "full mode refuses source commit switching: selected checkout HEAD ${SOURCE_COMMIT} != authoritative ${TARGET_REF} ${TARGET_COMMIT}"
 fi
 
 CURRENT_STAGE="create_isolated_worktree"
@@ -236,6 +238,7 @@ write_state "${BOOTSTRAP_STATUS}"
 
 CURRENT_STAGE="execute_${MODE}"
 export E8_COLDSTART_EXPECTED_COMMIT="${TARGET_COMMIT}"
+export E8_COLDSTART_TARGET_REF="${TARGET_REF}"
 export E8_COLDSTART_RUNTIME_ROOT="${RUNTIME_ROOT}"
 export E8_COLDSTART_BOOTSTRAP_STATE="${STATE_FILE}"
 bash "${CHECKOUT}/scripts/run_e8_multitask_exp_coldstart.sh" "${MODE}"
@@ -246,5 +249,6 @@ write_state "${BOOTSTRAP_STATUS}"
 echo "BOOTSTRAP_SOURCE_REPO=${SOURCE_REPO}"
 echo "BOOTSTRAP_SOURCE_COMMIT=${SOURCE_COMMIT}"
 echo "BOOTSTRAP_CHECKOUT=${CHECKOUT}"
+echo "BOOTSTRAP_TARGET_REF=${TARGET_REF}"
 echo "BOOTSTRAP_TARGET_COMMIT=${TARGET_COMMIT}"
 echo "BOOTSTRAP_STATE=${STATE_FILE}"
