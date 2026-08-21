@@ -68,10 +68,11 @@ git merge --ff-only origin/dev/e8-multitask-exp-coldstart-01
 
 ```bash
 E8_COLDSTART_RUN_ID=E8_MULTITASK_EXP_COLDSTART_20260820_02 \
+E8_COLDSTART_TARGET_REF=refs/heads/dev/e8-multitask-exp-coldstart-01 \
   bash scripts/bootstrap_e8_multitask_exp_coldstart.sh full
 ```
 
-bootstrap 的 `full` 默认目标就是 `refs/heads/dev/e8-multitask-exp-coldstart-01`；runner 默认身份为 `pilot` 且 `E8_COLDSTART_REQUIRE_ORIGIN_MAIN=0`。不再通过 `scripts/agent/run_lane.py`、READY RunSpec、registry activation 或 Stage-5 registration 才能进入训练。
+bootstrap 的 `full` 通过上面的显式 `E8_COLDSTART_TARGET_REF` 锁定授权分支；runner 默认身份已经改为 `pilot`，且默认 `E8_COLDSTART_REQUIRE_ORIGIN_MAIN=0`。不再通过 `scripts/agent/run_lane.py`、READY RunSpec、registry activation 或 Stage-5 registration 才能进入训练。
 
 `full` 仍然要求 selected source HEAD 与远端授权分支 HEAD 完全一致，然后创建/复用隔离 checkout；因此取消治理许可证不等于允许跑任意本地代码。
 
