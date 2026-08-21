@@ -20,6 +20,8 @@ RECOVERY_ROOT="${E8_COLDSTART_RECOVERY_ROOT:-${RUNTIME_ROOT}/recovery/${RUN_ID}}
 RECOVERY_PACKAGE="${RECOVERY_ROOT}/latest_checkpoint.zip"
 DELIVERY_PREFLIGHT_PACKAGE="${RECOVERY_ROOT}/delivery_preflight.zip"
 EXPECTED_COMMIT="${E8_COLDSTART_EXPECTED_COMMIT:-}"
+RUN_CLASS="${E8_COLDSTART_RUN_CLASS:-formal}"
+REQUIRE_ORIGIN_MAIN="${E8_COLDSTART_REQUIRE_ORIGIN_MAIN:-1}"
 MODEL_REPO="Qwen/Qwen2.5-0.5B-Instruct"
 MODEL_REVISION="7ae557604adf67be50417f59c2c2f167def9a775"
 MODE="${1:-full}"
@@ -32,6 +34,18 @@ fail() {
   echo "ERROR: $*" >&2
   exit 2
 }
+
+case "${RUN_CLASS}" in
+  formal|pilot) ;;
+  *) fail "E8_COLDSTART_RUN_CLASS must be formal or pilot" ;;
+esac
+case "${REQUIRE_ORIGIN_MAIN}" in
+  0|1) ;;
+  *) fail "E8_COLDSTART_REQUIRE_ORIGIN_MAIN must be 0 or 1" ;;
+esac
+if [[ "${RUN_CLASS}" == "formal" && "${REQUIRE_ORIGIN_MAIN}" != "1" ]]; then
+  fail "formal cold-start execution must retain origin/main matching"
+fi
 
 is_expected_origin() {
   local url="$1"
@@ -324,9 +338,9 @@ Runtime: `{runtime}`
    every prior attempt directory and artifact.
 6. A partially trained cell has no scientifically exact intra-cell optimizer/RNG resume. Rerun only
    that cell; never manufacture a completion manifest.
-7. If source `main` advanced, identity/hash validation fails, disk is damaged, the hard-link
-   filesystem boundary is crossed, or the exact fix would alter a frozen scientific variable, stop
-   and report the blocker to the reviewer instead of bypassing a gate.
+7. If the authorized source ref advanced, identity/hash validation fails, disk is damaged, the
+   hard-link filesystem boundary is crossed, or the exact fix would alter a frozen scientific
+   variable, stop and report the blocker to the reviewer instead of bypassing a gate.
 
 Primary recovery checkpoint: `{runtime / 'recovery'}`
 """
@@ -572,7 +586,7 @@ PY
   git -C "${ROOT_DIR}" cat-file -e "${runspec_commit}^{commit}" 2>/dev/null || \
     fail "READY RunSpec implementation commit is unavailable: ${runspec_commit}"
   git -C "${ROOT_DIR}" merge-base --is-ancestor "${runspec_commit}" "${EXPECTED_COMMIT}" || \
-    fail "READY RunSpec implementation commit is not an ancestor of execution main: ${runspec_commit}"
+    fail "READY RunSpec implementation commit is not an ancestor of execution commit: ${runspec_commit}"
   local protected_paths=(
     configs/e8_multitask_exp_coldstart.yaml
     configs/e8_multitask_p0.yaml
@@ -732,7 +746,6 @@ delivery_preflight() {
     --output "${DELIVERY_PREFLIGHT_PACKAGE}"
     --base-commit "${EXPECTED_COMMIT}"
     --no-repository-changes
-    --require-origin-main-match
     --large-file-persistence persistent_local
     --max-package-mib 23
     --source-file scripts/run_e8_multitask_exp_coldstart.sh
@@ -740,6 +753,9 @@ delivery_preflight() {
     --source-file src/drpo/e8_multitask_exp_tuning.py
     --source-file configs/e8_multitask_exp_coldstart.yaml
   )
+  if [[ "${REQUIRE_ORIGIN_MAIN}" == "1" ]]; then
+    command+=(--require-origin-main-match)
+  fi
   if "${command[@]}" >"${log}" 2>&1; then
     return 0
   fi
@@ -760,7 +776,7 @@ guarded_full_internal() {
   recover_import_if_requested
   export E8_COLDSTART_RECOVERY_PACKAGE="${RECOVERY_PACKAGE}"
   export E8_COLDSTART_RECOVERY_INTERVAL_CELLS="${E8_COLDSTART_RECOVERY_INTERVAL_CELLS:-5}"
-  export E8_COLDSTART_RECOVERY_REQUIRE_ORIGIN_MAIN=1
+  export E8_COLDSTART_RECOVERY_REQUIRE_ORIGIN_MAIN="${REQUIRE_ORIGIN_MAIN}"
   refresh_recovery_plan
   if ! plan_flag prepare_complete; then
     prepare
@@ -787,14 +803,18 @@ run_formal_guard_attempt() {
   [[ ! -e "${GUARD_ROOT}" ]] || fail "formal guard attempt root must be new: ${GUARD_ROOT}"
   [[ ! -e "${GUARD_ARTIFACT}" ]] || fail "guard artifact already exists: ${GUARD_ARTIFACT}"
   mkdir -p "$(dirname "${GUARD_ARTIFACT}")"
+  local origin_main_args=()
+  if [[ "${REQUIRE_ORIGIN_MAIN}" == "1" ]]; then
+    origin_main_args+=(--require-origin-main-match)
+  fi
   python "${ROOT_DIR}/scripts/run_experiment_guard_hardened.py" \
     --experiment-id "${EXPERIMENT_ID}" \
     --repo-root "${ROOT_DIR}" \
     --output-root "${GUARD_ROOT}" \
     --artifact-output "${GUARD_ARTIFACT}" \
-    --run-class formal \
+    --run-class "${RUN_CLASS}" \
     --expected-commit "${EXPECTED_COMMIT}" \
-    --require-origin-main-match \
+    "${origin_main_args[@]}" \
     --large-file-persistence persistent_local \
     --required-output workload/RUN_COMPLETE.json \
     --required-output workload/terminal_audit.json \
