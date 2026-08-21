@@ -69,10 +69,14 @@ git merge --ff-only origin/dev/e8-multitask-exp-coldstart-01
 ```bash
 E8_COLDSTART_RUN_ID=E8_MULTITASK_EXP_COLDSTART_20260820_02 \
 E8_COLDSTART_TARGET_REF=refs/heads/dev/e8-multitask-exp-coldstart-01 \
+E8_COLDSTART_RUN_CLASS=pilot \
+E8_COLDSTART_REQUIRE_ORIGIN_MAIN=0 \
   bash scripts/bootstrap_e8_multitask_exp_coldstart.sh full
 ```
 
-bootstrap 的 `full` 通过上面的显式 `E8_COLDSTART_TARGET_REF` 锁定授权分支；runner 默认身份已经改为 `pilot`，且默认 `E8_COLDSTART_REQUIRE_ORIGIN_MAIN=0`。不再通过 `scripts/agent/run_lane.py`、READY RunSpec、registry activation 或 Stage-5 registration 才能进入训练。
+这四个变量全部显式写在本次启动命令里：Run ID、授权 dev branch、`pilot` 执行身份、以及本 branch pilot 不要求 `origin/main` 一致。runner 自身的默认值继续保持历史安全行为：`formal + E8_COLDSTART_REQUIRE_ORIGIN_MAIN=1`；bootstrap 未显式指定 target ref 时也仍默认 `refs/heads/main`。因此本次去掉 READY/registry/schema-v3 前置依赖不会放宽未来未显式声明的默认 formal 路径。
+
+本次 `pilot` 的 `full` 会跳过 `require_registered_ready` 与 `validate_registered_channel`，不再通过 `scripts/agent/run_lane.py`、READY RunSpec、registry activation 或 Stage-5 registration 才能进入训练；但 `formal` 模式仍保留原注册与正式 channel 检查。
 
 `full` 仍然要求 selected source HEAD 与远端授权分支 HEAD 完全一致，然后创建/复用隔离 checkout；因此取消治理许可证不等于允许跑任意本地代码。
 
@@ -83,13 +87,13 @@ bootstrap 的 `full` 通过上面的显式 `E8_COLDSTART_TARGET_REF` 锁定授�
 1. 当前 source commit 是远端 `dev/e8-multitask-exp-coldstart-01` 的精确 HEAD；
 2. checkout 完全干净，origin 为 `easonhuo/drpo`；
 3. experiment/run identity 分别为 `EXT-C-E8-MULTITASK-EXP-COLDSTART-01` 与 `E8_MULTITASK_EXP_COLDSTART_20260820_02`；
-4. runner 以 `pilot` 执行，且不要求 origin/main match；
+4. 本次命令显式以 `pilot` 执行，并显式设置 `E8_COLDSTART_REQUIRE_ORIGIN_MAIN=0`；
 5. 8 张 CUDA GPU 可见且满足显存要求，运行盘满足空间要求；
 6. 固定 Qwen revision 可取得，runtime/依赖检查通过；
 7. frozen scientific config 与 canonical cold-start source audit 通过；
 8. prepare/qualification、liveness、shared dynamic queue、recovery、terminal aggregate/audit 和 durable package 路径保持原样。
 
-registry、READY RunSpec 和 schema-v3 registration 的状态不再参与上述启动判定。它们可以陈旧，但不得被错误解释为当前 pilot 的科学身份来源。
+registry、READY RunSpec 和 schema-v3 registration 的状态不再参与本次 pilot 的启动判定。它们可以陈旧，但不得被错误解释为当前 pilot 的科学身份来源。
 
 ## 5. 恢复、结果与解释
 
