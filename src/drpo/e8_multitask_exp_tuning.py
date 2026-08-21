@@ -83,6 +83,7 @@ DEFAULT_P0_CONFIG = Path("configs/e8_multitask_p0.yaml")
 METHOD_POSITIVE_ONLY = "positive_only"
 METHOD_EXPONENTIAL = "exponential"
 METHOD_GLOBAL = "global"
+TRANSFER_SYSTEM_PROMPT = "Answer with only the requested final output and no explanation."
 SWEEP_PROFILE_RHO = "nine_task_rho_v1"
 SWEEP_PROFILE_DENSE = "task_lambda_dense_v1"
 SWEEP_PROFILE_COLDSTART = "eight_task_coldstart_lambda_v1"
@@ -467,7 +468,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
             "reference_policy": "zero_update_base_plus_fresh_lora",
             "coordinate": "mean_completion_token_surprisal",
             "selected_negatives_per_prompt": 16,
-            "selection": "evenly_spaced_reference_rank_including_extremes",
+            "selection": "source_p0_error_class_sequence_then_within_class_reference_rank_spread",
             "coverage_threshold": None,
             "reference_rank_role": "provenance_and_diagnostic_only",
             "static_reference_rank_enters_training_weight": False,
@@ -714,12 +715,12 @@ def validate_config(config: Mapping[str, Any]) -> None:
     )
     if int(execution["slots_per_gpu"]) != 2 or int(execution["expected_waves"]) != expected_waves:
         raise ValueError(
-            f"The frozen topology is two slots per GPU and {expected_waves} waves"
+            f"The frozen topology is two slots per GPU and {expected_waves} {'nominal batches' if _is_coldstart(config) else 'waves'}"
         )
     if _is_coldstart(config) and execution.get("scheduler") != "dynamic_slot_queue":
         raise ValueError("Cold-start execution must use the recovery-aware slot scheduler")
     if _is_coldstart(config) and (
-        not bool(execution.get("wave_barriers", False))
+        bool(execution.get("wave_barriers", True))
         or not bool(execution.get("identity_checked_resume", False))
         or not bool(execution.get("retry_incomplete_requires_explicit_flag", False))
         or not bool(execution.get("fail_closed", False))
@@ -942,7 +943,7 @@ def build_waves(config: Mapping[str, Any]) -> tuple[tuple[Cell, ...], ...]:
             tuple(cells[index : index + capacity]) for index in range(0, len(cells), capacity)
         )
         if len(waves) != 13 or any(len(wave) != 16 for wave in waves):
-            raise AssertionError("Cold-start geometry must be 13 exact 16-cell scheduling waves")
+            raise AssertionError("Cold-start nominal geometry must be 13 exact 16-cell batches")
         return waves
     coarse = tuple(cell for cell in cells if cell.stage == "coarse")
     refinement = tuple(cell for cell in cells if cell.stage == "refinement")
@@ -1205,16 +1206,13 @@ def _canonical_train_row(row: Mapping[str, Any]) -> dict[str, Any]:
     bank = [
         {
             **dict(item),
-            "expression": str(item.get("canonical_completion", item["completion"])),
+            "expression": str(item["completion"]),
         }
         for item in negatives
     ]
-    oracle_verification = row.get("oracle_verification", {})
-    oracle = str(
-        oracle_verification.get("canonical_completion", row["oracle_completion"])
-        if isinstance(oracle_verification, Mapping)
-        else row["oracle_completion"]
-    )
+    oracle = str(row["oracle_completion"])
+    if any(item["expression"] == oracle for item in bank):
+        raise RuntimeError(f"{task}/{prompt_id} negative completion matches the positive")
     return {
         **dict(row),
         "id": prompt_id,
@@ -1323,6 +1321,39 @@ def _evenly_spaced_rank_indices(candidate_count: int, selected_count: int = 16) 
     return indices
 
 
+def _coverage_first_reference_rank_indices(
+    scored: Sequence[Mapping[str, Any]],
+    source_negatives: Sequence[Mapping[str, Any]],
+    selected_count: int = 16,
+) -> tuple[int, ...]:
+    if len(scored) < selected_count:
+        raise RuntimeError(f"Coverage-first selection needs >= {selected_count} candidates")
+    buckets: dict[str, list[int]] = {}
+    for rank, item in enumerate(scored):
+        buckets.setdefault(str(item["error_class"]), []).append(rank)
+    class_order = [str(item["error_class"]) for item in source_negatives]
+    queues = {}
+    for name in sorted(set(class_order)):
+        quota, ranks = class_order.count(name), buckets[name]
+        if quota == 1:
+            original = next(item for item in source_negatives if str(item["error_class"]) == name)
+            canonical = str(original.get("canonical_completion", original["completion"]))
+            local = tuple(
+                index
+                for index, rank in enumerate(ranks)
+                if str(scored[rank]["canonical_completion"]) == canonical
+            )
+            if len(local) != 1:
+                raise RuntimeError(f"Source P0 singleton not uniquely reconstructed for {name}")
+        else:
+            local = _evenly_spaced_rank_indices(len(ranks), quota)
+        queues[name] = iter([ranks[index] for index in local])
+    selected = tuple(next(queues[name]) for name in class_order)
+    if len(set(selected)) != selected_count:
+        raise RuntimeError("Coverage-first selector produced duplicate negatives")
+    return selected
+
+
 def _reference_surprisal_summary(values: Sequence[float]) -> dict[str, float]:
     array = np.asarray([float(value) for value in values], dtype=float)
     if array.size == 0 or not np.all(np.isfinite(array)):
@@ -1336,6 +1367,92 @@ def _reference_surprisal_summary(values: Sequence[float]) -> dict[str, float]:
         "max": float(array.max()),
         "range": float(array.max() - array.min()),
         "iqr": float(q75 - q25),
+    }
+
+
+def _reference_error_class_audit(
+    scored: Sequence[Mapping[str, Any]],
+    selected: Sequence[Mapping[str, Any]],
+    source_negatives: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    source_classes = [str(item["error_class"]) for item in source_negatives]
+    selected_classes = [str(item["error_class"]) for item in selected]
+    if selected_classes != source_classes:
+        raise RuntimeError("Coverage-first selector changed the July-29 P0 error-class sequence")
+    candidate_buckets: dict[str, list[tuple[int, Mapping[str, Any]]]] = {}
+    selected_buckets: dict[str, list[Mapping[str, Any]]] = {}
+    for rank, item in enumerate(scored):
+        candidate_buckets.setdefault(str(item["error_class"]), []).append((rank, item))
+    for item in selected:
+        selected_buckets.setdefault(str(item["error_class"]), []).append(item)
+    class_audit: dict[str, Any] = {}
+    endpoint_total = 0
+    endpoint_covered = 0
+    for error_class, bucket in sorted(candidate_buckets.items()):
+        chosen = selected_buckets.get(error_class, [])
+        candidate_ranks = [rank for rank, _ in bucket]
+        selected_ranks = [int(item["reference_rank"]) for item in chosen]
+        endpoint_ok: bool | None = None
+        if len(chosen) >= 2:
+            endpoint_total += 1
+            endpoint_ok = (
+                candidate_ranks[0] in selected_ranks
+                and candidate_ranks[-1] in selected_ranks
+            )
+            if not endpoint_ok:
+                raise RuntimeError(
+                    f"Coverage-first selector missed a class-local endpoint: {error_class}"
+                )
+            endpoint_covered += 1
+        class_audit[error_class] = {
+            "candidate_count": len(bucket),
+            "source_p0_count": source_classes.count(error_class),
+            "selected_count": len(chosen),
+            "candidate_global_rank_min": candidate_ranks[0],
+            "candidate_global_rank_max": candidate_ranks[-1],
+            "selected_global_ranks": selected_ranks,
+            "candidate_reference_surprisal": _reference_surprisal_summary(
+                [float(item["reference_surprisal"]) for _, item in bucket]
+            ),
+            "selected_reference_surprisal": (
+                _reference_surprisal_summary(
+                    [float(item["reference_surprisal"]) for item in chosen]
+                )
+                if chosen
+                else None
+            ),
+            "near_far_endpoint_coverage": endpoint_ok,
+        }
+    selected_class_count = len(selected_buckets)
+    candidate_class_count = len(candidate_buckets)
+    selected_ranks = [int(item["reference_rank"]) for item in selected]
+    return {
+        "source_p0_error_class_sequence": source_classes,
+        "selected_error_class_sequence": selected_classes,
+        "coverage_sequence_matches_source_p0": True,
+        "candidate_error_class_counts": {
+            name: len(bucket) for name, bucket in sorted(candidate_buckets.items())
+        },
+        "source_p0_error_class_counts": {
+            name: source_classes.count(name) for name in sorted(set(source_classes))
+        },
+        "selected_error_class_counts": {
+            name: len(bucket) for name, bucket in sorted(selected_buckets.items())
+        },
+        "candidate_distinct_error_class_count": candidate_class_count,
+        "selected_distinct_error_class_count": selected_class_count,
+        "error_class_coverage_fraction": selected_class_count / candidate_class_count,
+        "singleton_selected_error_class_count": sum(
+            len(bucket) == 1 for bucket in selected_buckets.values()
+        ),
+        "multi_slot_selected_error_class_count": endpoint_total,
+        "multi_slot_endpoint_coverage_count": endpoint_covered,
+        "global_reference_rank_span_fraction": (
+            (max(selected_ranks) - min(selected_ranks)) / (len(scored) - 1)
+            if len(scored) > 1
+            else 0.0
+        ),
+        "error_class_reference_surprisal": class_audit,
     }
 
 
@@ -1416,7 +1533,7 @@ def _score_reference_candidates(
             arena.encode_prompt_completion(
                 tokenizer,
                 prompt,
-                str(item["canonical_completion"]),
+                str(item["completion"]),
                 max_length,
             )
             for item in chunk
@@ -1424,7 +1541,7 @@ def _score_reference_candidates(
         packed = arena.pad_encoded(encoded, int(tokenizer.pad_token_id))
         packed = arena.move_to_device(packed, device)
         with torch.no_grad():
-            surprisal = -arena.completion_stats(model, packed)["seq_lp"]
+            surprisal = arena.sequence_surprisal_only(model, packed)
         scores.extend(float(value) for value in surprisal.detach().cpu())
     if len(scores) != len(candidates) or not all(math.isfinite(value) for value in scores):
         raise RuntimeError("Reference-policy candidate scoring is incomplete or non-finite")
@@ -1462,7 +1579,9 @@ def _derive_reference_remoteness_banks(
                 "p0_config_sha256": record["p0_config_sha256"],
                 "base_model_identity": base_identity,
                 "task_runtime": dict(config["task_runtime"][task]),
+                "model_facing_text": "raw_completion_generic_prompt_v1",
                 "selector": selector,
+                "selector_implementation": "source_p0_error_class_sequence_then_within_class_reference_rank_spread_v1",
             }
         )
         identities[task] = identity
@@ -1499,8 +1618,10 @@ def _derive_reference_remoteness_banks(
         )
         model.eval()
         original_clean_expression = arena.clean_expression
+        original_system_prompt = arena.SYSTEM_PROMPT
         try:
             arena.clean_expression = lambda value: str(value)
+            arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
             for task in pending:
                 record = splits["tasks"][task]
                 train_rows = read_jsonl(Path(record["paths"]["train"]))
@@ -1543,7 +1664,7 @@ def _derive_reference_remoteness_banks(
                             ),
                         )
                     )
-                    selected_indices = _evenly_spaced_rank_indices(len(scored), 16)
+                    selected_indices = _coverage_first_reference_rank_indices(scored, source_row["negatives"], 16)
                     selected: list[dict[str, Any]] = []
                     for slot, rank in enumerate(selected_indices):
                         item = dict(scored[rank])
@@ -1556,6 +1677,9 @@ def _derive_reference_remoteness_banks(
                             }
                         )
                         selected.append(item)
+                    coverage_audit = _reference_error_class_audit(
+                        scored, selected, list(source_row["negatives"])
+                    )
                     derived = dict(source_row)
                     derived["negatives"] = selected
                     derived["reference_remoteness_selection"] = {
@@ -1580,6 +1704,7 @@ def _derive_reference_remoteness_banks(
                             "selected_reference_surprisal": _reference_surprisal_summary(
                                 [float(item["reference_surprisal"]) for item in selected]
                             ),
+                            **coverage_audit,
                             "coverage_threshold": None,
                             "coverage_gate": False,
                         }
@@ -1593,6 +1718,20 @@ def _derive_reference_remoteness_banks(
                     float(row["selected_reference_surprisal"]["range"])
                     for row in audit_rows
                 ]
+                class_rows = [
+                    value
+                    for row in audit_rows
+                    for value in row["error_class_reference_surprisal"].values()
+                ]
+                selected_class_rows = [
+                    value for value in class_rows if int(value["selected_count"]) > 0
+                ]
+                endpoint_total = sum(
+                    int(row["multi_slot_selected_error_class_count"]) for row in audit_rows
+                )
+                endpoint_covered = sum(
+                    int(row["multi_slot_endpoint_coverage_count"]) for row in audit_rows
+                )
                 summary = {
                     "schema_version": 1,
                     "experiment_id": experiment_id(config),
@@ -1606,11 +1745,40 @@ def _derive_reference_remoteness_banks(
                     "sha256": sha256_file(bank_path_value),
                     "rows": len(derived_rows),
                     "selected_negatives_per_prompt": 16,
-                    "selection": "evenly_spaced_reference_rank_including_extremes",
+                    "selection": "source_p0_error_class_sequence_then_within_class_reference_rank_spread",
                     "candidate_pool": "all_deterministic_verified_wrong_mutations",
                     "reference_rank_enters_training_weight": False,
                     "current_policy_surprisal_recomputed_each_update": True,
                     "coverage_threshold": None,
+                    "coverage_sequence_matches_all_prompts": all(
+                        bool(row["coverage_sequence_matches_source_p0"]) for row in audit_rows
+                    ),
+                    "error_class_coverage_fraction": _reference_surprisal_summary(
+                        [float(row["error_class_coverage_fraction"]) for row in audit_rows]
+                    ),
+                    "singleton_selected_error_class_instances": sum(
+                        int(row["singleton_selected_error_class_count"]) for row in audit_rows
+                    ),
+                    "multi_slot_selected_error_class_instances": endpoint_total,
+                    "multi_slot_endpoint_coverage_count": endpoint_covered,
+                    "multi_slot_endpoint_coverage_fraction": (
+                        endpoint_covered / endpoint_total if endpoint_total else None
+                    ),
+                    "global_reference_rank_span_fraction": _reference_surprisal_summary(
+                        [float(row["global_reference_rank_span_fraction"]) for row in audit_rows]
+                    ),
+                    "candidate_within_class_range": _reference_surprisal_summary(
+                        [float(row["candidate_reference_surprisal"]["range"]) for row in class_rows]
+                    ),
+                    "candidate_within_class_iqr": _reference_surprisal_summary(
+                        [float(row["candidate_reference_surprisal"]["iqr"]) for row in class_rows]
+                    ),
+                    "selected_within_class_range": _reference_surprisal_summary(
+                        [float(row["selected_reference_surprisal"]["range"]) for row in selected_class_rows]
+                    ),
+                    "selected_within_class_iqr": _reference_surprisal_summary(
+                        [float(row["selected_reference_surprisal"]["iqr"]) for row in selected_class_rows]
+                    ),
                     "selected_range_median": float(np.median(np.asarray(ranges, dtype=float))),
                     "prompt_audit": str(audit_path.resolve()),
                     "prompt_audit_sha256": sha256_file(audit_path),
@@ -1624,11 +1792,59 @@ def _derive_reference_remoteness_banks(
                 atomic_json(output_root / "split_manifest.json", splits)
         finally:
             arena.clean_expression = original_clean_expression
+            arena.SYSTEM_PROMPT = original_system_prompt
             del model
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
+    task_reference_summaries = {
+        str(task): dict(splits["tasks"][str(task)]["reference_remoteness_bank"])
+        for task in config["suite"]["p0_tasks"]
+    }
+    reference_summary_path = output_root / "reference_remoteness" / "summary.json"
+    atomic_json(
+        reference_summary_path,
+        {
+            "schema_version": 1,
+            "experiment_id": experiment_id(config),
+            "config_hash": stable_config_hash(config),
+            "task_count": len(task_reference_summaries),
+            "coverage_sequence_matches_all_prompts": all(
+                bool(value["coverage_sequence_matches_all_prompts"])
+                for value in task_reference_summaries.values()
+            ),
+            "tasks": {
+                task: {
+                    key: value[key]
+                    for key in (
+                        "rows",
+                        "selected_negatives_per_prompt",
+                        "coverage_sequence_matches_all_prompts",
+                        "error_class_coverage_fraction",
+                        "singleton_selected_error_class_instances",
+                        "multi_slot_selected_error_class_instances",
+                        "multi_slot_endpoint_coverage_count",
+                        "multi_slot_endpoint_coverage_fraction",
+                        "global_reference_rank_span_fraction",
+                        "candidate_within_class_range",
+                        "candidate_within_class_iqr",
+                        "selected_within_class_range",
+                        "selected_within_class_iqr",
+                        "selected_range_median",
+                    )
+                }
+                for task, value in sorted(task_reference_summaries.items())
+            },
+            "scientific_status": "not_run",
+        },
+    )
+    splits["reference_remoteness_audit"] = {
+        "path": str(reference_summary_path.resolve()),
+        "sha256": sha256_file(reference_summary_path),
+        "complete": True,
+    }
+    atomic_json(output_root / "split_manifest.json", splits)
     manifest = write_canonical_cold_inputs(config, output_root, splits)
     if not all(
         bool(manifest["tasks"][str(task)].get("reference_remoteness_bank_applied"))
@@ -3770,10 +3986,14 @@ def _train_canonical_cold_cell(
     def task_interface() -> Any:
         original_evaluate_rows = arena.evaluate_rows
         original_clean_expression = arena.clean_expression
+        original_system_prompt = arena.SYSTEM_PROMPT
+        original_completion_stats = arena.completion_stats
         original_trainer_evaluate = scan_trainer._evaluate_validation
         try:
             if evaluator is not None:
                 arena.evaluate_rows = evaluator
+                arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
+                arena.completion_stats = lambda model, batch: {"seq_lp": -arena.sequence_surprisal_only(model, batch)}
                 # Non-arithmetic task outputs are already canonicalized by the P0
                 # verifier. Arithmetic-only cleanup would corrupt structured outputs.
                 arena.clean_expression = lambda value: str(value)
@@ -3787,6 +4007,8 @@ def _train_canonical_cold_cell(
         finally:
             arena.evaluate_rows = original_evaluate_rows
             arena.clean_expression = original_clean_expression
+            arena.SYSTEM_PROMPT = original_system_prompt
+            arena.completion_stats = original_completion_stats
             scan_trainer._evaluate_validation = original_trainer_evaluate
 
     alpha = 0.0 if cell.method == METHOD_POSITIVE_ONLY else 1.0
@@ -5405,7 +5627,7 @@ def cmd_run_wave(
     force: bool,
 ) -> dict[str, Any]:
     if _is_coldstart(config):
-        raise RuntimeError("Cold-start waves are owned by run-all to preserve recovery barriers")
+        raise RuntimeError("Cold-start has no wave barriers; use run-all dynamic scheduling")
     _require_calibration_gate(
         config,
         output_root,
@@ -5522,23 +5744,28 @@ def cmd_run_dynamic(
     force: bool,
     retry_incomplete: bool,
 ) -> dict[str, Any]:
-    """Run recovery-aware 16-cell waves; every wave is a scheduling barrier only."""
+    """Run one shared recovery-aware queue on 16 fixed GPU slots, without batch barriers."""
 
     if not _is_coldstart(config):
         raise RuntimeError("Dynamic scheduling is frozen for the cold-start profile only")
     _require_calibration_gate(config, output_root, base_model_path=base_model_path)
     _require_liveness_gate(config, output_root, base_model_path=base_model_path)
     cells = build_cells(config)
-    waves = build_waves(config)
     gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
     slots_per_gpu = int(config["execution"]["slots_per_gpu"])
     slot_count = len(gpu_ids) * slots_per_gpu
     if slot_count != int(config["execution"]["max_concurrent_cells"]) or slot_count != 16:
         raise RuntimeError("Declared 16-slot capacity is internally inconsistent")
 
+    pending: queue.Queue[Cell] = queue.Queue()
+    for cell in cells:
+        pending.put(cell)
+    stop = threading.Event()
     lock = threading.Lock()
     checkpoint_lock = threading.Lock()
+    task_result_lock = threading.Lock()
     results: list[dict[str, Any]] = []
+    task_results: dict[str, dict[str, Any]] = {}
     event_path = output_root / "scheduler" / "queue_events.jsonl"
     event_path.parent.mkdir(parents=True, exist_ok=True)
     scheduler_run_id = f"queue-{int(time.time())}-{os.getpid()}"
@@ -5554,91 +5781,96 @@ def cmd_run_dynamic(
         with lock:
             append_jsonl(event_path, {"scheduler_run_id": scheduler_run_id, **dict(event)})
 
-    def run_one(cell: Cell, *, wave_index: int, slot: int) -> dict[str, Any]:
-        nonlocal last_checkpoint_count
-        gpu_id = gpu_ids[slot % len(gpu_ids)]
-        cell_root = output_root / "cells" / cell.key
-        manifest_path = cell_root / "cell_manifest.json"
-        reusable_complete = False
-        if manifest_path.is_file():
-            try:
-                reusable_complete = bool(
-                    json.loads(manifest_path.read_text(encoding="utf-8")).get("complete")
+    def publish_completed_task(task: str) -> None:
+        with task_result_lock:
+            if task in task_results:
+                return
+            rows = _coldstart_completed_task_rows(config, output_root, task)
+            if rows is not None:
+                task_results[task] = _write_coldstart_task_result(
+                    config,
+                    output_root,
+                    task,
+                    rows,
                 )
-            except (OSError, json.JSONDecodeError):
-                reusable_complete = False
-        child_force = force or (retry_incomplete and cell_root.exists() and not reusable_complete)
-        record(
-            {
-                "event": "start",
-                "wave": wave_index,
-                "cell_key": cell.key,
-                "slot": slot,
-                "gpu_id": gpu_id,
-                "unix_time": time.time(),
-                "retry_incomplete": child_force and not force,
-            }
-        )
-        result = _run_subprocess_cell(
-            config_path=config_path.resolve(),
-            output_root=output_root.resolve(),
-            base_model_path=base_model_path,
-            cell=cell,
-            gpu_id=gpu_id,
-            force=child_force,
-        )
-        if int(result["returncode"]) == 0 and recovery_package is not None:
-            try:
-                with checkpoint_lock:
-                    current_reusable, _ = _reusable_cell_manifests(config, output_root)
-                    completed_count = len(current_reusable)
-                    if completed_count >= last_checkpoint_count + recovery_interval:
-                        checkpoint = _publish_recovery_checkpoint(
-                            config,
-                            output_root,
-                            package_output=recovery_package,
-                        )
-                        last_checkpoint_count = int(checkpoint["completed_cells"])
-                        result["recovery_checkpoint"] = checkpoint["package"]
-                        result["recovery_checkpoint_completed_cells"] = last_checkpoint_count
-            except Exception as exc:
-                result["returncode"] = 74
-                result["recovery_checkpoint_error"] = f"{type(exc).__name__}: {exc}"
-        result.update({"wave": wave_index, "slot": slot})
-        record({"event": "finish", **result, "unix_time": time.time()})
-        return result
 
-    wave_records: list[dict[str, Any]] = []
-    task_results: dict[str, dict[str, Any]] = {}
-    stopped = False
-    for wave_index, wave in enumerate(waves, start=1):
-        wave_results: list[dict[str, Any]] = []
-        with ThreadPoolExecutor(max_workers=len(wave)) as executor:
-            futures = [
-                executor.submit(run_one, cell, wave_index=wave_index, slot=slot)
-                for slot, cell in enumerate(wave)
-            ]
-            for future in as_completed(futures):
-                wave_results.append(future.result())
-        wave_results.sort(key=lambda row: str(row["cell_key"]))
-        results.extend(wave_results)
-        failures = [row for row in wave_results if int(row["returncode"]) != 0]
-        task_results = _materialize_completed_coldstart_task_results(config, output_root)
-        wave_records.append(
-            {
-                "wave": wave_index,
-                "expected_cells": len(wave),
-                "returned_cells": len(wave_results),
-                "failed_cells": [row["cell_key"] for row in failures],
-                "complete": not failures and len(wave_results) == len(wave),
-                "scheduling_barrier": True,
-                "scientific_result_gate": False,
-                "analysis_ready_tasks": sorted(task_results),
-            }
-        )
-        if failures or len(wave_results) != len(wave):
-            stopped = True
-            break
+    def worker(slot: int, gpu_id: int) -> list[dict[str, Any]]:
+        nonlocal last_checkpoint_count
+        local: list[dict[str, Any]] = []
+        while not stop.is_set():
+            try:
+                cell = pending.get_nowait()
+            except queue.Empty:
+                break
+            cell_root = output_root / "cells" / cell.key
+            manifest_path = cell_root / "cell_manifest.json"
+            reusable_complete = False
+            if manifest_path.is_file():
+                try:
+                    reusable_complete = bool(
+                        json.loads(manifest_path.read_text(encoding="utf-8")).get("complete")
+                    )
+                except (OSError, json.JSONDecodeError):
+                    reusable_complete = False
+            child_force = force or (
+                retry_incomplete and cell_root.exists() and not reusable_complete
+            )
+            record(
+                {
+                    "event": "start",
+                    "cell_key": cell.key,
+                    "slot": slot,
+                    "gpu_id": gpu_id,
+                    "unix_time": time.time(),
+                    "retry_incomplete": child_force and not force,
+                }
+            )
+            result = _run_subprocess_cell(
+                config_path=config_path.resolve(),
+                output_root=output_root.resolve(),
+                base_model_path=base_model_path,
+                cell=cell,
+                gpu_id=gpu_id,
+                force=child_force,
+            )
+            if int(result["returncode"]) == 0 and recovery_package is not None:
+                try:
+                    with checkpoint_lock:
+                        current_reusable, _ = _reusable_cell_manifests(config, output_root)
+                        completed_count = len(current_reusable)
+                        if completed_count >= last_checkpoint_count + recovery_interval:
+                            checkpoint = _publish_recovery_checkpoint(
+                                config,
+                                output_root,
+                                package_output=recovery_package,
+                            )
+                            last_checkpoint_count = int(checkpoint["completed_cells"])
+                            result["recovery_checkpoint"] = checkpoint["package"]
+                            result["recovery_checkpoint_completed_cells"] = last_checkpoint_count
+                except Exception as exc:
+                    result["returncode"] = 74
+                    result["recovery_checkpoint_error"] = f"{type(exc).__name__}: {exc}"
+            result.update({"slot": slot, "nominal_batch": cells.index(cell) // slot_count + 1})
+            local.append(result)
+            record({"event": "finish", **result, "unix_time": time.time()})
+            pending.task_done()
+            if int(result["returncode"]) != 0:
+                stop.set()
+            else:
+                try:
+                    publish_completed_task(cell.task)
+                except Exception:
+                    stop.set()
+                    raise
+        return local
+
+    with ThreadPoolExecutor(max_workers=slot_count) as executor:
+        futures = [
+            executor.submit(worker, slot, gpu_ids[slot % len(gpu_ids)])
+            for slot in range(slot_count)
+        ]
+        for future in as_completed(futures):
+            results.extend(future.result())
 
     results.sort(key=lambda row: str(row["cell_key"]))
     failures = [row for row in results if int(row["returncode"]) != 0]
@@ -5649,7 +5881,7 @@ def cmd_run_dynamic(
         config,
         output_root,
         destination=output_root / "scheduler" / "countdown_protocol_diagnostic.json",
-    ) if not stopped and not unscheduled else {
+    ) if not failures and not unscheduled else {
         "status": "PENDING",
         "result_gate": False,
         "controls_task_transfer_release": False,
@@ -5659,12 +5891,12 @@ def cmd_run_dynamic(
         "experiment_id": experiment_id(config),
         "scheduler": "dynamic_slot_queue",
         "scheduler_run_id": scheduler_run_id,
-        "wave_barriers": True,
-        "wave_count": len(waves),
+        "wave_barriers": False,
+        "wave_count": len(build_waves(config)),
+        "wave_count_role": "nominal_audit_geometry_only_not_scheduling_barrier",
         "slot_count": slot_count,
         "gpu_ids": list(gpu_ids),
         "slots_per_gpu": slots_per_gpu,
-        "waves": wave_records,
         "countdown_protocol_diagnostic": protocol_diagnostic,
         "countdown_result_controls_transfer_release": False,
         "expected_cells": len(cells),
@@ -5910,7 +6142,7 @@ def _materialize_completed_coldstart_task_results(
     config: Mapping[str, Any],
     output_root: Path,
 ) -> dict[str, dict[str, Any]]:
-    """Publish every fully complete task after the current hard wave barrier."""
+    """Publish every fully complete task independently of nominal-batch boundaries."""
 
     ready: dict[str, dict[str, Any]] = {}
     for task_value in config["suite"]["tasks"]:
@@ -6963,7 +7195,6 @@ def _audit_engineering_queue(
     maximum_by_gpu = dict(active_by_gpu)
     starts: dict[str, float] = {}
     finishes: dict[str, float] = {}
-    waves_by_cell: dict[str, int] = {}
     for event in events:
         gpu_id = int(event["gpu_id"])
         cell_key = str(event["cell_key"])
@@ -6971,7 +7202,6 @@ def _audit_engineering_queue(
             active_by_gpu[gpu_id] += 1
             maximum_by_gpu[gpu_id] = max(maximum_by_gpu[gpu_id], active_by_gpu[gpu_id])
             starts[cell_key] = float(event["unix_time"])
-            waves_by_cell[cell_key] = int(event["wave"])
         elif event["event"] == "finish":
             active_by_gpu[gpu_id] -= 1
             finishes[cell_key] = float(event["unix_time"])
@@ -6981,19 +7211,21 @@ def _audit_engineering_queue(
     slots_per_gpu = int(config["execution"]["slots_per_gpu"])
     if any(value != 0 for value in active_by_gpu.values()) or max(maximum_by_gpu.values()) > slots_per_gpu:
         raise RuntimeError("Engineering queue exceeded the declared per-GPU capacity")
-    waves = build_waves(config)
-    for wave_index in range(1, len(waves)):
-        current_keys = {cell.key for cell in waves[wave_index - 1]}
-        next_keys = {cell.key for cell in waves[wave_index]}
-        if min(starts[key] for key in next_keys) < max(finishes[key] for key in current_keys):
-            raise RuntimeError(f"Wave {wave_index + 1} started before wave {wave_index} finished")
-    if set(waves_by_cell.values()) != set(range(1, len(waves) + 1)):
-        raise RuntimeError("Engineering queue did not record the exact wave identities")
+    slot_count = int(config["execution"]["max_concurrent_cells"])
+    initial_keys = {cell.key for cell in cells[:slot_count]}
+    replacement_keys = {cell.key for cell in cells[slot_count:]}
+    if not replacement_keys:
+        raise RuntimeError("Engineering queue requires replacement cells to audit dynamic refill")
+    if min(starts[key] for key in replacement_keys) >= max(
+        finishes[key] for key in initial_keys
+    ):
+        raise RuntimeError("Engineering queue did not refill before the initial 16 cells finished")
     return {
         "all_cells_observed": True,
         "maximum_active_by_gpu": maximum_by_gpu,
-        "wave_barriers_respected": True,
-        "wave_count": len(waves),
+        "dynamic_refill_observed": True,
+        "nominal_batch_barrier_absent": True,
+        "nominal_batch_count": len(build_waves(config)),
         "slots_per_gpu": slots_per_gpu,
     }
 
