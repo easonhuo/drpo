@@ -105,4 +105,4 @@ The implementation is acceptable only if:
 - routine PR CI no longer runs formal execution-channel activation validation;
 - compile, shell syntax, relevant focused tests, full pytest, Ruff, governance inventory/stage checks, and handoff authority verification are reviewed after the change;
 - no historical file or result is destructively deleted;
-- merge occurs only after the reviewed diff is presented and accepted.
+- merge is authorized by the user's explicit 2026-08-22 instruction for this exact scope once the reviewed diff remains within scope and required CI passes; any scope expansion requires new approval.
