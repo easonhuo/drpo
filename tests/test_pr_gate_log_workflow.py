@@ -27,7 +27,7 @@ def test_tiered_plan_is_shadow_only_and_uses_exact_pr_shas() -> None:
     assert "GITHUB_STEP_SUMMARY" in block
 
 
-def test_shadow_phase_preserves_read_only_checkout_and_legacy_full_gates() -> None:
+def test_shadow_phase_preserves_read_only_checkout_and_active_quality_gates() -> None:
     text = _workflow_text()
 
     assert "permissions:\n  contents: read" in text
@@ -35,7 +35,7 @@ def test_shadow_phase_preserves_read_only_checkout_and_legacy_full_gates() -> No
     assert "python -m compileall -q src scripts tools tests" in text
     assert "bash -n tools/drpo-update/drpo-update tools/drpo-update/install.sh" in text
     assert "python scripts/handoff_authority.py verify --repo-root ." in text
-    assert "python scripts/validate_formal_execution_channel.py --repo-root ." in text
+    assert "python scripts/validate_formal_execution_channel.py --repo-root ." not in text
     assert "python scripts/validate_governance_rule_inventory.py --repo-root ." in text
     assert "python scripts/validate_governance_pipeline_stage_status.py --repo-root ." in text
     assert "python -m pytest -q" in text
