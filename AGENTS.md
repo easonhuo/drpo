@@ -60,22 +60,24 @@ The repository owner's explicit approval in the active conversation is the autho
 
 An AI agent may not invent, infer, or fabricate approval; approve its own unapproved path; bypass the gate through direct pushes; split one module into several files to evade review; or weaken the gate as part of an unrelated task. Changes to the hard-gate workflow, verifier, root agent rule, policy, scope, authorization, or regression test also require explicit oral approval plus a durable scope record. The canonical policy is `docs/governance_new_python_file_approval.md`.
 
-## Default code-first pilot-registration route
+## Default experiment launch route
 
-For a new or modified authoritative E7, E8, or other scientific-pilot registration, the default route after implementation-SHA freeze is:
+Under `GOV-EXPERIMENT-LAUNCH-SIMPLIFICATION-01`, experiment registration and activation bookkeeping are not launch permissions. For new experiments, modified experiments, and reruns, the default route is:
 
-1. complete scientific implementation, command-contract validation, and any already-authorized liveness;
-2. freeze the exact implementation SHA;
-3. create a reviewer-authored `DEV_PILOT_REGISTRATION_SPEC.yaml`;
-4. run `python3 scripts/prepare_dev_pilot_registration.py` from current `main` to produce deterministic `PREPARED_INPUTS`;
-5. pass the exact prepared request, review, intent, and approval inputs through the existing V1 `plan → prepare → normalize → gate → finalize` transaction to local `READY`;
-6. review and publish or merge only through the normal GitHub route with explicit user approval.
+1. document and freeze the scientific protocol, including the claim, environment/data, methods, controls, metrics, seeds, training horizon/stopping criteria, and expected outputs;
+2. freeze the exact implementation/config identity and select one full Git commit SHA;
+3. launch from a clean canonical checkout for formal runs, or use only an explicitly allowed pilot snapshot policy;
+4. write the Run ID, source commit, scientific-config identity, and data/model provenance into the run manifest or equivalent launch evidence;
+5. use the applicable foreground guard, recovery/checkpoint path, terminal audit, packaging, verification, and durable-delivery controls;
+6. update registry/handoff bookkeeping when it is useful for project status or result closure, without making that bookkeeping a prerequisite for touching GPUs or starting an already-frozen workload.
 
-Do not silently replace this route with ad hoc per-file writes, temporary workflows, repeated remote generation, or unreviewed branch reconstruction.
+The following mechanisms must not be required merely to authorize an experiment launch: READY RunSpec promotion, a `runspecs/ready/` presence check, registry `execution_gate` or implementation-identity activation, Stage-5/schema-v3 registration performed only to obtain launch permission, `validate_formal_execution_channel.py` registry/channel activation validation, or lane activation whose sole purpose is to prove READY/registry state.
 
-The existing manual V1 input path remains an explicit fallback only. Before using it, record why the merged fastpath is unavailable or unsuitable, the frozen implementation SHA, the logical commit structure, the review plan, the rollback plan, and explicit user approval. Convenience, schedule pressure, historical habit, or unfamiliarity with the fastpath are not sufficient reasons.
+`experiments/registry.yaml` remains a useful project index/history source. RunSpec remains available as an optional immutable execution snapshot or server convenience. Stage-5/schema-v3 authority remains the required write mechanism when a real handoff or registry materialization is being made; it is not a launch gate.
 
-This default does not permit an unregistered formal launch, direct handoff editing, automatic push, PR creation, merge, scientific-status upgrade, or bypass of schema-v3 authority, exact-head CI, terminal audit, durable-artifact, or explicit merge gates. Code-first means registration is deferred until the implementation identity is stable; it does not mean registration is optional. PR-B tiered CI, telemetry enforcement, and `GOV-DEV-POSTRUN-CLOSURE-DEPENDENCY-GATE-01` remain separately scoped.
+Do not reintroduce READY/registry/schema-v3/channel/lane activation as a launch prerequisite without a new explicit user-approved governance change. Historical registration and READY records remain immutable provenance and must not be destructively deleted.
+
+This simplification does not weaken exact-commit, clean-checkout, frozen-science, provenance, recovery, terminal-audit, artifact, result-status, or explicit repository-merge requirements.
 
 ## Epistemic independence and anti-sycophancy
 
@@ -133,7 +135,9 @@ In particular:
 
 ## Execution order and gates
 
-Always follow the latest execution order and gates recorded in `docs/handoff.md`.
+Always follow the latest scientific execution order and scientific/protocol gates recorded in `docs/handoff.md`.
+
+Legacy READY/registry/channel activation language in historical handoff material does not override the current registration-free launch policy in `Default experiment launch route`.
 
 Do not start a lower-priority experiment merely because it is easier to run.
 
@@ -155,7 +159,7 @@ Do not independently add, remove, reorder, split, merge, or rename paragraphs in
 
 ## Document-before-experiment rule
 
-Before starting a new formal experiment, register:
+Before starting a new formal experiment, document and freeze:
 
 * experiment ID;
 * claim being tested;
@@ -168,11 +172,11 @@ Before starting a new formal experiment, register:
 * held-out seeds;
 * stopping or convergence criteria;
 * expected output paths;
-* result status.
+* initial result status.
 
-The registration must appear in `docs/handoff.md` and, when applicable, in `experiments/registry.yaml`.
+This scientific protocol must exist in a tracked protocol, config, runbook, scope, or equivalent immutable launch record before the workload starts. `docs/handoff.md` and `experiments/registry.yaml` may additionally index that protocol, but their registration/materialization state is non-blocking for launch.
 
-Do not launch an unregistered formal experiment.
+Do not launch a scientifically unspecified or unfrozen formal experiment. Do not treat a missing/stale registry entity, READY RunSpec, schema-v3 transaction, or channel activation record as sufficient reason to block an otherwise valid frozen launch.
 
 ## Allowed result statuses
 
