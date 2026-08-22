@@ -83,6 +83,7 @@ DEFAULT_P0_CONFIG = Path("configs/e8_multitask_p0.yaml")
 METHOD_POSITIVE_ONLY = "positive_only"
 METHOD_EXPONENTIAL = "exponential"
 METHOD_GLOBAL = "global"
+TRANSFER_SYSTEM_PROMPT = "Answer with only the requested final output and no explanation."
 SWEEP_PROFILE_RHO = "nine_task_rho_v1"
 SWEEP_PROFILE_DENSE = "task_lambda_dense_v1"
 SWEEP_PROFILE_COLDSTART = "eight_task_coldstart_lambda_v1"
@@ -1205,16 +1206,13 @@ def _canonical_train_row(row: Mapping[str, Any]) -> dict[str, Any]:
     bank = [
         {
             **dict(item),
-            "expression": str(item.get("canonical_completion", item["completion"])),
+            "expression": str(item["completion"]),
         }
         for item in negatives
     ]
-    oracle_verification = row.get("oracle_verification", {})
-    oracle = str(
-        oracle_verification.get("canonical_completion", row["oracle_completion"])
-        if isinstance(oracle_verification, Mapping)
-        else row["oracle_completion"]
-    )
+    oracle = str(row["oracle_completion"])
+    if any(item["expression"] == oracle for item in bank):
+        raise RuntimeError(f"{task}/{prompt_id} negative completion matches the positive")
     return {
         **dict(row),
         "id": prompt_id,
@@ -1416,7 +1414,7 @@ def _score_reference_candidates(
             arena.encode_prompt_completion(
                 tokenizer,
                 prompt,
-                str(item["canonical_completion"]),
+                str(item["completion"]),
                 max_length,
             )
             for item in chunk
@@ -1424,7 +1422,7 @@ def _score_reference_candidates(
         packed = arena.pad_encoded(encoded, int(tokenizer.pad_token_id))
         packed = arena.move_to_device(packed, device)
         with torch.no_grad():
-            surprisal = -arena.completion_stats(model, packed)["seq_lp"]
+            surprisal = arena.sequence_surprisal_only(model, packed)
         scores.extend(float(value) for value in surprisal.detach().cpu())
     if len(scores) != len(candidates) or not all(math.isfinite(value) for value in scores):
         raise RuntimeError("Reference-policy candidate scoring is incomplete or non-finite")
@@ -1462,6 +1460,7 @@ def _derive_reference_remoteness_banks(
                 "p0_config_sha256": record["p0_config_sha256"],
                 "base_model_identity": base_identity,
                 "task_runtime": dict(config["task_runtime"][task]),
+                "model_facing_text": "raw_completion_generic_prompt_v1",
                 "selector": selector,
             }
         )
@@ -1499,8 +1498,10 @@ def _derive_reference_remoteness_banks(
         )
         model.eval()
         original_clean_expression = arena.clean_expression
+        original_system_prompt = arena.SYSTEM_PROMPT
         try:
             arena.clean_expression = lambda value: str(value)
+            arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
             for task in pending:
                 record = splits["tasks"][task]
                 train_rows = read_jsonl(Path(record["paths"]["train"]))
@@ -1624,6 +1625,7 @@ def _derive_reference_remoteness_banks(
                 atomic_json(output_root / "split_manifest.json", splits)
         finally:
             arena.clean_expression = original_clean_expression
+            arena.SYSTEM_PROMPT = original_system_prompt
             del model
             gc.collect()
             if torch.cuda.is_available():
@@ -3770,10 +3772,14 @@ def _train_canonical_cold_cell(
     def task_interface() -> Any:
         original_evaluate_rows = arena.evaluate_rows
         original_clean_expression = arena.clean_expression
+        original_system_prompt = arena.SYSTEM_PROMPT
+        original_completion_stats = arena.completion_stats
         original_trainer_evaluate = scan_trainer._evaluate_validation
         try:
             if evaluator is not None:
                 arena.evaluate_rows = evaluator
+                arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
+                arena.completion_stats = lambda model, batch: {"seq_lp": -arena.sequence_surprisal_only(model, batch)}
                 # Non-arithmetic task outputs are already canonicalized by the P0
                 # verifier. Arithmetic-only cleanup would corrupt structured outputs.
                 arena.clean_expression = lambda value: str(value)
@@ -3787,6 +3793,8 @@ def _train_canonical_cold_cell(
         finally:
             arena.evaluate_rows = original_evaluate_rows
             arena.clean_expression = original_clean_expression
+            arena.SYSTEM_PROMPT = original_system_prompt
+            arena.completion_stats = original_completion_stats
             scan_trainer._evaluate_validation = original_trainer_evaluate
 
     alpha = 0.0 if cell.method == METHOD_POSITIVE_ONLY else 1.0
