@@ -736,14 +736,6 @@ def coefficient_from_rho(rho: float) -> float:
     return -math.log(rho)
 
 
-def _canonical_exp_coefficient(cell: Cell) -> float:
-    if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL}:
-        return 0.0
-    if cell.lambda_value is None:
-        raise AssertionError("Canonical exponential cell requires lambda")
-    return float(cell.lambda_value)
-
-
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
@@ -3798,7 +3790,9 @@ def _train_canonical_cold_cell(
             scan_trainer._evaluate_validation = original_trainer_evaluate
 
     alpha = 0.0 if cell.method == METHOD_POSITIVE_ONLY else 1.0
-    coefficient = _canonical_exp_coefficient(cell)
+    coefficient = 0.0 if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL} else float(
+        cell.lambda_value
+    )
     with task_interface():
         if cell.task == "countdown":
             returncode = runtime.worker(

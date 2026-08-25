@@ -1868,8 +1868,10 @@ def test_lambda_only_canonical_transport_is_exactly_equivalent() -> None:
             lambda_value,
         )
         assert historical.key == successor.key
-        historical_coefficient = exp_tuning._canonical_exp_coefficient(historical)
-        successor_coefficient = exp_tuning._canonical_exp_coefficient(successor)
+        assert historical.lambda_value is not None
+        assert successor.lambda_value is not None
+        historical_coefficient = float(historical.lambda_value)
+        successor_coefficient = float(successor.lambda_value)
         assert historical_coefficient.hex() == successor_coefficient.hex()
         assert successor_coefficient.hex() == float(lambda_value).hex()
 
