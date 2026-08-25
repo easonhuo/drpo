@@ -58,22 +58,24 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           from __future__ import annotations
-          import hashlib
           import importlib.util
+          import os
           from pathlib import Path
+          import sys
           import yaml
 
           root = Path.cwd()
-          trusted = Path(__import__('os').environ['RUNNER_TEMP']) / 'trusted-main'
-          base = __import__('os').environ['BASE_COMMIT']
-          update_id = __import__('os').environ['UPDATE_ID']
-          delta_path = root / __import__('os').environ['DELTA_PATH']
+          trusted = Path(os.environ['RUNNER_TEMP']) / 'trusted-main'
+          base = os.environ['BASE_COMMIT']
+          update_id = os.environ['UPDATE_ID']
+          delta_path = root / os.environ['DELTA_PATH']
 
           spec = importlib.util.spec_from_file_location(
               'handoff_delta_shadow', trusted / 'scripts' / 'handoff_delta_shadow.py'
           )
           shadow = importlib.util.module_from_spec(spec)
           assert spec.loader is not None
+          sys.modules[spec.name] = shadow
           spec.loader.exec_module(shadow)
 
           base_handoff = (trusted / 'docs' / 'handoff.md').read_text(encoding='utf-8')
