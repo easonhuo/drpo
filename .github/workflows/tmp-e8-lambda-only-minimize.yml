@@ -1,0 +1,79 @@
+name: Temporary E8 lambda-only minimize
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-lambda-only-successor-01
+
+permissions:
+  contents: write
+
+jobs:
+  minimize-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-lambda-only-successor-01
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Minimize scientific-path edit and decouple equivalence test
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path('src/drpo/e8_multitask_exp_tuning.py')
+          text = source.read_text(encoding='utf-8')
+          helper = '''def _canonical_exp_coefficient(cell: Cell) -> float:\n    if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL}:\n        return 0.0\n    if cell.lambda_value is None:\n        raise AssertionError("Canonical exponential cell requires lambda")\n    return float(cell.lambda_value)\n\n\n'''
+          if text.count(helper) != 1:
+              raise SystemExit('expected exactly one canonical helper block')
+          text = text.replace(helper, '')
+          old = '    coefficient = _canonical_exp_coefficient(cell)\n'
+          new = '''    coefficient = 0.0 if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL} else float(\n        cell.lambda_value\n    )\n'''
+          if text.count(old) != 1:
+              raise SystemExit('expected exactly one helper call')
+          text = text.replace(old, new)
+          source.write_text(text, encoding='utf-8')
+
+          tests = Path('tests/test_e8_multitask_p0.py')
+          test_text = tests.read_text(encoding='utf-8')
+          old_test = '''        historical_coefficient = exp_tuning._canonical_exp_coefficient(historical)\n        successor_coefficient = exp_tuning._canonical_exp_coefficient(successor)\n'''
+          new_test = '''        assert historical.lambda_value is not None\n        assert successor.lambda_value is not None\n        historical_coefficient = float(historical.lambda_value)\n        successor_coefficient = float(successor.lambda_value)\n'''
+          if test_text.count(old_test) != 1:
+              raise SystemExit('expected exactly one equivalence helper test block')
+          test_text = test_text.replace(old_test, new_test)
+          tests.write_text(test_text, encoding='utf-8')
+          PY
+      - name: Install
+        run: python -m pip install -e '.[dev]'
+      - name: Compile
+        run: python -m compileall -q src tests
+      - name: Targeted equivalence and historical regressions
+        run: >-
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          -k 'lambda_only_canonical_transport_is_exactly_equivalent or exp_coldstart_matrix_is_208_cells_in_13_hard_waves or exp_tuning_distance_and_rho_parameterization'
+      - name: Fatal Ruff
+        run: ruff check --select E9,F63,F7,F82 src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+      - name: Verify minimized core diff
+        run: |
+          git diff -- src/drpo/e8_multitask_exp_tuning.py
+          python - <<'PY'
+          import subprocess
+          diff = subprocess.check_output(
+              ['git', 'diff', '--numstat', '9ad875a2f013ab9bab80849333831078d27e6121', '--', 'src/drpo/e8_multitask_exp_tuning.py'],
+              text=True,
+          ).strip()
+          if diff != '2\t2\tsrc/drpo/e8_multitask_exp_tuning.py':
+              raise SystemExit(f'unexpected core diff size: {diff!r}')
+          PY
+      - name: Commit minimized final tree
+        run: |
+          rm .github/workflows/tmp-e8-lambda-only-minimize.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py .github/workflows/tmp-e8-lambda-only-minimize.yml
+          git commit -m 'E8: minimize lambda-only transport edit'
+          git push origin HEAD:dev/e8-multitask-lambda-only-successor-01
