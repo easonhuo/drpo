@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "closure_id": "E8-MULTITASK-EXP-COLDSTART-208CELL-PILOT-CLOSURE-2026-08-25",
+  "experiment_id": "EXT-C-E8-MULTITASK-EXP-COLDSTART-01",
+  "run_id": "E8_MULTITASK_EXP_COLDSTART_20260820_02",
+  "scientific_status": "pilot",
+  "execution": {
+    "expected_cells": 208,
+    "completed_cells": 208,
+    "all_training_and_evaluation_complete": true,
+    "fixed_training_horizon_updates": 1200,
+    "fixed_horizon_is_convergence": false,
+    "test_partition_accessed": false,
+    "engineering_placeholder_backend": false
+  },
+  "terminal_audit": {
+    "status": "PASS",
+    "missing_cells": 0,
+    "incomplete_cells": 0,
+    "nan_inf_event_count": 0,
+    "countdown_protocol_diagnostic_status": "PASS",
+    "task_performance_event": "not_adjudicated_without_registered_collapse_threshold",
+    "structure_event": "greedy_and_sampled_valid_rate_diagnostic_only"
+  },
+  "claim_boundary": {
+    "response_shape_localization_only": true,
+    "transfer_exp_single_seed_response_shape_localization": true,
+    "fresh_seed_confirmation_required_for_winner_claim": true,
+    "method_ranking_allowed": false,
+    "significance_claim_allowed": false,
+    "convergence_or_steady_state_claim_allowed": false,
+    "ood_generalization_claim_allowed": false
+  },
+  "provenance": {
+    "recorded_run_source_commit": "01471868f5f057cc033c4434265e4adb32f36ae8",
+    "recorded_run_base_commit": "01471868f5f057cc033c4434265e4adb32f36ae8",
+    "authoritative_github_commit_resolution": "unresolved_as_of_2026-08-25",
+    "repository_closure_base_main": "e35573be30a5df53dd6201f112fb57fedabd8d15",
+    "config_hash": "777b3a276f4125fe3012b5eca1e7dceb7d4a9baa3a678069e8919cad671b9125",
+    "aggregate_summary_sha256": "64a55c088564259e3721811104d48e313dc5f095ab67f8808493da897ffa2bd1",
+    "terminal_audit_sha256": "24bdb096071351353ebc873eea697e810001cadc8fedbb46cce35771c417c9da"
+  },
+  "future_curve_concatenation": {
+    "historical_anchor": true,
+    "canonical_curve_anchor_path": "experiments/results/e8_multitask_exp_coldstart_20260820_02/CURVE_ANCHOR.csv",
+    "curve_anchor_rows": 208,
+    "curve_anchor_columns": [
+      "task",
+      "method",
+      "lambda",
+      "seed",
+      "stage",
+      "late_window_pass8_mean",
+      "late_window_greedy_mean",
+      "complete"
+    ],
+    "canonical_task_summary_path": "experiments/results/e8_multitask_exp_coldstart_20260820_02/TASK_SUMMARY.csv",
+    "historical_rho_fields_preserved_in_original_raw_artifact_only": true,
+    "successor_parameterization_frozen_by_this_closure": false
+  },
+  "evidence_sha256": {
+    "CURVE_ANCHOR.csv": "69b3b901d9d7e81439619ef35d6ccba4c3205db7c8bce803b187e32b0fe0be48",
+    "TASK_SUMMARY.csv": "bf9dc1e526098c9215b9d57dd0dcec4843eef0cfe659e82af1d428f3ea9512f9",
+    "RUN_COMPLETE.json": "5782821de68eec429993446a93cdc1ee10ca132cd0aa041baa38219e5fba350d",
+    "TERMINAL_AUDIT.json": "24bdb096071351353ebc873eea697e810001cadc8fedbb46cce35771c417c9da",
+    "COUNTDOWN_PROTOCOL_DIAGNOSTIC.json": "0befce658a8896e1f42776639d1d6cee6e9307188338ee7dd52ca97afbf354a8",
+    "original_plot_curve_points.csv": "220087bab4439bdc6bc3a771a828c2e80962d3d2daf01c61c2dbf3ec78f42e5d",
+    "original_all_cells.csv": "779ccd31f04ec47ce47c4e0cee540ed4c7c920ee3e02992177a4c814a45c4c29"
+  }
+}
