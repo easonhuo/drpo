@@ -1,0 +1,204 @@
+name: Temporary E8 Coldstart Result Materialization
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-coldstart-result-closure
+    paths:
+      - .github/workflows/tmp-e8-coldstart-result-materialize.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tmp-e8-coldstart-result-materialize
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      BASE_COMMIT: e35573be30a5df53dd6201f112fb57fedabd8d15
+      BRANCH_NAME: dev/e8-multitask-coldstart-result-closure
+      UPDATE_ID: EXT-C-E8-MULTITASK-EXP-COLDSTART-01-RESULT-CLOSURE-2026-08-25
+      DELTA_PATH: docs/handoff_deltas/EXT-C-E8-MULTITASK-EXP-COLDSTART-01-RESULT-CLOSURE-2026-08-25/HANDOFF_DELTA.yaml
+      SELF_PATH: .github/workflows/tmp-e8-coldstart-result-materialize.yml
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-coldstart-result-closure
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install authority dependencies
+        run: python -m pip install -q PyYAML
+
+      - name: Verify exact current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$BASE_COMMIT"
+          git merge-base --is-ancestor "$BASE_COMMIT" HEAD
+
+      - name: Prepare trusted main worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/trusted-main"
+          git worktree add --detach "$RUNNER_TEMP/trusted-main" "$BASE_COMMIT"
+
+      - name: Author exact-base schema-v3 handoff delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+          import hashlib
+          import importlib.util
+          from pathlib import Path
+          import yaml
+
+          root = Path.cwd()
+          trusted = Path(__import__('os').environ['RUNNER_TEMP']) / 'trusted-main'
+          base = __import__('os').environ['BASE_COMMIT']
+          update_id = __import__('os').environ['UPDATE_ID']
+          delta_path = root / __import__('os').environ['DELTA_PATH']
+
+          spec = importlib.util.spec_from_file_location(
+              'handoff_delta_shadow', trusted / 'scripts' / 'handoff_delta_shadow.py'
+          )
+          shadow = importlib.util.module_from_spec(spec)
+          assert spec.loader is not None
+          spec.loader.exec_module(shadow)
+
+          base_handoff = (trusted / 'docs' / 'handoff.md').read_text(encoding='utf-8')
+          base_registry = (trusted / 'experiments' / 'registry.yaml').read_text(encoding='utf-8')
+
+          block = (
+              '- **Countdown E8 multitask EXP cold-start 208-cell pilot closure '
+              '(`EXT-C-E8-MULTITASK-EXP-COLDSTART-01`)：**上传结果已完成冻结矩阵 '
+              '`208/208` cells；训练与评估链完整，固定 `1200` updates 只构成 '
+              '**pilot / raw-complete response-curve evidence**，不等于 convergence、steady state、'
+              'significance 或正式方法排名。Countdown 子块继续只作历史两-seed regression / external-validity '
+              'sentinel；其余八任务各含 4 个 Positive-only 历史 seed 与 20 个 task-local Exp 点，'
+              '其中 Exp 曲线只使用单一 tuning seed，因此只能用于 response-shape / localization。'
+              '独立 test partition 未访问；NaN/Inf numerical failure 为 `0`，task performance、'
+              'valid/support-structure diagnostic 与 numerical failure 继续分开报告。结果包记录的运行源码 '
+              '`01471868f5f057cc033c4434265e4adb32f36ae8` 当前无法从 GitHub 解析，而打包时 '
+              '`origin/main=e35573be30a5df53dd6201f112fb57fedabd8d15`，该 provenance limitation '
+              '必须保留并禁止将本证据升级为 authoritative formal result。仓库 compact closure 位于 '
+              '`docs/results/E8_MULTITASK_EXP_COLDSTART_20260820_02_RESULT_2026-08-25.md` 与 '
+              '`experiments/results/e8_multitask_exp_coldstart_20260820_02/`；其中 `CURVE_ANCHOR.csv` '
+              '保存全部 208 个历史 cell，供后续独立 successor 与本轮结果拼接，不要求重跑旧 208 cells。'
+              '该历史锚点不追溯改写原始参数/provenance，也不在本闭环中定义 successor 的 `c`/`lambda` '
+              '映射；不得据此声称 universal Exp superiority、跨任务统一最优系数或 cross-task/model generalization。'
+          )
+
+          operations = [{
+              'operation_id': 'append-e8-multitask-coldstart-result-closure',
+              'op': 'append_to_section',
+              'heading_path': [
+                  '0. 研究与执行原则（每次新会话首先阅读）',
+                  '0.1 当前执行门禁',
+              ],
+              'block_id': 'e8-multitask-coldstart-result-closure-2026-08-25',
+              'content': block,
+          }]
+          rendered = shadow.render(base_handoff, operations)
+          shadow.verify_history_preservation(base_handoff, rendered.text, operations)
+
+          payload = {
+              'schema_version': 3,
+              'update_id': update_id,
+              'mode': 'authoritative',
+              'base': {
+                  'commit': base,
+                  'handoff_sha256': shadow.sha256_text(base_handoff),
+                  'registry_sha256': shadow.sha256_text(base_registry),
+              },
+              'renderer_version': 1,
+              'operations': operations,
+              'registry': {'mode': 'unchanged'},
+              'expected': {
+                  'exact_base_candidate_sha256': shadow.sha256_text(rendered.text),
+              },
+          }
+          delta_path.parent.mkdir(parents=True, exist_ok=False)
+          delta_path.write_text(
+              yaml.safe_dump(payload, sort_keys=False, allow_unicode=True),
+              encoding='utf-8',
+          )
+          print('base_handoff_sha256=', payload['base']['handoff_sha256'])
+          print('base_registry_sha256=', payload['base']['registry_sha256'])
+          print('candidate_sha256=', payload['expected']['exact_base_candidate_sha256'])
+          PY
+
+      - name: Validate exact-base delta with trusted main
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "$RUNNER_TEMP/trusted-main/scripts/handoff_authority.py" validate-delta \
+            --repo-root . \
+            --delta "$DELTA_PATH" \
+            --json
+
+      - name: Commit source closure and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name drpo-result-closure-bot
+          git config user.email actions@users.noreply.github.com
+          git add "$DELTA_PATH"
+          git rm "$SELF_PATH"
+          git commit -m 'E8 coldstart: author result closure delta'
+          git push origin "HEAD:$BRANCH_NAME"
+          echo "SOURCE_PATCH_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Trusted Stage-5 materialization
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "$RUNNER_TEMP/trusted-main/scripts/handoff_authority.py" normalize \
+            --repo-root . \
+            --trusted-repo-root "$RUNNER_TEMP/trusted-main" \
+            --current-before "$BASE_COMMIT" \
+            --source-base "$BASE_COMMIT" \
+            --source-patch-commit "$SOURCE_PATCH_COMMIT" \
+            --json
+
+      - name: Verify and commit materialized authority state
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/handoff_authority.py verify --repo-root . --json
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          git diff --check
+          git add docs/handoff.md docs/handoff_deltas docs/handoff_shadow/stage4/minimal/generated
+          git commit -m 'E8 coldstart: materialize pilot result closure'
+          git push origin "HEAD:$BRANCH_NAME"
+
+      - name: Narrow result-closure assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import csv, json
+          from pathlib import Path
+          root = Path('experiments/results/e8_multitask_exp_coldstart_20260820_02')
+          closure = json.loads((root / 'RESULT_CLOSURE.json').read_text())
+          run = json.loads((root / 'RUN_COMPLETE.json').read_text())
+          audit = json.loads((root / 'TERMINAL_AUDIT.json').read_text())
+          rows = list(csv.DictReader((root / 'CURVE_ANCHOR.csv').open()))
+          assert len(rows) == 208
+          assert run['completed_cells'] == 208
+          assert closure['scientific_status'] == 'pilot'
+          assert audit['nan_inf_numerical_failure_count'] == 0
+          assert closure['test_partition_accessed'] is False
+          assert closure['run_source_commit_resolved_on_github'] is False
+          print('compact closure assertions: PASS')
+          PY
