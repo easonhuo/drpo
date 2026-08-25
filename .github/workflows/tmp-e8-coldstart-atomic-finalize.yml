@@ -66,6 +66,7 @@ jobs:
           )
           git checkout "$RESULT_SOURCE_COMMIT" -- "${paths[@]}"
           git checkout "$DELTA_SOURCE_COMMIT" -- "$DELTA_PATH"
+          sed -i 's/[[:space:]]\+$//' docs/results/E8_MULTITASK_EXP_COLDSTART_20260820_02_RESULT_2026-08-25.md
           git add "${paths[@]}" "$DELTA_PATH"
           test "$(git diff --cached --name-only | wc -l)" -eq 8
           git diff --cached --check
