@@ -49,17 +49,15 @@
       "method",
       "lambda",
       "seed",
-      "stage",
       "late_window_pass8_mean",
-      "late_window_greedy_mean",
-      "complete"
+      "late_window_greedy_mean"
     ],
     "canonical_task_summary_path": "experiments/results/e8_multitask_exp_coldstart_20260820_02/TASK_SUMMARY.csv",
     "historical_rho_fields_preserved_in_original_raw_artifact_only": true,
     "successor_parameterization_frozen_by_this_closure": false
   },
   "evidence_sha256": {
-    "CURVE_ANCHOR.csv": "69b3b901d9d7e81439619ef35d6ccba4c3205db7c8bce803b187e32b0fe0be48",
+    "CURVE_ANCHOR.csv": "1d5e3894ae6ebf7358026e0d35c0d62b0064e760ff4bf18f177bd2069a7a8b8c",
     "TASK_SUMMARY.csv": "bf9dc1e526098c9215b9d57dd0dcec4843eef0cfe659e82af1d428f3ea9512f9",
     "RUN_COMPLETE.json": "5782821de68eec429993446a93cdc1ee10ca132cd0aa041baa38219e5fba350d",
     "TERMINAL_AUDIT.json": "24bdb096071351353ebc873eea697e810001cadc8fedbb46cce35771c417c9da",
