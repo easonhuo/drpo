@@ -1,0 +1,10 @@
+task,positive_only_late_window_pass8_mean,selected_lambda,selected_rho,selected_late_window_pass8_mean,selected_on_grid_edge,all_exp_below_positive_only
+countdown,0.1398,2.995732274,0.04999999997769956,0.1542,True,False
+word_sorting,0.6207031249999999,1.7,0.18268352405273466,0.5640625,False,True
+spiral_matrix,1.0,6.907755279,0.0009999999999821371,0.996875,True,True
+mini_sudoku,0.9609375,6.0,0.0024787521766663585,0.9625,False,False
+maze,0.76875,0.9,0.4065696597405991,0.7671875,False,True
+word_ladder,0.105078125,2.0794415416798357,0.12500000000000003,0.1109375,False,False
+knights_knaves,0.6722656250000001,0.6931471805599453,0.5,0.68125,False,False
+graph_color,0.98671875,2.6,0.07427357821433388,1.0,False,False
+wikisql,0.856640625,3.8,0.0223707718561656,0.8171875,False,True

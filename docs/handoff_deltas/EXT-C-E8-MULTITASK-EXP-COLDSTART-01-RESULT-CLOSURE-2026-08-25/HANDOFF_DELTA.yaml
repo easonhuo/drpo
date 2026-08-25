@@ -1,0 +1,33 @@
+schema_version: 3
+update_id: EXT-C-E8-MULTITASK-EXP-COLDSTART-01-RESULT-CLOSURE-2026-08-25
+mode: authoritative
+base:
+  commit: e35573be30a5df53dd6201f112fb57fedabd8d15
+  handoff_sha256: 865d790a99aea62f6906f0a1e23cd764f607006d148ed4bc21fc715bfe6b7c87
+  registry_sha256: aa97eadd8bd348d8fe337ab4232f44feca1cd6d9c02dacaed8968726162c132f
+renderer_version: 1
+operations:
+- operation_id: append-e8-multitask-coldstart-result-closure
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-multitask-coldstart-result-closure-2026-08-25
+  content: '- **Countdown E8 multitask EXP cold-start 208-cell pilot closure (`EXT-C-E8-MULTITASK-EXP-COLDSTART-01`)：**上传结果已完成冻结矩阵
+    `208/208` cells；训练与评估链完整，固定 `1200` updates 只构成 **pilot / raw-complete response-curve
+    evidence**，不等于 convergence、steady state、significance 或正式方法排名。Countdown 子块继续只作历史两-seed
+    regression / external-validity sentinel；其余八任务各含 4 个 Positive-only 历史 seed 与 20
+    个 task-local Exp 点，其中 Exp 曲线只使用单一 tuning seed，因此只能用于 response-shape / localization。独立
+    test partition 未访问；NaN/Inf numerical failure 为 `0`，task performance、valid/support-structure
+    diagnostic 与 numerical failure 继续分开报告。结果包记录的运行源码 `01471868f5f057cc033c4434265e4adb32f36ae8`
+    当前无法从 GitHub 解析，而打包时 `origin/main=e35573be30a5df53dd6201f112fb57fedabd8d15`，该
+    provenance limitation 必须保留并禁止将本证据升级为 authoritative formal result。仓库 compact closure
+    位于 `docs/results/E8_MULTITASK_EXP_COLDSTART_20260820_02_RESULT_2026-08-25.md`
+    与 `experiments/results/e8_multitask_exp_coldstart_20260820_02/`；其中 `CURVE_ANCHOR.csv`
+    保存全部 208 个历史 cell，供后续独立 successor 与本轮结果拼接，不要求重跑旧 208 cells。该历史锚点不追溯改写原始参数/provenance，也不在本闭环中定义
+    successor 的 `c`/`lambda` 映射；不得据此声称 universal Exp superiority、跨任务统一最优系数或 cross-task/model
+    generalization。'
+registry:
+  mode: unchanged
+expected:
+  exact_base_candidate_sha256: 7cc7780a408ff89cceb7742af17b6151d1cb4134a8fec5b9531ec3b1dddecdb3
