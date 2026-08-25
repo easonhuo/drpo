@@ -1908,3 +1908,66 @@ def test_lambda_only_canonical_transport_is_exactly_equivalent() -> None:
         historical_gradient = torch.autograd.grad(historical_loss, historical_lp)[0]
         successor_gradient = torch.autograd.grad(successor_loss, successor_lp)[0]
         assert torch.equal(historical_gradient, successor_gradient)
+
+
+
+def test_lambda_completion_matrix_is_exactly_199_cells() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml"))
+    cells = exp_tuning.build_cells(config)
+    assert len(cells) == 199
+    assert len({cell.key for cell in cells}) == 199
+    assert not [cell for cell in cells if cell.task == "countdown"]
+
+    exp_cells = [cell for cell in cells if cell.method == exp_tuning.METHOD_EXPONENTIAL]
+    po_cells = [cell for cell in cells if cell.method == exp_tuning.METHOD_POSITIVE_ONLY]
+    assert len(exp_cells) == 183
+    assert len(po_cells) == 16
+    assert all(cell.rho is None for cell in exp_cells)
+    assert all(cell.lambda_value is not None and cell.lambda_value > 0 for cell in exp_cells)
+    assert {cell.seed for cell in exp_cells} == {4000}
+    for task in config["suite"]["p0_tasks"]:
+        task_exp = [cell for cell in exp_cells if cell.task == task]
+        assert len(task_exp) == (8 if task == "spiral_matrix" else 25)
+        assert {cell.seed for cell in po_cells if cell.task == task} == {8000, 9000}
+
+    waves = exp_tuning.build_waves(config)
+    assert [len(wave) for wave in waves] == [16] * 12 + [7]
+
+    old = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    assert len(exp_tuning.build_cells(old)) == 208
+    assert [len(wave) for wave in exp_tuning.build_waves(old)] == [16] * 13
+    assert config["canonical_coldstart"]["expected_git_blob_shas"] == old["canonical_coldstart"]["expected_git_blob_shas"]
+
+
+@pytest.mark.skipif(torch is None, reason="Torch is unavailable in the test runtime")
+def test_lambda_completion_domain_transport_is_exactly_equivalent() -> None:
+    from drpo import countdown_e8_alpha1_highc_scan_common as paper_common
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml"))
+    lambdas = [
+        float(value)
+        for task in config["suite"]["p0_tasks"]
+        for value in config["sweep"]["task_lambda"][task]
+    ]
+    row_index = torch.tensor([0, 0, 1, 1], dtype=torch.long)
+    unique_counts = torch.tensor([2, 2], dtype=torch.long)
+    for lambda_value in lambdas:
+        historical = exp_tuning.Cell("maze", exp_tuning.METHOD_EXPONENTIAL, math.exp(-lambda_value), 4000, "historical", lambda_value)
+        successor = exp_tuning.Cell("maze", exp_tuning.METHOD_EXPONENTIAL, None, 4000, "successor", lambda_value)
+        assert historical.key == successor.key
+        assert float(historical.lambda_value).hex() == float(successor.lambda_value).hex()
+        historical_lp = torch.tensor([-0.25, -1.0, -4.0, -9.0], dtype=torch.float64, requires_grad=True)
+        successor_lp = historical_lp.detach().clone().requires_grad_(True)
+        historical_weights = paper_common.continuous_exp_weights(historical_lp, alpha=1.0, c=lambda_value)
+        successor_weights = paper_common.continuous_exp_weights(successor_lp, alpha=1.0, c=lambda_value)
+        assert torch.equal(historical_weights, successor_weights)
+        historical_loss = paper_common.mean_unique_negative_term(historical_lp, historical_weights, row_index, unique_counts)
+        successor_loss = paper_common.mean_unique_negative_term(successor_lp, successor_weights, row_index, unique_counts)
+        assert torch.equal(historical_loss, successor_loss)
+        assert torch.equal(
+  torch.autograd.grad(historical_loss, historical_lp)[0],
+  torch.autograd.grad(successor_loss, successor_lp)[0],
+        )
