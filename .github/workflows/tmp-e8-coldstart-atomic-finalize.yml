@@ -142,8 +142,8 @@ jobs:
           assert run['completed_cells'] == 208
           assert closure['scientific_status'] == 'pilot'
           assert audit['nan_inf_event_count'] == 0
-          assert closure['test_partition_accessed'] is False
-          assert closure['run_source_commit_resolved_on_github'] is False
+          assert closure['execution']['test_partition_accessed'] is False
+          assert closure['provenance']['authoritative_github_commit_resolution'] == 'unresolved_as_of_2026-08-25'
           print('compact closure assertions: PASS')
           PY
 
