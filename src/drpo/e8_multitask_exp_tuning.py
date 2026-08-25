@@ -161,11 +161,11 @@ class Cell:
             return f"{self.task}__positive_only__seed{self.seed}"
         if self.method == METHOD_GLOBAL:
             return f"{self.task}__global__seed{self.seed}"
-        if self.rho is None:
-            raise AssertionError("Exponential cell requires rho")
         if self.lambda_value is not None:
             tag = f"{self.lambda_value:.12g}".replace(".", "p")
             return f"{self.task}__exp_lambda{tag}__seed{self.seed}"
+        if self.rho is None:
+            raise AssertionError("Exponential cell requires rho or lambda")
         tag = f"{self.rho:.6f}".rstrip("0").rstrip(".").replace(".", "p")
         return f"{self.task}__exp_rho{tag}__seed{self.seed}"
 
@@ -734,6 +734,14 @@ def coefficient_from_rho(rho: float) -> float:
     if not math.isfinite(rho) or not 0.0 < rho < 1.0:
         raise ValueError("rho must be finite and strictly between zero and one")
     return -math.log(rho)
+
+
+def _canonical_exp_coefficient(cell: Cell) -> float:
+    if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL}:
+        return 0.0
+    if cell.lambda_value is None:
+        raise AssertionError("Canonical exponential cell requires lambda")
+    return float(cell.lambda_value)
 
 
 def _repo_root() -> Path:
@@ -3790,9 +3798,7 @@ def _train_canonical_cold_cell(
             scan_trainer._evaluate_validation = original_trainer_evaluate
 
     alpha = 0.0 if cell.method == METHOD_POSITIVE_ONLY else 1.0
-    coefficient = 0.0 if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL} else float(
-        cell.lambda_value
-    )
+    coefficient = _canonical_exp_coefficient(cell)
     with task_interface():
         if cell.task == "countdown":
             returncode = runtime.worker(

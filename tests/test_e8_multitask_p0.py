@@ -1832,3 +1832,77 @@ def test_coldstart_runbook_embeds_bootstrap_and_current_protocol() -> None:
     assert "run_experiment_guard_hardened.py" in Path(
         "scripts/run_e8_multitask_exp_coldstart.sh"
     ).read_text(encoding="utf-8")
+
+
+@pytest.mark.skipif(torch is None, reason="Torch is unavailable in the test runtime")
+def test_lambda_only_canonical_transport_is_exactly_equivalent() -> None:
+    from drpo import countdown_e8_alpha1_highc_scan_common as paper_common
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    lambdas = sorted(
+        {
+            float(value)
+            for task in config["suite"]["tasks"]
+            for value in config["sweep"]["task_lambda"][task]
+        }
+    )
+    row_index = torch.tensor([0, 0, 1, 1], dtype=torch.long)
+    unique_counts = torch.tensor([2, 2], dtype=torch.long)
+
+    for lambda_value in lambdas:
+        historical = exp_tuning.Cell(
+            "maze",
+            exp_tuning.METHOD_EXPONENTIAL,
+            math.exp(-lambda_value),
+            4000,
+            "historical",
+            lambda_value,
+        )
+        successor = exp_tuning.Cell(
+            "maze",
+            exp_tuning.METHOD_EXPONENTIAL,
+            None,
+            4000,
+            "successor",
+            lambda_value,
+        )
+        assert historical.key == successor.key
+        historical_coefficient = exp_tuning._canonical_exp_coefficient(historical)
+        successor_coefficient = exp_tuning._canonical_exp_coefficient(successor)
+        assert historical_coefficient.hex() == successor_coefficient.hex()
+        assert successor_coefficient.hex() == float(lambda_value).hex()
+
+        historical_lp = torch.tensor(
+            [-0.25, -1.0, -4.0, -9.0], dtype=torch.float64, requires_grad=True
+        )
+        successor_lp = historical_lp.detach().clone().requires_grad_(True)
+        historical_weights = paper_common.continuous_exp_weights(
+            historical_lp,
+            alpha=1.0,
+            c=historical_coefficient,
+        )
+        successor_weights = paper_common.continuous_exp_weights(
+            successor_lp,
+            alpha=1.0,
+            c=successor_coefficient,
+        )
+        assert torch.equal(historical_weights, successor_weights)
+
+        historical_loss = paper_common.mean_unique_negative_term(
+            historical_lp,
+            historical_weights,
+            row_index,
+            unique_counts,
+        )
+        successor_loss = paper_common.mean_unique_negative_term(
+            successor_lp,
+            successor_weights,
+            row_index,
+            unique_counts,
+        )
+        assert torch.equal(historical_loss, successor_loss)
+
+        historical_gradient = torch.autograd.grad(historical_loss, historical_lp)[0]
+        successor_gradient = torch.autograd.grad(successor_loss, successor_lp)[0]
+        assert torch.equal(historical_gradient, successor_gradient)
