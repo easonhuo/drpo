@@ -1,0 +1,235 @@
+name: Temporary E8 lambda completion apply
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-lambda-completion-work-01
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ !contains(github.event.head_commit.message, '[lambda-completion-applied]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install edit dependencies
+        run: python -m pip install PyYAML==6.0.2
+      - name: Apply approved successor implementation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, json, yaml
+
+          NEW_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"
+          GRID = {
+              "countdown": [],
+              "word_sorting": [2.452938367079, 2.616046362039, 2.790000213697, 2.975521116668, 3.173378221361, 3.384391822795, 3.609436761463, 3.849446050321, 4.105414742971, 4.378404059047, 4.669545783918, 4.980046960959, 5.311194895823, 5.664362493478, 6.041013950129, 6.442710823622, 6.871118507504, 7.328013135568, 7.815288945519, 8.334966132293, 8.889199223569, 9.480286012219, 10.11067708272, 10.782985971023, 11.5],
+              "spiral_matrix": [8.447110861078, 10.329503437427, 12.631376930953, 15.446210375777, 18.888314098846, 23.097471859905, 28.244617467034, 34.538776395],
+              "mini_sudoku": [8.531959537667, 9.099291694048, 9.704348569381, 10.349638666672, 11.03783729169, 11.771797644506, 12.554562648566, 13.389377566334, 14.279703453813, 15.229231509727, 16.241898378844, 17.3219024729, 18.473721376774, 19.702130412096, 21.01222243523, 22.40942895173, 23.899542634798, 25.488741341105, 27.183613723546, 28.991186547108, 30.91895382111, 32.974907868588, 35.167572461636, 37.506038160081, 40],
+              "maze": [2.21771388682, 2.365180643558, 2.522453193764, 2.690183573107, 2.86906717433, 3.059845630279, 3.263309888631, 3.480303491084, 3.711726070591, 3.958537081148, 4.221759775589, 4.502485447884, 4.801877957535, 5.121178554813, 5.461711026854, 5.824887185944, 6.212212722743, 6.625293448728, 7.065841953715, 7.535684706081, 8.036769625112, 8.571174156876, 9.141113887095, 9.748951726738, 10.397207708399],
+              "word_ladder": [2.452938367079, 2.616046362039, 2.790000213697, 2.975521116668, 3.173378221361, 3.384391822795, 3.609436761463, 3.849446050321, 4.105414742971, 4.378404059047, 4.669545783918, 4.980046960959, 5.311194895823, 5.664362493478, 6.041013950129, 6.442710823622, 6.871118507504, 7.328013135568, 7.815288945519, 8.334966132293, 8.889199223569, 9.480286012219, 10.11067708272, 10.782985971023, 11.5],
+              "knights_knaves": [2.21771388682, 2.365180643558, 2.522453193764, 2.690183573107, 2.86906717433, 3.059845630279, 3.263309888631, 3.480303491084, 3.711726070591, 3.958537081148, 4.221759775589, 4.502485447884, 4.801877957535, 5.121178554813, 5.461711026854, 5.824887185944, 6.212212722743, 6.625293448728, 7.065841953715, 7.535684706081, 8.036769625112, 8.571174156876, 9.141113887095, 9.748951726738, 10.397207708399],
+              "graph_color": [6.39896965325, 6.824468770536, 7.278261427036, 7.762229000004, 8.278377968767, 8.828848233379, 9.415921986425, 10.04203317475, 10.70977759036, 11.421923632295, 12.181423784133, 12.991426854675, 13.855291032581, 14.776597809072, 15.759166826423, 16.807071713798, 17.924656976098, 19.116556005829, 20.38771029266, 21.743389910331, 23.189215365832, 24.731180901441, 26.375679346227, 28.12952862006, 30],
+              "wikisql": [5.545773699484, 5.914539601131, 6.307826570098, 6.727265133337, 7.174594239598, 7.651668468929, 8.160465721568, 8.703095418117, 9.281807244979, 9.899000481323, 10.557233946249, 11.259236607385, 12.007918894903, 12.806384767862, 13.6579445829, 14.566128818625, 15.534702712619, 16.567681871718, 17.669348920305, 18.84427125562, 20.097319983721, 21.433690114582, 22.858922100063, 24.378924804052, 26],
+          }
+          HASHES = {
+              "word_sorting": "99b23e7907c99405e4986f0f8445fa9a1dae157be433a9a40546864a18165313",
+              "spiral_matrix": "aa89682224279902104d19fe88782882897c14dd704c3f016cc1afeafd597f6a",
+              "mini_sudoku": "7344872db672909c35d18debbbaa97da549cc1f0e37902d8073a8d1d45f465fd",
+              "maze": "6862dfaa292a5cfcdfc0e5ed78c232d6c812f138a7073f1b5045b46ae2258562",
+              "word_ladder": "99b23e7907c99405e4986f0f8445fa9a1dae157be433a9a40546864a18165313",
+              "knights_knaves": "6862dfaa292a5cfcdfc0e5ed78c232d6c812f138a7073f1b5045b46ae2258562",
+              "graph_color": "c703de6803fd89b0a3d9247e210214f96f1b1aa734db05dd11be1ba4b29dd75c",
+              "wikisql": "1a56632b1143e245a5ac8607785220bf7380165a3314096e8fdf648aec23df5f",
+          }
+          def stable_hash(v):
+              p=json.dumps(v,sort_keys=True,ensure_ascii=False,separators=(",",":"))
+              return hashlib.sha256(p.encode()).hexdigest()
+          for task, expected in HASHES.items():
+              assert stable_hash(GRID[task]) == expected, (task, stable_hash(GRID[task]), expected)
+
+          old_cfg = Path("configs/e8_multitask_exp_coldstart.yaml")
+          new_cfg = Path("configs/e8_multitask_exp_lambda_completion.yaml")
+          cfg = yaml.safe_load(old_cfg.read_text())
+          cfg["experiment_id"] = NEW_ID
+          sw = cfg["sweep"]
+          sw["parameterization"] = "paper_lambda_c1"
+          sw["countdown_seed_offsets"] = []
+          sw["transfer_positive_only_seed_offsets"] = [8000, 9000]
+          sw["task_transfer_seed_offset"] = 4000
+          sw["tuning_seed"] = 4000
+          sw["expected_cells"] = 199
+          sw["countdown_sentinel_coefficients"] = []
+          sw["task_lambda"] = GRID
+          sw["task_grid_hashes"] = HASHES
+          sw["task_grid_provenance"] = {
+              task: "approved_5x_geometric_tail_completion_20260825"
+              for task in GRID if task != "countdown"
+          }
+          cfg["historical_curve_anchor"] = {
+              "path": "experiments/results/e8_multitask_exp_coldstart_20260820_02/CURVE_ANCHOR.csv",
+              "role": "immutable_predecessor_curve_for_concatenation",
+          }
+          new_cfg.write_text(yaml.safe_dump(cfg, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+          srcp=Path("src/drpo/e8_multitask_exp_tuning.py")
+          s=srcp.read_text()
+          def rep(old,new,count=1):
+              global s
+              actual=s.count(old)
+              assert actual >= count, (old[:100], actual, count)
+              s=s.replace(old,new,count)
+
+          rep(
+          'COLDSTART_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-COLDSTART-01"\nSUPPORTED_EXPERIMENT_IDS = (EXPERIMENT_ID, DENSE_EXPERIMENT_ID, COLDSTART_EXPERIMENT_ID)',
+          'COLDSTART_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-COLDSTART-01"\nLAMBDA_COMPLETION_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"\nSUPPORTED_EXPERIMENT_IDS = (\n    EXPERIMENT_ID,\n    DENSE_EXPERIMENT_ID,\n    COLDSTART_EXPERIMENT_ID,\n    LAMBDA_COMPLETION_EXPERIMENT_ID,\n)')
+          rep(
+          'def _is_coldstart(config: Mapping[str, Any]) -> bool:\n    return sweep_profile(config) == SWEEP_PROFILE_COLDSTART\n\n\ndef _is_engineering_self_test',
+          'def _is_coldstart(config: Mapping[str, Any]) -> bool:\n    return sweep_profile(config) == SWEEP_PROFILE_COLDSTART\n\n\ndef _is_lambda_completion(config: Mapping[str, Any]) -> bool:\n    return experiment_id(config) == LAMBDA_COMPLETION_EXPERIMENT_ID\n\n\ndef _is_engineering_self_test')
+          rep(
+          'current_experiment != COLDSTART_EXPERIMENT_ID\n            or len(tasks) != 9',
+          'current_experiment not in (COLDSTART_EXPERIMENT_ID, LAMBDA_COMPLETION_EXPERIMENT_ID)\n            or len(tasks) != 9')
+
+          old='''        if _tuple_floats(sweep.get("countdown_sentinel_coefficients", ())) != countdown_sentinels:\n            raise ValueError("Countdown sentinel coefficients drifted")\n        if _task_lambdas(config, "countdown") != countdown_sentinels:\n            raise ValueError("Countdown task_lambda must equal the six diagnostic sentinels")\n        if tuple(int(value) for value in sweep.get("countdown_seed_offsets", ())) != (\n            PAPER_SEED_OFFSETS\n        ):\n            raise ValueError("Countdown must preserve the two paper seed offsets")\n        transfer_positive_seeds = tuple(\n            int(value) for value in sweep.get("transfer_positive_only_seed_offsets", ())\n        )\n        if transfer_positive_seeds != (4000, 5000, 6000, 7000):\n            raise ValueError("Transfer Positive-only must use the four frozen historical seed streams")'''
+          new='''        if _is_lambda_completion(config):\n            if _tuple_floats(sweep.get("countdown_sentinel_coefficients", ())) != ():\n                raise ValueError("Lambda completion must not schedule Countdown sentinels")\n            if _task_lambdas(config, "countdown") != ():\n                raise ValueError("Lambda completion Countdown task_lambda must be empty")\n            if tuple(int(value) for value in sweep.get("countdown_seed_offsets", ())) != ():\n                raise ValueError("Lambda completion must schedule zero Countdown seeds")\n        else:\n            if _tuple_floats(sweep.get("countdown_sentinel_coefficients", ())) != countdown_sentinels:\n                raise ValueError("Countdown sentinel coefficients drifted")\n            if _task_lambdas(config, "countdown") != countdown_sentinels:\n                raise ValueError("Countdown task_lambda must equal the six diagnostic sentinels")\n            if tuple(int(value) for value in sweep.get("countdown_seed_offsets", ())) != PAPER_SEED_OFFSETS:\n                raise ValueError("Countdown must preserve the two paper seed offsets")\n        transfer_positive_seeds = tuple(\n            int(value) for value in sweep.get("transfer_positive_only_seed_offsets", ())\n        )\n        expected_positive_seeds = (8000, 9000) if _is_lambda_completion(config) else (4000, 5000, 6000, 7000)\n        if transfer_positive_seeds != expected_positive_seeds:\n            raise ValueError(f"Transfer Positive-only seeds must be {expected_positive_seeds}")'''
+          rep(old,new)
+
+          marker='''        expected_hashes = {\n            "word_sorting": "d24edbd6099f1d4f081318b305e62b39834db7ab94af6b4279d706f94e8d6de3",'''
+          replacement='''        expected_hashes = {\n            "word_sorting": "d24edbd6099f1d4f081318b305e62b39834db7ab94af6b4279d706f94e8d6de3",'''
+          assert marker in s
+          # Select successor hashes after the historical literal, preserving the historical contract.
+          end='''            "wikisql": "e42e516dbbe0bfd0f9fd00f5dec22949f88503253a2235c8c81bd908af4779a0",\n        }\n        if not isinstance(grid_hashes, Mapping) or dict(grid_hashes) != expected_hashes:'''
+          newend='''            "wikisql": "e42e516dbbe0bfd0f9fd00f5dec22949f88503253a2235c8c81bd908af4779a0",\n        }\n        if _is_lambda_completion(config):\n            expected_hashes = {\n                "word_sorting": "99b23e7907c99405e4986f0f8445fa9a1dae157be433a9a40546864a18165313",\n                "spiral_matrix": "aa89682224279902104d19fe88782882897c14dd704c3f016cc1afeafd597f6a",\n                "mini_sudoku": "7344872db672909c35d18debbbaa97da549cc1f0e37902d8073a8d1d45f465fd",\n                "maze": "6862dfaa292a5cfcdfc0e5ed78c232d6c812f138a7073f1b5045b46ae2258562",\n                "word_ladder": "99b23e7907c99405e4986f0f8445fa9a1dae157be433a9a40546864a18165313",\n                "knights_knaves": "6862dfaa292a5cfcdfc0e5ed78c232d6c812f138a7073f1b5045b46ae2258562",\n                "graph_color": "c703de6803fd89b0a3d9247e210214f96f1b1aa734db05dd11be1ba4b29dd75c",\n                "wikisql": "1a56632b1143e245a5ac8607785220bf7380165a3314096e8fdf648aec23df5f",\n            }\n        if not isinstance(grid_hashes, Mapping) or dict(grid_hashes) != expected_hashes:'''
+          rep(end,newend)
+          rep(
+          '''            if len(values) != 20 or len(set(values)) != 20:\n                raise ValueError(f"{task} must contain exactly 20 distinct Exp coefficients")''',
+          '''            expected_count = (8 if str(task) == "spiral_matrix" else 25) if _is_lambda_completion(config) else 20\n            if len(values) != expected_count or len(set(values)) != expected_count:\n                raise ValueError(f"{task} must contain exactly {expected_count} distinct Exp coefficients")''')
+          rep(
+          '''        if int(sweep.get("expected_cells", -1)) != 208:\n            raise ValueError("Cold-start must contain 16 Countdown plus 8x24 transfer cells")''',
+          '''        expected_cells = 199 if _is_lambda_completion(config) else 208\n        if int(sweep.get("expected_cells", -1)) != expected_cells:\n            raise ValueError(f"Cold-start-family expected_cells must be {expected_cells}")''')
+
+          build='''    if _is_coldstart(config):\n        cells: list[Cell] = []\n        countdown_coefficients = _task_lambdas(config, "countdown")'''
+          buildnew='''    if _is_coldstart(config):\n        if _is_lambda_completion(config):\n            cells: list[Cell] = []\n            positive_seeds = tuple(\n                int(value) for value in config["sweep"]["transfer_positive_only_seed_offsets"]\n            )\n            exp_seed = int(config["sweep"]["task_transfer_seed_offset"])\n            for task in tasks:\n                if task == "countdown":\n                    continue\n                cells.extend(\n                    Cell(task, METHOD_POSITIVE_ONLY, None, seed_offset, "lambda_completion")\n                    for seed_offset in positive_seeds\n                )\n                cells.extend(\n                    Cell(task, METHOD_EXPONENTIAL, None, exp_seed, "lambda_completion", coefficient)\n                    for coefficient in _task_lambdas(config, task)\n                )\n            result = tuple(cells)\n            if len(result) != 199 or len({cell.key for cell in result}) != 199:\n                raise AssertionError("Internal 199-cell lambda-completion identity failure")\n            return result\n        cells: list[Cell] = []\n        countdown_coefficients = _task_lambdas(config, "countdown")'''
+          rep(build,buildnew)
+
+          waves='''    if _is_coldstart(config):\n        waves = tuple(\n            tuple(cells[index : index + capacity]) for index in range(0, len(cells), capacity)\n        )\n        if len(waves) != 13 or any(len(wave) != 16 for wave in waves):\n            raise AssertionError("Cold-start geometry must be 13 exact 16-cell scheduling waves")\n        return waves'''
+          wavesnew='''    if _is_coldstart(config):\n        waves = tuple(\n            tuple(cells[index : index + capacity]) for index in range(0, len(cells), capacity)\n        )\n        if _is_lambda_completion(config):\n            if len(waves) != 13 or [len(wave) for wave in waves] != [16] * 12 + [7]:\n                raise AssertionError("Lambda completion must be 12x16 plus one 7-cell wave")\n        elif len(waves) != 13 or any(len(wave) != 16 for wave in waves):\n            raise AssertionError("Cold-start geometry must be 13 exact 16-cell scheduling waves")\n        return waves'''
+          rep(waves,wavesnew)
+
+          diag='''    countdown_cells = [cell for cell in build_cells(config) if cell.task == "countdown"]\n    if _is_engineering_self_test(config):'''
+          diagnew='''    countdown_cells = [cell for cell in build_cells(config) if cell.task == "countdown"]\n    if _is_lambda_completion(config):\n        diagnostic = {\n            "schema_version": 1,\n            "experiment_id": experiment_id(config),\n            "status": "NOT_APPLICABLE",\n            "countdown_cells": 0,\n            "result_gate": False,\n            "controls_task_transfer_release": False,\n            "scientific_evidence": False,\n        }\n        if destination is not None:\n            atomic_json(destination, diagnostic)\n        return diagnostic\n    if _is_engineering_self_test(config):'''
+          rep(diag,diagnew)
+
+          oldstatus='''("NOT_RUN_ENGINEERING" if _is_engineering_self_test(config) else "PASS")'''
+          newstatus='''(\n            "NOT_APPLICABLE"\n            if _is_lambda_completion(config)\n            else ("NOT_RUN_ENGINEERING" if _is_engineering_self_test(config) else "PASS")\n        )'''
+          s=s.replace(oldstatus,newstatus)
+
+          agg='''        task_rows = [row for row in rows if row["task"] == task]\n        positive_rows = [row for row in task_rows if row["method"] == METHOD_POSITIVE_ONLY]'''
+          aggnew='''        task_rows = [row for row in rows if row["task"] == task]\n        if not task_rows:\n            if _is_lambda_completion(config) and task == "countdown":\n                continue\n            raise RuntimeError(f"No aggregate rows for configured task {task}")\n        positive_rows = [row for row in task_rows if row["method"] == METHOD_POSITIVE_ONLY]'''
+          rep(agg,aggnew)
+          srcp.write_text(s)
+
+          runp=Path("scripts/run_e8_multitask_exp_coldstart.sh")
+          run=runp.read_text()
+          old='EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-COLDSTART-01"'
+          assert run.count(old)==1
+          run=run.replace(old,'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"')
+          runp.write_text(run)
+
+          wrapper=Path("scripts/run_e8_multitask_exp_lambda_completion.sh")
+          wrapper.write_text('''#!/usr/bin/env bash\nset -euo pipefail\nROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"\nexport E8_COLDSTART_EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"\nexport E8_COLDSTART_CONFIG="${ROOT_DIR}/configs/e8_multitask_exp_lambda_completion.yaml"\nexport E8_COLDSTART_RUN_ID="${E8_LAMBDA_COMPLETION_RUN_ID:-E8_MULTITASK_EXP_LAMBDA_COMPLETION_20260825_01}"\nexport E8_COLDSTART_RUNTIME_ROOT="${E8_LAMBDA_COMPLETION_RUNTIME_ROOT:-${ROOT_DIR}/../drpo-e8-lambda-completion-runtime}"\nexec "${ROOT_DIR}/scripts/run_e8_multitask_exp_coldstart.sh" "$@"\n''')
+          wrapper.chmod(0o755)
+
+          tp=Path("tests/test_e8_multitask_p0.py")
+          t=tp.read_text()
+          addition=r'''
+
+
+def test_lambda_completion_matrix_is_exactly_199_cells() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml"))
+    cells = exp_tuning.build_cells(config)
+    assert len(cells) == 199
+    assert len({cell.key for cell in cells}) == 199
+    assert not [cell for cell in cells if cell.task == "countdown"]
+
+    exp_cells = [cell for cell in cells if cell.method == exp_tuning.METHOD_EXPONENTIAL]
+    po_cells = [cell for cell in cells if cell.method == exp_tuning.METHOD_POSITIVE_ONLY]
+    assert len(exp_cells) == 183
+    assert len(po_cells) == 16
+    assert all(cell.rho is None for cell in exp_cells)
+    assert all(cell.lambda_value is not None and cell.lambda_value > 0 for cell in exp_cells)
+    assert {cell.seed for cell in exp_cells} == {4000}
+    for task in config["suite"]["p0_tasks"]:
+        task_exp = [cell for cell in exp_cells if cell.task == task]
+        assert len(task_exp) == (8 if task == "spiral_matrix" else 25)
+        assert {cell.seed for cell in po_cells if cell.task == task} == {8000, 9000}
+
+    waves = exp_tuning.build_waves(config)
+    assert [len(wave) for wave in waves] == [16] * 12 + [7]
+
+    old = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    assert len(exp_tuning.build_cells(old)) == 208
+    assert [len(wave) for wave in exp_tuning.build_waves(old)] == [16] * 13
+    assert config["canonical_coldstart"]["expected_git_blob_shas"] == old["canonical_coldstart"]["expected_git_blob_shas"]
+
+
+@pytest.mark.skipif(torch is None, reason="Torch is unavailable in the test runtime")
+def test_lambda_completion_domain_transport_is_exactly_equivalent() -> None:
+    from drpo import countdown_e8_alpha1_highc_scan_common as paper_common
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml"))
+    lambdas = [
+        float(value)
+        for task in config["suite"]["p0_tasks"]
+        for value in config["sweep"]["task_lambda"][task]
+    ]
+    row_index = torch.tensor([0, 0, 1, 1], dtype=torch.long)
+    unique_counts = torch.tensor([2, 2], dtype=torch.long)
+    for lambda_value in lambdas:
+        historical = exp_tuning.Cell("maze", exp_tuning.METHOD_EXPONENTIAL, math.exp(-lambda_value), 4000, "historical", lambda_value)
+        successor = exp_tuning.Cell("maze", exp_tuning.METHOD_EXPONENTIAL, None, 4000, "successor", lambda_value)
+        assert historical.key == successor.key
+        assert float(historical.lambda_value).hex() == float(successor.lambda_value).hex()
+        historical_lp = torch.tensor([-0.25, -1.0, -4.0, -9.0], dtype=torch.float64, requires_grad=True)
+        successor_lp = historical_lp.detach().clone().requires_grad_(True)
+        historical_weights = paper_common.continuous_exp_weights(historical_lp, alpha=1.0, c=lambda_value)
+        successor_weights = paper_common.continuous_exp_weights(successor_lp, alpha=1.0, c=lambda_value)
+        assert torch.equal(historical_weights, successor_weights)
+        historical_loss = paper_common.mean_unique_negative_term(historical_lp, historical_weights, row_index, unique_counts)
+        successor_loss = paper_common.mean_unique_negative_term(successor_lp, successor_weights, row_index, unique_counts)
+        assert torch.equal(historical_loss, successor_loss)
+        assert torch.equal(
+            torch.autograd.grad(historical_loss, historical_lp)[0],
+            torch.autograd.grad(successor_loss, successor_lp)[0],
+        )
+'''
+          assert "test_lambda_completion_matrix_is_exactly_199_cells" not in t
+          tp.write_text(t+addition)
+          PY
+      - name: Install package
+        run: python -m pip install -e '.[dev]'
+      - name: Validate
+        run: |
+          python -m compileall -q src tests
+          bash -n scripts/run_e8_multitask_exp_coldstart.sh scripts/run_e8_multitask_exp_lambda_completion.sh
+          python -m pytest -q tests/test_e8_multitask_p0.py -k 'lambda_completion or lambda_only_canonical_transport_is_exactly_equivalent or exp_coldstart_matrix_is_208_cells_in_13_hard_waves'
+          ruff check --select E9,F63,F7,F82 src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+      - name: Commit applied files
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add configs/e8_multitask_exp_lambda_completion.yaml src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py scripts/run_e8_multitask_exp_coldstart.sh scripts/run_e8_multitask_exp_lambda_completion.sh
+          git commit -m 'E8: implement 199-cell lambda completion [lambda-completion-applied]'
+          git push
