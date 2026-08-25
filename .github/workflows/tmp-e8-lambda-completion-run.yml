@@ -28,9 +28,11 @@ jobs:
           from pathlib import Path
           path = Path('.github/workflows/tmp-e8-lambda-completion-apply.yml')
           text = path.read_text(encoding='utf-8')
-          text = text.replace('7344872db672909c35d18debbbaa97da549cc1f0e37902d8073a8d1d45f465fd', '1c2d9312fbb6ad0fb5ef80541f2d23e52171c2577c9db30f653c88a44b28d64b')
-          text = text.replace('c703de6803fd89b0a3d9247e210214f96f1b1aa734db05dd11be1ba4b29dd75c', 'b03a1c2be976620a2321a264461e443dfccc6deaf791b0daa31de75c214527ec')
-          text = text.replace('1a56632b1143e245a5ac8607785220bf7380165a3314096e8fdf648aec23df5f', 'b202666e3cd64622d0397fef60009c327f4898976b3463f2f09cbf35705552de')
+          text = text.replace(
+              '          HASHES = {',
+              '          GRID = {task: [float(value) for value in values] for task, values in GRID.items()}\n          HASHES = {',
+              1,
+          )
           start_marker = "          python - <<'PY'\n"
           end_marker = "\n          PY\n      - name: Install package"
           start = text.index(start_marker) + len(start_marker)
