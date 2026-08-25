@@ -1,0 +1,20 @@
+{
+  "aggregate_sha256": "64a55c088564259e3721811104d48e313dc5f095ab67f8808493da897ffa2bd1",
+  "all_training_and_evaluation_complete": true,
+  "artifact_state": "raw_complete",
+  "base_commit": "01471868f5f057cc033c4434265e4adb32f36ae8",
+  "complete": true,
+  "completed_cells": 208,
+  "config_hash": "777b3a276f4125fe3012b5eca1e7dceb7d4a9baa3a678069e8919cad671b9125",
+  "engineering_placeholder_backend": false,
+  "expected_cells": 208,
+  "experiment_id": "EXT-C-E8-MULTITASK-EXP-COLDSTART-01",
+  "run_id": "E8_MULTITASK_EXP_COLDSTART_20260820_02",
+  "scheduler": "dynamic_slot_queue",
+  "scheduler_run_id": "queue-1787456921-1371817",
+  "schema_version": 1,
+  "scientific_status": "pilot",
+  "source_commit": "01471868f5f057cc033c4434265e4adb32f36ae8",
+  "terminal_audit_sha256": "24bdb096071351353ebc873eea697e810001cadc8fedbb46cce35771c417c9da",
+  "test_partition_accessed": false
+}
