@@ -26,14 +26,14 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import textwrap
           path = Path('.github/workflows/tmp-e8-lambda-completion-apply.yml')
           text = path.read_text(encoding='utf-8')
           start_marker = "          python - <<'PY'\n"
           end_marker = "\n          PY\n      - name: Install package"
           start = text.index(start_marker) + len(start_marker)
           end = text.index(end_marker, start)
-          payload = textwrap.dedent(text[start:end])
+          lines = text[start:end].splitlines()
+          payload = "\n".join(line[10:] if line.startswith("          ") else line for line in lines) + "\n"
           exec(compile(payload, str(path) + ':payload', 'exec'), {})
           PY
       - name: Install package
