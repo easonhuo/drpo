@@ -28,9 +28,9 @@ This closure preserves the run as a historical response-curve anchor. The eight 
 
 ## Durable curve anchor
 
-The repository copy preserves a lossless projection of the 208 curve points needed to concatenate a later curve-completion sweep without rerunning these cells:
+The repository copy preserves the per-seed projection of all 208 cells needed to concatenate a later curve-completion sweep without rerunning these cells:
 
-- `experiments/results/e8_multitask_exp_coldstart_20260820_02/CURVE_ANCHOR.csv` — 208 rows with task, method, historical coefficient, seed/stage, late-window Pass@8/greedy, and completion state.
+- `experiments/results/e8_multitask_exp_coldstart_20260820_02/CURVE_ANCHOR.csv` — 208 rows with task, method, historical coefficient, seed, late-window Pass@8, and late-window greedy.
 - `experiments/results/e8_multitask_exp_coldstart_20260820_02/TASK_SUMMARY.csv` — exact task-level localization summary from the run artifact.
 - `RUN_COMPLETE.json`, `TERMINAL_AUDIT.json`, and `COUNTDOWN_PROTOCOL_DIAGNOSTIC.json` — exact compact execution/audit evidence.
 
