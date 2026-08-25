@@ -161,11 +161,11 @@ class Cell:
             return f"{self.task}__positive_only__seed{self.seed}"
         if self.method == METHOD_GLOBAL:
             return f"{self.task}__global__seed{self.seed}"
-        if self.rho is None:
-            raise AssertionError("Exponential cell requires rho")
         if self.lambda_value is not None:
             tag = f"{self.lambda_value:.12g}".replace(".", "p")
             return f"{self.task}__exp_lambda{tag}__seed{self.seed}"
+        if self.rho is None:
+            raise AssertionError("Exponential cell requires rho or lambda")
         tag = f"{self.rho:.6f}".rstrip("0").rstrip(".").replace(".", "p")
         return f"{self.task}__exp_rho{tag}__seed{self.seed}"
 
