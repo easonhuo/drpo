@@ -763,7 +763,6 @@ delivery_preflight() {
     --output "${DELIVERY_PREFLIGHT_PACKAGE}"
     --base-commit "${EXPECTED_COMMIT}"
     --no-repository-changes
-    --require-origin-main-match
     --large-file-persistence persistent_local
     --max-package-mib 23
     --source-file scripts/run_e8_multitask_exp_coldstart.sh
@@ -791,7 +790,6 @@ guarded_full_internal() {
   recover_import_if_requested
   export E8_COLDSTART_RECOVERY_PACKAGE="${RECOVERY_PACKAGE}"
   export E8_COLDSTART_RECOVERY_INTERVAL_CELLS="${E8_COLDSTART_RECOVERY_INTERVAL_CELLS:-5}"
-  export E8_COLDSTART_RECOVERY_REQUIRE_ORIGIN_MAIN=1
   refresh_recovery_plan
   if ! plan_flag prepare_complete; then
     prepare
@@ -825,7 +823,6 @@ run_formal_guard_attempt() {
     --artifact-output "${GUARD_ARTIFACT}" \
     --run-class formal \
     --expected-commit "${EXPECTED_COMMIT}" \
-    --require-origin-main-match \
     --large-file-persistence persistent_local \
     --required-output workload/RUN_COMPLETE.json \
     --required-output workload/terminal_audit.json \

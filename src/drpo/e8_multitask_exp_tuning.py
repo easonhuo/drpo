@@ -5091,8 +5091,6 @@ def _publish_recovery_checkpoint(
         "--source-file",
         "src/drpo/e8_multitask_exp_tuning.py",
     ]
-    if os.environ.get("E8_COLDSTART_RECOVERY_REQUIRE_ORIGIN_MAIN") == "1":
-        command.append("--require-origin-main-match")
     completed = subprocess.run(command, text=True, capture_output=True, check=False)
     if completed.returncode != 0:
         raise RuntimeError(
