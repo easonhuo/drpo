@@ -75,9 +75,7 @@ EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-TUNING-01"
 DENSE_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-DENSE-01"
 COLDSTART_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-COLDSTART-01"
 LAMBDA_COMPLETION_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"
-SUPPORTED_EXPERIMENT_IDS = (
-    EXPERIMENT_ID, DENSE_EXPERIMENT_ID, COLDSTART_EXPERIMENT_ID, LAMBDA_COMPLETION_EXPERIMENT_ID
-)
+SUPPORTED_EXPERIMENT_IDS = (EXPERIMENT_ID, DENSE_EXPERIMENT_ID, COLDSTART_EXPERIMENT_ID, LAMBDA_COMPLETION_EXPERIMENT_ID)
 P0_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-P0-01"
 # Backward-compatible name used by predecessor tests and downstream callers.
 PARENT_EXPERIMENT_ID = P0_EXPERIMENT_ID
@@ -559,19 +557,14 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("Countdown sentinel coefficients drifted")
         if _task_lambdas(config, "countdown") != countdown_sentinels:
             raise ValueError("Countdown task_lambda must equal the six diagnostic sentinels")
-        expected_countdown_seeds = (
-            () if current_experiment == LAMBDA_COMPLETION_EXPERIMENT_ID else PAPER_SEED_OFFSETS
-        )
+        expected_countdown_seeds = () if current_experiment == LAMBDA_COMPLETION_EXPERIMENT_ID else PAPER_SEED_OFFSETS
         if tuple(int(value) for value in sweep.get("countdown_seed_offsets", ())) != expected_countdown_seeds:
             raise ValueError("Countdown seed offsets drifted")
         transfer_positive_seeds = tuple(
             int(value) for value in sweep.get("transfer_positive_only_seed_offsets", ())
         )
-        if current_experiment == LAMBDA_COMPLETION_EXPERIMENT_ID:
-            if not transfer_positive_seeds or len(transfer_positive_seeds) != len(set(transfer_positive_seeds)):
-                raise ValueError("Successor Positive-only seed offsets must be non-empty and unique")
-        elif transfer_positive_seeds != (4000, 5000, 6000, 7000):
-            raise ValueError("Transfer Positive-only must use the four frozen historical seed streams")
+        if (current_experiment == LAMBDA_COMPLETION_EXPERIMENT_ID and (not transfer_positive_seeds or len(transfer_positive_seeds) != len(set(transfer_positive_seeds)))) or (current_experiment != LAMBDA_COMPLETION_EXPERIMENT_ID and transfer_positive_seeds != (4000, 5000, 6000, 7000)):
+            raise ValueError("Transfer Positive-only seed offsets drifted")
         if int(sweep.get("task_transfer_seed_offset", -1)) != 4000:
             raise ValueError("Transfer Exp response-shape localization must use seed 4000")
         if int(sweep.get("tuning_seed", -1)) != 4000:
@@ -590,26 +583,19 @@ def validate_config(config: Mapping[str, Any]) -> None:
             "graph_color": "65c02a38a4339888d2e485c277fa1668a5e0309fab857e3ae2b2b2c0dc862f9d",
             "wikisql": "e42e516dbbe0bfd0f9fd00f5dec22949f88503253a2235c8c81bd908af4779a0",
         }
-        if not isinstance(grid_hashes, Mapping) or set(grid_hashes) != transfer_tasks:
-            raise ValueError("Transfer task-grid hashes must cover the exact eight tasks")
-        if current_experiment != LAMBDA_COMPLETION_EXPERIMENT_ID and dict(grid_hashes) != expected_hashes:
-            raise ValueError("Historical transfer task-grid hashes drifted")
+        if not isinstance(grid_hashes, Mapping) or set(grid_hashes) != transfer_tasks or (current_experiment != LAMBDA_COMPLETION_EXPERIMENT_ID and dict(grid_hashes) != expected_hashes):
+            raise ValueError("Transfer task-grid hashes drifted")
         if not isinstance(provenance, Mapping) or set(provenance) != transfer_tasks:
             raise ValueError("Transfer task-grid provenance must cover the exact eight tasks")
         if any(not str(provenance[task]).strip() for task in transfer_tasks):
             raise ValueError("Transfer task-grid provenance entries must be non-empty")
         for task in transfer_tasks:
             values = _task_lambdas(config, str(task))
-            if len(values) != len(set(values)) or (
-                current_experiment != LAMBDA_COMPLETION_EXPERIMENT_ID and len(values) != 20
-            ):
+            if len(values) != len(set(values)) or (current_experiment != LAMBDA_COMPLETION_EXPERIMENT_ID and len(values) != 20):
                 raise ValueError(f"{task} Exp coefficient grid has invalid cardinality")
             if stable_hash(list(values)) != str(grid_hashes[task]):
                 raise ValueError(f"{task} coefficient grid does not match its locked hash")
-        expanded_cells = len(expected_countdown_seeds) * (2 + len(countdown_sentinels)) + sum(
-            len(transfer_positive_seeds) + len(_task_lambdas(config, str(task)))
-            for task in transfer_tasks
-        )
+        expanded_cells = len(expected_countdown_seeds) * (2 + len(countdown_sentinels)) + sum(len(transfer_positive_seeds) + len(_task_lambdas(config, str(task))) for task in transfer_tasks)
         if int(sweep.get("expected_cells", -1)) != expanded_cells:
             raise ValueError("Cold-start expected_cells must match the configured matrix")
 
@@ -926,8 +912,7 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
                 for coefficient in _task_lambdas(config, task)
             )
         result = tuple(cells)
-        expected_cells = int(config["sweep"]["expected_cells"])
-        if len(result) != expected_cells or len({cell.key for cell in result}) != expected_cells:
+        if len(result) != int(config["sweep"]["expected_cells"]) or len({cell.key for cell in result}) != len(result):
             raise AssertionError("Internal cold-start cell identity failure")
         return result
     coarse = _tuple_floats(config["sweep"]["coarse_rho"])
@@ -958,12 +943,7 @@ def build_waves(config: Mapping[str, Any]) -> tuple[tuple[Cell, ...], ...]:
         waves = tuple(
             tuple(cells[index : index + capacity]) for index in range(0, len(cells), capacity)
         )
-        if (
-            not waves
-            or len(waves) != int(config["execution"]["expected_waves"])
-            or any(len(wave) != capacity for wave in waves[:-1])
-            or not 0 < len(waves[-1]) <= capacity
-        ):
+        if not waves or len(waves) != int(config["execution"]["expected_waves"]) or any(len(wave) != capacity for wave in waves[:-1]) or not 0 < len(waves[-1]) <= capacity:
             raise AssertionError("Cold-start waves must fill capacity except possibly the final wave")
         return waves
     coarse = tuple(cell for cell in cells if cell.stage == "coarse")
@@ -5523,9 +5503,7 @@ def _countdown_protocol_diagnostic(
         diagnostic = {
             "schema_version": 1,
             "experiment_id": experiment_id(config),
-            "status": "PASS" if not identity_failures and (
-                len(countdown_cells) == 16 or experiment_id(config) == LAMBDA_COMPLETION_EXPERIMENT_ID
-            ) else "FAIL",
+            "status": "PASS" if not identity_failures and (len(countdown_cells) == 16 or experiment_id(config) == LAMBDA_COMPLETION_EXPERIMENT_ID) else "FAIL",
             "countdown_cells": len(countdown_cells),
             "identity_failures": identity_failures,
             "result_gate": False,
@@ -6151,13 +6129,10 @@ def _aggregate_coldstart(
         positive_rows = [row for row in task_rows if row["method"] == METHOD_POSITIVE_ONLY]
         global_rows = [row for row in task_rows if row["method"] == METHOD_GLOBAL]
         exp_rows = [row for row in task_rows if row["method"] == METHOD_EXPONENTIAL]
-        configured_cells = [cell for cell in build_cells(config) if cell.task == task]
-        if not configured_cells:
+        configured_methods = [cell.method for cell in build_cells(config) if cell.task == task]
+        if not configured_methods:
             continue
-        expected_counts = tuple(
-            sum(cell.method == method for cell in configured_cells)
-            for method in (METHOD_POSITIVE_ONLY, METHOD_GLOBAL, METHOD_EXPONENTIAL)
-        )
+        expected_counts = tuple(configured_methods.count(method) for method in (METHOD_POSITIVE_ONLY, METHOD_GLOBAL, METHOD_EXPONENTIAL))
         if (len(positive_rows), len(global_rows), len(exp_rows)) != expected_counts:
             raise RuntimeError(f"{task} cold-start cell counts differ from {expected_counts}")
 
