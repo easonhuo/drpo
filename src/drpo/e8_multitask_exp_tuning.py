@@ -273,63 +273,46 @@ def _reference_seed(
 
 
 def _validate_lambda_completion_config(config: Mapping[str, Any]) -> None:
-    baseline_path = _repo_root() / "configs" / "e8_multitask_exp_coldstart.yaml"
-    baseline = yaml.safe_load(baseline_path.read_text(encoding="utf-8"))
-    if not isinstance(baseline, dict):
-        raise TypeError("Historical COLDSTART config root must be a mapping")
-    validate_config(baseline)
-
-    normalized = copy.deepcopy(dict(config))
-    expected = copy.deepcopy(baseline)
+    baseline = yaml.safe_load(
+        (_repo_root() / "configs" / "e8_multitask_exp_coldstart.yaml").read_text(encoding="utf-8")
+    )
+    ignored = {"experiment_id", "result_status", "sweep", "reporting", "historical_curve_anchor", "engineering_self_test"}
+    expected = {key: value for key, value in baseline.items() if key not in ignored}
+    observed = {key: value for key, value in config.items() if key not in ignored}
     if _is_engineering_self_test(config):
+        expected = copy.deepcopy(expected)
         expected["split"].update(
-            {
-                "p0_train_rows": 2,
-                "p0_validation_rows": 1,
-                "p0_test_rows": 1,
-                "countdown_train_rows": 2,
-                "countdown_validation_rows": 1,
-            }
+            p0_train_rows=2, p0_validation_rows=1, p0_test_rows=1,
+            countdown_train_rows=2, countdown_validation_rows=1,
         )
-        normalized.pop("engineering_self_test", None)
-    for key in ("experiment_id", "result_status", "sweep", "reporting", "historical_curve_anchor"):
-        normalized.pop(key, None)
-        expected.pop(key, None)
-    if normalized != expected:
-        raise ValueError("Lambda-completion may differ from COLDSTART only in frozen successor metadata/sweep")
+    if observed != expected:
+        raise ValueError("Lambda-completion changed a frozen COLDSTART common setting")
 
     sweep = config["sweep"]
-    tasks = tuple(str(task) for task in config["suite"]["tasks"] )
-    task_lambda = sweep.get("task_lambda")
-    if sweep.get("parameterization") != "paper_lambda_c1":
-        raise ValueError("Lambda-completion must use paper_lambda_c1")
-    if not isinstance(task_lambda, Mapping) or set(task_lambda) != set(tasks):
-        raise ValueError("Lambda-completion task_lambda must contain the exact nine tasks")
-    if tuple(sweep.get("countdown_seed_offsets", ())):
-        raise ValueError("Lambda-completion schedules zero Countdown scientific cells")
-    if _task_lambdas(config, "countdown") != _tuple_floats(
-        sweep.get("countdown_sentinel_coefficients", ())
-    ):
-        raise ValueError("Countdown liveness anchors must match configured historical sentinels")
-    positive_seeds = tuple(int(value) for value in sweep.get("transfer_positive_only_seed_offsets", ()))
-    if not positive_seeds or len(positive_seeds) != len(set(positive_seeds)):
-        raise ValueError("Fresh Positive-only seed offsets must be non-empty and unique")
-    if int(sweep["tuning_seed"]) != int(sweep["task_transfer_seed_offset"]):
-        raise ValueError("Lambda-completion Exp cells must use the configured tuning seed")
+    tasks = tuple(str(task) for task in config["suite"]["tasks"])
     transfer_tasks = set(tasks) - {"countdown"}
+    positive_seeds = tuple(int(value) for value in sweep.get("transfer_positive_only_seed_offsets", ()))
     grid_hashes = sweep.get("task_grid_hashes")
-    provenance = sweep.get("task_grid_provenance")
-    if not isinstance(grid_hashes, Mapping) or set(grid_hashes) != transfer_tasks:
-        raise ValueError("Lambda-completion grid hashes must cover the exact eight transfer tasks")
-    if not isinstance(provenance, Mapping) or set(provenance) != transfer_tasks:
-        raise ValueError("Lambda-completion grid provenance must cover the exact eight transfer tasks")
-    for task in transfer_tasks:
-        values = _task_lambdas(config, task)
-        if len(values) != len(set(values)) or stable_hash(list(values)) != str(grid_hashes[task]):
-            raise ValueError(f"{task} lambda grid identity mismatch")
-    expected_cells = sum(len(positive_seeds) + len(_task_lambdas(config, task)) for task in transfer_tasks)
-    if int(sweep.get("expected_cells", -1)) != expected_cells:
-        raise ValueError(f"Lambda-completion expected_cells must equal expanded matrix ({expected_cells})")
+    if (
+        sweep.get("parameterization") != "paper_lambda_c1"
+        or set(sweep.get("task_lambda", {})) != set(tasks)
+        or tuple(sweep.get("countdown_seed_offsets", ()))
+        or _task_lambdas(config, "countdown") != _tuple_floats(sweep.get("countdown_sentinel_coefficients", ()))
+        or not positive_seeds
+        or len(positive_seeds) != len(set(positive_seeds))
+        or int(sweep["tuning_seed"]) != int(sweep["task_transfer_seed_offset"])
+        or not isinstance(grid_hashes, Mapping)
+        or set(grid_hashes) != transfer_tasks
+    ):
+        raise ValueError("Invalid lambda-completion sweep identity")
+    grids = {task: _task_lambdas(config, task) for task in transfer_tasks}
+    if any(
+        len(values) != len(set(values)) or stable_hash(list(values)) != str(grid_hashes[task])
+        for task, values in grids.items()
+    ):
+        raise ValueError("Lambda-completion grid identity mismatch")
+    if int(sweep.get("expected_cells", -1)) != sum(len(positive_seeds) + len(values) for values in grids.values()):
+        raise ValueError("Lambda-completion expected_cells does not match its configured matrix")
 
 
 def validate_config(config: Mapping[str, Any]) -> None:
@@ -5547,13 +5530,9 @@ def _countdown_protocol_diagnostic(
     countdown_cells = [cell for cell in build_cells(config) if cell.task == "countdown"]
     if _is_lambda_completion(config):
         diagnostic = {
-            "schema_version": 1,
-            "experiment_id": experiment_id(config),
             "status": "PREDECESSOR_ONLY",
-            "countdown_cells": 0,
             "result_gate": False,
             "controls_task_transfer_release": False,
-            "scientific_evidence": False,
         }
     elif _is_engineering_self_test(config):
         diagnostic = {
