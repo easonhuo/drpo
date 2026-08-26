@@ -1,0 +1,79 @@
+name: Temporary reuse historical coldstart profile
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-lambda-completion-minimal-03
+
+permissions:
+  contents: write
+
+jobs:
+  collapse-profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-lambda-completion-minimal-03
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Reuse existing coldstart execution profile
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+
+          cfg = Path('configs/e8_multitask_exp_lambda_completion.yaml')
+          value = yaml.safe_load(cfg.read_text(encoding='utf-8'))
+          value['sweep']['profile'] = 'eight_task_coldstart_lambda_v1'
+          cfg.write_text(yaml.safe_dump(value, sort_keys=False), encoding='utf-8')
+
+          py = Path('src/drpo/e8_multitask_exp_tuning.py')
+          text = py.read_text(encoding='utf-8')
+          text = text.replace('SWEEP_PROFILE_LAMBDA_COMPLETION = "eight_task_lambda_completion_v1"\n', '')
+          old = '''def _is_lambda_completion(config: Mapping[str, Any]) -> bool:\n    return sweep_profile(config) == SWEEP_PROFILE_LAMBDA_COMPLETION\n\n\ndef _is_coldstart(config: Mapping[str, Any]) -> bool:\n    return sweep_profile(config) in (SWEEP_PROFILE_COLDSTART, SWEEP_PROFILE_LAMBDA_COMPLETION)\n'''
+          new = '''def _is_lambda_completion(config: Mapping[str, Any]) -> bool:\n    return str(config.get("experiment_id", "")) == LAMBDA_COMPLETION_EXPERIMENT_ID\n\n\ndef _is_coldstart(config: Mapping[str, Any]) -> bool:\n    return sweep_profile(config) == SWEEP_PROFILE_COLDSTART\n'''
+          assert text.count(old) == 1
+          text = text.replace(old, new, 1)
+          old = '''    if profile not in (\n        SWEEP_PROFILE_RHO, SWEEP_PROFILE_DENSE, SWEEP_PROFILE_COLDSTART, SWEEP_PROFILE_LAMBDA_COMPLETION\n    ):\n        raise ValueError(f"Unsupported sweep profile: {profile}")\n    if profile == SWEEP_PROFILE_LAMBDA_COMPLETION:\n        _validate_lambda_completion_config(config)\n        return\n'''
+          new = '''    if profile not in (SWEEP_PROFILE_RHO, SWEEP_PROFILE_DENSE, SWEEP_PROFILE_COLDSTART):\n        raise ValueError(f"Unsupported sweep profile: {profile}")\n    if current_experiment == LAMBDA_COMPLETION_EXPERIMENT_ID:\n        _validate_lambda_completion_config(config)\n        return\n'''
+          assert text.count(old) == 1
+          py.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+      - name: Install and validate
+        run: |
+          python -m pip install -e '.[dev]'
+          python -m compileall -q src tests
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          ruff check --select E9,F63,F7,F82 src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          git diff --quiet 5260ca58ecb67509838a1e5480f6dcaafdb7a773 -- \
+            src/drpo/countdown_qwen_arena_onefile.py \
+            src/drpo/countdown_e8_alpha1_c_scan_common.py \
+            src/drpo/countdown_e8_alpha1_c_scan_runtime.py \
+            src/drpo/countdown_e8_alpha1_c_scan_trainer.py \
+            src/drpo/countdown_e8_alpha1_highc_scan_common.py \
+            src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+          python - <<'PY'
+          from pathlib import Path
+          from drpo import e8_multitask_exp_tuning as m
+          config=m.load_config(Path('configs/e8_multitask_exp_lambda_completion.yaml'))
+          cells=m.build_cells(config)
+          assert len(cells)==199
+          assert sum(c.method==m.METHOD_EXPONENTIAL for c in cells)==183
+          assert sum(c.method==m.METHOD_POSITIVE_ONLY for c in cells)==16
+          assert not any(c.task=='countdown' for c in cells)
+          assert all(c.rho is None for c in cells if c.method==m.METHOD_EXPONENTIAL)
+          assert [len(w) for w in m.build_waves(config)] == [16]*12+[7]
+          PY
+          git diff --numstat 5260ca58ecb67509838a1e5480f6dcaafdb7a773 -- src/drpo/e8_multitask_exp_tuning.py scripts/run_e8_multitask_exp_coldstart.sh tests/test_e8_multitask_p0.py
+      - name: Commit profile reuse
+        run: |
+          rm .github/workflows/tmp-e8-lambda-profile-collapse.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add configs/e8_multitask_exp_lambda_completion.yaml src/drpo/e8_multitask_exp_tuning.py .github/workflows/tmp-e8-lambda-profile-collapse.yml
+          git commit -m 'E8: reuse historical coldstart execution profile'
+          git push origin HEAD:dev/e8-multitask-lambda-completion-minimal-03
