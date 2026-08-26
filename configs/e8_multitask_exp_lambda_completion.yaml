@@ -452,14 +452,14 @@ reporting:
   - task_performance
   - valid_or_structure_diagnostic
   - nan_inf_numerical_failure
-  countdown_role: diagnostic_regression_sentinel_not_result_gate
+  countdown_role: predecessor_only_no_new_scientific_cells
   other_tasks_task_interface_adaptation_only: true
   transfer_exp_scope: single_seed_response_shape_localization
-  positive_only_seed_count_per_transfer_task: 4
+  positive_only_seed_count_per_transfer_task: 2
   convergence_claim_allowed: false
   significance_claim_allowed: false
   method_ranking_allowed: false
-  causal_identification_environment: D-U1
+  scientific_role: external_validity_response_shape
 historical_curve_anchor:
   path: experiments/results/e8_multitask_exp_coldstart_20260820_02/CURVE_ANCHOR.csv
   role: immutable_predecessor_curve_for_concatenation

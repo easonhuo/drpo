@@ -1908,3 +1908,79 @@ def test_lambda_only_canonical_transport_is_exactly_equivalent() -> None:
         historical_gradient = torch.autograd.grad(historical_loss, historical_lp)[0]
         successor_gradient = torch.autograd.grad(successor_loss, successor_lp)[0]
         assert torch.equal(historical_gradient, successor_gradient)
+
+
+def test_lambda_completion_config_drives_lambda_only_cells() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml"))
+    cells = exp_tuning.build_cells(config)
+    assert len(cells) == int(config["sweep"]["expected_cells"])
+    assert not any(cell.task == "countdown" for cell in cells)
+    positive_seeds = sorted(int(value) for value in config["sweep"]["transfer_positive_only_seed_offsets"])
+    for task in config["suite"]["p0_tasks"]:
+        task_cells = [cell for cell in cells if cell.task == task]
+        positive = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_POSITIVE_ONLY]
+        exponential = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_EXPONENTIAL]
+        assert sorted(cell.seed for cell in positive) == positive_seeds
+        assert [cell.lambda_value for cell in exponential] == [
+            float(value) for value in config["sweep"]["task_lambda"][task]
+        ]
+        assert all(cell.rho is None for cell in exponential)
+
+    waves = exp_tuning.build_waves(config)
+    assert len(waves) == int(config["execution"]["expected_waves"])
+    assert sum(len(wave) for wave in waves) == len(cells)
+    assert all(0 < len(wave) <= int(config["execution"]["max_concurrent_cells"]) for wave in waves)
+    assert [cell.key for wave in waves for cell in wave] == [cell.key for cell in cells]
+
+
+@pytest.mark.skipif(torch is None, reason="Torch is unavailable in the test runtime")
+def test_lambda_completion_frozen_domain_transport_is_exactly_equivalent() -> None:
+    from drpo import countdown_e8_alpha1_highc_scan_common as paper_common
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml"))
+    lambdas = sorted(
+        {
+            float(value)
+            for task in config["suite"]["p0_tasks"]
+            for value in config["sweep"]["task_lambda"][task]
+        }
+    )
+    row_index = torch.tensor([0, 0, 1, 1], dtype=torch.long)
+    unique_counts = torch.tensor([2, 2], dtype=torch.long)
+    seed = int(config["sweep"]["task_transfer_seed_offset"])
+
+    for lambda_value in lambdas:
+        historical = exp_tuning.Cell(
+            "maze", exp_tuning.METHOD_EXPONENTIAL, math.exp(-lambda_value), seed, "historical", lambda_value
+        )
+        successor = exp_tuning.Cell(
+            "maze", exp_tuning.METHOD_EXPONENTIAL, None, seed, "successor", lambda_value
+        )
+        assert historical.key == successor.key
+        assert float(historical.lambda_value).hex() == float(successor.lambda_value).hex()
+
+        historical_lp = torch.tensor(
+            [-0.25, -1.0, -4.0, -9.0], dtype=torch.float64, requires_grad=True
+        )
+        successor_lp = historical_lp.detach().clone().requires_grad_(True)
+        historical_weights = paper_common.continuous_exp_weights(
+            historical_lp, alpha=1.0, c=float(historical.lambda_value)
+        )
+        successor_weights = paper_common.continuous_exp_weights(
+            successor_lp, alpha=1.0, c=float(successor.lambda_value)
+        )
+        assert torch.equal(historical_weights, successor_weights)
+        historical_loss = paper_common.mean_unique_negative_term(
+            historical_lp, historical_weights, row_index, unique_counts
+        )
+        successor_loss = paper_common.mean_unique_negative_term(
+            successor_lp, successor_weights, row_index, unique_counts
+        )
+        assert torch.equal(historical_loss, successor_loss)
+        assert torch.equal(
+            torch.autograd.grad(historical_loss, historical_lp)[0],
+            torch.autograd.grad(successor_loss, successor_lp)[0],
+        )

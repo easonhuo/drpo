@@ -74,7 +74,13 @@ from drpo.e8_multitask_tasks import (
 EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-TUNING-01"
 DENSE_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-DENSE-01"
 COLDSTART_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-COLDSTART-01"
-SUPPORTED_EXPERIMENT_IDS = (EXPERIMENT_ID, DENSE_EXPERIMENT_ID, COLDSTART_EXPERIMENT_ID)
+LAMBDA_COMPLETION_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"
+SUPPORTED_EXPERIMENT_IDS = (
+    EXPERIMENT_ID,
+    DENSE_EXPERIMENT_ID,
+    COLDSTART_EXPERIMENT_ID,
+    LAMBDA_COMPLETION_EXPERIMENT_ID,
+)
 P0_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-P0-01"
 # Backward-compatible name used by predecessor tests and downstream callers.
 PARENT_EXPERIMENT_ID = P0_EXPERIMENT_ID
@@ -222,6 +228,10 @@ def _is_coldstart(config: Mapping[str, Any]) -> bool:
     return sweep_profile(config) == SWEEP_PROFILE_COLDSTART
 
 
+def _is_lambda_only_coldstart(config: Mapping[str, Any]) -> bool:
+    return _is_coldstart(config) and str(config.get("sweep", {}).get("parameterization", "")) == "paper_lambda_c1"
+
+
 def _is_engineering_self_test(config: Mapping[str, Any]) -> bool:
     value = config.get("engineering_self_test")
     return isinstance(value, Mapping) and value.get("placeholder_backend") is True
@@ -300,7 +310,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
     else:
         expected_tasks = set(TASK_NAMES)
         if (
-            current_experiment != COLDSTART_EXPERIMENT_ID
+            current_experiment not in (COLDSTART_EXPERIMENT_ID, LAMBDA_COMPLETION_EXPERIMENT_ID)
             or len(tasks) != 9
             or len(set(tasks)) != 9
             or set(tasks) != expected_tasks
@@ -544,59 +554,85 @@ def validate_config(config: Mapping[str, Any]) -> None:
         task_lambda = sweep.get("task_lambda")
         if not isinstance(task_lambda, Mapping) or set(task_lambda) != set(tasks):
             raise ValueError("Cold-start task_lambda must contain the exact nine tasks")
-        countdown_sentinels = (
-            0.105360516,
-            0.430782916,
-            0.916290732,
-            1.897119985,
-            2.302585093,
-            2.995732274,
-        )
-        if _tuple_floats(sweep.get("countdown_sentinel_coefficients", ())) != countdown_sentinels:
-            raise ValueError("Countdown sentinel coefficients drifted")
-        if _task_lambdas(config, "countdown") != countdown_sentinels:
-            raise ValueError("Countdown task_lambda must equal the six diagnostic sentinels")
-        if tuple(int(value) for value in sweep.get("countdown_seed_offsets", ())) != (
-            PAPER_SEED_OFFSETS
-        ):
-            raise ValueError("Countdown must preserve the two paper seed offsets")
-        transfer_positive_seeds = tuple(
-            int(value) for value in sweep.get("transfer_positive_only_seed_offsets", ())
-        )
-        if transfer_positive_seeds != (4000, 5000, 6000, 7000):
-            raise ValueError("Transfer Positive-only must use the four frozen historical seed streams")
-        if int(sweep.get("task_transfer_seed_offset", -1)) != 4000:
-            raise ValueError("Transfer Exp response-shape localization must use seed 4000")
-        if int(sweep.get("tuning_seed", -1)) != 4000:
-            raise ValueError("Cold-start tuning_seed must remain 4000")
-
         transfer_tasks = set(tasks) - {"countdown"}
         grid_hashes = sweep.get("task_grid_hashes")
         provenance = sweep.get("task_grid_provenance")
-        expected_hashes = {
-            "word_sorting": "d24edbd6099f1d4f081318b305e62b39834db7ab94af6b4279d706f94e8d6de3",
-            "spiral_matrix": "805966b9e3e1774e748d1d96ca64667e23276782681e15c1e072e5536a02199a",
-            "mini_sudoku": "2340c4729b70ae5bafb7b6bf07049f38056b18368749bba3b967b4bbd950e29c",
-            "maze": "399732f8572faf670a0486cd5f838d3956bfa56cabbb5ae79b8521fbbfc45d33",
-            "word_ladder": "4fff6be5b923b9071ae0ee949e734087330463072d9be02015a661e51a2689e4",
-            "knights_knaves": "37f675c933e909ac1ca8a6464c8ed72497758b31d1c8a82c855cad10961c4cab",
-            "graph_color": "65c02a38a4339888d2e485c277fa1668a5e0309fab857e3ae2b2b2c0dc862f9d",
-            "wikisql": "e42e516dbbe0bfd0f9fd00f5dec22949f88503253a2235c8c81bd908af4779a0",
-        }
-        if not isinstance(grid_hashes, Mapping) or dict(grid_hashes) != expected_hashes:
-            raise ValueError("Transfer task-grid hashes drifted")
+        if not isinstance(grid_hashes, Mapping) or set(grid_hashes) != transfer_tasks:
+            raise ValueError("Transfer task-grid hashes must cover the exact eight tasks")
         if not isinstance(provenance, Mapping) or set(provenance) != transfer_tasks:
             raise ValueError("Transfer task-grid provenance must cover the exact eight tasks")
         if any(not str(provenance[task]).strip() for task in transfer_tasks):
             raise ValueError("Transfer task-grid provenance entries must be non-empty")
         for task in transfer_tasks:
             values = _task_lambdas(config, str(task))
-            if len(values) != 20 or len(set(values)) != 20:
-                raise ValueError(f"{task} must contain exactly 20 distinct Exp coefficients")
+            if len(values) != len(set(values)):
+                raise ValueError(f"{task} contains duplicate Exp coefficients")
             if stable_hash(list(values)) != str(grid_hashes[task]):
-                raise ValueError(f"{task} coefficient grid does not match its locked hash")
-        if int(sweep.get("expected_cells", -1)) != 208:
-            raise ValueError("Cold-start must contain 16 Countdown plus 8x24 transfer cells")
+                raise ValueError(f"{task} coefficient grid does not match its configured hash")
+
+        countdown_values = _task_lambdas(config, "countdown")
+        countdown_sentinels = _tuple_floats(sweep.get("countdown_sentinel_coefficients", ()))
+        if countdown_values != countdown_sentinels:
+            raise ValueError("Countdown task_lambda and sentinel coefficients must agree")
+        countdown_seeds = tuple(int(value) for value in sweep.get("countdown_seed_offsets", ()))
+        positive_seeds = tuple(
+            int(value) for value in sweep.get("transfer_positive_only_seed_offsets", ())
+        )
+        if len(countdown_seeds) != len(set(countdown_seeds)):
+            raise ValueError("Countdown seed offsets must be unique")
+        if len(positive_seeds) != len(set(positive_seeds)):
+            raise ValueError("Transfer Positive-only seed offsets must be unique")
+
+        if current_experiment == COLDSTART_EXPERIMENT_ID:
+            expected_countdown = (
+                0.105360516,
+                0.430782916,
+                0.916290732,
+                1.897119985,
+                2.302585093,
+                2.995732274,
+            )
+            if countdown_values != expected_countdown:
+                raise ValueError("Countdown sentinel coefficients drifted")
+            if countdown_seeds != PAPER_SEED_OFFSETS:
+                raise ValueError("Countdown must preserve the two paper seed offsets")
+            if positive_seeds != (4000, 5000, 6000, 7000):
+                raise ValueError("Transfer Positive-only must use the four frozen historical seed streams")
+            if int(sweep.get("task_transfer_seed_offset", -1)) != 4000:
+                raise ValueError("Transfer Exp response-shape localization must use seed 4000")
+            if int(sweep.get("tuning_seed", -1)) != 4000:
+                raise ValueError("Cold-start tuning_seed must remain 4000")
+            expected_hashes = {
+                "word_sorting": "d24edbd6099f1d4f081318b305e62b39834db7ab94af6b4279d706f94e8d6de3",
+                "spiral_matrix": "805966b9e3e1774e748d1d96ca64667e23276782681e15c1e072e5536a02199a",
+                "mini_sudoku": "2340c4729b70ae5bafb7b6bf07049f38056b18368749bba3b967b4bbd950e29c",
+                "maze": "399732f8572faf670a0486cd5f838d3956bfa56cabbb5ae79b8521fbbfc45d33",
+                "word_ladder": "4fff6be5b923b9071ae0ee949e734087330463072d9be02015a661e51a2689e4",
+                "knights_knaves": "37f675c933e909ac1ca8a6464c8ed72497758b31d1c8a82c855cad10961c4cab",
+                "graph_color": "65c02a38a4339888d2e485c277fa1668a5e0309fab857e3ae2b2b2c0dc862f9d",
+                "wikisql": "e42e516dbbe0bfd0f9fd00f5dec22949f88503253a2235c8c81bd908af4779a0",
+            }
+            if dict(grid_hashes) != expected_hashes:
+                raise ValueError("Historical transfer task-grid hashes drifted")
+            for task in transfer_tasks:
+                if len(_task_lambdas(config, str(task))) != 20:
+                    raise ValueError(f"{task} must contain exactly 20 historical Exp coefficients")
+            if int(sweep.get("expected_cells", -1)) != 208:
+                raise ValueError("Historical cold-start must contain exactly 208 cells")
+        else:
+            if not _is_lambda_only_coldstart(config):
+                raise ValueError("Lambda-completion cold-start must use paper_lambda_c1")
+            int(sweep["tuning_seed"])
+            int(sweep["task_transfer_seed_offset"])
+            expected_cells = len(countdown_seeds) * (2 + len(countdown_values))
+            expected_cells += sum(
+                len(positive_seeds) + len(_task_lambdas(config, str(task)))
+                for task in transfer_tasks
+            )
+            if int(sweep.get("expected_cells", -1)) != expected_cells:
+                raise ValueError(
+                    f"Configured cold-start cell count must equal its expanded matrix ({expected_cells})"
+                )
 
         initialization = config.get("initialization", {})
         if (
@@ -709,8 +745,10 @@ def validate_config(config: Mapping[str, Any]) -> None:
         raise ValueError(f"The scheduler must expose exactly {expected_capacity} slots")
     if tuple(int(value) for value in execution["gpu_ids"]) != tuple(range(8)):
         raise ValueError("The default GPU pool must remain 0--7")
-    expected_waves = 13 if profile == SWEEP_PROFILE_COLDSTART else (
-        7 if profile == SWEEP_PROFILE_DENSE else 5
+    expected_waves = (
+        math.ceil(int(config["sweep"]["expected_cells"]) / expected_capacity)
+        if profile == SWEEP_PROFILE_COLDSTART
+        else (7 if profile == SWEEP_PROFILE_DENSE else 5)
     )
     if int(execution["slots_per_gpu"]) != 2 or int(execution["expected_waves"]) != expected_waves:
         raise ValueError(
@@ -867,6 +905,7 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
             raise AssertionError("Internal 112-cell identity failure")
         return cells
     if _is_coldstart(config):
+        lambda_only = _is_lambda_only_coldstart(config)
         cells: list[Cell] = []
         countdown_coefficients = _task_lambdas(config, "countdown")
         for seed_offset in tuple(int(value) for value in config["sweep"]["countdown_seed_offsets"]):
@@ -880,7 +919,7 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
                 Cell(
                     "countdown",
                     METHOD_EXPONENTIAL,
-                    math.exp(-coefficient),
+                    None if lambda_only else math.exp(-coefficient),
                     seed_offset,
                     "countdown_sentinel",
                     coefficient,
@@ -902,7 +941,7 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
                 Cell(
                     task,
                     METHOD_EXPONENTIAL,
-                    math.exp(-coefficient),
+                    None if lambda_only else math.exp(-coefficient),
                     exp_seed,
                     "task_transfer",
                     coefficient,
@@ -910,8 +949,9 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
                 for coefficient in _task_lambdas(config, task)
             )
         result = tuple(cells)
-        if len(result) != 208 or len({cell.key for cell in result}) != 208:
-            raise AssertionError("Internal 208-cell cold-start identity failure")
+        expected = int(config["sweep"]["expected_cells"])
+        if len(result) != expected or len({cell.key for cell in result}) != expected:
+            raise AssertionError(f"Internal cold-start identity failure: expected {expected} cells")
         return result
     coarse = _tuple_floats(config["sweep"]["coarse_rho"])
     refinement = _tuple_floats(config["sweep"]["refinement_rho"])
@@ -941,8 +981,14 @@ def build_waves(config: Mapping[str, Any]) -> tuple[tuple[Cell, ...], ...]:
         waves = tuple(
             tuple(cells[index : index + capacity]) for index in range(0, len(cells), capacity)
         )
-        if len(waves) != 13 or any(len(wave) != 16 for wave in waves):
-            raise AssertionError("Cold-start geometry must be 13 exact 16-cell scheduling waves")
+        expected_sizes = [capacity] * (len(cells) // capacity)
+        if len(cells) % capacity:
+            expected_sizes.append(len(cells) % capacity)
+        if (
+            len(waves) != int(config["execution"]["expected_waves"])
+            or [len(wave) for wave in waves] != expected_sizes
+        ):
+            raise AssertionError("Cold-start wave geometry does not match the configured matrix")
         return waves
     coarse = tuple(cell for cell in cells if cell.stage == "coarse")
     refinement = tuple(cell for cell in cells if cell.stage == "refinement")
@@ -5464,7 +5510,7 @@ def _countdown_protocol_diagnostic(
     *,
     destination: Path | None = None,
 ) -> dict[str, Any]:
-    """Audit Countdown implementation identity without gating any scientific outcome."""
+    """Audit configured Countdown cells without making them a scientific result gate."""
 
     countdown_cells = [cell for cell in build_cells(config) if cell.task == "countdown"]
     if _is_engineering_self_test(config):
@@ -5473,6 +5519,17 @@ def _countdown_protocol_diagnostic(
             "experiment_id": experiment_id(config),
             "status": "NOT_RUN_ENGINEERING",
             "countdown_cells": len(countdown_cells),
+            "result_gate": False,
+            "controls_task_transfer_release": False,
+            "scientific_evidence": False,
+        }
+    elif not countdown_cells:
+        diagnostic = {
+            "schema_version": 1,
+            "experiment_id": experiment_id(config),
+            "status": "NOT_APPLICABLE_NO_CONFIGURED_COUNTDOWN_CELLS",
+            "countdown_cells": 0,
+            "identity_failures": [],
             "result_gate": False,
             "controls_task_transfer_release": False,
             "scientific_evidence": False,
@@ -5501,7 +5558,7 @@ def _countdown_protocol_diagnostic(
         diagnostic = {
             "schema_version": 1,
             "experiment_id": experiment_id(config),
-            "status": "PASS" if not identity_failures and len(countdown_cells) == 16 else "FAIL",
+            "status": "PASS" if not identity_failures else "FAIL",
             "countdown_cells": len(countdown_cells),
             "identity_failures": identity_failures,
             "result_gate": False,
@@ -5511,7 +5568,6 @@ def _countdown_protocol_diagnostic(
     if destination is not None:
         atomic_json(destination, diagnostic)
     return diagnostic
-
 
 def cmd_run_dynamic(
     config: Mapping[str, Any],
@@ -5754,9 +5810,8 @@ def _coldstart_completed_task_rows(
     if not _is_coldstart(config):
         raise RuntimeError("Per-task early result materialization is cold-start only")
     expected = [cell for cell in build_cells(config) if cell.task == task]
-    expected_count = 16 if task == "countdown" else 24
-    if len(expected) != expected_count:
-        raise AssertionError(f"{task} expected {expected_count} cold-start cells")
+    if not expected:
+        return None
     expected_hash = stable_config_hash(config)
     rows: list[dict[str, Any]] = []
     for cell in expected:
@@ -5882,7 +5937,7 @@ def _write_coldstart_task_result(
         "run_id": run_id,
         "source_commit": source_commit,
         "task": task,
-        "expected_cells": 16 if task == "countdown" else 24,
+        "expected_cells": len(rows),
         "cell_count": len(rows),
         "all_cells_csv": f"task_results/{task}/all_cells.csv",
         "all_cells_csv_sha256": sha256_file(all_cells_path),
@@ -5899,7 +5954,7 @@ def _write_coldstart_task_result(
         ),
         "note": (
             "Deterministic early task snapshot from completed identity-matched cells; "
-            "the terminal 208-cell aggregate remains the final reporting authority."
+            "the terminal aggregate remains the final reporting authority."
         ),
     }
     atomic_json(marker_path, marker)
@@ -6124,13 +6179,20 @@ def _aggregate_coldstart(
 
     summaries: dict[str, Any] = {}
     summary_rows: list[dict[str, Any]] = []
+    configured_cells = build_cells(config)
     for task_value in config["suite"]["tasks"]:
         task = str(task_value)
+        expected_task_cells = [cell for cell in configured_cells if cell.task == task]
+        if not expected_task_cells:
+            continue
         task_rows = [row for row in rows if row["task"] == task]
         positive_rows = [row for row in task_rows if row["method"] == METHOD_POSITIVE_ONLY]
         global_rows = [row for row in task_rows if row["method"] == METHOD_GLOBAL]
         exp_rows = [row for row in task_rows if row["method"] == METHOD_EXPONENTIAL]
-        expected_counts = (2, 2, 12) if task == "countdown" else (4, 0, 20)
+        expected_counts = tuple(
+            sum(cell.method == method for cell in expected_task_cells)
+            for method in (METHOD_POSITIVE_ONLY, METHOD_GLOBAL, METHOD_EXPONENTIAL)
+        )
         if (len(positive_rows), len(global_rows), len(exp_rows)) != expected_counts:
             raise RuntimeError(f"{task} cold-start cell counts differ from {expected_counts}")
 
@@ -6249,7 +6311,7 @@ def _aggregate_coldstart(
         "terminal_valid_rate_role": "diagnostic_only_not_selection_eligibility",
         "test_partition_accessed": False,
         "transfer_exp_single_seed_response_shape_localization": True,
-        "transfer_positive_only_seed_count": 4,
+        "transfer_positive_only_seed_count": len(config["sweep"]["transfer_positive_only_seed_offsets"]),
         "fresh_seed_confirmation_required_for_winner_claim": True,
         "method_ranking_allowed": False,
         "significance_claim_allowed": False,
@@ -6466,11 +6528,19 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             reproduction_gate_status = str(
                 json.loads(protocol_path.read_text(encoding="utf-8")).get("status")
             )
+        has_countdown_cells = any(cell.task == "countdown" for cell in cells)
+        expected_protocol_status = (
+            "NOT_RUN_ENGINEERING"
+            if _is_engineering_self_test(config)
+            else (
+                "PASS"
+                if has_countdown_cells
+                else "NOT_APPLICABLE_NO_CONFIGURED_COUNTDOWN_CELLS"
+            )
+        )
         aggregate_complete = aggregate_path.is_file() and int(
             json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0)
-        ) == len(cells) and reproduction_gate_status == (
-            "NOT_RUN_ENGINEERING" if _is_engineering_self_test(config) else "PASS"
-        )
+        ) == len(cells) and reproduction_gate_status == expected_protocol_status
     all_complete = (
         not missing and not incomplete and not nan_inf and inherited_complete and aggregate_complete
     )
