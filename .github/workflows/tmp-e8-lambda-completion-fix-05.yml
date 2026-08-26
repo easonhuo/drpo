@@ -1,0 +1,138 @@
+name: tmp-e8-lambda-completion-fix-05
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-lambda-completion-fix-05
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip pytest ruff numpy PyYAML
+      - name: Apply minimal compatibility fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one match, found {count}: {old!r}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          replace_once(
+              'scripts/run_e8_multitask_exp_coldstart.sh',
+              'EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-COLDSTART-01"',
+              'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"',
+          )
+          replace_once(
+              'scripts/run_e8_multitask_exp_lambda_completion.sh',
+              'export E8_COLDSTART_CONFIG="${ROOT_DIR}/configs/e8_multitask_exp_lambda_completion.yaml"',
+              'export E8_COLDSTART_EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"\nexport E8_COLDSTART_CONFIG="${ROOT_DIR}/configs/e8_multitask_exp_lambda_completion.yaml"',
+          )
+          replace_once(
+              'src/drpo/e8_multitask_exp_tuning.py',
+              '    expected = [cell for cell in build_cells(config) if cell.task == task]\n    expected_hash = stable_config_hash(config)',
+              '    expected = [cell for cell in build_cells(config) if cell.task == task]\n    if not expected:\n        return None\n    expected_hash = stable_config_hash(config)',
+          )
+          replace_once(
+              'src/drpo/e8_multitask_exp_tuning.py',
+              '        diagnostic = {\n            "schema_version": 1,\n            "experiment_id": experiment_id(config),\n            "status": "PASS" if not identity_failures and (len(countdown_cells) == 16 or experiment_id(config) == LAMBDA_COMPLETION_EXPERIMENT_ID) else "FAIL",',
+              '        countdown_not_run = experiment_id(config) == LAMBDA_COMPLETION_EXPERIMENT_ID\n        diagnostic = {\n            "schema_version": 1,\n            "experiment_id": experiment_id(config),\n            "status": "NOT_RUN" if countdown_not_run else ("PASS" if not identity_failures and len(countdown_cells) == 16 else "FAIL"),',
+          )
+          replace_once(
+              'src/drpo/e8_multitask_exp_tuning.py',
+              '            "scientific_evidence": experiment_id(config) != LAMBDA_COMPLETION_EXPERIMENT_ID,',
+              '            "scientific_evidence": not countdown_not_run,',
+          )
+          replace_once(
+              'src/drpo/e8_multitask_exp_tuning.py',
+              '        "transfer_positive_only_seed_count": 4,',
+              '        "transfer_positive_only_seed_count": len(tuple(int(value) for value in config["sweep"].get("transfer_positive_only_seed_offsets", ()))),',
+          )
+
+          test_path = Path('tests/test_e8_multitask_p0.py')
+          text = test_path.read_text(encoding='utf-8')
+          marker = '    assert not any(cell.task == "countdown" for cell in cells)\n'
+          if text.count(marker) != 1:
+              raise SystemExit('unexpected lambda-completion test marker count')
+          insertion = (
+              marker
+              + '    assert exp_tuning._coldstart_completed_task_rows(config, tmp_path, "countdown") is None\n'
+              + '    successor_launcher = Path("scripts/run_e8_multitask_exp_lambda_completion.sh").read_text(encoding="utf-8")\n'
+              + '    historical_launcher = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")\n'
+              + '    assert \'export E8_COLDSTART_EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"\' in successor_launcher\n'
+              + '    assert \'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"\' in historical_launcher\n'
+          )
+          text = text.replace('def test_lambda_completion_matrix_is_config_driven_and_lambda_only() -> None:', 'def test_lambda_completion_matrix_is_config_driven_and_lambda_only(tmp_path: Path) -> None:', 1)
+          text = text.replace(marker, insertion, 1)
+          test_path.write_text(text, encoding='utf-8')
+          PY
+      - name: Static checks
+        shell: bash
+        run: |
+          git diff --check
+          python -m py_compile src/drpo/e8_multitask_exp_tuning.py
+          bash -n scripts/run_e8_multitask_exp_coldstart.sh
+          bash -n scripts/run_e8_multitask_exp_lambda_completion.sh
+          python -m ruff check src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+      - name: Multitask regression tests
+        run: python -m pytest -q tests/test_e8_multitask_p0.py
+      - name: Matrix and provenance gates
+        shell: bash
+        run: |
+          PYTHONPATH=src python - <<'PY'
+          from pathlib import Path
+          from drpo import e8_multitask_exp_tuning as m
+          cfg = m.load_config(Path('configs/e8_multitask_exp_lambda_completion.yaml'))
+          cells = m.build_cells(cfg)
+          waves = m.build_waves(cfg)
+          assert len(cells) == 199
+          assert sum(c.method == m.METHOD_EXPONENTIAL for c in cells) == 183
+          assert sum(c.method == m.METHOD_POSITIVE_ONLY for c in cells) == 16
+          assert not any(c.task == 'countdown' for c in cells)
+          assert all(c.rho is None for c in cells if c.method == m.METHOD_EXPONENTIAL)
+          assert [len(w) for w in waves] == [16] * 12 + [7]
+          assert m._coldstart_completed_task_rows(cfg, Path('/tmp/no-cells'), 'countdown') is None
+          d = m._countdown_protocol_diagnostic(cfg, Path('/tmp/no-cells'))
+          assert d['status'] == 'NOT_RUN'
+          assert d['scientific_evidence'] is False
+          assert len(tuple(int(v) for v in cfg['sweep']['transfer_positive_only_seed_offsets'])) == 2
+          print({'cells': len(cells), 'waves': [len(w) for w in waves], 'countdown': d})
+          PY
+          grep -F 'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"' scripts/run_e8_multitask_exp_coldstart.sh
+          grep -F 'export E8_COLDSTART_EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"' scripts/run_e8_multitask_exp_lambda_completion.sh
+      - name: Scientific-core identity gate
+        shell: bash
+        run: |
+          BASE=5260ca58ecb67509838a1e5480f6dcaafdb7a773
+          git diff --quiet "$BASE" -- \
+            src/drpo/countdown_qwen_arena_onefile.py \
+            src/drpo/countdown_e8_alpha1_c_scan_common.py \
+            src/drpo/countdown_e8_alpha1_c_scan_runtime.py \
+            src/drpo/countdown_e8_alpha1_c_scan_trainer.py \
+            src/drpo/countdown_e8_alpha1_highc_scan_common.py \
+            src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+      - name: Commit validated final tree
+        shell: bash
+        run: |
+          rm -f .github/workflows/tmp-e8-lambda-completion-fix-05.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/run_e8_multitask_exp_coldstart.sh scripts/run_e8_multitask_exp_lambda_completion.sh src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py .github/workflows/tmp-e8-lambda-completion-fix-05.yml
+          git commit -m 'E8: close minimal lambda completion compatibility gaps'
+          git push origin HEAD:dev/e8-multitask-lambda-completion-fix-05
