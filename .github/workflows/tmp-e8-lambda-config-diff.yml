@@ -1,0 +1,30 @@
+name: Temporary diagnose lambda config delta
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-lambda-completion-minimal-03
+
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-lambda-completion-minimal-03
+      - name: Print non-successor top-level differences
+        run: |
+          python - <<'PY'
+          import yaml
+          from pathlib import Path
+          old=yaml.safe_load(Path('configs/e8_multitask_exp_coldstart.yaml').read_text())
+          new=yaml.safe_load(Path('configs/e8_multitask_exp_lambda_completion.yaml').read_text())
+          ignore={'experiment_id','result_status','sweep','reporting','historical_curve_anchor'}
+          for key in sorted(set(old)|set(new)):
+              if key in ignore:
+                  continue
+              if old.get(key) != new.get(key):
+                  print('DIFF_KEY', key)
+                  print('OLD', repr(old.get(key)))
+                  print('NEW', repr(new.get(key)))
+          PY
