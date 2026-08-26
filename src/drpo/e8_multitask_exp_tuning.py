@@ -4542,8 +4542,21 @@ def cmd_liveness(
 ) -> dict[str, Any]:
     if task not in config["suite"]["tasks"]:
         raise ValueError(f"Unknown liveness task: {task}")
-    if rho not in _task_rhos(config, task):
-        raise ValueError("Liveness rho must be one frozen grid point")
+    frozen_rhos = _task_rhos(config, task)
+    liveness_config = config.get("engineering_liveness", {})
+    configured_anchor_lambda = None
+    if isinstance(liveness_config, Mapping) and str(liveness_config.get("task", "")) == task:
+        value = liveness_config.get("lambda")
+        if value is not None:
+            configured_anchor_lambda = float(value)
+    configured_anchor_rho = (
+        math.exp(-configured_anchor_lambda) if configured_anchor_lambda is not None else None
+    )
+    if rho not in frozen_rhos and not (
+        configured_anchor_rho is not None
+        and math.isclose(rho, configured_anchor_rho, rel_tol=0.0, abs_tol=1.0e-15)
+    ):
+        raise ValueError("Liveness point must be a configured grid point or engineering anchor")
     splits, inputs = _load_ready_inputs(
         output_root,
         config,
@@ -4552,9 +4565,12 @@ def cmd_liveness(
     lambda_value = None
     if _uses_task_lambdas(config):
         lambda_value = next(
-            value
-            for value in _task_lambdas(config, task)
-            if math.isclose(math.exp(-value), rho, rel_tol=0.0, abs_tol=1.0e-15)
+            (
+                value
+                for value in _task_lambdas(config, task)
+                if math.isclose(math.exp(-value), rho, rel_tol=0.0, abs_tol=1.0e-15)
+            ),
+            configured_anchor_lambda,
         )
     cell = Cell(
         task,

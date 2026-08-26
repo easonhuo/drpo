@@ -2,8 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-COLDSTART-01"
+EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"
 CONFIG_PATH="${E8_COLDSTART_CONFIG:-${ROOT_DIR}/configs/e8_multitask_exp_coldstart.yaml}"
+CONFIG_SOURCE_REL="${E8_COLDSTART_CONFIG_SOURCE_REL:-configs/e8_multitask_exp_coldstart.yaml}"
 P0_CONFIG_PATH="${E8_COLDSTART_P0_CONFIG:-${ROOT_DIR}/configs/e8_multitask_p0.yaml}"
 RUN_ID="${E8_COLDSTART_RUN_ID:-E8_MULTITASK_EXP_COLDSTART_20260808_01}"
 RUNTIME_ROOT="${E8_COLDSTART_RUNTIME_ROOT:-${ROOT_DIR}/../drpo-e8-coldstart-runtime}"
@@ -500,7 +501,7 @@ engineering_self_test() {
       --source-file scripts/run_e8_multitask_exp_coldstart.sh \
       --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh \
       --source-file src/drpo/e8_multitask_exp_tuning.py \
-      --source-file configs/e8_multitask_exp_coldstart.yaml \
+      --source-file "${CONFIG_SOURCE_REL}" \
       --source-file docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md \
       --progress-glob 'workload/scheduler/queue_events.jsonl' \
       --progress-glob 'workload/logs/*.log' \
@@ -645,9 +646,22 @@ calibrate() {
 liveness() {
   check_source
   activate_runtime
+  local liveness_task
+  local liveness_lambda
+  read -r liveness_task liveness_lambda < <(python - "${CONFIG_PATH}" <<'PY'
+import sys
+import yaml
+config = yaml.safe_load(open(sys.argv[1], encoding="utf-8"))
+anchor = config.get("engineering_liveness") or {}
+if anchor:
+    print(str(anchor["task"]), float(anchor["lambda"]))
+else:
+    print("countdown", 0.916290732)
+PY
+)
   CUDA_VISIBLE_DEVICES=0 LOCAL_RANK=0 run_module liveness \
-    --task countdown \
-    --lambda 0.916290732 \
+    --task "${liveness_task}" \
+    --lambda "${liveness_lambda}" \
     --base-model-path "${MODEL_DIR}"
 }
 
@@ -738,7 +752,7 @@ delivery_preflight() {
     --source-file scripts/run_e8_multitask_exp_coldstart.sh
     --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh
     --source-file src/drpo/e8_multitask_exp_tuning.py
-    --source-file configs/e8_multitask_exp_coldstart.yaml
+    --source-file "${CONFIG_SOURCE_REL}"
   )
   if "${command[@]}" >"${log}" 2>&1; then
     return 0
@@ -805,7 +819,7 @@ run_formal_guard_attempt() {
     --source-file scripts/run_e8_multitask_exp_coldstart.sh \
     --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh \
     --source-file src/drpo/e8_multitask_exp_tuning.py \
-    --source-file configs/e8_multitask_exp_coldstart.yaml \
+    --source-file "${CONFIG_SOURCE_REL}" \
     --source-file requirements/e8_multitask_exp_coldstart.txt \
     --source-file src/drpo/countdown_qwen_arena_onefile.py \
     --source-file src/drpo/countdown_e8_alpha1_c_scan_common.py \

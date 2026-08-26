@@ -460,6 +460,10 @@ reporting:
   significance_claim_allowed: false
   method_ranking_allowed: false
   scientific_role: external_validity_response_shape
+engineering_liveness:
+  task: countdown
+  lambda: 0.916290732
+  role: canonical_runtime_smoke_only_not_scientific_cell
 historical_curve_anchor:
   path: experiments/results/e8_multitask_exp_coldstart_20260820_02/CURVE_ANCHOR.csv
   role: immutable_predecessor_curve_for_concatenation
