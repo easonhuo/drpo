@@ -1,0 +1,27 @@
+name: Temporary lambda completion engineering E2E
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-lambda-completion-clean-02
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-lambda-completion-clean-02
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[dev]'
+      - name: Successor engineering self-test
+        run: >-
+          python -m drpo.e8_multitask_exp_tuning
+          --config configs/e8_multitask_exp_lambda_completion.yaml
+          --output-root /tmp/e8-lambda-completion-selftest
+          engineering-self-test
+          --source-commit bd5b04890eb590fe3c4a5686c2b7d3d258a9cd57
