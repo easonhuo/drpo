@@ -5500,15 +5500,16 @@ def _countdown_protocol_diagnostic(
                 or value.get("stop_reason") != "max_steps"
             ):
                 identity_failures.append(f"{cell.key}:protocol_identity")
+        countdown_not_run = experiment_id(config) == LAMBDA_COMPLETION_EXPERIMENT_ID
         diagnostic = {
             "schema_version": 1,
             "experiment_id": experiment_id(config),
-            "status": "PASS" if not identity_failures and (len(countdown_cells) == 16 or experiment_id(config) == LAMBDA_COMPLETION_EXPERIMENT_ID) else "FAIL",
+            "status": "NOT_RUN" if countdown_not_run else ("PASS" if not identity_failures and len(countdown_cells) == 16 else "FAIL"),
             "countdown_cells": len(countdown_cells),
             "identity_failures": identity_failures,
             "result_gate": False,
             "controls_task_transfer_release": False,
-            "scientific_evidence": experiment_id(config) != LAMBDA_COMPLETION_EXPERIMENT_ID,
+            "scientific_evidence": not countdown_not_run,
         }
     if destination is not None:
         atomic_json(destination, diagnostic)
@@ -5756,6 +5757,8 @@ def _coldstart_completed_task_rows(
     if not _is_coldstart(config):
         raise RuntimeError("Per-task early result materialization is cold-start only")
     expected = [cell for cell in build_cells(config) if cell.task == task]
+    if not expected:
+        return None
     expected_hash = stable_config_hash(config)
     rows: list[dict[str, Any]] = []
     for cell in expected:
@@ -6251,7 +6254,7 @@ def _aggregate_coldstart(
         "terminal_valid_rate_role": "diagnostic_only_not_selection_eligibility",
         "test_partition_accessed": False,
         "transfer_exp_single_seed_response_shape_localization": True,
-        "transfer_positive_only_seed_count": 4,
+        "transfer_positive_only_seed_count": len(tuple(int(value) for value in config["sweep"].get("transfer_positive_only_seed_offsets", ()))),
         "fresh_seed_confirmation_required_for_winner_claim": True,
         "method_ranking_allowed": False,
         "significance_claim_allowed": False,

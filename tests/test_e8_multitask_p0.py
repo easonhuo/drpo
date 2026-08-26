@@ -1834,7 +1834,7 @@ def test_coldstart_runbook_embeds_bootstrap_and_current_protocol() -> None:
     ).read_text(encoding="utf-8")
 
 
-def test_lambda_completion_matrix_is_config_driven_and_lambda_only() -> None:
+def test_lambda_completion_matrix_is_config_driven_and_lambda_only(tmp_path: Path) -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml"))
@@ -1843,6 +1843,11 @@ def test_lambda_completion_matrix_is_config_driven_and_lambda_only() -> None:
     assert len(cells) == config["sweep"]["expected_cells"] == 199
     assert [len(wave) for wave in waves] == [16] * 12 + [7]
     assert not any(cell.task == "countdown" for cell in cells)
+    assert exp_tuning._coldstart_completed_task_rows(config, tmp_path, "countdown") is None
+    successor_launcher = Path("scripts/run_e8_multitask_exp_lambda_completion.sh").read_text(encoding="utf-8")
+    historical_launcher = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    assert 'export E8_COLDSTART_EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"' in successor_launcher
+    assert 'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"' in historical_launcher
     for task in config["suite"]["p0_tasks"]:
         task_cells = [cell for cell in cells if cell.task == task]
         positives = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_POSITIVE_ONLY]
