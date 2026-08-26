@@ -1,0 +1,93 @@
+name: Temporary E8 lambda bootstrap target support
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-lambda-completion-clean-05
+
+permissions:
+  contents: write
+
+jobs:
+  patch-bootstrap:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-lambda-completion-clean-05
+          fetch-depth: 0
+
+      - name: Patch only bootstrap routing
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh")
+          text = path.read_text(encoding="utf-8")
+
+          old = 'EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-COLDSTART-01"\nEXPECTED_REPOSITORY="https://github.com/easonhuo/drpo.git"\n'
+          new = 'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"\nEXPECTED_REPOSITORY="https://github.com/easonhuo/drpo.git"\nENTRYPOINT="${E8_COLDSTART_ENTRYPOINT:-scripts/run_e8_multitask_exp_coldstart.sh}"\n'
+          assert text.count(old) == 1
+          text = text.replace(old, new, 1)
+
+          old = '''if [[ "${MODE}" == "full" ]]; then
+            TARGET_REF="refs/heads/main"
+            LOCAL_FETCH_REF="refs/remotes/origin/main"
+          else
+            TARGET_REF="refs/pull/309/head"
+            LOCAL_FETCH_REF="refs/e8-coldstart-bootstrap/pr-309-head"
+          fi
+          '''
+          old = "\n".join(line[10:] if line.startswith("          ") else line for line in old.splitlines()) + "\n"
+          new = '''if [[ -n "${E8_COLDSTART_TARGET_REF:-}" ]]; then
+            TARGET_REF="${E8_COLDSTART_TARGET_REF}"
+            LOCAL_FETCH_REF="refs/e8-coldstart-bootstrap/explicit-target"
+          elif [[ "${MODE}" == "full" ]]; then
+            TARGET_REF="refs/heads/main"
+            LOCAL_FETCH_REF="refs/remotes/origin/main"
+          else
+            TARGET_REF="refs/pull/309/head"
+            LOCAL_FETCH_REF="refs/e8-coldstart-bootstrap/pr-309-head"
+          fi
+          '''
+          new = "\n".join(line[10:] if line.startswith("          ") else line for line in new.splitlines()) + "\n"
+          assert text.count(old) == 1
+          text = text.replace(old, new, 1)
+
+          old_call = 'bash "${CHECKOUT}/scripts/run_e8_multitask_exp_coldstart.sh"'
+          assert text.count(old_call) == 3
+          text = text.replace(old_call, 'bash "${CHECKOUT}/${ENTRYPOINT}"')
+
+          old_check = '[[ -f "${CHECKOUT}/scripts/run_e8_multitask_exp_coldstart.sh" ]] || \\\n  fail "target commit does not contain the reviewed experiment entrypoint"'
+          new_check = '[[ -f "${CHECKOUT}/${ENTRYPOINT}" ]] || \\\n  fail "target commit does not contain the reviewed experiment entrypoint: ${ENTRYPOINT}"'
+          assert text.count(old_check) == 1
+          text = text.replace(old_check, new_check, 1)
+
+          marker = "    printf 'target_commit=%q\\n' \"${TARGET_COMMIT:-}\"\n"
+          assert text.count(marker) == 1
+          text = text.replace(marker, marker + "    printf 'entrypoint=%q\\n' \"${ENTRYPOINT}\"\n", 1)
+
+          path.write_text(text, encoding="utf-8")
+          Path(".github/workflows/tmp-e8-lambda-bootstrap-target.yml").unlink()
+          PY
+
+      - name: Validate minimal bootstrap change
+        shell: bash
+        run: |
+          git diff --check
+          bash -n scripts/bootstrap_e8_multitask_exp_coldstart.sh
+          bash -n scripts/run_e8_multitask_exp_lambda_completion.sh
+          grep -F 'E8_COLDSTART_TARGET_REF' scripts/bootstrap_e8_multitask_exp_coldstart.sh
+          grep -F 'ENTRYPOINT="${E8_COLDSTART_ENTRYPOINT:-scripts/run_e8_multitask_exp_coldstart.sh}"' scripts/bootstrap_e8_multitask_exp_coldstart.sh
+          grep -F 'TARGET_REF="refs/heads/main"' scripts/bootstrap_e8_multitask_exp_coldstart.sh
+
+      - name: Commit bootstrap routing support
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "E8: allow bootstrap to target frozen successor ref"
+          git push origin HEAD:dev/e8-multitask-lambda-completion-clean-05
