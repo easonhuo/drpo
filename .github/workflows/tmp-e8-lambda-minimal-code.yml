@@ -1,0 +1,289 @@
+name: Temporary minimal lambda completion code
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-lambda-completion-minimal-03
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-lambda-completion-minimal-03
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Apply minimal successor compatibility
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: Path, old: str, new: str) -> None:
+              text = path.read_text(encoding='utf-8')
+              count = text.count(old)
+              assert count == 1, (path, count, old[:120])
+              path.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          py = Path('src/drpo/e8_multitask_exp_tuning.py')
+          replace_once(
+              py,
+              'COLDSTART_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-COLDSTART-01"\nSUPPORTED_EXPERIMENT_IDS = (EXPERIMENT_ID, DENSE_EXPERIMENT_ID, COLDSTART_EXPERIMENT_ID)\n',
+              'COLDSTART_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-COLDSTART-01"\n'
+              'LAMBDA_COMPLETION_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"\n'
+              'SUPPORTED_EXPERIMENT_IDS = (\n'
+              '    EXPERIMENT_ID, DENSE_EXPERIMENT_ID, COLDSTART_EXPERIMENT_ID, LAMBDA_COMPLETION_EXPERIMENT_ID\n'
+              ')\n',
+          )
+          replace_once(
+              py,
+              'SWEEP_PROFILE_COLDSTART = "eight_task_coldstart_lambda_v1"\n',
+              'SWEEP_PROFILE_COLDSTART = "eight_task_coldstart_lambda_v1"\n'
+              'SWEEP_PROFILE_LAMBDA_COMPLETION = "eight_task_lambda_completion_v1"\n',
+          )
+          replace_once(
+              py,
+              'def _is_coldstart(config: Mapping[str, Any]) -> bool:\n'
+              '    return sweep_profile(config) == SWEEP_PROFILE_COLDSTART\n\n\n',
+              'def _is_lambda_completion(config: Mapping[str, Any]) -> bool:\n'
+              '    return sweep_profile(config) == SWEEP_PROFILE_LAMBDA_COMPLETION\n\n\n'
+              'def _is_coldstart(config: Mapping[str, Any]) -> bool:\n'
+              '    return sweep_profile(config) in (SWEEP_PROFILE_COLDSTART, SWEEP_PROFILE_LAMBDA_COMPLETION)\n\n\n',
+          )
+          marker = 'def validate_config(config: Mapping[str, Any]) -> None:\n'
+          helper = '''def _validate_lambda_completion_config(config: Mapping[str, Any]) -> None:\n    baseline_path = _repo_root() / "configs" / "e8_multitask_exp_coldstart.yaml"\n    baseline = yaml.safe_load(baseline_path.read_text(encoding="utf-8"))\n    if not isinstance(baseline, dict):\n        raise TypeError("Historical COLDSTART config root must be a mapping")\n    validate_config(baseline)\n\n    normalized = copy.deepcopy(dict(config))\n    expected = copy.deepcopy(baseline)\n    if _is_engineering_self_test(config):\n        expected["split"].update(\n            {\n                "p0_train_rows": 2,\n                "p0_validation_rows": 1,\n                "p0_test_rows": 1,\n                "countdown_train_rows": 2,\n                "countdown_validation_rows": 1,\n            }\n        )\n        normalized.pop("engineering_self_test", None)\n    for key in ("experiment_id", "result_status", "sweep", "reporting", "historical_curve_anchor"):\n        normalized.pop(key, None)\n        expected.pop(key, None)\n    if normalized != expected:\n        raise ValueError("Lambda-completion may differ from COLDSTART only in frozen successor metadata/sweep")\n\n    sweep = config["sweep"]\n    tasks = tuple(str(task) for task in config["suite"]["tasks"] )\n    task_lambda = sweep.get("task_lambda")\n    if sweep.get("parameterization") != "paper_lambda_c1":\n        raise ValueError("Lambda-completion must use paper_lambda_c1")\n    if not isinstance(task_lambda, Mapping) or set(task_lambda) != set(tasks):\n        raise ValueError("Lambda-completion task_lambda must contain the exact nine tasks")\n    if tuple(sweep.get("countdown_seed_offsets", ())):\n        raise ValueError("Lambda-completion schedules zero Countdown scientific cells")\n    if _task_lambdas(config, "countdown") != _tuple_floats(\n        sweep.get("countdown_sentinel_coefficients", ())\n    ):\n        raise ValueError("Countdown liveness anchors must match configured historical sentinels")\n    positive_seeds = tuple(int(value) for value in sweep.get("transfer_positive_only_seed_offsets", ()))\n    if not positive_seeds or len(positive_seeds) != len(set(positive_seeds)):\n        raise ValueError("Fresh Positive-only seed offsets must be non-empty and unique")\n    if int(sweep["tuning_seed"]) != int(sweep["task_transfer_seed_offset"]):\n        raise ValueError("Lambda-completion Exp cells must use the configured tuning seed")\n    transfer_tasks = set(tasks) - {"countdown"}\n    grid_hashes = sweep.get("task_grid_hashes")\n    provenance = sweep.get("task_grid_provenance")\n    if not isinstance(grid_hashes, Mapping) or set(grid_hashes) != transfer_tasks:\n        raise ValueError("Lambda-completion grid hashes must cover the exact eight transfer tasks")\n    if not isinstance(provenance, Mapping) or set(provenance) != transfer_tasks:\n        raise ValueError("Lambda-completion grid provenance must cover the exact eight transfer tasks")\n    for task in transfer_tasks:\n        values = _task_lambdas(config, task)\n        if len(values) != len(set(values)) or stable_hash(list(values)) != str(grid_hashes[task]):\n            raise ValueError(f"{task} lambda grid identity mismatch")\n    expected_cells = sum(len(positive_seeds) + len(_task_lambdas(config, task)) for task in transfer_tasks)\n    if int(sweep.get("expected_cells", -1)) != expected_cells:\n        raise ValueError(f"Lambda-completion expected_cells must equal expanded matrix ({expected_cells})")\n\n\n'''
+          text = py.read_text(encoding='utf-8')
+          assert text.count(marker) == 1
+          py.write_text(text.replace(marker, helper + marker, 1), encoding='utf-8')
+          replace_once(
+              py,
+              '    if profile not in (SWEEP_PROFILE_RHO, SWEEP_PROFILE_DENSE, SWEEP_PROFILE_COLDSTART):\n'
+              '        raise ValueError(f"Unsupported sweep profile: {profile}")\n',
+              '    if profile not in (\n'
+              '        SWEEP_PROFILE_RHO, SWEEP_PROFILE_DENSE, SWEEP_PROFILE_COLDSTART, SWEEP_PROFILE_LAMBDA_COMPLETION\n'
+              '    ):\n'
+              '        raise ValueError(f"Unsupported sweep profile: {profile}")\n'
+              '    if profile == SWEEP_PROFILE_LAMBDA_COMPLETION:\n'
+              '        _validate_lambda_completion_config(config)\n'
+              '        return\n',
+          )
+          replace_once(
+              py,
+              '    if _is_coldstart(config):\n        cells: list[Cell] = []\n',
+              '    if _is_coldstart(config):\n        lambda_only = _is_lambda_completion(config)\n        cells: list[Cell] = []\n',
+          )
+          text = py.read_text(encoding='utf-8')
+          old = '                    math.exp(-coefficient),\n'
+          # Exactly two cold-start constructors occur before the fixed 208 assertion.
+          start = text.index('    if _is_coldstart(config):\n        lambda_only = _is_lambda_completion(config)')
+          end = text.index('        return result\n', start)
+          block = text[start:end]
+          assert block.count(old) == 2, block.count(old)
+          block = block.replace(old, '                    None if lambda_only else math.exp(-coefficient),\n')
+          text = text[:start] + block + text[end:]
+          py.write_text(text, encoding='utf-8')
+          replace_once(
+              py,
+              '        if len(result) != 208 or len({cell.key for cell in result}) != 208:\n'
+              '            raise AssertionError("Internal 208-cell cold-start identity failure")\n',
+              '        expected_cells = int(config["sweep"]["expected_cells"]) if lambda_only else 208\n'
+              '        if len(result) != expected_cells or len({cell.key for cell in result}) != expected_cells:\n'
+              '            raise AssertionError(f"Internal cold-start identity failure: expected {expected_cells}")\n',
+          )
+          replace_once(
+              py,
+              '        if len(waves) != 13 or any(len(wave) != 16 for wave in waves):\n'
+              '            raise AssertionError("Cold-start geometry must be 13 exact 16-cell scheduling waves")\n',
+              '        if _is_lambda_completion(config):\n'
+              '            if len(waves) != 13 or any(len(wave) != 16 for wave in waves[:-1]) or len(waves[-1]) != 7:\n'
+              '                raise AssertionError("Lambda-completion geometry must be 12x16 + 1x7")\n'
+              '        elif len(waves) != 13 or any(len(wave) != 16 for wave in waves):\n'
+              '            raise AssertionError("Cold-start geometry must be 13 exact 16-cell scheduling waves")\n',
+          )
+          replace_once(
+              py,
+              '    expected_count = 16 if task == "countdown" else 24\n'
+              '    if len(expected) != expected_count:\n'
+              '        raise AssertionError(f"{task} expected {expected_count} cold-start cells")\n',
+              '    if _is_lambda_completion(config):\n'
+              '        if not expected:\n'
+              '            return None\n'
+              '    else:\n'
+              '        expected_count = 16 if task == "countdown" else 24\n'
+              '        if len(expected) != expected_count:\n'
+              '            raise AssertionError(f"{task} expected {expected_count} cold-start cells")\n',
+          )
+          replace_once(
+              py,
+              '        "expected_cells": 16 if task == "countdown" else 24,\n',
+              '        "expected_cells": len(rows) if _is_lambda_completion(config) else (16 if task == "countdown" else 24),\n',
+          )
+          replace_once(
+              py,
+              '            "the terminal 208-cell aggregate remains the final reporting authority."\n',
+              '            "the terminal aggregate remains the final reporting authority."\n',
+          )
+          replace_once(
+              py,
+              '    summaries: dict[str, Any] = {}\n'
+              '    summary_rows: list[dict[str, Any]] = []\n'
+              '    for task_value in config["suite"]["tasks"]:\n'
+              '        task = str(task_value)\n'
+              '        task_rows = [row for row in rows if row["task"] == task]\n',
+              '    summaries: dict[str, Any] = {}\n'
+              '    summary_rows: list[dict[str, Any]] = []\n'
+              '    configured_cells = build_cells(config) if _is_lambda_completion(config) else ()\n'
+              '    for task_value in config["suite"]["tasks"]:\n'
+              '        task = str(task_value)\n'
+              '        expected_task_cells = [cell for cell in configured_cells if cell.task == task]\n'
+              '        if _is_lambda_completion(config) and not expected_task_cells:\n'
+              '            continue\n'
+              '        task_rows = [row for row in rows if row["task"] == task]\n',
+          )
+          replace_once(
+              py,
+              '        expected_counts = (2, 2, 12) if task == "countdown" else (4, 0, 20)\n',
+              '        expected_counts = (\n'
+              '            tuple(sum(cell.method == method for cell in expected_task_cells) for method in (METHOD_POSITIVE_ONLY, METHOD_GLOBAL, METHOD_EXPONENTIAL))\n'
+              '            if _is_lambda_completion(config)\n'
+              '            else ((2, 2, 12) if task == "countdown" else (4, 0, 20))\n'
+              '        )\n',
+          )
+          replace_once(
+              py,
+              '        "transfer_positive_only_seed_count": 4,\n',
+              '        "transfer_positive_only_seed_count": (\n'
+              '            len(config["sweep"]["transfer_positive_only_seed_offsets"])\n'
+              '            if _is_lambda_completion(config) else 4\n'
+              '        ),\n',
+          )
+          replace_once(
+              py,
+              '    countdown_cells = [cell for cell in build_cells(config) if cell.task == "countdown"]\n'
+              '    if _is_engineering_self_test(config):\n',
+              '    countdown_cells = [cell for cell in build_cells(config) if cell.task == "countdown"]\n'
+              '    if _is_lambda_completion(config):\n'
+              '        diagnostic = {\n'
+              '            "schema_version": 1,\n'
+              '            "experiment_id": experiment_id(config),\n'
+              '            "status": "PREDECESSOR_ONLY",\n'
+              '            "countdown_cells": 0,\n'
+              '            "result_gate": False,\n'
+              '            "controls_task_transfer_release": False,\n'
+              '            "scientific_evidence": False,\n'
+              '        }\n'
+              '    elif _is_engineering_self_test(config):\n',
+          )
+          replace_once(
+              py,
+              '        aggregate_complete = aggregate_path.is_file() and int(\n'
+              '            json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0)\n'
+              '        ) == len(cells) and reproduction_gate_status == (\n'
+              '            "NOT_RUN_ENGINEERING" if _is_engineering_self_test(config) else "PASS"\n'
+              '        )\n',
+              '        expected_diagnostic = (\n'
+              '            "PREDECESSOR_ONLY"\n'
+              '            if _is_lambda_completion(config)\n'
+              '            else ("NOT_RUN_ENGINEERING" if _is_engineering_self_test(config) else "PASS")\n'
+              '        )\n'
+              '        aggregate_complete = aggregate_path.is_file() and int(\n'
+              '            json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0)\n'
+              '        ) == len(cells) and reproduction_gate_status == expected_diagnostic\n',
+          )
+
+          shell = Path('scripts/run_e8_multitask_exp_coldstart.sh')
+          replace_once(
+              shell,
+              'EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-COLDSTART-01"\n'
+              'CONFIG_PATH="${E8_COLDSTART_CONFIG:-${ROOT_DIR}/configs/e8_multitask_exp_coldstart.yaml}"\n',
+              'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"\n'
+              'CONFIG_PATH="${E8_COLDSTART_CONFIG:-${ROOT_DIR}/configs/e8_multitask_exp_coldstart.yaml}"\n'
+              'CONFIG_SOURCE_REL="${E8_COLDSTART_CONFIG_SOURCE_REL:-configs/e8_multitask_exp_coldstart.yaml}"\n',
+          )
+          text = shell.read_text(encoding='utf-8')
+          needle = '--source-file configs/e8_multitask_exp_coldstart.yaml'
+          assert text.count(needle) == 3, text.count(needle)
+          shell.write_text(text.replace(needle, '--source-file "${CONFIG_SOURCE_REL}"'), encoding='utf-8')
+
+          Path('scripts/run_e8_multitask_exp_lambda_completion.sh').write_text(
+              '#!/usr/bin/env bash\n'
+              'set -euo pipefail\n\n'
+              'ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"\n'
+              'export E8_COLDSTART_EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"\n'
+              'export E8_COLDSTART_CONFIG="${ROOT_DIR}/configs/e8_multitask_exp_lambda_completion.yaml"\n'
+              'export E8_COLDSTART_CONFIG_SOURCE_REL="configs/e8_multitask_exp_lambda_completion.yaml"\n'
+              'export E8_COLDSTART_RUN_ID="${E8_COLDSTART_RUN_ID:-E8_MULTITASK_EXP_LAMBDA_COMPLETION_01}"\n'
+              'exec bash "${ROOT_DIR}/scripts/run_e8_multitask_exp_coldstart.sh" "$@"\n',
+              encoding='utf-8',
+          )
+
+          tests = Path('tests/test_e8_multitask_p0.py')
+          text = tests.read_text(encoding='utf-8')
+          marker = '\n\n@pytest.mark.skipif(torch is None, reason="Torch is unavailable in the test runtime")\ndef test_lambda_only_canonical_transport_is_exactly_equivalent() -> None:\n'
+          assert text.count(marker) == 1
+          new_test = '''\n\ndef test_lambda_completion_matrix_is_config_driven_and_lambda_only() -> None:\n    from drpo import e8_multitask_exp_tuning as exp_tuning\n\n    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml"))\n    cells = exp_tuning.build_cells(config)\n    waves = exp_tuning.build_waves(config)\n    assert len(cells) == config["sweep"]["expected_cells"] == 199\n    assert [len(wave) for wave in waves] == [16] * 12 + [7]\n    assert not any(cell.task == "countdown" for cell in cells)\n    for task in config["suite"]["p0_tasks"]:\n        task_cells = [cell for cell in cells if cell.task == task]\n        positives = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_POSITIVE_ONLY]\n        exponentials = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_EXPONENTIAL]\n        assert [cell.seed for cell in positives] == config["sweep"]["transfer_positive_only_seed_offsets"]\n        assert {cell.seed for cell in exponentials} == {config["sweep"]["task_transfer_seed_offset"]}\n        assert [cell.lambda_value for cell in exponentials] == config["sweep"]["task_lambda"][task]\n        assert all(cell.rho is None for cell in exponentials)\n\n'''
+          text = text.replace(marker, new_test + marker, 1)
+          old = '''    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))\n    lambdas = sorted(\n        {\n            float(value)\n            for task in config["suite"]["tasks"]\n            for value in config["sweep"]["task_lambda"][task]\n        }\n    )\n'''
+          new = '''    configs = [\n        exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml")),\n        exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml")),\n    ]\n    lambdas = sorted(\n        {\n            float(value)\n            for config in configs\n            for task in config["suite"]["tasks"]\n            for value in config["sweep"]["task_lambda"][task]\n        }\n    )\n'''
+          assert text.count(old) == 1
+          tests.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          chmod +x scripts/run_e8_multitask_exp_lambda_completion.sh
+      - name: Install
+        run: python -m pip install -e '.[dev]'
+      - name: Compile and shell syntax
+        run: |
+          python -m compileall -q src tests
+          bash -n scripts/run_e8_multitask_exp_coldstart.sh
+          bash -n scripts/run_e8_multitask_exp_lambda_completion.sh
+      - name: Targeted tests
+        run: >-
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          -k 'lambda_completion or lambda_only_canonical_transport_is_exactly_equivalent or exp_coldstart_matrix_is_208_cells_in_13_hard_waves'
+      - name: Full multitask test file
+        run: python -m pytest -q tests/test_e8_multitask_p0.py
+      - name: Fatal Ruff
+        run: ruff check --select E9,F63,F7,F82 src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+      - name: Scientific-core identity gate
+        run: |
+          git diff --quiet 5260ca58ecb67509838a1e5480f6dcaafdb7a773 -- \
+            src/drpo/countdown_qwen_arena_onefile.py \
+            src/drpo/countdown_e8_alpha1_c_scan_common.py \
+            src/drpo/countdown_e8_alpha1_c_scan_runtime.py \
+            src/drpo/countdown_e8_alpha1_c_scan_trainer.py \
+            src/drpo/countdown_e8_alpha1_highc_scan_common.py \
+            src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+      - name: Hyperparameter isolation gate
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+          from drpo import e8_multitask_exp_tuning as m
+          config = m.load_config(Path('configs/e8_multitask_exp_lambda_completion.yaml'))
+          cells = m.build_cells(config)
+          assert len(cells) == 199
+          assert sum(c.method == m.METHOD_EXPONENTIAL for c in cells) == 183
+          assert sum(c.method == m.METHOD_POSITIVE_ONLY for c in cells) == 16
+          assert not any(c.task == 'countdown' for c in cells)
+          source = Path('src/drpo/e8_multitask_exp_tuning.py').read_text(encoding='utf-8')
+          for forbidden in ('8000', '9000', '34.538776395', '40.0', '30.0', '26.0'):
+              assert forbidden not in source, forbidden
+          PY
+      - name: Diff budget report
+        run: |
+          git diff --numstat 5260ca58ecb67509838a1e5480f6dcaafdb7a773 -- src/drpo/e8_multitask_exp_tuning.py scripts/run_e8_multitask_exp_coldstart.sh scripts/run_e8_multitask_exp_lambda_completion.sh tests/test_e8_multitask_p0.py
+          git diff --stat 5260ca58ecb67509838a1e5480f6dcaafdb7a773
+      - name: Commit validated minimal implementation
+        run: |
+          rm .github/workflows/tmp-e8-lambda-minimal-code.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/drpo/e8_multitask_exp_tuning.py scripts/run_e8_multitask_exp_coldstart.sh scripts/run_e8_multitask_exp_lambda_completion.sh tests/test_e8_multitask_p0.py .github/workflows/tmp-e8-lambda-minimal-code.yml
+          git commit -m 'E8: minimally support lambda-completion config'
+          git push origin HEAD:dev/e8-multitask-lambda-completion-minimal-03
