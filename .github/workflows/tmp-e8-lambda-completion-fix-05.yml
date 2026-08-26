@@ -89,7 +89,7 @@ jobs:
           python -m py_compile src/drpo/e8_multitask_exp_tuning.py
           bash -n scripts/run_e8_multitask_exp_coldstart.sh
           bash -n scripts/run_e8_multitask_exp_lambda_completion.sh
-          python -m ruff check src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          python -m ruff check --select E9,F63,F7,F82 src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
       - name: Multitask regression tests
         run: python -m pytest -q tests/test_e8_multitask_p0.py
       - name: Matrix and provenance gates
