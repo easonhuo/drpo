@@ -71,16 +71,18 @@ jobs:
               raise SystemExit(f"resolver insertion anchor count={text.count(anchor)}")
           text = text.replace(anchor, replacement, 1)
 
-          clean_anchor = '''  [[ -z "$(git -C "${ROOT_DIR}" status --porcelain=v1 --untracked-files=all)" ]] || \\
-            fail "source checkout must be fully clean; keep runtime files outside the repository"
+          clean_anchor = '''    fail "source checkout must be fully clean; keep runtime files outside the repository"
           }
+
+          activate_runtime() {
           '''
-          clean_replacement = '''  [[ -z "$(git -C "${ROOT_DIR}" status --porcelain=v1 --untracked-files=all)" ]] || \\
-            fail "source checkout must be fully clean; keep runtime files outside the repository"
+          clean_replacement = '''    fail "source checkout must be fully clean; keep runtime files outside the repository"
             resolve_config_repo_path
             git -C "${ROOT_DIR}" cat-file -e "${EXPECTED_COMMIT}:${CONFIG_REPO_PATH}" 2>/dev/null || \\
               fail "runtime config is unavailable at launch commit ${EXPECTED_COMMIT}: ${CONFIG_REPO_PATH}"
           }
+
+          activate_runtime() {
           '''
           if text.count(clean_anchor) != 1:
               raise SystemExit(f"check_source anchor count={text.count(clean_anchor)}")
@@ -121,7 +123,7 @@ jobs:
           test_anchor = '''    assert 'export E8_COLDSTART_EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"' in successor_launcher
               assert 'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"' in historical_launcher
               for task in config["suite"]["p0_tasks"]:
-          '''
+          '''.replace("              ", "    ")
           test_replacement = '''    assert 'export E8_COLDSTART_EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"' in successor_launcher
               assert 'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"' in historical_launcher
               guarded_full_body = historical_launcher.split("guarded_full() {", 1)[1].split("\\n}", 1)[0]
@@ -133,10 +135,7 @@ jobs:
               assert "--source-file configs/e8_multitask_exp_coldstart.yaml" not in historical_launcher
               assert '"${EXPECTED_COMMIT}:${CONFIG_REPO_PATH}"' in historical_launcher
               for task in config["suite"]["p0_tasks"]:
-          '''
-          # Normalize accidental indentation in the literal before matching the source file.
-          test_anchor = test_anchor.replace("              ", "    ")
-          test_replacement = test_replacement.replace("              ", "    ")
+          '''.replace("              ", "    ")
           if tests.count(test_anchor) != 1:
               raise SystemExit(f"test insertion anchor count={tests.count(test_anchor)}")
           tests = tests.replace(test_anchor, test_replacement, 1)
