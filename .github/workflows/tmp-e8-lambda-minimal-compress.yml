@@ -1,0 +1,77 @@
+name: Temporary tighter lambda completion wrapper
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-lambda-completion-minimal-03
+
+permissions:
+  contents: write
+
+jobs:
+  compress-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-lambda-completion-minimal-03
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compress successor-only validation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          text = path.read_text(encoding='utf-8')
+          start = text.index('def _validate_lambda_completion_config(config: Mapping[str, Any]) -> None:\n')
+          end = text.index('\n\ndef validate_config(config: Mapping[str, Any]) -> None:\n', start)
+          helper = '''def _validate_lambda_completion_config(config: Mapping[str, Any]) -> None:\n    baseline = yaml.safe_load(\n        (_repo_root() / "configs" / "e8_multitask_exp_coldstart.yaml").read_text(encoding="utf-8")\n    )\n    ignored = {"experiment_id", "result_status", "sweep", "reporting", "historical_curve_anchor", "engineering_self_test"}\n    expected = {key: value for key, value in baseline.items() if key not in ignored}\n    observed = {key: value for key, value in config.items() if key not in ignored}\n    if _is_engineering_self_test(config):\n        expected = copy.deepcopy(expected)\n        expected["split"].update(\n            p0_train_rows=2, p0_validation_rows=1, p0_test_rows=1,\n            countdown_train_rows=2, countdown_validation_rows=1,\n        )\n    if observed != expected:\n        raise ValueError("Lambda-completion changed a frozen COLDSTART common setting")\n\n    sweep = config["sweep"]\n    tasks = tuple(str(task) for task in config["suite"]["tasks"])\n    transfer_tasks = set(tasks) - {"countdown"}\n    positive_seeds = tuple(int(value) for value in sweep.get("transfer_positive_only_seed_offsets", ()))\n    grid_hashes = sweep.get("task_grid_hashes")\n    if (\n        sweep.get("parameterization") != "paper_lambda_c1"\n        or set(sweep.get("task_lambda", {})) != set(tasks)\n        or tuple(sweep.get("countdown_seed_offsets", ()))\n        or _task_lambdas(config, "countdown") != _tuple_floats(sweep.get("countdown_sentinel_coefficients", ()))\n        or not positive_seeds\n        or len(positive_seeds) != len(set(positive_seeds))\n        or int(sweep["tuning_seed"]) != int(sweep["task_transfer_seed_offset"])\n        or not isinstance(grid_hashes, Mapping)\n        or set(grid_hashes) != transfer_tasks\n    ):\n        raise ValueError("Invalid lambda-completion sweep identity")\n    grids = {task: _task_lambdas(config, task) for task in transfer_tasks}\n    if any(\n        len(values) != len(set(values)) or stable_hash(list(values)) != str(grid_hashes[task])\n        for task, values in grids.items()\n    ):\n        raise ValueError("Lambda-completion grid identity mismatch")\n    if int(sweep.get("expected_cells", -1)) != sum(len(positive_seeds) + len(values) for values in grids.values()):\n        raise ValueError("Lambda-completion expected_cells does not match its configured matrix")\n'''
+          text = text[:start] + helper + text[end:]
+          old = '''    if _is_lambda_completion(config):\n        diagnostic = {\n            "schema_version": 1,\n            "experiment_id": experiment_id(config),\n            "status": "PREDECESSOR_ONLY",\n            "countdown_cells": 0,\n            "result_gate": False,\n            "controls_task_transfer_release": False,\n            "scientific_evidence": False,\n        }\n    elif _is_engineering_self_test(config):\n'''
+          new = '''    if _is_lambda_completion(config):\n        diagnostic = {\n            "status": "PREDECESSOR_ONLY",\n            "result_gate": False,\n            "controls_task_transfer_release": False,\n        }\n    elif _is_engineering_self_test(config):\n'''
+          assert text.count(old) == 1
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+      - name: Install
+        run: python -m pip install -e '.[dev]'
+      - name: Checks
+        run: |
+          python -m compileall -q src tests
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          ruff check --select E9,F63,F7,F82 src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          git diff --quiet 5260ca58ecb67509838a1e5480f6dcaafdb7a773 -- \
+            src/drpo/countdown_qwen_arena_onefile.py \
+            src/drpo/countdown_e8_alpha1_c_scan_common.py \
+            src/drpo/countdown_e8_alpha1_c_scan_runtime.py \
+            src/drpo/countdown_e8_alpha1_c_scan_trainer.py \
+            src/drpo/countdown_e8_alpha1_highc_scan_common.py \
+            src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+      - name: Matrix gate and diff budget
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from drpo import e8_multitask_exp_tuning as m
+          config = m.load_config(Path('configs/e8_multitask_exp_lambda_completion.yaml'))
+          cells = m.build_cells(config)
+          assert len(cells) == 199
+          assert sum(c.method == m.METHOD_EXPONENTIAL for c in cells) == 183
+          assert sum(c.method == m.METHOD_POSITIVE_ONLY for c in cells) == 16
+          assert not any(c.task == 'countdown' for c in cells)
+          assert [len(wave) for wave in m.build_waves(config)] == [16] * 12 + [7]
+          source = Path('src/drpo/e8_multitask_exp_tuning.py').read_text(encoding='utf-8')
+          for forbidden in ('8000', '9000', '34.538776395', '40.0', '30.0', '26.0'):
+              assert forbidden not in source, forbidden
+          PY
+          git diff --numstat 5260ca58ecb67509838a1e5480f6dcaafdb7a773 -- src/drpo/e8_multitask_exp_tuning.py scripts/run_e8_multitask_exp_coldstart.sh tests/test_e8_multitask_p0.py
+      - name: Commit compressed wrapper
+        run: |
+          rm .github/workflows/tmp-e8-lambda-minimal-compress.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/drpo/e8_multitask_exp_tuning.py .github/workflows/tmp-e8-lambda-minimal-compress.yml
+          git commit -m 'E8: tighten lambda-completion wrapper diff'
+          git push origin HEAD:dev/e8-multitask-lambda-completion-minimal-03
