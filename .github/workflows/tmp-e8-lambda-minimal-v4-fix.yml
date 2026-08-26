@@ -1,0 +1,102 @@
+name: Temporary E8 lambda minimal v4 fix
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-lambda-completion-minimal-04
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-lambda-completion-minimal-04
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Reconstruct candidate and apply existing transformation
+        run: |
+          git show 42df8590677fe95e0b021a2d80f4b8a923f72b13:configs/e8_multitask_exp_lambda_completion.yaml > configs/e8_multitask_exp_lambda_completion.yaml
+          sed -i 's/profile: eight_task_lambda_completion_v1/profile: eight_task_coldstart_lambda_v1/' configs/e8_multitask_exp_lambda_completion.yaml
+          git show 42df8590677fe95e0b021a2d80f4b8a923f72b13:tests/test_e8_multitask_p0.py > tests/test_e8_multitask_p0.py
+          cat > scripts/run_e8_multitask_exp_lambda_completion.sh <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+          export E8_COLDSTART_CONFIG="${ROOT_DIR}/configs/e8_multitask_exp_lambda_completion.yaml"
+          export E8_COLDSTART_RUN_ID="${E8_COLDSTART_RUN_ID:-E8_MULTITASK_EXP_LAMBDA_COMPLETION_01}"
+          exec bash "${ROOT_DIR}/scripts/run_e8_multitask_exp_coldstart.sh" "$@"
+          EOF
+          chmod +x scripts/run_e8_multitask_exp_lambda_completion.sh
+          python - <<'PY'
+          from pathlib import Path
+          src = Path('.github/workflows/tmp-e8-lambda-minimal-v4.yml').read_text(encoding='utf-8')
+          marker = '      - name: Apply minimal config-driven wrapper compatibility\n'
+          block = src[src.index(marker):]
+          start = block.index("          python - <<'PY'\n") + len("          python - <<'PY'\n")
+          end = block.index('          PY\n', start)
+          lines = block[start:end].splitlines()
+          code = '\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n'
+          Path('/tmp/apply_minimal.py').write_text(code, encoding='utf-8')
+          PY
+          python /tmp/apply_minimal.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace(
+              '    expected = [cell for cell in build_cells(config) if cell.task == task]\n    expected_count = len(expected)\n',
+              '    expected = [cell for cell in build_cells(config) if cell.task == task]\n',
+              1,
+          )
+          text = text.replace('        "expected_cells": expected_count,\n', '        "expected_cells": len(rows),\n', 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Install
+        run: python -m pip install -e '.[dev]'
+      - name: Validate
+        run: |
+          python -m compileall -q src tests
+          bash -n scripts/run_e8_multitask_exp_coldstart.sh
+          bash -n scripts/run_e8_multitask_exp_lambda_completion.sh
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          ruff check --select E9,F63,F7,F82 src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          git diff --quiet 5260ca58ecb67509838a1e5480f6dcaafdb7a773 -- scripts/run_e8_multitask_exp_coldstart.sh
+          git diff --quiet 5260ca58ecb67509838a1e5480f6dcaafdb7a773 -- src/drpo/countdown_qwen_arena_onefile.py src/drpo/countdown_e8_alpha1_c_scan_common.py src/drpo/countdown_e8_alpha1_c_scan_runtime.py src/drpo/countdown_e8_alpha1_c_scan_trainer.py src/drpo/countdown_e8_alpha1_highc_scan_common.py src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+      - name: Matrix and diff gates
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from drpo import e8_multitask_exp_tuning as m
+          successor=m.load_config(Path('configs/e8_multitask_exp_lambda_completion.yaml'))
+          cells=m.build_cells(successor)
+          assert len(cells)==199
+          assert sum(c.method==m.METHOD_EXPONENTIAL for c in cells)==183
+          assert sum(c.method==m.METHOD_POSITIVE_ONLY for c in cells)==16
+          assert not any(c.task=='countdown' for c in cells)
+          assert all(c.rho is None and c.lambda_value is not None for c in cells if c.method==m.METHOD_EXPONENTIAL)
+          assert [len(w) for w in m.build_waves(successor)]==[16]*12+[7]
+          historical=m.load_config(Path('configs/e8_multitask_exp_coldstart.yaml'))
+          old=m.build_cells(historical)
+          assert len(old)==208
+          assert [len(w) for w in m.build_waves(historical)]==[16]*13
+          assert all(c.rho is not None for c in old if c.method==m.METHOD_EXPONENTIAL)
+          source=Path('src/drpo/e8_multitask_exp_tuning.py').read_text(encoding='utf-8')
+          for forbidden in ('8000','9000','34.538776395','40.0','30.0','26.0','== 199','eight_task_lambda_completion_v1'):
+              assert forbidden not in source, forbidden
+          PY
+          git diff --numstat 5260ca58ecb67509838a1e5480f6dcaafdb7a773 -- src/drpo/e8_multitask_exp_tuning.py
+      - name: Commit clean implementation
+        run: |
+          rm .github/workflows/tmp-e8-lambda-minimal-v4.yml .github/workflows/tmp-e8-lambda-minimal-v4-fix.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add configs/e8_multitask_exp_lambda_completion.yaml scripts/run_e8_multitask_exp_lambda_completion.sh src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py .github/workflows/tmp-e8-lambda-minimal-v4.yml .github/workflows/tmp-e8-lambda-minimal-v4-fix.yml
+          git commit -m 'E8: minimal config-driven lambda completion'
+          git push origin HEAD:dev/e8-multitask-lambda-completion-minimal-04
