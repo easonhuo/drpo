@@ -3,9 +3,8 @@ set -Eeuo pipefail
 
 umask 077
 
-EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"
+EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-COLDSTART-01"
 EXPECTED_REPOSITORY="https://github.com/easonhuo/drpo.git"
-ENTRYPOINT="${E8_COLDSTART_ENTRYPOINT:-scripts/run_e8_multitask_exp_coldstart.sh}"
 MODE="${E8_COLDSTART_EXECUTION_MODE:-${1:-full}}"
 CURRENT_STAGE="bootstrap_init"
 BOOTSTRAP_STATUS="initializing"
@@ -20,7 +19,7 @@ fail() {
       E8_COLDSTART_EXPECTED_COMMIT="${TARGET_COMMIT:-}" \
         E8_COLDSTART_RUNTIME_ROOT="${RUNTIME_ROOT:-${BOOTSTRAP_ROOT:-.}/runtime}" \
         E8_COLDSTART_BOOTSTRAP_STATE="${STATE_FILE}" \
-        bash "${CHECKOUT}/${ENTRYPOINT}" \
+        bash "${CHECKOUT}/scripts/run_e8_multitask_exp_coldstart.sh" \
           diagnose "bootstrap_${CURRENT_STAGE}" || true
     fi
     echo "BOOTSTRAP_FAILED_STAGE=${CURRENT_STAGE}" >&2
@@ -59,9 +58,9 @@ write_state() {
     printf 'stage=%q\n' "${CURRENT_STAGE}"
     printf 'source_repo=%q\n' "${SOURCE_REPO:-}"
     printf 'source_remote=%q\n' "${SOURCE_REMOTE:-}"
+    printf 'source_commit=%q\n' "${SOURCE_COMMIT:-}"
     printf 'target_ref=%q\n' "${TARGET_REF:-}"
     printf 'target_commit=%q\n' "${TARGET_COMMIT:-}"
-    printf 'entrypoint=%q\n' "${ENTRYPOINT}"
     printf 'checkout=%q\n' "${CHECKOUT}"
     printf 'runtime_root=%q\n' "${RUNTIME_ROOT}"
   } >"${STATE_FILE}"
@@ -75,7 +74,7 @@ on_error() {
     E8_COLDSTART_EXPECTED_COMMIT="${TARGET_COMMIT:-}" \
       E8_COLDSTART_RUNTIME_ROOT="${RUNTIME_ROOT}" \
       E8_COLDSTART_BOOTSTRAP_STATE="${STATE_FILE}" \
-      bash "${CHECKOUT}/${ENTRYPOINT}" \
+      bash "${CHECKOUT}/scripts/run_e8_multitask_exp_coldstart.sh" \
         diagnose "bootstrap_${CURRENT_STAGE}" || true
   fi
   echo "BOOTSTRAP_FAILED_STAGE=${CURRENT_STAGE}" >&2
@@ -186,13 +185,16 @@ fi
 CURRENT_STAGE="verify_selected_origin"
 origin_url="$(git -C "${SOURCE_REPO}" remote get-url "${SOURCE_REMOTE}")"
 is_canonical_origin "${origin_url}" || fail "selected checkout does not have canonical origin"
+CURRENT_STAGE="verify_selected_source_commit"
+SOURCE_COMMIT="$(git -C "${SOURCE_REPO}" rev-parse 'HEAD^{commit}')" || \
+  fail "selected checkout HEAD is not a commit"
+[[ "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "selected checkout HEAD is not a full SHA"
 
-if [[ -n "${E8_COLDSTART_TARGET_REF:-}" ]]; then
-  TARGET_REF="${E8_COLDSTART_TARGET_REF}"
-  LOCAL_FETCH_REF="refs/e8-coldstart-bootstrap/explicit-target"
-elif [[ "${MODE}" == "full" ]]; then
-  TARGET_REF="refs/heads/main"
-  LOCAL_FETCH_REF="refs/remotes/origin/main"
+if [[ "${MODE}" == "full" ]]; then
+  TARGET_REF="${E8_COLDSTART_TARGET_REF:-refs/heads/main}"
+  git check-ref-format "${TARGET_REF}" >/dev/null 2>&1 || fail "invalid full target ref: ${TARGET_REF}"
+  [[ "${TARGET_REF}" == refs/heads/* ]] || fail "full target ref must be under refs/heads/: ${TARGET_REF}"
+  LOCAL_FETCH_REF="refs/e8-coldstart-bootstrap/full-target"
 else
   TARGET_REF="refs/pull/309/head"
   LOCAL_FETCH_REF="refs/e8-coldstart-bootstrap/pr-309-head"
@@ -215,6 +217,11 @@ else
     fail "fetch/authoritative-ref mismatch for ${TARGET_REF}"
 fi
 
+CURRENT_STAGE="verify_full_source_identity"
+if [[ "${MODE}" == "full" && "${SOURCE_COMMIT}" != "${TARGET_COMMIT}" ]]; then
+  fail "full mode refuses source commit switching: selected checkout HEAD ${SOURCE_COMMIT} != authoritative ${TARGET_REF} ${TARGET_COMMIT}"
+fi
+
 CURRENT_STAGE="create_isolated_worktree"
 if [[ "${RESUME_BOOTSTRAP}" -eq 0 ]]; then
   git -C "${SOURCE_REPO}" worktree add --detach "${CHECKOUT}" "${TARGET_COMMIT}"
@@ -223,22 +230,25 @@ fi
   fail "existing isolated checkout no longer matches authoritative ${TARGET_REF}; local AI review is required"
 [[ -z "$(git -C "${CHECKOUT}" status --porcelain=v1 --untracked-files=all)" ]] || \
   fail "isolated checkout is not clean"
-[[ -f "${CHECKOUT}/${ENTRYPOINT}" ]] || \
-  fail "target commit does not contain the reviewed experiment entrypoint: ${ENTRYPOINT}"
+[[ -f "${CHECKOUT}/scripts/run_e8_multitask_exp_coldstart.sh" ]] || \
+  fail "target commit does not contain the reviewed experiment entrypoint"
 
 BOOTSTRAP_STATUS="prepared"
 write_state "${BOOTSTRAP_STATUS}"
 
 CURRENT_STAGE="execute_${MODE}"
 export E8_COLDSTART_EXPECTED_COMMIT="${TARGET_COMMIT}"
+export E8_COLDSTART_TARGET_REF="${TARGET_REF}"
 export E8_COLDSTART_RUNTIME_ROOT="${RUNTIME_ROOT}"
 export E8_COLDSTART_BOOTSTRAP_STATE="${STATE_FILE}"
-bash "${CHECKOUT}/${ENTRYPOINT}" "${MODE}"
+bash "${CHECKOUT}/scripts/run_e8_multitask_exp_coldstart.sh" "${MODE}"
 
 CURRENT_STAGE="complete"
 BOOTSTRAP_STATUS="complete"
 write_state "${BOOTSTRAP_STATUS}"
 echo "BOOTSTRAP_SOURCE_REPO=${SOURCE_REPO}"
+echo "BOOTSTRAP_SOURCE_COMMIT=${SOURCE_COMMIT}"
 echo "BOOTSTRAP_CHECKOUT=${CHECKOUT}"
+echo "BOOTSTRAP_TARGET_REF=${TARGET_REF}"
 echo "BOOTSTRAP_TARGET_COMMIT=${TARGET_COMMIT}"
 echo "BOOTSTRAP_STATE=${STATE_FILE}"
