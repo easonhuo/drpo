@@ -68,7 +68,7 @@ jobs:
           bash -n scripts/run_e8_multitask_exp_coldstart.sh
           bash -n scripts/run_e8_multitask_exp_lambda_completion.sh
           python -m py_compile src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
-          python -m pip install -q pytest PyYAML
+          python -m pip install -q pytest PyYAML numpy
           python -m pytest -q tests/test_e8_multitask_p0.py
 
           git commit -m "Merge runnable E8 lambda completion into prior execution branch"
