@@ -20,6 +20,5 @@ jobs:
       - name: Apply validate and commit final repair
         shell: bash
         run: |
-          sed -i 's/assert text.count(direct) == 1, text.count(direct)/assert text.count(direct) == 2, text.count(direct)/' .github/tmp_e8_finalize_apply.sh
-          sed -i '/text = text.replace(direct,/ s/, 1)$/)/' .github/tmp_e8_finalize_apply.sh
+          sed -i 's/text = text.rstrip() + section + "\\n"/text = text.rstrip() + section.rstrip() + "\\n"/' .github/tmp_e8_finalize_apply.sh
           bash .github/tmp_e8_finalize_apply.sh
