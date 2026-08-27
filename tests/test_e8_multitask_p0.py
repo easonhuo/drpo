@@ -1419,7 +1419,7 @@ def test_exp_dense_inherit_pins_parent_and_rebinds_train_only_references(
 
 
 
-def test_exp_coldstart_matrix_is_208_cells_in_13_nominal_batches() -> None:
+def test_exp_coldstart_matrix_is_208_cells_in_13_hard_waves() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
@@ -1431,7 +1431,7 @@ def test_exp_coldstart_matrix_is_208_cells_in_13_nominal_batches() -> None:
     assert [len(wave) for wave in waves] == [16] * 13
     assert config["execution"]["max_concurrent_cells"] == 16
     assert config["execution"]["slots_per_gpu"] == 2
-    assert config["execution"]["wave_barriers"] is False
+    assert config["execution"]["wave_barriers"] is True
     assert set(config["suite"]["tasks"]) == set(exp_tuning.TASK_NAMES)
     assert set(config["suite"]["p0_tasks"]) == set(exp_tuning.TASK_NAMES) - {"countdown"}
 
@@ -1551,10 +1551,6 @@ def test_exp_coldstart_rejects_adapter_runtime_or_grid_drift() -> None:
     with pytest.raises(ValueError, match="two slots"):
         exp_tuning.validate_config(changed)
     changed = json.loads(json.dumps(config))
-    changed["execution"]["wave_barriers"] = True
-    with pytest.raises(ValueError, match="recovery/OOM"):
-        exp_tuning.validate_config(changed)
-    changed = json.loads(json.dumps(config))
     changed["task_runtime"]["word_sorting"]["evaluation_batch_size"] = 8
     with pytest.raises(ValueError, match="word_sorting"):
         exp_tuning.validate_config(changed)
@@ -1606,7 +1602,7 @@ def test_task_base_config_transfer_has_batch16_and_pass8_only(tmp_path: Path) ->
     assert value["evaluation"]["pass_ks"] == [8]
 
 
-def test_exp_coldstart_scheduler_refills_without_nominal_batch_barriers(
+def test_exp_coldstart_scheduler_enforces_wave_barriers_and_two_slots_per_gpu(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -1614,6 +1610,7 @@ def test_exp_coldstart_scheduler_refills_without_nominal_batch_barriers(
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
     cells = exp_tuning.build_cells(config)
+    waves = exp_tuning.build_waves(config)
     monkeypatch.setattr(exp_tuning, "_require_calibration_gate", lambda *args, **kwargs: None)
     monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)
     monkeypatch.setattr(
@@ -1630,8 +1627,6 @@ def test_exp_coldstart_scheduler_refills_without_nominal_batch_barriers(
     finishes: dict[str, float] = {}
     active: dict[int, int] = {}
     maximum: dict[int, int] = {}
-    replacement_started = threading.Event()
-    first_cell_released_by_replacement = threading.Event()
 
     def fake_run(**kwargs: object) -> dict[str, object]:
         cell = kwargs["cell"]
@@ -1640,13 +1635,7 @@ def test_exp_coldstart_scheduler_refills_without_nominal_batch_barriers(
             starts[cell.key] = time.monotonic()
             active[gpu_id] = active.get(gpu_id, 0) + 1
             maximum[gpu_id] = max(maximum.get(gpu_id, 0), active[gpu_id])
-        if cell in cells[16:]:
-            replacement_started.set()
-        if cell.key == cells[0].key:
-            if replacement_started.wait(timeout=1.0):
-                first_cell_released_by_replacement.set()
-        else:
-            time.sleep(0.002)
+        time.sleep(0.002)
         with lock:
             active[gpu_id] -= 1
             finishes[cell.key] = time.monotonic()
@@ -1670,18 +1659,16 @@ def test_exp_coldstart_scheduler_refills_without_nominal_batch_barriers(
     )
     assert result["complete"]
     assert result["completed_cells"] == 208
-    assert result["wave_barriers"] is False
-    assert result["wave_count"] == 13
-    assert result["wave_count_role"] == "nominal_audit_geometry_only_not_scheduling_barrier"
-    assert "waves" not in result
-    assert first_cell_released_by_replacement.is_set()
+    assert result["wave_barriers"] is True
+    assert len(result["waves"]) == 13
     assert result["countdown_protocol_diagnostic"]["status"] == "FAIL"
     assert result["countdown_result_controls_transfer_release"] is False
     assert set(maximum) == set(range(8))
     assert max(maximum.values()) <= 2
-    assert min(starts[cell.key] for cell in cells[16:]) < max(
-        finishes[cell.key] for cell in cells[:16]
-    )
+    for index in range(1, len(waves)):
+        assert min(starts[cell.key] for cell in waves[index]) >= max(
+            finishes[cell.key] for cell in waves[index - 1]
+        )
     assert {cell.task for cell in cells[16:32]} != {"countdown"}
 
 
@@ -1735,7 +1722,7 @@ def test_exp_coldstart_aggregate_does_not_filter_by_terminal_valid_rate(tmp_path
     assert summary["countdown_result_gate"] is False
 
 
-def test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_dynamic_refill(
+def test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_barriers(
     tmp_path: Path,
 ) -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
@@ -1751,9 +1738,8 @@ def test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_dynamic
     assert result["scientific_status"] == "not_run"
     assert result["resume_completed_cells"] == 208
     assert result["aggregate_cell_count"] == 208
-    assert result["queue_audit"]["dynamic_refill_observed"]
-    assert result["queue_audit"]["nominal_batch_barrier_absent"]
-    assert result["queue_audit"]["nominal_batch_count"] == 13
+    assert result["queue_audit"]["wave_barriers_respected"]
+    assert result["queue_audit"]["wave_count"] == 13
     assert result["queue_audit"]["slots_per_gpu"] == 2
     assert result["repeat_run_preserved_cell_hashes"]
     assert result["tampered_package_rejected"]
@@ -1846,3 +1832,116 @@ def test_coldstart_runbook_embeds_bootstrap_and_current_protocol() -> None:
     assert "run_experiment_guard_hardened.py" in Path(
         "scripts/run_e8_multitask_exp_coldstart.sh"
     ).read_text(encoding="utf-8")
+
+
+def test_lambda_completion_matrix_is_config_driven_and_lambda_only(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml"))
+    cells = exp_tuning.build_cells(config)
+    waves = exp_tuning.build_waves(config)
+    assert len(cells) == config["sweep"]["expected_cells"] == 199
+    assert [len(wave) for wave in waves] == [16] * 12 + [7]
+    assert not any(cell.task == "countdown" for cell in cells)
+    assert exp_tuning._coldstart_completed_task_rows(config, tmp_path, "countdown") is None
+    successor_launcher = Path("scripts/run_e8_multitask_exp_lambda_completion.sh").read_text(encoding="utf-8")
+    historical_launcher = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    assert 'export E8_COLDSTART_EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"' in successor_launcher
+    assert 'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"' in historical_launcher
+    guarded_full_body = historical_launcher.split("guarded_full() {", 1)[1].split("\n}", 1)[0]
+    assert "require_registered_ready" not in guarded_full_body
+    assert "validate_registered_channel" not in guarded_full_body
+    assert "check_source" in guarded_full_body
+    assert "resolve_config_repo_path" in historical_launcher
+    assert '--source-file "${CONFIG_REPO_PATH}"' in historical_launcher
+    assert "--source-file configs/e8_multitask_exp_coldstart.yaml" not in historical_launcher
+    assert '"${EXPECTED_COMMIT}:${CONFIG_REPO_PATH}"' in historical_launcher
+    for task in config["suite"]["p0_tasks"]:
+        task_cells = [cell for cell in cells if cell.task == task]
+        positives = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_POSITIVE_ONLY]
+        exponentials = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_EXPONENTIAL]
+        assert [cell.seed for cell in positives] == config["sweep"]["transfer_positive_only_seed_offsets"]
+        assert {cell.seed for cell in exponentials} == {config["sweep"]["task_transfer_seed_offset"]}
+        assert [cell.lambda_value for cell in exponentials] == config["sweep"]["task_lambda"][task]
+        assert all(cell.rho is None for cell in exponentials)
+
+
+
+@pytest.mark.skipif(torch is None, reason="Torch is unavailable in the test runtime")
+def test_lambda_only_canonical_transport_is_exactly_equivalent() -> None:
+    from drpo import countdown_e8_alpha1_highc_scan_common as paper_common
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    configs = [
+        exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml")),
+        exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml")),
+    ]
+    lambdas = sorted(
+        {
+            float(value)
+            for config in configs
+            for task in config["suite"]["tasks"]
+            for value in config["sweep"]["task_lambda"][task]
+        }
+    )
+    row_index = torch.tensor([0, 0, 1, 1], dtype=torch.long)
+    unique_counts = torch.tensor([2, 2], dtype=torch.long)
+
+    for lambda_value in lambdas:
+        historical = exp_tuning.Cell(
+            "maze",
+            exp_tuning.METHOD_EXPONENTIAL,
+            math.exp(-lambda_value),
+            4000,
+            "historical",
+            lambda_value,
+        )
+        successor = exp_tuning.Cell(
+            "maze",
+            exp_tuning.METHOD_EXPONENTIAL,
+            None,
+            4000,
+            "successor",
+            lambda_value,
+        )
+        assert historical.key == successor.key
+        assert historical.lambda_value is not None
+        assert successor.lambda_value is not None
+        historical_coefficient = float(historical.lambda_value)
+        successor_coefficient = float(successor.lambda_value)
+        assert historical_coefficient.hex() == successor_coefficient.hex()
+        assert successor_coefficient.hex() == float(lambda_value).hex()
+
+        historical_lp = torch.tensor(
+            [-0.25, -1.0, -4.0, -9.0], dtype=torch.float64, requires_grad=True
+        )
+        successor_lp = historical_lp.detach().clone().requires_grad_(True)
+        historical_weights = paper_common.continuous_exp_weights(
+            historical_lp,
+            alpha=1.0,
+            c=historical_coefficient,
+        )
+        successor_weights = paper_common.continuous_exp_weights(
+            successor_lp,
+            alpha=1.0,
+            c=successor_coefficient,
+        )
+        assert torch.equal(historical_weights, successor_weights)
+
+        historical_loss = paper_common.mean_unique_negative_term(
+            historical_lp,
+            historical_weights,
+            row_index,
+            unique_counts,
+        )
+        successor_loss = paper_common.mean_unique_negative_term(
+            successor_lp,
+            successor_weights,
+            row_index,
+            unique_counts,
+        )
+        assert torch.equal(historical_loss, successor_loss)
+
+        historical_gradient = torch.autograd.grad(historical_loss, historical_lp)[0]
+        successor_gradient = torch.autograd.grad(successor_loss, successor_lp)[0]
+        assert torch.equal(historical_gradient, successor_gradient)
