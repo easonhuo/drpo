@@ -1,4 +1,14 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v80（Dev-Review 协作流程与 GLM 执行角色固化版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v81（Dev-Review 协作流程与 GLM 执行角色固化版）
+
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v81-e8-lambda-completion-repair:START -->
+> **v81 增量登记：`EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01` 在已恢复 cold-start execution tree 上重建（不删除 v80 及更早内容）**
+>
+> - 新 successor `EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01` 状态为 **not_run**，职责仅为八个非 Countdown 任务的高-lambda response-tail / curve-completion；不得用于方法排名、收敛或稳态结论。Countdown 新增科学 cells 为 0。
+> - implementation base 为 `8bdd07590f155ad26bc8cfbd641d40647eab57d2`，其 repository tree 与公开 pre-successor execution commit `1723d0c507b2309a1a352c2459165b86b9625c9d` 完全一致。历史服务器记录的 `01471868...` 仍不可解析，因此不得声称 byte-for-byte 恢复该不可解析 source commit。
+> - 新 workload 为 199 cells：183 Exp + 16 Positive-only；Spiral Matrix 10 cells，其他七个 transfer tasks 各 27 cells；Exp seed offset 4000，Positive-only seed offsets 8000/9000。13 组只作 nominal audit geometry，实际继续使用 16-slot shared dynamic refill，无 hard wave barrier。
+> - successor 仅新增 lambda-only transport 与新 grid/config/launcher/provenance；negative-bank selector、16-negative consumer、transfer system prompt、current-policy sequence-surprisal、fresh LoRA、1200 updates、optimizer/LR、task runtime overrides、evaluation、recovery 与 terminal audit 继续继承 cold-start execution 行为。
+> - protocol：`docs/experiments/E8_MULTITASK_LAMBDA_COMPLETION_PROTOCOL.md`；config：`configs/e8_multitask_exp_lambda_completion.yaml`；entrypoint：`scripts/run_e8_multitask_exp_lambda_completion.sh`。任何 scientific launch 前必须完成 canonical lambda transport 的 taper/loss/gradient exact-equivalence test。
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v81-e8-lambda-completion-repair:END -->
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v50-stage3-shadow-bootstrap:START -->
 > **v50 增量登记：治理 Pipeline Stage 3 `HANDOFF_DELTA.yaml` shadow mode 启动（不删除 v49 及更早内容）**
 >

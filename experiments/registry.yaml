@@ -7853,6 +7853,43 @@ experiments:
     task_performance_collapse: true
     support_or_structure_boundary: true
     nan_inf_numerical_failure: true
+- id: EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01
+  environment: Countdown + eight frozen transfer tasks
+  name: e8_multitask_exp_lambda_completion
+  status: not_run
+  claim: Complete the frozen high-lambda response tails for the eight non-Countdown tasks while preserving the closed 208-cell predecessor; no method-ranking, convergence, steady-state, or OOD claim is permitted.
+  role: external_validity_response_shape
+  execution_class: pilot
+  result_status: not_run
+  depends_on_delivered_experiment: EXT-C-E8-MULTITASK-EXP-COLDSTART-01
+  code_entrypoint: src/drpo/e8_multitask_exp_tuning.py
+  command:
+  - bash
+  - scripts/run_e8_multitask_exp_lambda_completion.sh
+  config_entrypoint: configs/e8_multitask_exp_lambda_completion.yaml
+  protocol_document: docs/experiments/E8_MULTITASK_LAMBDA_COMPLETION_PROTOCOL.md
+  workload:
+    expected_cells: 199
+    exp_cells: 183
+    positive_only_cells: 16
+    countdown_new_scientific_cells: 0
+    exp_seed_offset: 4000
+    positive_only_seed_offsets: [8000, 9000]
+    scheduler: dynamic_slot_queue
+    wave_barriers: false
+  scientific_invariants:
+  - source_p0_error_class_sequence_then_within_class_reference_rank_spread
+  - sixteen_negative_consumer
+  - current_policy_sequence_surprisal_each_update
+  - fresh_lora_zero_update_initialization
+  - fixed_1200_optimizer_updates
+  - coldstart_task_runtime_and_evaluation_contract
+  - coldstart_recovery_and_terminal_audit
+  formal_evidence_allowed: false
+  execution:
+    state: not_run
+    launched: false
+  preserved_history: true
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1

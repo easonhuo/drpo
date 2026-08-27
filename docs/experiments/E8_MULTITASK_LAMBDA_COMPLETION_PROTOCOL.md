@@ -76,3 +76,4 @@ Before any scientific launch, the repaired successor implementation must satisfy
 5. The historical cold-start config still validates and still produces exactly 208 cells; its nominal audit geometry remains 13 x 16 while runtime scheduling remains dynamic refill with no hard wave barrier.
 6. The cold-start selector, task prompt/current-policy surprisal interface, task runtime overrides, scheduler and recovery behavior are unchanged from the `1723d0c...` tree.
 7. No successor scientific hyperparameter is hard-coded into Python.
+8. Guarded source provenance includes the successor launcher and this protocol document in addition to the selected successor config and inherited cold-start scientific sources.

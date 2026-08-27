@@ -62,6 +62,14 @@ PY_CONFIG
 
 resolve_config_repo_path
 
+SUCCESSOR_SOURCE_ARGS=()
+if [[ "${EXPERIMENT_ID}" == "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" ]]; then
+  SUCCESSOR_SOURCE_ARGS=(
+    --source-file scripts/run_e8_multitask_exp_lambda_completion.sh
+    --source-file docs/experiments/E8_MULTITASK_LAMBDA_COMPLETION_PROTOCOL.md
+  )
+fi
+
 case "${RUN_CLASS}" in
   formal|pilot) ;;
   *) fail "E8_COLDSTART_RUN_CLASS must be formal or pilot" ;;
@@ -544,6 +552,7 @@ engineering_self_test() {
       --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh \
       --source-file src/drpo/e8_multitask_exp_tuning.py \
       --source-file "${CONFIG_REPO_PATH}" \
+      "${SUCCESSOR_SOURCE_ARGS[@]}" \
       --source-file docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md \
       --progress-glob 'workload/scheduler/queue_events.jsonl' \
       --progress-glob 'workload/logs/*.log' \
@@ -781,6 +790,7 @@ delivery_preflight() {
     --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh
     --source-file src/drpo/e8_multitask_exp_tuning.py
     --source-file "${CONFIG_REPO_PATH}"
+    "${SUCCESSOR_SOURCE_ARGS[@]}"
   )
   if [[ "${REQUIRE_ORIGIN_MAIN}" == "1" ]]; then
     command+=(--require-origin-main-match)
@@ -855,6 +865,7 @@ run_formal_guard_attempt() {
     --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh \
     --source-file src/drpo/e8_multitask_exp_tuning.py \
     --source-file "${CONFIG_REPO_PATH}" \
+    "${SUCCESSOR_SOURCE_ARGS[@]}" \
     --source-file requirements/e8_multitask_exp_coldstart.txt \
     --source-file src/drpo/countdown_qwen_arena_onefile.py \
     --source-file src/drpo/countdown_e8_alpha1_c_scan_common.py \

@@ -1828,6 +1828,7 @@ def test_coldstart_runbook_points_to_current_v2_protocol() -> None:
     runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md").read_text(
         encoding="utf-8"
     )
+    bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
     assert "SUPERSEDED" in superseded
     assert "EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md" in superseded
     assert "E8_MULTITASK_EXP_COLDSTART_20260820_02" in superseded
@@ -1836,13 +1837,25 @@ def test_coldstart_runbook_points_to_current_v2_protocol() -> None:
     assert "Spiral Matrix" in runbook
     assert "Pass@64" in runbook
     assert "结果门禁" in runbook
+    assert "reference-remoteness" in runbook
+    assert "task_results/<task>" in runbook
+    assert "TASK_COMPLETE.json" in runbook
+    assert "terminal valid rate" in runbook.lower()
     assert "0.002" not in runbook
     assert "峰值必须高于" not in runbook
+    historical_bootstrap = subprocess.check_output(
+        ["git", "show", "8bdd07590f155ad26bc8cfbd641d40647eab57d2:scripts/bootstrap_e8_multitask_exp_coldstart.sh"],
+        text=True,
+    )
+    normalized = bootstrap.replace(
+        'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"',
+        'EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-COLDSTART-01"',
+        1,
+    )
+    assert normalized == historical_bootstrap
     assert "run_experiment_guard_hardened.py" in Path(
         "scripts/run_e8_multitask_exp_coldstart.sh"
     ).read_text(encoding="utf-8")
-
-
 def test_lambda_completion_matrix_is_config_driven_and_lambda_only(tmp_path: Path) -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
@@ -1857,6 +1870,13 @@ def test_lambda_completion_matrix_is_config_driven_and_lambda_only(tmp_path: Pat
     historical_launcher = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
     assert 'export E8_COLDSTART_EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"' in successor_launcher
     assert 'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"' in historical_launcher
+    assert 'export E8_COLDSTART_CONFIG="configs/e8_multitask_exp_lambda_completion.yaml"' in successor_launcher
+    assert '${ROOT_DIR}/configs/e8_multitask_exp_lambda_completion.yaml' not in successor_launcher
+    assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" in Path("docs/handoff.md").read_text(encoding="utf-8")
+    assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" in Path("experiments/registry.yaml").read_text(encoding="utf-8")
+    assert "SUCCESSOR_SOURCE_ARGS" in historical_launcher
+    assert "scripts/run_e8_multitask_exp_lambda_completion.sh" in historical_launcher
+    assert "docs/experiments/E8_MULTITASK_LAMBDA_COMPLETION_PROTOCOL.md" in historical_launcher
     for task in config["suite"]["p0_tasks"]:
         task_cells = [cell for cell in cells if cell.task == task]
         positives = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_POSITIVE_ONLY]
