@@ -23,6 +23,7 @@ jobs:
           python -m pip install --quiet pytest pyyaml numpy
           python - <<'PY'
           from pathlib import Path
+          import re
 
           p = Path('src/drpo/e8_multitask_exp_tuning.py')
           s = p.read_text()
@@ -34,11 +35,12 @@ jobs:
 
           t = Path('tests/test_e8_multitask_p0.py')
           q = t.read_text()
-          old_test = '''def test_coldstart_runbook_embeds_bootstrap_and_current_protocol() -> None:\n    runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md").read_text(\n        encoding="utf-8"\n    )\n    bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(\n        encoding="utf-8"\n    )\n    embedded = runbook.split("<!-- ONE_CLICK_BOOTSTRAP_START -->", 1)[1].split(\n        "<!-- ONE_CLICK_BOOTSTRAP_END -->", 1\n    )[0]\n    assert embedded == f"\\n```bash\\n{bootstrap.rstrip()}\\n```\\n"\n'''
-          new_test = '''def test_coldstart_runbook_points_to_current_v2_protocol() -> None:\n    runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md").read_text(\n        encoding="utf-8"\n    )\n    assert "SUPERSEDED" in runbook\n    assert "EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md" in runbook\n    assert "E8_MULTITASK_EXP_COLDSTART_20260820_02" in runbook\n'''
-          if old_test not in q:
-              raise SystemExit('stale runbook test block not found')
-          t.write_text(q.replace(old_test, new_test, 1))
+          pattern = r'def test_coldstart_runbook_embeds_bootstrap_and_current_protocol\(\) -> None:\n.*?(?=\ndef test_lambda_completion_matrix_is_config_driven_and_lambda_only)'
+          replacement = '''def test_coldstart_runbook_points_to_current_v2_protocol() -> None:\n    superseded = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md").read_text(\n        encoding="utf-8"\n    )\n    runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md").read_text(\n        encoding="utf-8"\n    )\n    assert "SUPERSEDED" in superseded\n    assert "EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md" in superseded\n    assert "E8_MULTITASK_EXP_COLDSTART_20260820_02" in superseded\n    assert "208 cells" in runbook\n    assert "13" in runbook and "16-cell" in runbook\n    assert "Spiral Matrix" in runbook\n    assert "Pass@64" in runbook\n    assert "结果门禁" in runbook\n    assert "reference-remoteness" in runbook\n    assert "task_results/<task>" in runbook\n    assert "TASK_COMPLETE.json" in runbook\n    assert "terminal valid rate" in runbook.lower()\n    assert "0.002" not in runbook\n    assert "峰值必须高于" not in runbook\n    assert "run_experiment_guard_hardened.py" in Path(\n        "scripts/run_e8_multitask_exp_coldstart.sh"\n    ).read_text(encoding="utf-8")\n\n'''
+          q2, count = re.subn(pattern, replacement, q, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit(f'stale runbook test replacement count={count}')
+          t.write_text(q2)
           PY
           python -m py_compile src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
           pytest -q tests/test_e8_multitask_p0.py
