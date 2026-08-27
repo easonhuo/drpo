@@ -102,3 +102,9 @@ registry、READY RunSpec 和 schema-v3 registration 的状态不再参与本次 
 每个已完成 task 可以先读取其 task-local snapshot 做过程分析，但它不替代最终 208-cell 汇总。任何 smoke test、self-test、liveness、静态检查或有限工程 pilot 都不能被表述为正式科学结果。
 
 本实验只测试冻结九任务 cold-start 协议下，保留 July-29 source error-direction sequence 且在类内覆盖 frozen-reference surprisal 后，transfer-task Exp response curve 相对 Positive-only 如何变化。**不预设 improvement、convergence 或 universal best coefficient。**
+
+## 6. 可审计输出与实现身份
+
+- transfer-task 的 reference-remoteness bank 仍只承担负例覆盖 provenance/diagnostic；训练权重继续使用每次 update 重算的 current-policy surprisal。
+- 每个 task 完成后，确定性快照写入 `task_results/<task>/`，并以 `TASK_COMPLETE.json` 作为该 task 全部冻结 cells 已完成的原子完成标记；最终 aggregate/audit 仍是权威结果。
+- terminal valid rate 继续只作结构/有效性诊断，不作为 Exp coefficient 选择资格门槛，也不新增任何结果门禁。
