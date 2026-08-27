@@ -1,0 +1,26 @@
+name: Temporary E8 source conflict inspection
+on:
+  push:
+    branches: [dev/e8-multitask-lambda-completion-repair-02]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-lambda-completion-repair-02
+          fetch-depth: 0
+      - shell: bash
+        run: |
+          set -u
+          SOURCE=71b33ea5a783660008e495a34eda7757bee757d1
+          git diff "${SOURCE}^" "$SOURCE" -- src/drpo/e8_multitask_exp_tuning.py > /tmp/source.patch
+          git apply --reject --whitespace=nowarn /tmp/source.patch || true
+          echo '=== REJECTS ==='
+          cat src/drpo/e8_multitask_exp_tuning.py.rej || true
+          echo '=== APPLIED DIFF ==='
+          git diff -- src/drpo/e8_multitask_exp_tuning.py
+          exit 1
