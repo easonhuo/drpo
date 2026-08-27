@@ -19,4 +19,27 @@ jobs:
           fetch-depth: 0
       - name: Apply validate and commit final repair
         shell: bash
-        run: bash .github/tmp_e8_finalize_apply.sh
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/tmp_e8_finalize_apply.sh')
+          text = path.read_text(encoding='utf-8')
+          start = text.index("direct = '")
+          marker = 'runner.write_text(text, encoding="utf-8")'
+          end = text.index(marker, start) + len(marker)
+          replacement = '''lines = text.splitlines()
+          rebuilt = []
+          config_source_count = 0
+          for line in lines:
+              rebuilt.append(line)
+              if '--source-file "${CONFIG_REPO_PATH}"' in line:
+                  indent = line[: len(line) - len(line.lstrip())]
+                  suffix = ' \\' if line.rstrip().endswith('\\') else ''
+                  rebuilt.append(f'{indent}"${{SUCCESSOR_SOURCE_ARGS[@]}}"{suffix}')
+                  config_source_count += 1
+          assert config_source_count == 3, config_source_count
+          text = "\\n".join(rebuilt) + "\\n"
+          runner.write_text(text, encoding="utf-8")'''
+          path.write_text(text[:start] + replacement + text[end:], encoding='utf-8')
+          PY
+          bash .github/tmp_e8_finalize_apply.sh
