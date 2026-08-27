@@ -24,8 +24,10 @@ jobs:
           set -euo pipefail
           TARGET_PARENT=1723d0c507b2309a1a352c2459165b86b9625c9d
           SOURCE_SHA=9c01995b4ad4ff00e274e43254ef073a0800e05c
-          test "$(git rev-parse HEAD^)" = "${TARGET_PARENT}"
-          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/tmp-merge-lambda-into-prior-exec.yml"
+          WORKFLOW=.github/workflows/tmp-merge-lambda-into-prior-exec.yml
+
+          git merge-base --is-ancestor "${TARGET_PARENT}" HEAD
+          test "$(git diff --name-only "${TARGET_PARENT}" HEAD)" = "${WORKFLOW}"
 
           git fetch --no-tags origin dev/e8-multitask-lambda-completion-clean-05
           test "$(git rev-parse FETCH_HEAD)" = "${SOURCE_SHA}"
@@ -35,18 +37,22 @@ jobs:
           git merge --no-commit --no-ff -X theirs "${SOURCE_SHA}"
           test -z "$(git diff --name-only --diff-filter=U)"
 
-          git rm .github/workflows/tmp-merge-lambda-into-prior-exec.yml
-
-          # The runnable E8 files must be byte-identical to the reviewed source branch.
-          for path in \
-            configs/e8_multitask_exp_lambda_completion.yaml \
-            docs/experiments/E8_MULTITASK_LAMBDA_COMPLETION_PROTOCOL.md \
-            scripts/bootstrap_e8_multitask_exp_coldstart.sh \
-            scripts/run_e8_multitask_exp_coldstart.sh \
-            scripts/run_e8_multitask_exp_lambda_completion.sh \
-            src/drpo/e8_multitask_exp_tuning.py \
+          RUNNABLE_FILES=(
+            configs/e8_multitask_exp_lambda_completion.yaml
+            docs/experiments/E8_MULTITASK_LAMBDA_COMPLETION_PROTOCOL.md
+            scripts/bootstrap_e8_multitask_exp_coldstart.sh
+            scripts/run_e8_multitask_exp_coldstart.sh
+            scripts/run_e8_multitask_exp_lambda_completion.sh
+            src/drpo/e8_multitask_exp_tuning.py
             tests/test_e8_multitask_p0.py
-          do
+          )
+
+          # For the actual runnable E8 surface, use the reviewed successor files exactly.
+          git checkout "${SOURCE_SHA}" -- "${RUNNABLE_FILES[@]}"
+          git rm "${WORKFLOW}"
+
+          for path in "${RUNNABLE_FILES[@]}"; do
+            echo "VERIFY_SOURCE_IDENTITY ${path}"
             git diff --quiet "${SOURCE_SHA}" -- "${path}"
           done
 
