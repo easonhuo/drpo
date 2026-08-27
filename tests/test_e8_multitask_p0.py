@@ -1821,28 +1821,153 @@ def test_coldstart_task_results_publish_before_global_aggregate(tmp_path: Path) 
     assert (tmp_path / "task_results" / "countdown" / "TASK_COMPLETE.json").is_file()
     assert "task_results" in exp_tuning.RECOVERY_TRANSIENT_TOP_LEVEL
 
-def test_coldstart_runbook_embeds_bootstrap_and_current_protocol() -> None:
-    runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md").read_text(
+def test_coldstart_runbook_points_to_current_v2_protocol() -> None:
+    superseded = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md").read_text(
         encoding="utf-8"
     )
-    bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(
+    runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md").read_text(
         encoding="utf-8"
     )
-    embedded = runbook.split("<!-- ONE_CLICK_BOOTSTRAP_START -->", 1)[1].split(
-        "<!-- ONE_CLICK_BOOTSTRAP_END -->", 1
-    )[0]
-    assert embedded == f"\n```bash\n{bootstrap.rstrip()}\n```\n"
+    assert "SUPERSEDED" in superseded
+    assert "EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md" in superseded
+    assert "E8_MULTITASK_EXP_COLDSTART_20260820_02" in superseded
     assert "208 cells" in runbook
     assert "13" in runbook and "16-cell" in runbook
     assert "Spiral Matrix" in runbook
     assert "Pass@64" in runbook
     assert "结果门禁" in runbook
-    assert "reference-remoteness" in runbook
-    assert "task_results/<task>" in runbook
-    assert "TASK_COMPLETE.json" in runbook
-    assert "terminal valid rate" in runbook.lower()
     assert "0.002" not in runbook
     assert "峰值必须高于" not in runbook
     assert "run_experiment_guard_hardened.py" in Path(
         "scripts/run_e8_multitask_exp_coldstart.sh"
     ).read_text(encoding="utf-8")
+
+
+def test_lambda_completion_matrix_is_config_driven_and_lambda_only(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml"))
+    cells = exp_tuning.build_cells(config)
+    waves = exp_tuning.build_waves(config)
+    assert len(cells) == config["sweep"]["expected_cells"] == 199
+    assert [len(wave) for wave in waves] == [16] * 12 + [7]
+    assert not any(cell.task == "countdown" for cell in cells)
+    assert exp_tuning._coldstart_completed_task_rows(config, tmp_path, "countdown") is None
+    successor_launcher = Path("scripts/run_e8_multitask_exp_lambda_completion.sh").read_text(encoding="utf-8")
+    historical_launcher = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    assert 'export E8_COLDSTART_EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"' in successor_launcher
+    assert 'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"' in historical_launcher
+    for task in config["suite"]["p0_tasks"]:
+        task_cells = [cell for cell in cells if cell.task == task]
+        positives = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_POSITIVE_ONLY]
+        exponentials = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_EXPONENTIAL]
+        assert [cell.seed for cell in positives] == config["sweep"]["transfer_positive_only_seed_offsets"]
+        assert {cell.seed for cell in exponentials} == {config["sweep"]["task_transfer_seed_offset"]}
+        assert [cell.lambda_value for cell in exponentials] == config["sweep"]["task_lambda"][task]
+        assert all(cell.rho is None for cell in exponentials)
+
+
+@pytest.mark.skipif(torch is None, reason="Torch is unavailable in the test runtime")
+def test_lambda_only_canonical_transport_is_exactly_equivalent() -> None:
+    from drpo import countdown_e8_alpha1_highc_scan_common as paper_common
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    configs = [
+        exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml")),
+        exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml")),
+    ]
+    lambdas = sorted(
+        {
+            float(value)
+            for config in configs
+            for task in config["suite"]["tasks"]
+            for value in config["sweep"]["task_lambda"][task]
+        }
+    )
+    row_index = torch.tensor([0, 0, 1, 1], dtype=torch.long)
+    unique_counts = torch.tensor([2, 2], dtype=torch.long)
+
+    for lambda_value in lambdas:
+        historical = exp_tuning.Cell(
+            "maze",
+            exp_tuning.METHOD_EXPONENTIAL,
+            math.exp(-lambda_value),
+            4000,
+            "historical",
+            lambda_value,
+        )
+        successor = exp_tuning.Cell(
+            "maze",
+            exp_tuning.METHOD_EXPONENTIAL,
+            None,
+            4000,
+            "successor",
+            lambda_value,
+        )
+        assert historical.key == successor.key
+        assert historical.lambda_value is not None
+        assert successor.lambda_value is not None
+        historical_coefficient = float(historical.lambda_value)
+        successor_coefficient = float(successor.lambda_value)
+        assert historical_coefficient.hex() == successor_coefficient.hex()
+        assert successor_coefficient.hex() == float(lambda_value).hex()
+
+        historical_lp = torch.tensor(
+            [-0.25, -1.0, -4.0, -9.0], dtype=torch.float64, requires_grad=True
+        )
+        successor_lp = historical_lp.detach().clone().requires_grad_(True)
+        historical_weights = paper_common.continuous_exp_weights(
+            historical_lp,
+            alpha=1.0,
+            c=historical_coefficient,
+        )
+        successor_weights = paper_common.continuous_exp_weights(
+            successor_lp,
+            alpha=1.0,
+            c=successor_coefficient,
+        )
+        assert torch.equal(historical_weights, successor_weights)
+
+        historical_loss = paper_common.mean_unique_negative_term(
+            historical_lp,
+            historical_weights,
+            row_index,
+            unique_counts,
+        )
+        successor_loss = paper_common.mean_unique_negative_term(
+            successor_lp,
+            successor_weights,
+            row_index,
+            unique_counts,
+        )
+        assert torch.equal(historical_loss, successor_loss)
+
+        historical_gradient = torch.autograd.grad(historical_loss, historical_lp)[0]
+        successor_gradient = torch.autograd.grad(successor_loss, successor_lp)[0]
+        assert torch.equal(historical_gradient, successor_gradient)
+
+
+def test_lambda_completion_preserves_restored_coldstart_behavior() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    cold = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    successor = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml"))
+    frozen_sections = (
+        "parent", "reference", "initialization", "model", "suite", "split",
+        "training", "evaluation", "negative_sampling", "remoteness_calibration",
+        "task_runtime", "selection", "canonical_coldstart", "execution",
+    )
+    for section in frozen_sections:
+        assert successor[section] == cold[section], section
+
+    historical_cells = exp_tuning.build_cells(cold)
+    historical_waves = exp_tuning.build_waves(cold)
+    assert len(historical_cells) == 208
+    assert [len(wave) for wave in historical_waves] == [16] * 13
+    assert successor["negative_sampling"]["reference_remoteness_bank"]["selection"] == (
+        "source_p0_error_class_sequence_then_within_class_reference_rank_spread"
+    )
+    assert successor["execution"]["scheduler"] == "dynamic_slot_queue"
+    assert successor["execution"]["wave_barriers"] is False
+    launcher = Path("scripts/run_e8_multitask_exp_lambda_completion.sh").read_text(encoding="utf-8")
+    assert "bootstrap_e8_multitask_exp_coldstart.sh" in launcher
