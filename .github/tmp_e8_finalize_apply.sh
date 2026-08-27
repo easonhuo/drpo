@@ -3,6 +3,8 @@ set -euo pipefail
 
 BASE=8bdd07590f155ad26bc8cfbd641d40647eab57d2
 BRANCH=dev/e8-multitask-lambda-completion-repair-03-finalize
+EXP_ID=EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01
+
 git merge-base --is-ancestor "${BASE}" HEAD
 
 python - <<'PY'
@@ -13,6 +15,7 @@ import yaml
 
 EXP_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"
 
+# Fix the successor config path: it must be resolved inside bootstrap's isolated checkout.
 launcher = Path("scripts/run_e8_multitask_exp_lambda_completion.sh")
 text = launcher.read_text(encoding="utf-8")
 old = 'export E8_COLDSTART_CONFIG="${ROOT_DIR}/configs/e8_multitask_exp_lambda_completion.yaml"\n'
@@ -20,6 +23,7 @@ new = 'export E8_COLDSTART_CONFIG="configs/e8_multitask_exp_lambda_completion.ya
 assert text.count(old) == 1, text.count(old)
 launcher.write_text(text.replace(old, new, 1), encoding="utf-8")
 
+# Add successor-only source-provenance files without changing cold-start defaults.
 runner = Path("scripts/run_e8_multitask_exp_coldstart.sh")
 text = runner.read_text(encoding="utf-8")
 anchor = 'resolve_config_repo_path\n\ncase "${RUN_CLASS}" in\n'
@@ -37,17 +41,20 @@ case "${RUN_CLASS}" in
 '''
 assert text.count(anchor) == 1, text.count(anchor)
 text = text.replace(anchor, replacement, 1)
-direct = '      --source-file "${CONFIG_REPO_PATH}" \\\n'
-assert text.count(direct) == 1, text.count(direct)
-text = text.replace(direct, direct + '      "${SUCCESSOR_SOURCE_ARGS[@]}" \\\n', 1)
-array_line = '    --source-file "${CONFIG_REPO_PATH}"\n'
-assert text.count(array_line) == 1, text.count(array_line)
-text = text.replace(array_line, array_line + '    "${SUCCESSOR_SOURCE_ARGS[@]}"\n', 1)
-formal = '    --source-file "${CONFIG_REPO_PATH}" \\\n'
-assert text.count(formal) == 1, text.count(formal)
-text = text.replace(formal, formal + '    "${SUCCESSOR_SOURCE_ARGS[@]}" \\\n', 1)
-runner.write_text(text, encoding="utf-8")
+lines = text.splitlines()
+rebuilt = []
+config_source_count = 0
+for line in lines:
+    rebuilt.append(line)
+    if '--source-file "${CONFIG_REPO_PATH}"' in line:
+        indent = line[: len(line) - len(line.lstrip())]
+        suffix = ' \\' if line.rstrip().endswith('\\') else ''
+        rebuilt.append(f'{indent}"${{SUCCESSOR_SOURCE_ARGS[@]}}"{suffix}')
+        config_source_count += 1
+assert config_source_count == 3, config_source_count
+runner.write_text("\n".join(rebuilt) + "\n", encoding="utf-8")
 
+# Complete the current V2 runbook with facts that the predecessor regression test checks.
 runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md")
 text = runbook.read_text(encoding="utf-8")
 section = '''
@@ -62,6 +69,7 @@ if "## 6. 可审计输出与实现身份" not in text:
     text = text.rstrip() + section + "\n"
 runbook.write_text(text, encoding="utf-8")
 
+# Register the successor in the research master before experiment execution.
 handoff = Path("docs/handoff.md")
 text = handoff.read_text(encoding="utf-8")
 if EXP_ID not in text:
@@ -82,6 +90,7 @@ if EXP_ID not in text:
     text = first + "\n" + block + text[first_nl + 1:]
     handoff.write_text(text, encoding="utf-8")
 
+# Register the successor in registry without reformatting historical entries.
 registry = Path("experiments/registry.yaml")
 text = registry.read_text(encoding="utf-8")
 if EXP_ID not in text:
@@ -138,6 +147,7 @@ parsed = yaml.safe_load(registry.read_text(encoding="utf-8"))
 ids = [entry.get("id") for entry in parsed["experiments"]]
 assert ids.count(EXP_ID) == 1, ids.count(EXP_ID)
 
+# Record successor-specific provenance inventory in its protocol.
 protocol = Path("docs/experiments/E8_MULTITASK_LAMBDA_COMPLETION_PROTOCOL.md")
 text = protocol.read_text(encoding="utf-8")
 needle = "7. No successor scientific hyperparameter is hard-coded into Python.\n"
@@ -145,6 +155,7 @@ replacement = needle + "8. Guarded source provenance includes the successor laun
 assert text.count(needle) == 1, text.count(needle)
 protocol.write_text(text.replace(needle, replacement, 1), encoding="utf-8")
 
+# Restore predecessor coverage while keeping the successor-specific checks additive.
 tests = Path("tests/test_e8_multitask_p0.py")
 text = tests.read_text(encoding="utf-8")
 start_marker = "def test_coldstart_runbook_points_to_current_v2_protocol() -> None:\n"
@@ -209,6 +220,7 @@ bash -n scripts/run_e8_multitask_exp_coldstart.sh
 bash -n scripts/run_e8_multitask_exp_lambda_completion.sh
 python -m py_compile src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
 
+# Audit that the restored cold-start scientific surface stays untouched.
 python - <<'PY'
 import ast
 import subprocess
@@ -253,16 +265,29 @@ current = Path(path).read_text(encoding="utf-8")
 def units(src):
     tree = ast.parse(src)
     lines = src.splitlines(keepends=True)
-    return {node.name: ''.join(lines[node.lineno - 1:node.end_lineno]) for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}
+    return {
+        node.name: ''.join(lines[node.lineno - 1:node.end_lineno])
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+    }
 a, b = units(base), units(current)
 changed_units = {name for name in a.keys() & b.keys() if a[name] != b[name]}
-allowed_units = {"Cell", "validate_config", "build_cells", "build_waves", "_countdown_protocol_diagnostic", "_coldstart_completed_task_rows", "_write_coldstart_task_result", "_aggregate_coldstart"}
+allowed_units = {
+    "Cell", "validate_config", "build_cells", "build_waves",
+    "_countdown_protocol_diagnostic", "_coldstart_completed_task_rows",
+    "_write_coldstart_task_result", "_aggregate_coldstart",
+}
 assert changed_units <= allowed_units, sorted(changed_units - allowed_units)
 
 cold = yaml.safe_load(Path("configs/e8_multitask_exp_coldstart.yaml").read_text(encoding="utf-8"))
 successor = yaml.safe_load(Path("configs/e8_multitask_exp_lambda_completion.yaml").read_text(encoding="utf-8"))
-for section in ("parent", "reference", "initialization", "model", "suite", "split", "training", "evaluation", "negative_sampling", "remoteness_calibration", "task_runtime", "selection", "canonical_coldstart", "execution"):
+for section in (
+    "parent", "reference", "initialization", "model", "suite", "split",
+    "training", "evaluation", "negative_sampling", "remoteness_calibration",
+    "task_runtime", "selection", "canonical_coldstart", "execution",
+):
     assert successor[section] == cold[section], section
+
 registry = yaml.safe_load(Path("experiments/registry.yaml").read_text(encoding="utf-8"))
 ids = [entry.get("id") for entry in registry["experiments"]]
 assert ids.count("EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01") == 1
@@ -281,10 +306,12 @@ PY
 python -m pip install -q 'numpy==1.26.4' 'PyYAML==6.0.2' pytest
 PYTHONPATH=src pytest -q tests/test_e8_multitask_p0.py
 
+# Execute the previously skipped exact taper/loss/gradient equivalence test with real Torch.
 python -m pip install -q --index-url https://download.pytorch.org/whl/cpu 'torch==2.7.1'
 PYTHONPATH=src pytest -q tests/test_e8_multitask_p0.py -k lambda_only_canonical_transport_is_exactly_equivalent
 
 git diff --check
+
 git rm .github/tmp_e8_finalize_apply.sh
 git rm .github/workflows/tmp-e8-lambda-finalize.yml
 git config user.name "github-actions[bot]"
