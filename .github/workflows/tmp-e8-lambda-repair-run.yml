@@ -20,5 +20,14 @@ jobs:
       - name: Apply and validate repair
         shell: bash
         run: |
+          if [[ ! -f .github/tmp_e8_lambda_tests.txt ]]; then
+            echo "Waiting for the temporary regression-test payload."
+            exit 0
+          fi
           sed -i '/36f0ac540edc5b399e9a30ea4bd0a30c030808aa79477cb6e3db28f5688d898d/d' .github/tmp_e8_lambda_repair_apply.sh
+          sed -i '/git diff .*tests\/test_e8_multitask_p0.py > \/tmp\/e8_tests.patch/d' .github/tmp_e8_lambda_repair_apply.sh
+          sed -i '/git apply \/tmp\/e8_tests.patch/d' .github/tmp_e8_lambda_repair_apply.sh
+          sed -i "/tmp-e8-lambda-repair-run.yml/a\    '.github/tmp_e8_lambda_tests.txt'," .github/tmp_e8_lambda_repair_apply.sh
+          sed -i '/^PYTEST$/a cat .github/tmp_e8_lambda_tests.txt >> tests/test_e8_multitask_p0.py' .github/tmp_e8_lambda_repair_apply.sh
+          sed -i '/git rm .github\/tmp_e8_lambda_repair_apply.sh/a git rm .github/tmp_e8_lambda_tests.txt' .github/tmp_e8_lambda_repair_apply.sh
           bash .github/tmp_e8_lambda_repair_apply.sh
