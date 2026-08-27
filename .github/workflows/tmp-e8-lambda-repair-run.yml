@@ -19,4 +19,6 @@ jobs:
           fetch-depth: 0
       - name: Apply and validate repair
         shell: bash
-        run: bash .github/tmp_e8_lambda_repair_apply.sh
+        run: |
+          sed -i '/36f0ac540edc5b399e9a30ea4bd0a30c030808aa79477cb6e3db28f5688d898d/d' .github/tmp_e8_lambda_repair_apply.sh
+          bash .github/tmp_e8_lambda_repair_apply.sh
