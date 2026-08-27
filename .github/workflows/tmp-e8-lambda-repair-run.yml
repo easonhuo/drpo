@@ -17,39 +17,96 @@ jobs:
         with:
           ref: dev/e8-multitask-lambda-completion-repair-02
           fetch-depth: 0
-      - name: Apply and validate repair
+      - name: Execute repaired successor build
         shell: bash
         run: |
-          python -m pip install --quiet pytest pyyaml numpy
           python - <<'PY'
           from pathlib import Path
-
-          p = Path('src/drpo/e8_multitask_exp_tuning.py')
+          p = Path('.github/tmp_e8_lambda_repair_apply.sh')
           s = p.read_text()
-          old = '''        if self.rho is None:\n            raise AssertionError("Exponential cell requires rho")\n        if self.lambda_value is not None:\n            tag = f"{self.lambda_value:.12g}".replace(".", "p")\n            return f"{self.task}__exp_lambda{tag}__seed{self.seed}"\n'''
-          new = '''        if self.lambda_value is not None:\n            tag = f"{self.lambda_value:.12g}".replace(".", "p")\n            return f"{self.task}__exp_lambda{tag}__seed{self.seed}"\n        if self.rho is None:\n            raise AssertionError("Exponential cell requires rho or lambda")\n'''
-          if old not in s:
-              raise SystemExit('Cell.key target block not found')
-          p.write_text(s.replace(old, new, 1))
+          s = s.replace(
+              "    '.github/tmp_e8_lambda_repair_apply.sh',\n",
+              "    '.github/tmp_e8_lambda_repair_apply.sh',\n    '.github/tmp_e8_lambda_tests.txt',\n",
+              1,
+          )
+          s = s.replace(
+              "echo '36f0ac540edc5b399e9a30ea4bd0a30c030808aa79477cb6e3db28f5688d898d  '\"${ANCHOR}\" | sha256sum -c -\n",
+              "",
+              1,
+          )
+          cell_key_patch = r'''python - <<'PY_CELL_KEY'
+from pathlib import Path
+path = Path('src/drpo/e8_multitask_exp_tuning.py')
+text = path.read_text(encoding='utf-8')
+old = ''' + "'''" + r'''        if self.rho is None:
+            raise AssertionError("Exponential cell requires rho")
+        if self.lambda_value is not None:
+            tag = f"{self.lambda_value:.12g}".replace(".", "p")
+            return f"{self.task}__exp_lambda{tag}__seed{self.seed}"
+''' + "'''" + r'''
+new = ''' + "'''" + r'''        if self.lambda_value is not None:
+            tag = f"{self.lambda_value:.12g}".replace(".", "p")
+            return f"{self.task}__exp_lambda{tag}__seed{self.seed}"
+        if self.rho is None:
+            raise AssertionError("Exponential cell requires rho or lambda")
+''' + "'''" + r'''
+assert text.count(old) == 1, text.count(old)
+path.write_text(text.replace(old, new, 1), encoding='utf-8')
+PY_CELL_KEY
 
-          t = Path('tests/test_e8_multitask_p0.py')
-          q = t.read_text()
-          marker = 'def test_coldstart_runbook_embeds_bootstrap_and_current_protocol() -> None:'
-          start = q.find(marker)
-          if start < 0:
-              raise SystemExit('stale runbook test start not found')
-          replacement = '''def test_coldstart_runbook_points_to_current_v2_protocol() -> None:\n    superseded = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md").read_text(\n        encoding="utf-8"\n    )\n    runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md").read_text(\n        encoding="utf-8"\n    )\n    assert "SUPERSEDED" in superseded\n    assert "EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md" in superseded\n    assert "E8_MULTITASK_EXP_COLDSTART_20260820_02" in superseded\n    assert "208 cells" in runbook\n    assert "13" in runbook and "16-cell" in runbook\n    assert "Spiral Matrix" in runbook\n    assert "Pass@64" in runbook\n    assert "结果门禁" in runbook\n    assert "reference-remoteness" in runbook\n    assert "task_results/<task>" in runbook\n    assert "TASK_COMPLETE.json" in runbook\n    assert "terminal valid rate" in runbook.lower()\n    assert "0.002" not in runbook\n    assert "峰值必须高于" not in runbook\n    assert "run_experiment_guard_hardened.py" in Path(\n        "scripts/run_e8_multitask_exp_coldstart.sh"\n    ).read_text(encoding="utf-8")\n'''
-          successor_tests = Path('.github/tmp_e8_lambda_tests.txt').read_text()
-          if 'test_lambda_completion_matrix_is_config_driven_and_lambda_only' not in successor_tests:
-              raise SystemExit('successor test payload missing')
-          t.write_text(q[:start] + replacement.rstrip() + '\n' + successor_tests)
+'''
+          marker = '# Add the frozen 199-cell matrix from the reviewed successor delta, then restore\n'
+          assert marker in s
+          s = s.replace(marker, cell_key_patch + marker, 1)
+
+          old_tests = '''git diff "${SOURCE}^" "${SOURCE}" -- tests/test_e8_multitask_p0.py > /tmp/e8_tests.patch
+git apply /tmp/e8_tests.patch
+cat >> tests/test_e8_multitask_p0.py <<'PYTEST'
+'''
+          new_tests = r'''python - <<'PY_TESTS'
+from pathlib import Path
+path = Path('tests/test_e8_multitask_p0.py')
+text = path.read_text(encoding='utf-8')
+marker = 'def test_coldstart_runbook_embeds_bootstrap_and_current_protocol() -> None:'
+start = text.find(marker)
+assert start >= 0
+replacement = ''' + "'''" + r'''def test_coldstart_runbook_points_to_current_v2_protocol() -> None:
+    superseded = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md").read_text(
+        encoding="utf-8"
+    )
+    runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md").read_text(
+        encoding="utf-8"
+    )
+    assert "SUPERSEDED" in superseded
+    assert "EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md" in superseded
+    assert "E8_MULTITASK_EXP_COLDSTART_20260820_02" in superseded
+    assert "208 cells" in runbook
+    assert "13" in runbook and "16-cell" in runbook
+    assert "Spiral Matrix" in runbook
+    assert "Pass@64" in runbook
+    assert "结果门禁" in runbook
+    assert "task_results/<task>" in runbook
+    assert "TASK_COMPLETE.json" in runbook
+    assert "terminal valid rate" in runbook.lower()
+    assert "0.002" not in runbook
+    assert "峰值必须高于" not in runbook
+    assert "run_experiment_guard_hardened.py" in Path(
+        "scripts/run_e8_multitask_exp_coldstart.sh"
+    ).read_text(encoding="utf-8")
+''' + "'''" + r'''
+successor_tests = Path('.github/tmp_e8_lambda_tests.txt').read_text(encoding='utf-8')
+assert 'test_lambda_completion_matrix_is_config_driven_and_lambda_only' in successor_tests
+path.write_text(text[:start] + replacement.rstrip() + '\n' + successor_tests, encoding='utf-8')
+PY_TESTS
+cat >> tests/test_e8_multitask_p0.py <<'PYTEST'
+'''
+          assert old_tests in s
+          s = s.replace(old_tests, new_tests, 1)
+          s = s.replace(
+              'git rm .github/tmp_e8_lambda_repair_apply.sh\ngit rm .github/workflows/tmp-e8-lambda-repair-run.yml\n',
+              'git rm .github/tmp_e8_lambda_repair_apply.sh\ngit rm .github/tmp_e8_lambda_tests.txt\ngit rm .github/workflows/tmp-e8-lambda-repair-run.yml\n',
+              1,
+          )
+          p.write_text(s)
           PY
-          python -m py_compile src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
-          pytest -q tests/test_e8_multitask_p0.py
-          git diff --check
-          git status --short
-          git add src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git commit -m "E8: complete lambda-only repair on coldstart base"
-          git push origin HEAD:dev/e8-multitask-lambda-completion-repair-02
+          bash .github/tmp_e8_lambda_repair_apply.sh
