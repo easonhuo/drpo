@@ -63,10 +63,6 @@ jobs:
         continue-on-error: true
         run: python scripts/handoff_authority.py verify --repo-root .
 
-      - name: Formal execution channel
-        continue-on-error: true
-        run: python scripts/validate_formal_execution_channel.py --repo-root .
-
       - name: Governance inventory
         continue-on-error: true
         run: python scripts/validate_governance_rule_inventory.py --repo-root .

@@ -1,5 +1,9 @@
 # DRPO Code-First Pilot Registration Fastpath — Implementation Plan
 
+> **SUPERSEDED FOR EXPERIMENT-LAUNCH AUTHORIZATION — 2026-08-22.**
+>
+> `GOV-EXPERIMENT-LAUNCH-SIMPLIFICATION-01` retires this registration/READY fastpath as a mandatory prerequisite for future experiment launches. The implementation and this document remain preserved for historical compatibility and may still be used when a reviewer explicitly wants registry/handoff bookkeeping materialized through the existing V1/schema-v3 machinery. They must not be used to block an otherwise source/config-valid frozen workload from starting.
+
 **Claim:** `GOV-DEV-PILOT-REGISTRATION-FASTPATH-01`  
 **Phase:** PR-A — thin preparation adapter and deterministic preflight  
 **Base:** `c0ff38b51b0062b26a20771421f62b08eaaa0d12`  

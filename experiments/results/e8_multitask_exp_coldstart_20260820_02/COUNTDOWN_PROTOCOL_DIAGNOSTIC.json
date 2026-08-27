@@ -1,0 +1,10 @@
+{
+  "controls_task_transfer_release": false,
+  "countdown_cells": 16,
+  "experiment_id": "EXT-C-E8-MULTITASK-EXP-COLDSTART-01",
+  "identity_failures": [],
+  "result_gate": false,
+  "schema_version": 1,
+  "scientific_evidence": true,
+  "status": "PASS"
+}

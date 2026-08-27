@@ -1,5 +1,11 @@
 # DRPO RunSpec executor contract
 
+> **Current policy override — 2026-08-22 (`GOV-EXPERIMENT-LAUNCH-SIMPLIFICATION-01`).**
+>
+> RunSpec is now an **optional execution snapshot / server convenience**, not an experiment-launch license. New and future experiments do **not** require promotion into `runspecs/ready/`, a READY state, registry activation, schema-v3 registration, or a lane claim before a frozen workload may start. An exact commit, frozen scientific configuration, source/data/seed identity, run manifest/provenance, foreground guard/recovery where applicable, terminal audit, and durable artifacts remain the active safety contract.
+>
+> The lane/READY machinery documented below is retained for historical compatibility and may still be used when it is operationally convenient. Its absence or stale state must not block an otherwise valid launch. Existing `.runspec_state/` records and historical READY files remain provenance and must not be destructively deleted.
+
 RunSpec is a file-based contract between the online planning/review AI and a
 server-local Claude Code executor. It removes local guessing about which
 experiment to run, which checked-in entrypoint to execute, which lane owns the
@@ -47,7 +53,7 @@ From then on, the human instruction can be:
 执行当前 lane 的下一个 READY RunSpec。
 ```
 
-The canonical command is:
+The canonical command for this optional compatibility lane is:
 
 ```bash
 python scripts/agent/run_lane.py --once
@@ -122,8 +128,8 @@ executable token must follow the assignments.
 
 ## State model and reruns
 
-Tracked READY specifications live under `runspecs/ready/`. Local state is stored
-under `.runspec_state/`:
+When the compatibility lane is used, tracked READY specifications live under
+`runspecs/ready/`. Local state is stored under `.runspec_state/`:
 
 ```text
 claimed/
@@ -134,6 +140,8 @@ published/
 logs/
 ```
 
+These READY/local states are lane bookkeeping, not global launch authorization.
+
 A `run_id` is single-use. A run already present in `claimed`, `running`, `done`,
 `failed`, or `published` is not claimed again. A new scientific rerun still uses
 a new `run_id`; this prevents accidental repeat training and result ambiguity.
@@ -141,7 +149,7 @@ a new `run_id`; this prevents accidental repeat training and result ambiguity.
 ## Bounded transient recovery
 
 Recovery is optional and must be declared by the online planner in the same
-RunSpec before execution. It does not let the local AI infer a repair, edit a
+RunSpec before execution when the RunSpec compatibility lane is used. It does not let the local AI infer a repair, edit a
 configuration, change hyperparameters, or invent a resume command.
 
 A recovery-enabled RunSpec declares:
@@ -206,7 +214,7 @@ rejected rather than followed. Package size limits are enforced before delivery.
 
 ## Formal evidence and durable delivery
 
-Every RunSpec must make its evidence responsibility explicit through
+When a RunSpec is used, it must make its evidence responsibility explicit through
 `policy.formal_evidence_allowed`.
 
 - `false` is the only local-only opt-out and is reserved for liveness, smoke,
@@ -233,11 +241,7 @@ delivery:
   max_file_size_mb: 10
 ```
 
-The gate runs during static validation, before lane claim, and again before the
-entrypoint. A rejected specification remains unclaimed and no training starts.
-Directly running the lower-level one-click experiment script bypasses RunSpec
-state, packaging, and delivery, so it cannot be used as the top-level formal
-execution command.
+Within the optional RunSpec lane, its own static validation still runs before lane claim and entrypoint execution. A rejected specification remains unclaimed and no lane-managed training starts. This local contract does not make RunSpec/READY a repository-wide launch prerequisite.
 
 After computation, the governed executor packages allow-listed evidence and
 attempts automatic delivery. An authentication or network failure returns a
