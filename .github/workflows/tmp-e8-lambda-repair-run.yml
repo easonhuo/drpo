@@ -1,0 +1,22 @@
+name: Temporary E8 lambda repair runner
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-lambda-completion-repair-02
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-lambda-completion-repair-02
+          fetch-depth: 0
+      - name: Apply and validate repair
+        shell: bash
+        run: bash .github/tmp_e8_lambda_repair_apply.sh
