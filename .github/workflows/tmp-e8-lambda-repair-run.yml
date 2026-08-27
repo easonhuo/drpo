@@ -20,14 +20,31 @@ jobs:
       - name: Apply and validate repair
         shell: bash
         run: |
-          if [[ ! -f .github/tmp_e8_lambda_tests.txt ]]; then
-            echo "Waiting for the temporary regression-test payload."
-            exit 0
-          fi
-          sed -i '/36f0ac540edc5b399e9a30ea4bd0a30c030808aa79477cb6e3db28f5688d898d/d' .github/tmp_e8_lambda_repair_apply.sh
-          sed -i '/git diff .*tests\/test_e8_multitask_p0.py > \/tmp\/e8_tests.patch/d' .github/tmp_e8_lambda_repair_apply.sh
-          sed -i '/git apply \/tmp\/e8_tests.patch/d' .github/tmp_e8_lambda_repair_apply.sh
-          sed -i "/tmp-e8-lambda-repair-run.yml/a\    '.github/tmp_e8_lambda_tests.txt'," .github/tmp_e8_lambda_repair_apply.sh
-          sed -i '/^PYTEST$/a cat .github/tmp_e8_lambda_tests.txt >> tests/test_e8_multitask_p0.py' .github/tmp_e8_lambda_repair_apply.sh
-          sed -i '/git rm .github\/tmp_e8_lambda_repair_apply.sh/a git rm .github/tmp_e8_lambda_tests.txt' .github/tmp_e8_lambda_repair_apply.sh
-          bash .github/tmp_e8_lambda_repair_apply.sh
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/drpo/e8_multitask_exp_tuning.py')
+          s = p.read_text()
+          old = '''        if self.rho is None:\n            raise AssertionError("Exponential cell requires rho")\n        if self.lambda_value is not None:\n            tag = f"{self.lambda_value:.12g}".replace(".", "p")\n            return f"{self.task}__exp_lambda{tag}__seed{self.seed}"\n'''
+          new = '''        if self.lambda_value is not None:\n            tag = f"{self.lambda_value:.12g}".replace(".", "p")\n            return f"{self.task}__exp_lambda{tag}__seed{self.seed}"\n        if self.rho is None:\n            raise AssertionError("Exponential cell requires rho or lambda")\n'''
+          if old not in s:
+              raise SystemExit('Cell.key target block not found')
+          p.write_text(s.replace(old, new, 1))
+
+          t = Path('tests/test_e8_multitask_p0.py')
+          q = t.read_text()
+          old_test = '''def test_coldstart_runbook_embeds_bootstrap_and_current_protocol() -> None:\n    runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md").read_text(\n        encoding="utf-8"\n    )\n    bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(\n        encoding="utf-8"\n    )\n    embedded = runbook.split("<!-- ONE_CLICK_BOOTSTRAP_START -->", 1)[1].split(\n        "<!-- ONE_CLICK_BOOTSTRAP_END -->", 1\n    )[0]\n    assert embedded == f"\\n```bash\\n{bootstrap.rstrip()}\\n```\\n"\n'''
+          new_test = '''def test_coldstart_runbook_points_to_current_v2_protocol() -> None:\n    runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md").read_text(\n        encoding="utf-8"\n    )\n    assert "SUPERSEDED" in runbook\n    assert "EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md" in runbook\n    assert "E8_MULTITASK_EXP_COLDSTART_20260820_02" in runbook\n'''
+          if old_test not in q:
+              raise SystemExit('stale runbook test block not found')
+          t.write_text(q.replace(old_test, new_test, 1))
+          PY
+          python -m py_compile src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          pytest -q tests/test_e8_multitask_p0.py
+          git diff --check
+          git status --short
+          git add src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m "E8: complete lambda-only repair on coldstart base"
+          git push origin HEAD:dev/e8-multitask-lambda-completion-repair-02
