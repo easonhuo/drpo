@@ -38,11 +38,11 @@ jobs:
           start = q.find(marker)
           if start < 0:
               raise SystemExit('stale runbook test start not found')
-          next_def = q.find('\ndef ', start + len(marker))
-          if next_def < 0:
-              raise SystemExit('next test function not found')
-          replacement = '''def test_coldstart_runbook_points_to_current_v2_protocol() -> None:\n    superseded = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md").read_text(\n        encoding="utf-8"\n    )\n    runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md").read_text(\n        encoding="utf-8"\n    )\n    assert "SUPERSEDED" in superseded\n    assert "EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md" in superseded\n    assert "E8_MULTITASK_EXP_COLDSTART_20260820_02" in superseded\n    assert "208 cells" in runbook\n    assert "13" in runbook and "16-cell" in runbook\n    assert "Spiral Matrix" in runbook\n    assert "Pass@64" in runbook\n    assert "结果门禁" in runbook\n    assert "reference-remoteness" in runbook\n    assert "task_results/<task>" in runbook\n    assert "TASK_COMPLETE.json" in runbook\n    assert "terminal valid rate" in runbook.lower()\n    assert "0.002" not in runbook\n    assert "峰值必须高于" not in runbook\n    assert "run_experiment_guard_hardened.py" in Path(\n        "scripts/run_e8_multitask_exp_coldstart.sh"\n    ).read_text(encoding="utf-8")\n\n'''
-          t.write_text(q[:start] + replacement + q[next_def + 1:])
+          replacement = '''def test_coldstart_runbook_points_to_current_v2_protocol() -> None:\n    superseded = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md").read_text(\n        encoding="utf-8"\n    )\n    runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md").read_text(\n        encoding="utf-8"\n    )\n    assert "SUPERSEDED" in superseded\n    assert "EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md" in superseded\n    assert "E8_MULTITASK_EXP_COLDSTART_20260820_02" in superseded\n    assert "208 cells" in runbook\n    assert "13" in runbook and "16-cell" in runbook\n    assert "Spiral Matrix" in runbook\n    assert "Pass@64" in runbook\n    assert "结果门禁" in runbook\n    assert "reference-remoteness" in runbook\n    assert "task_results/<task>" in runbook\n    assert "TASK_COMPLETE.json" in runbook\n    assert "terminal valid rate" in runbook.lower()\n    assert "0.002" not in runbook\n    assert "峰值必须高于" not in runbook\n    assert "run_experiment_guard_hardened.py" in Path(\n        "scripts/run_e8_multitask_exp_coldstart.sh"\n    ).read_text(encoding="utf-8")\n'''
+          successor_tests = Path('.github/tmp_e8_lambda_tests.txt').read_text()
+          if 'test_lambda_completion_matrix_is_config_driven_and_lambda_only' not in successor_tests:
+              raise SystemExit('successor test payload missing')
+          t.write_text(q[:start] + replacement.rstrip() + '\n' + successor_tests)
           PY
           python -m py_compile src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
           pytest -q tests/test_e8_multitask_p0.py
