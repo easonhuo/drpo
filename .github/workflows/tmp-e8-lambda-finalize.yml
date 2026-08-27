@@ -21,4 +21,5 @@ jobs:
         shell: bash
         run: |
           sed -i 's/text = text.rstrip() + section + "\\n"/text = text.rstrip() + section.rstrip() + "\\n"/' .github/tmp_e8_finalize_apply.sh
+          sed -i 's#git rm \.github/tmp_e8_finalize_apply\.sh#git rm -f .github/tmp_e8_finalize_apply.sh#' .github/tmp_e8_finalize_apply.sh
           bash .github/tmp_e8_finalize_apply.sh
