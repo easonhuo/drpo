@@ -1,0 +1,62 @@
+name: Temporary merge lambda completion into prior E8 execution branch
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-exp-coldstart-01
+
+permissions:
+  contents: write
+
+jobs:
+  merge-runnable-successor:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-exp-coldstart-01
+          fetch-depth: 0
+
+      - name: Merge reviewed runnable successor
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET_PARENT=1723d0c507b2309a1a352c2459165b86b9625c9d
+          SOURCE_SHA=9c01995b4ad4ff00e274e43254ef073a0800e05c
+          test "$(git rev-parse HEAD^)" = "${TARGET_PARENT}"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/tmp-merge-lambda-into-prior-exec.yml"
+
+          git fetch --no-tags origin dev/e8-multitask-lambda-completion-clean-05
+          test "$(git rev-parse FETCH_HEAD)" = "${SOURCE_SHA}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git merge --no-commit --no-ff -X theirs "${SOURCE_SHA}"
+          test -z "$(git diff --name-only --diff-filter=U)"
+
+          git rm .github/workflows/tmp-merge-lambda-into-prior-exec.yml
+
+          # The runnable E8 files must be byte-identical to the reviewed source branch.
+          for path in \
+            configs/e8_multitask_exp_lambda_completion.yaml \
+            docs/experiments/E8_MULTITASK_LAMBDA_COMPLETION_PROTOCOL.md \
+            scripts/bootstrap_e8_multitask_exp_coldstart.sh \
+            scripts/run_e8_multitask_exp_coldstart.sh \
+            scripts/run_e8_multitask_exp_lambda_completion.sh \
+            src/drpo/e8_multitask_exp_tuning.py \
+            tests/test_e8_multitask_p0.py
+          do
+            git diff --quiet "${SOURCE_SHA}" -- "${path}"
+          done
+
+          git diff --check --cached
+          bash -n scripts/bootstrap_e8_multitask_exp_coldstart.sh
+          bash -n scripts/run_e8_multitask_exp_coldstart.sh
+          bash -n scripts/run_e8_multitask_exp_lambda_completion.sh
+          python -m py_compile src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          python -m pip install -q pytest PyYAML
+          python -m pytest -q tests/test_e8_multitask_p0.py
+
+          git commit -m "Merge runnable E8 lambda completion into prior execution branch"
+          git push origin HEAD:dev/e8-multitask-exp-coldstart-01
