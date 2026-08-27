@@ -1,0 +1,147 @@
+version: 1
+run_id: E8_DRPO_CTAU_SCALE_TRANSFER_3B_20260723_01
+lane: e8
+priority: 160
+created_at: "2026-07-23T14:20:00Z"
+experiment_id: EXT-C-E8-DRPO-CTAU-SCALE-TRANSFER-3B-01
+repo_commit: e98bc275af0907b4abecabfedfd533dd272068e0
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - src/drpo/countdown_e8_drpo_ctau_scale_transfer_3b.py
+    - configs/countdown_e8_base_rl_replay_3b.yaml
+    - configs/countdown_e8_drpo_ctau_scale_transfer_3b.yaml
+    - docs/scopes/EXT-C-E8-DRPO-CTAU-SCALE-TRANSFER-3B-01.md
+    - docs/experiments/E8_DRPO_CTAU_SCALE_TRANSFER_3B_PROTOCOL.md
+    - docs/experiments/E8_DRPO_CTAU_SCALE_TRANSFER_3B_OPERATOR.md
+    - tests/test_countdown_e8_drpo_ctau_scale_transfer_3b.sh
+    - src/drpo/countdown_e8_alpha1_c_scan_common.py
+    - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    - src/drpo/countdown_e8_alpha1_c_scan_runtime.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_c_scan_auto.py
+
+purpose: >
+  Run the frozen four-point DRPO c/tau scale-transfer pilot on
+  Qwen2.5-3B-Instruct using two paired seed offsets. Preserve the model-independent
+  E8 V2 bank, optimizer, LoRA setup, 1200-step horizon, held-out evaluation split,
+  late-window and terminal reporting, and one-slot-per-GPU resource contract.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    PYTHONPATH=src
+    python src/drpo/countdown_e8_drpo_ctau_scale_transfer_3b.py run
+    --model_path /root/models/Qwen2.5-3B-Instruct
+    --work_dir outputs/e8/drpo_ctau_scale_transfer_3b_001
+    --bank /root/experiment_output/e8_oracle_bank_v2/data/offline_bank_v2.jsonl
+    --val /root/experiment_output/e8_oracle_bank_v2/data/val.jsonl
+    --base_config configs/countdown_e8_base_rl_replay_3b.yaml
+    --grid_config configs/countdown_e8_drpo_ctau_scale_transfer_3b.yaml
+    --gpus 0,1,2,3
+    --max-devices 4
+    --allow-dev-unregistered
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: >-
+    PYTHONPATH=src
+    python src/drpo/countdown_e8_drpo_ctau_scale_transfer_3b.py run
+    --model_path /root/models/Qwen2.5-3B-Instruct
+    --work_dir outputs/e8/drpo_ctau_scale_transfer_3b_001
+    --bank /root/experiment_output/e8_oracle_bank_v2/data/offline_bank_v2.jsonl
+    --val /root/experiment_output/e8_oracle_bank_v2/data/val.jsonl
+    --base_config configs/countdown_e8_base_rl_replay_3b.yaml
+    --grid_config configs/countdown_e8_drpo_ctau_scale_transfer_3b.yaml
+    --gpus 0,1,2,3
+    --max-devices 4
+    --allow-dev-unregistered
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e8/drpo_ctau_scale_transfer_3b_001/RUNTIME_SELECTION.json
+    - outputs/e8/drpo_ctau_scale_transfer_3b_001/RUNTIME_SLOTS.json
+    - outputs/e8/drpo_ctau_scale_transfer_3b_001/SWEEP_STATUS.json
+  backoff_seconds: 60
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: false
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  formal_evidence_allowed: true
+
+outputs:
+  run_dir: outputs/e8/drpo_ctau_scale_transfer_3b_001
+  summary_file: outputs/e8/drpo_ctau_scale_transfer_3b_001/SWEEP_COMPLETE.json
+  audit_file: outputs/e8/drpo_ctau_scale_transfer_3b_001/aggregate/terminal_audit.json
+
+success_criteria:
+  - model identity is Qwen2.5-3B-Instruct from pretrained base plus fresh LoRA
+  - the frozen model-independent E8 V2 bank and structurally disjoint val.jsonl are used
+  - the matrix contains exactly four c/tau points A-D and eight cells on seed offsets 4000 and 5000
+  - point A is c=1.609437912 and tau=0.125
+  - point B is c=1.897119985 and tau=0.25
+  - point C is c=2.995732274 and tau=0.125
+  - point D is c=4.605170186 and tau=0.75
+  - runtime selects exactly GPU 0-3
+  - RUNTIME_SLOTS reports one slot per GPU, four GPUs, and four total runtime slots
+  - the full eight-cell sweep requires exactly two waves after the smoke gate
+  - no scientific variable differs between wave one and wave two
+  - the smoke gate passes before the full sweep and is not scientific evidence
+  - every cell uses weight exp(-c*max(current_sequence_surprisal/2-tau,0)) with detached alpha=1 weights
+  - no c, tau, learning-rate, LoRA, batch, horizon, or evaluation retuning occurs on 3B
+  - val.jsonl is recorded as held-out evaluation and never enters training loss
+  - separate test.jsonl remains unused
+  - every declared point is reported using late-window and terminal metrics
+  - validation-selected best checkpoint remains supplementary only
+  - task performance, valid-expression or structure diagnostics, and NaN/Inf failure are separate
+  - fixed 1200 steps is not described as convergence, steady state, significance, or formal ranking
+  - completed text-first evidence is delivered to drpo-results ingest/e8
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e8/drpo_ctau_scale_transfer_3b_001/*.json
+    - outputs/e8/drpo_ctau_scale_transfer_3b_001/aggregate/*.json
+    - outputs/e8/drpo_ctau_scale_transfer_3b_001/aggregate/*.csv
+    - outputs/e8/drpo_ctau_scale_transfer_3b_001/methods/*/summary.json
+    - outputs/e8/drpo_ctau_scale_transfer_3b_001/methods/*/manifest.json
+    - outputs/e8/drpo_ctau_scale_transfer_3b_001/methods/*/metrics.csv
+    - outputs/e8/drpo_ctau_scale_transfer_3b_001/methods/*/validation_diagnostics.jsonl
+    - outputs/e8/drpo_ctau_scale_transfer_3b_001/methods/*/training_diagnostics.jsonl
+    - outputs/e8/drpo_ctau_scale_transfer_3b_001/logs/*.log
+  exclude:
+    - "**/*.pt"
+    - "**/*.pth"
+    - "**/*.ckpt"
+    - "**/*.safetensors"
+    - "**/*.bin"
+    - "**/best_pass8_adapter/**"
+    - "**/terminal_adapter/**"
+    - "**/last_finite_adapter/**"
+    - "**/checkpoint*"
+    - "**/checkpoints/**"
+    - "**/optimizer*"
+    - "**/wandb/**"
+  max_package_size_mb: 100
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e8
+  export_profile: manifest_text_v1
+  max_total_size_mb: 30
+  max_file_size_mb: 10
+
+publish:
+  enabled: false
+  auto: false
