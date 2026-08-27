@@ -1834,15 +1834,52 @@ def test_coldstart_runbook_embeds_bootstrap_and_current_protocol() -> None:
     ).read_text(encoding="utf-8")
 
 
+def test_lambda_completion_matrix_is_config_driven_and_lambda_only(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml"))
+    cells = exp_tuning.build_cells(config)
+    waves = exp_tuning.build_waves(config)
+    assert len(cells) == config["sweep"]["expected_cells"] == 199
+    assert [len(wave) for wave in waves] == [16] * 12 + [7]
+    assert not any(cell.task == "countdown" for cell in cells)
+    assert exp_tuning._coldstart_completed_task_rows(config, tmp_path, "countdown") is None
+    successor_launcher = Path("scripts/run_e8_multitask_exp_lambda_completion.sh").read_text(encoding="utf-8")
+    historical_launcher = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    assert 'export E8_COLDSTART_EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"' in successor_launcher
+    assert 'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"' in historical_launcher
+    guarded_full_body = historical_launcher.split("guarded_full() {", 1)[1].split("\n}", 1)[0]
+    assert "require_registered_ready" not in guarded_full_body
+    assert "validate_registered_channel" not in guarded_full_body
+    assert "check_source" in guarded_full_body
+    assert "resolve_config_repo_path" in historical_launcher
+    assert '--source-file "${CONFIG_REPO_PATH}"' in historical_launcher
+    assert "--source-file configs/e8_multitask_exp_coldstart.yaml" not in historical_launcher
+    assert '"${EXPECTED_COMMIT}:${CONFIG_REPO_PATH}"' in historical_launcher
+    for task in config["suite"]["p0_tasks"]:
+        task_cells = [cell for cell in cells if cell.task == task]
+        positives = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_POSITIVE_ONLY]
+        exponentials = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_EXPONENTIAL]
+        assert [cell.seed for cell in positives] == config["sweep"]["transfer_positive_only_seed_offsets"]
+        assert {cell.seed for cell in exponentials} == {config["sweep"]["task_transfer_seed_offset"]}
+        assert [cell.lambda_value for cell in exponentials] == config["sweep"]["task_lambda"][task]
+        assert all(cell.rho is None for cell in exponentials)
+
+
+
 @pytest.mark.skipif(torch is None, reason="Torch is unavailable in the test runtime")
 def test_lambda_only_canonical_transport_is_exactly_equivalent() -> None:
     from drpo import countdown_e8_alpha1_highc_scan_common as paper_common
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    configs = [
+        exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml")),
+        exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml")),
+    ]
     lambdas = sorted(
         {
             float(value)
+            for config in configs
             for task in config["suite"]["tasks"]
             for value in config["sweep"]["task_lambda"][task]
         }

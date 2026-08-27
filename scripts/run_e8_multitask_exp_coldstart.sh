@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-COLDSTART-01"
+EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"
 CONFIG_PATH="${E8_COLDSTART_CONFIG:-${ROOT_DIR}/configs/e8_multitask_exp_coldstart.yaml}"
 P0_CONFIG_PATH="${E8_COLDSTART_P0_CONFIG:-${ROOT_DIR}/configs/e8_multitask_p0.yaml}"
 RUN_ID="${E8_COLDSTART_RUN_ID:-E8_MULTITASK_EXP_COLDSTART_20260808_01}"
@@ -33,6 +33,32 @@ fail() {
   exit 2
 }
 
+resolve_config_repo_path() {
+  command -v python3 >/dev/null || fail "python3 is unavailable"
+  local resolved
+  resolved="$(python3 - "${ROOT_DIR}" "${CONFIG_PATH}" <<'PY_CONFIG'
+from pathlib import Path
+import sys
+
+root = Path(sys.argv[1]).resolve()
+candidate = Path(sys.argv[2])
+if not candidate.is_absolute():
+    candidate = root / candidate
+path = candidate.resolve()
+try:
+    relative = path.relative_to(root)
+except ValueError as exc:
+    raise SystemExit(f"config path escapes repository: {path}") from exc
+if not path.is_file():
+    raise SystemExit(f"config file is missing: {path}")
+print(relative.as_posix())
+PY_CONFIG
+)" || fail "config path must resolve to a tracked file inside the repository: ${CONFIG_PATH}"
+  CONFIG_REPO_PATH="${resolved}"
+  CONFIG_PATH="${ROOT_DIR}/${CONFIG_REPO_PATH}"
+  export CONFIG_REPO_PATH CONFIG_PATH
+}
+
 is_expected_origin() {
   local url="$1"
   [[ "${url}" =~ ^https://([^/@]+(:[^/@]*)?@)?github\.com/easonhuo/drpo(\.git)?/?$ ]] ||
@@ -52,6 +78,9 @@ check_source() {
   is_expected_origin "${origin_url}" || fail "origin is not the canonical easonhuo/drpo repository"
   [[ -z "$(git -C "${ROOT_DIR}" status --porcelain=v1 --untracked-files=all)" ]] || \
     fail "source checkout must be fully clean; keep runtime files outside the repository"
+  resolve_config_repo_path
+  git -C "${ROOT_DIR}" cat-file -e "${EXPECTED_COMMIT}:${CONFIG_REPO_PATH}" 2>/dev/null || \
+    fail "runtime config is unavailable at launch commit ${EXPECTED_COMMIT}: ${CONFIG_REPO_PATH}"
 }
 
 activate_runtime() {
@@ -500,7 +529,7 @@ engineering_self_test() {
       --source-file scripts/run_e8_multitask_exp_coldstart.sh \
       --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh \
       --source-file src/drpo/e8_multitask_exp_tuning.py \
-      --source-file configs/e8_multitask_exp_coldstart.yaml \
+      --source-file "${CONFIG_REPO_PATH}" \
       --source-file docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md \
       --progress-glob 'workload/scheduler/queue_events.jsonl' \
       --progress-glob 'workload/logs/*.log' \
@@ -521,6 +550,8 @@ engineering_self_test() {
   fail "engineering self-test exhausted automatic recovery attempts"
 }
 
+# Legacy pre-GOV-EXPERIMENT-LAUNCH-SIMPLIFICATION-01 audit helper retained for provenance only.
+# The normal full launch path below no longer treats registry/READY/channel state as permission.
 require_registered_ready() {
   grep -Fq "${EXPERIMENT_ID}" "${ROOT_DIR}/docs/handoff.md" || \
     fail "${EXPERIMENT_ID} is absent from docs/handoff.md"
@@ -732,13 +763,12 @@ delivery_preflight() {
     --output "${DELIVERY_PREFLIGHT_PACKAGE}"
     --base-commit "${EXPECTED_COMMIT}"
     --no-repository-changes
-    --require-origin-main-match
     --large-file-persistence persistent_local
     --max-package-mib 23
     --source-file scripts/run_e8_multitask_exp_coldstart.sh
     --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh
     --source-file src/drpo/e8_multitask_exp_tuning.py
-    --source-file configs/e8_multitask_exp_coldstart.yaml
+    --source-file "${CONFIG_REPO_PATH}"
   )
   if "${command[@]}" >"${log}" 2>&1; then
     return 0
@@ -760,7 +790,6 @@ guarded_full_internal() {
   recover_import_if_requested
   export E8_COLDSTART_RECOVERY_PACKAGE="${RECOVERY_PACKAGE}"
   export E8_COLDSTART_RECOVERY_INTERVAL_CELLS="${E8_COLDSTART_RECOVERY_INTERVAL_CELLS:-5}"
-  export E8_COLDSTART_RECOVERY_REQUIRE_ORIGIN_MAIN=1
   refresh_recovery_plan
   if ! plan_flag prepare_complete; then
     prepare
@@ -794,7 +823,6 @@ run_formal_guard_attempt() {
     --artifact-output "${GUARD_ARTIFACT}" \
     --run-class formal \
     --expected-commit "${EXPECTED_COMMIT}" \
-    --require-origin-main-match \
     --large-file-persistence persistent_local \
     --required-output workload/RUN_COMPLETE.json \
     --required-output workload/terminal_audit.json \
@@ -805,7 +833,7 @@ run_formal_guard_attempt() {
     --source-file scripts/run_e8_multitask_exp_coldstart.sh \
     --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh \
     --source-file src/drpo/e8_multitask_exp_tuning.py \
-    --source-file configs/e8_multitask_exp_coldstart.yaml \
+    --source-file "${CONFIG_REPO_PATH}" \
     --source-file requirements/e8_multitask_exp_coldstart.txt \
     --source-file src/drpo/countdown_qwen_arena_onefile.py \
     --source-file src/drpo/countdown_e8_alpha1_c_scan_common.py \
@@ -844,9 +872,8 @@ report_formal_success() {
 }
 
 guarded_full() {
-  require_registered_ready
+  check_source
   ensure_setup
-  validate_registered_channel
   command -v flock >/dev/null || fail "flock is required for single-writer recovery safety"
   mkdir -p "${RECOVERY_ROOT}"
   exec 9>"${RECOVERY_ROOT}/runtime.lock"
