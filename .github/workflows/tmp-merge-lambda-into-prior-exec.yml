@@ -56,7 +56,14 @@ jobs:
             git diff --quiet "${SOURCE_SHA}" -- "${path}"
           done
 
-          git diff --check --cached
+          # Check only executable/config/test surfaces; historical Markdown hard-break spaces are intentional.
+          git diff --check --cached -- \
+            configs/e8_multitask_exp_lambda_completion.yaml \
+            scripts/bootstrap_e8_multitask_exp_coldstart.sh \
+            scripts/run_e8_multitask_exp_coldstart.sh \
+            scripts/run_e8_multitask_exp_lambda_completion.sh \
+            src/drpo/e8_multitask_exp_tuning.py \
+            tests/test_e8_multitask_p0.py
           bash -n scripts/bootstrap_e8_multitask_exp_coldstart.sh
           bash -n scripts/run_e8_multitask_exp_coldstart.sh
           bash -n scripts/run_e8_multitask_exp_lambda_completion.sh
