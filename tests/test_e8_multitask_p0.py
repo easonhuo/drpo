@@ -1419,7 +1419,7 @@ def test_exp_dense_inherit_pins_parent_and_rebinds_train_only_references(
 
 
 
-def test_exp_coldstart_matrix_is_208_cells_in_13_hard_waves() -> None:
+def test_exp_coldstart_matrix_is_208_cells_in_13_nominal_batches() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
@@ -1431,7 +1431,7 @@ def test_exp_coldstart_matrix_is_208_cells_in_13_hard_waves() -> None:
     assert [len(wave) for wave in waves] == [16] * 13
     assert config["execution"]["max_concurrent_cells"] == 16
     assert config["execution"]["slots_per_gpu"] == 2
-    assert config["execution"]["wave_barriers"] is True
+    assert config["execution"]["wave_barriers"] is False
     assert set(config["suite"]["tasks"]) == set(exp_tuning.TASK_NAMES)
     assert set(config["suite"]["p0_tasks"]) == set(exp_tuning.TASK_NAMES) - {"countdown"}
 
@@ -1551,6 +1551,10 @@ def test_exp_coldstart_rejects_adapter_runtime_or_grid_drift() -> None:
     with pytest.raises(ValueError, match="two slots"):
         exp_tuning.validate_config(changed)
     changed = json.loads(json.dumps(config))
+    changed["execution"]["wave_barriers"] = True
+    with pytest.raises(ValueError, match="recovery/OOM"):
+        exp_tuning.validate_config(changed)
+    changed = json.loads(json.dumps(config))
     changed["task_runtime"]["word_sorting"]["evaluation_batch_size"] = 8
     with pytest.raises(ValueError, match="word_sorting"):
         exp_tuning.validate_config(changed)
@@ -1602,7 +1606,7 @@ def test_task_base_config_transfer_has_batch16_and_pass8_only(tmp_path: Path) ->
     assert value["evaluation"]["pass_ks"] == [8]
 
 
-def test_exp_coldstart_scheduler_enforces_wave_barriers_and_two_slots_per_gpu(
+def test_exp_coldstart_scheduler_refills_without_nominal_batch_barriers(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -1610,7 +1614,6 @@ def test_exp_coldstart_scheduler_enforces_wave_barriers_and_two_slots_per_gpu(
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
     cells = exp_tuning.build_cells(config)
-    waves = exp_tuning.build_waves(config)
     monkeypatch.setattr(exp_tuning, "_require_calibration_gate", lambda *args, **kwargs: None)
     monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)
     monkeypatch.setattr(
@@ -1627,6 +1630,8 @@ def test_exp_coldstart_scheduler_enforces_wave_barriers_and_two_slots_per_gpu(
     finishes: dict[str, float] = {}
     active: dict[int, int] = {}
     maximum: dict[int, int] = {}
+    replacement_started = threading.Event()
+    first_cell_released_by_replacement = threading.Event()
 
     def fake_run(**kwargs: object) -> dict[str, object]:
         cell = kwargs["cell"]
@@ -1635,7 +1640,13 @@ def test_exp_coldstart_scheduler_enforces_wave_barriers_and_two_slots_per_gpu(
             starts[cell.key] = time.monotonic()
             active[gpu_id] = active.get(gpu_id, 0) + 1
             maximum[gpu_id] = max(maximum.get(gpu_id, 0), active[gpu_id])
-        time.sleep(0.002)
+        if cell in cells[16:]:
+            replacement_started.set()
+        if cell.key == cells[0].key:
+            if replacement_started.wait(timeout=1.0):
+                first_cell_released_by_replacement.set()
+        else:
+            time.sleep(0.002)
         with lock:
             active[gpu_id] -= 1
             finishes[cell.key] = time.monotonic()
@@ -1659,16 +1670,18 @@ def test_exp_coldstart_scheduler_enforces_wave_barriers_and_two_slots_per_gpu(
     )
     assert result["complete"]
     assert result["completed_cells"] == 208
-    assert result["wave_barriers"] is True
-    assert len(result["waves"]) == 13
+    assert result["wave_barriers"] is False
+    assert result["wave_count"] == 13
+    assert result["wave_count_role"] == "nominal_audit_geometry_only_not_scheduling_barrier"
+    assert "waves" not in result
+    assert first_cell_released_by_replacement.is_set()
     assert result["countdown_protocol_diagnostic"]["status"] == "FAIL"
     assert result["countdown_result_controls_transfer_release"] is False
     assert set(maximum) == set(range(8))
     assert max(maximum.values()) <= 2
-    for index in range(1, len(waves)):
-        assert min(starts[cell.key] for cell in waves[index]) >= max(
-            finishes[cell.key] for cell in waves[index - 1]
-        )
+    assert min(starts[cell.key] for cell in cells[16:]) < max(
+        finishes[cell.key] for cell in cells[:16]
+    )
     assert {cell.task for cell in cells[16:32]} != {"countdown"}
 
 
@@ -1722,7 +1735,7 @@ def test_exp_coldstart_aggregate_does_not_filter_by_terminal_valid_rate(tmp_path
     assert summary["countdown_result_gate"] is False
 
 
-def test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_barriers(
+def test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_dynamic_refill(
     tmp_path: Path,
 ) -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
@@ -1738,8 +1751,9 @@ def test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_barrier
     assert result["scientific_status"] == "not_run"
     assert result["resume_completed_cells"] == 208
     assert result["aggregate_cell_count"] == 208
-    assert result["queue_audit"]["wave_barriers_respected"]
-    assert result["queue_audit"]["wave_count"] == 13
+    assert result["queue_audit"]["dynamic_refill_observed"]
+    assert result["queue_audit"]["nominal_batch_barrier_absent"]
+    assert result["queue_audit"]["nominal_batch_count"] == 13
     assert result["queue_audit"]["slots_per_gpu"] == 2
     assert result["repeat_run_preserved_cell_hashes"]
     assert result["tampered_package_rejected"]
@@ -1807,17 +1821,17 @@ def test_coldstart_task_results_publish_before_global_aggregate(tmp_path: Path) 
     assert (tmp_path / "task_results" / "countdown" / "TASK_COMPLETE.json").is_file()
     assert "task_results" in exp_tuning.RECOVERY_TRANSIENT_TOP_LEVEL
 
-def test_coldstart_runbook_embeds_bootstrap_and_current_protocol() -> None:
-    runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md").read_text(
+def test_coldstart_runbook_points_to_current_v2_protocol() -> None:
+    superseded = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md").read_text(
         encoding="utf-8"
     )
-    bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(
+    runbook = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md").read_text(
         encoding="utf-8"
     )
-    embedded = runbook.split("<!-- ONE_CLICK_BOOTSTRAP_START -->", 1)[1].split(
-        "<!-- ONE_CLICK_BOOTSTRAP_END -->", 1
-    )[0]
-    assert embedded == f"\n```bash\n{bootstrap.rstrip()}\n```\n"
+    bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    assert "SUPERSEDED" in superseded
+    assert "EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK_V2.md" in superseded
+    assert "E8_MULTITASK_EXP_COLDSTART_20260820_02" in superseded
     assert "208 cells" in runbook
     assert "13" in runbook and "16-cell" in runbook
     assert "Spiral Matrix" in runbook
@@ -1829,9 +1843,48 @@ def test_coldstart_runbook_embeds_bootstrap_and_current_protocol() -> None:
     assert "terminal valid rate" in runbook.lower()
     assert "0.002" not in runbook
     assert "峰值必须高于" not in runbook
+    historical_bootstrap = subprocess.check_output(
+        ["git", "show", "8bdd07590f155ad26bc8cfbd641d40647eab57d2:scripts/bootstrap_e8_multitask_exp_coldstart.sh"],
+        text=True,
+    )
+    normalized = bootstrap.replace(
+        'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"',
+        'EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-COLDSTART-01"',
+        1,
+    )
+    assert normalized == historical_bootstrap
     assert "run_experiment_guard_hardened.py" in Path(
         "scripts/run_e8_multitask_exp_coldstart.sh"
     ).read_text(encoding="utf-8")
+def test_lambda_completion_matrix_is_config_driven_and_lambda_only(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml"))
+    cells = exp_tuning.build_cells(config)
+    waves = exp_tuning.build_waves(config)
+    assert len(cells) == config["sweep"]["expected_cells"] == 199
+    assert [len(wave) for wave in waves] == [16] * 12 + [7]
+    assert not any(cell.task == "countdown" for cell in cells)
+    assert exp_tuning._coldstart_completed_task_rows(config, tmp_path, "countdown") is None
+    successor_launcher = Path("scripts/run_e8_multitask_exp_lambda_completion.sh").read_text(encoding="utf-8")
+    historical_launcher = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    assert 'export E8_COLDSTART_EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"' in successor_launcher
+    assert 'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"' in historical_launcher
+    assert 'export E8_COLDSTART_CONFIG="configs/e8_multitask_exp_lambda_completion.yaml"' in successor_launcher
+    assert '${ROOT_DIR}/configs/e8_multitask_exp_lambda_completion.yaml' not in successor_launcher
+    assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" in Path("docs/handoff.md").read_text(encoding="utf-8")
+    assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" in Path("experiments/registry.yaml").read_text(encoding="utf-8")
+    assert "SUCCESSOR_SOURCE_ARGS" in historical_launcher
+    assert "scripts/run_e8_multitask_exp_lambda_completion.sh" in historical_launcher
+    assert "docs/experiments/E8_MULTITASK_LAMBDA_COMPLETION_PROTOCOL.md" in historical_launcher
+    for task in config["suite"]["p0_tasks"]:
+        task_cells = [cell for cell in cells if cell.task == task]
+        positives = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_POSITIVE_ONLY]
+        exponentials = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_EXPONENTIAL]
+        assert [cell.seed for cell in positives] == config["sweep"]["transfer_positive_only_seed_offsets"]
+        assert {cell.seed for cell in exponentials} == {config["sweep"]["task_transfer_seed_offset"]}
+        assert [cell.lambda_value for cell in exponentials] == config["sweep"]["task_lambda"][task]
+        assert all(cell.rho is None for cell in exponentials)
 
 
 @pytest.mark.skipif(torch is None, reason="Torch is unavailable in the test runtime")
@@ -1839,10 +1892,14 @@ def test_lambda_only_canonical_transport_is_exactly_equivalent() -> None:
     from drpo import countdown_e8_alpha1_highc_scan_common as paper_common
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    configs = [
+        exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml")),
+        exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml")),
+    ]
     lambdas = sorted(
         {
             float(value)
+            for config in configs
             for task in config["suite"]["tasks"]
             for value in config["sweep"]["task_lambda"][task]
         }
@@ -1908,3 +1965,29 @@ def test_lambda_only_canonical_transport_is_exactly_equivalent() -> None:
         historical_gradient = torch.autograd.grad(historical_loss, historical_lp)[0]
         successor_gradient = torch.autograd.grad(successor_loss, successor_lp)[0]
         assert torch.equal(historical_gradient, successor_gradient)
+
+
+def test_lambda_completion_preserves_restored_coldstart_behavior() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    cold = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    successor = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml"))
+    frozen_sections = (
+        "parent", "reference", "initialization", "model", "suite", "split",
+        "training", "evaluation", "negative_sampling", "remoteness_calibration",
+        "task_runtime", "selection", "canonical_coldstart", "execution",
+    )
+    for section in frozen_sections:
+        assert successor[section] == cold[section], section
+
+    historical_cells = exp_tuning.build_cells(cold)
+    historical_waves = exp_tuning.build_waves(cold)
+    assert len(historical_cells) == 208
+    assert [len(wave) for wave in historical_waves] == [16] * 13
+    assert successor["negative_sampling"]["reference_remoteness_bank"]["selection"] == (
+        "source_p0_error_class_sequence_then_within_class_reference_rank_spread"
+    )
+    assert successor["execution"]["scheduler"] == "dynamic_slot_queue"
+    assert successor["execution"]["wave_barriers"] is False
+    launcher = Path("scripts/run_e8_multitask_exp_lambda_completion.sh").read_text(encoding="utf-8")
+    assert "bootstrap_e8_multitask_exp_coldstart.sh" in launcher
