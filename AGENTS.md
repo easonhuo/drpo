@@ -32,7 +32,7 @@ Before changing code, designing a new experiment, or running an experiment:
 For coding and repository-document changes, the normal path is the connected GitHub App:
 
 1. Resolve the current `main` SHA through the GitHub repository API.
-2. Create or update a dedicated `dev/<claim>` branch from that exact SHA.
+2. Reuse the active task's existing dedicated `dev/<claim>` branch when one exists; otherwise create it from that exact `main` SHA.
 3. Commit only the approved scope to the dev branch.
 4. Open a Draft PR, run the applicable GitHub Actions checks, review the diff and results, and merge only after explicit user approval.
 
@@ -44,18 +44,17 @@ If the direct GitHub route exposes a defect, repair or iterate that route rather
 
 ## Development branch discipline
 
-For a given experiment or repository task, use one canonical development branch by default. If its dedicated branch already exists, reuse it rather than creating a new branch for another implementation attempt.
+For one approved development task while it is active and unmerged, use one canonical development branch by default. If that task branch already exists, reuse it for implementation retries and fixes rather than creating another branch for the same scope.
 
 CI failures, implementation bugs, test failures, cleanup, simplification, refactoring, or a desire for a "clean" history are not sufficient reasons to create replacement branches such as `clean`, `fix`, `minimal`, `repair`, or `finalize`. Keep those iterations as commits on the existing task branch.
 
-Consider a replacement branch only when either:
+If `main` advances while the task is still active, update, merge, or rebase the existing task branch as appropriate; do not create a replacement branch solely to obtain a fresher base.
 
-1. the existing branch is proven to have been created from the wrong base commit; or
-2. the scientific objective, experiment responsibility, or repository task has materially changed.
+A replacement branch is exceptional and should be considered only when the existing task branch is proven to have been created from the wrong base commit. Before creating one, state why the current branch cannot reasonably be continued and identify the intended replacement base.
 
-Before creating such a replacement branch, state why the current branch cannot reasonably be continued and identify the intended replacement base. Do not add a CI gate, authorization file, or other enforcement machinery solely for this branch-discipline principle unless a later explicit user-approved change finds the soft rule insufficient.
+This rule applies to one active development task, not to the entire lifetime of an experiment. After a task is merged or otherwise closed, a later independently scoped follow-up may use a new branch from the then-current `main`. A change counts as a new task only when it has a genuinely separate approved scope that requires separate review or provenance; code size, implementation difficulty, failed attempts, or a desire to restart cleanly do not make it a new task.
 
-Apply this default in future experiment and repository development and evaluate it in practice. If it materially obstructs legitimate work, report that rather than working around it by proliferating branches.
+This is a soft development default, not a branch-creation hard gate. Apply it in future experiment and repository development and evaluate it in practice; if it materially obstructs legitimate work, report that rather than working around it by proliferating branches.
 
 ## New Python-file hard gate
 
