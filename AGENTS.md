@@ -42,6 +42,21 @@ Do not create dummy branches, commits, files, or PRs merely to test permissions 
 
 If the direct GitHub route exposes a defect, repair or iterate that route rather than silently falling back to the retired package workflow. The offline package path below is an emergency fallback only.
 
+## Development branch discipline
+
+For a given experiment or repository task, use one canonical development branch by default. If its dedicated branch already exists, reuse it rather than creating a new branch for another implementation attempt.
+
+CI failures, implementation bugs, test failures, cleanup, simplification, refactoring, or a desire for a "clean" history are not sufficient reasons to create replacement branches such as `clean`, `fix`, `minimal`, `repair`, or `finalize`. Keep those iterations as commits on the existing task branch.
+
+Consider a replacement branch only when either:
+
+1. the existing branch is proven to have been created from the wrong base commit; or
+2. the scientific objective, experiment responsibility, or repository task has materially changed.
+
+Before creating such a replacement branch, state why the current branch cannot reasonably be continued and identify the intended replacement base. Do not add a CI gate, authorization file, or other enforcement machinery solely for this branch-discipline principle unless a later explicit user-approved change finds the soft rule insufficient.
+
+Apply this default in future experiment and repository development and evaluate it in practice. If it materially obstructs legitimate work, report that rather than working around it by proliferating branches.
+
 ## New Python-file hard gate
 
 Under `GOV-NEW-PYTHON-FILE-ORAL-APPROVAL-02`, an AI agent or automation must not create, copy, or rename a path to a new Python file unless the repository owner has explicitly approved the exact new path and its stated responsibility.
