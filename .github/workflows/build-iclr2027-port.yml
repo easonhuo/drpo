@@ -1,0 +1,69 @@
+name: Build ICLR 2027 mechanical port
+
+on:
+  push:
+    branches:
+      - dev/manuscript-iclr2027-port-01
+    paths:
+      - 'paper/iclr2027/**'
+      - 'paper/overleaf/**'
+      - '.github/workflows/build-iclr2027-port.yml'
+  pull_request:
+    paths:
+      - 'paper/iclr2027/**'
+      - 'paper/overleaf/**'
+      - '.github/workflows/build-iclr2027-port.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install LaTeX and PDF audit tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            texlive-latex-base \
+            texlive-latex-extra \
+            texlive-fonts-recommended \
+            texlive-bibtex-extra \
+            latexmk \
+            poppler-utils \
+            curl unzip zip
+
+      - name: Build content-locked ICLR port
+        run: bash paper/iclr2027/build.sh
+
+      - name: Show migration audit
+        if: always()
+        run: |
+          if [[ -f paper/iclr2027/release/CONTENT_LOCK_REPORT.txt ]]; then
+            cat paper/iclr2027/release/CONTENT_LOCK_REPORT.txt
+          fi
+          if [[ -f paper/iclr2027/release/LATEX_DIAGNOSTICS.txt ]]; then
+            cat paper/iclr2027/release/LATEX_DIAGNOSTICS.txt
+          fi
+
+      - name: Upload PDF and Overleaf bundle
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DRPO_ICLR2027_MECHANICAL_PORT
+          path: |
+            paper/iclr2027/release/main.pdf
+            paper/iclr2027/release/DRPO_ICLR2027_MECHANICAL_PORT.zip
+            paper/iclr2027/release/CONTENT_LOCK_REPORT.txt
+            paper/iclr2027/release/TEMPLATE_PROVENANCE.txt
+            paper/iclr2027/release/PDFINFO.txt
+            paper/iclr2027/release/PDFFONTS.txt
+            paper/iclr2027/release/LATEX_DIAGNOSTICS.txt
+            paper/iclr2027/release/main.log
+          retention-days: 30
