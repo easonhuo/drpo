@@ -75,7 +75,8 @@ EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-TUNING-01"
 DENSE_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-DENSE-01"
 COLDSTART_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-COLDSTART-01"
 LAMBDA_COMPLETION_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"
-SUPPORTED_EXPERIMENT_IDS = (EXPERIMENT_ID, DENSE_EXPERIMENT_ID, COLDSTART_EXPERIMENT_ID, LAMBDA_COMPLETION_EXPERIMENT_ID)
+LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02"
+SUPPORTED_EXPERIMENT_IDS = (EXPERIMENT_ID, DENSE_EXPERIMENT_ID, COLDSTART_EXPERIMENT_ID, LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID)
 P0_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-P0-01"
 # Backward-compatible name used by predecessor tests and downstream callers.
 PARENT_EXPERIMENT_ID = P0_EXPERIMENT_ID
@@ -302,7 +303,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
     else:
         expected_tasks = set(TASK_NAMES)
         if (
-            current_experiment not in (COLDSTART_EXPERIMENT_ID, LAMBDA_COMPLETION_EXPERIMENT_ID)
+            current_experiment not in (COLDSTART_EXPERIMENT_ID, LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID)
             or len(tasks) != 9
             or len(set(tasks)) != 9
             or set(tasks) != expected_tasks
@@ -558,13 +559,19 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("Countdown sentinel coefficients drifted")
         if _task_lambdas(config, "countdown") != countdown_sentinels:
             raise ValueError("Countdown task_lambda must equal the six diagnostic sentinels")
-        expected_countdown_seeds = () if current_experiment == LAMBDA_COMPLETION_EXPERIMENT_ID else PAPER_SEED_OFFSETS
+        expected_parameterization = "paper_lambda_c1" if current_experiment in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID) else "paper_coefficient_c"
+        if sweep.get("parameterization") != expected_parameterization:
+            raise ValueError("Cold-start parameterization drifted")
+        expected_countdown_seeds = () if current_experiment in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID) else PAPER_SEED_OFFSETS
         if tuple(int(value) for value in sweep.get("countdown_seed_offsets", ())) != expected_countdown_seeds:
             raise ValueError("Countdown seed offsets drifted")
         transfer_positive_seeds = tuple(
             int(value) for value in sweep.get("transfer_positive_only_seed_offsets", ())
         )
-        if (current_experiment == LAMBDA_COMPLETION_EXPERIMENT_ID and (not transfer_positive_seeds or len(transfer_positive_seeds) != len(set(transfer_positive_seeds)))) or (current_experiment != LAMBDA_COMPLETION_EXPERIMENT_ID and transfer_positive_seeds != (4000, 5000, 6000, 7000)):
+        if current_experiment == LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID:
+            if transfer_positive_seeds:
+                raise ValueError("Lambda Curve Completion must not schedule Positive-only seeds")
+        elif (current_experiment == LAMBDA_COMPLETION_EXPERIMENT_ID and (not transfer_positive_seeds or len(transfer_positive_seeds) != len(set(transfer_positive_seeds)))) or (current_experiment != LAMBDA_COMPLETION_EXPERIMENT_ID and transfer_positive_seeds != (4000, 5000, 6000, 7000)):
             raise ValueError("Transfer Positive-only seed offsets drifted")
         if int(sweep.get("task_transfer_seed_offset", -1)) != 4000:
             raise ValueError("Transfer Exp response-shape localization must use seed 4000")
@@ -584,7 +591,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
             "graph_color": "65c02a38a4339888d2e485c277fa1668a5e0309fab857e3ae2b2b2c0dc862f9d",
             "wikisql": "e42e516dbbe0bfd0f9fd00f5dec22949f88503253a2235c8c81bd908af4779a0",
         }
-        if not isinstance(grid_hashes, Mapping) or set(grid_hashes) != transfer_tasks or (current_experiment != LAMBDA_COMPLETION_EXPERIMENT_ID and dict(grid_hashes) != expected_hashes):
+        if not isinstance(grid_hashes, Mapping) or set(grid_hashes) != transfer_tasks or (current_experiment not in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID) and dict(grid_hashes) != expected_hashes):
             raise ValueError("Transfer task-grid hashes drifted")
         if not isinstance(provenance, Mapping) or set(provenance) != transfer_tasks:
             raise ValueError("Transfer task-grid provenance must cover the exact eight tasks")
@@ -592,7 +599,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("Transfer task-grid provenance entries must be non-empty")
         for task in transfer_tasks:
             values = _task_lambdas(config, str(task))
-            if len(values) != len(set(values)) or (current_experiment != LAMBDA_COMPLETION_EXPERIMENT_ID and len(values) != 20):
+            if len(values) != len(set(values)) or (current_experiment == LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID and len(values) != (0 if task == "spiral_matrix" else 20)) or (current_experiment not in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID) and len(values) != 20):
                 raise ValueError(f"{task} Exp coefficient grid has invalid cardinality")
             if stable_hash(list(values)) != str(grid_hashes[task]):
                 raise ValueError(f"{task} coefficient grid does not match its locked hash")
@@ -711,8 +718,10 @@ def validate_config(config: Mapping[str, Any]) -> None:
         raise ValueError(f"The scheduler must expose exactly {expected_capacity} slots")
     if tuple(int(value) for value in execution["gpu_ids"]) != tuple(range(8)):
         raise ValueError("The default GPU pool must remain 0--7")
-    expected_waves = 13 if profile == SWEEP_PROFILE_COLDSTART else (
-        7 if profile == SWEEP_PROFILE_DENSE else 5
+    expected_waves = (
+        math.ceil(int(config["sweep"]["expected_cells"]) / expected_capacity)
+        if profile == SWEEP_PROFILE_COLDSTART
+        else (7 if profile == SWEEP_PROFILE_DENSE else 5)
     )
     if int(execution["slots_per_gpu"]) != 2 or int(execution["expected_waves"]) != expected_waves:
         raise ValueError(
@@ -870,7 +879,7 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
         return cells
     if _is_coldstart(config):
         cells: list[Cell] = []
-        lambda_only = experiment_id(config) == LAMBDA_COMPLETION_EXPERIMENT_ID
+        lambda_only = experiment_id(config) in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID)
         countdown_coefficients = _task_lambdas(config, "countdown")
         for seed_offset in tuple(int(value) for value in config["sweep"]["countdown_seed_offsets"]):
             cells.append(
@@ -5729,7 +5738,7 @@ def _countdown_protocol_diagnostic(
                 or value.get("stop_reason") != "max_steps"
             ):
                 identity_failures.append(f"{cell.key}:protocol_identity")
-        countdown_not_run = experiment_id(config) == LAMBDA_COMPLETION_EXPERIMENT_ID
+        countdown_not_run = not countdown_cells
         diagnostic = {
             "schema_version": 1,
             "experiment_id": experiment_id(config),
@@ -6406,7 +6415,10 @@ def _aggregate_coldstart(
         for row in task_rows:
             coefficient_groups.setdefault((str(row["method"]), row["lambda"]), []).append(row)
         grouped = [aggregate_group(group) for group in coefficient_groups.values()]
-        positive = next(row for row in grouped if row["method"] == METHOD_POSITIVE_ONLY)
+        positive = next((row for row in grouped if row["method"] == METHOD_POSITIVE_ONLY), None)
+        if positive is None and experiment_id(config) != LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID:
+            raise RuntimeError("Cold-start aggregate requires Positive-only reference rows")
+        positive_score = None if positive is None else float(positive["late_window_pass8_mean"])
         grouped_exp = [row for row in grouped if row["method"] == METHOD_EXPONENTIAL]
         selectable = [row for row in grouped_exp if not row["nan_inf_failure"]]
         selected = (
@@ -6439,9 +6451,8 @@ def _aggregate_coldstart(
             "selected_exp": selected,
             "selected_on_grid_edge": selected_on_edge,
             "terminal_valid_rate_role": "diagnostic_only_not_selection_eligibility",
-            "all_exp_below_positive_only": all(
-                float(row["late_window_pass8_mean"]) < float(positive["late_window_pass8_mean"])
-                for row in grouped_exp
+            "all_exp_below_positive_only": None if positive_score is None else all(
+                float(row["late_window_pass8_mean"]) < positive_score for row in grouped_exp
             ),
             "grouped_curve": sorted(
                 grouped,
@@ -6455,7 +6466,7 @@ def _aggregate_coldstart(
         summary_rows.append(
             {
                 "task": task,
-                "positive_only_late_window_pass8_mean": positive["late_window_pass8_mean"],
+                "positive_only_late_window_pass8_mean": positive_score,
                 "selected_lambda": None if selected is None else selected["lambda"],
                 "selected_rho": None if selected is None else selected["rho"],
                 "selected_late_window_pass8_mean": (
@@ -6482,7 +6493,7 @@ def _aggregate_coldstart(
         "tasks": summaries,
         "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
         "initialization": dict(config["initialization"]),
-        "positive_only_and_exp_share_fresh_initialization": True,
+        "positive_only_and_exp_share_fresh_initialization": bool(tuple(config["sweep"].get("transfer_positive_only_seed_offsets", ()))),
         "scientific_kernel": "canonical_old_coldstart_imports",
         "canonical_source_git_blob_shas": dict(
             config["canonical_coldstart"]["expected_git_blob_shas"]
@@ -6710,11 +6721,10 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             reproduction_gate_status = str(
                 json.loads(protocol_path.read_text(encoding="utf-8")).get("status")
             )
+        expected_protocol_status = "NOT_RUN_ENGINEERING" if _is_engineering_self_test(config) else ("NOT_RUN" if not any(cell.task == "countdown" for cell in cells) else "PASS")
         aggregate_complete = aggregate_path.is_file() and int(
             json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0)
-        ) == len(cells) and reproduction_gate_status == (
-            "NOT_RUN_ENGINEERING" if _is_engineering_self_test(config) else "PASS"
-        )
+        ) == len(cells) and reproduction_gate_status == expected_protocol_status
     all_complete = (
         not missing and not incomplete and not nan_inf and inherited_complete and aggregate_complete
     )

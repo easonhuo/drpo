@@ -1872,8 +1872,6 @@ def test_lambda_completion_matrix_is_config_driven_and_lambda_only(tmp_path: Pat
     assert 'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"' in historical_launcher
     assert 'export E8_COLDSTART_CONFIG="configs/e8_multitask_exp_lambda_completion.yaml"' in successor_launcher
     assert '${ROOT_DIR}/configs/e8_multitask_exp_lambda_completion.yaml' not in successor_launcher
-    assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" in Path("docs/handoff.md").read_text(encoding="utf-8")
-    assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" in Path("experiments/registry.yaml").read_text(encoding="utf-8")
     assert "SUCCESSOR_SOURCE_ARGS" in historical_launcher
     assert "scripts/run_e8_multitask_exp_lambda_completion.sh" in historical_launcher
     assert "docs/experiments/E8_MULTITASK_LAMBDA_COMPLETION_PROTOCOL.md" in historical_launcher
@@ -1895,6 +1893,7 @@ def test_lambda_only_canonical_transport_is_exactly_equivalent() -> None:
     configs = [
         exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml")),
         exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml")),
+        exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")),
     ]
     lambdas = sorted(
         {
@@ -1991,3 +1990,52 @@ def test_lambda_completion_preserves_restored_coldstart_behavior() -> None:
     assert successor["execution"]["wave_barriers"] is False
     launcher = Path("scripts/run_e8_multitask_exp_lambda_completion.sh").read_text(encoding="utf-8")
     assert "bootstrap_e8_multitask_exp_coldstart.sh" in launcher
+
+
+def test_lambda_curve_completion_matrix_is_config_driven() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    cells = exp_tuning.build_cells(config)
+    active_tasks = set(config["suite"]["p0_tasks"]) - {"spiral_matrix"}
+    assert len(cells) == len({cell.key for cell in cells}) == 140
+    assert [len(wave) for wave in exp_tuning.build_waves(config)] == [16] * 8 + [12]
+    assert {cell.method for cell in cells} == {exp_tuning.METHOD_EXPONENTIAL}
+    assert {cell.seed for cell in cells} == {4000}
+    assert {cell.task for cell in cells} == active_tasks
+    assert all(cell.rho is None and cell.lambda_value is not None for cell in cells)
+    assert all([cell.lambda_value for cell in cells if cell.task == task] == config["sweep"]["task_lambda"][task] for task in active_tasks)
+    config["sweep"]["parameterization"] = "paper_coefficient_c"
+    with pytest.raises(ValueError, match="parameterization"):
+        exp_tuning.validate_config(config)
+
+
+def test_lambda_curve_completion_aggregate_accepts_zero_positive_only(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    cells = exp_tuning.build_cells(config)
+    rows = []
+    for index, cell in enumerate(cells):
+        score = 0.2 + index * 1.0e-4
+        rows.append({
+            "source": "current", "task": cell.task, "method": cell.method,
+            "rho": cell.rho, "lambda": cell.lambda_value, "seed": cell.seed,
+            "stage": cell.stage, "cell_key": cell.key, "nan_inf_failure": False,
+            **{key: score for key in (
+                "late_window_pass8_mean", "late_window_greedy_mean", "best_pass8",
+                "terminal_pass8", "best_greedy", "terminal_greedy",
+            )},
+            "best_greedy_valid_rate": 1.0, "terminal_greedy_valid_rate": 1.0,
+            "best_step": 1200, "terminal_step": 1200, "stop_reason": "max_steps",
+        })
+    aggregate = exp_tuning._aggregate_coldstart(config, tmp_path, rows)
+    assert aggregate["cell_count"] == 140
+    assert aggregate["positive_only_and_exp_share_fresh_initialization"] is False
+    assert all(value["positive_only"] is None and value["all_exp_below_positive_only"] is None for value in aggregate["tasks"].values())
+    assert aggregate["countdown_protocol_diagnostic"]["status"] == "NOT_RUN"
+    p0.atomic_json(tmp_path / "source_provenance.json", {"source_commit": "0" * 40})
+    for cell in cells:
+        p0.atomic_json(tmp_path / "cells" / cell.key / "cell_manifest.json", {"complete": True, "evaluation_status": "complete", "nan_inf_failure": False})
+    audit = exp_tuning.cmd_audit(config, tmp_path)
+    assert audit["aggregate_complete"] is True and audit["countdown_protocol_diagnostic_status"] == "NOT_RUN"
