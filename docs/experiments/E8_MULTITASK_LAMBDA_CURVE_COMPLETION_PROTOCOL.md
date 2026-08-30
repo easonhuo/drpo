@@ -102,40 +102,55 @@ Before launch, acceptance must verify:
 
 Default Run ID: `E8_MULTITASK_EXP_LAMBDA_CURVE_COMPLETION_02`.
 
-Reviewed-branch pilot launch reuses the generic bootstrap but pins the canonical experiment branch explicitly. The command refuses a dirty checkout, fast-forwards the local canonical branch to `origin`, and verifies exact source/remote commit equality before the full bootstrap. It therefore cannot silently target `main` or a detached/incorrect branch.
+The reviewed-branch pilot launch below is fresh-machine safe at the repository level. It uses a dedicated source checkout under `$HOME`, clones the canonical experiment branch when absent, otherwise requires the dedicated checkout to be clean and fast-forwards it only. Exact equality with `origin/dev/e8-multitask-lambda-curve-completion-02` is checked before the full bootstrap, so an unrelated `main` checkout, detached HEAD, or another project working tree cannot silently become the experiment source. The host must already provide `bash`, `git`, Python/pip, NVIDIA drivers, and network access; the bootstrap performs the remaining software, GPU, disk, source-lock, liveness, scheduler, recovery, and packaging gates.
 
 ```bash
 set -euo pipefail
-ROOT_DIR="$(git rev-parse --show-toplevel)"
+REPO_URL="https://github.com/easonhuo/drpo.git"
 BRANCH="dev/e8-multitask-lambda-curve-completion-02"
+SOURCE_ROOT="${HOME}/drpo-e8-lambda-curve-completion-02-source"
+BOOTSTRAP_ROOT="${HOME}/drpo-e8-multitask-exp-lambda-curve-completion-full"
 
-test -z "$(git -C "${ROOT_DIR}" status --porcelain)" || {
-  echo "ERROR: source checkout is dirty; commit or stash changes before launch." >&2
+command -v git >/dev/null 2>&1 || {
+  echo "ERROR: git is required before launch." >&2
   exit 1
 }
 
-git -C "${ROOT_DIR}" fetch origin "${BRANCH}"
-if git -C "${ROOT_DIR}" show-ref --verify --quiet "refs/heads/${BRANCH}"; then
-  git -C "${ROOT_DIR}" switch "${BRANCH}"
-else
-  git -C "${ROOT_DIR}" switch --track -c "${BRANCH}" "origin/${BRANCH}"
+if [[ -e "${SOURCE_ROOT}" && ! -d "${SOURCE_ROOT}/.git" ]]; then
+  echo "ERROR: ${SOURCE_ROOT} exists but is not the dedicated git checkout." >&2
+  exit 1
 fi
-git -C "${ROOT_DIR}" merge --ff-only "origin/${BRANCH}"
 
-test "$(git -C "${ROOT_DIR}" rev-parse HEAD)" = "$(git -C "${ROOT_DIR}" rev-parse "origin/${BRANCH}")" || {
-  echo "ERROR: local source commit does not exactly match origin/${BRANCH}." >&2
+if [[ ! -d "${SOURCE_ROOT}/.git" ]]; then
+  git clone --branch "${BRANCH}" --single-branch "${REPO_URL}" "${SOURCE_ROOT}"
+else
+  test -z "$(git -C "${SOURCE_ROOT}" status --porcelain)" || {
+    echo "ERROR: dedicated source checkout is dirty; resolve it before launch." >&2
+    exit 1
+  }
+  git -C "${SOURCE_ROOT}" fetch origin "${BRANCH}"
+  if git -C "${SOURCE_ROOT}" show-ref --verify --quiet "refs/heads/${BRANCH}"; then
+    git -C "${SOURCE_ROOT}" switch "${BRANCH}"
+  else
+    git -C "${SOURCE_ROOT}" switch --track -c "${BRANCH}" "origin/${BRANCH}"
+  fi
+  git -C "${SOURCE_ROOT}" merge --ff-only "origin/${BRANCH}"
+fi
+
+test "$(git -C "${SOURCE_ROOT}" rev-parse HEAD)" = "$(git -C "${SOURCE_ROOT}" rev-parse "origin/${BRANCH}")" || {
+  echo "ERROR: dedicated source commit does not exactly match origin/${BRANCH}." >&2
   exit 1
 }
 
-E8_COLDSTART_EXISTING_REPO="${ROOT_DIR}" \
-E8_COLDSTART_BOOTSTRAP_ROOT="${ROOT_DIR}/../drpo-e8-multitask-exp-lambda-curve-completion-full" \
+E8_COLDSTART_EXISTING_REPO="${SOURCE_ROOT}" \
+E8_COLDSTART_BOOTSTRAP_ROOT="${BOOTSTRAP_ROOT}" \
 E8_COLDSTART_TARGET_REF="refs/heads/${BRANCH}" \
 E8_COLDSTART_EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02" \
 E8_COLDSTART_CONFIG="configs/e8_multitask_exp_lambda_curve_completion.yaml" \
 E8_COLDSTART_RUN_ID="E8_MULTITASK_EXP_LAMBDA_CURVE_COMPLETION_02" \
 E8_COLDSTART_RUN_CLASS="pilot" \
 E8_COLDSTART_REQUIRE_ORIGIN_MAIN="0" \
-bash "${ROOT_DIR}/scripts/bootstrap_e8_multitask_exp_coldstart.sh" full
+bash "${SOURCE_ROOT}/scripts/bootstrap_e8_multitask_exp_coldstart.sh" full
 ```
 
 Outputs use the existing E8 cold-start runtime/package layout and must include raw per-cell curves, aggregate response tables, logs, run manifest, `RUN_COMPLETE.json`, terminal audit, source/config provenance, checksums, and failure inventory when applicable.
