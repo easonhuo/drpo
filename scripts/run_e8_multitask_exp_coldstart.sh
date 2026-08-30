@@ -68,6 +68,10 @@ if [[ "${EXPERIMENT_ID}" == "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" ]]; th
     --source-file scripts/run_e8_multitask_exp_lambda_completion.sh
     --source-file docs/experiments/E8_MULTITASK_LAMBDA_COMPLETION_PROTOCOL.md
   )
+elif [[ "${EXPERIMENT_ID}" == "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02" ]]; then
+  SUCCESSOR_SOURCE_ARGS=(
+    --source-file docs/experiments/E8_MULTITASK_LAMBDA_CURVE_COMPLETION_PROTOCOL.md
+  )
 fi
 
 case "${RUN_CLASS}" in
@@ -165,9 +169,11 @@ snapshot_download(
 )
 PY
   preflight_gpu
+  python -m pytest -q "${ROOT_DIR}/tests/test_e8_multitask_p0.py"
+  # This cold-start family uses the paper Linear/extension path; Reciprocal and AsymRE are separate experiments.
   python -m pytest -q \
-    "${ROOT_DIR}/tests/test_e8_multitask_p0.py" \
-    "${ROOT_DIR}/tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py"
+    "${ROOT_DIR}/tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py" \
+    -k "not reciprocal and not asymre"
   python - <<PY
 from pathlib import Path
 from drpo.e8_multitask_exp_tuning import (
