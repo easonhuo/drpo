@@ -102,11 +102,31 @@ Before launch, acceptance must verify:
 
 Default Run ID: `E8_MULTITASK_EXP_LAMBDA_CURVE_COMPLETION_02`.
 
-Reviewed-branch pilot launch reuses the generic bootstrap, discovers the repository root automatically, and binds the current branch as the authoritative target:
+Reviewed-branch pilot launch reuses the generic bootstrap but pins the canonical experiment branch explicitly. The command refuses a dirty checkout, fast-forwards the local canonical branch to `origin`, and verifies exact source/remote commit equality before the full bootstrap. It therefore cannot silently target `main` or a detached/incorrect branch.
 
 ```bash
-ROOT_DIR="$(git rev-parse --show-toplevel)" && \
-BRANCH="$(git -C "${ROOT_DIR}" branch --show-current)" && \
+set -euo pipefail
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+BRANCH="dev/e8-multitask-lambda-curve-completion-02"
+
+test -z "$(git -C "${ROOT_DIR}" status --porcelain)" || {
+  echo "ERROR: source checkout is dirty; commit or stash changes before launch." >&2
+  exit 1
+}
+
+git -C "${ROOT_DIR}" fetch origin "${BRANCH}"
+if git -C "${ROOT_DIR}" show-ref --verify --quiet "refs/heads/${BRANCH}"; then
+  git -C "${ROOT_DIR}" switch "${BRANCH}"
+else
+  git -C "${ROOT_DIR}" switch --track -c "${BRANCH}" "origin/${BRANCH}"
+fi
+git -C "${ROOT_DIR}" merge --ff-only "origin/${BRANCH}"
+
+test "$(git -C "${ROOT_DIR}" rev-parse HEAD)" = "$(git -C "${ROOT_DIR}" rev-parse "origin/${BRANCH}")" || {
+  echo "ERROR: local source commit does not exactly match origin/${BRANCH}." >&2
+  exit 1
+}
+
 E8_COLDSTART_EXISTING_REPO="${ROOT_DIR}" \
 E8_COLDSTART_BOOTSTRAP_ROOT="${ROOT_DIR}/../drpo-e8-multitask-exp-lambda-curve-completion-full" \
 E8_COLDSTART_TARGET_REF="refs/heads/${BRANCH}" \
