@@ -572,8 +572,10 @@ def validate_config(config: Mapping[str, Any]) -> None:
         )
         if len(countdown_seeds) != len(set(countdown_seeds)):
             raise ValueError("Countdown seed offsets must be unique")
-        if countdown_seeds and not countdown_values:
-            raise ValueError("Countdown seeds require configured Countdown lambda sentinels")
+        if bool(countdown_values) != bool(countdown_seeds):
+            raise ValueError(
+                "Countdown lambda grid and seed offsets must be enabled or disabled together"
+            )
 
         transfer_positive_seeds = tuple(
             int(value) for value in sweep.get("transfer_positive_only_seed_offsets", ())

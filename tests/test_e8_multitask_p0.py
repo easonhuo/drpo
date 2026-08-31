@@ -1865,6 +1865,7 @@ def test_lambda_completion_matrix_is_config_driven_and_lambda_only(tmp_path: Pat
     waves = exp_tuning.build_waves(config)
     assert len(cells) == config["sweep"]["expected_cells"] == 199
     assert [len(wave) for wave in waves] == [16] * 12 + [7]
+    assert config["sweep"]["task_lambda"]["countdown"] == []
     assert not any(cell.task == "countdown" for cell in cells)
     assert exp_tuning._coldstart_completed_task_rows(config, tmp_path, "countdown") is None
     successor_launcher = Path("scripts/run_e8_multitask_exp_lambda_completion.sh").read_text(encoding="utf-8")
@@ -2075,6 +2076,29 @@ def test_coldstart_sweep_instance_is_config_only() -> None:
     bad["sweep"]["expected_cells"] += 1
     with pytest.raises(ValueError, match="expected_cells"):
         exp_tuning.validate_config(bad)
+
+
+def test_coldstart_countdown_enablement_is_config_consistent() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+
+    values_without_seeds = copy.deepcopy(config)
+    values_without_seeds["sweep"]["countdown_seed_offsets"] = []
+    with pytest.raises(ValueError, match="enabled or disabled together"):
+        exp_tuning.validate_config(values_without_seeds)
+
+    seeds_without_values = copy.deepcopy(config)
+    seeds_without_values["sweep"]["task_lambda"]["countdown"] = []
+    with pytest.raises(ValueError, match="enabled or disabled together"):
+        exp_tuning.validate_config(seeds_without_values)
+
+
+def test_generic_coldstart_runner_has_no_successor_id_control_flow() -> None:
+    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    assert "SUCCESSOR_SOURCE_ARGS" not in runner
+    assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" not in runner
+    assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02" not in runner
 
 
 def test_lambda_curve_completion_aggregate_accepts_zero_positive_only(tmp_path: Path) -> None:

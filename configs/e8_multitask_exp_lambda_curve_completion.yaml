@@ -188,7 +188,7 @@ sweep:
     graph_color: ebbbf01c8321f21b20fc79484f7cd01e1b195e6f137bf4fcb754048a94946b67
     wikisql: 622e405617b7fd6762fdd984f5e4ef2aadbd377b3998bef461caa941d4ba4673
   task_lambda:
-    countdown: *id002
+    countdown: []
     word_sorting:
     - 13.0
     - 14.613200623048
