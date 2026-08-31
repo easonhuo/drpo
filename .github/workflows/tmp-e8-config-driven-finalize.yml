@@ -29,20 +29,22 @@ jobs:
           text = core.read_text(encoding="utf-8")
           old = '''        if countdown_seeds and not countdown_values:\n            raise ValueError("Countdown seeds require configured Countdown lambda sentinels")\n'''
           new = '''        if bool(countdown_values) != bool(countdown_seeds):\n            raise ValueError(\n                "Countdown lambda grid and seed offsets must be enabled or disabled together"\n            )\n'''
-          assert text.count(old) == 1, text.count(old)
-          text = text.replace(old, new)
+          assert old in text
+          text = text.replace(old, new, 1)
+          assert "Countdown seeds require configured Countdown lambda sentinels" not in text
           core.write_text(text, encoding="utf-8")
 
           runner = Path("scripts/run_e8_multitask_exp_coldstart.sh")
           text = runner.read_text(encoding="utf-8")
-          old = '''SUCCESSOR_SOURCE_ARGS=()\nif [[ "${EXPERIMENT_ID}" == "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" ]]; then\n  SUCCESSOR_SOURCE_ARGS=(\n    --source-file scripts/run_e8_multitask_exp_lambda_completion.sh\n    --source-file docs/experiments/E8_MULTITASK_LAMBDA_COMPLETION_PROTOCOL.md\n  )\nelif [[ "${EXPERIMENT_ID}" == "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02" ]]; then\n  SUCCESSOR_SOURCE_ARGS=(\n    --source-file docs/experiments/E8_MULTITASK_LAMBDA_CURVE_COMPLETION_PROTOCOL.md\n  )\nfi\n\n'''
-          assert text.count(old) == 1, text.count(old)
-          text = text.replace(old, "")
-          count = text.count('      "${SUCCESSOR_SOURCE_ARGS[@]}" \\\n') + text.count('    "${SUCCESSOR_SOURCE_ARGS[@]}" \\\n')
-          assert count >= 1, count
-          text = text.replace('      "${SUCCESSOR_SOURCE_ARGS[@]}" \\\n', "")
-          text = text.replace('    "${SUCCESSOR_SOURCE_ARGS[@]}" \\\n', "")
-          assert "SUCCESSOR_SOURCE_ARGS" not in text
+          start = text.index("SUCCESSOR_SOURCE_ARGS=()")
+          end = text.index('case "${RUN_CLASS}" in', start)
+          text = text[:start] + text[end:]
+          text = "".join(
+              line for line in text.splitlines(keepends=True)
+              if "SUCCESSOR_SOURCE_ARGS" not in line
+          )
+          assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" not in text
+          assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02" not in text
           runner.write_text(text, encoding="utf-8")
 
           for name in (
@@ -52,7 +54,7 @@ jobs:
               path = Path(name)
               text = path.read_text(encoding="utf-8")
               assert text.count("    countdown: *id002\n") == 1, name
-              text = text.replace("    countdown: *id002\n", "    countdown: []\n")
+              text = text.replace("    countdown: *id002\n", "    countdown: []\n", 1)
               path.write_text(text, encoding="utf-8")
 
           tests = Path("tests/test_e8_multitask_p0.py")
@@ -60,12 +62,11 @@ jobs:
           marker = '''def test_lambda_curve_completion_aggregate_accepts_zero_positive_only(tmp_path: Path) -> None:\n'''
           assert text.count(marker) == 1
           addition = '''def test_coldstart_countdown_enablement_is_config_consistent() -> None:\n    from drpo import e8_multitask_exp_tuning as exp_tuning\n\n    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))\n\n    values_without_seeds = copy.deepcopy(config)\n    values_without_seeds["sweep"]["countdown_seed_offsets"] = []\n    with pytest.raises(ValueError, match="enabled or disabled together"):\n        exp_tuning.validate_config(values_without_seeds)\n\n    seeds_without_values = copy.deepcopy(config)\n    seeds_without_values["sweep"]["task_lambda"]["countdown"] = []\n    with pytest.raises(ValueError, match="enabled or disabled together"):\n        exp_tuning.validate_config(seeds_without_values)\n\n\ndef test_generic_coldstart_runner_has_no_successor_id_control_flow() -> None:\n    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")\n    assert "SUCCESSOR_SOURCE_ARGS" not in runner\n    assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" not in runner\n    assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02" not in runner\n\n\n'''
-          text = text.replace(marker, addition + marker)
-
-          old = '''    assert not any(cell.task == "countdown" for cell in cells)\n'''
-          assert old in text
+          text = text.replace(marker, addition + marker, 1)
+          old_assert = '''    assert not any(cell.task == "countdown" for cell in cells)\n'''
+          assert old_assert in text
           text = text.replace(
-              old,
+              old_assert,
               '''    assert config["sweep"]["task_lambda"]["countdown"] == []\n    assert not any(cell.task == "countdown" for cell in cells)\n''',
               1,
           )
