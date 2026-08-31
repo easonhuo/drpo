@@ -26,6 +26,17 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Repair temporary patcher quoting
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("scripts/_tmp_apply_e8_config_driven_review_fixes.py")
+          text = path.read_text(encoding="utf-8")
+          text = text.replace("\\\n", "\\\\\n")
+          path.write_text(text, encoding="utf-8")
+          compile(text, str(path), "exec")
+          PY
+
       - name: Apply reviewer fixes
         run: python scripts/_tmp_apply_e8_config_driven_review_fixes.py
 
