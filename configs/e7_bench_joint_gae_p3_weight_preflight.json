@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "profile_id": "d4rl9_common_c_p3_left_saturation",
+  "status": "contract_only_not_executed",
+  "source": "optional diagnostic over compatible saved learner-relative distance evidence",
+  "training_updates": 0,
+  "remoteness_scales": [
+    0.01,
+    0.005623413251903491,
+    0.0031622776601683794,
+    0.0017782794100389228,
+    0.001,
+    0.0005623413251903491,
+    0.00031622776601683794,
+    0.00017782794100389227,
+    0.0001
+  ],
+  "formula": "w(D)=w(0)*exp(-taper_lambda*relu((D-remoteness_threshold)/remoteness_scale))",
+  "reference_distance": 2.0,
+  "remoteness_threshold": 0.0,
+  "taper_lambda": 1.0,
+  "required_metrics": [
+    "weight_p50",
+    "weight_p90",
+    "weight_p99",
+    "effective_negative_mass_fraction",
+    "weight_lt_1e-3_fraction",
+    "weight_lt_1e-6_fraction"
+  ],
+  "required_strata": ["overall", "environment", "tier"],
+  "point_pruning_allowed": false,
+  "launch_gate": "not_a_launch_gate_owner_authorized_full_180_branch_run_on_2026_07_22",
+  "limitations": [
+    "This optional diagnostic does not authorize pruning or changing any registered c point.",
+    "Absence of a compatible raw-distance artifact does not block the owner-authorized full run."
+  ]
+}
