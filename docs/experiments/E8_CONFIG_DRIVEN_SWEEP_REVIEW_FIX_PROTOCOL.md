@@ -1,6 +1,6 @@
 # E8 config-driven sweep repair invariants
 
-Status: third-pass engineering validation staged / not a scientific result.
+Status: fourth-pass engineering review in progress / not a scientific result.
 
 Scope: harden the `eight_task_coldstart_lambda_v1` orchestration refactor introduced by PR #340 without changing the frozen scientific kernel, paper taper, current-policy surprisal, all-unique-negative consumer, 1200-update horizon, optimizer, data, task runtime, scheduler topology, or result interpretation.
 
@@ -15,10 +15,11 @@ Scope: harden the `eight_task_coldstart_lambda_v1` orchestration refactor introd
 7. A zero-cell cold-start sweep is invalid and must fail during config validation rather than later in wave construction.
 8. Empty task lambda grids mean zero scientific cells for that task. For Countdown this additionally requires empty scheduled Countdown seeds. Engineering liveness remains available because it is bound to the canonical paper smoke configuration rather than to scheduled scientific cells.
 9. Aggregate, task-result, audit, recovery, and nominal-wave geometry must be derived from `build_cells(config)`; task-performance events, support/structure diagnostics, and NaN/Inf events remain reported separately.
-10. Temporary CI trigger files, temporary repair scripts, and temporary workflow overrides must not remain in the final PR tree.
+10. Run identity must not silently inherit the historical base cold-start Run ID when another config is selected. The default config `configs/e8_multitask_exp_coldstart.yaml` may retain its frozen default Run ID `E8_MULTITASK_EXP_COLDSTART_20260820_02`. Every non-default config must provide an explicit `E8_COLDSTART_RUN_ID`; otherwise the runner must fail before constructing guard, output, recovery, or package paths. Existing Lambda-Completion and Lambda-Curve launch protocols already provide distinct Run IDs and must remain unchanged.
+11. Temporary CI trigger files, temporary repair scripts, and temporary workflow overrides must not remain in the final PR tree.
 
 ## Required regression checks
 
-The final branch must preserve the existing 208/199/140 cell matrices and wave geometry; accept a synthetic unseen experiment ID with changed transfer grids/seeds/cell count; reject drift under each frozen historical ID including task-order drift; reject malformed/non-integer seeds and zero-cell matrices; preserve the exact `c=0.693147181`, seed-4000 Countdown liveness identity even when zero Countdown scientific cells are scheduled; reject stale/mislabeled liveness manifests during recovery; verify runner/bootstrap config identity resolution and mismatch rejection for plain, quoted, and comment-bearing safe YAML scalars; verify optional transfer Global endpoints without treating `lambda=0` as Exp; and run Python compilation, shell syntax checks, focused E8 tests, `git diff --check`, plus the repository PR gate.
+The final branch must preserve the existing 208/199/140 cell matrices and wave geometry; accept a synthetic unseen experiment ID with changed transfer grids/seeds/cell count; reject drift under each frozen historical ID including task-order drift; reject malformed/non-integer seeds and zero-cell matrices; preserve the exact `c=0.693147181`, seed-4000 Countdown liveness identity even when zero Countdown scientific cells are scheduled; reject stale/mislabeled liveness manifests during recovery; verify runner/bootstrap config identity resolution and mismatch rejection for plain, quoted, and comment-bearing safe YAML scalars; verify that the default config keeps its historical Run ID while any non-default config without `E8_COLDSTART_RUN_ID` fails closed before path construction; verify optional transfer Global endpoints without treating `lambda=0` as Exp; and run Python compilation, shell syntax checks, focused E8 tests, `git diff --check`, plus the repository PR gate.
 
 No smoke test, static check, focused unit test, or engineering liveness result produced under this protocol is a scientific result.
