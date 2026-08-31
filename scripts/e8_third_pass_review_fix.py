@@ -283,4 +283,16 @@ extra = textwrap.dedent(extra)
 if text.count(marker) != 1 or "test_runner_and_bootstrap_config_id_parser_accepts_yaml_presentation" in text:
     raise SystemExit("cannot insert config parser test")
 text = text.replace(marker, extra + marker, 1)
+
+# Two pre-existing assertions still described the old sed/mapfile parser. They
+# should follow the config-authority invariant rather than pinning the removed
+# implementation detail.
+stale_assert = "    assert 'CONFIG_EXPERIMENT_ID=\"${config_experiment_ids[0]}\"' in bootstrap\n"
+updated_assert = "    assert 'CONFIG_EXPERIMENT_ID=\"$(read_config_experiment_id \"${CONFIG_PATH}\")\"' in bootstrap\n"
+if text.count(stale_assert) != 2:
+    raise SystemExit(
+        f"expected two stale bootstrap parser assertions, found {text.count(stale_assert)}"
+    )
+text = text.replace(stale_assert, updated_assert)
+
 tests.write_text(text, encoding="utf-8")
