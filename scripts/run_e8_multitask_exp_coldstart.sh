@@ -2,7 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"
+EXPERIMENT_ID_OVERRIDE="${E8_COLDSTART_EXPERIMENT_ID:-}"
+EXPERIMENT_ID=""
 CONFIG_PATH="${E8_COLDSTART_CONFIG:-${ROOT_DIR}/configs/e8_multitask_exp_coldstart.yaml}"
 P0_CONFIG_PATH="${E8_COLDSTART_P0_CONFIG:-${ROOT_DIR}/configs/e8_multitask_p0.yaml}"
 RUN_ID="${E8_COLDSTART_RUN_ID:-E8_MULTITASK_EXP_COLDSTART_20260820_02}"
@@ -61,6 +62,23 @@ PY_CONFIG
 }
 
 resolve_config_repo_path
+
+resolve_experiment_id() {
+  local matches=()
+  mapfile -t matches < <(
+    sed -nE 's/^experiment_id:[[:space:]]*([A-Za-z0-9][A-Za-z0-9._-]{0,127})[[:space:]]*$/\1/p' "${CONFIG_PATH}"
+  )
+  [[ "${#matches[@]}" -eq 1 ]] || \
+    fail "config must contain exactly one well-formed top-level experiment_id: ${CONFIG_REPO_PATH}"
+  local config_experiment_id="${matches[0]}"
+  if [[ -n "${EXPERIMENT_ID_OVERRIDE}" && "${EXPERIMENT_ID_OVERRIDE}" != "${config_experiment_id}" ]]; then
+    fail "experiment_id mismatch: env=${EXPERIMENT_ID_OVERRIDE} config=${config_experiment_id}"
+  fi
+  EXPERIMENT_ID="${config_experiment_id}"
+  export E8_COLDSTART_EXPERIMENT_ID="${EXPERIMENT_ID}"
+}
+
+resolve_experiment_id
 
 # Source provenance follows the selected config, not an experiment-ID branch.
 CONFIG_SOURCE_ARGS=()
@@ -706,9 +724,29 @@ calibrate() {
 liveness() {
   check_source
   activate_runtime
+  local liveness_lambda
+  liveness_lambda="$(python - "${CONFIG_PATH}" <<'PY_LIVENESS'
+import math
+import sys
+from pathlib import Path
+
+import yaml
+
+config = yaml.safe_load(Path(sys.argv[1]).read_text(encoding="utf-8"))
+values = [float(value) for value in config["sweep"]["task_lambda"]["countdown"]]
+if not values:
+    raise SystemExit("Countdown liveness anchor grid is empty")
+preferred = 0.916290732
+selected = next(
+    (value for value in values if math.isclose(value, preferred, rel_tol=0.0, abs_tol=1.0e-15)),
+    values[0],
+)
+print(f"{selected:.17g}")
+PY_LIVENESS
+)"
   CUDA_VISIBLE_DEVICES=0 LOCAL_RANK=0 run_module liveness \
     --task countdown \
-    --lambda 0.916290732 \
+    --lambda "${liveness_lambda}" \
     --base-model-path "${MODEL_DIR}"
 }
 

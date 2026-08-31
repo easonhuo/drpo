@@ -1872,7 +1872,8 @@ def test_lambda_completion_matrix_is_config_driven_and_lambda_only(tmp_path: Pat
     successor_launcher = Path("scripts/run_e8_multitask_exp_lambda_completion.sh").read_text(encoding="utf-8")
     historical_launcher = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
     assert 'export E8_COLDSTART_EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"' in successor_launcher
-    assert 'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"' in historical_launcher
+    assert 'EXPERIMENT_ID_OVERRIDE="${E8_COLDSTART_EXPERIMENT_ID:-}"' in historical_launcher
+    assert 'EXPERIMENT_ID="${config_experiment_id}"' in historical_launcher
     assert 'export E8_COLDSTART_CONFIG="configs/e8_multitask_exp_lambda_completion.yaml"' in successor_launcher
     assert '${ROOT_DIR}/configs/e8_multitask_exp_lambda_completion.yaml' not in successor_launcher
     assert "SUCCESSOR_SOURCE_ARGS" not in historical_launcher
@@ -2024,7 +2025,6 @@ def test_coldstart_sweep_instance_is_config_only() -> None:
     sweep["tuning_seed"] = 5000
     sweep["transfer_positive_only_seed_offsets"] = [8000, 9000]
     sweep["countdown_seed_offsets"] = []
-    sweep["task_lambda"]["countdown"] = []
     sweep["task_lambda"]["word_sorting"] = [13.0, 15.0, 18.0]
     sweep["task_lambda"]["maze"] = []
 
@@ -2121,14 +2121,16 @@ def test_coldstart_countdown_anchor_and_seed_semantics_are_config_driven() -> No
     assert not any(cell.task == "countdown" for cell in exp_tuning.build_cells(completion))
 
     both_empty = copy.deepcopy(completion)
+    both_empty["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-EMPTY-COUNTDOWN-UNSEEN-TEST"
     both_empty["sweep"]["task_lambda"]["countdown"] = []
-    exp_tuning.validate_config(both_empty)
-    assert len(exp_tuning.build_cells(both_empty)) == 199
+    with pytest.raises(ValueError, match="locked paper grids"):
+        exp_tuning.validate_config(both_empty)
 
     cold = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
     seeds_without_values = copy.deepcopy(cold)
+    seeds_without_values["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-COUNTDOWN-SEEDS-NO-GRID-TEST"
     seeds_without_values["sweep"]["task_lambda"]["countdown"] = []
-    with pytest.raises(ValueError, match="Countdown seeds require"):
+    with pytest.raises(ValueError, match="locked paper grids"):
         exp_tuning.validate_config(seeds_without_values)
 
 
@@ -2139,6 +2141,126 @@ def test_generic_coldstart_runner_has_no_successor_id_control_flow() -> None:
     assert "${CONFIG_REPO_PATH}" in runner
     assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" not in runner
     assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02" not in runner
+
+
+def test_frozen_coldstart_ids_reject_scientific_matrix_drift() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    cases = (
+        Path("configs/e8_multitask_exp_coldstart.yaml"),
+        Path("configs/e8_multitask_exp_lambda_completion.yaml"),
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"),
+    )
+    for path in cases:
+        config = exp_tuning.load_config(path)
+        bad = copy.deepcopy(config)
+        bad["sweep"]["task_transfer_seed_offset"] += 1
+        with pytest.raises(ValueError, match="Frozen cold-start experiment identity drifted"):
+            exp_tuning.validate_config(bad)
+
+        bad = copy.deepcopy(config)
+        bad["sweep"]["include_global_endpoint"] = True
+        bad["sweep"]["expected_cells"] += sum(
+            bool(bad["sweep"]["task_lambda"][task])
+            for task in bad["suite"]["p0_tasks"]
+        )
+        with pytest.raises(ValueError, match="Frozen cold-start experiment identity drifted"):
+            exp_tuning.validate_config(bad)
+
+
+def test_generic_coldstart_global_endpoint_and_countdown_controls_are_config_driven() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-GLOBAL-ENDPOINT-UNSEEN-TEST"
+    sweep = config["sweep"]
+    sweep["include_global_endpoint"] = True
+    active_transfer_tasks = [
+        task for task in config["suite"]["p0_tasks"] if sweep["task_lambda"][task]
+    ]
+    sweep["expected_cells"] += len(active_transfer_tasks)
+    exp_tuning.validate_config(config)
+    cells = exp_tuning.build_cells(config)
+    for task in active_transfer_tasks:
+        globals_for_task = [
+            cell
+            for cell in cells
+            if cell.task == task and cell.method == exp_tuning.METHOD_GLOBAL
+        ]
+        assert len(globals_for_task) == 1
+        assert globals_for_task[0].lambda_value == 0.0
+        assert globals_for_task[0].seed == sweep["task_transfer_seed_offset"]
+
+    countdown_only = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    countdown_only["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-COUNTDOWN-CONTROLS-UNSEEN-TEST"
+    sweep = countdown_only["sweep"]
+    sweep["countdown_include_positive_only"] = False
+    sweep["transfer_positive_only_seed_offsets"] = []
+    for task in countdown_only["suite"]["p0_tasks"]:
+        sweep["task_lambda"][task] = []
+        sweep["task_grid_hashes"][task] = exp_tuning.stable_hash([])
+    sweep["expected_cells"] = len(sweep["countdown_seed_offsets"]) * (
+        1 + len(sweep["task_lambda"]["countdown"])
+    )
+    exp_tuning.validate_config(countdown_only)
+    countdown_cells = exp_tuning.build_cells(countdown_only)
+    assert countdown_cells
+    assert not any(
+        cell.method == exp_tuning.METHOD_POSITIVE_ONLY for cell in countdown_cells
+    )
+    assert sum(cell.method == exp_tuning.METHOD_GLOBAL for cell in countdown_cells) == 2
+
+
+def test_generic_countdown_grid_and_seed_are_limited_to_locked_worker_domain() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml"))
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-COUNTDOWN-GRID-UNSEEN-TEST"
+    config["sweep"]["task_lambda"]["countdown"] = [3.506557897]
+    exp_tuning.validate_config(config)
+
+    bad = copy.deepcopy(config)
+    bad["sweep"]["task_lambda"]["countdown"] = [13.0]
+    with pytest.raises(ValueError, match="locked paper grids"):
+        exp_tuning.validate_config(bad)
+
+    bad = copy.deepcopy(config)
+    bad["sweep"]["countdown_seed_offsets"] = [3000]
+    bad["sweep"]["expected_cells"] += 3
+    with pytest.raises(ValueError, match="locked paper seed offsets"):
+        exp_tuning.validate_config(bad)
+
+
+def test_generic_coldstart_rejects_zero_scientific_cells() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-ZERO-CELLS-UNSEEN-TEST"
+    sweep = config["sweep"]
+    sweep["countdown_seed_offsets"] = []
+    sweep["transfer_positive_only_seed_offsets"] = []
+    for task in config["suite"]["p0_tasks"]:
+        sweep["task_lambda"][task] = []
+        sweep["task_grid_hashes"][task] = exp_tuning.stable_hash([])
+    sweep["expected_cells"] = 0
+    with pytest.raises(ValueError, match="at least one scientific cell"):
+        exp_tuning.validate_config(config)
+
+
+def test_runner_and_bootstrap_derive_experiment_id_from_config() -> None:
+    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    assert 'EXPERIMENT_ID_OVERRIDE="${E8_COLDSTART_EXPERIMENT_ID:-}"' in runner
+    assert 'EXPERIMENT_ID="${config_experiment_id}"' in runner
+    assert "experiment_id mismatch: env=" in runner
+    assert 'EXPERIMENT_ID="${EXPERIMENT_ID_OVERRIDE:-UNRESOLVED_FROM_CONFIG}"' in bootstrap
+    assert 'CONFIG_EXPERIMENT_ID="${config_experiment_ids[0]}"' in bootstrap
+    assert "experiment_id mismatch: bootstrap=" in bootstrap
+    assert '--lambda "${liveness_lambda}"' in runner
 
 
 def test_lambda_curve_completion_aggregate_accepts_zero_positive_only(tmp_path: Path) -> None:

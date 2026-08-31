@@ -3,7 +3,8 @@ set -Eeuo pipefail
 
 umask 077
 
-EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"
+EXPERIMENT_ID_OVERRIDE="${E8_COLDSTART_EXPERIMENT_ID:-}"
+EXPERIMENT_ID="${EXPERIMENT_ID_OVERRIDE:-UNRESOLVED_FROM_CONFIG}"
 EXPECTED_REPOSITORY="https://github.com/easonhuo/drpo.git"
 MODE="${E8_COLDSTART_EXECUTION_MODE:-${1:-full}}"
 CURRENT_STAGE="bootstrap_init"
@@ -88,8 +89,18 @@ if [[ -e "${BOOTSTRAP_ROOT}" ]]; then
   [[ -d "${BOOTSTRAP_ROOT}" ]] || fail "bootstrap root exists but is not a directory"
   [[ -f "${STATE_FILE}" ]] || fail "existing bootstrap root has no identity state: ${STATE_FILE}"
   [[ -d "${CHECKOUT}" ]] || fail "existing bootstrap root has no isolated checkout: ${CHECKOUT}"
-  grep -Fqx "experiment_id=${EXPERIMENT_ID}" "${STATE_FILE}" || \
+  state_experiment_id="$(
+    sed -nE 's/^experiment_id=([A-Za-z0-9][A-Za-z0-9._-]{0,127})$/\1/p' "${STATE_FILE}"
+  )"
+  [[ -n "${state_experiment_id}" ]] || fail "existing bootstrap state has no readable experiment identity"
+  if [[ -n "${EXPERIMENT_ID_OVERRIDE}" \
+        && "${state_experiment_id}" != "${EXPERIMENT_ID_OVERRIDE}" \
+        && "${state_experiment_id}" != "UNRESOLVED_FROM_CONFIG" ]]; then
     fail "existing bootstrap state belongs to another experiment"
+  fi
+  if [[ -z "${EXPERIMENT_ID_OVERRIDE}" && "${state_experiment_id}" != "UNRESOLVED_FROM_CONFIG" ]]; then
+    EXPERIMENT_ID="${state_experiment_id}"
+  fi
   grep -Fqx "mode=${MODE}" "${STATE_FILE}" || \
     fail "existing bootstrap state was created for another mode"
   RESUME_BOOTSTRAP=1
@@ -232,6 +243,28 @@ fi
   fail "isolated checkout is not clean"
 [[ -f "${CHECKOUT}/scripts/run_e8_multitask_exp_coldstart.sh" ]] || \
   fail "target commit does not contain the reviewed experiment entrypoint"
+
+CURRENT_STAGE="resolve_config_identity"
+CONFIG_REPO_PATH="${E8_COLDSTART_CONFIG:-configs/e8_multitask_exp_coldstart.yaml}"
+[[ "${CONFIG_REPO_PATH}" != /* \
+   && "${CONFIG_REPO_PATH}" != ../* \
+   && "${CONFIG_REPO_PATH}" != *"/../"* \
+   && "${CONFIG_REPO_PATH}" != *"/.." ]] || \
+  fail "bootstrap config must be a repository-relative path without parent traversal"
+CONFIG_PATH="${CHECKOUT}/${CONFIG_REPO_PATH}"
+[[ -f "${CONFIG_PATH}" ]] || fail "target commit is missing config: ${CONFIG_REPO_PATH}"
+mapfile -t config_experiment_ids < <(
+  sed -nE 's/^experiment_id:[[:space:]]*([A-Za-z0-9][A-Za-z0-9._-]{0,127})[[:space:]]*$/\1/p' "${CONFIG_PATH}"
+)
+[[ "${#config_experiment_ids[@]}" -eq 1 ]] || \
+  fail "config must contain exactly one well-formed top-level experiment_id: ${CONFIG_REPO_PATH}"
+CONFIG_EXPERIMENT_ID="${config_experiment_ids[0]}"
+if [[ "${EXPERIMENT_ID}" != "UNRESOLVED_FROM_CONFIG" \
+      && "${EXPERIMENT_ID}" != "${CONFIG_EXPERIMENT_ID}" ]]; then
+  fail "experiment_id mismatch: bootstrap=${EXPERIMENT_ID} config=${CONFIG_EXPERIMENT_ID}"
+fi
+EXPERIMENT_ID="${CONFIG_EXPERIMENT_ID}"
+export E8_COLDSTART_EXPERIMENT_ID="${EXPERIMENT_ID}"
 
 BOOTSTRAP_STATUS="prepared"
 write_state "${BOOTSTRAP_STATUS}"

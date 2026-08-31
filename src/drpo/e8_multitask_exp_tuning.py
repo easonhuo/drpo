@@ -146,6 +146,82 @@ PAPER_EXTENSION_COEFFICIENTS = (
 )
 TASK_TRANSFER_COEFFICIENTS = PAPER_ROUND1_COEFFICIENTS + PAPER_EXTENSION_COEFFICIENTS[3:]
 PAPER_SEED_OFFSETS = (4000, 5000)
+COUNTDOWN_DIAGNOSTIC_SENTINELS = (
+    0.105360516,
+    0.430782916,
+    0.916290732,
+    1.897119985,
+    2.302585093,
+    2.995732274,
+)
+LOCKED_COUNTDOWN_COEFFICIENTS = frozenset(
+    PAPER_ROUND1_COEFFICIENTS + PAPER_EXTENSION_COEFFICIENTS
+)
+FROZEN_COLDSTART_SWEEP_IDENTITIES: dict[str, dict[str, Any]] = {
+    COLDSTART_EXPERIMENT_ID: {
+        "parameterization": "paper_coefficient_c",
+        "countdown_seed_offsets": (4000, 5000),
+        "countdown_include_positive_only": True,
+        "transfer_positive_only_seed_offsets": (4000, 5000, 6000, 7000),
+        "task_transfer_seed_offset": 4000,
+        "tuning_seed": 4000,
+        "expected_cells": 208,
+        "include_global_endpoint": False,
+        "countdown_values": COUNTDOWN_DIAGNOSTIC_SENTINELS,
+        "task_grid_hashes": {
+            "word_sorting": "d24edbd6099f1d4f081318b305e62b39834db7ab94af6b4279d706f94e8d6de3",
+            "spiral_matrix": "805966b9e3e1774e748d1d96ca64667e23276782681e15c1e072e5536a02199a",
+            "mini_sudoku": "2340c4729b70ae5bafb7b6bf07049f38056b18368749bba3b967b4bbd950e29c",
+            "maze": "399732f8572faf670a0486cd5f838d3956bfa56cabbb5ae79b8521fbbfc45d33",
+            "word_ladder": "4fff6be5b923b9071ae0ee949e734087330463072d9be02015a661e51a2689e4",
+            "knights_knaves": "37f675c933e909ac1ca8a6464c8ed72497758b31d1c8a82c855cad10961c4cab",
+            "graph_color": "65c02a38a4339888d2e485c277fa1668a5e0309fab857e3ae2b2b2c0dc862f9d",
+            "wikisql": "e42e516dbbe0bfd0f9fd00f5dec22949f88503253a2235c8c81bd908af4779a0",
+        },
+    },
+    LAMBDA_COMPLETION_EXPERIMENT_ID: {
+        "parameterization": "paper_lambda_c1",
+        "countdown_seed_offsets": (),
+        "countdown_include_positive_only": True,
+        "transfer_positive_only_seed_offsets": (8000, 9000),
+        "task_transfer_seed_offset": 4000,
+        "tuning_seed": 4000,
+        "expected_cells": 199,
+        "include_global_endpoint": False,
+        "countdown_values": COUNTDOWN_DIAGNOSTIC_SENTINELS,
+        "task_grid_hashes": {
+            "word_sorting": "99b23e7907c99405e4986f0f8445fa9a1dae157be433a9a40546864a18165313",
+            "spiral_matrix": "aa89682224279902104d19fe88782882897c14dd704c3f016cc1afeafd597f6a",
+            "mini_sudoku": "7344872db672909c35d18debbbaa97da549cc1f0e37902d8073a8d1d45f465fd",
+            "maze": "6862dfaa292a5cfcdfc0e5ed78c232d6c812f138a7073f1b5045b46ae2258562",
+            "word_ladder": "99b23e7907c99405e4986f0f8445fa9a1dae157be433a9a40546864a18165313",
+            "knights_knaves": "6862dfaa292a5cfcdfc0e5ed78c232d6c812f138a7073f1b5045b46ae2258562",
+            "graph_color": "c703de6803fd89b0a3d9247e210214f96f1b1aa734db05dd11be1ba4b29dd75c",
+            "wikisql": "1a56632b1143e245a5ac8607785220bf7380165a3314096e8fdf648aec23df5f",
+        },
+    },
+    LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID: {
+        "parameterization": "paper_lambda_c1",
+        "countdown_seed_offsets": (),
+        "countdown_include_positive_only": True,
+        "transfer_positive_only_seed_offsets": (),
+        "task_transfer_seed_offset": 4000,
+        "tuning_seed": 4000,
+        "expected_cells": 140,
+        "include_global_endpoint": False,
+        "countdown_values": COUNTDOWN_DIAGNOSTIC_SENTINELS,
+        "task_grid_hashes": {
+            "word_sorting": "70e407c4531b74ac7665fcad26eebb58333a215ad5fd671477b1ee9c441ea62d",
+            "spiral_matrix": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "mini_sudoku": "bcab21853d90c917d038aa44f96e45ca66cd4511aee35515291092dbf2e78619",
+            "maze": "2575a4b0d8b70346a1794f6bb03fa0c44b5ec78b08df65e4298fc48d68cae21d",
+            "word_ladder": "70e407c4531b74ac7665fcad26eebb58333a215ad5fd671477b1ee9c441ea62d",
+            "knights_knaves": "ac60739bf2dc004cd1a13949b6c340a06a345176f82812f6bd42ad297a01b9b4",
+            "graph_color": "ebbbf01c8321f21b20fc79484f7cd01e1b195e6f137bf4fcb754048a94946b67",
+            "wikisql": "622e405617b7fd6762fdd984f5e4ef2aadbd377b3998bef461caa941d4ba4673",
+        },
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -224,6 +300,41 @@ def experiment_id(config: Mapping[str, Any]) -> str:
             "experiment_id must match [A-Za-z0-9][A-Za-z0-9._-]{0,127}"
         )
     return value
+
+
+def _validate_frozen_coldstart_sweep_identity(config: Mapping[str, Any]) -> None:
+    expected = FROZEN_COLDSTART_SWEEP_IDENTITIES.get(experiment_id(config))
+    if expected is None:
+        return
+    sweep = config["sweep"]
+    observed = {
+        "parameterization": str(sweep.get("parameterization", "")),
+        "countdown_seed_offsets": tuple(
+            _configured_seed(value, "Countdown seed offset")
+            for value in sweep.get("countdown_seed_offsets", ())
+        ),
+        "countdown_include_positive_only": sweep.get(
+            "countdown_include_positive_only", True
+        ),
+        "transfer_positive_only_seed_offsets": tuple(
+            _configured_seed(value, "Transfer Positive-only seed offset")
+            for value in sweep.get("transfer_positive_only_seed_offsets", ())
+        ),
+        "task_transfer_seed_offset": _configured_seed(
+            sweep.get("task_transfer_seed_offset"), "Transfer Exp seed offset"
+        ),
+        "tuning_seed": _configured_seed(
+            sweep.get("tuning_seed"), "Cold-start tuning seed"
+        ),
+        "expected_cells": int(sweep.get("expected_cells", -1)),
+        "include_global_endpoint": sweep.get("include_global_endpoint", False),
+        "countdown_values": _task_lambdas(config, "countdown"),
+        "task_grid_hashes": dict(sweep.get("task_grid_hashes", {})),
+    }
+    if observed != expected:
+        raise ValueError(
+            f"Frozen cold-start experiment identity drifted for {experiment_id(config)}"
+        )
 
 
 def sweep_profile(config: Mapping[str, Any]) -> str:
@@ -564,22 +675,18 @@ def validate_config(config: Mapping[str, Any]) -> None:
                 "Cold-start parameterization must be paper_coefficient_c or paper_lambda_c1"
             )
 
-        countdown_sentinels = (
-            0.105360516,
-            0.430782916,
-            0.916290732,
-            1.897119985,
-            2.302585093,
-            2.995732274,
-        )
         if _tuple_floats(
             sweep.get("countdown_sentinel_coefficients", ())
-        ) != countdown_sentinels:
+        ) != COUNTDOWN_DIAGNOSTIC_SENTINELS:
             raise ValueError("Countdown sentinel coefficients drifted")
         countdown_values = _task_lambdas(config, "countdown")
-        if countdown_values and countdown_values != countdown_sentinels:
+        if (
+            not countdown_values
+            or len(countdown_values) != len(set(countdown_values))
+            or any(value not in LOCKED_COUNTDOWN_COEFFICIENTS for value in countdown_values)
+        ):
             raise ValueError(
-                "Configured Countdown lambdas must be empty or equal the six diagnostic sentinels"
+                "Countdown task_lambda must be a non-empty unique subset of the locked paper grids"
             )
         countdown_seeds = tuple(
             _configured_seed(value, "Countdown seed offset")
@@ -587,8 +694,18 @@ def validate_config(config: Mapping[str, Any]) -> None:
         )
         if len(countdown_seeds) != len(set(countdown_seeds)):
             raise ValueError("Countdown seed offsets must be unique")
-        if countdown_seeds and not countdown_values:
-            raise ValueError("Countdown seeds require configured Countdown lambda sentinels")
+        if any(value not in PAPER_SEED_OFFSETS for value in countdown_seeds):
+            raise ValueError(
+                "Countdown seed offsets must be a subset of the locked paper seed offsets"
+            )
+        countdown_include_positive_only = sweep.get(
+            "countdown_include_positive_only", True
+        )
+        if not isinstance(countdown_include_positive_only, bool):
+            raise ValueError("countdown_include_positive_only must be boolean")
+        include_global_endpoint = sweep.get("include_global_endpoint", False)
+        if not isinstance(include_global_endpoint, bool):
+            raise ValueError("include_global_endpoint must be boolean")
 
         transfer_positive_seeds = tuple(
             _configured_seed(value, "Transfer Positive-only seed offset")
@@ -618,12 +735,20 @@ def validate_config(config: Mapping[str, Any]) -> None:
             if values:
                 active_transfer_tasks.append(str(task))
 
-        expanded_cells = len(countdown_seeds) * (2 + len(countdown_values)) + sum(
-            len(transfer_positive_seeds) + len(_task_lambdas(config, task))
+        countdown_cells_per_seed = (
+            1 + int(countdown_include_positive_only) + len(countdown_values)
+        )
+        expanded_cells = len(countdown_seeds) * countdown_cells_per_seed + sum(
+            len(transfer_positive_seeds)
+            + int(include_global_endpoint)
+            + len(_task_lambdas(config, task))
             for task in active_transfer_tasks
         )
+        if expanded_cells <= 0:
+            raise ValueError("Cold-start sweep must schedule at least one scientific cell")
         if int(sweep.get("expected_cells", -1)) != expanded_cells:
             raise ValueError("Cold-start expected_cells must match the configured matrix")
+        _validate_frozen_coldstart_sweep_identity(config)
 
         initialization = config.get("initialization", {})
         if (
@@ -898,10 +1023,21 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
         cells: list[Cell] = []
         lambda_only = config["sweep"]["parameterization"] == "paper_lambda_c1"
         countdown_coefficients = _task_lambdas(config, "countdown")
+        countdown_include_positive_only = bool(
+            config["sweep"].get("countdown_include_positive_only", True)
+        )
+        include_global_endpoint = bool(config["sweep"].get("include_global_endpoint", False))
         for seed_offset in tuple(int(value) for value in config["sweep"]["countdown_seed_offsets"]):
-            cells.append(
-                Cell("countdown", METHOD_POSITIVE_ONLY, None, seed_offset, "countdown_sentinel")
-            )
+            if countdown_include_positive_only:
+                cells.append(
+                    Cell(
+                        "countdown",
+                        METHOD_POSITIVE_ONLY,
+                        None,
+                        seed_offset,
+                        "countdown_sentinel",
+                    )
+                )
             cells.append(
                 Cell("countdown", METHOD_GLOBAL, 1.0, seed_offset, "countdown_sentinel", 0.0)
             )
@@ -930,6 +1066,10 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
                 Cell(task, METHOD_POSITIVE_ONLY, None, seed_offset, "task_transfer")
                 for seed_offset in positive_seeds
             )
+            if include_global_endpoint:
+                cells.append(
+                    Cell(task, METHOD_GLOBAL, 1.0, exp_seed, "task_transfer", 0.0)
+                )
             cells.extend(
                 Cell(
                     task,
