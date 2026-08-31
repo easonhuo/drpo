@@ -90,7 +90,7 @@ replace_once(runner, marker, insert)
 text = tests.read_text(encoding="utf-8")
 marker = '''def test_runner_and_bootstrap_derive_experiment_id_from_config() -> None:
 '''
-extra = r'''def test_coldstart_runner_run_identity_is_config_safe() -> None:
+extra = r"""def test_coldstart_runner_run_identity_is_config_safe() -> None:
     import re
 
     runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(
@@ -168,7 +168,7 @@ printf '%s\n' "$RUN_ID" "$ATTEMPTS_ROOT" "$RECOVERY_ROOT" "$GUARD_ARTIFACT"
     assert 'E8_COLDSTART_RUN_ID="E8_MULTITASK_EXP_LAMBDA_CURVE_COMPLETION_02"' in curve_protocol
 
 
-'''
+"""
 if text.count(marker) != 1 or "test_coldstart_runner_run_identity_is_config_safe" in text:
     raise SystemExit("cannot insert Run ID regression test")
 text = text.replace(marker, extra + marker, 1)
