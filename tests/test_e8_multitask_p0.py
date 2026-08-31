@@ -2379,6 +2379,84 @@ def test_runner_and_bootstrap_config_id_parser_accepts_yaml_presentation(tmp_pat
         assert completed.returncode != 0
 
 
+def test_coldstart_runner_run_identity_is_config_safe() -> None:
+    import re
+
+    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(
+        encoding="utf-8"
+    )
+    match = re.search(
+        r"(resolve_run_identity\(\) \{.*?\n\})\n\nresolve_run_identity",
+        runner,
+        flags=re.S,
+    )
+    assert match is not None
+    function = match.group(1)
+
+    def execute(*, config: str, override: str) -> subprocess.CompletedProcess[str]:
+        script = f'''set -u
+fail() {{ echo "ERROR: $*" >&2; exit 2; }}
+RUN_ID_OVERRIDE={override!r}
+RUN_ID=""
+CONFIG_REPO_PATH={config!r}
+RUNTIME_ROOT=/tmp/e8-runtime
+{function}
+resolve_run_identity
+printf '%s\n' "$RUN_ID" "$ATTEMPTS_ROOT" "$RECOVERY_ROOT" "$GUARD_ARTIFACT"
+'''
+        return subprocess.run(
+            ["bash", "-c", script],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+    base = execute(
+        config="configs/e8_multitask_exp_coldstart.yaml",
+        override="",
+    )
+    assert base.returncode == 0, base.stderr
+    base_lines = base.stdout.splitlines()
+    assert base_lines[0] == "E8_MULTITASK_EXP_COLDSTART_20260820_02"
+    assert base_lines[1].endswith("/guard/E8_MULTITASK_EXP_COLDSTART_20260820_02")
+    assert base_lines[2].endswith("/recovery/E8_MULTITASK_EXP_COLDSTART_20260820_02")
+
+    generic_missing = execute(
+        config="configs/e8_new_generic_sweep.yaml",
+        override="",
+    )
+    assert generic_missing.returncode == 2
+    assert "set E8_COLDSTART_RUN_ID for non-default config" in generic_missing.stderr
+
+    generic = execute(
+        config="configs/e8_new_generic_sweep.yaml",
+        override="E8_GENERIC_SWEEP_01",
+    )
+    assert generic.returncode == 0, generic.stderr
+    generic_lines = generic.stdout.splitlines()
+    assert generic_lines[0] == "E8_GENERIC_SWEEP_01"
+    assert generic_lines[1].endswith("/guard/E8_GENERIC_SWEEP_01")
+    assert generic_lines[2].endswith("/recovery/E8_GENERIC_SWEEP_01")
+    assert generic_lines[3].endswith("/E8_GENERIC_SWEEP_01_attempt-001_guarded.zip")
+
+    for unsafe in ("../escape", "nested/run", " bad", "bad id", "-bad"):
+        rejected = execute(
+            config="configs/e8_new_generic_sweep.yaml",
+            override=unsafe,
+        )
+        assert rejected.returncode == 2
+        assert "must match [A-Za-z0-9]" in rejected.stderr
+
+    completion_wrapper = Path(
+        "scripts/run_e8_multitask_exp_lambda_completion.sh"
+    ).read_text(encoding="utf-8")
+    curve_protocol = Path(
+        "docs/experiments/E8_MULTITASK_LAMBDA_CURVE_COMPLETION_PROTOCOL.md"
+    ).read_text(encoding="utf-8")
+    assert "E8_MULTITASK_EXP_LAMBDA_COMPLETION_01" in completion_wrapper
+    assert 'E8_COLDSTART_RUN_ID="E8_MULTITASK_EXP_LAMBDA_CURVE_COMPLETION_02"' in curve_protocol
+
+
 def test_runner_and_bootstrap_derive_experiment_id_from_config() -> None:
     runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
     bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
