@@ -1865,7 +1865,8 @@ def test_lambda_completion_matrix_is_config_driven_and_lambda_only(tmp_path: Pat
     waves = exp_tuning.build_waves(config)
     assert len(cells) == config["sweep"]["expected_cells"] == 199
     assert [len(wave) for wave in waves] == [16] * 12 + [7]
-    assert config["sweep"]["task_lambda"]["countdown"] == []
+    assert config["sweep"]["task_lambda"]["countdown"] == config["sweep"]["countdown_sentinel_coefficients"]
+    assert config["sweep"]["countdown_seed_offsets"] == []
     assert not any(cell.task == "countdown" for cell in cells)
     assert exp_tuning._coldstart_completed_task_rows(config, tmp_path, "countdown") is None
     successor_launcher = Path("scripts/run_e8_multitask_exp_lambda_completion.sh").read_text(encoding="utf-8")
@@ -1874,9 +1875,8 @@ def test_lambda_completion_matrix_is_config_driven_and_lambda_only(tmp_path: Pat
     assert 'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"' in historical_launcher
     assert 'export E8_COLDSTART_CONFIG="configs/e8_multitask_exp_lambda_completion.yaml"' in successor_launcher
     assert '${ROOT_DIR}/configs/e8_multitask_exp_lambda_completion.yaml' not in successor_launcher
-    assert "SUCCESSOR_SOURCE_ARGS" in historical_launcher
-    assert "scripts/run_e8_multitask_exp_lambda_completion.sh" in historical_launcher
-    assert "docs/experiments/E8_MULTITASK_LAMBDA_COMPLETION_PROTOCOL.md" in historical_launcher
+    assert "SUCCESSOR_SOURCE_ARGS" not in historical_launcher
+    assert "CONFIG_SOURCE_ARGS" in historical_launcher
     for task in config["suite"]["p0_tasks"]:
         task_cells = [cell for cell in cells if cell.task == task]
         positives = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_POSITIVE_ONLY]
@@ -2078,25 +2078,50 @@ def test_coldstart_sweep_instance_is_config_only() -> None:
         exp_tuning.validate_config(bad)
 
 
-def test_coldstart_countdown_enablement_is_config_consistent() -> None:
+def test_coldstart_config_rejects_non_integer_seeds() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_completion.yaml")
+    )
+    bad = copy.deepcopy(config)
+    bad["sweep"]["task_transfer_seed_offset"] = 4000.5
+    with pytest.raises(ValueError, match="non-negative integer"):
+        exp_tuning.validate_config(bad)
 
-    values_without_seeds = copy.deepcopy(config)
-    values_without_seeds["sweep"]["countdown_seed_offsets"] = []
-    with pytest.raises(ValueError, match="enabled or disabled together"):
-        exp_tuning.validate_config(values_without_seeds)
+    bad = copy.deepcopy(config)
+    bad["sweep"]["transfer_positive_only_seed_offsets"] = [8000, True]
+    with pytest.raises(ValueError, match="non-negative integer"):
+        exp_tuning.validate_config(bad)
 
-    seeds_without_values = copy.deepcopy(config)
+
+def test_coldstart_countdown_anchor_and_seed_semantics_are_config_driven() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    completion = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_completion.yaml")
+    )
+    assert completion["sweep"]["task_lambda"]["countdown"] == completion["sweep"]["countdown_sentinel_coefficients"]
+    assert completion["sweep"]["countdown_seed_offsets"] == []
+    assert not any(cell.task == "countdown" for cell in exp_tuning.build_cells(completion))
+
+    both_empty = copy.deepcopy(completion)
+    both_empty["sweep"]["task_lambda"]["countdown"] = []
+    exp_tuning.validate_config(both_empty)
+    assert len(exp_tuning.build_cells(both_empty)) == 199
+
+    cold = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    seeds_without_values = copy.deepcopy(cold)
     seeds_without_values["sweep"]["task_lambda"]["countdown"] = []
-    with pytest.raises(ValueError, match="enabled or disabled together"):
+    with pytest.raises(ValueError, match="Countdown seeds require"):
         exp_tuning.validate_config(seeds_without_values)
 
 
 def test_generic_coldstart_runner_has_no_successor_id_control_flow() -> None:
     runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
     assert "SUCCESSOR_SOURCE_ARGS" not in runner
+    assert "CONFIG_SOURCE_ARGS" in runner
+    assert "${CONFIG_REPO_PATH}" in runner
     assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" not in runner
     assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02" not in runner
 

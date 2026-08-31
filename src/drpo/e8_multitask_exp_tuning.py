@@ -205,6 +205,12 @@ def _tuple_floats(values: Sequence[Any]) -> tuple[float, ...]:
     return tuple(float(value) for value in values)
 
 
+def _configured_seed(value: Any, label: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"{label} must be a non-negative integer")
+    return value
+
+
 def experiment_id(config: Mapping[str, Any]) -> str:
     value = config.get("experiment_id")
     if not isinstance(value, str) or not value.strip():
@@ -568,25 +574,22 @@ def validate_config(config: Mapping[str, Any]) -> None:
                 "Configured Countdown lambdas must be empty or equal the six diagnostic sentinels"
             )
         countdown_seeds = tuple(
-            int(value) for value in sweep.get("countdown_seed_offsets", ())
+            _configured_seed(value, "Countdown seed offset")
+            for value in sweep.get("countdown_seed_offsets", ())
         )
         if len(countdown_seeds) != len(set(countdown_seeds)):
             raise ValueError("Countdown seed offsets must be unique")
-        if bool(countdown_values) != bool(countdown_seeds):
-            raise ValueError(
-                "Countdown lambda grid and seed offsets must be enabled or disabled together"
-            )
+        if countdown_seeds and not countdown_values:
+            raise ValueError("Countdown seeds require configured Countdown lambda sentinels")
 
         transfer_positive_seeds = tuple(
-            int(value) for value in sweep.get("transfer_positive_only_seed_offsets", ())
+            _configured_seed(value, "Transfer Positive-only seed offset")
+            for value in sweep.get("transfer_positive_only_seed_offsets", ())
         )
         if len(transfer_positive_seeds) != len(set(transfer_positive_seeds)):
             raise ValueError("Transfer Positive-only seed offsets must be unique")
-        try:
-            int(sweep["task_transfer_seed_offset"])
-            int(sweep["tuning_seed"])
-        except (KeyError, TypeError, ValueError) as exc:
-            raise ValueError("Cold-start tuning seeds must be configured integers") from exc
+        _configured_seed(sweep.get("task_transfer_seed_offset"), "Transfer Exp seed offset")
+        _configured_seed(sweep.get("tuning_seed"), "Cold-start tuning seed")
 
         transfer_tasks = set(tasks) - {"countdown"}
         grid_hashes = sweep.get("task_grid_hashes")
