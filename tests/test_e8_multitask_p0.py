@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import csv
 import json
 import math
@@ -2005,15 +2006,83 @@ def test_lambda_curve_completion_matrix_is_config_driven() -> None:
     assert {cell.task for cell in cells} == active_tasks
     assert all(cell.rho is None and cell.lambda_value is not None for cell in cells)
     assert all([cell.lambda_value for cell in cells if cell.task == task] == config["sweep"]["task_lambda"][task] for task in active_tasks)
-    config["sweep"]["parameterization"] = "paper_coefficient_c"
+    config["sweep"]["parameterization"] = "unsupported_parameterization"
     with pytest.raises(ValueError, match="parameterization"):
         exp_tuning.validate_config(config)
+
+
+def test_coldstart_sweep_instance_is_config_only() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-CONFIG-ONLY-UNSEEN-TEST"
+    sweep = config["sweep"]
+    sweep["task_transfer_seed_offset"] = 5000
+    sweep["tuning_seed"] = 5000
+    sweep["transfer_positive_only_seed_offsets"] = [8000, 9000]
+    sweep["countdown_seed_offsets"] = []
+    sweep["task_lambda"]["countdown"] = []
+    sweep["task_lambda"]["word_sorting"] = [13.0, 15.0, 18.0]
+    sweep["task_lambda"]["maze"] = []
+
+    for task in config["suite"]["p0_tasks"]:
+        sweep["task_grid_hashes"][task] = exp_tuning.stable_hash(
+            list(sweep["task_lambda"][task])
+        )
+    active_tasks = [
+        task
+        for task in config["suite"]["p0_tasks"]
+        if sweep["task_lambda"][task]
+    ]
+    expected_cells = sum(
+        len(sweep["transfer_positive_only_seed_offsets"])
+        + len(sweep["task_lambda"][task])
+        for task in active_tasks
+    )
+    sweep["expected_cells"] = expected_cells
+    config["execution"].pop("expected_waves", None)
+
+    exp_tuning.validate_config(config)
+    cells = exp_tuning.build_cells(config)
+    assert exp_tuning.experiment_id(config) == config["experiment_id"]
+    assert len(cells) == expected_cells
+    assert {cell.task for cell in cells} == set(active_tasks)
+    assert not any(
+        cell.task in {"countdown", "spiral_matrix", "maze"} for cell in cells
+    )
+    for task in active_tasks:
+        task_cells = [cell for cell in cells if cell.task == task]
+        positives = [
+            cell for cell in task_cells if cell.method == exp_tuning.METHOD_POSITIVE_ONLY
+        ]
+        exponentials = [
+            cell for cell in task_cells if cell.method == exp_tuning.METHOD_EXPONENTIAL
+        ]
+        assert [cell.seed for cell in positives] == [8000, 9000]
+        assert {cell.seed for cell in exponentials} == {5000}
+        assert [cell.lambda_value for cell in exponentials] == sweep["task_lambda"][task]
+        assert all(cell.rho is None for cell in exponentials)
+
+    capacity = int(config["execution"]["max_concurrent_cells"])
+    expected_wave_sizes = [capacity] * (expected_cells // capacity)
+    if expected_cells % capacity:
+        expected_wave_sizes.append(expected_cells % capacity)
+    assert [len(wave) for wave in exp_tuning.build_waves(config)] == expected_wave_sizes
+
+    bad = copy.deepcopy(config)
+    bad["sweep"]["expected_cells"] += 1
+    with pytest.raises(ValueError, match="expected_cells"):
+        exp_tuning.validate_config(bad)
 
 
 def test_lambda_curve_completion_aggregate_accepts_zero_positive_only(tmp_path: Path) -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-ZERO-PO-UNSEEN-TEST"
+    exp_tuning.validate_config(config)
     cells = exp_tuning.build_cells(config)
     rows = []
     for index, cell in enumerate(cells):

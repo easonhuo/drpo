@@ -76,7 +76,6 @@ DENSE_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-DENSE-01"
 COLDSTART_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-COLDSTART-01"
 LAMBDA_COMPLETION_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"
 LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02"
-SUPPORTED_EXPERIMENT_IDS = (EXPERIMENT_ID, DENSE_EXPERIMENT_ID, COLDSTART_EXPERIMENT_ID, LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID)
 P0_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-P0-01"
 # Backward-compatible name used by predecessor tests and downstream callers.
 PARENT_EXPERIMENT_ID = P0_EXPERIMENT_ID
@@ -207,9 +206,9 @@ def _tuple_floats(values: Sequence[Any]) -> tuple[float, ...]:
 
 
 def experiment_id(config: Mapping[str, Any]) -> str:
-    value = str(config.get("experiment_id", ""))
-    if value not in SUPPORTED_EXPERIMENT_IDS:
-        raise ValueError(f"Unsupported experiment_id: {value}")
+    value = config.get("experiment_id")
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("experiment_id must be a non-empty string")
     return value
 
 
@@ -270,7 +269,7 @@ def _reference_seed(
 def validate_config(config: Mapping[str, Any]) -> None:
     if config.get("schema_version") != 1:
         raise ValueError("Expected schema_version: 1")
-    current_experiment = experiment_id(config)
+    experiment_id(config)
     profile = sweep_profile(config)
     if profile not in (SWEEP_PROFILE_RHO, SWEEP_PROFILE_DENSE, SWEEP_PROFILE_COLDSTART):
         raise ValueError(f"Unsupported sweep profile: {profile}")
@@ -288,8 +287,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("Countdown must be the only external task")
     elif profile == SWEEP_PROFILE_DENSE:
         if (
-            current_experiment != DENSE_EXPERIMENT_ID
-            or len(tasks) != 7
+            len(tasks) != 7
             or len(set(tasks)) != 7
             or set(tasks) != _dense_tasks()
         ):
@@ -303,8 +301,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
     else:
         expected_tasks = set(TASK_NAMES)
         if (
-            current_experiment not in (COLDSTART_EXPERIMENT_ID, LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID)
-            or len(tasks) != 9
+            len(tasks) != 9
             or len(set(tasks)) != 9
             or set(tasks) != expected_tasks
         ):
@@ -547,6 +544,12 @@ def validate_config(config: Mapping[str, Any]) -> None:
         task_lambda = sweep.get("task_lambda")
         if not isinstance(task_lambda, Mapping) or set(task_lambda) != set(tasks):
             raise ValueError("Cold-start task_lambda must contain the exact nine tasks")
+        parameterization = str(sweep.get("parameterization", ""))
+        if parameterization not in ("paper_coefficient_c", "paper_lambda_c1"):
+            raise ValueError(
+                "Cold-start parameterization must be paper_coefficient_c or paper_lambda_c1"
+            )
+
         countdown_sentinels = (
             0.105360516,
             0.430782916,
@@ -555,55 +558,57 @@ def validate_config(config: Mapping[str, Any]) -> None:
             2.302585093,
             2.995732274,
         )
-        if _tuple_floats(sweep.get("countdown_sentinel_coefficients", ())) != countdown_sentinels:
+        if _tuple_floats(
+            sweep.get("countdown_sentinel_coefficients", ())
+        ) != countdown_sentinels:
             raise ValueError("Countdown sentinel coefficients drifted")
-        if _task_lambdas(config, "countdown") != countdown_sentinels:
-            raise ValueError("Countdown task_lambda must equal the six diagnostic sentinels")
-        expected_parameterization = "paper_lambda_c1" if current_experiment in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID) else "paper_coefficient_c"
-        if sweep.get("parameterization") != expected_parameterization:
-            raise ValueError("Cold-start parameterization drifted")
-        expected_countdown_seeds = () if current_experiment in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID) else PAPER_SEED_OFFSETS
-        if tuple(int(value) for value in sweep.get("countdown_seed_offsets", ())) != expected_countdown_seeds:
-            raise ValueError("Countdown seed offsets drifted")
+        countdown_values = _task_lambdas(config, "countdown")
+        if countdown_values and countdown_values != countdown_sentinels:
+            raise ValueError(
+                "Configured Countdown lambdas must be empty or equal the six diagnostic sentinels"
+            )
+        countdown_seeds = tuple(
+            int(value) for value in sweep.get("countdown_seed_offsets", ())
+        )
+        if len(countdown_seeds) != len(set(countdown_seeds)):
+            raise ValueError("Countdown seed offsets must be unique")
+        if countdown_seeds and not countdown_values:
+            raise ValueError("Countdown seeds require configured Countdown lambda sentinels")
+
         transfer_positive_seeds = tuple(
             int(value) for value in sweep.get("transfer_positive_only_seed_offsets", ())
         )
-        if current_experiment == LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID:
-            if transfer_positive_seeds:
-                raise ValueError("Lambda Curve Completion must not schedule Positive-only seeds")
-        elif (current_experiment == LAMBDA_COMPLETION_EXPERIMENT_ID and (not transfer_positive_seeds or len(transfer_positive_seeds) != len(set(transfer_positive_seeds)))) or (current_experiment != LAMBDA_COMPLETION_EXPERIMENT_ID and transfer_positive_seeds != (4000, 5000, 6000, 7000)):
-            raise ValueError("Transfer Positive-only seed offsets drifted")
-        if int(sweep.get("task_transfer_seed_offset", -1)) != 4000:
-            raise ValueError("Transfer Exp response-shape localization must use seed 4000")
-        if int(sweep.get("tuning_seed", -1)) != 4000:
-            raise ValueError("Cold-start tuning_seed must remain 4000")
+        if len(transfer_positive_seeds) != len(set(transfer_positive_seeds)):
+            raise ValueError("Transfer Positive-only seed offsets must be unique")
+        try:
+            int(sweep["task_transfer_seed_offset"])
+            int(sweep["tuning_seed"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError("Cold-start tuning seeds must be configured integers") from exc
 
         transfer_tasks = set(tasks) - {"countdown"}
         grid_hashes = sweep.get("task_grid_hashes")
         provenance = sweep.get("task_grid_provenance")
-        expected_hashes = {
-            "word_sorting": "d24edbd6099f1d4f081318b305e62b39834db7ab94af6b4279d706f94e8d6de3",
-            "spiral_matrix": "805966b9e3e1774e748d1d96ca64667e23276782681e15c1e072e5536a02199a",
-            "mini_sudoku": "2340c4729b70ae5bafb7b6bf07049f38056b18368749bba3b967b4bbd950e29c",
-            "maze": "399732f8572faf670a0486cd5f838d3956bfa56cabbb5ae79b8521fbbfc45d33",
-            "word_ladder": "4fff6be5b923b9071ae0ee949e734087330463072d9be02015a661e51a2689e4",
-            "knights_knaves": "37f675c933e909ac1ca8a6464c8ed72497758b31d1c8a82c855cad10961c4cab",
-            "graph_color": "65c02a38a4339888d2e485c277fa1668a5e0309fab857e3ae2b2b2c0dc862f9d",
-            "wikisql": "e42e516dbbe0bfd0f9fd00f5dec22949f88503253a2235c8c81bd908af4779a0",
-        }
-        if not isinstance(grid_hashes, Mapping) or set(grid_hashes) != transfer_tasks or (current_experiment not in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID) and dict(grid_hashes) != expected_hashes):
-            raise ValueError("Transfer task-grid hashes drifted")
+        if not isinstance(grid_hashes, Mapping) or set(grid_hashes) != transfer_tasks:
+            raise ValueError("Transfer task-grid hashes must cover the exact eight tasks")
         if not isinstance(provenance, Mapping) or set(provenance) != transfer_tasks:
             raise ValueError("Transfer task-grid provenance must cover the exact eight tasks")
         if any(not str(provenance[task]).strip() for task in transfer_tasks):
             raise ValueError("Transfer task-grid provenance entries must be non-empty")
+        active_transfer_tasks: list[str] = []
         for task in transfer_tasks:
             values = _task_lambdas(config, str(task))
-            if len(values) != len(set(values)) or (current_experiment == LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID and len(values) != (0 if task == "spiral_matrix" else 20)) or (current_experiment not in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID) and len(values) != 20):
-                raise ValueError(f"{task} Exp coefficient grid has invalid cardinality")
+            if len(values) != len(set(values)):
+                raise ValueError(f"{task} Exp coefficient grid contains duplicates")
             if stable_hash(list(values)) != str(grid_hashes[task]):
                 raise ValueError(f"{task} coefficient grid does not match its locked hash")
-        expanded_cells = len(expected_countdown_seeds) * (2 + len(countdown_sentinels)) + sum(len(transfer_positive_seeds) + len(_task_lambdas(config, str(task))) for task in transfer_tasks)
+            if values:
+                active_transfer_tasks.append(str(task))
+
+        expanded_cells = len(countdown_seeds) * (2 + len(countdown_values)) + sum(
+            len(transfer_positive_seeds) + len(_task_lambdas(config, task))
+            for task in active_transfer_tasks
+        )
         if int(sweep.get("expected_cells", -1)) != expanded_cells:
             raise ValueError("Cold-start expected_cells must match the configured matrix")
 
@@ -718,15 +723,14 @@ def validate_config(config: Mapping[str, Any]) -> None:
         raise ValueError(f"The scheduler must expose exactly {expected_capacity} slots")
     if tuple(int(value) for value in execution["gpu_ids"]) != tuple(range(8)):
         raise ValueError("The default GPU pool must remain 0--7")
-    expected_waves = (
-        math.ceil(int(config["sweep"]["expected_cells"]) / expected_capacity)
-        if profile == SWEEP_PROFILE_COLDSTART
-        else (7 if profile == SWEEP_PROFILE_DENSE else 5)
-    )
-    if int(execution["slots_per_gpu"]) != 2 or int(execution["expected_waves"]) != expected_waves:
-        raise ValueError(
-            f"The frozen topology is two slots per GPU and {expected_waves} {'nominal batches' if _is_coldstart(config) else 'waves'}"
-        )
+    if int(execution["slots_per_gpu"]) != 2:
+        raise ValueError("The frozen topology is two slots per GPU")
+    if not _is_coldstart(config):
+        expected_waves = 7 if profile == SWEEP_PROFILE_DENSE else 5
+        if int(execution["expected_waves"]) != expected_waves:
+            raise ValueError(
+                f"The frozen topology requires {expected_waves} waves for this profile"
+            )
     if _is_coldstart(config) and execution.get("scheduler") != "dynamic_slot_queue":
         raise ValueError("Cold-start execution must use the recovery-aware slot scheduler")
     if _is_coldstart(config) and (
@@ -879,7 +883,7 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
         return cells
     if _is_coldstart(config):
         cells: list[Cell] = []
-        lambda_only = experiment_id(config) in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID)
+        lambda_only = config["sweep"]["parameterization"] == "paper_lambda_c1"
         countdown_coefficients = _task_lambdas(config, "countdown")
         for seed_offset in tuple(int(value) for value in config["sweep"]["countdown_seed_offsets"]):
             cells.append(
@@ -906,6 +910,9 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
         for task in tasks:
             if task == "countdown":
                 continue
+            coefficients = _task_lambdas(config, task)
+            if not coefficients:
+                continue
             cells.extend(
                 Cell(task, METHOD_POSITIVE_ONLY, None, seed_offset, "task_transfer")
                 for seed_offset in positive_seeds
@@ -919,7 +926,7 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
                     "task_transfer",
                     coefficient,
                 )
-                for coefficient in _task_lambdas(config, task)
+                for coefficient in coefficients
             )
         result = tuple(cells)
         if len(result) != int(config["sweep"]["expected_cells"]) or len({cell.key for cell in result}) != len(result):
@@ -955,7 +962,6 @@ def build_waves(config: Mapping[str, Any]) -> tuple[tuple[Cell, ...], ...]:
         )
         if (
             not waves
-            or len(waves) != int(config["execution"]["expected_waves"])
             or any(len(wave) != capacity for wave in waves[:-1])
             or not 0 < len(waves[-1]) <= capacity
         ):
@@ -5742,7 +5748,7 @@ def _countdown_protocol_diagnostic(
         diagnostic = {
             "schema_version": 1,
             "experiment_id": experiment_id(config),
-            "status": "NOT_RUN" if countdown_not_run else ("PASS" if not identity_failures and len(countdown_cells) == 16 else "FAIL"),
+            "status": "NOT_RUN" if countdown_not_run else ("PASS" if not identity_failures else "FAIL"),
             "countdown_cells": len(countdown_cells),
             "identity_failures": identity_failures,
             "result_gate": False,
@@ -6416,8 +6422,6 @@ def _aggregate_coldstart(
             coefficient_groups.setdefault((str(row["method"]), row["lambda"]), []).append(row)
         grouped = [aggregate_group(group) for group in coefficient_groups.values()]
         positive = next((row for row in grouped if row["method"] == METHOD_POSITIVE_ONLY), None)
-        if positive is None and experiment_id(config) != LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID:
-            raise RuntimeError("Cold-start aggregate requires Positive-only reference rows")
         positive_score = None if positive is None else float(positive["late_window_pass8_mean"])
         grouped_exp = [row for row in grouped if row["method"] == METHOD_EXPONENTIAL]
         selectable = [row for row in grouped_exp if not row["nan_inf_failure"]]
