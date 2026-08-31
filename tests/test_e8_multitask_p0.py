@@ -1844,16 +1844,11 @@ def test_coldstart_runbook_points_to_current_v2_protocol() -> None:
     assert "terminal valid rate" in runbook.lower()
     assert "0.002" not in runbook
     assert "峰值必须高于" not in runbook
-    historical_bootstrap = subprocess.check_output(
-        ["git", "show", "8bdd07590f155ad26bc8cfbd641d40647eab57d2:scripts/bootstrap_e8_multitask_exp_coldstart.sh"],
-        text=True,
-    )
-    normalized = bootstrap.replace(
-        'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"',
-        'EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-COLDSTART-01"',
-        1,
-    )
-    assert normalized == historical_bootstrap
+    assert 'EXPERIMENT_ID_OVERRIDE="${E8_COLDSTART_EXPERIMENT_ID:-}"' in bootstrap
+    assert 'CURRENT_STAGE="resolve_config_identity"' in bootstrap
+    assert 'CONFIG_EXPERIMENT_ID="${config_experiment_ids[0]}"' in bootstrap
+    assert 'export E8_COLDSTART_EXPERIMENT_ID="${EXPERIMENT_ID}"' in bootstrap
+    assert 'E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01' not in bootstrap
     assert "run_experiment_guard_hardened.py" in Path(
         "scripts/run_e8_multitask_exp_coldstart.sh"
     ).read_text(encoding="utf-8")
@@ -2123,14 +2118,14 @@ def test_coldstart_countdown_anchor_and_seed_semantics_are_config_driven() -> No
     both_empty = copy.deepcopy(completion)
     both_empty["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-EMPTY-COUNTDOWN-UNSEEN-TEST"
     both_empty["sweep"]["task_lambda"]["countdown"] = []
-    with pytest.raises(ValueError, match="locked paper grids"):
-        exp_tuning.validate_config(both_empty)
+    exp_tuning.validate_config(both_empty)
+    assert not any(cell.task == "countdown" for cell in exp_tuning.build_cells(both_empty))
 
     cold = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
     seeds_without_values = copy.deepcopy(cold)
     seeds_without_values["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-COUNTDOWN-SEEDS-NO-GRID-TEST"
     seeds_without_values["sweep"]["task_lambda"]["countdown"] = []
-    with pytest.raises(ValueError, match="locked paper grids"):
+    with pytest.raises(ValueError, match="Scheduled Countdown seeds require"):
         exp_tuning.validate_config(seeds_without_values)
 
 
@@ -2165,6 +2160,50 @@ def test_frozen_coldstart_ids_reject_scientific_matrix_drift() -> None:
             for task in bad["suite"]["p0_tasks"]
         )
         with pytest.raises(ValueError, match="Frozen cold-start experiment identity drifted"):
+            exp_tuning.validate_config(bad)
+
+
+def test_canonical_coldstart_liveness_identity_is_independent_of_sweep_grid() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    cell = exp_tuning._canonical_cold_liveness_cell()
+    assert cell.task == "countdown"
+    assert cell.method == exp_tuning.METHOD_EXPONENTIAL
+    assert cell.lambda_value == exp_tuning.COUNTDOWN_LIVENESS_COEFFICIENT == 0.693147181
+    assert cell.seed == exp_tuning.COUNTDOWN_LIVENESS_SEED_OFFSET == 4000
+    assert math.isclose(float(cell.rho), math.exp(-0.693147181), rel_tol=0.0, abs_tol=1e-15)
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml"))
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-LIVENESS-INDEPENDENT-UNSEEN-TEST"
+    config["sweep"]["task_lambda"]["countdown"] = []
+    exp_tuning.validate_config(config)
+    assert not any(candidate.task == "countdown" for candidate in exp_tuning.build_cells(config))
+    assert exp_tuning._canonical_cold_liveness_cell() == cell
+
+
+def test_frozen_coldstart_ids_reject_suite_order_drift() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    for path in (
+        Path("configs/e8_multitask_exp_coldstart.yaml"),
+        Path("configs/e8_multitask_exp_lambda_completion.yaml"),
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"),
+    ):
+        config = exp_tuning.load_config(path)
+        bad = copy.deepcopy(config)
+        bad["suite"]["tasks"][1], bad["suite"]["tasks"][2] = (
+            bad["suite"]["tasks"][2],
+            bad["suite"]["tasks"][1],
+        )
+        with pytest.raises(ValueError, match="suite/task order drifted"):
+            exp_tuning.validate_config(bad)
+
+        bad = copy.deepcopy(config)
+        bad["suite"]["p0_tasks"][0], bad["suite"]["p0_tasks"][1] = (
+            bad["suite"]["p0_tasks"][1],
+            bad["suite"]["p0_tasks"][0],
+        )
+        with pytest.raises(ValueError, match="suite/task order drifted"):
             exp_tuning.validate_config(bad)
 
 
@@ -2260,7 +2299,8 @@ def test_runner_and_bootstrap_derive_experiment_id_from_config() -> None:
     assert 'EXPERIMENT_ID="${EXPERIMENT_ID_OVERRIDE:-UNRESOLVED_FROM_CONFIG}"' in bootstrap
     assert 'CONFIG_EXPERIMENT_ID="${config_experiment_ids[0]}"' in bootstrap
     assert "experiment_id mismatch: bootstrap=" in bootstrap
-    assert '--lambda "${liveness_lambda}"' in runner
+    assert "--lambda 0.693147181" in runner
+    assert "liveness_lambda" not in runner
 
 
 def test_lambda_curve_completion_aggregate_accepts_zero_positive_only(tmp_path: Path) -> None:

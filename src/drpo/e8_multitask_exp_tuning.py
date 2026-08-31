@@ -146,6 +146,20 @@ PAPER_EXTENSION_COEFFICIENTS = (
 )
 TASK_TRANSFER_COEFFICIENTS = PAPER_ROUND1_COEFFICIENTS + PAPER_EXTENSION_COEFFICIENTS[3:]
 PAPER_SEED_OFFSETS = (4000, 5000)
+COUNTDOWN_LIVENESS_COEFFICIENT = 0.693147181
+COUNTDOWN_LIVENESS_SEED_OFFSET = PAPER_SEED_OFFSETS[0]
+FROZEN_COLDSTART_TASK_ORDER = (
+    "countdown",
+    "word_sorting",
+    "spiral_matrix",
+    "mini_sudoku",
+    "maze",
+    "word_ladder",
+    "knights_knaves",
+    "graph_color",
+    "wikisql",
+)
+FROZEN_COLDSTART_P0_TASK_ORDER = FROZEN_COLDSTART_TASK_ORDER[1:]
 COUNTDOWN_DIAGNOSTIC_SENTINELS = (
     0.105360516,
     0.430782916,
@@ -306,6 +320,15 @@ def _validate_frozen_coldstart_sweep_identity(config: Mapping[str, Any]) -> None
     expected = FROZEN_COLDSTART_SWEEP_IDENTITIES.get(experiment_id(config))
     if expected is None:
         return
+    if (
+        tuple(str(value) for value in config["suite"]["tasks"])
+        != FROZEN_COLDSTART_TASK_ORDER
+        or tuple(str(value) for value in config["suite"]["p0_tasks"])
+        != FROZEN_COLDSTART_P0_TASK_ORDER
+    ):
+        raise ValueError(
+            f"Frozen cold-start suite/task order drifted for {experiment_id(config)}"
+        )
     sweep = config["sweep"]
     observed = {
         "parameterization": str(sweep.get("parameterization", "")),
@@ -681,12 +704,11 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("Countdown sentinel coefficients drifted")
         countdown_values = _task_lambdas(config, "countdown")
         if (
-            not countdown_values
-            or len(countdown_values) != len(set(countdown_values))
+            len(countdown_values) != len(set(countdown_values))
             or any(value not in LOCKED_COUNTDOWN_COEFFICIENTS for value in countdown_values)
         ):
             raise ValueError(
-                "Countdown task_lambda must be a non-empty unique subset of the locked paper grids"
+                "Countdown task_lambda must be a unique subset of the locked paper grids"
             )
         countdown_seeds = tuple(
             _configured_seed(value, "Countdown seed offset")
@@ -697,6 +719,10 @@ def validate_config(config: Mapping[str, Any]) -> None:
         if any(value not in PAPER_SEED_OFFSETS for value in countdown_seeds):
             raise ValueError(
                 "Countdown seed offsets must be a subset of the locked paper seed offsets"
+            )
+        if countdown_seeds and not countdown_values:
+            raise ValueError(
+                "Scheduled Countdown seeds require a non-empty locked paper coefficient grid"
             )
         countdown_include_positive_only = sweep.get(
             "countdown_include_positive_only", True
@@ -4750,6 +4776,18 @@ def _canonical_liveness_base_config(config: Mapping[str, Any], output_root: Path
     return path
 
 
+def _canonical_cold_liveness_cell() -> Cell:
+    coefficient = COUNTDOWN_LIVENESS_COEFFICIENT
+    return Cell(
+        "countdown",
+        METHOD_EXPONENTIAL,
+        math.exp(-coefficient),
+        COUNTDOWN_LIVENESS_SEED_OFFSET,
+        "liveness",
+        coefficient,
+    )
+
+
 def _cmd_canonical_cold_liveness(
     config: Mapping[str, Any],
     config_path: Path,
@@ -4761,10 +4799,20 @@ def _cmd_canonical_cold_liveness(
     base_model_path: str,
     force: bool,
 ) -> dict[str, Any]:
-    if cell.task != "countdown":
-        raise RuntimeError("The paper-runtime liveness anchor must be Countdown")
+    expected_cell = _canonical_cold_liveness_cell()
+    if cell != expected_cell:
+        raise RuntimeError(
+            "Canonical paper-runtime liveness must use the locked c=0.693147181, seed=4000 identity"
+        )
     modules = _canonical_cold_modules(config)
     runtime = modules["paper_runtime"]
+    paper_common = modules["paper_common"]
+    expected_paper_cell = paper_common.Cell(
+        alpha=1.0,
+        coefficient=COUNTDOWN_LIVENESS_COEFFICIENT,
+        seed_offset=COUNTDOWN_LIVENESS_SEED_OFFSET,
+        family="exponential",
+    )
     record = _canonical_task_record(splits, cell.task)
     grid_path = Path(str(record["round1_grid"]))
     smoke_root = output_root / "liveness" / "paper_runtime_smoke"
@@ -4781,8 +4829,14 @@ def _cmd_canonical_cold_liveness(
         )
     )
     gate = json.loads((smoke_root / "SMOKE_GATE.json").read_text(encoding="utf-8"))
-    if int(returncode) != 0 or gate.get("status") != "PASS":
-        raise RuntimeError("Paper-runtime two-update smoke gate failed")
+    if (
+        int(returncode) != 0
+        or gate.get("status") != "PASS"
+        or gate.get("cell") != expected_paper_cell.name
+    ):
+        raise RuntimeError(
+            "Paper-runtime two-update smoke gate failed or returned the wrong locked cell identity"
+        )
     summary_path = Path(str(gate["summary"]))
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     diagnostics_path = Path(str(summary["diagnostic_files"]["training"]))
@@ -4895,6 +4949,30 @@ def cmd_liveness(
 ) -> dict[str, Any]:
     if task not in config["suite"]["tasks"]:
         raise ValueError(f"Unknown liveness task: {task}")
+    if _is_coldstart(config):
+        cell = _canonical_cold_liveness_cell()
+        if task != cell.task or cell.rho is None or not math.isclose(
+            rho, cell.rho, rel_tol=0.0, abs_tol=1.0e-15
+        ):
+            raise ValueError(
+                "Cold-start liveness is fixed to Countdown c=0.693147181, seed=4000"
+            )
+        splits, inputs = _load_ready_inputs(
+            output_root,
+            config,
+            base_model_path=base_model_path,
+        )
+        return _cmd_canonical_cold_liveness(
+            config,
+            config_path,
+            output_root,
+            cell=cell,
+            inputs=inputs[cell.task],
+            splits=splits,
+            base_model_path=base_model_path,
+            force=force,
+        )
+
     if rho not in _task_rhos(config, task):
         raise ValueError("Liveness rho must be one frozen grid point")
     splits, inputs = _load_ready_inputs(
@@ -4917,17 +4995,6 @@ def cmd_liveness(
         "liveness",
         lambda_value,
     )
-    if _is_coldstart(config):
-        return _cmd_canonical_cold_liveness(
-            config,
-            config_path,
-            output_root,
-            cell=cell,
-            inputs=inputs[task],
-            splits=splits,
-            base_model_path=base_model_path,
-            force=force,
-        )
     result = train_cell(
         cell,
         inputs=inputs[task],
@@ -4989,24 +5056,12 @@ def cmd_liveness(
     if not math.isfinite(raw_gradient_norm) or raw_gradient_norm <= 0.0:
         raise RuntimeError("Liveness raw gradient norm is not finite and positive")
 
-    def adapter_weight_file(adapter_root: Path) -> Path:
-        for name in ("adapter_model.safetensors", "adapter_model.bin"):
-            candidate = adapter_root / name
-            if candidate.is_file():
-                return candidate
-        raise FileNotFoundError(f"Adapter weight file is missing: {adapter_root}")
-
-    terminal_hash = sha256_file(adapter_weight_file(Path(result["terminal_adapter"])))
-    if _is_coldstart(config):
-        reference_hash = str(result["initialization_state_sha256"])
-        changed = reference_hash != str(result["terminal_trainable_state_sha256"])
-    else:
-        reference_adapter = inputs[task].reference_adapter
-        if reference_adapter is None:
-            raise RuntimeError("Liveness reference adapter is missing")
-        reference_hash = sha256_file(adapter_weight_file(reference_adapter))
-        changed = reference_hash != terminal_hash
-    if not changed:
+    terminal_hash = sha256_file(_adapter_weight_file(Path(result["terminal_adapter"])))
+    reference_adapter = inputs[task].reference_adapter
+    if reference_adapter is None:
+        raise RuntimeError("Liveness reference adapter is missing")
+    reference_hash = sha256_file(_adapter_weight_file(reference_adapter))
+    if reference_hash == terminal_hash:
         raise RuntimeError("Liveness adapter weights did not change after two updates")
     result.update(
         {
@@ -7848,7 +7903,11 @@ def main(argv: Sequence[str] | None = None) -> None:
         if args.lambda_value is not None:
             rho = math.exp(-float(args.lambda_value))
         if rho is None:
-            rho = _task_rhos(config, str(args.task))[0]
+            rho = (
+                math.exp(-COUNTDOWN_LIVENESS_COEFFICIENT)
+                if _is_coldstart(config)
+                else _task_rhos(config, str(args.task))[0]
+            )
         result = cmd_liveness(
             config,
             config_path,
