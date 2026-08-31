@@ -2078,6 +2078,21 @@ def test_coldstart_sweep_instance_is_config_only() -> None:
         exp_tuning.validate_config(bad)
 
 
+def test_experiment_id_is_generic_but_well_formed() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "NEW-E8.SWEEP_01"
+    assert exp_tuning.experiment_id(config) == "NEW-E8.SWEEP_01"
+    for invalid in ("", " bad", "bad id", "bad/id", "-bad"):
+        bad = copy.deepcopy(config)
+        bad["experiment_id"] = invalid
+        with pytest.raises(ValueError, match="experiment_id"):
+            exp_tuning.validate_config(bad)
+
+
 def test_coldstart_config_rejects_non_integer_seeds() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 

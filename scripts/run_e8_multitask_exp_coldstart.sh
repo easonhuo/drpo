@@ -66,6 +66,7 @@ resolve_config_repo_path
 CONFIG_SOURCE_ARGS=()
 while IFS= read -r source_rel; do
   [[ -n "${source_rel}" ]] || continue
+  [[ "${source_rel}" != "scripts/run_e8_multitask_exp_coldstart.sh" ]] || continue
   source_path="${ROOT_DIR}/${source_rel}"
   if grep -Fq -- "${CONFIG_REPO_PATH}" "${source_path}"; then
     CONFIG_SOURCE_ARGS+=(--source-file "${source_rel}")

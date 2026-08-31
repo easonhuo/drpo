@@ -213,8 +213,16 @@ def _configured_seed(value: Any, label: str) -> int:
 
 def experiment_id(config: Mapping[str, Any]) -> str:
     value = config.get("experiment_id")
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError("experiment_id must be a non-empty string")
+    allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
+    if (
+        not isinstance(value, str)
+        or not 1 <= len(value) <= 128
+        or not value[0].isalnum()
+        or any(character not in allowed for character in value)
+    ):
+        raise ValueError(
+            "experiment_id must match [A-Za-z0-9][A-Za-z0-9._-]{0,127}"
+        )
     return value
 
 
