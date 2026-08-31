@@ -19,128 +19,112 @@ jobs:
           ref: dev/e8-config-driven-sweep-01
           fetch-depth: 0
 
-      - name: Apply compatibility-preserving repair
-        shell: bash
+      - name: Restore frozen successor configs
+        run: |
+          git show 6ed153d5ad7361a4e52348610b86b51b71e25e47:configs/e8_multitask_exp_lambda_completion.yaml > configs/e8_multitask_exp_lambda_completion.yaml
+          git show 6ed153d5ad7361a4e52348610b86b51b71e25e47:configs/e8_multitask_exp_lambda_curve_completion.yaml > configs/e8_multitask_exp_lambda_curve_completion.yaml
+          git diff --exit-code 6ed153d5ad7361a4e52348610b86b51b71e25e47 -- configs/e8_multitask_exp_lambda_completion.yaml configs/e8_multitask_exp_lambda_curve_completion.yaml
+
+      - name: Repair generic core validation
         run: |
           python - <<'PY'
           from pathlib import Path
-          import subprocess
+          p = Path("src/drpo/e8_multitask_exp_tuning.py")
+          s = p.read_text()
 
-          BASE = "6ed153d5ad7361a4e52348610b86b51b71e25e47"
-
-          # Frozen successor configs must stay byte-identical to the reviewed main versions.
-          for name in (
-              "configs/e8_multitask_exp_lambda_completion.yaml",
-              "configs/e8_multitask_exp_lambda_curve_completion.yaml",
-          ):
-              data = subprocess.check_output(["git", "show", f"{BASE}:{name}"])
-              Path(name).write_bytes(data)
-
-          core = Path("src/drpo/e8_multitask_exp_tuning.py")
-          text = core.read_text(encoding="utf-8")
-
-          # Restore legacy-compatible Countdown semantics: sentinel values may remain as
-          # identity anchors when seed offsets are empty; seeds without sentinels fail.
           old = '''        if bool(countdown_values) != bool(countdown_seeds):\n            raise ValueError(\n                "Countdown lambda grid and seed offsets must be enabled or disabled together"\n            )\n'''
-          new = '''        if countdown_seeds and not countdown_values:\n            raise ValueError("Countdown seeds require configured Countdown lambda sentinels")\n'''
-          assert text.count(old) == 1, text.count(old)
-          text = text.replace(old, new, 1)
+          assert old in s
+          s = s.replace(old, '''        if countdown_seeds and not countdown_values:\n            raise ValueError("Countdown seeds require configured Countdown lambda sentinels")\n''', 1)
 
-          # Seeds are now config-controlled, so reject float/bool/string coercion instead
-          # of silently truncating with int(...).
-          marker = '''def experiment_id(config: Mapping[str, Any]) -> str:\n'''
-          assert text.count(marker) == 1
+          marker = 'def experiment_id(config: Mapping[str, Any]) -> str:\n'
+          assert marker in s
+          assert 'def _configured_seed(' not in s
           helper = '''def _configured_seed(value: Any, label: str) -> int:\n    if isinstance(value, bool) or not isinstance(value, int) or value < 0:\n        raise ValueError(f"{label} must be a non-negative integer")\n    return value\n\n\n'''
-          text = text.replace(marker, helper + marker, 1)
+          s = s.replace(marker, helper + marker, 1)
 
-          old = '''        countdown_seeds = tuple(\n            int(value) for value in sweep.get("countdown_seed_offsets", ())\n        )\n'''
-          new = '''        countdown_seeds = tuple(\n            _configured_seed(value, "Countdown seed offset")\n            for value in sweep.get("countdown_seed_offsets", ())\n        )\n'''
-          assert text.count(old) == 1
-          text = text.replace(old, new, 1)
+          start = s.index('        countdown_seeds = tuple(\n')
+          end = s.index('        transfer_tasks = set(tasks) - {"countdown"}\n', start)
+          block = '''        countdown_seeds = tuple(\n            _configured_seed(value, "Countdown seed offset")\n            for value in sweep.get("countdown_seed_offsets", ())\n        )\n        if len(countdown_seeds) != len(set(countdown_seeds)):\n            raise ValueError("Countdown seed offsets must be unique")\n        if countdown_seeds and not countdown_values:\n            raise ValueError("Countdown seeds require configured Countdown lambda sentinels")\n\n        transfer_positive_seeds = tuple(\n            _configured_seed(value, "Transfer Positive-only seed offset")\n            for value in sweep.get("transfer_positive_only_seed_offsets", ())\n        )\n        if len(transfer_positive_seeds) != len(set(transfer_positive_seeds)):\n            raise ValueError("Transfer Positive-only seed offsets must be unique")\n        _configured_seed(sweep.get("task_transfer_seed_offset"), "Transfer Exp seed offset")\n        _configured_seed(sweep.get("tuning_seed"), "Cold-start tuning seed")\n\n'''
+          s = s[:start] + block + s[end:]
+          p.write_text(s)
+          PY
+          python -m py_compile src/drpo/e8_multitask_exp_tuning.py
 
-          old = '''        transfer_positive_seeds = tuple(\n            int(value) for value in sweep.get("transfer_positive_only_seed_offsets", ())\n        )\n        if len(transfer_positive_seeds) != len(set(transfer_positive_seeds)):\n            raise ValueError("Transfer Positive-only seed offsets must be unique")\n        try:\n            int(sweep["task_transfer_seed_offset"])\n            int(sweep["tuning_seed"])\n        except (KeyError, TypeError, ValueError) as exc:\n            raise ValueError("Cold-start tuning seeds must be configured integers") from exc\n'''
-          new = '''        transfer_positive_seeds = tuple(\n            _configured_seed(value, "Transfer Positive-only seed offset")\n            for value in sweep.get("transfer_positive_only_seed_offsets", ())\n        )\n        if len(transfer_positive_seeds) != len(set(transfer_positive_seeds)):\n            raise ValueError("Transfer Positive-only seed offsets must be unique")\n        _configured_seed(sweep.get("task_transfer_seed_offset"), "Transfer Exp seed offset")\n        _configured_seed(sweep.get("tuning_seed"), "Cold-start tuning seed")\n'''
-          assert text.count(old) == 1, text.count(old)
-          text = text.replace(old, new, 1)
-          core.write_text(text, encoding="utf-8")
+      - name: Make provenance discovery config-driven
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("scripts/run_e8_multitask_exp_coldstart.sh")
+          s = p.read_text()
+          marker = 'resolve_config_repo_path\n\n'
+          assert s.count(marker) == 1
+          generic = '''resolve_config_repo_path\n\n# Source provenance follows the selected config, not an experiment-ID branch.\nCONFIG_SOURCE_ARGS=()\nwhile IFS= read -r source_rel; do\n  [[ -n "${source_rel}" ]] || continue\n  source_path="${ROOT_DIR}/${source_rel}"\n  if grep -Fq -- "${CONFIG_REPO_PATH}" "${source_path}"; then\n    CONFIG_SOURCE_ARGS+=(--source-file "${source_rel}")\n  fi\ndone < <(\n  git -C "${ROOT_DIR}" ls-files \\\n    'docs/experiments/*.md' \\\n    'scripts/run_e8_multitask_exp_*.sh' | sort\n)\n\n'''
+          s = s.replace(marker, generic, 1)
+          out = []
+          seen = 0
+          for line in s.splitlines(keepends=True):
+              out.append(line)
+              if '--source-file "${CONFIG_REPO_PATH}"' in line:
+                  seen += 1
+                  indent = line[:len(line) - len(line.lstrip())]
+                  suffix = ' \\\n' if line.rstrip().endswith('\\') else '\n'
+                  out.append(indent + '"${CONFIG_SOURCE_ARGS[@]}"' + suffix)
+          assert seen == 3, seen
+          s = ''.join(out)
+          assert 'SUCCESSOR_SOURCE_ARGS' not in s
+          assert 'EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01' not in s
+          assert 'EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02' not in s
+          p.write_text(s)
+          PY
+          bash -n scripts/run_e8_multitask_exp_coldstart.sh
 
-          # Replace ID-specific provenance routing with config-path discovery.
-          runner = Path("scripts/run_e8_multitask_exp_coldstart.sh")
-          text = runner.read_text(encoding="utf-8")
-          insertion_marker = '''resolve_config_repo_path\n\n'''
-          assert text.count(insertion_marker) == 1
-          generic = '''resolve_config_repo_path\n\n# Source provenance follows the selected config, not an experiment-ID branch.\n# Any tracked protocol/launcher that explicitly names this config is snapshotted.\nCONFIG_SOURCE_ARGS=()\nwhile IFS= read -r source_rel; do\n  [[ -n "${source_rel}" ]] || continue\n  source_path="${ROOT_DIR}/${source_rel}"\n  if grep -Fq -- "${CONFIG_REPO_PATH}" "${source_path}"; then\n    CONFIG_SOURCE_ARGS+=(--source-file "${source_rel}")\n  fi\ndone < <(\n  git -C "${ROOT_DIR}" ls-files \\\n    'docs/experiments/*.md' \\\n    'scripts/run_e8_multitask_exp_*.sh' | sort\n)\n\n'''
-          text = text.replace(insertion_marker, generic, 1)
+      - name: Repair regression tests
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("tests/test_e8_multitask_p0.py")
+          s = p.read_text()
 
-          # Reinsert the generic provenance array at the three guard/package sites.
-          needles = [
-              '      --source-file "${CONFIG_REPO_PATH}" \\\n',
-              '    --source-file "${CONFIG_REPO_PATH}"\n',
-          ]
-          assert text.count(needles[0]) == 2, text.count(needles[0])
-          assert text.count(needles[1]) == 1, text.count(needles[1])
-          text = text.replace(
-              needles[0],
-              needles[0] + '      "${CONFIG_SOURCE_ARGS[@]}" \\\n',
-          )
-          text = text.replace(
-              needles[1],
-              needles[1] + '    "${CONFIG_SOURCE_ARGS[@]}"\n',
-              1,
-          )
-          assert "SUCCESSOR_SOURCE_ARGS" not in text
-          assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" not in text
-          assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02" not in text
-          runner.write_text(text, encoding="utf-8")
-
-          tests = Path("tests/test_e8_multitask_p0.py")
-          text = tests.read_text(encoding="utf-8")
-
-          # Frozen Lambda-Completion keeps Countdown sentinels as identity anchors.
-          text = text.replace(
+          s = s.replace(
               '    assert config["sweep"]["task_lambda"]["countdown"] == []\n',
               '    assert config["sweep"]["task_lambda"]["countdown"] == config["sweep"]["countdown_sentinel_coefficients"]\n    assert config["sweep"]["countdown_seed_offsets"] == []\n',
               1,
           )
+          s = s.replace('    assert "SUCCESSOR_SOURCE_ARGS" in historical_launcher\n', '    assert "SUCCESSOR_SOURCE_ARGS" not in historical_launcher\n    assert "CONFIG_SOURCE_ARGS" in historical_launcher\n', 1)
+          s = s.replace('    assert "scripts/run_e8_multitask_exp_lambda_completion.sh" in historical_launcher\n', '', 1)
+          s = s.replace('    assert "docs/experiments/E8_MULTITASK_LAMBDA_COMPLETION_PROTOCOL.md" in historical_launcher\n', '', 1)
 
-          old = '''    assert 'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"' in historical_launcher\n    assert 'export E8_COLDSTART_CONFIG="configs/e8_multitask_exp_lambda_completion.yaml"' in successor_launcher\n    assert '${ROOT_DIR}/configs/e8_multitask_exp_lambda_completion.yaml' not in successor_launcher\n    assert "SUCCESSOR_SOURCE_ARGS" in historical_launcher\n    assert "scripts/run_e8_multitask_exp_lambda_completion.sh" in historical_launcher\n    assert "docs/experiments/E8_MULTITASK_LAMBDA_COMPLETION_PROTOCOL.md" in historical_launcher\n'''
-          new = '''    assert 'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"' in historical_launcher\n    assert 'export E8_COLDSTART_CONFIG="configs/e8_multitask_exp_lambda_completion.yaml"' in successor_launcher\n    assert '${ROOT_DIR}/configs/e8_multitask_exp_lambda_completion.yaml' not in successor_launcher\n    assert "SUCCESSOR_SOURCE_ARGS" not in historical_launcher\n    assert "CONFIG_SOURCE_ARGS" in historical_launcher\n    assert "${CONFIG_REPO_PATH}" in historical_launcher\n    assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" not in historical_launcher\n    assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02" not in historical_launcher\n    assert "configs/e8_multitask_exp_lambda_completion.yaml" in Path(\n        "docs/experiments/E8_MULTITASK_LAMBDA_COMPLETION_PROTOCOL.md"\n    ).read_text(encoding="utf-8")\n'''
-          assert text.count(old) == 1, text.count(old)
-          text = text.replace(old, new, 1)
+          def replace_function(text: str, name: str, body: str) -> str:
+              start = text.index(f'def {name}(')
+              next_def = text.find('\ndef ', start + 1)
+              if next_def < 0:
+                  next_def = len(text)
+              else:
+                  next_def += 1
+              return text[:start] + body.rstrip() + '\n\n\n' + text[next_def:]
 
-          old = '''def test_coldstart_countdown_enablement_is_config_consistent() -> None:\n    from drpo import e8_multitask_exp_tuning as exp_tuning\n\n    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))\n\n    values_without_seeds = copy.deepcopy(config)\n    values_without_seeds["sweep"]["countdown_seed_offsets"] = []\n    with pytest.raises(ValueError, match="enabled or disabled together"):\n        exp_tuning.validate_config(values_without_seeds)\n\n    seeds_without_values = copy.deepcopy(config)\n    seeds_without_values["sweep"]["task_lambda"]["countdown"] = []\n    with pytest.raises(ValueError, match="enabled or disabled together"):\n        exp_tuning.validate_config(seeds_without_values)\n\n\n'''
-          new = '''def test_coldstart_countdown_anchor_and_seed_semantics_are_config_driven() -> None:\n    from drpo import e8_multitask_exp_tuning as exp_tuning\n\n    completion = exp_tuning.load_config(\n        Path("configs/e8_multitask_exp_lambda_completion.yaml")\n    )\n    assert completion["sweep"]["task_lambda"]["countdown"] == completion["sweep"]["countdown_sentinel_coefficients"]\n    assert completion["sweep"]["countdown_seed_offsets"] == []\n    assert not any(cell.task == "countdown" for cell in exp_tuning.build_cells(completion))\n\n    both_empty = copy.deepcopy(completion)\n    both_empty["sweep"]["task_lambda"]["countdown"] = []\n    exp_tuning.validate_config(both_empty)\n    assert len(exp_tuning.build_cells(both_empty)) == 199\n\n    cold = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))\n    seeds_without_values = copy.deepcopy(cold)\n    seeds_without_values["sweep"]["task_lambda"]["countdown"] = []\n    with pytest.raises(ValueError, match="Countdown seeds require"):\n        exp_tuning.validate_config(seeds_without_values)\n\n\n'''
-          assert text.count(old) == 1, text.count(old)
-          text = text.replace(old, new, 1)
+          countdown_body = '''def test_coldstart_countdown_anchor_and_seed_semantics_are_config_driven() -> None:\n    from drpo import e8_multitask_exp_tuning as exp_tuning\n\n    completion = exp_tuning.load_config(\n        Path("configs/e8_multitask_exp_lambda_completion.yaml")\n    )\n    assert completion["sweep"]["task_lambda"]["countdown"] == completion["sweep"]["countdown_sentinel_coefficients"]\n    assert completion["sweep"]["countdown_seed_offsets"] == []\n    assert not any(cell.task == "countdown" for cell in exp_tuning.build_cells(completion))\n\n    both_empty = copy.deepcopy(completion)\n    both_empty["sweep"]["task_lambda"]["countdown"] = []\n    exp_tuning.validate_config(both_empty)\n    assert len(exp_tuning.build_cells(both_empty)) == 199\n\n    cold = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))\n    seeds_without_values = copy.deepcopy(cold)\n    seeds_without_values["sweep"]["task_lambda"]["countdown"] = []\n    with pytest.raises(ValueError, match="Countdown seeds require"):\n        exp_tuning.validate_config(seeds_without_values)\n'''
+          s = replace_function(s, 'test_coldstart_countdown_enablement_is_config_consistent', countdown_body)
 
-          old = '''def test_generic_coldstart_runner_has_no_successor_id_control_flow() -> None:\n    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")\n    assert "SUCCESSOR_SOURCE_ARGS" not in runner\n    assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" not in runner\n    assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02" not in runner\n\n\n'''
-          new = '''def test_generic_coldstart_runner_has_no_successor_id_control_flow() -> None:\n    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")\n    assert "SUCCESSOR_SOURCE_ARGS" not in runner\n    assert "CONFIG_SOURCE_ARGS" in runner\n    assert "git -C \"${ROOT_DIR}\" ls-files" in runner\n    assert "${CONFIG_REPO_PATH}" in runner\n    assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" not in runner\n    assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02" not in runner\n\n\n'''
-          assert text.count(old) == 1, text.count(old)
-          text = text.replace(old, new, 1)
+          runner_body = '''def test_generic_coldstart_runner_has_no_successor_id_control_flow() -> None:\n    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")\n    assert "SUCCESSOR_SOURCE_ARGS" not in runner\n    assert "CONFIG_SOURCE_ARGS" in runner\n    assert "${CONFIG_REPO_PATH}" in runner\n    assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" not in runner\n    assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02" not in runner\n'''
+          s = replace_function(s, 'test_generic_coldstart_runner_has_no_successor_id_control_flow', runner_body)
 
-          # Add strict seed type regression beside the generic config-only test.
-          marker = '''def test_coldstart_countdown_anchor_and_seed_semantics_are_config_driven() -> None:\n'''
+          marker = 'def test_coldstart_countdown_anchor_and_seed_semantics_are_config_driven() -> None:\n'
           seed_test = '''def test_coldstart_config_rejects_non_integer_seeds() -> None:\n    from drpo import e8_multitask_exp_tuning as exp_tuning\n\n    config = exp_tuning.load_config(\n        Path("configs/e8_multitask_exp_lambda_completion.yaml")\n    )\n    bad = copy.deepcopy(config)\n    bad["sweep"]["task_transfer_seed_offset"] = 4000.5\n    with pytest.raises(ValueError, match="non-negative integer"):\n        exp_tuning.validate_config(bad)\n\n    bad = copy.deepcopy(config)\n    bad["sweep"]["transfer_positive_only_seed_offsets"] = [8000, True]\n    with pytest.raises(ValueError, match="non-negative integer"):\n        exp_tuning.validate_config(bad)\n\n\n'''
-          assert text.count(marker) == 1
-          text = text.replace(marker, seed_test + marker, 1)
-          tests.write_text(text, encoding="utf-8")
+          assert s.count(marker) == 1
+          s = s.replace(marker, seed_test + marker, 1)
+          p.write_text(s)
           PY
+          python -m py_compile tests/test_e8_multitask_p0.py
 
-      - name: Validate exact frozen configs and generic semantics
-        shell: bash
+      - name: Semantic validation
         run: |
           python -m pip install -q "numpy==1.26.4" "PyYAML==6.0.2"
           export PYTHONPATH="$PWD/src"
-          python -m py_compile src/drpo/e8_multitask_exp_tuning.py
-          bash -n scripts/run_e8_multitask_exp_coldstart.sh
-          git diff --exit-code 6ed153d5ad7361a4e52348610b86b51b71e25e47 -- \
-            configs/e8_multitask_exp_lambda_completion.yaml \
-            configs/e8_multitask_exp_lambda_curve_completion.yaml
           python - <<'PY'
           import copy
           from pathlib import Path
           from drpo import e8_multitask_exp_tuning as e8
-
           cold = e8.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
           completion = e8.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml"))
           curve = e8.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
@@ -165,18 +149,9 @@ jobs:
           synthetic["sweep"]["task_lambda"]["maze"] = []
           synthetic["sweep"]["task_lambda"]["word_sorting"] = [13.0, 15.0, 18.0]
           for task in synthetic["suite"]["p0_tasks"]:
-              synthetic["sweep"]["task_grid_hashes"][task] = e8.stable_hash(
-                  list(synthetic["sweep"]["task_lambda"][task])
-              )
-          active = [
-              task for task in synthetic["suite"]["p0_tasks"]
-              if synthetic["sweep"]["task_lambda"][task]
-          ]
-          synthetic["sweep"]["expected_cells"] = sum(
-              len(synthetic["sweep"]["transfer_positive_only_seed_offsets"])
-              + len(synthetic["sweep"]["task_lambda"][task])
-              for task in active
-          )
+              synthetic["sweep"]["task_grid_hashes"][task] = e8.stable_hash(list(synthetic["sweep"]["task_lambda"][task]))
+          active = [task for task in synthetic["suite"]["p0_tasks"] if synthetic["sweep"]["task_lambda"][task]]
+          synthetic["sweep"]["expected_cells"] = sum(len(synthetic["sweep"]["transfer_positive_only_seed_offsets"]) + len(synthetic["sweep"]["task_lambda"][task]) for task in active)
           synthetic["execution"].pop("expected_waves", None)
           e8.validate_config(synthetic)
           assert len(e8.build_cells(synthetic)) == synthetic["sweep"]["expected_cells"]
@@ -197,36 +172,22 @@ jobs:
           assert "CONFIG_SOURCE_ARGS" in runner
           assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" not in runner
           assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02" not in runner
-          for config in (
-              "configs/e8_multitask_exp_lambda_completion.yaml",
-              "configs/e8_multitask_exp_lambda_curve_completion.yaml",
-          ):
+          for config in ("configs/e8_multitask_exp_lambda_completion.yaml", "configs/e8_multitask_exp_lambda_curve_completion.yaml"):
               matches = []
               for root, pattern in (("docs/experiments", "*.md"), ("scripts", "run_e8_multitask_exp_*.sh")):
                   for path in Path(root).glob(pattern):
                       if config in path.read_text(encoding="utf-8"):
                           matches.append(path.as_posix())
               assert any(path.startswith("docs/experiments/") for path in matches), (config, matches)
-          completion_matches = [
-              path.as_posix()
-              for path in Path("scripts").glob("run_e8_multitask_exp_*.sh")
-              if "configs/e8_multitask_exp_lambda_completion.yaml" in path.read_text(encoding="utf-8")
-          ]
-          assert "scripts/run_e8_multitask_exp_lambda_completion.sh" in completion_matches
+          assert "scripts/run_e8_multitask_exp_lambda_completion.sh" in [path.as_posix() for path in Path("scripts").glob("run_e8_multitask_exp_*.sh") if "configs/e8_multitask_exp_lambda_completion.yaml" in path.read_text(encoding="utf-8")]
           PY
           git diff --check
 
-      - name: Commit repaired files and remove temporary workflow
-        shell: bash
+      - name: Commit repair and remove temporary workflow
         run: |
           rm .github/workflows/tmp-e8-config-driven-repair.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/drpo/e8_multitask_exp_tuning.py \
-                  scripts/run_e8_multitask_exp_coldstart.sh \
-                  configs/e8_multitask_exp_lambda_completion.yaml \
-                  configs/e8_multitask_exp_lambda_curve_completion.yaml \
-                  tests/test_e8_multitask_p0.py \
-                  .github/workflows/tmp-e8-config-driven-repair.yml
-          git commit -m "E8: preserve frozen configs in generic sweeps"
+          git add -A
+          git commit -m "E8: preserve frozen config semantics"
           git push origin HEAD:dev/e8-config-driven-sweep-01
