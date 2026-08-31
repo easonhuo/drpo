@@ -2273,6 +2273,48 @@ def test_generic_coldstart_expected_cells_requires_integer_type() -> None:
             exp_tuning.validate_config(bad)
 
 
+def test_generic_coldstart_rejects_canonical_byte_identity_drift() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-CANONICAL-LOCK-UNSEEN-TEST"
+    assert (
+        config["canonical_coldstart"]["expected_git_blob_shas"]
+        == exp_tuning.FROZEN_CANONICAL_COLDSTART_BLOB_SHAS
+    )
+
+    bad = copy.deepcopy(config)
+    bad["canonical_coldstart"]["expected_git_blob_shas"]["scan_trainer"] = "0" * 40
+    with pytest.raises(ValueError, match="canonical source/config Git blob identities drifted"):
+        exp_tuning.validate_config(bad)
+
+    for key, value in (
+        ("initialization", "other_initialization"),
+        ("formula", "other_formula"),
+    ):
+        bad = copy.deepcopy(config)
+        bad["canonical_coldstart"][key] = value
+        with pytest.raises(ValueError, match="canonical initialization/formula provenance drifted"):
+            exp_tuning.validate_config(bad)
+
+
+def test_all_frozen_coldstart_configs_share_exact_canonical_blob_lock() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    for path in (
+        Path("configs/e8_multitask_exp_coldstart.yaml"),
+        Path("configs/e8_multitask_exp_lambda_completion.yaml"),
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"),
+    ):
+        config = exp_tuning.load_config(path)
+        assert (
+            config["canonical_coldstart"]["expected_git_blob_shas"]
+            == exp_tuning.FROZEN_CANONICAL_COLDSTART_BLOB_SHAS
+        )
+
+
 def test_generic_coldstart_rejects_scientific_input_drift() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
