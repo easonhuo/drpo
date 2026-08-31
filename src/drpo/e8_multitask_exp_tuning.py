@@ -5802,6 +5802,36 @@ def _require_calibration_gate(
             raise RuntimeError(f"Paper calibration must remain disabled for {task}")
 
 
+def _matches_canonical_cold_liveness_manifest(
+    result: Mapping[str, Any],
+) -> bool:
+    cell = result.get("cell")
+    if not isinstance(cell, Mapping):
+        return False
+    expected = _canonical_cold_liveness_cell()
+    try:
+        rho = float(cell.get("rho"))
+        coefficient = float(cell.get("lambda"))
+    except (TypeError, ValueError):
+        return False
+    return (
+        cell.get("task") == expected.task
+        and cell.get("method") == expected.method
+        and cell.get("seed") == expected.seed
+        and cell.get("stage") == expected.stage
+        and expected.rho is not None
+        and math.isclose(rho, expected.rho, rel_tol=0.0, abs_tol=1.0e-15)
+        and math.isclose(
+            coefficient,
+            COUNTDOWN_LIVENESS_COEFFICIENT,
+            rel_tol=0.0,
+            abs_tol=1.0e-15,
+        )
+        and result.get("canonical_dispatch")
+        == "countdown_e8_alpha1_highc_scan_runtime.smoke"
+    )
+
+
 def _require_liveness_gate(
     config: Mapping[str, Any],
     output_root: Path,
@@ -5830,6 +5860,7 @@ def _require_liveness_gate(
         )
         canonical_cold = (
             _is_coldstart(config)
+            and _matches_canonical_cold_liveness_manifest(result)
             and result.get("canonical_dispatch_verified") is True
             and result.get("finite_old_core_updates") is True
             and math.isfinite(float(result.get("optimizer_update_norm", 0.0)))
@@ -7396,12 +7427,20 @@ def _write_engineering_gates(
         "liveness_parent_process_id": 1001,
         "reload_process_id": 1002,
         "nan_inf_failure": False,
+        "canonical_dispatch": "countdown_e8_alpha1_highc_scan_runtime.smoke",
         "canonical_dispatch_verified": True,
         "finite_old_core_updates": True,
         "optimizer_update_norm": 1.0,
         "initial_adapter_weight_sha256": "0" * 64,
         "terminal_adapter_weight_sha256": "1" * 64,
-        "cell": {"task": "countdown"},
+        "cell": {
+            "task": "countdown",
+            "method": METHOD_EXPONENTIAL,
+            "rho": math.exp(-COUNTDOWN_LIVENESS_COEFFICIENT),
+            "lambda": COUNTDOWN_LIVENESS_COEFFICIENT,
+            "seed": COUNTDOWN_LIVENESS_SEED_OFFSET,
+            "stage": "liveness",
+        },
         "scientific_status": "not_run",
     }
     atomic_json(output_root / "liveness" / liveness_key / "cell_manifest.json", liveness)

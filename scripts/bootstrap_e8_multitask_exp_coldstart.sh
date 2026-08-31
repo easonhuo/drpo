@@ -244,6 +244,34 @@ fi
 [[ -f "${CHECKOUT}/scripts/run_e8_multitask_exp_coldstart.sh" ]] || \
   fail "target commit does not contain the reviewed experiment entrypoint"
 
+read_config_experiment_id() {
+  command -v python3 >/dev/null || return 127
+  python3 - "$1" <<'PY_EXPERIMENT_ID'
+from pathlib import Path
+import re
+import sys
+
+safe = r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}"
+plain = re.compile(rf"^({safe})(?:[ \t]+#.*)?$")
+single = re.compile(rf"^'({safe})'(?:[ \t]+#.*)?$")
+double = re.compile(rf'^"({safe})"(?:[ \t]+#.*)?$')
+values = []
+malformed = False
+for raw in Path(sys.argv[1]).read_text(encoding="utf-8").splitlines():
+    if raw[:1].isspace() or not raw.startswith("experiment_id:"):
+        continue
+    rhs = raw.split(":", 1)[1].strip()
+    match = plain.fullmatch(rhs) or single.fullmatch(rhs) or double.fullmatch(rhs)
+    if match is None:
+        malformed = True
+    else:
+        values.append(match.group(1))
+if malformed or len(values) != 1:
+    raise SystemExit(2)
+print(values[0])
+PY_EXPERIMENT_ID
+}
+
 CURRENT_STAGE="resolve_config_identity"
 CONFIG_REPO_PATH="${E8_COLDSTART_CONFIG:-configs/e8_multitask_exp_coldstart.yaml}"
 [[ "${CONFIG_REPO_PATH}" != /* \
@@ -253,12 +281,8 @@ CONFIG_REPO_PATH="${E8_COLDSTART_CONFIG:-configs/e8_multitask_exp_coldstart.yaml
   fail "bootstrap config must be a repository-relative path without parent traversal"
 CONFIG_PATH="${CHECKOUT}/${CONFIG_REPO_PATH}"
 [[ -f "${CONFIG_PATH}" ]] || fail "target commit is missing config: ${CONFIG_REPO_PATH}"
-mapfile -t config_experiment_ids < <(
-  sed -nE 's/^experiment_id:[[:space:]]*([A-Za-z0-9][A-Za-z0-9._-]{0,127})[[:space:]]*$/\1/p' "${CONFIG_PATH}"
-)
-[[ "${#config_experiment_ids[@]}" -eq 1 ]] || \
+CONFIG_EXPERIMENT_ID="$(read_config_experiment_id "${CONFIG_PATH}")" || \
   fail "config must contain exactly one well-formed top-level experiment_id: ${CONFIG_REPO_PATH}"
-CONFIG_EXPERIMENT_ID="${config_experiment_ids[0]}"
 if [[ "${EXPERIMENT_ID}" != "UNRESOLVED_FROM_CONFIG" \
       && "${EXPERIMENT_ID}" != "${CONFIG_EXPERIMENT_ID}" ]]; then
   fail "experiment_id mismatch: bootstrap=${EXPERIMENT_ID} config=${CONFIG_EXPERIMENT_ID}"

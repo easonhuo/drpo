@@ -1846,7 +1846,7 @@ def test_coldstart_runbook_points_to_current_v2_protocol() -> None:
     assert "峰值必须高于" not in runbook
     assert 'EXPERIMENT_ID_OVERRIDE="${E8_COLDSTART_EXPERIMENT_ID:-}"' in bootstrap
     assert 'CURRENT_STAGE="resolve_config_identity"' in bootstrap
-    assert 'CONFIG_EXPERIMENT_ID="${config_experiment_ids[0]}"' in bootstrap
+    assert 'CONFIG_EXPERIMENT_ID="$(read_config_experiment_id "${CONFIG_PATH}")"' in bootstrap
     assert 'export E8_COLDSTART_EXPERIMENT_ID="${EXPERIMENT_ID}"' in bootstrap
     assert 'E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01' not in bootstrap
     assert "run_experiment_guard_hardened.py" in Path(
@@ -2163,6 +2163,37 @@ def test_frozen_coldstart_ids_reject_scientific_matrix_drift() -> None:
             exp_tuning.validate_config(bad)
 
 
+def test_canonical_liveness_manifest_matcher_rejects_stale_identity() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    cell = exp_tuning._canonical_cold_liveness_cell()
+    good = {
+        "canonical_dispatch": "countdown_e8_alpha1_highc_scan_runtime.smoke",
+        "cell": {
+            "task": cell.task,
+            "method": cell.method,
+            "rho": cell.rho,
+            "lambda": cell.lambda_value,
+            "seed": cell.seed,
+            "stage": cell.stage,
+        },
+    }
+    assert exp_tuning._matches_canonical_cold_liveness_manifest(good)
+    for key, value in (
+        ("lambda", 0.916290732),
+        ("rho", math.exp(-0.916290732)),
+        ("seed", 5000),
+        ("stage", "countdown_sentinel"),
+        ("method", exp_tuning.METHOD_GLOBAL),
+    ):
+        stale = copy.deepcopy(good)
+        stale["cell"][key] = value
+        assert not exp_tuning._matches_canonical_cold_liveness_manifest(stale)
+    stale = copy.deepcopy(good)
+    stale["canonical_dispatch"] = "countdown_e8_alpha1_highc_scan_runtime.worker"
+    assert not exp_tuning._matches_canonical_cold_liveness_manifest(stale)
+
+
 def test_canonical_coldstart_liveness_identity_is_independent_of_sweep_grid() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
@@ -2290,6 +2321,64 @@ def test_generic_coldstart_rejects_zero_scientific_cells() -> None:
         exp_tuning.validate_config(config)
 
 
+def test_runner_and_bootstrap_config_id_parser_accepts_yaml_presentation(tmp_path: Path) -> None:
+    import re
+    import sys
+
+    scripts = [
+        Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8"),
+        Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8"),
+    ]
+    parser_bodies = []
+    for script in scripts:
+        match = re.search(
+            r"python3 - \"\$1\" <<'PY_EXPERIMENT_ID'\n(.*?)\nPY_EXPERIMENT_ID",
+            script,
+            flags=re.S,
+        )
+        assert match is not None
+        parser_bodies.append(match.group(1))
+    assert parser_bodies[0] == parser_bodies[1]
+
+    valid = (
+        "experiment_id: EXT-C-E8-PLAIN-01\n",
+        "experiment_id: 'EXT-C-E8-SINGLE-01'\n",
+        'experiment_id: "EXT-C-E8-DOUBLE-01"\n',
+        "experiment_id: EXT-C-E8-COMMENT-01  # metadata\n",
+        "experiment_id: 'EXT-C-E8-SINGLE-COMMENT-01' # metadata\n",
+        'experiment_id: "EXT-C-E8-DOUBLE-COMMENT-01"\t# metadata\n',
+    )
+    for index, payload in enumerate(valid):
+        config = tmp_path / f"valid-{index}.yaml"
+        config.write_text(payload, encoding="utf-8")
+        completed = subprocess.run(
+            [sys.executable, "-c", parser_bodies[0], str(config)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        assert completed.returncode == 0, completed.stderr
+        assert completed.stdout.strip().startswith("EXT-C-E8-")
+
+    invalid = (
+        "experiment_id: bad id\n",
+        "experiment_id: 'bad id'\n",
+        "  experiment_id: NESTED-NOT-TOPLEVEL\n",
+        "experiment_id: FIRST\nexperiment_id: SECOND\n",
+        "experiment_id: `BAD`\n",
+    )
+    for index, payload in enumerate(invalid):
+        config = tmp_path / f"invalid-{index}.yaml"
+        config.write_text(payload, encoding="utf-8")
+        completed = subprocess.run(
+            [sys.executable, "-c", parser_bodies[0], str(config)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        assert completed.returncode != 0
+
+
 def test_runner_and_bootstrap_derive_experiment_id_from_config() -> None:
     runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
     bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
@@ -2297,7 +2386,7 @@ def test_runner_and_bootstrap_derive_experiment_id_from_config() -> None:
     assert 'EXPERIMENT_ID="${config_experiment_id}"' in runner
     assert "experiment_id mismatch: env=" in runner
     assert 'EXPERIMENT_ID="${EXPERIMENT_ID_OVERRIDE:-UNRESOLVED_FROM_CONFIG}"' in bootstrap
-    assert 'CONFIG_EXPERIMENT_ID="${config_experiment_ids[0]}"' in bootstrap
+    assert 'CONFIG_EXPERIMENT_ID="$(read_config_experiment_id "${CONFIG_PATH}")"' in bootstrap
     assert "experiment_id mismatch: bootstrap=" in bootstrap
     assert "--lambda 0.693147181" in runner
     assert "liveness_lambda" not in runner
