@@ -171,8 +171,34 @@ COUNTDOWN_DIAGNOSTIC_SENTINELS = (
 LOCKED_COUNTDOWN_COEFFICIENTS = frozenset(
     PAPER_ROUND1_COEFFICIENTS + PAPER_EXTENSION_COEFFICIENTS
 )
+FROZEN_COLDSTART_GRID_PROVENANCE = {
+    "word_sorting": "historical_19_plus_dense_refinement_1.05",
+    "spiral_matrix": "historical_7_anchors_plus_13_canonical_paper_coefficients",
+    "mini_sudoku": "historical_19_plus_dense_refinement_2.00",
+    "maze": "historical_19_plus_dense_refinement_0.10",
+    "word_ladder": "historical_19_plus_dense_refinement_1.05",
+    "knights_knaves": "historical_19_plus_dense_refinement_1.28",
+    "graph_color": "historical_19_plus_dense_refinement_0.10",
+    "wikisql": "historical_19_plus_dense_refinement_2.35",
+}
+FROZEN_LAMBDA_COMPLETION_GRID_PROVENANCE = {
+    task: "approved_5x_geometric_tail_completion_20260825"
+    for task in FROZEN_COLDSTART_P0_TASK_ORDER
+}
+FROZEN_LAMBDA_CURVE_GRID_PROVENANCE = {
+    "word_sorting": "approved_right_tail_curve_completion_20260829",
+    "spiral_matrix": "closed_no_new_cells_20260829",
+    "mini_sudoku": "approved_right_tail_curve_completion_20260829",
+    "maze": "approved_right_tail_curve_completion_20260829",
+    "word_ladder": "approved_right_tail_curve_completion_20260829",
+    "knights_knaves": "approved_right_tail_curve_completion_20260829",
+    "graph_color": "approved_left_right_boundary_completion_20260829",
+    "wikisql": "approved_aggressive_right_tail_curve_completion_20260829",
+}
 FROZEN_COLDSTART_SWEEP_IDENTITIES: dict[str, dict[str, Any]] = {
     COLDSTART_EXPERIMENT_ID: {
+        "excluded_tasks": {},
+        "task_grid_provenance": FROZEN_COLDSTART_GRID_PROVENANCE,
         "parameterization": "paper_coefficient_c",
         "countdown_seed_offsets": (4000, 5000),
         "countdown_include_positive_only": True,
@@ -194,6 +220,8 @@ FROZEN_COLDSTART_SWEEP_IDENTITIES: dict[str, dict[str, Any]] = {
         },
     },
     LAMBDA_COMPLETION_EXPERIMENT_ID: {
+        "excluded_tasks": {},
+        "task_grid_provenance": FROZEN_LAMBDA_COMPLETION_GRID_PROVENANCE,
         "parameterization": "paper_lambda_c1",
         "countdown_seed_offsets": (),
         "countdown_include_positive_only": True,
@@ -215,6 +243,8 @@ FROZEN_COLDSTART_SWEEP_IDENTITIES: dict[str, dict[str, Any]] = {
         },
     },
     LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID: {
+        "excluded_tasks": {},
+        "task_grid_provenance": FROZEN_LAMBDA_CURVE_GRID_PROVENANCE,
         "parameterization": "paper_lambda_c1",
         "countdown_seed_offsets": (),
         "countdown_include_positive_only": True,
@@ -331,6 +361,8 @@ def _validate_frozen_coldstart_sweep_identity(config: Mapping[str, Any]) -> None
         )
     sweep = config["sweep"]
     observed = {
+        "excluded_tasks": dict(config["suite"].get("excluded_tasks", {})),
+        "task_grid_provenance": dict(sweep.get("task_grid_provenance", {})),
         "parameterization": str(sweep.get("parameterization", "")),
         "countdown_seed_offsets": tuple(
             _configured_seed(value, "Countdown seed offset")
@@ -349,7 +381,9 @@ def _validate_frozen_coldstart_sweep_identity(config: Mapping[str, Any]) -> None
         "tuning_seed": _configured_seed(
             sweep.get("tuning_seed"), "Cold-start tuning seed"
         ),
-        "expected_cells": int(sweep.get("expected_cells", -1)),
+        "expected_cells": _configured_seed(
+            sweep.get("expected_cells"), "Cold-start expected_cells"
+        ),
         "include_global_endpoint": sweep.get("include_global_endpoint", False),
         "countdown_values": _task_lambdas(config, "countdown"),
         "task_grid_hashes": dict(sweep.get("task_grid_hashes", {})),
@@ -772,7 +806,10 @@ def validate_config(config: Mapping[str, Any]) -> None:
         )
         if expanded_cells <= 0:
             raise ValueError("Cold-start sweep must schedule at least one scientific cell")
-        if int(sweep.get("expected_cells", -1)) != expanded_cells:
+        expected_cells = _configured_seed(
+            sweep.get("expected_cells"), "Cold-start expected_cells"
+        )
+        if expected_cells != expanded_cells:
             raise ValueError("Cold-start expected_cells must match the configured matrix")
         _validate_frozen_coldstart_sweep_identity(config)
 

@@ -2238,6 +2238,41 @@ def test_frozen_coldstart_ids_reject_suite_order_drift() -> None:
             exp_tuning.validate_config(bad)
 
 
+def test_frozen_coldstart_ids_reject_provenance_and_reporting_drift() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    for path in (
+        Path("configs/e8_multitask_exp_coldstart.yaml"),
+        Path("configs/e8_multitask_exp_lambda_completion.yaml"),
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"),
+    ):
+        config = exp_tuning.load_config(path)
+
+        bad = copy.deepcopy(config)
+        bad["sweep"]["task_grid_provenance"]["word_sorting"] = "tampered_provenance"
+        with pytest.raises(ValueError, match="Frozen cold-start experiment identity drifted"):
+            exp_tuning.validate_config(bad)
+
+        bad = copy.deepcopy(config)
+        bad["suite"]["excluded_tasks"] = {"word_sorting": "false_historical_exclusion"}
+        with pytest.raises(ValueError, match="Frozen cold-start experiment identity drifted"):
+            exp_tuning.validate_config(bad)
+
+
+def test_generic_coldstart_expected_cells_requires_integer_type() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-CELL-TYPE-UNSEEN-TEST"
+    for invalid in (140.0, 140.9, "140", True):
+        bad = copy.deepcopy(config)
+        bad["sweep"]["expected_cells"] = invalid
+        with pytest.raises(ValueError, match="Cold-start expected_cells must be a non-negative integer"):
+            exp_tuning.validate_config(bad)
+
+
 def test_generic_coldstart_global_endpoint_and_countdown_controls_are_config_driven() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
