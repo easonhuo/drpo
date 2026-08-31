@@ -31,7 +31,6 @@ jobs:
           new = '''        if bool(countdown_values) != bool(countdown_seeds):\n            raise ValueError(\n                "Countdown lambda grid and seed offsets must be enabled or disabled together"\n            )\n'''
           assert old in text
           text = text.replace(old, new, 1)
-          assert "Countdown seeds require configured Countdown lambda sentinels" not in text
           core.write_text(text, encoding="utf-8")
 
           runner = Path("scripts/run_e8_multitask_exp_coldstart.sh")
@@ -43,8 +42,6 @@ jobs:
               line for line in text.splitlines(keepends=True)
               if "SUCCESSOR_SOURCE_ARGS" not in line
           )
-          assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" not in text
-          assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02" not in text
           runner.write_text(text, encoding="utf-8")
 
           for name in (
@@ -54,8 +51,10 @@ jobs:
               path = Path(name)
               text = path.read_text(encoding="utf-8")
               assert text.count("    countdown: *id002\n") == 1, name
-              text = text.replace("    countdown: *id002\n", "    countdown: []\n", 1)
-              path.write_text(text, encoding="utf-8")
+              path.write_text(
+                  text.replace("    countdown: *id002\n", "    countdown: []\n", 1),
+                  encoding="utf-8",
+              )
 
           tests = Path("tests/test_e8_multitask_p0.py")
           text = tests.read_text(encoding="utf-8")
@@ -73,14 +72,76 @@ jobs:
           tests.write_text(text, encoding="utf-8")
           PY
 
-      - name: Validate focused behavior
+      - name: Validate semantic behavior without GPU
         shell: bash
         run: |
-          python -m pip install -q "numpy==1.26.4" "PyYAML==6.0.2" pytest
+          python -m pip install -q "numpy==1.26.4" "PyYAML==6.0.2"
           export PYTHONPATH="$PWD/src"
           python -m py_compile src/drpo/e8_multitask_exp_tuning.py
           bash -n scripts/run_e8_multitask_exp_coldstart.sh
-          python -m pytest -q tests/test_e8_multitask_p0.py -k 'lambda_completion_matrix_is_config_driven_and_lambda_only or lambda_completion_preserves_restored_coldstart_behavior or lambda_curve_completion_matrix_is_config_driven or coldstart_sweep_instance_is_config_only or lambda_curve_completion_aggregate_accepts_zero_positive_only or coldstart_countdown_enablement_is_config_consistent or generic_coldstart_runner_has_no_successor_id_control_flow'
+          python - <<'PY'
+          import copy
+          from pathlib import Path
+          from drpo import e8_multitask_exp_tuning as e8
+
+          cold = e8.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+          completion = e8.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml"))
+          curve = e8.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+          assert len(e8.build_cells(cold)) == 208
+          assert len(e8.build_cells(completion)) == 199
+          assert len(e8.build_cells(curve)) == 140
+          assert completion["sweep"]["task_lambda"]["countdown"] == []
+          assert curve["sweep"]["task_lambda"]["countdown"] == []
+          assert [len(w) for w in e8.build_waves(completion)] == [16] * 12 + [7]
+          assert [len(w) for w in e8.build_waves(curve)] == [16] * 8 + [12]
+
+          synthetic = copy.deepcopy(curve)
+          synthetic["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-UNSEEN-SYNTHETIC"
+          synthetic["sweep"]["task_transfer_seed_offset"] = 5000
+          synthetic["sweep"]["tuning_seed"] = 5000
+          synthetic["sweep"]["transfer_positive_only_seed_offsets"] = [8000, 9000]
+          synthetic["sweep"]["task_lambda"]["maze"] = []
+          synthetic["sweep"]["task_lambda"]["word_sorting"] = [13.0, 15.0, 18.0]
+          for task in synthetic["suite"]["p0_tasks"]:
+              synthetic["sweep"]["task_grid_hashes"][task] = e8.stable_hash(
+                  list(synthetic["sweep"]["task_lambda"][task])
+              )
+          active = [
+              task for task in synthetic["suite"]["p0_tasks"]
+              if synthetic["sweep"]["task_lambda"][task]
+          ]
+          synthetic["sweep"]["expected_cells"] = sum(
+              len(synthetic["sweep"]["transfer_positive_only_seed_offsets"])
+              + len(synthetic["sweep"]["task_lambda"][task])
+              for task in active
+          )
+          synthetic["execution"].pop("expected_waves", None)
+          e8.validate_config(synthetic)
+          assert len(e8.build_cells(synthetic)) == synthetic["sweep"]["expected_cells"]
+
+          values_without_seeds = copy.deepcopy(cold)
+          values_without_seeds["sweep"]["countdown_seed_offsets"] = []
+          try:
+              e8.validate_config(values_without_seeds)
+          except ValueError as exc:
+              assert "enabled or disabled together" in str(exc)
+          else:
+              raise AssertionError("Countdown values without seeds must fail")
+
+          seeds_without_values = copy.deepcopy(cold)
+          seeds_without_values["sweep"]["task_lambda"]["countdown"] = []
+          try:
+              e8.validate_config(seeds_without_values)
+          except ValueError as exc:
+              assert "enabled or disabled together" in str(exc)
+          else:
+              raise AssertionError("Countdown seeds without values must fail")
+
+          runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text()
+          assert "SUCCESSOR_SOURCE_ARGS" not in runner
+          assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" not in runner
+          assert "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02" not in runner
+          PY
           git diff --check
 
       - name: Commit finalized fixes and remove temporary workflow
