@@ -1,0 +1,58 @@
+name: Temporary E8 config-driven review fix
+
+on:
+  push:
+    branches:
+      - dev/e8-config-driven-sweep-01
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out reviewed branch
+        uses: actions/checkout@v4
+        with:
+          ref: dev/e8-config-driven-sweep-01
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Apply reviewer fixes
+        run: python scripts/_tmp_apply_e8_config_driven_review_fixes.py
+
+      - name: Install lightweight test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest numpy PyYAML
+
+      - name: Compile Python module
+        run: PYTHONPATH=src python -m py_compile src/drpo/e8_multitask_exp_tuning.py
+
+      - name: Check shell syntax
+        run: bash -n scripts/run_e8_multitask_exp_coldstart.sh scripts/bootstrap_e8_multitask_exp_coldstart.sh
+
+      - name: Run config-driven regression tests
+        run: >-
+          PYTHONPATH=src python -m pytest -q tests/test_e8_multitask_p0.py
+          -k 'lambda_completion or lambda_curve_completion or coldstart_sweep_instance_is_config_only or experiment_id_is_generic or coldstart_config_rejects_non_integer_seeds or coldstart_countdown_anchor or generic_coldstart_runner or frozen_coldstart_ids or generic_coldstart_global_endpoint or generic_countdown_grid or generic_coldstart_rejects_zero or runner_and_bootstrap or aggregate_accepts_zero_positive_only'
+
+      - name: Check patch whitespace
+        run: git diff --check
+
+      - name: Commit validated fixes and remove temporary scaffolding
+        run: |
+          rm -f scripts/_tmp_apply_e8_config_driven_review_fixes.py
+          rm -f .github/workflows/_tmp_e8_config_driven_review_fix.yml
+          rm -f .e8-config-driven-ci-trigger
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'E8: harden config-driven sweep boundaries'
+          git push origin HEAD:dev/e8-config-driven-sweep-01
