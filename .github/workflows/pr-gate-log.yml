@@ -48,23 +48,20 @@ jobs:
 
           py = Path("src/drpo/e8_multitask_exp_tuning.py")
           text = py.read_text(encoding="utf-8")
-          marker = '''            raise ValueError(
-              "Countdown task_lambda must be a non-empty unique subset of the locked paper grids"
+          pattern = re.compile(
+              r'(\s+raise ValueError\(\n\s+"Countdown task_lambda must be a non-empty unique subset of the locked paper grids"\n\s+\)\n)(\s+countdown_seeds = tuple\()'
           )
-          countdown_seeds = tuple(
-          '''
-          replacement = '''            raise ValueError(
-              "Countdown task_lambda must be a non-empty unique subset of the locked paper grids"
+          text, count = pattern.subn(
+              r'\1        if 0.916290732 not in countdown_values:\n'
+              r'            raise ValueError(\n'
+              r'                "Countdown task_lambda must retain canonical liveness anchor 0.916290732"\n'
+              r'            )\n\2',
+              text,
+              count=1,
           )
-          if 0.916290732 not in countdown_values:
-              raise ValueError(
-                  "Countdown task_lambda must retain canonical liveness anchor 0.916290732"
-              )
-          countdown_seeds = tuple(
-          '''
-          if text.count(marker) != 1:
+          if count != 1:
               raise SystemExit("could not locate Countdown grid validator for liveness-anchor hardening")
-          py.write_text(text.replace(marker, replacement, 1), encoding="utf-8")
+          py.write_text(text, encoding="utf-8")
 
           runner = Path("scripts/run_e8_multitask_exp_coldstart.sh")
           text = runner.read_text(encoding="utf-8")
