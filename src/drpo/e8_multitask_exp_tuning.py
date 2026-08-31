@@ -422,10 +422,22 @@ def _dense_tasks() -> set[str]:
 def _task_lambdas(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
     if not _uses_task_lambdas(config):
         raise ValueError("Task-local lambdas are not defined for this profile")
-    values = _tuple_floats(config["sweep"]["task_lambda"][task])
-    if any(not math.isfinite(value) or value <= 0.0 for value in values):
-        raise ValueError(f"{task} lambda values must be finite and positive")
-    return values
+    raw_values = config["sweep"]["task_lambda"][task]
+    if isinstance(raw_values, (str, bytes)) or not isinstance(raw_values, Sequence):
+        raise ValueError(f"{task} lambda grid must be a sequence of numeric scalars")
+    values: list[float] = []
+    for value in raw_values:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(
+                f"{task} lambda values must be numeric, finite, and positive"
+            )
+        numeric = float(value)
+        if not math.isfinite(numeric) or numeric <= 0.0:
+            raise ValueError(
+                f"{task} lambda values must be numeric, finite, and positive"
+            )
+        values.append(numeric)
+    return tuple(values)
 
 
 def _task_rhos(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
@@ -551,6 +563,12 @@ def validate_config(config: Mapping[str, Any]) -> None:
     for key, expected in expected_split.items():
         if int(split[key]) != expected:
             raise ValueError(f"{key} must remain {expected}")
+    if _is_coldstart(config):
+        hash_seed = _configured_seed(
+            split.get("hash_seed"), "Cold-start split hash_seed"
+        )
+        if hash_seed != 2026072901:
+            raise ValueError("Cold-start split hash_seed must remain 2026072901")
     if bool(split.get("test_access_allowed", True)):
         raise ValueError("Tuning must forbid test access")
     if _is_coldstart(config) and not bool(
@@ -726,6 +744,8 @@ def validate_config(config: Mapping[str, Any]) -> None:
         task_lambda = sweep.get("task_lambda")
         if not isinstance(task_lambda, Mapping) or set(task_lambda) != set(tasks):
             raise ValueError("Cold-start task_lambda must contain the exact nine tasks")
+        if sweep.get("method") != "exponential":
+            raise ValueError("Cold-start sweep.method must remain exponential")
         parameterization = str(sweep.get("parameterization", ""))
         if parameterization not in ("paper_coefficient_c", "paper_lambda_c1"):
             raise ValueError(
@@ -814,12 +834,23 @@ def validate_config(config: Mapping[str, Any]) -> None:
         _validate_frozen_coldstart_sweep_identity(config)
 
         initialization = config.get("initialization", {})
+        initialization_updates = _configured_seed(
+            initialization.get("optimizer_updates"),
+            "Cold-start initialization optimizer_updates",
+        )
+        initialization_seed = _configured_seed(
+            initialization.get("seed"), "Cold-start initialization seed"
+        )
         if (
             initialization.get("source") != "base_model"
-            or int(initialization.get("optimizer_updates", -1)) != 0
-            or bool(initialization.get("external_adapter_allowed", True))
+            or initialization_updates != 0
+            or initialization.get("external_adapter_allowed") is not False
+            or initialization.get("deterministic_fresh_lora") is not True
+            or initialization_seed != 2026070803
         ):
-            raise ValueError("Cold-start must use a zero-update base-model LoRA initialization")
+            raise ValueError(
+                "Cold-start fresh-LoRA initialization contract drifted"
+            )
         canonical = config.get("canonical_coldstart", {})
         expected_paths = {
             "arena": "src/drpo/countdown_qwen_arena_onefile.py",

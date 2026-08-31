@@ -1545,7 +1545,7 @@ def test_exp_coldstart_rejects_adapter_runtime_or_grid_drift() -> None:
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
     changed = json.loads(json.dumps(config))
     changed["initialization"]["external_adapter_allowed"] = True
-    with pytest.raises(ValueError, match="zero-update"):
+    with pytest.raises(ValueError, match="fresh-LoRA initialization contract drifted"):
         exp_tuning.validate_config(changed)
     changed = json.loads(json.dumps(config))
     changed["execution"]["slots_per_gpu"] = 1
@@ -2271,6 +2271,53 @@ def test_generic_coldstart_expected_cells_requires_integer_type() -> None:
         bad["sweep"]["expected_cells"] = invalid
         with pytest.raises(ValueError, match="Cold-start expected_cells must be a non-negative integer"):
             exp_tuning.validate_config(bad)
+
+
+def test_generic_coldstart_rejects_scientific_input_drift() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-SCIENCE-LOCK-UNSEEN-TEST"
+
+    bad = copy.deepcopy(config)
+    bad["sweep"]["method"] = "quadratic"
+    with pytest.raises(ValueError, match="sweep.method must remain exponential"):
+        exp_tuning.validate_config(bad)
+
+    bad = copy.deepcopy(config)
+    bad["split"]["hash_seed"] += 1
+    with pytest.raises(ValueError, match="split hash_seed must remain 2026072901"):
+        exp_tuning.validate_config(bad)
+
+    bad = copy.deepcopy(config)
+    bad["initialization"]["seed"] += 1
+    with pytest.raises(ValueError, match="fresh-LoRA initialization contract drifted"):
+        exp_tuning.validate_config(bad)
+
+    bad = copy.deepcopy(config)
+    bad["initialization"]["deterministic_fresh_lora"] = False
+    with pytest.raises(ValueError, match="fresh-LoRA initialization contract drifted"):
+        exp_tuning.validate_config(bad)
+
+    for invalid in (True, "13.0"):
+        bad = copy.deepcopy(config)
+        bad["sweep"]["task_lambda"]["word_sorting"][0] = invalid
+        with pytest.raises(ValueError, match="lambda values must be numeric, finite, and positive"):
+            exp_tuning.validate_config(bad)
+
+
+def test_task_lambda_grid_rejects_scalar_string_container() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-LAMBDA-TYPE-UNSEEN-TEST"
+    config["sweep"]["task_lambda"]["word_sorting"] = "13.0"
+    with pytest.raises(ValueError, match="lambda grid must be a sequence of numeric scalars"):
+        exp_tuning.validate_config(config)
 
 
 def test_generic_coldstart_global_endpoint_and_countdown_controls_are_config_driven() -> None:
