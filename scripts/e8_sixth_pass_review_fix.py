@@ -117,6 +117,19 @@ replace_once(
 )
 
 text = tests.read_text(encoding="utf-8")
+stale = '''    changed["initialization"]["external_adapter_allowed"] = True
+    with pytest.raises(ValueError, match="zero-update"):
+        exp_tuning.validate_config(changed)
+'''
+updated = '''    changed["initialization"]["external_adapter_allowed"] = True
+    with pytest.raises(ValueError, match="fresh-LoRA initialization contract drifted"):
+        exp_tuning.validate_config(changed)
+'''
+if text.count(stale) != 1:
+    raise SystemExit(
+        f"expected one stale initialization assertion, found {text.count(stale)}"
+    )
+text = text.replace(stale, updated, 1)
 marker = '''def test_generic_coldstart_global_endpoint_and_countdown_controls_are_config_driven() -> None:
 '''
 extra = '''def test_generic_coldstart_rejects_scientific_input_drift() -> None:
