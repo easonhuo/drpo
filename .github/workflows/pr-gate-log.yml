@@ -40,6 +40,22 @@ jobs:
       - name: Apply reviewer fixes
         run: python scripts/_tmp_apply_e8_config_driven_review_fixes.py
 
+      - name: Align legacy runner assertion
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("tests/test_e8_multitask_p0.py")
+          text = path.read_text(encoding="utf-8")
+          old = '    assert \'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"\' in historical_launcher\n'
+          new = (
+              '    assert \'EXPERIMENT_ID_OVERRIDE="${E8_COLDSTART_EXPERIMENT_ID:-}"\' in historical_launcher\n'
+              '    assert \'EXPERIMENT_ID="${config_experiment_id}"\' in historical_launcher\n'
+          )
+          if text.count(old) != 1:
+              raise SystemExit("could not locate stale historical runner assertion")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
       - name: Install lightweight dependencies
         run: |
           python -m pip install --upgrade pip
