@@ -2532,3 +2532,146 @@ def test_e8_internal_config_loader_is_explicit(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError, match="restricted to engineering self-test"):
         tuning._load_internal_config(path)
+
+
+def test_e8_execution_identity_distinguishes_backend_and_run_class() -> None:
+    from drpo import e8_experiment_config as experiment_config
+
+    base = {
+        "reviewed_config_path": "configs/example.yaml",
+        "reviewed_config_git_blob_sha": "1" * 40,
+        "reviewed_config_hash": "semantic",
+        "effective_config_hash": "effective",
+        "experiment_id_value": "EXT-C-E8-EXAMPLE-01",
+        "source_commit": "2" * 40,
+        "model_repo": "repo/model",
+        "model_revision": "rev",
+        "model_snapshot_hash": "3" * 64,
+        "runtime": {"python": "3.x"},
+    }
+    real_formal = experiment_config.execution_identity(
+        **base, backend="real_canonical", run_class="formal"
+    )
+    real_pilot = experiment_config.execution_identity(
+        **base, backend="real_canonical", run_class="pilot"
+    )
+    placeholder_pilot = experiment_config.execution_identity(
+        **base, backend="engineering_placeholder", run_class="pilot"
+    )
+    assert real_formal["execution_identity_hash"] != real_pilot["execution_identity_hash"]
+    assert real_pilot["execution_identity_hash"] != placeholder_pilot["execution_identity_hash"]
+
+
+def test_e8_model_snapshot_hash_detects_weight_drift(tmp_path: Path) -> None:
+    from drpo import e8_experiment_config as experiment_config
+
+    root = tmp_path / "model"
+    root.mkdir()
+    weights = root / "model.safetensors"
+    weights.write_bytes(b"first")
+    (root / "config.json").write_text("{}")
+    first = experiment_config.model_snapshot_identity(root)
+    weights.write_bytes(b"second")
+    second = experiment_config.model_snapshot_identity(root)
+    assert first["model_snapshot_hash"] != second["model_snapshot_hash"]
+
+
+def test_e8_reusable_cells_reject_other_execution_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as tuning
+
+    config = tuning._engineering_self_test_config(
+        tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    )
+    identity_path = tmp_path / "identity.json"
+    payload = {
+        "schema_version": 1,
+        "experiment_id": tuning.experiment_id(config),
+        "reviewed_config": {},
+        "effective_config_hash": "effective",
+        "source_commit": "1" * 40,
+        "model": {},
+        "runtime": {},
+        "backend": "engineering_placeholder",
+        "run_class": "pilot",
+    }
+    payload["execution_identity_hash"] = tuning.stable_hash(payload)
+    identity_path.write_text(json.dumps(payload))
+    monkeypatch.setenv(tuning.EXECUTION_IDENTITY_ENV, str(identity_path))
+    cell = tuning.build_cells(config)[0]
+    root = tmp_path / "run"
+    manifest = root / "cells" / cell.key / "cell_manifest.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(
+        json.dumps(
+            {
+                "experiment_id": tuning.experiment_id(config),
+                "config_hash": tuning.stable_config_hash(config),
+                "execution_identity_hash": "0" * 64,
+                "complete": True,
+                "evaluation_status": "complete",
+                "nan_inf_failure": False,
+                "engineering_placeholder_backend": True,
+            }
+        )
+    )
+    reusable, rejected = tuning._reusable_cell_manifests(config, root)
+    assert cell.key not in reusable
+    assert "mismatch" in rejected[cell.key]
+
+
+def test_e8_recovery_import_rejects_stale_execution_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as tuning
+
+    config = tuning._engineering_self_test_config(
+        tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
+    )
+    identity_path = tmp_path / "identity.json"
+    payload = {
+        "schema_version": 1,
+        "experiment_id": tuning.experiment_id(config),
+        "reviewed_config": {},
+        "effective_config_hash": "effective",
+        "source_commit": "1" * 40,
+        "model": {},
+        "runtime": {},
+        "backend": "engineering_placeholder",
+        "run_class": "pilot",
+    }
+    payload["execution_identity_hash"] = tuning.stable_hash(payload)
+    identity_path.write_text(json.dumps(payload))
+    monkeypatch.setenv(tuning.EXECUTION_IDENTITY_ENV, str(identity_path))
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "source_provenance.json").write_text(
+        json.dumps({"source_commit": "1" * 40, "execution_identity_hash": "0" * 64})
+    )
+    with pytest.raises(RuntimeError, match="another execution identity"):
+        tuning.cmd_import_recovery(
+            config,
+            tmp_path / "destination",
+            source_output_root=source,
+            base_model_path="placeholder",
+            source_commit="1" * 40,
+        )
+
+
+def test_e8_runner_binds_execution_identity_and_complete_provenance() -> None:
+    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    assert "E8_COLDSTART_EXECUTION_IDENTITY_PATH" in runner
+    assert "model_snapshot_identity" in runner
+    assert "runtime_fingerprint" in runner
+    assert "workload_matches_execution_identity" in runner
+    assert "--source-file src/drpo/e8_experiment_config.py" in runner
+    assert "--source-file scripts/preflight_e8_multitask_config.py" in runner
+
+
+def test_e8_bootstrap_refreshes_authoritative_ref_even_when_complete() -> None:
+    bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    fetch_index = bootstrap.index('CURRENT_STAGE="fetch_authoritative_ref"')
+    stale_index = bootstrap.index("completed bootstrap is stale: authoritative")
+    assert fetch_index < stale_index
+    assert 'if [[ "${BOOTSTRAP_WAS_COMPLETE}" -eq 1 ]]; then\n  TARGET_COMMIT=' not in bootstrap

@@ -117,8 +117,11 @@ resolve_run_identity() {
   RECOVERY_ROOT="${E8_COLDSTART_RECOVERY_ROOT:-${RUNTIME_ROOT}/recovery/${RUN_ID}}"
   RECOVERY_PACKAGE="${RECOVERY_ROOT}/latest_checkpoint.zip"
   DELIVERY_PREFLIGHT_PACKAGE="${RECOVERY_ROOT}/delivery_preflight.zip"
+  EXECUTION_IDENTITY_PATH="${RECOVERY_ROOT}/EXECUTION_IDENTITY.json"
   export RUN_ID ATTEMPTS_ROOT GUARD_ROOT OUTPUT_ROOT P0_WORK_DIR COUNTDOWN_WORK_DIR
   export GUARD_ARTIFACT RECOVERY_ROOT RECOVERY_PACKAGE DELIVERY_PREFLIGHT_PACKAGE
+  export EXECUTION_IDENTITY_PATH
+  export E8_COLDSTART_EXECUTION_IDENTITY_PATH="${EXECUTION_IDENTITY_PATH}"
 }
 
 resolve_run_identity
@@ -212,6 +215,134 @@ config_preflight() {
     --config "${CONFIG_PATH}"
 }
 
+materialize_execution_identity() {
+  local backend="$1"
+  local run_class="$2"
+  local model_root="$3"
+  local action="$4"
+  local python_bin="${VENV_DIR}/bin/python"
+  if [[ "${backend}" == "engineering_placeholder" ]]; then
+    python_bin="${SELFTEST_VENV_DIR}/bin/python"
+  fi
+  [[ -x "${python_bin}" ]] || fail "execution-identity Python is unavailable: ${python_bin}"
+  mkdir -p "${RECOVERY_ROOT}"
+  "${python_bin}" - "${ROOT_DIR}" "${CONFIG_PATH}" "${EXPECTED_COMMIT}" \
+    "${MODEL_REPO}" "${MODEL_REVISION}" "${model_root}" "${backend}" "${run_class}" \
+    "${EXECUTION_IDENTITY_PATH}" "${action}" <<'PY_IDENTITY'
+import json
+import platform
+import sys
+from pathlib import Path
+
+from drpo import e8_experiment_config as experiment_config
+from drpo import e8_multitask_exp_tuning as tuning
+from drpo.e8_multitask_tasks import stable_hash
+
+(
+    root_text,
+    config_text,
+    source_commit,
+    model_repo,
+    model_revision,
+    model_root_text,
+    backend,
+    run_class,
+    identity_text,
+    action,
+) = sys.argv[1:]
+root = Path(root_text).resolve()
+config_path, relative, blob = experiment_config.require_tracked_config(config_text, root)
+config = experiment_config.load_strict_yaml(config_path)
+tuning.validate_config(config)
+experiment_config.validate_historical_config_identity(config_path, config, repo_root=root)
+semantic_hash = stable_hash(config)
+effective_hash = tuning.effective_execution_config_hash(config)
+if backend == "real_canonical":
+    model_snapshot_hash = experiment_config.model_snapshot_identity(model_root_text)[
+        "model_snapshot_hash"
+    ]
+    runtime = experiment_config.runtime_fingerprint()
+elif backend == "engineering_placeholder":
+    model_snapshot_hash = stable_hash(
+        {
+            "backend": backend,
+            "source_commit": source_commit,
+            "model_repo": "engineering-placeholder-no-model-loaded",
+        }
+    )
+    runtime = {
+        "python": platform.python_version(),
+        "backend": "engineering_placeholder_non_gpu",
+    }
+else:
+    raise SystemExit(f"unsupported backend: {backend}")
+identity = experiment_config.execution_identity(
+    reviewed_config_path=relative,
+    reviewed_config_git_blob_sha=blob,
+    reviewed_config_hash=semantic_hash,
+    effective_config_hash=effective_hash,
+    experiment_id_value=experiment_config.experiment_id(config),
+    source_commit=source_commit,
+    model_repo=model_repo if backend == "real_canonical" else "engineering-placeholder-no-model-loaded",
+    model_revision=model_revision if backend == "real_canonical" else "not_applicable",
+    model_snapshot_hash=model_snapshot_hash,
+    runtime=runtime,
+    backend=backend,
+    run_class=run_class,
+)
+path = Path(identity_text)
+if action == "write":
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(identity, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temporary.replace(path)
+elif action == "verify":
+    if not path.is_file():
+        raise SystemExit("execution identity file is missing")
+    observed = json.loads(path.read_text(encoding="utf-8"))
+    if observed != identity:
+        raise SystemExit("stored execution identity is stale")
+else:
+    raise SystemExit(f"unsupported execution identity action: {action}")
+print(identity["execution_identity_hash"])
+PY_IDENTITY
+}
+
+current_execution_identity_hash() {
+  [[ -f "${EXECUTION_IDENTITY_PATH}" ]] || return 1
+  python3 - "${EXECUTION_IDENTITY_PATH}" <<'PY_ID_HASH'
+import json
+import sys
+value = json.loads(open(sys.argv[1], encoding="utf-8").read())
+digest = str(value.get("execution_identity_hash", ""))
+if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+    raise SystemExit(2)
+print(digest)
+PY_ID_HASH
+}
+
+workload_matches_execution_identity() {
+  local workload="$1"
+  local current
+  current="$(current_execution_identity_hash)" || return 1
+  python3 - "${workload}" "${current}" <<'PY_WORKLOAD_ID'
+import json
+import sys
+from pathlib import Path
+root = Path(sys.argv[1])
+expected = sys.argv[2]
+for name in ("source_provenance.json", "RUN_COMPLETE.json"):
+    path = root / name
+    if not path.is_file():
+        if name == "RUN_COMPLETE.json":
+            continue
+        raise SystemExit(1)
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if value.get("execution_identity_hash") != expected:
+        raise SystemExit(1)
+raise SystemExit(0)
+PY_WORKLOAD_ID
+}
+
 setup() {
   check_source
   command -v python3 >/dev/null || fail "python3 is unavailable"
@@ -259,15 +390,19 @@ assert audit["verified"], audit
 print(audit)
 PY
   mkdir -p "${RECOVERY_ROOT}"
+  materialize_execution_identity real_canonical "${RUN_CLASS}" "${MODEL_DIR}" write >/dev/null
   python - <<PY
 import json
 from pathlib import Path
+identity = json.loads(Path("${EXECUTION_IDENTITY_PATH}").read_text(encoding="utf-8"))
 path = Path("${RECOVERY_ROOT}") / "SETUP_COMPLETE.json"
 path.write_text(json.dumps({
     "schema_version": 1,
     "experiment_id": "${EXPERIMENT_ID}",
     "source_commit": "${EXPECTED_COMMIT}",
     "model_revision": "${MODEL_REVISION}",
+    "execution_identity_hash": identity["execution_identity_hash"],
+    "model_snapshot_hash": identity["model"]["model_snapshot_hash"],
     "venv": str(Path("${VENV_DIR}").resolve()),
     "model": str(Path("${MODEL_DIR}").resolve()),
     "complete": True,
@@ -295,6 +430,15 @@ assert value["model_revision"] == "${MODEL_REVISION}"
 assert torch.cuda.is_available()
 assert torch.cuda.device_count() >= 8
 PY
+  materialize_execution_identity real_canonical "${RUN_CLASS}" "${MODEL_DIR}" verify >/dev/null || return 1
+  local current_identity
+  current_identity="$(current_execution_identity_hash)" || return 1
+  python - "${RECOVERY_ROOT}/SETUP_COMPLETE.json" "${current_identity}" <<'PY_SETUP_ID' >/dev/null
+import json
+import sys
+value = json.loads(open(sys.argv[1], encoding="utf-8").read())
+assert value.get("execution_identity_hash") == sys.argv[2]
+PY_SETUP_ID
   preflight_gpu
 }
 
@@ -347,6 +491,7 @@ latest_recoverable_output() {
     [[ -f "${attempt}/workload/prepare_manifest.json" ]] || continue
     [[ -f "${attempt}/workload/split_manifest.json" ]] || continue
     [[ -f "${attempt}/workload/source_provenance.json" ]] || continue
+    workload_matches_execution_identity "${attempt}/workload" || continue
     printf '%s\n' "${attempt}/workload"
     return 0
   done < <(
@@ -364,6 +509,7 @@ reuse_successful_attempt() {
   number="$(attempt_number "${latest}")"
   local artifact="${RUNTIME_ROOT}/packages/${RUN_ID}_attempt-$(printf '%03d' "${number}")_guarded.zip"
   [[ -f "${artifact}" && -f "${latest}/workload/aggregate/plot_curve_points.csv" ]] || return 1
+  workload_matches_execution_identity "${latest}/workload" || return 1
   python "${ROOT_DIR}/scripts/verify_experiment_package_hardened.py" \
     --repo-root "${ROOT_DIR}" "${artifact}" >/dev/null || return 1
   GUARD_ROOT="${latest}"
@@ -404,6 +550,7 @@ write_attempt_state() {
     printf 'experiment_id=%q\n' "${EXPERIMENT_ID}"
     printf 'status=%q\n' "${status}"
     printf 'source_commit=%q\n' "${EXPECTED_COMMIT}"
+    printf 'execution_identity_hash=%q\n' "$(current_execution_identity_hash)"
     printf 'guard_root=%q\n' "${GUARD_ROOT}"
     printf 'output_root=%q\n' "${OUTPUT_ROOT}"
     printf 'artifact=%q\n' "${GUARD_ARTIFACT}"
@@ -603,6 +750,10 @@ engineering_self_test() {
   ATTEMPTS_ROOT="${E8_COLDSTART_SELFTEST_OUTPUT_ROOT:-${RUNTIME_ROOT}/self-test-guard/${RUN_ID}}"
   RECOVERY_ROOT="${RUNTIME_ROOT}/self-test-recovery/${RUN_ID}"
   RECOVERY_PACKAGE="${RECOVERY_ROOT}/latest_checkpoint.zip"
+  EXECUTION_IDENTITY_PATH="${RECOVERY_ROOT}/EXECUTION_IDENTITY.json"
+  export RECOVERY_ROOT RECOVERY_PACKAGE EXECUTION_IDENTITY_PATH
+  export E8_COLDSTART_EXECUTION_IDENTITY_PATH="${EXECUTION_IDENTITY_PATH}"
+  materialize_execution_identity engineering_placeholder pilot "placeholder" write >/dev/null
   command -v flock >/dev/null || fail "flock is required for single-writer recovery safety"
   mkdir -p "${RECOVERY_ROOT}"
   exec 8>"${RECOVERY_ROOT}/runtime.lock"
@@ -719,6 +870,8 @@ PY
     scripts/run_e8_multitask_p0.sh
     scripts/v2_bank_convert.py
     src/drpo/e8_multitask_exp_tuning.py
+    src/drpo/e8_experiment_config.py
+    scripts/preflight_e8_multitask_config.py
     src/drpo/e8_multitask_p0.py
     src/drpo/e8_multitask_tasks.py
   )
@@ -754,13 +907,16 @@ prepare() {
     --p0-config "${P0_CONFIG_PATH}" \
     --countdown-bank "${COUNTDOWN_WORK_DIR}/data/offline_bank_v2.jsonl" \
     --countdown-validation "${COUNTDOWN_WORK_DIR}/data/val.jsonl"
+  cp "${EXECUTION_IDENTITY_PATH}" "${OUTPUT_ROOT}/execution_identity.json"
   python - <<PY
 import json
 from pathlib import Path
+identity = json.loads(Path("${EXECUTION_IDENTITY_PATH}").read_text(encoding="utf-8"))
 value = {
     "schema_version": 1,
     "run_id": "${RUN_ID}",
     "source_commit": "${EXPECTED_COMMIT}",
+    "execution_identity_hash": identity["execution_identity_hash"],
     "model_repo": "${MODEL_REPO}",
     "model_revision": "${MODEL_REVISION}",
     "model_path": str(Path("${MODEL_DIR}").resolve()),
@@ -951,6 +1107,8 @@ run_formal_guard_attempt() {
     --source-file scripts/run_e8_multitask_exp_coldstart.sh \
     --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh \
     --source-file src/drpo/e8_multitask_exp_tuning.py \
+    --source-file src/drpo/e8_experiment_config.py \
+    --source-file scripts/preflight_e8_multitask_config.py \
     --source-file "${CONFIG_REPO_PATH}" \
     "${CONFIG_SOURCE_ARGS[@]}" \
     --source-file requirements/e8_multitask_exp_coldstart.txt \
