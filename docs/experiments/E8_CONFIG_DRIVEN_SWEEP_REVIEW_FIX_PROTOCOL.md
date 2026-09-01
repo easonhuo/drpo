@@ -1,6 +1,6 @@
 # E8 config-driven sweep repair invariants
 
-Status: tenth-pass engineering review in progress / not a scientific result.
+Status: implementation hardening complete through tenth-pass CI / independent review pending / not a scientific result.
 
 Scope: harden the `eight_task_coldstart_lambda_v1` orchestration refactor introduced by PR #340 without changing the frozen scientific kernel, paper taper, current-policy surprisal, all-unique-negative consumer, 1200-update horizon, optimizer, data, task runtime, scheduler topology, or result interpretation.
 
@@ -28,4 +28,17 @@ Scope: harden the `eight_task_coldstart_lambda_v1` orchestration refactor introd
 
 The final branch must preserve the existing 208/199/140 cell matrices and wave geometry; accept a synthetic unseen experiment ID with changed transfer grids/seeds/cell count; reject drift under each frozen historical ID including task-order, `excluded_tasks`, task-grid-provenance, reporting, historical `expected_waves`, and predecessor-curve-anchor drift; reject malformed/non-integer seeds, non-integer `expected_cells`, bool/string lambda values, a non-Exp method label, split-hash drift, fresh-LoRA initialization-seed drift, canonical blob-SHA drift, canonical formula/initialization-label drift, and zero-cell matrices; reject execution and remaining cold-start scalar bool/float/string coercions; reject stochastic evaluation temperature/top-p/generation-seed drift; preserve the selection flags, the three separate terminal event classes, and the external-validity claim boundary; preserve the exact `c=0.693147181`, seed-4000 Countdown liveness identity even when zero Countdown scientific cells are scheduled; reject stale/mislabeled liveness manifests during recovery; verify runner/bootstrap config identity resolution and mismatch rejection for plain, quoted, and comment-bearing safe YAML scalars; verify that the default config keeps its historical Run ID while any non-default config without `E8_COLDSTART_RUN_ID` fails closed before path construction, and reject unsafe Run IDs containing path separators/traversal; verify optional transfer Global endpoints without treating `lambda=0` as Exp; verify bootstrap self-test contains no hidden fixed PR target, fails without an explicit `E8_COLDSTART_TARGET_REF`, accepts controlled branch and PR-head refs, and preserves the full-mode `main` default; and run Python compilation, shell syntax checks, the complete `tests/test_e8_multitask_p0.py`, `git diff --check`, plus the repository PR gate.
 
-No smoke test, static check, focused unit test, or engineering liveness result produced under this protocol is a scientific result.
+## Engineering closure evidence
+
+- Base main commit for PR #340: `6ed153d5ad7361a4e52348610b86b51b71e25e47`.
+- Tenth-pass implementation commit: `e528e8beb3b7885ebffa2dd9ac7e7210f9f39fdf`.
+- Tenth-pass GitHub Actions run `33461027051` completed successfully.
+- Complete `tests/test_e8_multitask_p0.py`: `74 passed, 4 skipped`.
+- `python -m py_compile` passed for `src/drpo/e8_multitask_exp_tuning.py` and `tests/test_e8_multitask_p0.py`.
+- `bash -n` passed for the cold-start runner, bootstrap, and lambda-completion launcher.
+- `git diff --check` passed.
+- One-shot repair workflows, repair scripts, and trigger files were removed by the validated cleanup commit.
+- No scientific experiment was executed by these checks; no task-performance, support/variance-boundary, convergence, significance, or method-ranking claim is produced here.
+- Merge remains blocked until the repository's independent reviewer gate is satisfied and the final PR-head repository gates are reviewed.
+
+No smoke test, static check, focused unit test, engineering liveness result, or CI regression result produced under this protocol is a scientific result.
