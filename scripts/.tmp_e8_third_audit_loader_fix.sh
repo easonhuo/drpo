@@ -44,28 +44,50 @@ text = text.replace(old, new, 1)
 text = text.replace('recovered = load_config(engineering_config)', 'recovered = _load_internal_config(engineering_config)', 1)
 text = text.replace('recovered_config = load_config(config_path)', 'recovered_config = _load_internal_config(config_path)', 1)
 path.write_text(text)
+
+path = Path('src/drpo/e8_experiment_config.py')
+text = path.read_text()
+old = '''    historical = is_historical_coldstart_config(config) and not is_engineering_self_test_config(config)
+'''
+new = '''    # Internal engineering self-tests derived from an immutable historical config
+    # retain that historical scientific matrix. The engineering marker changes the
+    # backend/evidence class, not the reviewed scientific matrix semantics.
+    historical = is_historical_coldstart_config(config)
+'''
+if old not in text:
+    raise SystemExit('historical sweep anchor not found')
+text = text.replace(old, new, 1)
+path.write_text(text)
 PY
 
-cat >> tests/test_e8_multitask_p0.py <<'PYTEST'
+python - <<'PY'
+from pathlib import Path
 
-
-def test_e8_strict_yaml_rejects_duplicate_nested_keys(tmp_path: Path) -> None:
-    from drpo import e8_experiment_config as experiment_config
-
-    path = tmp_path / "duplicate.yaml"
-    path.write_text("schema_version: 1\nsweep:\n  method: exponential\n  method: linear\n")
-    with pytest.raises(ValueError, match="duplicate key"):
-        experiment_config.load_strict_yaml(path)
-
-
-def test_e8_internal_config_loader_is_explicit_and_rejects_scientific_config(tmp_path: Path) -> None:
-    from drpo import e8_multitask_exp_tuning as tuning
-
-    path = tmp_path / "ordinary.yaml"
-    path.write_text("schema_version: 1\nexperiment_id: X\n")
-    with pytest.raises((KeyError, ValueError)):
-        tuning._load_internal_config(path)
-PYTEST
+path = Path('tests/test_e8_multitask_p0.py')
+text = path.read_text()
+anchor = '''def test_new_coldstart_config_controls_materialized_runtime_without_core_edits(\n    tmp_path: Path,\n) -> None:\n'''
+helper = '''def _generic_coldstart_test_config():\n    from drpo import e8_multitask_exp_tuning as exp_tuning\n\n    config = exp_tuning.load_config(\n        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")\n    )\n    # Frozen predecessor metadata is not part of the generic reviewed schema.\n    config.pop("historical_curve_anchor", None)\n    sweep = config["sweep"]\n    sweep["countdown_seed_offsets"] = []\n    sweep["countdown_include_positive_only"] = False\n    sweep["include_global_endpoint"] = False\n    sweep["task_lambda"]["countdown"] = []\n    sweep["countdown_sentinel_coefficients"] = []\n    return config\n\n\n'''
+if anchor not in text:
+    raise SystemExit('generic helper anchor not found')
+text = text.replace(anchor, helper + anchor, 1)
+needle = 'config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))'
+# Only the four third-audit synthetic-generic tests below the helper should convert
+# a historical config into a generic config. Earlier historical regression tests
+# must continue to load the frozen file directly.
+head, tail = text.split(helper, 1)
+count = tail.count(needle)
+if count < 4:
+    raise SystemExit(f'expected at least four generic test anchors, found {count}')
+tail = tail.replace(needle, 'config = _generic_coldstart_test_config()', 4)
+text = head + helper + tail
+old = '''    try:\n        with pytest.raises(ValueError, match="canonical config path"):\n            exp_tuning.load_config(copied)\n    finally:\n        copied.unlink(missing_ok=True)\n'''
+new = '''    try:\n        with pytest.raises(ValueError, match="not Git-tracked"):\n            exp_tuning.load_config(copied)\n        from drpo import e8_experiment_config as experiment_config\n\n        frozen = exp_tuning.load_config(source)\n        with pytest.raises(ValueError, match="canonical config path"):\n            experiment_config.validate_historical_config_identity(\n                copied, frozen, repo_root=Path.cwd()\n            )\n    finally:\n        copied.unlink(missing_ok=True)\n'''
+if old not in text:
+    raise SystemExit('historical identity test anchor not found')
+text = text.replace(old, new, 1)
+text += '''\n\ndef test_e8_strict_yaml_rejects_duplicate_nested_keys(tmp_path: Path) -> None:\n    from drpo import e8_experiment_config as experiment_config\n\n    path = tmp_path / "duplicate.yaml"\n    path.write_text("schema_version: 1\\nsweep:\\n  method: exponential\\n  method: linear\\n")\n    with pytest.raises(ValueError, match="duplicate key"):\n        experiment_config.load_strict_yaml(path)\n\n\ndef test_e8_internal_config_loader_is_explicit(tmp_path: Path) -> None:\n    from drpo import e8_multitask_exp_tuning as tuning\n\n    path = tmp_path / "historical-copy.yaml"\n    path.write_text(\n        Path("configs/e8_multitask_exp_coldstart.yaml").read_text(encoding="utf-8"),\n        encoding="utf-8",\n    )\n    with pytest.raises(ValueError, match="restricted to engineering self-test"):\n        tuning._load_internal_config(path)\n'''
+path.write_text(text)
+PY
 
 python -m py_compile src/drpo/e8_experiment_config.py scripts/preflight_e8_multitask_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
 bash -n scripts/run_e8_multitask_exp_coldstart.sh
@@ -77,7 +99,7 @@ ruff format --check src/drpo/e8_experiment_config.py scripts/preflight_e8_multit
 git diff --check
 
 git rm .github/workflows/e8-third-audit-loader-fix-once.yml scripts/.tmp_e8_third_audit_loader_fix.sh
-git add src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py scripts/bootstrap_e8_multitask_exp_coldstart.sh
+git add src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
 git diff --cached --check
 git config user.name github-actions[bot]
 git config user.email 41898282+github-actions[bot]@users.noreply.github.com
