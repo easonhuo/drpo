@@ -1,6 +1,6 @@
 # E8 config-driven sweep repair invariants
 
-Status: runtime-propagation closure documented / implementation and final-head repository gates pending / independent review pending / not a scientific result.
+Status: runtime propagation implemented and subtractively cleaned / final-head repository gates pending / independent review pending / not a scientific result.
 
 Scope: harden and simplify the `eight_task_coldstart_lambda_v1` orchestration refactor introduced by PR #340 without changing any currently tracked historical scientific config, the canonical paper trainer/loss, or the interpretation of existing results.
 
@@ -46,6 +46,7 @@ This section closes a gap found after the authority-boundary simplification. The
 8. Any legacy grid validator that protects historical paper-grid science may be adapted only for a derived runtime grid by proving that the derived file differs from its canonical source solely in explicitly propagated runtime fields. All non-runtime grid drift must still fail closed.
 9. Preflight must report the **resolved effective runtime** that will be materialized for each active task, not merely echo raw YAML sections. The effective-runtime resolver used by preflight must be the same resolver used to materialize canonical runtime inputs.
 10. Regression tests must inspect the materialized base/grid YAMLs and the legacy-interface adapter inputs. A test that only mutates an in-memory config, calls `validate_config`, and asserts that the dictionary still contains the new value is insufficient and must not be treated as runtime-propagation evidence.
+11. Canonical paper-profile activation must use the immutable canonical source grid. A derived runtime grid is passed to the worker/trainer only after canonical activation and only inside the runtime bridge described above. This prevents the historical strict grid validator from rejecting a reviewed runtime-only change before the bridge can verify and consume it.
 
 ## Required regression checks after the authority-boundary simplification
 
@@ -56,6 +57,7 @@ The final branch must:
 - reject a generic experiment ID under RHO or DENSE and accept a well-formed generic ID only under cold-start;
 - demonstrate with a synthetic new cold-start config that reviewed scientific scalars differ from historical values without editing the canonical paper sources, and verify those scalars in the effective runtime and materialized canonical inputs;
 - verify process-local adapters deliver configured LoRA dimensions, optimizer weight decay, and sampled-generation temperature/top-p to the legacy interfaces rather than silently using historical literals;
+- verify canonical profile activation uses the immutable source grid before a derived runtime grid enters the process-local bridge;
 - reject duplicate/invalid lambda cells, malformed seeds/booleans/numbers where their type is required for execution, unsupported methods, inconsistent `expected_cells`, zero-cell matrices, and accepted-but-unconsumable runtime combinations;
 - preserve optional transfer Global endpoints without treating `lambda=0` as Exp;
 - preserve the exact `c=0.693147181`, seed-4000 Countdown engineering liveness identity and reject stale/mislabeled liveness manifests during recovery;
@@ -64,6 +66,26 @@ The final branch must:
 - verify safe/non-inherited Run IDs and explicit bootstrap self-test target refs;
 - verify preflight prints the resolved effective experiment/runtime plan and performs no model/GPU work;
 - run Python compilation for changed Python files, shell syntax checks for changed shell launchers, the focused E8 test suite, `git diff --check`, and repository PR gates.
+
+## Final runtime-propagation implementation evidence
+
+- Base main commit: `6ed153d5ad7361a4e52348610b86b51b71e25e47`.
+- Runtime-propagation implementation commit: `27762da8e52f0948b776d2ff1efeec1c121b21df`.
+- Activation-order and subtractive-cleanup implementation commit: `68c5ce06ceb961bbaf83df7169c3a31815b18844`.
+- GitHub Actions runtime-propagation run `33486287587` completed successfully before the activation-order follow-up; the subsequent activation-order review found that its green tests were not sufficient evidence of executable derived-grid activation.
+- Final focused engineering run `33487047873`, job `99789460451`, completed successfully after that follow-up. It self-removed the temporary workflow and repair script from the branch tree.
+- Complete focused `tests/test_e8_multitask_p0.py`: **63 passed in 4.95s**.
+- `python -m py_compile` passed for `src/drpo/e8_experiment_config.py`, `scripts/preflight_e8_multitask_config.py`, `src/drpo/e8_multitask_exp_tuning.py`, and `tests/test_e8_multitask_p0.py`.
+- `bash -n` passed for the cold-start runner, bootstrap, and lambda-completion launcher.
+- Ruff passed for `src/drpo/e8_experiment_config.py`, `scripts/preflight_e8_multitask_config.py`, and the focused E8 tests; `ruff format` was applied to the touched core/test files. This is not a claim that unrelated pre-existing warnings in the scientific core were repaired.
+- `git diff --check` and the staged diff check both passed.
+- Generic cold-start runtime propagation is checked at four layers: effective-runtime resolution, per-task base/grid materialization, process-local legacy-interface bridging, and canonical source-grid activation before the derived grid reaches the trainer.
+- The byte-locked canonical arena/common/runtime/trainer files were not edited; the wrapper changes interfaces and runtime YAML materialization without reimplementing the loss.
+- The old cold-start field-by-field hard-lock block in `e8_multitask_exp_tuning.validate_config` was deleted after delegation to `e8_experiment_config`; RHO/DENSE retain their historical exact validation path. The activation/cleanup commit itself was **57 additions / 641 deletions** including removal of its temporary workflow/script.
+- Exact base-to-implementation-head diff at `68c5ce06...`: seven files, `+2283/-612` (net `+1671`). `src/drpo/e8_multitask_exp_tuning.py` is `+603/-514`, net **+89** relative to main; there is no line-count quota and this measured value is reported only as evidence that the validator-heavy core was subtractively reduced.
+- RHO/DENSE generic IDs remain rejected; historical cold-start-family IDs remain protected by canonical config path/content identity; canonical 208/199/140 matrix regression tests remain in the focused suite.
+- No model training, GPU sweep, task-performance result, support/variance-boundary result, convergence result, significance result, or method ranking was produced by these engineering checks.
+- Normal repository PR gates must run on the final documentation head after this evidence update. Independent review remains mandatory before merge.
 
 ## Authority-boundary implementation evidence
 
@@ -82,7 +104,7 @@ The final branch must:
 - Diff at `f61b5ef5...` relative to base: `+1581/-242` across seven files (net `+1339`). The scientific core `src/drpo/e8_multitask_exp_tuning.py` is `+298/-144`, down substantially from the pre-simplification validator-heavy version; config interpretation is isolated in the approved `src/drpo/e8_experiment_config.py`.
 - The repository owner's explicit approval for the two new Python paths and the large/structural config-authority refactor is preserved in PR #340 discussion using `GOV-NEW-PYTHON-FILE-ORAL-APPROVAL-02` fields.
 
-**Runtime-propagation correction:** the bullet above describing the synthetic test is retained as historical engineering evidence only. It proves validator acceptance, not canonical-runtime consumption. It must not be cited as satisfying the end-to-end config-authority invariant. Runtime-propagation evidence must be regenerated on the final repair head using the stronger checks in the preceding section.
+**Runtime-propagation correction:** the bullet above describing the synthetic test is retained as historical engineering evidence only. It proves validator acceptance, not canonical-runtime consumption. It must not be cited as satisfying the end-to-end config-authority invariant. Runtime-propagation evidence is superseded by the stronger final evidence section above.
 
 This evidence is engineering-only. No scientific experiment, GPU training sweep, task-performance result, support/variance-boundary result, convergence/significance claim, or method-ranking claim was produced. Final-head repository gates and independent review remain mandatory before merge.
 
