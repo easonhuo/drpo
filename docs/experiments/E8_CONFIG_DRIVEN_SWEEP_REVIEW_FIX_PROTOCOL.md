@@ -1,6 +1,6 @@
 # E8 config-driven sweep repair invariants
 
-Status: runtime propagation implemented and subtractively cleaned / final-head repository gates pending / independent review pending / not a scientific result.
+Status: third adversarial audit closure specified / implementation repair pending / final-head repository gates pending / independent review pending / not a scientific result.
 
 Scope: harden and simplify the `eight_task_coldstart_lambda_v1` orchestration refactor introduced by PR #340 without changing any currently tracked historical scientific config, the canonical paper trainer/loss, or the interpretation of existing results.
 
@@ -95,7 +95,7 @@ The final branch must:
 - Complete focused `tests/test_e8_multitask_p0.py`: `60 passed in 5.70s`.
 - `python -m py_compile` passed for `src/drpo/e8_experiment_config.py`, `scripts/preflight_e8_multitask_config.py`, `src/drpo/e8_multitask_exp_tuning.py`, and `tests/test_e8_multitask_p0.py`.
 - `bash -n` passed for the cold-start runner, bootstrap, and lambda-completion launcher.
-- Ruff passed for the new config/preflight files and the focused E8 tests; this is not a claim that every pre-existing warning in the scientific core was repaired.
+- Ruff passed for the new config/preflight files and the focused E8 tests; this is not a claim that every pre-existing warning in the scientific core were repaired.
 - `git diff --check` passed.
 - The synthetic generic cold-start test changes optimizer horizon, stochastic-evaluation values, split/init seeds, LoRA rank, and a task runtime length without editing the training core, and validation accepts the reviewed-config values.
 - RHO/DENSE generic IDs are rejected; historical cold-start-family IDs are protected by canonical config path/content identity.
@@ -135,3 +135,57 @@ A second end-to-end audit found additional accepted-but-unconsumable and provena
 6. Standalone config preflight must execute before full dependency installation, model download, GPU capacity checks, or other expensive setup on a fresh runtime. A minimal bootstrap environment may install only the lightweight dependencies needed to run the existing preflight; this does not authorize a second validator or duplicated config rules.
 7. Formal guarded execution provenance must include every Python path that participates in config interpretation or launch gating, including `src/drpo/e8_experiment_config.py` and `scripts/preflight_e8_multitask_config.py`. Delivery-preflight provenance is not a substitute for a complete raw guarded-run source manifest.
 8. Regression tests must cover all findings above. Passing the earlier 63-test suite is historical engineering evidence only and does not close this second-audit set.
+
+## 2026-09-01 third adversarial audit closure
+
+This section records the final design decisions reached after inspecting the failed V3 job and the remaining config/recovery identity path. It supersedes any implication that the V3 repair was partially applied.
+
+### V3 non-execution correction
+
+1. The V3 workflow failed before its repair script executed because the temporary repair code raised `SyntaxError: unterminated triple-quoted string literal`. Therefore V3 changed no validator, runner, test, provenance path, or cleanup state and produced no validated implementation commit. The current pre-repair branch state must be treated as a stranded repair state, not a half-completed V3 repair.
+2. Earlier CI evidence in this document remains historical engineering evidence for the exact commits on which it ran. It must not be cited as final-head evidence for the third-audit closure.
+3. No further V4/V5-style one-shot self-repair workflow is authorized. The remaining repair must be made as normal repository changes, with the temporary repair workflows/scripts removed from the final tree.
+
+### Closed reviewed-config schema
+
+4. Every **new generic** `eight_task_coldstart_lambda_v1` reviewed config is recursively closed-world. Every top-level section and nested mapping has an explicit implemented key set. A key not known to the schema is rejected before launch even if its value would otherwise survive YAML parsing and enter the config hash. There is no open-ended scientific or metadata section.
+5. Closed-world applies to metadata as well as scientific/runtime sections. `reporting`, grid provenance, canonical-integrity declarations, and execution metadata may contain only explicitly defined fields. A historical-only field such as `historical_curve_anchor` is not thereby made part of the generic schema merely because it exists in an immutable predecessor config.
+6. Historical cold-start-family IDs remain grandfathered only by their exact canonical path/content identity. The closed generic schema must not retroactively reject or reinterpret a frozen historical YAML blob.
+7. The runtime-generated engineering self-test config is not a reviewed scientific config. Its additional `engineering_self_test` mapping is allowed only on the internal derived-config path and itself has an exact closed key set; an external reviewed config may not use that internal-only section.
+
+### Strict YAML authority and loader boundary
+
+8. There is one shared strict YAML parse boundary for this E8 config family. Duplicate mapping keys at any nesting level are an error; parser last-key-wins behavior is forbidden for reviewed or internal derived configs.
+9. Parsing, schema validation, semantic/capability validation, and historical-ID identity validation must not be independently reimplemented in preflight and runtime. Preflight and runtime use the same config module.
+10. An external CLI launch must resolve the selected config inside the repository and require it to be Git-tracked before execution. The direct Python module entrypoint is subject to the same tracked-config rule as the shell runner and standalone preflight.
+11. A runtime-generated internal config, including `engineering_self_test_config.yaml`, is parsed through the same strict schema/semantic validator but is not required to be Git-tracked. Internal parsing must be an explicit API; it may not weaken the external launch path.
+
+### Explicit generic scientific matrix semantics
+
+12. Historical compatibility defaults for omitted `countdown_include_positive_only` and `include_global_endpoint` remain permitted only for immutable historical configs. A new generic reviewed config must explicitly specify both fields because they alter the scientific cell matrix.
+13. For a new generic config, `sweep.task_lambda` means the **active scientific grid for this run**, not predecessor/sentinel metadata. If `countdown_seed_offsets` is empty, `task_lambda.countdown` and `countdown_sentinel_coefficients` must both be empty and `countdown_include_positive_only` must be false. Historical configs that preserve inactive Countdown metadata remain valid only through exact frozen identity.
+14. For a transfer task, an empty `task_lambda[task]` means zero scientific cells for that task. `task_grid_provenance` and the currently retained derived `task_grid_hashes` entry may still describe that inactive task, but they must not be interpreted as an active grid.
+15. `task_runtime` remains a task-interface/capability declaration and may remain present for an inactive task. Cell activity is determined by the sweep expansion, not by deleting task-interface metadata.
+
+### Unified execution identity
+
+16. `RUN_ID` is an instance/directory name and is not a scientific or execution identity. Reuse is permitted only by an explicit `execution_identity_hash` computed from one normalized payload.
+17. The normalized execution identity contains at least: experiment ID; reviewed config repository path and Git blob identity; semantic/effective config hash; reviewed source commit; verified base-model repository/revision plus one content-derived model snapshot hash; a runtime fingerprint; backend identity (`real_canonical` versus `engineering_placeholder`); and run class (`formal` versus `pilot`).
+18. The runtime fingerprint is intentionally narrow and execution-relevant rather than a full `pip freeze`: Python, PyTorch, PyTorch CUDA runtime, `transformers`, `peft`, `accelerate`, and `numpy` versions are sufficient for this family unless a later protocol revision documents another dependency.
+19. Model snapshot identity is computed from the actual resolved model snapshot content, including the foundation-model weight files, once after setup/download and verified again when an existing setup is reused. Individual scientific cells carry the resulting snapshot hash; they must not re-read and re-hash the full foundation weights for every cell.
+20. The same execution identity hash must propagate through setup state, source provenance, cell manifests, recovery state/snapshots/imports, scheduler/final manifests, and reusable-complete-attempt checks. A successful cell or complete attempt from another execution identity is stale and must not be hard-linked, resumed, or returned as current output.
+21. The engineering placeholder backend must have its own explicit execution identity and may never satisfy a real-canonical execution identity. Likewise a pilot execution may not satisfy a formal execution identity solely because `RUN_ID`, source commit, and config hash happen to match.
+
+### Source authority, recovery, and final-artifact closure
+
+22. Authoritative target-ref resolution occurs **before** execution identity construction or reuse decisions on every bootstrap invocation. A previously completed bootstrap may not substitute its local checkout `HEAD` for a fresh resolution of the configured authoritative remote ref. If the authoritative ref advanced, the old setup/attempt identity is stale.
+23. Recovery checkpoint packaging must include the reviewed config and every code path that interprets or launch-gates it, including `src/drpo/e8_experiment_config.py` and `scripts/preflight_e8_multitask_config.py`. Raw guarded-run provenance and recovery-checkpoint provenance must both be complete; delivery preflight is not a substitute.
+24. Finalization and package verification must prove that scheduler, aggregate, terminal audit, and final manifests all bind the same current execution identity. A terminal package that is merely internally self-consistent under an old config/runtime identity is not current-run evidence.
+25. The second-audit fixes remain mandatory in the same normal repair: reject P0/RHO/DENSE ID reuse for generic cold-start, enforce redundant-field consistency, validate split/evaluation capacity, reject zero warmup that the canonical trainer cannot express, execute preflight before expensive setup, and include complete formal provenance.
+26. The five stranded one-shot repair artifacts (`.github/workflows/e8-second-audit-fix-once.yml`, `.github/workflows/e8-second-audit-fix-v2-once.yml`, `.github/workflows/e8-second-audit-fix-v3-once.yml`, `scripts/.tmp_e8_second_audit_fix.sh`, and `scripts/.tmp_e8_second_audit_fix_v3.sh`) must be removed as part of the normal repair. Their deletion is cleanup of temporary engineering artifacts, not deletion of research history; the audit history is retained in this protocol and Git history.
+
+### Third-audit regression gates
+
+27. Regression coverage must additionally reject duplicate YAML keys, unknown generic keys, internal-only engineering fields on reviewed configs, untracked direct Python CLI configs, omitted generic matrix booleans, inactive generic Countdown metadata, mismatched execution identities, stale completed-attempt reuse, stale recovery imports, pilot/formal backend confusion, model snapshot drift, and completed-bootstrap remote-ref drift.
+28. Final-head validation must include focused E8 tests, the full repository pytest suite, Ruff on touched Python paths, shell syntax checks for touched shell launchers, `git diff --check`, the repository PR gates, and an independent reviewer. Static checks, smoke/liveness, and engineering self-tests remain non-scientific evidence only.
+29. No scientific experiment may be launched merely to validate this repair. Scientific execution remains blocked until the engineering implementation, terminal identity audit, and independent review are complete.
