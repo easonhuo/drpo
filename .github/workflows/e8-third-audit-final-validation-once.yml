@@ -155,6 +155,12 @@ jobs:
           from pathlib import Path
 
           path = Path("docs/experiments/E8_CONFIG_DRIVEN_SWEEP_REVIEW_FIX_PROTOCOL.md")
+          text = path.read_text(encoding="utf-8")
+          old_status = "Status: third adversarial audit closure specified / implementation repair pending / final-head repository gates pending / independent review pending / not a scientific result."
+          new_status = "Status: implementation repaired / exact-head engineering validation complete with base-suite failures audited / production Code Change Budget pending base-governance migration / independent review pending / not a scientific result."
+          if old_status not in text:
+              raise RuntimeError("Expected pre-validation protocol status line is missing")
+          text = text.replace(old_status, new_status, 1)
           block = f"""
 
           ## 2026-09-01 third-audit final-head validation evidence
@@ -173,7 +179,7 @@ jobs:
           - This validation executed no model training, GPU sweep, task-performance experiment, support/variance-boundary experiment, convergence test, significance test, or method-ranking experiment. It is engineering validation only.
           - Independent review remains a separate mandatory merge gate; this evidence does not authorize merge or scientific execution.
           """
-          path.write_text(path.read_text(encoding="utf-8") + block, encoding="utf-8")
+          path.write_text(text + block, encoding="utf-8")
           PY
           git rm -f .github/workflows/e8-third-audit-final-validation-once.yml
           git add docs/experiments/E8_CONFIG_DRIVEN_SWEEP_REVIEW_FIX_PROTOCOL.md
