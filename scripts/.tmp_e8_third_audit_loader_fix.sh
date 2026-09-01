@@ -57,6 +57,11 @@ new = '''    # Internal engineering self-tests derived from an immutable histori
 if old not in text:
     raise SystemExit('historical sweep anchor not found')
 text = text.replace(old, new, 1)
+text = text.replace(
+    '''    if not historical and not countdown_seeds:\n        if countdown_values or sentinel_values or countdown_positive:\n            raise ValueError(\n                "generic inactive Countdown requires empty lambda/sentinel grids and countdown_include_positive_only=false"\n            )\n''',
+    '''    if (\n        not historical\n        and not countdown_seeds\n        and (countdown_values or sentinel_values or countdown_positive)\n    ):\n        raise ValueError(\n            "generic inactive Countdown requires empty lambda/sentinel grids and countdown_include_positive_only=false"\n        )\n''',
+    1,
+)
 path.write_text(text)
 PY
 
