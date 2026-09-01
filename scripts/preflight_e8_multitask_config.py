@@ -25,6 +25,12 @@ def build_summary(config_path: Path, repo_root: Path) -> dict[str, object]:
     cells = tuning.build_cells(value)
     waves = tuning.build_waves(value)
     counts = Counter(cell.task for cell in cells)
+    active_tasks = [task for task in value["suite"]["tasks"] if counts[task]]
+    effective_runtime = (
+        {task: experiment_config.effective_coldstart_runtime(value, task) for task in active_tasks}
+        if experiment_config.sweep_profile(value) == experiment_config.SWEEP_PROFILE_COLDSTART
+        else {}
+    )
     return {
         "schema_version": 1,
         "scientific_status": "not_run",
@@ -33,8 +39,9 @@ def build_summary(config_path: Path, repo_root: Path) -> dict[str, object]:
         "config_path": relative,
         "config_git_blob_sha": blob,
         "config_hash": stable_hash(value),
-        "active_tasks": [task for task in value["suite"]["tasks"] if counts[task]],
+        "active_tasks": active_tasks,
         "cells_per_task": {task: counts[task] for task in value["suite"]["tasks"]},
+        "effective_runtime": effective_runtime,
         "cell_count": len(cells),
         "wave_count": len(waves),
         "wave_sizes": [len(wave) for wave in waves],
@@ -44,7 +51,7 @@ def build_summary(config_path: Path, repo_root: Path) -> dict[str, object]:
         "training": value.get("training", {}),
         "evaluation": value.get("evaluation", {}),
         "task_runtime": value.get("task_runtime", {}),
-        "note": "Validation/preflight only; no model, optimizer, GPU, or scientific metric executed.",
+        "note": "Resolved effective runtime only; no model, optimizer, GPU, or scientific metric executed.",
     }
 
 

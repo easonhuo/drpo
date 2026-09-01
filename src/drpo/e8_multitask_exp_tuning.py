@@ -1330,6 +1330,29 @@ def _paper_grid_name(coefficient: float) -> str:
     raise ValueError(f"Coefficient {coefficient} is outside the locked paper grids")
 
 
+def _leaf_values(value: Any, prefix: str = "") -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        return {prefix: value}
+    result: dict[str, Any] = {}
+    for key, item in value.items():
+        child = f"{prefix}.{key}" if prefix else str(key)
+        result.update(_leaf_values(item, child))
+    return result
+
+
+def _changed_leaf_paths(original: Mapping[str, Any], derived: Mapping[str, Any]) -> list[str]:
+    left = _leaf_values(original)
+    right = _leaf_values(derived)
+    return sorted(key for key in set(left) | set(right) if left.get(key) != right.get(key))
+
+
+def _atomic_yaml(path: Path, value: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(yaml.safe_dump(dict(value), sort_keys=False), encoding="utf-8")
+    temporary.replace(path)
+
+
 def _task_base_config(
     config: Mapping[str, Any],
     *,
@@ -1337,50 +1360,104 @@ def _task_base_config(
     canonical_paths: Mapping[str, Path],
     task_root: Path,
 ) -> tuple[Path, list[str]]:
-    """Materialize only the three declared task-interface overrides."""
+    """Materialize effective base runtime without editing the canonical source."""
 
     base_path = canonical_paths["base_config"]
-    if task == "countdown":
-        return base_path, []
     original = yaml.safe_load(base_path.read_text(encoding="utf-8"))
     if not isinstance(original, dict):
         raise TypeError("Paper base config root must be a mapping")
+    historical = experiment_config.is_historical_coldstart_config(config)
+    if historical and task == "countdown":
+        return base_path, []
+
     derived = copy.deepcopy(original)
+    effective = experiment_config.effective_coldstart_runtime(config, task)
     runtime = config["task_runtime"][task]
-    derived["model"]["max_length"] = int(runtime["max_length"])
-    derived["model"]["max_new_tokens"] = int(runtime["max_new_tokens"])
-    derived["evaluation"]["batch_size"] = int(runtime["evaluation_batch_size"])
-    derived["evaluation"]["pass_ks"] = [8] + [int(value) for value in runtime["auxiliary_pass_ks"]]
-    allowed = {
-        "model.max_length",
-        "model.max_new_tokens",
-        "evaluation.batch_size",
-        "evaluation.pass_ks",
-    }
-
-    def leaves(value: Any, prefix: str = "") -> dict[str, Any]:
-        if not isinstance(value, Mapping):
-            return {prefix: value}
-        result: dict[str, Any] = {}
-        for key, item in value.items():
-            child = f"{prefix}.{key}" if prefix else str(key)
-            result.update(leaves(item, child))
-        return result
-
-    original_leaves = leaves(original)
-    derived_leaves = leaves(derived)
-    changed = sorted(
-        key
-        for key in set(original_leaves) | set(derived_leaves)
-        if original_leaves.get(key) != derived_leaves.get(key)
-    )
-    if set(changed) - allowed:
-        raise RuntimeError(f"{task} changed non-whitelisted paper base fields: {changed}")
+    if historical:
+        # Preserve the exact wrapper behavior of the three closed historical IDs.
+        derived["model"]["max_length"] = int(runtime["max_length"])
+        derived["model"]["max_new_tokens"] = int(runtime["max_new_tokens"])
+        derived["evaluation"]["batch_size"] = int(runtime["evaluation_batch_size"])
+        derived["evaluation"]["pass_ks"] = [8] + [
+            int(value) for value in runtime["auxiliary_pass_ks"]
+        ]
+    else:
+        model = effective["model"]
+        training = effective["training"]
+        evaluation = effective["evaluation"]
+        derived["model"].update(
+            {
+                "max_length": int(model["max_length"]),
+                "max_new_tokens": int(model["max_new_tokens"]),
+                "dtype": str(model["dtype"]),
+                "lora_rank": int(model["lora_rank"]),
+                "lora_alpha": int(model["lora_alpha"]),
+                "lora_dropout": float(model["lora_dropout"]),
+                "gradient_checkpointing": bool(model["gradient_checkpointing"]),
+            }
+        )
+        derived["offline_training"].update(
+            {
+                "seed": int(effective["initialization_seed"]),
+                "steps": int(training["optimizer_updates"]),
+                "micro_batch": int(training["micro_batch"]),
+                "gradient_accumulation": int(training["gradient_accumulation"]),
+                "learning_rate": float(training["learning_rate"]),
+                "weight_decay": float(training["weight_decay"]),
+                "warmup_ratio": float(training["warmup_ratio"]),
+                "maximum_gradient_norm": float(training["max_grad_norm"]),
+                "eval_every": int(training["evaluation_every_updates"]),
+            }
+        )
+        derived["evaluation"].update(
+            {
+                "examples": int(evaluation["examples"]),
+                "batch_size": int(evaluation["batch_size"]),
+                "pass_ks": [int(value) for value in evaluation["pass_ks"]],
+                "seed": int(evaluation["generation_seed"]),
+                "sampling_temperature": float(evaluation["sampling_temperature"]),
+                "top_p": float(evaluation["top_p"]),
+                "greedy_prompt_rows": int(evaluation["greedy_prompt_rows"]),
+                "passk_prompt_rows": int(evaluation["passk_prompt_rows"]),
+            }
+        )
     path = task_root / "paper_base_task_interface.yaml"
-    temporary = path.with_suffix(".yaml.tmp")
-    temporary.write_text(yaml.safe_dump(derived, sort_keys=False), encoding="utf-8")
-    temporary.replace(path)
-    return path, changed
+    _atomic_yaml(path, derived)
+    return path, _changed_leaf_paths(original, derived)
+
+
+def _task_grid_configs(
+    config: Mapping[str, Any],
+    *,
+    canonical_paths: Mapping[str, Path],
+    task_root: Path,
+) -> dict[str, dict[str, Any]]:
+    """Return historical grids unchanged or generic derived runtime-grid copies."""
+
+    result: dict[str, dict[str, Any]] = {}
+    historical = experiment_config.is_historical_coldstart_config(config)
+    training = config["training"]
+    for name in ("round1_grid", "extension_grid"):
+        source = canonical_paths[name]
+        original = yaml.safe_load(source.read_text(encoding="utf-8"))
+        if not isinstance(original, dict):
+            raise TypeError(f"Paper grid root must be a mapping: {source}")
+        if historical:
+            runtime_path = source
+            changed: list[str] = []
+        else:
+            derived = copy.deepcopy(original)
+            derived["training"]["steps"] = int(training["optimizer_updates"])
+            derived["training"]["eval_every"] = int(training["evaluation_every_updates"])
+            runtime_path = task_root / f"paper_{name}_runtime.yaml"
+            _atomic_yaml(runtime_path, derived)
+            changed = _changed_leaf_paths(original, derived)
+        result[name] = {
+            "path": runtime_path,
+            "source": source,
+            "changed_fields": changed,
+        }
+    return result
 
 
 def _evenly_spaced_rank_indices(candidate_count: int, selected_count: int = 16) -> tuple[int, ...]:
@@ -1684,15 +1761,17 @@ def _derive_reference_remoteness_banks(
         )
         if not isinstance(base_config, Mapping):
             raise TypeError("Canonical base config is not a mapping")
-        model = arena.load_model(
-            str(Path(base_model_path).resolve()),
-            adapter_path=None,
-            trainable_adapter=True,
-            load_in_4bit=bool(base_config["model"].get("load_in_4bit", False)),
-            dtype=str(base_config["model"].get("dtype", "auto")),
-            gradient_checkpointing=False,
-            parameterization="lora",
-        )
+        reference_effective = experiment_config.effective_coldstart_runtime(config, pending[0])
+        with _legacy_arena_runtime_bridge(arena, reference_effective):
+            model = arena.load_model(
+                str(Path(base_model_path).resolve()),
+                adapter_path=None,
+                trainable_adapter=True,
+                load_in_4bit=bool(base_config["model"].get("load_in_4bit", False)),
+                dtype=str(base_config["model"].get("dtype", "auto")),
+                gradient_checkpointing=False,
+                parameterization="lora",
+            )
         model.eval()
         original_clean_expression = arena.clean_expression
         original_system_prompt = arena.SYSTEM_PROMPT
@@ -2002,16 +2081,21 @@ def write_canonical_cold_inputs(
             canonical_paths=canonical_paths,
             task_root=task_root,
         )
+        runtime_grids = _task_grid_configs(
+            config,
+            canonical_paths=canonical_paths,
+            task_root=task_root,
+        )
         canonical_record = {
             "train": str(train_path.resolve()),
             "validation": str(validation_path.resolve()),
             "sealed_test": str(sealed_test_path.resolve()),
             "base_config": str(task_base_config.resolve()),
             "base_config_sha256": sha256_file(task_base_config),
-            "round1_grid": str(canonical_paths["round1_grid"]),
-            "round1_grid_sha256": sha256_file(canonical_paths["round1_grid"]),
-            "extension_grid": str(canonical_paths["extension_grid"]),
-            "extension_grid_sha256": sha256_file(canonical_paths["extension_grid"]),
+            "round1_grid": str(runtime_grids["round1_grid"]["path"].resolve()),
+            "round1_grid_sha256": sha256_file(runtime_grids["round1_grid"]["path"]),
+            "extension_grid": str(runtime_grids["extension_grid"]["path"].resolve()),
+            "extension_grid_sha256": sha256_file(runtime_grids["extension_grid"]["path"]),
             "task_interface_changed_fields": changed_fields,
             "countdown_exact_source_files": exact_countdown_sources,
             "reference_remoteness_bank_applied": reference_selection_applied,
@@ -2025,6 +2109,18 @@ def write_canonical_cold_inputs(
             "validation_rows": len(validation_rows),
             "test_rows": 0,
         }
+        if not experiment_config.is_historical_coldstart_config(config):
+            canonical_record["effective_runtime"] = experiment_config.effective_coldstart_runtime(
+                config, task
+            )
+            canonical_record["runtime_grid_sources"] = {
+                name: {
+                    "source": str(runtime_grids[name]["source"].resolve()),
+                    "source_sha256": sha256_file(runtime_grids[name]["source"]),
+                    "changed_fields": list(runtime_grids[name]["changed_fields"]),
+                }
+                for name in ("round1_grid", "extension_grid")
+            }
         record["canonical_coldstart"] = canonical_record
         records[task] = canonical_record
 
@@ -3953,6 +4049,163 @@ def _load_cell_splits(
     return train_rows, validation_rows
 
 
+def _runtime_bridge_contract(effective: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "fresh_lora": {
+            "rank": int(effective["model"]["lora_rank"]),
+            "alpha": int(effective["model"]["lora_alpha"]),
+            "dropout": float(effective["model"]["lora_dropout"]),
+        },
+        "gradient_checkpointing": bool(effective["model"]["gradient_checkpointing"]),
+        "optimizer_weight_decay": float(effective["training"]["weight_decay"]),
+        "sampling_temperature": float(effective["evaluation"]["sampling_temperature"]),
+        "top_p": float(effective["evaluation"]["top_p"]),
+    }
+
+
+@contextmanager
+def _legacy_arena_runtime_bridge(arena: Any, effective: Mapping[str, Any]) -> Any:
+    """Temporarily parameterize legacy arena interface literals; never touch loss math."""
+
+    original_lora_config = arena.LoraConfig
+    original_load_model = arena.load_model
+    original_generate_outputs = arena.generate_outputs
+    contract = _runtime_bridge_contract(effective)
+
+    def configured_lora_config(*args: Any, **kwargs: Any) -> Any:
+        kwargs["r"] = int(contract["fresh_lora"]["rank"])
+        kwargs["lora_alpha"] = int(contract["fresh_lora"]["alpha"])
+        kwargs["lora_dropout"] = float(contract["fresh_lora"]["dropout"])
+        return original_lora_config(*args, **kwargs)
+
+    def configured_load_model(*args: Any, **kwargs: Any) -> Any:
+        values = list(args)
+        if len(values) > 5:
+            values[5] = bool(contract["gradient_checkpointing"])
+        else:
+            kwargs["gradient_checkpointing"] = bool(contract["gradient_checkpointing"])
+        return original_load_model(*values, **kwargs)
+
+    def configured_generate_outputs(
+        model: Any,
+        tokenizer: Any,
+        prompts: list[str],
+        max_new_tokens: int,
+        do_sample: bool,
+        temperature: float,
+        top_p: float,
+        num_return_sequences: int = 1,
+    ) -> Any:
+        if do_sample:
+            temperature = float(contract["sampling_temperature"])
+            top_p = float(contract["top_p"])
+        return original_generate_outputs(
+            model,
+            tokenizer,
+            prompts,
+            max_new_tokens,
+            do_sample,
+            temperature,
+            top_p,
+            num_return_sequences,
+        )
+
+    arena.LoraConfig = configured_lora_config
+    arena.load_model = configured_load_model
+    arena.generate_outputs = configured_generate_outputs
+    try:
+        yield contract
+    finally:
+        arena.LoraConfig = original_lora_config
+        arena.load_model = original_load_model
+        arena.generate_outputs = original_generate_outputs
+
+
+def _validated_runtime_grid(
+    candidate: Mapping[str, Any],
+    *,
+    canonical_grid: Mapping[str, Any],
+    effective: Mapping[str, Any],
+    strict_validator: Any,
+) -> None:
+    allowed = {"training.steps", "training.eval_every"}
+    changed = set(_changed_leaf_paths(canonical_grid, candidate))
+    forbidden = sorted(changed - allowed)
+    if forbidden:
+        raise ValueError(f"Derived runtime grid changed non-runtime fields: {forbidden}")
+    training = candidate.get("training", {})
+    if int(training.get("steps", -1)) != int(effective["training"]["optimizer_updates"]):
+        raise ValueError("Derived runtime grid steps do not match effective runtime")
+    if int(training.get("eval_every", -1)) != int(
+        effective["training"]["evaluation_every_updates"]
+    ):
+        raise ValueError("Derived runtime grid eval_every does not match effective runtime")
+    strict = copy.deepcopy(dict(candidate))
+    strict["training"]["steps"] = canonical_grid["training"]["steps"]
+    strict["training"]["eval_every"] = canonical_grid["training"]["eval_every"]
+    strict_validator(strict)
+
+
+@contextmanager
+def _legacy_paper_runtime_bridge(
+    modules: Mapping[str, Any],
+    effective: Mapping[str, Any],
+    *,
+    grid_path: Path,
+    grid_source_path: Path,
+) -> Any:
+    """Bridge configured runtime scalars into byte-locked paper interfaces."""
+
+    scan_trainer = modules["scan_trainer"]
+    paper_common = modules["paper_common"]
+    canonical_grid = yaml.safe_load(grid_source_path.read_text(encoding="utf-8"))
+    if not isinstance(canonical_grid, dict):
+        raise TypeError("Canonical paper grid root must be a mapping")
+    candidate_grid = yaml.safe_load(grid_path.read_text(encoding="utf-8"))
+    if not isinstance(candidate_grid, dict):
+        raise TypeError("Derived paper grid root must be a mapping")
+
+    validator_targets: list[tuple[Any, str, Any]] = []
+    seen: set[tuple[int, str]] = set()
+    for module_name in ("paper_common", "scan_common", "scan_trainer", "scan_runtime"):
+        module = modules[module_name]
+        if not hasattr(module, "validate_grid_config"):
+            continue
+        key = (id(module), "validate_grid_config")
+        if key in seen:
+            continue
+        seen.add(key)
+        validator_targets.append((module, "validate_grid_config", module.validate_grid_config))
+    strict_validator = paper_common.validate_grid_config
+
+    def configured_validator(value: Mapping[str, Any]) -> None:
+        _validated_runtime_grid(
+            value,
+            canonical_grid=canonical_grid,
+            effective=effective,
+            strict_validator=strict_validator,
+        )
+
+    optimizer_holder = scan_trainer.torch.optim
+    original_adamw = optimizer_holder.AdamW
+
+    def configured_adamw(*args: Any, **kwargs: Any) -> Any:
+        kwargs["weight_decay"] = float(effective["training"]["weight_decay"])
+        return original_adamw(*args, **kwargs)
+
+    with _legacy_arena_runtime_bridge(modules["arena"], effective) as contract:
+        optimizer_holder.AdamW = configured_adamw
+        for module, name, _ in validator_targets:
+            setattr(module, name, configured_validator)
+        try:
+            configured_validator(candidate_grid)
+            yield contract
+        finally:
+            optimizer_holder.AdamW = original_adamw
+            for module, name, original in validator_targets:
+                setattr(module, name, original)
+
+
 def _train_canonical_cold_cell(
     cell: Cell,
     *,
@@ -3993,9 +4246,16 @@ def _train_canonical_cold_cell(
     validation = Path(str(record["validation"]))
     base_config_path = base_config_override or Path(str(record["base_config"]))
     grid_path = _paper_grid_for_cell(record, cell)
+    grid_source_name = (
+        "round1_grid"
+        if cell.task != "countdown"
+        else _paper_grid_name(0.0 if cell.lambda_value is None else float(cell.lambda_value))
+    )
+    grid_source_path = _canonical_paths(config)[grid_source_name]
     modules = _activate_paper_grid_modules(modules, grid_path)
     arena = modules["arena"]
     runtime = modules["paper_runtime"]
+    effective_runtime = experiment_config.effective_coldstart_runtime(config, cell.task)
     base_config = yaml.safe_load(base_config_path.read_text(encoding="utf-8"))
     if not isinstance(base_config, dict):
         raise TypeError("Paper base config root must be a mapping")
@@ -4020,6 +4280,8 @@ def _train_canonical_cold_cell(
             "paper_formula": "alpha*exp(-c*(current_sequence_surprisal/2))",
             "paper_grid_config": str(grid_path.resolve()),
             "paper_grid_config_sha256": sha256_file(grid_path),
+            "paper_grid_source": str(grid_source_path.resolve()),
+            "paper_grid_source_sha256": sha256_file(grid_source_path),
             "paper_base_config": str(base_config_path.resolve()),
             "paper_base_config_sha256": sha256_file(base_config_path),
             "all_unique_negatives": True,
@@ -4028,6 +4290,9 @@ def _train_canonical_cold_cell(
             "task_runtime_contract": dict(config["task_runtime"][cell.task]),
         }
     )
+    if not experiment_config.is_historical_coldstart_config(config):
+        identity["effective_runtime"] = effective_runtime
+        identity["legacy_runtime_bridge"] = _runtime_bridge_contract(effective_runtime)
     identity["identity_hash"] = stable_hash(identity)
 
     cell_root = output_root / root_name / cell.key
@@ -4074,6 +4339,15 @@ def _train_canonical_cold_cell(
         original_completion_stats = arena.completion_stats
         original_trainer_evaluate = scan_trainer._evaluate_validation
         try:
+            if evaluator is None:
+
+                def configured_evaluate(**kwargs: Any) -> dict[str, Any]:
+                    kwargs["pass64_enabled"] = 64 in set(
+                        int(value) for value in effective_runtime["evaluation"]["auxiliary_pass_ks"]
+                    )
+                    return original_trainer_evaluate(**kwargs)
+
+                scan_trainer._evaluate_validation = configured_evaluate
             if evaluator is not None:
                 arena.evaluate_rows = evaluator
                 arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
@@ -4084,11 +4358,13 @@ def _train_canonical_cold_cell(
                 # verifier. Arithmetic-only cleanup would corrupt structured outputs.
                 arena.clean_expression = lambda value: str(value)
 
-                def transfer_evaluate(**kwargs: Any) -> dict[str, Any]:
-                    kwargs["pass64_enabled"] = False
+                def configured_evaluate(**kwargs: Any) -> dict[str, Any]:
+                    kwargs["pass64_enabled"] = 64 in set(
+                        int(value) for value in effective_runtime["evaluation"]["auxiliary_pass_ks"]
+                    )
                     return original_trainer_evaluate(**kwargs)
 
-                scan_trainer._evaluate_validation = transfer_evaluate
+                scan_trainer._evaluate_validation = configured_evaluate
             yield
         finally:
             arena.evaluate_rows = original_evaluate_rows
@@ -4101,7 +4377,15 @@ def _train_canonical_cold_cell(
     coefficient = (
         0.0 if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL} else float(cell.lambda_value)
     )
-    with task_interface():
+    with (
+        _legacy_paper_runtime_bridge(
+            modules,
+            effective_runtime,
+            grid_path=grid_path,
+            grid_source_path=grid_source_path,
+        ),
+        task_interface(),
+    ):
         if cell.task == "countdown":
             returncode = runtime.worker(
                 argparse.Namespace(

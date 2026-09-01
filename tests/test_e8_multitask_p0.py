@@ -2089,26 +2089,214 @@ def test_lambda_curve_completion_aggregate_accepts_zero_positive_only(tmp_path: 
     )
 
 
-def test_new_coldstart_config_controls_scientific_scalars_without_core_edits() -> None:
+def test_new_coldstart_config_controls_materialized_runtime_without_core_edits(
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_experiment_config as experiment_config
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
     config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-CONFIG-AUTHORITY-TEST"
-    config["training"]["optimizer_updates"] = 1500
+    config["training"].update(
+        {
+            "optimizer_updates": 1500,
+            "micro_batch": 2,
+            "gradient_accumulation": 4,
+            "learning_rate": 7.0e-5,
+            "weight_decay": 0.02,
+            "warmup_ratio": 0.05,
+            "max_grad_norm": 0.8,
+            "evaluation_every_updates": 125,
+            "late_window_updates": [1000, 1125, 1250, 1375, 1500],
+        }
+    )
     config["evaluation"].update(
         {"sampling_temperature": 0.7, "top_p": 0.9, "generation_seed": 2026090101}
     )
     config["split"]["hash_seed"] = 2026090102
     config["initialization"]["seed"] = 2026090103
-    config["model"]["lora_rank"] = 16
+    config["model"].update({"lora_rank": 16, "lora_alpha": 32, "lora_dropout": 0.02})
     config["task_runtime"]["word_sorting"]["max_length"] = 640
 
     exp_tuning.validate_config(config)
-    cells = exp_tuning.build_cells(config)
-    assert len(cells) == 140
-    assert config["training"]["optimizer_updates"] == 1500
-    assert config["evaluation"]["sampling_temperature"] == 0.7
-    assert config["model"]["lora_rank"] == 16
+    effective = experiment_config.effective_coldstart_runtime(config, "word_sorting")
+    assert effective["initialization_seed"] == 2026090103
+    assert effective["model"]["lora_rank"] == 16
+    assert effective["model"]["lora_alpha"] == 32
+    assert effective["model"]["lora_dropout"] == pytest.approx(0.02)
+    assert effective["model"]["max_length"] == 640
+    assert effective["training"]["optimizer_updates"] == 1500
+    assert effective["training"]["micro_batch"] == 2
+    assert effective["training"]["gradient_accumulation"] == 4
+    assert effective["training"]["learning_rate"] == pytest.approx(7.0e-5)
+    assert effective["training"]["weight_decay"] == pytest.approx(0.02)
+    assert effective["training"]["evaluation_every_updates"] == 125
+    assert effective["evaluation"]["sampling_temperature"] == pytest.approx(0.7)
+    assert effective["evaluation"]["top_p"] == pytest.approx(0.9)
+    assert effective["evaluation"]["generation_seed"] == 2026090101
+
+    canonical_paths = exp_tuning._canonical_paths(config)
+    task_root = tmp_path / "word_sorting"
+    task_root.mkdir()
+    base_path, changed = exp_tuning._task_base_config(
+        config,
+        task="word_sorting",
+        canonical_paths=canonical_paths,
+        task_root=task_root,
+    )
+    base = yaml.safe_load(base_path.read_text(encoding="utf-8"))
+    assert base["model"]["lora_rank"] == 16
+    assert base["model"]["lora_alpha"] == 32
+    assert base["model"]["lora_dropout"] == pytest.approx(0.02)
+    assert base["model"]["max_length"] == 640
+    assert base["offline_training"]["seed"] == 2026090103
+    assert base["offline_training"]["steps"] == 1500
+    assert base["offline_training"]["micro_batch"] == 2
+    assert base["offline_training"]["gradient_accumulation"] == 4
+    assert base["offline_training"]["learning_rate"] == pytest.approx(7.0e-5)
+    assert base["offline_training"]["weight_decay"] == pytest.approx(0.02)
+    assert base["offline_training"]["eval_every"] == 125
+    assert base["evaluation"]["seed"] == 2026090101
+    assert base["evaluation"]["sampling_temperature"] == pytest.approx(0.7)
+    assert base["evaluation"]["top_p"] == pytest.approx(0.9)
+    assert "offline_training.learning_rate" in changed
+
+    grids = exp_tuning._task_grid_configs(
+        config,
+        canonical_paths=canonical_paths,
+        task_root=task_root,
+    )
+    round1 = yaml.safe_load(grids["round1_grid"]["path"].read_text(encoding="utf-8"))
+    assert round1["training"]["steps"] == 1500
+    assert round1["training"]["eval_every"] == 125
+    assert set(grids["round1_grid"]["changed_fields"]) <= {
+        "training.steps",
+        "training.eval_every",
+    }
+
+
+def test_legacy_runtime_bridge_forwards_configured_interface_values(tmp_path: Path) -> None:
+    from drpo import e8_experiment_config as experiment_config
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-RUNTIME-BRIDGE-TEST"
+    config["training"].update(
+        {
+            "optimizer_updates": 1500,
+            "weight_decay": 0.02,
+            "evaluation_every_updates": 125,
+            "late_window_updates": [1000, 1125, 1250, 1375, 1500],
+        }
+    )
+    config["evaluation"].update({"sampling_temperature": 0.7, "top_p": 0.9})
+    config["model"].update({"lora_rank": 16, "lora_alpha": 32, "lora_dropout": 0.02})
+    exp_tuning.validate_config(config)
+    effective = experiment_config.effective_coldstart_runtime(config, "word_sorting")
+    canonical_paths = exp_tuning._canonical_paths(config)
+    task_root = tmp_path / "word_sorting"
+    task_root.mkdir()
+    grids = exp_tuning._task_grid_configs(
+        config,
+        canonical_paths=canonical_paths,
+        task_root=task_root,
+    )
+    grid_path = grids["round1_grid"]["path"]
+    grid_source = grids["round1_grid"]["source"]
+
+    calls: dict[str, object] = {}
+
+    def fake_lora_config(*args, **kwargs):
+        calls["lora"] = dict(kwargs)
+        return (args, kwargs)
+
+    def fake_load_model(*args, **kwargs):
+        calls["load_model_args"] = tuple(args)
+        calls["load_model"] = dict(kwargs)
+        return "model"
+
+    def fake_generate_outputs(
+        model,
+        tokenizer,
+        prompts,
+        max_new_tokens,
+        do_sample,
+        temperature,
+        top_p,
+        num_return_sequences=1,
+    ):
+        del model, tokenizer, prompts, max_new_tokens
+        calls["sampling"] = (do_sample, temperature, top_p, num_return_sequences)
+        return [["x"]]
+
+    arena = SimpleNamespace(
+        LoraConfig=fake_lora_config,
+        load_model=fake_load_model,
+        generate_outputs=fake_generate_outputs,
+    )
+    strict_calls: list[tuple[int, int]] = []
+
+    def strict_validator(value):
+        strict_calls.append((int(value["training"]["steps"]), int(value["training"]["eval_every"])))
+        assert value["training"]["steps"] == 1200
+        assert value["training"]["eval_every"] == 100
+
+    optim = SimpleNamespace()
+
+    def original_adamw(*args, **kwargs):
+        calls["adamw"] = dict(kwargs)
+        return (args, kwargs)
+
+    optim.AdamW = original_adamw
+    paper_common = SimpleNamespace(validate_grid_config=strict_validator)
+    scan_common = SimpleNamespace(validate_grid_config=strict_validator)
+    scan_runtime = SimpleNamespace(validate_grid_config=strict_validator)
+    scan_trainer = SimpleNamespace(
+        validate_grid_config=strict_validator,
+        torch=SimpleNamespace(optim=optim),
+    )
+    modules = {
+        "arena": arena,
+        "paper_common": paper_common,
+        "scan_common": scan_common,
+        "scan_runtime": scan_runtime,
+        "scan_trainer": scan_trainer,
+    }
+
+    with exp_tuning._legacy_paper_runtime_bridge(
+        modules,
+        effective,
+        grid_path=grid_path,
+        grid_source_path=grid_source,
+    ):
+        arena.LoraConfig(r=32, lora_alpha=64, lora_dropout=0.05)
+        arena.load_model("m", None, True, False, "auto", True, parameterization="lora")
+        arena.generate_outputs(None, None, [], 80, True, 0.8, 0.95, 8)
+        scan_trainer.torch.optim.AdamW([], lr=5.0e-5, weight_decay=0.01)
+        candidate = yaml.safe_load(grid_path.read_text(encoding="utf-8"))
+        paper_common.validate_grid_config(candidate)
+        bad = copy.deepcopy(candidate)
+        bad["training"]["early_stop"] = not bool(bad["training"]["early_stop"])
+        with pytest.raises(ValueError, match="non-runtime fields"):
+            paper_common.validate_grid_config(bad)
+
+    assert calls["lora"]["r"] == 16
+    assert calls["lora"]["lora_alpha"] == 32
+    assert calls["lora"]["lora_dropout"] == pytest.approx(0.02)
+    assert (
+        calls["load_model"].get(
+            "gradient_checkpointing",
+            calls["load_model_args"][5],
+        )
+        is True
+    )
+    assert calls["sampling"] == (True, 0.7, 0.9, 8)
+    assert calls["adamw"]["weight_decay"] == pytest.approx(0.02)
+    assert strict_calls and set(strict_calls) == {(1200, 100)}
+    assert arena.LoraConfig is fake_lora_config
+    assert arena.load_model is fake_load_model
+    assert arena.generate_outputs is fake_generate_outputs
+    assert scan_trainer.torch.optim.AdamW is original_adamw
 
 
 def test_profile_experiment_id_scope_is_fail_closed() -> None:
@@ -2190,6 +2378,16 @@ def test_generic_coldstart_rejects_malformed_config_not_old_scientific_values() 
     with pytest.raises(ValueError, match="sweep.method"):
         exp_tuning.validate_config(bad)
 
+    bad = copy.deepcopy(config)
+    bad["evaluation"]["pass_k"] = 4
+    with pytest.raises(ValueError, match="pass_k=8"):
+        exp_tuning.validate_config(bad)
+
+    bad = copy.deepcopy(config)
+    bad["training"]["evaluation_every_updates"] = 125
+    with pytest.raises(ValueError, match="late_window_updates"):
+        exp_tuning.validate_config(bad)
+
 
 def test_generic_coldstart_rejects_zero_scientific_cells() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
@@ -2244,6 +2442,10 @@ def test_e8_config_preflight_is_tracked_and_non_scientific() -> None:
     assert summary["cell_count"] == 208
     assert summary["wave_sizes"] == [16] * 13
     assert summary["scientific_status"] == "not_run"
+    assert summary["effective_runtime"]["countdown"]["training"]["optimizer_updates"] == 1200
+    assert summary["effective_runtime"]["countdown"]["evaluation"][
+        "sampling_temperature"
+    ] == pytest.approx(0.8)
 
     untracked = Path("configs/.e8_untracked_preflight_test.yaml")
     untracked.write_text("schema_version: 1\n", encoding="utf-8")

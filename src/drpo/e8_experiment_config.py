@@ -246,6 +246,26 @@ def _validate_scalar_types(config: Mapping[str, Any]) -> None:
         raise ValueError("training.late_window_updates must be sorted and unique")
     if late[-1] > training["optimizer_updates"]:
         raise ValueError("training.late_window_updates may not exceed optimizer_updates")
+    optimizer_updates = _integer(
+        training["optimizer_updates"], "training.optimizer_updates", positive=True
+    )
+    evaluation_every = _integer(
+        training["evaluation_every_updates"],
+        "training.evaluation_every_updates",
+        positive=True,
+    )
+    if any(update != optimizer_updates and update % evaluation_every != 0 for update in late):
+        raise ValueError(
+            "training.late_window_updates must fall on configured evaluation updates "
+            "or the terminal optimizer update"
+        )
+
+    model = config["model"]
+    for field in ("lora_rank", "lora_alpha", "max_length", "max_new_tokens"):
+        _integer(model[field], f"model.{field}", positive=True)
+    dropout = float(model["lora_dropout"])
+    if not 0.0 <= dropout < 1.0:
+        raise ValueError("model.lora_dropout must be in [0, 1)")
 
     evaluation = config["evaluation"]
     tuple(
@@ -414,6 +434,113 @@ def _validate_task_runtime(config: Mapping[str, Any], tasks: tuple[str, ...]) ->
                 values["auxiliary_pass_ks"], f"task_runtime.{task}.auxiliary_pass_ks"
             )
         )
+
+
+def is_historical_coldstart_config(config: Mapping[str, Any]) -> bool:
+    return experiment_id(config) in HISTORICAL_CONFIG_IDENTITIES
+
+
+def effective_coldstart_runtime(config: Mapping[str, Any], task: str) -> dict[str, Any]:
+    """Resolve the values that the canonical cold-start runtime must actually consume."""
+
+    tasks = tuple(str(value) for value in config.get("suite", {}).get("tasks", ()))
+    if task not in tasks:
+        raise ValueError(f"Unknown cold-start task: {task}")
+    runtime = _mapping(config["task_runtime"][task], f"task_runtime.{task}")
+    model = _mapping(config["model"], "model")
+    training = _mapping(config["training"], "training")
+    evaluation = _mapping(config["evaluation"], "evaluation")
+    auxiliary = [int(value) for value in runtime["auxiliary_pass_ks"]]
+    pass_k = int(evaluation["pass_k"])
+    return {
+        "initialization_seed": int(config["initialization"]["seed"]),
+        "model": {
+            "parameterization": str(model["parameterization"]),
+            "dtype": str(model["dtype"]),
+            "lora_rank": int(model["lora_rank"]),
+            "lora_alpha": int(model["lora_alpha"]),
+            "lora_dropout": float(model["lora_dropout"]),
+            "gradient_checkpointing": bool(model["gradient_checkpointing"]),
+            "max_length": int(runtime["max_length"]),
+            "max_new_tokens": int(runtime["max_new_tokens"]),
+        },
+        "training": {
+            "optimizer_updates": int(training["optimizer_updates"]),
+            "micro_batch": int(training["micro_batch"]),
+            "gradient_accumulation": int(training["gradient_accumulation"]),
+            "learning_rate": float(training["learning_rate"]),
+            "weight_decay": float(training["weight_decay"]),
+            "warmup_ratio": float(training["warmup_ratio"]),
+            "max_grad_norm": float(training["max_grad_norm"]),
+            "evaluation_every_updates": int(training["evaluation_every_updates"]),
+            "late_window_updates": [int(value) for value in training["late_window_updates"]],
+        },
+        "evaluation": {
+            "examples": max(int(runtime["greedy_prompt_rows"]), int(runtime["passk_prompt_rows"])),
+            "batch_size": int(runtime["evaluation_batch_size"]),
+            "greedy_prompt_rows": int(runtime["greedy_prompt_rows"]),
+            "passk_prompt_rows": int(runtime["passk_prompt_rows"]),
+            "pass_k": pass_k,
+            "auxiliary_pass_ks": auxiliary,
+            "pass_ks": [pass_k, *auxiliary],
+            "sampling_temperature": float(evaluation["sampling_temperature"]),
+            "top_p": float(evaluation["top_p"]),
+            "generation_seed": int(evaluation["generation_seed"]),
+            "max_new_tokens": int(runtime["max_new_tokens"]),
+        },
+    }
+
+
+def _validate_runtime_authority_consistency(
+    config: Mapping[str, Any], tasks: tuple[str, ...]
+) -> None:
+    runtime = config["task_runtime"]
+    countdown = runtime["countdown"]
+    model = config["model"]
+    evaluation = config["evaluation"]
+    expected_pairs = (
+        (model["max_length"], countdown["max_length"], "model.max_length"),
+        (model["max_new_tokens"], countdown["max_new_tokens"], "model.max_new_tokens"),
+        (
+            evaluation["max_new_tokens"],
+            countdown["max_new_tokens"],
+            "evaluation.max_new_tokens",
+        ),
+        (
+            evaluation["batch_size"],
+            countdown["evaluation_batch_size"],
+            "evaluation.batch_size",
+        ),
+        (
+            evaluation["greedy_prompt_rows"],
+            countdown["greedy_prompt_rows"],
+            "evaluation.greedy_prompt_rows",
+        ),
+        (
+            evaluation["passk_prompt_rows"],
+            countdown["passk_prompt_rows"],
+            "evaluation.passk_prompt_rows",
+        ),
+    )
+    for configured, task_value, label in expected_pairs:
+        if int(configured) != int(task_value):
+            raise ValueError(f"{label} must match task_runtime.countdown")
+    if tuple(int(value) for value in evaluation["auxiliary_pass_ks"]) != tuple(
+        int(value) for value in countdown["auxiliary_pass_ks"]
+    ):
+        raise ValueError("evaluation.auxiliary_pass_ks must match task_runtime.countdown")
+    if int(countdown["greedy_prompt_rows"]) != int(countdown["passk_prompt_rows"]):
+        raise ValueError(
+            "Countdown canonical evaluator currently requires equal greedy/pass-k prompt budgets"
+        )
+    if int(evaluation["pass_k"]) != 8:
+        raise ValueError("Cold-start canonical reporting currently implements pass_k=8")
+    for task in tasks:
+        auxiliary = tuple(int(value) for value in runtime[task]["auxiliary_pass_ks"])
+        if len(set(auxiliary)) != len(auxiliary) or any(value != 64 for value in auxiliary):
+            raise ValueError(
+                f"task_runtime.{task}.auxiliary_pass_ks currently supports only optional pass@64"
+            )
 
 
 def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
@@ -606,6 +733,7 @@ def validate_coldstart_config(config: Mapping[str, Any]) -> None:
     _validate_scalar_types(config)
     _validate_implementation_contract(config)
     _validate_task_runtime(config, tasks)
+    _validate_runtime_authority_consistency(config, tasks)
     _validate_sweep(config, tasks)
     _validate_canonical_and_execution(config)
 
