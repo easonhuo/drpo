@@ -91,6 +91,7 @@ text += '''\n\ndef test_e8_strict_yaml_rejects_duplicate_nested_keys(tmp_path: P
 path.write_text(text)
 PY
 
+ruff format src/drpo/e8_experiment_config.py scripts/preflight_e8_multitask_config.py tests/test_e8_multitask_p0.py
 python -m py_compile src/drpo/e8_experiment_config.py scripts/preflight_e8_multitask_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
 bash -n scripts/run_e8_multitask_exp_coldstart.sh
 bash -n scripts/bootstrap_e8_multitask_exp_coldstart.sh
