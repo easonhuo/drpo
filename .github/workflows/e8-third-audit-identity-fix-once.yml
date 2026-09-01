@@ -27,5 +27,6 @@ jobs:
       - name: Preserve direct unit-fixture compatibility
         run: |
           sed -i 's/            and scheduler_path.is_file()/            and (execution_hash is None or scheduler_path.is_file())/' scripts/.tmp_e8_third_audit_identity_fix.sh
+          sed -i '0,/ruff format src\/drpo\/e8_experiment_config.py scripts\/preflight_e8_multitask_config.py tests\/test_e8_multitask_p0.py/s//ruff check --fix --unsafe-fixes src\/drpo\/e8_experiment_config.py scripts\/preflight_e8_multitask_config.py tests\/test_e8_multitask_p0.py\nruff format src\/drpo\/e8_experiment_config.py scripts\/preflight_e8_multitask_config.py tests\/test_e8_multitask_p0.py/' scripts/.tmp_e8_third_audit_identity_fix.sh
       - name: Apply, test, self-remove, and push
         run: bash scripts/.tmp_e8_third_audit_identity_fix.sh
