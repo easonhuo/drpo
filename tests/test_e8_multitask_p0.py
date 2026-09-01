@@ -1539,6 +1539,67 @@ def test_verified_wrong_candidate_reconstruction_uses_full_deterministic_univers
     assert len({row["canonical_completion"] for row in first}) == 25
 
 
+def test_generic_coldstart_remaining_scalar_contract_is_exact_typed_and_frozen() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-SCALAR-LOCK-UNSEEN-TEST"
+
+    cases = (
+        (("parent", "qualified_banks_required"), "true", "must be boolean"),
+        (("reference", "optimizer_updates"), 0.9, "non-negative integer"),
+        (("model", "lora_rank"), 32.9, "non-negative integer"),
+        (("model", "gradient_checkpointing"), "true", "must be boolean"),
+        (("split", "p0_train_rows"), 5000.9, "non-negative integer"),
+        (("split", "test_access_allowed"), 0, "must be boolean"),
+        (("training", "optimizer_updates"), 1200.9, "non-negative integer"),
+        (("training", "learning_rate"), "5e-5", "finite numeric scalar"),
+        (("training", "early_stopping"), 0, "must be boolean"),
+        (("evaluation", "pass_k"), 8.9, "non-negative integer"),
+        (("evaluation", "sampling_temperature"), "0.8", "finite numeric scalar"),
+        (("negative_sampling", "negatives_per_prompt"), 16.9, "non-negative integer"),
+        (("negative_sampling", "selection_stop_gradient"), 1, "must be boolean"),
+        (("remoteness_calibration", "detached"), 1, "must be boolean"),
+        (("selection", "finite_required"), "false", "must be boolean"),
+        (("selection", "report_grid_edge"), 1, "must be boolean"),
+    )
+    for path, invalid, message in cases:
+        bad = copy.deepcopy(config)
+        bad[path[0]][path[1]] = invalid
+        with pytest.raises(ValueError, match=message):
+            exp_tuning.validate_config(bad)
+
+    bad = copy.deepcopy(config)
+    bad["task_runtime"]["word_sorting"]["max_length"] = 512.9
+    with pytest.raises(ValueError, match="non-negative integer"):
+        exp_tuning.validate_config(bad)
+
+    bad = copy.deepcopy(config)
+    bad["task_runtime"]["countdown"]["auxiliary_pass_ks"] = [True]
+    with pytest.raises(ValueError, match="non-negative integer"):
+        exp_tuning.validate_config(bad)
+
+
+def test_generic_coldstart_stochastic_evaluation_protocol_is_frozen() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-EVAL-LOCK-UNSEEN-TEST"
+    for field, value in (
+        ("sampling_temperature", 0.7),
+        ("top_p", 0.9),
+        ("generation_seed", 2026070802),
+    ):
+        bad = copy.deepcopy(config)
+        bad["evaluation"][field] = value
+        with pytest.raises(ValueError, match="stochastic evaluation protocol drifted"):
+            exp_tuning.validate_config(bad)
+
+
 def test_generic_coldstart_execution_requires_exact_yaml_types() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 

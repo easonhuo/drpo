@@ -424,6 +424,182 @@ def _configured_bool(value: Any, label: str) -> bool:
     return value
 
 
+def _configured_number(value: Any, label: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{label} must be a finite numeric scalar")
+    numeric = float(value)
+    if not math.isfinite(numeric):
+        raise ValueError(f"{label} must be a finite numeric scalar")
+    return numeric
+
+
+def _validate_coldstart_scalar_contract(config: Mapping[str, Any]) -> None:
+    parent = config.get("parent", {})
+    if _configured_bool(
+        parent.get("qualified_banks_required"),
+        "parent.qualified_banks_required",
+    ) is not True:
+        raise ValueError("Cold-start requires qualified P0 banks")
+
+    reference = config["reference"]
+    for field in ("optimizer_updates", "validation_rows_seen", "test_rows_seen"):
+        _configured_seed(reference.get(field), f"reference.{field}")
+
+    model = config["model"]
+    for field in ("lora_rank", "lora_alpha", "max_length", "max_new_tokens"):
+        _configured_seed(model.get(field), f"model.{field}")
+    _configured_number(model.get("lora_dropout"), "model.lora_dropout")
+    if _configured_bool(
+        model.get("gradient_checkpointing"), "model.gradient_checkpointing"
+    ) is not True:
+        raise ValueError("Cold-start gradient_checkpointing must remain true")
+
+    split = config["split"]
+    for field in (
+        "p0_train_rows",
+        "p0_validation_rows",
+        "p0_test_rows",
+        "countdown_train_rows",
+        "countdown_validation_rows",
+        "hash_seed",
+    ):
+        _configured_seed(split.get(field), f"split.{field}")
+    if _configured_bool(
+        split.get("test_access_allowed"), "split.test_access_allowed"
+    ) is not False:
+        raise ValueError("Cold-start test access must remain forbidden")
+    if _configured_bool(
+        split.get("countdown_subsampling_forbidden"),
+        "split.countdown_subsampling_forbidden",
+    ) is not True:
+        raise ValueError("Countdown subsampling must remain forbidden")
+
+    training = config["training"]
+    for field in (
+        "optimizer_updates",
+        "micro_batch",
+        "gradient_accumulation",
+        "evaluation_every_updates",
+    ):
+        _configured_seed(training.get(field), f"training.{field}")
+    for field in (
+        "learning_rate",
+        "weight_decay",
+        "warmup_ratio",
+        "max_grad_norm",
+    ):
+        _configured_number(training.get(field), f"training.{field}")
+    late = training.get("late_window_updates")
+    if isinstance(late, (str, bytes)) or not isinstance(late, Sequence):
+        raise ValueError("training.late_window_updates must be an integer sequence")
+    tuple(
+        _configured_seed(value, "training.late_window_updates entry")
+        for value in late
+    )
+    if _configured_bool(
+        training.get("early_stopping"), "training.early_stopping"
+    ) is not False:
+        raise ValueError("Cold-start early stopping must remain false")
+    if _configured_bool(
+        training.get("terminal_adapter_required"),
+        "training.terminal_adapter_required",
+    ) is not True:
+        raise ValueError("Cold-start terminal adapter must remain required")
+
+    evaluation = config["evaluation"]
+    for field in (
+        "greedy_prompt_rows",
+        "passk_prompt_rows",
+        "pass_k",
+        "batch_size",
+        "max_new_tokens",
+        "generation_seed",
+    ):
+        _configured_seed(evaluation.get(field), f"evaluation.{field}")
+    auxiliary = evaluation.get("auxiliary_pass_ks")
+    if isinstance(auxiliary, (str, bytes)) or not isinstance(auxiliary, Sequence):
+        raise ValueError("evaluation.auxiliary_pass_ks must be an integer sequence")
+    tuple(
+        _configured_seed(value, "evaluation.auxiliary_pass_ks entry")
+        for value in auxiliary
+    )
+    temperature = _configured_number(
+        evaluation.get("sampling_temperature"),
+        "evaluation.sampling_temperature",
+    )
+    top_p = _configured_number(evaluation.get("top_p"), "evaluation.top_p")
+    generation_seed = _configured_seed(
+        evaluation.get("generation_seed"), "evaluation.generation_seed"
+    )
+    if (
+        not math.isclose(temperature, 0.8, rel_tol=0.0, abs_tol=1.0e-12)
+        or not math.isclose(top_p, 0.95, rel_tol=0.0, abs_tol=1.0e-12)
+        or generation_seed != 2026070801
+    ):
+        raise ValueError("Cold-start stochastic evaluation protocol drifted")
+
+    negative = config["negative_sampling"]
+    _configured_seed(
+        negative.get("negatives_per_prompt"),
+        "negative_sampling.negatives_per_prompt",
+    )
+    expected_negative_flags = {
+        "near_far_selection": False,
+        "selection_stop_gradient": True,
+        "weight_sum_normalization": False,
+        "gradient_budget_matching": False,
+    }
+    for field, expected in expected_negative_flags.items():
+        if _configured_bool(
+            negative.get(field), f"negative_sampling.{field}"
+        ) is not expected:
+            raise ValueError(f"Cold-start negative_sampling.{field} drifted")
+
+    calibration = config["remoteness_calibration"]
+    expected_calibration_flags = {
+        "enabled": False,
+        "detached": True,
+        "extra_square": False,
+        "gradient_rms_matching": False,
+    }
+    for field, expected in expected_calibration_flags.items():
+        if _configured_bool(
+            calibration.get(field), f"remoteness_calibration.{field}"
+        ) is not expected:
+            raise ValueError(f"Cold-start remoteness_calibration.{field} drifted")
+
+    runtime = config.get("task_runtime", {})
+    for task in config["suite"]["tasks"]:
+        task_runtime = runtime.get(task, {})
+        for field in (
+            "max_length",
+            "max_new_tokens",
+            "evaluation_batch_size",
+            "greedy_prompt_rows",
+            "passk_prompt_rows",
+        ):
+            _configured_seed(task_runtime.get(field), f"task_runtime.{task}.{field}")
+        aux = task_runtime.get("auxiliary_pass_ks")
+        if isinstance(aux, (str, bytes)) or not isinstance(aux, Sequence):
+            raise ValueError(
+                f"task_runtime.{task}.auxiliary_pass_ks must be an integer sequence"
+            )
+        tuple(
+            _configured_seed(value, f"task_runtime.{task}.auxiliary_pass_ks entry")
+            for value in aux
+        )
+
+    selection = config.get("selection", {})
+    if _configured_bool(
+        selection.get("finite_required"), "selection.finite_required"
+    ) is not True:
+        raise ValueError("Cold-start selection.finite_required must remain true")
+    if _configured_bool(
+        selection.get("report_grid_edge"), "selection.report_grid_edge"
+    ) is not True:
+        raise ValueError("Cold-start selection.report_grid_edge must remain true")
+
+
 def experiment_id(config: Mapping[str, Any]) -> str:
     value = config.get("experiment_id")
     allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
@@ -635,6 +811,8 @@ def validate_config(config: Mapping[str, Any]) -> None:
     expected_parent = EXPERIMENT_ID if profile == SWEEP_PROFILE_DENSE else P0_EXPERIMENT_ID
     if config.get("parent", {}).get("experiment_id") != expected_parent:
         raise ValueError("Unexpected parent experiment")
+    if _is_coldstart(config):
+        _validate_coldstart_scalar_contract(config)
 
     tasks = tuple(config.get("suite", {}).get("tasks", ()))
     if profile == SWEEP_PROFILE_RHO:
@@ -1114,7 +1292,8 @@ def validate_config(config: Mapping[str, Any]) -> None:
         selection = config.get("selection", {})
         if (
             selection.get("primary_metric") != "validation_late_window_pass8_mean"
-            or not bool(selection.get("finite_required", False))
+            or selection.get("finite_required") is not True
+            or selection.get("report_grid_edge") is not True
             or selection.get("terminal_valid_rate_role")
             != "diagnostic_only_not_selection_eligibility"
             or tuple(selection.get("tie_breakers", ()))
