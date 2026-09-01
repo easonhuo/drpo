@@ -1,0 +1,38 @@
+name: E8 Second Audit Fix V2 Once
+
+on:
+  push:
+    branches:
+      - dev/e8-config-driven-sweep-01
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-config-driven-sweep-01
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install development dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Patch engineering-self-test exemption and validate
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/.tmp_e8_second_audit_fix.sh')
+          text = path.read_text(encoding='utf-8')
+          old = '''    split = config["split"]\n    p0_train = int(split["p0_train_rows"])\n'''
+          new = '''    engineering = config.get("engineering_self_test")\n    if isinstance(engineering, Mapping) and engineering.get("placeholder_backend") is True:\n        return\n\n    split = config["split"]\n    p0_train = int(split["p0_train_rows"])\n'''
+          assert old in text
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          rm .github/workflows/e8-second-audit-fix-v2-once.yml
+          bash scripts/.tmp_e8_second_audit_fix.sh
