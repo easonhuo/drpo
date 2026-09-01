@@ -1,6 +1,6 @@
 # E8 config-driven sweep repair invariants
 
-Status: authority-boundary simplification approved / implementation in progress / independent review pending / not a scientific result.
+Status: authority-boundary simplification implemented / final-head repository gates pending / independent review pending / not a scientific result.
 
 Scope: harden and simplify the `eight_task_coldstart_lambda_v1` orchestration refactor introduced by PR #340 without changing any currently tracked historical scientific config, the canonical paper trainer/loss, or the interpretation of existing results.
 
@@ -49,6 +49,25 @@ The final branch must:
 - verify preflight prints the effective experiment plan and performs no model/GPU work;
 - run Python compilation for changed Python files, shell syntax checks for changed shell launchers, the focused E8 test suite, `git diff --check`, and repository PR gates.
 
+## Authority-boundary implementation evidence
+
+- Base main commit: `6ed153d5ad7361a4e52348610b86b51b71e25e47`.
+- Simplified implementation commit: `f61b5ef5ceba8e555a4345de5c218fb0393ee902`.
+- GitHub Actions one-shot engineering run `33470365713`, job `99738720935`, completed successfully and self-removed its temporary workflow/script before the implementation commit was pushed.
+- Complete focused `tests/test_e8_multitask_p0.py`: `60 passed in 5.70s`.
+- `python -m py_compile` passed for `src/drpo/e8_experiment_config.py`, `scripts/preflight_e8_multitask_config.py`, `src/drpo/e8_multitask_exp_tuning.py`, and `tests/test_e8_multitask_p0.py`.
+- `bash -n` passed for the cold-start runner, bootstrap, and lambda-completion launcher.
+- Ruff passed for the new config/preflight files and the focused E8 tests; this is not a claim that every pre-existing warning in the scientific core was repaired.
+- `git diff --check` passed.
+- The synthetic generic cold-start test changes optimizer horizon, stochastic-evaluation values, split/init seeds, LoRA rank, and a task runtime length without editing the training core, and validation accepts the reviewed-config values.
+- RHO/DENSE generic IDs are rejected; historical cold-start-family IDs are protected by canonical config path/content identity.
+- The runner now performs a real Git-tracked config check and invokes standalone preflight before expensive model/GPU setup.
+- GitHub compare confirms the PR head is descended from the base (`status=ahead`, `merge_base=6ed153d5ad7361a4e52348610b86b51b71e25e47`). An intermediate Code Change Budget message claiming no shared ancestor was therefore a shallow-fetch gate artifact, not a disconnected branch; the repository gate itself has not been modified under this protocol.
+- Diff at `f61b5ef5...` relative to base: `+1581/-242` across seven files (net `+1339`). The scientific core `src/drpo/e8_multitask_exp_tuning.py` is `+298/-144`, down substantially from the pre-simplification validator-heavy version; config interpretation is isolated in the approved `src/drpo/e8_experiment_config.py`.
+- The repository owner's explicit approval for the two new Python paths and the large/structural config-authority refactor is preserved in PR #340 discussion using `GOV-NEW-PYTHON-FILE-ORAL-APPROVAL-02` fields.
+
+This evidence is engineering-only. No scientific experiment, GPU training sweep, task-performance result, support/variance-boundary result, convergence/significance claim, or method-ranking claim was produced. Final-head repository gates and independent review remain mandatory before merge.
+
 ## Prior engineering closure evidence (pre-simplification)
 
 - Base main commit for PR #340: `6ed153d5ad7361a4e52348610b86b51b71e25e47`.
@@ -60,6 +79,6 @@ The final branch must:
 - `git diff --check` passed.
 - One-shot repair workflows, repair scripts, and trigger files were removed by the validated cleanup commit.
 
-That evidence applies only to the pre-simplification implementation and must be rerun on the new head. No scientific experiment was executed by these checks; no task-performance, support/variance-boundary, convergence, significance, or method-ranking claim is produced here. Merge remains blocked until the repository's independent reviewer gate is satisfied and final-head repository gates are reviewed.
+That evidence applies only to the pre-simplification implementation and must not be substituted for the final-head evidence above. No scientific experiment was executed by these checks; no task-performance, support/variance-boundary, convergence, significance, or method-ranking claim is produced here. Merge remains blocked until the repository's independent reviewer gate is satisfied and final-head repository gates are reviewed.
 
 No smoke test, static check, focused unit test, engineering liveness result, or CI regression result produced under this protocol is a scientific result.
