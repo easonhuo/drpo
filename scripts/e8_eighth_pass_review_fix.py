@@ -62,7 +62,7 @@ resolve_target_ref
 text = tests.read_text(encoding="utf-8")
 marker = '''def test_runner_and_bootstrap_derive_experiment_id_from_config() -> None:
 '''
-extra = r'''def test_bootstrap_self_test_target_ref_is_explicit_and_current() -> None:
+extra = r"""def test_bootstrap_self_test_target_ref_is_explicit_and_current() -> None:
     import re
 
     bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(
@@ -93,7 +93,7 @@ TARGET_REF=""
 LOCAL_FETCH_REF=""
 {function}
 resolve_target_ref
-printf '%s\n' "$TARGET_REF" "$LOCAL_FETCH_REF"
+printf '%s\\n' "$TARGET_REF" "$LOCAL_FETCH_REF"
 '''
         return subprocess.run(
             ["bash", "-c", script],
@@ -140,7 +140,7 @@ printf '%s\n' "$TARGET_REF" "$LOCAL_FETCH_REF"
         assert result.returncode == 2
 
 
-'''
+"""
 if text.count(marker) != 1 or "test_bootstrap_self_test_target_ref_is_explicit_and_current" in text:
     raise SystemExit("cannot insert eighth-pass bootstrap target test")
 tests.write_text(text.replace(marker, extra + marker, 1), encoding="utf-8")
