@@ -1,6 +1,6 @@
 # E8 config-driven sweep repair invariants
 
-Status: eighth-pass engineering review in progress / not a scientific result.
+Status: eighth-pass engineering validation staged / not a scientific result.
 
 Scope: harden the `eight_task_coldstart_lambda_v1` orchestration refactor introduced by PR #340 without changing the frozen scientific kernel, paper taper, current-policy surprisal, all-unique-negative consumer, 1200-update horizon, optimizer, data, task runtime, scheduler topology, or result interpretation.
 
