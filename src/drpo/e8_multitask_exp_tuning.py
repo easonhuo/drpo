@@ -198,15 +198,23 @@ class RowDataset(Dataset):
 
 
 def load_config(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
-    source = Path(path)
+    """Load one externally selected, repository-tracked E8 config fail-closed."""
+
     repo_root = Path(__file__).resolve().parents[2]
-    if not source.is_absolute():
-        source = repo_root / source
-    value = yaml.safe_load(source.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        raise TypeError("Configuration root must be a mapping")
+    source, _, _ = experiment_config.require_tracked_config(path, repo_root)
+    value = experiment_config.load_strict_yaml(source)
     validate_config(value)
     experiment_config.validate_historical_config_identity(source, value, repo_root=repo_root)
+    return value
+
+
+def _load_internal_config(path: str | Path) -> dict[str, Any]:
+    """Load one runtime-generated internal config through the same strict validator."""
+
+    value = experiment_config.load_strict_yaml(path)
+    validate_config(value)
+    if not experiment_config.is_engineering_self_test_config(value):
+        raise ValueError("internal E8 config loading is restricted to engineering self-test configs")
     return value
 
 
@@ -4918,7 +4926,7 @@ def _effective_recovery_config(
 ) -> dict[str, Any]:
     engineering_config = output_root / "engineering_self_test_config.yaml"
     if engineering_config.is_file():
-        recovered = load_config(engineering_config)
+        recovered = _load_internal_config(engineering_config)
         if not _is_engineering_self_test(recovered):
             raise RuntimeError("Recovery engineering config is not a placeholder config")
         return recovered
@@ -7387,7 +7395,7 @@ def cmd_engineering_self_test(
             base_model_path=str(base_model),
         )
     else:
-        recovered_config = load_config(config_path)
+        recovered_config = _load_internal_config(config_path)
         if recovered_config != self_test_config:
             raise RuntimeError("Engineering recovery config differs from the reviewed config")
         provenance = _read_json_object(output_root / "source_provenance.json")

@@ -2089,13 +2089,28 @@ def test_lambda_curve_completion_aggregate_accepts_zero_positive_only(tmp_path: 
     )
 
 
+def _generic_coldstart_test_config():
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    # Frozen predecessor metadata is not part of the generic reviewed schema.
+    config.pop("historical_curve_anchor", None)
+    sweep = config["sweep"]
+    sweep["countdown_seed_offsets"] = []
+    sweep["countdown_include_positive_only"] = False
+    sweep["include_global_endpoint"] = False
+    sweep["task_lambda"]["countdown"] = []
+    sweep["countdown_sentinel_coefficients"] = []
+    return config
+
+
 def test_new_coldstart_config_controls_materialized_runtime_without_core_edits(
     tmp_path: Path,
 ) -> None:
     from drpo import e8_experiment_config as experiment_config
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    config = _generic_coldstart_test_config()
     config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-CONFIG-AUTHORITY-TEST"
     config["training"].update(
         {
@@ -2179,7 +2194,7 @@ def test_legacy_runtime_bridge_forwards_configured_interface_values(tmp_path: Pa
     from drpo import e8_experiment_config as experiment_config
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    config = _generic_coldstart_test_config()
     config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-RUNTIME-BRIDGE-TEST"
     config["training"].update(
         {
@@ -2320,8 +2335,15 @@ def test_historical_coldstart_id_requires_canonical_config_identity() -> None:
     copied = Path("configs/.e8_historical_identity_test.yaml")
     copied.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
     try:
-        with pytest.raises(ValueError, match="canonical config path"):
+        with pytest.raises(ValueError, match="not Git-tracked"):
             exp_tuning.load_config(copied)
+        from drpo import e8_experiment_config as experiment_config
+
+        frozen = exp_tuning.load_config(source)
+        with pytest.raises(ValueError, match="canonical config path"):
+            experiment_config.validate_historical_config_identity(
+                copied, frozen, repo_root=Path.cwd()
+            )
     finally:
         copied.unlink(missing_ok=True)
 
@@ -2329,7 +2351,7 @@ def test_historical_coldstart_id_requires_canonical_config_identity() -> None:
 def test_generic_coldstart_matrix_is_dynamic_but_self_consistent() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    config = _generic_coldstart_test_config()
     config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-DYNAMIC-MATRIX-TEST"
     sweep = config["sweep"]
     sweep["include_global_endpoint"] = True
@@ -2360,7 +2382,7 @@ def test_generic_coldstart_matrix_is_dynamic_but_self_consistent() -> None:
 def test_generic_coldstart_rejects_malformed_config_not_old_scientific_values() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    config = _generic_coldstart_test_config()
     config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-TYPE-CHECK-TEST"
 
     bad = copy.deepcopy(config)
@@ -2392,7 +2414,7 @@ def test_generic_coldstart_rejects_malformed_config_not_old_scientific_values() 
 def test_generic_coldstart_rejects_zero_scientific_cells() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    config = _generic_coldstart_test_config()
     config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-ZERO-CELLS-TEST"
     sweep = config["sweep"]
     sweep["countdown_seed_offsets"] = []
@@ -2489,3 +2511,24 @@ def test_coldstart_validation_has_single_config_authority_exit() -> None:
     assert "old_lora_contract" not in source
     assert "Countdown sentinel coefficients drifted" not in source
     assert "Cold-start task-interface length/evaluation contract drifted" not in source
+
+
+def test_e8_strict_yaml_rejects_duplicate_nested_keys(tmp_path: Path) -> None:
+    from drpo import e8_experiment_config as experiment_config
+
+    path = tmp_path / "duplicate.yaml"
+    path.write_text("schema_version: 1\nsweep:\n  method: exponential\n  method: linear\n")
+    with pytest.raises(ValueError, match="duplicate key"):
+        experiment_config.load_strict_yaml(path)
+
+
+def test_e8_internal_config_loader_is_explicit(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as tuning
+
+    path = tmp_path / "historical-copy.yaml"
+    path.write_text(
+        Path("configs/e8_multitask_exp_coldstart.yaml").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="restricted to engineering self-test"):
+        tuning._load_internal_config(path)

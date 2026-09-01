@@ -838,7 +838,10 @@ def _validate_runtime_authority_consistency(
 
 def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
     sweep = _mapping(config.get("sweep"), "sweep")
-    historical = is_historical_coldstart_config(config) and not is_engineering_self_test_config(config)
+    # Internal engineering self-tests derived from an immutable historical config
+    # retain that historical scientific matrix. The engineering marker changes the
+    # backend/evidence class, not the reviewed scientific matrix semantics.
+    historical = is_historical_coldstart_config(config)
     if sweep.get("method") != "exponential":
         raise ValueError("Cold-start sweep.method must be exponential")
     if sweep.get("parameterization") not in ("paper_coefficient_c", "paper_lambda_c1"):
@@ -887,11 +890,14 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
         sweep.get("include_global_endpoint", False),
         "include_global_endpoint",
     )
-    if not historical and not countdown_seeds:
-        if countdown_values or sentinel_values or countdown_positive:
-            raise ValueError(
-                "generic inactive Countdown requires empty lambda/sentinel grids and countdown_include_positive_only=false"
-            )
+    if (
+        not historical
+        and not countdown_seeds
+        and (countdown_values or sentinel_values or countdown_positive)
+    ):
+        raise ValueError(
+            "generic inactive Countdown requires empty lambda/sentinel grids and countdown_include_positive_only=false"
+        )
 
     positive_seeds = tuple(
         _integer(value, "Transfer Positive-only seed offset")
@@ -902,9 +908,7 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
     )
     if len(set(positive_seeds)) != len(positive_seeds):
         raise ValueError("Transfer Positive-only seed offsets must be unique")
-    transfer_seed = _integer(
-        sweep.get("task_transfer_seed_offset"), "task_transfer_seed_offset"
-    )
+    transfer_seed = _integer(sweep.get("task_transfer_seed_offset"), "task_transfer_seed_offset")
     tuning_seed = _integer(sweep.get("tuning_seed"), "tuning_seed")
     if tuning_seed != transfer_seed:
         raise ValueError(
@@ -992,10 +996,7 @@ def _validate_data_volume_and_evaluation_capacity(
         raise ValueError(
             "Cold-start P0 split sizes must consume exactly the canonical 6000-row bank per task"
         )
-    if (
-        int(split["countdown_train_rows"]) != 6000
-        or int(split["countdown_validation_rows"]) != 500
-    ):
+    if int(split["countdown_train_rows"]) != 6000 or int(split["countdown_validation_rows"]) != 500:
         raise ValueError(
             "Cold-start Countdown must consume the canonical 6000 train / 500 validation rows because wrapper subsampling is forbidden"
         )
@@ -1016,10 +1017,13 @@ def _validate_data_volume_and_evaluation_capacity(
         if task == "countdown" or not task_lambdas(config, task):
             continue
         task_runtime = runtime[task]
-        if max(
-            int(task_runtime["greedy_prompt_rows"]),
-            int(task_runtime["passk_prompt_rows"]),
-        ) > p0_validation:
+        if (
+            max(
+                int(task_runtime["greedy_prompt_rows"]),
+                int(task_runtime["passk_prompt_rows"]),
+            )
+            > p0_validation
+        ):
             raise ValueError(
                 f"task_runtime.{task} evaluation prompt budget exceeds split.p0_validation_rows"
             )
@@ -1057,9 +1061,7 @@ def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
         raise ValueError("Cold-start selection mode is not implemented")
 
     execution = _mapping(config.get("execution"), "execution")
-    capacity = _integer(
-        execution.get("max_concurrent_cells"), "execution.max_concurrent_cells"
-    )
+    capacity = _integer(execution.get("max_concurrent_cells"), "execution.max_concurrent_cells")
     if capacity != 16:
         raise ValueError("Cold-start scheduler currently implements exactly 16 slots")
     expected_waves = math.ceil(int(config["sweep"]["expected_cells"]) / capacity)
