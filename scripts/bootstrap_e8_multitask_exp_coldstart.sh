@@ -204,15 +204,19 @@ SOURCE_COMMIT="$(git -C "${SOURCE_REPO}" rev-parse 'HEAD^{commit}')" || \
 resolve_target_ref() {
   if [[ "${MODE}" == "full" ]]; then
     TARGET_REF="${E8_COLDSTART_TARGET_REF:-refs/heads/main}"
-    git check-ref-format "${TARGET_REF}" >/dev/null 2>&1 ||       fail "invalid full target ref: ${TARGET_REF}"
-    [[ "${TARGET_REF}" == refs/heads/* ]] ||       fail "full target ref must be under refs/heads/: ${TARGET_REF}"
+    git check-ref-format "${TARGET_REF}" >/dev/null 2>&1 || \
+      fail "invalid full target ref: ${TARGET_REF}"
+    [[ "${TARGET_REF}" == refs/heads/* ]] || \
+      fail "full target ref must be under refs/heads/: ${TARGET_REF}"
     LOCAL_FETCH_REF="refs/e8-coldstart-bootstrap/full-target"
     return
   fi
 
   TARGET_REF="${E8_COLDSTART_TARGET_REF:-}"
-  [[ -n "${TARGET_REF}" ]] ||     fail "self-test requires E8_COLDSTART_TARGET_REF"
-  git check-ref-format "${TARGET_REF}" >/dev/null 2>&1 ||     fail "invalid self-test target ref: ${TARGET_REF}"
+  [[ -n "${TARGET_REF}" ]] || \
+    fail "self-test requires E8_COLDSTART_TARGET_REF"
+  git check-ref-format "${TARGET_REF}" >/dev/null 2>&1 || \
+    fail "invalid self-test target ref: ${TARGET_REF}"
   if [[ "${TARGET_REF}" == refs/heads/* ]]; then
     :
   elif [[ "${TARGET_REF}" =~ ^refs/pull/[1-9][0-9]*/head$ ]]; then
@@ -226,20 +230,20 @@ resolve_target_ref() {
 resolve_target_ref
 
 CURRENT_STAGE="fetch_authoritative_ref"
+git -C "${SOURCE_REPO}" fetch --no-tags --force "${SOURCE_REMOTE}" \
+  "${TARGET_REF}:${LOCAL_FETCH_REF}"
+TARGET_COMMIT="$(git -C "${SOURCE_REPO}" rev-parse "${LOCAL_FETCH_REF}^{commit}")"
+[[ "${TARGET_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "resolved commit is not a full SHA"
+REMOTE_COMMIT="$(
+  git -C "${SOURCE_REPO}" ls-remote "${SOURCE_REMOTE}" "${TARGET_REF}" |
+    awk -v ref="${TARGET_REF}" '$2 == ref {print $1}'
+)"
+[[ "${REMOTE_COMMIT}" == "${TARGET_COMMIT}" ]] || \
+  fail "fetch/authoritative-ref mismatch for ${TARGET_REF}"
 if [[ "${BOOTSTRAP_WAS_COMPLETE}" -eq 1 ]]; then
-  TARGET_COMMIT="$(git -C "${CHECKOUT}" rev-parse HEAD)"
-else
-  git -C "${SOURCE_REPO}" fetch --no-tags --force "${SOURCE_REMOTE}" \
-    "${TARGET_REF}:${LOCAL_FETCH_REF}"
-  TARGET_COMMIT="$(git -C "${SOURCE_REPO}" rev-parse "${LOCAL_FETCH_REF}^{commit}")"
-  [[ "${TARGET_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "resolved commit is not a full SHA"
-
-  REMOTE_COMMIT="$(
-    git -C "${SOURCE_REPO}" ls-remote "${SOURCE_REMOTE}" "${TARGET_REF}" |
-      awk -v ref="${TARGET_REF}" '$2 == ref {print $1}'
-  )"
-  [[ "${REMOTE_COMMIT}" == "${TARGET_COMMIT}" ]] || \
-    fail "fetch/authoritative-ref mismatch for ${TARGET_REF}"
+  COMPLETED_CHECKOUT_COMMIT="$(git -C "${CHECKOUT}" rev-parse 'HEAD^{commit}')"
+  [[ "${COMPLETED_CHECKOUT_COMMIT}" == "${TARGET_COMMIT}" ]] || \
+    fail "completed bootstrap is stale: authoritative ${TARGET_REF} advanced from ${COMPLETED_CHECKOUT_COMMIT} to ${TARGET_COMMIT}"
 fi
 
 CURRENT_STAGE="verify_full_source_identity"
