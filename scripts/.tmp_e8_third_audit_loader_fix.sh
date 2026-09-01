@@ -71,14 +71,11 @@ if anchor not in text:
     raise SystemExit('generic helper anchor not found')
 text = text.replace(anchor, helper + anchor, 1)
 needle = 'config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))'
-# Only the four third-audit synthetic-generic tests below the helper should convert
-# a historical config into a generic config. Earlier historical regression tests
-# must continue to load the frozen file directly.
 head, tail = text.split(helper, 1)
 count = tail.count(needle)
-if count < 4:
-    raise SystemExit(f'expected at least four generic test anchors, found {count}')
-tail = tail.replace(needle, 'config = _generic_coldstart_test_config()', 4)
+if count < 5:
+    raise SystemExit(f'expected at least five generic test anchors, found {count}')
+tail = tail.replace(needle, 'config = _generic_coldstart_test_config()', 5)
 text = head + helper + tail
 old = '''    try:\n        with pytest.raises(ValueError, match="canonical config path"):\n            exp_tuning.load_config(copied)\n    finally:\n        copied.unlink(missing_ok=True)\n'''
 new = '''    try:\n        with pytest.raises(ValueError, match="not Git-tracked"):\n            exp_tuning.load_config(copied)\n        from drpo import e8_experiment_config as experiment_config\n\n        frozen = exp_tuning.load_config(source)\n        with pytest.raises(ValueError, match="canonical config path"):\n            experiment_config.validate_historical_config_identity(\n                copied, frozen, repo_root=Path.cwd()\n            )\n    finally:\n        copied.unlink(missing_ok=True)\n'''
