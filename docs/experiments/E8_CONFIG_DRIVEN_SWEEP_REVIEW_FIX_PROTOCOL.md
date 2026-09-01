@@ -1,6 +1,6 @@
 # E8 config-driven sweep repair invariants
 
-Status: authority-boundary simplification implemented / final-head repository gates pending / independent review pending / not a scientific result.
+Status: runtime-propagation closure documented / implementation and final-head repository gates pending / independent review pending / not a scientific result.
 
 Scope: harden and simplify the `eight_task_coldstart_lambda_v1` orchestration refactor introduced by PR #340 without changing any currently tracked historical scientific config, the canonical paper trainer/loss, or the interpretation of existing results.
 
@@ -32,6 +32,21 @@ This section supersedes any older wording in this repair document that required 
 9. A config-representative resource liveness gate is explicitly deferred. The existing canonical Countdown liveness remains a kernel/dispatch engineering smoke, not proof that the heaviest configured cell fits resources.
 10. Replacing grep-based provenance-source discovery with explicit metadata is also deferred unless separately approved; this refactor must not expand scope merely to redesign provenance enumeration.
 
+## 2026-09-01 runtime-propagation closure
+
+This section closes a gap found after the authority-boundary simplification. The previous synthetic acceptance test proved only that changed values survived config validation; it did **not** prove that the byte-locked canonical trainer actually consumed those values. That weaker interpretation is superseded by the rules below.
+
+1. The acceptance invariant is end-to-end: `reviewed tracked YAML -> effective runtime specification -> materialized canonical runtime inputs -> canonical trainer/evaluator`. A value that is accepted by config validation may not be silently ignored downstream.
+2. For a new cold-start-family experiment ID, every accepted scientific field must satisfy exactly one of two outcomes: (a) the effective runtime consumed by the canonical worker/trainer/evaluator contains and uses that configured value; or (b) validation rejects the value with an explicit implementation-capability or self-consistency error before launch. "Accepted by validator but old default used at runtime" is a merge-blocking failure.
+3. The byte-locked canonical paper source files and their Git-blob identities remain unchanged. This repair must not edit the historical arena, taper common/runtime, trainer, historical base config, or historical grid configs merely to make a new experiment configurable. The paper loss/objective, all-unique-negative consumer, taper formula, cell coefficient, and canonical dispatch remain implementation-identity gates.
+4. The wrapper may materialize per-task derived runtime copies of the historical base/grid YAMLs. Those derived files are execution inputs, not replacements for the historical canonical source files. Their identities and the resolved effective runtime must be recorded in canonical-input/cell provenance.
+5. Effective runtime propagation must cover the values already declared configurable by the authority-boundary override: initialization seed; optimizer horizon; micro-batch and gradient accumulation; learning rate, weight decay, warmup ratio, gradient clipping, and evaluation cadence; LoRA rank/alpha/dropout; task model lengths; evaluation batch/budgets/pass-k interface; sampling temperature/top-p; and evaluation generation seed. Split sizes/hash seed continue to be consumed by the wrapper split implementation.
+6. Where the historical implementation contains a literal interface default rather than a parameter (for example fresh-LoRA dimensions, AdamW weight decay, or sampled-generation temperature/top-p), the wrapper may use a temporary process-local adapter around that interface. Such an adapter must be restored after the cell, must not reimplement or alter loss mathematics, and must be covered by a regression test showing the canonical call receives the configured value.
+7. Historical experiment IDs remain byte-for-byte config identities and therefore continue to execute their historical effective runtime values. This propagation repair authorizes no scientific parameter change to those configs and must not retroactively reinterpret their results.
+8. Any legacy grid validator that protects historical paper-grid science may be adapted only for a derived runtime grid by proving that the derived file differs from its canonical source solely in explicitly propagated runtime fields. All non-runtime grid drift must still fail closed.
+9. Preflight must report the **resolved effective runtime** that will be materialized for each active task, not merely echo raw YAML sections. The effective-runtime resolver used by preflight must be the same resolver used to materialize canonical runtime inputs.
+10. Regression tests must inspect the materialized base/grid YAMLs and the legacy-interface adapter inputs. A test that only mutates an in-memory config, calls `validate_config`, and asserts that the dictionary still contains the new value is insufficient and must not be treated as runtime-propagation evidence.
+
 ## Required regression checks after the authority-boundary simplification
 
 The final branch must:
@@ -39,14 +54,15 @@ The final branch must:
 - preserve the canonical 208/199/140 historical cell matrices and wave geometry;
 - reject historical IDs when their canonical config identity is not used;
 - reject a generic experiment ID under RHO or DENSE and accept a well-formed generic ID only under cold-start;
-- demonstrate with a synthetic new cold-start config that a reviewed scientific scalar can differ from the historical value without editing `e8_multitask_exp_tuning.py`, while malformed types/ranges still fail;
-- reject duplicate/invalid lambda cells, malformed seeds/booleans/numbers where their type is required for execution, unsupported methods, inconsistent `expected_cells`, and zero-cell matrices;
+- demonstrate with a synthetic new cold-start config that reviewed scientific scalars differ from historical values without editing the canonical paper sources, and verify those scalars in the effective runtime and materialized canonical inputs;
+- verify process-local adapters deliver configured LoRA dimensions, optimizer weight decay, and sampled-generation temperature/top-p to the legacy interfaces rather than silently using historical literals;
+- reject duplicate/invalid lambda cells, malformed seeds/booleans/numbers where their type is required for execution, unsupported methods, inconsistent `expected_cells`, zero-cell matrices, and accepted-but-unconsumable runtime combinations;
 - preserve optional transfer Global endpoints without treating `lambda=0` as Exp;
 - preserve the exact `c=0.693147181`, seed-4000 Countdown engineering liveness identity and reject stale/mislabeled liveness manifests during recovery;
 - verify that selected configs are actually Git-tracked and repository-relative before launch;
 - verify runner/bootstrap config identity resolution and mismatch rejection for supported YAML scalar presentation;
 - verify safe/non-inherited Run IDs and explicit bootstrap self-test target refs;
-- verify preflight prints the effective experiment plan and performs no model/GPU work;
+- verify preflight prints the resolved effective experiment/runtime plan and performs no model/GPU work;
 - run Python compilation for changed Python files, shell syntax checks for changed shell launchers, the focused E8 test suite, `git diff --check`, and repository PR gates.
 
 ## Authority-boundary implementation evidence
@@ -65,6 +81,8 @@ The final branch must:
 - GitHub compare confirms the PR head is descended from the base (`status=ahead`, `merge_base=6ed153d5ad7361a4e52348610b86b51b71e25e47`). An intermediate Code Change Budget message claiming no shared ancestor was therefore a shallow-fetch gate artifact, not a disconnected branch; the repository gate itself has not been modified under this protocol.
 - Diff at `f61b5ef5...` relative to base: `+1581/-242` across seven files (net `+1339`). The scientific core `src/drpo/e8_multitask_exp_tuning.py` is `+298/-144`, down substantially from the pre-simplification validator-heavy version; config interpretation is isolated in the approved `src/drpo/e8_experiment_config.py`.
 - The repository owner's explicit approval for the two new Python paths and the large/structural config-authority refactor is preserved in PR #340 discussion using `GOV-NEW-PYTHON-FILE-ORAL-APPROVAL-02` fields.
+
+**Runtime-propagation correction:** the bullet above describing the synthetic test is retained as historical engineering evidence only. It proves validator acceptance, not canonical-runtime consumption. It must not be cited as satisfying the end-to-end config-authority invariant. Runtime-propagation evidence must be regenerated on the final repair head using the stronger checks in the preceding section.
 
 This evidence is engineering-only. No scientific experiment, GPU training sweep, task-performance result, support/variance-boundary result, convergence/significance claim, or method-ranking claim was produced. Final-head repository gates and independent review remain mandatory before merge.
 
