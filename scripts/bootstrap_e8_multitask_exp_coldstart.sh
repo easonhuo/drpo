@@ -201,15 +201,29 @@ SOURCE_COMMIT="$(git -C "${SOURCE_REPO}" rev-parse 'HEAD^{commit}')" || \
   fail "selected checkout HEAD is not a commit"
 [[ "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "selected checkout HEAD is not a full SHA"
 
-if [[ "${MODE}" == "full" ]]; then
-  TARGET_REF="${E8_COLDSTART_TARGET_REF:-refs/heads/main}"
-  git check-ref-format "${TARGET_REF}" >/dev/null 2>&1 || fail "invalid full target ref: ${TARGET_REF}"
-  [[ "${TARGET_REF}" == refs/heads/* ]] || fail "full target ref must be under refs/heads/: ${TARGET_REF}"
-  LOCAL_FETCH_REF="refs/e8-coldstart-bootstrap/full-target"
-else
-  TARGET_REF="refs/pull/309/head"
-  LOCAL_FETCH_REF="refs/e8-coldstart-bootstrap/pr-309-head"
-fi
+resolve_target_ref() {
+  if [[ "${MODE}" == "full" ]]; then
+    TARGET_REF="${E8_COLDSTART_TARGET_REF:-refs/heads/main}"
+    git check-ref-format "${TARGET_REF}" >/dev/null 2>&1 ||       fail "invalid full target ref: ${TARGET_REF}"
+    [[ "${TARGET_REF}" == refs/heads/* ]] ||       fail "full target ref must be under refs/heads/: ${TARGET_REF}"
+    LOCAL_FETCH_REF="refs/e8-coldstart-bootstrap/full-target"
+    return
+  fi
+
+  TARGET_REF="${E8_COLDSTART_TARGET_REF:-}"
+  [[ -n "${TARGET_REF}" ]] ||     fail "self-test requires E8_COLDSTART_TARGET_REF"
+  git check-ref-format "${TARGET_REF}" >/dev/null 2>&1 ||     fail "invalid self-test target ref: ${TARGET_REF}"
+  if [[ "${TARGET_REF}" == refs/heads/* ]]; then
+    :
+  elif [[ "${TARGET_REF}" =~ ^refs/pull/[1-9][0-9]*/head$ ]]; then
+    :
+  else
+    fail "self-test target ref must be refs/heads/* or refs/pull/<number>/head: ${TARGET_REF}"
+  fi
+  LOCAL_FETCH_REF="refs/e8-coldstart-bootstrap/self-test-target"
+}
+
+resolve_target_ref
 
 CURRENT_STAGE="fetch_authoritative_ref"
 if [[ "${BOOTSTRAP_WAS_COMPLETE}" -eq 1 ]]; then
