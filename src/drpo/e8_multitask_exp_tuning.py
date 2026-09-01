@@ -288,6 +288,73 @@ FROZEN_COLDSTART_SWEEP_IDENTITIES: dict[str, dict[str, Any]] = {
 }
 
 
+FROZEN_COLDSTART_PROVENANCE_IDENTITIES: dict[str, dict[str, Any]] = {
+    COLDSTART_EXPERIMENT_ID: {
+        "reporting": {
+            "separate_events": [
+                "task_performance",
+                "valid_or_structure_diagnostic",
+                "nan_inf_numerical_failure",
+            ],
+            "countdown_role": "diagnostic_regression_sentinel_not_result_gate",
+            "other_tasks_task_interface_adaptation_only": True,
+            "transfer_exp_scope": "single_seed_response_shape_localization",
+            "positive_only_seed_count_per_transfer_task": 4,
+            "convergence_claim_allowed": False,
+            "significance_claim_allowed": False,
+            "method_ranking_allowed": False,
+            "causal_identification_environment": "D-U1",
+        },
+        "expected_waves": 13,
+        "historical_curve_anchor": None,
+    },
+    LAMBDA_COMPLETION_EXPERIMENT_ID: {
+        "reporting": {
+            "separate_events": [
+                "task_performance",
+                "valid_or_structure_diagnostic",
+                "nan_inf_numerical_failure",
+            ],
+            "countdown_role": "predecessor_only_no_new_scientific_cells",
+            "other_tasks_task_interface_adaptation_only": True,
+            "transfer_exp_scope": "single_seed_response_shape_localization",
+            "positive_only_seed_count_per_transfer_task": 2,
+            "convergence_claim_allowed": False,
+            "significance_claim_allowed": False,
+            "method_ranking_allowed": False,
+            "scientific_role": "external_validity_response_shape",
+        },
+        "expected_waves": 13,
+        "historical_curve_anchor": {
+            "path": "experiments/results/e8_multitask_exp_coldstart_20260820_02/CURVE_ANCHOR.csv",
+            "role": "immutable_predecessor_curve_for_concatenation",
+        },
+    },
+    LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID: {
+        "reporting": {
+            "separate_events": [
+                "task_performance",
+                "valid_or_structure_diagnostic",
+                "nan_inf_numerical_failure",
+            ],
+            "countdown_role": "predecessor_only_no_new_scientific_cells",
+            "other_tasks_task_interface_adaptation_only": True,
+            "transfer_exp_scope": "single_seed_response_shape_localization",
+            "positive_only_seed_count_per_transfer_task": 0,
+            "convergence_claim_allowed": False,
+            "significance_claim_allowed": False,
+            "method_ranking_allowed": False,
+            "scientific_role": "external_validity_curve_boundary_completion",
+        },
+        "expected_waves": 9,
+        "historical_curve_anchor": {
+            "path": "experiments/results/e8_multitask_exp_coldstart_20260820_02/CURVE_ANCHOR.csv",
+            "role": "immutable_predecessor_curve_for_concatenation",
+        },
+    },
+}
+
+
 @dataclass(frozen=True)
 class Cell:
     task: str
@@ -351,6 +418,12 @@ def _configured_seed(value: Any, label: str) -> int:
     return value
 
 
+def _configured_bool(value: Any, label: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"{label} must be boolean")
+    return value
+
+
 def experiment_id(config: Mapping[str, Any]) -> str:
     value = config.get("experiment_id")
     allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
@@ -411,6 +484,78 @@ def _validate_frozen_coldstart_sweep_identity(config: Mapping[str, Any]) -> None
     if observed != expected:
         raise ValueError(
             f"Frozen cold-start experiment identity drifted for {experiment_id(config)}"
+        )
+    expected_provenance = FROZEN_COLDSTART_PROVENANCE_IDENTITIES[
+        experiment_id(config)
+    ]
+    observed_provenance = {
+        "reporting": copy.deepcopy(dict(config.get("reporting", {}))),
+        "expected_waves": _configured_seed(
+            config["execution"].get("expected_waves"),
+            "Frozen cold-start expected_waves",
+        ),
+        "historical_curve_anchor": copy.deepcopy(
+            config.get("historical_curve_anchor")
+        ),
+    }
+    if observed_provenance != expected_provenance:
+        raise ValueError(
+            "Frozen cold-start reporting/execution provenance drifted for "
+            f"{experiment_id(config)}"
+        )
+
+
+def _validate_coldstart_reporting(
+    config: Mapping[str, Any],
+    *,
+    countdown_seeds: Sequence[int],
+    transfer_positive_seeds: Sequence[int],
+) -> None:
+    reporting = config.get("reporting")
+    if not isinstance(reporting, Mapping):
+        raise ValueError("Cold-start reporting must be a mapping")
+    if tuple(reporting.get("separate_events", ())) != (
+        "task_performance",
+        "valid_or_structure_diagnostic",
+        "nan_inf_numerical_failure",
+    ):
+        raise ValueError("Cold-start reporting must preserve the three terminal event classes")
+    if reporting.get("other_tasks_task_interface_adaptation_only") is not True:
+        raise ValueError("Cold-start reporting must preserve task-interface-only adaptation")
+    if reporting.get("transfer_exp_scope") != "single_seed_response_shape_localization":
+        raise ValueError("Cold-start transfer reporting scope drifted")
+    positive_count = _configured_seed(
+        reporting.get("positive_only_seed_count_per_transfer_task"),
+        "Cold-start reporting Positive-only seed count",
+    )
+    if positive_count != len(transfer_positive_seeds):
+        raise ValueError(
+            "Cold-start reporting Positive-only seed count must match configured seeds"
+        )
+    for field in (
+        "convergence_claim_allowed",
+        "significance_claim_allowed",
+        "method_ranking_allowed",
+    ):
+        if reporting.get(field) is not False:
+            raise ValueError(f"Cold-start reporting must keep {field}=false")
+    expected_countdown_role = (
+        "diagnostic_regression_sentinel_not_result_gate"
+        if countdown_seeds
+        else "predecessor_only_no_new_scientific_cells"
+    )
+    if reporting.get("countdown_role") != expected_countdown_role:
+        raise ValueError("Cold-start Countdown reporting role does not match scheduled cells")
+    if "scientific_role" in reporting:
+        role = reporting.get("scientific_role")
+        if not isinstance(role, str) or not role.startswith("external_validity"):
+            raise ValueError("Cold-start scientific_role must remain external validity")
+    if (
+        "causal_identification_environment" in reporting
+        and reporting.get("causal_identification_environment") != "D-U1"
+    ):
+        raise ValueError(
+            "Cold-start causal-identification authority may only point to D-U1"
         )
 
 
@@ -851,6 +996,11 @@ def validate_config(config: Mapping[str, Any]) -> None:
         )
         if expected_cells != expanded_cells:
             raise ValueError("Cold-start expected_cells must match the configured matrix")
+        _validate_coldstart_reporting(
+            config,
+            countdown_seeds=countdown_seeds,
+            transfer_positive_seeds=transfer_positive_seeds,
+        )
         _validate_frozen_coldstart_sweep_identity(config)
 
         initialization = config.get("initialization", {})
@@ -978,30 +1128,63 @@ def validate_config(config: Mapping[str, Any]) -> None:
 
     execution = config["execution"]
     expected_capacity = 16
-    if int(execution["max_concurrent_cells"]) != expected_capacity:
+    max_concurrent_cells = _configured_seed(
+        execution.get("max_concurrent_cells"), "execution.max_concurrent_cells"
+    )
+    if max_concurrent_cells != expected_capacity:
         raise ValueError(f"The scheduler must expose exactly {expected_capacity} slots")
-    if tuple(int(value) for value in execution["gpu_ids"]) != tuple(range(8)):
+    raw_gpu_ids = execution.get("gpu_ids")
+    if isinstance(raw_gpu_ids, (str, bytes)) or not isinstance(raw_gpu_ids, Sequence):
+        raise ValueError("execution.gpu_ids must be a sequence of non-negative integers")
+    gpu_ids = tuple(
+        _configured_seed(value, "execution.gpu_ids entry") for value in raw_gpu_ids
+    )
+    if gpu_ids != tuple(range(8)):
         raise ValueError("The default GPU pool must remain 0--7")
-    if int(execution["slots_per_gpu"]) != 2:
+    slots_per_gpu = _configured_seed(
+        execution.get("slots_per_gpu"), "execution.slots_per_gpu"
+    )
+    if slots_per_gpu != 2:
         raise ValueError("The frozen topology is two slots per GPU")
     if not _is_coldstart(config):
         expected_waves = 7 if profile == SWEEP_PROFILE_DENSE else 5
-        if int(execution["expected_waves"]) != expected_waves:
+        configured_waves = _configured_seed(
+            execution.get("expected_waves"), "execution.expected_waves"
+        )
+        if configured_waves != expected_waves:
             raise ValueError(
                 f"The frozen topology requires {expected_waves} waves for this profile"
             )
     if _is_coldstart(config) and execution.get("scheduler") != "dynamic_slot_queue":
         raise ValueError("Cold-start execution must use the recovery-aware slot scheduler")
-    if _is_coldstart(config) and (
-        bool(execution.get("wave_barriers", True))
-        or not bool(execution.get("identity_checked_resume", False))
-        or not bool(execution.get("retry_incomplete_requires_explicit_flag", False))
-        or not bool(execution.get("fail_closed", False))
-        or not bool(execution.get("test_partition_forbidden", False))
-        or execution.get("oom_policy")
-        != "fail_cell_no_automatic_scientific_parameter_mutation"
-    ):
-        raise ValueError("Cold-start recovery/OOM safety contract drifted")
+    if _is_coldstart(config):
+        wave_barriers = _configured_bool(
+            execution.get("wave_barriers"), "execution.wave_barriers"
+        )
+        identity_checked_resume = _configured_bool(
+            execution.get("identity_checked_resume"), "execution.identity_checked_resume"
+        )
+        retry_explicit = _configured_bool(
+            execution.get("retry_incomplete_requires_explicit_flag"),
+            "execution.retry_incomplete_requires_explicit_flag",
+        )
+        fail_closed = _configured_bool(
+            execution.get("fail_closed"), "execution.fail_closed"
+        )
+        test_partition_forbidden = _configured_bool(
+            execution.get("test_partition_forbidden"),
+            "execution.test_partition_forbidden",
+        )
+        if (
+            wave_barriers
+            or not identity_checked_resume
+            or not retry_explicit
+            or not fail_closed
+            or not test_partition_forbidden
+            or execution.get("oom_policy")
+            != "fail_cell_no_automatic_scientific_parameter_mutation"
+        ):
+            raise ValueError("Cold-start recovery/OOM safety contract drifted")
 
 
 def coefficient_from_rho(rho: float) -> float:

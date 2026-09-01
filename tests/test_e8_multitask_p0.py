@@ -1539,6 +1539,107 @@ def test_verified_wrong_candidate_reconstruction_uses_full_deterministic_univers
     assert len({row["canonical_completion"] for row in first}) == 25
 
 
+def test_generic_coldstart_execution_requires_exact_yaml_types() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-EXEC-TYPE-UNSEEN-TEST"
+
+    for field, invalid in (("max_concurrent_cells", 16.9), ("slots_per_gpu", 2.9)):
+        bad = copy.deepcopy(config)
+        bad["execution"][field] = invalid
+        with pytest.raises(ValueError, match="non-negative integer"):
+            exp_tuning.validate_config(bad)
+
+    bad = copy.deepcopy(config)
+    bad["execution"]["gpu_ids"][1] = True
+    with pytest.raises(ValueError, match="non-negative integer"):
+        exp_tuning.validate_config(bad)
+
+    for field in (
+        "wave_barriers",
+        "identity_checked_resume",
+        "retry_incomplete_requires_explicit_flag",
+        "fail_closed",
+        "test_partition_forbidden",
+    ):
+        bad = copy.deepcopy(config)
+        bad["execution"][field] = "true"
+        with pytest.raises(ValueError, match="must be boolean"):
+            exp_tuning.validate_config(bad)
+
+
+def test_generic_coldstart_reporting_preserves_external_validity_boundary() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-REPORTING-UNSEEN-TEST"
+
+    bad = copy.deepcopy(config)
+    bad["reporting"]["separate_events"] = ["task_performance", "nan_inf_numerical_failure"]
+    with pytest.raises(ValueError, match="three terminal event classes"):
+        exp_tuning.validate_config(bad)
+
+    for field in (
+        "convergence_claim_allowed",
+        "significance_claim_allowed",
+        "method_ranking_allowed",
+    ):
+        bad = copy.deepcopy(config)
+        bad["reporting"][field] = True
+        with pytest.raises(ValueError, match=field):
+            exp_tuning.validate_config(bad)
+
+    bad = copy.deepcopy(config)
+    bad["reporting"]["positive_only_seed_count_per_transfer_task"] = 1
+    with pytest.raises(ValueError, match="Positive-only seed count"):
+        exp_tuning.validate_config(bad)
+
+    bad = copy.deepcopy(config)
+    bad["reporting"]["scientific_role"] = "causal_identification"
+    with pytest.raises(ValueError, match="scientific_role must remain external validity"):
+        exp_tuning.validate_config(bad)
+
+    bad = copy.deepcopy(config)
+    bad["reporting"]["causal_identification_environment"] = "countdown"
+    with pytest.raises(ValueError, match="only point to D-U1"):
+        exp_tuning.validate_config(bad)
+
+
+def test_historical_coldstart_reporting_wave_and_anchor_provenance_are_frozen() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    paths = (
+        Path("configs/e8_multitask_exp_coldstart.yaml"),
+        Path("configs/e8_multitask_exp_lambda_completion.yaml"),
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"),
+    )
+    for path in paths:
+        config = exp_tuning.load_config(path)
+
+        changed = copy.deepcopy(config)
+        changed["reporting"]["scientific_role"] = "external_validity_alternate_label"
+        with pytest.raises(ValueError, match="reporting/execution provenance drifted"):
+            exp_tuning.validate_config(changed)
+
+        changed = copy.deepcopy(config)
+        changed["execution"]["expected_waves"] += 1
+        with pytest.raises(ValueError, match="reporting/execution provenance drifted"):
+            exp_tuning.validate_config(changed)
+
+        changed = copy.deepcopy(config)
+        changed["historical_curve_anchor"] = {
+            "path": "other.csv",
+            "role": "immutable_predecessor_curve_for_concatenation",
+        }
+        with pytest.raises(ValueError, match="reporting/execution provenance drifted"):
+            exp_tuning.validate_config(changed)
+
+
 def test_exp_coldstart_rejects_adapter_runtime_or_grid_drift() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
@@ -2019,6 +2120,7 @@ def test_coldstart_sweep_instance_is_config_only() -> None:
     sweep["task_transfer_seed_offset"] = 5000
     sweep["tuning_seed"] = 5000
     sweep["transfer_positive_only_seed_offsets"] = [8000, 9000]
+    config["reporting"]["positive_only_seed_count_per_transfer_task"] = 2
     sweep["countdown_seed_offsets"] = []
     sweep["task_lambda"]["word_sorting"] = [13.0, 15.0, 18.0]
     sweep["task_lambda"]["maze"] = []
@@ -2392,6 +2494,7 @@ def test_generic_coldstart_global_endpoint_and_countdown_controls_are_config_dri
     sweep = countdown_only["sweep"]
     sweep["countdown_include_positive_only"] = False
     sweep["transfer_positive_only_seed_offsets"] = []
+    countdown_only["reporting"]["positive_only_seed_count_per_transfer_task"] = 0
     for task in countdown_only["suite"]["p0_tasks"]:
         sweep["task_lambda"][task] = []
         sweep["task_grid_hashes"][task] = exp_tuning.stable_hash([])
