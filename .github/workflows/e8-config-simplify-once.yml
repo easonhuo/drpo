@@ -39,6 +39,11 @@ jobs:
 
           config = Path("src/drpo/e8_experiment_config.py")
           text = config.read_text(encoding="utf-8")
+          text = text.replace(
+              "Cold-start initialization must remain deterministic fresh LoRA",
+              "Cold-start initialization must remain zero-update deterministic fresh LoRA",
+              1,
+          )
           for line in (
               'raise ValueError(f"{label} must be a mapping")',
               'raise ValueError(f"{label} must be a sequence")',
