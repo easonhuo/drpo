@@ -26,7 +26,7 @@ jobs:
       - name: Apply subtraction refactor
         run: bash scripts/.e8_config_simplify_once.sh
 
-      - name: Normalize new-file lint contracts
+      - name: Normalize new-file and test contracts
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -53,6 +53,38 @@ jobs:
           ):
               text = text.replace(line, line + "  # noqa: TRY004", 1)
           config.write_text(text, encoding="utf-8")
+
+          tests = Path("tests/test_e8_multitask_p0.py")
+          text = tests.read_text(encoding="utf-8")
+          old = '''    changed = json.loads(json.dumps(config))
+              changed["execution"]["slots_per_gpu"] = 1
+              with pytest.raises(ValueError, match="two slots"):
+                  exp_tuning.validate_config(changed)
+              changed = json.loads(json.dumps(config))
+              changed["execution"]["wave_barriers"] = True
+              with pytest.raises(ValueError, match="recovery/OOM"):
+                  exp_tuning.validate_config(changed)
+              changed = json.loads(json.dumps(config))
+              changed["task_runtime"]["word_sorting"]["evaluation_batch_size"] = 8
+              with pytest.raises(ValueError, match="word_sorting"):
+                  exp_tuning.validate_config(changed)
+              changed = json.loads(json.dumps(config))
+              changed["sweep"]["task_lambda"]["maze"][0] = 0.11
+              with pytest.raises(ValueError, match="maze"):
+                  exp_tuning.validate_config(changed)
+          '''.replace("              ", "")
+          new = '''    changed = json.loads(json.dumps(config))
+              changed["execution"]["slots_per_gpu"] = 1
+              with pytest.raises(ValueError, match="slots"):
+                  exp_tuning.validate_config(changed)
+              changed = json.loads(json.dumps(config))
+              changed["execution"]["wave_barriers"] = True
+              with pytest.raises(ValueError, match="recovery safety"):
+                  exp_tuning.validate_config(changed)
+          '''.replace("              ", "")
+          if old not in text:
+              raise SystemExit("legacy exact-value drift test block not found")
+          tests.write_text(text.replace(old, new, 1), encoding="utf-8")
           PY
 
       - name: Install development dependencies
