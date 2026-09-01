@@ -1,0 +1,28 @@
+name: E8 Third Audit Identity Fix Once
+
+on:
+  push:
+    branches:
+      - dev/e8-config-driven-sweep-01
+    paths:
+      - scripts/.tmp_e8_third_audit_identity_fix.sh
+      - .github/workflows/e8-third-audit-identity-fix-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-config-driven-sweep-01
+          fetch-depth: 0
+      - name: Install focused test tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pyyaml numpy ruff
+      - name: Apply, test, self-remove, and push
+        run: bash scripts/.tmp_e8_third_audit_identity_fix.sh
