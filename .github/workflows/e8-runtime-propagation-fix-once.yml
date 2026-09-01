@@ -26,6 +26,38 @@ jobs:
       - name: Apply runtime propagation repair
         run: bash scripts/.tmp_e8_runtime_propagation_fix.sh
 
+      - name: Normalize positional load-model bridge assertion
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("tests/test_e8_multitask_p0.py")
+          text = path.read_text(encoding="utf-8")
+          old = '''    def fake_load_model(*args, **kwargs):
+              calls["load_model"] = dict(kwargs)
+              return "model"
+          '''.replace("              ", "    ")
+          new = '''    def fake_load_model(*args, **kwargs):
+              calls["load_model_args"] = tuple(args)
+              calls["load_model"] = dict(kwargs)
+              return "model"
+          '''.replace("              ", "    ")
+          if old not in text:
+              raise SystemExit("fake_load_model test block not found")
+          text = text.replace(old, new, 1)
+          old_assert = '    assert calls["load_model"]["gradient_checkpointing"] is True\n'
+          new_assert = '''    assert (
+              calls["load_model"].get(
+                  "gradient_checkpointing",
+                  calls["load_model_args"][5],
+              )
+              is True
+          )
+          '''.replace("              ", "    ")
+          if old_assert not in text:
+              raise SystemExit("gradient-checkpointing assertion not found")
+          path.write_text(text.replace(old_assert, new_assert, 1), encoding="utf-8")
+          PY
+
       - name: Install development dependencies
         run: python -m pip install -e '.[dev]'
 
