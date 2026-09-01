@@ -1,0 +1,27 @@
+name: E8 Second Audit Fix Once
+
+on:
+  push:
+    branches:
+      - dev/e8-config-driven-sweep-01
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-config-driven-sweep-01
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install development dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Apply and validate second-audit fixes
+        run: bash scripts/.tmp_e8_second_audit_fix.sh
