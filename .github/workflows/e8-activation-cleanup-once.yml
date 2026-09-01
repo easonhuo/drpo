@@ -1,0 +1,56 @@
+name: E8 Activation Cleanup Once
+
+on:
+  push:
+    branches: [dev/e8-config-driven-sweep-01]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-config-driven-sweep-01
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Apply activation and subtractive cleanup
+        run: bash scripts/.tmp_e8_activation_cleanup.sh
+      - name: Install development dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Format changed Python
+        run: |
+          ruff format src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+      - name: Engineering regression checks
+        run: |
+          python -m py_compile \
+            src/drpo/e8_experiment_config.py \
+            scripts/preflight_e8_multitask_config.py \
+            src/drpo/e8_multitask_exp_tuning.py \
+            tests/test_e8_multitask_p0.py
+          bash -n scripts/run_e8_multitask_exp_coldstart.sh
+          bash -n scripts/bootstrap_e8_multitask_exp_coldstart.sh
+          bash -n scripts/run_e8_multitask_exp_lambda_completion.sh
+          ruff check \
+            src/drpo/e8_experiment_config.py \
+            scripts/preflight_e8_multitask_config.py \
+            tests/test_e8_multitask_p0.py
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          git diff --check
+      - name: Commit cleanup and remove one-shot machinery
+        run: |
+          rm .github/workflows/e8-activation-cleanup-once.yml
+          rm scripts/.tmp_e8_activation_cleanup.sh
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m "fix: activate canonical E8 grid before runtime bridge"
+          git push origin HEAD:dev/e8-config-driven-sweep-01
