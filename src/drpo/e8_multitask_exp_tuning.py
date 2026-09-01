@@ -279,6 +279,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
     experiment_config.validate_profile_experiment_id(config)
     if profile == SWEEP_PROFILE_COLDSTART:
         return
+
     expected_parent = EXPERIMENT_ID if profile == SWEEP_PROFILE_DENSE else P0_EXPERIMENT_ID
     if config.get("parent", {}).get("experiment_id") != expected_parent:
         raise ValueError("Unexpected parent experiment")
@@ -291,7 +292,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("suite.p0_tasks must be the exact eight P0 tasks")
         if tuple(config["suite"].get("external_tasks", ())) != ("countdown",):
             raise ValueError("Countdown must be the only external task")
-    elif profile == SWEEP_PROFILE_DENSE:
+    else:
         if (
             current_experiment != DENSE_EXPERIMENT_ID
             or len(tasks) != 7
@@ -305,56 +306,14 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("Dense suite.p0_tasks must preserve the exact task order")
         if tuple(config["suite"].get("external_tasks", ())) != ():
             raise ValueError("Dense refinement has no external Countdown task")
-    else:
-        expected_tasks = set(TASK_NAMES)
-        if (
-            current_experiment
-            not in (
-                COLDSTART_EXPERIMENT_ID,
-                LAMBDA_COMPLETION_EXPERIMENT_ID,
-                LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID,
-            )
-            or len(tasks) != 9
-            or len(set(tasks)) != 9
-            or set(tasks) != expected_tasks
-        ):
-            raise ValueError("The cold-start suite must be Countdown plus the exact eight P0 tasks")
-        if set(config["suite"].get("p0_tasks", ())) != expected_tasks - {"countdown"}:
-            raise ValueError("Cold-start suite.p0_tasks must be the exact eight P0 tasks")
-        if tuple(config["suite"].get("external_tasks", ())) != ("countdown",):
-            raise ValueError("Countdown must be the only cold-start external task")
+
     reference = config["reference"]
-    expected_reference = (
-        "fresh_lora_from_base_model"
-        if _is_coldstart(config)
-        else "train_only_task_positive_warmstart_100"
-    )
-    if reference["checkpoint_kind"] != expected_reference:
-        raise ValueError(f"reference.checkpoint_kind must be {expected_reference}")
-    expected_reference_updates = 0 if _is_coldstart(config) else 100
-    if int(reference["optimizer_updates"]) != expected_reference_updates:
-        raise ValueError(f"Reference initialization must use {expected_reference_updates} updates")
+    if reference["checkpoint_kind"] != "train_only_task_positive_warmstart_100":
+        raise ValueError("reference.checkpoint_kind must be train_only_task_positive_warmstart_100")
+    if int(reference["optimizer_updates"]) != 100:
+        raise ValueError("Reference initialization must use 100 updates")
     if int(reference["validation_rows_seen"]) != 0 or int(reference["test_rows_seen"]) != 0:
         raise ValueError("Train-only reference preparation must not see validation or test rows")
-    if _is_coldstart(config):
-        model = config["model"]
-        if (
-            model.get("base_model") != "Qwen/Qwen2.5-0.5B-Instruct"
-            or model.get("revision") != "7ae557604adf67be50417f59c2c2f167def9a775"
-            or model.get("parameterization") != "lora"
-            or model.get("dtype") != "auto"
-            or not bool(model.get("gradient_checkpointing", False))
-        ):
-            raise ValueError("Cold-start base-model identity/runtime contract drifted")
-        old_lora_contract = (
-            int(model["lora_rank"]),
-            int(model["lora_alpha"]),
-            float(model["lora_dropout"]),
-            int(model["max_length"]),
-            int(model["max_new_tokens"]),
-        )
-        if old_lora_contract != (32, 64, 0.05, 256, 80):
-            raise ValueError("Cold-start must preserve the old base-RL LoRA/model contract")
 
     split = config["split"]
     if _is_engineering_self_test(config):
@@ -371,39 +330,22 @@ def validate_config(config: Mapping[str, Any]) -> None:
             "p0_validation_rows": 500,
             "p0_test_rows": 500,
         }
-        if profile in (SWEEP_PROFILE_RHO, SWEEP_PROFILE_COLDSTART):
-            expected_split.update(
-                {
-                    "countdown_train_rows": 6000 if _is_coldstart(config) else 5000,
-                    "countdown_validation_rows": 500,
-                }
-            )
+        if profile == SWEEP_PROFILE_RHO:
+            expected_split.update({"countdown_train_rows": 5000, "countdown_validation_rows": 500})
     for key, expected in expected_split.items():
         if int(split[key]) != expected:
             raise ValueError(f"{key} must remain {expected}")
     if bool(split.get("test_access_allowed", True)):
         raise ValueError("Tuning must forbid test access")
-    if _is_coldstart(config) and not bool(split.get("countdown_subsampling_forbidden", False)):
-        raise ValueError("Countdown source-order bank subsampling must remain forbidden")
 
     training = config["training"]
     if int(training["optimizer_updates"]) != 1200:
         raise ValueError("The tuning horizon must remain 1200 updates")
     if int(training["micro_batch"]) != 1 or int(training["gradient_accumulation"]) != 8:
         raise ValueError("The method-training effective prompt batch must remain 8")
-    if not math.isclose(
-        float(training["learning_rate"]),
-        5.0e-5,
-        rel_tol=0.0,
-        abs_tol=1.0e-12,
-    ):
+    if not math.isclose(float(training["learning_rate"]), 5.0e-5, rel_tol=0.0, abs_tol=1.0e-12):
         raise ValueError("The method-training learning rate must remain 5e-5")
-    if not math.isclose(
-        float(training["warmup_ratio"]),
-        0.03,
-        rel_tol=0.0,
-        abs_tol=1.0e-12,
-    ):
+    if not math.isclose(float(training["warmup_ratio"]), 0.03, rel_tol=0.0, abs_tol=1.0e-12):
         raise ValueError("The method-training warmup ratio must remain 0.03")
     if int(training["evaluation_every_updates"]) != 100:
         raise ValueError("Evaluation cadence must remain 100 updates")
@@ -411,101 +353,35 @@ def validate_config(config: Mapping[str, Any]) -> None:
         float(training["max_grad_norm"]), 1.0
     ):
         raise ValueError("The old optimizer weight-decay/gradient-clip contract changed")
-    if _is_coldstart(config):
-        if (
-            bool(training.get("early_stopping", True))
-            or tuple(int(value) for value in training.get("late_window_updates", ()))
-            != (800, 900, 1000, 1100, 1200)
-            or not bool(training.get("terminal_adapter_required", False))
-        ):
-            raise ValueError("Cold-start must preserve fixed-1200 paper late-window training")
-    else:
-        if bool(training.get("early_stopping", True)):
-            raise ValueError("Early stopping is forbidden")
-        if tuple(int(value) for value in training["late_window_updates"]) != (
-            800,
-            900,
-            1000,
-            1100,
-            1200,
-        ):
-            raise ValueError("Unexpected late-window updates")
+    if bool(training.get("early_stopping", True)):
+        raise ValueError("Early stopping is forbidden")
+    if tuple(int(value) for value in training["late_window_updates"]) != (
+        800,
+        900,
+        1000,
+        1100,
+        1200,
+    ):
+        raise ValueError("Unexpected late-window updates")
 
     evaluation = config["evaluation"]
     if int(evaluation["greedy_prompt_rows"]) != 500:
         raise ValueError("Greedy validation must use 500 prompts")
-    expected_passk_rows = 500 if _is_coldstart(config) else 128
-    if (
-        int(evaluation["passk_prompt_rows"]) != expected_passk_rows
-        or int(evaluation["pass_k"]) != 8
-    ):
-        raise ValueError(
-            f"Pass@8 validation must use the frozen {expected_passk_rows}-prompt subset"
-        )
-    if _is_coldstart(config) and (
-        int(evaluation["batch_size"]) != 8 or int(evaluation["max_new_tokens"]) != 80
-    ):
-        raise ValueError("Cold-start must preserve the old evaluation batch/length contract")
-    if _is_coldstart(config) and (
-        tuple(int(value) for value in evaluation.get("auxiliary_pass_ks", ())) != (64,)
-        or evaluation.get("primary_checkpoint_policy") != "late_window_and_terminal"
-        or evaluation.get("best_checkpoint_role") != "supplementary_only"
-    ):
-        raise ValueError("Cold-start evaluation/reporting policy drifted")
+    if int(evaluation["passk_prompt_rows"]) != 128 or int(evaluation["pass_k"]) != 8:
+        raise ValueError("Pass@8 validation must use the frozen 128-prompt subset")
 
     negative = config["negative_sampling"]
     if int(negative["negatives_per_prompt"]) != 16:
         raise ValueError("Every training prompt must retain exactly 16 negatives")
-    if _is_coldstart(config):
-        if (
-            negative.get("consumer") != "all_unique_negatives_per_prompt"
-            or negative.get("deduplicate_rule") != "first_canonical_completion_occurrence"
-            or negative.get("denominator") != "unique_negative_count_per_prompt"
-            or bool(negative.get("near_far_selection", True))
-            or bool(negative.get("weight_sum_normalization", True))
-            or bool(negative.get("gradient_budget_matching", True))
-        ):
-            raise ValueError("Cold-start negative consumption must match the paper trainer")
-        reference_bank = negative.get("reference_remoteness_bank")
-        if not isinstance(reference_bank, Mapping):
-            raise ValueError("Cold-start requires the derived reference-remoteness bank contract")
-        expected_reference_bank = {
-            "enabled": True,
-            "scope": "non_countdown_training_only",
-            "source_candidates": "all_deterministic_verified_wrong_mutations",
-            "reference_policy": "zero_update_base_plus_fresh_lora",
-            "coordinate": "mean_completion_token_surprisal",
-            "selected_negatives_per_prompt": 16,
-            "selection": "source_p0_error_class_sequence_then_within_class_reference_rank_spread",
-            "coverage_threshold": None,
-            "reference_rank_role": "provenance_and_diagnostic_only",
-            "static_reference_rank_enters_training_weight": False,
-            "current_policy_surprisal_recomputed_each_update": True,
-            "original_p0_bank_preserved": True,
-            "audit_quantiles": ["min", "q25", "median", "q75", "max"],
-        }
-        if dict(reference_bank) != expected_reference_bank:
-            raise ValueError("Reference-remoteness bank selection contract drifted")
-    else:
-        if _tuple_floats(negative["near_far_mix"]) != (0.5, 0.5):
-            raise ValueError("Near/far branch mass must remain 0.5/0.5")
-        if not bool(negative["selection_stop_gradient"]):
-            raise ValueError("Current near/far selection must be stop-gradient")
-        if bool(negative["weight_sum_normalization"]):
-            raise ValueError("Weight-sum normalization is forbidden")
+    if _tuple_floats(negative["near_far_mix"]) != (0.5, 0.5):
+        raise ValueError("Near/far branch mass must remain 0.5/0.5")
+    if not bool(negative["selection_stop_gradient"]):
+        raise ValueError("Current near/far selection must be stop-gradient")
+    if bool(negative["weight_sum_normalization"]):
+        raise ValueError("Weight-sum normalization is forbidden")
 
     calibration = config["remoteness_calibration"]
-    if _is_coldstart(config):
-        if (
-            bool(calibration.get("enabled", True))
-            or calibration.get("mode") != "paper_linear_surprisal_no_calibration"
-            or calibration.get("coordinate") != "current_sequence_surprisal_div_2"
-            or not bool(calibration.get("detached", False))
-            or bool(calibration.get("extra_square", True))
-            or bool(calibration.get("gradient_rms_matching", True))
-        ):
-            raise ValueError("Paper cold-start forbids remoteness/RMS calibration")
-    elif not math.isclose(
+    if not math.isclose(
         float(calibration["target_negative_to_positive_gradient_ratio"]),
         1.0 / 32.0,
         rel_tol=0.0,
@@ -531,7 +407,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("Unexpected full rho grid")
         if int(sweep["positive_only_per_task"]) != 1 or int(sweep["expected_cells"]) != 72:
             raise ValueError("The rho matrix must be 7 Exp plus 1 Positive-only per task")
-    elif profile == SWEEP_PROFILE_DENSE:
+    else:
         task_lambda = sweep.get("task_lambda")
         bridges = sweep.get("bridge_lambda")
         if not isinstance(task_lambda, Mapping) or set(task_lambda) != set(tasks):
@@ -549,214 +425,6 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("The dense matrix must be 16 Exp cells for each of seven tasks")
         if int(sweep["tuning_seed"]) != 2026072904:
             raise ValueError("Dense shape discovery must preserve the predecessor tuning seed")
-    else:
-        task_lambda = sweep.get("task_lambda")
-        if not isinstance(task_lambda, Mapping) or set(task_lambda) != set(tasks):
-            raise ValueError("Cold-start task_lambda must contain the exact nine tasks")
-        countdown_sentinels = (
-            0.105360516,
-            0.430782916,
-            0.916290732,
-            1.897119985,
-            2.302585093,
-            2.995732274,
-        )
-        if _tuple_floats(sweep.get("countdown_sentinel_coefficients", ())) != countdown_sentinels:
-            raise ValueError("Countdown sentinel coefficients drifted")
-        if _task_lambdas(config, "countdown") != countdown_sentinels:
-            raise ValueError("Countdown task_lambda must equal the six diagnostic sentinels")
-        expected_parameterization = (
-            "paper_lambda_c1"
-            if current_experiment
-            in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID)
-            else "paper_coefficient_c"
-        )
-        if sweep.get("parameterization") != expected_parameterization:
-            raise ValueError("Cold-start parameterization drifted")
-        expected_countdown_seeds = (
-            ()
-            if current_experiment
-            in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID)
-            else PAPER_SEED_OFFSETS
-        )
-        if (
-            tuple(int(value) for value in sweep.get("countdown_seed_offsets", ()))
-            != expected_countdown_seeds
-        ):
-            raise ValueError("Countdown seed offsets drifted")
-        transfer_positive_seeds = tuple(
-            int(value) for value in sweep.get("transfer_positive_only_seed_offsets", ())
-        )
-        if current_experiment == LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID:
-            if transfer_positive_seeds:
-                raise ValueError("Lambda Curve Completion must not schedule Positive-only seeds")
-        elif (
-            current_experiment == LAMBDA_COMPLETION_EXPERIMENT_ID
-            and (
-                not transfer_positive_seeds
-                or len(transfer_positive_seeds) != len(set(transfer_positive_seeds))
-            )
-        ) or (
-            current_experiment != LAMBDA_COMPLETION_EXPERIMENT_ID
-            and transfer_positive_seeds != (4000, 5000, 6000, 7000)
-        ):
-            raise ValueError("Transfer Positive-only seed offsets drifted")
-        if int(sweep.get("task_transfer_seed_offset", -1)) != 4000:
-            raise ValueError("Transfer Exp response-shape localization must use seed 4000")
-        if int(sweep.get("tuning_seed", -1)) != 4000:
-            raise ValueError("Cold-start tuning_seed must remain 4000")
-
-        transfer_tasks = set(tasks) - {"countdown"}
-        grid_hashes = sweep.get("task_grid_hashes")
-        provenance = sweep.get("task_grid_provenance")
-        expected_hashes = {
-            "word_sorting": "d24edbd6099f1d4f081318b305e62b39834db7ab94af6b4279d706f94e8d6de3",
-            "spiral_matrix": "805966b9e3e1774e748d1d96ca64667e23276782681e15c1e072e5536a02199a",
-            "mini_sudoku": "2340c4729b70ae5bafb7b6bf07049f38056b18368749bba3b967b4bbd950e29c",
-            "maze": "399732f8572faf670a0486cd5f838d3956bfa56cabbb5ae79b8521fbbfc45d33",
-            "word_ladder": "4fff6be5b923b9071ae0ee949e734087330463072d9be02015a661e51a2689e4",
-            "knights_knaves": "37f675c933e909ac1ca8a6464c8ed72497758b31d1c8a82c855cad10961c4cab",
-            "graph_color": "65c02a38a4339888d2e485c277fa1668a5e0309fab857e3ae2b2b2c0dc862f9d",
-            "wikisql": "e42e516dbbe0bfd0f9fd00f5dec22949f88503253a2235c8c81bd908af4779a0",
-        }
-        if (
-            not isinstance(grid_hashes, Mapping)
-            or set(grid_hashes) != transfer_tasks
-            or (
-                current_experiment
-                not in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID)
-                and dict(grid_hashes) != expected_hashes
-            )
-        ):
-            raise ValueError("Transfer task-grid hashes drifted")
-        if not isinstance(provenance, Mapping) or set(provenance) != transfer_tasks:
-            raise ValueError("Transfer task-grid provenance must cover the exact eight tasks")
-        if any(not str(provenance[task]).strip() for task in transfer_tasks):
-            raise ValueError("Transfer task-grid provenance entries must be non-empty")
-        for task in transfer_tasks:
-            values = _task_lambdas(config, str(task))
-            if (
-                len(values) != len(set(values))
-                or (
-                    current_experiment == LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID
-                    and len(values) != (0 if task == "spiral_matrix" else 20)
-                )
-                or (
-                    current_experiment
-                    not in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID)
-                    and len(values) != 20
-                )
-            ):
-                raise ValueError(f"{task} Exp coefficient grid has invalid cardinality")
-            if stable_hash(list(values)) != str(grid_hashes[task]):
-                raise ValueError(f"{task} coefficient grid does not match its locked hash")
-        expanded_cells = len(expected_countdown_seeds) * (2 + len(countdown_sentinels)) + sum(
-            len(transfer_positive_seeds) + len(_task_lambdas(config, str(task)))
-            for task in transfer_tasks
-        )
-        if int(sweep.get("expected_cells", -1)) != expanded_cells:
-            raise ValueError("Cold-start expected_cells must match the configured matrix")
-
-        initialization = config.get("initialization", {})
-        if (
-            initialization.get("source") != "base_model"
-            or int(initialization.get("optimizer_updates", -1)) != 0
-            or bool(initialization.get("external_adapter_allowed", True))
-        ):
-            raise ValueError("Cold-start must use a zero-update base-model LoRA initialization")
-        canonical = config.get("canonical_coldstart", {})
-        expected_paths = {
-            "arena": "src/drpo/countdown_qwen_arena_onefile.py",
-            "scan_common": "src/drpo/countdown_e8_alpha1_c_scan_common.py",
-            "scan_runtime": "src/drpo/countdown_e8_alpha1_c_scan_runtime.py",
-            "scan_trainer": "src/drpo/countdown_e8_alpha1_c_scan_trainer.py",
-            "paper_common": "src/drpo/countdown_e8_alpha1_highc_scan_common.py",
-            "paper_runtime": "src/drpo/countdown_e8_alpha1_highc_scan_runtime.py",
-            "base_config": "configs/countdown_e8_base_rl_replay_0p5b.yaml",
-            "round1_grid": ("configs/countdown_e8_oracle_offline_v2_alpha1_highc_scan_0p5b.yaml"),
-            "extension_grid": (
-                "configs/countdown_e8_oracle_offline_v2_linear_c_extension_0p5b.yaml"
-            ),
-            "bank_generator": "src/drpo/countdown_e8_oracle_bank_v2.py",
-            "bank_config": "configs/countdown_e8_oracle_offline_bank_v2_0p5b.yaml",
-            "bank_converter": "scripts/v2_bank_convert.py",
-            "p0_bank_pipeline": "src/drpo/e8_multitask_p0.py",
-            "p0_task_adapters": "src/drpo/e8_multitask_tasks.py",
-            "p0_config": "configs/e8_multitask_p0.yaml",
-            "p0_launcher": "scripts/run_e8_multitask_p0.sh",
-            "result_reference": (
-                "experiments/results/e8_paper_aligned_linear_scan_round1_pilot/RESULT_SUMMARY.json"
-            ),
-        }
-        if canonical.get("paths") != expected_paths:
-            raise ValueError("Cold-start canonical paths must point to the old implementation")
-        blob_shas = canonical.get("expected_git_blob_shas", {})
-        if set(blob_shas) != set(expected_paths) or any(
-            len(str(value)) != 40 for value in blob_shas.values()
-        ):
-            raise ValueError("Cold-start must pin every old source/config Git blob SHA")
-        if canonical.get("scientific_kernel") != "import_only_no_loss_reimplementation":
-            raise ValueError("Cold-start scientific kernel must be imported, not reimplemented")
-        if canonical.get("countdown_entry") != "countdown_e8_alpha1_highc_scan_runtime.worker":
-            raise ValueError("Countdown dispatch must remain the exact paper worker")
-        if canonical.get("transfer_entry") != "countdown_e8_alpha1_c_scan_trainer.train_cell":
-            raise ValueError("Transfer dispatch must remain the locked paper trainer")
-
-        runtime = config.get("task_runtime", {})
-        expected_whitelist = (
-            "model.max_length",
-            "model.max_new_tokens",
-            "evaluation.batch_size",
-            "evaluation.greedy_prompt_rows",
-            "evaluation.passk_prompt_rows",
-            "evaluation.pass_ks",
-        )
-        if tuple(runtime.get("override_whitelist", ())) != expected_whitelist or set(runtime) != {
-            "override_whitelist",
-            *tasks,
-        }:
-            raise ValueError("Task runtime overrides must use the exact six-field whitelist")
-        for task in tasks:
-            task_runtime = runtime[task]
-            if set(task_runtime) != {
-                "max_length",
-                "max_new_tokens",
-                "evaluation_batch_size",
-                "greedy_prompt_rows",
-                "passk_prompt_rows",
-                "auxiliary_pass_ks",
-            }:
-                raise ValueError(f"{task} contains a non-whitelisted runtime override")
-            is_countdown = task == "countdown"
-            expected_length = 256 if is_countdown else 512
-            expected_new_tokens = 80 if is_countdown else 128
-            expected_batch = 8 if is_countdown else 16
-            expected_passk_rows = 500 if is_countdown else 128
-            expected_aux = (64,) if is_countdown else ()
-            if (
-                int(task_runtime["max_length"]) != expected_length
-                or int(task_runtime["max_new_tokens"]) != expected_new_tokens
-                or int(task_runtime["evaluation_batch_size"]) != expected_batch
-                or int(task_runtime["greedy_prompt_rows"]) != 500
-                or int(task_runtime["passk_prompt_rows"]) != expected_passk_rows
-                or tuple(int(value) for value in task_runtime["auxiliary_pass_ks"]) != expected_aux
-            ):
-                raise ValueError(f"{task} task-interface length/evaluation contract drifted")
-
-        selection = config.get("selection", {})
-        if (
-            selection.get("primary_metric") != "validation_late_window_pass8_mean"
-            or not bool(selection.get("finite_required", False))
-            or selection.get("terminal_valid_rate_role")
-            != "diagnostic_only_not_selection_eligibility"
-            or tuple(selection.get("tie_breakers", ()))
-            != (
-                "validation_terminal_pass8",
-                "validation_late_window_greedy_mean",
-                "smaller_lambda",
-            )
-        ):
-            raise ValueError("Cold-start selection policy drifted")
 
     execution = config["execution"]
     expected_capacity = 16
@@ -764,26 +432,9 @@ def validate_config(config: Mapping[str, Any]) -> None:
         raise ValueError(f"The scheduler must expose exactly {expected_capacity} slots")
     if tuple(int(value) for value in execution["gpu_ids"]) != tuple(range(8)):
         raise ValueError("The default GPU pool must remain 0--7")
-    expected_waves = (
-        math.ceil(int(config["sweep"]["expected_cells"]) / expected_capacity)
-        if profile == SWEEP_PROFILE_COLDSTART
-        else (7 if profile == SWEEP_PROFILE_DENSE else 5)
-    )
+    expected_waves = 7 if profile == SWEEP_PROFILE_DENSE else 5
     if int(execution["slots_per_gpu"]) != 2 or int(execution["expected_waves"]) != expected_waves:
-        raise ValueError(
-            f"The frozen topology is two slots per GPU and {expected_waves} {'nominal batches' if _is_coldstart(config) else 'waves'}"
-        )
-    if _is_coldstart(config) and execution.get("scheduler") != "dynamic_slot_queue":
-        raise ValueError("Cold-start execution must use the recovery-aware slot scheduler")
-    if _is_coldstart(config) and (
-        bool(execution.get("wave_barriers", True))
-        or not bool(execution.get("identity_checked_resume", False))
-        or not bool(execution.get("retry_incomplete_requires_explicit_flag", False))
-        or not bool(execution.get("fail_closed", False))
-        or not bool(execution.get("test_partition_forbidden", False))
-        or execution.get("oom_policy") != "fail_cell_no_automatic_scientific_parameter_mutation"
-    ):
-        raise ValueError("Cold-start recovery/OOM safety contract drifted")
+        raise ValueError(f"The frozen topology is two slots per GPU and {expected_waves} waves")
 
 
 def coefficient_from_rho(rho: float) -> float:
@@ -4252,7 +3903,7 @@ def _train_canonical_cold_cell(
         else _paper_grid_name(0.0 if cell.lambda_value is None else float(cell.lambda_value))
     )
     grid_source_path = _canonical_paths(config)[grid_source_name]
-    modules = _activate_paper_grid_modules(modules, grid_path)
+    modules = _activate_paper_grid_modules(modules, grid_source_path)
     arena = modules["arena"]
     runtime = modules["paper_runtime"]
     effective_runtime = experiment_config.effective_coldstart_runtime(config, cell.task)

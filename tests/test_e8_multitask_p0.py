@@ -2466,3 +2466,26 @@ def test_runner_uses_real_tracked_config_check_and_standalone_preflight() -> Non
     bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
     assert "refs/pull/309/head" not in bootstrap
     assert "self-test requires E8_COLDSTART_TARGET_REF" in bootstrap
+
+
+def test_runtime_activation_uses_canonical_grid_before_generic_bridge() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+    assert "_activate_paper_grid_modules(modules, grid_source_path)" in source
+    assert "_activate_paper_grid_modules(modules, grid_path)" not in source
+
+
+def test_coldstart_validation_has_single_config_authority_exit() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning.validate_config)
+    assert "experiment_config.validate_profile_experiment_id(config)" in source
+    assert "if profile == SWEEP_PROFILE_COLDSTART:" in source
+    assert "old_lora_contract" not in source
+    assert "Countdown sentinel coefficients drifted" not in source
+    assert "Cold-start task-interface length/evaluation contract drifted" not in source
