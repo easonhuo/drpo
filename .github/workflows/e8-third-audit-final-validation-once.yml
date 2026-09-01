@@ -64,6 +64,7 @@ jobs:
           python -m ruff format --check \
             src/drpo/e8_experiment_config.py \
             scripts/preflight_e8_multitask_config.py \
+            src/drpo/e8_multitask_exp_tuning.py \
             tests/test_e8_multitask_p0.py
 
           python scripts/validate_evidence_locator.py \
@@ -84,6 +85,7 @@ jobs:
             --approval-author "$GITHUB_REPOSITORY_OWNER" \
             --new-python-paths "$new_python_file" \
             --approval-reason new_python_file \
+            --approval-reason hard_gate_policy_change \
             --approval-reason large_or_structural_python_change
 
           for path in \
@@ -105,27 +107,34 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          implementation_head="$(git rev-parse HEAD)"
-          focused_summary="$(tail -n 1 /tmp/e8-focused.log)"
-          full_summary="$(tail -n 1 /tmp/e8-full.log)"
-          ruff_summary="$(tail -n 1 /tmp/e8-ruff.log)"
-          cat >> docs/experiments/E8_CONFIG_DRIVEN_SWEEP_REVIEW_FIX_PROTOCOL.md <<EOF
+          export IMPLEMENTATION_HEAD="$(git rev-parse HEAD)"
+          export FOCUSED_SUMMARY="$(tail -n 1 /tmp/e8-focused.log)"
+          export FULL_SUMMARY="$(tail -n 1 /tmp/e8-full.log)"
+          export RUFF_SUMMARY="$(tail -n 1 /tmp/e8-ruff.log)"
+          python - <<'PY'
+          import os
+          from pathlib import Path
 
-## 2026-09-01 third-audit final-head validation evidence
+          path = Path("docs/experiments/E8_CONFIG_DRIVEN_SWEEP_REVIEW_FIX_PROTOCOL.md")
+          block = f"""
 
-- Base main commit: \`$BASE_SHA\`.
-- Implementation head validated before evidence-only cleanup: \`$implementation_head\`.
-- GitHub Actions final-validation run: \`$GITHUB_RUN_ID\`.
-- Focused E8 suite: **$focused_summary**.
-- Full repository pytest suite: **$full_summary**.
-- Ruff on all touched Python paths completed successfully: **$ruff_summary**; format check passed for the config/preflight/test paths.
-- Python compilation passed for the config module, preflight, cold-start orchestration module, and focused E8 tests.
-- Shell syntax passed for the cold-start runner, bootstrap, and lambda-completion launcher.
-- \`git diff --check\`, evidence-locator validation, new-Python-file gate fixtures, human-approval-record gate fixtures, and the PR #340 durable oral-approval record check all passed.
-- The stranded second-audit temporary artifacts and the third-audit loader/identity temporary artifacts were absent from the validated implementation tree.
-- This validation executed no model training, GPU sweep, task-performance experiment, support/variance-boundary experiment, convergence test, significance test, or method-ranking experiment. It is engineering validation only.
-- Independent review remains a separate mandatory merge gate; this evidence does not authorize merge or scientific execution.
-EOF
+          ## 2026-09-01 third-audit final-head validation evidence
+
+          - Base main commit: `{os.environ['BASE_SHA']}`.
+          - Implementation head validated before evidence-only cleanup: `{os.environ['IMPLEMENTATION_HEAD']}`.
+          - GitHub Actions final-validation run: `{os.environ['GITHUB_RUN_ID']}`.
+          - Focused E8 suite: **{os.environ['FOCUSED_SUMMARY']}**.
+          - Full repository pytest suite: **{os.environ['FULL_SUMMARY']}**.
+          - Ruff on all touched Python paths completed successfully: **{os.environ['RUFF_SUMMARY']}**; format check passed for all touched Python paths.
+          - Python compilation passed for the config module, preflight, cold-start orchestration module, and focused E8 tests.
+          - Shell syntax passed for the cold-start runner, bootstrap, and lambda-completion launcher.
+          - `git diff --check`, evidence-locator validation, new-Python-file gate fixtures, human-approval-record gate fixtures, and the PR #340 durable oral-approval record checks for new Python paths, the approved hard-gate ancestry repair, and the large/structural refactor all passed.
+          - The stranded second-audit temporary artifacts and the third-audit loader/identity temporary artifacts were absent from the validated implementation tree.
+          - This validation executed no model training, GPU sweep, task-performance experiment, support/variance-boundary experiment, convergence test, significance test, or method-ranking experiment. It is engineering validation only.
+          - Independent review remains a separate mandatory merge gate; this evidence does not authorize merge or scientific execution.
+          """
+          path.write_text(path.read_text(encoding="utf-8") + block, encoding="utf-8")
+          PY
           git rm -f .github/workflows/e8-third-audit-final-validation-once.yml
           git add docs/experiments/E8_CONFIG_DRIVEN_SWEEP_REVIEW_FIX_PROTOCOL.md
           git diff --cached --check
@@ -150,5 +159,6 @@ EOF
             --approval-author "$GITHUB_REPOSITORY_OWNER" \
             --new-python-paths "$RUNNER_TEMP/final-new-python-files.txt" \
             --approval-reason new_python_file \
+            --approval-reason hard_gate_policy_change \
             --approval-reason large_or_structural_python_change
           git push origin HEAD:dev/e8-config-driven-sweep-01
