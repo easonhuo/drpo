@@ -37,6 +37,8 @@ from typing import Any
 import numpy as np
 import yaml
 
+from drpo import e8_experiment_config as experiment_config
+
 try:
     import torch
     import torch.nn.functional as F
@@ -118,26 +120,6 @@ CANONICAL_COLD_MODULES = {
     "scan_trainer": "drpo.countdown_e8_alpha1_c_scan_trainer",
 }
 
-FROZEN_CANONICAL_COLDSTART_BLOB_SHAS = {
-    "arena": "d8a04f3ae3edd08042aa1004b4cbf927fc5cea72",
-    "scan_common": "572f6ad98bf063c88e52a4594fde892842c4fe15",
-    "scan_runtime": "b4ad8581f0afd6e4d24069524f909eaa1b0c9563",
-    "scan_trainer": "e026afbefc09205bb1632b5dd1bd6db33b5df358",
-    "paper_common": "720415583e9e372fafa5aa3520e07de04e6494d8",
-    "paper_runtime": "a57cd88287daf95864f7e30caf658473a32d3602",
-    "base_config": "10f27f32719298376bdc7be7e01023626c6ad3f8",
-    "round1_grid": "e6d70895ad9e4caceb029425fbed523b8530c2d3",
-    "extension_grid": "e7657ef7c8fbb1ae81e0a7b9dd6f4b9cea32262d",
-    "bank_generator": "545119fdf8e560b5e81a862e1e48134dd52ac869",
-    "bank_config": "d1873efae15c778d2472a927206d8620aa43be71",
-    "bank_converter": "a935e2d721b06437568556040475736bbf45ceee",
-    "p0_bank_pipeline": "3482967fe656156500f4598f16f5e7031e198d48",
-    "p0_task_adapters": "454f3076171ee25636109c33f5a177ee2201b5f8",
-    "p0_config": "14605ae3a79f18e435feafd3927bc21485edbbc9",
-    "p0_launcher": "ffcad2a64cb2f42906cae67dabdcc98c3eb46ff0",
-    "result_reference": "972a67867aafb5ddea6e1625bacd337b6939f097",
-}
-
 PAPER_ROUND1_COEFFICIENTS = (
     0.051293294,
     0.105360516,
@@ -167,192 +149,7 @@ PAPER_EXTENSION_COEFFICIENTS = (
 TASK_TRANSFER_COEFFICIENTS = PAPER_ROUND1_COEFFICIENTS + PAPER_EXTENSION_COEFFICIENTS[3:]
 PAPER_SEED_OFFSETS = (4000, 5000)
 COUNTDOWN_LIVENESS_COEFFICIENT = 0.693147181
-COUNTDOWN_LIVENESS_SEED_OFFSET = PAPER_SEED_OFFSETS[0]
-FROZEN_COLDSTART_TASK_ORDER = (
-    "countdown",
-    "word_sorting",
-    "spiral_matrix",
-    "mini_sudoku",
-    "maze",
-    "word_ladder",
-    "knights_knaves",
-    "graph_color",
-    "wikisql",
-)
-FROZEN_COLDSTART_P0_TASK_ORDER = FROZEN_COLDSTART_TASK_ORDER[1:]
-COUNTDOWN_DIAGNOSTIC_SENTINELS = (
-    0.105360516,
-    0.430782916,
-    0.916290732,
-    1.897119985,
-    2.302585093,
-    2.995732274,
-)
-LOCKED_COUNTDOWN_COEFFICIENTS = frozenset(
-    PAPER_ROUND1_COEFFICIENTS + PAPER_EXTENSION_COEFFICIENTS
-)
-FROZEN_COLDSTART_GRID_PROVENANCE = {
-    "word_sorting": "historical_19_plus_dense_refinement_1.05",
-    "spiral_matrix": "historical_7_anchors_plus_13_canonical_paper_coefficients",
-    "mini_sudoku": "historical_19_plus_dense_refinement_2.00",
-    "maze": "historical_19_plus_dense_refinement_0.10",
-    "word_ladder": "historical_19_plus_dense_refinement_1.05",
-    "knights_knaves": "historical_19_plus_dense_refinement_1.28",
-    "graph_color": "historical_19_plus_dense_refinement_0.10",
-    "wikisql": "historical_19_plus_dense_refinement_2.35",
-}
-FROZEN_LAMBDA_COMPLETION_GRID_PROVENANCE = {
-    task: "approved_5x_geometric_tail_completion_20260825"
-    for task in FROZEN_COLDSTART_P0_TASK_ORDER
-}
-FROZEN_LAMBDA_CURVE_GRID_PROVENANCE = {
-    "word_sorting": "approved_right_tail_curve_completion_20260829",
-    "spiral_matrix": "closed_no_new_cells_20260829",
-    "mini_sudoku": "approved_right_tail_curve_completion_20260829",
-    "maze": "approved_right_tail_curve_completion_20260829",
-    "word_ladder": "approved_right_tail_curve_completion_20260829",
-    "knights_knaves": "approved_right_tail_curve_completion_20260829",
-    "graph_color": "approved_left_right_boundary_completion_20260829",
-    "wikisql": "approved_aggressive_right_tail_curve_completion_20260829",
-}
-FROZEN_COLDSTART_SWEEP_IDENTITIES: dict[str, dict[str, Any]] = {
-    COLDSTART_EXPERIMENT_ID: {
-        "excluded_tasks": {},
-        "task_grid_provenance": FROZEN_COLDSTART_GRID_PROVENANCE,
-        "parameterization": "paper_coefficient_c",
-        "countdown_seed_offsets": (4000, 5000),
-        "countdown_include_positive_only": True,
-        "transfer_positive_only_seed_offsets": (4000, 5000, 6000, 7000),
-        "task_transfer_seed_offset": 4000,
-        "tuning_seed": 4000,
-        "expected_cells": 208,
-        "include_global_endpoint": False,
-        "countdown_values": COUNTDOWN_DIAGNOSTIC_SENTINELS,
-        "task_grid_hashes": {
-            "word_sorting": "d24edbd6099f1d4f081318b305e62b39834db7ab94af6b4279d706f94e8d6de3",
-            "spiral_matrix": "805966b9e3e1774e748d1d96ca64667e23276782681e15c1e072e5536a02199a",
-            "mini_sudoku": "2340c4729b70ae5bafb7b6bf07049f38056b18368749bba3b967b4bbd950e29c",
-            "maze": "399732f8572faf670a0486cd5f838d3956bfa56cabbb5ae79b8521fbbfc45d33",
-            "word_ladder": "4fff6be5b923b9071ae0ee949e734087330463072d9be02015a661e51a2689e4",
-            "knights_knaves": "37f675c933e909ac1ca8a6464c8ed72497758b31d1c8a82c855cad10961c4cab",
-            "graph_color": "65c02a38a4339888d2e485c277fa1668a5e0309fab857e3ae2b2b2c0dc862f9d",
-            "wikisql": "e42e516dbbe0bfd0f9fd00f5dec22949f88503253a2235c8c81bd908af4779a0",
-        },
-    },
-    LAMBDA_COMPLETION_EXPERIMENT_ID: {
-        "excluded_tasks": {},
-        "task_grid_provenance": FROZEN_LAMBDA_COMPLETION_GRID_PROVENANCE,
-        "parameterization": "paper_lambda_c1",
-        "countdown_seed_offsets": (),
-        "countdown_include_positive_only": True,
-        "transfer_positive_only_seed_offsets": (8000, 9000),
-        "task_transfer_seed_offset": 4000,
-        "tuning_seed": 4000,
-        "expected_cells": 199,
-        "include_global_endpoint": False,
-        "countdown_values": COUNTDOWN_DIAGNOSTIC_SENTINELS,
-        "task_grid_hashes": {
-            "word_sorting": "99b23e7907c99405e4986f0f8445fa9a1dae157be433a9a40546864a18165313",
-            "spiral_matrix": "aa89682224279902104d19fe88782882897c14dd704c3f016cc1afeafd597f6a",
-            "mini_sudoku": "7344872db672909c35d18debbbaa97da549cc1f0e37902d8073a8d1d45f465fd",
-            "maze": "6862dfaa292a5cfcdfc0e5ed78c232d6c812f138a7073f1b5045b46ae2258562",
-            "word_ladder": "99b23e7907c99405e4986f0f8445fa9a1dae157be433a9a40546864a18165313",
-            "knights_knaves": "6862dfaa292a5cfcdfc0e5ed78c232d6c812f138a7073f1b5045b46ae2258562",
-            "graph_color": "c703de6803fd89b0a3d9247e210214f96f1b1aa734db05dd11be1ba4b29dd75c",
-            "wikisql": "1a56632b1143e245a5ac8607785220bf7380165a3314096e8fdf648aec23df5f",
-        },
-    },
-    LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID: {
-        "excluded_tasks": {},
-        "task_grid_provenance": FROZEN_LAMBDA_CURVE_GRID_PROVENANCE,
-        "parameterization": "paper_lambda_c1",
-        "countdown_seed_offsets": (),
-        "countdown_include_positive_only": True,
-        "transfer_positive_only_seed_offsets": (),
-        "task_transfer_seed_offset": 4000,
-        "tuning_seed": 4000,
-        "expected_cells": 140,
-        "include_global_endpoint": False,
-        "countdown_values": COUNTDOWN_DIAGNOSTIC_SENTINELS,
-        "task_grid_hashes": {
-            "word_sorting": "70e407c4531b74ac7665fcad26eebb58333a215ad5fd671477b1ee9c441ea62d",
-            "spiral_matrix": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "mini_sudoku": "bcab21853d90c917d038aa44f96e45ca66cd4511aee35515291092dbf2e78619",
-            "maze": "2575a4b0d8b70346a1794f6bb03fa0c44b5ec78b08df65e4298fc48d68cae21d",
-            "word_ladder": "70e407c4531b74ac7665fcad26eebb58333a215ad5fd671477b1ee9c441ea62d",
-            "knights_knaves": "ac60739bf2dc004cd1a13949b6c340a06a345176f82812f6bd42ad297a01b9b4",
-            "graph_color": "ebbbf01c8321f21b20fc79484f7cd01e1b195e6f137bf4fcb754048a94946b67",
-            "wikisql": "622e405617b7fd6762fdd984f5e4ef2aadbd377b3998bef461caa941d4ba4673",
-        },
-    },
-}
-
-
-FROZEN_COLDSTART_PROVENANCE_IDENTITIES: dict[str, dict[str, Any]] = {
-    COLDSTART_EXPERIMENT_ID: {
-        "reporting": {
-            "separate_events": [
-                "task_performance",
-                "valid_or_structure_diagnostic",
-                "nan_inf_numerical_failure",
-            ],
-            "countdown_role": "diagnostic_regression_sentinel_not_result_gate",
-            "other_tasks_task_interface_adaptation_only": True,
-            "transfer_exp_scope": "single_seed_response_shape_localization",
-            "positive_only_seed_count_per_transfer_task": 4,
-            "convergence_claim_allowed": False,
-            "significance_claim_allowed": False,
-            "method_ranking_allowed": False,
-            "causal_identification_environment": "D-U1",
-        },
-        "expected_waves": 13,
-        "historical_curve_anchor": None,
-    },
-    LAMBDA_COMPLETION_EXPERIMENT_ID: {
-        "reporting": {
-            "separate_events": [
-                "task_performance",
-                "valid_or_structure_diagnostic",
-                "nan_inf_numerical_failure",
-            ],
-            "countdown_role": "predecessor_only_no_new_scientific_cells",
-            "other_tasks_task_interface_adaptation_only": True,
-            "transfer_exp_scope": "single_seed_response_shape_localization",
-            "positive_only_seed_count_per_transfer_task": 2,
-            "convergence_claim_allowed": False,
-            "significance_claim_allowed": False,
-            "method_ranking_allowed": False,
-            "scientific_role": "external_validity_response_shape",
-        },
-        "expected_waves": 13,
-        "historical_curve_anchor": {
-            "path": "experiments/results/e8_multitask_exp_coldstart_20260820_02/CURVE_ANCHOR.csv",
-            "role": "immutable_predecessor_curve_for_concatenation",
-        },
-    },
-    LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID: {
-        "reporting": {
-            "separate_events": [
-                "task_performance",
-                "valid_or_structure_diagnostic",
-                "nan_inf_numerical_failure",
-            ],
-            "countdown_role": "predecessor_only_no_new_scientific_cells",
-            "other_tasks_task_interface_adaptation_only": True,
-            "transfer_exp_scope": "single_seed_response_shape_localization",
-            "positive_only_seed_count_per_transfer_task": 0,
-            "convergence_claim_allowed": False,
-            "significance_claim_allowed": False,
-            "method_ranking_allowed": False,
-            "scientific_role": "external_validity_curve_boundary_completion",
-        },
-        "expected_waves": 9,
-        "historical_curve_anchor": {
-            "path": "experiments/results/e8_multitask_exp_coldstart_20260820_02/CURVE_ANCHOR.csv",
-            "role": "immutable_predecessor_curve_for_concatenation",
-        },
-    },
-}
+COUNTDOWN_LIVENESS_SEED_OFFSET = 4000
 
 
 @dataclass(frozen=True)
@@ -401,10 +198,15 @@ class RowDataset(Dataset):
 
 
 def load_config(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
-    value = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    source = Path(path)
+    repo_root = Path(__file__).resolve().parents[2]
+    if not source.is_absolute():
+        source = repo_root / source
+    value = yaml.safe_load(source.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
         raise TypeError("Configuration root must be a mapping")
     validate_config(value)
+    experiment_config.validate_historical_config_identity(source, value, repo_root=repo_root)
     return value
 
 
@@ -412,327 +214,8 @@ def _tuple_floats(values: Sequence[Any]) -> tuple[float, ...]:
     return tuple(float(value) for value in values)
 
 
-def _configured_seed(value: Any, label: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-        raise ValueError(f"{label} must be a non-negative integer")
-    return value
-
-
-def _configured_bool(value: Any, label: str) -> bool:
-    if not isinstance(value, bool):
-        raise ValueError(f"{label} must be boolean")
-    return value
-
-
-def _configured_number(value: Any, label: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"{label} must be a finite numeric scalar")
-    numeric = float(value)
-    if not math.isfinite(numeric):
-        raise ValueError(f"{label} must be a finite numeric scalar")
-    return numeric
-
-
-def _validate_coldstart_scalar_contract(config: Mapping[str, Any]) -> None:
-    parent = config.get("parent", {})
-    if _configured_bool(
-        parent.get("qualified_banks_required"),
-        "parent.qualified_banks_required",
-    ) is not True:
-        raise ValueError("Cold-start requires qualified P0 banks")
-
-    reference = config["reference"]
-    for field in ("optimizer_updates", "validation_rows_seen", "test_rows_seen"):
-        _configured_seed(reference.get(field), f"reference.{field}")
-
-    model = config["model"]
-    for field in ("lora_rank", "lora_alpha", "max_length", "max_new_tokens"):
-        _configured_seed(model.get(field), f"model.{field}")
-    _configured_number(model.get("lora_dropout"), "model.lora_dropout")
-    if _configured_bool(
-        model.get("gradient_checkpointing"), "model.gradient_checkpointing"
-    ) is not True:
-        raise ValueError("Cold-start gradient_checkpointing must remain true")
-
-    split = config["split"]
-    for field in (
-        "p0_train_rows",
-        "p0_validation_rows",
-        "p0_test_rows",
-        "countdown_train_rows",
-        "countdown_validation_rows",
-        "hash_seed",
-    ):
-        _configured_seed(split.get(field), f"split.{field}")
-    if _configured_bool(
-        split.get("test_access_allowed"), "split.test_access_allowed"
-    ) is not False:
-        raise ValueError("Cold-start test access must remain forbidden")
-    if _configured_bool(
-        split.get("countdown_subsampling_forbidden"),
-        "split.countdown_subsampling_forbidden",
-    ) is not True:
-        raise ValueError("Countdown subsampling must remain forbidden")
-
-    training = config["training"]
-    for field in (
-        "optimizer_updates",
-        "micro_batch",
-        "gradient_accumulation",
-        "evaluation_every_updates",
-    ):
-        _configured_seed(training.get(field), f"training.{field}")
-    for field in (
-        "learning_rate",
-        "weight_decay",
-        "warmup_ratio",
-        "max_grad_norm",
-    ):
-        _configured_number(training.get(field), f"training.{field}")
-    late = training.get("late_window_updates")
-    if isinstance(late, (str, bytes)) or not isinstance(late, Sequence):
-        raise ValueError("training.late_window_updates must be an integer sequence")
-    tuple(
-        _configured_seed(value, "training.late_window_updates entry")
-        for value in late
-    )
-    if _configured_bool(
-        training.get("early_stopping"), "training.early_stopping"
-    ) is not False:
-        raise ValueError("Cold-start early stopping must remain false")
-    if _configured_bool(
-        training.get("terminal_adapter_required"),
-        "training.terminal_adapter_required",
-    ) is not True:
-        raise ValueError("Cold-start terminal adapter must remain required")
-
-    evaluation = config["evaluation"]
-    for field in (
-        "greedy_prompt_rows",
-        "passk_prompt_rows",
-        "pass_k",
-        "batch_size",
-        "max_new_tokens",
-        "generation_seed",
-    ):
-        _configured_seed(evaluation.get(field), f"evaluation.{field}")
-    auxiliary = evaluation.get("auxiliary_pass_ks")
-    if isinstance(auxiliary, (str, bytes)) or not isinstance(auxiliary, Sequence):
-        raise ValueError("evaluation.auxiliary_pass_ks must be an integer sequence")
-    tuple(
-        _configured_seed(value, "evaluation.auxiliary_pass_ks entry")
-        for value in auxiliary
-    )
-    temperature = _configured_number(
-        evaluation.get("sampling_temperature"),
-        "evaluation.sampling_temperature",
-    )
-    top_p = _configured_number(evaluation.get("top_p"), "evaluation.top_p")
-    generation_seed = _configured_seed(
-        evaluation.get("generation_seed"), "evaluation.generation_seed"
-    )
-    if (
-        not math.isclose(temperature, 0.8, rel_tol=0.0, abs_tol=1.0e-12)
-        or not math.isclose(top_p, 0.95, rel_tol=0.0, abs_tol=1.0e-12)
-        or generation_seed != 2026070801
-    ):
-        raise ValueError("Cold-start stochastic evaluation protocol drifted")
-
-    negative = config["negative_sampling"]
-    _configured_seed(
-        negative.get("negatives_per_prompt"),
-        "negative_sampling.negatives_per_prompt",
-    )
-    expected_negative_flags = {
-        "near_far_selection": False,
-        "selection_stop_gradient": True,
-        "weight_sum_normalization": False,
-        "gradient_budget_matching": False,
-    }
-    for field, expected in expected_negative_flags.items():
-        if _configured_bool(
-            negative.get(field), f"negative_sampling.{field}"
-        ) is not expected:
-            raise ValueError(f"Cold-start negative_sampling.{field} drifted")
-
-    calibration = config["remoteness_calibration"]
-    expected_calibration_flags = {
-        "enabled": False,
-        "detached": True,
-        "extra_square": False,
-        "gradient_rms_matching": False,
-    }
-    for field, expected in expected_calibration_flags.items():
-        if _configured_bool(
-            calibration.get(field), f"remoteness_calibration.{field}"
-        ) is not expected:
-            raise ValueError(f"Cold-start remoteness_calibration.{field} drifted")
-
-    runtime = config.get("task_runtime", {})
-    for task in config["suite"]["tasks"]:
-        task_runtime = runtime.get(task, {})
-        for field in (
-            "max_length",
-            "max_new_tokens",
-            "evaluation_batch_size",
-            "greedy_prompt_rows",
-            "passk_prompt_rows",
-        ):
-            _configured_seed(task_runtime.get(field), f"task_runtime.{task}.{field}")
-        aux = task_runtime.get("auxiliary_pass_ks")
-        if isinstance(aux, (str, bytes)) or not isinstance(aux, Sequence):
-            raise ValueError(
-                f"task_runtime.{task}.auxiliary_pass_ks must be an integer sequence"
-            )
-        tuple(
-            _configured_seed(value, f"task_runtime.{task}.auxiliary_pass_ks entry")
-            for value in aux
-        )
-
-    selection = config.get("selection", {})
-    if _configured_bool(
-        selection.get("finite_required"), "selection.finite_required"
-    ) is not True:
-        raise ValueError("Cold-start selection.finite_required must remain true")
-    if _configured_bool(
-        selection.get("report_grid_edge"), "selection.report_grid_edge"
-    ) is not True:
-        raise ValueError("Cold-start selection.report_grid_edge must remain true")
-
-
 def experiment_id(config: Mapping[str, Any]) -> str:
-    value = config.get("experiment_id")
-    allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
-    if (
-        not isinstance(value, str)
-        or not 1 <= len(value) <= 128
-        or not value[0].isalnum()
-        or any(character not in allowed for character in value)
-    ):
-        raise ValueError(
-            "experiment_id must match [A-Za-z0-9][A-Za-z0-9._-]{0,127}"
-        )
-    return value
-
-
-def _validate_frozen_coldstart_sweep_identity(config: Mapping[str, Any]) -> None:
-    expected = FROZEN_COLDSTART_SWEEP_IDENTITIES.get(experiment_id(config))
-    if expected is None:
-        return
-    if (
-        tuple(str(value) for value in config["suite"]["tasks"])
-        != FROZEN_COLDSTART_TASK_ORDER
-        or tuple(str(value) for value in config["suite"]["p0_tasks"])
-        != FROZEN_COLDSTART_P0_TASK_ORDER
-    ):
-        raise ValueError(
-            f"Frozen cold-start suite/task order drifted for {experiment_id(config)}"
-        )
-    sweep = config["sweep"]
-    observed = {
-        "excluded_tasks": dict(config["suite"].get("excluded_tasks", {})),
-        "task_grid_provenance": dict(sweep.get("task_grid_provenance", {})),
-        "parameterization": str(sweep.get("parameterization", "")),
-        "countdown_seed_offsets": tuple(
-            _configured_seed(value, "Countdown seed offset")
-            for value in sweep.get("countdown_seed_offsets", ())
-        ),
-        "countdown_include_positive_only": sweep.get(
-            "countdown_include_positive_only", True
-        ),
-        "transfer_positive_only_seed_offsets": tuple(
-            _configured_seed(value, "Transfer Positive-only seed offset")
-            for value in sweep.get("transfer_positive_only_seed_offsets", ())
-        ),
-        "task_transfer_seed_offset": _configured_seed(
-            sweep.get("task_transfer_seed_offset"), "Transfer Exp seed offset"
-        ),
-        "tuning_seed": _configured_seed(
-            sweep.get("tuning_seed"), "Cold-start tuning seed"
-        ),
-        "expected_cells": _configured_seed(
-            sweep.get("expected_cells"), "Cold-start expected_cells"
-        ),
-        "include_global_endpoint": sweep.get("include_global_endpoint", False),
-        "countdown_values": _task_lambdas(config, "countdown"),
-        "task_grid_hashes": dict(sweep.get("task_grid_hashes", {})),
-    }
-    if observed != expected:
-        raise ValueError(
-            f"Frozen cold-start experiment identity drifted for {experiment_id(config)}"
-        )
-    expected_provenance = FROZEN_COLDSTART_PROVENANCE_IDENTITIES[
-        experiment_id(config)
-    ]
-    observed_provenance = {
-        "reporting": copy.deepcopy(dict(config.get("reporting", {}))),
-        "expected_waves": _configured_seed(
-            config["execution"].get("expected_waves"),
-            "Frozen cold-start expected_waves",
-        ),
-        "historical_curve_anchor": copy.deepcopy(
-            config.get("historical_curve_anchor")
-        ),
-    }
-    if observed_provenance != expected_provenance:
-        raise ValueError(
-            "Frozen cold-start reporting/execution provenance drifted for "
-            f"{experiment_id(config)}"
-        )
-
-
-def _validate_coldstart_reporting(
-    config: Mapping[str, Any],
-    *,
-    countdown_seeds: Sequence[int],
-    transfer_positive_seeds: Sequence[int],
-) -> None:
-    reporting = config.get("reporting")
-    if not isinstance(reporting, Mapping):
-        raise ValueError("Cold-start reporting must be a mapping")
-    if tuple(reporting.get("separate_events", ())) != (
-        "task_performance",
-        "valid_or_structure_diagnostic",
-        "nan_inf_numerical_failure",
-    ):
-        raise ValueError("Cold-start reporting must preserve the three terminal event classes")
-    if reporting.get("other_tasks_task_interface_adaptation_only") is not True:
-        raise ValueError("Cold-start reporting must preserve task-interface-only adaptation")
-    if reporting.get("transfer_exp_scope") != "single_seed_response_shape_localization":
-        raise ValueError("Cold-start transfer reporting scope drifted")
-    positive_count = _configured_seed(
-        reporting.get("positive_only_seed_count_per_transfer_task"),
-        "Cold-start reporting Positive-only seed count",
-    )
-    if positive_count != len(transfer_positive_seeds):
-        raise ValueError(
-            "Cold-start reporting Positive-only seed count must match configured seeds"
-        )
-    for field in (
-        "convergence_claim_allowed",
-        "significance_claim_allowed",
-        "method_ranking_allowed",
-    ):
-        if reporting.get(field) is not False:
-            raise ValueError(f"Cold-start reporting must keep {field}=false")
-    expected_countdown_role = (
-        "diagnostic_regression_sentinel_not_result_gate"
-        if countdown_seeds
-        else "predecessor_only_no_new_scientific_cells"
-    )
-    if reporting.get("countdown_role") != expected_countdown_role:
-        raise ValueError("Cold-start Countdown reporting role does not match scheduled cells")
-    if "scientific_role" in reporting:
-        role = reporting.get("scientific_role")
-        if not isinstance(role, str) or not role.startswith("external_validity"):
-            raise ValueError("Cold-start scientific_role must remain external validity")
-    if (
-        "causal_identification_environment" in reporting
-        and reporting.get("causal_identification_environment") != "D-U1"
-    ):
-        raise ValueError(
-            "Cold-start causal-identification authority may only point to D-U1"
-        )
+    return experiment_config.experiment_id(config)
 
 
 def sweep_profile(config: Mapping[str, Any]) -> str:
@@ -763,22 +246,7 @@ def _dense_tasks() -> set[str]:
 def _task_lambdas(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
     if not _uses_task_lambdas(config):
         raise ValueError("Task-local lambdas are not defined for this profile")
-    raw_values = config["sweep"]["task_lambda"][task]
-    if isinstance(raw_values, (str, bytes)) or not isinstance(raw_values, Sequence):
-        raise ValueError(f"{task} lambda grid must be a sequence of numeric scalars")
-    values: list[float] = []
-    for value in raw_values:
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
-            raise ValueError(
-                f"{task} lambda values must be numeric, finite, and positive"
-            )
-        numeric = float(value)
-        if not math.isfinite(numeric) or numeric <= 0.0:
-            raise ValueError(
-                f"{task} lambda values must be numeric, finite, and positive"
-            )
-        values.append(numeric)
-    return tuple(values)
+    return experiment_config.task_lambdas(config, task)
 
 
 def _task_rhos(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
@@ -804,15 +272,16 @@ def _reference_seed(
 def validate_config(config: Mapping[str, Any]) -> None:
     if config.get("schema_version") != 1:
         raise ValueError("Expected schema_version: 1")
-    experiment_id(config)
+    current_experiment = experiment_id(config)
     profile = sweep_profile(config)
     if profile not in (SWEEP_PROFILE_RHO, SWEEP_PROFILE_DENSE, SWEEP_PROFILE_COLDSTART):
         raise ValueError(f"Unsupported sweep profile: {profile}")
+    experiment_config.validate_profile_experiment_id(config)
+    if profile == SWEEP_PROFILE_COLDSTART:
+        return
     expected_parent = EXPERIMENT_ID if profile == SWEEP_PROFILE_DENSE else P0_EXPERIMENT_ID
     if config.get("parent", {}).get("experiment_id") != expected_parent:
         raise ValueError("Unexpected parent experiment")
-    if _is_coldstart(config):
-        _validate_coldstart_scalar_contract(config)
 
     tasks = tuple(config.get("suite", {}).get("tasks", ()))
     if profile == SWEEP_PROFILE_RHO:
@@ -824,7 +293,8 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("Countdown must be the only external task")
     elif profile == SWEEP_PROFILE_DENSE:
         if (
-            len(tasks) != 7
+            current_experiment != DENSE_EXPERIMENT_ID
+            or len(tasks) != 7
             or len(set(tasks)) != 7
             or set(tasks) != _dense_tasks()
         ):
@@ -838,7 +308,13 @@ def validate_config(config: Mapping[str, Any]) -> None:
     else:
         expected_tasks = set(TASK_NAMES)
         if (
-            len(tasks) != 9
+            current_experiment
+            not in (
+                COLDSTART_EXPERIMENT_ID,
+                LAMBDA_COMPLETION_EXPERIMENT_ID,
+                LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID,
+            )
+            or len(tasks) != 9
             or len(set(tasks)) != 9
             or set(tasks) != expected_tasks
         ):
@@ -864,8 +340,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
         model = config["model"]
         if (
             model.get("base_model") != "Qwen/Qwen2.5-0.5B-Instruct"
-            or model.get("revision")
-            != "7ae557604adf67be50417f59c2c2f167def9a775"
+            or model.get("revision") != "7ae557604adf67be50417f59c2c2f167def9a775"
             or model.get("parameterization") != "lora"
             or model.get("dtype") != "auto"
             or not bool(model.get("gradient_checkpointing", False))
@@ -906,17 +381,9 @@ def validate_config(config: Mapping[str, Any]) -> None:
     for key, expected in expected_split.items():
         if int(split[key]) != expected:
             raise ValueError(f"{key} must remain {expected}")
-    if _is_coldstart(config):
-        hash_seed = _configured_seed(
-            split.get("hash_seed"), "Cold-start split hash_seed"
-        )
-        if hash_seed != 2026072901:
-            raise ValueError("Cold-start split hash_seed must remain 2026072901")
     if bool(split.get("test_access_allowed", True)):
         raise ValueError("Tuning must forbid test access")
-    if _is_coldstart(config) and not bool(
-        split.get("countdown_subsampling_forbidden", False)
-    ):
+    if _is_coldstart(config) and not bool(split.get("countdown_subsampling_forbidden", False)):
         raise ValueError("Countdown source-order bank subsampling must remain forbidden")
 
     training = config["training"]
@@ -992,8 +459,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
     if _is_coldstart(config):
         if (
             negative.get("consumer") != "all_unique_negatives_per_prompt"
-            or negative.get("deduplicate_rule")
-            != "first_canonical_completion_occurrence"
+            or negative.get("deduplicate_rule") != "first_canonical_completion_occurrence"
             or negative.get("denominator") != "unique_negative_count_per_prompt"
             or bool(negative.get("near_far_selection", True))
             or bool(negative.get("weight_sum_normalization", True))
@@ -1087,118 +553,117 @@ def validate_config(config: Mapping[str, Any]) -> None:
         task_lambda = sweep.get("task_lambda")
         if not isinstance(task_lambda, Mapping) or set(task_lambda) != set(tasks):
             raise ValueError("Cold-start task_lambda must contain the exact nine tasks")
-        if sweep.get("method") != "exponential":
-            raise ValueError("Cold-start sweep.method must remain exponential")
-        parameterization = str(sweep.get("parameterization", ""))
-        if parameterization not in ("paper_coefficient_c", "paper_lambda_c1"):
-            raise ValueError(
-                "Cold-start parameterization must be paper_coefficient_c or paper_lambda_c1"
-            )
-
-        if _tuple_floats(
-            sweep.get("countdown_sentinel_coefficients", ())
-        ) != COUNTDOWN_DIAGNOSTIC_SENTINELS:
+        countdown_sentinels = (
+            0.105360516,
+            0.430782916,
+            0.916290732,
+            1.897119985,
+            2.302585093,
+            2.995732274,
+        )
+        if _tuple_floats(sweep.get("countdown_sentinel_coefficients", ())) != countdown_sentinels:
             raise ValueError("Countdown sentinel coefficients drifted")
-        countdown_values = _task_lambdas(config, "countdown")
+        if _task_lambdas(config, "countdown") != countdown_sentinels:
+            raise ValueError("Countdown task_lambda must equal the six diagnostic sentinels")
+        expected_parameterization = (
+            "paper_lambda_c1"
+            if current_experiment
+            in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID)
+            else "paper_coefficient_c"
+        )
+        if sweep.get("parameterization") != expected_parameterization:
+            raise ValueError("Cold-start parameterization drifted")
+        expected_countdown_seeds = (
+            ()
+            if current_experiment
+            in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID)
+            else PAPER_SEED_OFFSETS
+        )
         if (
-            len(countdown_values) != len(set(countdown_values))
-            or any(value not in LOCKED_COUNTDOWN_COEFFICIENTS for value in countdown_values)
+            tuple(int(value) for value in sweep.get("countdown_seed_offsets", ()))
+            != expected_countdown_seeds
         ):
-            raise ValueError(
-                "Countdown task_lambda must be a unique subset of the locked paper grids"
-            )
-        countdown_seeds = tuple(
-            _configured_seed(value, "Countdown seed offset")
-            for value in sweep.get("countdown_seed_offsets", ())
-        )
-        if len(countdown_seeds) != len(set(countdown_seeds)):
-            raise ValueError("Countdown seed offsets must be unique")
-        if any(value not in PAPER_SEED_OFFSETS for value in countdown_seeds):
-            raise ValueError(
-                "Countdown seed offsets must be a subset of the locked paper seed offsets"
-            )
-        if countdown_seeds and not countdown_values:
-            raise ValueError(
-                "Scheduled Countdown seeds require a non-empty locked paper coefficient grid"
-            )
-        countdown_include_positive_only = sweep.get(
-            "countdown_include_positive_only", True
-        )
-        if not isinstance(countdown_include_positive_only, bool):
-            raise ValueError("countdown_include_positive_only must be boolean")
-        include_global_endpoint = sweep.get("include_global_endpoint", False)
-        if not isinstance(include_global_endpoint, bool):
-            raise ValueError("include_global_endpoint must be boolean")
-
+            raise ValueError("Countdown seed offsets drifted")
         transfer_positive_seeds = tuple(
-            _configured_seed(value, "Transfer Positive-only seed offset")
-            for value in sweep.get("transfer_positive_only_seed_offsets", ())
+            int(value) for value in sweep.get("transfer_positive_only_seed_offsets", ())
         )
-        if len(transfer_positive_seeds) != len(set(transfer_positive_seeds)):
-            raise ValueError("Transfer Positive-only seed offsets must be unique")
-        _configured_seed(sweep.get("task_transfer_seed_offset"), "Transfer Exp seed offset")
-        _configured_seed(sweep.get("tuning_seed"), "Cold-start tuning seed")
+        if current_experiment == LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID:
+            if transfer_positive_seeds:
+                raise ValueError("Lambda Curve Completion must not schedule Positive-only seeds")
+        elif (
+            current_experiment == LAMBDA_COMPLETION_EXPERIMENT_ID
+            and (
+                not transfer_positive_seeds
+                or len(transfer_positive_seeds) != len(set(transfer_positive_seeds))
+            )
+        ) or (
+            current_experiment != LAMBDA_COMPLETION_EXPERIMENT_ID
+            and transfer_positive_seeds != (4000, 5000, 6000, 7000)
+        ):
+            raise ValueError("Transfer Positive-only seed offsets drifted")
+        if int(sweep.get("task_transfer_seed_offset", -1)) != 4000:
+            raise ValueError("Transfer Exp response-shape localization must use seed 4000")
+        if int(sweep.get("tuning_seed", -1)) != 4000:
+            raise ValueError("Cold-start tuning_seed must remain 4000")
 
         transfer_tasks = set(tasks) - {"countdown"}
         grid_hashes = sweep.get("task_grid_hashes")
         provenance = sweep.get("task_grid_provenance")
-        if not isinstance(grid_hashes, Mapping) or set(grid_hashes) != transfer_tasks:
-            raise ValueError("Transfer task-grid hashes must cover the exact eight tasks")
+        expected_hashes = {
+            "word_sorting": "d24edbd6099f1d4f081318b305e62b39834db7ab94af6b4279d706f94e8d6de3",
+            "spiral_matrix": "805966b9e3e1774e748d1d96ca64667e23276782681e15c1e072e5536a02199a",
+            "mini_sudoku": "2340c4729b70ae5bafb7b6bf07049f38056b18368749bba3b967b4bbd950e29c",
+            "maze": "399732f8572faf670a0486cd5f838d3956bfa56cabbb5ae79b8521fbbfc45d33",
+            "word_ladder": "4fff6be5b923b9071ae0ee949e734087330463072d9be02015a661e51a2689e4",
+            "knights_knaves": "37f675c933e909ac1ca8a6464c8ed72497758b31d1c8a82c855cad10961c4cab",
+            "graph_color": "65c02a38a4339888d2e485c277fa1668a5e0309fab857e3ae2b2b2c0dc862f9d",
+            "wikisql": "e42e516dbbe0bfd0f9fd00f5dec22949f88503253a2235c8c81bd908af4779a0",
+        }
+        if (
+            not isinstance(grid_hashes, Mapping)
+            or set(grid_hashes) != transfer_tasks
+            or (
+                current_experiment
+                not in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID)
+                and dict(grid_hashes) != expected_hashes
+            )
+        ):
+            raise ValueError("Transfer task-grid hashes drifted")
         if not isinstance(provenance, Mapping) or set(provenance) != transfer_tasks:
             raise ValueError("Transfer task-grid provenance must cover the exact eight tasks")
         if any(not str(provenance[task]).strip() for task in transfer_tasks):
             raise ValueError("Transfer task-grid provenance entries must be non-empty")
-        active_transfer_tasks: list[str] = []
         for task in transfer_tasks:
             values = _task_lambdas(config, str(task))
-            if len(values) != len(set(values)):
-                raise ValueError(f"{task} Exp coefficient grid contains duplicates")
+            if (
+                len(values) != len(set(values))
+                or (
+                    current_experiment == LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID
+                    and len(values) != (0 if task == "spiral_matrix" else 20)
+                )
+                or (
+                    current_experiment
+                    not in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID)
+                    and len(values) != 20
+                )
+            ):
+                raise ValueError(f"{task} Exp coefficient grid has invalid cardinality")
             if stable_hash(list(values)) != str(grid_hashes[task]):
                 raise ValueError(f"{task} coefficient grid does not match its locked hash")
-            if values:
-                active_transfer_tasks.append(str(task))
-
-        countdown_cells_per_seed = (
-            1 + int(countdown_include_positive_only) + len(countdown_values)
+        expanded_cells = len(expected_countdown_seeds) * (2 + len(countdown_sentinels)) + sum(
+            len(transfer_positive_seeds) + len(_task_lambdas(config, str(task)))
+            for task in transfer_tasks
         )
-        expanded_cells = len(countdown_seeds) * countdown_cells_per_seed + sum(
-            len(transfer_positive_seeds)
-            + int(include_global_endpoint)
-            + len(_task_lambdas(config, task))
-            for task in active_transfer_tasks
-        )
-        if expanded_cells <= 0:
-            raise ValueError("Cold-start sweep must schedule at least one scientific cell")
-        expected_cells = _configured_seed(
-            sweep.get("expected_cells"), "Cold-start expected_cells"
-        )
-        if expected_cells != expanded_cells:
+        if int(sweep.get("expected_cells", -1)) != expanded_cells:
             raise ValueError("Cold-start expected_cells must match the configured matrix")
-        _validate_coldstart_reporting(
-            config,
-            countdown_seeds=countdown_seeds,
-            transfer_positive_seeds=transfer_positive_seeds,
-        )
-        _validate_frozen_coldstart_sweep_identity(config)
 
         initialization = config.get("initialization", {})
-        initialization_updates = _configured_seed(
-            initialization.get("optimizer_updates"),
-            "Cold-start initialization optimizer_updates",
-        )
-        initialization_seed = _configured_seed(
-            initialization.get("seed"), "Cold-start initialization seed"
-        )
         if (
             initialization.get("source") != "base_model"
-            or initialization_updates != 0
-            or initialization.get("external_adapter_allowed") is not False
-            or initialization.get("deterministic_fresh_lora") is not True
-            or initialization_seed != 2026070803
+            or int(initialization.get("optimizer_updates", -1)) != 0
+            or bool(initialization.get("external_adapter_allowed", True))
         ):
-            raise ValueError(
-                "Cold-start fresh-LoRA initialization contract drifted"
-            )
+            raise ValueError("Cold-start must use a zero-update base-model LoRA initialization")
         canonical = config.get("canonical_coldstart", {})
         expected_paths = {
             "arena": "src/drpo/countdown_qwen_arena_onefile.py",
@@ -1208,9 +673,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
             "paper_common": "src/drpo/countdown_e8_alpha1_highc_scan_common.py",
             "paper_runtime": "src/drpo/countdown_e8_alpha1_highc_scan_runtime.py",
             "base_config": "configs/countdown_e8_base_rl_replay_0p5b.yaml",
-            "round1_grid": (
-                "configs/countdown_e8_oracle_offline_v2_alpha1_highc_scan_0p5b.yaml"
-            ),
+            "round1_grid": ("configs/countdown_e8_oracle_offline_v2_alpha1_highc_scan_0p5b.yaml"),
             "extension_grid": (
                 "configs/countdown_e8_oracle_offline_v2_linear_c_extension_0p5b.yaml"
             ),
@@ -1222,24 +685,16 @@ def validate_config(config: Mapping[str, Any]) -> None:
             "p0_config": "configs/e8_multitask_p0.yaml",
             "p0_launcher": "scripts/run_e8_multitask_p0.sh",
             "result_reference": (
-                "experiments/results/e8_paper_aligned_linear_scan_round1_pilot/"
-                "RESULT_SUMMARY.json"
+                "experiments/results/e8_paper_aligned_linear_scan_round1_pilot/RESULT_SUMMARY.json"
             ),
         }
         if canonical.get("paths") != expected_paths:
             raise ValueError("Cold-start canonical paths must point to the old implementation")
         blob_shas = canonical.get("expected_git_blob_shas", {})
-        if blob_shas != FROZEN_CANONICAL_COLDSTART_BLOB_SHAS:
-            raise ValueError(
-                "Cold-start canonical source/config Git blob identities drifted"
-            )
-        if (
-            canonical.get("initialization")
-            != "qwen_pretrained_base_plus_fresh_lora"
-            or canonical.get("formula")
-            != "alpha_times_exp_minus_c_times_current_sequence_surprisal_div_2"
+        if set(blob_shas) != set(expected_paths) or any(
+            len(str(value)) != 40 for value in blob_shas.values()
         ):
-            raise ValueError("Cold-start canonical initialization/formula provenance drifted")
+            raise ValueError("Cold-start must pin every old source/config Git blob SHA")
         if canonical.get("scientific_kernel") != "import_only_no_loss_reimplementation":
             raise ValueError("Cold-start scientific kernel must be imported, not reimplemented")
         if canonical.get("countdown_entry") != "countdown_e8_alpha1_highc_scan_runtime.worker":
@@ -1284,16 +739,14 @@ def validate_config(config: Mapping[str, Any]) -> None:
                 or int(task_runtime["evaluation_batch_size"]) != expected_batch
                 or int(task_runtime["greedy_prompt_rows"]) != 500
                 or int(task_runtime["passk_prompt_rows"]) != expected_passk_rows
-                or tuple(int(value) for value in task_runtime["auxiliary_pass_ks"])
-                != expected_aux
+                or tuple(int(value) for value in task_runtime["auxiliary_pass_ks"]) != expected_aux
             ):
                 raise ValueError(f"{task} task-interface length/evaluation contract drifted")
 
         selection = config.get("selection", {})
         if (
             selection.get("primary_metric") != "validation_late_window_pass8_mean"
-            or selection.get("finite_required") is not True
-            or selection.get("report_grid_edge") is not True
+            or not bool(selection.get("finite_required", False))
             or selection.get("terminal_valid_rate_role")
             != "diagnostic_only_not_selection_eligibility"
             or tuple(selection.get("tie_breakers", ()))
@@ -1307,63 +760,30 @@ def validate_config(config: Mapping[str, Any]) -> None:
 
     execution = config["execution"]
     expected_capacity = 16
-    max_concurrent_cells = _configured_seed(
-        execution.get("max_concurrent_cells"), "execution.max_concurrent_cells"
-    )
-    if max_concurrent_cells != expected_capacity:
+    if int(execution["max_concurrent_cells"]) != expected_capacity:
         raise ValueError(f"The scheduler must expose exactly {expected_capacity} slots")
-    raw_gpu_ids = execution.get("gpu_ids")
-    if isinstance(raw_gpu_ids, (str, bytes)) or not isinstance(raw_gpu_ids, Sequence):
-        raise ValueError("execution.gpu_ids must be a sequence of non-negative integers")
-    gpu_ids = tuple(
-        _configured_seed(value, "execution.gpu_ids entry") for value in raw_gpu_ids
-    )
-    if gpu_ids != tuple(range(8)):
+    if tuple(int(value) for value in execution["gpu_ids"]) != tuple(range(8)):
         raise ValueError("The default GPU pool must remain 0--7")
-    slots_per_gpu = _configured_seed(
-        execution.get("slots_per_gpu"), "execution.slots_per_gpu"
+    expected_waves = (
+        math.ceil(int(config["sweep"]["expected_cells"]) / expected_capacity)
+        if profile == SWEEP_PROFILE_COLDSTART
+        else (7 if profile == SWEEP_PROFILE_DENSE else 5)
     )
-    if slots_per_gpu != 2:
-        raise ValueError("The frozen topology is two slots per GPU")
-    if not _is_coldstart(config):
-        expected_waves = 7 if profile == SWEEP_PROFILE_DENSE else 5
-        configured_waves = _configured_seed(
-            execution.get("expected_waves"), "execution.expected_waves"
+    if int(execution["slots_per_gpu"]) != 2 or int(execution["expected_waves"]) != expected_waves:
+        raise ValueError(
+            f"The frozen topology is two slots per GPU and {expected_waves} {'nominal batches' if _is_coldstart(config) else 'waves'}"
         )
-        if configured_waves != expected_waves:
-            raise ValueError(
-                f"The frozen topology requires {expected_waves} waves for this profile"
-            )
     if _is_coldstart(config) and execution.get("scheduler") != "dynamic_slot_queue":
         raise ValueError("Cold-start execution must use the recovery-aware slot scheduler")
-    if _is_coldstart(config):
-        wave_barriers = _configured_bool(
-            execution.get("wave_barriers"), "execution.wave_barriers"
-        )
-        identity_checked_resume = _configured_bool(
-            execution.get("identity_checked_resume"), "execution.identity_checked_resume"
-        )
-        retry_explicit = _configured_bool(
-            execution.get("retry_incomplete_requires_explicit_flag"),
-            "execution.retry_incomplete_requires_explicit_flag",
-        )
-        fail_closed = _configured_bool(
-            execution.get("fail_closed"), "execution.fail_closed"
-        )
-        test_partition_forbidden = _configured_bool(
-            execution.get("test_partition_forbidden"),
-            "execution.test_partition_forbidden",
-        )
-        if (
-            wave_barriers
-            or not identity_checked_resume
-            or not retry_explicit
-            or not fail_closed
-            or not test_partition_forbidden
-            or execution.get("oom_policy")
-            != "fail_cell_no_automatic_scientific_parameter_mutation"
-        ):
-            raise ValueError("Cold-start recovery/OOM safety contract drifted")
+    if _is_coldstart(config) and (
+        bool(execution.get("wave_barriers", True))
+        or not bool(execution.get("identity_checked_resume", False))
+        or not bool(execution.get("retry_incomplete_requires_explicit_flag", False))
+        or not bool(execution.get("fail_closed", False))
+        or not bool(execution.get("test_partition_forbidden", False))
+        or execution.get("oom_policy") != "fail_cell_no_automatic_scientific_parameter_mutation"
+    ):
+        raise ValueError("Cold-start recovery/OOM safety contract drifted")
 
 
 def coefficient_from_rho(rho: float) -> float:
@@ -1550,9 +970,7 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
                 for seed_offset in positive_seeds
             )
             if include_global_endpoint:
-                cells.append(
-                    Cell(task, METHOD_GLOBAL, 1.0, exp_seed, "task_transfer", 0.0)
-                )
+                cells.append(Cell(task, METHOD_GLOBAL, 1.0, exp_seed, "task_transfer", 0.0))
             cells.extend(
                 Cell(
                     task,
@@ -1565,7 +983,9 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
                 for coefficient in coefficients
             )
         result = tuple(cells)
-        if len(result) != int(config["sweep"]["expected_cells"]) or len({cell.key for cell in result}) != len(result):
+        if len(result) != int(config["sweep"]["expected_cells"]) or len(
+            {cell.key for cell in result}
+        ) != len(result):
             raise AssertionError("Internal cold-start cell identity failure")
         return result
     coarse = _tuple_floats(config["sweep"]["coarse_rho"])
@@ -1855,6 +1275,7 @@ def split_countdown_rows(
     _audit_partition_prompt_ids("countdown", partitions)
     return partitions
 
+
 def _canonical_train_row(row: Mapping[str, Any]) -> dict[str, Any]:
     """Translate task schema while preserving the paper all-unique-negative loss."""
 
@@ -1929,9 +1350,7 @@ def _task_base_config(
     derived["model"]["max_length"] = int(runtime["max_length"])
     derived["model"]["max_new_tokens"] = int(runtime["max_new_tokens"])
     derived["evaluation"]["batch_size"] = int(runtime["evaluation_batch_size"])
-    derived["evaluation"]["pass_ks"] = [8] + [
-        int(value) for value in runtime["auxiliary_pass_ks"]
-    ]
+    derived["evaluation"]["pass_ks"] = [8] + [int(value) for value in runtime["auxiliary_pass_ks"]]
     allowed = {
         "model.max_length",
         "model.max_new_tokens",
@@ -1973,8 +1392,7 @@ def _evenly_spaced_rank_indices(candidate_count: int, selected_count: int = 16) 
             f"found {candidate_count}"
         )
     indices = tuple(
-        (index * (candidate_count - 1)) // (selected_count - 1)
-        for index in range(selected_count)
+        (index * (candidate_count - 1)) // (selected_count - 1) for index in range(selected_count)
     )
     if len(set(indices)) != selected_count or indices[0] != 0 or indices[-1] != candidate_count - 1:
         raise AssertionError("Even rank selection must be unique and include both extremes")
@@ -2056,8 +1474,7 @@ def _reference_error_class_audit(
         if len(chosen) >= 2:
             endpoint_total += 1
             endpoint_ok = (
-                candidate_ranks[0] in selected_ranks
-                and candidate_ranks[-1] in selected_ranks
+                candidate_ranks[0] in selected_ranks and candidate_ranks[-1] in selected_ranks
             )
             if not endpoint_ok:
                 raise RuntimeError(
@@ -2324,7 +1741,9 @@ def _derive_reference_remoteness_banks(
                             ),
                         )
                     )
-                    selected_indices = _coverage_first_reference_rank_indices(scored, source_row["negatives"], 16)
+                    selected_indices = _coverage_first_reference_rank_indices(
+                        scored, source_row["negatives"], 16
+                    )
                     selected: list[dict[str, Any]] = []
                     for slot, rank in enumerate(selected_indices):
                         item = dict(scored[rank])
@@ -2374,10 +1793,7 @@ def _derive_reference_remoteness_banks(
                 audit_path = root / "prompt_audit.jsonl"
                 atomic_jsonl(bank_path_value, derived_rows)
                 atomic_jsonl(audit_path, audit_rows)
-                ranges = [
-                    float(row["selected_reference_surprisal"]["range"])
-                    for row in audit_rows
-                ]
+                ranges = [float(row["selected_reference_surprisal"]["range"]) for row in audit_rows]
                 class_rows = [
                     value
                     for row in audit_rows
@@ -2434,10 +1850,16 @@ def _derive_reference_remoteness_banks(
                         [float(row["candidate_reference_surprisal"]["iqr"]) for row in class_rows]
                     ),
                     "selected_within_class_range": _reference_surprisal_summary(
-                        [float(row["selected_reference_surprisal"]["range"]) for row in selected_class_rows]
+                        [
+                            float(row["selected_reference_surprisal"]["range"])
+                            for row in selected_class_rows
+                        ]
                     ),
                     "selected_within_class_iqr": _reference_surprisal_summary(
-                        [float(row["selected_reference_surprisal"]["iqr"]) for row in selected_class_rows]
+                        [
+                            float(row["selected_reference_surprisal"]["iqr"])
+                            for row in selected_class_rows
+                        ]
                     ),
                     "selected_range_median": float(np.median(np.asarray(ranges, dtype=float))),
                     "prompt_audit": str(audit_path.resolve()),
@@ -2549,7 +1971,9 @@ def write_canonical_cold_inputs(
                     or sha256_file(reference_path) != reference_record.get("sha256")
                     or not reference_record.get("complete")
                 ):
-                    raise RuntimeError(f"Derived reference-remoteness bank identity failed for {task}")
+                    raise RuntimeError(
+                        f"Derived reference-remoteness bank identity failed for {task}"
+                    )
                 train_source = reference_path
                 reference_selection_applied = True
                 reference_selection_identity = str(reference_record["identity_hash"])
@@ -2559,9 +1983,7 @@ def write_canonical_cold_inputs(
                 train_source = Path(source_paths["train"])
                 reference_selection_applied = False
                 reference_selection_identity = None
-            train_rows = [
-                _canonical_train_row(row) for row in read_jsonl(train_source)
-            ]
+            train_rows = [_canonical_train_row(row) for row in read_jsonl(train_source)]
             validation_rows = [
                 _canonical_validation_row(row)
                 for row in read_jsonl(Path(source_paths["validation"]))
@@ -3410,7 +2832,9 @@ def _load_prepared(
             if canonical.get("negative_consumer") != "all_unique_negatives_per_prompt":
                 raise RuntimeError(f"Canonical negative consumer drifted for {task}")
             if task == "countdown" and canonical.get("countdown_exact_source_files") is not True:
-                raise RuntimeError("Countdown must dispatch the exact generated bank/validation files")
+                raise RuntimeError(
+                    "Countdown must dispatch the exact generated bank/validation files"
+                )
     return splits, inputs
 
 
@@ -4653,7 +4077,9 @@ def _train_canonical_cold_cell(
             if evaluator is not None:
                 arena.evaluate_rows = evaluator
                 arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
-                arena.completion_stats = lambda model, batch: {"seq_lp": -arena.sequence_surprisal_only(model, batch)}
+                arena.completion_stats = lambda model, batch: {
+                    "seq_lp": -arena.sequence_surprisal_only(model, batch)
+                }
                 # Non-arithmetic task outputs are already canonicalized by the P0
                 # verifier. Arithmetic-only cleanup would corrupt structured outputs.
                 arena.clean_expression = lambda value: str(value)
@@ -4672,8 +4098,8 @@ def _train_canonical_cold_cell(
             scan_trainer._evaluate_validation = original_trainer_evaluate
 
     alpha = 0.0 if cell.method == METHOD_POSITIVE_ONLY else 1.0
-    coefficient = 0.0 if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL} else float(
-        cell.lambda_value
+    coefficient = (
+        0.0 if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL} else float(cell.lambda_value)
     )
     with task_interface():
         if cell.task == "countdown":
@@ -5408,12 +4834,12 @@ def cmd_liveness(
         raise ValueError(f"Unknown liveness task: {task}")
     if _is_coldstart(config):
         cell = _canonical_cold_liveness_cell()
-        if task != cell.task or cell.rho is None or not math.isclose(
-            rho, cell.rho, rel_tol=0.0, abs_tol=1.0e-15
+        if (
+            task != cell.task
+            or cell.rho is None
+            or not math.isclose(rho, cell.rho, rel_tol=0.0, abs_tol=1.0e-15)
         ):
-            raise ValueError(
-                "Cold-start liveness is fixed to Countdown c=0.693147181, seed=4000"
-            )
+            raise ValueError("Cold-start liveness is fixed to Countdown c=0.693147181, seed=4000")
         splits, inputs = _load_ready_inputs(
             output_root,
             config,
@@ -5754,9 +5180,7 @@ def _replace_path_prefix(value: Any, source: str, destination: str) -> Any:
     if isinstance(value, list):
         return [_replace_path_prefix(item, source, destination) for item in value]
     if isinstance(value, dict):
-        return {
-            key: _replace_path_prefix(item, source, destination) for key, item in value.items()
-        }
+        return {key: _replace_path_prefix(item, source, destination) for key, item in value.items()}
     return value
 
 
@@ -5782,9 +5206,7 @@ def cmd_import_recovery(
         raise ValueError("Recovery import requires one full lowercase source commit")
     provenance = _read_json_object(source_output_root / "source_provenance.json")
     if provenance.get("source_commit") != source_commit:
-        raise RuntimeError(
-            "Recovery source commit does not match the reviewed execution commit"
-        )
+        raise RuntimeError("Recovery source commit does not match the reviewed execution commit")
     output_root.mkdir(parents=True, exist_ok=True)
     effective = _effective_recovery_config(config, source_output_root)
     source_plan = _recovery_stage_plan(
@@ -5792,9 +5214,7 @@ def cmd_import_recovery(
         source_output_root,
         base_model_path=base_model_path,
     )
-    reusable = (
-        set(source_plan["reusable_cell_keys"]) if source_plan["prepare_complete"] else set()
-    )
+    reusable = set(source_plan["reusable_cell_keys"]) if source_plan["prepare_complete"] else set()
     source_text = str(source_output_root)
     destination_text = str(output_root)
     linked_files = 0
@@ -5805,6 +5225,7 @@ def cmd_import_recovery(
     }
     if source_plan["prepare_complete"]:
         recovery_label = source_output_root.parent.name
+
         def mapped_relative(relative: Path) -> Path | None:
             if relative.parts[0] in RECOVERY_TRANSIENT_TOP_LEVEL:
                 return None
@@ -6127,10 +5548,9 @@ def cmd_compact_logs(config: Mapping[str, Any], output_root: Path) -> dict[str, 
         if not tail.is_file():
             raise RuntimeError(f"Prepared log tail is missing: {tail}")
         if path.is_file():
-            if (
-                path.stat().st_size != int(row.get("size_bytes", -1))
-                or sha256_file(path) != row.get("sha256")
-            ):
+            if path.stat().st_size != int(row.get("size_bytes", -1)) or sha256_file(
+                path
+            ) != row.get("sha256"):
                 raise RuntimeError(f"Log changed during compaction transaction: {path}")
             path.unlink()
     value = {
@@ -6284,8 +5704,7 @@ def _matches_canonical_cold_liveness_manifest(
             rel_tol=0.0,
             abs_tol=1.0e-15,
         )
-        and result.get("canonical_dispatch")
-        == "countdown_e8_alpha1_highc_scan_runtime.smoke"
+        and result.get("canonical_dispatch") == "countdown_e8_alpha1_highc_scan_runtime.smoke"
     )
 
 
@@ -6444,7 +5863,9 @@ def _countdown_protocol_diagnostic(
         diagnostic = {
             "schema_version": 1,
             "experiment_id": experiment_id(config),
-            "status": "NOT_RUN" if countdown_not_run else ("PASS" if not identity_failures else "FAIL"),
+            "status": "NOT_RUN"
+            if countdown_not_run
+            else ("PASS" if not identity_failures else "FAIL"),
             "countdown_cells": len(countdown_cells),
             "identity_failures": identity_failures,
             "result_gate": False,
@@ -6598,15 +6019,19 @@ def cmd_run_dynamic(
     returned_keys = {str(row["cell_key"]) for row in results}
     completed_keys = {str(row["cell_key"]) for row in results if int(row["returncode"]) == 0}
     unscheduled = [cell.key for cell in cells if cell.key not in returned_keys]
-    protocol_diagnostic = _countdown_protocol_diagnostic(
-        config,
-        output_root,
-        destination=output_root / "scheduler" / "countdown_protocol_diagnostic.json",
-    ) if not failures and not unscheduled else {
-        "status": "PENDING",
-        "result_gate": False,
-        "controls_task_transfer_release": False,
-    }
+    protocol_diagnostic = (
+        _countdown_protocol_diagnostic(
+            config,
+            output_root,
+            destination=output_root / "scheduler" / "countdown_protocol_diagnostic.json",
+        )
+        if not failures and not unscheduled
+        else {
+            "status": "PENDING",
+            "result_gate": False,
+            "controls_task_transfer_release": False,
+        }
+    )
     manifest = {
         "schema_version": 1,
         "experiment_id": experiment_id(config),
@@ -6756,9 +6181,7 @@ def _coldstart_completed_task_rows(
                 "best_greedy": value["validation_best_greedy"],
                 "terminal_greedy": value["validation_terminal_greedy"],
                 "best_greedy_valid_rate": value["validation_best_greedy_valid_rate"],
-                "terminal_greedy_valid_rate": value[
-                    "validation_terminal_greedy_valid_rate"
-                ],
+                "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
                 "best_step": value["best_step"],
                 "terminal_step": value["terminal_step"],
                 "stop_reason": value["stop_reason"],
@@ -6846,9 +6269,7 @@ def _write_coldstart_task_result(
         "test_partition_accessed": False,
         "method_ranking_allowed": False,
         "complete": True,
-        "scientific_status": (
-            "not_run" if _is_engineering_self_test(config) else "pilot"
-        ),
+        "scientific_status": ("not_run" if _is_engineering_self_test(config) else "pilot"),
         "note": (
             "Deterministic early task snapshot from completed identity-matched cells; "
             "the terminal aggregate remains the final reporting authority."
@@ -6872,6 +6293,7 @@ def _materialize_completed_coldstart_task_results(
             continue
         ready[task] = _write_coldstart_task_result(config, output_root, task, rows)
     return ready
+
 
 def _aggregate_dense(
     config: Mapping[str, Any],
@@ -7085,7 +6507,10 @@ def _aggregate_coldstart(
         configured_methods = [cell.method for cell in build_cells(config) if cell.task == task]
         if not configured_methods:
             continue
-        expected_counts = tuple(configured_methods.count(method) for method in (METHOD_POSITIVE_ONLY, METHOD_GLOBAL, METHOD_EXPONENTIAL))
+        expected_counts = tuple(
+            configured_methods.count(method)
+            for method in (METHOD_POSITIVE_ONLY, METHOD_GLOBAL, METHOD_EXPONENTIAL)
+        )
         if (len(positive_rows), len(global_rows), len(exp_rows)) != expected_counts:
             raise RuntimeError(f"{task} cold-start cell counts differ from {expected_counts}")
 
@@ -7151,9 +6576,9 @@ def _aggregate_coldstart(
             "selected_exp": selected,
             "selected_on_grid_edge": selected_on_edge,
             "terminal_valid_rate_role": "diagnostic_only_not_selection_eligibility",
-            "all_exp_below_positive_only": None if positive_score is None else all(
-                float(row["late_window_pass8_mean"]) < positive_score for row in grouped_exp
-            ),
+            "all_exp_below_positive_only": None
+            if positive_score is None
+            else all(float(row["late_window_pass8_mean"]) < positive_score for row in grouped_exp),
             "grouped_curve": sorted(
                 grouped,
                 key=lambda row: (
@@ -7193,7 +6618,9 @@ def _aggregate_coldstart(
         "tasks": summaries,
         "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
         "initialization": dict(config["initialization"]),
-        "positive_only_and_exp_share_fresh_initialization": bool(tuple(config["sweep"].get("transfer_positive_only_seed_offsets", ()))),
+        "positive_only_and_exp_share_fresh_initialization": bool(
+            tuple(config["sweep"].get("transfer_positive_only_seed_offsets", ()))
+        ),
         "scientific_kernel": "canonical_old_coldstart_imports",
         "canonical_source_git_blob_shas": dict(
             config["canonical_coldstart"]["expected_git_blob_shas"]
@@ -7204,7 +6631,12 @@ def _aggregate_coldstart(
         "terminal_valid_rate_role": "diagnostic_only_not_selection_eligibility",
         "test_partition_accessed": False,
         "transfer_exp_single_seed_response_shape_localization": True,
-        "transfer_positive_only_seed_count": len(tuple(int(value) for value in config["sweep"].get("transfer_positive_only_seed_offsets", ()))),
+        "transfer_positive_only_seed_count": len(
+            tuple(
+                int(value)
+                for value in config["sweep"].get("transfer_positive_only_seed_offsets", ())
+            )
+        ),
         "fresh_seed_confirmation_required_for_winner_claim": True,
         "method_ranking_allowed": False,
         "significance_claim_allowed": False,
@@ -7421,10 +6853,17 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             reproduction_gate_status = str(
                 json.loads(protocol_path.read_text(encoding="utf-8")).get("status")
             )
-        expected_protocol_status = "NOT_RUN_ENGINEERING" if _is_engineering_self_test(config) else ("NOT_RUN" if not any(cell.task == "countdown" for cell in cells) else "PASS")
-        aggregate_complete = aggregate_path.is_file() and int(
-            json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0)
-        ) == len(cells) and reproduction_gate_status == expected_protocol_status
+        expected_protocol_status = (
+            "NOT_RUN_ENGINEERING"
+            if _is_engineering_self_test(config)
+            else ("NOT_RUN" if not any(cell.task == "countdown" for cell in cells) else "PASS")
+        )
+        aggregate_complete = (
+            aggregate_path.is_file()
+            and int(json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0))
+            == len(cells)
+            and reproduction_gate_status == expected_protocol_status
+        )
     all_complete = (
         not missing and not incomplete and not nan_inf and inherited_complete and aggregate_complete
     )
@@ -7939,16 +7378,17 @@ def _audit_engineering_queue(
     if set(starts) != expected_keys or set(finishes) != expected_keys:
         raise RuntimeError(f"Engineering queue did not observe all {len(cells)} starts/finishes")
     slots_per_gpu = int(config["execution"]["slots_per_gpu"])
-    if any(value != 0 for value in active_by_gpu.values()) or max(maximum_by_gpu.values()) > slots_per_gpu:
+    if (
+        any(value != 0 for value in active_by_gpu.values())
+        or max(maximum_by_gpu.values()) > slots_per_gpu
+    ):
         raise RuntimeError("Engineering queue exceeded the declared per-GPU capacity")
     slot_count = int(config["execution"]["max_concurrent_cells"])
     initial_keys = {cell.key for cell in cells[:slot_count]}
     replacement_keys = {cell.key for cell in cells[slot_count:]}
     if not replacement_keys:
         raise RuntimeError("Engineering queue requires replacement cells to audit dynamic refill")
-    if min(starts[key] for key in replacement_keys) >= max(
-        finishes[key] for key in initial_keys
-    ):
+    if min(starts[key] for key in replacement_keys) >= max(finishes[key] for key in initial_keys):
         raise RuntimeError("Engineering queue did not refill before the initial 16 cells finished")
     return {
         "all_cells_observed": True,
@@ -8159,7 +7599,9 @@ def cmd_engineering_self_test(
             else:
                 raise RuntimeError("Engineering failure injection did not fail closed")
             if not first_failure["failed_cells"] or not first_failure["unscheduled_cells"]:
-                raise RuntimeError("Engineering failure did not preserve failed and unscheduled work")
+                raise RuntimeError(
+                    "Engineering failure did not preserve failed and unscheduled work"
+                )
             resumed = cmd_run_dynamic(
                 self_test_config,
                 config_path,

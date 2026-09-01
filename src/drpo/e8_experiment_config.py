@@ -21,9 +21,7 @@ RHO_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-TUNING-01"
 DENSE_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-DENSE-01"
 COLDSTART_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-COLDSTART-01"
 LAMBDA_COMPLETION_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"
-LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID = (
-    "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02"
-)
+LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02"
 P0_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-P0-01"
 
 SWEEP_PROFILE_RHO = "nine_task_rho_v1"
@@ -83,8 +81,7 @@ CANONICAL_COLDSTART_PATHS = {
     "p0_config": "configs/e8_multitask_p0.yaml",
     "p0_launcher": "scripts/run_e8_multitask_p0.sh",
     "result_reference": (
-        "experiments/results/e8_paper_aligned_linear_scan_round1_pilot/"
-        "RESULT_SUMMARY.json"
+        "experiments/results/e8_paper_aligned_linear_scan_round1_pilot/RESULT_SUMMARY.json"
     ),
 }
 
@@ -131,19 +128,19 @@ def sweep_profile(config: Mapping[str, Any]) -> str:
 
 def _mapping(value: Any, label: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
-        raise ValueError(f"{label} must be a mapping")
+        raise ValueError(f"{label} must be a mapping")  # noqa: TRY004
     return value
 
 
 def _sequence(value: Any, label: str) -> Sequence[Any]:
     if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
-        raise ValueError(f"{label} must be a sequence")
+        raise ValueError(f"{label} must be a sequence")  # noqa: TRY004
     return value
 
 
 def _integer(value: Any, label: str, *, positive: bool = False) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
-        raise ValueError(f"{label} must be an integer")
+        raise ValueError(f"{label} must be an integer")  # noqa: TRY004
     if value < (1 if positive else 0):
         qualifier = "positive" if positive else "non-negative"
         raise ValueError(f"{label} must be {qualifier}")
@@ -152,7 +149,7 @@ def _integer(value: Any, label: str, *, positive: bool = False) -> int:
 
 def _number(value: Any, label: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"{label} must be a finite numeric scalar")
+        raise ValueError(f"{label} must be a finite numeric scalar")  # noqa: TRY004
     result = float(value)
     if not math.isfinite(result):
         raise ValueError(f"{label} must be a finite numeric scalar")
@@ -161,7 +158,7 @@ def _number(value: Any, label: str) -> float:
 
 def _boolean(value: Any, label: str) -> bool:
     if not isinstance(value, bool):
-        raise ValueError(f"{label} must be boolean")
+        raise ValueError(f"{label} must be boolean")  # noqa: TRY004
     return value
 
 
@@ -265,7 +262,13 @@ def _validate_scalar_types(config: Mapping[str, Any]) -> None:
     for field in ("micro_batch", "gradient_accumulation", "evaluation_every_updates"):
         if int(config["training"][field]) <= 0:
             raise ValueError(f"training.{field} must be positive")
-    for field in ("greedy_prompt_rows", "passk_prompt_rows", "pass_k", "batch_size", "max_new_tokens"):
+    for field in (
+        "greedy_prompt_rows",
+        "passk_prompt_rows",
+        "pass_k",
+        "batch_size",
+        "max_new_tokens",
+    ):
         if int(config["evaluation"][field]) <= 0:
             raise ValueError(f"evaluation.{field} must be positive")
     if float(config["training"]["learning_rate"]) <= 0.0:
@@ -300,7 +303,9 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
         or initialization.get("external_adapter_allowed") is not False
         or initialization.get("deterministic_fresh_lora") is not True
     ):
-        raise ValueError("Cold-start initialization must remain deterministic fresh LoRA")
+        raise ValueError(
+            "Cold-start initialization must remain zero-update deterministic fresh LoRA"
+        )
 
     model = config["model"]
     if (
@@ -405,7 +410,9 @@ def _validate_task_runtime(config: Mapping[str, Any], tasks: tuple[str, ...]) ->
             _integer(values[field], f"task_runtime.{task}.{field}", positive=True)
         tuple(
             _integer(value, f"task_runtime.{task}.auxiliary_pass_ks entry", positive=True)
-            for value in _sequence(values["auxiliary_pass_ks"], f"task_runtime.{task}.auxiliary_pass_ks")
+            for value in _sequence(
+                values["auxiliary_pass_ks"], f"task_runtime.{task}.auxiliary_pass_ks"
+            )
         )
 
 
@@ -474,9 +481,7 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
         if values:
             active_transfer.append(task)
 
-    expanded = len(countdown_seeds) * (
-        1 + int(countdown_positive) + len(countdown_values)
-    ) + sum(
+    expanded = len(countdown_seeds) * (1 + int(countdown_positive) + len(countdown_values)) + sum(
         len(positive_seeds) + int(include_global) + len(task_lambdas(config, task))
         for task in active_transfer
     )
@@ -499,7 +504,11 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
         raise ValueError("Unsupported transfer reporting scope")
     if reporting.get("positive_only_seed_count_per_transfer_task") != len(positive_seeds):
         raise ValueError("reporting Positive-only seed count must match configured seeds")
-    for field in ("convergence_claim_allowed", "significance_claim_allowed", "method_ranking_allowed"):
+    for field in (
+        "convergence_claim_allowed",
+        "significance_claim_allowed",
+        "method_ranking_allowed",
+    ):
         if reporting.get(field) is not False:
             raise ValueError(f"reporting.{field} must remain false")
     expected_role = (
@@ -528,10 +537,8 @@ def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
         or canonical.get("initialization") != "qwen_pretrained_base_plus_fresh_lora"
         or canonical.get("formula")
         != "alpha_times_exp_minus_c_times_current_sequence_surprisal_div_2"
-        or canonical.get("countdown_entry")
-        != "countdown_e8_alpha1_highc_scan_runtime.worker"
-        or canonical.get("transfer_entry")
-        != "countdown_e8_alpha1_c_scan_trainer.train_cell"
+        or canonical.get("countdown_entry") != "countdown_e8_alpha1_highc_scan_runtime.worker"
+        or canonical.get("transfer_entry") != "countdown_e8_alpha1_c_scan_trainer.train_cell"
     ):
         raise ValueError("Cold-start canonical trainer/dispatch contract drifted")
 
@@ -540,8 +547,7 @@ def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
         selection.get("primary_metric") != "validation_late_window_pass8_mean"
         or selection.get("finite_required") is not True
         or selection.get("report_grid_edge") is not True
-        or selection.get("terminal_valid_rate_role")
-        != "diagnostic_only_not_selection_eligibility"
+        or selection.get("terminal_valid_rate_role") != "diagnostic_only_not_selection_eligibility"
         or tuple(selection.get("tie_breakers", ()))
         != (
             "validation_terminal_pass8",
@@ -558,7 +564,10 @@ def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
         _integer(value, "execution.gpu_ids entry")
         for value in _sequence(execution.get("gpu_ids"), "execution.gpu_ids")
     )
-    if gpu_ids != tuple(range(8)) or _integer(execution.get("slots_per_gpu"), "execution.slots_per_gpu") != 2:
+    if (
+        gpu_ids != tuple(range(8))
+        or _integer(execution.get("slots_per_gpu"), "execution.slots_per_gpu") != 2
+    ):
         raise ValueError("Cold-start runner currently implements 8 GPUs x 2 slots")
     if execution.get("scheduler") != "dynamic_slot_queue":
         raise ValueError("Cold-start runner requires dynamic_slot_queue")
@@ -659,9 +668,7 @@ def validate_historical_config_identity(
     resolved, relative = repo_relative_config(path, repo_root)
     expected_path, expected_blob = expected
     if relative != expected_path:
-        raise ValueError(
-            f"Historical experiment_id requires canonical config path {expected_path}"
-        )
+        raise ValueError(f"Historical experiment_id requires canonical config path {expected_path}")
     observed = subprocess.check_output(
         ["git", "hash-object", str(resolved)],
         cwd=Path(repo_root).resolve(),

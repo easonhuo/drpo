@@ -49,6 +49,8 @@ print(relative.as_posix())
 PY_CONFIG
 )" || fail "config path must resolve to a tracked file inside the repository: ${CONFIG_PATH}"
   CONFIG_REPO_PATH="${resolved}"
+  git -C "${ROOT_DIR}" ls-files --error-unmatch -- "${CONFIG_REPO_PATH}" >/dev/null 2>&1 ||
+    fail "config is not Git-tracked: ${CONFIG_REPO_PATH}"
   CONFIG_PATH="${ROOT_DIR}/${CONFIG_REPO_PATH}"
   export CONFIG_REPO_PATH CONFIG_PATH
 }
@@ -203,6 +205,13 @@ run_module() {
     "$@"
 }
 
+config_preflight() {
+  [[ -x "${VENV_DIR}/bin/python" ]] || fail "runtime Python is unavailable for config preflight"
+  "${VENV_DIR}/bin/python" "${ROOT_DIR}/scripts/preflight_e8_multitask_config.py" \
+    --repo-root "${ROOT_DIR}" \
+    --config "${CONFIG_PATH}"
+}
+
 setup() {
   check_source
   command -v python3 >/dev/null || fail "python3 is unavailable"
@@ -222,6 +231,8 @@ PY
   python -m pip install --upgrade "pip==24.3.1" "setuptools==75.6.0" "wheel==0.45.1"
   python -m pip install -r "${ROOT_DIR}/requirements/e8_multitask_exp_coldstart.txt"
   python -m pip install --no-deps -e "${ROOT_DIR}"
+  mkdir -p "${RECOVERY_ROOT}"
+  config_preflight | tee "${RECOVERY_ROOT}/CONFIG_PREFLIGHT.json"
   python - <<PY
 from huggingface_hub import snapshot_download
 snapshot_download(
@@ -288,6 +299,10 @@ PY
 }
 
 ensure_setup() {
+  if [[ -x "${VENV_DIR}/bin/python" ]] &&
+     "${VENV_DIR}/bin/python" -c 'import numpy, yaml' >/dev/null 2>&1; then
+    config_preflight
+  fi
   if runtime_ready; then
     echo "Reusing verified runtime and pinned model at ${RUNTIME_ROOT}"
   else
@@ -619,6 +634,8 @@ engineering_self_test() {
       --source-file scripts/run_e8_multitask_exp_coldstart.sh \
       --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh \
       --source-file src/drpo/e8_multitask_exp_tuning.py \
+    --source-file src/drpo/e8_experiment_config.py \
+    --source-file scripts/preflight_e8_multitask_config.py \
       --source-file "${CONFIG_REPO_PATH}" \
       "${CONFIG_SOURCE_ARGS[@]}" \
       --source-file docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md \
@@ -857,6 +874,8 @@ delivery_preflight() {
     --source-file scripts/run_e8_multitask_exp_coldstart.sh
     --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh
     --source-file src/drpo/e8_multitask_exp_tuning.py
+    --source-file src/drpo/e8_experiment_config.py
+    --source-file scripts/preflight_e8_multitask_config.py
     --source-file "${CONFIG_REPO_PATH}"
     "${CONFIG_SOURCE_ARGS[@]}"
   )
@@ -1026,6 +1045,7 @@ case "${MODE}" in
   self-test) engineering_self_test ;;
   setup) setup ;;
   prepare) prepare ;;
+  preflight) check_source; activate_runtime; config_preflight ;;
   plan) check_source; activate_runtime; run_module plan ;;
   calibrate) calibrate ;;
   liveness) liveness ;;
@@ -1035,5 +1055,5 @@ case "${MODE}" in
   guarded-full-internal) guarded_full_internal ;;
   diagnose) write_local_ai_recovery "${2:-manual_diagnosis}" ;;
   full) guarded_full ;;
-  *) fail "usage: $0 {self-test|setup|prepare|plan|calibrate|liveness|run|resume|finish|full}" ;;
+  *) fail "usage: $0 {self-test|setup|preflight|prepare|plan|calibrate|liveness|run|resume|finish|full}" ;;
 esac

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Fail-fast, non-scientific preflight for an E8 multitask sweep config."""
 
 from __future__ import annotations
@@ -16,16 +15,12 @@ from drpo.e8_multitask_tasks import stable_hash
 
 
 def build_summary(config_path: Path, repo_root: Path) -> dict[str, object]:
-    resolved, relative, blob = experiment_config.require_tracked_config(
-        config_path, repo_root
-    )
+    resolved, relative, blob = experiment_config.require_tracked_config(config_path, repo_root)
     value = yaml.safe_load(resolved.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
         raise TypeError("Configuration root must be a mapping")
     experiment_config.validate_profile_experiment_id(value)
-    experiment_config.validate_historical_config_identity(
-        resolved, value, repo_root=repo_root
-    )
+    experiment_config.validate_historical_config_identity(resolved, value, repo_root=repo_root)
     tuning.validate_config(value)
     cells = tuning.build_cells(value)
     waves = tuning.build_waves(value)
