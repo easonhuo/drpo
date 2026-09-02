@@ -44,7 +44,7 @@ jobs:
           cache: pip
           cache-dependency-path: target/pyproject.toml
 
-      - name: Install repository test dependencies
+      - name: Install target repository test dependencies
         shell: bash
         run: |
           set -euo pipefail
@@ -139,8 +139,10 @@ jobs:
           python scripts/validate_governance_rule_inventory.py --repo-root .
           python scripts/validate_formal_execution_channel.py --repo-root .
           git diff --check 6ed153d5ad7361a4e52348610b86b51b71e25e47..HEAD
+          python -m compileall -q src scripts tests
+          git ls-files '*.sh' -z | xargs -0 -r -n1 bash -n
 
-      - name: Canonical test selection and execution
+      - name: Record canonical test selection
         working-directory: target
         shell: bash
         run: |
@@ -150,14 +152,55 @@ jobs:
             --base 6ed153d5ad7361a4e52348610b86b51b71e25e47 \
             --head HEAD \
             --mode auto \
-            --json
-          python scripts/select_update_tests.py \
-            --repo . \
-            --base 6ed153d5ad7361a4e52348610b86b51b71e25e47 \
-            --head HEAD \
-            --mode auto \
-            --execute \
-            --json
+            --json | tee /tmp/test-selection.json
+          grep -q '"mode": "full"' /tmp/test-selection.json
+
+      - name: Prove no changed Python lint scope
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t PY_CHANGED < <(git diff --name-only 6ed153d5ad7361a4e52348610b86b51b71e25e47..HEAD -- '*.py')
+          if (( ${#PY_CHANGED[@]} != 0 )); then
+            printf 'Unexpected changed Python files:\n%s\n' "${PY_CHANGED[@]}"
+            exit 1
+          fi
+          echo 'Changed-file Ruff scope: no Python files changed.'
+
+      - name: Baseline-target repo-wide Ruff differential
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          (cd trusted && python -m ruff check .) > /tmp/main-ruff.txt 2>&1
+          MAIN_RC=$?
+          (cd target && python -m ruff check .) > /tmp/target-ruff.txt 2>&1
+          TARGET_RC=$?
+          set -e
+          cat /tmp/main-ruff.txt
+          echo '--- target Ruff ---'
+          cat /tmp/target-ruff.txt
+          test "$MAIN_RC" -ne 0
+          test "$TARGET_RC" -eq "$MAIN_RC"
+          diff -u /tmp/main-ruff.txt /tmp/target-ruff.txt
+          test "$(grep -c 'F821' /tmp/main-ruff.txt)" -eq 4
+          grep -q 'scripts/prepare_dev_pilot_registration.py' /tmp/main-ruff.txt
+          echo 'Ruff classification: baseline_red_unrelated; target introduces no new Ruff diagnostics.'
+
+      - name: Full-suite baseline-target pytest differential
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e './trusted[dev]'
+          (cd trusted && python -m pytest -q) | tee /tmp/main-pytest.txt
+          python -m pip install -e './target[dev]'
+          (cd target && python -m pytest -q) | tee /tmp/target-pytest.txt
+          grep -Eq '[0-9]+ passed' /tmp/main-pytest.txt
+          grep -Eq '[0-9]+ passed' /tmp/target-pytest.txt
+          MAIN_PASSED=$(grep -Eo '[0-9]+ passed' /tmp/main-pytest.txt | tail -1 | awk '{print $1}')
+          TARGET_PASSED=$(grep -Eo '[0-9]+ passed' /tmp/target-pytest.txt | tail -1 | awk '{print $1}')
+          test "$MAIN_PASSED" = "$TARGET_PASSED"
+          echo "Baseline/target pytest passed-count match: $MAIN_PASSED"
 
       - name: Confirm clean validated worktree
         working-directory: target
