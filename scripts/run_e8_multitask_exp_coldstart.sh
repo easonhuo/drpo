@@ -383,6 +383,31 @@ reuse_successful_attempt() {
   number="$(attempt_number "${latest}")"
   local artifact="${RUNTIME_ROOT}/packages/${RUN_ID}_attempt-$(printf '%03d' "${number}")_guarded.zip"
   [[ -f "${artifact}" && -f "${latest}/workload/aggregate/plot_curve_points.csv" ]] || return 1
+  python - "${latest}/workload" "${CONFIG_PATH}" "${EXPECTED_COMMIT}" "${MODE}" <<'PY_REUSE' >/dev/null || return 1
+from pathlib import Path
+import sys
+
+from drpo.e8_multitask_exp_tuning import (
+    _engineering_self_test_config,
+    _successful_attempt_matches_current_identity,
+    load_config,
+)
+
+workload_root = Path(sys.argv[1])
+config = load_config(Path(sys.argv[2]))
+mode = sys.argv[4]
+if mode == "self-test":
+    config = _engineering_self_test_config(config)
+elif mode != "full":
+    raise SystemExit(1)
+raise SystemExit(
+    0
+    if _successful_attempt_matches_current_identity(
+        config, workload_root, source_commit=sys.argv[3]
+    )
+    else 1
+)
+PY_REUSE
   python "${ROOT_DIR}/scripts/verify_experiment_package_hardened.py" \
     --repo-root "${ROOT_DIR}" "${artifact}" >/dev/null || return 1
   GUARD_ROOT="${latest}"

@@ -211,3 +211,15 @@ This section supersedes the remaining inconsistent implementation details found 
 - This remains engineering-only evidence. No model training, GPU sweep, task-performance result, support/variance-boundary result, numerical-collapse result, convergence result, significance result, or method ranking is produced.
 
 Latest correctness validation run: `33603556843`. Focused E8: `65 passed in 5.20s`; Countdown subset: `15 passed, 12 deselected in 4.34s`. Python compilation, Ruff, shell syntax, three real config preflights, handoff authority, governance-stage validation, `git diff --check`, and the #340 no-diff check for `.github/workflows/code-change-budget.yml` all passed in the same run.
+
+
+## 2026-09-02 owner-approved stale-success reuse correction
+
+This section narrowly supersedes the 2026-09-02 gate-liquidation statement only for the completed-attempt fast path. The repository owner explicitly approved this correction after confirming that `reuse_successful_attempt()` was introduced recently as part of automatic recovery and can otherwise return an old successful artifact after the reviewed source or selected config has changed.
+
+- A previously successful attempt may be returned directly only when its recorded `source_provenance.source_commit` equals the current `E8_COLDSTART_EXPECTED_COMMIT` and its prepared experiment/config identity equals the config selected for the current invocation.
+- For engineering self-test reuse, the expected config identity is the internal placeholder config deterministically derived from the current reviewed config; the external reviewed config is not reclassified as a placeholder config.
+- Missing or mismatched identity makes the old success ineligible for the fast path. The old attempt/artifact is preserved; execution falls through to the normal new-attempt/recovery path.
+- This approval does **not** restore the broader third-audit execution identity: no model-snapshot hash, dependency/runtime fingerprint, backend/run-class fingerprint, or expanded stale-recovery gate is added.
+- The separately discussed external `engineering_self_test.placeholder_backend` blocker is **not** added.
+- This is an engineering correctness fix only. It changes no scientific config, data, seed, lambda, optimizer/training rule, canonical trainer/loss, metric, result status, or method ranking.

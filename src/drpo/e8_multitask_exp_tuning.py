@@ -4891,6 +4891,26 @@ def _read_json_object(path: Path) -> dict[str, Any]:
     return value
 
 
+def _successful_attempt_matches_current_identity(
+    config: Mapping[str, Any],
+    workload_root: Path,
+    *,
+    source_commit: str,
+) -> bool:
+    """Return whether a completed attempt belongs to the current source/config identity."""
+
+    try:
+        provenance = _read_json_object(workload_root / "source_provenance.json")
+        prepare = _read_json_object(workload_root / "prepare_manifest.json")
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return False
+    return (
+        provenance.get("source_commit") == source_commit
+        and prepare.get("experiment_id") == experiment_id(config)
+        and prepare.get("config_hash") == stable_config_hash(config)
+    )
+
+
 def _effective_recovery_config(
     config: Mapping[str, Any],
     output_root: Path,

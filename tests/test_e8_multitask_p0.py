@@ -2551,3 +2551,52 @@ def test_final_correctness_audit_after_image() -> None:
     assert "--lambda 0.916290732" in runner
     assert "--lambda 0.693147181" not in runner
     assert exp_tuning.sweep_profile(config) == "eight_task_coldstart_lambda_v1"
+
+
+
+def test_successful_attempt_reuse_requires_current_source_and_config(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    workload = tmp_path / "workload"
+    source_commit = "a" * 40
+    p0.atomic_json(
+        workload / "source_provenance.json",
+        {"source_commit": source_commit},
+    )
+    p0.atomic_json(
+        workload / "prepare_manifest.json",
+        {
+            "experiment_id": exp_tuning.experiment_id(config),
+            "config_hash": exp_tuning.stable_config_hash(config),
+        },
+    )
+
+    assert exp_tuning._successful_attempt_matches_current_identity(
+        config, workload, source_commit=source_commit
+    )
+    assert not exp_tuning._successful_attempt_matches_current_identity(
+        config, workload, source_commit="b" * 40
+    )
+
+    changed = copy.deepcopy(config)
+    changed["experiment_id"] = "EXT-C-E8-MULTITASK-STALE-REUSE-OTHER-CONFIG"
+    assert not exp_tuning._successful_attempt_matches_current_identity(
+        changed, workload, source_commit=source_commit
+    )
+
+    (workload / "source_provenance.json").unlink()
+    assert not exp_tuning._successful_attempt_matches_current_identity(
+        config, workload, source_commit=source_commit
+    )
+
+    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    reuse = runner.split("\nreuse_successful_attempt() {\n", 1)[1].split(
+        "\nselect_next_attempt() {\n", 1
+    )[0]
+    assert "_successful_attempt_matches_current_identity" in reuse
+    assert reuse.index("_successful_attempt_matches_current_identity") < reuse.index(
+        "verify_experiment_package_hardened.py"
+    )
