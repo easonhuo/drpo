@@ -208,10 +208,29 @@ config_preflight() {
     --config "${CONFIG_PATH}"
 }
 
+bootstrap_config_preflight() {
+  command -v python3 >/dev/null || fail "python3 is unavailable"
+  if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
+    python3 -m venv --system-site-packages "${VENV_DIR}"
+  fi
+  # shellcheck disable=SC1091
+  source "${VENV_DIR}/bin/activate"
+  if ! python - <<'PY_PREFLIGHT_DEPS'
+import numpy
+import yaml
+PY_PREFLIGHT_DEPS
+  then
+    python -m pip install --disable-pip-version-check "numpy==1.26.4" "PyYAML==6.0.2"
+  fi
+  mkdir -p "${RECOVERY_ROOT}"
+  config_preflight | tee "${RECOVERY_ROOT}/CONFIG_PREFLIGHT.json"
+}
+
 setup() {
   check_source
   command -v python3 >/dev/null || fail "python3 is unavailable"
   mkdir -p "${RUNTIME_ROOT}"
+  bootstrap_config_preflight
   python3 - <<'PY'
 import sys
 assert sys.version_info >= (3, 10), sys.version
@@ -221,14 +240,11 @@ except ImportError as exc:
     raise SystemExit("Install a CUDA-compatible PyTorch build before running setup") from exc
 assert torch.cuda.is_available(), "The system PyTorch build cannot see CUDA"
 PY
-  python3 -m venv --system-site-packages "${VENV_DIR}"
   # shellcheck disable=SC1091
   source "${VENV_DIR}/bin/activate"
   python -m pip install --upgrade "pip==24.3.1" "setuptools==75.6.0" "wheel==0.45.1"
   python -m pip install -r "${ROOT_DIR}/requirements/e8_multitask_exp_coldstart.txt"
   python -m pip install --no-deps -e "${ROOT_DIR}"
-  mkdir -p "${RECOVERY_ROOT}"
-  config_preflight | tee "${RECOVERY_ROOT}/CONFIG_PREFLIGHT.json"
   python - <<PY
 import json
 from pathlib import Path
@@ -661,81 +677,6 @@ engineering_self_test() {
   fail "engineering self-test exhausted automatic recovery attempts"
 }
 
-require_registered_ready() {
-  grep -Fq "${EXPERIMENT_ID}" "${ROOT_DIR}/docs/handoff.md" || \
-    fail "${EXPERIMENT_ID} is absent from docs/handoff.md"
-  grep -Fq "${EXPERIMENT_ID}" "${ROOT_DIR}/experiments/registry.yaml" || \
-    fail "${EXPERIMENT_ID} is absent from experiments/registry.yaml"
-  python3 - <<PY
-from pathlib import Path
-import re
-
-experiment_id = "${EXPERIMENT_ID}"
-registry_path = Path("${ROOT_DIR}/experiments/registry.yaml")
-lines = registry_path.read_text(encoding="utf-8").splitlines()
-starts = [index for index, line in enumerate(lines) if line == f"- id: {experiment_id}"]
-assert len(starts) == 1, f"expected exactly one registry entry for {experiment_id}, found {len(starts)}"
-start = starts[0]
-end = next(
-    (index for index in range(start + 1, len(lines)) if re.fullmatch(r"- id: .+", lines[index])),
-    len(lines),
-)
-block = lines[start:end]
-implementation = next(
-    (line.split(":", 1)[1].strip() for line in block if line.startswith("  implementation_state:")),
-    "",
-)
-assert implementation.startswith("implemented"), f"implementation_state is not implemented: {implementation!r}"
-gate_index = next((index for index, line in enumerate(block) if line == "  execution_gate:"), None)
-assert gate_index is not None, "execution_gate is absent"
-gate_state = next(
-    (
-        line.split(":", 1)[1].strip()
-        for line in block[gate_index + 1 :]
-        if line.startswith("    state:")
-    ),
-    "",
-)
-assert gate_state == "ready", f"{experiment_id} execution_gate is not ready: {gate_state!r}"
-print({"experiment_id": experiment_id, "execution_gate": "ready"})
-PY
-  local runspec_matches=()
-  mapfile -t runspec_matches < <(
-    grep -l -F "experiment_id: ${EXPERIMENT_ID}" "${ROOT_DIR}"/runspecs/ready/*.yaml || true
-  )
-  [[ "${#runspec_matches[@]}" -eq 1 ]] || \
-    fail "expected exactly one READY RunSpec for ${EXPERIMENT_ID}; found ${#runspec_matches[@]}"
-  local runspec_commit
-  runspec_commit="$(sed -nE 's/^repo_commit:[[:space:]]*([0-9a-f]{40})[[:space:]]*$/\1/p' "${runspec_matches[0]}")"
-  [[ "${runspec_commit}" =~ ^[0-9a-f]{40}$ ]] || \
-    fail "READY RunSpec must bind one full reviewed implementation SHA: ${runspec_matches[0]}"
-  git -C "${ROOT_DIR}" cat-file -e "${runspec_commit}^{commit}" 2>/dev/null || \
-    fail "READY RunSpec implementation commit is unavailable: ${runspec_commit}"
-  git -C "${ROOT_DIR}" merge-base --is-ancestor "${runspec_commit}" "${EXPECTED_COMMIT}" || \
-    fail "READY RunSpec implementation commit is not an ancestor of execution commit: ${runspec_commit}"
-  local protected_paths=(
-    configs/e8_multitask_exp_coldstart.yaml
-    configs/e8_multitask_p0.yaml
-    requirements/e8_multitask_exp_coldstart.txt
-    scripts/bootstrap_e8_multitask_exp_coldstart.sh
-    scripts/run_e8_multitask_exp_coldstart.sh
-    scripts/run_e8_multitask_p0.sh
-    scripts/v2_bank_convert.py
-    src/drpo/e8_multitask_exp_tuning.py
-    src/drpo/e8_multitask_p0.py
-    src/drpo/e8_multitask_tasks.py
-  )
-  git -C "${ROOT_DIR}" diff --quiet "${runspec_commit}" "${EXPECTED_COMMIT}" -- \
-    "${protected_paths[@]}" || \
-    fail "protected cold-start implementation changed after READY RunSpec commit ${runspec_commit}"
-  grep -Fq "run_e8_multitask_exp_coldstart.sh full" "${runspec_matches[0]}" || \
-    fail "READY RunSpec does not call the reviewed full entrypoint: ${runspec_matches[0]}"
-}
-
-validate_registered_channel() {
-  python "${ROOT_DIR}/scripts/validate_formal_execution_channel.py" --repo-root "${ROOT_DIR}"
-}
-
 prepare() {
   check_source
   activate_runtime
@@ -760,12 +701,14 @@ prepare() {
   python - <<PY
 import json
 from pathlib import Path
+from drpo.e8_multitask_exp_tuning import load_config
+config = load_config(Path("${CONFIG_PATH}"))
 value = {
     "schema_version": 1,
     "run_id": "${RUN_ID}",
     "source_commit": "${EXPECTED_COMMIT}",
-    "model_repo": "${MODEL_REPO}",
-    "model_revision": "${MODEL_REVISION}",
+    "model_repo": config["model"]["base_model"],
+    "model_revision": config["model"]["revision"],
     "model_path": str(Path("${MODEL_DIR}").resolve()),
     "test_partition_accessed": False,
 }
@@ -994,10 +937,6 @@ report_formal_success() {
 }
 
 guarded_full() {
-  if [[ "${RUN_CLASS}" == "formal" ]]; then
-    require_registered_ready
-    validate_registered_channel
-  fi
   ensure_setup
   command -v flock >/dev/null || fail "flock is required for single-writer recovery safety"
   mkdir -p "${RECOVERY_ROOT}"

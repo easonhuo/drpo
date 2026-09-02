@@ -659,8 +659,8 @@ def validate_coldstart_config(config: Mapping[str, Any]) -> None:
     current_id = experiment_id(config)
     if sweep_profile(config) != SWEEP_PROFILE_COLDSTART:
         raise ValueError("validate_coldstart_config requires the cold-start profile")
-    if current_id in (RHO_EXPERIMENT_ID, DENSE_EXPERIMENT_ID):
-        raise ValueError("RHO/DENSE historical IDs may not be reused for cold-start")
+    if current_id in (P0_EXPERIMENT_ID, RHO_EXPERIMENT_ID, DENSE_EXPERIMENT_ID):
+        raise ValueError("P0/RHO/DENSE experiment IDs may not be reused for cold-start")
 
     tasks = tuple(str(task) for task in config.get("suite", {}).get("tasks", ()))
     expected = set(TASK_NAMES)

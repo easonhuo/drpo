@@ -3711,6 +3711,7 @@ def _legacy_arena_runtime_bridge(arena: Any, effective: Mapping[str, Any]) -> An
     original_lora_config = arena.LoraConfig
     original_load_model = arena.load_model
     original_generate_outputs = arena.generate_outputs
+    original_scheduler = getattr(arena, "get_cosine_schedule_with_warmup", None)
     contract = _runtime_bridge_contract(effective)
 
     def configured_lora_config(*args: Any, **kwargs: Any) -> Any:
@@ -3751,15 +3752,34 @@ def _legacy_arena_runtime_bridge(arena: Any, effective: Mapping[str, Any]) -> An
             num_return_sequences,
         )
 
+    def configured_scheduler(
+        optimizer: Any,
+        num_warmup_steps: int,
+        num_training_steps: int,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Any:
+        if original_scheduler is None:
+            raise RuntimeError("Canonical arena scheduler is unavailable")
+        if float(effective["training"]["warmup_ratio"]) == 0.0:
+            num_warmup_steps = 0
+        return original_scheduler(
+            optimizer, num_warmup_steps, num_training_steps, *args, **kwargs
+        )
+
     arena.LoraConfig = configured_lora_config
     arena.load_model = configured_load_model
     arena.generate_outputs = configured_generate_outputs
+    if original_scheduler is not None:
+        arena.get_cosine_schedule_with_warmup = configured_scheduler
     try:
         yield contract
     finally:
         arena.LoraConfig = original_lora_config
         arena.load_model = original_load_model
         arena.generate_outputs = original_generate_outputs
+        if original_scheduler is not None:
+            arena.get_cosine_schedule_with_warmup = original_scheduler
 
 
 def _validated_runtime_grid(

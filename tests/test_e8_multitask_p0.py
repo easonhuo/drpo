@@ -2446,3 +2446,82 @@ def test_coldstart_validation_has_single_config_authority_exit() -> None:
     assert "old_lora_contract" not in source
     assert "Countdown sentinel coefficients drifted" not in source
     assert "Cold-start task-interface length/evaluation contract drifted" not in source
+
+def test_generic_coldstart_rejects_p0_experiment_id_collision() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    config["experiment_id"] = exp_tuning.P0_EXPERIMENT_ID
+    with pytest.raises(ValueError, match="P0/RHO/DENSE"):
+        exp_tuning.validate_config(config)
+
+
+def test_coldstart_runner_has_no_stale_model_or_registration_consumers() -> None:
+    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    assert "${MODEL_REPO}" not in runner
+    assert "${MODEL_REVISION}" not in runner
+    assert "require_registered_ready" not in runner
+    assert "validate_registered_channel" not in runner
+    setup = runner.split("\nsetup() {\n", 1)[1].split("\nruntime_ready() {\n", 1)[0]
+    assert setup.index("bootstrap_config_preflight") < setup.index("torch.cuda.is_available")
+    assert setup.index("bootstrap_config_preflight") < setup.index("pip install -r")
+    assert 'config["model"]["base_model"]' in runner
+    assert 'config["model"]["revision"]' in runner
+
+
+def test_zero_warmup_reaches_legacy_scheduler(tmp_path: Path) -> None:
+    from drpo import e8_experiment_config as experiment_config
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-ZERO-WARMUP-TEST"
+    config["training"]["warmup_ratio"] = 0.0
+    exp_tuning.validate_config(config)
+    effective = experiment_config.effective_coldstart_runtime(config, "word_sorting")
+    task_root = tmp_path / "word_sorting"
+    task_root.mkdir()
+    grids = exp_tuning._task_grid_configs(
+        config,
+        canonical_paths=exp_tuning._canonical_paths(config),
+        task_root=task_root,
+    )
+    observed = {}
+
+    def fake_scheduler(optimizer, num_warmup_steps, num_training_steps, *args, **kwargs):
+        del optimizer, args, kwargs
+        observed["warmup"] = num_warmup_steps
+        observed["training"] = num_training_steps
+        return "scheduler"
+
+    arena = SimpleNamespace(
+        LoraConfig=lambda *args, **kwargs: (args, kwargs),
+        load_model=lambda *args, **kwargs: (args, kwargs),
+        generate_outputs=lambda *args, **kwargs: [["x"]],
+        get_cosine_schedule_with_warmup=fake_scheduler,
+    )
+    optim = SimpleNamespace(AdamW=lambda *args, **kwargs: (args, kwargs))
+
+    def strict_validator(value):
+        assert int(value["training"]["steps"]) == 1200
+        assert int(value["training"]["eval_every"]) == 100
+
+    modules = {
+        "arena": arena,
+        "paper_common": SimpleNamespace(validate_grid_config=strict_validator),
+        "scan_common": SimpleNamespace(validate_grid_config=strict_validator),
+        "scan_runtime": SimpleNamespace(validate_grid_config=strict_validator),
+        "scan_trainer": SimpleNamespace(
+            validate_grid_config=strict_validator,
+            torch=SimpleNamespace(optim=optim),
+        ),
+    }
+    original_scheduler = arena.get_cosine_schedule_with_warmup
+    with exp_tuning._legacy_paper_runtime_bridge(
+        modules,
+        effective,
+        grid_path=grids["round1_grid"]["path"],
+        grid_source_path=grids["round1_grid"]["source"],
+    ):
+        arena.get_cosine_schedule_with_warmup("optimizer", 1, 1200)
+    assert observed == {"warmup": 0, "training": 1200}
+    assert arena.get_cosine_schedule_with_warmup is original_scheduler

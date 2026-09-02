@@ -34,7 +34,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git fetch --no-tags origin "$HEAD_SHA"
+          git fetch --no-tags --depth=1 origin "$HEAD_SHA"
 
           bash tests/test_new_python_file_gate.sh
           bash tests/test_human_approval_record_gate.sh
@@ -155,7 +155,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git fetch --no-tags origin "$HEAD_SHA"
+          git fetch --no-tags --depth=1 origin "$HEAD_SHA"
 
           comments_json="$RUNNER_TEMP/approval-records.json"
           {
