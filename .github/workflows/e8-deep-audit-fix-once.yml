@@ -1,0 +1,819 @@
+name: E8 Deep Audit Fix Once
+
+on:
+  push:
+    paths:
+      - .github/workflows/e8-deep-audit-fix-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-config-driven-sweep-01
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify starting business head
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "26bfd29ecf4c206438572e5f6eefd5f59365badf"
+          test "$(git diff --name-only 26bfd29ecf4c206438572e5f6eefd5f59365badf..HEAD)" = ".github/workflows/e8-deep-audit-fix-once.yml"
+          git diff --quiet origin/main -- .github/workflows/code-change-budget.yml
+      - name: Document current authority correction first
+        run: |
+          cat >> docs/experiments/E8_CONFIG_DRIVEN_SWEEP_REVIEW_FIX_PROTOCOL.md <<'EOF'
+
+          ## 2026-09-02 deep final-tree audit correction
+
+          A fresh final-tree audit found several implementation-boundary inconsistencies that were not exercised by the preceding focused tests. This correction remains engineering-only and does not change any historical YAML value, scientific trainer/loss, model update rule, data, seed, threshold, experiment responsibility, or scientific result.
+
+          - Real external CLI execution now enforces the already-approved reviewed/tracked-config authority. The internally materialized `engineering_self_test_config.yaml` remains an explicitly non-scientific exception because it is generated under the run output root and uses the placeholder backend.
+          - Recovery-checkpoint package provenance now includes the runner, bootstrap, tuning module, both approved config-authority/preflight Python paths, and the selected reviewed config for a real run. The snapshot also records that reviewed config source path.
+          - The residual zero-wave rejection is removed. A zero-cell generic cold-start plan may resolve to zero cells and zero nominal waves; no replacement zero-cell gate is introduced.
+          - `task_grid_provenance` and `task_runtime.override_whitelist` remain permissible historical metadata but no longer act as mandatory runtime blockers. Actual per-task runtime fields remain validated because they are consumed by the implementation.
+          - Optional Countdown and transfer Positive-only seed arrays now have the same empty default in validation and cell construction. `task_transfer_seed_offset` is required only when at least one transfer lambda cell is active. The unused cold-start `tuning_seed` field is no longer required by the cold-start consumer.
+          - Cold-start liveness delegates its representative coefficient and seed to the immutable canonical paper runtime. The wrapper no longer pretends that a caller-selected `--lambda` controls that smoke. It records the actual canonical `run_identity.cell` in the wrapper manifest instead. This corrects the earlier interpretation of the restored shell argument: the `0.916290732` wrapper argument was inert, while the protected round-1 canonical smoke continued to select its own representative cell.
+          - These changes remove false provenance and accepted-but-unconsumable paths; they do not add or strengthen a scientific/governance gate.
+          EOF
+      - name: Apply implementation corrections
+        run: |
+          cat > /tmp/fix_e8.py <<'PY'
+          from pathlib import Path
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(f"{label}: expected one match, found {count}")
+              return text.replace(old, new, 1)
+
+          config_path = Path("src/drpo/e8_experiment_config.py")
+          text = config_path.read_text(encoding="utf-8")
+          old = '''    whitelist = (
+              "model.max_length",
+              "model.max_new_tokens",
+              "evaluation.batch_size",
+              "evaluation.greedy_prompt_rows",
+              "evaluation.passk_prompt_rows",
+              "evaluation.pass_ks",
+          )
+          if tuple(runtime.get("override_whitelist", ())) != whitelist or set(runtime) != {
+              "override_whitelist",
+              *tasks,
+          }:
+              raise ValueError("task_runtime must use only the implemented override fields")
+          '''
+          new = '''    unknown_sections = set(runtime) - {*tasks, "override_whitelist"}
+          missing_tasks = set(tasks) - set(runtime)
+          if unknown_sections or missing_tasks:
+              raise ValueError(
+                  "task_runtime must contain the configured tasks and no unsupported sections"
+              )
+          '''
+          text = replace_once(text, old, new, "task_runtime metadata blocker")
+          start = text.index("def _validate_sweep(")
+          end = text.index("def _validate_canonical_and_execution(", start)
+          sweep_function = '''def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
+              sweep = _mapping(config.get("sweep"), "sweep")
+              if sweep.get("method") != "exponential":
+                  raise ValueError("Cold-start sweep.method must be exponential")
+              if sweep.get("parameterization") not in ("paper_coefficient_c", "paper_lambda_c1"):
+                  raise ValueError("Unsupported cold-start parameterization")
+              task_lambda = _mapping(sweep.get("task_lambda"), "sweep.task_lambda")
+              if set(task_lambda) != set(tasks):
+                  raise ValueError("Cold-start task_lambda must contain the exact nine tasks")
+
+              countdown_values = task_lambdas(config, "countdown")
+              if len(set(countdown_values)) != len(countdown_values):
+                  raise ValueError("Countdown coefficient grid contains duplicates")
+              if any(value not in COUNTDOWN_PAPER_COEFFICIENTS for value in countdown_values):
+                  raise ValueError("Countdown coefficients exceed the implemented paper-worker domain")
+
+              countdown_seeds = tuple(
+                  _integer(value, "Countdown seed offset")
+                  for value in _sequence(
+                      sweep.get("countdown_seed_offsets", ()), "countdown_seed_offsets"
+                  )
+              )
+              if len(set(countdown_seeds)) != len(countdown_seeds):
+                  raise ValueError("Countdown seed offsets must be unique")
+              if any(seed not in COUNTDOWN_PAPER_SEEDS for seed in countdown_seeds):
+                  raise ValueError("Countdown seed exceeds the implemented paper-worker domain")
+              if countdown_seeds and not countdown_values:
+                  raise ValueError("Scheduled Countdown seeds require a non-empty coefficient grid")
+
+              countdown_positive = _boolean(
+                  sweep.get("countdown_include_positive_only", True),
+                  "countdown_include_positive_only",
+              )
+              include_global = _boolean(
+                  sweep.get("include_global_endpoint", False),
+                  "include_global_endpoint",
+              )
+
+              transfer_values: dict[str, tuple[float, ...]] = {}
+              for task in tasks:
+                  if task == "countdown":
+                      continue
+                  values = task_lambdas(config, task)
+                  if len(set(values)) != len(values):
+                      raise ValueError(f"{task} lambda grid contains duplicates")
+                  transfer_values[task] = values
+
+              active_transfer = any(transfer_values.values())
+              positive_seeds: tuple[int, ...] = ()
+              if active_transfer:
+                  positive_seeds = tuple(
+                      _integer(value, "Transfer Positive-only seed offset")
+                      for value in _sequence(
+                          sweep.get("transfer_positive_only_seed_offsets", ()),
+                          "transfer_positive_only_seed_offsets",
+                      )
+                  )
+                  if len(set(positive_seeds)) != len(positive_seeds):
+                      raise ValueError("Transfer Positive-only seed offsets must be unique")
+                  _integer(sweep.get("task_transfer_seed_offset"), "task_transfer_seed_offset")
+
+              transfer_cell_count = sum(
+                  len(positive_seeds) + int(include_global) + len(values)
+                  for values in transfer_values.values()
+                  if values
+              )
+              expanded = (
+                  len(countdown_seeds) * (1 + int(countdown_positive) + len(countdown_values))
+                  + transfer_cell_count
+              )
+              expected = _integer(sweep.get("expected_cells"), "sweep.expected_cells")
+              if expected != expanded:
+                  raise ValueError("sweep.expected_cells must match the expanded scientific matrix")
+
+
+          '''
+          text = text[:start] + sweep_function + text[end:]
+          config_path.write_text(text, encoding="utf-8")
+
+          tuning_path = Path("src/drpo/e8_multitask_exp_tuning.py")
+          text = tuning_path.read_text(encoding="utf-8")
+          start = text.index("def build_cells(")
+          end = text.index("def build_waves(", start)
+          build_cells_function = '''def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
+              validate_config(config)
+              tasks = tuple(str(task) for task in config["suite"]["tasks"])
+              if _is_dense(config):
+                  seed = int(config["sweep"]["tuning_seed"])
+                  cells = tuple(
+                      Cell(
+                          task,
+                          METHOD_EXPONENTIAL,
+                          math.exp(-lambda_value),
+                          seed,
+                          "dense",
+                          lambda_value,
+                      )
+                      for task in tasks
+                      for lambda_value in _task_lambdas(config, task)
+                  )
+                  if len(cells) != 112 or len({cell.key for cell in cells}) != 112:
+                      raise AssertionError("Internal 112-cell identity failure")
+                  return cells
+              if _is_coldstart(config):
+                  cells: list[Cell] = []
+                  lambda_only = config["sweep"]["parameterization"] == "paper_lambda_c1"
+                  countdown_coefficients = _task_lambdas(config, "countdown")
+                  countdown_include_positive_only = bool(
+                      config["sweep"].get("countdown_include_positive_only", True)
+                  )
+                  include_global_endpoint = bool(
+                      config["sweep"].get("include_global_endpoint", False)
+                  )
+                  for seed_offset in tuple(
+                      int(value) for value in config["sweep"].get("countdown_seed_offsets", ())
+                  ):
+                      if countdown_include_positive_only:
+                          cells.append(
+                              Cell(
+                                  "countdown",
+                                  METHOD_POSITIVE_ONLY,
+                                  None,
+                                  seed_offset,
+                                  "countdown_sentinel",
+                              )
+                          )
+                      cells.append(
+                          Cell(
+                              "countdown",
+                              METHOD_GLOBAL,
+                              1.0,
+                              seed_offset,
+                              "countdown_sentinel",
+                              0.0,
+                          )
+                      )
+                      cells.extend(
+                          Cell(
+                              "countdown",
+                              METHOD_EXPONENTIAL,
+                              None if lambda_only else math.exp(-coefficient),
+                              seed_offset,
+                              "countdown_sentinel",
+                              coefficient,
+                          )
+                          for coefficient in countdown_coefficients
+                      )
+                  positive_seeds = tuple(
+                      int(value)
+                      for value in config["sweep"].get(
+                          "transfer_positive_only_seed_offsets", ()
+                      )
+                  )
+                  for task in tasks:
+                      if task == "countdown":
+                          continue
+                      coefficients = _task_lambdas(config, task)
+                      if not coefficients:
+                          continue
+                      exp_seed = int(config["sweep"]["task_transfer_seed_offset"])
+                      cells.extend(
+                          Cell(task, METHOD_POSITIVE_ONLY, None, seed_offset, "task_transfer")
+                          for seed_offset in positive_seeds
+                      )
+                      if include_global_endpoint:
+                          cells.append(
+                              Cell(task, METHOD_GLOBAL, 1.0, exp_seed, "task_transfer", 0.0)
+                          )
+                      cells.extend(
+                          Cell(
+                              task,
+                              METHOD_EXPONENTIAL,
+                              None if lambda_only else math.exp(-coefficient),
+                              exp_seed,
+                              "task_transfer",
+                              coefficient,
+                          )
+                          for coefficient in coefficients
+                      )
+                  result = tuple(cells)
+                  if len(result) != int(config["sweep"]["expected_cells"]) or len(
+                      {cell.key for cell in result}
+                  ) != len(result):
+                      raise AssertionError("Internal cold-start cell identity failure")
+                  return result
+              seed = int(config["sweep"]["tuning_seed"])
+              coarse = _tuple_floats(config["sweep"]["coarse_rho"])
+              refinement = _tuple_floats(config["sweep"]["refinement_rho"])
+              cells: list[Cell] = []
+              for task in tasks:
+                  cells.append(Cell(task, METHOD_POSITIVE_ONLY, None, seed, "coarse"))
+                  cells.extend(
+                      Cell(task, METHOD_EXPONENTIAL, rho, seed, "coarse") for rho in coarse
+                  )
+              for task in tasks:
+                  cells.extend(
+                      Cell(task, METHOD_EXPONENTIAL, rho, seed, "refinement")
+                      for rho in refinement
+                  )
+              if len(cells) != 72 or len({cell.key for cell in cells}) != 72:
+                  raise AssertionError("Internal 72-cell identity failure")
+              return tuple(cells)
+
+
+          '''
+          text = text[:start] + build_cells_function + text[end:]
+          old = '''        if (
+                      not waves
+                      or any(len(wave) != capacity for wave in waves[:-1])
+                      or not 0 < len(waves[-1]) <= capacity
+                  ):
+                      raise AssertionError("Cold-start nominal batches do not match configured capacity")
+          '''
+          new = '''        if any(len(wave) != capacity for wave in waves[:-1]) or (
+                      waves and not 0 < len(waves[-1]) <= capacity
+                  ):
+                      raise AssertionError("Cold-start nominal batches do not match configured capacity")
+          '''
+          text = replace_once(text, old, new, "zero-wave residual")
+
+          marker = "def _cmd_canonical_cold_liveness(\n"
+          helper = '''def _canonical_liveness_cell(run_identity: Mapping[str, Any]) -> Cell:
+              raw = run_identity.get("cell")
+              if not isinstance(raw, Mapping):
+                  raise RuntimeError("Canonical liveness run identity is missing its cell")
+              method = str(raw.get("method", ""))
+              coefficient = float(raw.get("c"))
+              seed_offset = int(raw.get("seed_offset"))
+              if not math.isfinite(coefficient) or coefficient < 0.0:
+                  raise RuntimeError("Canonical liveness coefficient is invalid")
+              if method == "positive_only":
+                  return Cell("countdown", METHOD_POSITIVE_ONLY, None, seed_offset, "liveness")
+              if method == "global":
+                  return Cell("countdown", METHOD_GLOBAL, 1.0, seed_offset, "liveness", 0.0)
+              if method not in {"continuous_exp", "exponential"} or coefficient <= 0.0:
+                  raise RuntimeError(f"Unsupported canonical liveness method: {method}")
+              return Cell(
+                  "countdown",
+                  METHOD_EXPONENTIAL,
+                  math.exp(-coefficient),
+                  seed_offset,
+                  "liveness",
+                  coefficient,
+              )
+
+
+          '''
+          if text.count(marker) != 1:
+              raise RuntimeError("canonical liveness marker mismatch")
+          text = text.replace(marker, helper + marker, 1)
+          text = replace_once(
+              text,
+              '''    *,
+              cell: Cell,
+              inputs: TaskInputs,
+          ''',
+              '''    *,
+              task: str,
+              inputs: TaskInputs,
+          ''',
+              "canonical liveness signature",
+          )
+          text = replace_once(
+              text,
+              '''    if cell.task != "countdown":
+                  raise RuntimeError("The paper-runtime liveness anchor must be Countdown")
+              modules = _canonical_cold_modules(config)
+              runtime = modules["paper_runtime"]
+              record = _canonical_task_record(splits, cell.task)
+          ''',
+              '''    if task != "countdown":
+                  raise RuntimeError("The paper-runtime liveness anchor must be Countdown")
+              modules = _canonical_cold_modules(config)
+              runtime = modules["paper_runtime"]
+              record = _canonical_task_record(splits, task)
+          ''',
+              "canonical liveness fake cell prefix",
+          )
+          text = replace_once(
+              text,
+              '''    if int(returncode) != 0 or gate.get("status") != "PASS":
+                  raise RuntimeError("Paper-runtime two-update smoke gate failed")
+              summary_path = Path(str(gate["summary"]))
+          ''',
+              '''    if int(returncode) != 0 or gate.get("status") != "PASS":
+                  raise RuntimeError("Paper-runtime two-update smoke gate failed")
+              canonical_run_identity = gate.get("run_identity")
+              if not isinstance(canonical_run_identity, Mapping):
+                  raise RuntimeError("Paper-runtime smoke did not report its run identity")
+              actual_cell = _canonical_liveness_cell(canonical_run_identity)
+              summary_path = Path(str(gate["summary"]))
+          ''',
+              "canonical liveness actual identity",
+          )
+          text = replace_once(text, "            cell,\n            inputs=inputs,", "            actual_cell,\n            inputs=inputs,", "canonical liveness cell identity")
+          text = replace_once(
+              text,
+              '''        "canonical_dispatch_verified": True,
+                  "canonical_summary": str(summary_path.resolve()),
+          ''',
+              '''        "canonical_dispatch_verified": True,
+                  "canonical_run_identity": canonical_run_identity,
+                  "canonical_summary": str(summary_path.resolve()),
+          ''',
+              "canonical run identity provenance",
+          )
+          text = replace_once(
+              text,
+              '        output_root / "liveness" / cell.key / "cell_manifest.json",\n',
+              '        output_root / "liveness" / actual_cell.key / "cell_manifest.json",\n',
+              "canonical liveness manifest path",
+          )
+          old = '''    if task not in config["suite"]["tasks"]:
+                  raise ValueError(f"Unknown liveness task: {task}")
+              if rho not in _task_rhos(config, task):
+                  raise ValueError("Liveness rho must be one frozen grid point")
+              splits, inputs = _load_ready_inputs(
+                  output_root,
+                  config,
+                  base_model_path=base_model_path,
+              )
+              lambda_value = None
+              if _uses_task_lambdas(config):
+                  lambda_value = next(
+                      value
+                      for value in _task_lambdas(config, task)
+                      if math.isclose(math.exp(-value), rho, rel_tol=0.0, abs_tol=1.0e-15)
+                  )
+              cell = Cell(
+                  task,
+                  METHOD_EXPONENTIAL,
+                  rho,
+                  int(config["sweep"]["tuning_seed"]),
+                  "liveness",
+                  lambda_value,
+              )
+              if _is_coldstart(config):
+                  return _cmd_canonical_cold_liveness(
+                      config,
+                      config_path,
+                      output_root,
+                      cell=cell,
+                      inputs=inputs[task],
+                      splits=splits,
+                      base_model_path=base_model_path,
+                      force=force,
+                  )
+          '''
+          new = '''    if task not in config["suite"]["tasks"]:
+                  raise ValueError(f"Unknown liveness task: {task}")
+              splits, inputs = _load_ready_inputs(
+                  output_root,
+                  config,
+                  base_model_path=base_model_path,
+              )
+              if _is_coldstart(config):
+                  return _cmd_canonical_cold_liveness(
+                      config,
+                      config_path,
+                      output_root,
+                      task=task,
+                      inputs=inputs[task],
+                      splits=splits,
+                      base_model_path=base_model_path,
+                      force=force,
+                  )
+              if rho is None:
+                  rho = _task_rhos(config, task)[0]
+              if rho not in _task_rhos(config, task):
+                  raise ValueError("Liveness rho must be one frozen grid point")
+              lambda_value = None
+              if _uses_task_lambdas(config):
+                  lambda_value = next(
+                      value
+                      for value in _task_lambdas(config, task)
+                      if math.isclose(math.exp(-value), rho, rel_tol=0.0, abs_tol=1.0e-15)
+                  )
+              cell = Cell(
+                  task,
+                  METHOD_EXPONENTIAL,
+                  rho,
+                  int(config["sweep"]["tuning_seed"]),
+                  "liveness",
+                  lambda_value,
+              )
+          '''
+          text = replace_once(text, old, new, "coldstart liveness dispatch")
+          text = replace_once(text, "    rho: float,\n    base_model_path: str,", "    rho: float | None,\n    base_model_path: str,", "liveness optional rho")
+
+          recovery_marker = "def _recovery_checkpoint_snapshot(\n"
+          recovery_helpers = '''def _reviewed_config_source_path(
+              config: Mapping[str, Any], config_path: Path
+          ) -> str | None:
+              if _is_engineering_self_test(config):
+                  return None
+              try:
+                  return config_path.resolve().relative_to(_repo_root()).as_posix()
+              except ValueError as exc:
+                  raise RuntimeError("Reviewed recovery config must be inside the repository") from exc
+
+
+          def _recovery_source_files(
+              config: Mapping[str, Any], config_path: Path
+          ) -> tuple[str, ...]:
+              sources = [
+                  "scripts/run_e8_multitask_exp_coldstart.sh",
+                  "scripts/bootstrap_e8_multitask_exp_coldstart.sh",
+                  "src/drpo/e8_multitask_exp_tuning.py",
+                  "src/drpo/e8_experiment_config.py",
+                  "scripts/preflight_e8_multitask_config.py",
+              ]
+              reviewed = _reviewed_config_source_path(config, config_path)
+              if reviewed is not None:
+                  sources.append(reviewed)
+              return tuple(sources)
+
+
+          '''
+          if text.count(recovery_marker) != 1:
+              raise RuntimeError("recovery marker mismatch")
+          text = text.replace(recovery_marker, recovery_helpers + recovery_marker, 1)
+          text = replace_once(
+              text,
+              '''    *,
+              source_commit: str,
+          ) -> dict[str, Any]:
+          ''',
+              '''    *,
+              source_commit: str,
+              config_path: Path,
+          ) -> dict[str, Any]:
+          ''',
+              "recovery snapshot signature",
+          )
+          text = replace_once(
+              text,
+              '        "config_hash": stable_config_hash(config),\n        "output_root": str(output_root.resolve()),',
+              '        "config_hash": stable_config_hash(config),\n        "config_source": _reviewed_config_source_path(config, config_path),\n        "output_root": str(output_root.resolve()),',
+              "recovery snapshot config source",
+          )
+          text = replace_once(
+              text,
+              '''def _publish_recovery_checkpoint(
+              config: Mapping[str, Any],
+              output_root: Path,
+              *,
+              package_output: Path,
+          ) -> dict[str, Any]:
+          ''',
+              '''def _publish_recovery_checkpoint(
+              config: Mapping[str, Any],
+              config_path: Path,
+              output_root: Path,
+              *,
+              package_output: Path,
+          ) -> dict[str, Any]:
+          ''',
+              "recovery publish signature",
+          )
+          text = replace_once(
+              text,
+              '''        snapshot_root,
+                  source_commit=source_commit,
+              )
+          ''',
+              '''        snapshot_root,
+                  source_commit=source_commit,
+                  config_path=config_path,
+              )
+          ''',
+              "recovery snapshot call",
+          )
+          old = '''        "--large-file-persistence",
+                  "persistent_local",
+                  "--source-file",
+                  "scripts/run_e8_multitask_exp_coldstart.sh",
+                  "--source-file",
+                  "src/drpo/e8_multitask_exp_tuning.py",
+              ]
+          '''
+          new = '''        "--large-file-persistence",
+                  "persistent_local",
+              ]
+              for source_file in _recovery_source_files(config, config_path):
+                  command.extend(("--source-file", source_file))
+          '''
+          text = replace_once(text, old, new, "recovery source provenance")
+          text = replace_once(
+              text,
+              '''                            checkpoint = _publish_recovery_checkpoint(
+                                      config,
+                                      output_root,
+                                      package_output=recovery_package,
+                                  )
+          ''',
+              '''                            checkpoint = _publish_recovery_checkpoint(
+                                      config,
+                                      config_path,
+                                      output_root,
+                                      package_output=recovery_package,
+                                  )
+          ''',
+              "recovery publish call",
+          )
+
+          old = '''    config_path = Path(args.config).resolve()
+              config = load_config(config_path)
+              output_root = validate_work_dir(args.output_root)
+          '''
+          new = '''    config_path = Path(args.config).resolve()
+              config = load_config(config_path)
+              requested_output_root = Path(args.output_root).resolve()
+              internal_engineering_config = (
+                  _is_engineering_self_test(config)
+                  and config_path == requested_output_root / "engineering_self_test_config.yaml"
+              )
+              if not internal_engineering_config:
+                  experiment_config.require_tracked_config(config_path, _repo_root())
+              output_root = validate_work_dir(requested_output_root)
+          '''
+          text = replace_once(text, old, new, "external CLI tracked config authority")
+          old = '''    elif args.command == "liveness":
+                  rho = args.rho
+                  if args.lambda_value is not None:
+                      rho = math.exp(-float(args.lambda_value))
+                  if rho is None:
+                      rho = _task_rhos(config, str(args.task))[0]
+                  result = cmd_liveness(
+          '''
+          new = '''    elif args.command == "liveness":
+                  rho = args.rho
+                  if args.lambda_value is not None:
+                      rho = math.exp(-float(args.lambda_value))
+                  if rho is None and not _is_coldstart(config):
+                      rho = _task_rhos(config, str(args.task))[0]
+                  result = cmd_liveness(
+          '''
+          text = replace_once(text, old, new, "main liveness canonical delegation")
+          tuning_path.write_text(text, encoding="utf-8")
+
+          runner_path = Path("scripts/run_e8_multitask_exp_coldstart.sh")
+          text = runner_path.read_text(encoding="utf-8")
+          text = replace_once(
+              text,
+              '    --task countdown \\\n              --lambda 0.916290732 \\\n              --base-model-path "${MODEL_DIR}"\n',
+              '    --task countdown \\\n              --base-model-path "${MODEL_DIR}"\n',
+              "inert coldstart liveness selector",
+          )
+          runner_path.write_text(text, encoding="utf-8")
+          PY
+          python /tmp/fix_e8.py
+      - name: Add regression coverage
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("tests/test_e8_multitask_p0.py")
+          text = path.read_text(encoding="utf-8")
+          old = '''    assert "--source-file src/drpo/e8_experiment_config.py" in formal
+              assert "--source-file scripts/preflight_e8_multitask_config.py" in formal
+              assert "--lambda 0.916290732" in runner
+              assert "--lambda 0.693147181" not in runner
+              assert exp_tuning.sweep_profile(config) == "eight_task_coldstart_lambda_v1"
+          '''
+          new = '''    assert "--source-file src/drpo/e8_experiment_config.py" in formal
+              assert "--source-file scripts/preflight_e8_multitask_config.py" in formal
+              liveness = runner.split("\\nliveness() {\\n", 1)[1].split("\\nrun_queue() {\\n", 1)[0]
+              assert "--lambda" not in liveness
+              assert "--rho" not in liveness
+              assert exp_tuning.sweep_profile(config) == "eight_task_coldstart_lambda_v1"
+          '''
+          if text.count(old) != 1:
+              raise RuntimeError("final correctness regression block not found exactly once")
+          text = text.replace(old, new, 1)
+          text += r'''
+
+
+def test_deep_audit_zero_cell_and_optional_metadata_are_consumable() -> None:
+    import copy
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = copy.deepcopy(
+        exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-ZERO-CELL-CONSUMER-TEST"
+    for task in config["sweep"]["task_lambda"]:
+        config["sweep"]["task_lambda"][task] = []
+    config["sweep"]["expected_cells"] = 0
+    for field in (
+        "countdown_seed_offsets",
+        "transfer_positive_only_seed_offsets",
+        "task_transfer_seed_offset",
+        "tuning_seed",
+        "task_grid_provenance",
+    ):
+        config["sweep"].pop(field, None)
+    config["task_runtime"].pop("override_whitelist", None)
+
+    exp_tuning.validate_config(config)
+    assert exp_tuning.build_cells(config) == ()
+    assert exp_tuning.build_waves(config) == ()
+
+
+def test_deep_audit_external_cli_rejects_untracked_generic_config(tmp_path: Path) -> None:
+    import os
+    import subprocess
+    import sys
+
+    import yaml
+
+    source = Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    config = yaml.safe_load(source.read_text(encoding="utf-8"))
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-UNTRACKED-CLI-TEST"
+    candidate = tmp_path / "untracked_generic.yaml"
+    candidate.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(Path("src").resolve())
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "drpo.e8_multitask_exp_tuning",
+            "--config",
+            str(candidate),
+            "--output-root",
+            str(tmp_path / "output"),
+            "plan",
+        ],
+        cwd=Path.cwd(),
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode != 0
+    assert "config path escapes repository" in completed.stderr or "not Git-tracked" in completed.stderr
+    assert not (tmp_path / "output").exists()
+
+
+def test_deep_audit_recovery_provenance_includes_config_authority() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config_path = Path("configs/e8_multitask_exp_lambda_curve_completion.yaml").resolve()
+    config = exp_tuning.load_config(config_path)
+    sources = set(exp_tuning._recovery_source_files(config, config_path))
+    assert {
+        "scripts/run_e8_multitask_exp_coldstart.sh",
+        "scripts/bootstrap_e8_multitask_exp_coldstart.sh",
+        "src/drpo/e8_multitask_exp_tuning.py",
+        "src/drpo/e8_experiment_config.py",
+        "scripts/preflight_e8_multitask_config.py",
+        "configs/e8_multitask_exp_lambda_curve_completion.yaml",
+    } <= sources
+
+
+def test_deep_audit_canonical_liveness_records_actual_smoke_identity() -> None:
+    import math
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    actual = exp_tuning._canonical_liveness_cell(
+        {
+            "cell": {
+                "name": "base_continuous_exp_alpha1_c0p69314718_seed4000",
+                "method": "continuous_exp",
+                "family": "exponential",
+                "alpha": 1.0,
+                "c": 0.693147181,
+                "seed_offset": 4000,
+            }
+        }
+    )
+    assert actual.task == "countdown"
+    assert actual.method == exp_tuning.METHOD_EXPONENTIAL
+    assert actual.lambda_value == 0.693147181
+    assert actual.seed == 4000
+    assert math.isclose(actual.rho, math.exp(-0.693147181), rel_tol=0.0, abs_tol=1.0e-15)
+
+
+def test_deep_audit_coldstart_liveness_has_no_fake_requested_cell_parameter() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    signature = inspect.signature(exp_tuning._cmd_canonical_cold_liveness)
+    assert "cell" not in signature.parameters
+    source = inspect.getsource(exp_tuning._cmd_canonical_cold_liveness)
+    assert "canonical_run_identity" in source
+    assert "actual_cell" in source
+'''
+          path.write_text(text, encoding="utf-8")
+          PY
+      - name: Install focused test dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check -q "numpy==1.26.4" "PyYAML==6.0.2" "pytest>=8,<9" "ruff>=0.9,<1"
+          python -m pip install --disable-pip-version-check -q --index-url https://download.pytorch.org/whl/cpu torch
+      - name: Format and static checks
+        run: |
+          set -euo pipefail
+          ruff format src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          python -m py_compile src/drpo/e8_experiment_config.py scripts/preflight_e8_multitask_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          ruff check src/drpo/e8_experiment_config.py scripts/preflight_e8_multitask_config.py tests/test_e8_multitask_p0.py
+          ruff format --check src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py scripts/preflight_e8_multitask_config.py tests/test_e8_multitask_p0.py
+          bash -n scripts/run_e8_multitask_exp_coldstart.sh
+          bash -n scripts/bootstrap_e8_multitask_exp_coldstart.sh
+          bash -n scripts/run_e8_multitask_exp_lambda_completion.sh
+          git diff --check
+      - name: Focused regressions
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python -m pytest -q tests/test_e8_multitask_p0.py | tee /tmp/e8-focused.log
+          PYTHONPATH=src python -m pytest -q tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py -k 'not reciprocal and not asymre' | tee /tmp/e8-countdown.log
+      - name: Real config and governance checks
+        run: |
+          set -euo pipefail
+          for config in configs/e8_multitask_exp_coldstart.yaml configs/e8_multitask_exp_lambda_completion.yaml configs/e8_multitask_exp_lambda_curve_completion.yaml; do
+            PYTHONPATH=src python scripts/preflight_e8_multitask_config.py --repo-root . --config "$config" >/dev/null
+          done
+          python scripts/handoff_authority.py verify --repo-root .
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          git diff --check
+          git diff --quiet origin/main -- .github/workflows/code-change-budget.yml
+      - name: Record validation and commit verified after-image
+        run: |
+          set -euo pipefail
+          FOCUSED_SUMMARY="$(awk 'NF{line=$0} END{print line}' /tmp/e8-focused.log)"
+          COUNTDOWN_SUMMARY="$(awk 'NF{line=$0} END{print line}' /tmp/e8-countdown.log)"
+          printf '\nDeep-audit correction validation run: `%s`; Countdown subset: `%s`. Python compilation, Ruff, shell syntax, three historical config preflights, handoff authority, governance-stage validation, `git diff --check`, and the no-diff check for `.github/workflows/code-change-budget.yml` also passed in the same run.\n' "$FOCUSED_SUMMARY" "$COUNTDOWN_SUMMARY" >> docs/experiments/E8_CONFIG_DRIVEN_SWEEP_REVIEW_FIX_PROTOCOL.md
+          rm .github/workflows/e8-deep-audit-fix-once.yml
+          git diff --check
+          test ! -e .github/workflows/e8-deep-audit-fix-once.yml
+          git diff --quiet origin/main -- .github/workflows/code-change-budget.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git status --short
+          git commit -m "fix(e8): close deep final-tree audit gaps"
+          git push origin HEAD:dev/e8-config-driven-sweep-01
