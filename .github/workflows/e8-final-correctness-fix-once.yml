@@ -31,6 +31,7 @@ jobs:
           from __future__ import annotations
 
           import subprocess
+          import textwrap
           from pathlib import Path
 
           BASE = "6ed153d5ad7361a4e52348610b86b51b71e25e47"
@@ -41,51 +42,47 @@ jobs:
                   raise SystemExit(f"{label}: expected exactly one match, found {count}")
               return text.replace(old, new, 1)
 
+          # Runner: move existing config preflight ahead of CUDA/full dependency work.
           runner_path = Path("scripts/run_e8_multitask_exp_coldstart.sh")
           runner = runner_path.read_text(encoding="utf-8")
-
-          preflight_anchor = '''config_preflight() {
-            [[ -x "${VENV_DIR}/bin/python" ]] || fail "runtime Python is unavailable for config preflight"
-            "${VENV_DIR}/bin/python" "${ROOT_DIR}/scripts/preflight_e8_multitask_config.py" \\
-              --repo-root "${ROOT_DIR}" \\
-              --config "${CONFIG_PATH}"
-          }
-
-          setup() {
-          '''.replace("          ", "")
-          preflight_replacement = '''config_preflight() {
-            [[ -x "${VENV_DIR}/bin/python" ]] || fail "runtime Python is unavailable for config preflight"
-            "${VENV_DIR}/bin/python" "${ROOT_DIR}/scripts/preflight_e8_multitask_config.py" \\
-              --repo-root "${ROOT_DIR}" \\
-              --config "${CONFIG_PATH}"
-          }
-
-          bootstrap_config_preflight() {
-            command -v python3 >/dev/null || fail "python3 is unavailable"
-            if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
-              python3 -m venv --system-site-packages "${VENV_DIR}"
-            fi
-            # shellcheck disable=SC1091
-            source "${VENV_DIR}/bin/activate"
-            if ! python - <<'PY_PREFLIGHT_DEPS'
-          import numpy
-          import yaml
-          PY_PREFLIGHT_DEPS
-            then
-              python -m pip install --disable-pip-version-check "numpy==1.26.4" "PyYAML==6.0.2"
-            fi
-            mkdir -p "${RECOVERY_ROOT}"
-            config_preflight | tee "${RECOVERY_ROOT}/CONFIG_PREFLIGHT.json"
-          }
-
-          setup() {
-          '''.replace("          ", "")
+          preflight_anchor = (
+              'config_preflight() {\n'
+              '  [[ -x "${VENV_DIR}/bin/python" ]] || fail "runtime Python is unavailable for config preflight"\n'
+              '  "${VENV_DIR}/bin/python" "${ROOT_DIR}/scripts/preflight_e8_multitask_config.py" \\\n'
+              '    --repo-root "${ROOT_DIR}" \\\n'
+              '    --config "${CONFIG_PATH}"\n'
+              '}\n\n'
+              'setup() {\n'
+          )
+          preflight_replacement = (
+              'config_preflight() {\n'
+              '  [[ -x "${VENV_DIR}/bin/python" ]] || fail "runtime Python is unavailable for config preflight"\n'
+              '  "${VENV_DIR}/bin/python" "${ROOT_DIR}/scripts/preflight_e8_multitask_config.py" \\\n'
+              '    --repo-root "${ROOT_DIR}" \\\n'
+              '    --config "${CONFIG_PATH}"\n'
+              '}\n\n'
+              'bootstrap_config_preflight() {\n'
+              '  command -v python3 >/dev/null || fail "python3 is unavailable"\n'
+              '  if [[ ! -x "${VENV_DIR}/bin/python" ]]; then\n'
+              '    python3 -m venv --system-site-packages "${VENV_DIR}"\n'
+              '  fi\n'
+              '  # shellcheck disable=SC1091\n'
+              '  source "${VENV_DIR}/bin/activate"\n'
+              "  if ! python - <<'PY_PREFLIGHT_DEPS'\n"
+              'import numpy\n'
+              'import yaml\n'
+              'PY_PREFLIGHT_DEPS\n'
+              '  then\n'
+              '    python -m pip install --disable-pip-version-check "numpy==1.26.4" "PyYAML==6.0.2"\n'
+              '  fi\n'
+              '  mkdir -p "${RECOVERY_ROOT}"\n'
+              '  config_preflight | tee "${RECOVERY_ROOT}/CONFIG_PREFLIGHT.json"\n'
+              '}\n\n'
+              'setup() {\n'
+          )
           runner = replace_once(runner, preflight_anchor, preflight_replacement, "insert early preflight")
-
-          setup_start = runner.find("\nsetup() {\n")
-          runtime_ready_start = runner.find("\nruntime_ready() {\n", setup_start)
-          if setup_start < 0 or runtime_ready_start < 0:
-              raise SystemExit("setup/runtime_ready function boundaries not found")
+          setup_start = runner.index("\nsetup() {\n")
+          runtime_ready_start = runner.index("\nruntime_ready() {\n", setup_start)
           setup = runner[setup_start:runtime_ready_start]
           setup = replace_once(
               setup,
@@ -107,43 +104,46 @@ jobs:
           )
           runner = runner[:setup_start] + setup + runner[runtime_ready_start:]
 
-          gate_start = runner.find("\nrequire_registered_ready() {\n")
-          prepare_start = runner.find("\nprepare() {\n", gate_start)
-          if gate_start < 0 or prepare_start < 0:
-              raise SystemExit("obsolete registration/channel function block not found")
+          # Retire obsolete READY/registry/formal-channel launch authorization exactly as main policy requires.
+          gate_start = runner.index("\nrequire_registered_ready() {\n")
+          prepare_start = runner.index("\nprepare() {\n", gate_start)
           runner = runner[:gate_start] + runner[prepare_start:]
-          formal_gate_call = '''  if [[ "${RUN_CLASS}" == "formal" ]]; then
-            require_registered_ready
-            validate_registered_channel
-          fi
-          '''.replace("          ", "")
-          runner = replace_once(runner, formal_gate_call, "", "remove obsolete launch authorization")
+          guarded_start = runner.index("\nguarded_full() {\n")
+          ensure_setup = runner.index("  ensure_setup\n", guarded_start)
+          guarded_prefix = runner[guarded_start:ensure_setup]
+          if "require_registered_ready" not in guarded_prefix or "validate_registered_channel" not in guarded_prefix:
+              raise SystemExit("guarded_full obsolete launch block was not found")
+          runner = runner[:guarded_start] + "\nguarded_full() {\n" + runner[ensure_setup:]
 
-          provenance_old = '''import json
-          from pathlib import Path
-          value = {
-              "schema_version": 1,
-              "run_id": "${RUN_ID}",
-              "source_commit": "${EXPECTED_COMMIT}",
-              "model_repo": "${MODEL_REPO}",
-              "model_revision": "${MODEL_REVISION}",
-          '''.replace("          ", "")
-          provenance_new = '''import json
-          from pathlib import Path
-          from drpo.e8_multitask_exp_tuning import load_config
-          config = load_config(Path("${CONFIG_PATH}"))
-          value = {
-              "schema_version": 1,
-              "run_id": "${RUN_ID}",
-              "source_commit": "${EXPECTED_COMMIT}",
-              "model_repo": config["model"]["base_model"],
-              "model_revision": config["model"]["revision"],
-          '''.replace("          ", "")
+          # Repair stale shell-variable consumers in source provenance.
+          provenance_old = (
+              'import json\n'
+              'from pathlib import Path\n'
+              'value = {\n'
+              '    "schema_version": 1,\n'
+              '    "run_id": "${RUN_ID}",\n'
+              '    "source_commit": "${EXPECTED_COMMIT}",\n'
+              '    "model_repo": "${MODEL_REPO}",\n'
+              '    "model_revision": "${MODEL_REVISION}",\n'
+          )
+          provenance_new = (
+              'import json\n'
+              'from pathlib import Path\n'
+              'from drpo.e8_multitask_exp_tuning import load_config\n'
+              'config = load_config(Path("${CONFIG_PATH}"))\n'
+              'value = {\n'
+              '    "schema_version": 1,\n'
+              '    "run_id": "${RUN_ID}",\n'
+              '    "source_commit": "${EXPECTED_COMMIT}",\n'
+              '    "model_repo": config["model"]["base_model"],\n'
+              '    "model_revision": config["model"]["revision"],\n'
+          )
           runner = replace_once(runner, provenance_old, provenance_new, "repair model provenance")
           if "${MODEL_REPO}" in runner or "${MODEL_REVISION}" in runner:
               raise SystemExit("removed model shell variables still have consumers")
           runner_path.write_text(runner, encoding="utf-8")
 
+          # Existing profile/experiment-ID scope: the P0 parent identity is not a generic cold-start ID.
           config_path = Path("src/drpo/e8_experiment_config.py")
           config = config_path.read_text(encoding="utf-8")
           config = replace_once(
@@ -154,6 +154,7 @@ jobs:
           )
           config_path.write_text(config, encoding="utf-8")
 
+          # Runtime propagation: zero warmup stays accepted and is actually consumed as zero.
           tuning_path = Path("src/drpo/e8_multitask_exp_tuning.py")
           tuning = tuning_path.read_text(encoding="utf-8")
           tuning = replace_once(
@@ -162,54 +163,56 @@ jobs:
               '    original_generate_outputs = arena.generate_outputs\n    original_scheduler = getattr(arena, "get_cosine_schedule_with_warmup", None)\n    contract = _runtime_bridge_contract(effective)\n',
               "capture scheduler interface",
           )
-          install_anchor = '''    arena.LoraConfig = configured_lora_config
-          arena.load_model = configured_load_model
-          arena.generate_outputs = configured_generate_outputs
-          try:
-          '''.replace("          ", "")
-          install_replacement = '''    def configured_scheduler(
-              optimizer: Any,
-              num_warmup_steps: int,
-              num_training_steps: int,
-              *args: Any,
-              **kwargs: Any,
-          ) -> Any:
-              if original_scheduler is None:
-                  raise RuntimeError("Canonical arena scheduler is unavailable")
-              if float(effective["training"]["warmup_ratio"]) == 0.0:
-                  num_warmup_steps = 0
-              return original_scheduler(
-                  optimizer,
-                  num_warmup_steps,
-                  num_training_steps,
-                  *args,
-                  **kwargs,
-              )
-
-          arena.LoraConfig = configured_lora_config
-          arena.load_model = configured_load_model
-          arena.generate_outputs = configured_generate_outputs
-          if original_scheduler is not None:
-              arena.get_cosine_schedule_with_warmup = configured_scheduler
-          try:
-          '''.replace("          ", "")
+          install_anchor = (
+              '    arena.LoraConfig = configured_lora_config\n'
+              '    arena.load_model = configured_load_model\n'
+              '    arena.generate_outputs = configured_generate_outputs\n'
+              '    try:\n'
+          )
+          install_replacement = (
+              '    def configured_scheduler(\n'
+              '        optimizer: Any,\n'
+              '        num_warmup_steps: int,\n'
+              '        num_training_steps: int,\n'
+              '        *args: Any,\n'
+              '        **kwargs: Any,\n'
+              '    ) -> Any:\n'
+              '        if original_scheduler is None:\n'
+              '            raise RuntimeError("Canonical arena scheduler is unavailable")\n'
+              '        if float(effective["training"]["warmup_ratio"]) == 0.0:\n'
+              '            num_warmup_steps = 0\n'
+              '        return original_scheduler(\n'
+              '            optimizer, num_warmup_steps, num_training_steps, *args, **kwargs\n'
+              '        )\n\n'
+              '    arena.LoraConfig = configured_lora_config\n'
+              '    arena.load_model = configured_load_model\n'
+              '    arena.generate_outputs = configured_generate_outputs\n'
+              '    if original_scheduler is not None:\n'
+              '        arena.get_cosine_schedule_with_warmup = configured_scheduler\n'
+              '    try:\n'
+          )
           tuning = replace_once(tuning, install_anchor, install_replacement, "install zero-warmup adapter")
-          restore_anchor = '''        arena.LoraConfig = original_lora_config
-              arena.load_model = original_load_model
-              arena.generate_outputs = original_generate_outputs
-          '''.replace("              ", "        ")
-          restore_replacement = '''        arena.LoraConfig = original_lora_config
-              arena.load_model = original_load_model
-              arena.generate_outputs = original_generate_outputs
-              if original_scheduler is not None:
-                  arena.get_cosine_schedule_with_warmup = original_scheduler
-          '''.replace("              ", "        ")
+          restore_anchor = (
+              '        arena.LoraConfig = original_lora_config\n'
+              '        arena.load_model = original_load_model\n'
+              '        arena.generate_outputs = original_generate_outputs\n'
+          )
+          restore_replacement = (
+              '        arena.LoraConfig = original_lora_config\n'
+              '        arena.load_model = original_load_model\n'
+              '        arena.generate_outputs = original_generate_outputs\n'
+              '        if original_scheduler is not None:\n'
+              '            arena.get_cosine_schedule_with_warmup = original_scheduler\n'
+          )
           tuning = replace_once(tuning, restore_anchor, restore_replacement, "restore scheduler interface")
           tuning_path.write_text(tuning, encoding="utf-8")
 
+          # Focused regression checks for the audited gaps.
           tests_path = Path("tests/test_e8_multitask_p0.py")
           tests = tests_path.read_text(encoding="utf-8")
-          additions = r'''
+          if "def test_generic_coldstart_rejects_p0_experiment_id_collision" in tests:
+              raise SystemExit("correctness regression tests already present")
+          additions = textwrap.dedent(r'''
 
           def test_generic_coldstart_rejects_p0_experiment_id_collision() -> None:
               from drpo import e8_multitask_exp_tuning as exp_tuning
@@ -257,19 +260,10 @@ jobs:
                   observed["training"] = num_training_steps
                   return "scheduler"
 
-              def fake_lora(*args, **kwargs):
-                  return args, kwargs
-
-              def fake_load_model(*args, **kwargs):
-                  return args, kwargs
-
-              def fake_generate(*args, **kwargs):
-                  return [["x"]]
-
               arena = SimpleNamespace(
-                  LoraConfig=fake_lora,
-                  load_model=fake_load_model,
-                  generate_outputs=fake_generate,
+                  LoraConfig=lambda *args, **kwargs: (args, kwargs),
+                  load_model=lambda *args, **kwargs: (args, kwargs),
+                  generate_outputs=lambda *args, **kwargs: [["x"]],
                   get_cosine_schedule_with_warmup=fake_scheduler,
               )
               optim = SimpleNamespace(AdamW=lambda *args, **kwargs: (args, kwargs))
@@ -278,10 +272,9 @@ jobs:
                   assert int(value["training"]["steps"]) == 1200
                   assert int(value["training"]["eval_every"]) == 100
 
-              paper_common = SimpleNamespace(validate_grid_config=strict_validator)
               modules = {
                   "arena": arena,
-                  "paper_common": paper_common,
+                  "paper_common": SimpleNamespace(validate_grid_config=strict_validator),
                   "scan_common": SimpleNamespace(validate_grid_config=strict_validator),
                   "scan_runtime": SimpleNamespace(validate_grid_config=strict_validator),
                   "scan_trainer": SimpleNamespace(
@@ -299,12 +292,10 @@ jobs:
                   arena.get_cosine_schedule_with_warmup("optimizer", 1, 1200)
               assert observed == {"warmup": 0, "training": 1200}
               assert arena.get_cosine_schedule_with_warmup is original_scheduler
-          '''
-          additions = additions.replace("          ", "")
-          if "def test_generic_coldstart_rejects_p0_experiment_id_collision" in tests:
-              raise SystemExit("correctness regression tests already present")
+          ''')
           tests_path.write_text(tests.rstrip() + additions + "\n", encoding="utf-8")
 
+          # #341 owns the ancestry workflow bugfix; #340 returns to the exact base version.
           subprocess.run(
               ["git", "checkout", BASE, "--", ".github/workflows/code-change-budget.yml"],
               check=True,
