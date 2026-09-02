@@ -1,0 +1,329 @@
+name: E8 Final Correctness Repair Once
+
+on:
+  push:
+    branches:
+      - dev/e8-config-driven-sweep-01
+    paths:
+      - .github/workflows/e8-final-correctness-repair-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-config-driven-sweep-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify starting head and approved scope
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "4834c21421567744e2087612c741f537438f87c1"
+          git diff --quiet origin/main -- .github/workflows/code-change-budget.yml
+
+      - name: Apply reviewed correctness repair
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              if text.count(old) != 1:
+                  raise SystemExit(f"{label}: expected exactly one match, found {text.count(old)}")
+              return text.replace(old, new, 1)
+
+          protocol_path = Path("docs/experiments/E8_CONFIG_DRIVEN_SWEEP_REVIEW_FIX_PROTOCOL.md")
+          protocol = protocol_path.read_text(encoding="utf-8")
+          heading = "## 2026-09-02 owner-approved completed-bootstrap freshness and final reuse closure"
+          if heading not in protocol:
+              protocol += """
+
+          ## 2026-09-02 owner-approved completed-bootstrap freshness and final reuse closure
+
+          The repository owner explicitly approved `GOV-E8-COMPLETED-BOOTSTRAP-FRESHNESS-01` after final review of the completed-bootstrap and successful-attempt fast paths. This section is engineering-only and changes no scientific variable, historical config, canonical paper loss/trainer, metric, result status, or method ranking.
+
+          - Every E8 bootstrap invocation, including a bootstrap whose prior state is `status=complete`, must freshly resolve the configured `E8_COLDSTART_TARGET_REF` from the canonical GitHub origin before execution identity or successful-attempt reuse is allowed. If the authoritative ref no longer equals the isolated checkout commit, the old checkout/attempt/artifact is preserved and the invocation fails closed as stale; it must not silently switch commits or reuse the old success.
+          - `guarded_full()` must execute the already-approved source check before runtime reuse or completed-attempt reuse. The formal fast path must also honor the already-existing `origin/main` requirement at invocation time; this is not a new long-run requirement that `origin/main` remain frozen after a formal guard has launched.
+          - Completed-attempt reuse must bind both the live workload manifests and the returned guarded ZIP to the current source commit, experiment ID, and config hash. General package self-consistency alone is insufficient for the fast path because a valid old evidence ZIP may coexist with newer live files.
+          - Shared runtime setup/self-test setup is serialized with the already-required `flock` facility before writing the common venv/model runtime, so different Run IDs cannot race while constructing the same shared runtime. Per-run experiment/recovery locking remains unchanged.
+          - Cold-start matrix self-consistency includes the already-approved zero-cell rejection and consistency between declared `execution.expected_waves` and the configured expanded matrix/capacity. This implements existing config-authority semantics; it does not add a scientific-parameter lock.
+          - The broader liquidated stale-recovery execution-identity gate remains excluded. This repair does not add model-snapshot hashes, dependency/runtime fingerprints, backend/run-class fingerprints, closed-world schema, or expanded recovery-import eligibility checks.
+          """
+          protocol_path.write_text(protocol, encoding="utf-8")
+
+          bootstrap_path = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh")
+          bootstrap = bootstrap_path.read_text(encoding="utf-8")
+          old = '''CURRENT_STAGE="fetch_authoritative_ref"\nif [[ "${BOOTSTRAP_WAS_COMPLETE}" -eq 1 ]]; then\n  TARGET_COMMIT="$(git -C "${CHECKOUT}" rev-parse HEAD)"\nelse\n  git -C "${SOURCE_REPO}" fetch --no-tags --force "${SOURCE_REMOTE}" \\\n    "${TARGET_REF}:${LOCAL_FETCH_REF}"\n  TARGET_COMMIT="$(git -C "${SOURCE_REPO}" rev-parse "${LOCAL_FETCH_REF}^{commit}")"\n  [[ "${TARGET_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "resolved commit is not a full SHA"\n\n  REMOTE_COMMIT="$(\n    git -C "${SOURCE_REPO}" ls-remote "${SOURCE_REMOTE}" "${TARGET_REF}" |\n      awk -v ref="${TARGET_REF}" '$2 == ref {print $1}'\n  )"\n  [[ "${REMOTE_COMMIT}" == "${TARGET_COMMIT}" ]] || \\\n    fail "fetch/authoritative-ref mismatch for ${TARGET_REF}"\nfi\n'''
+          new = '''CURRENT_STAGE="fetch_authoritative_ref"\ngit -C "${SOURCE_REPO}" fetch --no-tags --force "${SOURCE_REMOTE}" \\\n  "${TARGET_REF}:${LOCAL_FETCH_REF}"\nTARGET_COMMIT="$(git -C "${SOURCE_REPO}" rev-parse "${LOCAL_FETCH_REF}^{commit}")"\n[[ "${TARGET_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "resolved commit is not a full SHA"\n\nREMOTE_COMMIT="$(\n  git -C "${SOURCE_REPO}" ls-remote "${SOURCE_REMOTE}" "${TARGET_REF}" |\n    awk -v ref="${TARGET_REF}" '$2 == ref {print $1}'\n)"\n[[ "${REMOTE_COMMIT}" == "${TARGET_COMMIT}" ]] || \\\n  fail "fetch/authoritative-ref mismatch for ${TARGET_REF}"\n'''
+          bootstrap = replace_once(bootstrap, old, new, "bootstrap completed-ref bypass")
+          bootstrap_path.write_text(bootstrap, encoding="utf-8")
+
+          tuning_path = Path("src/drpo/e8_multitask_exp_tuning.py")
+          tuning = tuning_path.read_text(encoding="utf-8")
+          old = '''def _successful_attempt_matches_current_identity(\n    config: Mapping[str, Any],\n    workload_root: Path,\n    *,\n    source_commit: str,\n) -> bool:\n    \"\"\"Return whether a completed attempt belongs to the current source/config identity.\"\"\"\n\n    try:\n        provenance = _read_json_object(workload_root / \"source_provenance.json\")\n        prepare = _read_json_object(workload_root / \"prepare_manifest.json\")\n    except (OSError, ValueError, TypeError, json.JSONDecodeError):\n        return False\n    return (\n        provenance.get(\"source_commit\") == source_commit\n        and prepare.get(\"experiment_id\") == experiment_id(config)\n        and prepare.get(\"config_hash\") == stable_config_hash(config)\n    )\n'''
+          new = '''def _successful_attempt_matches_current_identity(\n    config: Mapping[str, Any],\n    workload_root: Path,\n    *,\n    source_commit: str,\n    artifact_path: Path | None = None,\n) -> bool:\n    \"\"\"Return whether live and packaged completed evidence matches this invocation.\"\"\"\n\n    expected_id = experiment_id(config)\n    expected_hash = stable_config_hash(config)\n    try:\n        provenance = _read_json_object(workload_root / \"source_provenance.json\")\n        prepare = _read_json_object(workload_root / \"prepare_manifest.json\")\n        if not (\n            provenance.get(\"source_commit\") == source_commit\n            and prepare.get(\"experiment_id\") == expected_id\n            and prepare.get(\"config_hash\") == expected_hash\n        ):\n            return False\n        if artifact_path is None:\n            return True\n        prefix = f\"results/{expected_id}\"\n        with zipfile.ZipFile(artifact_path) as archive:\n            artifact_manifest = json.loads(archive.read(\"ARTIFACT_MANIFEST.json\"))\n            base_commit = archive.read(\"BASE_COMMIT.txt\").decode(\"utf-8\").strip()\n            run_manifest = json.loads(archive.read(f\"{prefix}/run_manifest.json\"))\n            packaged_provenance = json.loads(\n                archive.read(f\"{prefix}/workload/source_provenance.json\")\n            )\n            packaged_prepare = json.loads(\n                archive.read(f\"{prefix}/workload/prepare_manifest.json\")\n            )\n    except (\n        OSError,\n        ValueError,\n        TypeError,\n        KeyError,\n        UnicodeDecodeError,\n        zipfile.BadZipFile,\n    ):\n        return False\n    return (\n        artifact_manifest.get(\"experiment_id\") == expected_id\n        and artifact_manifest.get(\"base_commit\") == source_commit\n        and base_commit == source_commit\n        and run_manifest.get(\"experiment_id\") == expected_id\n        and run_manifest.get(\"base_commit\") == source_commit\n        and packaged_provenance.get(\"source_commit\") == source_commit\n        and packaged_prepare.get(\"experiment_id\") == expected_id\n        and packaged_prepare.get(\"config_hash\") == expected_hash\n    )\n'''
+          tuning = replace_once(tuning, old, new, "successful evidence helper")
+          tuning_path.write_text(tuning, encoding="utf-8")
+
+          config_path = Path("src/drpo/e8_experiment_config.py")
+          config = config_path.read_text(encoding="utf-8")
+          old = '''    expected = _integer(sweep.get("expected_cells"), "sweep.expected_cells")\n    if expected != expanded:\n        raise ValueError("sweep.expected_cells must match the expanded scientific matrix")\n'''
+          new = '''    expected = _integer(sweep.get("expected_cells"), "sweep.expected_cells")\n    if expected != expanded:\n        raise ValueError("sweep.expected_cells must match the expanded scientific matrix")\n    if expected == 0:\n        raise ValueError("Cold-start sweep must contain at least one scientific cell")\n'''
+          config = replace_once(config, old, new, "zero-cell matrix validation")
+          old = '''    execution = _mapping(config.get("execution"), "execution")\n    if _integer(execution.get("max_concurrent_cells"), "execution.max_concurrent_cells") != 16:\n        raise ValueError("Cold-start scheduler currently implements exactly 16 slots")\n'''
+          new = '''    execution = _mapping(config.get("execution"), "execution")\n    capacity = _integer(\n        execution.get("max_concurrent_cells"), "execution.max_concurrent_cells"\n    )\n    if capacity != 16:\n        raise ValueError("Cold-start scheduler currently implements exactly 16 slots")\n    expected_waves = _integer(execution.get("expected_waves"), "execution.expected_waves", positive=True)\n    configured_cells = _integer(config["sweep"].get("expected_cells"), "sweep.expected_cells")\n    required_waves = math.ceil(configured_cells / capacity)\n    if expected_waves != required_waves:\n        raise ValueError("execution.expected_waves must match the expanded matrix and capacity")\n'''
+          config = replace_once(config, old, new, "expected wave consistency")
+          config_path.write_text(config, encoding="utf-8")
+
+          runner_path = Path("scripts/run_e8_multitask_exp_coldstart.sh")
+          runner = runner_path.read_text(encoding="utf-8")
+          old = '''  git -C "${ROOT_DIR}" cat-file -e "${EXPECTED_COMMIT}:${CONFIG_REPO_PATH}" 2>/dev/null || \\\n    fail "runtime config is unavailable at launch commit ${EXPECTED_COMMIT}: ${CONFIG_REPO_PATH}"\n}\n\nactivate_runtime() {\n'''
+          new = '''  git -C "${ROOT_DIR}" cat-file -e "${EXPECTED_COMMIT}:${CONFIG_REPO_PATH}" 2>/dev/null || \\\n    fail "runtime config is unavailable at launch commit ${EXPECTED_COMMIT}: ${CONFIG_REPO_PATH}"\n}\n\ncheck_authoritative_main_at_invocation() {\n  [[ "${RUN_CLASS}" == "formal" && "${REQUIRE_ORIGIN_MAIN}" == "1" ]] || return 0\n  local remote_commit\n  remote_commit="$(\n    git -C "${ROOT_DIR}" ls-remote origin refs/heads/main |\n      awk '$2 == "refs/heads/main" {print $1}'\n  )"\n  [[ "${remote_commit}" =~ ^[0-9a-f]{40}$ ]] || \\\n    fail "could not resolve authoritative origin/main for formal invocation"\n  [[ "${remote_commit}" == "${EXPECTED_COMMIT}" ]] || \\\n    fail "formal invocation is stale: expected ${EXPECTED_COMMIT}, origin/main is ${remote_commit}"\n}\n\nruntime_setup_lock() {\n  command -v flock >/dev/null || fail "flock is required for shared runtime setup safety"\n  mkdir -p "${RUNTIME_ROOT}"\n  exec 7>"${RUNTIME_ROOT}/setup.lock"\n  flock 7\n}\n\nruntime_setup_unlock() {\n  flock -u 7\n  exec 7>&-\n}\n\nactivate_runtime() {\n'''
+          runner = replace_once(runner, old, new, "source/freshness helpers")
+
+          start = runner.index("\nensure_setup() {\n")
+          end = runner.index("\nself_test_setup() {\n", start)
+          ensure = runner[start:end]
+          old_ensure = '''\nensure_setup() {\n  if [[ -x "${VENV_DIR}/bin/python" ]] &&\n     "${VENV_DIR}/bin/python" -c 'import numpy, yaml' >/dev/null 2>&1; then\n    config_preflight\n  fi\n  if runtime_ready; then\n    echo "Reusing verified runtime and pinned model at ${RUNTIME_ROOT}"\n  else\n    setup\n  fi\n}\n'''
+          new_ensure = '''\nensure_setup() {\n  runtime_setup_lock\n  if [[ -x "${VENV_DIR}/bin/python" ]] &&\n     "${VENV_DIR}/bin/python" -c 'import numpy, yaml' >/dev/null 2>&1; then\n    config_preflight\n  fi\n  if runtime_ready; then\n    echo "Reusing verified runtime and pinned model at ${RUNTIME_ROOT}"\n  else\n    setup\n  fi\n  runtime_setup_unlock\n}\n'''
+          if ensure != old_ensure:
+              raise SystemExit("ensure_setup body drifted")
+          runner = runner[:start] + new_ensure + runner[end:]
+
+          start = runner.index("\nself_test_setup() {\n")
+          end = runner.index("\nattempt_number() {\n", start)
+          selftest = runner[start:end]
+          selftest = replace_once(
+              selftest,
+              '''\nself_test_setup() {\n  check_source\n''',
+              '''\nself_test_setup() {\n  check_source\n  runtime_setup_lock\n''',
+              "self-test setup lock start",
+          )
+          selftest = replace_once(
+              selftest,
+              '''  fi\n}\n''',
+              '''  fi\n  runtime_setup_unlock\n}\n''',
+              "self-test setup lock end",
+          )
+          runner = runner[:start] + selftest + runner[end:]
+
+          old = '''  python - "${latest}/workload" "${CONFIG_PATH}" "${EXPECTED_COMMIT}" "${MODE}" <<'PY_REUSE' >/dev/null || return 1\n'''
+          new = '''  python - "${latest}/workload" "${CONFIG_PATH}" "${EXPECTED_COMMIT}" "${MODE}" "${artifact}" <<'PY_REUSE' >/dev/null || return 1\n'''
+          runner = replace_once(runner, old, new, "successful artifact argument")
+          old = '''    if _successful_attempt_matches_current_identity(\n        config, workload_root, source_commit=sys.argv[3]\n    )\n'''
+          new = '''    if _successful_attempt_matches_current_identity(\n        config,\n        workload_root,\n        source_commit=sys.argv[3],\n        artifact_path=Path(sys.argv[5]),\n    )\n'''
+          runner = replace_once(runner, old, new, "successful artifact identity call")
+
+          old = '''guarded_full() {\n  ensure_setup\n  command -v flock >/dev/null || fail "flock is required for single-writer recovery safety"\n'''
+          new = '''guarded_full() {\n  check_source\n  check_authoritative_main_at_invocation\n  ensure_setup\n  command -v flock >/dev/null || fail "flock is required for single-writer recovery safety"\n'''
+          runner = replace_once(runner, old, new, "guarded full source check")
+          runner_path.write_text(runner, encoding="utf-8")
+
+          test_path = Path("tests/test_e8_multitask_p0.py")
+          tests = test_path.read_text(encoding="utf-8")
+          marker = "def test_final_review_correctness_closure"
+          if marker not in tests:
+              tests += r'''
+
+
+def test_final_review_correctness_closure(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    source_commit = "a" * 40
+    workload = tmp_path / "workload"
+    p0.atomic_json(workload / "source_provenance.json", {"source_commit": source_commit})
+    p0.atomic_json(
+        workload / "prepare_manifest.json",
+        {
+            "experiment_id": exp_tuning.experiment_id(config),
+            "config_hash": exp_tuning.stable_config_hash(config),
+        },
+    )
+    artifact = tmp_path / "guarded.zip"
+    prefix = f"results/{exp_tuning.experiment_id(config)}"
+
+    def write_artifact(*, packaged_source: str, packaged_hash: str) -> None:
+        with zipfile.ZipFile(artifact, "w") as archive:
+            archive.writestr(
+                "ARTIFACT_MANIFEST.json",
+                json.dumps(
+                    {
+                        "experiment_id": exp_tuning.experiment_id(config),
+                        "base_commit": source_commit,
+                    }
+                ),
+            )
+            archive.writestr("BASE_COMMIT.txt", source_commit + "\n")
+            archive.writestr(
+                f"{prefix}/run_manifest.json",
+                json.dumps(
+                    {
+                        "experiment_id": exp_tuning.experiment_id(config),
+                        "base_commit": source_commit,
+                    }
+                ),
+            )
+            archive.writestr(
+                f"{prefix}/workload/source_provenance.json",
+                json.dumps({"source_commit": packaged_source}),
+            )
+            archive.writestr(
+                f"{prefix}/workload/prepare_manifest.json",
+                json.dumps(
+                    {
+                        "experiment_id": exp_tuning.experiment_id(config),
+                        "config_hash": packaged_hash,
+                    }
+                ),
+            )
+
+    write_artifact(
+        packaged_source=source_commit,
+        packaged_hash=exp_tuning.stable_config_hash(config),
+    )
+    assert exp_tuning._successful_attempt_matches_current_identity(
+        config,
+        workload,
+        source_commit=source_commit,
+        artifact_path=artifact,
+    )
+    write_artifact(
+        packaged_source=source_commit,
+        packaged_hash="0" * 64,
+    )
+    assert not exp_tuning._successful_attempt_matches_current_identity(
+        config,
+        workload,
+        source_commit=source_commit,
+        artifact_path=artifact,
+    )
+    write_artifact(
+        packaged_source="b" * 40,
+        packaged_hash=exp_tuning.stable_config_hash(config),
+    )
+    assert not exp_tuning._successful_attempt_matches_current_identity(
+        config,
+        workload,
+        source_commit=source_commit,
+        artifact_path=artifact,
+    )
+
+    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    guarded = runner.split("\nguarded_full() {\n", 1)[1].split("\ncase \"${MODE}\" in\n", 1)[0]
+    assert guarded.index("check_source") < guarded.index("ensure_setup")
+    assert guarded.index("check_authoritative_main_at_invocation") < guarded.index(
+        "reuse_successful_attempt"
+    )
+    assert 'ls-remote origin refs/heads/main' in runner
+    assert 'artifact_path=Path(sys.argv[5])' in runner
+
+    ensure = runner.split("\nensure_setup() {\n", 1)[1].split("\nself_test_setup() {\n", 1)[0]
+    assert ensure.index("runtime_setup_lock") < ensure.index("runtime_ready")
+    assert ensure.index("runtime_setup_unlock") > ensure.index("runtime_ready")
+    selftest = runner.split("\nself_test_setup() {\n", 1)[1].split("\nattempt_number() {\n", 1)[0]
+    assert selftest.index("runtime_setup_lock") < selftest.index("python3 -m venv")
+    assert selftest.index("runtime_setup_unlock") > selftest.index("python3 -m venv")
+
+    bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(
+        encoding="utf-8"
+    )
+    fetch_section = bootstrap.split('CURRENT_STAGE="fetch_authoritative_ref"', 1)[1].split(
+        'CURRENT_STAGE="verify_full_source_identity"', 1
+    )[0]
+    assert 'BOOTSTRAP_WAS_COMPLETE' not in fetch_section
+    assert 'fetch --no-tags --force' in fetch_section
+    assert 'ls-remote "${SOURCE_REMOTE}" "${TARGET_REF}"' in fetch_section
+
+
+def test_coldstart_zero_cell_and_expected_wave_consistency() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-ZERO-CELL-TEST"
+    for task in config["sweep"]["task_lambda"]:
+        config["sweep"]["task_lambda"][task] = []
+    config["sweep"]["countdown_seed_offsets"] = []
+    config["sweep"]["transfer_positive_only_seed_offsets"] = []
+    config["sweep"]["expected_cells"] = 0
+    config["execution"]["expected_waves"] = 1
+    with pytest.raises(ValueError, match="at least one scientific cell"):
+        exp_tuning.validate_config(config)
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-WAVE-CONSISTENCY-TEST"
+    config["execution"]["expected_waves"] += 1
+    with pytest.raises(ValueError, match="expected_waves"):
+        exp_tuning.validate_config(config)
+'''
+          test_path.write_text(tests, encoding="utf-8")
+          PY
+
+      - name: Install test dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check -e '.[dev]'
+
+      - name: Validate focused and repository-wide after-image
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            src/drpo/e8_experiment_config.py \
+            src/drpo/e8_multitask_exp_tuning.py \
+            scripts/preflight_e8_multitask_config.py \
+            tests/test_e8_multitask_p0.py
+          python -m ruff check \
+            src/drpo/e8_experiment_config.py \
+            src/drpo/e8_multitask_exp_tuning.py \
+            scripts/preflight_e8_multitask_config.py \
+            tests/test_e8_multitask_p0.py
+          bash -n scripts/run_e8_multitask_exp_coldstart.sh
+          bash -n scripts/bootstrap_e8_multitask_exp_coldstart.sh
+          bash -n scripts/run_e8_multitask_exp_lambda_completion.sh
+          python scripts/preflight_e8_multitask_config.py \
+            --config configs/e8_multitask_exp_coldstart.yaml >/tmp/preflight-coldstart.json
+          python scripts/preflight_e8_multitask_config.py \
+            --config configs/e8_multitask_exp_lambda_completion.yaml >/tmp/preflight-completion.json
+          python scripts/preflight_e8_multitask_config.py \
+            --config configs/e8_multitask_exp_lambda_curve_completion.yaml >/tmp/preflight-curve.json
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          python -m pytest -q \
+            tests/test_experiment_artifact_protocol.py \
+            tests/test_experiment_artifact_hardening.py
+          python -m pytest -q
+          git diff --check
+          git diff --quiet origin/main -- .github/workflows/code-change-budget.yml
+
+      - name: Commit validated after-image and remove temporary artifacts
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/e8-final-correctness-repair-once.yml
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add \
+            docs/experiments/E8_CONFIG_DRIVEN_SWEEP_REVIEW_FIX_PROTOCOL.md \
+            scripts/bootstrap_e8_multitask_exp_coldstart.sh \
+            scripts/run_e8_multitask_exp_coldstart.sh \
+            src/drpo/e8_experiment_config.py \
+            src/drpo/e8_multitask_exp_tuning.py \
+            tests/test_e8_multitask_p0.py
+          git commit -m "fix(e8): close bootstrap and successful-reuse identity gaps"
+          git push origin HEAD:dev/e8-config-driven-sweep-01
+          git push origin --delete tmp-noop tmp-e8-fix-stage tmp-cleanup-test tmp-cleanup-test-2 tmp-cleanup-test-3 || true
