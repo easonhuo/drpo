@@ -185,7 +185,7 @@ jobs:
           config_path.write_text(text, encoding="utf-8")
 
           preflight_path = Path("scripts/preflight_e8_multitask_config.py")
-          text = preflight_path.read_text(encoding="utf-8").replace("\nimport yaml\n", "\n", 1)
+          text = preflight_path.read_text(encoding="utf-8").replace("\nimport yaml\n\n", "\n", 1)
           start = text.index("def build_summary(")
           end = text.index("\n\ndef main()", start)
           block = text[start:end]
