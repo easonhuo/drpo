@@ -1,0 +1,36 @@
+name: E8 Restore Validated Protocol Once
+
+on:
+  push:
+    branches:
+      - dev/e8-config-driven-sweep-01
+    paths:
+      - .github/workflows/e8-restore-validated-protocol-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-config-driven-sweep-01
+          fetch-depth: 0
+
+      - name: Restore exact validated after-image and self-delete
+        run: |
+          set -euo pipefail
+          VALIDATED=fcb64913adb3b28380f0b7803b9f9dcda8fdf358
+          test "$(git rev-parse HEAD^)" = "28d81f4b41df408db241c8923d15f53f95213298"
+          git checkout "$VALIDATED" -- docs/experiments/E8_CONFIG_DRIVEN_SWEEP_REVIEW_FIX_PROTOCOL.md
+          test "$(git hash-object docs/experiments/E8_CONFIG_DRIVEN_SWEEP_REVIEW_FIX_PROTOCOL.md)" = "ec7b5146ccde040d6d3b788abeb43bd985e7b77a"
+          rm .github/workflows/e8-restore-validated-protocol-once.yml
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(e8): restore validated protocol after metadata sync error"
+          git diff --quiet "$VALIDATED" HEAD
+          git push origin HEAD:dev/e8-config-driven-sweep-01
