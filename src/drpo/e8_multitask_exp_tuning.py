@@ -148,9 +148,6 @@ PAPER_EXTENSION_COEFFICIENTS = (
 )
 TASK_TRANSFER_COEFFICIENTS = PAPER_ROUND1_COEFFICIENTS + PAPER_EXTENSION_COEFFICIENTS[3:]
 PAPER_SEED_OFFSETS = (4000, 5000)
-COUNTDOWN_LIVENESS_COEFFICIENT = 0.693147181
-COUNTDOWN_LIVENESS_SEED_OFFSET = 4000
-EXECUTION_IDENTITY_ENV = "E8_COLDSTART_EXECUTION_IDENTITY_PATH"
 
 
 @dataclass(frozen=True)
@@ -199,23 +196,15 @@ class RowDataset(Dataset):
 
 
 def load_config(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
-    """Load one externally selected, repository-tracked E8 config fail-closed."""
-
+    source = Path(path)
     repo_root = Path(__file__).resolve().parents[2]
-    source, _, _ = experiment_config.require_tracked_config(path, repo_root)
-    value = experiment_config.load_strict_yaml(source)
+    if not source.is_absolute():
+        source = repo_root / source
+    value = yaml.safe_load(source.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise TypeError("Configuration root must be a mapping")
     validate_config(value)
     experiment_config.validate_historical_config_identity(source, value, repo_root=repo_root)
-    return value
-
-
-def _load_internal_config(path: str | Path) -> dict[str, Any]:
-    """Load one runtime-generated internal config through the same strict validator."""
-
-    value = experiment_config.load_strict_yaml(path)
-    validate_config(value)
-    if not experiment_config.is_engineering_self_test_config(value):
-        raise ValueError("internal E8 config loading is restricted to engineering self-test configs")
     return value
 
 
@@ -454,116 +443,6 @@ def coefficient_from_rho(rho: float) -> float:
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
-
-
-def effective_execution_config_hash(config: Mapping[str, Any]) -> str:
-    """Hash the resolved cell/runtime plan that the cold-start runner will consume."""
-
-    cells = build_cells(config)
-    active_tasks = sorted({cell.task for cell in cells})
-    runtime = (
-        {
-            task: experiment_config.effective_coldstart_runtime(config, task)
-            for task in active_tasks
-        }
-        if _is_coldstart(config)
-        else {}
-    )
-    matrix = [
-        {
-            "cell_key": cell.key,
-            "task": cell.task,
-            "method": cell.method,
-            "rho": cell.rho,
-            "lambda": cell.lambda_value,
-            "seed": cell.seed,
-            "stage": cell.stage,
-        }
-        for cell in cells
-    ]
-    return stable_hash(
-        {
-            "semantic_config_hash": stable_config_hash(config),
-            "active_tasks": active_tasks,
-            "effective_runtime": runtime,
-            "matrix": matrix,
-        }
-    )
-
-
-def _execution_identity_payload(*, required: bool = False) -> dict[str, Any] | None:
-    value = os.environ.get(EXECUTION_IDENTITY_ENV, "").strip()
-    if not value:
-        if required:
-            raise RuntimeError(f"{EXECUTION_IDENTITY_ENV} is required for cold-start execution")
-        return None
-    path = Path(value).resolve()
-    if not path.is_file():
-        raise FileNotFoundError(f"Execution identity file is missing: {path}")
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        raise TypeError("Execution identity root must be a mapping")
-    recorded = str(payload.get("execution_identity_hash", ""))
-    unhashed = {key: item for key, item in payload.items() if key != "execution_identity_hash"}
-    if len(recorded) != 64 or stable_hash(unhashed) != recorded:
-        raise RuntimeError("Execution identity hash is missing or corrupt")
-    return payload
-
-
-def _execution_identity_hash(*, required: bool = False) -> str | None:
-    payload = _execution_identity_payload(required=required)
-    return None if payload is None else str(payload["execution_identity_hash"])
-
-
-def _validate_launch_execution_identity(
-    config_path: Path,
-    config: Mapping[str, Any],
-    *,
-    command: str,
-) -> dict[str, Any]:
-    """Bind direct Python execution to the runner-materialized reviewed identity."""
-
-    payload = _execution_identity_payload(required=True)
-    assert payload is not None
-    resolved, relative, blob = experiment_config.require_tracked_config(config_path, _repo_root())
-    del resolved
-    reviewed = payload.get("reviewed_config")
-    if not isinstance(reviewed, Mapping):
-        raise RuntimeError("Execution identity reviewed_config is malformed")
-    source_commit = subprocess.check_output(
-        ["git", "rev-parse", "HEAD^{commit}"], cwd=_repo_root(), text=True
-    ).strip()
-    expected = {
-        "experiment_id": experiment_id(config),
-        "repo_path": relative,
-        "git_blob_sha": blob,
-        "semantic_config_hash": stable_config_hash(config),
-        "effective_config_hash": effective_execution_config_hash(config),
-        "source_commit": source_commit,
-    }
-    observed = {
-        "experiment_id": payload.get("experiment_id"),
-        "repo_path": reviewed.get("repo_path"),
-        "git_blob_sha": reviewed.get("git_blob_sha"),
-        "semantic_config_hash": reviewed.get("semantic_config_hash"),
-        "effective_config_hash": payload.get("effective_config_hash"),
-        "source_commit": payload.get("source_commit"),
-    }
-    if observed != expected:
-        raise RuntimeError("Execution identity does not match the selected tracked config/source")
-    backend = payload.get("backend")
-    if backend == "engineering_placeholder":
-        allowed = {"engineering-self-test", "import-recovery", "recovery-plan"}
-        if command not in allowed:
-            raise RuntimeError(
-                f"engineering-placeholder identity may not execute scientific command {command}"
-            )
-    elif backend == "real_canonical":
-        if command == "engineering-self-test":
-            raise RuntimeError("real-canonical identity may not satisfy engineering self-test")
-    else:
-        raise RuntimeError(f"Unsupported execution identity backend: {backend}")
-    return payload
 
 
 def _canonical_paths(config: Mapping[str, Any]) -> dict[str, Path]:
@@ -3733,7 +3612,6 @@ def _cell_identity(
         "schema_version": 1,
         "experiment_id": experiment_id(config),
         "config_hash": stable_config_hash(config),
-        "execution_identity_hash": _execution_identity_hash(required=False),
         "cell": {
             "task": cell.task,
             "method": cell.method,
@@ -4714,18 +4592,6 @@ def _canonical_liveness_base_config(config: Mapping[str, Any], output_root: Path
     return path
 
 
-def _canonical_cold_liveness_cell() -> Cell:
-    coefficient = COUNTDOWN_LIVENESS_COEFFICIENT
-    return Cell(
-        "countdown",
-        METHOD_EXPONENTIAL,
-        math.exp(-coefficient),
-        COUNTDOWN_LIVENESS_SEED_OFFSET,
-        "liveness",
-        coefficient,
-    )
-
-
 def _cmd_canonical_cold_liveness(
     config: Mapping[str, Any],
     config_path: Path,
@@ -4737,20 +4603,10 @@ def _cmd_canonical_cold_liveness(
     base_model_path: str,
     force: bool,
 ) -> dict[str, Any]:
-    expected_cell = _canonical_cold_liveness_cell()
-    if cell != expected_cell:
-        raise RuntimeError(
-            "Canonical paper-runtime liveness must use the locked c=0.693147181, seed=4000 identity"
-        )
+    if cell.task != "countdown":
+        raise RuntimeError("The paper-runtime liveness anchor must be Countdown")
     modules = _canonical_cold_modules(config)
     runtime = modules["paper_runtime"]
-    paper_common = modules["paper_common"]
-    expected_paper_cell = paper_common.Cell(
-        alpha=1.0,
-        coefficient=COUNTDOWN_LIVENESS_COEFFICIENT,
-        seed_offset=COUNTDOWN_LIVENESS_SEED_OFFSET,
-        family="exponential",
-    )
     record = _canonical_task_record(splits, cell.task)
     grid_path = Path(str(record["round1_grid"]))
     smoke_root = output_root / "liveness" / "paper_runtime_smoke"
@@ -4767,14 +4623,8 @@ def _cmd_canonical_cold_liveness(
         )
     )
     gate = json.loads((smoke_root / "SMOKE_GATE.json").read_text(encoding="utf-8"))
-    if (
-        int(returncode) != 0
-        or gate.get("status") != "PASS"
-        or gate.get("cell") != expected_paper_cell.name
-    ):
-        raise RuntimeError(
-            "Paper-runtime two-update smoke gate failed or returned the wrong locked cell identity"
-        )
+    if int(returncode) != 0 or gate.get("status") != "PASS":
+        raise RuntimeError("Paper-runtime two-update smoke gate failed")
     summary_path = Path(str(gate["summary"]))
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     diagnostics_path = Path(str(summary["diagnostic_files"]["training"]))
@@ -4887,30 +4737,6 @@ def cmd_liveness(
 ) -> dict[str, Any]:
     if task not in config["suite"]["tasks"]:
         raise ValueError(f"Unknown liveness task: {task}")
-    if _is_coldstart(config):
-        cell = _canonical_cold_liveness_cell()
-        if (
-            task != cell.task
-            or cell.rho is None
-            or not math.isclose(rho, cell.rho, rel_tol=0.0, abs_tol=1.0e-15)
-        ):
-            raise ValueError("Cold-start liveness is fixed to Countdown c=0.693147181, seed=4000")
-        splits, inputs = _load_ready_inputs(
-            output_root,
-            config,
-            base_model_path=base_model_path,
-        )
-        return _cmd_canonical_cold_liveness(
-            config,
-            config_path,
-            output_root,
-            cell=cell,
-            inputs=inputs[cell.task],
-            splits=splits,
-            base_model_path=base_model_path,
-            force=force,
-        )
-
     if rho not in _task_rhos(config, task):
         raise ValueError("Liveness rho must be one frozen grid point")
     splits, inputs = _load_ready_inputs(
@@ -4933,6 +4759,17 @@ def cmd_liveness(
         "liveness",
         lambda_value,
     )
+    if _is_coldstart(config):
+        return _cmd_canonical_cold_liveness(
+            config,
+            config_path,
+            output_root,
+            cell=cell,
+            inputs=inputs[task],
+            splits=splits,
+            base_model_path=base_model_path,
+            force=force,
+        )
     result = train_cell(
         cell,
         inputs=inputs[task],
@@ -4994,12 +4831,24 @@ def cmd_liveness(
     if not math.isfinite(raw_gradient_norm) or raw_gradient_norm <= 0.0:
         raise RuntimeError("Liveness raw gradient norm is not finite and positive")
 
-    terminal_hash = sha256_file(_adapter_weight_file(Path(result["terminal_adapter"])))
-    reference_adapter = inputs[task].reference_adapter
-    if reference_adapter is None:
-        raise RuntimeError("Liveness reference adapter is missing")
-    reference_hash = sha256_file(_adapter_weight_file(reference_adapter))
-    if reference_hash == terminal_hash:
+    def adapter_weight_file(adapter_root: Path) -> Path:
+        for name in ("adapter_model.safetensors", "adapter_model.bin"):
+            candidate = adapter_root / name
+            if candidate.is_file():
+                return candidate
+        raise FileNotFoundError(f"Adapter weight file is missing: {adapter_root}")
+
+    terminal_hash = sha256_file(adapter_weight_file(Path(result["terminal_adapter"])))
+    if _is_coldstart(config):
+        reference_hash = str(result["initialization_state_sha256"])
+        changed = reference_hash != str(result["terminal_trainable_state_sha256"])
+    else:
+        reference_adapter = inputs[task].reference_adapter
+        if reference_adapter is None:
+            raise RuntimeError("Liveness reference adapter is missing")
+        reference_hash = sha256_file(adapter_weight_file(reference_adapter))
+        changed = reference_hash != terminal_hash
+    if not changed:
         raise RuntimeError("Liveness adapter weights did not change after two updates")
     result.update(
         {
@@ -5038,7 +4887,7 @@ def _effective_recovery_config(
 ) -> dict[str, Any]:
     engineering_config = output_root / "engineering_self_test_config.yaml"
     if engineering_config.is_file():
-        recovered = _load_internal_config(engineering_config)
+        recovered = load_config(engineering_config)
         if not _is_engineering_self_test(recovered):
             raise RuntimeError("Recovery engineering config is not a placeholder config")
         return recovered
@@ -5053,7 +4902,6 @@ def _reusable_cell_manifests(
     rejected: dict[str, str] = {}
     expected_hash = stable_config_hash(config)
     expected_id = experiment_id(config)
-    expected_execution = _execution_identity_hash(required=False)
     for cell in build_cells(config):
         manifest_path = output_root / "cells" / cell.key / "cell_manifest.json"
         if not manifest_path.is_file():
@@ -5064,10 +4912,6 @@ def _reusable_cell_manifests(
             if (
                 value.get("experiment_id") != expected_id
                 or value.get("config_hash") != expected_hash
-                or (
-                    expected_execution is not None
-                    and value.get("execution_identity_hash") != expected_execution
-                )
                 or value.get("complete") is not True
                 or value.get("evaluation_status") != "complete"
                 or value.get("nan_inf_failure") is not False
@@ -5111,21 +4955,10 @@ def _recovery_stage_plan(
     base_model_path: str,
 ) -> dict[str, Any]:
     config = _effective_recovery_config(config, output_root)
-    execution_hash = _execution_identity_hash(required=False)
-    identity_error: str | None = None
-    if execution_hash is not None:
-        try:
-            provenance = _read_json_object(output_root / "source_provenance.json")
-            if provenance.get("execution_identity_hash") != execution_hash:
-                raise RuntimeError("source provenance execution identity mismatch")
-        except Exception as exc:
-            identity_error = f"{type(exc).__name__}: {exc}"
     prepare_error: str | None = None
     calibration_error: str | None = None
     liveness_error: str | None = None
     try:
-        if identity_error is not None:
-            raise RuntimeError(identity_error)
         _load_prepared(output_root, config)
         prepare_complete = True
     except Exception as exc:  # The plan records the exact fail-closed reason.
@@ -5199,7 +5032,6 @@ def _recovery_stage_plan(
         "schema_version": RECOVERY_SNAPSHOT_SCHEMA_VERSION,
         "experiment_id": experiment_id(config),
         "config_hash": stable_config_hash(config),
-        "execution_identity_hash": execution_hash,
         "output_root": str(output_root.resolve()),
         "prepare_complete": prepare_complete,
         "prepare_error": prepare_error,
@@ -5279,12 +5111,6 @@ def cmd_import_recovery(
     provenance = _read_json_object(source_output_root / "source_provenance.json")
     if provenance.get("source_commit") != source_commit:
         raise RuntimeError("Recovery source commit does not match the reviewed execution commit")
-    current_execution = _execution_identity_hash(required=False)
-    if (
-        current_execution is not None
-        and provenance.get("execution_identity_hash") != current_execution
-    ):
-        raise RuntimeError("Recovery source belongs to another execution identity")
     output_root.mkdir(parents=True, exist_ok=True)
     effective = _effective_recovery_config(config, source_output_root)
     source_plan = _recovery_stage_plan(
@@ -5377,7 +5203,6 @@ def cmd_import_recovery(
         "schema_version": RECOVERY_SNAPSHOT_SCHEMA_VERSION,
         "experiment_id": experiment_id(effective),
         "source_commit": source_commit,
-        "execution_identity_hash": current_execution,
         "source_output_root": source_text,
         "destination_output_root": destination_text,
         "source_plan": source_plan,
@@ -5426,7 +5251,6 @@ def _recovery_checkpoint_snapshot(
         "experiment_id": experiment_id(config),
         "base_commit": source_commit,
         "config_hash": stable_config_hash(config),
-        "execution_identity_hash": _execution_identity_hash(required=False),
         "output_root": str(output_root.resolve()),
         "expected_cells": len(build_cells(config)),
         "completed_cells": len(cells),
@@ -5500,14 +5324,7 @@ def _publish_recovery_checkpoint(
         "scripts/run_e8_multitask_exp_coldstart.sh",
         "--source-file",
         "src/drpo/e8_multitask_exp_tuning.py",
-        "--source-file",
-        "src/drpo/e8_experiment_config.py",
-        "--source-file",
-        "scripts/preflight_e8_multitask_config.py",
     ]
-    identity = _execution_identity_payload(required=False)
-    if identity is not None:
-        command.extend(["--source-file", str(identity["reviewed_config"]["repo_path"])])
     if os.environ.get("E8_COLDSTART_RECOVERY_REQUIRE_ORIGIN_MAIN") == "1":
         command.append("--require-origin-main-match")
     completed = subprocess.run(command, text=True, capture_output=True, check=False)
@@ -5766,35 +5583,6 @@ def _require_calibration_gate(
             raise RuntimeError(f"Paper calibration must remain disabled for {task}")
 
 
-def _matches_canonical_cold_liveness_manifest(
-    result: Mapping[str, Any],
-) -> bool:
-    cell = result.get("cell")
-    if not isinstance(cell, Mapping):
-        return False
-    expected = _canonical_cold_liveness_cell()
-    try:
-        rho = float(cell.get("rho"))
-        coefficient = float(cell.get("lambda"))
-    except (TypeError, ValueError):
-        return False
-    return (
-        cell.get("task") == expected.task
-        and cell.get("method") == expected.method
-        and cell.get("seed") == expected.seed
-        and cell.get("stage") == expected.stage
-        and expected.rho is not None
-        and math.isclose(rho, expected.rho, rel_tol=0.0, abs_tol=1.0e-15)
-        and math.isclose(
-            coefficient,
-            COUNTDOWN_LIVENESS_COEFFICIENT,
-            rel_tol=0.0,
-            abs_tol=1.0e-15,
-        )
-        and result.get("canonical_dispatch") == "countdown_e8_alpha1_highc_scan_runtime.smoke"
-    )
-
-
 def _require_liveness_gate(
     config: Mapping[str, Any],
     output_root: Path,
@@ -5823,7 +5611,6 @@ def _require_liveness_gate(
         )
         canonical_cold = (
             _is_coldstart(config)
-            and _matches_canonical_cold_liveness_manifest(result)
             and result.get("canonical_dispatch_verified") is True
             and result.get("finite_old_core_updates") is True
             and math.isfinite(float(result.get("optimizer_update_norm", 0.0)))
@@ -6122,7 +5909,6 @@ def cmd_run_dynamic(
     manifest = {
         "schema_version": 1,
         "experiment_id": experiment_id(config),
-        "execution_identity_hash": _execution_identity_hash(required=False),
         "scheduler": "dynamic_slot_queue",
         "scheduler_run_id": scheduler_run_id,
         "wave_barriers": False,
@@ -6344,7 +6130,6 @@ def _write_coldstart_task_result(
         "config_hash": stable_config_hash(config),
         "run_id": run_id,
         "source_commit": source_commit,
-        "execution_identity_hash": _execution_identity_hash(required=False),
         "task": task,
         "expected_cells": len(rows),
         "cell_count": len(rows),
@@ -6702,7 +6487,6 @@ def _aggregate_coldstart(
         "experiment_id": experiment_id(config),
         "run_id": run_id,
         "source_commit": source_commit,
-        "execution_identity_hash": _execution_identity_hash(required=False),
         "cell_count": len(rows),
         "plot_curve_point_count": len(plot_rows),
         "tasks": summaries,
@@ -6903,9 +6687,6 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
     if len(base_commit) != 40 or any(char not in "0123456789abcdef" for char in base_commit):
         raise RuntimeError("source_provenance.json must contain one full lowercase Git SHA")
     cells = build_cells(config)
-    execution_hash = _execution_identity_hash(required=False)
-    if execution_hash is not None and provenance.get("execution_identity_hash") != execution_hash:
-        raise RuntimeError("Terminal audit source provenance execution identity mismatch")
     missing: list[str] = []
     incomplete: list[str] = []
     nan_inf: list[str] = []
@@ -6951,27 +6732,11 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             if _is_engineering_self_test(config)
             else ("NOT_RUN" if not any(cell.task == "countdown" for cell in cells) else "PASS")
         )
-        aggregate_value = (
-            json.loads(aggregate_path.read_text(encoding="utf-8"))
-            if aggregate_path.is_file()
-            else {}
-        )
-        scheduler_path = output_root / "scheduler" / "dynamic_run.json"
-        scheduler_value = (
-            json.loads(scheduler_path.read_text(encoding="utf-8"))
-            if scheduler_path.is_file()
-            else {}
-        )
-        identity_consistent = execution_hash is None or (
-            aggregate_value.get("execution_identity_hash") == execution_hash
-            and scheduler_value.get("execution_identity_hash") == execution_hash
-        )
         aggregate_complete = (
             aggregate_path.is_file()
-            and (execution_hash is None or scheduler_path.is_file())
-            and int(aggregate_value.get("cell_count", 0)) == len(cells)
+            and int(json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0))
+            == len(cells)
             and reproduction_gate_status == expected_protocol_status
-            and identity_consistent
         )
     all_complete = (
         not missing and not incomplete and not nan_inf and inherited_complete and aggregate_complete
@@ -6980,7 +6745,6 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "schema_version": 1,
         "experiment_id": experiment_id(config),
         "base_commit": base_commit,
-        "execution_identity_hash": execution_hash,
         "expected_cells": len(cells),
         "missing_cells": sorted(set(missing)),
         "incomplete_cells": sorted(set(incomplete)),
@@ -7045,16 +6809,6 @@ def _write_completion_manifests(
     source_commit = str(provenance.get("source_commit", ""))
     if len(source_commit) != 40 or any(char not in "0123456789abcdef" for char in source_commit):
         raise RuntimeError("source_provenance.json must contain one full lowercase Git SHA")
-    execution_hash = _execution_identity_hash(required=False)
-    if execution_hash is not None:
-        for label, value in (
-            ("source_provenance", provenance),
-            ("scheduler", scheduler),
-            ("aggregate", aggregate),
-            ("terminal_audit", audit),
-        ):
-            if value.get("execution_identity_hash") != execution_hash:
-                raise RuntimeError(f"{label} execution identity is not current")
     expected_cells = len(build_cells(config))
     if (
         scheduler.get("experiment_id") != experiment_id(config)
@@ -7072,7 +6826,6 @@ def _write_completion_manifests(
         "run_id": str(provenance.get("run_id", output_root.name)),
         "source_commit": source_commit,
         "config_hash": stable_config_hash(config),
-        "execution_identity_hash": execution_hash,
         "expected_cells": expected_cells,
         "completed_cells": expected_cells,
         "scheduler": "dynamic_slot_queue",
@@ -7228,7 +6981,6 @@ def cmd_package(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "artifact_kind": (
             "engineering_self_test" if _is_engineering_self_test(config) else "pilot_results"
         ),
-        "execution_identity_hash": _execution_identity_hash(required=False),
         "full_results_zip": str(zip_path.resolve()),
         "full_results_zip_sha256": sha256_file(zip_path),
         "full_results_zip_bytes": zip_path.stat().st_size,
@@ -7262,7 +7014,6 @@ def cmd_finalize(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]
         "experiment_id": experiment_id(config),
         "base_commit": audit["base_commit"],
         "artifact_state": "raw_complete",
-        "execution_identity_hash": _execution_identity_hash(required=False),
         "canonical_archive_owner": "scripts/run_experiment_guard_hardened.py",
         "plot_curve_points_csv": str(plot_path.resolve()),
         "plot_curve_points_csv_sha256": sha256_file(plot_path),
@@ -7446,20 +7197,12 @@ def _write_engineering_gates(
         "liveness_parent_process_id": 1001,
         "reload_process_id": 1002,
         "nan_inf_failure": False,
-        "canonical_dispatch": "countdown_e8_alpha1_highc_scan_runtime.smoke",
         "canonical_dispatch_verified": True,
         "finite_old_core_updates": True,
         "optimizer_update_norm": 1.0,
         "initial_adapter_weight_sha256": "0" * 64,
         "terminal_adapter_weight_sha256": "1" * 64,
-        "cell": {
-            "task": "countdown",
-            "method": METHOD_EXPONENTIAL,
-            "rho": math.exp(-COUNTDOWN_LIVENESS_COEFFICIENT),
-            "lambda": COUNTDOWN_LIVENESS_COEFFICIENT,
-            "seed": COUNTDOWN_LIVENESS_SEED_OFFSET,
-            "stage": "liveness",
-        },
+        "cell": {"task": "countdown"},
         "scientific_status": "not_run",
     }
     atomic_json(output_root / "liveness" / liveness_key / "cell_manifest.json", liveness)
@@ -7536,9 +7279,6 @@ def cmd_engineering_self_test(
     if len(source_commit) != 40 or any(char not in "0123456789abcdef" for char in source_commit):
         raise ValueError("Engineering self-test requires one full lowercase source commit")
     output_root = validate_work_dir(output_root)
-    execution_identity = _execution_identity_payload(required=False)
-    if execution_identity is not None:
-        atomic_json(output_root / "execution_identity.json", execution_identity)
     fresh_run = not (output_root / "prepare_manifest.json").is_file()
     self_test_config = _engineering_self_test_config(config)
     config_path = output_root / "engineering_self_test_config.yaml"
@@ -7565,7 +7305,6 @@ def cmd_engineering_self_test(
                 "schema_version": 1,
                 "run_id": output_root.name,
                 "source_commit": source_commit,
-                "execution_identity_hash": _execution_identity_hash(required=False),
                 "model_repo": "engineering-placeholder-no-model-loaded",
                 "model_revision": "not_applicable",
                 "model_path": str(base_model.resolve()),
@@ -7579,7 +7318,7 @@ def cmd_engineering_self_test(
             base_model_path=str(base_model),
         )
     else:
-        recovered_config = _load_internal_config(config_path)
+        recovered_config = load_config(config_path)
         if recovered_config != self_test_config:
             raise RuntimeError("Engineering recovery config differs from the reviewed config")
         provenance = _read_json_object(output_root / "source_provenance.json")
@@ -7677,7 +7416,6 @@ def cmd_engineering_self_test(
             "experiment_id": experiment_id(self_test_config),
             "config_hash": stable_config_hash(self_test_config),
             "source_commit": source_commit,
-            "execution_identity_hash": _execution_identity_hash(required=False),
             "cell_key": cell.key,
             "validation_best_pass8": score,
             "validation_terminal_pass8": max(0.0, score - 0.005),
@@ -7913,8 +7651,6 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = make_parser().parse_args(argv)
     config_path = Path(args.config).resolve()
     config = load_config(config_path)
-    if _is_coldstart(config) and args.command != "plan":
-        _validate_launch_execution_identity(config_path, config, command=str(args.command))
     output_root = validate_work_dir(args.output_root)
     if args.command == "prepare":
         result = cmd_prepare(
@@ -7971,11 +7707,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         if args.lambda_value is not None:
             rho = math.exp(-float(args.lambda_value))
         if rho is None:
-            rho = (
-                math.exp(-COUNTDOWN_LIVENESS_COEFFICIENT)
-                if _is_coldstart(config)
-                else _task_rhos(config, str(args.task))[0]
-            )
+            rho = _task_rhos(config, str(args.task))[0]
         result = cmd_liveness(
             config,
             config_path,

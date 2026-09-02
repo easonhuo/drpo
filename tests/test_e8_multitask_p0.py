@@ -2089,28 +2089,13 @@ def test_lambda_curve_completion_aggregate_accepts_zero_positive_only(tmp_path: 
     )
 
 
-def _generic_coldstart_test_config():
-    from drpo import e8_multitask_exp_tuning as exp_tuning
-
-    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
-    # Frozen predecessor metadata is not part of the generic reviewed schema.
-    config.pop("historical_curve_anchor", None)
-    sweep = config["sweep"]
-    sweep["countdown_seed_offsets"] = []
-    sweep["countdown_include_positive_only"] = False
-    sweep["include_global_endpoint"] = False
-    sweep["task_lambda"]["countdown"] = []
-    sweep["countdown_sentinel_coefficients"] = []
-    return config
-
-
 def test_new_coldstart_config_controls_materialized_runtime_without_core_edits(
     tmp_path: Path,
 ) -> None:
     from drpo import e8_experiment_config as experiment_config
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    config = _generic_coldstart_test_config()
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
     config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-CONFIG-AUTHORITY-TEST"
     config["training"].update(
         {
@@ -2194,7 +2179,7 @@ def test_legacy_runtime_bridge_forwards_configured_interface_values(tmp_path: Pa
     from drpo import e8_experiment_config as experiment_config
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    config = _generic_coldstart_test_config()
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
     config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-RUNTIME-BRIDGE-TEST"
     config["training"].update(
         {
@@ -2335,15 +2320,8 @@ def test_historical_coldstart_id_requires_canonical_config_identity() -> None:
     copied = Path("configs/.e8_historical_identity_test.yaml")
     copied.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
     try:
-        with pytest.raises(ValueError, match="not Git-tracked"):
-            exp_tuning.load_config(copied)
-        from drpo import e8_experiment_config as experiment_config
-
-        frozen = exp_tuning.load_config(source)
         with pytest.raises(ValueError, match="canonical config path"):
-            experiment_config.validate_historical_config_identity(
-                copied, frozen, repo_root=Path.cwd()
-            )
+            exp_tuning.load_config(copied)
     finally:
         copied.unlink(missing_ok=True)
 
@@ -2351,7 +2329,7 @@ def test_historical_coldstart_id_requires_canonical_config_identity() -> None:
 def test_generic_coldstart_matrix_is_dynamic_but_self_consistent() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    config = _generic_coldstart_test_config()
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
     config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-DYNAMIC-MATRIX-TEST"
     sweep = config["sweep"]
     sweep["include_global_endpoint"] = True
@@ -2382,7 +2360,7 @@ def test_generic_coldstart_matrix_is_dynamic_but_self_consistent() -> None:
 def test_generic_coldstart_rejects_malformed_config_not_old_scientific_values() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    config = _generic_coldstart_test_config()
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
     config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-TYPE-CHECK-TEST"
 
     bad = copy.deepcopy(config)
@@ -2409,49 +2387,6 @@ def test_generic_coldstart_rejects_malformed_config_not_old_scientific_values() 
     bad["training"]["evaluation_every_updates"] = 125
     with pytest.raises(ValueError, match="late_window_updates"):
         exp_tuning.validate_config(bad)
-
-
-def test_generic_coldstart_rejects_zero_scientific_cells() -> None:
-    from drpo import e8_multitask_exp_tuning as exp_tuning
-
-    config = _generic_coldstart_test_config()
-    config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-ZERO-CELLS-TEST"
-    sweep = config["sweep"]
-    sweep["countdown_seed_offsets"] = []
-    sweep["transfer_positive_only_seed_offsets"] = []
-    for task in config["suite"]["p0_tasks"]:
-        sweep["task_lambda"][task] = []
-        sweep["task_grid_hashes"][task] = exp_tuning.stable_hash([])
-    sweep["expected_cells"] = 0
-    config["reporting"]["positive_only_seed_count_per_transfer_task"] = 0
-    with pytest.raises(ValueError, match="at least one scientific cell"):
-        exp_tuning.validate_config(config)
-
-
-def test_canonical_liveness_identity_is_grid_independent_and_stale_safe() -> None:
-    from drpo import e8_multitask_exp_tuning as exp_tuning
-
-    cell = exp_tuning._canonical_cold_liveness_cell()
-    assert cell.task == "countdown"
-    assert cell.method == exp_tuning.METHOD_EXPONENTIAL
-    assert cell.lambda_value == 0.693147181
-    assert cell.seed == 4000
-
-    manifest = {
-        "canonical_dispatch": "countdown_e8_alpha1_highc_scan_runtime.smoke",
-        "cell": {
-            "task": cell.task,
-            "method": cell.method,
-            "rho": cell.rho,
-            "lambda": cell.lambda_value,
-            "seed": cell.seed,
-            "stage": cell.stage,
-        },
-    }
-    assert exp_tuning._matches_canonical_cold_liveness_manifest(manifest)
-    stale = copy.deepcopy(manifest)
-    stale["cell"]["seed"] = 5000
-    assert not exp_tuning._matches_canonical_cold_liveness_manifest(stale)
 
 
 def test_e8_config_preflight_is_tracked_and_non_scientific() -> None:
@@ -2487,7 +2422,7 @@ def test_runner_uses_real_tracked_config_check_and_standalone_preflight() -> Non
 
     bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
     assert "refs/pull/309/head" not in bootstrap
-    assert "self-test requires E8_COLDSTART_TARGET_REF" in bootstrap
+    assert 'E8_COLDSTART_TARGET_REF:-refs/heads/main' in bootstrap
 
 
 def test_runtime_activation_uses_canonical_grid_before_generic_bridge() -> None:
@@ -2511,167 +2446,3 @@ def test_coldstart_validation_has_single_config_authority_exit() -> None:
     assert "old_lora_contract" not in source
     assert "Countdown sentinel coefficients drifted" not in source
     assert "Cold-start task-interface length/evaluation contract drifted" not in source
-
-
-def test_e8_strict_yaml_rejects_duplicate_nested_keys(tmp_path: Path) -> None:
-    from drpo import e8_experiment_config as experiment_config
-
-    path = tmp_path / "duplicate.yaml"
-    path.write_text("schema_version: 1\nsweep:\n  method: exponential\n  method: linear\n")
-    with pytest.raises(ValueError, match="duplicate key"):
-        experiment_config.load_strict_yaml(path)
-
-
-def test_e8_internal_config_loader_is_explicit(tmp_path: Path) -> None:
-    from drpo import e8_multitask_exp_tuning as tuning
-
-    path = tmp_path / "historical-copy.yaml"
-    path.write_text(
-        Path("configs/e8_multitask_exp_coldstart.yaml").read_text(encoding="utf-8"),
-        encoding="utf-8",
-    )
-    with pytest.raises(ValueError, match="restricted to engineering self-test"):
-        tuning._load_internal_config(path)
-
-
-def test_e8_execution_identity_distinguishes_backend_and_run_class() -> None:
-    from drpo import e8_experiment_config as experiment_config
-
-    base = {
-        "reviewed_config_path": "configs/example.yaml",
-        "reviewed_config_git_blob_sha": "1" * 40,
-        "reviewed_config_hash": "semantic",
-        "effective_config_hash": "effective",
-        "experiment_id_value": "EXT-C-E8-EXAMPLE-01",
-        "source_commit": "2" * 40,
-        "model_repo": "repo/model",
-        "model_revision": "rev",
-        "model_snapshot_hash": "3" * 64,
-        "runtime": {"python": "3.x"},
-    }
-    real_formal = experiment_config.execution_identity(
-        **base, backend="real_canonical", run_class="formal"
-    )
-    real_pilot = experiment_config.execution_identity(
-        **base, backend="real_canonical", run_class="pilot"
-    )
-    placeholder_pilot = experiment_config.execution_identity(
-        **base, backend="engineering_placeholder", run_class="pilot"
-    )
-    assert real_formal["execution_identity_hash"] != real_pilot["execution_identity_hash"]
-    assert real_pilot["execution_identity_hash"] != placeholder_pilot["execution_identity_hash"]
-
-
-def test_e8_model_snapshot_hash_detects_weight_drift(tmp_path: Path) -> None:
-    from drpo import e8_experiment_config as experiment_config
-
-    root = tmp_path / "model"
-    root.mkdir()
-    weights = root / "model.safetensors"
-    weights.write_bytes(b"first")
-    (root / "config.json").write_text("{}")
-    first = experiment_config.model_snapshot_identity(root)
-    weights.write_bytes(b"second")
-    second = experiment_config.model_snapshot_identity(root)
-    assert first["model_snapshot_hash"] != second["model_snapshot_hash"]
-
-
-def test_e8_reusable_cells_reject_other_execution_identity(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from drpo import e8_multitask_exp_tuning as tuning
-
-    config = tuning._engineering_self_test_config(
-        tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
-    )
-    identity_path = tmp_path / "identity.json"
-    payload = {
-        "schema_version": 1,
-        "experiment_id": tuning.experiment_id(config),
-        "reviewed_config": {},
-        "effective_config_hash": "effective",
-        "source_commit": "1" * 40,
-        "model": {},
-        "runtime": {},
-        "backend": "engineering_placeholder",
-        "run_class": "pilot",
-    }
-    payload["execution_identity_hash"] = tuning.stable_hash(payload)
-    identity_path.write_text(json.dumps(payload))
-    monkeypatch.setenv(tuning.EXECUTION_IDENTITY_ENV, str(identity_path))
-    cell = tuning.build_cells(config)[0]
-    root = tmp_path / "run"
-    manifest = root / "cells" / cell.key / "cell_manifest.json"
-    manifest.parent.mkdir(parents=True)
-    manifest.write_text(
-        json.dumps(
-            {
-                "experiment_id": tuning.experiment_id(config),
-                "config_hash": tuning.stable_config_hash(config),
-                "execution_identity_hash": "0" * 64,
-                "complete": True,
-                "evaluation_status": "complete",
-                "nan_inf_failure": False,
-                "engineering_placeholder_backend": True,
-            }
-        )
-    )
-    reusable, rejected = tuning._reusable_cell_manifests(config, root)
-    assert cell.key not in reusable
-    assert "mismatch" in rejected[cell.key]
-
-
-def test_e8_recovery_import_rejects_stale_execution_identity(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from drpo import e8_multitask_exp_tuning as tuning
-
-    config = tuning._engineering_self_test_config(
-        tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
-    )
-    identity_path = tmp_path / "identity.json"
-    payload = {
-        "schema_version": 1,
-        "experiment_id": tuning.experiment_id(config),
-        "reviewed_config": {},
-        "effective_config_hash": "effective",
-        "source_commit": "1" * 40,
-        "model": {},
-        "runtime": {},
-        "backend": "engineering_placeholder",
-        "run_class": "pilot",
-    }
-    payload["execution_identity_hash"] = tuning.stable_hash(payload)
-    identity_path.write_text(json.dumps(payload))
-    monkeypatch.setenv(tuning.EXECUTION_IDENTITY_ENV, str(identity_path))
-    source = tmp_path / "source"
-    source.mkdir()
-    (source / "source_provenance.json").write_text(
-        json.dumps({"source_commit": "1" * 40, "execution_identity_hash": "0" * 64})
-    )
-    with pytest.raises(RuntimeError, match="another execution identity"):
-        tuning.cmd_import_recovery(
-            config,
-            tmp_path / "destination",
-            source_output_root=source,
-            base_model_path="placeholder",
-            source_commit="1" * 40,
-        )
-
-
-def test_e8_runner_binds_execution_identity_and_complete_provenance() -> None:
-    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
-    assert "E8_COLDSTART_EXECUTION_IDENTITY_PATH" in runner
-    assert "model_snapshot_identity" in runner
-    assert "runtime_fingerprint" in runner
-    assert "workload_matches_execution_identity" in runner
-    assert "--source-file src/drpo/e8_experiment_config.py" in runner
-    assert "--source-file scripts/preflight_e8_multitask_config.py" in runner
-
-
-def test_e8_bootstrap_refreshes_authoritative_ref_even_when_complete() -> None:
-    bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
-    fetch_index = bootstrap.index('CURRENT_STAGE="fetch_authoritative_ref"')
-    stale_index = bootstrap.index("completed bootstrap is stale: authoritative")
-    assert fetch_index < stale_index
-    assert 'if [[ "${BOOTSTRAP_WAS_COMPLETE}" -eq 1 ]]; then\n  TARGET_COMMIT=' not in bootstrap

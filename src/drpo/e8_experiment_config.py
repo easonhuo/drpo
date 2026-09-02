@@ -1,25 +1,19 @@
 """Config interpretation and fail-closed validation for E8 sweep orchestration.
 
 This module deliberately does not implement a loss, trainer, model forward pass, or
-scientific update. Reviewed YAML defines a new cold-start-family experiment;
-validation here is limited to parsing/schema/type/range checks, implementation
-capability, self-consistency, historical-ID immutability, repository-path safety,
-and execution-identity primitives.
+scientific update.  Reviewed YAML defines a new cold-start-family experiment;
+validation here is limited to schema/type/range checks, implementation capability,
+self-consistency, historical-ID immutability, and repository-path safety.
 """
 
 from __future__ import annotations
 
-import hashlib
-import importlib.metadata
 import math
-import platform
 import re
 import subprocess
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
-
-import yaml
 
 from drpo.e8_multitask_tasks import TASK_NAMES, stable_hash
 
@@ -120,238 +114,6 @@ COUNTDOWN_PAPER_COEFFICIENTS = frozenset(
 COUNTDOWN_PAPER_SEEDS = frozenset((4000, 5000))
 _SAFE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
 
-_GENERIC_TOP_LEVEL = {
-    "schema_version",
-    "experiment_id",
-    "result_status",
-    "parent",
-    "reference",
-    "initialization",
-    "model",
-    "suite",
-    "split",
-    "training",
-    "evaluation",
-    "negative_sampling",
-    "remoteness_calibration",
-    "task_runtime",
-    "sweep",
-    "selection",
-    "canonical_coldstart",
-    "execution",
-    "reporting",
-}
-_GENERIC_SECTION_KEYS = {
-    "parent": {"experiment_id", "qualified_banks_required"},
-    "reference": {
-        "checkpoint_kind",
-        "optimizer_updates",
-        "validation_rows_seen",
-        "test_rows_seen",
-    },
-    "initialization": {
-        "source",
-        "optimizer_updates",
-        "external_adapter_allowed",
-        "deterministic_fresh_lora",
-        "seed",
-    },
-    "model": {
-        "base_model",
-        "revision",
-        "parameterization",
-        "lora_rank",
-        "lora_alpha",
-        "lora_dropout",
-        "dtype",
-        "max_length",
-        "max_new_tokens",
-        "gradient_checkpointing",
-    },
-    "suite": {"tasks", "p0_tasks", "external_tasks", "excluded_tasks"},
-    "split": {
-        "p0_train_rows",
-        "p0_validation_rows",
-        "p0_test_rows",
-        "countdown_train_rows",
-        "countdown_validation_rows",
-        "hash_seed",
-        "test_access_allowed",
-        "countdown_subsampling_forbidden",
-    },
-    "training": {
-        "optimizer_updates",
-        "micro_batch",
-        "gradient_accumulation",
-        "learning_rate",
-        "weight_decay",
-        "warmup_ratio",
-        "max_grad_norm",
-        "evaluation_every_updates",
-        "early_stopping",
-        "late_window_updates",
-        "terminal_adapter_required",
-    },
-    "evaluation": {
-        "greedy_prompt_rows",
-        "passk_prompt_rows",
-        "pass_k",
-        "auxiliary_pass_ks",
-        "batch_size",
-        "sampling_temperature",
-        "top_p",
-        "max_new_tokens",
-        "generation_seed",
-        "primary_checkpoint_policy",
-        "best_checkpoint_role",
-    },
-    "negative_sampling": {
-        "negatives_per_prompt",
-        "consumer",
-        "deduplicate_rule",
-        "denominator",
-        "near_far_selection",
-        "selection_stop_gradient",
-        "weight_sum_normalization",
-        "gradient_budget_matching",
-        "reference_remoteness_bank",
-    },
-    "remoteness_calibration": {
-        "enabled",
-        "mode",
-        "coordinate",
-        "detached",
-        "extra_square",
-        "gradient_rms_matching",
-    },
-    "sweep": {
-        "profile",
-        "method",
-        "parameterization",
-        "tuning_seed",
-        "countdown_seed_offsets",
-        "countdown_include_positive_only",
-        "transfer_positive_only_seed_offsets",
-        "task_transfer_seed_offset",
-        "include_global_endpoint",
-        "expected_cells",
-        "countdown_sentinel_coefficients",
-        "task_grid_provenance",
-        "task_grid_hashes",
-        "task_lambda",
-    },
-    "selection": {
-        "primary_metric",
-        "finite_required",
-        "terminal_valid_rate_role",
-        "tie_breakers",
-        "report_grid_edge",
-    },
-    "canonical_coldstart": {
-        "scientific_kernel",
-        "initialization",
-        "countdown_entry",
-        "transfer_entry",
-        "formula",
-        "paths",
-        "expected_git_blob_shas",
-    },
-    "execution": {
-        "max_concurrent_cells",
-        "gpu_ids",
-        "slots_per_gpu",
-        "expected_waves",
-        "scheduler",
-        "wave_barriers",
-        "identity_checked_resume",
-        "retry_incomplete_requires_explicit_flag",
-        "fail_closed",
-        "test_partition_forbidden",
-        "oom_policy",
-    },
-    "reporting": {
-        "separate_events",
-        "countdown_role",
-        "other_tasks_task_interface_adaptation_only",
-        "transfer_exp_scope",
-        "positive_only_seed_count_per_transfer_task",
-        "convergence_claim_allowed",
-        "significance_claim_allowed",
-        "method_ranking_allowed",
-        "scientific_role",
-        "causal_identification_environment",
-    },
-}
-_REFERENCE_REMOTENESS_KEYS = {
-    "enabled",
-    "scope",
-    "source_candidates",
-    "reference_policy",
-    "coordinate",
-    "selected_negatives_per_prompt",
-    "selection",
-    "coverage_threshold",
-    "reference_rank_role",
-    "static_reference_rank_enters_training_weight",
-    "current_policy_surprisal_recomputed_each_update",
-    "original_p0_bank_preserved",
-    "audit_quantiles",
-}
-_ENGINEERING_SELF_TEST_KEYS = {
-    "placeholder_backend",
-    "scientific_evidence_allowed",
-    "purpose",
-}
-
-
-class _UniqueKeySafeLoader(yaml.SafeLoader):
-    """SafeLoader variant that rejects duplicate mapping keys at every depth."""
-
-
-def _construct_unique_mapping(
-    loader: _UniqueKeySafeLoader,
-    node: yaml.nodes.MappingNode,
-    deep: bool = False,
-) -> dict[Any, Any]:
-    mapping: dict[Any, Any] = {}
-    for key_node, value_node in node.value:
-        key = loader.construct_object(key_node, deep=deep)
-        try:
-            duplicate = key in mapping
-        except TypeError as exc:
-            raise yaml.constructor.ConstructorError(
-                "while constructing a mapping",
-                node.start_mark,
-                "found an unhashable mapping key",
-                key_node.start_mark,
-            ) from exc
-        if duplicate:
-            raise yaml.constructor.ConstructorError(
-                "while constructing a mapping",
-                node.start_mark,
-                f"found duplicate key {key!r}",
-                key_node.start_mark,
-            )
-        mapping[key] = loader.construct_object(value_node, deep=deep)
-    return mapping
-
-
-_UniqueKeySafeLoader.add_constructor(
-    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
-    _construct_unique_mapping,
-)
-
-
-def load_strict_yaml(path: str | Path) -> dict[str, Any]:
-    source = Path(path)
-    try:
-        value = yaml.load(source.read_text(encoding="utf-8"), Loader=_UniqueKeySafeLoader)
-    except yaml.YAMLError as exc:
-        raise ValueError(f"Invalid strict YAML config {source}: {exc}") from exc
-    if not isinstance(value, dict):
-        raise TypeError("Configuration root must be a mapping")
-    return value
-
 
 def experiment_id(config: Mapping[str, Any]) -> str:
     value = config.get("experiment_id")
@@ -398,54 +160,6 @@ def _boolean(value: Any, label: str) -> bool:
     if not isinstance(value, bool):
         raise ValueError(f"{label} must be boolean")  # noqa: TRY004
     return value
-
-
-def _reject_unknown_keys(value: Any, allowed: set[str], label: str) -> Mapping[str, Any]:
-    mapping = _mapping(value, label)
-    unknown = sorted(str(key) for key in set(mapping) - allowed)
-    if unknown:
-        raise ValueError(f"{label} contains unsupported field(s): {unknown}")
-    return mapping
-
-
-def _validate_closed_schema(config: Mapping[str, Any], *, allow_engineering: bool) -> None:
-    top_allowed = set(_GENERIC_TOP_LEVEL)
-    if allow_engineering:
-        top_allowed.add("engineering_self_test")
-    _reject_unknown_keys(config, top_allowed, "config")
-    for section, allowed in _GENERIC_SECTION_KEYS.items():
-        _reject_unknown_keys(config.get(section), allowed, section)
-    reference_bank = _mapping(
-        config["negative_sampling"].get("reference_remoteness_bank"),
-        "negative_sampling.reference_remoteness_bank",
-    )
-    _reject_unknown_keys(
-        reference_bank,
-        _REFERENCE_REMOTENESS_KEYS,
-        "negative_sampling.reference_remoteness_bank",
-    )
-    canonical = _mapping(config["canonical_coldstart"], "canonical_coldstart")
-    _reject_unknown_keys(
-        canonical.get("paths"),
-        set(CANONICAL_COLDSTART_PATHS),
-        "canonical_coldstart.paths",
-    )
-    _reject_unknown_keys(
-        canonical.get("expected_git_blob_shas"),
-        set(CANONICAL_COLDSTART_BLOB_SHAS),
-        "canonical_coldstart.expected_git_blob_shas",
-    )
-    suite = _mapping(config["suite"], "suite")
-    excluded = _mapping(suite.get("excluded_tasks"), "suite.excluded_tasks")
-    unknown_excluded = sorted(str(key) for key in set(excluded) - set(TASK_NAMES))
-    if unknown_excluded:
-        raise ValueError(f"suite.excluded_tasks contains unknown task(s): {unknown_excluded}")
-    if allow_engineering:
-        _reject_unknown_keys(
-            config.get("engineering_self_test"),
-            _ENGINEERING_SELF_TEST_KEYS,
-            "engineering_self_test",
-        )
 
 
 def task_lambdas(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
@@ -579,10 +293,8 @@ def _validate_scalar_types(config: Mapping[str, Any]) -> None:
             raise ValueError(f"evaluation.{field} must be positive")
     if float(config["training"]["learning_rate"]) <= 0.0:
         raise ValueError("training.learning_rate must be positive")
-    if not 0.0 < float(config["training"]["warmup_ratio"]) < 1.0:
-        raise ValueError(
-            "training.warmup_ratio must be in (0, 1); the canonical trainer always uses at least one warmup step"
-        )
+    if not 0.0 <= float(config["training"]["warmup_ratio"]) < 1.0:
+        raise ValueError("training.warmup_ratio must be in [0, 1)")
     if float(config["training"]["weight_decay"]) < 0.0:
         raise ValueError("training.weight_decay must be non-negative")
     if float(config["training"]["max_grad_norm"]) <= 0.0:
@@ -728,11 +440,6 @@ def is_historical_coldstart_config(config: Mapping[str, Any]) -> bool:
     return experiment_id(config) in HISTORICAL_CONFIG_IDENTITIES
 
 
-def is_engineering_self_test_config(config: Mapping[str, Any]) -> bool:
-    value = config.get("engineering_self_test")
-    return isinstance(value, Mapping) and value.get("placeholder_backend") is True
-
-
 def effective_coldstart_runtime(config: Mapping[str, Any], task: str) -> dict[str, Any]:
     """Resolve the values that the canonical cold-start runtime must actually consume."""
 
@@ -838,10 +545,6 @@ def _validate_runtime_authority_consistency(
 
 def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
     sweep = _mapping(config.get("sweep"), "sweep")
-    # Internal engineering self-tests derived from an immutable historical config
-    # retain that historical scientific matrix. The engineering marker changes the
-    # backend/evidence class, not the reviewed scientific matrix semantics.
-    historical = is_historical_coldstart_config(config)
     if sweep.get("method") != "exponential":
         raise ValueError("Cold-start sweep.method must be exponential")
     if sweep.get("parameterization") not in ("paper_coefficient_c", "paper_lambda_c1"):
@@ -851,17 +554,6 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
         raise ValueError("Cold-start task_lambda must contain the exact nine tasks")
 
     countdown_values = task_lambdas(config, "countdown")
-    sentinel_values = tuple(
-        _number(value, "sweep.countdown_sentinel_coefficients entry")
-        for value in _sequence(
-            sweep.get("countdown_sentinel_coefficients"),
-            "sweep.countdown_sentinel_coefficients",
-        )
-    )
-    if sentinel_values != countdown_values:
-        raise ValueError(
-            "sweep.countdown_sentinel_coefficients must equal sweep.task_lambda.countdown"
-        )
     if len(set(countdown_values)) != len(countdown_values):
         raise ValueError("Countdown coefficient grid contains duplicates")
     if any(value not in COUNTDOWN_PAPER_COEFFICIENTS for value in countdown_values):
@@ -878,10 +570,6 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
     if countdown_seeds and not countdown_values:
         raise ValueError("Scheduled Countdown seeds require a non-empty coefficient grid")
 
-    if not historical:
-        for field in ("countdown_include_positive_only", "include_global_endpoint"):
-            if field not in sweep:
-                raise ValueError(f"generic cold-start sweep must explicitly set {field}")
     countdown_positive = _boolean(
         sweep.get("countdown_include_positive_only", True),
         "countdown_include_positive_only",
@@ -890,15 +578,6 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
         sweep.get("include_global_endpoint", False),
         "include_global_endpoint",
     )
-    if (
-        not historical
-        and not countdown_seeds
-        and (countdown_values or sentinel_values or countdown_positive)
-    ):
-        raise ValueError(
-            "generic inactive Countdown requires empty lambda/sentinel grids and countdown_include_positive_only=false"
-        )
-
     positive_seeds = tuple(
         _integer(value, "Transfer Positive-only seed offset")
         for value in _sequence(
@@ -908,12 +587,8 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
     )
     if len(set(positive_seeds)) != len(positive_seeds):
         raise ValueError("Transfer Positive-only seed offsets must be unique")
-    transfer_seed = _integer(sweep.get("task_transfer_seed_offset"), "task_transfer_seed_offset")
-    tuning_seed = _integer(sweep.get("tuning_seed"), "tuning_seed")
-    if tuning_seed != transfer_seed:
-        raise ValueError(
-            "sweep.tuning_seed must equal sweep.task_transfer_seed_offset; cold-start has one transfer Exp seed authority"
-        )
+    _integer(sweep.get("task_transfer_seed_offset"), "task_transfer_seed_offset")
+    _integer(sweep.get("tuning_seed"), "tuning_seed")
 
     transfer_tasks = set(tasks) - {"countdown"}
     hashes = _mapping(sweep.get("task_grid_hashes"), "task_grid_hashes")
@@ -938,95 +613,9 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
         for task in active_transfer
     )
     expected = _integer(sweep.get("expected_cells"), "sweep.expected_cells")
-    if expanded <= 0:
-        raise ValueError("Cold-start sweep must schedule at least one scientific cell")
     if expected != expanded:
         raise ValueError("sweep.expected_cells must match the expanded scientific matrix")
 
-    reporting = _mapping(config.get("reporting"), "reporting")
-    if tuple(reporting.get("separate_events", ())) != (
-        "task_performance",
-        "valid_or_structure_diagnostic",
-        "nan_inf_numerical_failure",
-    ):
-        raise ValueError("reporting must preserve the three terminal event classes")
-    if reporting.get("other_tasks_task_interface_adaptation_only") is not True:
-        raise ValueError("reporting must preserve task-interface-only adaptation")
-    if reporting.get("transfer_exp_scope") != "single_seed_response_shape_localization":
-        raise ValueError("Unsupported transfer reporting scope")
-    if reporting.get("positive_only_seed_count_per_transfer_task") != len(positive_seeds):
-        raise ValueError("reporting Positive-only seed count must match configured seeds")
-    for field in (
-        "convergence_claim_allowed",
-        "significance_claim_allowed",
-        "method_ranking_allowed",
-    ):
-        if reporting.get(field) is not False:
-            raise ValueError(f"reporting.{field} must remain false")
-    expected_role = (
-        "diagnostic_regression_sentinel_not_result_gate"
-        if countdown_seeds
-        else "predecessor_only_no_new_scientific_cells"
-    )
-    if reporting.get("countdown_role") != expected_role:
-        raise ValueError("reporting Countdown role does not match scheduled cells")
-    role = reporting.get("scientific_role")
-    if role is not None and (not isinstance(role, str) or not role.startswith("external_validity")):
-        raise ValueError("reporting.scientific_role must remain external validity")
-    causal = reporting.get("causal_identification_environment")
-    if causal is not None and causal != "D-U1":
-        raise ValueError("reporting causal-identification pointer may only be D-U1")
-
-
-def _validate_data_volume_and_evaluation_capacity(
-    config: Mapping[str, Any], tasks: tuple[str, ...]
-) -> None:
-    """Reject values the locked source/evaluator pipeline cannot consume exactly."""
-
-    if is_engineering_self_test_config(config):
-        return
-
-    split = config["split"]
-    p0_train = int(split["p0_train_rows"])
-    p0_validation = int(split["p0_validation_rows"])
-    p0_test = int(split["p0_test_rows"])
-    if p0_train <= 0:
-        raise ValueError("split.p0_train_rows must be positive for cold-start preparation")
-    if p0_train + p0_validation + p0_test != 6000:
-        raise ValueError(
-            "Cold-start P0 split sizes must consume exactly the canonical 6000-row bank per task"
-        )
-    if int(split["countdown_train_rows"]) != 6000 or int(split["countdown_validation_rows"]) != 500:
-        raise ValueError(
-            "Cold-start Countdown must consume the canonical 6000 train / 500 validation rows because wrapper subsampling is forbidden"
-        )
-
-    runtime = config["task_runtime"]
-    sweep = config["sweep"]
-    if tuple(sweep["countdown_seed_offsets"]):
-        countdown = runtime["countdown"]
-        if max(
-            int(countdown["greedy_prompt_rows"]),
-            int(countdown["passk_prompt_rows"]),
-        ) > int(split["countdown_validation_rows"]):
-            raise ValueError(
-                "Countdown evaluation prompt budget exceeds the configured validation partition"
-            )
-
-    for task in tasks:
-        if task == "countdown" or not task_lambdas(config, task):
-            continue
-        task_runtime = runtime[task]
-        if (
-            max(
-                int(task_runtime["greedy_prompt_rows"]),
-                int(task_runtime["passk_prompt_rows"]),
-            )
-            > p0_validation
-        ):
-            raise ValueError(
-                f"task_runtime.{task} evaluation prompt budget exceeds split.p0_validation_rows"
-            )
 
 
 def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
@@ -1061,21 +650,8 @@ def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
         raise ValueError("Cold-start selection mode is not implemented")
 
     execution = _mapping(config.get("execution"), "execution")
-    capacity = _integer(execution.get("max_concurrent_cells"), "execution.max_concurrent_cells")
-    if capacity != 16:
+    if _integer(execution.get("max_concurrent_cells"), "execution.max_concurrent_cells") != 16:
         raise ValueError("Cold-start scheduler currently implements exactly 16 slots")
-    expected_waves = math.ceil(int(config["sweep"]["expected_cells"]) / capacity)
-    if (
-        _integer(
-            execution.get("expected_waves"),
-            "execution.expected_waves",
-            positive=True,
-        )
-        != expected_waves
-    ):
-        raise ValueError(
-            "execution.expected_waves must match the nominal wave count derived from the expanded matrix"
-        )
     gpu_ids = tuple(
         _integer(value, "execution.gpu_ids entry")
         for value in _sequence(execution.get("gpu_ids"), "execution.gpu_ids")
@@ -1107,21 +683,8 @@ def validate_coldstart_config(config: Mapping[str, Any]) -> None:
     current_id = experiment_id(config)
     if sweep_profile(config) != SWEEP_PROFILE_COLDSTART:
         raise ValueError("validate_coldstart_config requires the cold-start profile")
-    if current_id in (P0_EXPERIMENT_ID, RHO_EXPERIMENT_ID, DENSE_EXPERIMENT_ID):
-        raise ValueError("P0/RHO/DENSE experiment IDs may not be reused for cold-start")
-
-    historical = is_historical_coldstart_config(config)
-    engineering = is_engineering_self_test_config(config)
-    if not historical or engineering:
-        _validate_closed_schema(config, allow_engineering=engineering)
-    if engineering:
-        marker = _mapping(config["engineering_self_test"], "engineering_self_test")
-        if (
-            marker.get("placeholder_backend") is not True
-            or marker.get("scientific_evidence_allowed") is not False
-            or marker.get("purpose") != "non_gpu_end_to_end_delivery_acceptance"
-        ):
-            raise ValueError("engineering_self_test internal contract is invalid")
+    if current_id in (RHO_EXPERIMENT_ID, DENSE_EXPERIMENT_ID):
+        raise ValueError("RHO/DENSE historical IDs may not be reused for cold-start")
 
     tasks = tuple(str(task) for task in config.get("suite", {}).get("tasks", ()))
     expected = set(TASK_NAMES)
@@ -1137,7 +700,6 @@ def validate_coldstart_config(config: Mapping[str, Any]) -> None:
     _validate_task_runtime(config, tasks)
     _validate_runtime_authority_consistency(config, tasks)
     _validate_sweep(config, tasks)
-    _validate_data_volume_and_evaluation_capacity(config, tasks)
     _validate_canonical_and_execution(config)
 
 
@@ -1209,115 +771,3 @@ def validate_historical_config_identity(
         raise ValueError(
             f"Historical experiment_id config identity drifted: expected {expected_blob}, found {observed}"
         )
-
-
-def _sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        while chunk := handle.read(1024 * 1024):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def model_snapshot_identity(model_root: str | Path) -> dict[str, Any]:
-    """Hash one resolved HF snapshot once, including foundation-model weights."""
-
-    root = Path(model_root).resolve()
-    if not root.is_dir():
-        raise FileNotFoundError(f"model snapshot directory is missing: {root}")
-    files = [
-        path
-        for path in sorted(root.iterdir(), key=lambda value: value.name)
-        if path.is_file() and not path.name.startswith(".")
-    ]
-    weight_files = [
-        path
-        for path in files
-        if path.suffix == ".safetensors"
-        or (path.suffix == ".bin" and path.name.startswith("pytorch_model"))
-    ]
-    if not weight_files:
-        raise RuntimeError(f"model snapshot contains no foundation weight file: {root}")
-    members = [
-        {"path": path.name, "size_bytes": path.stat().st_size, "sha256": _sha256_file(path)}
-        for path in files
-    ]
-    return {
-        "root": str(root),
-        "members": members,
-        "weight_files": [path.name for path in weight_files],
-        "model_snapshot_hash": stable_hash(members),
-    }
-
-
-def runtime_fingerprint() -> dict[str, Any]:
-    """Return the narrow numerical/runtime dependency identity for this family."""
-
-    try:
-        import torch
-    except ImportError as exc:
-        raise RuntimeError("runtime fingerprint requires PyTorch") from exc
-
-    def version(distribution: str) -> str:
-        try:
-            return importlib.metadata.version(distribution)
-        except importlib.metadata.PackageNotFoundError as exc:
-            raise RuntimeError(f"runtime dependency is missing: {distribution}") from exc
-
-    return {
-        "python": platform.python_version(),
-        "torch": str(torch.__version__),
-        "torch_cuda_runtime": str(torch.version.cuda),
-        "transformers": version("transformers"),
-        "peft": version("peft"),
-        "accelerate": version("accelerate"),
-        "numpy": version("numpy"),
-    }
-
-
-def execution_identity(
-    *,
-    reviewed_config_path: str,
-    reviewed_config_git_blob_sha: str,
-    reviewed_config_hash: str,
-    effective_config_hash: str,
-    experiment_id_value: str,
-    source_commit: str,
-    model_repo: str,
-    model_revision: str,
-    model_snapshot_hash: str,
-    runtime: Mapping[str, Any],
-    backend: str,
-    run_class: str,
-) -> dict[str, Any]:
-    if backend not in {"real_canonical", "engineering_placeholder"}:
-        raise ValueError("unsupported execution backend identity")
-    if run_class not in {"formal", "pilot"}:
-        raise ValueError("run_class must be formal or pilot")
-    for label, digest, length in (
-        ("source_commit", source_commit, 40),
-        ("reviewed_config_git_blob_sha", reviewed_config_git_blob_sha, 40),
-        ("model_snapshot_hash", model_snapshot_hash, 64),
-    ):
-        if len(digest) != length or any(char not in "0123456789abcdef" for char in digest):
-            raise ValueError(f"{label} is not a full lowercase digest")
-    payload = {
-        "schema_version": 1,
-        "experiment_id": experiment_id_value,
-        "reviewed_config": {
-            "repo_path": reviewed_config_path,
-            "git_blob_sha": reviewed_config_git_blob_sha,
-            "semantic_config_hash": reviewed_config_hash,
-        },
-        "effective_config_hash": effective_config_hash,
-        "source_commit": source_commit,
-        "model": {
-            "repo": model_repo,
-            "revision": model_revision,
-            "model_snapshot_hash": model_snapshot_hash,
-        },
-        "runtime": dict(runtime),
-        "backend": backend,
-        "run_class": run_class,
-    }
-    return {**payload, "execution_identity_hash": stable_hash(payload)}
