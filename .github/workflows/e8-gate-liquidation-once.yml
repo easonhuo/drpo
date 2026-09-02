@@ -137,19 +137,14 @@ jobs:
               raise SystemExit("engineering liveness placeholder replacement markers not found")
           tuning = tuning[:current_start] + main_tuning[main_start:main_end] + tuning[current_end:]
 
-          old_default = '''        if rho is None:
-              rho = (
-                  math.exp(-COUNTDOWN_LIVENESS_COEFFICIENT)
-                  if _is_coldstart(config)
-                  else _task_rhos(config, str(args.task))[0]
-              )
-          '''.replace("          ", "")
-          new_default = '''        if rho is None:
-              rho = _task_rhos(config, str(args.task))[0]
-          '''.replace("          ", "")
-          if old_default not in tuning:
+          tuning, default_count = re.subn(
+              r'        if rho is None:\n            rho = \(\n                math\.exp\(-COUNTDOWN_LIVENESS_COEFFICIENT\)\n                if _is_coldstart\(config\)\n                else _task_rhos\(config, str\(args\.task\)\)\[0\]\n            \)\n',
+              '        if rho is None:\n            rho = _task_rhos(config, str(args.task))[0]\n',
+              tuning,
+              count=1,
+          )
+          if default_count != 1:
               raise SystemExit("cold-start liveness default still references fixed gate identity")
-          tuning = tuning.replace(old_default, new_default, 1)
           tuning_path.write_text(tuning, encoding="utf-8")
 
           tests_path = Path("tests/test_e8_multitask_p0.py")
