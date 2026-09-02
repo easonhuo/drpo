@@ -1,0 +1,167 @@
+name: E8 lambda result closure trusted normalize
+
+on:
+  push:
+    branches:
+      - automation/e8-lambda-result-closure-normalize-20260902
+
+permissions:
+  contents: write
+
+jobs:
+  normalize-and-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout target source branch
+        uses: actions/checkout@v4
+        with:
+          ref: dev/e8-lambda-result-closure-20260902
+          fetch-depth: 0
+          path: target
+          persist-credentials: true
+
+      - name: Checkout trusted current main
+        uses: actions/checkout@v4
+        with:
+          ref: 6ed153d5ad7361a4e52348610b86b51b71e25e47
+          fetch-depth: 0
+          path: trusted
+          persist-credentials: false
+
+      - name: Verify locked refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C target rev-parse HEAD)" = "2a19fa1cd23e25dcd3c319e58d286e47a4e10dac"
+          test "$(git -C trusted rev-parse HEAD)" = "6ed153d5ad7361a4e52348610b86b51b71e25e47"
+          git -C target merge-base --is-ancestor 6ed153d5ad7361a4e52348610b86b51b71e25e47 HEAD
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: target/pyproject.toml
+
+      - name: Install repository test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e './target[dev]'
+
+      - name: Validate schema-v3 exact-base intent
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          python ../trusted/scripts/handoff_authority.py validate-delta \
+            --repo-root . \
+            --delta docs/handoff_deltas/EXT-C-E8-MULTITASK-LAMBDA-RESULT-CLOSURE-2026-09-02/HANDOFF_DELTA.yaml \
+            --source-patch-commit 2a19fa1cd23e25dcd3c319e58d286e47a4e10dac \
+            --json
+
+      - name: Trusted Stage-5 normalization
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          python ../trusted/scripts/handoff_authority.py normalize \
+            --repo-root . \
+            --trusted-repo-root ../trusted \
+            --current-before 6ed153d5ad7361a4e52348610b86b51b71e25e47 \
+            --source-base 6ed153d5ad7361a4e52348610b86b51b71e25e47 \
+            --source-patch-commit 2a19fa1cd23e25dcd3c319e58d286e47a4e10dac \
+            --json
+
+      - name: Enforce normalization write boundary
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess
+          allowed_exact = {
+              'docs/handoff.md',
+              'docs/handoff_deltas/EXT-C-E8-MULTITASK-LAMBDA-RESULT-CLOSURE-2026-09-02/MATERIALIZATION_REPORT.json',
+          }
+          allowed_prefix = 'docs/handoff_shadow/stage4/minimal/generated/'
+          out = subprocess.check_output(['git','status','--porcelain'], text=True)
+          paths = []
+          for line in out.splitlines():
+              if not line.strip():
+                  continue
+              path = line[3:]
+              if ' -> ' in path:
+                  path = path.split(' -> ', 1)[1]
+              paths.append(path)
+          bad = sorted(p for p in paths if p not in allowed_exact and not p.startswith(allowed_prefix))
+          if bad:
+              raise SystemExit('Unexpected normalization paths: ' + ', '.join(bad))
+          if 'docs/handoff.md' not in paths:
+              raise SystemExit('Normalizer did not materialize docs/handoff.md')
+          report = 'docs/handoff_deltas/EXT-C-E8-MULTITASK-LAMBDA-RESULT-CLOSURE-2026-09-02/MATERIALIZATION_REPORT.json'
+          if report not in paths:
+              raise SystemExit('Normalizer did not create MATERIALIZATION_REPORT.json')
+          print('\n'.join(paths))
+          PY
+          git diff --check
+
+      - name: Commit materialized after-image locally
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/handoff.md \
+            docs/handoff_shadow/stage4/minimal/generated \
+            docs/handoff_deltas/EXT-C-E8-MULTITASK-LAMBDA-RESULT-CLOSURE-2026-09-02/MATERIALIZATION_REPORT.json
+          git diff --cached --check
+          git commit -m 'Materialize E8 lambda result closure handoff'
+
+      - name: Required Stage-5 and governance gates
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/handoff_authority.py verify --repo-root . --json
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          python scripts/validate_governance_rule_inventory.py --repo-root .
+          python scripts/validate_formal_execution_channel.py --repo-root .
+          git diff --check 6ed153d5ad7361a4e52348610b86b51b71e25e47..HEAD
+
+      - name: Canonical test selection and execution
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/select_update_tests.py \
+            --repo . \
+            --base 6ed153d5ad7361a4e52348610b86b51b71e25e47 \
+            --head HEAD \
+            --mode auto \
+            --json
+          python scripts/select_update_tests.py \
+            --repo . \
+            --base 6ed153d5ad7361a4e52348610b86b51b71e25e47 \
+            --head HEAD \
+            --mode auto \
+            --execute \
+            --json
+
+      - name: Confirm clean validated worktree
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          echo "VALIDATED_HEAD=$(git rev-parse HEAD)"
+
+      - name: Push validated materialization to source branch
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:refs/heads/dev/e8-lambda-result-closure-20260902
