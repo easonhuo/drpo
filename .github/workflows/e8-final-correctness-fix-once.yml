@@ -30,6 +30,7 @@ jobs:
           python - <<'PY'
           from __future__ import annotations
 
+          import subprocess
           from pathlib import Path
 
           BASE = "6ed153d5ad7361a4e52348610b86b51b71e25e47"
@@ -40,8 +41,6 @@ jobs:
                   raise SystemExit(f"{label}: expected exactly one match, found {count}")
               return text.replace(old, new, 1)
 
-          # 1) Runner: fail-fast preflight before expensive setup, remove obsolete launch
-          # authorization, and source model provenance from the selected config.
           runner_path = Path("scripts/run_e8_multitask_exp_coldstart.sh")
           runner = runner_path.read_text(encoding="utf-8")
 
@@ -63,7 +62,9 @@ jobs:
 
           bootstrap_config_preflight() {
             command -v python3 >/dev/null || fail "python3 is unavailable"
-            python3 -m venv --system-site-packages "${VENV_DIR}"
+            if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
+              python3 -m venv --system-site-packages "${VENV_DIR}"
+            fi
             # shellcheck disable=SC1091
             source "${VENV_DIR}/bin/activate"
             if ! python - <<'PY_PREFLIGHT_DEPS'
@@ -81,37 +82,42 @@ jobs:
           '''.replace("          ", "")
           runner = replace_once(runner, preflight_anchor, preflight_replacement, "insert early preflight")
 
-          runner = replace_once(
-              runner,
+          setup_start = runner.find("\nsetup() {\n")
+          runtime_ready_start = runner.find("\nruntime_ready() {\n", setup_start)
+          if setup_start < 0 or runtime_ready_start < 0:
+              raise SystemExit("setup/runtime_ready function boundaries not found")
+          setup = runner[setup_start:runtime_ready_start]
+          setup = replace_once(
+              setup,
               '  mkdir -p "${RUNTIME_ROOT}"\n  python3 - <<\'PY\'\n',
               '  mkdir -p "${RUNTIME_ROOT}"\n  bootstrap_config_preflight\n  python3 - <<\'PY\'\n',
-              "call early preflight",
+              "call early preflight in setup",
           )
-          runner = replace_once(
-              runner,
+          setup = replace_once(
+              setup,
               '  python3 -m venv --system-site-packages "${VENV_DIR}"\n',
               "",
-              "remove duplicate full-runtime venv creation",
+              "remove duplicate setup venv creation",
           )
-          runner = replace_once(
-              runner,
+          setup = replace_once(
+              setup,
               '  mkdir -p "${RECOVERY_ROOT}"\n  config_preflight | tee "${RECOVERY_ROOT}/CONFIG_PREFLIGHT.json"\n',
               "",
-              "remove late duplicate preflight",
+              "remove late setup preflight",
           )
-
-          formal_gate_call = '''  if [[ "${RUN_CLASS}" == "formal" ]]; then
-            require_registered_ready
-            validate_registered_channel
-          fi
-          '''.replace("          ", "")
-          runner = replace_once(runner, formal_gate_call, "", "remove obsolete formal launch gate call")
+          runner = runner[:setup_start] + setup + runner[runtime_ready_start:]
 
           gate_start = runner.find("\nrequire_registered_ready() {\n")
           prepare_start = runner.find("\nprepare() {\n", gate_start)
           if gate_start < 0 or prepare_start < 0:
               raise SystemExit("obsolete registration/channel function block not found")
           runner = runner[:gate_start] + runner[prepare_start:]
+          formal_gate_call = '''  if [[ "${RUN_CLASS}" == "formal" ]]; then
+            require_registered_ready
+            validate_registered_channel
+          fi
+          '''.replace("          ", "")
+          runner = replace_once(runner, formal_gate_call, "", "remove obsolete launch authorization")
 
           provenance_old = '''import json
           from pathlib import Path
@@ -133,12 +139,11 @@ jobs:
               "model_repo": config["model"]["base_model"],
               "model_revision": config["model"]["revision"],
           '''.replace("          ", "")
-          runner = replace_once(runner, provenance_old, provenance_new, "repair source provenance model identity")
+          runner = replace_once(runner, provenance_old, provenance_new, "repair model provenance")
           if "${MODEL_REPO}" in runner or "${MODEL_REVISION}" in runner:
-              raise SystemExit("deleted MODEL_REPO/MODEL_REVISION shell variables still have consumers")
+              raise SystemExit("removed model shell variables still have consumers")
           runner_path.write_text(runner, encoding="utf-8")
 
-          # 2) Config scope: P0 is a parent identity, never a generic cold-start experiment ID.
           config_path = Path("src/drpo/e8_experiment_config.py")
           config = config_path.read_text(encoding="utf-8")
           config = replace_once(
@@ -149,155 +154,157 @@ jobs:
           )
           config_path.write_text(config, encoding="utf-8")
 
-          # 3) Runtime propagation: preserve canonical positive-ratio semantics, but when
-          # reviewed config explicitly requests warmup_ratio=0, override the legacy
-          # max(1, ...) interface so the scheduler actually receives zero warmup steps.
           tuning_path = Path("src/drpo/e8_multitask_exp_tuning.py")
           tuning = tuning_path.read_text(encoding="utf-8")
           tuning = replace_once(
               tuning,
               '    original_generate_outputs = arena.generate_outputs\n    contract = _runtime_bridge_contract(effective)\n',
-              '    original_generate_outputs = arena.generate_outputs\n    original_get_cosine_schedule_with_warmup = arena.get_cosine_schedule_with_warmup\n    contract = _runtime_bridge_contract(effective)\n',
+              '    original_generate_outputs = arena.generate_outputs\n    original_scheduler = getattr(arena, "get_cosine_schedule_with_warmup", None)\n    contract = _runtime_bridge_contract(effective)\n',
               "capture scheduler interface",
           )
-          scheduler_anchor = '''    arena.LoraConfig = configured_lora_config
-              arena.load_model = configured_load_model
-              arena.generate_outputs = configured_generate_outputs
-          '''.replace("              ", "    ")
-          scheduler_replacement = '''    def configured_get_cosine_schedule_with_warmup(
-                  optimizer: Any,
-                  num_warmup_steps: int,
-                  num_training_steps: int,
-                  *args: Any,
-                  **kwargs: Any,
-              ) -> Any:
-                  if float(effective["training"]["warmup_ratio"]) == 0.0:
-                      num_warmup_steps = 0
-                  return original_get_cosine_schedule_with_warmup(
-                      optimizer,
-                      num_warmup_steps,
-                      num_training_steps,
-                      *args,
-                      **kwargs,
-                  )
-
-              arena.LoraConfig = configured_lora_config
-              arena.load_model = configured_load_model
-              arena.generate_outputs = configured_generate_outputs
-              arena.get_cosine_schedule_with_warmup = configured_get_cosine_schedule_with_warmup
-          '''.replace("              ", "    ")
-          tuning = replace_once(tuning, scheduler_anchor, scheduler_replacement, "install zero-warmup adapter")
-          tuning = replace_once(
-              tuning,
-              '        arena.generate_outputs = original_generate_outputs\n',
-              '        arena.generate_outputs = original_generate_outputs\n        arena.get_cosine_schedule_with_warmup = original_get_cosine_schedule_with_warmup\n',
-              "restore scheduler interface",
-          )
-          tuning_path.write_text(tuning, encoding="utf-8")
-
-          # 4) Regression coverage for each audited gap.
-          tests_path = Path("tests/test_e8_multitask_p0.py")
-          tests = tests_path.read_text(encoding="utf-8")
-
-          runner_assertions_old = '''    assert 'MODEL_REPO="' not in runner
-              assert 'MODEL_REVISION="' not in runner
-              assert 'model = preflight["model"]' in runner
-          '''.replace("              ", "    ")
-          runner_assertions_new = '''    assert 'MODEL_REPO="' not in runner
-              assert 'MODEL_REVISION="' not in runner
-              assert "${MODEL_REPO}" not in runner
-              assert "${MODEL_REVISION}" not in runner
-              assert "require_registered_ready" not in runner
-              assert "validate_registered_channel" not in runner
-              setup_source = runner.split("setup() {", 1)[1].split("\\nruntime_ready() {", 1)[0]
-              assert setup_source.index("bootstrap_config_preflight") < setup_source.index(
-                  "torch.cuda.is_available"
-              )
-              assert setup_source.index("bootstrap_config_preflight") < setup_source.index(
-                  "pip install -r"
-              )
-              assert 'model = preflight["model"]' in runner
-          '''.replace("              ", "    ")
-          tests = replace_once(tests, runner_assertions_old, runner_assertions_new, "runner regression assertions")
-
-          profile_marker = '''    dense["experiment_id"] = "GENERIC-DENSE-ID"
-              with pytest.raises(ValueError, match="requires experiment_id"):
-                  exp_tuning.validate_config(dense)
-          '''.replace("              ", "    ")
-          profile_replacement = '''    dense["experiment_id"] = "GENERIC-DENSE-ID"
-              with pytest.raises(ValueError, match="requires experiment_id"):
-                  exp_tuning.validate_config(dense)
-
-              cold = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
-              cold["experiment_id"] = exp_tuning.P0_EXPERIMENT_ID
-              with pytest.raises(ValueError, match="P0/RHO/DENSE"):
-                  exp_tuning.validate_config(cold)
-          '''.replace("              ", "    ")
-          tests = replace_once(tests, profile_marker, profile_replacement, "P0 ID collision regression")
-
-          warmup_test_start = tests.find("def test_legacy_runtime_bridge_forwards_configured_interface_values")
-          warmup_test_end = tests.find("\ndef test_", warmup_test_start + 10)
-          if warmup_test_start < 0 or warmup_test_end < 0:
-              raise SystemExit("legacy runtime bridge test block not found")
-          warmup = tests[warmup_test_start:warmup_test_end]
-          warmup = replace_once(
-              warmup,
-              '            "optimizer_updates": 1500,\n            "weight_decay": 0.02,\n',
-              '            "optimizer_updates": 1500,\n            "weight_decay": 0.02,\n            "warmup_ratio": 0.0,\n',
-              "zero-warmup test config",
-          )
-          warmup = replace_once(
-              warmup,
-              '''    arena = SimpleNamespace(
-                  LoraConfig=fake_lora_config,
-                  load_model=fake_load_model,
-                  generate_outputs=fake_generate_outputs,
-              )
-              '''.replace("              ", "    "),
-              '''    def fake_get_cosine_schedule_with_warmup(
+          install_anchor = '''    arena.LoraConfig = configured_lora_config
+          arena.load_model = configured_load_model
+          arena.generate_outputs = configured_generate_outputs
+          try:
+          '''.replace("          ", "")
+          install_replacement = '''    def configured_scheduler(
+              optimizer: Any,
+              num_warmup_steps: int,
+              num_training_steps: int,
+              *args: Any,
+              **kwargs: Any,
+          ) -> Any:
+              if original_scheduler is None:
+                  raise RuntimeError("Canonical arena scheduler is unavailable")
+              if float(effective["training"]["warmup_ratio"]) == 0.0:
+                  num_warmup_steps = 0
+              return original_scheduler(
                   optimizer,
                   num_warmup_steps,
                   num_training_steps,
                   *args,
                   **kwargs,
-              ):
+              )
+
+          arena.LoraConfig = configured_lora_config
+          arena.load_model = configured_load_model
+          arena.generate_outputs = configured_generate_outputs
+          if original_scheduler is not None:
+              arena.get_cosine_schedule_with_warmup = configured_scheduler
+          try:
+          '''.replace("          ", "")
+          tuning = replace_once(tuning, install_anchor, install_replacement, "install zero-warmup adapter")
+          restore_anchor = '''        arena.LoraConfig = original_lora_config
+              arena.load_model = original_load_model
+              arena.generate_outputs = original_generate_outputs
+          '''.replace("              ", "        ")
+          restore_replacement = '''        arena.LoraConfig = original_lora_config
+              arena.load_model = original_load_model
+              arena.generate_outputs = original_generate_outputs
+              if original_scheduler is not None:
+                  arena.get_cosine_schedule_with_warmup = original_scheduler
+          '''.replace("              ", "        ")
+          tuning = replace_once(tuning, restore_anchor, restore_replacement, "restore scheduler interface")
+          tuning_path.write_text(tuning, encoding="utf-8")
+
+          tests_path = Path("tests/test_e8_multitask_p0.py")
+          tests = tests_path.read_text(encoding="utf-8")
+          additions = r'''
+
+          def test_generic_coldstart_rejects_p0_experiment_id_collision() -> None:
+              from drpo import e8_multitask_exp_tuning as exp_tuning
+
+              config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+              config["experiment_id"] = exp_tuning.P0_EXPERIMENT_ID
+              with pytest.raises(ValueError, match="P0/RHO/DENSE"):
+                  exp_tuning.validate_config(config)
+
+
+          def test_coldstart_runner_has_no_stale_model_or_registration_consumers() -> None:
+              runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+              assert "${MODEL_REPO}" not in runner
+              assert "${MODEL_REVISION}" not in runner
+              assert "require_registered_ready" not in runner
+              assert "validate_registered_channel" not in runner
+              setup = runner.split("\nsetup() {\n", 1)[1].split("\nruntime_ready() {\n", 1)[0]
+              assert setup.index("bootstrap_config_preflight") < setup.index("torch.cuda.is_available")
+              assert setup.index("bootstrap_config_preflight") < setup.index("pip install -r")
+              assert 'config["model"]["base_model"]' in runner
+              assert 'config["model"]["revision"]' in runner
+
+
+          def test_zero_warmup_reaches_legacy_scheduler(tmp_path: Path) -> None:
+              from drpo import e8_experiment_config as experiment_config
+              from drpo import e8_multitask_exp_tuning as exp_tuning
+
+              config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+              config["experiment_id"] = "EXT-C-E8-MULTITASK-ZERO-WARMUP-TEST"
+              config["training"]["warmup_ratio"] = 0.0
+              exp_tuning.validate_config(config)
+              effective = experiment_config.effective_coldstart_runtime(config, "word_sorting")
+              task_root = tmp_path / "word_sorting"
+              task_root.mkdir()
+              grids = exp_tuning._task_grid_configs(
+                  config,
+                  canonical_paths=exp_tuning._canonical_paths(config),
+                  task_root=task_root,
+              )
+              observed = {}
+
+              def fake_scheduler(optimizer, num_warmup_steps, num_training_steps, *args, **kwargs):
                   del optimizer, args, kwargs
-                  calls["scheduler"] = (num_warmup_steps, num_training_steps)
+                  observed["warmup"] = num_warmup_steps
+                  observed["training"] = num_training_steps
                   return "scheduler"
 
-              arena = SimpleNamespace(
-                  LoraConfig=fake_lora_config,
-                  load_model=fake_load_model,
-                  generate_outputs=fake_generate_outputs,
-                  get_cosine_schedule_with_warmup=fake_get_cosine_schedule_with_warmup,
-              )
-              '''.replace("              ", "    "),
-              "fake scheduler interface",
-          )
-          warmup = replace_once(
-              warmup,
-              '        scan_trainer.torch.optim.AdamW([], lr=5.0e-5, weight_decay=0.01)\n',
-              '        scan_trainer.torch.optim.AdamW([], lr=5.0e-5, weight_decay=0.01)\n        arena.get_cosine_schedule_with_warmup("optimizer", 1, 1500)\n',
-              "exercise scheduler adapter",
-          )
-          warmup = replace_once(
-              warmup,
-              '    assert calls["adamw"]["weight_decay"] == pytest.approx(0.02)\n',
-              '    assert calls["adamw"]["weight_decay"] == pytest.approx(0.02)\n    assert calls["scheduler"] == (0, 1500)\n',
-              "assert zero warmup",
-          )
-          warmup = replace_once(
-              warmup,
-              '    assert arena.generate_outputs is fake_generate_outputs\n',
-              '    assert arena.generate_outputs is fake_generate_outputs\n    assert arena.get_cosine_schedule_with_warmup is fake_get_cosine_schedule_with_warmup\n',
-              "assert scheduler restoration",
-          )
-          tests = tests[:warmup_test_start] + warmup + tests[warmup_test_end:]
-          tests_path.write_text(tests, encoding="utf-8")
+              def fake_lora(*args, **kwargs):
+                  return args, kwargs
 
-          # 5) Scope cleanup: #341 is the isolated owner-approved ancestry bugfix.
-          # Keep #340 focused by restoring this workflow to the exact main/base version.
-          import subprocess
+              def fake_load_model(*args, **kwargs):
+                  return args, kwargs
+
+              def fake_generate(*args, **kwargs):
+                  return [["x"]]
+
+              arena = SimpleNamespace(
+                  LoraConfig=fake_lora,
+                  load_model=fake_load_model,
+                  generate_outputs=fake_generate,
+                  get_cosine_schedule_with_warmup=fake_scheduler,
+              )
+              optim = SimpleNamespace(AdamW=lambda *args, **kwargs: (args, kwargs))
+
+              def strict_validator(value):
+                  assert int(value["training"]["steps"]) == 1200
+                  assert int(value["training"]["eval_every"]) == 100
+
+              paper_common = SimpleNamespace(validate_grid_config=strict_validator)
+              modules = {
+                  "arena": arena,
+                  "paper_common": paper_common,
+                  "scan_common": SimpleNamespace(validate_grid_config=strict_validator),
+                  "scan_runtime": SimpleNamespace(validate_grid_config=strict_validator),
+                  "scan_trainer": SimpleNamespace(
+                      validate_grid_config=strict_validator,
+                      torch=SimpleNamespace(optim=optim),
+                  ),
+              }
+              original_scheduler = arena.get_cosine_schedule_with_warmup
+              with exp_tuning._legacy_paper_runtime_bridge(
+                  modules,
+                  effective,
+                  grid_path=grids["round1_grid"]["path"],
+                  grid_source_path=grids["round1_grid"]["source"],
+              ):
+                  arena.get_cosine_schedule_with_warmup("optimizer", 1, 1200)
+              assert observed == {"warmup": 0, "training": 1200}
+              assert arena.get_cosine_schedule_with_warmup is original_scheduler
+          '''
+          additions = additions.replace("          ", "")
+          if "def test_generic_coldstart_rejects_p0_experiment_id_collision" in tests:
+              raise SystemExit("correctness regression tests already present")
+          tests_path.write_text(tests.rstrip() + additions + "\n", encoding="utf-8")
+
           subprocess.run(
               ["git", "checkout", BASE, "--", ".github/workflows/code-change-budget.yml"],
               check=True,
@@ -309,6 +316,7 @@ jobs:
 
       - name: Validate final correctness after-image
         run: |
+          BASE=6ed153d5ad7361a4e52348610b86b51b71e25e47
           python -m py_compile \
             src/drpo/e8_experiment_config.py \
             scripts/preflight_e8_multitask_config.py \
