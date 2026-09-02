@@ -120,6 +120,7 @@ jobs:
           main_tuning = subprocess.check_output(
               ["git", "show", f"{base}:src/drpo/e8_multitask_exp_tuning.py"], text=True
           )
+
           current_start = tuning.find("def _canonical_cold_liveness_cell()")
           current_end = tuning.find("def _read_json_object(", current_start)
           main_start = main_tuning.find("def _cmd_canonical_cold_liveness(")
@@ -127,6 +128,28 @@ jobs:
           if min(current_start, current_end, main_start, main_end) < 0:
               raise SystemExit("canonical liveness replacement markers not found")
           tuning = tuning[:current_start] + main_tuning[main_start:main_end] + tuning[current_end:]
+
+          current_start = tuning.find("def _write_engineering_gates(")
+          current_end = tuning.find("def _audit_engineering_queue(", current_start)
+          main_start = main_tuning.find("def _write_engineering_gates(")
+          main_end = main_tuning.find("def _audit_engineering_queue(", main_start)
+          if min(current_start, current_end, main_start, main_end) < 0:
+              raise SystemExit("engineering liveness placeholder replacement markers not found")
+          tuning = tuning[:current_start] + main_tuning[main_start:main_end] + tuning[current_end:]
+
+          old_default = '''        if rho is None:
+              rho = (
+                  math.exp(-COUNTDOWN_LIVENESS_COEFFICIENT)
+                  if _is_coldstart(config)
+                  else _task_rhos(config, str(args.task))[0]
+              )
+          '''.replace("          ", "")
+          new_default = '''        if rho is None:
+              rho = _task_rhos(config, str(args.task))[0]
+          '''.replace("          ", "")
+          if old_default not in tuning:
+              raise SystemExit("cold-start liveness default still references fixed gate identity")
+          tuning = tuning.replace(old_default, new_default, 1)
           tuning_path.write_text(tuning, encoding="utf-8")
 
           tests_path = Path("tests/test_e8_multitask_p0.py")
