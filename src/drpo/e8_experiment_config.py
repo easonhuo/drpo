@@ -171,10 +171,9 @@ def task_lambdas(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
 
 
 def _validate_scalar_types(config: Mapping[str, Any]) -> None:
-    integer_fields = {
+    for section, fields in {
         "reference": ("optimizer_updates", "validation_rows_seen", "test_rows_seen"),
         "initialization": ("optimizer_updates", "seed"),
-        "model": ("lora_rank", "lora_alpha", "max_length", "max_new_tokens"),
         "split": (
             "p0_train_rows",
             "p0_validation_rows",
@@ -183,6 +182,15 @@ def _validate_scalar_types(config: Mapping[str, Any]) -> None:
             "countdown_validation_rows",
             "hash_seed",
         ),
+        "evaluation": ("generation_seed",),
+        "negative_sampling": ("negatives_per_prompt",),
+    }.items():
+        values = _mapping(config.get(section), section)
+        for field in fields:
+            _integer(values.get(field), f"{section}.{field}")
+
+    for section, fields in {
+        "model": ("lora_rank", "lora_alpha", "max_length", "max_new_tokens"),
         "training": (
             "optimizer_updates",
             "micro_batch",
@@ -195,23 +203,11 @@ def _validate_scalar_types(config: Mapping[str, Any]) -> None:
             "pass_k",
             "batch_size",
             "max_new_tokens",
-            "generation_seed",
         ),
-        "negative_sampling": ("negatives_per_prompt",),
-    }
-    for section, fields in integer_fields.items():
-        values = _mapping(config.get(section), section)
-        for field in fields:
-            _integer(values.get(field), f"{section}.{field}")
-
-    for section, fields in {
-        "model": ("lora_dropout",),
-        "training": ("learning_rate", "weight_decay", "warmup_ratio", "max_grad_norm"),
-        "evaluation": ("sampling_temperature", "top_p"),
     }.items():
         values = _mapping(config.get(section), section)
         for field in fields:
-            _number(values.get(field), f"{section}.{field}")
+            _integer(values.get(field), f"{section}.{field}", positive=True)
 
     for section, fields in {
         "parent": ("qualified_banks_required",),
@@ -237,67 +233,51 @@ def _validate_scalar_types(config: Mapping[str, Any]) -> None:
         for field in fields:
             _boolean(values.get(field), f"{section}.{field}")
 
-    training = config["training"]
+    training = _mapping(config.get("training"), "training")
     late = tuple(
         _integer(value, "training.late_window_updates entry", positive=True)
         for value in _sequence(training.get("late_window_updates"), "training.late_window_updates")
     )
     if not late or tuple(sorted(set(late))) != late:
         raise ValueError("training.late_window_updates must be sorted and unique")
-    if late[-1] > training["optimizer_updates"]:
+    optimizer_updates = int(training["optimizer_updates"])
+    evaluation_every = int(training["evaluation_every_updates"])
+    if late[-1] > optimizer_updates:
         raise ValueError("training.late_window_updates may not exceed optimizer_updates")
-    optimizer_updates = _integer(
-        training["optimizer_updates"], "training.optimizer_updates", positive=True
-    )
-    evaluation_every = _integer(
-        training["evaluation_every_updates"],
-        "training.evaluation_every_updates",
-        positive=True,
-    )
     if any(update != optimizer_updates and update % evaluation_every != 0 for update in late):
         raise ValueError(
             "training.late_window_updates must fall on configured evaluation updates "
             "or the terminal optimizer update"
         )
 
-    model = config["model"]
-    for field in ("lora_rank", "lora_alpha", "max_length", "max_new_tokens"):
-        _integer(model[field], f"model.{field}", positive=True)
-    dropout = float(model["lora_dropout"])
+    model = _mapping(config.get("model"), "model")
+    dropout = _number(model.get("lora_dropout"), "model.lora_dropout")
     if not 0.0 <= dropout < 1.0:
         raise ValueError("model.lora_dropout must be in [0, 1)")
 
-    evaluation = config["evaluation"]
+    evaluation = _mapping(config.get("evaluation"), "evaluation")
     tuple(
         _integer(value, "evaluation.auxiliary_pass_ks entry", positive=True)
         for value in _sequence(evaluation.get("auxiliary_pass_ks"), "evaluation.auxiliary_pass_ks")
     )
-    if not 0.0 < float(evaluation["top_p"]) <= 1.0:
+    top_p = _number(evaluation.get("top_p"), "evaluation.top_p")
+    if not 0.0 < top_p <= 1.0:
         raise ValueError("evaluation.top_p must be in (0, 1]")
-    if float(evaluation["sampling_temperature"]) <= 0.0:
+    temperature = _number(evaluation.get("sampling_temperature"), "evaluation.sampling_temperature")
+    if temperature <= 0.0:
         raise ValueError("evaluation.sampling_temperature must be positive")
 
-    if int(config["training"]["optimizer_updates"]) <= 0:
-        raise ValueError("training.optimizer_updates must be positive")
-    for field in ("micro_batch", "gradient_accumulation", "evaluation_every_updates"):
-        if int(config["training"][field]) <= 0:
-            raise ValueError(f"training.{field} must be positive")
-    for field in (
-        "greedy_prompt_rows",
-        "passk_prompt_rows",
-        "pass_k",
-        "batch_size",
-        "max_new_tokens",
-    ):
-        if int(config["evaluation"][field]) <= 0:
-            raise ValueError(f"evaluation.{field} must be positive")
-    if float(config["training"]["learning_rate"]) <= 0.0:
+    learning_rate = _number(training.get("learning_rate"), "training.learning_rate")
+    if learning_rate <= 0.0:
         raise ValueError("training.learning_rate must be positive")
-    if not 0.0 <= float(config["training"]["warmup_ratio"]) < 1.0:
+    warmup_ratio = _number(training.get("warmup_ratio"), "training.warmup_ratio")
+    if not 0.0 <= warmup_ratio < 1.0:
         raise ValueError("training.warmup_ratio must be in [0, 1)")
-    if float(config["training"]["weight_decay"]) < 0.0:
+    weight_decay = _number(training.get("weight_decay"), "training.weight_decay")
+    if weight_decay < 0.0:
         raise ValueError("training.weight_decay must be non-negative")
-    if float(config["training"]["max_grad_norm"]) <= 0.0:
+    max_grad_norm = _number(training.get("max_grad_norm"), "training.max_grad_norm")
+    if max_grad_norm <= 0.0:
         raise ValueError("training.max_grad_norm must be positive")
 
 
@@ -596,7 +576,7 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
     if set(hashes) != transfer_tasks or set(provenance) != transfer_tasks:
         raise ValueError("Task-grid hash/provenance maps must cover the exact eight transfer tasks")
 
-    active_transfer: list[str] = []
+    transfer_cell_count = 0
     for task in transfer_tasks:
         values = task_lambdas(config, task)
         if len(set(values)) != len(values):
@@ -606,16 +586,15 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
         if not str(provenance[task]).strip():
             raise ValueError(f"{task} task-grid provenance must be non-empty")
         if values:
-            active_transfer.append(task)
+            transfer_cell_count += len(positive_seeds) + int(include_global) + len(values)
 
-    expanded = len(countdown_seeds) * (1 + int(countdown_positive) + len(countdown_values)) + sum(
-        len(positive_seeds) + int(include_global) + len(task_lambdas(config, task))
-        for task in active_transfer
+    expanded = (
+        len(countdown_seeds) * (1 + int(countdown_positive) + len(countdown_values))
+        + transfer_cell_count
     )
     expected = _integer(sweep.get("expected_cells"), "sweep.expected_cells")
     if expected != expanded:
         raise ValueError("sweep.expected_cells must match the expanded scientific matrix")
-
 
 
 def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:

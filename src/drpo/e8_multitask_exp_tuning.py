@@ -270,10 +270,7 @@ def _reference_seed(
 def validate_config(config: Mapping[str, Any]) -> None:
     if config.get("schema_version") != 1:
         raise ValueError("Expected schema_version: 1")
-    current_experiment = experiment_id(config)
     profile = sweep_profile(config)
-    if profile not in (SWEEP_PROFILE_RHO, SWEEP_PROFILE_DENSE, SWEEP_PROFILE_COLDSTART):
-        raise ValueError(f"Unsupported sweep profile: {profile}")
     experiment_config.validate_profile_experiment_id(config)
     if profile == SWEEP_PROFILE_COLDSTART:
         return
@@ -291,12 +288,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
         if tuple(config["suite"].get("external_tasks", ())) != ("countdown",):
             raise ValueError("Countdown must be the only external task")
     else:
-        if (
-            current_experiment != DENSE_EXPERIMENT_ID
-            or len(tasks) != 7
-            or len(set(tasks)) != 7
-            or set(tasks) != _dense_tasks()
-        ):
+        if len(tasks) != 7 or len(set(tasks)) != 7 or set(tasks) != _dense_tasks():
             raise ValueError(
                 "The dense suite must be the exact seven non-Countdown, non-Spiral tasks"
             )

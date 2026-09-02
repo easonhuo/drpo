@@ -7,8 +7,6 @@ import json
 from collections import Counter
 from pathlib import Path
 
-import yaml
-
 from drpo import e8_experiment_config as experiment_config
 from drpo import e8_multitask_exp_tuning as tuning
 from drpo.e8_multitask_tasks import stable_hash
@@ -16,12 +14,7 @@ from drpo.e8_multitask_tasks import stable_hash
 
 def build_summary(config_path: Path, repo_root: Path) -> dict[str, object]:
     resolved, relative, blob = experiment_config.require_tracked_config(config_path, repo_root)
-    value = yaml.safe_load(resolved.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        raise TypeError("Configuration root must be a mapping")
-    experiment_config.validate_profile_experiment_id(value)
-    experiment_config.validate_historical_config_identity(resolved, value, repo_root=repo_root)
-    tuning.validate_config(value)
+    value = tuning.load_config(resolved)
     cells = tuning.build_cells(value)
     waves = tuning.build_waves(value)
     counts = Counter(cell.task for cell in cells)
