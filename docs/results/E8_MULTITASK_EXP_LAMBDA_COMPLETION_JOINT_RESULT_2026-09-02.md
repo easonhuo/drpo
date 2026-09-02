@@ -41,4 +41,4 @@ The pooled Positive-only values above combine all available historical-anchor an
 - Historical anchor: `experiments/results/e8_multitask_exp_coldstart_20260820_02/CURVE_ANCHOR.csv`.
 - Completion-01 compact evidence: `experiments/results/e8_multitask_exp_lambda_completion_20260827_01/`.
 - Curve-Completion-02 compact evidence: `experiments/results/e8_multitask_exp_lambda_curve_completion_02/`.
-- Joint concatenation: `experiments/results/e8_multitask_exp_lambda_joint_20260902/JOINT_CURVE_POINTS.csv`.
+- Joint task-partitioned curve projection: `experiments/results/e8_multitask_exp_lambda_joint_20260902/CURVE_MANIFEST.json` plus the nine CSV parts under `experiments/results/e8_multitask_exp_lambda_joint_20260902/CURVE_POINTS/`; concatenating them in manifest order reconstructs all `547` rows.

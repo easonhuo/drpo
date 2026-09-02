@@ -1,0 +1,22 @@
+{
+  "schema_version": 3,
+  "closure_id": "EXT-C-E8-MULTITASK-LAMBDA-RESULT-CLOSURE-2026-09-02",
+  "base_main_commit": "6ed153d5ad7361a4e52348610b86b51b71e25e47",
+  "source_authoring_branch": "dev/e8-lambda-result-closure-20260902",
+  "stage5_authoring_mode": "schema_v3_delta_source_commit",
+  "direct_handoff_edit_in_source_commit": false,
+  "registry_changed": false,
+  "source_authored_materialization_report": false,
+  "materialization_pending": true,
+  "handoff_delta": "docs/handoff_deltas/EXT-C-E8-MULTITASK-LAMBDA-RESULT-CLOSURE-2026-09-02/HANDOFF_DELTA.yaml",
+  "result_summary": "docs/results/E8_MULTITASK_EXP_LAMBDA_COMPLETION_JOINT_RESULT_2026-09-02.md",
+  "successor_records": ["experiments/results/e8_multitask_exp_lambda_completion_20260827_01/RESULT_CLOSURE.json","experiments/results/e8_multitask_exp_lambda_curve_completion_02/RESULT_CLOSURE.json"],
+  "joint_curve_storage": {"manifest":"experiments/results/e8_multitask_exp_lambda_joint_20260902/CURVE_MANIFEST.json","parts_directory":"experiments/results/e8_multitask_exp_lambda_joint_20260902/CURVE_POINTS","part_count":9,"rows":547},
+  "raw_evidence_compact_files": {
+    "completion_01": ["experiments/results/e8_multitask_exp_lambda_completion_20260827_01/RUN_COMPLETE.json","experiments/results/e8_multitask_exp_lambda_completion_20260827_01/RUN_RAW_COMPLETE.json","experiments/results/e8_multitask_exp_lambda_completion_20260827_01/SUPERVISOR_RUN_MANIFEST.json","experiments/results/e8_multitask_exp_lambda_completion_20260827_01/TASK_SUMMARY.csv","experiments/results/e8_multitask_exp_lambda_completion_20260827_01/TERMINAL_AUDIT.json"],
+    "completion_02": ["experiments/results/e8_multitask_exp_lambda_curve_completion_02/RUN_COMPLETE.json","experiments/results/e8_multitask_exp_lambda_curve_completion_02/RUN_FAILED.json","experiments/results/e8_multitask_exp_lambda_curve_completion_02/SUPERVISOR_RUN_MANIFEST.json","experiments/results/e8_multitask_exp_lambda_curve_completion_02/TASK_SUMMARY.csv","experiments/results/e8_multitask_exp_lambda_curve_completion_02/TERMINAL_AUDIT.json","experiments/results/e8_multitask_exp_lambda_curve_completion_02/RECOVERY_PACKAGE_STATUS.json"]
+  },
+  "scientific_status": "pilot",
+  "digitized_countdown_presentation_points_deposited_as_scientific_evidence": false,
+  "governance_validation_state": "pending_trusted_stage5_normalization_and_required_gates"
+}

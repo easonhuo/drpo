@@ -1,0 +1,15 @@
+{
+  "schema_version":3,
+  "experiment_id":"EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02",
+  "execution_state":"failed",
+  "run_class":"pilot",
+  "start_utc":"2026-09-01T12:16:18.095812+00:00",
+  "repo_root":"/apdcephfs_qy3/private_haibinlv/E8_MULTITASK_EXP_LAMBDA_CURVE_COMPLETION_02/bootstrap4/repo",
+  "branch":"DETACHED",
+  "base_commit":"71d792ab6dc9ba5c7086852f94db043563740d9e",
+  "commit_resolution":{"local_head":"71d792ab6dc9ba5c7086852f94db043563740d9e","expected_sha":"71d792ab6dc9ba5c7086852f94db043563740d9e","origin_main":{"sha":"6ed153d5ad7361a4e52348610b86b51b71e25e47","source":"git_ls_remote_origin_main","authoritative":true,"error":null},"origin_matches_local":false,"verified":false},
+  "git_dirty_at_launch":false,"git_status_at_launch":[],"launch_snapshot":false,
+  "command":["bash","/apdcephfs_qy3/private_haibinlv/E8_MULTITASK_EXP_LAMBDA_CURVE_COMPLETION_02/bootstrap4/repo/scripts/run_e8_multitask_exp_coldstart.sh","guarded-full-internal"],
+  "cwd":"/apdcephfs_qy3/private_haibinlv/E8_MULTITASK_EXP_LAMBDA_CURVE_COMPLETION_02/bootstrap4/repo",
+  "python":"3.11.6 (main, Aug 17 2026, 18:17:31) [GCC 12.3.1 20230912 (TencentOS 12.3.1.8-6)]","platform":"Linux-5.4.241-1-tlinux4-0017.7-x86_64-with-glibc2.38","pid":1182165,"heartbeat_seconds":30.0,"stale_seconds":600.0,"termination_grace_seconds":30.0,"progress_globs":["workload/scheduler/queue_events.jsonl","workload/logs/*.log"],"required_outputs":["workload/RUN_COMPLETE.json","workload/terminal_audit.json","workload/run_manifest.json","workload/scientific_run_manifest.json","workload/scheduler/dynamic_run.json","workload/aggregate/plot_curve_points.csv"],"artifact_output":"/apdcephfs_qy3/private_haibinlv/E8_MULTITASK_EXP_LAMBDA_CURVE_COMPLETION_02/runtime4/packages/E8_MULTITASK_EXP_LAMBDA_CURVE_COMPLETION_02_attempt-005_guarded.zip","large_file_persistence":"persistent_local","sidecar_default":false,"sidecar_files":[],"sidecar_purpose":null,"end_utc":"2026-09-02T01:44:00.391579+00:00","returncode":2,"missing_required_outputs":[],"stale_detected":false,"end_commit":"71d792ab6dc9ba5c7086852f94db043563740d9e","git_status_at_end":[],"provenance_compromised":false
+}
