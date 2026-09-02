@@ -108,18 +108,26 @@ jobs:
           PY
           git diff --check
 
-      - name: Commit materialized after-image locally
+      - name: Build atomic integration merge commit
         working-directory: target
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          MAIN=6ed153d5ad7361a4e52348610b86b51b71e25e47
+          SOURCE=2a19fa1cd23e25dcd3c319e58d286e47a4e10dac
+          git config user.name 'drpo-result-closure-bot'
+          git config user.email 'actions@users.noreply.github.com'
           git add docs/handoff.md \
             docs/handoff_shadow/stage4/minimal/generated \
             docs/handoff_deltas/EXT-C-E8-MULTITASK-LAMBDA-RESULT-CLOSURE-2026-09-02/MATERIALIZATION_REPORT.json
           git diff --cached --check
-          git commit -m 'Materialize E8 lambda result closure handoff'
+          TREE=$(git write-tree)
+          COMMIT=$(printf '%s\n' 'E8 lambda response-curve: materialize pilot result closure' | git commit-tree "$TREE" -p "$MAIN" -p "$SOURCE")
+          git reset --hard "$COMMIT"
+          test "$(git rev-parse HEAD^1)" = "$MAIN"
+          test "$(git rev-parse HEAD^2)" = "$SOURCE"
+          test "$(git rev-list --parents -n 1 HEAD | awk '{print NF}')" = "3"
+          echo "ATOMIC_INTEGRATION_HEAD=$COMMIT"
 
       - name: Required Stage-5 and governance gates
         working-directory: target
@@ -159,7 +167,7 @@ jobs:
           test -z "$(git status --porcelain)"
           echo "VALIDATED_HEAD=$(git rev-parse HEAD)"
 
-      - name: Push validated materialization to source branch
+      - name: Push validated integration to source branch
         working-directory: target
         shell: bash
         run: |
