@@ -40,8 +40,6 @@ jobs:
           rm -f .github/workflows/e8-third-audit-final-validation-once.yml
 
       - name: Remove remaining unapproved gates from baseline
-        env:
-          BASE_SHA: 6ed153d5ad7361a4e52348610b86b51b71e25e47
         run: |
           python - <<'PY'
           from __future__ import annotations
@@ -52,7 +50,6 @@ jobs:
 
           base = "6ed153d5ad7361a4e52348610b86b51b71e25e47"
 
-          # 1. Runner: a new config no longer needs an extra RUN_ID approval/input.
           runner_path = Path("scripts/run_e8_multitask_exp_coldstart.sh")
           runner = runner_path.read_text(encoding="utf-8")
           old = '''  elif [[ "${CONFIG_REPO_PATH}" == "configs/e8_multitask_exp_coldstart.yaml" ]]; then
@@ -71,7 +68,6 @@ jobs:
               raise SystemExit("non-default RUN_ID gate block not found")
           runner_path.write_text(runner.replace(old, new, 1), encoding="utf-8")
 
-          # 2. Bootstrap self-test: remove the newly mandatory target-ref input.
           bootstrap_path = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh")
           lines = bootstrap_path.read_text(encoding="utf-8").splitlines()
           changed = False
@@ -92,18 +88,17 @@ jobs:
               raise SystemExit("self-test target-ref gate not found")
           bootstrap_path.write_text("\n".join(out) + "\n", encoding="utf-8")
 
-          # 3. Config module: keep the explicitly approved schema/type/range,
-          # implementation-capability, self-consistency, profile, historical-ID,
-          # and repository-path checks. Remove policy/reporting rejection behavior
-          # and the unapproved requirement that a sweep contain at least one cell.
           config_path = Path("src/drpo/e8_experiment_config.py")
           config = config_path.read_text(encoding="utf-8")
-          zero_gate = '''    if expanded <= 0:
-              raise ValueError("Cold-start sweep must schedule at least one scientific cell")
-          '''.replace("          ", "")
-          if zero_gate not in config:
+          config, zero_count = re.subn(
+              r'^    if expanded <= 0:\n        raise ValueError\("Cold-start sweep must schedule at least one scientific cell"\)\n',
+              "",
+              config,
+              count=1,
+              flags=re.MULTILINE,
+          )
+          if zero_count != 1:
               raise SystemExit("zero-cell gate not found")
-          config = config.replace(zero_gate, "", 1)
           report_start = '    reporting = _mapping(config.get("reporting"), "reporting")\n'
           start = config.find(report_start)
           end_marker = "\n\ndef _validate_canonical_and_execution"
@@ -113,8 +108,6 @@ jobs:
           config = config[:start] + config[end:]
           config_path.write_text(config, encoding="utf-8")
 
-          # 4. Liveness: restore the pre-PR generic canonical smoke semantics.
-          # The audit-added c=0.693147181/seed=4000 exact identity is removed.
           tuning_path = Path("src/drpo/e8_multitask_exp_tuning.py")
           tuning = tuning_path.read_text(encoding="utf-8")
           for line in (
@@ -136,8 +129,6 @@ jobs:
           tuning = tuning[:current_start] + main_tuning[main_start:main_end] + tuning[current_end:]
           tuning_path.write_text(tuning, encoding="utf-8")
 
-          # 5. Tests: delete tests whose only contract was an unapproved gate and
-          # update the runner/bootstrap regression to the permissive behavior.
           tests_path = Path("tests/test_e8_multitask_p0.py")
           tests = tests_path.read_text(encoding="utf-8")
 
@@ -163,7 +154,6 @@ jobs:
           tests = tests.replace(old_assert, new_assert, 1)
           tests_path.write_text(tests, encoding="utf-8")
 
-          # 6. Preserve audit history but explicitly supersede unapproved gates.
           protocol_path = Path("docs/experiments/E8_CONFIG_DRIVEN_SWEEP_REVIEW_FIX_PROTOCOL.md")
           protocol = protocol_path.read_text(encoding="utf-8")
           marker = "## 2026-09-02 gate-liquidation override"
@@ -191,7 +181,6 @@ jobs:
             tests/test_e8_multitask_p0.py
           python -m pytest -q tests/test_e8_multitask_p0.py
           git diff --check
-          git diff --stat 6ed153d5ad7361a4e52348610b86b51b71e25e47...HEAD || true
 
       - name: Commit liquidation and self-remove
         run: |
