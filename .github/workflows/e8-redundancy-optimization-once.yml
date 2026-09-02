@@ -32,11 +32,14 @@ jobs:
 
           from pathlib import Path
 
+          def replace_function(text: str, name: str, next_name: str, replacement: str) -> str:
+              start = text.index(f"def {name}(")
+              end = text.index(f"\ndef {next_name}(", start)
+              return text[:start] + replacement.rstrip() + "\n\n" + text[end + 1:]
+
           config_path = Path("src/drpo/e8_experiment_config.py")
           text = config_path.read_text(encoding="utf-8")
-          start = text.index("def _validate_scalar_types(config: Mapping[str, Any]) -> None:\n")
-          end = text.index("\ndef _validate_implementation_contract", start)
-          replacement = '''def _validate_scalar_types(config: Mapping[str, Any]) -> None:
+          scalar = '''def _validate_scalar_types(config: Mapping[str, Any]) -> None:
               for section, fields in {
                   "reference": ("optimizer_updates", "validation_rows_seen", "test_rows_seen"),
                   "initialization": ("optimizer_updates", "seed"),
@@ -152,28 +155,15 @@ jobs:
               if max_grad_norm <= 0.0:
                   raise ValueError("training.max_grad_norm must be positive")
           '''
-          replacement = "\n".join(line[10:] if line.startswith("          ") else line for line in replacement.splitlines()) + "\n"
-          text = text[:start] + replacement + text[end:]
+          scalar = "\n".join(line[10:] if line.startswith("          ") else line for line in scalar.splitlines())
+          text = replace_function(text, "_validate_scalar_types", "_validate_implementation_contract", scalar)
 
-          old = '''    active_transfer: list[str] = []
-              for task in transfer_tasks:
-                  values = task_lambdas(config, task)
-                  if len(set(values)) != len(values):
-                      raise ValueError(f"{task} lambda grid contains duplicates")
-                  if stable_hash(list(values)) != str(hashes[task]):
-                      raise ValueError(f"{task} lambda grid does not match task_grid_hashes")
-                  if not str(provenance[task]).strip():
-                      raise ValueError(f"{task} task-grid provenance must be non-empty")
-                  if values:
-                      active_transfer.append(task)
-
-              expanded = len(countdown_seeds) * (1 + int(countdown_positive) + len(countdown_values)) + sum(
-                  len(positive_seeds) + int(include_global) + len(task_lambdas(config, task))
-                  for task in active_transfer
-              )
-          '''
-          old = "\n".join(line[10:] if line.startswith("          ") else line for line in old.splitlines()) + "\n"
-          new = '''    transfer_cell_count = 0
+          sweep_start = text.index("def _validate_sweep(")
+          sweep_end = text.index("\ndef _validate_canonical_and_execution(", sweep_start)
+          sweep = text[sweep_start:sweep_end]
+          block_start = sweep.index("    active_transfer: list[str] = []\n")
+          block_end = sweep.index("    expected = _integer(sweep.get(\"expected_cells\")", block_start)
+          replacement = '''    transfer_cell_count = 0
               for task in transfer_tasks:
                   values = task_lambdas(config, task)
                   if len(set(values)) != len(values):
@@ -190,62 +180,69 @@ jobs:
                   + transfer_cell_count
               )
           '''
-          new = "\n".join(line[10:] if line.startswith("          ") else line for line in new.splitlines()) + "\n"
-          if old not in text:
-              raise SystemExit("sweep duplicate-expansion block not found")
-          text = text.replace(old, new, 1)
+          replacement = "\n".join(line[10:] if line.startswith("          ") else line for line in replacement.splitlines()) + "\n"
+          sweep = sweep[:block_start] + replacement + sweep[block_end:]
+          text = text[:sweep_start] + sweep + text[sweep_end:]
           config_path.write_text(text, encoding="utf-8")
 
           preflight_path = Path("scripts/preflight_e8_multitask_config.py")
-          text = preflight_path.read_text(encoding="utf-8")
-          text = text.replace("\nimport yaml\n", "\n", 1)
-          old = '''    resolved, relative, blob = experiment_config.require_tracked_config(config_path, repo_root)
-              value = yaml.safe_load(resolved.read_text(encoding="utf-8"))
-              if not isinstance(value, dict):
-                  raise TypeError("Configuration root must be a mapping")
-              experiment_config.validate_profile_experiment_id(value)
-              experiment_config.validate_historical_config_identity(resolved, value, repo_root=repo_root)
-              tuning.validate_config(value)
-          '''
-          old = "\n".join(line[10:] if line.startswith("          ") else line for line in old.splitlines()) + "\n"
-          new = '''    resolved, relative, blob = experiment_config.require_tracked_config(config_path, repo_root)
+          text = preflight_path.read_text(encoding="utf-8").replace("\nimport yaml\n", "\n", 1)
+          start = text.index("def build_summary(")
+          end = text.index("\n\ndef main()", start)
+          block = text[start:end]
+          prefix_end = block.index("    cells = tuning.build_cells(value)\n")
+          prefix = '''def build_summary(config_path: Path, repo_root: Path) -> dict[str, object]:
+              resolved, relative, blob = experiment_config.require_tracked_config(config_path, repo_root)
               value = tuning.load_config(resolved)
           '''
-          new = "\n".join(line[10:] if line.startswith("          ") else line for line in new.splitlines()) + "\n"
-          if old not in text:
-              raise SystemExit("preflight duplicate-loader block not found")
-          preflight_path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          prefix = "\n".join(line[10:] if line.startswith("          ") else line for line in prefix.splitlines()) + "\n"
+          block = prefix + block[prefix_end:]
+          text = text[:start] + block + text[end:]
+          preflight_path.write_text(text, encoding="utf-8")
 
           tuning_path = Path("src/drpo/e8_multitask_exp_tuning.py")
           text = tuning_path.read_text(encoding="utf-8")
-          old = '''    current_experiment = experiment_id(config)
+          start = text.index("def validate_config(config: Mapping[str, Any]) -> None:\n")
+          end = text.index("\ndef ", start + 1)
+          block = text[start:end]
+          old_prefix = '''def validate_config(config: Mapping[str, Any]) -> None:
+              if config.get("schema_version") != 1:
+                  raise ValueError("Expected schema_version: 1")
+              current_experiment = experiment_id(config)
               profile = sweep_profile(config)
               if profile not in (SWEEP_PROFILE_RHO, SWEEP_PROFILE_DENSE, SWEEP_PROFILE_COLDSTART):
                   raise ValueError(f"Unsupported sweep profile: {profile}")
               experiment_config.validate_profile_experiment_id(config)
+              if profile == SWEEP_PROFILE_COLDSTART:
+                  return
           '''
-          old = "\n".join(line[10:] if line.startswith("          ") else line for line in old.splitlines()) + "\n"
-          new = '''    profile = sweep_profile(config)
+          old_prefix = "\n".join(line[10:] if line.startswith("          ") else line for line in old_prefix.splitlines()) + "\n"
+          new_prefix = '''def validate_config(config: Mapping[str, Any]) -> None:
+              profile = sweep_profile(config)
               experiment_config.validate_profile_experiment_id(config)
+              if profile == SWEEP_PROFILE_COLDSTART:
+                  return
+              if config.get("schema_version") != 1:
+                  raise ValueError("Expected schema_version: 1")
           '''
-          new = "\n".join(line[10:] if line.startswith("          ") else line for line in new.splitlines()) + "\n"
-          if old not in text:
-              raise SystemExit("tuning duplicate profile-validation block not found")
-          text = text.replace(old, new, 1)
-          old = '''        if (
+          new_prefix = "\n".join(line[10:] if line.startswith("          ") else line for line in new_prefix.splitlines()) + "\n"
+          if not block.startswith(old_prefix):
+              raise SystemExit("validate_config prefix changed unexpectedly")
+          block = new_prefix + block[len(old_prefix):]
+          dense_old = '''        if (
                   current_experiment != DENSE_EXPERIMENT_ID
                   or len(tasks) != 7
                   or len(set(tasks)) != 7
                   or set(tasks) != _dense_tasks()
               ):
           '''
-          old = "\n".join(line[10:] if line.startswith("          ") else line for line in old.splitlines()) + "\n"
-          new = '''        if len(tasks) != 7 or len(set(tasks)) != 7 or set(tasks) != _dense_tasks():
-          '''
-          new = "\n".join(line[10:] if line.startswith("          ") else line for line in new.splitlines()) + "\n"
-          if old not in text:
-              raise SystemExit("dense redundant experiment-id block not found")
-          tuning_path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          dense_old = "\n".join(line[10:] if line.startswith("          ") else line for line in dense_old.splitlines()) + "\n"
+          dense_new = "        if len(tasks) != 7 or len(set(tasks)) != 7 or set(tasks) != _dense_tasks():\n"
+          if dense_old not in block:
+              raise SystemExit("dense duplicate experiment-id check changed unexpectedly")
+          block = block.replace(dense_old, dense_new, 1)
+          text = text[:start] + block + text[end:]
+          tuning_path.write_text(text, encoding="utf-8")
           PY
 
       - name: Install development dependencies
@@ -253,6 +250,7 @@ jobs:
 
       - name: Validate optimized implementation
         run: |
+          ruff format src/drpo/e8_experiment_config.py scripts/preflight_e8_multitask_config.py src/drpo/e8_multitask_exp_tuning.py
           python -m py_compile \
             src/drpo/e8_experiment_config.py \
             scripts/preflight_e8_multitask_config.py \
@@ -262,9 +260,6 @@ jobs:
             src/drpo/e8_experiment_config.py \
             scripts/preflight_e8_multitask_config.py \
             tests/test_e8_multitask_p0.py
-          ruff format --check \
-            src/drpo/e8_experiment_config.py \
-            scripts/preflight_e8_multitask_config.py
           bash -n scripts/run_e8_multitask_exp_coldstart.sh
           bash -n scripts/bootstrap_e8_multitask_exp_coldstart.sh
           bash -n scripts/run_e8_multitask_exp_lambda_completion.sh
