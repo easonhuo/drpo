@@ -1,3 +1,20 @@
 {
-  "aggregate_sha256":"4678e935e251530acc0f2d4075b49f31e898a932a32f18619461b37aeeec8bc3","all_training_and_evaluation_complete":true,"artifact_state":"raw_complete","base_commit":"71d792ab6dc9ba5c7086852f94db043563740d9e","complete":true,"completed_cells":140,"config_hash":"37063eee0951877ad828576a6534749ec7ce37950547666012d82af4a96199ea","engineering_placeholder_backend":false,"expected_cells":140,"experiment_id":"EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02","run_id":"E8_MULTITASK_EXP_LAMBDA_CURVE_COMPLETION_02","scheduler":"dynamic_slot_queue","scheduler_run_id":"queue-1788265047-1183347","schema_version":1,"scientific_status":"pilot","source_commit":"71d792ab6dc9ba5c7086852f94db043563740d9e","terminal_audit_sha256":"2086c194c69a4896ad864419fbbdff00f856355f34becad2ba03d744913a3289","test_partition_accessed":false
+  "aggregate_sha256": "4678e935e251530acc0f2d4075b49f31e898a932a32f18619461b37aeeec8bc3",
+  "all_training_and_evaluation_complete": true,
+  "artifact_state": "raw_complete",
+  "base_commit": "71d792ab6dc9ba5c7086852f94db043563740d9e",
+  "complete": true,
+  "completed_cells": 140,
+  "config_hash": "37063eee0951877ad828576a6534749ec7ce37950547666012d82af4a96199ea",
+  "engineering_placeholder_backend": false,
+  "expected_cells": 140,
+  "experiment_id": "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02",
+  "run_id": "E8_MULTITASK_EXP_LAMBDA_CURVE_COMPLETION_02",
+  "scheduler": "dynamic_slot_queue",
+  "scheduler_run_id": "queue-1788265047-1183347",
+  "schema_version": 1,
+  "scientific_status": "pilot",
+  "source_commit": "71d792ab6dc9ba5c7086852f94db043563740d9e",
+  "terminal_audit_sha256": "2086c194c69a4896ad864419fbbdff00f856355f34becad2ba03d744913a3289",
+  "test_partition_accessed": false
 }

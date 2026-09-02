@@ -20,7 +20,11 @@
   "git_status_at_end": [],
   "provenance_compromised": false,
   "branch": "repair/e8-lambda-completion-finalize",
-  "command": ["bash","/apdcephfs_qy3/share_305164797/haibinlv/0714_backup/E8_MULTITASK_EXP_LAMBDA_COMPLETION_20260827_01/bootstrap/repo/scripts/run_e8_multitask_exp_coldstart.sh","guarded-full-internal"],
+  "command": [
+    "bash",
+    "/apdcephfs_qy3/share_305164797/haibinlv/0714_backup/E8_MULTITASK_EXP_LAMBDA_COMPLETION_20260827_01/bootstrap/repo/scripts/run_e8_multitask_exp_coldstart.sh",
+    "guarded-full-internal"
+  ],
   "scientific_acceptance_pending": true,
   "execution_state": "raw_complete"
 }
