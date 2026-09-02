@@ -227,7 +227,6 @@ def _validate_scalar_types(config: Mapping[str, Any]) -> None:
             "extra_square",
             "gradient_rms_matching",
         ),
-        "selection": ("finite_required", "report_grid_edge"),
     }.items():
         values = _mapping(config.get(section), section)
         for field in fields:
@@ -324,13 +323,6 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
         raise ValueError("Early stopping is not implemented by this cold-start runner")
     if config["training"].get("terminal_adapter_required") is not True:
         raise ValueError("Cold-start requires a terminal adapter")
-
-    evaluation = config["evaluation"]
-    if (
-        evaluation.get("primary_checkpoint_policy") != "late_window_and_terminal"
-        or evaluation.get("best_checkpoint_role") != "supplementary_only"
-    ):
-        raise ValueError("Cold-start checkpoint-selection mode is not implemented")
 
     negative = config["negative_sampling"]
     if (
@@ -609,21 +601,6 @@ def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
         or canonical.get("transfer_entry") != "countdown_e8_alpha1_c_scan_trainer.train_cell"
     ):
         raise ValueError("Cold-start canonical trainer/dispatch contract drifted")
-
-    selection = config["selection"]
-    if (
-        selection.get("primary_metric") != "validation_late_window_pass8_mean"
-        or selection.get("finite_required") is not True
-        or selection.get("report_grid_edge") is not True
-        or selection.get("terminal_valid_rate_role") != "diagnostic_only_not_selection_eligibility"
-        or tuple(selection.get("tie_breakers", ()))
-        != (
-            "validation_terminal_pass8",
-            "validation_late_window_greedy_mean",
-            "smaller_lambda",
-        )
-    ):
-        raise ValueError("Cold-start selection mode is not implemented")
 
     execution = _mapping(config.get("execution"), "execution")
     if _integer(execution.get("max_concurrent_cells"), "execution.max_concurrent_cells") != 16:

@@ -1,6 +1,6 @@
 # E8 config-driven sweep repair invariants
 
-Status: third adversarial audit closure specified / implementation repair pending / final-head repository gates pending / independent review pending / not a scientific result.
+Status: latest correctness repair applied / focused final-head checks passed / independent review pending / not a scientific result.
 
 Scope: harden and simplify the `eight_task_coldstart_lambda_v1` orchestration refactor introduced by PR #340 without changing any currently tracked historical scientific config, the canonical paper trainer/loss, or the interpretation of existing results.
 
@@ -198,3 +198,16 @@ The repository owner clarified that adding or strengthening a gate is itself a g
 For PR #340, second/third-audit additions that were not explicitly owner-approved are therefore superseded and removed from the implementation after-image. In particular, this liquidation removes strict duplicate-YAML/closed-world-schema rejection, model/runtime execution-identity gating, stale-execution/recovery identity gating, extra data-volume/capacity rejection, zero-warmup strengthening, inactive-Countdown explicitness rules, exact Countdown liveness coefficient/seed identity, mandatory non-default RUN_ID and self-test target-ref inputs, and runtime rejection of reporting-policy declarations. Historical audit text above remains preserved as provenance, not as current authority.
 
 The retained implementation scope is limited to the owner-approved config-driven behavior and the two approved Python responsibilities: schema/type/range parsing needed by the consumer, implementation capability, matrix self-consistency, profile/experiment-ID scope, compact historical config identity, repository-path/tracked-config safety, preflight plan reporting, and propagation of reviewed config values into the existing canonical runtime without reimplementing the scientific loss/trainer. The pre-existing repository review/merge workflow remains governed by its prior main-branch policy.
+
+
+## 2026-09-02 final correctness after-image correction
+
+This section supersedes the remaining inconsistent implementation details found after gate liquidation. It does not change scientific variables, historical configs, the canonical paper trainer/loss, or any scientific result.
+
+- Formal raw guarded-run provenance includes both approved config-authority Python paths: `src/drpo/e8_experiment_config.py` and `scripts/preflight_e8_multitask_config.py`; delivery-preflight provenance is no longer the only place that records them.
+- Residual runtime rejection of reporting/selection-policy declarations is removed. The actual canonical selection/reporting behavior remains implemented by the existing runtime; this change only removes the unapproved second policy lock.
+- The post-audit hard-coded Countdown liveness coefficient `0.693147181` is reverted to the pre-audit/main runner value `0.916290732`; no new exact liveness identity is introduced.
+- `e8_multitask_exp_tuning.sweep_profile()` delegates to the approved config-authority module rather than re-parsing the same field.
+- This remains engineering-only evidence. No model training, GPU sweep, task-performance result, support/variance-boundary result, numerical-collapse result, convergence result, significance result, or method ranking is produced.
+
+Latest correctness validation run: `33603556843`. Focused E8: `65 passed in 5.20s`; Countdown subset: `15 passed, 12 deselected in 4.34s`. Python compilation, Ruff, shell syntax, three real config preflights, handoff authority, governance-stage validation, `git diff --check`, and the #340 no-diff check for `.github/workflows/code-change-budget.yml` all passed in the same run.

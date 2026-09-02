@@ -730,7 +730,7 @@ liveness() {
   activate_runtime
   CUDA_VISIBLE_DEVICES=0 LOCAL_RANK=0 run_module liveness \
     --task countdown \
-    --lambda 0.693147181 \
+    --lambda 0.916290732 \
     --base-model-path "${MODEL_DIR}"
 }
 
@@ -897,6 +897,8 @@ run_formal_guard_attempt() {
     --source-file scripts/run_e8_multitask_exp_coldstart.sh \
     --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh \
     --source-file src/drpo/e8_multitask_exp_tuning.py \
+    --source-file src/drpo/e8_experiment_config.py \
+    --source-file scripts/preflight_e8_multitask_config.py \
     --source-file "${CONFIG_REPO_PATH}" \
     "${CONFIG_SOURCE_ARGS[@]}" \
     --source-file requirements/e8_multitask_exp_coldstart.txt \

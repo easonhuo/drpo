@@ -2447,6 +2447,7 @@ def test_coldstart_validation_has_single_config_authority_exit() -> None:
     assert "Countdown sentinel coefficients drifted" not in source
     assert "Cold-start task-interface length/evaluation contract drifted" not in source
 
+
 def test_generic_coldstart_rejects_p0_experiment_id_collision() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
@@ -2525,3 +2526,28 @@ def test_zero_warmup_reaches_legacy_scheduler(tmp_path: Path) -> None:
         arena.get_cosine_schedule_with_warmup("optimizer", 1, 1200)
     assert observed == {"warmup": 0, "training": 1200}
     assert arena.get_cosine_schedule_with_warmup is original_scheduler
+
+
+def test_final_correctness_audit_after_image() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-FINAL-CORRECTNESS-TEST"
+    config["evaluation"]["primary_checkpoint_policy"] = "report_only_metadata"
+    config["evaluation"]["best_checkpoint_role"] = "report_only_metadata"
+    config["selection"]["primary_metric"] = "report_only_metadata"
+    config["selection"]["finite_required"] = False
+    config["selection"]["report_grid_edge"] = False
+    config["selection"]["terminal_valid_rate_role"] = "report_only_metadata"
+    config["selection"]["tie_breakers"] = []
+    exp_tuning.validate_config(config)
+
+    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    formal = runner.split("\nrun_formal_guard_attempt() {\n", 1)[1].split(
+        "\nreport_formal_success() {\n", 1
+    )[0]
+    assert "--source-file src/drpo/e8_experiment_config.py" in formal
+    assert "--source-file scripts/preflight_e8_multitask_config.py" in formal
+    assert "--lambda 0.916290732" in runner
+    assert "--lambda 0.693147181" not in runner
+    assert exp_tuning.sweep_profile(config) == "eight_task_coldstart_lambda_v1"

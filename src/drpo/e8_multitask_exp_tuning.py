@@ -217,7 +217,7 @@ def experiment_id(config: Mapping[str, Any]) -> str:
 
 
 def sweep_profile(config: Mapping[str, Any]) -> str:
-    return str(config.get("sweep", {}).get("profile", SWEEP_PROFILE_RHO))
+    return experiment_config.sweep_profile(config)
 
 
 def _is_dense(config: Mapping[str, Any]) -> bool:
@@ -3763,9 +3763,7 @@ def _legacy_arena_runtime_bridge(arena: Any, effective: Mapping[str, Any]) -> An
             raise RuntimeError("Canonical arena scheduler is unavailable")
         if float(effective["training"]["warmup_ratio"]) == 0.0:
             num_warmup_steps = 0
-        return original_scheduler(
-            optimizer, num_warmup_steps, num_training_steps, *args, **kwargs
-        )
+        return original_scheduler(optimizer, num_warmup_steps, num_training_steps, *args, **kwargs)
 
     arena.LoraConfig = configured_lora_config
     arena.load_model = configured_load_model
