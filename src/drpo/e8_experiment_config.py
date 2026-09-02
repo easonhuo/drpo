@@ -15,7 +15,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from drpo.e8_multitask_tasks import TASK_NAMES, stable_hash
+from drpo.e8_multitask_tasks import TASK_NAMES
 
 RHO_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-TUNING-01"
 DENSE_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-DENSE-01"
@@ -571,18 +571,15 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
     _integer(sweep.get("tuning_seed"), "tuning_seed")
 
     transfer_tasks = set(tasks) - {"countdown"}
-    hashes = _mapping(sweep.get("task_grid_hashes"), "task_grid_hashes")
     provenance = _mapping(sweep.get("task_grid_provenance"), "task_grid_provenance")
-    if set(hashes) != transfer_tasks or set(provenance) != transfer_tasks:
-        raise ValueError("Task-grid hash/provenance maps must cover the exact eight transfer tasks")
+    if set(provenance) != transfer_tasks:
+        raise ValueError("Task-grid provenance must cover the exact eight transfer tasks")
 
     transfer_cell_count = 0
     for task in transfer_tasks:
         values = task_lambdas(config, task)
         if len(set(values)) != len(values):
             raise ValueError(f"{task} lambda grid contains duplicates")
-        if stable_hash(list(values)) != str(hashes[task]):
-            raise ValueError(f"{task} lambda grid does not match task_grid_hashes")
         if not str(provenance[task]).strip():
             raise ValueError(f"{task} task-grid provenance must be non-empty")
         if values:

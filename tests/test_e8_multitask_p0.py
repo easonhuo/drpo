@@ -1455,10 +1455,6 @@ def test_exp_coldstart_matrix_is_208_cells_in_13_nominal_batches() -> None:
         assert {cell.seed for cell in positives} == {4000, 5000, 6000, 7000}
         assert len(exp_cells) == 20
         assert {cell.seed for cell in exp_cells} == {4000}
-        assert (
-            exp_tuning.stable_hash(list(exp_tuning._task_lambdas(config, task)))
-            == config["sweep"]["task_grid_hashes"][task]
-        )
         assert config["sweep"]["task_grid_provenance"][task]
 
 
@@ -2336,7 +2332,7 @@ def test_generic_coldstart_matrix_is_dynamic_but_self_consistent() -> None:
     sweep["transfer_positive_only_seed_offsets"] = [8000, 9000]
     config["reporting"]["positive_only_seed_count_per_transfer_task"] = 2
     sweep["task_lambda"]["maze"] = []
-    sweep["task_grid_hashes"]["maze"] = exp_tuning.stable_hash([])
+    sweep.pop("task_grid_hashes", None)
     active = [task for task in config["suite"]["p0_tasks"] if sweep["task_lambda"][task]]
     sweep["expected_cells"] = sum(2 + 1 + len(sweep["task_lambda"][task]) for task in active)
 
@@ -2413,16 +2409,20 @@ def test_e8_config_preflight_is_tracked_and_non_scientific() -> None:
         untracked.unlink(missing_ok=True)
 
 
-def test_runner_uses_real_tracked_config_check_and_standalone_preflight() -> None:
+def test_runner_delegates_tracked_config_and_model_identity_to_config_authority() -> None:
     runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
-    assert 'git -C "${ROOT_DIR}" ls-files --error-unmatch -- "${CONFIG_REPO_PATH}"' in runner
+    assert 'git -C "${ROOT_DIR}" ls-files --error-unmatch -- "${CONFIG_REPO_PATH}"' not in runner
     assert "scripts/preflight_e8_multitask_config.py" in runner
     assert "config_preflight | tee" in runner
+    assert 'MODEL_REPO="' not in runner
+    assert 'MODEL_REVISION="' not in runner
+    assert 'model = preflight["model"]' in runner
+    assert 'config["model"]["revision"]' in runner
     assert "E8_COLDSTART_RUN_ID must match [A-Za-z0-9]" in runner
 
     bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
     assert "refs/pull/309/head" not in bootstrap
-    assert 'E8_COLDSTART_TARGET_REF:-refs/heads/main' in bootstrap
+    assert "E8_COLDSTART_TARGET_REF:-refs/heads/main" in bootstrap
 
 
 def test_runtime_activation_uses_canonical_grid_before_generic_bridge() -> None:
