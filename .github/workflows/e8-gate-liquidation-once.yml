@@ -137,6 +137,14 @@ jobs:
               raise SystemExit("engineering liveness placeholder replacement markers not found")
           tuning = tuning[:current_start] + main_tuning[main_start:main_end] + tuning[current_end:]
 
+          current_start = tuning.find("def _matches_canonical_cold_liveness_manifest(")
+          current_end = tuning.find("def cmd_run_wave(", current_start)
+          main_start = main_tuning.find("def _require_liveness_gate(")
+          main_end = main_tuning.find("def cmd_run_wave(", main_start)
+          if min(current_start, current_end, main_start, main_end) < 0:
+              raise SystemExit("liveness gate replacement markers not found")
+          tuning = tuning[:current_start] + main_tuning[main_start:main_end] + tuning[current_end:]
+
           tuning, default_count = re.subn(
               r'        if rho is None:\n            rho = \(\n                math\.exp\(-COUNTDOWN_LIVENESS_COEFFICIENT\)\n                if _is_coldstart\(config\)\n                else _task_rhos\(config, str\(args\.task\)\)\[0\]\n            \)\n',
               '        if rho is None:\n            rho = _task_rhos(config, str(args.task))[0]\n',
