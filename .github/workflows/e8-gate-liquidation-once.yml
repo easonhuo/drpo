@@ -1,0 +1,204 @@
+name: E8 Gate Liquidation Once
+
+on:
+  push:
+    branches: [dev/e8-config-driven-sweep-01]
+    paths:
+      - .github/workflows/e8-gate-liquidation-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  liquidate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-config-driven-sweep-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Restore last pre-audit approved implementation baseline
+        run: |
+          LEAN=5e5819f795c7b35c8f68ffb4fba48bc952be5bf9
+          BASE=6ed153d5ad7361a4e52348610b86b51b71e25e47
+          git checkout "$LEAN" -- \
+            scripts/bootstrap_e8_multitask_exp_coldstart.sh \
+            scripts/preflight_e8_multitask_config.py \
+            scripts/run_e8_multitask_exp_coldstart.sh \
+            src/drpo/e8_experiment_config.py \
+            src/drpo/e8_multitask_exp_tuning.py \
+            tests/test_e8_multitask_p0.py
+          git checkout "$BASE" -- pyproject.toml
+          rm -f .github/workflows/e8-third-audit-final-validation-once.yml
+
+      - name: Remove remaining unapproved gates from baseline
+        env:
+          BASE_SHA: 6ed153d5ad7361a4e52348610b86b51b71e25e47
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+
+          import re
+          import subprocess
+          from pathlib import Path
+
+          base = "6ed153d5ad7361a4e52348610b86b51b71e25e47"
+
+          # 1. Runner: a new config no longer needs an extra RUN_ID approval/input.
+          runner_path = Path("scripts/run_e8_multitask_exp_coldstart.sh")
+          runner = runner_path.read_text(encoding="utf-8")
+          old = '''  elif [[ "${CONFIG_REPO_PATH}" == "configs/e8_multitask_exp_coldstart.yaml" ]]; then
+              RUN_ID="E8_MULTITASK_EXP_COLDSTART_20260820_02"
+            else
+              fail "set E8_COLDSTART_RUN_ID for non-default config: ${CONFIG_REPO_PATH}"
+            fi
+          '''.replace("          ", "")
+          new = '''  elif [[ "${CONFIG_REPO_PATH}" == "configs/e8_multitask_exp_coldstart.yaml" ]]; then
+              RUN_ID="E8_MULTITASK_EXP_COLDSTART_20260820_02"
+            else
+              RUN_ID="${EXPERIMENT_ID}"
+            fi
+          '''.replace("          ", "")
+          if old not in runner:
+              raise SystemExit("non-default RUN_ID gate block not found")
+          runner_path.write_text(runner.replace(old, new, 1), encoding="utf-8")
+
+          # 2. Bootstrap self-test: remove the newly mandatory target-ref input.
+          bootstrap_path = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh")
+          lines = bootstrap_path.read_text(encoding="utf-8").splitlines()
+          changed = False
+          out: list[str] = []
+          skip_next = False
+          for index, line in enumerate(lines):
+              if skip_next:
+                  skip_next = False
+                  continue
+              if line.strip() == 'TARGET_REF="${E8_COLDSTART_TARGET_REF:-}"':
+                  out.append('  TARGET_REF="${E8_COLDSTART_TARGET_REF:-refs/heads/main}"')
+                  if index + 1 < len(lines) and "self-test requires E8_COLDSTART_TARGET_REF" in lines[index + 1]:
+                      skip_next = True
+                  changed = True
+              else:
+                  out.append(line)
+          if not changed:
+              raise SystemExit("self-test target-ref gate not found")
+          bootstrap_path.write_text("\n".join(out) + "\n", encoding="utf-8")
+
+          # 3. Config module: keep the explicitly approved schema/type/range,
+          # implementation-capability, self-consistency, profile, historical-ID,
+          # and repository-path checks. Remove policy/reporting rejection behavior
+          # and the unapproved requirement that a sweep contain at least one cell.
+          config_path = Path("src/drpo/e8_experiment_config.py")
+          config = config_path.read_text(encoding="utf-8")
+          zero_gate = '''    if expanded <= 0:
+              raise ValueError("Cold-start sweep must schedule at least one scientific cell")
+          '''.replace("          ", "")
+          if zero_gate not in config:
+              raise SystemExit("zero-cell gate not found")
+          config = config.replace(zero_gate, "", 1)
+          report_start = '    reporting = _mapping(config.get("reporting"), "reporting")\n'
+          start = config.find(report_start)
+          end_marker = "\n\ndef _validate_canonical_and_execution"
+          end = config.find(end_marker, start)
+          if start < 0 or end < 0:
+              raise SystemExit("reporting policy gate block not found")
+          config = config[:start] + config[end:]
+          config_path.write_text(config, encoding="utf-8")
+
+          # 4. Liveness: restore the pre-PR generic canonical smoke semantics.
+          # The audit-added c=0.693147181/seed=4000 exact identity is removed.
+          tuning_path = Path("src/drpo/e8_multitask_exp_tuning.py")
+          tuning = tuning_path.read_text(encoding="utf-8")
+          for line in (
+              "COUNTDOWN_LIVENESS_COEFFICIENT = 0.693147181\n",
+              "COUNTDOWN_LIVENESS_SEED_OFFSET = 4000\n",
+          ):
+              if line not in tuning:
+                  raise SystemExit(f"liveness constant not found: {line.strip()}")
+              tuning = tuning.replace(line, "", 1)
+          main_tuning = subprocess.check_output(
+              ["git", "show", f"{base}:src/drpo/e8_multitask_exp_tuning.py"], text=True
+          )
+          current_start = tuning.find("def _canonical_cold_liveness_cell()")
+          current_end = tuning.find("def _read_json_object(", current_start)
+          main_start = main_tuning.find("def _cmd_canonical_cold_liveness(")
+          main_end = main_tuning.find("def _read_json_object(", main_start)
+          if min(current_start, current_end, main_start, main_end) < 0:
+              raise SystemExit("canonical liveness replacement markers not found")
+          tuning = tuning[:current_start] + main_tuning[main_start:main_end] + tuning[current_end:]
+          tuning_path.write_text(tuning, encoding="utf-8")
+
+          # 5. Tests: delete tests whose only contract was an unapproved gate and
+          # update the runner/bootstrap regression to the permissive behavior.
+          tests_path = Path("tests/test_e8_multitask_p0.py")
+          tests = tests_path.read_text(encoding="utf-8")
+
+          def remove_test(text: str, name: str) -> str:
+              pattern = re.compile(
+                  rf"^def {re.escape(name)}\b.*?(?=^def test_|\Z)",
+                  flags=re.MULTILINE | re.DOTALL,
+              )
+              updated, count = pattern.subn("", text, count=1)
+              if count != 1:
+                  raise SystemExit(f"test not found for removal: {name}")
+              return updated
+
+          tests = remove_test(tests, "test_generic_coldstart_rejects_zero_scientific_cells")
+          tests = remove_test(
+              tests,
+              "test_canonical_liveness_identity_is_grid_independent_and_stale_safe",
+          )
+          old_assert = '    assert "self-test requires E8_COLDSTART_TARGET_REF" in bootstrap\n'
+          new_assert = '    assert \'E8_COLDSTART_TARGET_REF:-refs/heads/main\' in bootstrap\n'
+          if old_assert not in tests:
+              raise SystemExit("bootstrap mandatory-target assertion not found")
+          tests = tests.replace(old_assert, new_assert, 1)
+          tests_path.write_text(tests, encoding="utf-8")
+
+          # 6. Preserve audit history but explicitly supersede unapproved gates.
+          protocol_path = Path("docs/experiments/E8_CONFIG_DRIVEN_SWEEP_REVIEW_FIX_PROTOCOL.md")
+          protocol = protocol_path.read_text(encoding="utf-8")
+          marker = "## 2026-09-02 gate-liquidation override"
+          if marker not in protocol:
+              protocol += f'''\n\n{marker}\n\nThe repository owner clarified that adding or strengthening a gate is itself a governance decision and requires explicit prior approval. General requests to fix, audit, harden, simplify, or finish an implementation are not authorization to invent additional blockers.\n\nFor PR #340, second/third-audit additions that were not explicitly owner-approved are therefore superseded and removed from the implementation after-image. In particular, this liquidation removes strict duplicate-YAML/closed-world-schema rejection, model/runtime execution-identity gating, stale-execution/recovery identity gating, extra data-volume/capacity rejection, zero-warmup strengthening, inactive-Countdown explicitness rules, exact Countdown liveness coefficient/seed identity, mandatory non-default RUN_ID and self-test target-ref inputs, and runtime rejection of reporting-policy declarations. Historical audit text above remains preserved as provenance, not as current authority.\n\nThe retained implementation scope is limited to the owner-approved config-driven behavior and the two approved Python responsibilities: schema/type/range parsing needed by the consumer, implementation capability, matrix self-consistency, profile/experiment-ID scope, compact historical config identity, repository-path/tracked-config safety, preflight plan reporting, and propagation of reviewed config values into the existing canonical runtime without reimplementing the scientific loss/trainer. The pre-existing repository review/merge workflow remains governed by its prior main-branch policy.\n'''
+          protocol_path.write_text(protocol, encoding="utf-8")
+          PY
+
+      - name: Install development dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Validate liquidated implementation
+        run: |
+          python -m py_compile \
+            src/drpo/e8_experiment_config.py \
+            scripts/preflight_e8_multitask_config.py \
+            src/drpo/e8_multitask_exp_tuning.py \
+            tests/test_e8_multitask_p0.py
+          bash -n scripts/run_e8_multitask_exp_coldstart.sh
+          bash -n scripts/bootstrap_e8_multitask_exp_coldstart.sh
+          bash -n scripts/run_e8_multitask_exp_lambda_completion.sh
+          ruff check \
+            src/drpo/e8_experiment_config.py \
+            scripts/preflight_e8_multitask_config.py \
+            tests/test_e8_multitask_p0.py
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          git diff --check
+          git diff --stat 6ed153d5ad7361a4e52348610b86b51b71e25e47...HEAD || true
+
+      - name: Commit liquidation and self-remove
+        run: |
+          rm -f .github/workflows/e8-gate-liquidation-once.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m "refactor(e8): liquidate unapproved gates"
+          git push origin HEAD:dev/e8-config-driven-sweep-01
