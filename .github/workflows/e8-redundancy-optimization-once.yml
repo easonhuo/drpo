@@ -231,6 +231,10 @@ jobs:
 
       - name: Validate optimized implementation
         run: |
+          ruff format \
+            src/drpo/e8_experiment_config.py \
+            scripts/preflight_e8_multitask_config.py \
+            src/drpo/e8_multitask_exp_tuning.py
           python -m py_compile \
             src/drpo/e8_experiment_config.py \
             scripts/preflight_e8_multitask_config.py \
