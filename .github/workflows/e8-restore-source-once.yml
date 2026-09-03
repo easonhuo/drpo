@@ -1,0 +1,38 @@
+name: E8 exact source restoration once
+
+"on":
+  push:
+    branches:
+      - dev/e8-config-driven-sweep-01
+    paths:
+      - .github/workflows/e8-restore-source-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-config-driven-sweep-01
+          fetch-depth: 0
+      - name: Restore verified source and self-clean
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERIFIED_HEAD=7119d5dc6bbd7e1b59a98aa662dcf998fdbc1b68
+          BROKEN_COMMIT=17ae645b501b9248814e5e8a573aa93375630801
+          git merge-base --is-ancestor "${VERIFIED_HEAD}" HEAD
+          git merge-base --is-ancestor "${BROKEN_COMMIT}" HEAD
+          unexpected="$(git diff --name-only "${VERIFIED_HEAD}" HEAD | grep -Ev '^(.github/workflows/e8-restore-source-once.yml|src/drpo/e8_multitask_exp_tuning.py)$' || true)"
+          test -z "${unexpected}"
+          git checkout "${VERIFIED_HEAD}" -- src/drpo/e8_multitask_exp_tuning.py
+          cmp src/drpo/e8_multitask_exp_tuning.py <(git show "${VERIFIED_HEAD}":src/drpo/e8_multitask_exp_tuning.py)
+          git rm .github/workflows/e8-restore-source-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/drpo/e8_multitask_exp_tuning.py
+          git commit -m "fix(e8): restore verified tuning source"
+          git push origin HEAD:dev/e8-config-driven-sweep-01
