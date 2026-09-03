@@ -56,6 +56,18 @@ This rule applies to one active development task, not to the entire lifetime of 
 
 This is a soft development default, not a branch-creation hard gate. Apply it in future experiment and repository development and evaluate it in practice; if it materially obstructs legitimate work, report that rather than working around it by proliferating branches.
 
+## Gate-addition approval rule
+
+Under `GOV-GATE-CHANGE-APPROVAL-01`, an AI agent or automation must not introduce a new gate without explicit repository-owner approval obtained before implementation.
+
+For this rule, a gate includes any new or strengthened hard constraint, fail-closed rejection, mandatory validation step, acceptance condition, launch blocker, merge blocker, result-eligibility condition, or policy check that can newly reject an experiment, config, run, result, or repository change that was previously allowed, or that makes a previously optional step mandatory. This applies whether the behavior is implemented in Python, shell, YAML/schema, CI/workflows, tests that encode new rejection behavior, or governance documentation.
+
+A bug fix, audit finding, refactor, safety concern, test failure, or general approval to finish, fix, simplify, or harden a task is not blanket authorization to add a gate. Before implementing a new gate, the agent must state the concrete failure mode, the proposed gate, what it would newly reject or require, its scope, and its expected implementation/maintenance cost, then obtain explicit approval.
+
+Existing user-approved or already locked requirements may be repaired or implemented without repeated approval only when their semantics are not expanded. If a repair broadens scope, strengthens rejection behavior, or adds another mandatory condition, it is a new gate and requires approval.
+
+When uncertain whether a change counts as a new gate, treat it as a gate and ask before implementation. Do not create an automated meta-gate merely to enforce this paragraph unless that meta-gate is separately approved.
+
 ## New Python-file hard gate
 
 Under `GOV-NEW-PYTHON-FILE-ORAL-APPROVAL-02`, an AI agent or automation must not create, copy, or rename a path to a new Python file unless the repository owner has explicitly approved the exact new path and its stated responsibility.

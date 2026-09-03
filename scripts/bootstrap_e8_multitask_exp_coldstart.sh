@@ -3,7 +3,8 @@ set -Eeuo pipefail
 
 umask 077
 
-EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"
+EXPERIMENT_ID_OVERRIDE="${E8_COLDSTART_EXPERIMENT_ID:-}"
+EXPERIMENT_ID="${EXPERIMENT_ID_OVERRIDE:-UNRESOLVED_FROM_CONFIG}"
 EXPECTED_REPOSITORY="https://github.com/easonhuo/drpo.git"
 MODE="${E8_COLDSTART_EXECUTION_MODE:-${1:-full}}"
 CURRENT_STAGE="bootstrap_init"
@@ -88,8 +89,18 @@ if [[ -e "${BOOTSTRAP_ROOT}" ]]; then
   [[ -d "${BOOTSTRAP_ROOT}" ]] || fail "bootstrap root exists but is not a directory"
   [[ -f "${STATE_FILE}" ]] || fail "existing bootstrap root has no identity state: ${STATE_FILE}"
   [[ -d "${CHECKOUT}" ]] || fail "existing bootstrap root has no isolated checkout: ${CHECKOUT}"
-  grep -Fqx "experiment_id=${EXPERIMENT_ID}" "${STATE_FILE}" || \
+  state_experiment_id="$(
+    sed -nE 's/^experiment_id=([A-Za-z0-9][A-Za-z0-9._-]{0,127})$/\1/p' "${STATE_FILE}"
+  )"
+  [[ -n "${state_experiment_id}" ]] || fail "existing bootstrap state has no readable experiment identity"
+  if [[ -n "${EXPERIMENT_ID_OVERRIDE}" \
+        && "${state_experiment_id}" != "${EXPERIMENT_ID_OVERRIDE}" \
+        && "${state_experiment_id}" != "UNRESOLVED_FROM_CONFIG" ]]; then
     fail "existing bootstrap state belongs to another experiment"
+  fi
+  if [[ -z "${EXPERIMENT_ID_OVERRIDE}" && "${state_experiment_id}" != "UNRESOLVED_FROM_CONFIG" ]]; then
+    EXPERIMENT_ID="${state_experiment_id}"
+  fi
   grep -Fqx "mode=${MODE}" "${STATE_FILE}" || \
     fail "existing bootstrap state was created for another mode"
   RESUME_BOOTSTRAP=1
@@ -190,32 +201,41 @@ SOURCE_COMMIT="$(git -C "${SOURCE_REPO}" rev-parse 'HEAD^{commit}')" || \
   fail "selected checkout HEAD is not a commit"
 [[ "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "selected checkout HEAD is not a full SHA"
 
-if [[ "${MODE}" == "full" ]]; then
+resolve_target_ref() {
+  if [[ "${MODE}" == "full" ]]; then
+    TARGET_REF="${E8_COLDSTART_TARGET_REF:-refs/heads/main}"
+    git check-ref-format "${TARGET_REF}" >/dev/null 2>&1 ||       fail "invalid full target ref: ${TARGET_REF}"
+    [[ "${TARGET_REF}" == refs/heads/* ]] ||       fail "full target ref must be under refs/heads/: ${TARGET_REF}"
+    LOCAL_FETCH_REF="refs/e8-coldstart-bootstrap/full-target"
+    return
+  fi
+
   TARGET_REF="${E8_COLDSTART_TARGET_REF:-refs/heads/main}"
-  git check-ref-format "${TARGET_REF}" >/dev/null 2>&1 || fail "invalid full target ref: ${TARGET_REF}"
-  [[ "${TARGET_REF}" == refs/heads/* ]] || fail "full target ref must be under refs/heads/: ${TARGET_REF}"
-  LOCAL_FETCH_REF="refs/e8-coldstart-bootstrap/full-target"
-else
-  TARGET_REF="refs/pull/309/head"
-  LOCAL_FETCH_REF="refs/e8-coldstart-bootstrap/pr-309-head"
-fi
+  git check-ref-format "${TARGET_REF}" >/dev/null 2>&1 ||     fail "invalid self-test target ref: ${TARGET_REF}"
+  if [[ "${TARGET_REF}" == refs/heads/* ]]; then
+    :
+  elif [[ "${TARGET_REF}" =~ ^refs/pull/[1-9][0-9]*/head$ ]]; then
+    :
+  else
+    fail "self-test target ref must be refs/heads/* or refs/pull/<number>/head: ${TARGET_REF}"
+  fi
+  LOCAL_FETCH_REF="refs/e8-coldstart-bootstrap/self-test-target"
+}
+
+resolve_target_ref
 
 CURRENT_STAGE="fetch_authoritative_ref"
-if [[ "${BOOTSTRAP_WAS_COMPLETE}" -eq 1 ]]; then
-  TARGET_COMMIT="$(git -C "${CHECKOUT}" rev-parse HEAD)"
-else
-  git -C "${SOURCE_REPO}" fetch --no-tags --force "${SOURCE_REMOTE}" \
-    "${TARGET_REF}:${LOCAL_FETCH_REF}"
-  TARGET_COMMIT="$(git -C "${SOURCE_REPO}" rev-parse "${LOCAL_FETCH_REF}^{commit}")"
-  [[ "${TARGET_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "resolved commit is not a full SHA"
+git -C "${SOURCE_REPO}" fetch --no-tags --force "${SOURCE_REMOTE}" \
+  "${TARGET_REF}:${LOCAL_FETCH_REF}"
+TARGET_COMMIT="$(git -C "${SOURCE_REPO}" rev-parse "${LOCAL_FETCH_REF}^{commit}")"
+[[ "${TARGET_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "resolved commit is not a full SHA"
 
-  REMOTE_COMMIT="$(
-    git -C "${SOURCE_REPO}" ls-remote "${SOURCE_REMOTE}" "${TARGET_REF}" |
-      awk -v ref="${TARGET_REF}" '$2 == ref {print $1}'
-  )"
-  [[ "${REMOTE_COMMIT}" == "${TARGET_COMMIT}" ]] || \
-    fail "fetch/authoritative-ref mismatch for ${TARGET_REF}"
-fi
+REMOTE_COMMIT="$(
+  git -C "${SOURCE_REPO}" ls-remote "${SOURCE_REMOTE}" "${TARGET_REF}" |
+    awk -v ref="${TARGET_REF}" '$2 == ref {print $1}'
+)"
+[[ "${REMOTE_COMMIT}" == "${TARGET_COMMIT}" ]] || \
+  fail "fetch/authoritative-ref mismatch for ${TARGET_REF}"
 
 CURRENT_STAGE="verify_full_source_identity"
 if [[ "${MODE}" == "full" && "${SOURCE_COMMIT}" != "${TARGET_COMMIT}" ]]; then
@@ -232,6 +252,52 @@ fi
   fail "isolated checkout is not clean"
 [[ -f "${CHECKOUT}/scripts/run_e8_multitask_exp_coldstart.sh" ]] || \
   fail "target commit does not contain the reviewed experiment entrypoint"
+
+read_config_experiment_id() {
+  command -v python3 >/dev/null || return 127
+  python3 - "$1" <<'PY_EXPERIMENT_ID'
+from pathlib import Path
+import re
+import sys
+
+safe = r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}"
+plain = re.compile(rf"^({safe})(?:[ \t]+#.*)?$")
+single = re.compile(rf"^'({safe})'(?:[ \t]+#.*)?$")
+double = re.compile(rf'^"({safe})"(?:[ \t]+#.*)?$')
+values = []
+malformed = False
+for raw in Path(sys.argv[1]).read_text(encoding="utf-8").splitlines():
+    if raw[:1].isspace() or not raw.startswith("experiment_id:"):
+        continue
+    rhs = raw.split(":", 1)[1].strip()
+    match = plain.fullmatch(rhs) or single.fullmatch(rhs) or double.fullmatch(rhs)
+    if match is None:
+        malformed = True
+    else:
+        values.append(match.group(1))
+if malformed or len(values) != 1:
+    raise SystemExit(2)
+print(values[0])
+PY_EXPERIMENT_ID
+}
+
+CURRENT_STAGE="resolve_config_identity"
+CONFIG_REPO_PATH="${E8_COLDSTART_CONFIG:-configs/e8_multitask_exp_coldstart.yaml}"
+[[ "${CONFIG_REPO_PATH}" != /* \
+   && "${CONFIG_REPO_PATH}" != ../* \
+   && "${CONFIG_REPO_PATH}" != *"/../"* \
+   && "${CONFIG_REPO_PATH}" != *"/.." ]] || \
+  fail "bootstrap config must be a repository-relative path without parent traversal"
+CONFIG_PATH="${CHECKOUT}/${CONFIG_REPO_PATH}"
+[[ -f "${CONFIG_PATH}" ]] || fail "target commit is missing config: ${CONFIG_REPO_PATH}"
+CONFIG_EXPERIMENT_ID="$(read_config_experiment_id "${CONFIG_PATH}")" || \
+  fail "config must contain exactly one well-formed top-level experiment_id: ${CONFIG_REPO_PATH}"
+if [[ "${EXPERIMENT_ID}" != "UNRESOLVED_FROM_CONFIG" \
+      && "${EXPERIMENT_ID}" != "${CONFIG_EXPERIMENT_ID}" ]]; then
+  fail "experiment_id mismatch: bootstrap=${EXPERIMENT_ID} config=${CONFIG_EXPERIMENT_ID}"
+fi
+EXPERIMENT_ID="${CONFIG_EXPERIMENT_ID}"
+export E8_COLDSTART_EXPERIMENT_ID="${EXPERIMENT_ID}"
 
 BOOTSTRAP_STATUS="prepared"
 write_state "${BOOTSTRAP_STATUS}"

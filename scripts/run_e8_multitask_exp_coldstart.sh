@@ -2,28 +2,19 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"
+EXPERIMENT_ID_OVERRIDE="${E8_COLDSTART_EXPERIMENT_ID:-}"
+EXPERIMENT_ID=""
 CONFIG_PATH="${E8_COLDSTART_CONFIG:-${ROOT_DIR}/configs/e8_multitask_exp_coldstart.yaml}"
 P0_CONFIG_PATH="${E8_COLDSTART_P0_CONFIG:-${ROOT_DIR}/configs/e8_multitask_p0.yaml}"
-RUN_ID="${E8_COLDSTART_RUN_ID:-E8_MULTITASK_EXP_COLDSTART_20260820_02}"
+RUN_ID_OVERRIDE="${E8_COLDSTART_RUN_ID:-}"
+RUN_ID=""
 RUNTIME_ROOT="${E8_COLDSTART_RUNTIME_ROOT:-${ROOT_DIR}/../drpo-e8-coldstart-runtime}"
-ATTEMPTS_ROOT="${E8_COLDSTART_GUARD_ROOT:-${RUNTIME_ROOT}/guard/${RUN_ID}}"
-GUARD_ROOT="${ATTEMPTS_ROOT}/attempt-001"
-OUTPUT_ROOT="${E8_COLDSTART_OUTPUT_ROOT:-${GUARD_ROOT}/workload}"
-P0_WORK_DIR="${E8_COLDSTART_P0_WORK_DIR:-${OUTPUT_ROOT}/p0_inputs}"
-COUNTDOWN_WORK_DIR="${E8_COLDSTART_COUNTDOWN_WORK_DIR:-${OUTPUT_ROOT}/countdown_inputs}"
 VENV_DIR="${E8_COLDSTART_VENV_DIR:-${RUNTIME_ROOT}/venv}"
 SELFTEST_VENV_DIR="${E8_COLDSTART_SELFTEST_VENV_DIR:-${RUNTIME_ROOT}/selftest-venv}"
 MODEL_DIR="${E8_COLDSTART_MODEL_DIR:-${RUNTIME_ROOT}/models/Qwen2.5-0.5B-Instruct-7ae5576}"
-GUARD_ARTIFACT="${E8_COLDSTART_GUARD_ARTIFACT:-${RUNTIME_ROOT}/packages/${RUN_ID}_attempt-001_guarded.zip}"
-RECOVERY_ROOT="${E8_COLDSTART_RECOVERY_ROOT:-${RUNTIME_ROOT}/recovery/${RUN_ID}}"
-RECOVERY_PACKAGE="${RECOVERY_ROOT}/latest_checkpoint.zip"
-DELIVERY_PREFLIGHT_PACKAGE="${RECOVERY_ROOT}/delivery_preflight.zip"
 EXPECTED_COMMIT="${E8_COLDSTART_EXPECTED_COMMIT:-}"
 RUN_CLASS="${E8_COLDSTART_RUN_CLASS:-formal}"
 REQUIRE_ORIGIN_MAIN="${E8_COLDSTART_REQUIRE_ORIGIN_MAIN:-1}"
-MODEL_REPO="Qwen/Qwen2.5-0.5B-Instruct"
-MODEL_REVISION="7ae557604adf67be50417f59c2c2f167def9a775"
 MODE="${1:-full}"
 
 export PYTHONPATH="${ROOT_DIR}/src${PYTHONPATH:+:${PYTHONPATH}}"
@@ -54,7 +45,7 @@ if not path.is_file():
     raise SystemExit(f"config file is missing: {path}")
 print(relative.as_posix())
 PY_CONFIG
-)" || fail "config path must resolve to a tracked file inside the repository: ${CONFIG_PATH}"
+)" || fail "config path must resolve to a file inside the repository: ${CONFIG_PATH}"
   CONFIG_REPO_PATH="${resolved}"
   CONFIG_PATH="${ROOT_DIR}/${CONFIG_REPO_PATH}"
   export CONFIG_REPO_PATH CONFIG_PATH
@@ -62,17 +53,86 @@ PY_CONFIG
 
 resolve_config_repo_path
 
-SUCCESSOR_SOURCE_ARGS=()
-if [[ "${EXPERIMENT_ID}" == "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01" ]]; then
-  SUCCESSOR_SOURCE_ARGS=(
-    --source-file scripts/run_e8_multitask_exp_lambda_completion.sh
-    --source-file docs/experiments/E8_MULTITASK_LAMBDA_COMPLETION_PROTOCOL.md
-  )
-elif [[ "${EXPERIMENT_ID}" == "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02" ]]; then
-  SUCCESSOR_SOURCE_ARGS=(
-    --source-file docs/experiments/E8_MULTITASK_LAMBDA_CURVE_COMPLETION_PROTOCOL.md
-  )
-fi
+read_config_experiment_id() {
+  command -v python3 >/dev/null || return 127
+  python3 - "$1" <<'PY_EXPERIMENT_ID'
+from pathlib import Path
+import re
+import sys
+
+safe = r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}"
+plain = re.compile(rf"^({safe})(?:[ \t]+#.*)?$")
+single = re.compile(rf"^'({safe})'(?:[ \t]+#.*)?$")
+double = re.compile(rf'^"({safe})"(?:[ \t]+#.*)?$')
+values = []
+malformed = False
+for raw in Path(sys.argv[1]).read_text(encoding="utf-8").splitlines():
+    if raw[:1].isspace() or not raw.startswith("experiment_id:"):
+        continue
+    rhs = raw.split(":", 1)[1].strip()
+    match = plain.fullmatch(rhs) or single.fullmatch(rhs) or double.fullmatch(rhs)
+    if match is None:
+        malformed = True
+    else:
+        values.append(match.group(1))
+if malformed or len(values) != 1:
+    raise SystemExit(2)
+print(values[0])
+PY_EXPERIMENT_ID
+}
+
+resolve_experiment_id() {
+  local config_experiment_id
+  config_experiment_id="$(read_config_experiment_id "${CONFIG_PATH}")" || \
+    fail "config must contain exactly one well-formed top-level experiment_id: ${CONFIG_REPO_PATH}"
+  if [[ -n "${EXPERIMENT_ID_OVERRIDE}" && "${EXPERIMENT_ID_OVERRIDE}" != "${config_experiment_id}" ]]; then
+    fail "experiment_id mismatch: env=${EXPERIMENT_ID_OVERRIDE} config=${config_experiment_id}"
+  fi
+  EXPERIMENT_ID="${config_experiment_id}"
+  export E8_COLDSTART_EXPERIMENT_ID="${EXPERIMENT_ID}"
+}
+
+resolve_experiment_id
+
+resolve_run_identity() {
+  if [[ -n "${RUN_ID_OVERRIDE}" ]]; then
+    RUN_ID="${RUN_ID_OVERRIDE}"
+  elif [[ "${CONFIG_REPO_PATH}" == "configs/e8_multitask_exp_coldstart.yaml" ]]; then
+    RUN_ID="E8_MULTITASK_EXP_COLDSTART_20260820_02"
+  else
+    RUN_ID="${EXPERIMENT_ID}"
+  fi
+  [[ "${RUN_ID}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] ||     fail "E8_COLDSTART_RUN_ID must match [A-Za-z0-9][A-Za-z0-9._-]{0,127}"
+
+  ATTEMPTS_ROOT="${E8_COLDSTART_GUARD_ROOT:-${RUNTIME_ROOT}/guard/${RUN_ID}}"
+  GUARD_ROOT="${ATTEMPTS_ROOT}/attempt-001"
+  OUTPUT_ROOT="${E8_COLDSTART_OUTPUT_ROOT:-${GUARD_ROOT}/workload}"
+  P0_WORK_DIR="${E8_COLDSTART_P0_WORK_DIR:-${OUTPUT_ROOT}/p0_inputs}"
+  COUNTDOWN_WORK_DIR="${E8_COLDSTART_COUNTDOWN_WORK_DIR:-${OUTPUT_ROOT}/countdown_inputs}"
+  GUARD_ARTIFACT="${E8_COLDSTART_GUARD_ARTIFACT:-${RUNTIME_ROOT}/packages/${RUN_ID}_attempt-001_guarded.zip}"
+  RECOVERY_ROOT="${E8_COLDSTART_RECOVERY_ROOT:-${RUNTIME_ROOT}/recovery/${RUN_ID}}"
+  RECOVERY_PACKAGE="${RECOVERY_ROOT}/latest_checkpoint.zip"
+  DELIVERY_PREFLIGHT_PACKAGE="${RECOVERY_ROOT}/delivery_preflight.zip"
+  export RUN_ID ATTEMPTS_ROOT GUARD_ROOT OUTPUT_ROOT P0_WORK_DIR COUNTDOWN_WORK_DIR
+  export GUARD_ARTIFACT RECOVERY_ROOT RECOVERY_PACKAGE DELIVERY_PREFLIGHT_PACKAGE
+}
+
+resolve_run_identity
+
+# Source provenance follows the selected config, not an experiment-ID branch.
+CONFIG_SOURCE_ARGS=()
+while IFS= read -r source_rel; do
+  [[ -n "${source_rel}" ]] || continue
+  [[ "${source_rel}" != "scripts/run_e8_multitask_exp_coldstart.sh" ]] || continue
+  source_path="${ROOT_DIR}/${source_rel}"
+  if grep -Fq -- "${CONFIG_REPO_PATH}" "${source_path}"; then
+    CONFIG_SOURCE_ARGS+=(--source-file "${source_rel}")
+  fi
+done < <(
+  git -C "${ROOT_DIR}" ls-files \
+    'docs/experiments/*.md' \
+    'scripts/run_e8_multitask_exp_*.sh' | sort
+)
 
 case "${RUN_CLASS}" in
   formal|pilot) ;;
@@ -109,6 +169,31 @@ check_source() {
     fail "runtime config is unavailable at launch commit ${EXPECTED_COMMIT}: ${CONFIG_REPO_PATH}"
 }
 
+check_authoritative_main_at_invocation() {
+  [[ "${RUN_CLASS}" == "formal" && "${REQUIRE_ORIGIN_MAIN}" == "1" ]] || return 0
+  local remote_commit
+  remote_commit="$(
+    git -C "${ROOT_DIR}" ls-remote origin refs/heads/main |
+      awk '$2 == "refs/heads/main" {print $1}'
+  )"
+  [[ "${remote_commit}" =~ ^[0-9a-f]{40}$ ]] || \
+    fail "could not resolve authoritative origin/main for formal invocation"
+  [[ "${remote_commit}" == "${EXPECTED_COMMIT}" ]] || \
+    fail "formal invocation is stale: expected ${EXPECTED_COMMIT}, origin/main is ${remote_commit}"
+}
+
+runtime_setup_lock() {
+  command -v flock >/dev/null || fail "flock is required for shared runtime setup safety"
+  mkdir -p "${RUNTIME_ROOT}"
+  exec 7>"${RUNTIME_ROOT}/setup.lock"
+  flock 7
+}
+
+runtime_setup_unlock() {
+  flock -u 7
+  exec 7>&-
+}
+
 activate_runtime() {
   [[ -x "${VENV_DIR}/bin/python" ]] || fail "runtime is absent; run '$0 setup' first"
   # shellcheck disable=SC1091
@@ -141,10 +226,36 @@ run_module() {
     "$@"
 }
 
+config_preflight() {
+  [[ -x "${VENV_DIR}/bin/python" ]] || fail "runtime Python is unavailable for config preflight"
+  "${VENV_DIR}/bin/python" "${ROOT_DIR}/scripts/preflight_e8_multitask_config.py" \
+    --repo-root "${ROOT_DIR}" \
+    --config "${CONFIG_PATH}"
+}
+
+bootstrap_config_preflight() {
+  command -v python3 >/dev/null || fail "python3 is unavailable"
+  if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
+    python3 -m venv --system-site-packages "${VENV_DIR}"
+  fi
+  # shellcheck disable=SC1091
+  source "${VENV_DIR}/bin/activate"
+  if ! python - <<'PY_PREFLIGHT_DEPS'
+import numpy
+import yaml
+PY_PREFLIGHT_DEPS
+  then
+    python -m pip install --disable-pip-version-check "numpy==1.26.4" "PyYAML==6.0.2"
+  fi
+  mkdir -p "${RECOVERY_ROOT}"
+  config_preflight | tee "${RECOVERY_ROOT}/CONFIG_PREFLIGHT.json"
+}
+
 setup() {
   check_source
   command -v python3 >/dev/null || fail "python3 is unavailable"
   mkdir -p "${RUNTIME_ROOT}"
+  bootstrap_config_preflight
   python3 - <<'PY'
 import sys
 assert sys.version_info >= (3, 10), sys.version
@@ -154,17 +265,20 @@ except ImportError as exc:
     raise SystemExit("Install a CUDA-compatible PyTorch build before running setup") from exc
 assert torch.cuda.is_available(), "The system PyTorch build cannot see CUDA"
 PY
-  python3 -m venv --system-site-packages "${VENV_DIR}"
   # shellcheck disable=SC1091
   source "${VENV_DIR}/bin/activate"
   python -m pip install --upgrade "pip==24.3.1" "setuptools==75.6.0" "wheel==0.45.1"
   python -m pip install -r "${ROOT_DIR}/requirements/e8_multitask_exp_coldstart.txt"
   python -m pip install --no-deps -e "${ROOT_DIR}"
   python - <<PY
+import json
+from pathlib import Path
 from huggingface_hub import snapshot_download
+preflight = json.loads((Path("${RECOVERY_ROOT}") / "CONFIG_PREFLIGHT.json").read_text())
+model = preflight["model"]
 snapshot_download(
-    repo_id="${MODEL_REPO}",
-    revision="${MODEL_REVISION}",
+    repo_id=model["base_model"],
+    revision=model["revision"],
     local_dir="${MODEL_DIR}",
 )
 PY
@@ -189,12 +303,13 @@ PY
   python - <<PY
 import json
 from pathlib import Path
+preflight = json.loads((Path("${RECOVERY_ROOT}") / "CONFIG_PREFLIGHT.json").read_text())
 path = Path("${RECOVERY_ROOT}") / "SETUP_COMPLETE.json"
 path.write_text(json.dumps({
     "schema_version": 1,
     "experiment_id": "${EXPERIMENT_ID}",
     "source_commit": "${EXPECTED_COMMIT}",
-    "model_revision": "${MODEL_REVISION}",
+    "model_revision": preflight["model"]["revision"],
     "venv": str(Path("${VENV_DIR}").resolve()),
     "model": str(Path("${MODEL_DIR}").resolve()),
     "complete": True,
@@ -215,10 +330,12 @@ import numpy
 import torch
 import transformers
 import yaml
+from drpo.e8_multitask_exp_tuning import load_config
 value = json.loads((Path("${RECOVERY_ROOT}") / "SETUP_COMPLETE.json").read_text())
+config = load_config(Path("${CONFIG_PATH}"))
 assert value["experiment_id"] == "${EXPERIMENT_ID}"
 assert value["source_commit"] == "${EXPECTED_COMMIT}"
-assert value["model_revision"] == "${MODEL_REVISION}"
+assert value["model_revision"] == config["model"]["revision"]
 assert torch.cuda.is_available()
 assert torch.cuda.device_count() >= 8
 PY
@@ -226,15 +343,22 @@ PY
 }
 
 ensure_setup() {
+  runtime_setup_lock
+  if [[ -x "${VENV_DIR}/bin/python" ]] &&
+     "${VENV_DIR}/bin/python" -c 'import numpy, yaml' >/dev/null 2>&1; then
+    config_preflight
+  fi
   if runtime_ready; then
     echo "Reusing verified runtime and pinned model at ${RUNTIME_ROOT}"
   else
     setup
   fi
+  runtime_setup_unlock
 }
 
 self_test_setup() {
   check_source
+  runtime_setup_lock
   command -v python3 >/dev/null || fail "python3 is unavailable"
   mkdir -p "${RUNTIME_ROOT}"
   python3 - <<'PY'
@@ -252,6 +376,7 @@ PY
     python -m pip install --upgrade "pip==24.3.1" "setuptools==75.6.0" "wheel==0.45.1"
     python -m pip install "numpy==1.26.4" "PyYAML==6.0.2"
   fi
+  runtime_setup_unlock
 }
 
 attempt_number() {
@@ -287,6 +412,34 @@ reuse_successful_attempt() {
   number="$(attempt_number "${latest}")"
   local artifact="${RUNTIME_ROOT}/packages/${RUN_ID}_attempt-$(printf '%03d' "${number}")_guarded.zip"
   [[ -f "${artifact}" && -f "${latest}/workload/aggregate/plot_curve_points.csv" ]] || return 1
+  python - "${latest}/workload" "${CONFIG_PATH}" "${EXPECTED_COMMIT}" "${MODE}" "${artifact}" <<'PY_REUSE' >/dev/null || return 1
+from pathlib import Path
+import sys
+
+from drpo.e8_multitask_exp_tuning import (
+    _engineering_self_test_config,
+    _successful_attempt_matches_current_identity,
+    load_config,
+)
+
+workload_root = Path(sys.argv[1])
+config = load_config(Path(sys.argv[2]))
+mode = sys.argv[4]
+if mode == "self-test":
+    config = _engineering_self_test_config(config)
+elif mode != "full":
+    raise SystemExit(1)
+raise SystemExit(
+    0
+    if _successful_attempt_matches_current_identity(
+        config,
+        workload_root,
+        source_commit=sys.argv[3],
+        artifact_path=Path(sys.argv[5]),
+    )
+    else 1
+)
+PY_REUSE
   python "${ROOT_DIR}/scripts/verify_experiment_package_hardened.py" \
     --repo-root "${ROOT_DIR}" "${artifact}" >/dev/null || return 1
   GUARD_ROOT="${latest}"
@@ -504,6 +657,30 @@ invoke_local_ai_recovery() {
 recover_import_if_requested() {
   [[ -n "${RECOVERY_SOURCE_OUTPUT:-}" ]] || return 0
   [[ -d "${RECOVERY_SOURCE_OUTPUT}" ]] || fail "recovery source vanished: ${RECOVERY_SOURCE_OUTPUT}"
+  local recovery_source_commit
+  if ! recovery_source_commit="$(
+    python - "${RECOVERY_SOURCE_OUTPUT}/source_provenance.json" <<'PY_RECOVERY_SOURCE'
+import json
+import sys
+from pathlib import Path
+
+value = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if not isinstance(value, dict) or not isinstance(value.get("source_commit"), str):
+    raise SystemExit(2)
+print(value["source_commit"])
+PY_RECOVERY_SOURCE
+  )"; then
+    echo "Recovery source provenance is unreadable; starting fresh instead of retrying stale import." >&2
+    RECOVERY_SOURCE_OUTPUT=""
+    export RECOVERY_SOURCE_OUTPUT
+    return 0
+  fi
+  if [[ "${recovery_source_commit}" != "${EXPECTED_COMMIT}" ]]; then
+    echo "Recovery source commit ${recovery_source_commit} != ${EXPECTED_COMMIT}; starting fresh instead of retrying stale import." >&2
+    RECOVERY_SOURCE_OUTPUT=""
+    export RECOVERY_SOURCE_OUTPUT
+    return 0
+  fi
   local recovery_model="${MODEL_DIR}"
   if [[ "${MODE}" == "self-test" || "${MODE}" == "engineering-self-test-internal" ]]; then
     recovery_model="${RECOVERY_SOURCE_OUTPUT}/engineering_fixtures/placeholder_model"
@@ -530,6 +707,8 @@ engineering_self_test() {
   mkdir -p "${RECOVERY_ROOT}"
   exec 8>"${RECOVERY_ROOT}/runtime.lock"
   flock -n 8 || fail "another engineering self-test still holds the recovery lock"
+  # Re-bind the fast-path decision to the checkout after setup has finished.
+  check_source
   if reuse_successful_attempt; then
     echo "ENGINEERING_SELF_TEST_ROOT=${OUTPUT_ROOT}"
     echo "ENGINEERING_SELF_TEST_GUARD_ARTIFACT=${GUARD_ARTIFACT}"
@@ -557,8 +736,10 @@ engineering_self_test() {
       --source-file scripts/run_e8_multitask_exp_coldstart.sh \
       --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh \
       --source-file src/drpo/e8_multitask_exp_tuning.py \
+    --source-file src/drpo/e8_experiment_config.py \
+    --source-file scripts/preflight_e8_multitask_config.py \
       --source-file "${CONFIG_REPO_PATH}" \
-      "${SUCCESSOR_SOURCE_ARGS[@]}" \
+      "${CONFIG_SOURCE_ARGS[@]}" \
       --source-file docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md \
       --progress-glob 'workload/scheduler/queue_events.jsonl' \
       --progress-glob 'workload/logs/*.log' \
@@ -577,81 +758,6 @@ engineering_self_test() {
   done
   write_local_ai_recovery engineering_self_test
   fail "engineering self-test exhausted automatic recovery attempts"
-}
-
-require_registered_ready() {
-  grep -Fq "${EXPERIMENT_ID}" "${ROOT_DIR}/docs/handoff.md" || \
-    fail "${EXPERIMENT_ID} is absent from docs/handoff.md"
-  grep -Fq "${EXPERIMENT_ID}" "${ROOT_DIR}/experiments/registry.yaml" || \
-    fail "${EXPERIMENT_ID} is absent from experiments/registry.yaml"
-  python3 - <<PY
-from pathlib import Path
-import re
-
-experiment_id = "${EXPERIMENT_ID}"
-registry_path = Path("${ROOT_DIR}/experiments/registry.yaml")
-lines = registry_path.read_text(encoding="utf-8").splitlines()
-starts = [index for index, line in enumerate(lines) if line == f"- id: {experiment_id}"]
-assert len(starts) == 1, f"expected exactly one registry entry for {experiment_id}, found {len(starts)}"
-start = starts[0]
-end = next(
-    (index for index in range(start + 1, len(lines)) if re.fullmatch(r"- id: .+", lines[index])),
-    len(lines),
-)
-block = lines[start:end]
-implementation = next(
-    (line.split(":", 1)[1].strip() for line in block if line.startswith("  implementation_state:")),
-    "",
-)
-assert implementation.startswith("implemented"), f"implementation_state is not implemented: {implementation!r}"
-gate_index = next((index for index, line in enumerate(block) if line == "  execution_gate:"), None)
-assert gate_index is not None, "execution_gate is absent"
-gate_state = next(
-    (
-        line.split(":", 1)[1].strip()
-        for line in block[gate_index + 1 :]
-        if line.startswith("    state:")
-    ),
-    "",
-)
-assert gate_state == "ready", f"{experiment_id} execution_gate is not ready: {gate_state!r}"
-print({"experiment_id": experiment_id, "execution_gate": "ready"})
-PY
-  local runspec_matches=()
-  mapfile -t runspec_matches < <(
-    grep -l -F "experiment_id: ${EXPERIMENT_ID}" "${ROOT_DIR}"/runspecs/ready/*.yaml || true
-  )
-  [[ "${#runspec_matches[@]}" -eq 1 ]] || \
-    fail "expected exactly one READY RunSpec for ${EXPERIMENT_ID}; found ${#runspec_matches[@]}"
-  local runspec_commit
-  runspec_commit="$(sed -nE 's/^repo_commit:[[:space:]]*([0-9a-f]{40})[[:space:]]*$/\1/p' "${runspec_matches[0]}")"
-  [[ "${runspec_commit}" =~ ^[0-9a-f]{40}$ ]] || \
-    fail "READY RunSpec must bind one full reviewed implementation SHA: ${runspec_matches[0]}"
-  git -C "${ROOT_DIR}" cat-file -e "${runspec_commit}^{commit}" 2>/dev/null || \
-    fail "READY RunSpec implementation commit is unavailable: ${runspec_commit}"
-  git -C "${ROOT_DIR}" merge-base --is-ancestor "${runspec_commit}" "${EXPECTED_COMMIT}" || \
-    fail "READY RunSpec implementation commit is not an ancestor of execution commit: ${runspec_commit}"
-  local protected_paths=(
-    configs/e8_multitask_exp_coldstart.yaml
-    configs/e8_multitask_p0.yaml
-    requirements/e8_multitask_exp_coldstart.txt
-    scripts/bootstrap_e8_multitask_exp_coldstart.sh
-    scripts/run_e8_multitask_exp_coldstart.sh
-    scripts/run_e8_multitask_p0.sh
-    scripts/v2_bank_convert.py
-    src/drpo/e8_multitask_exp_tuning.py
-    src/drpo/e8_multitask_p0.py
-    src/drpo/e8_multitask_tasks.py
-  )
-  git -C "${ROOT_DIR}" diff --quiet "${runspec_commit}" "${EXPECTED_COMMIT}" -- \
-    "${protected_paths[@]}" || \
-    fail "protected cold-start implementation changed after READY RunSpec commit ${runspec_commit}"
-  grep -Fq "run_e8_multitask_exp_coldstart.sh full" "${runspec_matches[0]}" || \
-    fail "READY RunSpec does not call the reviewed full entrypoint: ${runspec_matches[0]}"
-}
-
-validate_registered_channel() {
-  python "${ROOT_DIR}/scripts/validate_formal_execution_channel.py" --repo-root "${ROOT_DIR}"
 }
 
 prepare() {
@@ -678,12 +784,14 @@ prepare() {
   python - <<PY
 import json
 from pathlib import Path
+from drpo.e8_multitask_exp_tuning import load_config
+config = load_config(Path("${CONFIG_PATH}"))
 value = {
     "schema_version": 1,
     "run_id": "${RUN_ID}",
     "source_commit": "${EXPECTED_COMMIT}",
-    "model_repo": "${MODEL_REPO}",
-    "model_revision": "${MODEL_REVISION}",
+    "model_repo": config["model"]["base_model"],
+    "model_revision": config["model"]["revision"],
     "model_path": str(Path("${MODEL_DIR}").resolve()),
     "test_partition_accessed": False,
 }
@@ -705,7 +813,6 @@ liveness() {
   activate_runtime
   CUDA_VISIBLE_DEVICES=0 LOCAL_RANK=0 run_module liveness \
     --task countdown \
-    --lambda 0.916290732 \
     --base-model-path "${MODEL_DIR}"
 }
 
@@ -795,8 +902,10 @@ delivery_preflight() {
     --source-file scripts/run_e8_multitask_exp_coldstart.sh
     --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh
     --source-file src/drpo/e8_multitask_exp_tuning.py
+    --source-file src/drpo/e8_experiment_config.py
+    --source-file scripts/preflight_e8_multitask_config.py
     --source-file "${CONFIG_REPO_PATH}"
-    "${SUCCESSOR_SOURCE_ARGS[@]}"
+    "${CONFIG_SOURCE_ARGS[@]}"
   )
   if [[ "${REQUIRE_ORIGIN_MAIN}" == "1" ]]; then
     command+=(--require-origin-main-match)
@@ -870,8 +979,10 @@ run_formal_guard_attempt() {
     --source-file scripts/run_e8_multitask_exp_coldstart.sh \
     --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh \
     --source-file src/drpo/e8_multitask_exp_tuning.py \
+    --source-file src/drpo/e8_experiment_config.py \
+    --source-file scripts/preflight_e8_multitask_config.py \
     --source-file "${CONFIG_REPO_PATH}" \
-    "${SUCCESSOR_SOURCE_ARGS[@]}" \
+    "${CONFIG_SOURCE_ARGS[@]}" \
     --source-file requirements/e8_multitask_exp_coldstart.txt \
     --source-file src/drpo/countdown_qwen_arena_onefile.py \
     --source-file src/drpo/countdown_e8_alpha1_c_scan_common.py \
@@ -910,10 +1021,8 @@ report_formal_success() {
 }
 
 guarded_full() {
-  if [[ "${RUN_CLASS}" == "formal" ]]; then
-    require_registered_ready
-    validate_registered_channel
-  fi
+  check_source
+  check_authoritative_main_at_invocation
   ensure_setup
   command -v flock >/dev/null || fail "flock is required for single-writer recovery safety"
   mkdir -p "${RECOVERY_ROOT}"
@@ -922,6 +1031,10 @@ guarded_full() {
     write_local_ai_recovery concurrent_runtime_lock
     fail "another experiment or recovery process still holds ${RECOVERY_ROOT}/runtime.lock"
   fi
+  # Setup can be long. Re-check the current checkout and formal main authority
+  # under the per-run lock immediately before a completed-attempt fast return.
+  check_source
+  check_authoritative_main_at_invocation
   if reuse_successful_attempt; then
     write_attempt_state complete
     echo "RAW_COMPLETE_RESULTS_ZIP=${GUARD_ARTIFACT}"
@@ -962,8 +1075,9 @@ guarded_full() {
 
 case "${MODE}" in
   self-test) engineering_self_test ;;
-  setup) setup ;;
+  setup) runtime_setup_lock; setup; runtime_setup_unlock ;;
   prepare) prepare ;;
+  preflight) check_source; activate_runtime; config_preflight ;;
   plan) check_source; activate_runtime; run_module plan ;;
   calibrate) calibrate ;;
   liveness) liveness ;;
@@ -973,5 +1087,5 @@ case "${MODE}" in
   guarded-full-internal) guarded_full_internal ;;
   diagnose) write_local_ai_recovery "${2:-manual_diagnosis}" ;;
   full) guarded_full ;;
-  *) fail "usage: $0 {self-test|setup|prepare|plan|calibrate|liveness|run|resume|finish|full}" ;;
+  *) fail "usage: $0 {self-test|setup|preflight|prepare|plan|calibrate|liveness|run|resume|finish|full}" ;;
 esac
