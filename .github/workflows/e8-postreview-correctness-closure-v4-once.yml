@@ -1,0 +1,80 @@
+name: E8 Post-review Correctness Closure V4 Once
+
+on:
+  push:
+    branches:
+      - dev/e8-config-driven-sweep-01
+    paths:
+      - .github/workflows/e8-postreview-correctness-closure-v4-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-config-driven-sweep-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify reviewed parent and trigger-only commit
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "7e435b59e6396d85a6d46f595060b0b08e60148c"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/e8-postreview-correctness-closure-v4-once.yml"
+          test -f .github/e8-postreview-correctness-closure-payload.txt
+          git diff --quiet origin/main -- .github/workflows/code-change-budget.yml
+
+      - name: Apply staged narrow correctness closure
+        run: |
+          set -euo pipefail
+          cp .github/e8-postreview-correctness-closure-payload.txt /tmp/e8_postreview_patch.py
+          python -m py_compile /tmp/e8_postreview_patch.py
+          python /tmp/e8_postreview_patch.py
+
+      - name: Install complete project validation dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check -e '.[dev]'
+          python -m pip install --disable-pip-version-check ruff==0.9.10 pytest==8.3.4 numpy==1.26.4 PyYAML==6.0.2
+
+      - name: Validate focused and repository-wide after-image
+        run: |
+          set -euo pipefail
+          python -m py_compile src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py scripts/preflight_e8_multitask_config.py tests/test_e8_multitask_p0.py
+          python -m ruff check src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py scripts/preflight_e8_multitask_config.py tests/test_e8_multitask_p0.py
+          bash -n scripts/run_e8_multitask_exp_coldstart.sh
+          bash -n scripts/bootstrap_e8_multitask_exp_coldstart.sh
+          bash -n scripts/run_e8_multitask_exp_lambda_completion.sh
+          python scripts/preflight_e8_multitask_config.py --config configs/e8_multitask_exp_coldstart.yaml >/tmp/preflight-coldstart.json
+          python scripts/preflight_e8_multitask_config.py --config configs/e8_multitask_exp_lambda_completion.yaml >/tmp/preflight-completion.json
+          python scripts/preflight_e8_multitask_config.py --config configs/e8_multitask_exp_lambda_curve_completion.yaml >/tmp/preflight-curve.json
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          python -m pytest -q tests/test_experiment_artifact_protocol.py tests/test_experiment_artifact_hardening.py
+          python -m pytest -q --deselect=tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py::test_asymre_boundary_dense_has_eight_points_and_sixteen_paired_cells --deselect=tests/test_runspec_results_delivery.py::test_countdown_temporarily_uses_held_out_evaluation_in_place_of_test
+          git diff --check
+          git diff --quiet origin/main -- .github/workflows/code-change-budget.yml
+          git diff --quiet 0e04b03b296feec2696ec34c3edf8a691234ad68 -- configs
+          git diff --quiet 0e04b03b296feec2696ec34c3edf8a691234ad68 -- src/drpo/countdown_qwen_arena_onefile.py src/drpo/countdown_e8_alpha1_c_scan_common.py src/drpo/countdown_e8_alpha1_c_scan_runtime.py src/drpo/countdown_e8_alpha1_c_scan_trainer.py src/drpo/countdown_e8_alpha1_highc_scan_common.py src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+
+      - name: Commit validated business after-image and self-delete
+        run: |
+          set -euo pipefail
+          git rm .github/e8-postreview-correctness-closure-payload.txt
+          git rm .github/workflows/e8-postreview-correctness-closure-once.yml
+          git rm .github/workflows/e8-postreview-correctness-closure-v2-once.yml
+          git rm .github/workflows/e8-postreview-correctness-closure-v3-once.yml
+          git rm .github/workflows/e8-postreview-correctness-closure-v4-once.yml
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add docs/experiments/E8_CONFIG_DRIVEN_SWEEP_REVIEW_FIX_PROTOCOL.md src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          git commit -m "fix(e8): close config consumer and scheduler reporting gaps"
+          git push origin HEAD:dev/e8-config-driven-sweep-01
