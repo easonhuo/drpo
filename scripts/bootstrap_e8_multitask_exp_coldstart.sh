@@ -225,21 +225,17 @@ resolve_target_ref() {
 resolve_target_ref
 
 CURRENT_STAGE="fetch_authoritative_ref"
-if [[ "${BOOTSTRAP_WAS_COMPLETE}" -eq 1 ]]; then
-  TARGET_COMMIT="$(git -C "${CHECKOUT}" rev-parse HEAD)"
-else
-  git -C "${SOURCE_REPO}" fetch --no-tags --force "${SOURCE_REMOTE}" \
-    "${TARGET_REF}:${LOCAL_FETCH_REF}"
-  TARGET_COMMIT="$(git -C "${SOURCE_REPO}" rev-parse "${LOCAL_FETCH_REF}^{commit}")"
-  [[ "${TARGET_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "resolved commit is not a full SHA"
+git -C "${SOURCE_REPO}" fetch --no-tags --force "${SOURCE_REMOTE}" \
+  "${TARGET_REF}:${LOCAL_FETCH_REF}"
+TARGET_COMMIT="$(git -C "${SOURCE_REPO}" rev-parse "${LOCAL_FETCH_REF}^{commit}")"
+[[ "${TARGET_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "resolved commit is not a full SHA"
 
-  REMOTE_COMMIT="$(
-    git -C "${SOURCE_REPO}" ls-remote "${SOURCE_REMOTE}" "${TARGET_REF}" |
-      awk -v ref="${TARGET_REF}" '$2 == ref {print $1}'
-  )"
-  [[ "${REMOTE_COMMIT}" == "${TARGET_COMMIT}" ]] || \
-    fail "fetch/authoritative-ref mismatch for ${TARGET_REF}"
-fi
+REMOTE_COMMIT="$(
+  git -C "${SOURCE_REPO}" ls-remote "${SOURCE_REMOTE}" "${TARGET_REF}" |
+    awk -v ref="${TARGET_REF}" '$2 == ref {print $1}'
+)"
+[[ "${REMOTE_COMMIT}" == "${TARGET_COMMIT}" ]] || \
+  fail "fetch/authoritative-ref mismatch for ${TARGET_REF}"
 
 CURRENT_STAGE="verify_full_source_identity"
 if [[ "${MODE}" == "full" && "${SOURCE_COMMIT}" != "${TARGET_COMMIT}" ]]; then

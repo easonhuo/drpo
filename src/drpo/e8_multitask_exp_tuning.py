@@ -4896,18 +4896,52 @@ def _successful_attempt_matches_current_identity(
     workload_root: Path,
     *,
     source_commit: str,
+    artifact_path: Path | None = None,
 ) -> bool:
-    """Return whether a completed attempt belongs to the current source/config identity."""
+    """Return whether live and packaged completed evidence matches this invocation."""
 
+    expected_id = experiment_id(config)
+    expected_hash = stable_config_hash(config)
     try:
         provenance = _read_json_object(workload_root / "source_provenance.json")
         prepare = _read_json_object(workload_root / "prepare_manifest.json")
-    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        if not (
+            provenance.get("source_commit") == source_commit
+            and prepare.get("experiment_id") == expected_id
+            and prepare.get("config_hash") == expected_hash
+        ):
+            return False
+        if artifact_path is None:
+            return True
+        prefix = f"results/{expected_id}"
+        with zipfile.ZipFile(artifact_path) as archive:
+            artifact_manifest = json.loads(archive.read("ARTIFACT_MANIFEST.json"))
+            base_commit = archive.read("BASE_COMMIT.txt").decode("utf-8").strip()
+            run_manifest = json.loads(archive.read(f"{prefix}/run_manifest.json"))
+            packaged_provenance = json.loads(
+                archive.read(f"{prefix}/workload/source_provenance.json")
+            )
+            packaged_prepare = json.loads(
+                archive.read(f"{prefix}/workload/prepare_manifest.json")
+            )
+    except (
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        UnicodeDecodeError,
+        zipfile.BadZipFile,
+    ):
         return False
     return (
-        provenance.get("source_commit") == source_commit
-        and prepare.get("experiment_id") == experiment_id(config)
-        and prepare.get("config_hash") == stable_config_hash(config)
+        artifact_manifest.get("experiment_id") == expected_id
+        and artifact_manifest.get("base_commit") == source_commit
+        and base_commit == source_commit
+        and run_manifest.get("experiment_id") == expected_id
+        and run_manifest.get("base_commit") == source_commit
+        and packaged_provenance.get("source_commit") == source_commit
+        and packaged_prepare.get("experiment_id") == expected_id
+        and packaged_prepare.get("config_hash") == expected_hash
     )
 
 

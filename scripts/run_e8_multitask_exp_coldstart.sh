@@ -169,6 +169,31 @@ check_source() {
     fail "runtime config is unavailable at launch commit ${EXPECTED_COMMIT}: ${CONFIG_REPO_PATH}"
 }
 
+check_authoritative_main_at_invocation() {
+  [[ "${RUN_CLASS}" == "formal" && "${REQUIRE_ORIGIN_MAIN}" == "1" ]] || return 0
+  local remote_commit
+  remote_commit="$(
+    git -C "${ROOT_DIR}" ls-remote origin refs/heads/main |
+      awk '$2 == "refs/heads/main" {print $1}'
+  )"
+  [[ "${remote_commit}" =~ ^[0-9a-f]{40}$ ]] || \
+    fail "could not resolve authoritative origin/main for formal invocation"
+  [[ "${remote_commit}" == "${EXPECTED_COMMIT}" ]] || \
+    fail "formal invocation is stale: expected ${EXPECTED_COMMIT}, origin/main is ${remote_commit}"
+}
+
+runtime_setup_lock() {
+  command -v flock >/dev/null || fail "flock is required for shared runtime setup safety"
+  mkdir -p "${RUNTIME_ROOT}"
+  exec 7>"${RUNTIME_ROOT}/setup.lock"
+  flock 7
+}
+
+runtime_setup_unlock() {
+  flock -u 7
+  exec 7>&-
+}
+
 activate_runtime() {
   [[ -x "${VENV_DIR}/bin/python" ]] || fail "runtime is absent; run '$0 setup' first"
   # shellcheck disable=SC1091
@@ -318,6 +343,7 @@ PY
 }
 
 ensure_setup() {
+  runtime_setup_lock
   if [[ -x "${VENV_DIR}/bin/python" ]] &&
      "${VENV_DIR}/bin/python" -c 'import numpy, yaml' >/dev/null 2>&1; then
     config_preflight
@@ -327,10 +353,12 @@ ensure_setup() {
   else
     setup
   fi
+  runtime_setup_unlock
 }
 
 self_test_setup() {
   check_source
+  runtime_setup_lock
   command -v python3 >/dev/null || fail "python3 is unavailable"
   mkdir -p "${RUNTIME_ROOT}"
   python3 - <<'PY'
@@ -348,6 +376,7 @@ PY
     python -m pip install --upgrade "pip==24.3.1" "setuptools==75.6.0" "wheel==0.45.1"
     python -m pip install "numpy==1.26.4" "PyYAML==6.0.2"
   fi
+  runtime_setup_unlock
 }
 
 attempt_number() {
@@ -383,7 +412,7 @@ reuse_successful_attempt() {
   number="$(attempt_number "${latest}")"
   local artifact="${RUNTIME_ROOT}/packages/${RUN_ID}_attempt-$(printf '%03d' "${number}")_guarded.zip"
   [[ -f "${artifact}" && -f "${latest}/workload/aggregate/plot_curve_points.csv" ]] || return 1
-  python - "${latest}/workload" "${CONFIG_PATH}" "${EXPECTED_COMMIT}" "${MODE}" <<'PY_REUSE' >/dev/null || return 1
+  python - "${latest}/workload" "${CONFIG_PATH}" "${EXPECTED_COMMIT}" "${MODE}" "${artifact}" <<'PY_REUSE' >/dev/null || return 1
 from pathlib import Path
 import sys
 
@@ -403,7 +432,10 @@ elif mode != "full":
 raise SystemExit(
     0
     if _successful_attempt_matches_current_identity(
-        config, workload_root, source_commit=sys.argv[3]
+        config,
+        workload_root,
+        source_commit=sys.argv[3],
+        artifact_path=Path(sys.argv[5]),
     )
     else 1
 )
@@ -964,6 +996,8 @@ report_formal_success() {
 }
 
 guarded_full() {
+  check_source
+  check_authoritative_main_at_invocation
   ensure_setup
   command -v flock >/dev/null || fail "flock is required for single-writer recovery safety"
   mkdir -p "${RECOVERY_ROOT}"

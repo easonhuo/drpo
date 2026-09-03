@@ -584,6 +584,8 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
     expected = _integer(sweep.get("expected_cells"), "sweep.expected_cells")
     if expected != expanded:
         raise ValueError("sweep.expected_cells must match the expanded scientific matrix")
+    if expected == 0:
+        raise ValueError("Cold-start sweep must contain at least one scientific cell")
 
 
 def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
@@ -603,8 +605,18 @@ def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
         raise ValueError("Cold-start canonical trainer/dispatch contract drifted")
 
     execution = _mapping(config.get("execution"), "execution")
-    if _integer(execution.get("max_concurrent_cells"), "execution.max_concurrent_cells") != 16:
+    capacity = _integer(
+        execution.get("max_concurrent_cells"), "execution.max_concurrent_cells"
+    )
+    if capacity != 16:
         raise ValueError("Cold-start scheduler currently implements exactly 16 slots")
+    expected_waves = _integer(
+        execution.get("expected_waves"), "execution.expected_waves", positive=True
+    )
+    configured_cells = _integer(config["sweep"].get("expected_cells"), "sweep.expected_cells")
+    required_waves = math.ceil(configured_cells / capacity)
+    if expected_waves != required_waves:
+        raise ValueError("execution.expected_waves must match the expanded matrix and capacity")
     gpu_ids = tuple(
         _integer(value, "execution.gpu_ids entry")
         for value in _sequence(execution.get("gpu_ids"), "execution.gpu_ids")

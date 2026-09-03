@@ -223,3 +223,15 @@ This section narrowly supersedes the 2026-09-02 gate-liquidation statement only 
 - This approval does **not** restore the broader third-audit execution identity: no model-snapshot hash, dependency/runtime fingerprint, backend/run-class fingerprint, or expanded stale-recovery gate is added.
 - The separately discussed external `engineering_self_test.placeholder_backend` blocker is **not** added.
 - This is an engineering correctness fix only. It changes no scientific config, data, seed, lambda, optimizer/training rule, canonical trainer/loss, metric, result status, or method ranking.
+
+
+## 2026-09-02 owner-approved completed-bootstrap freshness and final reuse closure
+
+The repository owner explicitly approved `GOV-E8-COMPLETED-BOOTSTRAP-FRESHNESS-01` after final review of the completed-bootstrap and successful-attempt fast paths. This section is engineering-only and changes no scientific variable, historical config, canonical paper loss/trainer, metric, result status, or method ranking.
+
+- Every E8 bootstrap invocation, including a bootstrap whose prior state is `status=complete`, must freshly resolve the configured `E8_COLDSTART_TARGET_REF` from the canonical GitHub origin before execution identity or successful-attempt reuse is allowed. If the authoritative ref no longer equals the isolated checkout commit, the old checkout/attempt/artifact is preserved and the invocation fails closed as stale; it must not silently switch commits or reuse the old success.
+- `guarded_full()` must execute the already-approved source check before runtime reuse or completed-attempt reuse. The formal fast path must also honor the already-existing `origin/main` requirement at invocation time; this is not a new long-run requirement that `origin/main` remain frozen after a formal guard has launched.
+- Completed-attempt reuse must bind both the live workload manifests and the returned guarded ZIP to the current source commit, experiment ID, and config hash. General package self-consistency alone is insufficient for the fast path because a valid old evidence ZIP may coexist with newer live files.
+- Shared runtime setup/self-test setup is serialized with the already-required `flock` facility before writing the common venv/model runtime, so different Run IDs cannot race while constructing the same shared runtime. Per-run experiment/recovery locking remains unchanged.
+- Cold-start matrix self-consistency includes the already-approved zero-cell rejection and consistency between declared `execution.expected_waves` and the configured expanded matrix/capacity. This implements existing config-authority semantics; it does not add a scientific-parameter lock.
+- The broader liquidated stale-recovery execution-identity gate remains excluded. This repair does not add model-snapshot hashes, dependency/runtime fingerprints, backend/run-class fingerprints, closed-world schema, or expanded recovery-import eligibility checks.

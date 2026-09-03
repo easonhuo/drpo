@@ -2600,3 +2600,147 @@ def test_successful_attempt_reuse_requires_current_source_and_config(tmp_path: P
     assert reuse.index("_successful_attempt_matches_current_identity") < reuse.index(
         "verify_experiment_package_hardened.py"
     )
+
+
+
+def test_final_review_correctness_closure(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    source_commit = "a" * 40
+    workload = tmp_path / "workload"
+    p0.atomic_json(workload / "source_provenance.json", {"source_commit": source_commit})
+    p0.atomic_json(
+        workload / "prepare_manifest.json",
+        {
+            "experiment_id": exp_tuning.experiment_id(config),
+            "config_hash": exp_tuning.stable_config_hash(config),
+        },
+    )
+    artifact = tmp_path / "guarded.zip"
+    prefix = f"results/{exp_tuning.experiment_id(config)}"
+
+    def write_artifact(*, packaged_source: str, packaged_hash: str) -> None:
+        with zipfile.ZipFile(artifact, "w") as archive:
+            archive.writestr(
+                "ARTIFACT_MANIFEST.json",
+                json.dumps(
+                    {
+                        "experiment_id": exp_tuning.experiment_id(config),
+                        "base_commit": source_commit,
+                    }
+                ),
+            )
+            archive.writestr("BASE_COMMIT.txt", source_commit + "\n")
+            archive.writestr(
+                f"{prefix}/run_manifest.json",
+                json.dumps(
+                    {
+                        "experiment_id": exp_tuning.experiment_id(config),
+                        "base_commit": source_commit,
+                    }
+                ),
+            )
+            archive.writestr(
+                f"{prefix}/workload/source_provenance.json",
+                json.dumps({"source_commit": packaged_source}),
+            )
+            archive.writestr(
+                f"{prefix}/workload/prepare_manifest.json",
+                json.dumps(
+                    {
+                        "experiment_id": exp_tuning.experiment_id(config),
+                        "config_hash": packaged_hash,
+                    }
+                ),
+            )
+
+    write_artifact(
+        packaged_source=source_commit,
+        packaged_hash=exp_tuning.stable_config_hash(config),
+    )
+    assert exp_tuning._successful_attempt_matches_current_identity(
+        config,
+        workload,
+        source_commit=source_commit,
+        artifact_path=artifact,
+    )
+    write_artifact(
+        packaged_source=source_commit,
+        packaged_hash="0" * 64,
+    )
+    assert not exp_tuning._successful_attempt_matches_current_identity(
+        config,
+        workload,
+        source_commit=source_commit,
+        artifact_path=artifact,
+    )
+    write_artifact(
+        packaged_source="b" * 40,
+        packaged_hash=exp_tuning.stable_config_hash(config),
+    )
+    assert not exp_tuning._successful_attempt_matches_current_identity(
+        config,
+        workload,
+        source_commit=source_commit,
+        artifact_path=artifact,
+    )
+
+    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    guarded = runner.split("\nguarded_full() {\n", 1)[1].split(
+        "\ncase \"${MODE}\" in\n", 1
+    )[0]
+    assert guarded.index("check_source") < guarded.index("ensure_setup")
+    assert guarded.index("check_authoritative_main_at_invocation") < guarded.index(
+        "reuse_successful_attempt"
+    )
+    assert "ls-remote origin refs/heads/main" in runner
+    assert "artifact_path=Path(sys.argv[5])" in runner
+
+    ensure = runner.split("\nensure_setup() {\n", 1)[1].split(
+        "\nself_test_setup() {\n", 1
+    )[0]
+    assert ensure.index("runtime_setup_lock") < ensure.index("runtime_ready")
+    assert ensure.index("runtime_setup_unlock") > ensure.index("runtime_ready")
+    selftest = runner.split("\nself_test_setup() {\n", 1)[1].split(
+        "\nattempt_number() {\n", 1
+    )[0]
+    assert selftest.index("runtime_setup_lock") < selftest.index("python3 -m venv")
+    assert selftest.index("runtime_setup_unlock") > selftest.index("python3 -m venv")
+
+    bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(
+        encoding="utf-8"
+    )
+    fetch_section = bootstrap.split('CURRENT_STAGE="fetch_authoritative_ref"', 1)[1].split(
+        'CURRENT_STAGE="verify_full_source_identity"', 1
+    )[0]
+    assert "BOOTSTRAP_WAS_COMPLETE" not in fetch_section
+    assert "fetch --no-tags --force" in fetch_section
+    assert 'ls-remote "${SOURCE_REMOTE}" "${TARGET_REF}"' in fetch_section
+
+
+def test_coldstart_zero_cell_and_expected_wave_consistency() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-ZERO-CELL-TEST"
+    for task in config["sweep"]["task_lambda"]:
+        config["sweep"]["task_lambda"][task] = []
+    config["sweep"]["countdown_seed_offsets"] = []
+    config["sweep"]["transfer_positive_only_seed_offsets"] = []
+    config["sweep"]["expected_cells"] = 0
+    config["execution"]["expected_waves"] = 1
+    with pytest.raises(ValueError, match="at least one scientific cell"):
+        exp_tuning.validate_config(config)
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-WAVE-CONSISTENCY-TEST"
+    config["execution"]["expected_waves"] += 1
+    with pytest.raises(ValueError, match="expected_waves"):
+        exp_tuning.validate_config(config)
