@@ -23,7 +23,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "ee3c1e814cc2873423134e4aa20838a646a8fcac"
+          git merge-base --is-ancestor ee3c1e814cc2873423134e4aa20838a646a8fcac HEAD
+          test "$(git diff --name-only ee3c1e814cc2873423134e4aa20838a646a8fcac HEAD)" = ".github/workflows/e8-constant-authority-fix-once.yml"
       - name: Install repository test dependencies
         shell: bash
         run: |
@@ -34,6 +35,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          user_site="$(python -c 'import site; print(site.getusersitepackages())')"
+          export PYTHONPATH="$PWD:${user_site}${PYTHONPATH:+:${PYTHONPATH}}"
+
           python - <<'PY'
           from pathlib import Path
 
@@ -92,8 +96,6 @@ jobs:
             tests/test_artifact_hardening.py \
             tests/test_artifact_result_bundle.py \
             tests/test_runspec_artifact_delivery.py
-          user_site="$(python -c 'import site; print(site.getusersitepackages())')"
-          export PYTHONPATH="${user_site}${PYTHONPATH:+:${PYTHONPATH}}"
           pytest -q \
             --deselect tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py::test_asymre_boundary_dense_has_eight_points_and_sixteen_paired_cells \
             --deselect tests/test_runspec_results_delivery.py::test_countdown_temporarily_uses_held_out_evaluation_in_place_of_test
