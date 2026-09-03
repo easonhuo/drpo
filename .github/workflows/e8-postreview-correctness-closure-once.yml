@@ -1,0 +1,334 @@
+name: E8 Post-review Correctness Closure Once
+
+on:
+  push:
+    branches:
+      - dev/e8-config-driven-sweep-01
+    paths:
+      - .github/workflows/e8-postreview-correctness-closure-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-config-driven-sweep-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify reviewed parent and temporary-only trigger commit
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "0e04b03b296feec2696ec34c3edf8a691234ad68"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/e8-postreview-correctness-closure-once.yml"
+          git diff --quiet origin/main -- .github/workflows/code-change-budget.yml
+
+      - name: Apply narrow correctness closure
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          text = path.read_text(encoding='utf-8')
+
+          def replace_once(old: str, new: str, label: str) -> None:
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected one match, found {count}')
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              '''        if not all(math.isfinite(float(value)) for value in numeric):\n            raise RuntimeError("Task verifier evaluation produced a non-finite metric")\n        if was_training:\n            model.train()\n        return metrics\n''',
+              '''        if not all(math.isfinite(float(value)) for value in numeric):\n            raise RuntimeError("Task verifier evaluation produced a non-finite metric")\n        if int(pass_k) == 8:\n            setattr(\n                evaluate_rows,\n                "_last_primary_sampled_valid_rate",\n                float(metrics["sampled_valid_rate"]),\n            )\n        if was_training:\n            model.train()\n        return metrics\n''',
+              'sampled-valid evaluator propagation',
+          )
+
+          marker = '''            if evaluator is not None:\n                arena.evaluate_rows = evaluator\n                arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT\n                arena.completion_stats = lambda model, batch: {\n                    "seq_lp": -arena.sequence_surprisal_only(model, batch)\n                }\n                # Non-arithmetic task outputs are already canonicalized by the P0\n                # verifier. Arithmetic-only cleanup would corrupt structured outputs.\n                arena.clean_expression = lambda value: str(value)\n\n                def configured_evaluate(**kwargs: Any) -> dict[str, Any]:\n                    kwargs["pass64_enabled"] = 64 in set(\n                        int(value) for value in effective_runtime["evaluation"]["auxiliary_pass_ks"]\n                    )\n                    return original_trainer_evaluate(**kwargs)\n\n                scan_trainer._evaluate_validation = configured_evaluate\n'''
+          replacement = '''            if evaluator is not None:\n                arena.evaluate_rows = evaluator\n                arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT\n                arena.completion_stats = lambda model, batch: {\n                    "seq_lp": -arena.sequence_surprisal_only(model, batch)\n                }\n                # Non-arithmetic task outputs are already canonicalized by the P0\n                # verifier. Arithmetic-only cleanup would corrupt structured outputs.\n                arena.clean_expression = lambda value: str(value)\n\n                def configured_evaluate(**kwargs: Any) -> dict[str, Any]:\n                    kwargs["pass64_enabled"] = 64 in set(\n                        int(value) for value in effective_runtime["evaluation"]["auxiliary_pass_ks"]\n                    )\n                    row = original_trainer_evaluate(**kwargs)\n                    sampled_valid_rate = getattr(\n                        evaluator, "_last_primary_sampled_valid_rate", None\n                    )\n                    if sampled_valid_rate is None:\n                        raise RuntimeError(\n                            "Transfer evaluator did not report primary sampled validity"\n                        )\n                    row["val_sampled_valid_rate"] = float(sampled_valid_rate)\n                    return row\n\n                scan_trainer._evaluate_validation = configured_evaluate\n'''
+          replace_once(marker, replacement, 'trainer sampled-valid bridge')
+
+          replace_once(
+              '''            "sampled_valid_rate": float(row["val_valid_rate"]),\n''',
+              '''            "sampled_valid_rate": (\n                None\n                if row.get("val_sampled_valid_rate") in (None, "")\n                else float(row["val_sampled_valid_rate"])\n            ),\n''',
+              'metrics CSV sampled-valid decoding',
+          )
+
+          replace_once(
+              '''        "validation_terminal_sampled_valid_rate": float(terminal["sampled_valid_rate"]),\n''',
+              '''        "validation_terminal_sampled_valid_rate": (\n            None\n            if terminal.get("sampled_valid_rate") is None\n            else float(terminal["sampled_valid_rate"])\n        ),\n''',
+              'terminal sampled-valid summary',
+          )
+
+          replace_once(
+              '''    args = make_parser().parse_args(argv)\n    config_path = Path(args.config).resolve()\n    config = load_config(config_path)\n    output_root = validate_work_dir(args.output_root)\n''',
+              '''    args = make_parser().parse_args(argv)\n    config_path, _, _ = experiment_config.require_tracked_config(args.config, _repo_root())\n    config = load_config(config_path)\n    output_root = validate_work_dir(args.output_root)\n''',
+              'direct CLI tracked-config boundary',
+          )
+
+          replace_once(
+              '''            result = _run_subprocess_cell(\n                config_path=config_path.resolve(),\n                output_root=output_root.resolve(),\n                base_model_path=base_model_path,\n                cell=cell,\n                gpu_id=gpu_id,\n                force=child_force,\n            )\n            if int(result["returncode"]) == 0 and recovery_package is not None:\n''',
+              '''            result = _run_subprocess_cell(\n                config_path=config_path.resolve(),\n                output_root=output_root.resolve(),\n                base_model_path=base_model_path,\n                cell=cell,\n                gpu_id=gpu_id,\n                force=child_force,\n            )\n            if int(result["returncode"]) == 0:\n                try:\n                    completed_manifest = _read_json_object(manifest_path)\n                    if (\n                        completed_manifest.get("complete") is not True\n                        or completed_manifest.get("evaluation_status") != "complete"\n                        or completed_manifest.get("nan_inf_failure") is not False\n                    ):\n                        raise RuntimeError("child returned zero without a complete finite cell")\n                except (\n                    OSError,\n                    ValueError,\n                    TypeError,\n                    RuntimeError,\n                    json.JSONDecodeError,\n                ) as exc:\n                    result["returncode"] = 75\n                    result["cell_completion_error"] = f"{type(exc).__name__}: {exc}"\n            if int(result["returncode"]) == 0 and recovery_package is not None:\n''',
+              'scheduler child-success manifest binding',
+          )
+
+          path.write_text(text, encoding='utf-8')
+
+          tests = Path('tests/test_e8_multitask_p0.py')
+          test_text = tests.read_text(encoding='utf-8')
+          marker_name = 'def test_postreview_consumer_and_scheduler_correctness_closure'
+          if marker_name in test_text:
+              raise SystemExit('post-review tests already present unexpectedly')
+          test_text += r'''
+
+
+def test_postreview_consumer_and_scheduler_correctness_closure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-POSTREVIEW-CLOSURE-TEST"
+
+    bad = copy.deepcopy(config)
+    bad["suite"]["excluded_tasks"] = []
+    with pytest.raises(ValueError, match="suite.excluded_tasks must be a mapping"):
+        exp_tuning.validate_config(bad)
+
+    bad = copy.deepcopy(config)
+    bad["suite"] = []
+    with pytest.raises(ValueError, match="suite must be a mapping"):
+        exp_tuning.validate_config(bad)
+
+    untracked = Path("configs/.e8_direct_cli_untracked_test.yaml")
+    untracked.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    try:
+        with pytest.raises(ValueError, match="not Git-tracked"):
+            exp_tuning.main(
+                [
+                    "--config",
+                    str(untracked),
+                    "--output-root",
+                    str(tmp_path / "direct-cli"),
+                    "plan",
+                ]
+            )
+    finally:
+        untracked.unlink(missing_ok=True)
+
+    monkeypatch.setattr(exp_tuning, "_require_calibration_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)
+
+    def zero_but_incomplete(**kwargs):
+        cell = kwargs["cell"]
+        output_root = kwargs["output_root"]
+        manifest = output_root / "cells" / cell.key / "cell_manifest.json"
+        p0.atomic_json(
+            manifest,
+            {
+                "experiment_id": exp_tuning.experiment_id(config),
+                "config_hash": exp_tuning.stable_config_hash(config),
+                "complete": False,
+                "evaluation_status": "incomplete",
+                "nan_inf_failure": False,
+            },
+        )
+        return {
+            "cell_key": cell.key,
+            "gpu_id": kwargs["gpu_id"],
+            "returncode": 0,
+            "log": str((output_root / "logs" / f"{cell.key}.log").resolve()),
+            "started_unix": 1.0,
+            "finished_unix": 2.0,
+        }
+
+    monkeypatch.setattr(exp_tuning, "_run_subprocess_cell", zero_but_incomplete)
+    output_root = tmp_path / "scheduler"
+    output_root.mkdir()
+    with pytest.raises(RuntimeError, match="scheduling stopped fail-closed"):
+        exp_tuning.cmd_run_dynamic(
+            config,
+            Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"),
+            output_root,
+            base_model_path=str(tmp_path / "model"),
+            force=False,
+            retry_incomplete=False,
+        )
+    scheduler = json.loads(
+        (output_root / "scheduler" / "dynamic_run.json").read_text(encoding="utf-8")
+    )
+    assert scheduler["complete"] is False
+    assert scheduler["failed_cells"]
+    assert scheduler["unscheduled_cells"]
+    assert all(
+        int(row["returncode"]) == 75
+        and "cell_completion_error" in row
+        for row in scheduler["results"]
+    )
+
+
+def test_postreview_sampled_validity_is_not_greedy_alias() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    class FakeModel:
+        def __init__(self) -> None:
+            self.training = True
+
+        def train(self) -> None:
+            self.training = True
+
+    class FakeAdapter:
+        def verify(self, instance, completion):
+            del instance
+            return SimpleNamespace(
+                correct=completion == "valid-correct",
+                format_valid=completion.startswith("valid-"),
+            )
+
+    def generate_outputs(
+        model,
+        tokenizer,
+        prompts,
+        max_new_tokens,
+        do_sample,
+        temperature,
+        top_p,
+        num_return_sequences,
+    ):
+        del model, tokenizer, max_new_tokens, temperature, top_p
+        if not do_sample:
+            return [["valid-correct"] for _ in prompts]
+        outputs = [
+            "valid-wrong-1",
+            "valid-wrong-2",
+            "invalid-3",
+            "invalid-4",
+            "invalid-5",
+            "invalid-6",
+            "invalid-7",
+            "invalid-8",
+        ]
+        assert num_return_sequences == 8
+        return [list(outputs) for _ in prompts]
+
+    arena = SimpleNamespace(seed_all=lambda seed: None, generate_outputs=generate_outputs)
+    evaluator = exp_tuning._canonical_environment_evaluator(
+        arena=arena,
+        task_adapter=FakeAdapter(),
+        instances={
+            "p0": TaskInstance(
+                task="word_sorting",
+                prompt_id="p0",
+                prompt="sort",
+                oracle_completion="answer",
+                metadata={},
+                source_entry={},
+            )
+        },
+        greedy_prompt_rows=1,
+        passk_prompt_rows=1,
+    )
+    metrics = evaluator(
+        FakeModel(),
+        object(),
+        [{"prompt_id": "p0", "prompt": "sort"}],
+        1,
+        16,
+        8,
+        123,
+    )
+    assert metrics["valid_rate"] == pytest.approx(1.0)
+    assert metrics["sampled_valid_rate"] == pytest.approx(0.25)
+    assert getattr(evaluator, "_last_primary_sampled_valid_rate") == pytest.approx(0.25)
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    evaluations = [
+        {
+            "update": update,
+            "pass8": 0.1,
+            "greedy_success": 0.2,
+            "greedy_valid_rate": 1.0,
+            "sampled_valid_rate": None,
+        }
+        for update in [0, *config["training"]["late_window_updates"]]
+    ]
+    summary = exp_tuning._summarize_evaluations(evaluations, config)
+    assert summary["validation_terminal_sampled_valid_rate"] is None
+    for row in evaluations:
+        row["sampled_valid_rate"] = 0.25
+    summary = exp_tuning._summarize_evaluations(evaluations, config)
+    assert summary["validation_terminal_sampled_valid_rate"] == pytest.approx(0.25)
+
+    source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+    assert 'row["val_sampled_valid_rate"] = float(sampled_valid_rate)' in source
+    assert 'row.get("val_sampled_valid_rate") in (None, "")' in source
+'''
+          tests.write_text(test_text, encoding='utf-8')
+
+          protocol = Path('docs/experiments/E8_CONFIG_DRIVEN_SWEEP_REVIEW_FIX_PROTOCOL.md')
+          protocol_text = protocol.read_text(encoding='utf-8')
+          heading = '## 2026-09-03 third pre-independent-review consumer/lifecycle closure'
+          if heading in protocol_text:
+              raise SystemExit('protocol closure already present unexpectedly')
+          protocol_text += '''\n\n\n## 2026-09-03 third pre-independent-review consumer/lifecycle closure\n\nA further consumer/lifecycle read-through found four narrow correctness gaps. They are within the already approved config-consumer, repository-path safety, scheduler-completion, and reporting-separation responsibilities; no new scientific gate is introduced.\n\n- `suite` itself and consumed `suite.excluded_tasks` metadata are required to have the mapping shape assumed by downstream aggregation/audit consumers. This is schema/type validation only and does not constrain task membership beyond the already existing exact-suite contract.\n- Direct `python -m drpo.e8_multitask_exp_tuning ...` entry now applies the already approved repository-path/Git-tracked-config safety boundary before loading a reviewed external config. Internal deterministic engineering recovery configs remain internal call-path artifacts and are not reclassified as reviewed tracked configs.\n- The dynamic scheduler counts a child as successful only when a returned-zero child has actually written a complete evaluation cell manifest with no NaN/Inf failure. A zero process exit with an incomplete manifest is converted to a fail-closed scheduler failure; this aligns scheduler bookkeeping with the existing aggregate/recovery completeness contract rather than adding a scientific threshold.\n- Non-Countdown transfer evaluation already computes sampled-output format validity. The wrapper now preserves that existing diagnostic into the canonical trainer CSV/result manifest instead of aliasing greedy validity. Countdown's locked evaluator exposes greedy validity but not sampled validity, so Countdown records sampled validity as unavailable rather than fabricating equality. No selection rule or task-performance metric uses this diagnostic.\n\nNo tracked scientific config, data volume, seed, lambda, optimizer/training formula, canonical paper loss/trainer, task-performance metric, result status, or method ranking is changed. No scientific experiment is launched.\n'''
+          protocol.write_text(protocol_text, encoding='utf-8')
+          PY
+
+      - name: Install complete project validation dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check -e '.[dev]'
+          python -m pip install --disable-pip-version-check ruff==0.9.10 pytest==8.3.4 numpy==1.26.4 PyYAML==6.0.2
+
+      - name: Validate focused and repository-wide after-image
+        run: |
+          set -euo pipefail
+          python -m py_compile src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py scripts/preflight_e8_multitask_config.py tests/test_e8_multitask_p0.py
+          python -m ruff check src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py scripts/preflight_e8_multitask_config.py tests/test_e8_multitask_p0.py
+          bash -n scripts/run_e8_multitask_exp_coldstart.sh
+          bash -n scripts/bootstrap_e8_multitask_exp_coldstart.sh
+          bash -n scripts/run_e8_multitask_exp_lambda_completion.sh
+          python scripts/preflight_e8_multitask_config.py --config configs/e8_multitask_exp_coldstart.yaml >/tmp/preflight-coldstart.json
+          python scripts/preflight_e8_multitask_config.py --config configs/e8_multitask_exp_lambda_completion.yaml >/tmp/preflight-completion.json
+          python scripts/preflight_e8_multitask_config.py --config configs/e8_multitask_exp_lambda_curve_completion.yaml >/tmp/preflight-curve.json
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          python -m pytest -q tests/test_experiment_artifact_protocol.py tests/test_experiment_artifact_hardening.py
+          python -m pytest -q \
+            --deselect=tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py::test_asymre_boundary_dense_has_eight_points_and_sixteen_paired_cells \
+            --deselect=tests/test_runspec_results_delivery.py::test_countdown_temporarily_uses_held_out_evaluation_in_place_of_test
+          git diff --check
+          git diff --quiet origin/main -- .github/workflows/code-change-budget.yml
+          git diff --quiet 0e04b03b296feec2696ec34c3edf8a691234ad68 -- configs
+          git diff --quiet 0e04b03b296feec2696ec34c3edf8a691234ad68 -- \
+            src/drpo/countdown_qwen_arena_onefile.py \
+            src/drpo/countdown_e8_alpha1_c_scan_common.py \
+            src/drpo/countdown_e8_alpha1_c_scan_runtime.py \
+            src/drpo/countdown_e8_alpha1_c_scan_trainer.py \
+            src/drpo/countdown_e8_alpha1_highc_scan_common.py \
+            src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+
+      - name: Commit validated business after-image and self-delete
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/e8-postreview-correctness-closure-once.yml
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add docs/experiments/E8_CONFIG_DRIVEN_SWEEP_REVIEW_FIX_PROTOCOL.md src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          git commit -m "fix(e8): close config consumer and scheduler reporting gaps"
+          git push origin HEAD:dev/e8-config-driven-sweep-01
