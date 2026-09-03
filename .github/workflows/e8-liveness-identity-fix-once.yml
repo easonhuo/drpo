@@ -28,4 +28,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          user_site="$(python -c 'import site; print(site.getusersitepackages())')"
+          export PYTHONPATH="${user_site}${PYTHONPATH:+:${PYTHONPATH}}"
           bash scripts/.tmp_e8_liveness_identity_fix.sh
