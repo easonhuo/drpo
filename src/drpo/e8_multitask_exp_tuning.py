@@ -4625,23 +4625,40 @@ def _canonical_liveness_base_config(config: Mapping[str, Any], output_root: Path
     return path
 
 
+def _canonical_cold_liveness_cell(grid_path: Path) -> Cell:
+    """Derive the wrapper identity from the exact grid consumed by canonical smoke."""
+
+    grid = yaml.safe_load(grid_path.read_text(encoding="utf-8"))
+    if not isinstance(grid, dict):
+        raise TypeError("Canonical liveness grid root must be a mapping")
+    liveness = grid["execution"]["liveness"]
+    seed_offsets = grid["sweep"]["seed_offsets"]
+    coefficient = float(liveness["representative_c"])
+    return Cell(
+        "countdown",
+        METHOD_EXPONENTIAL,
+        math.exp(-coefficient),
+        int(seed_offsets[0]),
+        "liveness",
+        coefficient,
+    )
+
+
 def _cmd_canonical_cold_liveness(
     config: Mapping[str, Any],
     config_path: Path,
     output_root: Path,
     *,
-    cell: Cell,
     inputs: TaskInputs,
     splits: Mapping[str, Any],
     base_model_path: str,
     force: bool,
 ) -> dict[str, Any]:
-    if cell.task != "countdown":
-        raise RuntimeError("The paper-runtime liveness anchor must be Countdown")
     modules = _canonical_cold_modules(config)
     runtime = modules["paper_runtime"]
-    record = _canonical_task_record(splits, cell.task)
+    record = _canonical_task_record(splits, "countdown")
     grid_path = Path(str(record["round1_grid"]))
+    cell = _canonical_cold_liveness_cell(grid_path)
     smoke_root = output_root / "liveness" / "paper_runtime_smoke"
     if force and smoke_root.exists():
         shutil.rmtree(smoke_root)
@@ -4764,12 +4781,31 @@ def cmd_liveness(
     output_root: Path,
     *,
     task: str,
-    rho: float,
+    rho: float | None,
     base_model_path: str,
     force: bool,
 ) -> dict[str, Any]:
     if task not in config["suite"]["tasks"]:
         raise ValueError(f"Unknown liveness task: {task}")
+    if _is_coldstart(config):
+        if task != "countdown":
+            raise RuntimeError("The paper-runtime liveness anchor must be Countdown")
+        splits, inputs = _load_ready_inputs(
+            output_root,
+            config,
+            base_model_path=base_model_path,
+        )
+        return _cmd_canonical_cold_liveness(
+            config,
+            config_path,
+            output_root,
+            inputs=inputs["countdown"],
+            splits=splits,
+            base_model_path=base_model_path,
+            force=force,
+        )
+    if rho is None:
+        raise ValueError("Liveness rho is required outside cold-start")
     if rho not in _task_rhos(config, task):
         raise ValueError("Liveness rho must be one frozen grid point")
     splits, inputs = _load_ready_inputs(
@@ -4792,17 +4828,6 @@ def cmd_liveness(
         "liveness",
         lambda_value,
     )
-    if _is_coldstart(config):
-        return _cmd_canonical_cold_liveness(
-            config,
-            config_path,
-            output_root,
-            cell=cell,
-            inputs=inputs[task],
-            splits=splits,
-            base_model_path=base_model_path,
-            force=force,
-        )
     result = train_cell(
         cell,
         inputs=inputs[task],
@@ -7822,14 +7847,14 @@ def main(argv: Sequence[str] | None = None) -> None:
         rho = args.rho
         if args.lambda_value is not None:
             rho = math.exp(-float(args.lambda_value))
-        if rho is None:
+        if rho is None and not _is_coldstart(config):
             rho = _task_rhos(config, str(args.task))[0]
         result = cmd_liveness(
             config,
             config_path,
             output_root,
             task=args.task,
-            rho=float(rho),
+            rho=None if rho is None else float(rho),
             base_model_path=args.base_model_path,
             force=bool(args.force),
         )

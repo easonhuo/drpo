@@ -271,3 +271,12 @@ A further consumer/lifecycle read-through found four narrow correctness gaps. Th
 - Non-Countdown transfer evaluation already computes sampled-output format validity. The wrapper now preserves that existing diagnostic into the canonical trainer CSV/result manifest instead of aliasing greedy validity. Countdown's locked evaluator exposes greedy validity but not sampled validity, so Countdown records sampled validity as unavailable rather than fabricating equality. No selection rule or task-performance metric uses this diagnostic.
 
 No tracked scientific config, data volume, seed, lambda, optimizer/training formula, canonical paper loss/trainer, task-performance metric, result status, or method ranking is changed. No scientific experiment is launched.
+
+
+## 2026-09-03 canonical liveness identity alignment
+
+A final pre-independent-review audit found that the shared shell passed `--lambda 0.916290732` into the outer liveness selector while the byte-locked canonical `paper_runtime.smoke()` actually derives its representative cell from the round-1 grid, where `execution.liveness.representative_c=0.693147181` and the first frozen seed offset is `4000`. The smoke itself was correct, but the wrapper `Cell` used for the liveness manifest could therefore claim a different coefficient from the cell actually executed.
+
+The repair removes the shell-level scientific-grid selector from cold-start liveness. Cold-start `cmd_liveness()` now delegates directly to the canonical smoke path, and the wrapper identity is derived from the exact materialized round-1 grid passed to `paper_runtime.smoke()`. Non-cold-start liveness retains its existing rho/grid behavior. This does **not** introduce `0.693147181` as a new E8 scientific gate or mutable experiment parameter; it records the already byte-locked smoke specification as the provenance of the engineering liveness action that actually ran.
+
+No tracked scientific config, data volume, seed, lambda grid, optimizer/training formula, canonical paper loss/trainer, task-performance metric, result status, or method ranking is changed. No scientific experiment is launched.

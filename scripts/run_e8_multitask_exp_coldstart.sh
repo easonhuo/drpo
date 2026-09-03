@@ -813,7 +813,6 @@ liveness() {
   activate_runtime
   CUDA_VISIBLE_DEVICES=0 LOCAL_RANK=0 run_module liveness \
     --task countdown \
-    --lambda 0.916290732 \
     --base-model-path "${MODEL_DIR}"
 }
 

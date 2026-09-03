@@ -2560,8 +2560,8 @@ def test_final_correctness_audit_after_image() -> None:
     )[0]
     assert "--source-file src/drpo/e8_experiment_config.py" in formal
     assert "--source-file scripts/preflight_e8_multitask_config.py" in formal
-    assert "--lambda 0.916290732" in runner
-    assert "--lambda 0.693147181" not in runner
+    liveness = runner.split("\nliveness() {\n", 1)[1].split("\nrun_queue() {\n", 1)[0]
+    assert "--lambda " not in liveness
     assert exp_tuning.sweep_profile(config) == "eight_task_coldstart_lambda_v1"
 
 
@@ -3008,3 +3008,87 @@ def test_postreview_sampled_validity_is_not_greedy_alias() -> None:
     source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
     assert 'row["val_sampled_valid_rate"] = float(sampled_valid_rate)' in source
     assert 'row.get("val_sampled_valid_rate") in (None, "")' in source
+
+
+
+def test_coldstart_liveness_identity_is_derived_from_canonical_smoke_grid() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    grid_path = exp_tuning._canonical_paths(config)["round1_grid"]
+    cell = exp_tuning._canonical_cold_liveness_cell(grid_path)
+    grid = yaml.safe_load(grid_path.read_text(encoding="utf-8"))
+    expected_c = float(grid["execution"]["liveness"]["representative_c"])
+    expected_seed = int(grid["sweep"]["seed_offsets"][0])
+
+    assert cell.task == "countdown"
+    assert cell.method == exp_tuning.METHOD_EXPONENTIAL
+    assert cell.lambda_value == pytest.approx(expected_c)
+    assert cell.rho == pytest.approx(math.exp(-expected_c))
+    assert cell.seed == expected_seed
+    assert cell.stage == "liveness"
+    assert not math.isclose(expected_c, 0.916290732, rel_tol=0.0, abs_tol=1.0e-12)
+
+    source = inspect.getsource(exp_tuning._cmd_canonical_cold_liveness)
+    assert "cell = _canonical_cold_liveness_cell(grid_path)" in source
+
+
+def test_coldstart_liveness_cli_path_needs_no_scientific_grid_selector(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    fake_inputs = {task: object() for task in config["suite"]["tasks"]}
+    monkeypatch.setattr(
+        exp_tuning,
+        "_load_ready_inputs",
+        lambda *args, **kwargs: ({"tasks": {}}, fake_inputs),
+    )
+    observed: dict[str, object] = {}
+
+    def fake_canonical(
+        config_arg,
+        config_path,
+        output_root,
+        *,
+        inputs,
+        splits,
+        base_model_path,
+        force,
+    ):
+        observed.update(
+            {
+                "config": config_arg,
+                "config_path": config_path,
+                "output_root": output_root,
+                "inputs": inputs,
+                "splits": splits,
+                "base_model_path": base_model_path,
+                "force": force,
+            }
+        )
+        return {"complete": True}
+
+    monkeypatch.setattr(exp_tuning, "_cmd_canonical_cold_liveness", fake_canonical)
+    result = exp_tuning.cmd_liveness(
+        config,
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"),
+        tmp_path,
+        task="countdown",
+        rho=None,
+        base_model_path=str(tmp_path / "model"),
+        force=False,
+    )
+
+    assert result == {"complete": True}
+    assert observed["inputs"] is fake_inputs["countdown"]
+    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    liveness = runner.split("\nliveness() {\n", 1)[1].split("\nrun_queue() {\n", 1)[0]
+    assert "--lambda " not in liveness
