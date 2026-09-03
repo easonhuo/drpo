@@ -247,3 +247,14 @@ A final internal read-through before the independent-review gate found four narr
 - The explicit `setup` subcommand uses the same shared-runtime `flock` serialization already required by `ensure_setup()` and self-test setup, closing the remaining direct-entry race on the common venv/model runtime.
 
 No tracked scientific config, data volume, seed, lambda, optimizer/training formula, canonical paper loss/trainer, metric, result status, or method ranking is changed by this closure. No scientific experiment is launched.
+
+
+## 2026-09-03 second pre-independent-review cross-file closure
+
+A subsequent cross-file lifecycle audit found one reuse-time TOCTOU class after the prior closure. The fix remains within the already approved source/config identity and formal `origin/main` semantics.
+
+- `full` still checks source and authoritative `origin/main` before setup. After setup completes and the per-run recovery lock is acquired, it checks both again immediately before `reuse_successful_attempt()`. This prevents a long setup from making the earlier fast-path identity check stale.
+- Engineering self-test similarly rechecks the current source after self-test setup and after acquiring its per-run recovery lock, immediately before completed-attempt reuse.
+- Fresh formal guard attempts retain their existing launch-time hardened-guard checks. This correction does not add model/runtime/backend/run-class identity gates. It also does not add any new requirement beyond the formal origin/main behavior already enforced elsewhere by the existing guard/delivery path.
+
+No tracked scientific config, data volume, seed, lambda, optimizer/training formula, canonical paper loss/trainer, metric, result status, or method ranking is changed. No scientific experiment is launched.

@@ -2785,3 +2785,26 @@ def test_expected_waves_is_optional_metadata_but_consistent_when_declared() -> N
     assert len(waves) == math.ceil(
         config["sweep"]["expected_cells"] / config["execution"]["max_concurrent_cells"]
     )
+
+
+
+def test_reuse_fast_paths_recheck_source_identity_after_setup_under_run_lock() -> None:
+    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+
+    selftest = runner.split("\nengineering_self_test() {\n", 1)[1].split(
+        "\nprepare() {\n", 1
+    )[0]
+    selftest_lock = selftest.index("flock -n 8")
+    selftest_reuse = selftest.index("reuse_successful_attempt")
+    assert selftest_lock < selftest.rfind("check_source", selftest_lock, selftest_reuse)
+
+    guarded = runner.split("\nguarded_full() {\n", 1)[1].split(
+        '\ncase "${MODE}" in\n', 1
+    )[0]
+    setup_index = guarded.index("ensure_setup")
+    formal_reuse = guarded.index("reuse_successful_attempt")
+    run_lock = guarded.index("flock -n 9")
+    assert run_lock < guarded.rfind("check_source", setup_index, formal_reuse)
+    assert run_lock < guarded.rfind(
+        "check_authoritative_main_at_invocation", setup_index, formal_reuse
+    )

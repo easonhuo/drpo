@@ -707,6 +707,8 @@ engineering_self_test() {
   mkdir -p "${RECOVERY_ROOT}"
   exec 8>"${RECOVERY_ROOT}/runtime.lock"
   flock -n 8 || fail "another engineering self-test still holds the recovery lock"
+  # Re-bind the fast-path decision to the checkout after setup has finished.
+  check_source
   if reuse_successful_attempt; then
     echo "ENGINEERING_SELF_TEST_ROOT=${OUTPUT_ROOT}"
     echo "ENGINEERING_SELF_TEST_GUARD_ARTIFACT=${GUARD_ARTIFACT}"
@@ -1030,6 +1032,10 @@ guarded_full() {
     write_local_ai_recovery concurrent_runtime_lock
     fail "another experiment or recovery process still holds ${RECOVERY_ROOT}/runtime.lock"
   fi
+  # Setup can be long. Re-check the current checkout and formal main authority
+  # under the per-run lock immediately before a completed-attempt fast return.
+  check_source
+  check_authoritative_main_at_invocation
   if reuse_successful_attempt; then
     write_attempt_state complete
     echo "RAW_COMPLETE_RESULTS_ZIP=${GUARD_ARTIFACT}"
