@@ -657,6 +657,30 @@ invoke_local_ai_recovery() {
 recover_import_if_requested() {
   [[ -n "${RECOVERY_SOURCE_OUTPUT:-}" ]] || return 0
   [[ -d "${RECOVERY_SOURCE_OUTPUT}" ]] || fail "recovery source vanished: ${RECOVERY_SOURCE_OUTPUT}"
+  local recovery_source_commit
+  if ! recovery_source_commit="$(
+    python - "${RECOVERY_SOURCE_OUTPUT}/source_provenance.json" <<'PY_RECOVERY_SOURCE'
+import json
+import sys
+from pathlib import Path
+
+value = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if not isinstance(value, dict) or not isinstance(value.get("source_commit"), str):
+    raise SystemExit(2)
+print(value["source_commit"])
+PY_RECOVERY_SOURCE
+  )"; then
+    echo "Recovery source provenance is unreadable; starting fresh instead of retrying stale import." >&2
+    RECOVERY_SOURCE_OUTPUT=""
+    export RECOVERY_SOURCE_OUTPUT
+    return 0
+  fi
+  if [[ "${recovery_source_commit}" != "${EXPECTED_COMMIT}" ]]; then
+    echo "Recovery source commit ${recovery_source_commit} != ${EXPECTED_COMMIT}; starting fresh instead of retrying stale import." >&2
+    RECOVERY_SOURCE_OUTPUT=""
+    export RECOVERY_SOURCE_OUTPUT
+    return 0
+  fi
   local recovery_model="${MODEL_DIR}"
   if [[ "${MODE}" == "self-test" || "${MODE}" == "engineering-self-test-internal" ]]; then
     recovery_model="${RECOVERY_SOURCE_OUTPUT}/engineering_fixtures/placeholder_model"
@@ -1046,7 +1070,7 @@ guarded_full() {
 
 case "${MODE}" in
   self-test) engineering_self_test ;;
-  setup) setup ;;
+  setup) runtime_setup_lock; setup; runtime_setup_unlock ;;
   prepare) prepare ;;
   preflight) check_source; activate_runtime; config_preflight ;;
   plan) check_source; activate_runtime; run_module plan ;;

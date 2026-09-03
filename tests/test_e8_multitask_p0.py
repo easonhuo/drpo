@@ -2622,12 +2622,18 @@ def test_final_review_correctness_closure(tmp_path: Path) -> None:
     artifact = tmp_path / "guarded.zip"
     prefix = f"results/{exp_tuning.experiment_id(config)}"
 
-    def write_artifact(*, packaged_source: str, packaged_hash: str) -> None:
+    def write_artifact(
+        *,
+        packaged_source: str,
+        packaged_hash: str,
+        package_kind: str = "experiment-raw-complete",
+    ) -> None:
         with zipfile.ZipFile(artifact, "w") as archive:
             archive.writestr(
                 "ARTIFACT_MANIFEST.json",
                 json.dumps(
                     {
+                        "package_kind": package_kind,
                         "experiment_id": exp_tuning.experiment_id(config),
                         "base_commit": source_commit,
                     }
@@ -2687,6 +2693,17 @@ def test_final_review_correctness_closure(tmp_path: Path) -> None:
         source_commit=source_commit,
         artifact_path=artifact,
     )
+    write_artifact(
+        packaged_source=source_commit,
+        packaged_hash=exp_tuning.stable_config_hash(config),
+        package_kind="experiment-failed",
+    )
+    assert not exp_tuning._successful_attempt_matches_current_identity(
+        config,
+        workload,
+        source_commit=source_commit,
+        artifact_path=artifact,
+    )
 
     runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
     guarded = runner.split("\nguarded_full() {\n", 1)[1].split(
@@ -2709,6 +2726,14 @@ def test_final_review_correctness_closure(tmp_path: Path) -> None:
     )[0]
     assert selftest.index("runtime_setup_lock") < selftest.index("python3 -m venv")
     assert selftest.index("runtime_setup_unlock") > selftest.index("python3 -m venv")
+    mode_dispatch = runner.split('\ncase "${MODE}" in\n', 1)[1]
+    assert "setup) runtime_setup_lock; setup; runtime_setup_unlock ;;" in mode_dispatch
+    recovery = runner.split("\nrecover_import_if_requested() {\n", 1)[1].split(
+        "\nengineering_self_test_internal() {\n", 1
+    )[0]
+    assert recovery.index("source_provenance.json") < recovery.index("run_module import-recovery")
+    assert 'RECOVERY_SOURCE_OUTPUT=""' in recovery
+    assert "starting fresh instead of retrying stale import" in recovery
 
     bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(
         encoding="utf-8"
@@ -2744,3 +2769,19 @@ def test_coldstart_zero_cell_and_expected_wave_consistency() -> None:
     config["execution"]["expected_waves"] += 1
     with pytest.raises(ValueError, match="expected_waves"):
         exp_tuning.validate_config(config)
+
+
+
+def test_expected_waves_is_optional_metadata_but_consistent_when_declared() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-OPTIONAL-WAVES-TEST"
+    config["execution"].pop("expected_waves")
+    exp_tuning.validate_config(config)
+    waves = exp_tuning.build_waves(config)
+    assert len(waves) == math.ceil(
+        config["sweep"]["expected_cells"] / config["execution"]["max_concurrent_cells"]
+    )

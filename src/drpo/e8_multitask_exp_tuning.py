@@ -4933,8 +4933,19 @@ def _successful_attempt_matches_current_identity(
         zipfile.BadZipFile,
     ):
         return False
+    if not all(
+        isinstance(value, dict)
+        for value in (
+            artifact_manifest,
+            run_manifest,
+            packaged_provenance,
+            packaged_prepare,
+        )
+    ):
+        return False
     return (
-        artifact_manifest.get("experiment_id") == expected_id
+        artifact_manifest.get("package_kind") == "experiment-raw-complete"
+        and artifact_manifest.get("experiment_id") == expected_id
         and artifact_manifest.get("base_commit") == source_commit
         and base_commit == source_commit
         and run_manifest.get("experiment_id") == expected_id

@@ -235,3 +235,15 @@ The repository owner explicitly approved `GOV-E8-COMPLETED-BOOTSTRAP-FRESHNESS-0
 - Shared runtime setup/self-test setup is serialized with the already-required `flock` facility before writing the common venv/model runtime, so different Run IDs cannot race while constructing the same shared runtime. Per-run experiment/recovery locking remains unchanged.
 - Cold-start matrix self-consistency includes the already-approved zero-cell rejection and consistency between declared `execution.expected_waves` and the configured expanded matrix/capacity. This implements existing config-authority semantics; it does not add a scientific-parameter lock.
 - The broader liquidated stale-recovery execution-identity gate remains excluded. This repair does not add model-snapshot hashes, dependency/runtime fingerprints, backend/run-class fingerprints, closed-world schema, or expanded recovery-import eligibility checks.
+
+
+## 2026-09-03 pre-independent-review internal recheck closure
+
+A final internal read-through before the independent-review gate found four narrow engineering after-image gaps. These corrections stay within already approved semantics and do not authorize or modify a scientific experiment.
+
+- `execution.expected_waves` is optional reporting/plan metadata. When declared it must equal the wave count implied by the configured scientific matrix and scheduler capacity; omitting it does not create a new launch blocker.
+- A completed-attempt success fast path accepts only a guarded ZIP whose manifest is `package_kind=experiment-raw-complete`, in addition to the already approved source/experiment/config identity binding and hardened package verification.
+- A recoverable attempt recorded under a different source commit is not repeatedly fed to the existing importer until automatic retries are exhausted. The old evidence is preserved, recovery import is skipped, and the new isolated attempt starts fresh. This adds no config/model/runtime/backend recovery-eligibility gate.
+- The explicit `setup` subcommand uses the same shared-runtime `flock` serialization already required by `ensure_setup()` and self-test setup, closing the remaining direct-entry race on the common venv/model runtime.
+
+No tracked scientific config, data volume, seed, lambda, optimizer/training formula, canonical paper loss/trainer, metric, result status, or method ranking is changed by this closure. No scientific experiment is launched.
