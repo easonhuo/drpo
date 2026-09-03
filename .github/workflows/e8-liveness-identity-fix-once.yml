@@ -19,6 +19,11 @@ jobs:
         with:
           ref: dev/e8-config-driven-sweep-01
           fetch-depth: 0
+      - name: Install complete repository test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check -e ".[dev]"
       - name: Apply repair, validate, commit, and clean temporary files
         shell: bash
         run: |
