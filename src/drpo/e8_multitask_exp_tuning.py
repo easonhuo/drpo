@@ -73,12 +73,16 @@ from drpo.e8_multitask_tasks import (
     stable_hash,
 )
 
-EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-TUNING-01"
-DENSE_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-DENSE-01"
-COLDSTART_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-COLDSTART-01"
-LAMBDA_COMPLETION_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"
-LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02"
-P0_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-P0-01"
+# Backward-compatible aliases; e8_experiment_config is the single authority for
+# experiment IDs and sweep-profile names.
+EXPERIMENT_ID = experiment_config.RHO_EXPERIMENT_ID
+DENSE_EXPERIMENT_ID = experiment_config.DENSE_EXPERIMENT_ID
+COLDSTART_EXPERIMENT_ID = experiment_config.COLDSTART_EXPERIMENT_ID
+LAMBDA_COMPLETION_EXPERIMENT_ID = experiment_config.LAMBDA_COMPLETION_EXPERIMENT_ID
+LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID = (
+    experiment_config.LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID
+)
+P0_EXPERIMENT_ID = experiment_config.P0_EXPERIMENT_ID
 # Backward-compatible name used by predecessor tests and downstream callers.
 PARENT_EXPERIMENT_ID = P0_EXPERIMENT_ID
 DEFAULT_CONFIG = Path("configs/e8_multitask_exp_tuning.yaml")
@@ -87,9 +91,9 @@ METHOD_POSITIVE_ONLY = "positive_only"
 METHOD_EXPONENTIAL = "exponential"
 METHOD_GLOBAL = "global"
 TRANSFER_SYSTEM_PROMPT = "Answer with only the requested final output and no explanation."
-SWEEP_PROFILE_RHO = "nine_task_rho_v1"
-SWEEP_PROFILE_DENSE = "task_lambda_dense_v1"
-SWEEP_PROFILE_COLDSTART = "eight_task_coldstart_lambda_v1"
+SWEEP_PROFILE_RHO = experiment_config.SWEEP_PROFILE_RHO
+SWEEP_PROFILE_DENSE = experiment_config.SWEEP_PROFILE_DENSE
+SWEEP_PROFILE_COLDSTART = experiment_config.SWEEP_PROFILE_COLDSTART
 
 RECOVERY_SNAPSHOT_SCHEMA_VERSION = 1
 RECOVERY_TRANSIENT_TOP_LEVEL = {
