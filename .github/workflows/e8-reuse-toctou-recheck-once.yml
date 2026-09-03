@@ -24,7 +24,7 @@ jobs:
       - name: Verify reviewed base
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "2fba00bd72a146a7f97c59f99629ee5943cff0b3"
+          test "$(git merge-base HEAD 2fba00bd72a146a7f97c59f99629ee5943cff0b3)" = "2fba00bd72a146a7f97c59f99629ee5943cff0b3"
           unexpected="$(git diff --name-only 2fba00bd72a146a7f97c59f99629ee5943cff0b3 HEAD | grep -v '^.github/workflows/e8-reuse-toctou-recheck-once.yml$' || true)"
           test -z "${unexpected}"
           git diff --quiet origin/main -- .github/workflows/code-change-budget.yml
@@ -43,38 +43,16 @@ jobs:
                   raise SystemExit(f"{path}: expected one replacement, found {count}")
               target.write_text(text.replace(old, new, 1), encoding="utf-8")
 
+          runner_path = "scripts/run_e8_multitask_exp_coldstart.sh"
           replace_once(
-              "scripts/run_e8_multitask_exp_coldstart.sh",
-              '''  exec 8>"${RECOVERY_ROOT}/runtime.lock"
-          flock -n 8 || fail "another engineering self-test still holds the recovery lock"
-          if reuse_successful_attempt; then
-          ''',
-              '''  exec 8>"${RECOVERY_ROOT}/runtime.lock"
-          flock -n 8 || fail "another engineering self-test still holds the recovery lock"
-          # Re-bind the fast-path decision to the checkout after setup has finished.
-          check_source
-          if reuse_successful_attempt; then
-          ''',
+              runner_path,
+              '  exec 8>"${RECOVERY_ROOT}/runtime.lock"\n  flock -n 8 || fail "another engineering self-test still holds the recovery lock"\n  if reuse_successful_attempt; then\n',
+              '  exec 8>"${RECOVERY_ROOT}/runtime.lock"\n  flock -n 8 || fail "another engineering self-test still holds the recovery lock"\n  # Re-bind the fast-path decision to the checkout after setup has finished.\n  check_source\n  if reuse_successful_attempt; then\n',
           )
-
           replace_once(
-              "scripts/run_e8_multitask_exp_coldstart.sh",
-              '''  if ! flock -n 9; then
-            write_local_ai_recovery concurrent_runtime_lock
-            fail "another experiment or recovery process still holds ${RECOVERY_ROOT}/runtime.lock"
-          fi
-          if reuse_successful_attempt; then
-          ''',
-              '''  if ! flock -n 9; then
-            write_local_ai_recovery concurrent_runtime_lock
-            fail "another experiment or recovery process still holds ${RECOVERY_ROOT}/runtime.lock"
-          fi
-          # Setup can be long. Re-check the current checkout and formal main authority
-          # under the per-run lock immediately before a completed-attempt fast return.
-          check_source
-          check_authoritative_main_at_invocation
-          if reuse_successful_attempt; then
-          ''',
+              runner_path,
+              '  if ! flock -n 9; then\n    write_local_ai_recovery concurrent_runtime_lock\n    fail "another experiment or recovery process still holds ${RECOVERY_ROOT}/runtime.lock"\n  fi\n  if reuse_successful_attempt; then\n',
+              '  if ! flock -n 9; then\n    write_local_ai_recovery concurrent_runtime_lock\n    fail "another experiment or recovery process still holds ${RECOVERY_ROOT}/runtime.lock"\n  fi\n  # Setup can be long. Re-check the current checkout and formal main authority\n  # under the per-run lock immediately before a completed-attempt fast return.\n  check_source\n  check_authoritative_main_at_invocation\n  if reuse_successful_attempt; then\n',
           )
 
           tests = Path("tests/test_e8_multitask_p0.py")
@@ -82,30 +60,29 @@ jobs:
           marker = "def test_reuse_fast_paths_recheck_source_identity_after_setup_under_run_lock()"
           if marker in test_text:
               raise SystemExit("reuse-time regression test already exists")
-          test_text += '''
-          
-          
-          def test_reuse_fast_paths_recheck_source_identity_after_setup_under_run_lock() -> None:
-              runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
-          
-              selftest = runner.split("\\nengineering_self_test() {\\n", 1)[1].split(
-                  "\\nprepare() {\\n", 1
-              )[0]
-              selftest_lock = selftest.index("flock -n 8")
-              selftest_reuse = selftest.index("reuse_successful_attempt")
-              assert selftest_lock < selftest.rfind("check_source", selftest_lock, selftest_reuse)
-          
-              guarded = runner.split("\\nguarded_full() {\\n", 1)[1].split(
-                  '\\ncase "${MODE}" in\\n', 1
-              )[0]
-              setup_index = guarded.index("ensure_setup")
-              formal_reuse = guarded.index("reuse_successful_attempt")
-              run_lock = guarded.index("flock -n 9")
-              assert run_lock < guarded.rfind("check_source", setup_index, formal_reuse)
-              assert run_lock < guarded.rfind(
-                  "check_authoritative_main_at_invocation", setup_index, formal_reuse
-              )
-          '''
+          test_text += (
+              "\n\n\n"
+              "def test_reuse_fast_paths_recheck_source_identity_after_setup_under_run_lock() -> None:\n"
+              "    runner = Path(\"scripts/run_e8_multitask_exp_coldstart.sh\").read_text(encoding=\"utf-8\")\n"
+              "\n"
+              "    selftest = runner.split(\"\\nengineering_self_test() {\\n\", 1)[1].split(\n"
+              "        \"\\nprepare() {\\n\", 1\n"
+              "    )[0]\n"
+              "    selftest_lock = selftest.index(\"flock -n 8\")\n"
+              "    selftest_reuse = selftest.index(\"reuse_successful_attempt\")\n"
+              "    assert selftest_lock < selftest.rfind(\"check_source\", selftest_lock, selftest_reuse)\n"
+              "\n"
+              "    guarded = runner.split(\"\\nguarded_full() {\\n\", 1)[1].split(\n"
+              "        '\\ncase \"${MODE}\" in\\n', 1\n"
+              "    )[0]\n"
+              "    setup_index = guarded.index(\"ensure_setup\")\n"
+              "    formal_reuse = guarded.index(\"reuse_successful_attempt\")\n"
+              "    run_lock = guarded.index(\"flock -n 9\")\n"
+              "    assert run_lock < guarded.rfind(\"check_source\", setup_index, formal_reuse)\n"
+              "    assert run_lock < guarded.rfind(\n"
+              "        \"check_authoritative_main_at_invocation\", setup_index, formal_reuse\n"
+              "    )\n"
+          )
           tests.write_text(test_text, encoding="utf-8")
 
           protocol = Path("docs/experiments/E8_CONFIG_DRIVEN_SWEEP_REVIEW_FIX_PROTOCOL.md")
@@ -113,7 +90,14 @@ jobs:
           heading = "## 2026-09-03 second pre-independent-review cross-file closure"
           if heading in protocol_text:
               raise SystemExit("second pre-independent-review closure already exists")
-          protocol_text += f'''\n\n{heading}\n\nA subsequent cross-file lifecycle audit found one reuse-time TOCTOU class after the prior closure. The fix remains within the already approved source/config identity and formal `origin/main` semantics.\n\n- `full` still checks source and authoritative `origin/main` before setup. After setup completes and the per-run recovery lock is acquired, it checks both again immediately before `reuse_successful_attempt()`. This prevents a long setup from making the earlier fast-path identity check stale.\n- Engineering self-test similarly rechecks the current source after self-test setup and after acquiring its per-run recovery lock, immediately before completed-attempt reuse.\n- Fresh formal guard attempts retain their existing launch-time hardened-guard checks. This correction does not require `origin/main` to remain frozen after a formal guard has launched and does not add model/runtime/backend/run-class identity gates.\n\nNo tracked scientific config, data volume, seed, lambda, optimizer/training formula, canonical paper loss/trainer, metric, result status, or method ranking is changed. No scientific experiment is launched.\n'''
+          protocol_text += (
+              "\n\n" + heading + "\n\n"
+              "A subsequent cross-file lifecycle audit found one reuse-time TOCTOU class after the prior closure. The fix remains within the already approved source/config identity and formal `origin/main` semantics.\n\n"
+              "- `full` still checks source and authoritative `origin/main` before setup. After setup completes and the per-run recovery lock is acquired, it checks both again immediately before `reuse_successful_attempt()`. This prevents a long setup from making the earlier fast-path identity check stale.\n"
+              "- Engineering self-test similarly rechecks the current source after self-test setup and after acquiring its per-run recovery lock, immediately before completed-attempt reuse.\n"
+              "- Fresh formal guard attempts retain their existing launch-time hardened-guard checks. This correction does not add model/runtime/backend/run-class identity gates. It also does not add any new requirement beyond the formal origin/main behavior already enforced elsewhere by the existing guard/delivery path.\n\n"
+              "No tracked scientific config, data volume, seed, lambda, optimizer/training formula, canonical paper loss/trainer, metric, result status, or method ranking is changed. No scientific experiment is launched.\n"
+          )
           protocol.write_text(protocol_text, encoding="utf-8")
           PY
 
