@@ -3393,6 +3393,12 @@ def _canonical_environment_evaluator(
         numeric = [value for value in metrics.values() if isinstance(value, (int, float))]
         if not all(math.isfinite(float(value)) for value in numeric):
             raise RuntimeError("Task verifier evaluation produced a non-finite metric")
+        if int(pass_k) == 8:
+            setattr(
+                evaluate_rows,
+                "_last_primary_sampled_valid_rate",
+                float(metrics["sampled_valid_rate"]),
+            )
         if was_training:
             model.train()
         return metrics
@@ -3671,7 +3677,11 @@ def _summarize_evaluations(
         "validation_terminal_pass8": float(terminal["pass8"]),
         "validation_terminal_greedy": float(terminal["greedy_success"]),
         "validation_terminal_greedy_valid_rate": float(terminal["greedy_valid_rate"]),
-        "validation_terminal_sampled_valid_rate": float(terminal["sampled_valid_rate"]),
+        "validation_terminal_sampled_valid_rate": (
+            None
+            if terminal.get("sampled_valid_rate") is None
+            else float(terminal["sampled_valid_rate"])
+        ),
         "supplementary_best_step": int(best["update"]),
         "supplementary_best_pass8": float(best["pass8"]),
         "supplementary_best_greedy": float(best["greedy_success"]),
@@ -4021,7 +4031,16 @@ def _train_canonical_cold_cell(
                     kwargs["pass64_enabled"] = 64 in set(
                         int(value) for value in effective_runtime["evaluation"]["auxiliary_pass_ks"]
                     )
-                    return original_trainer_evaluate(**kwargs)
+                    row = original_trainer_evaluate(**kwargs)
+                    sampled_valid_rate = getattr(
+                        evaluator, "_last_primary_sampled_valid_rate", None
+                    )
+                    if sampled_valid_rate is None:
+                        raise RuntimeError(
+                            "Transfer evaluator did not report primary sampled validity"
+                        )
+                    row["val_sampled_valid_rate"] = float(sampled_valid_rate)
+                    return row
 
                 scan_trainer._evaluate_validation = configured_evaluate
             yield
@@ -4092,7 +4111,11 @@ def _train_canonical_cold_cell(
             "pass8": float(row["val_pass_at_8"]),
             "greedy_success": float(row["val_greedy"]),
             "greedy_valid_rate": float(row["val_valid_rate"]),
-            "sampled_valid_rate": float(row["val_valid_rate"]),
+            "sampled_valid_rate": (
+                None
+                if row.get("val_sampled_valid_rate") in (None, "")
+                else float(row["val_sampled_valid_rate"])
+            ),
         }
         for row in metric_rows
     ]
@@ -5924,6 +5947,24 @@ def cmd_run_dynamic(
                 gpu_id=gpu_id,
                 force=child_force,
             )
+            if int(result["returncode"]) == 0:
+                try:
+                    completed_manifest = _read_json_object(manifest_path)
+                    if (
+                        completed_manifest.get("complete") is not True
+                        or completed_manifest.get("evaluation_status") != "complete"
+                        or completed_manifest.get("nan_inf_failure") is not False
+                    ):
+                        raise RuntimeError("child returned zero without a complete finite cell")
+                except (
+                    OSError,
+                    ValueError,
+                    TypeError,
+                    RuntimeError,
+                    json.JSONDecodeError,
+                ) as exc:
+                    result["returncode"] = 75
+                    result["cell_completion_error"] = f"{type(exc).__name__}: {exc}"
             if int(result["returncode"]) == 0 and recovery_package is not None:
                 try:
                     with checkpoint_lock:
@@ -7724,7 +7765,7 @@ def make_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> None:
     args = make_parser().parse_args(argv)
-    config_path = Path(args.config).resolve()
+    config_path, _, _ = experiment_config.require_tracked_config(args.config, _repo_root())
     config = load_config(config_path)
     output_root = validate_work_dir(args.output_root)
     if args.command == "prepare":

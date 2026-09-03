@@ -1620,6 +1620,9 @@ def test_exp_coldstart_scheduler_refills_without_nominal_batch_barriers(
             "controls_task_transfer_release": False,
         },
     )
+    monkeypatch.setattr(
+        exp_tuning, "_coldstart_completed_task_rows", lambda *args, **kwargs: None
+    )
     lock = threading.Lock()
     starts: dict[str, float] = {}
     finishes: dict[str, float] = {}
@@ -1631,6 +1634,7 @@ def test_exp_coldstart_scheduler_refills_without_nominal_batch_barriers(
     def fake_run(**kwargs: object) -> dict[str, object]:
         cell = kwargs["cell"]
         gpu_id = int(kwargs["gpu_id"])
+        output_root = Path(str(kwargs["output_root"]))
         with lock:
             starts[cell.key] = time.monotonic()
             active[gpu_id] = active.get(gpu_id, 0) + 1
@@ -1645,6 +1649,14 @@ def test_exp_coldstart_scheduler_refills_without_nominal_batch_barriers(
         with lock:
             active[gpu_id] -= 1
             finishes[cell.key] = time.monotonic()
+        p0.atomic_json(
+            output_root / "cells" / cell.key / "cell_manifest.json",
+            {
+                "complete": True,
+                "evaluation_status": "complete",
+                "nan_inf_failure": False,
+            },
+        )
         return {
             "cell_key": cell.key,
             "gpu_id": gpu_id,
@@ -2808,3 +2820,191 @@ def test_reuse_fast_paths_recheck_source_identity_after_setup_under_run_lock() -
     assert run_lock < guarded.rfind(
         "check_authoritative_main_at_invocation", setup_index, formal_reuse
     )
+
+
+
+def test_postreview_consumer_and_scheduler_correctness_closure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-POSTREVIEW-CLOSURE-TEST"
+
+    bad = copy.deepcopy(config)
+    bad["suite"]["excluded_tasks"] = []
+    with pytest.raises(ValueError, match="suite.excluded_tasks must be a mapping"):
+        exp_tuning.validate_config(bad)
+
+    bad = copy.deepcopy(config)
+    bad["suite"] = []
+    with pytest.raises(ValueError, match="suite must be a mapping"):
+        exp_tuning.validate_config(bad)
+
+    untracked = Path("configs/.e8_direct_cli_untracked_test.yaml")
+    untracked.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    try:
+        with pytest.raises(ValueError, match="not Git-tracked"):
+            exp_tuning.main(
+                [
+                    "--config",
+                    str(untracked),
+                    "--output-root",
+                    str(tmp_path / "direct-cli"),
+                    "plan",
+                ]
+            )
+    finally:
+        untracked.unlink(missing_ok=True)
+
+    monkeypatch.setattr(exp_tuning, "_require_calibration_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)
+
+    def zero_but_incomplete(**kwargs):
+        cell = kwargs["cell"]
+        output_root = kwargs["output_root"]
+        manifest = output_root / "cells" / cell.key / "cell_manifest.json"
+        p0.atomic_json(
+            manifest,
+            {
+                "experiment_id": exp_tuning.experiment_id(config),
+                "config_hash": exp_tuning.stable_config_hash(config),
+                "complete": False,
+                "evaluation_status": "incomplete",
+                "nan_inf_failure": False,
+            },
+        )
+        return {
+            "cell_key": cell.key,
+            "gpu_id": kwargs["gpu_id"],
+            "returncode": 0,
+            "log": str((output_root / "logs" / f"{cell.key}.log").resolve()),
+            "started_unix": 1.0,
+            "finished_unix": 2.0,
+        }
+
+    monkeypatch.setattr(exp_tuning, "_run_subprocess_cell", zero_but_incomplete)
+    output_root = tmp_path / "scheduler"
+    output_root.mkdir()
+    with pytest.raises(RuntimeError, match="scheduling stopped fail-closed"):
+        exp_tuning.cmd_run_dynamic(
+            config,
+            Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"),
+            output_root,
+            base_model_path=str(tmp_path / "model"),
+            force=False,
+            retry_incomplete=False,
+        )
+    scheduler = json.loads(
+        (output_root / "scheduler" / "dynamic_run.json").read_text(encoding="utf-8")
+    )
+    assert scheduler["complete"] is False
+    assert scheduler["failed_cells"]
+    assert scheduler["unscheduled_cells"]
+    assert all(
+        int(row["returncode"]) == 75 and "cell_completion_error" in row
+        for row in scheduler["results"]
+    )
+
+
+def test_postreview_sampled_validity_is_not_greedy_alias() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    class FakeModel:
+        def __init__(self) -> None:
+            self.training = True
+
+        def train(self) -> None:
+            self.training = True
+
+    class FakeAdapter:
+        def verify(self, instance, completion):
+            del instance
+            return SimpleNamespace(
+                correct=completion == "valid-correct",
+                format_valid=completion.startswith("valid-"),
+            )
+
+    def generate_outputs(
+        model,
+        tokenizer,
+        prompts,
+        max_new_tokens,
+        do_sample,
+        temperature,
+        top_p,
+        num_return_sequences,
+    ):
+        del model, tokenizer, max_new_tokens, temperature, top_p
+        if not do_sample:
+            return [["valid-correct"] for _ in prompts]
+        outputs = [
+            "valid-wrong-1",
+            "valid-wrong-2",
+            "invalid-3",
+            "invalid-4",
+            "invalid-5",
+            "invalid-6",
+            "invalid-7",
+            "invalid-8",
+        ]
+        assert num_return_sequences == 8
+        return [list(outputs) for _ in prompts]
+
+    arena = SimpleNamespace(seed_all=lambda seed: None, generate_outputs=generate_outputs)
+    evaluator = exp_tuning._canonical_environment_evaluator(
+        arena=arena,
+        task_adapter=FakeAdapter(),
+        instances={
+            "p0": TaskInstance(
+                task="word_sorting",
+                prompt_id="p0",
+                prompt="sort",
+                oracle_completion="answer",
+                metadata={},
+                source_entry={},
+            )
+        },
+        greedy_prompt_rows=1,
+        passk_prompt_rows=1,
+    )
+    metrics = evaluator(
+        FakeModel(),
+        object(),
+        [{"prompt_id": "p0", "prompt": "sort"}],
+        1,
+        16,
+        8,
+        123,
+    )
+    assert metrics["valid_rate"] == pytest.approx(1.0)
+    assert metrics["sampled_valid_rate"] == pytest.approx(0.25)
+    assert getattr(evaluator, "_last_primary_sampled_valid_rate") == pytest.approx(0.25)
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    evaluations = [
+        {
+            "update": update,
+            "pass8": 0.1,
+            "greedy_success": 0.2,
+            "greedy_valid_rate": 1.0,
+            "sampled_valid_rate": None,
+        }
+        for update in [0, *config["training"]["late_window_updates"]]
+    ]
+    summary = exp_tuning._summarize_evaluations(evaluations, config)
+    assert summary["validation_terminal_sampled_valid_rate"] is None
+    for row in evaluations:
+        row["sampled_valid_rate"] = 0.25
+    summary = exp_tuning._summarize_evaluations(evaluations, config)
+    assert summary["validation_terminal_sampled_valid_rate"] == pytest.approx(0.25)
+
+    source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+    assert 'row["val_sampled_valid_rate"] = float(sampled_valid_rate)' in source
+    assert 'row.get("val_sampled_valid_rate") in (None, "")' in source

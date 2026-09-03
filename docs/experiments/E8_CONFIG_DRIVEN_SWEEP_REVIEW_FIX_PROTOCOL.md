@@ -258,3 +258,16 @@ A subsequent cross-file lifecycle audit found one reuse-time TOCTOU class after 
 - Fresh formal guard attempts retain their existing launch-time hardened-guard checks. This correction does not add model/runtime/backend/run-class identity gates. It also does not add any new requirement beyond the formal origin/main behavior already enforced elsewhere by the existing guard/delivery path.
 
 No tracked scientific config, data volume, seed, lambda, optimizer/training formula, canonical paper loss/trainer, metric, result status, or method ranking is changed. No scientific experiment is launched.
+
+
+
+## 2026-09-03 third pre-independent-review consumer/lifecycle closure
+
+A further consumer/lifecycle read-through found four narrow correctness gaps. They are within the already approved config-consumer, repository-path safety, scheduler-completion, and reporting-separation responsibilities; no new scientific gate is introduced.
+
+- `suite` itself and consumed `suite.excluded_tasks` metadata are required to have the mapping shape assumed by downstream aggregation/audit consumers. This is schema/type validation only and does not constrain task membership beyond the already existing exact-suite contract.
+- Direct `python -m drpo.e8_multitask_exp_tuning ...` entry now applies the already approved repository-path/Git-tracked-config safety boundary before loading a reviewed external config. Internal deterministic engineering recovery configs remain internal call-path artifacts and are not reclassified as reviewed tracked configs.
+- The dynamic scheduler counts a child as successful only when a returned-zero child has actually written a complete evaluation cell manifest with no NaN/Inf failure. A zero process exit with an incomplete manifest is converted to a fail-closed scheduler failure; this aligns scheduler bookkeeping with the existing aggregate/recovery completeness contract rather than adding a scientific threshold.
+- Non-Countdown transfer evaluation already computes sampled-output format validity. The wrapper now preserves that existing diagnostic into the canonical trainer CSV/result manifest instead of aliasing greedy validity. Countdown's locked evaluator exposes greedy validity but not sampled validity, so Countdown records sampled validity as unavailable rather than fabricating equality. No selection rule or task-performance metric uses this diagnostic.
+
+No tracked scientific config, data volume, seed, lambda, optimizer/training formula, canonical paper loss/trainer, task-performance metric, result status, or method ranking is changed. No scientific experiment is launched.
