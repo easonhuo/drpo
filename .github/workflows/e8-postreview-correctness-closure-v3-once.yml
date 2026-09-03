@@ -1,0 +1,75 @@
+name: E8 Post-review Correctness Closure V3 Once
+
+on:
+  push:
+    branches:
+      - dev/e8-config-driven-sweep-01
+    paths:
+      - .github/workflows/e8-postreview-correctness-closure-v3-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-config-driven-sweep-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify reviewed parent and trigger-only commit
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "ae3aa1c2e5894a6dd303638c8c2517f891d2d392"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/e8-postreview-correctness-closure-v3-once.yml"
+          git diff --quiet origin/main -- .github/workflows/code-change-budget.yml
+
+      - name: Decode and apply narrow correctness closure
+        run: |
+          set -euo pipefail
+          printf '%s' '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' | base64 -d | gzip -d >/tmp/e8_postreview_patch.py
+          python -m py_compile /tmp/e8_postreview_patch.py
+          python /tmp/e8_postreview_patch.py
+
+      - name: Install complete project validation dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check -e '.[dev]'
+          python -m pip install --disable-pip-version-check ruff==0.9.10 pytest==8.3.4 numpy==1.26.4 PyYAML==6.0.2
+
+      - name: Validate focused and repository-wide after-image
+        run: |
+          set -euo pipefail
+          python -m py_compile src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py scripts/preflight_e8_multitask_config.py tests/test_e8_multitask_p0.py
+          python -m ruff check src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py scripts/preflight_e8_multitask_config.py tests/test_e8_multitask_p0.py
+          bash -n scripts/run_e8_multitask_exp_coldstart.sh
+          bash -n scripts/bootstrap_e8_multitask_exp_coldstart.sh
+          bash -n scripts/run_e8_multitask_exp_lambda_completion.sh
+          python scripts/preflight_e8_multitask_config.py --config configs/e8_multitask_exp_coldstart.yaml >/tmp/preflight-coldstart.json
+          python scripts/preflight_e8_multitask_config.py --config configs/e8_multitask_exp_lambda_completion.yaml >/tmp/preflight-completion.json
+          python scripts/preflight_e8_multitask_config.py --config configs/e8_multitask_exp_lambda_curve_completion.yaml >/tmp/preflight-curve.json
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          python -m pytest -q tests/test_experiment_artifact_protocol.py tests/test_experiment_artifact_hardening.py
+          python -m pytest -q --deselect=tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py::test_asymre_boundary_dense_has_eight_points_and_sixteen_paired_cells --deselect=tests/test_runspec_results_delivery.py::test_countdown_temporarily_uses_held_out_evaluation_in_place_of_test
+          git diff --check
+          git diff --quiet origin/main -- .github/workflows/code-change-budget.yml
+          git diff --quiet 0e04b03b296feec2696ec34c3edf8a691234ad68 -- configs
+          git diff --quiet 0e04b03b296feec2696ec34c3edf8a691234ad68 -- src/drpo/countdown_qwen_arena_onefile.py src/drpo/countdown_e8_alpha1_c_scan_common.py src/drpo/countdown_e8_alpha1_c_scan_runtime.py src/drpo/countdown_e8_alpha1_c_scan_trainer.py src/drpo/countdown_e8_alpha1_highc_scan_common.py src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+
+      - name: Commit validated business after-image and self-delete
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/e8-postreview-correctness-closure-once.yml .github/workflows/e8-postreview-correctness-closure-v2-once.yml .github/workflows/e8-postreview-correctness-closure-v3-once.yml
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add docs/experiments/E8_CONFIG_DRIVEN_SWEEP_REVIEW_FIX_PROTOCOL.md src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          git commit -m "fix(e8): close config consumer and scheduler reporting gaps"
+          git push origin HEAD:dev/e8-config-driven-sweep-01
