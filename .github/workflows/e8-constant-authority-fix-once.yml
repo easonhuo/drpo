@@ -88,14 +88,51 @@ jobs:
           path.write_text(text.replace(old, new), encoding="utf-8")
           PY
 
-          python -m py_compile src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_experiment_config.py
-          ruff check src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_experiment_config.py tests/test_e8_multitask_p0.py
+          python -m py_compile \
+            src/drpo/e8_experiment_config.py \
+            src/drpo/e8_multitask_exp_tuning.py \
+            scripts/preflight_e8_multitask_config.py \
+            tests/test_e8_multitask_p0.py
+          ruff check \
+            src/drpo/e8_experiment_config.py \
+            src/drpo/e8_multitask_exp_tuning.py \
+            scripts/preflight_e8_multitask_config.py \
+            tests/test_e8_multitask_p0.py
+          bash -n scripts/run_e8_multitask_exp_coldstart.sh
+          bash -n scripts/bootstrap_e8_multitask_exp_coldstart.sh
+          bash -n scripts/run_e8_multitask_exp_lambda_completion.sh
+
+          for config in \
+            configs/e8_multitask_exp_coldstart.yaml \
+            configs/e8_multitask_exp_lambda_completion.yaml \
+            configs/e8_multitask_exp_lambda_curve_completion.yaml
+          do
+            python scripts/preflight_e8_multitask_config.py --repo-root . --config "${config}" >/dev/null
+          done
+
+          python - <<'PY'
+          from drpo import e8_experiment_config as authority
+          from drpo import e8_multitask_exp_tuning as tuning
+
+          assert tuning.EXPERIMENT_ID == authority.RHO_EXPERIMENT_ID
+          assert tuning.DENSE_EXPERIMENT_ID == authority.DENSE_EXPERIMENT_ID
+          assert tuning.COLDSTART_EXPERIMENT_ID == authority.COLDSTART_EXPERIMENT_ID
+          assert tuning.LAMBDA_COMPLETION_EXPERIMENT_ID == authority.LAMBDA_COMPLETION_EXPERIMENT_ID
+          assert (
+              tuning.LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID
+              == authority.LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID
+          )
+          assert tuning.P0_EXPERIMENT_ID == authority.P0_EXPERIMENT_ID
+          assert tuning.PARENT_EXPERIMENT_ID == authority.P0_EXPERIMENT_ID
+          assert tuning.SWEEP_PROFILE_RHO == authority.SWEEP_PROFILE_RHO
+          assert tuning.SWEEP_PROFILE_DENSE == authority.SWEEP_PROFILE_DENSE
+          assert tuning.SWEEP_PROFILE_COLDSTART == authority.SWEEP_PROFILE_COLDSTART
+          PY
+
           pytest -q tests/test_e8_multitask_p0.py
           pytest -q \
-            tests/test_artifact_protocol.py \
-            tests/test_artifact_hardening.py \
-            tests/test_artifact_result_bundle.py \
-            tests/test_runspec_artifact_delivery.py
+            tests/test_experiment_artifact_protocol.py \
+            tests/test_experiment_artifact_hardening.py
           pytest -q \
             --deselect tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py::test_asymre_boundary_dense_has_eight_points_and_sixteen_paired_cells \
             --deselect tests/test_runspec_results_delivery.py::test_countdown_temporarily_uses_held_out_evaluation_in_place_of_test
