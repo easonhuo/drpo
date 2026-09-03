@@ -657,14 +657,16 @@ def validate_coldstart_config(config: Mapping[str, Any]) -> None:
     if current_id in (P0_EXPERIMENT_ID, RHO_EXPERIMENT_ID, DENSE_EXPERIMENT_ID):
         raise ValueError("P0/RHO/DENSE experiment IDs may not be reused for cold-start")
 
-    tasks = tuple(str(task) for task in config.get("suite", {}).get("tasks", ()))
+    suite = _mapping(config.get("suite"), "suite")
+    tasks = tuple(str(task) for task in suite.get("tasks", ()))
     expected = set(TASK_NAMES)
     if len(tasks) != 9 or len(set(tasks)) != 9 or set(tasks) != expected:
         raise ValueError("Cold-start suite must be Countdown plus the exact eight P0 tasks")
-    if set(config["suite"].get("p0_tasks", ())) != expected - {"countdown"}:
+    if set(suite.get("p0_tasks", ())) != expected - {"countdown"}:
         raise ValueError("Cold-start suite.p0_tasks must be the exact eight P0 tasks")
-    if tuple(config["suite"].get("external_tasks", ())) != ("countdown",):
+    if tuple(suite.get("external_tasks", ())) != ("countdown",):
         raise ValueError("Countdown must be the only cold-start external task")
+    _mapping(suite.get("excluded_tasks"), "suite.excluded_tasks")
 
     _validate_scalar_types(config)
     _validate_implementation_contract(config)
