@@ -3,9 +3,10 @@ experiment_id: EXT-C-E8-MULTITASK-EXP-LAMBDA-WIDE-RIGHTTAIL-03
 result_status: not_run
 claim: >-
   For the five transfer tasks whose high-lambda response boundary remains unresolved,
-  extend the Exp taper coefficient substantially beyond the predecessor scan to determine
-  whether the response exhibits a clear right-tail decline, a broad plateau, or an
-  asymptotic high-lambda regime. This is external-validity curve-shape evidence only.
+  extend the Exp taper coefficient substantially beyond the predecessor scans to determine
+  whether the response exhibits a clear right-tail decline, a broad plateau or saturation,
+  or continued increase over the newly tested finite range. This is external-validity
+  curve-shape evidence only and does not establish an asymptotic regime.
 parent:
   experiment_id: EXT-C-E8-MULTITASK-P0-01
   qualified_banks_required: true
@@ -172,12 +173,12 @@ sweep:
   countdown_sentinel_coefficients: []
   task_grid_provenance:
     word_sorting: approved_20point_wide_right_tail_followup_20260903
-    spiral_matrix: closed_ceiling_no_new_cells_20260903
+    spiral_matrix: deprioritized_after_pilot_ceiling_no_new_cells_20260903
     mini_sudoku: approved_20point_wide_right_tail_followup_20260903
     maze: approved_20point_wide_right_tail_followup_20260903
-    word_ladder: closed_interior_peak_no_new_cells_20260903
+    word_ladder: deprioritized_after_pilot_interior_peak_no_new_cells_20260903
     knights_knaves: approved_20point_wide_right_tail_followup_20260903
-    graph_color: closed_right_boundary_no_new_cells_20260903
+    graph_color: deprioritized_after_pilot_response_shape_no_new_cells_20260903
     wikisql: approved_20point_wide_right_tail_followup_20260903
   task_lambda:
     countdown: []
@@ -372,7 +373,4 @@ reporting:
   convergence_claim_allowed: false
   significance_claim_allowed: false
   method_ranking_allowed: false
-  scientific_role: external_validity_wide_right_tail_curve_boundary_followup
-historical_curve_anchor:
-  path: experiments/results/e8_multitask_exp_coldstart_20260820_02/CURVE_ANCHOR.csv
-  role: immutable_repo_landed_predecessor_curve_for_concatenation
+  scientific_role: external_validity_pilot_high_lambda_response_shape_followup
