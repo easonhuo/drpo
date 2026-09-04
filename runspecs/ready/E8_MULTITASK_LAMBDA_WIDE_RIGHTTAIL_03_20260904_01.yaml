@@ -1,0 +1,158 @@
+version: 1
+run_id: E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01
+lane: e8
+priority: 170
+created_at: "2026-09-04T08:10:00Z"
+experiment_id: EXT-C-E8-MULTITASK-EXP-LAMBDA-WIDE-RIGHTTAIL-03
+repo_commit: 61ed84eb06034cc6d51817542e0d2e94938082c2
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/e8_multitask_exp_lambda_wide_righttail_03.yaml
+    - docs/experiments/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_PROTOCOL.md
+    - requirements/e8_multitask_exp_coldstart.txt
+    - scripts/bootstrap_e8_multitask_exp_coldstart.sh
+    - scripts/run_e8_multitask_exp_coldstart.sh
+    - scripts/preflight_e8_multitask_config.py
+    - scripts/run_experiment_guard_hardened.py
+    - scripts/verify_experiment_package_hardened.py
+    - src/drpo/e8_experiment_config.py
+    - src/drpo/e8_multitask_exp_tuning.py
+    - src/drpo/countdown_e8_alpha1_c_scan_common.py
+    - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    - src/drpo/countdown_e8_alpha1_c_scan_runtime.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_common.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+    - src/drpo/countdown_qwen_arena_onefile.py
+
+purpose: >-
+  Execute the reviewed five-task, single-seed E8 Exp-lambda wide-right-tail
+  pilot exactly as frozen in the tracked config and protocol. The run adds 20
+  new lambda cells each for Word Sorting, Mini Sudoku, Maze, Knights & Knaves,
+  and WikiSQL (100 cells total), launches no cells for Countdown, Spiral Matrix,
+  Word Ladder, or Graph Coloring, and preserves the existing 1200-update
+  config-driven cold-start implementation. This RunSpec is execution and
+  delivery plumbing only; it does not authorize convergence, significance,
+  steady-state, asymptotic, or universal method-ranking claims.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    E8_COLDSTART_EXISTING_REPO=.
+    E8_COLDSTART_BOOTSTRAP_ROOT=/root/drpo-e8-lambda-wide-righttail-03-runspec-20260904-01
+    E8_COLDSTART_TARGET_REF=refs/heads/dev/e8-multitask-lambda-wide-righttail-03
+    E8_COLDSTART_EXPERIMENT_ID=EXT-C-E8-MULTITASK-EXP-LAMBDA-WIDE-RIGHTTAIL-03
+    E8_COLDSTART_CONFIG=configs/e8_multitask_exp_lambda_wide_righttail_03.yaml
+    E8_COLDSTART_RUN_ID=E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01
+    E8_COLDSTART_RUN_CLASS=pilot
+    E8_COLDSTART_REQUIRE_ORIGIN_MAIN=0
+    E8_COLDSTART_GUARD_ROOT=outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/guard
+    E8_COLDSTART_RECOVERY_ROOT=outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/recovery
+    bash scripts/bootstrap_e8_multitask_exp_coldstart.sh full
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: >-
+    E8_COLDSTART_EXISTING_REPO=.
+    E8_COLDSTART_BOOTSTRAP_ROOT=/root/drpo-e8-lambda-wide-righttail-03-runspec-20260904-01
+    E8_COLDSTART_TARGET_REF=refs/heads/dev/e8-multitask-lambda-wide-righttail-03
+    E8_COLDSTART_EXPERIMENT_ID=EXT-C-E8-MULTITASK-EXP-LAMBDA-WIDE-RIGHTTAIL-03
+    E8_COLDSTART_CONFIG=configs/e8_multitask_exp_lambda_wide_righttail_03.yaml
+    E8_COLDSTART_RUN_ID=E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01
+    E8_COLDSTART_RUN_CLASS=pilot
+    E8_COLDSTART_REQUIRE_ORIGIN_MAIN=0
+    E8_COLDSTART_GUARD_ROOT=outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/guard
+    E8_COLDSTART_RECOVERY_ROOT=outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/recovery
+    bash scripts/bootstrap_e8_multitask_exp_coldstart.sh full
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/recovery/ATTEMPT_STATE.env
+    - outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/recovery/CONFIG_PREFLIGHT.json
+    - outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/recovery/SETUP_COMPLETE.json
+    - outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/guard/attempt-*/workload/scheduler/dynamic_run.json
+    - outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/guard/attempt-*/workload/aggregate/plot_curve_points.csv
+  backoff_seconds: 60
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  fixed_profile_only: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+
+outputs:
+  run_dir: outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01
+
+success_criteria:
+  - execution is from a clean checkout of dev/e8-multitask-lambda-wide-righttail-03 at the exact reviewed PR head
+  - experiment identity is EXT-C-E8-MULTITASK-EXP-LAMBDA-WIDE-RIGHTTAIL-03 and execution class is pilot
+  - tracked config expands to exactly 100 unique Exp cells with 20 cells each for word_sorting, mini_sudoku, maze, knights_knaves, and wikisql
+  - countdown, spiral_matrix, word_ladder, and graph_color launch zero new scientific cells
+  - transfer tuning seed remains 4000 for every new cell
+  - every cell preserves the frozen 1200-update training, validation, optimizer, LoRA, data-bank, and negative-consumer contracts
+  - no Positive-only or Global endpoint cell is rerun
+  - test_data_used remains false and the test partition remains unopened
+  - the hardened E8 runner returns zero only after required workload completion, terminal audit, source/config provenance, and guarded-package checks
+  - task performance, valid or structure diagnostics, and NaN or Inf numerical failure remain separate report dimensions
+  - fixed 1200 updates are not described as convergence or steady state
+  - no significance, asymptotic, universal superiority, or method-ranking claim is inferred from this single-seed pilot
+  - completed text-first evidence is delivered to drpo-results ingest/e8
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/recovery/*.json
+    - outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/recovery/*.env
+    - outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/recovery/*.log
+    - outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/guard/attempt-*/*.json
+    - outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/guard/attempt-*/logs/*.log
+    - outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/guard/attempt-*/workload/*.json
+    - outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/guard/attempt-*/workload/aggregate/*.json
+    - outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/guard/attempt-*/workload/aggregate/*.csv
+    - outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/guard/attempt-*/workload/calibration/*.json
+    - outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/guard/attempt-*/workload/cells/*/cell_manifest.json
+    - outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/guard/attempt-*/workload/cells/*/canonical/manifest.json
+    - outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/guard/attempt-*/workload/cells/*/canonical/metrics.csv
+    - outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/guard/attempt-*/workload/cells/*/canonical/summary.json
+    - outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/guard/attempt-*/workload/scheduler/*.json
+    - .runspec_state/logs/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/**/*.json
+    - .runspec_state/logs/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/**/*.log
+    - .runspec_state/logs/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01/**/*.txt
+  exclude:
+    - "**/*.pt"
+    - "**/*.pth"
+    - "**/*.ckpt"
+    - "**/*.safetensors"
+    - "**/*.bin"
+    - "**/adapter/**"
+    - "**/best_pass8_adapter/**"
+    - "**/terminal_adapter/**"
+    - "**/checkpoint*"
+    - "**/checkpoints/**"
+    - "**/optimizer*"
+    - "**/wandb/**"
+    - "**/training_diagnostics.jsonl"
+    - "**/validation_diagnostics.jsonl"
+  max_package_size_mb: 100
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e8
+  export_profile: manifest_text_v1
+  max_total_size_mb: 30
+  max_file_size_mb: 10
+
+publish:
+  enabled: false
+  auto: false
