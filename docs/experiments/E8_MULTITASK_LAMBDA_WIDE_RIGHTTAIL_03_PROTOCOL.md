@@ -2,6 +2,8 @@
 
 Experiment ID: `EXT-C-E8-MULTITASK-EXP-LAMBDA-WIDE-RIGHTTAIL-03`
 
+RunSpec ID: `E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01`.
+
 Status: `not_run`.
 
 Execution class: `pilot` only.
@@ -94,9 +96,11 @@ The new config must expand to exactly `100` unique Exp cells, with exactly 20 ce
 
 This experiment must be launched with `E8_COLDSTART_RUN_CLASS=pilot`. The generic runner's default `formal` value must not be relied upon for this experiment.
 
-PR #343 is the durable review record for the launch snapshot. After final review and CI, the exact PR-head commit SHA is the frozen pilot source identity. If the branch head changes after that review, the new SHA must be reviewed before launch. The bootstrap/run manifests must record the exact resolved source commit and config identity.
+The preferred execution contract is `runspecs/ready/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01.yaml`. The RunSpec fixes the run ID, pilot environment, entrypoint, bounded recovery, artifact inventory, and `drpo-results` delivery policy. A manual launch is a fallback only and must use the same run ID and the same reviewed branch/config identity.
 
-The reviewed launch form is:
+PR #343 is the durable review record for the launch snapshot. After final review and CI, the exact PR-head commit SHA is the frozen pilot runtime source identity. If the branch head changes after that review, the new SHA must be reviewed before launch. The bootstrap/run manifests must record the exact resolved source commit and config identity.
+
+The equivalent manual launch form is:
 
 ```bash
 set -euo pipefail
@@ -123,7 +127,7 @@ E8_COLDSTART_BOOTSTRAP_ROOT="${BOOTSTRAP_ROOT}" \
 E8_COLDSTART_TARGET_REF="refs/heads/${BRANCH}" \
 E8_COLDSTART_EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-LAMBDA-WIDE-RIGHTTAIL-03" \
 E8_COLDSTART_CONFIG="configs/e8_multitask_exp_lambda_wide_righttail_03.yaml" \
-E8_COLDSTART_RUN_ID="E8_MULTITASK_EXP_LAMBDA_WIDE_RIGHTTAIL_03" \
+E8_COLDSTART_RUN_ID="E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01" \
 E8_COLDSTART_RUN_CLASS="pilot" \
 E8_COLDSTART_REQUIRE_ORIGIN_MAIN="0" \
 bash "${SOURCE_ROOT}/scripts/bootstrap_e8_multitask_exp_coldstart.sh" full
