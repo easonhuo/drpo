@@ -4,7 +4,7 @@ lane: e8
 priority: 170
 created_at: "2026-09-04T08:10:00Z"
 experiment_id: EXT-C-E8-MULTITASK-EXP-LAMBDA-WIDE-RIGHTTAIL-03
-repo_commit: 61ed84eb06034cc6d51817542e0d2e94938082c2
+repo_commit: a9ba90ab4b2c7b3ca7d326b99485e29379ecb7df
 
 registration:
   mode: deferred
@@ -15,6 +15,7 @@ provenance:
   protected_paths:
     - configs/e8_multitask_exp_lambda_wide_righttail_03.yaml
     - docs/experiments/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_PROTOCOL.md
+    - docs/experiments/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_COLDSTART_BINDING.md
     - requirements/e8_multitask_exp_coldstart.txt
     - scripts/bootstrap_e8_multitask_exp_coldstart.sh
     - scripts/run_e8_multitask_exp_coldstart.sh
@@ -45,7 +46,7 @@ entrypoint:
   command: >-
     E8_COLDSTART_EXISTING_REPO=.
     E8_COLDSTART_BOOTSTRAP_ROOT=/root/drpo-e8-lambda-wide-righttail-03-runspec-20260904-01
-    E8_COLDSTART_TARGET_REF=refs/heads/dev/e8-multitask-lambda-wide-righttail-03
+    E8_COLDSTART_TARGET_REF=refs/heads/dev/e8-multitask-exp-coldstart-01
     E8_COLDSTART_EXPERIMENT_ID=EXT-C-E8-MULTITASK-EXP-LAMBDA-WIDE-RIGHTTAIL-03
     E8_COLDSTART_CONFIG=configs/e8_multitask_exp_lambda_wide_righttail_03.yaml
     E8_COLDSTART_RUN_ID=E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01
@@ -61,7 +62,7 @@ recovery:
   resume_command: >-
     E8_COLDSTART_EXISTING_REPO=.
     E8_COLDSTART_BOOTSTRAP_ROOT=/root/drpo-e8-lambda-wide-righttail-03-runspec-20260904-01
-    E8_COLDSTART_TARGET_REF=refs/heads/dev/e8-multitask-lambda-wide-righttail-03
+    E8_COLDSTART_TARGET_REF=refs/heads/dev/e8-multitask-exp-coldstart-01
     E8_COLDSTART_EXPERIMENT_ID=EXT-C-E8-MULTITASK-EXP-LAMBDA-WIDE-RIGHTTAIL-03
     E8_COLDSTART_CONFIG=configs/e8_multitask_exp_lambda_wide_righttail_03.yaml
     E8_COLDSTART_RUN_ID=E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01
@@ -90,7 +91,7 @@ outputs:
   run_dir: outputs/e8/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01
 
 success_criteria:
-  - execution is from a clean checkout of dev/e8-multitask-lambda-wide-righttail-03 at the exact reviewed PR head
+  - execution is from a clean checkout of dev/e8-multitask-exp-coldstart-01 at the exact reviewed synchronized source head
   - experiment identity is EXT-C-E8-MULTITASK-EXP-LAMBDA-WIDE-RIGHTTAIL-03 and execution class is pilot
   - tracked config expands to exactly 100 unique Exp cells with 20 cells each for word_sorting, mini_sudoku, maze, knights_knaves, and wikisql
   - countdown, spiral_matrix, word_ladder, and graph_color launch zero new scientific cells
