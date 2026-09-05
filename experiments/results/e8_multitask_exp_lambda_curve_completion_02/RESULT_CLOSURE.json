@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "experiment_id": "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02",
+  "run_id": "E8_MULTITASK_EXP_LAMBDA_CURVE_COMPLETION_02",
+  "scientific_status": "pilot",
+  "authoritative_formal_result": false,
+  "cells": {
+    "expected": 140,
+    "completed": 140
+  },
+  "terminal_audit": "PASS",
+  "test_partition_accessed": false,
+  "nan_inf_numerical_failures": 0,
+  "task_performance_event": "not_adjudicated_without_registered_collapse_threshold",
+  "structure_event": "greedy_and_sampled_valid_rate_diagnostic_only",
+  "fixed_horizon_is_convergence": false,
+  "method_ranking_allowed": false,
+  "significance_claim_allowed": false,
+  "fresh_seed_confirmation_required": true,
+  "source_commit": "71d792ab6dc9ba5c7086852f94db043563740d9e",
+  "source_commit_resolvable_on_github_at_closure": false,
+  "origin_main_at_run": "6ed153d5ad7361a4e52348610b86b51b71e25e47",
+  "origin_matches_local": false,
+  "provenance_compromised": false,
+  "scientific_required_outputs_missing": [],
+  "outer_supervisor": {
+    "execution_state": "failed",
+    "returncode": 2,
+    "failure_phase": "post_scientific_run_hardened_packaging",
+    "failure_reason": "Main package is 42.271 MiB, exceeding hard limit 25.000 MiB",
+    "scientific_workload_complete": true
+  },
+  "uploaded_guarded_archive_sha256": "72a68bd27a241f2a0458ebcd1112ff48b8a913e97836888cf24f197ac2ef2944",
+  "archive_manifest_package_kind": "experiment-checkpoint",
+  "durable_delivery_before_this_closure": false,
+  "repository_closure_date": "2026-09-02",
+  "execution_evidence_state": "scientific_workload_raw_complete_terminal_audited_packaging_failed_after_workload",
+  "scientific_role": "external_validity_response_shape_and_lambda_localization",
+  "raw_artifact_bindings": {
+    "raw_plot_curve_points_sha256": "7e1af196629e771b9dfe0eccc3eac8117483450d8d8af263cea403676c525749",
+    "raw_aggregate_summary_sha256": "4678e935e251530acc0f2d4075b49f31e898a932a32f18619461b37aeeec8bc3",
+    "raw_terminal_audit_sha256": "2086c194c69a4896ad864419fbbdff00f856355f34becad2ba03d744913a3289"
+  }
+}

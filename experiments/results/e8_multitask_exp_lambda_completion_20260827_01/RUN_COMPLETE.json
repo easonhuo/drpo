@@ -1,0 +1,20 @@
+{
+  "aggregate_sha256": "99002716880c631639d59308c3cf1a036d32bd8207d5106f62afab26308a2484",
+  "all_training_and_evaluation_complete": true,
+  "artifact_state": "raw_complete",
+  "base_commit": "831b3ab5b24bf42464e79abfaf7e1077b03addf0",
+  "complete": true,
+  "completed_cells": 199,
+  "config_hash": "64913616bb8eaf331d49ce8de67f2a404685c7c60c35ee7d88a993173843036a",
+  "engineering_placeholder_backend": false,
+  "expected_cells": 199,
+  "experiment_id": "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01",
+  "run_id": "E8_MULTITASK_EXP_LAMBDA_COMPLETION_20260827_01",
+  "scheduler": "dynamic_slot_queue",
+  "scheduler_run_id": "queue-1787941778-3999046",
+  "schema_version": 1,
+  "scientific_status": "pilot",
+  "source_commit": "831b3ab5b24bf42464e79abfaf7e1077b03addf0",
+  "terminal_audit_sha256": "b65a84ede20199a3f5252761393706f960a6808b4db62046186b218fa8fbd19f",
+  "test_partition_accessed": false
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "closure_date": "2026-09-02",
+  "historical_anchor": "experiments/results/e8_multitask_exp_coldstart_20260820_02/CURVE_ANCHOR.csv",
+  "joint_curve_rows": 547,
+  "joint_curve_sources": {"repo_coldstart_anchor":208,"uploaded_completion_01_attempt012":199,"uploaded_curve_completion_02_attempt005":140},
+  "scientific_role": "external_validity_response_shape_and_curve_boundary_localization",
+  "claim_limits": ["pilot_only","single_tuning_seed_for_transfer_exp_curves","fixed_1200_updates_not_convergence","no_significance_claim","no_method_ranking","no_steady_state_claim"],
+  "follow_up_scope_agreed_not_yet_frozen": {"tasks":["word_sorting","mini_sudoku","maze","knights_knaves","wikisql"],"points_per_task_direction":20,"spacing_direction":"wider_than_curve_completion_02","exact_lambda_grid_frozen":false,"experiment_registered":false},
+  "closed_or_deprioritized_for_next_right_tail_design": {"word_ladder":"clearer peak/right-tail decline","graph_color":"clear right-tail decline after interior optimum","spiral_matrix":"ceiling/flat at 1.0","countdown":"not rerun in either multitask completion successor; governed by separate Countdown evidence"},
+  "scientific_status": "pilot",
+  "digitized_countdown_presentation_points_deposited_as_scientific_evidence": false,
+  "successor_compact_records": ["experiments/results/e8_multitask_exp_lambda_completion_20260827_01/RESULT_CLOSURE.json","experiments/results/e8_multitask_exp_lambda_curve_completion_02/RESULT_CLOSURE.json"],
+  "joint_curve_storage": {"manifest":"experiments/results/e8_multitask_exp_lambda_joint_20260902/CURVE_MANIFEST.json","parts_directory":"experiments/results/e8_multitask_exp_lambda_joint_20260902/CURVE_POINTS","part_count":9,"total_rows":547,"reconstruction":"concatenate manifest parts in listed order"}
+}

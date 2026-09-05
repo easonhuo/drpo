@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "total_rows": 547,
+  "parts": [
+    {"task":"countdown","rows":16,"path":"CURVE_POINTS/countdown.csv","sha256":"16daea81fd077142c71c5d548f72d1b1d3733a9f717e1a8e1bd2d794bc736f2a"},
+    {"task":"word_sorting","rows":71,"path":"CURVE_POINTS/word_sorting.csv","sha256":"324732f8cdb66fee7aa7378e0da5ebc1d36c988aff8d8ac464b1a8913f73fa94"},
+    {"task":"spiral_matrix","rows":34,"path":"CURVE_POINTS/spiral_matrix.csv","sha256":"50260061d8b8ccdc1f125d3d06af60db154623da7e8da10050c2105615dcd522"},
+    {"task":"mini_sudoku","rows":71,"path":"CURVE_POINTS/mini_sudoku.csv","sha256":"4e461dad6f2d68aabbf63b5d50f85cb4c8a34fab7dee6d87980df4b063ef6138"},
+    {"task":"maze","rows":71,"path":"CURVE_POINTS/maze.csv","sha256":"1f56a259a49ad8fb3f7ed9cf09f981140b9ca58a9588379093154fd9250cb49f"},
+    {"task":"word_ladder","rows":71,"path":"CURVE_POINTS/word_ladder.csv","sha256":"635e744548e985559f23073ccad649c8386b7ccb3e9511910fd9ebdf73b886e3"},
+    {"task":"knights_knaves","rows":71,"path":"CURVE_POINTS/knights_knaves.csv","sha256":"40c4b45ae7e2ec147e35b3074a1857e4b757348f4272a546a7959fc2ba1f1cde"},
+    {"task":"graph_color","rows":71,"path":"CURVE_POINTS/graph_color.csv","sha256":"3c206b5cc00031125b5835673bea4430b36525b088408b3479dccfbe7ed632a9"},
+    {"task":"wikisql","rows":71,"path":"CURVE_POINTS/wikisql.csv","sha256":"55e0b15ec35872792da091b2716269d830615924f3483067bc32cef46a38ccfa"}
+  ]
+}
