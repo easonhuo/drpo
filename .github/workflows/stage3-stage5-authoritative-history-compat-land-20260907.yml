@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  normalize-test-and-push:
+  maintenance-test-and-push:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -74,197 +74,131 @@ jobs:
         working-directory: target
         run: python -m pytest tests/test_handoff_delta_shadow.py -q
 
-      - name: Refresh overdue Full Acceptance before registering current update
+      - name: Refresh overdue Full Acceptance
         working-directory: target
         shell: bash
         run: |
           set -euo pipefail
+          FULL=docs/handoff_deltas/GOV-STAGE3-STAGE5-HISTORY-COMPAT-FULL-ACCEPTANCE-2026-09-07/FULL_ACCEPTANCE_REPORT.json
           python scripts/run_handoff_delta_acceptance.py \
             --repo-root . \
             --tier full \
             --reason successful_relevant_update_interval_reached \
             --reason calendar_interval_with_relevant_update_reached \
             --reason after_critical_semantic_mismatch_fix \
-            --report docs/handoff_deltas/GOV-STAGE3-STAGE5-AUTH-HISTORY-COMPAT-2026-09-07/FULL_ACCEPTANCE_REPORT.json \
+            --report "$FULL" \
             | tee "$RUNNER_TEMP/stage3-stage5-full-acceptance.json"
           python - <<'PY'
           import json
           from pathlib import Path
-          path = Path('docs/handoff_deltas/GOV-STAGE3-STAGE5-AUTH-HISTORY-COMPAT-2026-09-07/FULL_ACCEPTANCE_REPORT.json')
+          path = Path('docs/handoff_deltas/GOV-STAGE3-STAGE5-HISTORY-COMPAT-FULL-ACCEPTANCE-2026-09-07/FULL_ACCEPTANCE_REPORT.json')
           payload = json.loads(path.read_text(encoding='utf-8'))
           if payload.get('status') != 'PASS' or payload.get('tier') != 'full':
               raise SystemExit('Full Acceptance did not pass')
+          if payload.get('corpus_audit', {}).get('all_stored_reports_revalidated') is not True:
+              raise SystemExit('Full Acceptance did not revalidate the stored corpus')
           print('covered_updates=' + str(payload['coverage']['successful_real_observation_count']))
           PY
 
-      - name: Author schema-v3 governance delta against locked base
+      - name: Record authorized maintenance scope
         working-directory: target
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          import subprocess
-          import sys
-          import yaml
+          import hashlib
 
           BASE = '8a21fd16e63ea96a0cde2a477353d24562624655'
-          UPDATE_ID = 'GOV-STAGE3-STAGE5-AUTH-HISTORY-COMPAT-2026-09-07'
-          sys.path.insert(0, str(Path('../trusted/scripts').resolve()))
-          import handoff_delta_shadow as shadow
+          AUTH = 'GOV-STAGE3-STAGE5-HISTORY-COMPAT-MAINTENANCE-2026-09-07'
+          CLAIM = 'GOV-STAGE3-STAGE5-HISTORY-COMPAT-MAINTENANCE-01'
+          script = Path('scripts/handoff_delta_shadow.py')
+          digest = hashlib.sha256(script.read_bytes()).hexdigest()
+          auth_path = Path('docs/governance_stage_authorizations') / f'{AUTH}.yaml'
+          auth_path.write_text(f'''schema_version: 1
+authorization_id: {AUTH}
+kind: maintenance
+change_class: compatibility_fix
+claim_id: {CLAIM}
+approval_record: user_approved_continue_stage3_stage5_history_compat_repair_2026_09_07
+base_commit: {BASE}
+stage_ids:
+- stage_3
+authorized_stage_statuses:
+  stage_3: shadow_active
+authorized_file_hashes:
+  scripts/handoff_delta_shadow.py: {digest}
+scope:
+- align_stage3_authoritative_history_resolution_with_stage5_first_parent_integration_semantics
+- honor_only_stage5_content_addressed_legacy_inert_quarantine_for_missing_schema_v3_materialization_report
+- preserve_fail_closed_behavior_for_all_other_missing_reports_postintegration_touches_and_byte_drift
+- add_focused_regressions_for_legacy_inert_skip_and_unlisted_missing_report_rejection
+- refresh_overdue_full_acceptance_after_critical_semantic_mismatch_repair
+excluded_scope:
+- change_handoff_or_registry_write_authority
+- change_schema_v3_shapes_or_supported_operations
+- add_or_strengthen_scientific_or_experiment_gates
+- modify_scientific_code_configs_seeds_thresholds_results_or_claims
+- broaden_legacy_inert_quarantine_beyond_stage5_verified_content_addressed_ids
+rollback_plan:
+- revert_the_stage3_history_compatibility_change_tests_authorization_and_full_acceptance_checkpoint_together
+- preserve_all_existing_handoff_delta_materialization_and_scientific_history
+remaining_uncertainties:
+- the_compatibility_fix_is_bounded_to_history_shapes_already_accepted_by_stage5
+- the_single_historical_legacy_inert_delta_remains_quarantined_not_promoted
+''', encoding='utf-8')
+          scope_path = Path('docs/scopes') / f'{CLAIM}.md'
+          scope_path.write_text(f'''# Stage 3 / Stage 5 authoritative-history compatibility maintenance
 
-          handoff = subprocess.check_output(['git', 'show', f'{BASE}:docs/handoff.md'], text=True)
-          registry = subprocess.check_output(['git', 'show', f'{BASE}:experiments/registry.yaml'], text=True)
-          content = (
-              '- **Stage-3 / Stage-5 authoritative-history compatibility repair '
-              '(`GOV-STAGE3-STAGE5-AUTH-HISTORY-COMPAT-2026-09-07`)：**Stage-3 observation '
-              'ledger 现在继承 Stage-5 已冻结的 schema-v3 Git-history 语义：允许 authoritative '
-              'delta / materialization report 在 side branch 上完成 pre-integration authoring/revision，'
-              '但只承认唯一 first-parent integration commit，并继续 fail-closed 拒绝 integration 后的'
-              '任何路径修改或字节漂移。同时 Stage-3 仅跳过 Stage-5 verifier 以 content-addressed '
-              '`legacy_inert_update_ids` 明确隔离的历史 schema-v3 delta；任何未被 Stage-5 明确隔离且'
-              '缺失 `MATERIALIZATION_REPORT.json` 的条目仍然拒绝。该修复只解决治理层 Stage-3 / '
-              'Stage-5 兼容性，不改变任何 DRPO / SNA2C 科学结论、实验职责、变量、seed、阈值或结果。'
-              '由于本次修复发生时累计更新数与日历周期均已触发 Full Acceptance，且属于 critical '
-              'semantic mismatch repair，本更新同步刷新 durable Full Acceptance coverage。'
-          )
-          operations = [{
-              'operation_id': 'append-stage3-stage5-authoritative-history-compat-repair',
-              'op': 'append_to_section',
-              'heading_path': [
-                  '0. 研究与执行原则（每次新会话首先阅读）',
-                  '0.1 当前执行门禁',
-              ],
-              'block_id': 'stage3-stage5-authoritative-history-compat-repair-2026-09-07',
-              'content': content,
-          }]
-          rendered = shadow.render(handoff, operations)
-          shadow.verify_history_preservation(handoff, rendered.text, operations)
-          delta = {
-              'schema_version': 3,
-              'update_id': UPDATE_ID,
-              'mode': 'authoritative',
-              'base': {
-                  'commit': BASE,
-                  'handoff_sha256': shadow.sha256_text(handoff),
-                  'registry_sha256': shadow.sha256_text(registry),
-              },
-              'renderer_version': 1,
-              'operations': operations,
-              'registry': {'mode': 'unchanged'},
-              'expected': {
-                  'exact_base_candidate_sha256': shadow.sha256_text(rendered.text),
-              },
-          }
-          path = Path('docs/handoff_deltas') / UPDATE_ID / 'HANDOFF_DELTA.yaml'
-          path.parent.mkdir(parents=True, exist_ok=True)
-          path.write_text(
-              yaml.safe_dump(delta, sort_keys=False, allow_unicode=True),
-              encoding='utf-8',
-          )
-          print('base_handoff_sha256=' + delta['base']['handoff_sha256'])
-          print('base_registry_sha256=' + delta['base']['registry_sha256'])
-          print('candidate_sha256=' + delta['expected']['exact_base_candidate_sha256'])
+Base: `main@{BASE}`
+
+This maintenance repair fixes a governance compatibility mismatch exposed while landing the E8 wide-right-tail result closure. Stage 5 already accepts bounded pre-integration side-branch history and content-addresses one historical inert schema-v3 anomaly; Stage 3 still assumed a simpler history and attempted to require a materialization report for every schema-v3 delta.
+
+The repair makes Stage 3 use the same bounded first-parent integration semantics and inherit only the exact `legacy_inert_update_ids` returned by the Stage 5 verifier. Every other missing materialization report, post-integration touch, ambiguous integration, or byte drift remains fail-closed. No handoff content, registry state, scientific implementation, experiment variable, seed, threshold, result, or scientific claim is changed by this maintenance update.
+
+A fresh Full Acceptance is required and persisted because both scheduled triggers were overdue and this is a critical semantic mismatch repair.
+''', encoding='utf-8')
+          print('authorized_script_sha256=' + digest)
           PY
           git diff --check
 
-      - name: Create temporary source-patch commit
+      - name: Maintenance governance validation before commit
         working-directory: target
         shell: bash
         run: |
           set -euo pipefail
+          python scripts/handoff_authority.py verify --repo-root . --json
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          python -m ruff check scripts/handoff_delta_shadow.py tests/test_handoff_delta_shadow.py
+          python -m compileall -q scripts/handoff_delta_shadow.py tests/test_handoff_delta_shadow.py
+          git diff --check
+
+      - name: Commit maintenance after-image
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=8a21fd16e63ea96a0cde2a477353d24562624655
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add \
             scripts/handoff_delta_shadow.py \
             tests/test_handoff_delta_shadow.py \
-            docs/handoff_deltas/GOV-STAGE3-STAGE5-AUTH-HISTORY-COMPAT-2026-09-07/HANDOFF_DELTA.yaml \
-            docs/handoff_deltas/GOV-STAGE3-STAGE5-AUTH-HISTORY-COMPAT-2026-09-07/FULL_ACCEPTANCE_REPORT.json
-          git diff --cached --check
-          git commit -m 'Stage3 Stage5 compatibility: temporary source patch'
-          echo "SOURCE_PATCH_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
-
-      - name: Validate authoritative delta intent with trusted Stage5
-        working-directory: target
-        shell: bash
-        run: |
-          set -euo pipefail
-          python ../trusted/scripts/handoff_authority.py validate-delta \
-            --repo-root . \
-            --delta docs/handoff_deltas/GOV-STAGE3-STAGE5-AUTH-HISTORY-COMPAT-2026-09-07/HANDOFF_DELTA.yaml \
-            --source-patch-commit "$SOURCE_PATCH_COMMIT" \
-            --json
-
-      - name: Trusted Stage5 normalization
-        working-directory: target
-        shell: bash
-        run: |
-          set -euo pipefail
-          BASE=8a21fd16e63ea96a0cde2a477353d24562624655
-          python ../trusted/scripts/handoff_authority.py normalize \
-            --repo-root . \
-            --trusted-repo-root ../trusted \
-            --current-before "$BASE" \
-            --source-base "$BASE" \
-            --source-patch-commit "$SOURCE_PATCH_COMMIT" \
-            --json | tee "$RUNNER_TEMP/stage5-normalization.json"
-
-      - name: Enforce Stage5 normalization write boundary
-        working-directory: target
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          import subprocess
-          report = 'docs/handoff_deltas/GOV-STAGE3-STAGE5-AUTH-HISTORY-COMPAT-2026-09-07/MATERIALIZATION_REPORT.json'
-          allowed_exact = {'docs/handoff.md', report}
-          allowed_prefix = 'docs/handoff_shadow/stage4/minimal/generated/'
-          out = subprocess.check_output(['git', 'status', '--porcelain'], text=True)
-          paths = []
-          for line in out.splitlines():
-              if not line.strip():
-                  continue
-              path = line[3:]
-              if ' -> ' in path:
-                  path = path.split(' -> ', 1)[1]
-              paths.append(path)
-          bad = sorted(
-              path for path in paths
-              if path not in allowed_exact and not path.startswith(allowed_prefix)
-          )
-          if bad:
-              raise SystemExit('Unexpected normalization paths: ' + ', '.join(bad))
-          if 'docs/handoff.md' not in paths or report not in paths:
-              raise SystemExit('Stage5 normalization did not materialize required files')
-          print('\n'.join(paths))
-          PY
-          git diff --check
-
-      - name: Collapse to one clean final commit on locked base
-        working-directory: target
-        shell: bash
-        run: |
-          set -euo pipefail
-          BASE=8a21fd16e63ea96a0cde2a477353d24562624655
-          DELTA=docs/handoff_deltas/GOV-STAGE3-STAGE5-AUTH-HISTORY-COMPAT-2026-09-07/HANDOFF_DELTA.yaml
-          MATERIALIZATION=docs/handoff_deltas/GOV-STAGE3-STAGE5-AUTH-HISTORY-COMPAT-2026-09-07/MATERIALIZATION_REPORT.json
-          FULL=docs/handoff_deltas/GOV-STAGE3-STAGE5-AUTH-HISTORY-COMPAT-2026-09-07/FULL_ACCEPTANCE_REPORT.json
-          git reset --soft "$BASE"
-          git add -A
+            docs/governance_stage_authorizations/GOV-STAGE3-STAGE5-HISTORY-COMPAT-MAINTENANCE-2026-09-07.yaml \
+            docs/scopes/GOV-STAGE3-STAGE5-HISTORY-COMPAT-MAINTENANCE-01.md \
+            docs/handoff_deltas/GOV-STAGE3-STAGE5-HISTORY-COMPAT-FULL-ACCEPTANCE-2026-09-07/FULL_ACCEPTANCE_REPORT.json
           git diff --cached --check
           git commit -m 'Fix Stage3 Stage5 authoritative history compatibility'
           FINAL_HEAD=$(git rev-parse HEAD)
           test "$(git rev-parse HEAD^1)" = "$BASE"
-          test "$(git log --diff-filter=A --format=%H -- "$DELTA")" = "$FINAL_HEAD"
-          test "$(git log --diff-filter=A --format=%H -- "$MATERIALIZATION")" = "$FINAL_HEAD"
-          test "$(git log --diff-filter=A --format=%H -- "$FULL")" = "$FINAL_HEAD"
           echo "FINAL_HEAD=$FINAL_HEAD" >> "$GITHUB_ENV"
 
-      - name: Required authority and governance gates
+      - name: Required post-commit authority and governance gates
         working-directory: target
         shell: bash
         run: |
           set -euo pipefail
+          BASE=8a21fd16e63ea96a0cde2a477353d24562624655
           python scripts/handoff_authority.py verify --repo-root . --json
           python scripts/handoff_delta_shadow.py acceptance-status --repo-root . --require-current --json
           python scripts/handoff_delta_shadow.py auto-check --repo-root .
@@ -307,10 +241,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: stage3-stage5-compat-diagnostics
+          name: stage3-stage5-compat-maintenance-diagnostics
           path: |
             ${{ runner.temp }}/stage3-stage5-full-acceptance.json
-            ${{ runner.temp }}/stage5-normalization.json
             ${{ runner.temp }}/canonical-test-plan.json
             ${{ runner.temp }}/canonical-tests.log
           if-no-files-found: warn
