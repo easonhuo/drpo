@@ -24,6 +24,40 @@ jobs:
           python-version: '3.11'
       - name: Install minimal dependency
         run: python -m pip install pyyaml
+      - name: Identify authoritative delta report history mismatches
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' | tee "$RUNNER_TEMP/authoritative-history-diagnostic.log"
+          from pathlib import Path
+          import json
+          import subprocess
+          import yaml
+
+          root = Path('.').resolve()
+          bad = []
+          rows = []
+          for delta in sorted((root / 'docs/handoff_deltas').glob('*/HANDOFF_DELTA.yaml')):
+              data = yaml.safe_load(delta.read_text(encoding='utf-8'))
+              if data.get('schema_version') != 3:
+                  continue
+              report = delta.parent / 'MATERIALIZATION_REPORT.json'
+              def added(path):
+                  rel = path.relative_to(root).as_posix()
+                  out = subprocess.check_output(
+                      ['git','log','--diff-filter=A','--format=%H','--',rel], text=True
+                  ).splitlines()
+                  return out[-1].strip() if out else None
+              dc = added(delta)
+              rc = added(report) if report.exists() else None
+              row = {'update_id': delta.parent.name, 'delta_add': dc, 'report_add': rc, 'same': dc == rc and dc is not None}
+              rows.append(row)
+              if not row['same']:
+                  bad.append(row)
+          print(json.dumps({'authoritative_count': len(rows), 'mismatches': bad}, indent=2, sort_keys=True))
+          if not bad:
+              print('NO_AUTHORITATIVE_HISTORY_MISMATCHES')
+          PY
       - name: Run pristine-main auto-check
         shell: bash
         run: |
@@ -37,6 +71,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e8-wide-righttail-baseline-autocheck-diagnostic
-          path: ${{ runner.temp }}/baseline-autocheck.log
+          name: e8-wide-righttail-baseline-autocheck-diagnostic-v2
+          path: |
+            ${{ runner.temp }}/authoritative-history-diagnostic.log
+            ${{ runner.temp }}/baseline-autocheck.log
           if-no-files-found: warn
