@@ -1,0 +1,42 @@
+name: E8 right-tail pristine-main Stage3 auto-check diagnostic
+
+on:
+  push:
+    branches:
+      - automation/e8-wide-righttail-baseline-autocheck-20260907
+
+permissions:
+  contents: read
+
+jobs:
+  baseline-autocheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout pristine main base
+        uses: actions/checkout@v4
+        with:
+          ref: 8a21fd16e63ea96a0cde2a477353d24562624655
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install minimal dependency
+        run: python -m pip install pyyaml
+      - name: Run pristine-main auto-check
+        shell: bash
+        run: |
+          set +e
+          python scripts/handoff_delta_shadow.py auto-check --repo-root . 2>&1 | tee "$RUNNER_TEMP/baseline-autocheck.log"
+          rc=${PIPESTATUS[0]}
+          set -e
+          echo "baseline_autocheck_exit_code=$rc" | tee -a "$RUNNER_TEMP/baseline-autocheck.log"
+          exit "$rc"
+      - name: Upload baseline diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e8-wide-righttail-baseline-autocheck-diagnostic
+          path: ${{ runner.temp }}/baseline-autocheck.log
+          if-no-files-found: warn
