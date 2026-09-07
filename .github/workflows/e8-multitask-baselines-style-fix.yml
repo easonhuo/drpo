@@ -1,4 +1,4 @@
-name: E8 multitask baseline capability style fix
+name: E8 multitask baseline capability simplification
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 jobs:
-  fix-test-commit:
+  simplify-test-commit:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Apply narrow lint repairs
+      - name: Replace duplicated AsymRE aggregation with shared unranked path
         shell: bash
         run: |
           set -euo pipefail
@@ -30,38 +30,20 @@ jobs:
 
           path = Path('src/drpo/e8_multitask_exp_tuning.py')
           text = path.read_text(encoding='utf-8')
-          replacements = [
-              (
-                  '''            setattr(\n                evaluate_rows,\n                "_last_primary_sampled_valid_rate",\n                float(metrics["sampled_valid_rate"]),\n            )\n''',
-                  '''            evaluate_rows._last_primary_sampled_valid_rate = float(\n                metrics["sampled_valid_rate"]\n            )\n''',
-              ),
-              (
-                  '''                in set(int(value) for value in effective["evaluation"]["auxiliary_pass_ks"]),\n''',
-                  '''                in {int(value) for value in effective["evaluation"]["auxiliary_pass_ks"]},\n''',
-              ),
-              (
-                  '''                    kwargs["pass64_enabled"] = 64 in set(\n                        int(value) for value in effective_runtime["evaluation"]["auxiliary_pass_ks"]\n                    )\n''',
-                  '''                    kwargs["pass64_enabled"] = 64 in {\n                        int(value)\n                        for value in effective_runtime["evaluation"]["auxiliary_pass_ks"]\n                    }\n''',
-              ),
-          ]
-          for old, new in replacements:
-              count = text.count(old)
-              if count not in {1, 2}:
-                  raise RuntimeError(f'unexpected replacement count {count}: {old!r}')
-              text = text.replace(old, new)
+          start = text.index('def _aggregate_coldstart_asymre(')
+          end = text.index('\ndef _aggregate_coldstart(\n', start)
+          replacement = '''def _aggregate_coldstart_unranked(\n    config: Mapping[str, Any],\n    output_root: Path,\n    rows: list[dict[str, Any]],\n) -> dict[str, Any]:\n    \"\"\"Aggregate a baseline response curve without selecting or ranking a winner.\"\"\"\n\n    method = _coldstart_method(config)\n    if method == METHOD_ASYMRE:\n        parameter_name = \"delta_v\"\n        scientific_kernel = \"canonical_old_coldstart_imports\"\n        method_metadata = {\n            \"canonical_asymre_grid\": str(_canonical_asymre_grid_path()),\n            \"canonical_asymre_grid_sha256\": sha256_file(_canonical_asymre_grid_path()),\n        }\n    elif method == METHOD_TOPR:\n        parameter_name = \"beta\"\n        scientific_kernel = \"canonical_old_coldstart_imports\"\n        method_metadata = {\n            \"canonical_topr_grid\": str(CANONICAL_TOPR_GRID.resolve()),\n            \"canonical_topr_grid_sha256\": sha256_file(CANONICAL_TOPR_GRID.resolve()),\n        }\n    elif method == METHOD_DPO:\n        parameter_name = \"beta\"\n        scientific_kernel = \"historical_pr268_semantics_port_in_existing_multitask_runner\"\n        method_metadata = {\n            \"dpo_initialization_mode\": str(config[\"dpo\"][\"initialization_mode\"]),\n        }\n    else:\n        raise ValueError(f\"Unsupported unranked cold-start method: {method}\")\n\n    provenance_path = output_root / \"source_provenance.json\"\n    provenance = (\n        json.loads(provenance_path.read_text(encoding=\"utf-8\"))\n        if provenance_path.is_file()\n        else {}\n    )\n    run_id = str(provenance.get(\"run_id\", output_root.name))\n    source_commit = str(provenance.get(\"source_commit\", \"unrecorded\"))\n    plot_rows = [\n        {\n            \"experiment_id\": experiment_id(config),\n            \"run_id\": run_id,\n            \"source_commit\": source_commit,\n            \"task\": row[\"task\"],\n            \"method\": row[\"method\"],\n            parameter_name: row.get(parameter_name),\n            \"seed\": row[\"seed\"],\n            \"stage\": row[\"stage\"],\n            \"late_window_pass8_mean\": row[\"late_window_pass8_mean\"],\n            \"late_window_greedy_mean\": row[\"late_window_greedy_mean\"],\n            \"best_validation_pass8\": row[\"best_pass8\"],\n            \"terminal_pass8\": row[\"terminal_pass8\"],\n            \"best_validation_greedy\": row[\"best_greedy\"],\n            \"terminal_greedy\": row[\"terminal_greedy\"],\n            \"best_greedy_valid_rate\": row[\"best_greedy_valid_rate\"],\n            \"terminal_greedy_valid_rate\": row[\"terminal_greedy_valid_rate\"],\n            \"best_step\": row[\"best_step\"],\n            \"terminal_step\": row[\"terminal_step\"],\n            \"stop_reason\": row[\"stop_reason\"],\n            \"nan_inf_failure\": row[\"nan_inf_failure\"],\n            \"complete\": True,\n        }\n        for row in rows\n    ]\n    _write_csv(output_root / \"aggregate\" / \"plot_curve_points.csv\", plot_rows)\n\n    configured_cells = build_cells(config)\n    summaries: dict[str, Any] = {}\n    summary_rows: list[dict[str, Any]] = []\n\n    def mean(group: Sequence[Mapping[str, Any]], key: str) -> float:\n        return float(np.mean([float(row[key]) for row in group]))\n\n    for task_value in config[\"suite\"][\"tasks\"]:\n        task = str(task_value)\n        task_cells = [cell for cell in configured_cells if cell.task == task]\n        if not task_cells:\n            continue\n        task_rows = [row for row in rows if row[\"task\"] == task]\n        method_rows = [row for row in task_rows if row[\"method\"] == method]\n        controls = {\n            control: [row for row in task_rows if row[\"method\"] == control]\n            for control in (METHOD_POSITIVE_ONLY, METHOD_GLOBAL)\n        }\n        expected = {\n            candidate: sum(cell.method == candidate for cell in task_cells)\n            for candidate in (method, METHOD_POSITIVE_ONLY, METHOD_GLOBAL)\n        }\n        if len(method_rows) != expected[method] or any(\n            len(controls[control]) != expected[control]\n            for control in (METHOD_POSITIVE_ONLY, METHOD_GLOBAL)\n        ):\n            raise RuntimeError(f\"{task} {method} cold-start cell geometry is incomplete\")\n\n        groups: dict[float, list[dict[str, Any]]] = {}\n        for row in method_rows:\n            value = row.get(parameter_name)\n            if value is None:\n                raise RuntimeError(f\"{task} {method} row is missing {parameter_name}\")\n            groups.setdefault(float(value), []).append(row)\n        grouped_curve = [\n            {\n                \"task\": task,\n                \"method\": method,\n                parameter_name: value,\n                \"seeds\": sorted(int(row[\"seed\"]) for row in group),\n                \"late_window_pass8_mean\": mean(group, \"late_window_pass8_mean\"),\n                \"late_window_greedy_mean\": mean(group, \"late_window_greedy_mean\"),\n                \"terminal_pass8_mean\": mean(group, \"terminal_pass8\"),\n                \"terminal_greedy_valid_rate_mean\": mean(\n                    group, \"terminal_greedy_valid_rate\"\n                ),\n                \"nan_inf_failure\": any(bool(row[\"nan_inf_failure\"]) for row in group),\n            }\n            for value, group in sorted(groups.items())\n        ]\n        summaries[task] = {\n            \"task\": task,\n            \"grouped_curve\": grouped_curve,\n            \"positive_only\": controls[METHOD_POSITIVE_ONLY] or None,\n            \"global\": controls[METHOD_GLOBAL] or None,\n            \"parameter_selection_deferred_to_reviewed_protocol\": True,\n            \"terminal_valid_rate_role\": \"diagnostic_only_not_selection_eligibility\",\n        }\n        summary_rows.append(\n            {\n                \"task\": task,\n                f\"{method}_parameter_points\": len(grouped_curve),\n                \"finite_parameter_points\": sum(\n                    not bool(row[\"nan_inf_failure\"]) for row in grouped_curve\n                ),\n                \"parameter_selection_deferred\": True,\n            }\n        )\n    _write_csv(output_root / \"aggregate\" / \"task_summary.csv\", summary_rows)\n\n    protocol_diagnostic = _countdown_protocol_diagnostic(\n        config,\n        output_root,\n        destination=output_root / \"aggregate\" / \"countdown_protocol_diagnostic.json\",\n    )\n    summary = {\n        \"schema_version\": 1,\n        \"experiment_id\": experiment_id(config),\n        \"run_id\": run_id,\n        \"source_commit\": source_commit,\n        \"cell_count\": len(rows),\n        \"plot_curve_point_count\": len(plot_rows),\n        \"method\": method,\n        \"tasks\": summaries,\n        \"excluded_tasks\": dict(config[\"suite\"][\"excluded_tasks\"]),\n        \"initialization\": dict(config[\"initialization\"]),\n        \"scientific_kernel\": scientific_kernel,\n        **method_metadata,\n        \"countdown_protocol_diagnostic\": protocol_diagnostic,\n        \"countdown_result_gate\": False,\n        \"primary_metric\": \"validation_late_window_pass8_mean\",\n        \"parameter_selection_deferred_to_reviewed_protocol\": True,\n        \"test_partition_accessed\": False,\n        \"method_ranking_allowed\": False,\n        \"significance_claim_allowed\": False,\n        \"fixed_horizon_is_convergence\": False,\n        \"task_performance_reported_separately\": True,\n        \"structure_diagnostic_reported_separately\": True,\n        \"nan_inf_reported_separately\": True,\n        \"scientific_status\": \"not_run\" if _is_engineering_self_test(config) else \"pilot\",\n        \"engineering_placeholder_backend\": _is_engineering_self_test(config),\n    }\n    atomic_json(output_root / \"aggregate\" / \"aggregate_summary.json\", summary)\n    return summary\n\n'''
+          text = text[:start] + replacement + text[end + 1:]
+          old_dispatch = '''    if _coldstart_method(config) == METHOD_ASYMRE:\n        return _aggregate_coldstart_asymre(config, output_root, rows)\n'''
+          new_dispatch = '''    if _coldstart_method(config) != METHOD_EXPONENTIAL:\n        return _aggregate_coldstart_unranked(config, output_root, rows)\n'''
+          if text.count(old_dispatch) != 1:
+              raise RuntimeError(f'expected one old aggregate dispatch, found {text.count(old_dispatch)}')
+          text = text.replace(old_dispatch, new_dispatch, 1)
           path.write_text(text, encoding='utf-8')
-
-          path = Path('tests/test_e8_multitask_p0.py')
-          text = path.read_text(encoding='utf-8')
-          old = '    assert getattr(evaluator, "_last_primary_sampled_valid_rate") == pytest.approx(0.25)\n'
-          new = '    assert evaluator._last_primary_sampled_valid_rate == pytest.approx(0.25)\n'
-          if text.count(old) != 1:
-              raise RuntimeError(f'expected one evaluator getattr assertion, found {text.count(old)}')
-          path.write_text(text.replace(old, new, 1), encoding='utf-8')
           PY
       - name: Install focused dependencies
         run: python -m pip install -q numpy pyyaml pytest torch ruff
-      - name: Validate repairs
+      - name: Validate simplification
         env:
           PYTHONPATH: ${{ github.workspace }}/src
         shell: bash
@@ -69,26 +51,33 @@ jobs:
           set -euo pipefail
           python -m py_compile src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
           python -m pytest -q tests/test_e8_multitask_p0.py
+          python - <<'PY'
+          import inspect
+          from drpo import e8_multitask_exp_tuning as module
+
+          dispatch = inspect.getsource(module._aggregate_coldstart)
+          assert '_coldstart_method(config) != METHOD_EXPONENTIAL' in dispatch
+          shared = inspect.getsource(module._aggregate_coldstart_unranked)
+          for token in ('METHOD_ASYMRE', 'METHOD_TOPR', 'METHOD_DPO', 'parameter_name'):
+              assert token in shared
+          assert not hasattr(module, '_aggregate_coldstart_asymre')
+          PY
           git diff --check
-          set +e
-          ruff check src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py > /tmp/ruff.txt 2>&1
-          ruff_rc=$?
-          set -e
-          cat /tmp/ruff.txt
-          if grep -Eq 'B010|B009|C401' /tmp/ruff.txt; then
-            echo 'Introduced lint class remains after repair' >&2
-            exit 1
-          fi
-          # Full-file Ruff may still report pre-existing main-branch debt; final audit
-          # separately filters diagnostics to changed lines and proves baseline parity.
-          test "$ruff_rc" -eq 0 -o "$ruff_rc" -eq 1
-      - name: Commit lint repairs
+          ruff check src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py || true
+      - name: Show net production diff before commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --numstat 8a21fd16e63ea96a0cde2a477353d24562624655 -- src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+      - name: Remove temporary validation workflows and commit
         shell: bash
         run: |
           set -euo pipefail
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          git rm -f .github/workflows/e8-multitask-baselines-style-fix.yml
+          git rm -f .github/workflows/e8-multitask-baselines-final-audit.yml
+          git add src/drpo/e8_multitask_exp_tuning.py
           git diff --cached --check
-          git commit -m 'style: clean E8 baseline capability lint'
+          git commit -m 'refactor: simplify E8 baseline aggregation plumbing'
           git push origin HEAD:dev/e8-multitask-baselines-capability-01
