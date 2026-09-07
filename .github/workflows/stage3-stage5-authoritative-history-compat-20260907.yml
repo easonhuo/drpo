@@ -31,8 +31,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git apply --check stage3_stage5_compat.patch
-          git apply stage3_stage5_compat.patch
+          patch -p1 --forward < stage3_stage5_compat.patch
           rm stage3_stage5_compat.patch
           rm .github/workflows/stage3-stage5-authoritative-history-compat-20260907.yml
 
