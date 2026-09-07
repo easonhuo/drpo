@@ -87,8 +87,12 @@ P0_EXPERIMENT_ID = experiment_config.P0_EXPERIMENT_ID
 PARENT_EXPERIMENT_ID = P0_EXPERIMENT_ID
 DEFAULT_CONFIG = Path("configs/e8_multitask_exp_tuning.yaml")
 DEFAULT_P0_CONFIG = Path("configs/e8_multitask_p0.yaml")
+CANONICAL_ASYMRE_GRID = Path(
+    "configs/countdown_e8_oracle_offline_v2_asymre_deltav_scan_0p5b.yaml"
+)
 METHOD_POSITIVE_ONLY = "positive_only"
 METHOD_EXPONENTIAL = "exponential"
+METHOD_ASYMRE = "asymre"
 METHOD_GLOBAL = "global"
 TRANSFER_SYSTEM_PROMPT = "Answer with only the requested final output and no explanation."
 SWEEP_PROFILE_RHO = experiment_config.SWEEP_PROFILE_RHO
@@ -162,6 +166,7 @@ class Cell:
     seed: int
     stage: str
     lambda_value: float | None = None
+    delta_v: float | None = None
 
     @property
     def key(self) -> str:
@@ -169,6 +174,11 @@ class Cell:
             return f"{self.task}__positive_only__seed{self.seed}"
         if self.method == METHOD_GLOBAL:
             return f"{self.task}__global__seed{self.seed}"
+        if self.method == METHOD_ASYMRE:
+            if self.delta_v is None:
+                raise AssertionError("AsymRE cell requires delta_v")
+            tag = f"{self.delta_v:.12g}".replace("-", "m").replace(".", "p")
+            return f"{self.task}__asymre_delta_v{tag}__seed{self.seed}"
         if self.lambda_value is not None:
             tag = f"{self.lambda_value:.12g}".replace(".", "p")
             return f"{self.task}__exp_lambda{tag}__seed{self.seed}"
@@ -176,7 +186,6 @@ class Cell:
             raise AssertionError("Exponential cell requires rho or lambda")
         tag = f"{self.rho:.6f}".rstrip("0").rstrip(".").replace(".", "p")
         return f"{self.task}__exp_rho{tag}__seed{self.seed}"
-
 
 @dataclass(frozen=True)
 class TaskInputs:
@@ -250,6 +259,17 @@ def _task_lambdas(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
         raise ValueError("Task-local lambdas are not defined for this profile")
     return experiment_config.task_lambdas(config, task)
 
+
+def _coldstart_method(config: Mapping[str, Any]) -> str:
+    if not _is_coldstart(config):
+        raise ValueError("Cold-start method is defined only for the cold-start profile")
+    return experiment_config.coldstart_method(config)
+
+
+def _task_method_values(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
+    if _coldstart_method(config) == METHOD_ASYMRE:
+        return experiment_config.task_delta_vs(config, task)
+    return _task_lambdas(config, task)
 
 def _task_rhos(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
     if _uses_task_lambdas(config):
@@ -569,64 +589,89 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
         return cells
     if _is_coldstart(config):
         cells: list[Cell] = []
-        lambda_only = config["sweep"]["parameterization"] == "paper_lambda_c1"
-        countdown_coefficients = _task_lambdas(config, "countdown")
+        method = _coldstart_method(config)
+        lambda_only = (
+            method == METHOD_EXPONENTIAL
+            and config["sweep"]["parameterization"] == "paper_lambda_c1"
+        )
+        countdown_values = _task_method_values(config, "countdown")
         countdown_include_positive_only = bool(
             config["sweep"].get("countdown_include_positive_only", True)
         )
-        include_global_endpoint = bool(config["sweep"].get("include_global_endpoint", False))
-        for seed_offset in tuple(int(value) for value in config["sweep"]["countdown_seed_offsets"]):
+        include_global_endpoint = bool(
+            config["sweep"].get("include_global_endpoint", False)
+        )
+        for seed_offset in tuple(
+            int(value) for value in config["sweep"]["countdown_seed_offsets"]
+        ):
             if countdown_include_positive_only:
                 cells.append(
                     Cell(
-                        "countdown",
-                        METHOD_POSITIVE_ONLY,
-                        None,
-                        seed_offset,
-                        "countdown_sentinel",
+                        "countdown", METHOD_POSITIVE_ONLY, None, seed_offset, "countdown_sentinel"
                     )
                 )
             cells.append(
-                Cell("countdown", METHOD_GLOBAL, 1.0, seed_offset, "countdown_sentinel", 0.0)
-            )
-            cells.extend(
                 Cell(
-                    "countdown",
-                    METHOD_EXPONENTIAL,
-                    None if lambda_only else math.exp(-coefficient),
-                    seed_offset,
-                    "countdown_sentinel",
-                    coefficient,
+                    "countdown", METHOD_GLOBAL, 1.0, seed_offset, "countdown_sentinel", 0.0
                 )
-                for coefficient in countdown_coefficients
             )
+            if method == METHOD_ASYMRE:
+                cells.extend(
+                    Cell(
+                        "countdown", METHOD_ASYMRE, None, seed_offset, "countdown_sentinel", None, delta_v
+                    )
+                    for delta_v in countdown_values
+                )
+            else:
+                cells.extend(
+                    Cell(
+                        "countdown",
+                        METHOD_EXPONENTIAL,
+                        None if lambda_only else math.exp(-coefficient),
+                        seed_offset,
+                        "countdown_sentinel",
+                        coefficient,
+                    )
+                    for coefficient in countdown_values
+                )
         positive_seeds = tuple(
-            int(value) for value in config["sweep"]["transfer_positive_only_seed_offsets"]
+            int(value)
+            for value in config["sweep"]["transfer_positive_only_seed_offsets"]
         )
-        exp_seed = int(config["sweep"]["task_transfer_seed_offset"])
+        method_seed = int(config["sweep"]["task_transfer_seed_offset"])
         for task in tasks:
             if task == "countdown":
                 continue
-            coefficients = _task_lambdas(config, task)
-            if not coefficients:
+            values = _task_method_values(config, task)
+            if not values:
                 continue
             cells.extend(
                 Cell(task, METHOD_POSITIVE_ONLY, None, seed_offset, "task_transfer")
                 for seed_offset in positive_seeds
             )
             if include_global_endpoint:
-                cells.append(Cell(task, METHOD_GLOBAL, 1.0, exp_seed, "task_transfer", 0.0))
-            cells.extend(
-                Cell(
-                    task,
-                    METHOD_EXPONENTIAL,
-                    None if lambda_only else math.exp(-coefficient),
-                    exp_seed,
-                    "task_transfer",
-                    coefficient,
+                cells.append(
+                    Cell(task, METHOD_GLOBAL, 1.0, method_seed, "task_transfer", 0.0)
                 )
-                for coefficient in coefficients
-            )
+            if method == METHOD_ASYMRE:
+                cells.extend(
+                    Cell(
+                        task, METHOD_ASYMRE, None, method_seed, "task_transfer", None, delta_v
+                    )
+                    for delta_v in values
+                )
+            else:
+                cells.extend(
+                    Cell(
+                        task,
+                        METHOD_EXPONENTIAL,
+                        None if lambda_only else math.exp(-coefficient),
+                        method_seed,
+                        "task_transfer",
+                        coefficient,
+                    )
+                    for coefficient in values
+                )
         result = tuple(cells)
         if len(result) != int(config["sweep"]["expected_cells"]) or len(
             {cell.key for cell in result}
@@ -703,6 +748,7 @@ def write_plan(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
                     "cell_key": cell.key,
                     "task": cell.task,
                     "method": cell.method,
+                    "delta_v": cell.delta_v,
                     "rho": cell.rho,
                     "lambda": (
                         cell.lambda_value
@@ -974,6 +1020,12 @@ def _paper_grid_name(coefficient: float) -> str:
         return "extension_grid"
     raise ValueError(f"Coefficient {coefficient} is outside the locked paper grids")
 
+
+def _canonical_asymre_grid_path() -> Path:
+    path = (_repo_root() / CANONICAL_ASYMRE_GRID).resolve()
+    if not path.is_file():
+        raise FileNotFoundError(f"Canonical AsymRE grid is missing: {path}")
+    return path
 
 def _leaf_values(value: Any, prefix: str = "") -> dict[str, Any]:
     if not isinstance(value, Mapping):
@@ -2946,13 +2998,13 @@ def _canonical_calibration_identity(
 
 
 def _paper_grid_for_cell(record: Mapping[str, Any], cell: Cell) -> Path:
+    if cell.method == METHOD_ASYMRE:
+        return _canonical_asymre_grid_path()
     if cell.task != "countdown":
-        # Transfer c values are passed directly to the locked trainer. The round-1
-        # grid supplies only the frozen training/runtime profile.
+        # Transfer coefficients are passed directly to the locked trainer.
         return Path(str(record["round1_grid"]))
     coefficient = 0.0 if cell.lambda_value is None else float(cell.lambda_value)
     return Path(str(record[_paper_grid_name(coefficient)]))
-
 
 def calibrate_canonical_cold_task(
     task: str,
@@ -3617,6 +3669,7 @@ def _cell_identity(
         "cell": {
             "task": cell.task,
             "method": cell.method,
+            "delta_v": cell.delta_v,
             "rho": cell.rho,
             "lambda": (
                 cell.lambda_value
@@ -3919,12 +3972,17 @@ def _train_canonical_cold_cell(
     validation = Path(str(record["validation"]))
     base_config_path = base_config_override or Path(str(record["base_config"]))
     grid_path = _paper_grid_for_cell(record, cell)
-    grid_source_name = (
-        "round1_grid"
-        if cell.task != "countdown"
-        else _paper_grid_name(0.0 if cell.lambda_value is None else float(cell.lambda_value))
-    )
-    grid_source_path = _canonical_paths(config)[grid_source_name]
+    if cell.method == METHOD_ASYMRE:
+        grid_source_path = _canonical_asymre_grid_path()
+    else:
+        grid_source_name = (
+            "round1_grid"
+            if cell.task != "countdown"
+            else _paper_grid_name(
+                0.0 if cell.lambda_value is None else float(cell.lambda_value)
+            )
+        )
+        grid_source_path = _canonical_paths(config)[grid_source_name]
     modules = _activate_paper_grid_modules(modules, grid_source_path)
     arena = modules["arena"]
     runtime = modules["paper_runtime"]
@@ -3950,7 +4008,11 @@ def _train_canonical_cold_cell(
                 if cell.task == "countdown"
                 else "countdown_e8_alpha1_c_scan_trainer.train_cell"
             ),
-            "paper_formula": "alpha*exp(-c*(current_sequence_surprisal/2))",
+            "paper_formula": (
+                "delegated_to_existing_canonical_asymre"
+                if cell.method == METHOD_ASYMRE
+                else "alpha*exp(-c*(current_sequence_surprisal/2))"
+            ),
             "paper_grid_config": str(grid_path.resolve()),
             "paper_grid_config_sha256": sha256_file(grid_path),
             "paper_grid_source": str(grid_source_path.resolve()),
@@ -4055,10 +4117,20 @@ def _train_canonical_cold_cell(
             arena.completion_stats = original_completion_stats
             scan_trainer._evaluate_validation = original_trainer_evaluate
 
-    alpha = 0.0 if cell.method == METHOD_POSITIVE_ONLY else 1.0
-    coefficient = (
-        0.0 if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL} else float(cell.lambda_value)
-    )
+    if cell.method == METHOD_ASYMRE:
+        if cell.delta_v is None:
+            raise AssertionError("AsymRE cell has no delta_v")
+        paper_family = METHOD_ASYMRE
+        alpha = 1.0 + float(cell.delta_v)
+        coefficient = 0.0
+    else:
+        paper_family = "exponential"
+        alpha = 0.0 if cell.method == METHOD_POSITIVE_ONLY else 1.0
+        coefficient = (
+            0.0
+            if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL}
+            else float(cell.lambda_value)
+        )
     with (
         _legacy_paper_runtime_bridge(
             modules,
@@ -4071,7 +4143,7 @@ def _train_canonical_cold_cell(
         if cell.task == "countdown":
             returncode = runtime.worker(
                 argparse.Namespace(
-                    family="exponential",
+                    family=paper_family,
                     alpha=alpha,
                     c=coefficient,
                     seed_offset=int(cell.seed),
@@ -4090,7 +4162,7 @@ def _train_canonical_cold_cell(
                 alpha=alpha,
                 coefficient=coefficient,
                 seed_offset=int(cell.seed),
-                family="exponential",
+                family=paper_family,
             )
             scan_trainer.train_cell(
                 cell=paper_cell,
@@ -4132,6 +4204,7 @@ def _train_canonical_cold_cell(
     result = {
         **identity,
         **metrics_summary,
+        "delta_v": cell.delta_v,
         "canonical_summary": str(canonical_summary_path.resolve()),
         "canonical_summary_sha256": sha256_file(canonical_summary_path),
         "canonical_output": str(canonical_output.resolve()),
@@ -4630,13 +4703,25 @@ def _canonical_liveness_base_config(config: Mapping[str, Any], output_root: Path
 
 
 def _canonical_cold_liveness_cell(grid_path: Path) -> Cell:
-    """Derive the wrapper identity from the exact grid consumed by canonical smoke."""
+    """Derive wrapper identity from the exact canonical method liveness grid."""
 
     grid = yaml.safe_load(grid_path.read_text(encoding="utf-8"))
     if not isinstance(grid, dict):
         raise TypeError("Canonical liveness grid root must be a mapping")
     liveness = grid["execution"]["liveness"]
     seed_offsets = grid["sweep"]["seed_offsets"]
+    family = str(liveness.get("representative_family", "exponential"))
+    if family == METHOD_ASYMRE:
+        delta_v = float(liveness["representative_delta_v"])
+        return Cell(
+  "countdown",
+  METHOD_ASYMRE,
+  None,
+  int(seed_offsets[0]),
+  "liveness",
+  None,
+  delta_v,
+        )
     coefficient = float(liveness["representative_c"])
     return Cell(
         "countdown",
@@ -4646,7 +4731,6 @@ def _canonical_cold_liveness_cell(grid_path: Path) -> Cell:
         "liveness",
         coefficient,
     )
-
 
 def _cmd_canonical_cold_liveness(
     config: Mapping[str, Any],
@@ -4659,9 +4743,14 @@ def _cmd_canonical_cold_liveness(
     force: bool,
 ) -> dict[str, Any]:
     modules = _canonical_cold_modules(config)
-    runtime = modules["paper_runtime"]
     record = _canonical_task_record(splits, "countdown")
-    grid_path = Path(str(record["round1_grid"]))
+    grid_path = (
+        _canonical_asymre_grid_path()
+        if _coldstart_method(config) == METHOD_ASYMRE
+        else Path(str(record["round1_grid"]))
+    )
+    modules = _activate_paper_grid_modules(modules, grid_path)
+    runtime = modules["paper_runtime"]
     cell = _canonical_cold_liveness_cell(grid_path)
     smoke_root = output_root / "liveness" / "paper_runtime_smoke"
     if force and smoke_root.exists():
@@ -5740,6 +5829,7 @@ def _require_liveness_gate(
             _is_coldstart(config)
             and result.get("canonical_dispatch_verified") is True
             and result.get("finite_old_core_updates") is True
+            and result.get("cell", {}).get("method") == _coldstart_method(config)
             and math.isfinite(float(result.get("optimizer_update_norm", 0.0)))
             and float(result.get("optimizer_update_norm", 0.0)) > 0.0
         )
@@ -6177,6 +6267,7 @@ def _coldstart_completed_task_rows(
                 "source": "current",
                 "task": cell.task,
                 "method": cell.method,
+                "delta_v": cell.delta_v,
                 "rho": cell.rho,
                 "lambda": (
                     cell.lambda_value
@@ -6242,6 +6333,7 @@ def _write_coldstart_task_result(
             "source_commit": source_commit,
             "task": row["task"],
             "method": row["method"],
+            "delta_v": row.get("delta_v"),
             "lambda": row["lambda"],
             "rho": row["rho"],
             "seed": row["seed"],
@@ -6474,11 +6566,164 @@ def _aggregate_dense(
     return summary
 
 
+def _aggregate_coldstart_asymre(
+    config: Mapping[str, Any],
+    output_root: Path,
+    rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Aggregate the declared AsymRE response curve without selecting a winner."""
+
+    provenance_path = output_root / "source_provenance.json"
+    provenance = (
+        json.loads(provenance_path.read_text(encoding="utf-8"))
+        if provenance_path.is_file()
+        else {}
+    )
+    run_id = str(provenance.get("run_id", output_root.name))
+    source_commit = str(provenance.get("source_commit", "unrecorded"))
+    plot_rows = [
+        {
+            "experiment_id": experiment_id(config),
+            "run_id": run_id,
+            "source_commit": source_commit,
+            "task": row["task"],
+            "method": row["method"],
+            "delta_v": row.get("delta_v"),
+            "seed": row["seed"],
+            "stage": row["stage"],
+            "late_window_pass8_mean": row["late_window_pass8_mean"],
+            "late_window_greedy_mean": row["late_window_greedy_mean"],
+            "best_validation_pass8": row["best_pass8"],
+            "terminal_pass8": row["terminal_pass8"],
+            "best_validation_greedy": row["best_greedy"],
+            "terminal_greedy": row["terminal_greedy"],
+            "best_greedy_valid_rate": row["best_greedy_valid_rate"],
+            "terminal_greedy_valid_rate": row["terminal_greedy_valid_rate"],
+            "best_step": row["best_step"],
+            "terminal_step": row["terminal_step"],
+            "stop_reason": row["stop_reason"],
+            "nan_inf_failure": row["nan_inf_failure"],
+            "complete": True,
+        }
+        for row in rows
+    ]
+    _write_csv(output_root / "aggregate" / "plot_curve_points.csv", plot_rows)
+
+    summaries: dict[str, Any] = {}
+    summary_rows: list[dict[str, Any]] = []
+    configured_cells = build_cells(config)
+    for task_value in config["suite"]["tasks"]:
+        task = str(task_value)
+        task_cells = [cell for cell in configured_cells if cell.task == task]
+        if not task_cells:
+            continue
+        task_rows = [row for row in rows if row["task"] == task]
+        asymre_rows = [row for row in task_rows if row["method"] == METHOD_ASYMRE]
+        positive_rows = [
+            row for row in task_rows if row["method"] == METHOD_POSITIVE_ONLY
+        ]
+        global_rows = [row for row in task_rows if row["method"] == METHOD_GLOBAL]
+        expected = (
+            sum(cell.method == METHOD_ASYMRE for cell in task_cells),
+            sum(cell.method == METHOD_POSITIVE_ONLY for cell in task_cells),
+            sum(cell.method == METHOD_GLOBAL for cell in task_cells),
+        )
+        if (len(asymre_rows), len(positive_rows), len(global_rows)) != expected:
+            raise RuntimeError(f"{task} AsymRE cold-start cell geometry is incomplete")
+
+        groups: dict[float, list[dict[str, Any]]] = {}
+        for row in asymre_rows:
+            if row.get("delta_v") is None:
+                raise RuntimeError(f"{task} AsymRE row is missing delta_v")
+            groups.setdefault(float(row["delta_v"]), []).append(row)
+        grouped_curve: list[dict[str, Any]] = []
+        for delta_v, group in sorted(groups.items()):
+            grouped_curve.append(
+                {
+                    "task": task,
+                    "method": METHOD_ASYMRE,
+                    "delta_v": delta_v,
+                    "seeds": sorted(int(row["seed"]) for row in group),
+                    "late_window_pass8_mean": float(
+                        np.mean([float(row["late_window_pass8_mean"]) for row in group])
+                    ),
+                    "late_window_greedy_mean": float(
+                        np.mean([float(row["late_window_greedy_mean"]) for row in group])
+                    ),
+                    "terminal_pass8_mean": float(
+                        np.mean([float(row["terminal_pass8"]) for row in group])
+                    ),
+                    "terminal_greedy_valid_rate_mean": float(
+                        np.mean([float(row["terminal_greedy_valid_rate"]) for row in group])
+                    ),
+                    "nan_inf_failure": any(
+                        bool(row["nan_inf_failure"]) for row in group
+                    ),
+                }
+            )
+        summaries[task] = {
+            "task": task,
+            "grouped_curve": grouped_curve,
+            "positive_only": positive_rows or None,
+            "global": global_rows or None,
+            "parameter_selection_deferred_to_reviewed_protocol": True,
+            "terminal_valid_rate_role": "diagnostic_only_not_selection_eligibility",
+        }
+        summary_rows.append(
+            {
+                "task": task,
+                "asymre_parameter_points": len(grouped_curve),
+                "finite_parameter_points": sum(
+                    not bool(row["nan_inf_failure"]) for row in grouped_curve
+                ),
+                "parameter_selection_deferred": True,
+            }
+        )
+    _write_csv(output_root / "aggregate" / "task_summary.csv", summary_rows)
+
+    protocol_diagnostic = _countdown_protocol_diagnostic(
+        config,
+        output_root,
+        destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
+    )
+    summary = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "run_id": run_id,
+        "source_commit": source_commit,
+        "cell_count": len(rows),
+        "plot_curve_point_count": len(plot_rows),
+        "method": METHOD_ASYMRE,
+        "tasks": summaries,
+        "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
+        "initialization": dict(config["initialization"]),
+        "scientific_kernel": "canonical_old_coldstart_imports",
+        "canonical_asymre_grid": str(_canonical_asymre_grid_path()),
+        "canonical_asymre_grid_sha256": sha256_file(_canonical_asymre_grid_path()),
+        "countdown_protocol_diagnostic": protocol_diagnostic,
+        "countdown_result_gate": False,
+        "primary_metric": "validation_late_window_pass8_mean",
+        "parameter_selection_deferred_to_reviewed_protocol": True,
+        "test_partition_accessed": False,
+        "method_ranking_allowed": False,
+        "significance_claim_allowed": False,
+        "fixed_horizon_is_convergence": False,
+        "task_performance_reported_separately": True,
+        "structure_diagnostic_reported_separately": True,
+        "nan_inf_reported_separately": True,
+        "scientific_status": "not_run" if _is_engineering_self_test(config) else "pilot",
+        "engineering_placeholder_backend": _is_engineering_self_test(config),
+    }
+    atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
+    return summary
+
 def _aggregate_coldstart(
     config: Mapping[str, Any],
     output_root: Path,
     rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    if _coldstart_method(config) == METHOD_ASYMRE:
+        return _aggregate_coldstart_asymre(config, output_root, rows)
     provenance_path = output_root / "source_provenance.json"
     provenance = (
         json.loads(provenance_path.read_text(encoding="utf-8")) if provenance_path.is_file() else {}
@@ -6687,6 +6932,7 @@ def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any
             "source": "dense" if _is_dense(config) else "current",
             "task": cell.task,
             "method": cell.method,
+            "delta_v": cell.delta_v,
             "rho": cell.rho,
             "lambda": (
                 cell.lambda_value
@@ -7347,7 +7593,10 @@ def _write_engineering_gates(
         "optimizer_update_norm": 1.0,
         "initial_adapter_weight_sha256": "0" * 64,
         "terminal_adapter_weight_sha256": "1" * 64,
-        "cell": {"task": "countdown"},
+        "cell": {
+            "task": "countdown",
+            "method": _coldstart_method(config),
+        },
         "scientific_status": "not_run",
     }
     atomic_json(output_root / "liveness" / liveness_key / "cell_manifest.json", liveness)

@@ -3092,3 +3092,93 @@ def test_coldstart_liveness_cli_path_needs_no_scientific_grid_selector(
     runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
     liveness = runner.split("\nliveness() {\n", 1)[1].split("\nrun_queue() {\n", 1)[0]
     assert "--lambda " not in liveness
+
+
+
+def _asymre_capability_test_config() -> dict:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = copy.deepcopy(
+        yaml.safe_load(
+  Path("configs/e8_multitask_exp_lambda_curve_completion.yaml").read_text(
+      encoding="utf-8"
+  )
+        )
+    )
+    config["experiment_id"] = "DEV-E8-MULTITASK-ASYMRE-CAPABILITY-TEST"
+    sweep = config["sweep"]
+    sweep["method"] = "asymre"
+    sweep["parameterization"] = "asymre_delta_v"
+    sweep.pop("task_lambda", None)
+    sweep["task_delta_v"] = {task: [] for task in config["suite"]["tasks"]}
+    for task in config["suite"]["p0_tasks"]:
+        sweep["task_delta_v"][task] = [-0.75, -0.25]
+    sweep["countdown_seed_offsets"] = []
+    sweep["countdown_include_positive_only"] = False
+    sweep["include_global_endpoint"] = False
+    sweep["transfer_positive_only_seed_offsets"] = []
+    sweep["task_transfer_seed_offset"] = 4000
+    sweep["tuning_seed"] = 4000
+    sweep["expected_cells"] = 16
+    config["execution"]["expected_waves"] = 1
+    config["canonical_coldstart"]["formula"] = "A_equals_R_minus_delta_v"
+    exp_tuning.validate_config(config)
+    return config
+
+
+def test_asymre_capability_is_config_driven_and_identity_safe(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _asymre_capability_test_config()
+    cells = exp_tuning.build_cells(config)
+    assert len(cells) == 16
+    assert {cell.method for cell in cells} == {exp_tuning.METHOD_ASYMRE}
+    assert {cell.seed for cell in cells} == {4000}
+    assert {cell.delta_v for cell in cells} == {-0.75, -0.25}
+    assert all(cell.lambda_value is None and cell.rho is None for cell in cells)
+    assert len({cell.key for cell in cells}) == 16
+    assert all("__asymre_delta_v" in cell.key for cell in cells)
+
+    plan = exp_tuning.write_plan(config, tmp_path)
+    assert plan["cell_count"] == 16
+    assert plan["wave_sizes"] == [16]
+    assert {row["delta_v"] for row in plan["rows"]} == {-0.75, -0.25}
+    assert all(row["lambda"] is None for row in plan["rows"])
+
+
+def test_asymre_capability_preserves_historical_coldstart_configs() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    for path in (
+        "configs/e8_multitask_exp_coldstart.yaml",
+        "configs/e8_multitask_exp_lambda_completion.yaml",
+        "configs/e8_multitask_exp_lambda_curve_completion.yaml",
+    ):
+        config = exp_tuning.load_config(Path(path))
+        assert config["sweep"]["method"] == exp_tuning.METHOD_EXPONENTIAL
+
+
+def test_asymre_capability_dispatches_existing_kernel_without_loss_copy() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+    assert "paper_family = METHOD_ASYMRE" in source
+    assert "family=paper_family" in source
+    assert "alpha = 1.0 + float(cell.delta_v)" in source
+    assert "positive_coefficient" not in source
+    assert "negative_repulsion_coefficient" not in source
+    assert "value_network" not in source
+
+
+def test_asymre_capability_liveness_uses_existing_asymre_profile() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    grid = exp_tuning._canonical_asymre_grid_path()
+    cell = exp_tuning._canonical_cold_liveness_cell(grid)
+    assert cell.method == exp_tuning.METHOD_ASYMRE
+    assert cell.delta_v == pytest.approx(-0.1)
+    assert cell.lambda_value is None
+    assert cell.rho is None
+    assert cell.seed == 4000

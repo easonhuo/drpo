@@ -23,6 +23,9 @@ COLDSTART_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-COLDSTART-01"
 LAMBDA_COMPLETION_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"
 LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02"
 P0_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-P0-01"
+COLDSTART_METHOD_EXPONENTIAL = "exponential"
+COLDSTART_METHOD_ASYMRE = "asymre"
+ASYMRE_PARAMETERIZATION = "asymre_delta_v"
 
 SWEEP_PROFILE_RHO = "nine_task_rho_v1"
 SWEEP_PROFILE_DENSE = "task_lambda_dense_v1"
@@ -168,6 +171,18 @@ def task_lambdas(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
     if any(value <= 0.0 for value in values):
         raise ValueError(f"{task} lambda values must be strictly positive")
     return values
+
+
+def coldstart_method(config: Mapping[str, Any]) -> str:
+    return str(_mapping(config.get("sweep"), "sweep").get("method", ""))
+
+
+def task_delta_vs(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
+    raw = _sequence(
+        config["sweep"]["task_delta_v"][task],
+        f"{task} delta_v grid",
+    )
+    return tuple(_number(value, f"{task} delta_v value") for value in raw)
 
 
 def _validate_scalar_types(config: Mapping[str, Any]) -> None:
@@ -517,30 +532,48 @@ def _validate_runtime_authority_consistency(
 
 def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
     sweep = _mapping(config.get("sweep"), "sweep")
-    if sweep.get("method") != "exponential":
-        raise ValueError("Cold-start sweep.method must be exponential")
-    if sweep.get("parameterization") not in ("paper_coefficient_c", "paper_lambda_c1"):
-        raise ValueError("Unsupported cold-start parameterization")
-    task_lambda = _mapping(sweep.get("task_lambda"), "sweep.task_lambda")
-    if set(task_lambda) != set(tasks):
-        raise ValueError("Cold-start task_lambda must contain the exact nine tasks")
+    method = coldstart_method(config)
+    if method == COLDSTART_METHOD_EXPONENTIAL:
+        if sweep.get("parameterization") not in (
+            "paper_coefficient_c",
+            "paper_lambda_c1",
+        ):
+            raise ValueError("Unsupported exponential cold-start parameterization")
+        task_values = _mapping(sweep.get("task_lambda"), "sweep.task_lambda")
+        if set(task_values) != set(tasks):
+            raise ValueError("Cold-start task_lambda must contain the exact nine tasks")
+        read_values = task_lambdas
+    elif method == COLDSTART_METHOD_ASYMRE:
+        if sweep.get("parameterization") != ASYMRE_PARAMETERIZATION:
+            raise ValueError("AsymRE cold-start requires asymre_delta_v parameterization")
+        task_values = _mapping(sweep.get("task_delta_v"), "sweep.task_delta_v")
+        if set(task_values) != set(tasks):
+            raise ValueError("Cold-start task_delta_v must contain the exact nine tasks")
+        read_values = task_delta_vs
+    else:
+        raise ValueError(f"Unsupported sweep.method for cold-start: {method}")
 
-    countdown_values = task_lambdas(config, "countdown")
+    countdown_values = read_values(config, "countdown")
     if len(set(countdown_values)) != len(countdown_values):
-        raise ValueError("Countdown coefficient grid contains duplicates")
-    if any(value not in COUNTDOWN_PAPER_COEFFICIENTS for value in countdown_values):
+        raise ValueError("Countdown parameter grid contains duplicates")
+    if method == COLDSTART_METHOD_EXPONENTIAL and any(
+        value not in COUNTDOWN_PAPER_COEFFICIENTS for value in countdown_values
+    ):
         raise ValueError("Countdown coefficients exceed the implemented paper-worker domain")
 
     countdown_seeds = tuple(
         _integer(value, "Countdown seed offset")
-        for value in _sequence(sweep.get("countdown_seed_offsets", ()), "countdown_seed_offsets")
+        for value in _sequence(
+            sweep.get("countdown_seed_offsets", ()),
+            "countdown_seed_offsets",
+        )
     )
     if len(set(countdown_seeds)) != len(countdown_seeds):
         raise ValueError("Countdown seed offsets must be unique")
     if any(seed not in COUNTDOWN_PAPER_SEEDS for seed in countdown_seeds):
         raise ValueError("Countdown seed exceeds the implemented paper-worker domain")
     if countdown_seeds and not countdown_values:
-        raise ValueError("Scheduled Countdown seeds require a non-empty coefficient grid")
+        raise ValueError("Scheduled Countdown seeds require a non-empty parameter grid")
 
     countdown_positive = _boolean(
         sweep.get("countdown_include_positive_only", True),
@@ -569,9 +602,9 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
 
     transfer_cell_count = 0
     for task in transfer_tasks:
-        values = task_lambdas(config, task)
+        values = read_values(config, task)
         if len(set(values)) != len(values):
-            raise ValueError(f"{task} lambda grid contains duplicates")
+            raise ValueError(f"{task} parameter grid contains duplicates")
         if not str(provenance[task]).strip():
             raise ValueError(f"{task} task-grid provenance must be non-empty")
         if values:
@@ -587,23 +620,28 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
     if expected == 0:
         raise ValueError("Cold-start sweep must contain at least one scientific cell")
 
-
 def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
     canonical = _mapping(config.get("canonical_coldstart"), "canonical_coldstart")
     if canonical.get("paths") != CANONICAL_COLDSTART_PATHS:
         raise ValueError("Cold-start canonical source paths are not implemented")
     if canonical.get("expected_git_blob_shas") != CANONICAL_COLDSTART_BLOB_SHAS:
         raise ValueError("Cold-start canonical source identities drifted")
+    method = coldstart_method(config)
+    expected_formula = (
+        "A_equals_R_minus_delta_v"
+        if method == COLDSTART_METHOD_ASYMRE
+        else "alpha_times_exp_minus_c_times_current_sequence_surprisal_div_2"
+    )
     if (
         canonical.get("scientific_kernel") != "import_only_no_loss_reimplementation"
         or canonical.get("initialization") != "qwen_pretrained_base_plus_fresh_lora"
-        or canonical.get("formula")
-        != "alpha_times_exp_minus_c_times_current_sequence_surprisal_div_2"
-        or canonical.get("countdown_entry") != "countdown_e8_alpha1_highc_scan_runtime.worker"
-        or canonical.get("transfer_entry") != "countdown_e8_alpha1_c_scan_trainer.train_cell"
+        or canonical.get("formula") != expected_formula
+        or canonical.get("countdown_entry")
+        != "countdown_e8_alpha1_highc_scan_runtime.worker"
+        or canonical.get("transfer_entry")
+        != "countdown_e8_alpha1_c_scan_trainer.train_cell"
     ):
         raise ValueError("Cold-start canonical trainer/dispatch contract drifted")
-
     execution = _mapping(config.get("execution"), "execution")
     capacity = _integer(
         execution.get("max_concurrent_cells"), "execution.max_concurrent_cells"
