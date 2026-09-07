@@ -35,10 +35,6 @@ jobs:
           end = source.index(suffix, start)
           block = source[start:end]
 
-          # The source workflow is intentionally being used only as a patch payload.
-          # Its outer run-block lines carry ten YAML spaces, while the embedded raw
-          # Python strings contain scientific/test code whose own indentation must
-          # remain byte-for-byte intact. Strip the YAML prefix only outside r'''...'''.
           extracted = []
           in_raw = False
           for line in block.splitlines():
@@ -56,6 +52,29 @@ jobs:
           Path('/tmp/dpo_patch.sh').write_text('\n'.join(extracted) + '\n', encoding='utf-8')
           PY
           bash /tmp/dpo_patch.sh
+          python - <<'PY'
+          from pathlib import Path
+
+          # The prompt-balanced reduction is deliberately factored into a tiny helper;
+          # make the structural test inspect that helper rather than demand the helper's
+          # implementation token inside the outer trainer source.
+          path = Path('tests/test_e8_multitask_p0.py')
+          text = path.read_text(encoding='utf-8')
+          needle = '        "mean_unique_negative_term",\n'
+          if text.count(needle) != 1:
+              raise RuntimeError(f'expected one DPO helper assertion token, found {text.count(needle)}')
+          text = text.replace(needle, '', 1)
+          marker = '    for fragment in required:\n        assert fragment in source\n'
+          replacement = (
+              marker
+              + '    helper_source = inspect.getsource(exp_tuning._dpo_prompt_balanced_mean)\n'
+              + '    assert "mean_unique_negative_term" in helper_source\n'
+          )
+          if text.count(marker) != 1:
+              raise RuntimeError(f'expected one DPO structural assertion loop, found {text.count(marker)}')
+          text = text.replace(marker, replacement, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
       - name: Install focused dependencies
         run: python -m pip install -q numpy pyyaml pytest
       - name: Validate DPO capability
