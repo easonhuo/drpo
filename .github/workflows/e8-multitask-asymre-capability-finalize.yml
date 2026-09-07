@@ -42,9 +42,6 @@ jobs:
           block = text[start:end]
           lines = []
           for line in block.splitlines():
-              # YAML block-scalar indentation is ten spaces. The embedded Python
-              # patcher intentionally contains raw triple-quoted test source whose
-              # interior lines begin at column zero; preserve those verbatim.
               lines.append(line[10:] if line.startswith('          ') else line)
           path = Path('/tmp/e8_asymre_patcher.sh')
           path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
@@ -60,6 +57,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          echo '--- generated e8_experiment_config.py lines 525-555 ---'
+          nl -ba src/drpo/e8_experiment_config.py | sed -n '525,555p'
           python -m py_compile \
             src/drpo/e8_experiment_config.py \
             src/drpo/e8_multitask_exp_tuning.py \
