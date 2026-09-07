@@ -1,0 +1,1050 @@
+name: E8 Multitask AsymRE Capability Dev
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-asymre-capability-01
+
+permissions:
+  contents: write
+
+jobs:
+  implement-and-test:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-asymre-capability-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Apply scoped AsymRE capability edits
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          config_path = Path('src/drpo/e8_experiment_config.py')
+          tuning_path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          tests_path = Path('tests/test_e8_multitask_p0.py')
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(f'{label}: expected one match, found {count}')
+              return text.replace(old, new, 1)
+
+          def replace_between(
+              text: str,
+              start_marker: str,
+              end_marker: str,
+              replacement: str,
+              label: str,
+          ) -> str:
+              start = text.find(start_marker)
+              if start < 0:
+                  raise RuntimeError(f'{label}: start marker not found')
+              end = text.find(end_marker, start)
+              if end < 0:
+                  raise RuntimeError(f'{label}: end marker not found')
+              return text[:start] + replacement + text[end:]
+
+          # ------------------------------------------------------------------
+          # e8_experiment_config.py: config-driven method and delta_v schema.
+          # ------------------------------------------------------------------
+          config = config_path.read_text(encoding='utf-8')
+          config = replace_once(
+              config,
+              'P0_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-P0-01"\n\nSWEEP_PROFILE_RHO',
+              'P0_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-P0-01"\n'
+              'COLDSTART_METHOD_EXPONENTIAL = "exponential"\n'
+              'COLDSTART_METHOD_ASYMRE = "asymre"\n'
+              'ASYMRE_PARAMETERIZATION = "asymre_delta_v"\n\n'
+              'SWEEP_PROFILE_RHO',
+              'config method constants',
+          )
+
+          helpers = '''def coldstart_method(config: Mapping[str, Any]) -> str:
+              return str(_mapping(config.get("sweep"), "sweep").get("method", ""))
+
+
+          def task_delta_vs(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
+              raw = _sequence(
+                  config["sweep"]["task_delta_v"][task],
+                  f"{task} delta_v grid",
+              )
+              return tuple(_number(value, f"{task} delta_v value") for value in raw)
+
+
+          '''
+          helpers = '\n'.join(line[10:] if line.startswith('          ') else line for line in helpers.splitlines()) + '\n'
+          config = replace_once(
+              config,
+              'def _validate_scalar_types(config: Mapping[str, Any]) -> None:\n',
+              helpers + 'def _validate_scalar_types(config: Mapping[str, Any]) -> None:\n',
+              'config helper insertion',
+          )
+
+          validate_sweep = '''def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
+              sweep = _mapping(config.get("sweep"), "sweep")
+              method = coldstart_method(config)
+              if method == COLDSTART_METHOD_EXPONENTIAL:
+                  if sweep.get("parameterization") not in (
+                      "paper_coefficient_c",
+                      "paper_lambda_c1",
+                  ):
+                      raise ValueError("Unsupported exponential cold-start parameterization")
+                  task_values = _mapping(sweep.get("task_lambda"), "sweep.task_lambda")
+                  if set(task_values) != set(tasks):
+                      raise ValueError("Cold-start task_lambda must contain the exact nine tasks")
+                  read_values = task_lambdas
+              elif method == COLDSTART_METHOD_ASYMRE:
+                  if sweep.get("parameterization") != ASYMRE_PARAMETERIZATION:
+                      raise ValueError("AsymRE cold-start requires asymre_delta_v parameterization")
+                  task_values = _mapping(sweep.get("task_delta_v"), "sweep.task_delta_v")
+                  if set(task_values) != set(tasks):
+                      raise ValueError("Cold-start task_delta_v must contain the exact nine tasks")
+                  read_values = task_delta_vs
+              else:
+                  raise ValueError(f"Unsupported cold-start method: {method}")
+
+              countdown_values = read_values(config, "countdown")
+              if len(set(countdown_values)) != len(countdown_values):
+                  raise ValueError("Countdown parameter grid contains duplicates")
+              if method == COLDSTART_METHOD_EXPONENTIAL and any(
+                  value not in COUNTDOWN_PAPER_COEFFICIENTS for value in countdown_values
+              ):
+                  raise ValueError("Countdown coefficients exceed the implemented paper-worker domain")
+
+              countdown_seeds = tuple(
+                  _integer(value, "Countdown seed offset")
+                  for value in _sequence(
+                      sweep.get("countdown_seed_offsets", ()),
+                      "countdown_seed_offsets",
+                  )
+              )
+              if len(set(countdown_seeds)) != len(countdown_seeds):
+                  raise ValueError("Countdown seed offsets must be unique")
+              if any(seed not in COUNTDOWN_PAPER_SEEDS for seed in countdown_seeds):
+                  raise ValueError("Countdown seed exceeds the implemented paper-worker domain")
+              if countdown_seeds and not countdown_values:
+                  raise ValueError("Scheduled Countdown seeds require a non-empty parameter grid")
+
+              countdown_positive = _boolean(
+                  sweep.get("countdown_include_positive_only", True),
+                  "countdown_include_positive_only",
+              )
+              include_global = _boolean(
+                  sweep.get("include_global_endpoint", False),
+                  "include_global_endpoint",
+              )
+              positive_seeds = tuple(
+                  _integer(value, "Transfer Positive-only seed offset")
+                  for value in _sequence(
+                      sweep.get("transfer_positive_only_seed_offsets", ()),
+                      "transfer_positive_only_seed_offsets",
+                  )
+              )
+              if len(set(positive_seeds)) != len(positive_seeds):
+                  raise ValueError("Transfer Positive-only seed offsets must be unique")
+              _integer(sweep.get("task_transfer_seed_offset"), "task_transfer_seed_offset")
+              _integer(sweep.get("tuning_seed"), "tuning_seed")
+
+              transfer_tasks = set(tasks) - {"countdown"}
+              provenance = _mapping(sweep.get("task_grid_provenance"), "task_grid_provenance")
+              if set(provenance) != transfer_tasks:
+                  raise ValueError("Task-grid provenance must cover the exact eight transfer tasks")
+
+              transfer_cell_count = 0
+              for task in transfer_tasks:
+                  values = read_values(config, task)
+                  if len(set(values)) != len(values):
+                      raise ValueError(f"{task} parameter grid contains duplicates")
+                  if not str(provenance[task]).strip():
+                      raise ValueError(f"{task} task-grid provenance must be non-empty")
+                  if values:
+                      transfer_cell_count += len(positive_seeds) + int(include_global) + len(values)
+
+              expanded = (
+                  len(countdown_seeds) * (1 + int(countdown_positive) + len(countdown_values))
+                  + transfer_cell_count
+              )
+              expected = _integer(sweep.get("expected_cells"), "sweep.expected_cells")
+              if expected != expanded:
+                  raise ValueError("sweep.expected_cells must match the expanded scientific matrix")
+              if expected == 0:
+                  raise ValueError("Cold-start sweep must contain at least one scientific cell")
+
+
+          '''
+          validate_sweep = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in validate_sweep.splitlines()
+          )
+          config = replace_between(
+              config,
+              'def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:\n',
+              'def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:\n',
+              validate_sweep,
+              'replace cold-start sweep validator',
+          )
+
+          canonical_header = '''def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
+              canonical = _mapping(config.get("canonical_coldstart"), "canonical_coldstart")
+              if canonical.get("paths") != CANONICAL_COLDSTART_PATHS:
+                  raise ValueError("Cold-start canonical source paths are not implemented")
+              if canonical.get("expected_git_blob_shas") != CANONICAL_COLDSTART_BLOB_SHAS:
+                  raise ValueError("Cold-start canonical source identities drifted")
+              method = coldstart_method(config)
+              expected_formula = (
+                  "A_equals_R_minus_delta_v"
+                  if method == COLDSTART_METHOD_ASYMRE
+                  else "alpha_times_exp_minus_c_times_current_sequence_surprisal_div_2"
+              )
+              if (
+                  canonical.get("scientific_kernel") != "import_only_no_loss_reimplementation"
+                  or canonical.get("initialization") != "qwen_pretrained_base_plus_fresh_lora"
+                  or canonical.get("formula") != expected_formula
+                  or canonical.get("countdown_entry")
+                  != "countdown_e8_alpha1_highc_scan_runtime.worker"
+                  or canonical.get("transfer_entry")
+                  != "countdown_e8_alpha1_c_scan_trainer.train_cell"
+              ):
+                  raise ValueError("Cold-start canonical trainer/dispatch contract drifted")
+
+          '''
+          canonical_header = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in canonical_header.splitlines()
+          )
+          config = replace_between(
+              config,
+              'def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:\n',
+              '    execution = _mapping(config.get("execution"), "execution")\n',
+              canonical_header,
+              'replace canonical contract header',
+          )
+          config_path.write_text(config, encoding='utf-8')
+
+          # ------------------------------------------------------------------
+          # e8_multitask_exp_tuning.py: cell/planning/canonical dispatch only.
+          # ------------------------------------------------------------------
+          tuning = tuning_path.read_text(encoding='utf-8')
+          tuning = replace_once(
+              tuning,
+              'METHOD_POSITIVE_ONLY = "positive_only"\nMETHOD_EXPONENTIAL = "exponential"\nMETHOD_GLOBAL',
+              'METHOD_POSITIVE_ONLY = "positive_only"\nMETHOD_EXPONENTIAL = "exponential"\n'
+              'METHOD_ASYMRE = "asymre"\nMETHOD_GLOBAL',
+              'tuning method constant',
+          )
+          tuning = replace_once(
+              tuning,
+              'DEFAULT_P0_CONFIG = Path("configs/e8_multitask_p0.yaml")\nMETHOD_POSITIVE_ONLY',
+              'DEFAULT_P0_CONFIG = Path("configs/e8_multitask_p0.yaml")\n'
+              'CANONICAL_ASYMRE_GRID = Path(\n'
+              '    "configs/countdown_e8_oracle_offline_v2_asymre_deltav_scan_0p5b.yaml"\n'
+              ')\nMETHOD_POSITIVE_ONLY',
+              'tuning AsymRE grid path',
+          )
+
+          cell_block = '''@dataclass(frozen=True)
+          class Cell:
+              task: str
+              method: str
+              rho: float | None
+              seed: int
+              stage: str
+              lambda_value: float | None = None
+              delta_v: float | None = None
+
+              @property
+              def key(self) -> str:
+                  if self.method == METHOD_POSITIVE_ONLY:
+                      return f"{self.task}__positive_only__seed{self.seed}"
+                  if self.method == METHOD_GLOBAL:
+                      return f"{self.task}__global__seed{self.seed}"
+                  if self.method == METHOD_ASYMRE:
+                      if self.delta_v is None:
+                          raise AssertionError("AsymRE cell requires delta_v")
+                      tag = (
+                          f"{self.delta_v:.12g}"
+                          .replace("-", "m")
+                          .replace(".", "p")
+                      )
+                      return f"{self.task}__asymre_delta_v{tag}__seed{self.seed}"
+                  if self.lambda_value is not None:
+                      tag = f"{self.lambda_value:.12g}".replace(".", "p")
+                      return f"{self.task}__exp_lambda{tag}__seed{self.seed}"
+                  if self.rho is None:
+                      raise AssertionError("Exponential cell requires rho or lambda")
+                  tag = f"{self.rho:.6f}".rstrip("0").rstrip(".").replace(".", "p")
+                  return f"{self.task}__exp_rho{tag}__seed{self.seed}"
+
+
+          '''
+          cell_block = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in cell_block.splitlines()
+          )
+          tuning = replace_between(
+              tuning,
+              '@dataclass(frozen=True)\nclass Cell:\n',
+              '@dataclass(frozen=True)\nclass TaskInputs:\n',
+              cell_block,
+              'replace Cell representation',
+          )
+
+          method_helpers = '''def _coldstart_method(config: Mapping[str, Any]) -> str:
+              if not _is_coldstart(config):
+                  raise ValueError("Cold-start method is defined only for the cold-start profile")
+              return experiment_config.coldstart_method(config)
+
+
+          def _task_method_values(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
+              if _coldstart_method(config) == METHOD_ASYMRE:
+                  return experiment_config.task_delta_vs(config, task)
+              return _task_lambdas(config, task)
+
+
+          '''
+          method_helpers = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in method_helpers.splitlines()
+          )
+          tuning = replace_once(
+              tuning,
+              'def _task_rhos(config: Mapping[str, Any], task: str) -> tuple[float, ...]:\n',
+              method_helpers + 'def _task_rhos(config: Mapping[str, Any], task: str) -> tuple[float, ...]:\n',
+              'insert tuning method helpers',
+          )
+
+          cold_build = '''    if _is_coldstart(config):
+              cells: list[Cell] = []
+              method = _coldstart_method(config)
+              lambda_only = (
+                  method == METHOD_EXPONENTIAL
+                  and config["sweep"]["parameterization"] == "paper_lambda_c1"
+              )
+              countdown_values = _task_method_values(config, "countdown")
+              countdown_include_positive_only = bool(
+                  config["sweep"].get("countdown_include_positive_only", True)
+              )
+              include_global_endpoint = bool(
+                  config["sweep"].get("include_global_endpoint", False)
+              )
+              for seed_offset in tuple(
+                  int(value) for value in config["sweep"]["countdown_seed_offsets"]
+              ):
+                  if countdown_include_positive_only:
+                      cells.append(
+                          Cell(
+                              "countdown",
+                              METHOD_POSITIVE_ONLY,
+                              None,
+                              seed_offset,
+                              "countdown_sentinel",
+                          )
+                      )
+                  cells.append(
+                      Cell(
+                          "countdown",
+                          METHOD_GLOBAL,
+                          1.0,
+                          seed_offset,
+                          "countdown_sentinel",
+                          0.0,
+                      )
+                  )
+                  if method == METHOD_ASYMRE:
+                      cells.extend(
+                          Cell(
+                              "countdown",
+                              METHOD_ASYMRE,
+                              None,
+                              seed_offset,
+                              "countdown_sentinel",
+                              None,
+                              delta_v,
+                          )
+                          for delta_v in countdown_values
+                      )
+                  else:
+                      cells.extend(
+                          Cell(
+                              "countdown",
+                              METHOD_EXPONENTIAL,
+                              None if lambda_only else math.exp(-coefficient),
+                              seed_offset,
+                              "countdown_sentinel",
+                              coefficient,
+                          )
+                          for coefficient in countdown_values
+                      )
+              positive_seeds = tuple(
+                  int(value)
+                  for value in config["sweep"]["transfer_positive_only_seed_offsets"]
+              )
+              method_seed = int(config["sweep"]["task_transfer_seed_offset"])
+              for task in tasks:
+                  if task == "countdown":
+                      continue
+                  values = _task_method_values(config, task)
+                  if not values:
+                      continue
+                  cells.extend(
+                      Cell(task, METHOD_POSITIVE_ONLY, None, seed_offset, "task_transfer")
+                      for seed_offset in positive_seeds
+                  )
+                  if include_global_endpoint:
+                      cells.append(
+                          Cell(task, METHOD_GLOBAL, 1.0, method_seed, "task_transfer", 0.0)
+                      )
+                  if method == METHOD_ASYMRE:
+                      cells.extend(
+                          Cell(
+                              task,
+                              METHOD_ASYMRE,
+                              None,
+                              method_seed,
+                              "task_transfer",
+                              None,
+                              delta_v,
+                          )
+                          for delta_v in values
+                      )
+                  else:
+                      cells.extend(
+                          Cell(
+                              task,
+                              METHOD_EXPONENTIAL,
+                              None if lambda_only else math.exp(-coefficient),
+                              method_seed,
+                              "task_transfer",
+                              coefficient,
+                          )
+                          for coefficient in values
+                      )
+              result = tuple(cells)
+              if len(result) != int(config["sweep"]["expected_cells"]) or len(
+                  {cell.key for cell in result}
+              ) != len(result):
+                  raise AssertionError("Internal cold-start cell identity failure")
+              return result
+          '''
+          cold_build = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in cold_build.splitlines()
+          )
+          start = '    if _is_coldstart(config):\n        cells: list[Cell] = []\n'
+          end = '    coarse = _tuple_floats(config["sweep"]["coarse_rho"])\n'
+          tuning = replace_between(
+              tuning,
+              start,
+              end,
+              cold_build + '\n',
+              'replace cold-start cell builder',
+          )
+
+          # Add delta_v to plan identity.
+          plan_start = tuning.index('def write_plan(config: Mapping[str, Any], output_root: Path)')
+          plan_end = tuning.index('\n\ndef _ordered_by_prompt_hash', plan_start)
+          plan = tuning[plan_start:plan_end]
+          plan = replace_once(
+              plan,
+              '                    "method": cell.method,\n                    "rho": cell.rho,',
+              '                    "method": cell.method,\n'
+              '                    "delta_v": cell.delta_v,\n'
+              '                    "rho": cell.rho,',
+              'plan delta_v',
+          )
+          tuning = tuning[:plan_start] + plan + tuning[plan_end:]
+
+          # Canonical AsymRE grid is an existing tracked historical config, not a new kernel.
+          asymre_grid_helper = '''def _canonical_asymre_grid_path() -> Path:
+              path = (_repo_root() / CANONICAL_ASYMRE_GRID).resolve()
+              if not path.is_file():
+                  raise FileNotFoundError(f"Canonical AsymRE grid is missing: {path}")
+              return path
+
+
+          '''
+          asymre_grid_helper = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in asymre_grid_helper.splitlines()
+          )
+          tuning = replace_once(
+              tuning,
+              'def _leaf_values(value: Any, prefix: str = "") -> dict[str, Any]:\n',
+              asymre_grid_helper + 'def _leaf_values(value: Any, prefix: str = "") -> dict[str, Any]:\n',
+              'AsymRE grid helper insertion',
+          )
+
+          paper_grid = '''def _paper_grid_for_cell(record: Mapping[str, Any], cell: Cell) -> Path:
+              if cell.method == METHOD_ASYMRE:
+                  return _canonical_asymre_grid_path()
+              if cell.task != "countdown":
+                  # Transfer coefficients are passed directly to the locked trainer.
+                  return Path(str(record["round1_grid"]))
+              coefficient = 0.0 if cell.lambda_value is None else float(cell.lambda_value)
+              return Path(str(record[_paper_grid_name(coefficient)]))
+
+
+          '''
+          paper_grid = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in paper_grid.splitlines()
+          )
+          grid_start = tuning.index('def _paper_grid_for_cell(record: Mapping[str, Any], cell: Cell) -> Path:\n')
+          grid_end = tuning.index('\n\ndef ', grid_start + 1)
+          tuning = tuning[:grid_start] + paper_grid + tuning[grid_end + 2:]
+
+          # Cell identity includes delta_v explicitly.
+          identity_start = tuning.index('def _cell_identity(\n')
+          identity_end = tuning.index('\n\ndef _summarize_evaluations', identity_start)
+          identity = tuning[identity_start:identity_end]
+          identity = replace_once(
+              identity,
+              '            "method": cell.method,\n            "rho": cell.rho,',
+              '            "method": cell.method,\n'
+              '            "delta_v": cell.delta_v,\n'
+              '            "rho": cell.rho,',
+              'cell identity delta_v',
+          )
+          tuning = tuning[:identity_start] + identity + tuning[identity_end:]
+
+          # Canonical cold dispatch: select AsymRE profile and map delta_v into existing Cell.
+          train_start = tuning.index('def _train_canonical_cold_cell(\n')
+          train_end = tuning.index('\n\ndef _train_cell_impl(', train_start)
+          train = tuning[train_start:train_end]
+          train = replace_once(
+              train,
+              '    grid_path = _paper_grid_for_cell(record, cell)\n'
+              '    grid_source_name = (\n'
+              '        "round1_grid"\n'
+              '        if cell.task != "countdown"\n'
+              '        else _paper_grid_name(0.0 if cell.lambda_value is None else float(cell.lambda_value))\n'
+              '    )\n'
+              '    grid_source_path = _canonical_paths(config)[grid_source_name]\n',
+              '    grid_path = _paper_grid_for_cell(record, cell)\n'
+              '    if cell.method == METHOD_ASYMRE:\n'
+              '        grid_source_path = _canonical_asymre_grid_path()\n'
+              '    else:\n'
+              '        grid_source_name = (\n'
+              '            "round1_grid"\n'
+              '            if cell.task != "countdown"\n'
+              '            else _paper_grid_name(\n'
+              '                0.0 if cell.lambda_value is None else float(cell.lambda_value)\n'
+              '            )\n'
+              '        )\n'
+              '        grid_source_path = _canonical_paths(config)[grid_source_name]\n',
+              'canonical grid source dispatch',
+          )
+          train = replace_once(
+              train,
+              '            "paper_formula": "alpha*exp(-c*(current_sequence_surprisal/2))",',
+              '            "paper_formula": (\n'
+              '                "delegated_to_existing_canonical_asymre"\n'
+              '                if cell.method == METHOD_ASYMRE\n'
+              '                else "alpha*exp(-c*(current_sequence_surprisal/2))"\n'
+              '            ),',
+              'canonical method identity metadata',
+          )
+          train = replace_once(
+              train,
+              '    alpha = 0.0 if cell.method == METHOD_POSITIVE_ONLY else 1.0\n'
+              '    coefficient = (\n'
+              '        0.0 if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL} else float(cell.lambda_value)\n'
+              '    )\n',
+              '    if cell.method == METHOD_ASYMRE:\n'
+              '        if cell.delta_v is None:\n'
+              '            raise AssertionError("AsymRE cell has no delta_v")\n'
+              '        paper_family = METHOD_ASYMRE\n'
+              '        alpha = 1.0 + float(cell.delta_v)\n'
+              '        coefficient = 0.0\n'
+              '    else:\n'
+              '        paper_family = "exponential"\n'
+              '        alpha = 0.0 if cell.method == METHOD_POSITIVE_ONLY else 1.0\n'
+              '        coefficient = (\n'
+              '            0.0\n'
+              '            if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL}\n'
+              '            else float(cell.lambda_value)\n'
+              '        )\n',
+              'canonical family parameter mapping',
+          )
+          family_count = train.count('family="exponential"')
+          if family_count != 2:
+              raise RuntimeError(
+                  f'canonical dispatch family replacement expected 2, found {family_count}'
+              )
+          train = train.replace('family="exponential"', 'family=paper_family')
+          train = replace_once(
+              train,
+              '        **identity,\n        **metrics_summary,',
+              '        **identity,\n        **metrics_summary,\n        "delta_v": cell.delta_v,',
+              'canonical result delta_v',
+          )
+          tuning = tuning[:train_start] + train + tuning[train_end:]
+
+          liveness_cell = '''def _canonical_cold_liveness_cell(grid_path: Path) -> Cell:
+              """Derive wrapper identity from the exact canonical method liveness grid."""
+
+              grid = yaml.safe_load(grid_path.read_text(encoding="utf-8"))
+              if not isinstance(grid, dict):
+                  raise TypeError("Canonical liveness grid root must be a mapping")
+              liveness = grid["execution"]["liveness"]
+              seed_offsets = grid["sweep"]["seed_offsets"]
+              family = str(liveness.get("representative_family", "exponential"))
+              if family == METHOD_ASYMRE:
+                  delta_v = float(liveness["representative_delta_v"])
+                  return Cell(
+                      "countdown",
+                      METHOD_ASYMRE,
+                      None,
+                      int(seed_offsets[0]),
+                      "liveness",
+                      None,
+                      delta_v,
+                  )
+              coefficient = float(liveness["representative_c"])
+              return Cell(
+                  "countdown",
+                  METHOD_EXPONENTIAL,
+                  math.exp(-coefficient),
+                  int(seed_offsets[0]),
+                  "liveness",
+                  coefficient,
+              )
+
+
+          '''
+          liveness_cell = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in liveness_cell.splitlines()
+          )
+          tuning = replace_between(
+              tuning,
+              'def _canonical_cold_liveness_cell(grid_path: Path) -> Cell:\n',
+              'def _cmd_canonical_cold_liveness(\n',
+              liveness_cell,
+              'replace canonical liveness cell',
+          )
+
+          liveness_start = tuning.index('def _cmd_canonical_cold_liveness(\n')
+          liveness_end = tuning.index('\n\ndef cmd_liveness(', liveness_start)
+          liveness = tuning[liveness_start:liveness_end]
+          liveness = replace_once(
+              liveness,
+              '    modules = _canonical_cold_modules(config)\n'
+              '    runtime = modules["paper_runtime"]\n'
+              '    record = _canonical_task_record(splits, "countdown")\n'
+              '    grid_path = Path(str(record["round1_grid"]))\n'
+              '    cell = _canonical_cold_liveness_cell(grid_path)\n',
+              '    modules = _canonical_cold_modules(config)\n'
+              '    record = _canonical_task_record(splits, "countdown")\n'
+              '    grid_path = (\n'
+              '        _canonical_asymre_grid_path()\n'
+              '        if _coldstart_method(config) == METHOD_ASYMRE\n'
+              '        else Path(str(record["round1_grid"]))\n'
+              '    )\n'
+              '    modules = _activate_paper_grid_modules(modules, grid_path)\n'
+              '    runtime = modules["paper_runtime"]\n'
+              '    cell = _canonical_cold_liveness_cell(grid_path)\n',
+              'method-aware liveness grid activation',
+          )
+          tuning = tuning[:liveness_start] + liveness + tuning[liveness_end:]
+
+          # Liveness reuse must match the configured scientific family.
+          gate_start = tuning.index('def _require_liveness_gate(\n')
+          gate_end = tuning.index('\n\ndef cmd_run_wave(', gate_start)
+          gate = tuning[gate_start:gate_end]
+          gate = replace_once(
+              gate,
+              '            and result.get("finite_old_core_updates") is True\n',
+              '            and result.get("finite_old_core_updates") is True\n'
+              '            and result.get("cell", {}).get("method") == _coldstart_method(config)\n',
+              'liveness family identity',
+          )
+          tuning = tuning[:gate_start] + gate + tuning[gate_end:]
+
+          # Per-task and aggregate rows expose delta_v without overloading lambda.
+          completed_start = tuning.index('def _coldstart_completed_task_rows(\n')
+          completed_end = tuning.index('\n\ndef _write_coldstart_task_result(', completed_start)
+          completed = tuning[completed_start:completed_end]
+          completed = replace_once(
+              completed,
+              '                "method": cell.method,\n                "rho": cell.rho,',
+              '                "method": cell.method,\n'
+              '                "delta_v": cell.delta_v,\n'
+              '                "rho": cell.rho,',
+              'completed task row delta_v',
+          )
+          tuning = tuning[:completed_start] + completed + tuning[completed_end:]
+
+          task_result_start = tuning.index('def _write_coldstart_task_result(\n')
+          task_result_end = tuning.index(
+              '\n\ndef _materialize_completed_coldstart_task_results(',
+              task_result_start,
+          )
+          task_result = tuning[task_result_start:task_result_end]
+          task_result = replace_once(
+              task_result,
+              '            "method": row["method"],\n            "lambda": row["lambda"],',
+              '            "method": row["method"],\n'
+              '            "delta_v": row.get("delta_v"),\n'
+              '            "lambda": row["lambda"],',
+              'task-result plot delta_v',
+          )
+          tuning = tuning[:task_result_start] + task_result + tuning[task_result_end:]
+
+          asymre_aggregate = '''def _aggregate_coldstart_asymre(
+              config: Mapping[str, Any],
+              output_root: Path,
+              rows: list[dict[str, Any]],
+          ) -> dict[str, Any]:
+              """Aggregate the declared AsymRE response curve without selecting a winner."""
+
+              provenance_path = output_root / "source_provenance.json"
+              provenance = (
+                  json.loads(provenance_path.read_text(encoding="utf-8"))
+                  if provenance_path.is_file()
+                  else {}
+              )
+              run_id = str(provenance.get("run_id", output_root.name))
+              source_commit = str(provenance.get("source_commit", "unrecorded"))
+              plot_rows = [
+                  {
+                      "experiment_id": experiment_id(config),
+                      "run_id": run_id,
+                      "source_commit": source_commit,
+                      "task": row["task"],
+                      "method": row["method"],
+                      "delta_v": row.get("delta_v"),
+                      "seed": row["seed"],
+                      "stage": row["stage"],
+                      "late_window_pass8_mean": row["late_window_pass8_mean"],
+                      "late_window_greedy_mean": row["late_window_greedy_mean"],
+                      "best_validation_pass8": row["best_pass8"],
+                      "terminal_pass8": row["terminal_pass8"],
+                      "best_validation_greedy": row["best_greedy"],
+                      "terminal_greedy": row["terminal_greedy"],
+                      "best_greedy_valid_rate": row["best_greedy_valid_rate"],
+                      "terminal_greedy_valid_rate": row["terminal_greedy_valid_rate"],
+                      "best_step": row["best_step"],
+                      "terminal_step": row["terminal_step"],
+                      "stop_reason": row["stop_reason"],
+                      "nan_inf_failure": row["nan_inf_failure"],
+                      "complete": True,
+                  }
+                  for row in rows
+              ]
+              _write_csv(output_root / "aggregate" / "plot_curve_points.csv", plot_rows)
+
+              summaries: dict[str, Any] = {}
+              summary_rows: list[dict[str, Any]] = []
+              configured_cells = build_cells(config)
+              for task_value in config["suite"]["tasks"]:
+                  task = str(task_value)
+                  task_cells = [cell for cell in configured_cells if cell.task == task]
+                  if not task_cells:
+                      continue
+                  task_rows = [row for row in rows if row["task"] == task]
+                  expected_asymre = sum(cell.method == METHOD_ASYMRE for cell in task_cells)
+                  asymre_rows = [row for row in task_rows if row["method"] == METHOD_ASYMRE]
+                  positive_rows = [
+                      row for row in task_rows if row["method"] == METHOD_POSITIVE_ONLY
+                  ]
+                  global_rows = [row for row in task_rows if row["method"] == METHOD_GLOBAL]
+                  expected_positive = sum(
+                      cell.method == METHOD_POSITIVE_ONLY for cell in task_cells
+                  )
+                  expected_global = sum(cell.method == METHOD_GLOBAL for cell in task_cells)
+                  if (
+                      len(asymre_rows),
+                      len(positive_rows),
+                      len(global_rows),
+                  ) != (expected_asymre, expected_positive, expected_global):
+                      raise RuntimeError(f"{task} AsymRE cold-start cell geometry is incomplete")
+
+                  groups: dict[float, list[dict[str, Any]]] = {}
+                  for row in asymre_rows:
+                      if row.get("delta_v") is None:
+                          raise RuntimeError(f"{task} AsymRE row is missing delta_v")
+                      groups.setdefault(float(row["delta_v"]), []).append(row)
+                  grouped_curve = []
+                  for delta_v, group in sorted(groups.items()):
+                      grouped_curve.append(
+                          {
+                              "task": task,
+                              "method": METHOD_ASYMRE,
+                              "delta_v": delta_v,
+                              "seeds": sorted(int(row["seed"]) for row in group),
+                              "late_window_pass8_mean": float(
+                                  np.mean(
+                                      [float(row["late_window_pass8_mean"]) for row in group]
+                                  )
+                              ),
+                              "late_window_greedy_mean": float(
+                                  np.mean(
+                                      [float(row["late_window_greedy_mean"]) for row in group]
+                                  )
+                              ),
+                              "terminal_pass8_mean": float(
+                                  np.mean([float(row["terminal_pass8"]) for row in group])
+                              ),
+                              "terminal_greedy_valid_rate_mean": float(
+                                  np.mean(
+                                      [
+                                          float(row["terminal_greedy_valid_rate"])
+                                          for row in group
+                                      ]
+                                  )
+                              ),
+                              "nan_inf_failure": any(
+                                  bool(row["nan_inf_failure"]) for row in group
+                              ),
+                          }
+                      )
+                  summaries[task] = {
+                      "task": task,
+                      "grouped_curve": grouped_curve,
+                      "positive_only": positive_rows or None,
+                      "global": global_rows or None,
+                      "parameter_selection_deferred_to_reviewed_protocol": True,
+                      "terminal_valid_rate_role": "diagnostic_only_not_selection_eligibility",
+                  }
+                  summary_rows.append(
+                      {
+                          "task": task,
+                          "asymre_parameter_points": len(grouped_curve),
+                          "finite_parameter_points": sum(
+                              not bool(row["nan_inf_failure"]) for row in grouped_curve
+                          ),
+                          "parameter_selection_deferred": True,
+                      }
+                  )
+              _write_csv(output_root / "aggregate" / "task_summary.csv", summary_rows)
+
+              protocol_diagnostic = _countdown_protocol_diagnostic(
+                  config,
+                  output_root,
+                  destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
+              )
+              summary = {
+                  "schema_version": 1,
+                  "experiment_id": experiment_id(config),
+                  "run_id": run_id,
+                  "source_commit": source_commit,
+                  "cell_count": len(rows),
+                  "plot_curve_point_count": len(plot_rows),
+                  "method": METHOD_ASYMRE,
+                  "tasks": summaries,
+                  "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
+                  "initialization": dict(config["initialization"]),
+                  "scientific_kernel": "canonical_old_coldstart_imports",
+                  "canonical_asymre_grid": str(_canonical_asymre_grid_path()),
+                  "canonical_asymre_grid_sha256": sha256_file(
+                      _canonical_asymre_grid_path()
+                  ),
+                  "countdown_protocol_diagnostic": protocol_diagnostic,
+                  "countdown_result_gate": False,
+                  "primary_metric": "validation_late_window_pass8_mean",
+                  "parameter_selection_deferred_to_reviewed_protocol": True,
+                  "test_partition_accessed": False,
+                  "method_ranking_allowed": False,
+                  "significance_claim_allowed": False,
+                  "fixed_horizon_is_convergence": False,
+                  "task_performance_reported_separately": True,
+                  "structure_diagnostic_reported_separately": True,
+                  "nan_inf_reported_separately": True,
+                  "scientific_status": (
+                      "not_run" if _is_engineering_self_test(config) else "pilot"
+                  ),
+                  "engineering_placeholder_backend": _is_engineering_self_test(config),
+              }
+              atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
+              return summary
+
+
+          '''
+          asymre_aggregate = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in asymre_aggregate.splitlines()
+          )
+          tuning = replace_once(
+              tuning,
+              'def _aggregate_coldstart(\n',
+              asymre_aggregate + 'def _aggregate_coldstart(\n',
+              'insert AsymRE cold-start aggregator',
+          )
+          agg_start = tuning.index('def _aggregate_coldstart(\n')
+          agg_end = tuning.index('\n\ndef cmd_aggregate(', agg_start)
+          aggregate = tuning[agg_start:agg_end]
+          aggregate = replace_once(
+              aggregate,
+              ') -> dict[str, Any]:\n    provenance_path = output_root / "source_provenance.json"\n',
+              ') -> dict[str, Any]:\n'
+              '    if _coldstart_method(config) == METHOD_ASYMRE:\n'
+              '        return _aggregate_coldstart_asymre(config, output_root, rows)\n'
+              '    provenance_path = output_root / "source_provenance.json"\n',
+              'AsymRE aggregate dispatch',
+          )
+          tuning = tuning[:agg_start] + aggregate + tuning[agg_end:]
+
+          cmd_agg_start = tuning.index('def cmd_aggregate(config: Mapping[str, Any], output_root: Path)')
+          cmd_agg_end = tuning.index('\n\ndef cmd_audit(', cmd_agg_start)
+          cmd_agg = tuning[cmd_agg_start:cmd_agg_end]
+          cmd_agg = replace_once(
+              cmd_agg,
+              '            "method": cell.method,\n            "rho": cell.rho,',
+              '            "method": cell.method,\n'
+              '            "delta_v": cell.delta_v,\n'
+              '            "rho": cell.rho,',
+              'aggregate row delta_v',
+          )
+          tuning = tuning[:cmd_agg_start] + cmd_agg + tuning[cmd_agg_end:]
+
+          tuning_path.write_text(tuning, encoding='utf-8')
+
+          # ------------------------------------------------------------------
+          # Focused regression tests: synthetic values are engineering-only and
+          # deliberately not the future five-point baseline grid.
+          # ------------------------------------------------------------------
+          tests = tests_path.read_text(encoding='utf-8')
+          marker = 'def _asymre_capability_test_config() -> dict:\n'
+          if marker in tests:
+              raise RuntimeError('AsymRE capability tests already exist')
+          addition = r'''
+
+
+def _asymre_capability_test_config() -> dict:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = copy.deepcopy(
+        yaml.safe_load(
+            Path("configs/e8_multitask_exp_lambda_curve_completion.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+    )
+    config["experiment_id"] = "DEV-E8-MULTITASK-ASYMRE-CAPABILITY-TEST"
+    sweep = config["sweep"]
+    sweep["method"] = "asymre"
+    sweep["parameterization"] = "asymre_delta_v"
+    sweep.pop("task_lambda", None)
+    sweep["task_delta_v"] = {task: [] for task in config["suite"]["tasks"]}
+    for task in config["suite"]["p0_tasks"]:
+        sweep["task_delta_v"][task] = [-0.75, -0.25]
+    sweep["countdown_seed_offsets"] = []
+    sweep["countdown_include_positive_only"] = False
+    sweep["include_global_endpoint"] = False
+    sweep["transfer_positive_only_seed_offsets"] = []
+    sweep["task_transfer_seed_offset"] = 4000
+    sweep["tuning_seed"] = 4000
+    sweep["expected_cells"] = 16
+    config["execution"]["expected_waves"] = 1
+    config["canonical_coldstart"]["formula"] = "A_equals_R_minus_delta_v"
+    exp_tuning.validate_config(config)
+    return config
+
+
+def test_asymre_capability_is_config_driven_and_identity_safe(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _asymre_capability_test_config()
+    cells = exp_tuning.build_cells(config)
+    assert len(cells) == 16
+    assert {cell.method for cell in cells} == {exp_tuning.METHOD_ASYMRE}
+    assert {cell.seed for cell in cells} == {4000}
+    assert {cell.delta_v for cell in cells} == {-0.75, -0.25}
+    assert all(cell.lambda_value is None and cell.rho is None for cell in cells)
+    assert len({cell.key for cell in cells}) == 16
+    assert all("__asymre_delta_v" in cell.key for cell in cells)
+
+    plan = exp_tuning.write_plan(config, tmp_path)
+    assert plan["cell_count"] == 16
+    assert plan["wave_sizes"] == [16]
+    assert {row["delta_v"] for row in plan["rows"]} == {-0.75, -0.25}
+    assert all(row["lambda"] is None for row in plan["rows"])
+
+
+def test_asymre_capability_preserves_historical_coldstart_configs() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    for path in (
+        "configs/e8_multitask_exp_coldstart.yaml",
+        "configs/e8_multitask_exp_lambda_completion.yaml",
+        "configs/e8_multitask_exp_lambda_curve_completion.yaml",
+    ):
+        config = exp_tuning.load_config(Path(path))
+        assert config["sweep"]["method"] == exp_tuning.METHOD_EXPONENTIAL
+
+
+def test_asymre_capability_dispatches_existing_kernel_without_loss_copy() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+    assert "paper_family = METHOD_ASYMRE" in source
+    assert "family=paper_family" in source
+    assert "alpha = 1.0 + float(cell.delta_v)" in source
+    assert "positive_coefficient" not in source
+    assert "negative_repulsion_coefficient" not in source
+    assert "value_network" not in source
+
+
+def test_asymre_capability_liveness_uses_existing_asymre_profile() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    grid = exp_tuning._canonical_asymre_grid_path()
+    cell = exp_tuning._canonical_cold_liveness_cell(grid)
+    assert cell.method == exp_tuning.METHOD_ASYMRE
+    assert cell.delta_v == pytest.approx(-0.1)
+    assert cell.lambda_value is None
+    assert cell.rho is None
+    assert cell.seed == 4000
+'''
+          tests_path.write_text(tests + addition, encoding='utf-8')
+          PY
+
+      - name: Install focused test dependencies
+        run: python -m pip install -q numpy pyyaml pytest ruff
+
+      - name: Compile and run focused regression tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            src/drpo/e8_experiment_config.py \
+            src/drpo/e8_multitask_exp_tuning.py \
+            tests/test_e8_multitask_p0.py
+          python -m pytest -q tests/test_e8_multitask_p0.py \
+            -k 'asymre_capability'
+          python -m ruff check \
+            src/drpo/e8_experiment_config.py \
+            src/drpo/e8_multitask_exp_tuning.py \
+            tests/test_e8_multitask_p0.py
+          git diff --check
+
+      - name: Commit scoped implementation and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/e8-multitask-asymre-capability-dev.yml
+          git add \
+            src/drpo/e8_experiment_config.py \
+            src/drpo/e8_multitask_exp_tuning.py \
+            tests/test_e8_multitask_p0.py
+          git diff --cached --check
+          git commit -m 'feat: add config-driven E8 multitask AsymRE capability'
+          git push origin HEAD:dev/e8-multitask-asymre-capability-01
