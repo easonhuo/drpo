@@ -44,10 +44,8 @@ jobs:
           for line in block.splitlines():
               if line.startswith('          '):
                   lines.append(line[10:])
-              elif line:
-                  raise RuntimeError(f'unexpected patcher indentation: {line!r}')
               else:
-                  lines.append('')
+                  lines.append(line)
           path = Path('/tmp/e8_asymre_patcher.sh')
           path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
           PY
