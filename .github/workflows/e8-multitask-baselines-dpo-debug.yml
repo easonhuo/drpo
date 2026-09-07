@@ -1,0 +1,37 @@
+name: E8 multitask DPO generated-code debug
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-baselines-capability-01
+    paths:
+      - .github/workflows/e8-multitask-baselines-dpo-debug.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-baselines-capability-01
+      - name: Extract and apply DPO patch then inspect failure region
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          source = Path('.github/workflows/e8-multitask-baselines-dpo-impl.yml').read_text(encoding='utf-8')
+          prefix = '      - name: Apply DPO capability patch\n        shell: bash\n        run: |\n'
+          suffix = '      - name: Install focused dependencies\n'
+          start = source.index(prefix) + len(prefix)
+          end = source.index(suffix, start)
+          block = source[start:end]
+          lines = [line[10:] if line.startswith('          ') else line for line in block.splitlines()]
+          Path('/tmp/dpo_patch.sh').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          PY
+          bash /tmp/dpo_patch.sh
+          nl -ba src/drpo/e8_multitask_exp_tuning.py | sed -n '4080,4145p'
+          python -m py_compile src/drpo/e8_multitask_exp_tuning.py || true
