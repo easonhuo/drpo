@@ -46,6 +46,35 @@ jobs:
           PY
           bash /tmp/e8_asymre_finalizer.sh
 
+          python - <<'PY'
+          from pathlib import Path
+
+          config_path = Path('src/drpo/e8_experiment_config.py')
+          config = config_path.read_text(encoding='utf-8')
+          old = 'raise ValueError(f"Unsupported cold-start method: {method}")'
+          new = 'raise ValueError(f"Unsupported sweep.method for cold-start: {method}")'
+          if config.count(old) != 1:
+              raise RuntimeError(
+                  f'expected one unsupported-method validator message, found {config.count(old)}'
+              )
+          config_path.write_text(config.replace(old, new, 1), encoding='utf-8')
+
+          tuning_path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          tuning = tuning_path.read_text(encoding='utf-8')
+          old = '        "cell": {"task": "countdown"},\n'
+          new = (
+              '        "cell": {\n'
+              '            "task": "countdown",\n'
+              '            "method": _coldstart_method(config),\n'
+              '        },\n'
+          )
+          if tuning.count(old) != 1:
+              raise RuntimeError(
+                  f'expected one engineering liveness cell marker, found {tuning.count(old)}'
+              )
+          tuning_path.write_text(tuning.replace(old, new, 1), encoding='utf-8')
+          PY
+
       - name: Install validation dependencies
         run: python -m pip install -q numpy pyyaml pytest ruff
 
