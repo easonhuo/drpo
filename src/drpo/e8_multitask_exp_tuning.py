@@ -7266,12 +7266,36 @@ def _aggregate_dense(
     return summary
 
 
-def _aggregate_coldstart_asymre(
+def _aggregate_coldstart_unranked(
     config: Mapping[str, Any],
     output_root: Path,
     rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Aggregate the declared AsymRE response curve without selecting a winner."""
+    """Aggregate a baseline response curve without selecting or ranking a winner."""
+
+    method = _coldstart_method(config)
+    if method == METHOD_ASYMRE:
+        parameter_name = "delta_v"
+        scientific_kernel = "canonical_old_coldstart_imports"
+        method_metadata = {
+            "canonical_asymre_grid": str(_canonical_asymre_grid_path()),
+            "canonical_asymre_grid_sha256": sha256_file(_canonical_asymre_grid_path()),
+        }
+    elif method == METHOD_TOPR:
+        parameter_name = "beta"
+        scientific_kernel = "canonical_old_coldstart_imports"
+        method_metadata = {
+            "canonical_topr_grid": str(CANONICAL_TOPR_GRID.resolve()),
+            "canonical_topr_grid_sha256": sha256_file(CANONICAL_TOPR_GRID.resolve()),
+        }
+    elif method == METHOD_DPO:
+        parameter_name = "beta"
+        scientific_kernel = "historical_pr268_semantics_port_in_existing_multitask_runner"
+        method_metadata = {
+            "dpo_initialization_mode": str(config["dpo"]["initialization_mode"]),
+        }
+    else:
+        raise ValueError(f"Unsupported unranked cold-start method: {method}")
 
     provenance_path = output_root / "source_provenance.json"
     provenance = (
@@ -7288,7 +7312,7 @@ def _aggregate_coldstart_asymre(
             "source_commit": source_commit,
             "task": row["task"],
             "method": row["method"],
-            "delta_v": row.get("delta_v"),
+            parameter_name: row.get(parameter_name),
             "seed": row["seed"],
             "stage": row["stage"],
             "late_window_pass8_mean": row["late_window_pass8_mean"],
@@ -7309,70 +7333,68 @@ def _aggregate_coldstart_asymre(
     ]
     _write_csv(output_root / "aggregate" / "plot_curve_points.csv", plot_rows)
 
+    configured_cells = build_cells(config)
     summaries: dict[str, Any] = {}
     summary_rows: list[dict[str, Any]] = []
-    configured_cells = build_cells(config)
+
+    def mean(group: Sequence[Mapping[str, Any]], key: str) -> float:
+        return float(np.mean([float(row[key]) for row in group]))
+
     for task_value in config["suite"]["tasks"]:
         task = str(task_value)
         task_cells = [cell for cell in configured_cells if cell.task == task]
         if not task_cells:
             continue
         task_rows = [row for row in rows if row["task"] == task]
-        asymre_rows = [row for row in task_rows if row["method"] == METHOD_ASYMRE]
-        positive_rows = [
-            row for row in task_rows if row["method"] == METHOD_POSITIVE_ONLY
-        ]
-        global_rows = [row for row in task_rows if row["method"] == METHOD_GLOBAL]
-        expected = (
-            sum(cell.method == METHOD_ASYMRE for cell in task_cells),
-            sum(cell.method == METHOD_POSITIVE_ONLY for cell in task_cells),
-            sum(cell.method == METHOD_GLOBAL for cell in task_cells),
-        )
-        if (len(asymre_rows), len(positive_rows), len(global_rows)) != expected:
-            raise RuntimeError(f"{task} AsymRE cold-start cell geometry is incomplete")
+        method_rows = [row for row in task_rows if row["method"] == method]
+        controls = {
+            control: [row for row in task_rows if row["method"] == control]
+            for control in (METHOD_POSITIVE_ONLY, METHOD_GLOBAL)
+        }
+        expected = {
+            candidate: sum(cell.method == candidate for cell in task_cells)
+            for candidate in (method, METHOD_POSITIVE_ONLY, METHOD_GLOBAL)
+        }
+        if len(method_rows) != expected[method] or any(
+            len(controls[control]) != expected[control]
+            for control in (METHOD_POSITIVE_ONLY, METHOD_GLOBAL)
+        ):
+            raise RuntimeError(f"{task} {method} cold-start cell geometry is incomplete")
 
         groups: dict[float, list[dict[str, Any]]] = {}
-        for row in asymre_rows:
-            if row.get("delta_v") is None:
-                raise RuntimeError(f"{task} AsymRE row is missing delta_v")
-            groups.setdefault(float(row["delta_v"]), []).append(row)
-        grouped_curve: list[dict[str, Any]] = []
-        for delta_v, group in sorted(groups.items()):
-            grouped_curve.append(
-                {
-                    "task": task,
-                    "method": METHOD_ASYMRE,
-                    "delta_v": delta_v,
-                    "seeds": sorted(int(row["seed"]) for row in group),
-                    "late_window_pass8_mean": float(
-                        np.mean([float(row["late_window_pass8_mean"]) for row in group])
-                    ),
-                    "late_window_greedy_mean": float(
-                        np.mean([float(row["late_window_greedy_mean"]) for row in group])
-                    ),
-                    "terminal_pass8_mean": float(
-                        np.mean([float(row["terminal_pass8"]) for row in group])
-                    ),
-                    "terminal_greedy_valid_rate_mean": float(
-                        np.mean([float(row["terminal_greedy_valid_rate"]) for row in group])
-                    ),
-                    "nan_inf_failure": any(
-                        bool(row["nan_inf_failure"]) for row in group
-                    ),
-                }
-            )
+        for row in method_rows:
+            value = row.get(parameter_name)
+            if value is None:
+                raise RuntimeError(f"{task} {method} row is missing {parameter_name}")
+            groups.setdefault(float(value), []).append(row)
+        grouped_curve = [
+            {
+                "task": task,
+                "method": method,
+                parameter_name: value,
+                "seeds": sorted(int(row["seed"]) for row in group),
+                "late_window_pass8_mean": mean(group, "late_window_pass8_mean"),
+                "late_window_greedy_mean": mean(group, "late_window_greedy_mean"),
+                "terminal_pass8_mean": mean(group, "terminal_pass8"),
+                "terminal_greedy_valid_rate_mean": mean(
+                    group, "terminal_greedy_valid_rate"
+                ),
+                "nan_inf_failure": any(bool(row["nan_inf_failure"]) for row in group),
+            }
+            for value, group in sorted(groups.items())
+        ]
         summaries[task] = {
             "task": task,
             "grouped_curve": grouped_curve,
-            "positive_only": positive_rows or None,
-            "global": global_rows or None,
+            "positive_only": controls[METHOD_POSITIVE_ONLY] or None,
+            "global": controls[METHOD_GLOBAL] or None,
             "parameter_selection_deferred_to_reviewed_protocol": True,
             "terminal_valid_rate_role": "diagnostic_only_not_selection_eligibility",
         }
         summary_rows.append(
             {
                 "task": task,
-                "asymre_parameter_points": len(grouped_curve),
+                f"{method}_parameter_points": len(grouped_curve),
                 "finite_parameter_points": sum(
                     not bool(row["nan_inf_failure"]) for row in grouped_curve
                 ),
@@ -7393,13 +7415,12 @@ def _aggregate_coldstart_asymre(
         "source_commit": source_commit,
         "cell_count": len(rows),
         "plot_curve_point_count": len(plot_rows),
-        "method": METHOD_ASYMRE,
+        "method": method,
         "tasks": summaries,
         "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
         "initialization": dict(config["initialization"]),
-        "scientific_kernel": "canonical_old_coldstart_imports",
-        "canonical_asymre_grid": str(_canonical_asymre_grid_path()),
-        "canonical_asymre_grid_sha256": sha256_file(_canonical_asymre_grid_path()),
+        "scientific_kernel": scientific_kernel,
+        **method_metadata,
         "countdown_protocol_diagnostic": protocol_diagnostic,
         "countdown_result_gate": False,
         "primary_metric": "validation_late_window_pass8_mean",
@@ -7422,8 +7443,8 @@ def _aggregate_coldstart(
     output_root: Path,
     rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    if _coldstart_method(config) == METHOD_ASYMRE:
-        return _aggregate_coldstart_asymre(config, output_root, rows)
+    if _coldstart_method(config) != METHOD_EXPONENTIAL:
+        return _aggregate_coldstart_unranked(config, output_root, rows)
     provenance_path = output_root / "source_provenance.json"
     provenance = (
         json.loads(provenance_path.read_text(encoding="utf-8")) if provenance_path.is_file() else {}
