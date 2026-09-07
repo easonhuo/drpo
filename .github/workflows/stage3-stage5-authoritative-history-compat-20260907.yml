@@ -63,6 +63,140 @@ jobs:
           rm stage3_stage5_compat.patch
           rm .github/workflows/stage3-stage5-authoritative-history-compat-20260907.yml
 
+      - name: Align resolver with Stage5 integration semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          script = Path("scripts/handoff_delta_shadow.py")
+          text = script.read_text(encoding="utf-8")
+          start = text.index("def first_parent_repository_commit_for_path(")
+          end = text.index("def authoritative_report_metadata(", start)
+          replacement = '''def first_parent_repository_commit_for_path(repo_root: Path, path: Path) -> str:
+              """Map an authoritative path to its unique first-parent integration commit."""
+
+              relative = path.resolve().relative_to(repo_root.resolve()).as_posix()
+              touches = git_text(repo_root, "log", "--format=%H", "--", relative).splitlines()
+              adds = git_text(
+                  repo_root,
+                  "log",
+                  "--diff-filter=A",
+                  "--format=%H",
+                  "--",
+                  relative,
+              ).splitlines()
+              if not touches:
+                  raise HandoffDeltaError(
+                      "authoritative path must have non-empty history: " + relative
+                  )
+              if len(adds) == 1:
+                  first_add = adds[0]
+              elif not adds:
+                  first_add = touches[-1]
+                  parents = git_text(
+                      repo_root, "rev-list", "--parents", "-n", "1", first_add
+                  ).split()
+                  if len(parents) != 3:
+                      raise HandoffDeltaError(
+                          "authoritative path lacks a bounded two-parent merge origin: "
+                          + relative
+                      )
+                  if git(
+                      repo_root,
+                      "cat-file",
+                      "-e",
+                      f"{parents[1]}:{relative}",
+                      check=False,
+                  ).returncode == 0:
+                      raise HandoffDeltaError(
+                          "authoritative path predates its merge-introduced origin: "
+                          + relative
+                      )
+              else:
+                  raise HandoffDeltaError(
+                      "authoritative path has multiple addition commits: " + relative
+                  )
+
+              candidates: list[str] = []
+              for commit in git_text(
+                  repo_root, "rev-list", "--first-parent", "--reverse", "HEAD"
+              ).splitlines():
+                  if git(
+                      repo_root,
+                      "merge-base",
+                      "--is-ancestor",
+                      first_add,
+                      commit,
+                      check=False,
+                  ).returncode != 0:
+                      continue
+                  if git(
+                      repo_root,
+                      "cat-file",
+                      "-e",
+                      f"{commit}:{relative}",
+                      check=False,
+                  ).returncode != 0:
+                      continue
+                  parents = git_text(
+                      repo_root, "rev-list", "--parents", "-n", "1", commit
+                  ).split()
+                  if len(parents) < 2:
+                      continue
+                  if git(
+                      repo_root,
+                      "cat-file",
+                      "-e",
+                      f"{parents[1]}:{relative}",
+                      check=False,
+                  ).returncode == 0:
+                      continue
+                  candidates.append(commit)
+              if len(candidates) != 1:
+                  raise HandoffDeltaError(
+                      "authoritative path must have exactly one first-parent integration: "
+                      + relative
+                  )
+              return candidates[0]
+
+
+          def verify_authoritative_path_unchanged_after_integration(
+              repo_root: Path, path: Path, integration_commit: str
+          ) -> None:
+              """Reject every path touch that is not already integrated."""
+
+              relative = path.resolve().relative_to(repo_root.resolve()).as_posix()
+              touches = git_text(repo_root, "log", "--format=%H", "--", relative).splitlines()
+              for touch in touches:
+                  if git(
+                      repo_root,
+                      "merge-base",
+                      "--is-ancestor",
+                      touch,
+                      integration_commit,
+                      check=False,
+                  ).returncode != 0:
+                      raise HandoffDeltaError(
+                          "authoritative delta/report changed after first-parent integration"
+                      )
+              if git_show_text(repo_root, integration_commit, relative) != path.read_text(
+                  encoding="utf-8"
+              ):
+                  raise HandoffDeltaError(
+                      "authoritative delta/report bytes differ from integration commit"
+                  )
+
+
+          '''
+          replacement = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in replacement.splitlines()
+          ) + "\n"
+          script.write_text(text[:start] + replacement + text[end:], encoding="utf-8")
+          PY
+
       - name: Focused regression tests
         run: python -m pytest tests/test_handoff_delta_shadow.py -q
 
