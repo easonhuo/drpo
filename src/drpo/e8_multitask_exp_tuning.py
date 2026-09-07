@@ -7344,17 +7344,24 @@ def _aggregate_coldstart_unranked(
             groups.setdefault(float(value), []).append(row)
         grouped_curve = []
         for value, group in sorted(groups.items()):
-            mean = lambda key: float(np.mean([float(row[key]) for row in group]))  # noqa: E731
             grouped_curve.append(
                 {
                     "task": task,
                     "method": method,
                     parameter_name: value,
                     "seeds": sorted(int(row["seed"]) for row in group),
-                    "late_window_pass8_mean": mean("late_window_pass8_mean"),
-                    "late_window_greedy_mean": mean("late_window_greedy_mean"),
-                    "terminal_pass8_mean": mean("terminal_pass8"),
-                    "terminal_greedy_valid_rate_mean": mean("terminal_greedy_valid_rate"),
+                    "late_window_pass8_mean": float(
+                        np.mean([float(row["late_window_pass8_mean"]) for row in group])
+                    ),
+                    "late_window_greedy_mean": float(
+                        np.mean([float(row["late_window_greedy_mean"]) for row in group])
+                    ),
+                    "terminal_pass8_mean": float(
+                        np.mean([float(row["terminal_pass8"]) for row in group])
+                    ),
+                    "terminal_greedy_valid_rate_mean": float(
+                        np.mean([float(row["terminal_greedy_valid_rate"]) for row in group])
+                    ),
                     "nan_inf_failure": any(bool(row["nan_inf_failure"]) for row in group),
                 }
             )
