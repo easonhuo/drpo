@@ -586,6 +586,25 @@ def taper_weight(distance: torch.Tensor, rho: float) -> torch.Tensor:
     return torch.exp(-coefficient_from_rho(rho) * distance)
 
 
+def _coldstart_method_cell(
+    task: str,
+    method: str,
+    seed: int,
+    stage: str,
+    value: float,
+    *,
+    lambda_only: bool,
+) -> Cell:
+    if method == METHOD_ASYMRE:
+        return Cell(task, method, None, seed, stage, delta_v=value)
+    if method in {METHOD_TOPR, METHOD_DPO}:
+        return Cell(task, method, None, seed, stage, beta=value)
+    if method == METHOD_EXPONENTIAL:
+        rho = None if lambda_only else math.exp(-value)
+        return Cell(task, method, rho, seed, stage, value)
+    raise ValueError(f"Unsupported cold-start method: {method}")
+
+
 def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
     validate_config(config)
     tasks = tuple(str(task) for task in config["suite"]["tasks"])
@@ -634,34 +653,19 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
                     "countdown", METHOD_GLOBAL, 1.0, seed_offset, "countdown_sentinel", 0.0
                 )
             )
-            if method == METHOD_ASYMRE:
-                cells.extend(
-                    Cell(
-                        "countdown", METHOD_ASYMRE, None, seed_offset, "countdown_sentinel", None, delta_v
-                    )
-                    for delta_v in countdown_values
-                )
-            elif method == METHOD_TOPR:
-                cells.extend(
-                    Cell(
-                        "countdown", METHOD_TOPR, None, seed_offset, "countdown_sentinel", None, None, beta
-                    )
-                    for beta in countdown_values
-                )
-            elif method == METHOD_DPO:
+            if method == METHOD_DPO:
                 raise AssertionError("Countdown DPO cells are disabled by config validation")
-            else:
-                cells.extend(
-                    Cell(
-                        "countdown",
-                        METHOD_EXPONENTIAL,
-                        None if lambda_only else math.exp(-coefficient),
-                        seed_offset,
-                        "countdown_sentinel",
-                        coefficient,
-                    )
-                    for coefficient in countdown_values
+            cells.extend(
+                _coldstart_method_cell(
+                    "countdown",
+                    method,
+                    seed_offset,
+                    "countdown_sentinel",
+                    value,
+                    lambda_only=lambda_only,
                 )
+                for value in countdown_values
+            )
         positive_seeds = tuple(
             int(value)
             for value in config["sweep"]["transfer_positive_only_seed_offsets"]
@@ -681,39 +685,17 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
                 cells.append(
                     Cell(task, METHOD_GLOBAL, 1.0, method_seed, "task_transfer", 0.0)
                 )
-            if method == METHOD_ASYMRE:
-                cells.extend(
-                    Cell(
-                        task, METHOD_ASYMRE, None, method_seed, "task_transfer", None, delta_v
-                    )
-                    for delta_v in values
+            cells.extend(
+                _coldstart_method_cell(
+                    task,
+                    method,
+                    method_seed,
+                    "task_transfer",
+                    value,
+                    lambda_only=lambda_only,
                 )
-            elif method == METHOD_TOPR:
-                cells.extend(
-                    Cell(
-                        task, METHOD_TOPR, None, method_seed, "task_transfer", None, None, beta
-                    )
-                    for beta in values
-                )
-            elif method == METHOD_DPO:
-                cells.extend(
-                    Cell(
-                        task, METHOD_DPO, None, method_seed, "task_transfer", None, None, beta
-                    )
-                    for beta in values
-                )
-            else:
-                cells.extend(
-                    Cell(
-                        task,
-                        METHOD_EXPONENTIAL,
-                        None if lambda_only else math.exp(-coefficient),
-                        method_seed,
-                        "task_transfer",
-                        coefficient,
-                    )
-                    for coefficient in values
-                )
+                for value in values
+            )
         result = tuple(cells)
         if len(result) != int(config["sweep"]["expected_cells"]) or len(
             {cell.key for cell in result}
@@ -7271,31 +7253,34 @@ def _aggregate_coldstart_unranked(
     output_root: Path,
     rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Aggregate a baseline response curve without selecting or ranking a winner."""
+    """Aggregate AsymRE/TOPR/DPO curves without method selection or ranking."""
 
     method = _coldstart_method(config)
+    if method not in {METHOD_ASYMRE, METHOD_TOPR, METHOD_DPO}:
+        raise ValueError(f"Unsupported unranked cold-start method: {method}")
+    parameter_name = "delta_v" if method == METHOD_ASYMRE else "beta"
+    scientific_kernel = (
+        "historical_pr268_semantics_port_in_existing_multitask_runner"
+        if method == METHOD_DPO
+        else "canonical_old_coldstart_imports"
+    )
+    method_metadata: dict[str, Any]
     if method == METHOD_ASYMRE:
-        parameter_name = "delta_v"
-        scientific_kernel = "canonical_old_coldstart_imports"
+        grid = _canonical_asymre_grid_path()
         method_metadata = {
-            "canonical_asymre_grid": str(_canonical_asymre_grid_path()),
-            "canonical_asymre_grid_sha256": sha256_file(_canonical_asymre_grid_path()),
+            "canonical_asymre_grid": str(grid),
+            "canonical_asymre_grid_sha256": sha256_file(grid),
         }
     elif method == METHOD_TOPR:
-        parameter_name = "beta"
-        scientific_kernel = "canonical_old_coldstart_imports"
+        grid = CANONICAL_TOPR_GRID.resolve()
         method_metadata = {
-            "canonical_topr_grid": str(CANONICAL_TOPR_GRID.resolve()),
-            "canonical_topr_grid_sha256": sha256_file(CANONICAL_TOPR_GRID.resolve()),
+            "canonical_topr_grid": str(grid),
+            "canonical_topr_grid_sha256": sha256_file(grid),
         }
-    elif method == METHOD_DPO:
-        parameter_name = "beta"
-        scientific_kernel = "historical_pr268_semantics_port_in_existing_multitask_runner"
+    else:
         method_metadata = {
             "dpo_initialization_mode": str(config["dpo"]["initialization_mode"]),
         }
-    else:
-        raise ValueError(f"Unsupported unranked cold-start method: {method}")
 
     provenance_path = output_root / "source_provenance.json"
     provenance = (
@@ -7305,59 +7290,49 @@ def _aggregate_coldstart_unranked(
     )
     run_id = str(provenance.get("run_id", output_root.name))
     source_commit = str(provenance.get("source_commit", "unrecorded"))
-    plot_rows = [
-        {
-            "experiment_id": experiment_id(config),
-            "run_id": run_id,
-            "source_commit": source_commit,
-            "task": row["task"],
-            "method": row["method"],
-            parameter_name: row.get(parameter_name),
-            "seed": row["seed"],
-            "stage": row["stage"],
-            "late_window_pass8_mean": row["late_window_pass8_mean"],
-            "late_window_greedy_mean": row["late_window_greedy_mean"],
-            "best_validation_pass8": row["best_pass8"],
-            "terminal_pass8": row["terminal_pass8"],
-            "best_validation_greedy": row["best_greedy"],
-            "terminal_greedy": row["terminal_greedy"],
-            "best_greedy_valid_rate": row["best_greedy_valid_rate"],
-            "terminal_greedy_valid_rate": row["terminal_greedy_valid_rate"],
-            "best_step": row["best_step"],
-            "terminal_step": row["terminal_step"],
-            "stop_reason": row["stop_reason"],
-            "nan_inf_failure": row["nan_inf_failure"],
-            "complete": True,
-        }
-        for row in rows
-    ]
+    direct_fields = (
+        "task", "method", "seed", "stage", "late_window_pass8_mean",
+        "late_window_greedy_mean", "terminal_pass8", "terminal_greedy",
+        "best_greedy_valid_rate", "terminal_greedy_valid_rate", "best_step",
+        "terminal_step", "stop_reason", "nan_inf_failure",
+    )
+    plot_rows: list[dict[str, Any]] = []
+    for row in rows:
+        plot = {key: row[key] for key in direct_fields}
+        plot.update(
+            {
+                "experiment_id": experiment_id(config),
+                "run_id": run_id,
+                "source_commit": source_commit,
+                parameter_name: row.get(parameter_name),
+                "best_validation_pass8": row["best_pass8"],
+                "best_validation_greedy": row["best_greedy"],
+                "complete": True,
+            }
+        )
+        plot_rows.append(plot)
     _write_csv(output_root / "aggregate" / "plot_curve_points.csv", plot_rows)
 
     configured_cells = build_cells(config)
     summaries: dict[str, Any] = {}
     summary_rows: list[dict[str, Any]] = []
-
-    def mean(group: Sequence[Mapping[str, Any]], key: str) -> float:
-        return float(np.mean([float(row[key]) for row in group]))
-
     for task_value in config["suite"]["tasks"]:
         task = str(task_value)
         task_cells = [cell for cell in configured_cells if cell.task == task]
         if not task_cells:
             continue
         task_rows = [row for row in rows if row["task"] == task]
-        method_rows = [row for row in task_rows if row["method"] == method]
         controls = {
             control: [row for row in task_rows if row["method"] == control]
             for control in (METHOD_POSITIVE_ONLY, METHOD_GLOBAL)
         }
+        method_rows = [row for row in task_rows if row["method"] == method]
         expected = {
             candidate: sum(cell.method == candidate for cell in task_cells)
-            for candidate in (method, METHOD_POSITIVE_ONLY, METHOD_GLOBAL)
+            for candidate in (method, *controls)
         }
         if len(method_rows) != expected[method] or any(
-            len(controls[control]) != expected[control]
-            for control in (METHOD_POSITIVE_ONLY, METHOD_GLOBAL)
+            len(group) != expected[control] for control, group in controls.items()
         ):
             raise RuntimeError(f"{task} {method} cold-start cell geometry is incomplete")
 
@@ -7367,22 +7342,22 @@ def _aggregate_coldstart_unranked(
             if value is None:
                 raise RuntimeError(f"{task} {method} row is missing {parameter_name}")
             groups.setdefault(float(value), []).append(row)
-        grouped_curve = [
-            {
-                "task": task,
-                "method": method,
-                parameter_name: value,
-                "seeds": sorted(int(row["seed"]) for row in group),
-                "late_window_pass8_mean": mean(group, "late_window_pass8_mean"),
-                "late_window_greedy_mean": mean(group, "late_window_greedy_mean"),
-                "terminal_pass8_mean": mean(group, "terminal_pass8"),
-                "terminal_greedy_valid_rate_mean": mean(
-                    group, "terminal_greedy_valid_rate"
-                ),
-                "nan_inf_failure": any(bool(row["nan_inf_failure"]) for row in group),
-            }
-            for value, group in sorted(groups.items())
-        ]
+        grouped_curve = []
+        for value, group in sorted(groups.items()):
+            mean = lambda key: float(np.mean([float(row[key]) for row in group]))  # noqa: E731
+            grouped_curve.append(
+                {
+                    "task": task,
+                    "method": method,
+                    parameter_name: value,
+                    "seeds": sorted(int(row["seed"]) for row in group),
+                    "late_window_pass8_mean": mean("late_window_pass8_mean"),
+                    "late_window_greedy_mean": mean("late_window_greedy_mean"),
+                    "terminal_pass8_mean": mean("terminal_pass8"),
+                    "terminal_greedy_valid_rate_mean": mean("terminal_greedy_valid_rate"),
+                    "nan_inf_failure": any(bool(row["nan_inf_failure"]) for row in group),
+                }
+            )
         summaries[task] = {
             "task": task,
             "grouped_curve": grouped_curve,
@@ -7403,11 +7378,6 @@ def _aggregate_coldstart_unranked(
         )
     _write_csv(output_root / "aggregate" / "task_summary.csv", summary_rows)
 
-    protocol_diagnostic = _countdown_protocol_diagnostic(
-        config,
-        output_root,
-        destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
-    )
     summary = {
         "schema_version": 1,
         "experiment_id": experiment_id(config),
@@ -7421,7 +7391,11 @@ def _aggregate_coldstart_unranked(
         "initialization": dict(config["initialization"]),
         "scientific_kernel": scientific_kernel,
         **method_metadata,
-        "countdown_protocol_diagnostic": protocol_diagnostic,
+        "countdown_protocol_diagnostic": _countdown_protocol_diagnostic(
+            config,
+            output_root,
+            destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
+        ),
         "countdown_result_gate": False,
         "primary_metric": "validation_late_window_pass8_mean",
         "parameter_selection_deferred_to_reviewed_protocol": True,
