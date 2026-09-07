@@ -27,14 +27,33 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
+
           source = Path('.github/workflows/e8-multitask-baselines-dpo-impl.yml').read_text(encoding='utf-8')
           prefix = '      - name: Apply DPO capability patch\n        shell: bash\n        run: |\n'
           suffix = '      - name: Install focused dependencies\n'
           start = source.index(prefix) + len(prefix)
           end = source.index(suffix, start)
           block = source[start:end]
-          lines = [line[10:] if line.startswith('          ') else line for line in block.splitlines()]
-          Path('/tmp/dpo_patch.sh').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+
+          # The source workflow is intentionally being used only as a patch payload.
+          # Its outer run-block lines carry ten YAML spaces, while the embedded raw
+          # Python strings contain scientific/test code whose own indentation must
+          # remain byte-for-byte intact. Strip the YAML prefix only outside r'''...'''.
+          extracted = []
+          in_raw = False
+          for line in block.splitlines():
+              if in_raw:
+                  extracted.append(line)
+                  if line.strip() == "'''":
+                      in_raw = False
+                  continue
+              normalized = line[10:] if line.startswith('          ') else line
+              extracted.append(normalized)
+              if normalized.rstrip().endswith("r'''"):
+                  in_raw = True
+          if in_raw:
+              raise RuntimeError('unterminated raw triple-quoted payload in DPO patcher')
+          Path('/tmp/dpo_patch.sh').write_text('\n'.join(extracted) + '\n', encoding='utf-8')
           PY
           bash /tmp/dpo_patch.sh
       - name: Install focused dependencies
