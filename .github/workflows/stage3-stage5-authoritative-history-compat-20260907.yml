@@ -69,12 +69,14 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
+          import textwrap
 
           script = Path("scripts/handoff_delta_shadow.py")
           text = script.read_text(encoding="utf-8")
           start = text.index("def first_parent_repository_commit_for_path(")
           end = text.index("def authoritative_report_metadata(", start)
-          replacement = '''def first_parent_repository_commit_for_path(repo_root: Path, path: Path) -> str:
+          replacement = textwrap.dedent('''\
+          def first_parent_repository_commit_for_path(repo_root: Path, path: Path) -> str:
               """Map an authoritative path to its unique first-parent integration commit."""
 
               relative = path.resolve().relative_to(repo_root.resolve()).as_posix()
@@ -189,11 +191,7 @@ jobs:
                   )
 
 
-          '''
-          replacement = "\n".join(
-              line[10:] if line.startswith("          ") else line
-              for line in replacement.splitlines()
-          ) + "\n"
+          ''')
           script.write_text(text[:start] + replacement + text[end:], encoding="utf-8")
           PY
 
