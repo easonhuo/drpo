@@ -1,0 +1,183 @@
+name: E8 wide right-tail result closure trusted normalize
+
+on:
+  push:
+    branches:
+      - automation/e8-wide-righttail-result-closure-normalize-20260907
+
+permissions:
+  contents: write
+
+jobs:
+  normalize-and-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout target source branch
+        uses: actions/checkout@v4
+        with:
+          ref: dev/e8-wide-righttail-result-closure-20260907
+          fetch-depth: 0
+          path: target
+          persist-credentials: true
+
+      - name: Checkout trusted current main
+        uses: actions/checkout@v4
+        with:
+          ref: 1be7ee757188498e42128d2710e1b30ab573bba5
+          fetch-depth: 0
+          path: trusted
+          persist-credentials: false
+
+      - name: Verify locked refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C target rev-parse HEAD)" = "1be7ee757188498e42128d2710e1b30ab573bba5"
+          test "$(git -C trusted rev-parse HEAD)" = "1be7ee757188498e42128d2710e1b30ab573bba5"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: target/pyproject.toml
+
+      - name: Install repository test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e './target[dev]'
+
+      - name: Deposit reviewed source closure payload
+        working-directory: target
+        shell: bash
+        env:
+          SOURCE_PAYLOAD_B64: "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"
+        run: |
+          set -euo pipefail
+          printf '%s' "$SOURCE_PAYLOAD_B64" | base64 -d > /tmp/e8-wide-source-patch.tar.gz
+          test "$(sha256sum /tmp/e8-wide-source-patch.tar.gz | awk '{print $1}')" = "a062d556861a720f2b7fd6a615d61f693d20ca58f74bd1d09a144fa529b301a6"
+          tar -xzf /tmp/e8-wide-source-patch.tar.gz -C .
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            docs/results/E8_MULTITASK_LAMBDA_WIDE_RIGHTTAIL_03_20260904_01_RESULT_2026-09-07.md \
+            docs/handoff_deltas/EXT-C-E8-MULTITASK-EXP-LAMBDA-WIDE-RIGHTTAIL-03-RESULT-CLOSURE-2026-09-07/HANDOFF_DELTA.yaml \
+            experiments/results/e8_multitask_lambda_wide_righttail_03_20260904_01
+          git diff --cached --check
+          git commit -m 'E8 wide right-tail 03: deposit pilot result closure source'
+          echo "SOURCE_PATCH_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Validate schema-v3 exact-base intent
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          python ../trusted/scripts/handoff_authority.py validate-delta \
+            --repo-root . \
+            --delta docs/handoff_deltas/EXT-C-E8-MULTITASK-EXP-LAMBDA-WIDE-RIGHTTAIL-03-RESULT-CLOSURE-2026-09-07/HANDOFF_DELTA.yaml \
+            --source-patch-commit "$SOURCE_PATCH_COMMIT" \
+            --json
+
+      - name: Trusted Stage-5 normalization
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          python ../trusted/scripts/handoff_authority.py normalize \
+            --repo-root . \
+            --trusted-repo-root ../trusted \
+            --current-before 1be7ee757188498e42128d2710e1b30ab573bba5 \
+            --source-base 1be7ee757188498e42128d2710e1b30ab573bba5 \
+            --source-patch-commit "$SOURCE_PATCH_COMMIT" \
+            --json
+
+      - name: Enforce normalization write boundary
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY2'
+          import subprocess
+          report = 'docs/handoff_deltas/EXT-C-E8-MULTITASK-EXP-LAMBDA-WIDE-RIGHTTAIL-03-RESULT-CLOSURE-2026-09-07/MATERIALIZATION_REPORT.json'
+          allowed_exact = {'docs/handoff.md', report}
+          allowed_prefix = 'docs/handoff_shadow/stage4/minimal/generated/'
+          out = subprocess.check_output(['git','status','--porcelain'], text=True)
+          paths=[]
+          for line in out.splitlines():
+              if not line.strip():
+                  continue
+              path=line[3:]
+              if ' -> ' in path:
+                  path=path.split(' -> ',1)[1]
+              paths.append(path)
+          bad=sorted(p for p in paths if p not in allowed_exact and not p.startswith(allowed_prefix))
+          if bad:
+              raise SystemExit('Unexpected normalization paths: '+', '.join(bad))
+          if 'docs/handoff.md' not in paths:
+              raise SystemExit('Normalizer did not materialize docs/handoff.md')
+          if report not in paths:
+              raise SystemExit('Normalizer did not create MATERIALIZATION_REPORT.json')
+          print('\n'.join(paths))
+          PY2
+          git diff --check
+
+      - name: Commit materialized after-image
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add docs/handoff.md \
+            docs/handoff_shadow/stage4/minimal/generated \
+            docs/handoff_deltas/EXT-C-E8-MULTITASK-EXP-LAMBDA-WIDE-RIGHTTAIL-03-RESULT-CLOSURE-2026-09-07/MATERIALIZATION_REPORT.json
+          git diff --cached --check
+          git commit -m 'Materialize E8 wide right-tail 03 pilot result closure'
+
+      - name: Required Stage-5 and governance gates
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/handoff_authority.py verify --repo-root . --json
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          python scripts/validate_governance_rule_inventory.py --repo-root .
+          python scripts/validate_formal_execution_channel.py --repo-root .
+          git diff --check 1be7ee757188498e42128d2710e1b30ab573bba5..HEAD
+
+      - name: Canonical test selection and execution
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/select_update_tests.py \
+            --repo . \
+            --base 1be7ee757188498e42128d2710e1b30ab573bba5 \
+            --head HEAD \
+            --mode auto \
+            --json
+          python scripts/select_update_tests.py \
+            --repo . \
+            --base 1be7ee757188498e42128d2710e1b30ab573bba5 \
+            --head HEAD \
+            --mode auto \
+            --execute \
+            --json
+
+      - name: Confirm clean validated worktree
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          echo "VALIDATED_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Push validated materialization to source branch
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:refs/heads/dev/e8-wide-righttail-result-closure-20260907
+          echo "PUSHED_VALIDATED_HEAD=$VALIDATED_HEAD"
