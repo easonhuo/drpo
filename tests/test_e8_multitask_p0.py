@@ -2983,7 +2983,7 @@ def test_postreview_sampled_validity_is_not_greedy_alias() -> None:
     )
     assert metrics["valid_rate"] == pytest.approx(1.0)
     assert metrics["sampled_valid_rate"] == pytest.approx(0.25)
-    assert getattr(evaluator, "_last_primary_sampled_valid_rate") == pytest.approx(0.25)
+    assert evaluator._last_primary_sampled_valid_rate == pytest.approx(0.25)
 
     config = exp_tuning.load_config(
         Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")

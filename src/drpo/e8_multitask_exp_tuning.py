@@ -3502,10 +3502,8 @@ def _canonical_environment_evaluator(
         if not all(math.isfinite(float(value)) for value in numeric):
             raise RuntimeError("Task verifier evaluation produced a non-finite metric")
         if int(pass_k) == 8:
-            setattr(
-                evaluate_rows,
-                "_last_primary_sampled_valid_rate",
-                float(metrics["sampled_valid_rate"]),
+            evaluate_rows._last_primary_sampled_valid_rate = float(
+                metrics["sampled_valid_rate"]
             )
         if was_training:
             model.train()
@@ -4264,7 +4262,7 @@ def _train_canonical_dpo_transfer_cell(
                 step=step,
                 pass64_every=200,
                 pass64_enabled=64
-                in set(int(value) for value in effective["evaluation"]["auxiliary_pass_ks"]),
+                in {int(value) for value in effective["evaluation"]["auxiliary_pass_ks"]},
             )
             sampled_valid_rate = getattr(evaluator, "_last_primary_sampled_valid_rate", None)
             if sampled_valid_rate is not None:
@@ -4738,9 +4736,10 @@ def _train_canonical_cold_cell(
             if evaluator is None:
 
                 def configured_evaluate(**kwargs: Any) -> dict[str, Any]:
-                    kwargs["pass64_enabled"] = 64 in set(
-                        int(value) for value in effective_runtime["evaluation"]["auxiliary_pass_ks"]
-                    )
+                    kwargs["pass64_enabled"] = 64 in {
+                        int(value)
+                        for value in effective_runtime["evaluation"]["auxiliary_pass_ks"]
+                    }
                     return original_trainer_evaluate(**kwargs)
 
                 scan_trainer._evaluate_validation = configured_evaluate
@@ -4756,9 +4755,10 @@ def _train_canonical_cold_cell(
                 arena.clean_expression = lambda value: str(value)
 
                 def configured_evaluate(**kwargs: Any) -> dict[str, Any]:
-                    kwargs["pass64_enabled"] = 64 in set(
-                        int(value) for value in effective_runtime["evaluation"]["auxiliary_pass_ks"]
-                    )
+                    kwargs["pass64_enabled"] = 64 in {
+                        int(value)
+                        for value in effective_runtime["evaluation"]["auxiliary_pass_ks"]
+                    }
                     row = original_trainer_evaluate(**kwargs)
                     sampled_valid_rate = getattr(
                         evaluator, "_last_primary_sampled_valid_rate", None
