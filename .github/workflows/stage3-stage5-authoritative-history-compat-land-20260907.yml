@@ -108,56 +108,63 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import hashlib
+          import yaml
 
           BASE = '8a21fd16e63ea96a0cde2a477353d24562624655'
           AUTH = 'GOV-STAGE3-STAGE5-HISTORY-COMPAT-MAINTENANCE-2026-09-07'
           CLAIM = 'GOV-STAGE3-STAGE5-HISTORY-COMPAT-MAINTENANCE-01'
           script = Path('scripts/handoff_delta_shadow.py')
           digest = hashlib.sha256(script.read_bytes()).hexdigest()
+          auth = {
+              'schema_version': 1,
+              'authorization_id': AUTH,
+              'kind': 'maintenance',
+              'change_class': 'compatibility_fix',
+              'claim_id': CLAIM,
+              'approval_record': 'user_approved_continue_stage3_stage5_history_compat_repair_2026_09_07',
+              'base_commit': BASE,
+              'stage_ids': ['stage_3'],
+              'authorized_stage_statuses': {'stage_3': 'shadow_active'},
+              'authorized_file_hashes': {'scripts/handoff_delta_shadow.py': digest},
+              'scope': [
+                  'align_stage3_authoritative_history_resolution_with_stage5_first_parent_integration_semantics',
+                  'honor_only_stage5_content_addressed_legacy_inert_quarantine_for_missing_schema_v3_materialization_report',
+                  'preserve_fail_closed_behavior_for_all_other_missing_reports_postintegration_touches_and_byte_drift',
+                  'add_focused_regressions_for_legacy_inert_skip_and_unlisted_missing_report_rejection',
+                  'refresh_overdue_full_acceptance_after_critical_semantic_mismatch_repair',
+              ],
+              'excluded_scope': [
+                  'change_handoff_or_registry_write_authority',
+                  'change_schema_v3_shapes_or_supported_operations',
+                  'add_or_strengthen_scientific_or_experiment_gates',
+                  'modify_scientific_code_configs_seeds_thresholds_results_or_claims',
+                  'broaden_legacy_inert_quarantine_beyond_stage5_verified_content_addressed_ids',
+              ],
+              'rollback_plan': [
+                  'revert_the_stage3_history_compatibility_change_tests_authorization_and_full_acceptance_checkpoint_together',
+                  'preserve_all_existing_handoff_delta_materialization_and_scientific_history',
+              ],
+              'remaining_uncertainties': [
+                  'the_compatibility_fix_is_bounded_to_history_shapes_already_accepted_by_stage5',
+                  'the_single_historical_legacy_inert_delta_remains_quarantined_not_promoted',
+              ],
+          }
           auth_path = Path('docs/governance_stage_authorizations') / f'{AUTH}.yaml'
-          auth_path.write_text(f'''schema_version: 1
-authorization_id: {AUTH}
-kind: maintenance
-change_class: compatibility_fix
-claim_id: {CLAIM}
-approval_record: user_approved_continue_stage3_stage5_history_compat_repair_2026_09_07
-base_commit: {BASE}
-stage_ids:
-- stage_3
-authorized_stage_statuses:
-  stage_3: shadow_active
-authorized_file_hashes:
-  scripts/handoff_delta_shadow.py: {digest}
-scope:
-- align_stage3_authoritative_history_resolution_with_stage5_first_parent_integration_semantics
-- honor_only_stage5_content_addressed_legacy_inert_quarantine_for_missing_schema_v3_materialization_report
-- preserve_fail_closed_behavior_for_all_other_missing_reports_postintegration_touches_and_byte_drift
-- add_focused_regressions_for_legacy_inert_skip_and_unlisted_missing_report_rejection
-- refresh_overdue_full_acceptance_after_critical_semantic_mismatch_repair
-excluded_scope:
-- change_handoff_or_registry_write_authority
-- change_schema_v3_shapes_or_supported_operations
-- add_or_strengthen_scientific_or_experiment_gates
-- modify_scientific_code_configs_seeds_thresholds_results_or_claims
-- broaden_legacy_inert_quarantine_beyond_stage5_verified_content_addressed_ids
-rollback_plan:
-- revert_the_stage3_history_compatibility_change_tests_authorization_and_full_acceptance_checkpoint_together
-- preserve_all_existing_handoff_delta_materialization_and_scientific_history
-remaining_uncertainties:
-- the_compatibility_fix_is_bounded_to_history_shapes_already_accepted_by_stage5
-- the_single_historical_legacy_inert_delta_remains_quarantined_not_promoted
-''', encoding='utf-8')
+          auth_path.write_text(yaml.safe_dump(auth, sort_keys=False), encoding='utf-8')
+          scope_lines = [
+              '# Stage 3 / Stage 5 authoritative-history compatibility maintenance',
+              '',
+              f'Base: `main@{BASE}`',
+              '',
+              'This maintenance repair fixes a governance compatibility mismatch exposed while landing the E8 wide-right-tail result closure. Stage 5 already accepts bounded pre-integration side-branch history and content-addresses one historical inert schema-v3 anomaly; Stage 3 still assumed a simpler history and attempted to require a materialization report for every schema-v3 delta.',
+              '',
+              'The repair makes Stage 3 use the same bounded first-parent integration semantics and inherit only the exact `legacy_inert_update_ids` returned by the Stage 5 verifier. Every other missing materialization report, post-integration touch, ambiguous integration, or byte drift remains fail-closed. No handoff content, registry state, scientific implementation, experiment variable, seed, threshold, result, or scientific claim is changed by this maintenance update.',
+              '',
+              'A fresh Full Acceptance is required and persisted because both scheduled triggers were overdue and this is a critical semantic mismatch repair.',
+              '',
+          ]
           scope_path = Path('docs/scopes') / f'{CLAIM}.md'
-          scope_path.write_text(f'''# Stage 3 / Stage 5 authoritative-history compatibility maintenance
-
-Base: `main@{BASE}`
-
-This maintenance repair fixes a governance compatibility mismatch exposed while landing the E8 wide-right-tail result closure. Stage 5 already accepts bounded pre-integration side-branch history and content-addresses one historical inert schema-v3 anomaly; Stage 3 still assumed a simpler history and attempted to require a materialization report for every schema-v3 delta.
-
-The repair makes Stage 3 use the same bounded first-parent integration semantics and inherit only the exact `legacy_inert_update_ids` returned by the Stage 5 verifier. Every other missing materialization report, post-integration touch, ambiguous integration, or byte drift remains fail-closed. No handoff content, registry state, scientific implementation, experiment variable, seed, threshold, result, or scientific claim is changed by this maintenance update.
-
-A fresh Full Acceptance is required and persisted because both scheduled triggers were overdue and this is a critical semantic mismatch repair.
-''', encoding='utf-8')
+          scope_path.write_text('\n'.join(scope_lines), encoding='utf-8')
           print('authorized_script_sha256=' + digest)
           PY
           git diff --check
