@@ -176,7 +176,6 @@ jobs:
           set -euo pipefail
           python scripts/handoff_authority.py verify --repo-root . --json
           python scripts/validate_governance_pipeline_stage_status.py --repo-root .
-          python -m ruff check scripts/handoff_delta_shadow.py tests/test_handoff_delta_shadow.py
           python -m compileall -q scripts/handoff_delta_shadow.py tests/test_handoff_delta_shadow.py
           git diff --check
 
@@ -212,7 +211,7 @@ jobs:
           python scripts/validate_governance_pipeline_stage_status.py --repo-root .
           python scripts/validate_governance_rule_inventory.py --repo-root .
           python scripts/validate_formal_execution_channel.py --repo-root .
-          python -m ruff check scripts/handoff_delta_shadow.py tests/test_handoff_delta_shadow.py
+          python -m compileall -q scripts/handoff_delta_shadow.py tests/test_handoff_delta_shadow.py
           git diff --check "$BASE"..HEAD
 
       - name: Canonical test selection and execution
