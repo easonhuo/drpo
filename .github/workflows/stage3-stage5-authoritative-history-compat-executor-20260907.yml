@@ -1,0 +1,70 @@
+name: Execute deterministic Stage3 Stage5 compatibility repair
+
+on:
+  push:
+    branches:
+      - fix/stage3-stage5-authoritative-history-compat-20260907
+
+permissions:
+  contents: write
+
+jobs:
+  repair-test-and-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout task branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/stage3-stage5-authoritative-history-compat-20260907
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install test dependencies
+        run: python -m pip install pytest pyyaml ruff
+
+      - name: Apply deterministic repair
+        run: python tools/tmp_stage3_stage5_repair_20260907.py
+
+      - name: Focused regression tests
+        run: python -m pytest tests/test_handoff_delta_shadow.py -q
+
+      - name: Authority and Stage3 gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/handoff_authority.py verify --repo-root . --json
+          python scripts/handoff_delta_shadow.py auto-check --repo-root .
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+
+      - name: Lint and diff check
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m ruff check scripts/handoff_delta_shadow.py tests/test_handoff_delta_shadow.py
+          git diff --check
+
+      - name: Remove temporary carriers
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f stage3_stage5_compat.patch
+          rm -f tools/tmp_stage3_stage5_repair_20260907.py
+          rm -f .github/workflows/stage3-stage5-authoritative-history-compat-20260907.yml
+          rm -f .github/workflows/stage3-stage5-authoritative-history-compat-final-20260907.yml
+          rm -f .github/workflows/stage3-stage5-authoritative-history-compat-executor-20260907.yml
+          git diff --check
+
+      - name: Commit tested repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "easonhuo"
+          git config user.email "huoyusen1@126.com"
+          git add -A
+          git commit -m "Fix Stage3 Stage5 authoritative history compatibility"
+          git push origin HEAD:fix/stage3-stage5-authoritative-history-compat-20260907
