@@ -97,6 +97,7 @@ METHOD_POSITIVE_ONLY = "positive_only"
 METHOD_EXPONENTIAL = "exponential"
 METHOD_ASYMRE = "asymre"
 METHOD_TOPR = "joint_fitted_reference_topr"
+METHOD_DPO = "canonical_dpo"
 METHOD_GLOBAL = "global"
 TRANSFER_SYSTEM_PROMPT = "Answer with only the requested final output and no explanation."
 SWEEP_PROFILE_RHO = experiment_config.SWEEP_PROFILE_RHO
@@ -189,6 +190,11 @@ class Cell:
                 raise AssertionError("Joint Fitted-Reference TOPR cell requires beta")
             tag = f"{self.beta:.12g}".replace("-", "m").replace(".", "p")
             return f"{self.task}__joint_fitted_reference_topr_beta{tag}__seed{self.seed}"
+        if self.method == METHOD_DPO:
+            if self.beta is None:
+                raise AssertionError("Canonical DPO cell requires beta")
+            tag = f"{self.beta:.12g}".replace("-", "m").replace(".", "p")
+            return f"{self.task}__canonical_dpo_beta{tag}__seed{self.seed}"
         if self.lambda_value is not None:
             tag = f"{self.lambda_value:.12g}".replace(".", "p")
             return f"{self.task}__exp_lambda{tag}__seed{self.seed}"
@@ -280,7 +286,7 @@ def _task_method_values(config: Mapping[str, Any], task: str) -> tuple[float, ..
     method = _coldstart_method(config)
     if method == METHOD_ASYMRE:
         return experiment_config.task_delta_vs(config, task)
-    if method == METHOD_TOPR:
+    if method in {METHOD_TOPR, METHOD_DPO}:
         return experiment_config.task_betas(config, task)
     return _task_lambdas(config, task)
 
@@ -642,6 +648,8 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
                     )
                     for beta in countdown_values
                 )
+            elif method == METHOD_DPO:
+                raise AssertionError("Countdown DPO cells are disabled by config validation")
             else:
                 cells.extend(
                     Cell(
@@ -684,6 +692,13 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
                 cells.extend(
                     Cell(
                         task, METHOD_TOPR, None, method_seed, "task_transfer", None, None, beta
+                    )
+                    for beta in values
+                )
+            elif method == METHOD_DPO:
+                cells.extend(
+                    Cell(
+                        task, METHOD_DPO, None, method_seed, "task_transfer", None, None, beta
                     )
                     for beta in values
                 )
@@ -776,7 +791,6 @@ def write_plan(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
                     "task": cell.task,
                     "method": cell.method,
                     "delta_v": cell.delta_v,
-            "beta": cell.beta,
                     "beta": cell.beta,
                     "rho": cell.rho,
                     "lambda": (
@@ -3230,7 +3244,11 @@ def cmd_calibrate(
     tasks: Sequence[str] | None,
     force: bool,
 ) -> dict[str, Any]:
-    if _is_coldstart(config) and not _is_engineering_self_test(config):
+    if (
+        _is_coldstart(config)
+        and _coldstart_method(config) != METHOD_DPO
+        and not _is_engineering_self_test(config)
+    ):
         _derive_reference_remoteness_banks(
             config,
             output_root,
@@ -3330,7 +3348,10 @@ def cmd_calibrate_task(
         raise RuntimeError("calibrate-task is available only for canonical cold-start")
     if task not in config["suite"]["tasks"]:
         raise ValueError(f"Unknown calibration task: {task}")
-    if not _is_engineering_self_test(config):
+    if (
+        _coldstart_method(config) != METHOD_DPO
+        and not _is_engineering_self_test(config)
+    ):
         _derive_reference_remoteness_banks(
             config,
             output_root,
@@ -3964,6 +3985,612 @@ def _legacy_paper_runtime_bridge(
                 setattr(module, name, original)
 
 
+
+
+def _dpo_shared_sft_adapter(config: Mapping[str, Any]) -> Path | None:
+    dpo = config["dpo"]
+    mode = str(dpo["initialization_mode"])
+    if mode == "base_model_fresh_lora":
+        return None
+    env_name = str(dpo["shared_sft_adapter_env"])
+    value = os.environ.get(env_name)
+    if not value:
+        raise RuntimeError(f"Shared-SFT DPO requires environment variable {env_name}")
+    path = Path(value).resolve()
+    if not (path / "adapter_config.json").is_file() or not any(
+        (path / name).is_file() for name in ("adapter_model.safetensors", "adapter_model.bin")
+    ):
+        raise FileNotFoundError(f"Shared-SFT DPO adapter is incomplete: {path}")
+    return path
+
+
+def _parameter_sequence_sha256(parameters: Sequence[Any]) -> str:
+    if torch is None:
+        raise RuntimeError("Torch is required")
+    digest = hashlib.sha256()
+    if not parameters:
+        raise RuntimeError("Cannot hash an empty parameter sequence")
+    for index, parameter in enumerate(parameters):
+        value = parameter.detach().cpu().contiguous()
+        digest.update(str(index).encode("ascii"))
+        digest.update(str(tuple(value.shape)).encode("ascii"))
+        digest.update(str(value.dtype).encode("ascii"))
+        digest.update(value.view(torch.uint8).numpy().tobytes())
+    return digest.hexdigest()
+
+
+def _dpo_prompt_balanced_mean(
+    values: Any,
+    row_index: Any,
+    unique_counts: Any,
+    *,
+    paper_common: Any,
+) -> Any:
+    return paper_common.mean_unique_negative_term(
+        values,
+        torch.ones_like(values),
+        row_index,
+        unique_counts,
+    )
+
+
+def _train_canonical_dpo_transfer_cell(
+    cell: Cell,
+    *,
+    inputs: TaskInputs,
+    split_manifest: Mapping[str, Any],
+    base_model_path: str,
+    config: Mapping[str, Any],
+    output_root: Path,
+    force: bool,
+    updates_override: int | None = None,
+    engineering_liveness: bool = False,
+) -> dict[str, Any]:
+    """Port the reviewed PR #268 DPO semantics onto the frozen multitask task interface."""
+
+    if torch is None or F is None or DataLoader is None:
+        raise RuntimeError("Canonical DPO training requires Torch")
+    if cell.method != METHOD_DPO or cell.beta is None:
+        raise ValueError("Canonical DPO transfer trainer received a non-DPO cell")
+    if cell.task == "countdown":
+        raise ValueError("Current multitask DPO capability does not execute Countdown cells")
+    modules = _canonical_cold_modules(config)
+    arena = modules["arena"]
+    paper_common = modules["paper_common"]
+    scan_trainer = modules["scan_trainer"]
+    record = _canonical_task_record(split_manifest, cell.task)
+    calibration_path = output_root / "calibration" / f"{cell.task}.json"
+    if not calibration_path.is_file():
+        raise RuntimeError(f"Run the no-calibration identity gate before {cell.task}")
+    calibration = json.loads(calibration_path.read_text(encoding="utf-8"))
+    expected_calibration = _canonical_calibration_identity(
+        cell.task,
+        split_manifest=split_manifest,
+        base_model_path=base_model_path,
+        config=config,
+    )
+    if (
+        calibration.get("identity_hash") != expected_calibration["identity_hash"]
+        or calibration.get("enabled") is not False
+        or not calibration.get("complete")
+    ):
+        raise RuntimeError(f"DPO no-calibration identity mismatch for {cell.task}")
+
+    root_name = "liveness" if engineering_liveness else "cells"
+    cell_root = output_root / root_name / cell.key
+    manifest_path = cell_root / "cell_manifest.json"
+    shared_adapter = _dpo_shared_sft_adapter(config)
+    identity = _cell_identity(
+        cell,
+        inputs=inputs,
+        split_manifest=split_manifest,
+        base_model_path=base_model_path,
+        config=config,
+        calibration=calibration,
+    )
+    identity.update(
+        {
+            "canonical_source_git_blob_shas": dict(
+                config["canonical_coldstart"]["expected_git_blob_shas"]
+            ),
+            "canonical_dispatch": "e8_multitask_exp_tuning._train_canonical_dpo_transfer_cell",
+            "dpo_semantics_source": "historical_PR_268_protected_implementation_cc0ead2be00c89a3c35296b7adc1ddeae8d14759",
+            "dpo_initialization_mode": str(config["dpo"]["initialization_mode"]),
+            "shared_sft_adapter_identity": (
+                None
+                if shared_adapter is None
+                else model_identity(base_model_path, str(shared_adapter))["adapter"]
+            ),
+            "engineering_liveness": engineering_liveness,
+            "updates_override": updates_override,
+        }
+    )
+    identity["identity_hash"] = stable_hash(identity)
+    if manifest_path.is_file() and not force:
+        existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if existing.get("identity_hash") == identity["identity_hash"] and existing.get("complete"):
+            return existing
+        raise RuntimeError(f"Existing DPO cell identity mismatch: {cell.key}")
+    if cell_root.exists():
+        if not force:
+            raise RuntimeError(f"DPO cell output exists without reusable identity: {cell_root}")
+        expected_parent = (output_root / root_name).resolve()
+        if expected_parent not in cell_root.resolve().parents:
+            raise RuntimeError(f"Refusing unsafe DPO cell removal: {cell_root}")
+        shutil.rmtree(cell_root)
+    cell_root.mkdir(parents=True, exist_ok=False)
+
+    bank = Path(str(record["train"]))
+    validation = Path(str(record["validation"]))
+    base_config_path = Path(str(record["base_config"]))
+    base_config = yaml.safe_load(base_config_path.read_text(encoding="utf-8"))
+    if not isinstance(base_config, dict):
+        raise TypeError("DPO paper base config root must be a mapping")
+    effective = experiment_config.effective_coldstart_runtime(config, cell.task)
+    model_cfg = base_config["model"]
+    train_cfg = base_config["offline_training"]
+    eval_cfg = base_config["evaluation"]
+    updates = int(updates_override or effective["training"]["optimizer_updates"])
+    eval_every = int(effective["training"]["evaluation_every_updates"])
+    seed = int(train_cfg["seed"]) + int(cell.seed)
+    beta = float(cell.beta)
+    arena.seed_all(seed)
+
+    validation_rows = [] if engineering_liveness else read_jsonl(validation)
+    evaluator = None
+    if not engineering_liveness:
+        task_adapter, instances = _load_task_adapter_and_instances(
+            cell.task,
+            inputs=inputs,
+            validation_rows=validation_rows,
+        )
+        evaluator = _canonical_environment_evaluator(
+            arena=arena,
+            task_adapter=task_adapter,
+            instances=instances,
+            greedy_prompt_rows=int(config["task_runtime"][cell.task]["greedy_prompt_rows"]),
+            passk_prompt_rows=int(config["task_runtime"][cell.task]["passk_prompt_rows"]),
+        )
+
+    original_clean_expression = arena.clean_expression
+    original_system_prompt = arena.SYSTEM_PROMPT
+    original_evaluate_rows = arena.evaluate_rows
+    original_completion_stats = arena.completion_stats
+    try:
+        arena.clean_expression = lambda value: str(value)
+        arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
+        arena.completion_stats = lambda model, batch: {
+            **original_completion_stats(model, batch),
+        }
+        if evaluator is not None:
+            arena.evaluate_rows = evaluator
+
+        tokenizer = arena.load_tokenizer(str(Path(base_model_path).resolve()))
+        train_rows = arena.read_jsonl(bank)
+        dataset = paper_common.ContinuousUniqueBankDataset(
+            train_rows,
+            tokenizer,
+            int(effective["model"]["max_length"]),
+        )
+        generator = torch.Generator().manual_seed(seed)
+        loader = DataLoader(
+            dataset,
+            batch_size=int(effective["training"]["micro_batch"]),
+            shuffle=True,
+            generator=generator,
+            collate_fn=paper_common.make_continuous_unique_bank_collator(
+                tokenizer.pad_token_id
+            ),
+            num_workers=0,
+        )
+        iterator = iter(loader)
+        model = arena.load_model(
+            str(Path(base_model_path).resolve()),
+            adapter_path=None if shared_adapter is None else str(shared_adapter),
+            trainable_adapter=True,
+            load_in_4bit=bool(model_cfg.get("load_in_4bit", False)),
+            dtype=str(effective["model"]["dtype"]),
+            gradient_checkpointing=bool(effective["model"]["gradient_checkpointing"]),
+            parameterization="lora",
+        )
+        policy_adapter = str(config["dpo"]["policy_adapter"])
+        reference_adapter = str(config["dpo"]["reference_adapter"])
+        if not hasattr(model, "add_adapter") or not hasattr(model, "set_adapter"):
+            raise RuntimeError("Canonical DPO requires PEFT multi-adapter support")
+        if policy_adapter not in model.peft_config:
+            raise RuntimeError("DPO policy adapter is missing after model initialization")
+        if reference_adapter in model.peft_config:
+            raise RuntimeError("DPO reference adapter exists before exact initialization copy")
+        model.add_adapter(
+            reference_adapter,
+            copy.deepcopy(model.peft_config[policy_adapter]),
+        )
+        scan_trainer._copy_adapter_parameters(model, policy_adapter, reference_adapter)
+        policy_parameters = scan_trainer._adapter_parameters(model, policy_adapter)
+        reference_parameters = scan_trainer._adapter_parameters(model, reference_adapter)
+
+        def activate_reference() -> None:
+            model.set_adapter(reference_adapter)
+            for parameter in reference_parameters:
+                parameter.requires_grad_(False)
+
+        def activate_policy() -> None:
+            model.set_adapter(policy_adapter)
+            for parameter in policy_parameters:
+                parameter.requires_grad_(True)
+            for parameter in reference_parameters:
+                parameter.requires_grad_(False)
+
+        activate_policy()
+        policy_initial_sha256 = _parameter_sequence_sha256(policy_parameters)
+        reference_initial_sha256 = _parameter_sequence_sha256(reference_parameters)
+        if policy_initial_sha256 != reference_initial_sha256:
+            raise RuntimeError("DPO policy/reference exact initialization copy failed")
+        optimizer = torch.optim.AdamW(
+            policy_parameters,
+            lr=float(effective["training"]["learning_rate"]),
+            weight_decay=float(effective["training"]["weight_decay"]),
+        )
+        scheduler = arena.get_cosine_schedule_with_warmup(
+            optimizer,
+            max(1, int(updates * float(effective["training"]["warmup_ratio"]))),
+            updates,
+        )
+        device = next(model.parameters()).device
+        model.eval()
+        training_path = cell_root / "training_metrics.jsonl"
+        evaluation_path = cell_root / "evaluation_metrics.jsonl"
+        best_dir = cell_root / "supplementary_best_adapter"
+        terminal_dir = cell_root / "terminal_adapter"
+        metric_rows: list[dict[str, Any]] = []
+        best_pass8 = -math.inf
+        optimizer_update_norms: list[float] = []
+        initial_pair_margin_max_abs: float | None = None
+        tolerance = float(config["dpo"]["initial_pair_margin_max_abs_tolerance"])
+
+        def evaluate(step: int) -> None:
+            nonlocal best_pass8
+            if evaluator is None:
+                return
+            activate_policy()
+            model.eval()
+            row = scan_trainer._evaluate_validation(
+                model=model,
+                tokenizer=tokenizer,
+                val_rows=validation_rows,
+                known_structures={f"{cell.task}:task_verifier"},
+                model_cfg=model_cfg,
+                eval_cfg=eval_cfg,
+                step=step,
+                pass64_every=200,
+                pass64_enabled=64
+                in set(int(value) for value in effective["evaluation"]["auxiliary_pass_ks"]),
+            )
+            sampled_valid_rate = getattr(evaluator, "_last_primary_sampled_valid_rate", None)
+            if sampled_valid_rate is not None:
+                row["val_sampled_valid_rate"] = float(sampled_valid_rate)
+            metric_rows.append(row)
+            append_jsonl(
+                evaluation_path,
+                {
+                    "update": int(row["step"]),
+                    "pass8": float(row["val_pass_at_8"]),
+                    "greedy_success": float(row["val_greedy"]),
+                    "greedy_valid_rate": float(row["val_valid_rate"]),
+                    "sampled_valid_rate": row.get("val_sampled_valid_rate"),
+                },
+            )
+            if float(row["val_pass_at_8"]) > best_pass8:
+                best_pass8 = float(row["val_pass_at_8"])
+                if best_dir.exists():
+                    shutil.rmtree(best_dir)
+                activate_policy()
+                model.save_pretrained(best_dir, safe_serialization=True)
+                tokenizer.save_pretrained(best_dir)
+
+        if not engineering_liveness:
+            evaluate(0)
+        optimizer.zero_grad(set_to_none=True)
+        accumulation = int(effective["training"]["gradient_accumulation"])
+        for update in range(1, updates + 1):
+            loss_total = 0.0
+            pair_margin_total = 0.0
+            preference_accuracy_total = 0.0
+            saturation_total = 0.0
+            for accumulation_index in range(accumulation):
+                try:
+                    packed = next(iterator)
+                except StopIteration:
+                    iterator = iter(loader)
+                    packed = next(iterator)
+                positive_batch = arena.move_to_device(packed["positive"], device)
+                bank_batch = arena.move_to_device(packed["bank"], device)
+                row_index = packed["bank_row_index"].to(device)
+                unique_counts = packed["unique_counts"].to(device)
+
+                activate_reference()
+                model.eval()
+                with torch.no_grad():
+                    reference_positive_stats = arena.completion_stats(model, positive_batch)
+                    reference_bank_stats = arena.completion_stats(model, bank_batch)
+                    reference_chosen = paper_common.full_sequence_log_probability(
+                        reference_positive_stats
+                    ).detach()
+                    reference_rejected = paper_common.full_sequence_log_probability(
+                        reference_bank_stats
+                    ).detach()
+
+                activate_policy()
+                model.eval()
+                policy_positive_stats = arena.completion_stats(model, positive_batch)
+                policy_bank_stats = arena.completion_stats(model, bank_batch)
+                policy_chosen = paper_common.full_sequence_log_probability(
+                    policy_positive_stats
+                )
+                policy_rejected = paper_common.full_sequence_log_probability(
+                    policy_bank_stats
+                )
+                pair_margin = (
+                    policy_chosen[row_index]
+                    - policy_rejected
+                    - reference_chosen[row_index]
+                    + reference_rejected
+                )
+                if update == 1 and accumulation_index == 0:
+                    initial_pair_margin_max_abs = float(pair_margin.detach().abs().max())
+                    if initial_pair_margin_max_abs > tolerance:
+                        raise RuntimeError(
+                            "DPO initial policy/reference pair margin exceeds exact-copy tolerance"
+                        )
+                logits = beta * pair_margin
+                pair_losses = F.softplus(-logits)
+                loss = _dpo_prompt_balanced_mean(
+                    pair_losses,
+                    row_index,
+                    unique_counts,
+                    paper_common=paper_common,
+                )
+                if not bool(torch.isfinite(loss)):
+                    raise RuntimeError(f"{cell.key} non-finite DPO loss at update {update}")
+                (loss / accumulation).backward()
+                loss_total += float(loss.detach().cpu())
+                pair_margin_total += float(pair_margin.detach().mean().cpu())
+                preference_accuracy_total += float(
+                    (pair_margin.detach() > 0.0).float().mean().cpu()
+                )
+                saturation_total += float((logits.detach().abs() >= 10.0).float().mean().cpu())
+
+            gradient_norm = torch.nn.utils.clip_grad_norm_(
+                policy_parameters,
+                float(effective["training"]["max_grad_norm"]),
+            )
+            if not bool(torch.isfinite(gradient_norm)):
+                raise RuntimeError(f"{cell.key} non-finite DPO gradient at update {update}")
+            sample_update_norm = update % 10 == 0 or update == updates
+            before = (
+                [parameter.detach().float().cpu().clone() for parameter in policy_parameters]
+                if sample_update_norm
+                else []
+            )
+            if not arena.optimizer_step_with_last_finite_guard(optimizer, policy_parameters):
+                raise RuntimeError(f"{cell.key} non-finite DPO parameters at update {update}")
+            scheduler.step()
+            optimizer.zero_grad(set_to_none=True)
+            update_norm = (
+                scan_trainer._parameter_update_norm(before, policy_parameters)
+                if sample_update_norm
+                else None
+            )
+            if update_norm is not None:
+                optimizer_update_norms.append(float(update_norm))
+            if update % 10 == 0 or update == updates:
+                append_jsonl(
+                    training_path,
+                    {
+                        "update": update,
+                        "dpo_beta": beta,
+                        "dpo_pair_loss": loss_total / accumulation,
+                        "pair_margin_mean": pair_margin_total / accumulation,
+                        "preference_accuracy": preference_accuracy_total / accumulation,
+                        "logit_saturation_fraction": saturation_total / accumulation,
+                        "raw_gradient_norm_before_clip": float(gradient_norm.detach().cpu()),
+                        "optimizer_update_norm": update_norm,
+                        "initial_pair_margin_max_abs": initial_pair_margin_max_abs,
+                        "reference_role": "exact_frozen_initial_policy",
+                        "label_smoothing": 0.0,
+                        "test_data_used": False,
+                    },
+                )
+            if not engineering_liveness and (update % eval_every == 0 or update == updates):
+                evaluate(update)
+
+        activate_policy()
+        terminal_policy_sha256 = _parameter_sequence_sha256(policy_parameters)
+        reference_terminal_sha256 = _parameter_sequence_sha256(reference_parameters)
+        if reference_terminal_sha256 != reference_initial_sha256:
+            raise RuntimeError("Frozen DPO reference changed during policy optimization")
+        if terminal_policy_sha256 == policy_initial_sha256:
+            raise RuntimeError("DPO policy parameters did not change")
+        model.save_pretrained(terminal_dir, safe_serialization=True)
+        tokenizer.save_pretrained(terminal_dir)
+        terminal_identity = model_identity(base_model_path, str(terminal_dir))["adapter"]
+
+        if engineering_liveness:
+            summary: dict[str, Any] = {
+                "engineering_liveness": True,
+                "optimizer_updates": updates,
+                "evaluation_status": "not_applicable",
+            }
+            scientific_status = "not_run"
+        else:
+            evaluations = read_jsonl(evaluation_path)
+            summary = _summarize_evaluations(evaluations, config)
+            scientific_status = "pilot"
+        result = {
+            **identity,
+            **summary,
+            "beta": beta,
+            "dpo_beta": beta,
+            "objective_formula": (
+                "mean_prompt(mean_unique_negative(softplus(-beta*((logpi_chosen-logpi_rejected)-"
+                "(logref_chosen-logref_rejected)))))"
+            ),
+            "sequence_log_probability": "full_completion_summed_log_probability",
+            "chosen_completion": "oracle_completion",
+            "rejected_completions": "all_unique_verifier_wrong_completions",
+            "pair_aggregation": "mean_unique_negative_within_prompt_then_mean_prompts",
+            "label_smoothing": 0.0,
+            "reference_role": "exact_frozen_initial_policy",
+            "reference_trainable": False,
+            "initial_pair_margin_max_abs": initial_pair_margin_max_abs,
+            "initial_pair_margin_max_abs_tolerance": tolerance,
+            "policy_initial_state_sha256": policy_initial_sha256,
+            "reference_initial_state_sha256": reference_initial_sha256,
+            "reference_terminal_state_sha256": reference_terminal_sha256,
+            "terminal_trainable_state_sha256": terminal_policy_sha256,
+            "initialization_state_sha256": policy_initial_sha256,
+            "terminal_adapter": str(terminal_dir.resolve()),
+            "terminal_adapter_identity": terminal_identity,
+            "best_adapter": (
+                str(best_dir.resolve()) if best_dir.is_dir() else str(terminal_dir.resolve())
+            ),
+            "training_metrics": str(training_path.resolve()),
+            "evaluation_metrics": (
+                str(evaluation_path.resolve()) if evaluation_path.is_file() else None
+            ),
+            "canonical_dispatch_verified": True,
+            "finite_old_core_updates": True,
+            "optimizer_update_norm": (
+                min(value for value in optimizer_update_norms if math.isfinite(value))
+                if optimizer_update_norms
+                else 0.0
+            ),
+            "optimizer_updates": updates,
+            "nan_inf_failure": False,
+            "test_partition_accessed": False,
+            "complete": True,
+            "scientific_status": scientific_status,
+        }
+        if not engineering_liveness:
+            result.update(
+                {
+                    "best_step": summary["supplementary_best_step"],
+                    "terminal_step": updates,
+                    "stop_reason": "max_steps",
+                    "validation_best_pass8": summary["supplementary_best_pass8"],
+                    "validation_terminal_pass8": summary["validation_terminal_pass8"],
+                    "validation_best_greedy": summary["supplementary_best_greedy"],
+                    "validation_terminal_greedy": summary["validation_terminal_greedy"],
+                    "validation_best_greedy_valid_rate": max(
+                        float(row["greedy_valid_rate"]) for row in read_jsonl(evaluation_path)
+                    ),
+                    "validation_terminal_greedy_valid_rate": summary[
+                        "validation_terminal_greedy_valid_rate"
+                    ],
+                }
+            )
+        atomic_json(manifest_path, result)
+        return result
+    finally:
+        arena.clean_expression = original_clean_expression
+        arena.SYSTEM_PROMPT = original_system_prompt
+        arena.evaluate_rows = original_evaluate_rows
+        arena.completion_stats = original_completion_stats
+        if "model" in locals():
+            del model
+        gc.collect()
+        if torch is not None and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+
+def _cmd_dpo_liveness(
+    config: Mapping[str, Any],
+    config_path: Path,
+    output_root: Path,
+    *,
+    inputs: Mapping[str, TaskInputs],
+    splits: Mapping[str, Any],
+    base_model_path: str,
+    task: str,
+    force: bool,
+) -> dict[str, Any]:
+    if task != str(config["dpo"]["liveness_task"]):
+        raise RuntimeError("DPO liveness must use the configured transfer-task anchor")
+    beta = float(config["dpo"]["liveness_beta"])
+    values = _task_method_values(config, task)
+    if beta not in values:
+        raise RuntimeError("DPO liveness_beta must be one configured beta point")
+    cell = Cell(
+        task,
+        METHOD_DPO,
+        None,
+        int(config["sweep"]["task_transfer_seed_offset"]),
+        "liveness",
+        None,
+        None,
+        beta,
+    )
+    result = train_cell(
+        cell,
+        inputs=inputs[task],
+        split_manifest=splits,
+        base_model_path=base_model_path,
+        config=config,
+        output_root=output_root,
+        force=force,
+        updates_override=2,
+        engineering_liveness=True,
+    )
+    reload_command = [
+        sys.executable,
+        "-m",
+        "drpo.e8_multitask_exp_tuning",
+        "--config",
+        str(config_path.resolve()),
+        "--output-root",
+        str(output_root.resolve()),
+        "reload-adapter",
+        "--base-model-path",
+        base_model_path,
+        "--adapter-path",
+        str(result["terminal_adapter"]),
+    ]
+    reload_process = subprocess.run(
+        reload_command,
+        capture_output=True,
+        text=True,
+        env=os.environ.copy(),
+        check=False,
+    )
+    if reload_process.returncode != 0:
+        raise RuntimeError(f"Fresh-process DPO adapter reload failed: {reload_process.stderr[-2000:]}")
+    reload_result = json.loads(reload_process.stdout)
+    if (
+        not reload_result.get("complete")
+        or not reload_result.get("finite")
+        or int(reload_result.get("process_id", os.getpid())) == os.getpid()
+        or reload_result.get("adapter_identity") != result["terminal_adapter_identity"]
+    ):
+        raise RuntimeError("Fresh-process DPO adapter reload identity or finiteness mismatch")
+    if not math.isfinite(float(result.get("optimizer_update_norm", 0.0))) or float(
+        result.get("optimizer_update_norm", 0.0)
+    ) <= 0.0:
+        raise RuntimeError("DPO liveness did not perform a finite nonzero optimizer update")
+    result.update(
+        {
+            "reload_gate_passed": True,
+            "adapter_weight_changed": True,
+            "fresh_process_reload_passed": True,
+            "liveness_parent_process_id": os.getpid(),
+            "reload_process_id": int(reload_result["process_id"]),
+            "terminal_adapter_weight_sha256": sha256_file(_adapter_weight_file(Path(result["terminal_adapter"]))),
+            "evaluation_status": "complete",
+        }
+    )
+    result["identity_hash"] = stable_hash(result)
+    atomic_json(output_root / "liveness" / cell.key / "cell_manifest.json", result)
+    return result
+
 def _train_canonical_cold_cell(
     cell: Cell,
     *,
@@ -4587,6 +5214,18 @@ def train_cell(
     failure_root = output_root / root_name / cell.key
     try:
         if _is_coldstart(config):
+            if _coldstart_method(config) == METHOD_DPO:
+                return _train_canonical_dpo_transfer_cell(
+                    cell,
+                    inputs=inputs,
+                    split_manifest=split_manifest,
+                    base_model_path=base_model_path,
+                    config=config,
+                    output_root=output_root,
+                    force=force,
+                    updates_override=updates_override,
+                    engineering_liveness=engineering_liveness,
+                )
             if updates_override is not None or engineering_liveness:
                 raise RuntimeError(
                     "Canonical cold liveness requires its derived old-core config path"
@@ -4930,13 +5569,24 @@ def cmd_liveness(
     if task not in config["suite"]["tasks"]:
         raise ValueError(f"Unknown liveness task: {task}")
     if _is_coldstart(config):
-        if task != "countdown":
-            raise RuntimeError("The paper-runtime liveness anchor must be Countdown")
         splits, inputs = _load_ready_inputs(
             output_root,
             config,
             base_model_path=base_model_path,
         )
+        if _coldstart_method(config) == METHOD_DPO:
+            return _cmd_dpo_liveness(
+                config,
+                config_path,
+                output_root,
+                inputs=inputs,
+                splits=splits,
+                base_model_path=base_model_path,
+                task=task,
+                force=force,
+            )
+        if task != "countdown":
+            raise RuntimeError("The paper-runtime liveness anchor must be Countdown")
         return _cmd_canonical_cold_liveness(
             config,
             config_path,
@@ -6317,7 +6967,7 @@ def _coldstart_completed_task_rows(
                 "task": cell.task,
                 "method": cell.method,
                 "delta_v": cell.delta_v,
-            "beta": cell.beta,
+                "beta": cell.beta,
                 "rho": cell.rho,
                 "lambda": (
                     cell.lambda_value

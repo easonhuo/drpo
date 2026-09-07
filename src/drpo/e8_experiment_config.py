@@ -26,8 +26,10 @@ P0_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-P0-01"
 COLDSTART_METHOD_EXPONENTIAL = "exponential"
 COLDSTART_METHOD_ASYMRE = "asymre"
 COLDSTART_METHOD_TOPR = "joint_fitted_reference_topr"
+COLDSTART_METHOD_DPO = "canonical_dpo"
 ASYMRE_PARAMETERIZATION = "asymre_delta_v"
 TOPR_PARAMETERIZATION = "joint_fitted_reference_beta_topr"
+DPO_PARAMETERIZATION = "canonical_dpo_beta"
 
 SWEEP_PROFILE_RHO = "nine_task_rho_v1"
 SWEEP_PROFILE_DENSE = "task_lambda_dense_v1"
@@ -194,7 +196,7 @@ def task_betas(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
     )
     values = tuple(_number(value, f"{task} beta value") for value in raw)
     if any(value < 0.0 for value in values):
-        raise ValueError(f"{task} TOPR beta values must be non-negative")
+        raise ValueError(f"{task} beta values must be non-negative")
     return values
 
 
@@ -314,25 +316,76 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
     if config["parent"].get("qualified_banks_required") is not True:
         raise ValueError("Cold-start requires qualified P0 banks")
 
+    method = coldstart_method(config)
     reference = config["reference"]
-    if (
-        reference.get("checkpoint_kind") != "fresh_lora_from_base_model"
-        or reference.get("optimizer_updates") != 0
-        or reference.get("validation_rows_seen") != 0
-        or reference.get("test_rows_seen") != 0
-    ):
-        raise ValueError("Cold-start reference must remain a zero-update fresh LoRA")
-
     initialization = config["initialization"]
-    if (
-        initialization.get("source") != "base_model"
-        or initialization.get("optimizer_updates") != 0
-        or initialization.get("external_adapter_allowed") is not False
-        or initialization.get("deterministic_fresh_lora") is not True
-    ):
-        raise ValueError(
-            "Cold-start initialization must remain zero-update deterministic fresh LoRA"
+    if method == COLDSTART_METHOD_DPO:
+        dpo = _mapping(config.get("dpo"), "dpo")
+        mode = str(dpo.get("initialization_mode", ""))
+        if mode not in {"base_model_fresh_lora", "shared_sft_adapter"}:
+            raise ValueError("DPO initialization_mode is not implemented")
+        common_reference = (
+            reference.get("optimizer_updates") == 0
+            and reference.get("validation_rows_seen") == 0
+            and reference.get("test_rows_seen") == 0
         )
+        if not common_reference:
+            raise ValueError("DPO reference must be a zero-update exact initialization copy")
+        if mode == "base_model_fresh_lora":
+            if (
+                reference.get("checkpoint_kind") != "fresh_lora_from_base_model"
+                or initialization.get("source") != "base_model"
+                or initialization.get("optimizer_updates") != 0
+                or initialization.get("external_adapter_allowed") is not False
+                or initialization.get("deterministic_fresh_lora") is not True
+                or dpo.get("shared_sft_adapter_env") not in (None, "")
+            ):
+                raise ValueError("Cold-start DPO fresh-LoRA initialization contract drifted")
+        else:
+            if (
+                reference.get("checkpoint_kind") != "exact_frozen_copy_of_initialized_policy"
+                or initialization.get("source") != "shared_sft_adapter"
+                or initialization.get("optimizer_updates") != 0
+                or initialization.get("external_adapter_allowed") is not True
+                or initialization.get("deterministic_fresh_lora") is not False
+                or not isinstance(dpo.get("shared_sft_adapter_env"), str)
+                or not str(dpo.get("shared_sft_adapter_env")).strip()
+            ):
+                raise ValueError("Shared-SFT DPO initialization contract drifted")
+        if (
+            dpo.get("policy_adapter") != "default"
+            or dpo.get("reference_adapter") != "reference"
+            or dpo.get("reference_role") != "exact_frozen_initial_policy"
+            or dpo.get("copy_policy_to_reference_before_update_1") is not True
+            or dpo.get("reference_trainable") is not False
+            or float(dpo.get("label_smoothing", -1.0)) != 0.0
+            or dpo.get("sequence_log_probability") != "full_completion_summed_log_probability"
+            or dpo.get("pair_aggregation") != "mean_unique_negative_within_prompt_then_mean_prompts"
+            or float(dpo.get("initial_pair_margin_max_abs_tolerance", -1.0)) != 1.0e-5
+        ):
+            raise ValueError("Canonical DPO scientific contract drifted")
+        liveness_task = str(dpo.get("liveness_task", ""))
+        if liveness_task not in set(config["suite"]["p0_tasks"]):
+            raise ValueError("DPO liveness_task must be one configured P0 task")
+        if _number(dpo.get("liveness_beta"), "dpo.liveness_beta") <= 0.0:
+            raise ValueError("DPO liveness_beta must be positive")
+    else:
+        if (
+            reference.get("checkpoint_kind") != "fresh_lora_from_base_model"
+            or reference.get("optimizer_updates") != 0
+            or reference.get("validation_rows_seen") != 0
+            or reference.get("test_rows_seen") != 0
+        ):
+            raise ValueError("Cold-start reference must remain a zero-update fresh LoRA")
+        if (
+            initialization.get("source") != "base_model"
+            or initialization.get("optimizer_updates") != 0
+            or initialization.get("external_adapter_allowed") is not False
+            or initialization.get("deterministic_fresh_lora") is not True
+        ):
+            raise ValueError(
+                "Cold-start initialization must remain zero-update deterministic fresh LoRA"
+            )
 
     model = config["model"]
     if (
@@ -572,12 +625,21 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
         if set(task_values) != set(tasks):
             raise ValueError("Cold-start task_beta must contain the exact nine tasks")
         read_values = task_betas
+    elif method == COLDSTART_METHOD_DPO:
+        if sweep.get("parameterization") != DPO_PARAMETERIZATION:
+            raise ValueError("Canonical DPO requires canonical_dpo_beta parameterization")
+        task_values = _mapping(sweep.get("task_beta"), "sweep.task_beta")
+        if set(task_values) != set(tasks):
+            raise ValueError("Cold-start DPO task_beta must contain the exact nine tasks")
+        read_values = task_betas
     else:
         raise ValueError(f"Unsupported sweep.method for cold-start: {method}")
 
     countdown_values = read_values(config, "countdown")
     if len(set(countdown_values)) != len(countdown_values):
         raise ValueError("Countdown parameter grid contains duplicates")
+    if method == COLDSTART_METHOD_DPO and countdown_values:
+        raise ValueError("Current multitask DPO capability intentionally excludes Countdown cells")
     if method == COLDSTART_METHOD_EXPONENTIAL and any(
         value not in COUNTDOWN_PAPER_COEFFICIENTS for value in countdown_values
     ):
@@ -627,6 +689,8 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
         values = read_values(config, task)
         if len(set(values)) != len(values):
             raise ValueError(f"{task} parameter grid contains duplicates")
+        if method == COLDSTART_METHOD_DPO and any(value <= 0.0 for value in values):
+            raise ValueError(f"{task} canonical DPO beta values must be strictly positive")
         if not str(provenance[task]).strip():
             raise ValueError(f"{task} task-grid provenance must be non-empty")
         if values:
@@ -649,18 +713,27 @@ def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
     if canonical.get("expected_git_blob_shas") != CANONICAL_COLDSTART_BLOB_SHAS:
         raise ValueError("Cold-start canonical source identities drifted")
     method = coldstart_method(config)
-    expected_formula = {
-        COLDSTART_METHOD_ASYMRE: "A_equals_R_minus_delta_v",
-        COLDSTART_METHOD_TOPR: "joint_fitted_reference_beta_ratio_taper",
-    }.get(method, "alpha_times_exp_minus_c_times_current_sequence_surprisal_div_2")
+    if method == COLDSTART_METHOD_DPO:
+        expected_kernel = "historical_pr268_semantics_port_in_existing_multitask_runner"
+        expected_initialization = "config_driven_dpo_initial_policy_plus_exact_frozen_copy"
+        expected_formula = "canonical_sigmoid_dpo_frozen_initial_reference"
+        expected_countdown_entry = "disabled_no_countdown_dpo_cells"
+        expected_transfer_entry = "e8_multitask_exp_tuning._train_canonical_dpo_transfer_cell"
+    else:
+        expected_kernel = "import_only_no_loss_reimplementation"
+        expected_initialization = "qwen_pretrained_base_plus_fresh_lora"
+        expected_formula = {
+            COLDSTART_METHOD_ASYMRE: "A_equals_R_minus_delta_v",
+            COLDSTART_METHOD_TOPR: "joint_fitted_reference_beta_ratio_taper",
+        }.get(method, "alpha_times_exp_minus_c_times_current_sequence_surprisal_div_2")
+        expected_countdown_entry = "countdown_e8_alpha1_highc_scan_runtime.worker"
+        expected_transfer_entry = "countdown_e8_alpha1_c_scan_trainer.train_cell"
     if (
-        canonical.get("scientific_kernel") != "import_only_no_loss_reimplementation"
-        or canonical.get("initialization") != "qwen_pretrained_base_plus_fresh_lora"
+        canonical.get("scientific_kernel") != expected_kernel
+        or canonical.get("initialization") != expected_initialization
         or canonical.get("formula") != expected_formula
-        or canonical.get("countdown_entry")
-        != "countdown_e8_alpha1_highc_scan_runtime.worker"
-        or canonical.get("transfer_entry")
-        != "countdown_e8_alpha1_c_scan_trainer.train_cell"
+        or canonical.get("countdown_entry") != expected_countdown_entry
+        or canonical.get("transfer_entry") != expected_transfer_entry
     ):
         raise ValueError("Cold-start canonical trainer/dispatch contract drifted")
     execution = _mapping(config.get("execution"), "execution")

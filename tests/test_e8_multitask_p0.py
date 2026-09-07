@@ -3256,3 +3256,149 @@ def test_topr_liveness_uses_existing_joint_reference_profile() -> None:
     assert cell.method == exp_tuning.METHOD_TOPR
     assert cell.beta == pytest.approx(0.25)
     assert cell.seed == 4000
+
+
+
+def _dpo_capability_test_config(*, shared_sft: bool = False) -> dict:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = copy.deepcopy(
+        yaml.safe_load(
+            Path("configs/e8_multitask_exp_lambda_curve_completion.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+    )
+    config["experiment_id"] = (
+        "DEV-E8-MULTITASK-DPO-SHARED-SFT-CAPABILITY-TEST"
+        if shared_sft
+        else "DEV-E8-MULTITASK-DPO-COLD-CAPABILITY-TEST"
+    )
+    sweep = config["sweep"]
+    sweep["method"] = "canonical_dpo"
+    sweep["parameterization"] = "canonical_dpo_beta"
+    sweep.pop("task_lambda", None)
+    sweep["task_beta"] = {task: [] for task in config["suite"]["tasks"]}
+    for task in config["suite"]["p0_tasks"]:
+        sweep["task_beta"][task] = [0.1, 1.0]
+    sweep["countdown_seed_offsets"] = []
+    sweep["countdown_include_positive_only"] = False
+    sweep["include_global_endpoint"] = False
+    sweep["transfer_positive_only_seed_offsets"] = []
+    sweep["task_transfer_seed_offset"] = 4000
+    sweep["tuning_seed"] = 4000
+    sweep["expected_cells"] = 16
+    config["execution"]["expected_waves"] = 1
+    config["canonical_coldstart"].update(
+        {
+            "scientific_kernel": "historical_pr268_semantics_port_in_existing_multitask_runner",
+            "initialization": "config_driven_dpo_initial_policy_plus_exact_frozen_copy",
+            "formula": "canonical_sigmoid_dpo_frozen_initial_reference",
+            "countdown_entry": "disabled_no_countdown_dpo_cells",
+            "transfer_entry": "e8_multitask_exp_tuning._train_canonical_dpo_transfer_cell",
+        }
+    )
+    config["dpo"] = {
+        "initialization_mode": (
+            "shared_sft_adapter" if shared_sft else "base_model_fresh_lora"
+        ),
+        "shared_sft_adapter_env": "E8_DPO_SHARED_SFT_ADAPTER" if shared_sft else None,
+        "policy_adapter": "default",
+        "reference_adapter": "reference",
+        "reference_role": "exact_frozen_initial_policy",
+        "copy_policy_to_reference_before_update_1": True,
+        "reference_trainable": False,
+        "label_smoothing": 0.0,
+        "sequence_log_probability": "full_completion_summed_log_probability",
+        "pair_aggregation": "mean_unique_negative_within_prompt_then_mean_prompts",
+        "initial_pair_margin_max_abs_tolerance": 1.0e-5,
+        "liveness_task": "word_sorting",
+        "liveness_beta": 0.1,
+    }
+    if shared_sft:
+        config["reference"]["checkpoint_kind"] = "exact_frozen_copy_of_initialized_policy"
+        config["initialization"].update(
+            {
+                "source": "shared_sft_adapter",
+                "external_adapter_allowed": True,
+                "deterministic_fresh_lora": False,
+            }
+        )
+    exp_tuning.validate_config(config)
+    return config
+
+
+def test_dpo_capability_is_config_driven_and_excludes_countdown(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _dpo_capability_test_config()
+    cells = exp_tuning.build_cells(config)
+    assert len(cells) == 16
+    assert {cell.task for cell in cells} == set(config["suite"]["p0_tasks"])
+    assert {cell.method for cell in cells} == {exp_tuning.METHOD_DPO}
+    assert {cell.beta for cell in cells} == {0.1, 1.0}
+    assert {cell.seed for cell in cells} == {4000}
+    assert all("__canonical_dpo_beta" in cell.key for cell in cells)
+    assert all(cell.task != "countdown" for cell in cells)
+    plan = exp_tuning.write_plan(config, tmp_path)
+    assert plan["cell_count"] == 16
+    assert plan["wave_sizes"] == [16]
+    assert {row["beta"] for row in plan["rows"]} == {0.1, 1.0}
+
+
+def test_dpo_capability_accepts_shared_sft_initialization_mode() -> None:
+    config = _dpo_capability_test_config(shared_sft=True)
+    assert config["dpo"]["initialization_mode"] == "shared_sft_adapter"
+    assert config["initialization"]["source"] == "shared_sft_adapter"
+    assert config["reference"]["checkpoint_kind"] == "exact_frozen_copy_of_initialized_policy"
+
+
+def test_dpo_capability_rejects_zero_beta() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _dpo_capability_test_config()
+    config["sweep"]["task_beta"]["word_sorting"] = [0.0]
+    config["sweep"]["expected_cells"] = 15
+    with pytest.raises(ValueError, match="strictly positive"):
+        exp_tuning.validate_config(config)
+
+
+def test_dpo_scientific_kernel_matches_reviewed_pr268_structure() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning._train_canonical_dpo_transfer_cell)
+    required = (
+        "full_sequence_log_probability",
+        "policy_chosen[row_index]",
+        "- policy_rejected",
+        "- reference_chosen[row_index]",
+        "+ reference_rejected",
+        "F.softplus(-logits)",
+        "initial_pair_margin_max_abs",
+        "reference_terminal_sha256 != reference_initial_sha256",
+        "label_smoothing\": 0.0",
+        "test_partition_accessed\": False",
+    )
+    for fragment in required:
+        assert fragment in source
+    helper_source = inspect.getsource(exp_tuning._dpo_prompt_balanced_mean)
+    assert "mean_unique_negative_term" in helper_source
+    assert "value_network" not in source
+    assert "early_stop" not in source
+    assert "hard_negative" not in source
+
+
+def test_dpo_train_cell_dispatch_supports_two_update_liveness() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning.train_cell)
+    assert "_coldstart_method(config) == METHOD_DPO" in source
+    assert "_train_canonical_dpo_transfer_cell" in source
+    liveness = inspect.getsource(exp_tuning._cmd_dpo_liveness)
+    assert "updates_override=2" in liveness
+    assert "fresh_process_reload_passed" in liveness
+    assert "optimizer_update_norm" in liveness
