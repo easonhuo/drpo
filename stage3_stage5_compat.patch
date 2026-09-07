@@ -1,0 +1,188 @@
+diff --git a/scripts/handoff_delta_shadow.py b/scripts/handoff_delta_shadow.py
+--- a/scripts/handoff_delta_shadow.py
++++ b/scripts/handoff_delta_shadow.py
+@@ -1,3 +1,61 @@
++def first_parent_repository_commit_for_path(repo_root: Path, path: Path) -> str:
++    """Return the first-parent commit that integrated an authoritative path.
++
++    Stage 5 permits a schema-v3 delta or materialization report to be authored
++    and revised on a side branch before one GitHub merge integration. Stage 3
++    only needs the resulting integration commit for observation timing; Stage 5
++    remains the authority for full path-history validation.
++    """
++
++    relative = path.resolve().relative_to(repo_root.resolve()).as_posix()
++    result = git(
++        repo_root,
++        "log",
++        "--first-parent",
++        "--diff-merges=first-parent",
++        "--diff-filter=A",
++        "--format=%H",
++        "--",
++        relative,
++        check=False,
++    )
++    commits = [line.strip() for line in result.stdout.splitlines() if line.strip()]
++    if len(commits) != 1:
++        raise HandoffDeltaError(
++            "authoritative path must have exactly one first-parent integration: "
++            + relative
++        )
++    return commits[0]
++
++
++def verify_authoritative_path_unchanged_after_integration(
++    repo_root: Path, path: Path, integration_commit: str
++) -> None:
++    """Reject any first-parent mutation after the Stage 5 integration commit."""
++
++    relative = path.resolve().relative_to(repo_root.resolve()).as_posix()
++    head = git_text(repo_root, "rev-parse", "HEAD")
++    later_touches = git_text(
++        repo_root,
++        "rev-list",
++        "--first-parent",
++        "--reverse",
++        f"{integration_commit}..{head}",
++        "--",
++        relative,
++    ).splitlines()
++    if later_touches:
++        raise HandoffDeltaError(
++            "authoritative delta/report changed after first-parent integration"
++        )
++    if git_show_text(repo_root, integration_commit, relative) != path.read_text(
++        encoding="utf-8"
++    ):
++        raise HandoffDeltaError(
++            "authoritative delta/report bytes differ from integration commit"
++        )
++
++
+ def authoritative_report_metadata(repo_root: Path, delta_path: Path) -> dict[str, Any]:
+     report_path = delta_path.parent / AUTHORITY_REPORT_FILENAME
+     report = load_json(report_path, "materialization report")
+@@ -7,18 +65,18 @@
+         raise HandoffDeltaError("materialization report must be authoritative")
+     if report.get("update_id") != delta_path.parent.name:
+         raise HandoffDeltaError("materialization report update_id mismatch")
+-    repository_commit = repository_commit_for_added_path(repo_root, delta_path)
+-    report_commit = repository_commit_for_added_path(repo_root, report_path)
+-    if repository_commit is None or report_commit != repository_commit:
+-        raise HandoffDeltaError("authoritative delta/report must enter Git in the same commit")
+-    delta_touches = git_text(
+-        repo_root, "log", "--format=%H", "--", delta_path.relative_to(repo_root).as_posix()
+-    ).splitlines()
+-    report_touches = git_text(
+-        repo_root, "log", "--format=%H", "--", report_path.relative_to(repo_root).as_posix()
+-    ).splitlines()
+-    if delta_touches != [repository_commit] or report_touches != [repository_commit]:
+-        raise HandoffDeltaError("authoritative delta/report must remain immutable")
++    repository_commit = first_parent_repository_commit_for_path(repo_root, delta_path)
++    report_commit = first_parent_repository_commit_for_path(repo_root, report_path)
++    if report_commit != repository_commit:
++        raise HandoffDeltaError(
++            "authoritative delta/report must share one first-parent integration commit"
++        )
++    verify_authoritative_path_unchanged_after_integration(
++        repo_root, delta_path, repository_commit
++    )
++    verify_authoritative_path_unchanged_after_integration(
++        repo_root, report_path, repository_commit
++    )
+     if report.get("delta_sha256") != sha256_file(delta_path):
+         raise HandoffDeltaError("materialization report delta hash mismatch")
+     return {
+diff --git a/tests/test_handoff_delta_shadow.py b/tests/test_handoff_delta_shadow.py
+--- a/tests/test_handoff_delta_shadow.py
++++ b/tests/test_handoff_delta_shadow.py
+@@ -5,3 +5,88 @@
+         {"update_id": "A-FIRST", "kind": "real"},
+     ]
+     assert RUNNER.real_observation_ids(observations) == ["A-FIRST", "Z-LAST"]
++
++
++def test_authoritative_metadata_accepts_side_branch_preintegration_history(
++    tmp_path: Path,
++) -> None:
++    repo, _base = make_repo(tmp_path)
++    main_branch = git(repo, "branch", "--show-current")
++    git(repo, "checkout", "-b", "topic")
++
++    update_id = "TEST-AUTHORITATIVE-MERGE-HISTORY-01"
++    delta_dir = repo / "docs/handoff_deltas" / update_id
++    delta_dir.mkdir(parents=True)
++    delta = delta_dir / MODULE.DELTA_FILENAME
++    delta.write_text(
++        "schema_version: 3\nupdate_id: TEST-AUTHORITATIVE-MERGE-HISTORY-01\n"
++    )
++    git(repo, "add", delta.relative_to(repo).as_posix())
++    git(repo, "commit", "-m", "add authoritative delta on topic")
++
++    report = delta_dir / MODULE.AUTHORITY_REPORT_FILENAME
++    report.write_text(
++        json.dumps(
++            {
++                "report_schema_version": 1,
++                "status": "PASS",
++                "mode": "authoritative",
++                "update_id": update_id,
++                "delta_sha256": MODULE.sha256_file(delta),
++            },
++            indent=2,
++            sort_keys=True,
++        )
++        + "\n"
++    )
++    git(repo, "add", report.relative_to(repo).as_posix())
++    git(repo, "commit", "-m", "add materialization report on topic")
++
++    git(repo, "checkout", main_branch)
++    git(repo, "merge", "--no-ff", "topic", "-m", "integrate authoritative update")
++    integration = git(repo, "rev-parse", "HEAD")
++
++    metadata = MODULE.authoritative_report_metadata(repo, delta)
++    assert metadata["repository_commit"] == integration
++
++
++def test_authoritative_metadata_rejects_postintegration_mutation(tmp_path: Path) -> None:
++    repo, _base = make_repo(tmp_path)
++    main_branch = git(repo, "branch", "--show-current")
++    git(repo, "checkout", "-b", "topic")
++
++    update_id = "TEST-AUTHORITATIVE-MERGE-HISTORY-02"
++    delta_dir = repo / "docs/handoff_deltas" / update_id
++    delta_dir.mkdir(parents=True)
++    delta = delta_dir / MODULE.DELTA_FILENAME
++    delta.write_text(
++        "schema_version: 3\nupdate_id: TEST-AUTHORITATIVE-MERGE-HISTORY-02\n"
++    )
++    report = delta_dir / MODULE.AUTHORITY_REPORT_FILENAME
++    report.write_text(
++        json.dumps(
++            {
++                "report_schema_version": 1,
++                "status": "PASS",
++                "mode": "authoritative",
++                "update_id": update_id,
++                "delta_sha256": MODULE.sha256_file(delta),
++            },
++            indent=2,
++            sort_keys=True,
++        )
++        + "\n"
++    )
++    git(repo, "add", delta_dir.relative_to(repo).as_posix())
++    git(repo, "commit", "-m", "add authoritative pair on topic")
++
++    git(repo, "checkout", main_branch)
++    git(repo, "merge", "--no-ff", "topic", "-m", "integrate authoritative pair")
++    report.write_text(report.read_text() + "\n")
++    git(repo, "add", report.relative_to(repo).as_posix())
++    git(repo, "commit", "-m", "tamper after integration")
++
++    with pytest.raises(
++        MODULE.HandoffDeltaError, match="changed after first-parent integration"
++    ):
++        MODULE.authoritative_report_metadata(repo, delta)
