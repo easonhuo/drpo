@@ -199,122 +199,105 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          import textwrap
 
           script = Path("scripts/handoff_delta_shadow.py")
           text = script.read_text(encoding="utf-8")
-          old = textwrap.dedent('''\
-              records: list[dict[str, Any]] = []
-              authoritative_verified = False
-              for delta_path in sorted(root.glob(f"*/{DELTA_FILENAME}")):
-                  delta = load_yaml(delta_path, "handoff delta")
-                  if delta.get("schema_version") == AUTHORITATIVE_DELTA_SCHEMA_VERSION:
-                      if authority_mode(repo_root) != "delta":
-                          raise HandoffDeltaError(
-                              "schema-v3 authoritative delta exists while authority mode is not delta"
-                          )
-                      if replay and not authoritative_verified:
-                          verify_authoritative_state(repo_root)
-                          authoritative_verified = True
-                      report_meta = authoritative_report_metadata(repo_root, delta_path)
-                      repository_commit = report_meta["repository_commit"]
-          ''')
-          new = textwrap.dedent('''\
-              records: list[dict[str, Any]] = []
-              authoritative_verified = False
-              authority_payload: dict[str, Any] | None = None
-              legacy_inert_update_ids: set[str] = set()
-              for delta_path in sorted(root.glob(f"*/{DELTA_FILENAME}")):
-                  delta = load_yaml(delta_path, "handoff delta")
-                  if delta.get("schema_version") == AUTHORITATIVE_DELTA_SCHEMA_VERSION:
-                      if authority_mode(repo_root) != "delta":
-                          raise HandoffDeltaError(
-                              "schema-v3 authoritative delta exists while authority mode is not delta"
-                          )
-                      report_path = delta_path.parent / AUTHORITY_REPORT_FILENAME
-                      if (replay or not report_path.is_file()) and authority_payload is None:
-                          authority_payload = verify_authoritative_state(repo_root)
-                          authoritative_verified = True
-                          raw_legacy_ids = authority_payload.get("legacy_inert_update_ids", [])
-                          if not isinstance(raw_legacy_ids, list) or not all(
-                              isinstance(value, str) for value in raw_legacy_ids
-                          ):
-                              raise HandoffDeltaError(
-                                  "Stage 5 authority verifier returned invalid legacy_inert_update_ids"
-                              )
-                          legacy_inert_update_ids = set(raw_legacy_ids)
-                      if delta.get("update_id") in legacy_inert_update_ids:
-                          continue
-                      if replay and not authoritative_verified:
-                          authority_payload = verify_authoritative_state(repo_root)
-                          authoritative_verified = True
-                      report_meta = authoritative_report_metadata(repo_root, delta_path)
-                      repository_commit = report_meta["repository_commit"]
-          ''')
-          if old not in text:
-              raise SystemExit("observation_records target block not found")
-          script.write_text(text.replace(old, new, 1), encoding="utf-8")
+          observation_start = text.index("def observation_records(")
+          start = text.index("    records: list[dict[str, Any]] = []", observation_start)
+          end = text.index("        else:\n            validate_delta_shape", start)
+          replacement = '''    records: list[dict[str, Any]] = []
+    authoritative_verified = False
+    authority_payload: dict[str, Any] | None = None
+    legacy_inert_update_ids: set[str] = set()
+    for delta_path in sorted(root.glob(f"*/{DELTA_FILENAME}")):
+        delta = load_yaml(delta_path, "handoff delta")
+        if delta.get("schema_version") == AUTHORITATIVE_DELTA_SCHEMA_VERSION:
+            if authority_mode(repo_root) != "delta":
+                raise HandoffDeltaError(
+                    "schema-v3 authoritative delta exists while authority mode is not delta"
+                )
+            report_path = delta_path.parent / AUTHORITY_REPORT_FILENAME
+            if (replay or not report_path.is_file()) and authority_payload is None:
+                authority_payload = verify_authoritative_state(repo_root)
+                authoritative_verified = True
+                raw_legacy_ids = authority_payload.get("legacy_inert_update_ids", [])
+                if not isinstance(raw_legacy_ids, list) or not all(
+                    isinstance(value, str) for value in raw_legacy_ids
+                ):
+                    raise HandoffDeltaError(
+                        "Stage 5 authority verifier returned invalid legacy_inert_update_ids"
+                    )
+                legacy_inert_update_ids = set(raw_legacy_ids)
+            if delta.get("update_id") in legacy_inert_update_ids:
+                continue
+            if replay and not authoritative_verified:
+                authority_payload = verify_authoritative_state(repo_root)
+                authoritative_verified = True
+            report_meta = authoritative_report_metadata(repo_root, delta_path)
+            repository_commit = report_meta["repository_commit"]
+'''
+          script.write_text(text[:start] + replacement + text[end:], encoding="utf-8")
 
           test_path = Path("tests/test_handoff_delta_shadow.py")
           tests = test_path.read_text(encoding="utf-8")
           marker = "def test_observation_records_skips_stage5_legacy_inert_without_report"
           if marker not in tests:
-              tests += textwrap.dedent('''\
+              tests += '''
 
 
-              def test_observation_records_skips_stage5_legacy_inert_without_report(
-                  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-              ) -> None:
-                  repo, _base = make_repo(tmp_path)
-                  update_id = "TEST-LEGACY-INERT-V3"
-                  delta_dir = repo / "docs/handoff_deltas" / update_id
-                  delta_dir.mkdir(parents=True)
-                  delta = delta_dir / MODULE.DELTA_FILENAME
-                  delta.write_text(
-                      "schema_version: 3\nupdate_id: TEST-LEGACY-INERT-V3\n",
-                      encoding="utf-8",
-                  )
-                  git(repo, "add", delta.relative_to(repo).as_posix())
-                  git(repo, "commit", "-m", "add inert v3 delta")
+def test_observation_records_skips_stage5_legacy_inert_without_report(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, _base = make_repo(tmp_path)
+    update_id = "TEST-LEGACY-INERT-V3"
+    delta_dir = repo / "docs/handoff_deltas" / update_id
+    delta_dir.mkdir(parents=True)
+    delta = delta_dir / MODULE.DELTA_FILENAME
+    delta.write_text(
+        "schema_version: 3\\nupdate_id: TEST-LEGACY-INERT-V3\\n",
+        encoding="utf-8",
+    )
+    git(repo, "add", delta.relative_to(repo).as_posix())
+    git(repo, "commit", "-m", "add inert v3 delta")
 
-                  monkeypatch.setattr(MODULE, "authority_mode", lambda _repo: "delta")
-                  monkeypatch.setattr(
-                      MODULE,
-                      "verify_authoritative_state",
-                      lambda _repo: {
-                          "status": "PASS",
-                          "legacy_inert_update_ids": [update_id],
-                      },
-                  )
+    monkeypatch.setattr(MODULE, "authority_mode", lambda _repo: "delta")
+    monkeypatch.setattr(
+        MODULE,
+        "verify_authoritative_state",
+        lambda _repo: {
+            "status": "PASS",
+            "legacy_inert_update_ids": [update_id],
+        },
+    )
 
-                  assert MODULE.observation_records(repo, replay=False) == []
+    assert MODULE.observation_records(repo, replay=False) == []
 
 
-              def test_observation_records_missing_unlisted_v3_report_fails_closed(
-                  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-              ) -> None:
-                  repo, _base = make_repo(tmp_path)
-                  update_id = "TEST-MISSING-V3-REPORT"
-                  delta_dir = repo / "docs/handoff_deltas" / update_id
-                  delta_dir.mkdir(parents=True)
-                  delta = delta_dir / MODULE.DELTA_FILENAME
-                  delta.write_text(
-                      "schema_version: 3\nupdate_id: TEST-MISSING-V3-REPORT\n",
-                      encoding="utf-8",
-                  )
-                  git(repo, "add", delta.relative_to(repo).as_posix())
-                  git(repo, "commit", "-m", "add unlisted v3 delta")
+def test_observation_records_missing_unlisted_v3_report_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, _base = make_repo(tmp_path)
+    update_id = "TEST-MISSING-V3-REPORT"
+    delta_dir = repo / "docs/handoff_deltas" / update_id
+    delta_dir.mkdir(parents=True)
+    delta = delta_dir / MODULE.DELTA_FILENAME
+    delta.write_text(
+        "schema_version: 3\\nupdate_id: TEST-MISSING-V3-REPORT\\n",
+        encoding="utf-8",
+    )
+    git(repo, "add", delta.relative_to(repo).as_posix())
+    git(repo, "commit", "-m", "add unlisted v3 delta")
 
-                  monkeypatch.setattr(MODULE, "authority_mode", lambda _repo: "delta")
-                  monkeypatch.setattr(
-                      MODULE,
-                      "verify_authoritative_state",
-                      lambda _repo: {"status": "PASS", "legacy_inert_update_ids": []},
-                  )
+    monkeypatch.setattr(MODULE, "authority_mode", lambda _repo: "delta")
+    monkeypatch.setattr(
+        MODULE,
+        "verify_authoritative_state",
+        lambda _repo: {"status": "PASS", "legacy_inert_update_ids": []},
+    )
 
-                  with pytest.raises(MODULE.HandoffDeltaError, match="materialization report"):
-                      MODULE.observation_records(repo, replay=False)
-              ''')
+    with pytest.raises(MODULE.HandoffDeltaError, match="materialization report"):
+        MODULE.observation_records(repo, replay=False)
+'''
               test_path.write_text(tests, encoding="utf-8")
           PY
 
