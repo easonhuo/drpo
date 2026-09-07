@@ -1,0 +1,71 @@
+name: E8 multitask TOPR capability repair 2
+on:
+  push:
+    branches: [dev/e8-multitask-baselines-capability-01]
+    paths: [.github/workflows/e8-multitask-baselines-topr-repair2.yml]
+permissions:
+  contents: write
+jobs:
+  repair-test-commit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-baselines-capability-01
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Apply repaired TOPR patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          source = Path('.github/workflows/e8-multitask-baselines-topr-dev.yml').read_text(encoding='utf-8')
+          prefix = '      - name: Apply TOPR capability patch\n        shell: bash\n        run: |\n'
+          suffix = '      - name: Install focused dependencies\n'
+          start = source.index(prefix) + len(prefix)
+          end = source.index(suffix, start)
+          block = source[start:end]
+          lines = [line[10:] if line.startswith('          ') else line for line in block.splitlines()]
+          script = '\n'.join(lines) + '\n'
+          old = '''text = replace_once(
+    text,
+    ''' + "'''" + '''            "method": cell.method,\\n            "delta_v": cell.delta_v,\\n            "rho": cell.rho,\\n''' + "'''" + ''',
+    ''' + "'''" + '''            "method": cell.method,\\n            "delta_v": cell.delta_v,\\n            "beta": cell.beta,\\n            "rho": cell.rho,\\n''' + "'''" + ''',
+    'identity TOPR beta',
+)'''
+          new = '''old_identity = ''' + "'''" + '''            "method": cell.method,\\n            "delta_v": cell.delta_v,\\n            "rho": cell.rho,\\n''' + "'''" + '''
+new_identity = ''' + "'''" + '''            "method": cell.method,\\n            "delta_v": cell.delta_v,\\n            "beta": cell.beta,\\n            "rho": cell.rho,\\n''' + "'''" + '''
+if text.count(old_identity) != 2:
+    raise RuntimeError(f"identity TOPR beta: expected two matches, found {text.count(old_identity)}")
+text = text.replace(old_identity, new_identity)'''
+          if old not in script:
+              raise RuntimeError('could not locate identity cardinality block')
+          script = script.replace(old, new, 1)
+          Path('/tmp/topr_patch.sh').write_text(script, encoding='utf-8')
+          PY
+          bash /tmp/topr_patch.sh
+      - name: Install focused dependencies
+        run: python -m pip install -q numpy pyyaml pytest
+      - name: Validate TOPR capability
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          git diff --check
+      - name: Commit validated TOPR capability
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/e8-multitask-baselines-topr-dev.yml .github/workflows/e8-multitask-baselines-topr-repair.yml .github/workflows/e8-multitask-baselines-topr-repair2.yml
+          git add src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          git diff --cached --check
+          git commit -m 'feat: add config-driven E8 multitask TOPR capability'
+          git push origin HEAD:dev/e8-multitask-baselines-capability-01
