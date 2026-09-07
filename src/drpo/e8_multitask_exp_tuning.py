@@ -90,9 +90,13 @@ DEFAULT_P0_CONFIG = Path("configs/e8_multitask_p0.yaml")
 CANONICAL_ASYMRE_GRID = Path(
     "configs/countdown_e8_oracle_offline_v2_asymre_deltav_scan_0p5b.yaml"
 )
+CANONICAL_TOPR_GRID = Path(
+    "configs/countdown_e8_oracle_offline_v2_joint_fitted_reference_beta_topr_dense_0p5b.yaml"
+)
 METHOD_POSITIVE_ONLY = "positive_only"
 METHOD_EXPONENTIAL = "exponential"
 METHOD_ASYMRE = "asymre"
+METHOD_TOPR = "joint_fitted_reference_topr"
 METHOD_GLOBAL = "global"
 TRANSFER_SYSTEM_PROMPT = "Answer with only the requested final output and no explanation."
 SWEEP_PROFILE_RHO = experiment_config.SWEEP_PROFILE_RHO
@@ -167,6 +171,7 @@ class Cell:
     stage: str
     lambda_value: float | None = None
     delta_v: float | None = None
+    beta: float | None = None
 
     @property
     def key(self) -> str:
@@ -179,6 +184,11 @@ class Cell:
                 raise AssertionError("AsymRE cell requires delta_v")
             tag = f"{self.delta_v:.12g}".replace("-", "m").replace(".", "p")
             return f"{self.task}__asymre_delta_v{tag}__seed{self.seed}"
+        if self.method == METHOD_TOPR:
+            if self.beta is None:
+                raise AssertionError("Joint Fitted-Reference TOPR cell requires beta")
+            tag = f"{self.beta:.12g}".replace("-", "m").replace(".", "p")
+            return f"{self.task}__joint_fitted_reference_topr_beta{tag}__seed{self.seed}"
         if self.lambda_value is not None:
             tag = f"{self.lambda_value:.12g}".replace(".", "p")
             return f"{self.task}__exp_lambda{tag}__seed{self.seed}"
@@ -267,8 +277,11 @@ def _coldstart_method(config: Mapping[str, Any]) -> str:
 
 
 def _task_method_values(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
-    if _coldstart_method(config) == METHOD_ASYMRE:
+    method = _coldstart_method(config)
+    if method == METHOD_ASYMRE:
         return experiment_config.task_delta_vs(config, task)
+    if method == METHOD_TOPR:
+        return experiment_config.task_betas(config, task)
     return _task_lambdas(config, task)
 
 def _task_rhos(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
@@ -622,6 +635,13 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
                     )
                     for delta_v in countdown_values
                 )
+            elif method == METHOD_TOPR:
+                cells.extend(
+                    Cell(
+                        "countdown", METHOD_TOPR, None, seed_offset, "countdown_sentinel", None, None, beta
+                    )
+                    for beta in countdown_values
+                )
             else:
                 cells.extend(
                     Cell(
@@ -659,6 +679,13 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
                         task, METHOD_ASYMRE, None, method_seed, "task_transfer", None, delta_v
                     )
                     for delta_v in values
+                )
+            elif method == METHOD_TOPR:
+                cells.extend(
+                    Cell(
+                        task, METHOD_TOPR, None, method_seed, "task_transfer", None, None, beta
+                    )
+                    for beta in values
                 )
             else:
                 cells.extend(
@@ -749,6 +776,8 @@ def write_plan(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
                     "task": cell.task,
                     "method": cell.method,
                     "delta_v": cell.delta_v,
+            "beta": cell.beta,
+                    "beta": cell.beta,
                     "rho": cell.rho,
                     "lambda": (
                         cell.lambda_value
@@ -3000,6 +3029,8 @@ def _canonical_calibration_identity(
 def _paper_grid_for_cell(record: Mapping[str, Any], cell: Cell) -> Path:
     if cell.method == METHOD_ASYMRE:
         return _canonical_asymre_grid_path()
+    if cell.method == METHOD_TOPR:
+        return CANONICAL_TOPR_GRID.resolve()
     if cell.task != "countdown":
         # Transfer coefficients are passed directly to the locked trainer.
         return Path(str(record["round1_grid"]))
@@ -3670,6 +3701,7 @@ def _cell_identity(
             "task": cell.task,
             "method": cell.method,
             "delta_v": cell.delta_v,
+            "beta": cell.beta,
             "rho": cell.rho,
             "lambda": (
                 cell.lambda_value
@@ -3974,6 +4006,8 @@ def _train_canonical_cold_cell(
     grid_path = _paper_grid_for_cell(record, cell)
     if cell.method == METHOD_ASYMRE:
         grid_source_path = _canonical_asymre_grid_path()
+    elif cell.method == METHOD_TOPR:
+        grid_source_path = CANONICAL_TOPR_GRID.resolve()
     else:
         grid_source_name = (
             "round1_grid"
@@ -4087,7 +4121,8 @@ def _train_canonical_cold_cell(
                 arena.evaluate_rows = evaluator
                 arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
                 arena.completion_stats = lambda model, batch: {
-                    "seq_lp": -arena.sequence_surprisal_only(model, batch)
+                    "seq_lp": -arena.sequence_surprisal_only(model, batch),
+                    "lengths": (batch["labels"] != -100).sum(dim=1),
                 }
                 # Non-arithmetic task outputs are already canonicalized by the P0
                 # verifier. Arithmetic-only cleanup would corrupt structured outputs.
@@ -4123,6 +4158,12 @@ def _train_canonical_cold_cell(
         paper_family = METHOD_ASYMRE
         alpha = 1.0 + float(cell.delta_v)
         coefficient = 0.0
+    elif cell.method == METHOD_TOPR:
+        if cell.beta is None:
+            raise AssertionError("Joint Fitted-Reference TOPR cell has no beta")
+        paper_family = METHOD_TOPR
+        alpha = 1.0
+        coefficient = float(cell.beta)
     else:
         paper_family = "exponential"
         alpha = 0.0 if cell.method == METHOD_POSITIVE_ONLY else 1.0
@@ -4205,6 +4246,7 @@ def _train_canonical_cold_cell(
         **identity,
         **metrics_summary,
         "delta_v": cell.delta_v,
+        "beta": cell.beta,
         "canonical_summary": str(canonical_summary_path.resolve()),
         "canonical_summary_sha256": sha256_file(canonical_summary_path),
         "canonical_output": str(canonical_output.resolve()),
@@ -4722,6 +4764,11 @@ def _canonical_cold_liveness_cell(grid_path: Path) -> Cell:
   None,
   delta_v,
         )
+    if family == METHOD_TOPR:
+        beta = float(liveness["representative_c"])
+        return Cell(
+            "countdown", METHOD_TOPR, None, int(seed_offsets[0]), "liveness", None, None, beta
+        )
     coefficient = float(liveness["representative_c"])
     return Cell(
         "countdown",
@@ -4744,11 +4791,13 @@ def _cmd_canonical_cold_liveness(
 ) -> dict[str, Any]:
     modules = _canonical_cold_modules(config)
     record = _canonical_task_record(splits, "countdown")
-    grid_path = (
-        _canonical_asymre_grid_path()
-        if _coldstart_method(config) == METHOD_ASYMRE
-        else Path(str(record["round1_grid"]))
-    )
+    method = _coldstart_method(config)
+    if method == METHOD_ASYMRE:
+        grid_path = _canonical_asymre_grid_path()
+    elif method == METHOD_TOPR:
+        grid_path = CANONICAL_TOPR_GRID.resolve()
+    else:
+        grid_path = Path(str(record["round1_grid"]))
     modules = _activate_paper_grid_modules(modules, grid_path)
     runtime = modules["paper_runtime"]
     cell = _canonical_cold_liveness_cell(grid_path)
@@ -6268,6 +6317,7 @@ def _coldstart_completed_task_rows(
                 "task": cell.task,
                 "method": cell.method,
                 "delta_v": cell.delta_v,
+            "beta": cell.beta,
                 "rho": cell.rho,
                 "lambda": (
                     cell.lambda_value
@@ -6933,6 +6983,7 @@ def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any
             "task": cell.task,
             "method": cell.method,
             "delta_v": cell.delta_v,
+            "beta": cell.beta,
             "rho": cell.rho,
             "lambda": (
                 cell.lambda_value

@@ -3182,3 +3182,77 @@ def test_asymre_capability_liveness_uses_existing_asymre_profile() -> None:
     assert cell.lambda_value is None
     assert cell.rho is None
     assert cell.seed == 4000
+
+
+
+def _topr_capability_test_config() -> dict:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = copy.deepcopy(
+        yaml.safe_load(
+  Path("configs/e8_multitask_exp_lambda_curve_completion.yaml").read_text(
+      encoding="utf-8"
+  )
+        )
+    )
+    config["experiment_id"] = "DEV-E8-MULTITASK-TOPR-CAPABILITY-TEST"
+    sweep = config["sweep"]
+    sweep["method"] = "joint_fitted_reference_topr"
+    sweep["parameterization"] = "joint_fitted_reference_beta_topr"
+    sweep.pop("task_lambda", None)
+    sweep["task_beta"] = {task: [] for task in config["suite"]["tasks"]}
+    for task in config["suite"]["p0_tasks"]:
+        sweep["task_beta"][task] = [0.25, 1.0]
+    sweep["countdown_seed_offsets"] = []
+    sweep["countdown_include_positive_only"] = False
+    sweep["include_global_endpoint"] = False
+    sweep["transfer_positive_only_seed_offsets"] = []
+    sweep["task_transfer_seed_offset"] = 4000
+    sweep["tuning_seed"] = 4000
+    sweep["expected_cells"] = 16
+    config["execution"]["expected_waves"] = 1
+    config["canonical_coldstart"]["formula"] = "joint_fitted_reference_beta_ratio_taper"
+    exp_tuning.validate_config(config)
+    return config
+
+
+def test_topr_capability_is_config_driven_and_identity_safe(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _topr_capability_test_config()
+    cells = exp_tuning.build_cells(config)
+    assert len(cells) == 16
+    assert {cell.method for cell in cells} == {exp_tuning.METHOD_TOPR}
+    assert {cell.seed for cell in cells} == {4000}
+    assert {cell.beta for cell in cells} == {0.25, 1.0}
+    assert all(cell.lambda_value is None and cell.rho is None for cell in cells)
+    assert len({cell.key for cell in cells}) == 16
+    assert all("__joint_fitted_reference_topr_beta" in cell.key for cell in cells)
+
+    plan = exp_tuning.write_plan(config, tmp_path)
+    assert plan["cell_count"] == 16
+    assert plan["wave_sizes"] == [16]
+    assert {row["beta"] for row in plan["rows"]} == {0.25, 1.0}
+    assert all(row["lambda"] is None for row in plan["rows"])
+
+
+def test_topr_capability_dispatches_existing_joint_reference_kernel() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+    assert "paper_family = METHOD_TOPR" in source
+    assert "coefficient = float(cell.beta)" in source
+    assert "family=paper_family" in source
+    assert "joint_topr_negative_weights" not in source
+    assert "branch_balanced_reference_loss" not in source
+
+
+def test_topr_liveness_uses_existing_joint_reference_profile() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    cell = exp_tuning._canonical_cold_liveness_cell(exp_tuning.CANONICAL_TOPR_GRID.resolve())
+    assert cell.method == exp_tuning.METHOD_TOPR
+    assert cell.beta == pytest.approx(0.25)
+    assert cell.seed == 4000

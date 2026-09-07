@@ -25,7 +25,9 @@ LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COM
 P0_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-P0-01"
 COLDSTART_METHOD_EXPONENTIAL = "exponential"
 COLDSTART_METHOD_ASYMRE = "asymre"
+COLDSTART_METHOD_TOPR = "joint_fitted_reference_topr"
 ASYMRE_PARAMETERIZATION = "asymre_delta_v"
+TOPR_PARAMETERIZATION = "joint_fitted_reference_beta_topr"
 
 SWEEP_PROFILE_RHO = "nine_task_rho_v1"
 SWEEP_PROFILE_DENSE = "task_lambda_dense_v1"
@@ -183,6 +185,17 @@ def task_delta_vs(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
         f"{task} delta_v grid",
     )
     return tuple(_number(value, f"{task} delta_v value") for value in raw)
+
+
+def task_betas(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
+    raw = _sequence(
+        config["sweep"]["task_beta"][task],
+        f"{task} beta grid",
+    )
+    values = tuple(_number(value, f"{task} beta value") for value in raw)
+    if any(value < 0.0 for value in values):
+        raise ValueError(f"{task} TOPR beta values must be non-negative")
+    return values
 
 
 def _validate_scalar_types(config: Mapping[str, Any]) -> None:
@@ -550,6 +563,15 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
         if set(task_values) != set(tasks):
             raise ValueError("Cold-start task_delta_v must contain the exact nine tasks")
         read_values = task_delta_vs
+    elif method == COLDSTART_METHOD_TOPR:
+        if sweep.get("parameterization") != TOPR_PARAMETERIZATION:
+            raise ValueError(
+                "Joint Fitted-Reference beta-TOPR requires joint_fitted_reference_beta_topr parameterization"
+            )
+        task_values = _mapping(sweep.get("task_beta"), "sweep.task_beta")
+        if set(task_values) != set(tasks):
+            raise ValueError("Cold-start task_beta must contain the exact nine tasks")
+        read_values = task_betas
     else:
         raise ValueError(f"Unsupported sweep.method for cold-start: {method}")
 
@@ -627,11 +649,10 @@ def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
     if canonical.get("expected_git_blob_shas") != CANONICAL_COLDSTART_BLOB_SHAS:
         raise ValueError("Cold-start canonical source identities drifted")
     method = coldstart_method(config)
-    expected_formula = (
-        "A_equals_R_minus_delta_v"
-        if method == COLDSTART_METHOD_ASYMRE
-        else "alpha_times_exp_minus_c_times_current_sequence_surprisal_div_2"
-    )
+    expected_formula = {
+        COLDSTART_METHOD_ASYMRE: "A_equals_R_minus_delta_v",
+        COLDSTART_METHOD_TOPR: "joint_fitted_reference_beta_ratio_taper",
+    }.get(method, "alpha_times_exp_minus_c_times_current_sequence_surprisal_div_2")
     if (
         canonical.get("scientific_kernel") != "import_only_no_loss_reimplementation"
         or canonical.get("initialization") != "qwen_pretrained_base_plus_fresh_lora"
