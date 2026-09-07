@@ -20,6 +20,7 @@ The multitask layer may only add method/config/cell representation, planning, di
 - `src/drpo/e8_experiment_config.py`
 - extensions to existing `tests/test_e8_multitask_p0.py`
 - this development scope record
+- temporary implementation/validation workflow files under `.github/workflows/`, provided they are non-gating and removed before final review
 
 No new Python path is approved or required.
 
@@ -32,6 +33,7 @@ No new Python path is approved or required.
 5. AsymRE uses no distance/remoteness taper and no value network.
 6. Plan/cell identity must record method and `delta_v` explicitly enough to prevent collision with EXP cells and to support exact resume/provenance checks.
 7. Existing task data, bank selection, verifier/evaluator adapters, optimizer horizon, evaluation semantics, numerical-failure reporting, and terminal audit responsibilities are not changed by this capability.
+8. The existing two-update cold-start liveness path must become method-aware so an AsymRE successor validates the canonical AsymRE dispatch rather than only the historical EXP dispatch.
 
 ## Explicit exclusions
 
@@ -52,4 +54,5 @@ This change must not:
 - Regression tests show that a synthetic successor AsymRE config expands the requested config-defined cells and seed offsets without hard-coded grid constants.
 - Regression tests show that AsymRE cell identity/key/plan exposes `delta_v` and does not collide with EXP identity.
 - Regression/static inspection shows canonical dispatch uses `family="asymre"` and does not add an AsymRE loss implementation to `e8_multitask_exp_tuning.py`.
+- Regression tests show the canonical two-update liveness wrapper derives an AsymRE cell from the existing AsymRE liveness config.
 - Applicable existing unit tests pass before the Draft PR is presented for review.
