@@ -48,6 +48,112 @@ jobs:
           PY
           bash /tmp/e8_asymre_patcher.sh
 
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/drpo/e8_experiment_config.py')
+          text = path.read_text(encoding='utf-8')
+          start_marker = 'def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:\n'
+          end_marker = 'def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:\n'
+          start = text.index(start_marker)
+          end = text.index(end_marker, start)
+          lines = [
+              'def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:',
+              '    sweep = _mapping(config.get("sweep"), "sweep")',
+              '    method = coldstart_method(config)',
+              '    if method == COLDSTART_METHOD_EXPONENTIAL:',
+              '        if sweep.get("parameterization") not in (',
+              '            "paper_coefficient_c",',
+              '            "paper_lambda_c1",',
+              '        ):',
+              '            raise ValueError("Unsupported exponential cold-start parameterization")',
+              '        task_values = _mapping(sweep.get("task_lambda"), "sweep.task_lambda")',
+              '        if set(task_values) != set(tasks):',
+              '            raise ValueError("Cold-start task_lambda must contain the exact nine tasks")',
+              '        read_values = task_lambdas',
+              '    elif method == COLDSTART_METHOD_ASYMRE:',
+              '        if sweep.get("parameterization") != ASYMRE_PARAMETERIZATION:',
+              '            raise ValueError("AsymRE cold-start requires asymre_delta_v parameterization")',
+              '        task_values = _mapping(sweep.get("task_delta_v"), "sweep.task_delta_v")',
+              '        if set(task_values) != set(tasks):',
+              '            raise ValueError("Cold-start task_delta_v must contain the exact nine tasks")',
+              '        read_values = task_delta_vs',
+              '    else:',
+              '        raise ValueError(f"Unsupported cold-start method: {method}")',
+              '',
+              '    countdown_values = read_values(config, "countdown")',
+              '    if len(set(countdown_values)) != len(countdown_values):',
+              '        raise ValueError("Countdown parameter grid contains duplicates")',
+              '    if method == COLDSTART_METHOD_EXPONENTIAL and any(',
+              '        value not in COUNTDOWN_PAPER_COEFFICIENTS for value in countdown_values',
+              '    ):',
+              '        raise ValueError("Countdown coefficients exceed the implemented paper-worker domain")',
+              '',
+              '    countdown_seeds = tuple(',
+              '        _integer(value, "Countdown seed offset")',
+              '        for value in _sequence(',
+              '            sweep.get("countdown_seed_offsets", ()),',
+              '            "countdown_seed_offsets",',
+              '        )',
+              '    )',
+              '    if len(set(countdown_seeds)) != len(countdown_seeds):',
+              '        raise ValueError("Countdown seed offsets must be unique")',
+              '    if any(seed not in COUNTDOWN_PAPER_SEEDS for seed in countdown_seeds):',
+              '        raise ValueError("Countdown seed exceeds the implemented paper-worker domain")',
+              '    if countdown_seeds and not countdown_values:',
+              '        raise ValueError("Scheduled Countdown seeds require a non-empty parameter grid")',
+              '',
+              '    countdown_positive = _boolean(',
+              '        sweep.get("countdown_include_positive_only", True),',
+              '        "countdown_include_positive_only",',
+              '    )',
+              '    include_global = _boolean(',
+              '        sweep.get("include_global_endpoint", False),',
+              '        "include_global_endpoint",',
+              '    )',
+              '    positive_seeds = tuple(',
+              '        _integer(value, "Transfer Positive-only seed offset")',
+              '        for value in _sequence(',
+              '            sweep.get("transfer_positive_only_seed_offsets", ()),',
+              '            "transfer_positive_only_seed_offsets",',
+              '        )',
+              '    )',
+              '    if len(set(positive_seeds)) != len(positive_seeds):',
+              '        raise ValueError("Transfer Positive-only seed offsets must be unique")',
+              '    _integer(sweep.get("task_transfer_seed_offset"), "task_transfer_seed_offset")',
+              '    _integer(sweep.get("tuning_seed"), "tuning_seed")',
+              '',
+              '    transfer_tasks = set(tasks) - {"countdown"}',
+              '    provenance = _mapping(sweep.get("task_grid_provenance"), "task_grid_provenance")',
+              '    if set(provenance) != transfer_tasks:',
+              '        raise ValueError("Task-grid provenance must cover the exact eight transfer tasks")',
+              '',
+              '    transfer_cell_count = 0',
+              '    for task in transfer_tasks:',
+              '        values = read_values(config, task)',
+              '        if len(set(values)) != len(values):',
+              '            raise ValueError(f"{task} parameter grid contains duplicates")',
+              '        if not str(provenance[task]).strip():',
+              '            raise ValueError(f"{task} task-grid provenance must be non-empty")',
+              '        if values:',
+              '            transfer_cell_count += len(positive_seeds) + int(include_global) + len(values)',
+              '',
+              '    expanded = (',
+              '        len(countdown_seeds) * (1 + int(countdown_positive) + len(countdown_values))',
+              '        + transfer_cell_count',
+              '    )',
+              '    expected = _integer(sweep.get("expected_cells"), "sweep.expected_cells")',
+              '    if expected != expanded:',
+              '        raise ValueError("sweep.expected_cells must match the expanded scientific matrix")',
+              '    if expected == 0:',
+              '        raise ValueError("Cold-start sweep must contain at least one scientific cell")',
+              '',
+              '',
+          ]
+          replacement = '\n'.join(lines)
+          path.write_text(text[:start] + replacement + text[end:], encoding='utf-8')
+          PY
+
       - name: Install focused test dependencies
         run: python -m pip install -q numpy pyyaml pytest ruff
 
@@ -57,8 +163,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo '--- generated e8_experiment_config.py lines 525-555 ---'
-          nl -ba src/drpo/e8_experiment_config.py | sed -n '525,555p'
           python -m py_compile \
             src/drpo/e8_experiment_config.py \
             src/drpo/e8_multitask_exp_tuning.py \
