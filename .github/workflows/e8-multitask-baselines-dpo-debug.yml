@@ -37,21 +37,30 @@ jobs:
           from pathlib import Path
           path = Path('src/drpo/e8_multitask_exp_tuning.py')
           text = path.read_text(encoding='utf-8')
-          repairs = {
-              '  return existing\n': '            return existing\n',
-              '  raise RuntimeError(f"DPO cell output exists without reusable identity: {cell_root}")\n': '            raise RuntimeError(f"DPO cell output exists without reusable identity: {cell_root}")\n',
-              '  raise RuntimeError(f"Refusing unsafe DPO cell removal: {cell_root}")\n': '            raise RuntimeError(f"Refusing unsafe DPO cell removal: {cell_root}")\n',
-          }
-          for old, new in repairs.items():
+          repairs = [
+              (
+                  '        if existing.get("identity_hash") == identity["identity_hash"] and existing.get("complete"):\n  return existing\n',
+                  '        if existing.get("identity_hash") == identity["identity_hash"] and existing.get("complete"):\n            return existing\n',
+              ),
+              (
+                  '    if cell_root.exists():\n        if not force:\n  raise RuntimeError(f"DPO cell output exists without reusable identity: {cell_root}")\n',
+                  '    if cell_root.exists():\n        if not force:\n            raise RuntimeError(f"DPO cell output exists without reusable identity: {cell_root}")\n',
+              ),
+              (
+                  '        if expected_parent not in cell_root.resolve().parents:\n  raise RuntimeError(f"Refusing unsafe DPO cell removal: {cell_root}")\n',
+                  '        if expected_parent not in cell_root.resolve().parents:\n            raise RuntimeError(f"Refusing unsafe DPO cell removal: {cell_root}")\n',
+              ),
+          ]
+          for old, new in repairs:
               count = text.count(old)
               if count != 1:
-                  raise RuntimeError(f'expected exactly one repair target {old!r}, found {count}')
+                  raise RuntimeError(f'expected exactly one contextual repair target, found {count}: {old!r}')
               text = text.replace(old, new, 1)
           path.write_text(text, encoding='utf-8')
           PY
           python -m py_compile src/drpo/e8_multitask_exp_tuning.py || {
             status=$?
-            nl -ba src/drpo/e8_multitask_exp_tuning.py | sed -n '4080,4550p'
+            nl -ba src/drpo/e8_multitask_exp_tuning.py | sed -n '4080,4700p'
             exit $status
           }
           echo 'PY_COMPILE_PASS'
