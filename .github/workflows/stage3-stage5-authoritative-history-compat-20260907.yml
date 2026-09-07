@@ -31,7 +31,35 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          set +e
           patch -p1 --forward < stage3_stage5_compat.patch
+          patch_rc=$?
+          set -e
+          if [ "$patch_rc" -ne 0 ]; then
+            python - <<'PY'
+          from pathlib import Path
+
+          reject = Path("scripts/handoff_delta_shadow.py.rej")
+          if not reject.is_file():
+              raise SystemExit("expected only the helper insertion hunk to be rejected")
+          added = [
+              line[1:]
+              for line in reject.read_text(encoding="utf-8").splitlines()
+              if line.startswith("+") and not line.startswith("+++")
+          ]
+          helper = "\n".join(added) + "\n"
+          if "def first_parent_repository_commit_for_path(" not in helper:
+              raise SystemExit("unexpected rejected hunk")
+          script = Path("scripts/handoff_delta_shadow.py")
+          text = script.read_text(encoding="utf-8")
+          marker = "def authoritative_report_metadata("
+          if "def first_parent_repository_commit_for_path(" not in text:
+              index = text.index(marker)
+              script.write_text(text[:index] + helper + text[index:], encoding="utf-8")
+          reject.unlink()
+          Path("scripts/handoff_delta_shadow.py.orig").unlink(missing_ok=True)
+          PY
+          fi
           rm stage3_stage5_compat.patch
           rm .github/workflows/stage3-stage5-authoritative-history-compat-20260907.yml
 
