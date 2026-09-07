@@ -40,11 +40,10 @@ jobs:
           start = text.index(prefix) + len(prefix)
           end = text.index(suffix, start)
           block = text[start:end]
-          lines = []
-          for line in block.splitlines():
-              lines.append(line[10:] if line.startswith('          ') else line)
-          path = Path('/tmp/e8_asymre_patcher.sh')
-          path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          lines = [line[10:] if line.startswith('          ') else line for line in block.splitlines()]
+          Path('/tmp/e8_asymre_patcher.sh').write_text(
+              '\n'.join(lines) + '\n', encoding='utf-8'
+          )
           PY
           bash /tmp/e8_asymre_patcher.sh
 
@@ -151,6 +150,48 @@ jobs:
               '',
           ]
           path.write_text(text[:start] + '\n'.join(lines) + text[end:], encoding='utf-8')
+
+          path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          text = path.read_text(encoding='utf-8')
+          start_marker = '@dataclass(frozen=True)\nclass Cell:\n'
+          end_marker = '@dataclass(frozen=True)\nclass TaskInputs:\n'
+          start = text.index(start_marker)
+          end = text.index(end_marker, start)
+          lines = [
+              '@dataclass(frozen=True)',
+              'class Cell:',
+              '    task: str',
+              '    method: str',
+              '    rho: float | None',
+              '    seed: int',
+              '    stage: str',
+              '    lambda_value: float | None = None',
+              '    delta_v: float | None = None',
+              '',
+              '    @property',
+              '    def key(self) -> str:',
+              '        if self.method == METHOD_POSITIVE_ONLY:',
+              '            return f"{self.task}__positive_only__seed{self.seed}"',
+              '        if self.method == METHOD_GLOBAL:',
+              '            return f"{self.task}__global__seed{self.seed}"',
+              '        if self.method == METHOD_ASYMRE:',
+              '            if self.delta_v is None:',
+              '                raise AssertionError("AsymRE cell requires delta_v")',
+              '            tag = (',
+              '                f"{self.delta_v:.12g}".replace("-", "m").replace(".", "p")',
+              '            )',
+              '            return f"{self.task}__asymre_delta_v{tag}__seed{self.seed}"',
+              '        if self.lambda_value is not None:',
+              '            tag = f"{self.lambda_value:.12g}".replace(".", "p")',
+              '            return f"{self.task}__exp_lambda{tag}__seed{self.seed}"',
+              '        if self.rho is None:',
+              '            raise AssertionError("Exponential cell requires rho or lambda")',
+              '        tag = f"{self.rho:.6f}".rstrip("0").rstrip(".").replace(".", "p")',
+              '        return f"{self.task}__exp_rho{tag}__seed{self.seed}"',
+              '',
+              '',
+          ]
+          path.write_text(text[:start] + '\n'.join(lines) + text[end:], encoding='utf-8')
           PY
 
       - name: Install focused test dependencies
@@ -162,8 +203,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo '--- generated e8_multitask_exp_tuning.py lines 155-190 ---'
-          nl -ba src/drpo/e8_multitask_exp_tuning.py | sed -n '155,190p'
           python -m py_compile \
             src/drpo/e8_experiment_config.py \
             src/drpo/e8_multitask_exp_tuning.py \
