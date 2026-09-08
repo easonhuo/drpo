@@ -24,35 +24,8 @@ jobs:
       - name: Apply DPO completion-length bridge repair
         shell: bash
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          path = Path('src/drpo/e8_multitask_exp_tuning.py')
-          text = path.read_text(encoding='utf-8')
-          old = '''        arena.completion_stats = lambda model, batch: {
-              **original_completion_stats(model, batch),
-          }
-          '''
-          new = '''        arena.completion_stats = lambda model, batch: {
-              **original_completion_stats(model, batch),
-              "lengths": (batch["labels"] != -100).sum(dim=1),
-          }
-          '''
-          if text.count(old) != 1:
-              raise RuntimeError(f'expected one DPO completion_stats bridge, found {text.count(old)}')
-          path.write_text(text.replace(old, new, 1), encoding='utf-8')
-          PY
-          cat >> tests/test_e8_multitask_p0.py <<'PYTEST'
-
-
-def test_dpo_full_sequence_bridge_supplies_completion_lengths() -> None:
-    import inspect
-
-    from drpo import e8_multitask_exp_tuning as exp_tuning
-
-    source = inspect.getsource(exp_tuning._train_canonical_dpo_transfer_cell)
-    assert '"lengths": (batch["labels"] != -100).sum(dim=1)' in source
-    assert "full_sequence_log_probability" in source
-PYTEST
+          echo 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpwYXRoID0gUGF0aCgic3JjL2RycG8vZThfbXVsdGl0YXNrX2V4cF90dW5pbmcucHkiKQp0ZXh0ID0gcGF0aC5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikKb2xkID0gJycnICAgICAgICBhcmVuYS5jb21wbGV0aW9uX3N0YXRzID0gbGFtYmRhIG1vZGVsLCBiYXRjaDoge277CiAgICAgICAgICAgICoqb3JpZ2luYWxfY29tcGxldGlvbl9zdGF0cyhtb2RlbCwgYmF0Y2gpLAogICAgICAgIH0KICAgICAgICAnJycKbmV3ID0gJycnICAgICAgICBhcmVuYS5jb21wbGV0aW9uX3N0YXRzID0gbGFtYmRhIG1vZGVsLCBiYXRjaDoge277CiAgICAgICAgICAgICoqb3JpZ2luYWxfY29tcGxldGlvbl9zdGF0cyhtb2RlbCwgYmF0Y2gpLAogICAgICAgICAgICAibGVuZ3RocyI6IChiYXRjaFsibGFiZWxzIl0gIT0gLTEwMCkuc3VtKGRpbT0xKSwKICAgICAgICB9CiAgICAgICAgJycnCmlmIHRleHQuY291bnQob2xkKSAhPSAxOgogICAgcmFpc2UgUnVudGltZUVycm9yKGYiZXhwZWN0ZWQgb25lIERQTyBjb21wbGV0aW9uX3N0YXRzIGJyaWRnZSwgZm91bmQge3RleHQuY291bnQob2xkKX0iKQpwYXRoLndyaXRlX3RleHQodGV4dC5yZXBsYWNlKG9sZCwgbmV3LCAxKSwgZW5jb2Rpbmc9InV0Zi04IikKCnRlc3RzID0gUGF0aCgidGVzdHMvdGVzdF9lOF9tdWx0aXRhc2tfcDAucHkiKQp0ZXh0ID0gdGVzdHMucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpCm1hcmtlciA9ICJkZWYgdGVzdF9kcG9fZnVsbF9zZXF1ZW5jZV9icmlkZ2Vfc3VwcGxpZXNfY29tcGxldGlvbl9sZW5ndGhzKCkgLT4gTm9uZToiCmlmIG1hcmtlciBpbiB0ZXh0OgogICAgcmFpc2UgUnVudGltZUVycm9yKCJEUE8gY29tcGxldGlvbi1sZW5ndGggcmVncmVzc2lvbiBhbHJlYWR5IHByZXNlbnQiKQphcHBlbmQgPSAnJycKCgpkZWYgdGVzdF9kcG9fZnVsbF9zZXF1ZW5jZV9icmlkZ2Vfc3VwcGxpZXNfY29tcGxldGlvbl9sZW5ndGhzKCkgLT4gTm9uZToKICAgIGltcG9ydCBpbnNwZWN0CgogICAgZnJvbSBkcnBvIGltcG9ydCBlOF9tdWx0aXRhc2tfZXhwX3R1bmluZyBhcyBleHBfdHVuaW5nCgogICAgc291cmNlID0gaW5zcGVjdC5nZXRzb3VyY2UoZXhwX3R1bmluZy5fdHJhaW5fY2Fub25pY2FsX2Rwb190cmFuc2Zlcl9jZWxsKQogICAgYXNzZXJ0ICcibGVuZ3RocyI6IChiYXRjaFsibGFiZWxzIl0gIT0gLTEwMCkuc3VtKGRpbT0xKScgaW4gc291cmNlCiAgICBhc3NlcnQgImZ1bGxfc2VxdWVuY2VfbG9nX3Byb2JhYmlsaXR5IiBpbiBzb3VyY2UKJycnCnRlc3RzLndyaXRlX3RleHQodGV4dCArIGFwcGVuZCwgZW5jb2Rpbmc9InV0Zi04IikK' | base64 -d > /tmp/e8_dpo_lengths_fix.py
+          python /tmp/e8_dpo_lengths_fix.py
       - name: Install validation dependencies
         run: |
           python -m pip install --disable-pip-version-check -q numpy pyyaml pytest ruff
