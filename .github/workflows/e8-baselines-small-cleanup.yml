@@ -1,0 +1,125 @@
+name: E8 baseline small cleanup
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-baselines-capability-01
+    paths:
+      - .github/workflows/e8-baselines-small-cleanup.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-baselines-capability-01
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Remove redundant DPO completion-stats wrapper
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          runner = Path('src/drpo/e8_multitask_exp_tuning.py')
+          text = runner.read_text(encoding='utf-8')
+          old = '''    original_clean_expression = arena.clean_expression
+              original_system_prompt = arena.SYSTEM_PROMPT
+              original_evaluate_rows = arena.evaluate_rows
+              original_completion_stats = arena.completion_stats
+              try:
+                  arena.clean_expression = lambda value: str(value)
+                  arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
+                  arena.completion_stats = lambda model, batch: {
+                      **original_completion_stats(model, batch),
+                      "lengths": (batch["labels"] != -100).sum(dim=1),
+                  }
+                  if evaluator is not None:
+          '''.replace('              ', '    ')
+          new = '''    original_clean_expression = arena.clean_expression
+              original_system_prompt = arena.SYSTEM_PROMPT
+              original_evaluate_rows = arena.evaluate_rows
+              try:
+                  arena.clean_expression = lambda value: str(value)
+                  arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
+                  if evaluator is not None:
+          '''.replace('              ', '    ')
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one DPO wrapper block, found {text.count(old)}')
+          text = text.replace(old, new, 1)
+          restore = '        arena.completion_stats = original_completion_stats\n'
+          if text.count(restore) != 1:
+              raise SystemExit(f'expected one DPO completion_stats restore, found {text.count(restore)}')
+          text = text.replace(restore, '', 1)
+          runner.write_text(text, encoding='utf-8')
+
+          tests = Path('tests/test_e8_multitask_p0.py')
+          lines = tests.read_text(encoding='utf-8').splitlines(keepends=True)
+          marker = 'def test_dpo_full_sequence_bridge_supplies_completion_lengths() -> None:'
+          starts = [i for i, line in enumerate(lines) if line.startswith(marker)]
+          if len(starts) != 1:
+              raise SystemExit(f'expected one redundant bridge test, found {len(starts)}')
+          start = starts[0]
+          end = len(lines)
+          for i in range(start + 1, len(lines)):
+              if lines[i].startswith('def ') or lines[i].startswith('@pytest'):
+                  end = i
+                  break
+          del lines[start:end]
+          while start > 0 and start < len(lines) and lines[start - 1].strip() == '' and lines[start].strip() == '':
+              del lines[start]
+          tests.write_text(''.join(lines), encoding='utf-8')
+          PY
+      - name: Install validation dependencies
+        run: |
+          python -m pip install --disable-pip-version-check -q numpy pyyaml pytest ruff
+          python -m pip install --disable-pip-version-check -q torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Compile
+        run: python -m py_compile src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+      - name: Focused regression
+        run: PYTHONPATH=.:src pytest -q -rs tests/test_e8_multitask_p0.py
+      - name: Diff check
+        run: git diff --check
+      - name: Ruff
+        run: ruff check src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py --ignore BLE001,B023
+      - name: Audit unreferenced private functions and diff size
+        shell: bash
+        run: |
+          python - <<'PY'
+          import ast
+          from collections import Counter
+          from pathlib import Path
+
+          path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          source = path.read_text(encoding='utf-8')
+          tree = ast.parse(source)
+          refs = Counter(node.id for node in ast.walk(tree) if isinstance(node, ast.Name))
+          defs = [
+              node.name
+              for node in tree.body
+              if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith('_')
+          ]
+          candidates = sorted(name for name in defs if refs[name] == 0)
+          print('UNREFERENCED_PRIVATE_TOPLEVEL_CANDIDATES=', candidates)
+          PY
+          echo '--- diff stat vs main ---'
+          git diff --stat origin/main...HEAD
+          echo '--- worktree cleanup delta ---'
+          git diff --numstat
+      - name: Commit validated cleanup and remove temporary workflow
+        shell: bash
+        run: |
+          rm -f .github/workflows/e8-baselines-small-cleanup.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'refactor: remove redundant DPO completion bridge'
+          git push origin HEAD:dev/e8-multitask-baselines-capability-01
