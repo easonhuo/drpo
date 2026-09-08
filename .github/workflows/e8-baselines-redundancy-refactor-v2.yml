@@ -1,0 +1,102 @@
+name: E8 baseline redundancy refactor v2
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-baselines-capability-01
+    paths:
+      - .github/workflows/e8-baselines-redundancy-refactor-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-baselines-capability-01
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify target files stayed on reviewed head
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --quiet 041a6d697a679bcc7e774514a0b2ca485f0376d0 HEAD -- \
+            src/drpo/e8_multitask_exp_tuning.py \
+            src/drpo/e8_experiment_config.py \
+            tests/test_e8_multitask_p0.py
+      - name: Execute reviewed narrow refactor script
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          source = Path('.github/workflows/e8-baselines-redundancy-refactor.yml').read_text(encoding='utf-8')
+          marker = "          python - <<'PY'\n"
+          start = source.index(marker) + len(marker)
+          end = source.index("\n          PY\n", start)
+          script = textwrap.dedent(source[start:end])
+          Path('/tmp/e8_redundancy_refactor.py').write_text(script, encoding='utf-8')
+          PY
+          python /tmp/e8_redundancy_refactor.py
+      - name: Install focused dependencies
+        run: python -m pip install -q numpy pyyaml pytest torch ruff
+      - name: Validate redundancy refactor
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          git diff --check
+          python - <<'PY'
+          import inspect
+          from drpo import e8_multitask_exp_tuning as module
+
+          dpo = inspect.getsource(module._train_canonical_dpo_transfer_cell)
+          assert '_load_verified_canonical_calibration(' in dpo
+          assert '_prepare_cell_output(' in dpo
+          assert 'F.softplus(-logits)' in dpo
+          assert 'metric_rows' not in dpo
+          cold = inspect.getsource(module._train_canonical_cold_cell)
+          assert '_load_verified_canonical_calibration(' in cold
+          assert '_prepare_cell_output(' in cold
+          generic = inspect.getsource(module._train_cell_impl)
+          assert '_prepare_cell_output(' in generic
+          dpo_live = inspect.getsource(module._cmd_dpo_liveness)
+          assert '_verify_fresh_process_adapter_reload(' in dpo_live
+          assert 'fresh_process_reload_passed' in dpo_live
+          live = inspect.getsource(module.cmd_liveness)
+          assert 'def adapter_weight_file' not in live
+          assert '_adapter_weight_file(' in live
+          task_rows = inspect.getsource(module._coldstart_completed_task_rows)
+          aggregate = inspect.getsource(module.cmd_aggregate)
+          assert '_coldstart_result_row(' in task_rows
+          assert '_coldstart_result_row(' in aggregate
+          PY
+          ruff check src/drpo/e8_multitask_exp_tuning.py --output-format concise > /tmp/ruff.txt 2>&1 || true
+          cat /tmp/ruff.txt
+      - name: Report net diff
+        run: |
+          git diff --numstat 8a21fd16e63ea96a0cde2a477353d24562624655 -- src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          git diff --stat 041a6d697a679bcc7e774514a0b2ca485f0376d0 -- src/drpo/e8_multitask_exp_tuning.py
+      - name: Commit validated refactor and remove temporary workflows
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm -f \
+            .github/workflows/e8-baselines-redundancy-refactor.yml \
+            .github/workflows/e8-baselines-redundancy-refactor-v2.yml
+          git add src/drpo/e8_multitask_exp_tuning.py
+          git diff --cached --check
+          git commit -m 'refactor: deduplicate E8 baseline execution plumbing'
+          git push origin HEAD:dev/e8-multitask-baselines-capability-01
