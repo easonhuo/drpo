@@ -68,6 +68,85 @@ jobs:
           cp ../carrier/tools/tmp_stage3_stage5_repair_20260907.py tools/tmp_stage3_stage5_repair_20260907.py
           python tools/tmp_stage3_stage5_repair_20260907.py
           rm tools/tmp_stage3_stage5_repair_20260907.py
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/handoff_delta_shadow.py')
+          text = path.read_text(encoding='utf-8')
+
+          replacements = [
+              (
+                  'from dataclasses import dataclass\n'
+                  'from datetime import datetime, timezone\n'
+                  'from pathlib import Path\n'
+                  'from typing import Any, Iterable, Sequence',
+                  'from collections.abc import Iterable, Sequence\n'
+                  'from dataclasses import dataclass\n'
+                  'from datetime import datetime, timezone\n'
+                  'from pathlib import Path\n'
+                  'from typing import Any',
+              ),
+              (
+                  '        check=False,\n'
+                  '        text=True,\n'
+                  '        stdout=subprocess.PIPE,\n'
+                  '        stderr=subprocess.PIPE,\n'
+                  '    )',
+                  '        check=False,\n'
+                  '        text=True,\n'
+                  '        capture_output=True,\n'
+                  '    )',
+              ),
+              (
+                  '    if location == "after_heading":\n'
+                  '        cluster_start = heading.line_end\n'
+                  '        cluster_limit = heading.section_end\n'
+                  '    elif location == "section_end":\n'
+                  '        cluster_start = heading.line_end\n'
+                  '        cluster_limit = heading.section_end',
+                  '    if location == "after_heading" or location == "section_end":\n'
+                  '        cluster_start = heading.line_end\n'
+                  '        cluster_limit = heading.section_end',
+              ),
+              (
+                  '        text=True,\n'
+                  '        stdout=subprocess.PIPE,\n'
+                  '        stderr=subprocess.PIPE,\n'
+                  '        check=False,',
+                  '        text=True,\n'
+                  '        capture_output=True,\n'
+                  '        check=False,',
+              ),
+              (
+                  '    index = max(0, min(len(ordered) - 1, int(round((len(ordered) - 1) * percentile_value))))',
+                  '    index = max(0, min(len(ordered) - 1, round((len(ordered) - 1) * percentile_value)))',
+              ),
+              (
+                  '        else:\n'
+                  '            raise AssertionError(args.command)\n'
+                  '    except Exception as exc:\n'
+                  '        if args.command == "check" and getattr(args, "candidate_on_failure", None):',
+                  '        else:\n'
+                  '            raise AssertionError(args.command)\n'
+                  '    except Exception as exc:  # noqa: BLE001\n'
+                  '        if args.command == "check" and getattr(args, "candidate_on_failure", None):',
+              ),
+              (
+                  '            except Exception:\n'
+                  '                pass',
+                  '            except Exception:  # noqa: BLE001, S110\n'
+                  '                pass',
+              ),
+          ]
+
+          for old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected exactly one lint-normalization target, found {count}: {old[:80]!r}')
+              text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
           git diff --check
 
       - name: Focused compatibility regression
@@ -132,6 +211,7 @@ jobs:
                   'preserve_fail_closed_behavior_for_all_other_missing_reports_postintegration_touches_and_byte_drift',
                   'add_focused_regressions_for_legacy_inert_skip_and_unlisted_missing_report_rejection',
                   'refresh_overdue_full_acceptance_after_critical_semantic_mismatch_repair',
+                  'normalize_preexisting_ruff_findings_in_the_modified_stage3_file_without_semantic_change',
               ],
               'excluded_scope': [
                   'change_handoff_or_registry_write_authority',
@@ -159,6 +239,8 @@ jobs:
               'This maintenance repair fixes a governance compatibility mismatch exposed while landing the E8 wide-right-tail result closure. Stage 5 already accepts bounded pre-integration side-branch history and content-addresses one historical inert schema-v3 anomaly; Stage 3 still assumed a simpler history and attempted to require a materialization report for every schema-v3 delta.',
               '',
               'The repair makes Stage 3 use the same bounded first-parent integration semantics and inherit only the exact `legacy_inert_update_ids` returned by the Stage 5 verifier. Every other missing materialization report, post-integration touch, ambiguous integration, or byte drift remains fail-closed. No handoff content, registry state, scientific implementation, experiment variable, seed, threshold, result, or scientific claim is changed by this maintenance update.',
+              '',
+              'Because the canonical selector lints the complete modified Stage 3 file, this same maintenance after-image also normalizes the pre-existing Ruff findings exposed by that selector. Those edits are mechanical only and do not change Stage 3 or Stage 5 semantics.',
               '',
               'A fresh Full Acceptance is required and persisted because both scheduled triggers were overdue and this is a critical semantic mismatch repair.',
               '',
