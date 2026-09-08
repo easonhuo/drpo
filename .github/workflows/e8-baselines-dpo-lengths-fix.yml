@@ -1,0 +1,77 @@
+name: E8 baseline DPO lengths repair
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-baselines-capability-01-fixwork6
+    paths:
+      - .github/workflows/e8-baselines-dpo-lengths-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-baselines-capability-01-fixwork6
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Apply DPO completion-length bridge repair
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''        arena.completion_stats = lambda model, batch: {
+              **original_completion_stats(model, batch),
+          }
+          '''
+          new = '''        arena.completion_stats = lambda model, batch: {
+              **original_completion_stats(model, batch),
+              "lengths": (batch["labels"] != -100).sum(dim=1),
+          }
+          '''
+          if text.count(old) != 1:
+              raise RuntimeError(f'expected one DPO completion_stats bridge, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          cat >> tests/test_e8_multitask_p0.py <<'PYTEST'
+
+
+def test_dpo_full_sequence_bridge_supplies_completion_lengths() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning._train_canonical_dpo_transfer_cell)
+    assert '"lengths": (batch["labels"] != -100).sum(dim=1)' in source
+    assert "full_sequence_log_probability" in source
+PYTEST
+      - name: Install validation dependencies
+        run: |
+          python -m pip install --disable-pip-version-check -q numpy pyyaml pytest ruff
+          python -m pip install --disable-pip-version-check -q torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Compile
+        run: python -m py_compile src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+      - name: Focused regression
+        run: PYTHONPATH=.:src pytest -q -rs tests/test_e8_multitask_p0.py
+      - name: Diff check
+        run: git diff --check
+      - name: Ruff
+        run: ruff check src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py --ignore BLE001,B023
+      - name: Commit validated repair and remove temporary workflow
+        shell: bash
+        run: |
+          rm -f .github/workflows/e8-baselines-dpo-lengths-fix.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'fix: supply DPO completion lengths'
+          git push origin HEAD:dev/e8-multitask-baselines-capability-01-fixwork6
