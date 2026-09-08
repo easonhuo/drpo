@@ -1,0 +1,102 @@
+name: E8 baseline final dedup
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-baselines-capability-01
+    paths:
+      - .github/workflows/e8-baselines-final-dedup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  dedup-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-baselines-capability-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Apply semantics-preserving dedup
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          config_path = Path('src/drpo/e8_experiment_config.py')
+          runner_path = Path('src/drpo/e8_multitask_exp_tuning.py')
+
+          config = config_path.read_text(encoding='utf-8')
+          runner = runner_path.read_text(encoding='utf-8')
+
+          spec_anchor = 'DPO_PARAMETERIZATION = "canonical_dpo_beta"\n\n'
+          assert config.count(spec_anchor) == 1
+          specs = '''DPO_PARAMETERIZATION = "canonical_dpo_beta"\n\n_COLDSTART_SWEEP_SPECS = {\n    COLDSTART_METHOD_EXPONENTIAL: (\n        ("paper_coefficient_c", "paper_lambda_c1"),\n        "task_lambda",\n        "Unsupported exponential cold-start parameterization",\n        "Cold-start task_lambda must contain the exact nine tasks",\n    ),\n    COLDSTART_METHOD_ASYMRE: (\n        (ASYMRE_PARAMETERIZATION,),\n        "task_delta_v",\n        "AsymRE cold-start requires asymre_delta_v parameterization",\n        "Cold-start task_delta_v must contain the exact nine tasks",\n    ),\n    COLDSTART_METHOD_TOPR: (\n        (TOPR_PARAMETERIZATION,),\n        "task_beta",\n        "Joint Fitted-Reference beta-TOPR requires joint_fitted_reference_beta_topr parameterization",\n        "Cold-start task_beta must contain the exact nine tasks",\n    ),\n    COLDSTART_METHOD_DPO: (\n        (DPO_PARAMETERIZATION,),\n        "task_beta",\n        "Canonical DPO requires canonical_dpo_beta parameterization",\n        "Cold-start DPO task_beta must contain the exact nine tasks",\n    ),\n}\n\n'''
+          config = config.replace(spec_anchor, specs, 1)
+
+          readers_anchor = '''def _validate_scalar_types(config: Mapping[str, Any]) -> None:\n'''
+          assert config.count(readers_anchor) == 1
+          readers = '''_COLDSTART_VALUE_READERS = {\n    COLDSTART_METHOD_EXPONENTIAL: task_lambdas,\n    COLDSTART_METHOD_ASYMRE: task_delta_vs,\n    COLDSTART_METHOD_TOPR: task_betas,\n    COLDSTART_METHOD_DPO: task_betas,\n}\n\n\ndef task_method_values(config: Mapping[str, Any], task: str) -> tuple[float, ...]:\n    method = coldstart_method(config)\n    reader = _COLDSTART_VALUE_READERS.get(method)\n    if reader is None:\n        raise ValueError(f"Unsupported sweep.method for cold-start: {method}")\n    return reader(config, task)\n\n\ndef _validate_scalar_types(config: Mapping[str, Any]) -> None:\n'''
+          config = config.replace(readers_anchor, readers, 1)
+
+          old_sweep_head = '''def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:\n    sweep = _mapping(config.get("sweep"), "sweep")\n    method = coldstart_method(config)\n    if method == COLDSTART_METHOD_EXPONENTIAL:\n        if sweep.get("parameterization") not in (\n            "paper_coefficient_c",\n            "paper_lambda_c1",\n        ):\n            raise ValueError("Unsupported exponential cold-start parameterization")\n        task_values = _mapping(sweep.get("task_lambda"), "sweep.task_lambda")\n        if set(task_values) != set(tasks):\n            raise ValueError("Cold-start task_lambda must contain the exact nine tasks")\n        read_values = task_lambdas\n    elif method == COLDSTART_METHOD_ASYMRE:\n        if sweep.get("parameterization") != ASYMRE_PARAMETERIZATION:\n            raise ValueError("AsymRE cold-start requires asymre_delta_v parameterization")\n        task_values = _mapping(sweep.get("task_delta_v"), "sweep.task_delta_v")\n        if set(task_values) != set(tasks):\n            raise ValueError("Cold-start task_delta_v must contain the exact nine tasks")\n        read_values = task_delta_vs\n    elif method == COLDSTART_METHOD_TOPR:\n        if sweep.get("parameterization") != TOPR_PARAMETERIZATION:\n            raise ValueError(\n                "Joint Fitted-Reference beta-TOPR requires joint_fitted_reference_beta_topr parameterization"\n            )\n        task_values = _mapping(sweep.get("task_beta"), "sweep.task_beta")\n        if set(task_values) != set(tasks):\n            raise ValueError("Cold-start task_beta must contain the exact nine tasks")\n        read_values = task_betas\n    elif method == COLDSTART_METHOD_DPO:\n        if sweep.get("parameterization") != DPO_PARAMETERIZATION:\n            raise ValueError("Canonical DPO requires canonical_dpo_beta parameterization")\n        task_values = _mapping(sweep.get("task_beta"), "sweep.task_beta")\n        if set(task_values) != set(tasks):\n            raise ValueError("Cold-start DPO task_beta must contain the exact nine tasks")\n        read_values = task_betas\n    else:\n        raise ValueError(f"Unsupported sweep.method for cold-start: {method}")\n\n'''
+          assert config.count(old_sweep_head) == 1
+          new_sweep_head = '''def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:\n    sweep = _mapping(config.get("sweep"), "sweep")\n    method = coldstart_method(config)\n    spec = _COLDSTART_SWEEP_SPECS.get(method)\n    if spec is None:\n        raise ValueError(f"Unsupported sweep.method for cold-start: {method}")\n    parameterizations, grid_field, parameterization_error, grid_error = spec\n    if sweep.get("parameterization") not in parameterizations:\n        raise ValueError(parameterization_error)\n    task_values = _mapping(sweep.get(grid_field), f"sweep.{grid_field}")\n    if set(task_values) != set(tasks):\n        raise ValueError(grid_error)\n\n'''
+          config = config.replace(old_sweep_head, new_sweep_head, 1)
+          assert config.count('read_values(config, ') == 3
+          config = config.replace('read_values(config, ', 'task_method_values(config, ')
+
+          old_runner_values = '''def _task_method_values(config: Mapping[str, Any], task: str) -> tuple[float, ...]:\n    method = _coldstart_method(config)\n    if method == METHOD_ASYMRE:\n        return experiment_config.task_delta_vs(config, task)\n    if method in {METHOD_TOPR, METHOD_DPO}:\n        return experiment_config.task_betas(config, task)\n    return _task_lambdas(config, task)\n'''
+          assert runner.count(old_runner_values) == 1
+          new_runner_values = '''def _task_method_values(config: Mapping[str, Any], task: str) -> tuple[float, ...]:\n    return experiment_config.task_method_values(config, task)\n'''
+          runner = runner.replace(old_runner_values, new_runner_values, 1)
+
+          old_prepare_signature = '''    force: bool,\n    mismatch_prefix: str,\n    existing_prefix: str,\n    unsafe_prefix: str,\n) -> tuple[Path, Path, dict[str, Any] | None]:\n'''
+          assert runner.count(old_prepare_signature) == 1
+          new_prepare_signature = '''    force: bool,\n    mismatch_prefix: str = "Existing cell identity mismatch",\n    existing_prefix: str = "Cell output exists without reusable manifest",\n    unsafe_prefix: str = "Refusing unsafe cell removal",\n) -> tuple[Path, Path, dict[str, Any] | None]:\n'''
+          runner = runner.replace(old_prepare_signature, new_prepare_signature, 1)
+
+          generic_messages = '''        mismatch_prefix="Existing cell identity mismatch",\n        existing_prefix="Cell output exists without reusable manifest",\n        unsafe_prefix="Refusing unsafe cell removal",\n'''
+          assert runner.count(generic_messages) == 1
+          runner = runner.replace(generic_messages, '', 1)
+
+          config_path.write_text(config, encoding='utf-8')
+          runner_path.write_text(runner, encoding='utf-8')
+          PY
+
+      - name: Install validation dependencies
+        run: python -m pip install -e . pytest pyyaml ruff
+
+      - name: Validate
+        shell: bash
+        run: |
+          python -m py_compile \
+            src/drpo/e8_experiment_config.py \
+            src/drpo/e8_multitask_exp_tuning.py \
+            tests/test_e8_multitask_p0.py
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          python -m ruff check src/drpo/e8_experiment_config.py tests/test_e8_multitask_p0.py
+          python -m ruff check src/drpo/e8_multitask_exp_tuning.py --ignore BLE001,B023
+          git diff --check
+          git diff --stat -- \
+            src/drpo/e8_experiment_config.py \
+            src/drpo/e8_multitask_exp_tuning.py
+
+      - name: Commit validated cleanup
+        shell: bash
+        run: |
+          if git diff --quiet -- src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py; then
+            echo 'Expected cleanup diff is empty' >&2
+            exit 1
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py
+          git commit -m 'refactor: finish E8 baseline dedup cleanup'
+          git push origin HEAD:dev/e8-multitask-baselines-capability-01
