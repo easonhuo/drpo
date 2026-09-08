@@ -3095,33 +3095,57 @@ def test_coldstart_liveness_cli_path_needs_no_scientific_grid_selector(
 
 
 
+def _method_capability_test_config(
+    *,
+    experiment_id: str,
+    method: str,
+    parameterization: str,
+    grid_field: str,
+    values: list[float],
+    formula: str,
+) -> dict:
+    config = copy.deepcopy(
+        yaml.safe_load(
+            Path("configs/e8_multitask_exp_lambda_curve_completion.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+    )
+    config["experiment_id"] = experiment_id
+    sweep = config["sweep"]
+    sweep["method"] = method
+    sweep["parameterization"] = parameterization
+    sweep.pop("task_lambda", None)
+    sweep[grid_field] = {task: [] for task in config["suite"]["tasks"]}
+    for task in config["suite"]["p0_tasks"]:
+        sweep[grid_field][task] = list(values)
+    sweep.update(
+        {
+            "countdown_seed_offsets": [],
+            "countdown_include_positive_only": False,
+            "include_global_endpoint": False,
+            "transfer_positive_only_seed_offsets": [],
+            "task_transfer_seed_offset": 4000,
+            "tuning_seed": 4000,
+            "expected_cells": 16,
+        }
+    )
+    config["execution"]["expected_waves"] = 1
+    config["canonical_coldstart"]["formula"] = formula
+    return config
+
+
 def _asymre_capability_test_config() -> dict:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    config = copy.deepcopy(
-        yaml.safe_load(
-  Path("configs/e8_multitask_exp_lambda_curve_completion.yaml").read_text(
-      encoding="utf-8"
-  )
-        )
+    config = _method_capability_test_config(
+        experiment_id="DEV-E8-MULTITASK-ASYMRE-CAPABILITY-TEST",
+        method="asymre",
+        parameterization="asymre_delta_v",
+        grid_field="task_delta_v",
+        values=[-0.75, -0.25],
+        formula="A_equals_R_minus_delta_v",
     )
-    config["experiment_id"] = "DEV-E8-MULTITASK-ASYMRE-CAPABILITY-TEST"
-    sweep = config["sweep"]
-    sweep["method"] = "asymre"
-    sweep["parameterization"] = "asymre_delta_v"
-    sweep.pop("task_lambda", None)
-    sweep["task_delta_v"] = {task: [] for task in config["suite"]["tasks"]}
-    for task in config["suite"]["p0_tasks"]:
-        sweep["task_delta_v"][task] = [-0.75, -0.25]
-    sweep["countdown_seed_offsets"] = []
-    sweep["countdown_include_positive_only"] = False
-    sweep["include_global_endpoint"] = False
-    sweep["transfer_positive_only_seed_offsets"] = []
-    sweep["task_transfer_seed_offset"] = 4000
-    sweep["tuning_seed"] = 4000
-    sweep["expected_cells"] = 16
-    config["execution"]["expected_waves"] = 1
-    config["canonical_coldstart"]["formula"] = "A_equals_R_minus_delta_v"
     exp_tuning.validate_config(config)
     return config
 
@@ -3188,30 +3212,14 @@ def test_asymre_capability_liveness_uses_existing_asymre_profile() -> None:
 def _topr_capability_test_config() -> dict:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    config = copy.deepcopy(
-        yaml.safe_load(
-  Path("configs/e8_multitask_exp_lambda_curve_completion.yaml").read_text(
-      encoding="utf-8"
-  )
-        )
+    config = _method_capability_test_config(
+        experiment_id="DEV-E8-MULTITASK-TOPR-CAPABILITY-TEST",
+        method="joint_fitted_reference_topr",
+        parameterization="joint_fitted_reference_beta_topr",
+        grid_field="task_beta",
+        values=[0.25, 1.0],
+        formula="joint_fitted_reference_beta_ratio_taper",
     )
-    config["experiment_id"] = "DEV-E8-MULTITASK-TOPR-CAPABILITY-TEST"
-    sweep = config["sweep"]
-    sweep["method"] = "joint_fitted_reference_topr"
-    sweep["parameterization"] = "joint_fitted_reference_beta_topr"
-    sweep.pop("task_lambda", None)
-    sweep["task_beta"] = {task: [] for task in config["suite"]["tasks"]}
-    for task in config["suite"]["p0_tasks"]:
-        sweep["task_beta"][task] = [0.25, 1.0]
-    sweep["countdown_seed_offsets"] = []
-    sweep["countdown_include_positive_only"] = False
-    sweep["include_global_endpoint"] = False
-    sweep["transfer_positive_only_seed_offsets"] = []
-    sweep["task_transfer_seed_offset"] = 4000
-    sweep["tuning_seed"] = 4000
-    sweep["expected_cells"] = 16
-    config["execution"]["expected_waves"] = 1
-    config["canonical_coldstart"]["formula"] = "joint_fitted_reference_beta_ratio_taper"
     exp_tuning.validate_config(config)
     return config
 
@@ -3262,46 +3270,28 @@ def test_topr_liveness_uses_existing_joint_reference_profile() -> None:
 def _dpo_capability_test_config(*, shared_sft: bool = False) -> dict:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    config = copy.deepcopy(
-        yaml.safe_load(
-            Path("configs/e8_multitask_exp_lambda_curve_completion.yaml").read_text(
-                encoding="utf-8"
-            )
-        )
+    config = _method_capability_test_config(
+        experiment_id=(
+            "DEV-E8-MULTITASK-DPO-SHARED-SFT-CAPABILITY-TEST"
+            if shared_sft
+            else "DEV-E8-MULTITASK-DPO-COLD-CAPABILITY-TEST"
+        ),
+        method="canonical_dpo",
+        parameterization="canonical_dpo_beta",
+        grid_field="task_beta",
+        values=[0.1, 1.0],
+        formula="canonical_sigmoid_dpo_frozen_initial_reference",
     )
-    config["experiment_id"] = (
-        "DEV-E8-MULTITASK-DPO-SHARED-SFT-CAPABILITY-TEST"
-        if shared_sft
-        else "DEV-E8-MULTITASK-DPO-COLD-CAPABILITY-TEST"
-    )
-    sweep = config["sweep"]
-    sweep["method"] = "canonical_dpo"
-    sweep["parameterization"] = "canonical_dpo_beta"
-    sweep.pop("task_lambda", None)
-    sweep["task_beta"] = {task: [] for task in config["suite"]["tasks"]}
-    for task in config["suite"]["p0_tasks"]:
-        sweep["task_beta"][task] = [0.1, 1.0]
-    sweep["countdown_seed_offsets"] = []
-    sweep["countdown_include_positive_only"] = False
-    sweep["include_global_endpoint"] = False
-    sweep["transfer_positive_only_seed_offsets"] = []
-    sweep["task_transfer_seed_offset"] = 4000
-    sweep["tuning_seed"] = 4000
-    sweep["expected_cells"] = 16
-    config["execution"]["expected_waves"] = 1
     config["canonical_coldstart"].update(
         {
             "scientific_kernel": "historical_pr268_semantics_port_in_existing_multitask_runner",
             "initialization": "config_driven_dpo_initial_policy_plus_exact_frozen_copy",
-            "formula": "canonical_sigmoid_dpo_frozen_initial_reference",
             "countdown_entry": "disabled_no_countdown_dpo_cells",
             "transfer_entry": "e8_multitask_exp_tuning._train_canonical_dpo_transfer_cell",
         }
     )
     config["dpo"] = {
-        "initialization_mode": (
-            "shared_sft_adapter" if shared_sft else "base_model_fresh_lora"
-        ),
+        "initialization_mode": "shared_sft_adapter" if shared_sft else "base_model_fresh_lora",
         "shared_sft_adapter_env": "E8_DPO_SHARED_SFT_ADAPTER" if shared_sft else None,
         "policy_adapter": "default",
         "reference_adapter": "reference",

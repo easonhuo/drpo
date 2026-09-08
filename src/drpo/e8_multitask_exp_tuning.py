@@ -7217,19 +7217,7 @@ def _write_coldstart_task_result(
             "rho": row["rho"],
             "seed": row["seed"],
             "stage": row["stage"],
-            "late_window_pass8_mean": row["late_window_pass8_mean"],
-            "late_window_greedy_mean": row["late_window_greedy_mean"],
-            "best_validation_pass8": row["best_pass8"],
-            "terminal_pass8": row["terminal_pass8"],
-            "best_validation_greedy": row["best_greedy"],
-            "terminal_greedy": row["terminal_greedy"],
-            "best_greedy_valid_rate": row["best_greedy_valid_rate"],
-            "terminal_greedy_valid_rate": row["terminal_greedy_valid_rate"],
-            "best_step": row["best_step"],
-            "terminal_step": row["terminal_step"],
-            "stop_reason": row["stop_reason"],
-            "nan_inf_failure": row["nan_inf_failure"],
-            "complete": True,
+            **_coldstart_plot_metrics(row),
         }
         for row in rows
     ]
@@ -7445,6 +7433,38 @@ def _aggregate_dense(
     return summary
 
 
+def _coldstart_plot_metrics(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "late_window_pass8_mean": row["late_window_pass8_mean"],
+        "late_window_greedy_mean": row["late_window_greedy_mean"],
+        "best_validation_pass8": row["best_pass8"],
+        "terminal_pass8": row["terminal_pass8"],
+        "best_validation_greedy": row["best_greedy"],
+        "terminal_greedy": row["terminal_greedy"],
+        "best_greedy_valid_rate": row["best_greedy_valid_rate"],
+        "terminal_greedy_valid_rate": row["terminal_greedy_valid_rate"],
+        "best_step": row["best_step"],
+        "terminal_step": row["terminal_step"],
+        "stop_reason": row["stop_reason"],
+        "nan_inf_failure": row["nan_inf_failure"],
+        "complete": True,
+    }
+
+
+def _coldstart_group_metrics(group: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    def mean(key: str) -> float:
+        return float(np.mean([float(row[key]) for row in group]))
+
+    return {
+        "seeds": sorted(int(row["seed"]) for row in group),
+        "late_window_pass8_mean": mean("late_window_pass8_mean"),
+        "late_window_greedy_mean": mean("late_window_greedy_mean"),
+        "terminal_pass8_mean": mean("terminal_pass8"),
+        "terminal_greedy_valid_rate_mean": mean("terminal_greedy_valid_rate"),
+        "nan_inf_failure": any(bool(row["nan_inf_failure"]) for row in group),
+    }
+
+
 def _coldstart_run_provenance(output_root: Path) -> tuple[str, str]:
     path = output_root / "source_provenance.json"
     value = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
@@ -7489,28 +7509,21 @@ def _aggregate_coldstart_unranked(
         }
 
     run_id, source_commit = _coldstart_run_provenance(output_root)
-    direct_fields = (
-        "task", "method", "dpo_initialization", "seed", "stage",
-        "late_window_pass8_mean",
-        "late_window_greedy_mean", "terminal_pass8", "terminal_greedy",
-        "best_greedy_valid_rate", "terminal_greedy_valid_rate", "best_step",
-        "terminal_step", "stop_reason", "nan_inf_failure",
-    )
-    plot_rows: list[dict[str, Any]] = []
-    for row in rows:
-        plot = {key: row[key] for key in direct_fields}
-        plot.update(
-            {
-                "experiment_id": experiment_id(config),
-                "run_id": run_id,
-                "source_commit": source_commit,
-                parameter_name: row.get(parameter_name),
-                "best_validation_pass8": row["best_pass8"],
-                "best_validation_greedy": row["best_greedy"],
-                "complete": True,
-            }
-        )
-        plot_rows.append(plot)
+    plot_rows = [
+        {
+            "task": row["task"],
+            "method": row["method"],
+            "dpo_initialization": row["dpo_initialization"],
+            "seed": row["seed"],
+            "stage": row["stage"],
+            "experiment_id": experiment_id(config),
+            "run_id": run_id,
+            "source_commit": source_commit,
+            parameter_name: row.get(parameter_name),
+            **_coldstart_plot_metrics(row),
+        }
+        for row in rows
+    ]
     _write_csv(output_root / "aggregate" / "plot_curve_points.csv", plot_rows)
 
     configured_cells = build_cells(config)
@@ -7542,29 +7555,15 @@ def _aggregate_coldstart_unranked(
             if value is None:
                 raise RuntimeError(f"{task} {method} row is missing {parameter_name}")
             groups.setdefault(float(value), []).append(row)
-        grouped_curve = []
-        for value, group in sorted(groups.items()):
-            grouped_curve.append(
-                {
-                    "task": task,
-                    "method": method,
-                    parameter_name: value,
-                    "seeds": sorted(int(row["seed"]) for row in group),
-                    "late_window_pass8_mean": float(
-                        np.mean([float(row["late_window_pass8_mean"]) for row in group])
-                    ),
-                    "late_window_greedy_mean": float(
-                        np.mean([float(row["late_window_greedy_mean"]) for row in group])
-                    ),
-                    "terminal_pass8_mean": float(
-                        np.mean([float(row["terminal_pass8"]) for row in group])
-                    ),
-                    "terminal_greedy_valid_rate_mean": float(
-                        np.mean([float(row["terminal_greedy_valid_rate"]) for row in group])
-                    ),
-                    "nan_inf_failure": any(bool(row["nan_inf_failure"]) for row in group),
-                }
-            )
+        grouped_curve = [
+            {
+                "task": task,
+                "method": method,
+                parameter_name: value,
+                **_coldstart_group_metrics(group),
+            }
+            for value, group in sorted(groups.items())
+        ]
         summaries[task] = {
             "task": task,
             "grouped_curve": grouped_curve,
@@ -7627,34 +7626,21 @@ def _aggregate_coldstart(
     if _coldstart_method(config) != METHOD_EXPONENTIAL:
         return _aggregate_coldstart_unranked(config, output_root, rows)
     run_id, source_commit = _coldstart_run_provenance(output_root)
-    plot_rows: list[dict[str, Any]] = []
-    for row in rows:
-        plot_rows.append(
-            {
-                "experiment_id": experiment_id(config),
-                "run_id": run_id,
-                "source_commit": source_commit,
-                "task": row["task"],
-                "method": row["method"],
-                "lambda": row["lambda"],
-                "rho": row["rho"],
-                "seed": row["seed"],
-                "stage": row["stage"],
-                "late_window_pass8_mean": row["late_window_pass8_mean"],
-                "late_window_greedy_mean": row["late_window_greedy_mean"],
-                "best_validation_pass8": row["best_pass8"],
-                "terminal_pass8": row["terminal_pass8"],
-                "best_validation_greedy": row["best_greedy"],
-                "terminal_greedy": row["terminal_greedy"],
-                "best_greedy_valid_rate": row["best_greedy_valid_rate"],
-                "terminal_greedy_valid_rate": row["terminal_greedy_valid_rate"],
-                "best_step": row["best_step"],
-                "terminal_step": row["terminal_step"],
-                "stop_reason": row["stop_reason"],
-                "nan_inf_failure": row["nan_inf_failure"],
-                "complete": True,
-            }
-        )
+    plot_rows = [
+        {
+            "experiment_id": experiment_id(config),
+            "run_id": run_id,
+            "source_commit": source_commit,
+            "task": row["task"],
+            "method": row["method"],
+            "lambda": row["lambda"],
+            "rho": row["rho"],
+            "seed": row["seed"],
+            "stage": row["stage"],
+            **_coldstart_plot_metrics(row),
+        }
+        for row in rows
+    ]
     _write_csv(output_root / "aggregate" / "plot_curve_points.csv", plot_rows)
 
     summaries: dict[str, Any] = {}
@@ -7682,21 +7668,10 @@ def _aggregate_coldstart(
                 "method": first["method"],
                 "lambda": first["lambda"],
                 "rho": first["rho"],
-                "seeds": sorted(int(row["seed"]) for row in group),
-                "late_window_pass8_mean": float(
-                    np.mean([float(row["late_window_pass8_mean"]) for row in group])
+                **_coldstart_group_metrics(group),
+                "best_pass8_mean": float(
+                    np.mean([float(row["best_pass8"]) for row in group])
                 ),
-                "late_window_greedy_mean": float(
-                    np.mean([float(row["late_window_greedy_mean"]) for row in group])
-                ),
-                "terminal_pass8_mean": float(
-                    np.mean([float(row["terminal_pass8"]) for row in group])
-                ),
-                "terminal_greedy_valid_rate_mean": float(
-                    np.mean([float(row["terminal_greedy_valid_rate"]) for row in group])
-                ),
-                "best_pass8_mean": float(np.mean([float(row["best_pass8"]) for row in group])),
-                "nan_inf_failure": any(bool(row["nan_inf_failure"]) for row in group),
             }
 
         coefficient_groups: dict[tuple[str, float | None], list[dict[str, Any]]] = {}
