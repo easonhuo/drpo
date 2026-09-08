@@ -3540,3 +3540,63 @@ def test_transfer_evaluator_honors_configured_sampling_values() -> None:
     )
     assert calls[0] == (False, 1.0, 1.0, 1)
     assert calls[1] == (True, 0.61, 0.87, 8)
+
+
+
+def test_nan_inf_failure_classifier_separates_identity_mismatch() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    assert exp_tuning._is_nan_inf_numerical_failure(None) is False
+    assert (
+        exp_tuning._is_nan_inf_numerical_failure(
+  "initial_policy_reference_ratio_mismatch"
+        )
+        is False
+    )
+    assert exp_tuning._is_nan_inf_numerical_failure("nonfinite_loss_at_step_1") is True
+    assert exp_tuning._is_nan_inf_numerical_failure("nonfinite_parameters_at_step_9") is True
+
+
+def test_canonical_failed_cell_preserves_manifest_without_late_window_summary() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+    assert 'numerical_failure = canonical_summary.get("numerical_failure")' in source
+    assert 'if numerical_failure is None' in source
+    assert 'else {}' in source
+    assert '"nan_inf_failure": _is_nan_inf_numerical_failure(numerical_failure)' in source
+    assert '"evaluation_status": (' in source
+    assert 'metrics_summary.get("supplementary_best_step")' in source
+
+
+def test_dpo_emits_recovery_summary_and_audited_pr268_diagnostics() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning._train_canonical_dpo_transfer_cell)
+    required = (
+        'summary_path = cell_root / "summary.json"',
+        'result["canonical_summary_sha256"] = sha256_file(summary_path)',
+        '"policy_chosen_sum_lp"',
+        '"policy_rejected_sum_lp"',
+        '"reference_chosen_sum_lp"',
+        '"reference_rejected_sum_lp"',
+        '"pair_margin_p10"',
+        '"pair_margin_p50"',
+        '"pair_margin_p90"',
+        '"unique_negative_count_mean"',
+        '"raw_bank_count_mean"',
+        '"duplicates_removed_mean"',
+        'num_workers=int(train_cfg["num_workers"])',
+        'log_every = int(train_cfg["log_every"])',
+        '"terminal_step": terminal_step',
+    )
+    for fragment in required:
+        assert fragment in source
+
+    reusable = inspect.getsource(exp_tuning._reusable_cell_manifests)
+    assert 'value.get("canonical_summary"' in reusable
+    assert 'value.get("canonical_summary_sha256"' in reusable

@@ -4040,6 +4040,14 @@ def _dpo_prompt_balanced_mean(
     )
 
 
+def _dpo_quantile(values: Any, q: float) -> float:
+    return float(torch.quantile(values.detach().float().cpu(), q).item())
+
+
+def _is_nan_inf_numerical_failure(value: Any) -> bool:
+    return isinstance(value, str) and value.startswith("nonfinite_")
+
+
 def _train_canonical_dpo_transfer_cell(
     cell: Cell,
     *,
@@ -4151,6 +4159,7 @@ def _train_canonical_dpo_transfer_cell(
     eval_cfg["seed"] = int(effective["evaluation"]["generation_seed"])
     updates = int(updates_override or effective["training"]["optimizer_updates"])
     eval_every = int(effective["training"]["evaluation_every_updates"])
+    log_every = int(train_cfg["log_every"])
     seed = int(train_cfg["seed"]) + int(cell.seed)
     beta = float(cell.beta)
     arena.seed_all(seed)
@@ -4202,7 +4211,7 @@ def _train_canonical_dpo_transfer_cell(
             collate_fn=paper_common.make_continuous_unique_bank_collator(
                 tokenizer.pad_token_id
             ),
-            num_workers=0,
+            num_workers=int(train_cfg["num_workers"]),
         )
         iterator = iter(loader)
         with _legacy_arena_runtime_bridge(arena, effective):
@@ -4323,9 +4332,21 @@ def _train_canonical_dpo_transfer_cell(
         accumulation = int(effective["training"]["gradient_accumulation"])
         for update in range(1, updates + 1):
             loss_total = 0.0
-            pair_margin_total = 0.0
-            preference_accuracy_total = 0.0
-            saturation_total = 0.0
+            diagnostic_totals = {
+                "policy_chosen_sum_lp": 0.0,
+                "policy_rejected_sum_lp": 0.0,
+                "reference_chosen_sum_lp": 0.0,
+                "reference_rejected_sum_lp": 0.0,
+                "pair_margin_mean": 0.0,
+                "pair_margin_p10": 0.0,
+                "pair_margin_p50": 0.0,
+                "pair_margin_p90": 0.0,
+                "preference_accuracy": 0.0,
+                "logit_saturation_fraction": 0.0,
+                "unique_negative_count_mean": 0.0,
+                "raw_bank_count_mean": 0.0,
+                "duplicates_removed_mean": 0.0,
+            }
             abort_update = False
             for accumulation_index in range(accumulation):
                 try:
@@ -4388,11 +4409,48 @@ def _train_canonical_dpo_transfer_cell(
                     break
                 (loss / accumulation).backward()
                 loss_total += float(loss.detach().cpu())
-                pair_margin_total += float(pair_margin.detach().mean().cpu())
-                preference_accuracy_total += float(
-                    (pair_margin.detach() > 0.0).float().mean().cpu()
+                policy_rejected_mean = _dpo_prompt_balanced_mean(
+                    policy_rejected.detach(),
+                    row_index,
+                    unique_counts,
+                    paper_common=paper_common,
                 )
-                saturation_total += float((logits.detach().abs() >= 10.0).float().mean().cpu())
+                reference_rejected_mean = _dpo_prompt_balanced_mean(
+                    reference_rejected,
+                    row_index,
+                    unique_counts,
+                    paper_common=paper_common,
+                )
+                diagnostics = {
+                    "policy_chosen_sum_lp": float(policy_chosen.detach().mean().cpu()),
+                    "policy_rejected_sum_lp": float(policy_rejected_mean.detach().cpu()),
+                    "reference_chosen_sum_lp": float(reference_chosen.mean().cpu()),
+                    "reference_rejected_sum_lp": float(reference_rejected_mean.cpu()),
+                    "pair_margin_mean": float(pair_margin.detach().mean().cpu()),
+                    "pair_margin_p10": _dpo_quantile(pair_margin, 0.10),
+                    "pair_margin_p50": _dpo_quantile(pair_margin, 0.50),
+                    "pair_margin_p90": _dpo_quantile(pair_margin, 0.90),
+                    "preference_accuracy": float(
+                        (pair_margin.detach() > 0.0).float().mean().cpu()
+                    ),
+                    "logit_saturation_fraction": float(
+                        (logits.detach().abs() >= 10.0).float().mean().cpu()
+                    ),
+                    "unique_negative_count_mean": float(
+                        packed["unique_counts"].float().mean().cpu()
+                    ),
+                    "raw_bank_count_mean": float(
+                        packed["raw_bank_counts"].float().mean().cpu()
+                    ),
+                    "duplicates_removed_mean": float(
+                        (packed["raw_bank_counts"] - packed["unique_counts"])
+                        .float()
+                        .mean()
+                        .cpu()
+                    ),
+                }
+                for key, value in diagnostics.items():
+                    diagnostic_totals[key] += value
 
             if abort_update:
                 break
@@ -4405,7 +4463,7 @@ def _train_canonical_dpo_transfer_cell(
                 numerical_failure = f"nonfinite_gradient_at_step_{update}"
                 stop_reason = numerical_failure
                 break
-            sample_update_norm = update % 10 == 0 or update == updates
+            sample_update_norm = update % log_every == 0 or update == updates
             before = (
                 [parameter.detach().float().cpu().clone() for parameter in policy_parameters]
                 if sample_update_norm
@@ -4426,16 +4484,17 @@ def _train_canonical_dpo_transfer_cell(
             )
             if update_norm is not None:
                 optimizer_update_norms.append(float(update_norm))
-            if update % 10 == 0 or update == updates:
+            if update % log_every == 0 or update == updates:
                 append_jsonl(
                     training_path,
                     {
                         "update": update,
                         "dpo_beta": beta,
                         "dpo_pair_loss": loss_total / accumulation,
-                        "pair_margin_mean": pair_margin_total / accumulation,
-                        "preference_accuracy": preference_accuracy_total / accumulation,
-                        "logit_saturation_fraction": saturation_total / accumulation,
+                        **{
+                            key: value / accumulation
+                            for key, value in diagnostic_totals.items()
+                        },
                         "raw_gradient_norm_before_clip": float(gradient_norm.detach().cpu()),
                         "optimizer_update_norm": update_norm,
                         "initial_pair_margin_max_abs": initial_pair_margin_max_abs,
@@ -4527,13 +4586,12 @@ def _train_canonical_dpo_transfer_cell(
                 else 0.0
             ),
             "optimizer_updates": terminal_step,
+            "terminal_step": terminal_step,
             "optimizer_updates_requested": updates,
             "last_finite_step": last_finite_step,
             "numerical_failure": numerical_failure,
             "stop_reason": stop_reason,
-            "nan_inf_failure": bool(
-                numerical_failure is not None and numerical_failure.startswith("nonfinite_")
-            ),
+            "nan_inf_failure": _is_nan_inf_numerical_failure(numerical_failure),
             "evaluation_status": (
                 "complete" if numerical_failure is None else "incomplete"
             ),
@@ -4558,6 +4616,12 @@ def _train_canonical_dpo_transfer_cell(
                     ],
                 }
             )
+        if not engineering_liveness:
+            summary_path = cell_root / "summary.json"
+            atomic_json(summary_path, result)
+            result["canonical_summary"] = str(summary_path.resolve())
+            result["canonical_summary_sha256"] = sha256_file(summary_path)
+            result["canonical_output"] = str(cell_root.resolve())
         atomic_json(manifest_path, result)
         return result
     finally:
@@ -4940,8 +5004,12 @@ def _train_canonical_cold_cell(
         }
         for row in metric_rows
     ]
-    metrics_summary = _summarize_evaluations(evaluations, config)
     numerical_failure = canonical_summary.get("numerical_failure")
+    metrics_summary = (
+        _summarize_evaluations(evaluations, config)
+        if numerical_failure is None
+        else {}
+    )
     best_adapter = canonical_output / "best_pass8_adapter"
     terminal_adapter = canonical_output / (
         "last_finite_adapter" if numerical_failure else "terminal_adapter"
@@ -4972,26 +5040,30 @@ def _train_canonical_cold_cell(
         "adapter_path_argument": None,
         "sft_adapter_path_argument": None,
         "initialization_optimizer_updates": 0,
-        "best_step": metrics_summary["supplementary_best_step"],
+        "best_step": metrics_summary.get("supplementary_best_step"),
         "terminal_step": canonical_summary.get("terminal_step"),
         "stop_reason": canonical_summary.get("stop_reason"),
-        "validation_best_pass8": metrics_summary["supplementary_best_pass8"],
-        "validation_terminal_pass8": metrics_summary["validation_terminal_pass8"],
-        "validation_best_greedy": metrics_summary["supplementary_best_greedy"],
-        "validation_terminal_greedy": metrics_summary["validation_terminal_greedy"],
-        "validation_best_greedy_valid_rate": max(
-            float(row["greedy_valid_rate"]) for row in evaluations
+        "validation_best_pass8": metrics_summary.get("supplementary_best_pass8"),
+        "validation_terminal_pass8": metrics_summary.get("validation_terminal_pass8"),
+        "validation_best_greedy": metrics_summary.get("supplementary_best_greedy"),
+        "validation_terminal_greedy": metrics_summary.get("validation_terminal_greedy"),
+        "validation_best_greedy_valid_rate": (
+            max(float(row["greedy_valid_rate"]) for row in evaluations)
+            if numerical_failure is None and evaluations
+            else None
         ),
-        "validation_terminal_greedy_valid_rate": metrics_summary[
+        "validation_terminal_greedy_valid_rate": metrics_summary.get(
             "validation_terminal_greedy_valid_rate"
-        ],
-        "validation_terminal_sampled_valid_rate": metrics_summary[
+        ),
+        "validation_terminal_sampled_valid_rate": metrics_summary.get(
             "validation_terminal_sampled_valid_rate"
-        ],
-        "optimizer_updates": int(canonical_summary.get("terminal_step", 0)),
+        ),
+        "optimizer_updates": int(canonical_summary.get("terminal_step") or 0),
         "numerical_failure": numerical_failure,
-        "nan_inf_failure": numerical_failure is not None,
-        "evaluation_status": "complete" if evaluations else "incomplete",
+        "nan_inf_failure": _is_nan_inf_numerical_failure(numerical_failure),
+        "evaluation_status": (
+            "complete" if evaluations and numerical_failure is None else "incomplete"
+        ),
         "test_partition_accessed": False,
         "complete": bool(evaluations and numerical_failure is None),
         "scientific_status": "pilot",
