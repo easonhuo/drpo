@@ -83,9 +83,8 @@ jobs:
                   end = i
                   break
           del lines[start:end]
-          while start > 0 and start < len(lines) and lines[start - 1].strip() == '' and lines[start].strip() == '':
-              del lines[start]
-          tests.write_text(''.join(lines), encoding='utf-8')
+          cleaned = ''.join(lines).rstrip() + '\n'
+          tests.write_text(cleaned, encoding='utf-8')
           PY
       - name: Install validation dependencies
         run: |
