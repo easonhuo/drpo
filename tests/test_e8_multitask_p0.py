@@ -3476,3 +3476,67 @@ def test_dpo_failure_path_preserves_last_finite_without_extra_policy_change_gate
     liveness = inspect.getsource(exp_tuning._cmd_dpo_liveness)
     assert "optimizer_update_norm" in liveness
     assert "<= 0.0" in liveness
+
+
+def test_dpo_transfer_consumes_effective_task_runtime_and_preserves_liveness_identity() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning._train_canonical_dpo_transfer_cell)
+    assert 'model_cfg["max_length"] = int(effective["model"]["max_length"])' in source
+    assert 'model_cfg["max_new_tokens"] = int(effective["model"]["max_new_tokens"])' in source
+    assert 'eval_cfg["batch_size"] = int(effective["evaluation"]["batch_size"])' in source
+    assert 'eval_cfg["pass_ks"] = list(effective["evaluation"]["pass_ks"])' in source
+    assert 'with _legacy_arena_runtime_bridge(arena, effective):' in source
+    assert 'warmup_steps = 0 if warmup_ratio == 0.0' in source
+    assert 'cell.dpo_initialization != configured_initialization' in source
+    assert 'str(final_adapter_dir.resolve())' in source
+    assert '"finite_old_core_updates": numerical_failure is None' in source
+
+    liveness = inspect.getsource(exp_tuning._cmd_dpo_liveness)
+    assert 'result["identity_hash"] = stable_hash(result)' not in liveness
+
+
+def test_transfer_evaluator_honors_configured_sampling_values() -> None:
+    from types import SimpleNamespace
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    calls = []
+
+    class FakeModel:
+        training = False
+
+    class FakeAdapter:
+        def verify(self, instance, completion):
+            del instance, completion
+            return SimpleNamespace(correct=False, format_valid=True)
+
+    class FakeArena:
+        @staticmethod
+        def seed_all(seed):
+            del seed
+
+        @staticmethod
+        def generate_outputs(model, tokenizer, prompts, max_new_tokens, do_sample,
+                             temperature, top_p, num_return_sequences):
+            del model, tokenizer, max_new_tokens
+            calls.append((do_sample, temperature, top_p, num_return_sequences))
+            return [["x"] * num_return_sequences for _ in prompts]
+
+    evaluator = exp_tuning._canonical_environment_evaluator(
+        arena=FakeArena(),
+        task_adapter=FakeAdapter(),
+        instances={"p": object()},
+        greedy_prompt_rows=1,
+        passk_prompt_rows=1,
+        sampling_temperature=0.61,
+        top_p=0.87,
+    )
+    evaluator(
+        FakeModel(), object(), [{"prompt_id": "p", "prompt": "q"}],
+        1, 4, 8, 123,
+    )
+    assert calls[0] == (False, 1.0, 1.0, 1)
+    assert calls[1] == (True, 0.61, 0.87, 8)

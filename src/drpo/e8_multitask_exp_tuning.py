@@ -3427,6 +3427,8 @@ def _canonical_environment_evaluator(
     instances: Mapping[str, TaskInstance],
     greedy_prompt_rows: int,
     passk_prompt_rows: int,
+    sampling_temperature: float = 0.8,
+    top_p: float = 0.95,
 ) -> Any:
     """Return the old evaluator signature backed only by the selected task verifier."""
 
@@ -3482,8 +3484,8 @@ def _canonical_environment_evaluator(
                 prompts,
                 int(max_new_tokens),
                 int(pass_k) > 1,
-                0.8 if int(pass_k) > 1 else 1.0,
-                0.95 if int(pass_k) > 1 else 1.0,
+                float(sampling_temperature) if int(pass_k) > 1 else 1.0,
+                float(top_p) if int(pass_k) > 1 else 1.0,
                 int(pass_k),
             )
             for row, sampled_outputs in zip(chunk, sampled, strict=True):
@@ -4056,6 +4058,9 @@ def _train_canonical_dpo_transfer_cell(
         raise RuntimeError("Canonical DPO training requires Torch")
     if cell.method != METHOD_DPO or cell.beta is None:
         raise ValueError("Canonical DPO transfer trainer received a non-DPO cell")
+    configured_initialization = str(config["dpo"]["initialization_mode"])
+    if cell.dpo_initialization != configured_initialization:
+        raise RuntimeError("DPO cell/config initialization identity mismatch")
     if cell.task == "countdown":
         raise ValueError("Current multitask DPO capability does not execute Countdown cells")
     modules = _canonical_cold_modules(config)
@@ -4135,9 +4140,15 @@ def _train_canonical_dpo_transfer_cell(
     if not isinstance(base_config, dict):
         raise TypeError("DPO paper base config root must be a mapping")
     effective = experiment_config.effective_coldstart_runtime(config, cell.task)
-    model_cfg = base_config["model"]
+    model_cfg = copy.deepcopy(base_config["model"])
+    model_cfg["max_length"] = int(effective["model"]["max_length"])
+    model_cfg["max_new_tokens"] = int(effective["model"]["max_new_tokens"])
     train_cfg = base_config["offline_training"]
-    eval_cfg = base_config["evaluation"]
+    eval_cfg = copy.deepcopy(base_config["evaluation"])
+    eval_cfg["examples"] = int(effective["evaluation"]["examples"])
+    eval_cfg["batch_size"] = int(effective["evaluation"]["batch_size"])
+    eval_cfg["pass_ks"] = list(effective["evaluation"]["pass_ks"])
+    eval_cfg["seed"] = int(effective["evaluation"]["generation_seed"])
     updates = int(updates_override or effective["training"]["optimizer_updates"])
     eval_every = int(effective["training"]["evaluation_every_updates"])
     seed = int(train_cfg["seed"]) + int(cell.seed)
@@ -4158,6 +4169,8 @@ def _train_canonical_dpo_transfer_cell(
             instances=instances,
             greedy_prompt_rows=int(config["task_runtime"][cell.task]["greedy_prompt_rows"]),
             passk_prompt_rows=int(config["task_runtime"][cell.task]["passk_prompt_rows"]),
+            sampling_temperature=float(effective["evaluation"]["sampling_temperature"]),
+            top_p=float(effective["evaluation"]["top_p"]),
         )
 
     original_clean_expression = arena.clean_expression
@@ -4192,15 +4205,16 @@ def _train_canonical_dpo_transfer_cell(
             num_workers=0,
         )
         iterator = iter(loader)
-        model = arena.load_model(
-            str(Path(base_model_path).resolve()),
-            adapter_path=None if shared_adapter is None else str(shared_adapter),
-            trainable_adapter=True,
-            load_in_4bit=bool(model_cfg.get("load_in_4bit", False)),
-            dtype=str(effective["model"]["dtype"]),
-            gradient_checkpointing=bool(effective["model"]["gradient_checkpointing"]),
-            parameterization="lora",
-        )
+        with _legacy_arena_runtime_bridge(arena, effective):
+            model = arena.load_model(
+                str(Path(base_model_path).resolve()),
+                adapter_path=None if shared_adapter is None else str(shared_adapter),
+                trainable_adapter=True,
+                load_in_4bit=bool(model_cfg.get("load_in_4bit", False)),
+                dtype=str(effective["model"]["dtype"]),
+                gradient_checkpointing=bool(effective["model"]["gradient_checkpointing"]),
+                parameterization="lora",
+            )
         policy_adapter = str(config["dpo"]["policy_adapter"])
         reference_adapter = str(config["dpo"]["reference_adapter"])
         if not hasattr(model, "add_adapter") or not hasattr(model, "set_adapter"):
@@ -4239,9 +4253,11 @@ def _train_canonical_dpo_transfer_cell(
             lr=float(effective["training"]["learning_rate"]),
             weight_decay=float(effective["training"]["weight_decay"]),
         )
+        warmup_ratio = float(effective["training"]["warmup_ratio"])
+        warmup_steps = 0 if warmup_ratio == 0.0 else max(1, int(updates * warmup_ratio))
         scheduler = arena.get_cosine_schedule_with_warmup(
             optimizer,
-            max(1, int(updates * float(effective["training"]["warmup_ratio"]))),
+            warmup_steps,
             updates,
         )
         device = next(model.parameters()).device
@@ -4497,14 +4513,14 @@ def _train_canonical_dpo_transfer_cell(
             "terminal_adapter": str(final_adapter_dir.resolve()),
             "terminal_adapter_identity": terminal_identity,
             "best_adapter": (
-                str(best_dir.resolve()) if best_dir.is_dir() else str(terminal_dir.resolve())
+                str(best_dir.resolve()) if best_dir.is_dir() else str(final_adapter_dir.resolve())
             ),
             "training_metrics": str(training_path.resolve()),
             "evaluation_metrics": (
                 str(evaluation_path.resolve()) if evaluation_path.is_file() else None
             ),
             "canonical_dispatch_verified": True,
-            "finite_old_core_updates": True,
+            "finite_old_core_updates": numerical_failure is None,
             "optimizer_update_norm": (
                 min(value for value in optimizer_update_norms if math.isfinite(value))
                 if optimizer_update_norms
@@ -4641,7 +4657,6 @@ def _cmd_dpo_liveness(
             "evaluation_status": "complete",
         }
     )
-    result["identity_hash"] = stable_hash(result)
     atomic_json(output_root / "liveness" / cell.key / "cell_manifest.json", result)
     return result
 
@@ -4780,6 +4795,8 @@ def _train_canonical_cold_cell(
             instances=instances,
             greedy_prompt_rows=int(config["task_runtime"][cell.task]["greedy_prompt_rows"]),
             passk_prompt_rows=int(config["task_runtime"][cell.task]["passk_prompt_rows"]),
+            sampling_temperature=float(effective_runtime["evaluation"]["sampling_temperature"]),
+            top_p=float(effective_runtime["evaluation"]["top_p"]),
         )
 
     scan_trainer = modules["scan_trainer"]
