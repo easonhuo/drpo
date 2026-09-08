@@ -1,0 +1,51 @@
+name: E8 baseline fifth review repair v3
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-baselines-capability-01-fixwork
+    paths:
+      - .github/workflows/e8-baselines-fifth-review-fix-v3.yml
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-baselines-capability-01-fixwork
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Apply reviewed repair
+        run: python scripts/.tmp_e8_fifth_review_fix_v3.py
+      - name: Install validation dependencies
+        run: |
+          python -m pip install --disable-pip-version-check -q numpy pyyaml pytest ruff
+          python -m pip install --disable-pip-version-check -q torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Compile
+        run: python -m py_compile src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+      - name: Focused regression
+        run: PYTHONPATH=.:src pytest -q -rs tests/test_e8_multitask_p0.py
+      - name: Diff check
+        run: git diff --check
+      - name: Ruff
+        run: ruff check src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py --ignore BLE001,B023
+      - name: Commit validated repair and clean temporary files
+        shell: bash
+        run: |
+          rm -f \
+            .github/workflows/e8-baselines-fifth-review-fix.yml \
+            .github/workflows/e8-baselines-fifth-review-fix-v2.yml \
+            .github/workflows/e8-baselines-fifth-review-fix-v3.yml \
+            scripts/.tmp_e8_fifth_review_fix_v3.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'fix: close fifth E8 baseline review gaps'
+          git push origin HEAD:dev/e8-multitask-baselines-capability-01-fixwork
