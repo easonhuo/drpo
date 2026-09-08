@@ -27,9 +27,16 @@ COLDSTART_METHOD_EXPONENTIAL = "exponential"
 COLDSTART_METHOD_ASYMRE = "asymre"
 COLDSTART_METHOD_TOPR = "joint_fitted_reference_topr"
 COLDSTART_METHOD_DPO = "canonical_dpo"
+COLDSTART_METHOD_BASELINE_MATRIX = "baseline_matrix"
 ASYMRE_PARAMETERIZATION = "asymre_delta_v"
 TOPR_PARAMETERIZATION = "joint_fitted_reference_beta_topr"
 DPO_PARAMETERIZATION = "canonical_dpo_beta"
+BASELINE_MATRIX_PARAMETERIZATION = "baseline_family_matrix_v1"
+BASELINE_MATRIX_METHODS = (
+    COLDSTART_METHOD_ASYMRE,
+    COLDSTART_METHOD_TOPR,
+    COLDSTART_METHOD_DPO,
+)
 
 _COLDSTART_SWEEP_SPECS = {
     COLDSTART_METHOD_EXPONENTIAL: (
@@ -200,9 +207,35 @@ def coldstart_method(config: Mapping[str, Any]) -> str:
     return str(_mapping(config.get("sweep"), "sweep").get("method", ""))
 
 
-def task_delta_vs(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
+def coldstart_methods(config: Mapping[str, Any]) -> tuple[str, ...]:
+    method = coldstart_method(config)
+    if method != COLDSTART_METHOD_BASELINE_MATRIX:
+        return (method,)
+    methods = _mapping(config["sweep"].get("methods"), "sweep.methods")
+    configured = {str(value) for value in methods}
+    if configured != set(BASELINE_MATRIX_METHODS):
+        raise ValueError("Baseline matrix must contain exactly AsymRE, TOPR, and canonical DPO")
+    return BASELINE_MATRIX_METHODS
+
+
+def _method_sweep(config: Mapping[str, Any], method: str) -> Mapping[str, Any]:
+    if coldstart_method(config) == COLDSTART_METHOD_BASELINE_MATRIX:
+        methods = _mapping(config["sweep"].get("methods"), "sweep.methods")
+        if method not in methods:
+            raise ValueError(f"Baseline matrix is missing method specification: {method}")
+        return _mapping(methods[method], f"sweep.methods.{method}")
+    if method != coldstart_method(config):
+        raise ValueError(f"Cold-start config does not contain method: {method}")
+    return _mapping(config.get("sweep"), "sweep")
+
+
+def task_delta_vs(
+    config: Mapping[str, Any], task: str, *, method: str | None = None
+) -> tuple[float, ...]:
+    selected = method or coldstart_method(config)
+    sweep = _method_sweep(config, selected)
     raw = _sequence(
-        config["sweep"]["task_delta_v"][task],
+        sweep["task_delta_v"][task],
         f"{task} delta_v grid",
     )
     values = tuple(_number(value, f"{task} delta_v value") for value in raw)
@@ -214,9 +247,13 @@ def task_delta_vs(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
     return values
 
 
-def task_betas(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
+def task_betas(
+    config: Mapping[str, Any], task: str, *, method: str | None = None
+) -> tuple[float, ...]:
+    selected = method or coldstart_method(config)
+    sweep = _method_sweep(config, selected)
     raw = _sequence(
-        config["sweep"]["task_beta"][task],
+        sweep["task_beta"][task],
         f"{task} beta grid",
     )
     values = tuple(_number(value, f"{task} beta value") for value in raw)
@@ -225,17 +262,50 @@ def task_betas(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
     return values
 
 
-def task_method_values(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
-    method = coldstart_method(config)
-    spec = _COLDSTART_SWEEP_SPECS.get(method)
+def task_method_values(
+    config: Mapping[str, Any], task: str, *, method: str | None = None
+) -> tuple[float, ...]:
+    selected = method or coldstart_method(config)
+    spec = _COLDSTART_SWEEP_SPECS.get(selected)
     if spec is None:
-        raise ValueError(f"Unsupported sweep.method for cold-start: {method}")
+        raise ValueError(f"Unsupported sweep method for cold-start: {selected}")
+    method_sweep = _method_sweep(config, selected)
     grid_field = spec[1]
     if grid_field == "task_lambda":
-        return task_lambdas(config, task)
+        raw = _sequence(method_sweep[grid_field][task], f"{task} lambda grid")
+        values = tuple(_number(value, f"{task} lambda value") for value in raw)
+        if any(value <= 0.0 for value in values):
+            raise ValueError(f"{task} lambda values must be strictly positive")
+        return values
     if grid_field == "task_delta_v":
-        return task_delta_vs(config, task)
-    return task_betas(config, task)
+        return task_delta_vs(config, task, method=selected)
+    return task_betas(config, task, method=selected)
+
+
+def task_transfer_seeds(config: Mapping[str, Any]) -> tuple[int, ...]:
+    sweep = _mapping(config.get("sweep"), "sweep")
+    has_plural = "task_transfer_seed_offsets" in sweep
+    has_singular = "task_transfer_seed_offset" in sweep
+    if has_plural and has_singular:
+        raise ValueError(
+            "Use exactly one of task_transfer_seed_offset or task_transfer_seed_offsets"
+        )
+    if has_plural:
+        seeds = tuple(
+            _integer(value, "Transfer method seed offset")
+            for value in _sequence(
+                sweep.get("task_transfer_seed_offsets"), "task_transfer_seed_offsets"
+            )
+        )
+        if not seeds:
+            raise ValueError("task_transfer_seed_offsets must be non-empty")
+    elif has_singular:
+        seeds = (_integer(sweep.get("task_transfer_seed_offset"), "task_transfer_seed_offset"),)
+    else:
+        raise ValueError("Cold-start sweep requires transfer method seed offsets")
+    if len(set(seeds)) != len(seeds):
+        raise ValueError("Transfer method seed offsets must be unique")
+    return seeds
 
 
 def _validate_scalar_types(config: Mapping[str, Any]) -> None:
@@ -355,41 +425,71 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
         raise ValueError("Cold-start requires qualified P0 banks")
 
     method = coldstart_method(config)
+    methods = coldstart_methods(config)
     reference = config["reference"]
     initialization = config["initialization"]
-    if method == COLDSTART_METHOD_DPO:
+
+    def validate_fresh_lora_common() -> None:
+        if (
+            reference.get("checkpoint_kind") != "fresh_lora_from_base_model"
+            or reference.get("optimizer_updates") != 0
+            or reference.get("validation_rows_seen") != 0
+            or reference.get("test_rows_seen") != 0
+        ):
+            raise ValueError("Cold-start reference must remain a zero-update fresh LoRA")
+        if (
+            initialization.get("source") != "base_model"
+            or initialization.get("optimizer_updates") != 0
+            or initialization.get("external_adapter_allowed") is not False
+            or initialization.get("deterministic_fresh_lora") is not True
+        ):
+            raise ValueError(
+                "Cold-start initialization must remain zero-update deterministic fresh LoRA"
+            )
+
+    def validate_dpo(*, bind_global_initialization: bool) -> None:
         dpo = _mapping(config.get("dpo"), "dpo")
         mode = str(dpo.get("initialization_mode", ""))
         if mode not in {"base_model_fresh_lora", "shared_sft_adapter"}:
             raise ValueError("DPO initialization_mode is not implemented")
-        common_reference = (
-            reference.get("optimizer_updates") == 0
-            and reference.get("validation_rows_seen") == 0
-            and reference.get("test_rows_seen") == 0
-        )
-        if not common_reference:
-            raise ValueError("DPO reference must be a zero-update exact initialization copy")
-        if mode == "base_model_fresh_lora":
-            if (
-                reference.get("checkpoint_kind") != "fresh_lora_from_base_model"
-                or initialization.get("source") != "base_model"
-                or initialization.get("optimizer_updates") != 0
-                or initialization.get("external_adapter_allowed") is not False
-                or initialization.get("deterministic_fresh_lora") is not True
-                or dpo.get("shared_sft_adapter_env") not in (None, "")
-            ):
-                raise ValueError("Cold-start DPO fresh-LoRA initialization contract drifted")
+        if bind_global_initialization:
+            common_reference = (
+                reference.get("optimizer_updates") == 0
+                and reference.get("validation_rows_seen") == 0
+                and reference.get("test_rows_seen") == 0
+            )
+            if not common_reference:
+                raise ValueError("DPO reference must be a zero-update exact initialization copy")
+            if mode == "base_model_fresh_lora":
+                if (
+                    reference.get("checkpoint_kind") != "fresh_lora_from_base_model"
+                    or initialization.get("source") != "base_model"
+                    or initialization.get("optimizer_updates") != 0
+                    or initialization.get("external_adapter_allowed") is not False
+                    or initialization.get("deterministic_fresh_lora") is not True
+                    or dpo.get("shared_sft_adapter_env") not in (None, "")
+                ):
+                    raise ValueError("Cold-start DPO fresh-LoRA initialization contract drifted")
+            else:
+                if (
+                    reference.get("checkpoint_kind") != "exact_frozen_copy_of_initialized_policy"
+                    or initialization.get("source") != "shared_sft_adapter"
+                    or initialization.get("optimizer_updates") != 0
+                    or initialization.get("external_adapter_allowed") is not True
+                    or initialization.get("deterministic_fresh_lora") is not False
+                    or not isinstance(dpo.get("shared_sft_adapter_env"), str)
+                    or not str(dpo.get("shared_sft_adapter_env")).strip()
+                ):
+                    raise ValueError("Shared-SFT DPO initialization contract drifted")
         else:
-            if (
-                reference.get("checkpoint_kind") != "exact_frozen_copy_of_initialized_policy"
-                or initialization.get("source") != "shared_sft_adapter"
-                or initialization.get("optimizer_updates") != 0
-                or initialization.get("external_adapter_allowed") is not True
-                or initialization.get("deterministic_fresh_lora") is not False
-                or not isinstance(dpo.get("shared_sft_adapter_env"), str)
+            if mode == "base_model_fresh_lora":
+                if dpo.get("shared_sft_adapter_env") not in (None, ""):
+                    raise ValueError("Baseline-matrix fresh-LoRA DPO may not name a shared adapter")
+            elif (
+                not isinstance(dpo.get("shared_sft_adapter_env"), str)
                 or not str(dpo.get("shared_sft_adapter_env")).strip()
             ):
-                raise ValueError("Shared-SFT DPO initialization contract drifted")
+                raise ValueError("Baseline-matrix shared-SFT DPO requires an adapter environment")
         if (
             dpo.get("policy_adapter") != "default"
             or dpo.get("reference_adapter") != "reference"
@@ -407,23 +507,15 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
             raise ValueError("DPO liveness_task must be one configured P0 task")
         if _number(dpo.get("liveness_beta"), "dpo.liveness_beta") <= 0.0:
             raise ValueError("DPO liveness_beta must be positive")
+
+    if method == COLDSTART_METHOD_DPO:
+        validate_dpo(bind_global_initialization=True)
+    elif method == COLDSTART_METHOD_BASELINE_MATRIX:
+        validate_fresh_lora_common()
+        if COLDSTART_METHOD_DPO in methods:
+            validate_dpo(bind_global_initialization=False)
     else:
-        if (
-            reference.get("checkpoint_kind") != "fresh_lora_from_base_model"
-            or reference.get("optimizer_updates") != 0
-            or reference.get("validation_rows_seen") != 0
-            or reference.get("test_rows_seen") != 0
-        ):
-            raise ValueError("Cold-start reference must remain a zero-update fresh LoRA")
-        if (
-            initialization.get("source") != "base_model"
-            or initialization.get("optimizer_updates") != 0
-            or initialization.get("external_adapter_allowed") is not False
-            or initialization.get("deterministic_fresh_lora") is not True
-        ):
-            raise ValueError(
-                "Cold-start initialization must remain zero-update deterministic fresh LoRA"
-            )
+        validate_fresh_lora_common()
 
     model = config["model"]
     if (
@@ -634,28 +726,34 @@ def _validate_runtime_authority_consistency(
             )
 
 
-def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
-    sweep = _mapping(config.get("sweep"), "sweep")
-    method = coldstart_method(config)
+def _validate_method_grid(
+    config: Mapping[str, Any],
+    tasks: tuple[str, ...],
+    *,
+    method: str,
+    sweep: Mapping[str, Any],
+) -> None:
     spec = _COLDSTART_SWEEP_SPECS.get(method)
     if spec is None:
-        raise ValueError(f"Unsupported sweep.method for cold-start: {method}")
+        raise ValueError(f"Unsupported sweep method for cold-start: {method}")
     parameterizations, grid_field, parameterization_error, grid_error = spec
     if sweep.get("parameterization") not in parameterizations:
         raise ValueError(parameterization_error)
-    task_values = _mapping(sweep.get(grid_field), f"sweep.{grid_field}")
+    task_values = _mapping(sweep.get(grid_field), f"{method}.{grid_field}")
     if set(task_values) != set(tasks):
         raise ValueError(grid_error)
+    for task in tasks:
+        values = task_method_values(config, task, method=method)
+        if len(set(values)) != len(values):
+            raise ValueError(f"{task} {method} parameter grid contains duplicates")
+        if method == COLDSTART_METHOD_DPO and any(value <= 0.0 for value in values):
+            raise ValueError(f"{task} canonical DPO beta values must be strictly positive")
 
-    countdown_values = task_method_values(config, "countdown")
-    if len(set(countdown_values)) != len(countdown_values):
-        raise ValueError("Countdown parameter grid contains duplicates")
-    if method == COLDSTART_METHOD_DPO and countdown_values:
-        raise ValueError("Current multitask DPO capability intentionally excludes Countdown cells")
-    if method == COLDSTART_METHOD_EXPONENTIAL and any(
-        value not in COUNTDOWN_PAPER_COEFFICIENTS for value in countdown_values
-    ):
-        raise ValueError("Countdown coefficients exceed the implemented paper-worker domain")
+
+def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
+    sweep = _mapping(config.get("sweep"), "sweep")
+    method = coldstart_method(config)
+    transfer_tasks = set(tasks) - {"countdown"}
 
     countdown_seeds = tuple(
         _integer(value, "Countdown seed offset")
@@ -668,9 +766,6 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
         raise ValueError("Countdown seed offsets must be unique")
     if any(seed not in COUNTDOWN_PAPER_SEEDS for seed in countdown_seeds):
         raise ValueError("Countdown seed exceeds the implemented paper-worker domain")
-    if countdown_seeds and not countdown_values:
-        raise ValueError("Scheduled Countdown seeds require a non-empty parameter grid")
-
     countdown_positive = _boolean(
         sweep.get("countdown_include_positive_only", True),
         "countdown_include_positive_only",
@@ -688,43 +783,54 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
     )
     if len(set(positive_seeds)) != len(positive_seeds):
         raise ValueError("Transfer Positive-only seed offsets must be unique")
-    if method == COLDSTART_METHOD_DPO and (positive_seeds or include_global):
-        raise ValueError(
-            "Current multitask DPO capability does not implement Positive-only or Global "
-            "control cells inside a DPO config"
-        )
-    task_transfer_seed = _integer(
-        sweep.get("task_transfer_seed_offset"), "task_transfer_seed_offset"
-    )
+    method_seeds = task_transfer_seeds(config)
     tuning_seed = _integer(sweep.get("tuning_seed"), "tuning_seed")
-    if tuning_seed != task_transfer_seed:
+    if tuning_seed != method_seeds[0]:
+        if "task_transfer_seed_offset" in sweep:
+            raise ValueError(
+                "Cold-start tuning_seed must match task_transfer_seed_offset so the reviewed "
+                "seed is not silently ignored"
+            )
         raise ValueError(
-            "Cold-start tuning_seed must match task_transfer_seed_offset so the reviewed "
-            "seed is not silently ignored"
+            "Cold-start tuning_seed must match the first task_transfer_seed_offsets entry so "
+            "the liveness anchor is explicit"
         )
 
-    transfer_tasks = set(tasks) - {"countdown"}
-    provenance = _mapping(sweep.get("task_grid_provenance"), "task_grid_provenance")
-    if set(provenance) != transfer_tasks:
-        raise ValueError("Task-grid provenance must cover the exact eight transfer tasks")
-
-    transfer_cell_count = 0
-    for task in transfer_tasks:
-        values = task_method_values(config, task)
-        if len(set(values)) != len(values):
-            raise ValueError(f"{task} parameter grid contains duplicates")
-        if method == COLDSTART_METHOD_DPO and any(value <= 0.0 for value in values):
-            raise ValueError(f"{task} canonical DPO beta values must be strictly positive")
-        if not str(provenance[task]).strip():
-            raise ValueError(f"{task} task-grid provenance must be non-empty")
-        if values:
-            transfer_cell_count += len(positive_seeds) + int(include_global) + len(values)
-
-    if method == COLDSTART_METHOD_DPO:
+    if method == COLDSTART_METHOD_BASELINE_MATRIX:
+        if sweep.get("parameterization") != BASELINE_MATRIX_PARAMETERIZATION:
+            raise ValueError(
+                "Baseline matrix requires baseline_family_matrix_v1 parameterization"
+            )
+        methods = coldstart_methods(config)
+        if countdown_seeds or countdown_positive or include_global or positive_seeds:
+            raise ValueError(
+                "Baseline matrix capability contains only the eight transfer-task method cells"
+            )
+        if "task_transfer_seed_offsets" not in sweep or "task_transfer_seed_offset" in sweep:
+            raise ValueError("Baseline matrix requires plural task_transfer_seed_offsets")
+        for selected in methods:
+            component = _method_sweep(config, selected)
+            _validate_method_grid(config, tasks, method=selected, sweep=component)
+            countdown_values = task_method_values(config, "countdown", method=selected)
+            if countdown_values:
+                raise ValueError("Baseline matrix method grids must leave Countdown empty")
+            provenance = _mapping(
+                component.get("task_grid_provenance"),
+                f"sweep.methods.{selected}.task_grid_provenance",
+            )
+            if set(provenance) != transfer_tasks:
+                raise ValueError(
+                    f"{selected} task-grid provenance must cover the exact eight transfer tasks"
+                )
+            for task in transfer_tasks:
+                if not str(provenance[task]).strip():
+                    raise ValueError(f"{task} {selected} task-grid provenance must be non-empty")
         dpo = _mapping(config.get("dpo"), "dpo")
         liveness_task = str(dpo["liveness_task"])
         liveness_beta = float(dpo["liveness_beta"])
-        liveness_values = task_method_values(config, liveness_task)
+        liveness_values = task_method_values(
+            config, liveness_task, method=COLDSTART_METHOD_DPO
+        )
         if not any(
             math.isclose(liveness_beta, value, rel_tol=0.0, abs_tol=1.0e-12)
             for value in liveness_values
@@ -732,16 +838,63 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
             raise ValueError(
                 "DPO liveness_beta must be one configured beta point for dpo.liveness_task"
             )
+        expanded = sum(
+            len(task_method_values(config, task, method=selected)) * len(method_seeds)
+            for selected in methods
+            for task in transfer_tasks
+        )
+    else:
+        _validate_method_grid(config, tasks, method=method, sweep=sweep)
+        countdown_values = task_method_values(config, "countdown", method=method)
+        if method == COLDSTART_METHOD_DPO and countdown_values:
+            raise ValueError("Current multitask DPO capability intentionally excludes Countdown cells")
+        if method == COLDSTART_METHOD_EXPONENTIAL and any(
+            value not in COUNTDOWN_PAPER_COEFFICIENTS for value in countdown_values
+        ):
+            raise ValueError("Countdown coefficients exceed the implemented paper-worker domain")
+        if countdown_seeds and not countdown_values:
+            raise ValueError("Scheduled Countdown seeds require a non-empty parameter grid")
+        if method == COLDSTART_METHOD_DPO and (positive_seeds or include_global):
+            raise ValueError(
+                "Current multitask DPO capability does not implement Positive-only or Global "
+                "control cells inside a DPO config"
+            )
+        provenance = _mapping(sweep.get("task_grid_provenance"), "task_grid_provenance")
+        if set(provenance) != transfer_tasks:
+            raise ValueError("Task-grid provenance must cover the exact eight transfer tasks")
+        transfer_cell_count = 0
+        for task in transfer_tasks:
+            values = task_method_values(config, task, method=method)
+            if not str(provenance[task]).strip():
+                raise ValueError(f"{task} task-grid provenance must be non-empty")
+            if values:
+                transfer_cell_count += (
+                    len(positive_seeds)
+                    + len(method_seeds) * (int(include_global) + len(values))
+                )
+        if method == COLDSTART_METHOD_DPO:
+            dpo = _mapping(config.get("dpo"), "dpo")
+            liveness_task = str(dpo["liveness_task"])
+            liveness_beta = float(dpo["liveness_beta"])
+            liveness_values = task_method_values(config, liveness_task, method=method)
+            if not any(
+                math.isclose(liveness_beta, value, rel_tol=0.0, abs_tol=1.0e-12)
+                for value in liveness_values
+            ):
+                raise ValueError(
+                    "DPO liveness_beta must be one configured beta point for dpo.liveness_task"
+                )
+        expanded = (
+            len(countdown_seeds) * (1 + int(countdown_positive) + len(countdown_values))
+            + transfer_cell_count
+        )
 
-    expanded = (
-        len(countdown_seeds) * (1 + int(countdown_positive) + len(countdown_values))
-        + transfer_cell_count
-    )
     expected = _integer(sweep.get("expected_cells"), "sweep.expected_cells")
     if expected != expanded:
         raise ValueError("sweep.expected_cells must match the expanded scientific matrix")
     if expected == 0:
         raise ValueError("Cold-start sweep must contain at least one scientific cell")
+
 
 def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
     canonical = _mapping(config.get("canonical_coldstart"), "canonical_coldstart")
@@ -756,6 +909,12 @@ def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
         expected_formula = "canonical_sigmoid_dpo_frozen_initial_reference"
         expected_countdown_entry = "disabled_no_countdown_dpo_cells"
         expected_transfer_entry = "e8_multitask_exp_tuning._train_canonical_dpo_transfer_cell"
+    elif method == COLDSTART_METHOD_BASELINE_MATRIX:
+        expected_kernel = "per_cell_canonical_baseline_dispatch"
+        expected_initialization = "per_method_initial_policy_and_reference_contract"
+        expected_formula = "per_cell_asymre_topr_or_dpo"
+        expected_countdown_entry = "disabled_no_baseline_matrix_countdown_cells"
+        expected_transfer_entry = "e8_multitask_exp_tuning.train_cell"
     else:
         expected_kernel = "import_only_no_loss_reimplementation"
         expected_initialization = "qwen_pretrained_base_plus_fresh_lora"

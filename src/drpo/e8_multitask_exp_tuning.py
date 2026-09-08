@@ -99,6 +99,7 @@ METHOD_EXPONENTIAL = "exponential"
 METHOD_ASYMRE = "asymre"
 METHOD_TOPR = "joint_fitted_reference_topr"
 METHOD_DPO = "canonical_dpo"
+METHOD_BASELINE_MATRIX = experiment_config.COLDSTART_METHOD_BASELINE_MATRIX
 METHOD_GLOBAL = "global"
 TRANSFER_SYSTEM_PROMPT = "Answer with only the requested final output and no explanation."
 SWEEP_PROFILE_RHO = experiment_config.SWEEP_PROFILE_RHO
@@ -287,6 +288,16 @@ def _coldstart_method(config: Mapping[str, Any]) -> str:
     if not _is_coldstart(config):
         raise ValueError("Cold-start method is defined only for the cold-start profile")
     return experiment_config.coldstart_method(config)
+
+
+def _coldstart_methods(config: Mapping[str, Any]) -> tuple[str, ...]:
+    if not _is_coldstart(config):
+        raise ValueError("Cold-start methods are defined only for the cold-start profile")
+    return experiment_config.coldstart_methods(config)
+
+
+def _is_baseline_matrix(config: Mapping[str, Any]) -> bool:
+    return _is_coldstart(config) and _coldstart_method(config) == METHOD_BASELINE_MATRIX
 
 
 def _task_rhos(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
@@ -634,82 +645,120 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
         return cells
     if _is_coldstart(config):
         cells: list[Cell] = []
-        method = _coldstart_method(config)
-        lambda_only = (
-            method == METHOD_EXPONENTIAL
-            and config["sweep"]["parameterization"] == "paper_lambda_c1"
-        )
-        dpo_initialization = (
-            str(config["dpo"]["initialization_mode"])
-            if method == METHOD_DPO
-            else None
-        )
-        countdown_values = experiment_config.task_method_values(config, "countdown")
-        countdown_include_positive_only = bool(
-            config["sweep"].get("countdown_include_positive_only", True)
-        )
-        include_global_endpoint = bool(
-            config["sweep"].get("include_global_endpoint", False)
-        )
-        for seed_offset in tuple(
-            int(value) for value in config["sweep"]["countdown_seed_offsets"]
-        ):
-            if countdown_include_positive_only:
+        methods = _coldstart_methods(config)
+        method_seeds = experiment_config.task_transfer_seeds(config)
+        if _is_baseline_matrix(config):
+            dpo_initialization = str(config["dpo"]["initialization_mode"])
+            for task in tasks:
+                if task == "countdown":
+                    continue
+                for method in methods:
+                    values = experiment_config.task_method_values(
+                        config, task, method=method
+                    )
+                    for method_seed in method_seeds:
+                        cells.extend(
+                            _coldstart_method_cell(
+                                task,
+                                method,
+                                method_seed,
+                                "task_transfer",
+                                value,
+                                lambda_only=False,
+                                dpo_initialization=(
+                                    dpo_initialization if method == METHOD_DPO else None
+                                ),
+                            )
+                            for value in values
+                        )
+        else:
+            method = methods[0]
+            lambda_only = (
+                method == METHOD_EXPONENTIAL
+                and config["sweep"]["parameterization"] == "paper_lambda_c1"
+            )
+            dpo_initialization = (
+                str(config["dpo"]["initialization_mode"])
+                if method == METHOD_DPO
+                else None
+            )
+            countdown_values = experiment_config.task_method_values(
+                config, "countdown", method=method
+            )
+            countdown_include_positive_only = bool(
+                config["sweep"].get("countdown_include_positive_only", True)
+            )
+            include_global_endpoint = bool(
+                config["sweep"].get("include_global_endpoint", False)
+            )
+            for seed_offset in tuple(
+                int(value) for value in config["sweep"]["countdown_seed_offsets"]
+            ):
+                if countdown_include_positive_only:
+                    cells.append(
+                        Cell(
+                            "countdown", METHOD_POSITIVE_ONLY, None, seed_offset,
+                            "countdown_sentinel"
+                        )
+                    )
                 cells.append(
                     Cell(
-                        "countdown", METHOD_POSITIVE_ONLY, None, seed_offset, "countdown_sentinel"
+                        "countdown", METHOD_GLOBAL, 1.0, seed_offset,
+                        "countdown_sentinel", 0.0
                     )
                 )
-            cells.append(
-                Cell(
-                    "countdown", METHOD_GLOBAL, 1.0, seed_offset, "countdown_sentinel", 0.0
+                if method == METHOD_DPO:
+                    raise AssertionError(
+                        "Countdown DPO cells are disabled by config validation"
+                    )
+                cells.extend(
+                    _coldstart_method_cell(
+                        "countdown",
+                        method,
+                        seed_offset,
+                        "countdown_sentinel",
+                        value,
+                        lambda_only=lambda_only,
+                        dpo_initialization=dpo_initialization,
+                    )
+                    for value in countdown_values
                 )
+            positive_seeds = tuple(
+                int(value)
+                for value in config["sweep"]["transfer_positive_only_seed_offsets"]
             )
-            if method == METHOD_DPO:
-                raise AssertionError("Countdown DPO cells are disabled by config validation")
-            cells.extend(
-                _coldstart_method_cell(
-                    "countdown",
-                    method,
-                    seed_offset,
-                    "countdown_sentinel",
-                    value,
-                    lambda_only=lambda_only,
-                    dpo_initialization=dpo_initialization,
+            for task in tasks:
+                if task == "countdown":
+                    continue
+                values = experiment_config.task_method_values(
+                    config, task, method=method
                 )
-                for value in countdown_values
-            )
-        positive_seeds = tuple(
-            int(value)
-            for value in config["sweep"]["transfer_positive_only_seed_offsets"]
-        )
-        method_seed = int(config["sweep"]["task_transfer_seed_offset"])
-        for task in tasks:
-            if task == "countdown":
-                continue
-            values = experiment_config.task_method_values(config, task)
-            if not values:
-                continue
-            cells.extend(
-                Cell(task, METHOD_POSITIVE_ONLY, None, seed_offset, "task_transfer")
-                for seed_offset in positive_seeds
-            )
-            if include_global_endpoint:
-                cells.append(
-                    Cell(task, METHOD_GLOBAL, 1.0, method_seed, "task_transfer", 0.0)
+                if not values:
+                    continue
+                cells.extend(
+                    Cell(task, METHOD_POSITIVE_ONLY, None, seed_offset, "task_transfer")
+                    for seed_offset in positive_seeds
                 )
-            cells.extend(
-                _coldstart_method_cell(
-                    task,
-                    method,
-                    method_seed,
-                    "task_transfer",
-                    value,
-                    lambda_only=lambda_only,
-                    dpo_initialization=dpo_initialization,
-                )
-                for value in values
-            )
+                for method_seed in method_seeds:
+                    if include_global_endpoint:
+                        cells.append(
+                            Cell(
+                                task, METHOD_GLOBAL, 1.0, method_seed,
+                                "task_transfer", 0.0
+                            )
+                        )
+                    cells.extend(
+                        _coldstart_method_cell(
+                            task,
+                            method,
+                            method_seed,
+                            "task_transfer",
+                            value,
+                            lambda_only=lambda_only,
+                            dpo_initialization=dpo_initialization,
+                        )
+                        for value in values
+                    )
         result = tuple(cells)
         if len(result) != int(config["sweep"]["expected_cells"]) or len(
             {cell.key for cell in result}
@@ -3734,14 +3783,21 @@ def _cell_identity(
         "split_prompt_hashes": split_manifest["tasks"][cell.task]["prompt_id_hashes"],
         "base_model_identity": model_identity(base_model_path, None)["model"],
         "initialization": (
-            dict(config["initialization"])
-            if _is_coldstart(config)
-            else {
-                "source": "reference_adapter",
-                "reference_adapter_identity": model_identity(
-                    base_model_path, str(inputs.reference_adapter)
-                )["adapter"],
+            {
+                "source": str(config["dpo"]["initialization_mode"]),
+                "shared_sft_adapter_env": config["dpo"].get("shared_sft_adapter_env"),
             }
+            if _is_baseline_matrix(config) and cell.method == METHOD_DPO
+            else (
+                dict(config["initialization"])
+                if _is_coldstart(config)
+                else {
+                    "source": "reference_adapter",
+                    "reference_adapter_identity": model_identity(
+                        base_model_path, str(inputs.reference_adapter)
+                    )["adapter"],
+                }
+            )
         ),
         "calibration_identity_hash": calibration["identity_hash"],
     }
@@ -4761,13 +4817,13 @@ def _cmd_dpo_liveness(
     if task != str(config["dpo"]["liveness_task"]):
         raise RuntimeError("DPO liveness must use the configured transfer-task anchor")
     beta = float(config["dpo"]["liveness_beta"])
-    values = experiment_config.task_method_values(config, task)
+    values = experiment_config.task_method_values(config, task, method=METHOD_DPO)
     if beta not in values:
         raise RuntimeError("DPO liveness_beta must be one configured beta point")
     cell = _coldstart_method_cell(
         task,
         METHOD_DPO,
-        int(config["sweep"]["task_transfer_seed_offset"]),
+        experiment_config.task_transfer_seeds(config)[0],
         "liveness",
         beta,
         lambda_only=False,
@@ -5433,7 +5489,7 @@ def train_cell(
     failure_root = output_root / root_name / cell.key
     try:
         if _is_coldstart(config):
-            if _coldstart_method(config) == METHOD_DPO:
+            if cell.method == METHOD_DPO:
                 return _train_canonical_dpo_transfer_cell(
                     cell,
                     inputs=inputs,
@@ -5646,10 +5702,11 @@ def _cmd_canonical_cold_liveness(
     splits: Mapping[str, Any],
     base_model_path: str,
     force: bool,
+    method: str | None = None,
 ) -> dict[str, Any]:
     modules = _canonical_cold_modules(config)
     record = _canonical_task_record(splits, "countdown")
-    method = _coldstart_method(config)
+    method = method or _coldstart_method(config)
     if method == METHOD_ASYMRE:
         grid_path = _canonical_asymre_grid_path()
     elif method == METHOD_TOPR:
@@ -5659,7 +5716,10 @@ def _cmd_canonical_cold_liveness(
     modules = _activate_paper_grid_modules(modules, grid_path)
     runtime = modules["paper_runtime"]
     cell = _canonical_cold_liveness_cell(grid_path)
-    smoke_root = output_root / "liveness" / "paper_runtime_smoke"
+    smoke_name = (
+        f"paper_runtime_smoke_{method}" if _is_baseline_matrix(config) else "paper_runtime_smoke"
+    )
+    smoke_root = output_root / "liveness" / smoke_name
     if force and smoke_root.exists():
         shutil.rmtree(smoke_root)
     returncode = runtime.smoke(
@@ -5765,6 +5825,43 @@ def cmd_liveness(
             config,
             base_model_path=base_model_path,
         )
+        if _is_baseline_matrix(config):
+            if task != "countdown":
+                raise RuntimeError(
+                    "Baseline-matrix liveness is launched once from the Countdown anchor"
+                )
+            results: dict[str, Any] = {}
+            for method in _coldstart_methods(config):
+                if method == METHOD_DPO:
+                    dpo_task = str(config["dpo"]["liveness_task"])
+                    results[method] = _cmd_dpo_liveness(
+                        config,
+                        config_path,
+                        output_root,
+                        inputs=inputs,
+                        splits=splits,
+                        base_model_path=base_model_path,
+                        task=dpo_task,
+                        force=force,
+                    )
+                else:
+                    results[method] = _cmd_canonical_cold_liveness(
+                        config,
+                        config_path,
+                        output_root,
+                        inputs=inputs["countdown"],
+                        splits=splits,
+                        base_model_path=base_model_path,
+                        force=force,
+                        method=method,
+                    )
+            return {
+                "schema_version": 1,
+                "experiment_id": experiment_id(config),
+                "methods": results,
+                "complete": all(bool(value.get("complete")) for value in results.values()),
+                "scientific_status": "not_run",
+            }
         if _coldstart_method(config) == METHOD_DPO:
             return _cmd_dpo_liveness(
                 config,
@@ -6666,6 +6763,8 @@ def _require_liveness_gate(
         raise RuntimeError("Run and pass the two-update liveness gate before launching a wave")
     base_identity = model_identity(base_model_path, None)["model"]
     passed: list[str] = []
+    passed_methods: set[str] = set()
+    required_methods = set(_coldstart_methods(config)) if _is_coldstart(config) else set()
     for path in sorted(root.glob("*/cell_manifest.json")):
         result = json.loads(path.read_text(encoding="utf-8"))
         common = (
@@ -6685,7 +6784,7 @@ def _require_liveness_gate(
             _is_coldstart(config)
             and result.get("canonical_dispatch_verified") is True
             and result.get("finite_old_core_updates") is True
-            and result.get("cell", {}).get("method") == _coldstart_method(config)
+            and result.get("cell", {}).get("method") in required_methods
             and math.isfinite(float(result.get("optimizer_update_norm", 0.0)))
             and float(result.get("optimizer_update_norm", 0.0)) > 0.0
         )
@@ -6699,8 +6798,13 @@ def _require_liveness_gate(
         )
         if common and (canonical_cold or legacy):
             passed.append(str(result.get("cell", {}).get("task", path.parent.name)))
+            if canonical_cold:
+                passed_methods.add(str(result.get("cell", {}).get("method")))
     if not passed:
         raise RuntimeError("No identity-matched liveness result passes every engineering gate")
+    if _is_coldstart(config) and passed_methods != required_methods:
+        missing = sorted(required_methods - passed_methods)
+        raise RuntimeError(f"Missing method-specific cold-start liveness gates: {missing}")
 
 
 def cmd_run_wave(
@@ -7607,11 +7711,132 @@ def _aggregate_coldstart_unranked(
     atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
     return summary
 
+def _aggregate_coldstart_matrix_unranked(
+    config: Mapping[str, Any],
+    output_root: Path,
+    rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Aggregate a multi-method transfer matrix without selecting or ranking methods."""
+
+    methods = _coldstart_methods(config)
+    run_id, source_commit = _coldstart_run_provenance(output_root)
+    plot_rows = [
+        {
+            "task": row["task"],
+            "method": row["method"],
+            "delta_v": row.get("delta_v"),
+            "beta": row.get("beta"),
+            "dpo_initialization": row.get("dpo_initialization"),
+            "seed": row["seed"],
+            "stage": row["stage"],
+            "experiment_id": experiment_id(config),
+            "run_id": run_id,
+            "source_commit": source_commit,
+            **_coldstart_plot_metrics(row),
+        }
+        for row in rows
+    ]
+    _write_csv(output_root / "aggregate" / "plot_curve_points.csv", plot_rows)
+
+    configured_cells = build_cells(config)
+    task_summaries: dict[str, Any] = {}
+    summary_rows: list[dict[str, Any]] = []
+    for task_value in config["suite"]["p0_tasks"]:
+        task = str(task_value)
+        task_rows = [row for row in rows if row["task"] == task]
+        task_cells = [cell for cell in configured_cells if cell.task == task]
+        method_summaries: dict[str, Any] = {}
+        summary_row: dict[str, Any] = {"task": task}
+        for method in methods:
+            method_rows = [row for row in task_rows if row["method"] == method]
+            expected = sum(cell.method == method for cell in task_cells)
+            if len(method_rows) != expected:
+                raise RuntimeError(f"{task} {method} baseline-matrix cell geometry is incomplete")
+            parameter_name = "delta_v" if method == METHOD_ASYMRE else "beta"
+            groups: dict[float, list[dict[str, Any]]] = {}
+            for row in method_rows:
+                value = row.get(parameter_name)
+                if value is None:
+                    raise RuntimeError(f"{task} {method} row is missing {parameter_name}")
+                groups.setdefault(float(value), []).append(row)
+            grouped_curve = [
+                {
+                    "task": task,
+                    "method": method,
+                    parameter_name: value,
+                    **_coldstart_group_metrics(group),
+                }
+                for value, group in sorted(groups.items())
+            ]
+            method_summaries[method] = {
+                "grouped_curve": grouped_curve,
+                "parameter_selection_deferred_to_reviewed_protocol": True,
+                "terminal_valid_rate_role": "diagnostic_only_not_selection_eligibility",
+            }
+            summary_row[f"{method}_parameter_points"] = len(grouped_curve)
+        task_summaries[task] = {"task": task, "methods": method_summaries}
+        summary_rows.append(summary_row)
+    _write_csv(output_root / "aggregate" / "task_summary.csv", summary_rows)
+
+    method_metadata = {
+        METHOD_ASYMRE: {
+            "canonical_grid": str(_canonical_asymre_grid_path()),
+            "canonical_grid_sha256": sha256_file(_canonical_asymre_grid_path()),
+        },
+        METHOD_TOPR: {
+            "canonical_grid": str(_canonical_topr_grid_path()),
+            "canonical_grid_sha256": sha256_file(_canonical_topr_grid_path()),
+        },
+        METHOD_DPO: {
+            "initialization_mode": str(config["dpo"]["initialization_mode"]),
+            "semantics_source": (
+                "historical_PR_268_protected_implementation_"
+                "cc0ead2be00c89a3c35296b7adc1ddeae8d14759"
+            ),
+        },
+    }
+    summary = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "run_id": run_id,
+        "source_commit": source_commit,
+        "cell_count": len(rows),
+        "plot_curve_point_count": len(plot_rows),
+        "method": METHOD_BASELINE_MATRIX,
+        "methods": list(methods),
+        "method_metadata": method_metadata,
+        "transfer_seed_offsets": list(experiment_config.task_transfer_seeds(config)),
+        "tasks": task_summaries,
+        "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
+        "countdown_protocol_diagnostic": _countdown_protocol_diagnostic(
+            config,
+            output_root,
+            destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
+        ),
+        "countdown_result_gate": False,
+        "primary_metric": "validation_late_window_pass8_mean",
+        "parameter_selection_deferred_to_reviewed_protocol": True,
+        "method_ranking_allowed": False,
+        "significance_claim_allowed": False,
+        "test_partition_accessed": False,
+        "fixed_horizon_is_convergence": False,
+        "task_performance_reported_separately": True,
+        "structure_diagnostic_reported_separately": True,
+        "nan_inf_reported_separately": True,
+        "scientific_status": "not_run" if _is_engineering_self_test(config) else "pilot",
+        "engineering_placeholder_backend": _is_engineering_self_test(config),
+    }
+    atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
+    return summary
+
+
 def _aggregate_coldstart(
     config: Mapping[str, Any],
     output_root: Path,
     rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    if _is_baseline_matrix(config):
+        return _aggregate_coldstart_matrix_unranked(config, output_root, rows)
     if _coldstart_method(config) != METHOD_EXPONENTIAL:
         return _aggregate_coldstart_unranked(config, output_root, rows)
     run_id, source_commit = _coldstart_run_provenance(output_root)
@@ -7985,15 +8210,29 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "countdown_protocol_diagnostic_status": reproduction_gate_status,
         "countdown_result_gate": False if _is_coldstart(config) else None,
         "transfer_exp_single_seed_response_shape_localization": (
-            _is_coldstart(config) and _coldstart_method(config) == METHOD_EXPONENTIAL
+            _is_coldstart(config)
+            and _coldstart_method(config) == METHOD_EXPONENTIAL
+            and len(experiment_config.task_transfer_seeds(config)) == 1
         ),
         "excluded_tasks": (
             dict(config["suite"]["excluded_tasks"])
             if (_is_dense(config) or _is_coldstart(config))
             else {}
         ),
-        "single_seed_shape_discovery": _is_dense(config) or _is_coldstart(config),
-        "fresh_seed_confirmation_required": _is_dense(config) or _is_coldstart(config),
+        "single_seed_shape_discovery": (
+            _is_dense(config)
+            or (
+                _is_coldstart(config)
+                and len(experiment_config.task_transfer_seeds(config)) == 1
+            )
+        ),
+        "fresh_seed_confirmation_required": (
+            _is_dense(config)
+            or (
+                _is_coldstart(config)
+                and len(experiment_config.task_transfer_seeds(config)) == 1
+            )
+        ),
         "fixed_horizon_is_convergence": False,
         "scientific_status": (
             "not_run" if _is_engineering_self_test(config) or not all_complete else "pilot"
@@ -8409,34 +8648,41 @@ def _write_engineering_gates(
         },
     )
     base_identity = model_identity(base_model_path, None)["model"]
-    liveness_key = "countdown__engineering_placeholder_liveness"
-    liveness = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": stable_config_hash(config),
-        "base_model_identity": base_identity,
-        "engineering_liveness": True,
-        "engineering_placeholder_backend": True,
-        "optimizer_updates": 2,
-        "complete": True,
-        "reload_gate_passed": True,
-        "adapter_weight_changed": True,
-        "fresh_process_reload_passed": True,
-        "liveness_parent_process_id": 1001,
-        "reload_process_id": 1002,
-        "nan_inf_failure": False,
-        "canonical_dispatch_verified": True,
-        "finite_old_core_updates": True,
-        "optimizer_update_norm": 1.0,
-        "initial_adapter_weight_sha256": "0" * 64,
-        "terminal_adapter_weight_sha256": "1" * 64,
-        "cell": {
-            "task": "countdown",
-            "method": _coldstart_method(config),
-        },
-        "scientific_status": "not_run",
-    }
-    atomic_json(output_root / "liveness" / liveness_key / "cell_manifest.json", liveness)
+    methods = _coldstart_methods(config) if _is_coldstart(config) else (_coldstart_method(config),)
+    for method in methods:
+        task = (
+            str(config["dpo"]["liveness_task"])
+            if method == METHOD_DPO
+            else "countdown"
+        )
+        liveness_key = f"{task}__{method}__engineering_placeholder_liveness"
+        liveness = {
+            "schema_version": 1,
+            "experiment_id": experiment_id(config),
+            "config_hash": stable_config_hash(config),
+            "base_model_identity": base_identity,
+            "engineering_liveness": True,
+            "engineering_placeholder_backend": True,
+            "optimizer_updates": 2,
+            "complete": True,
+            "reload_gate_passed": True,
+            "adapter_weight_changed": True,
+            "fresh_process_reload_passed": True,
+            "liveness_parent_process_id": 1001,
+            "reload_process_id": 1002,
+            "nan_inf_failure": False,
+            "canonical_dispatch_verified": True,
+            "finite_old_core_updates": True,
+            "optimizer_update_norm": 1.0,
+            "initial_adapter_weight_sha256": "0" * 64,
+            "terminal_adapter_weight_sha256": "1" * 64,
+            "cell": {
+                "task": task,
+                "method": method,
+            },
+            "scientific_status": "not_run",
+        }
+        atomic_json(output_root / "liveness" / liveness_key / "cell_manifest.json", liveness)
     (output_root / "logs" / "liveness.log").write_text(
         "engineering placeholder liveness complete\n",
         encoding="utf-8",

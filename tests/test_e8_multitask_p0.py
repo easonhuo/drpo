@@ -3386,7 +3386,7 @@ def test_dpo_train_cell_dispatch_supports_two_update_liveness() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
     source = inspect.getsource(exp_tuning.train_cell)
-    assert "_coldstart_method(config) == METHOD_DPO" in source
+    assert "if cell.method == METHOD_DPO" in source
     assert "_train_canonical_dpo_transfer_cell" in source
     liveness = inspect.getsource(exp_tuning._cmd_dpo_liveness)
     assert "updates_override=2" in liveness
@@ -3671,3 +3671,156 @@ def test_fifth_review_terminal_audit_does_not_mislabel_non_exp_methods() -> None
     source = inspect.getsource(exp_tuning.cmd_audit)
     assert "transfer_exp_single_seed_response_shape_localization" in source
     assert "_coldstart_method(config) == METHOD_EXPONENTIAL" in source
+
+
+def _baseline_matrix_capability_test_config(*, shared_sft: bool = False) -> dict:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = copy.deepcopy(
+        yaml.safe_load(
+            Path("configs/e8_multitask_exp_lambda_curve_completion.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+    )
+    config["experiment_id"] = (
+        "DEV-E8-MULTITASK-BASELINE-MATRIX-SHARED-SFT-TEST"
+        if shared_sft
+        else "DEV-E8-MULTITASK-BASELINE-MATRIX-CAPABILITY-TEST"
+    )
+    tasks = list(config["suite"]["tasks"])
+    transfer_tasks = list(config["suite"]["p0_tasks"])
+
+    def grid(values: list[float]) -> dict[str, list[float]]:
+        result = {task: [] for task in tasks}
+        for task in transfer_tasks:
+            result[task] = list(values)
+        return result
+
+    def provenance(label: str) -> dict[str, str]:
+        return {task: f"synthetic_capability_only_{label}" for task in transfer_tasks}
+
+    config["sweep"] = {
+        "profile": exp_tuning.SWEEP_PROFILE_COLDSTART,
+        "method": exp_tuning.METHOD_BASELINE_MATRIX,
+        "parameterization": "baseline_family_matrix_v1",
+        "tuning_seed": 4000,
+        "countdown_seed_offsets": [],
+        "countdown_include_positive_only": False,
+        "include_global_endpoint": False,
+        "transfer_positive_only_seed_offsets": [],
+        "task_transfer_seed_offsets": [4000, 5000],
+        "methods": {
+            exp_tuning.METHOD_ASYMRE: {
+                "parameterization": "asymre_delta_v",
+                "task_delta_v": grid([-0.8, -0.6, -0.4, -0.2, 0.0]),
+                "task_grid_provenance": provenance("asymre"),
+            },
+            exp_tuning.METHOD_TOPR: {
+                "parameterization": "joint_fitted_reference_beta_topr",
+                "task_beta": grid([0.1, 0.2, 0.3]),
+                "task_grid_provenance": provenance("topr"),
+            },
+            exp_tuning.METHOD_DPO: {
+                "parameterization": "canonical_dpo_beta",
+                "task_beta": grid([0.05, 0.1, 0.2]),
+                "task_grid_provenance": provenance("dpo"),
+            },
+        },
+        "expected_cells": 176,
+    }
+    config["execution"]["expected_waves"] = 11
+    config["canonical_coldstart"].update(
+        {
+            "scientific_kernel": "per_cell_canonical_baseline_dispatch",
+            "initialization": "per_method_initial_policy_and_reference_contract",
+            "formula": "per_cell_asymre_topr_or_dpo",
+            "countdown_entry": "disabled_no_baseline_matrix_countdown_cells",
+            "transfer_entry": "e8_multitask_exp_tuning.train_cell",
+        }
+    )
+    config["dpo"] = {
+        "initialization_mode": "shared_sft_adapter" if shared_sft else "base_model_fresh_lora",
+        "shared_sft_adapter_env": "E8_DPO_SHARED_SFT_ADAPTER" if shared_sft else None,
+        "policy_adapter": "default",
+        "reference_adapter": "reference",
+        "reference_role": "exact_frozen_initial_policy",
+        "copy_policy_to_reference_before_update_1": True,
+        "reference_trainable": False,
+        "label_smoothing": 0.0,
+        "sequence_log_probability": "full_completion_summed_log_probability",
+        "pair_aggregation": "mean_unique_negative_within_prompt_then_mean_prompts",
+        "initial_pair_margin_max_abs_tolerance": 1.0e-5,
+        "liveness_task": "word_sorting",
+        "liveness_beta": 0.05,
+    }
+    exp_tuning.validate_config(config)
+    return config
+
+
+def test_baseline_matrix_one_config_expands_exact_176_cells(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _baseline_matrix_capability_test_config()
+    cells = exp_tuning.build_cells(config)
+    assert len(cells) == 176
+    assert len({cell.key for cell in cells}) == 176
+    assert {cell.seed for cell in cells} == {4000, 5000}
+    assert {cell.task for cell in cells} == set(config["suite"]["p0_tasks"])
+    assert all(cell.task != "countdown" for cell in cells)
+    assert sum(cell.method == exp_tuning.METHOD_ASYMRE for cell in cells) == 80
+    assert sum(cell.method == exp_tuning.METHOD_TOPR for cell in cells) == 48
+    assert sum(cell.method == exp_tuning.METHOD_DPO for cell in cells) == 48
+    assert all(
+        sum(candidate.task == task for candidate in cells) == 22
+        for task in config["suite"]["p0_tasks"]
+    )
+    assert {
+        cell.dpo_initialization for cell in cells if cell.method == exp_tuning.METHOD_DPO
+    } == {"base_model_fresh_lora"}
+
+    plan = exp_tuning.write_plan(config, tmp_path)
+    assert plan["cell_count"] == 176
+    assert plan["wave_sizes"] == [16] * 11
+    assert {row["method"] for row in plan["rows"]} == {
+        exp_tuning.METHOD_ASYMRE,
+        exp_tuning.METHOD_TOPR,
+        exp_tuning.METHOD_DPO,
+    }
+
+
+def test_baseline_matrix_supports_shared_sft_dpo_without_changing_other_initialization() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _baseline_matrix_capability_test_config(shared_sft=True)
+    cells = exp_tuning.build_cells(config)
+    dpo_cells = [cell for cell in cells if cell.method == exp_tuning.METHOD_DPO]
+    non_dpo_cells = [cell for cell in cells if cell.method != exp_tuning.METHOD_DPO]
+    assert {cell.dpo_initialization for cell in dpo_cells} == {"shared_sft_adapter"}
+    assert all(cell.dpo_initialization is None for cell in non_dpo_cells)
+    assert config["initialization"]["source"] == "base_model"
+    assert config["reference"]["checkpoint_kind"] == "fresh_lora_from_base_model"
+
+
+def test_single_method_coldstart_can_expand_multiple_transfer_seeds() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _asymre_capability_test_config()
+    config["sweep"].pop("task_transfer_seed_offset")
+    config["sweep"]["task_transfer_seed_offsets"] = [4000, 5000]
+    config["sweep"]["expected_cells"] = 32
+    config["execution"]["expected_waves"] = 2
+    exp_tuning.validate_config(config)
+    cells = exp_tuning.build_cells(config)
+    assert len(cells) == 32
+    assert {cell.seed for cell in cells} == {4000, 5000}
+    assert len({cell.key for cell in cells}) == 32
+
+
+def test_baseline_matrix_rejects_ambiguous_singular_and_plural_transfer_seed_fields() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _baseline_matrix_capability_test_config()
+    config["sweep"]["task_transfer_seed_offset"] = 4000
+    with pytest.raises(ValueError, match="exactly one"):
+        exp_tuning.validate_config(config)

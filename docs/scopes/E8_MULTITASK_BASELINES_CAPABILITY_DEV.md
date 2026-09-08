@@ -60,3 +60,16 @@ This change must not:
 - Regression tests verify TOPR does not reimplement its loss in the multitask layer.
 - Regression tests verify DPO pair-margin construction, frozen-reference behavior, prompt-balanced unique-negative aggregation, and zero initial pair-margin guard against the audited implementation contract.
 - `py_compile`, focused pytest, diff checks, and changed-line lint pass before a Draft PR is opened.
+
+## Follow-up protocol-expression closure (2026-09-08)
+
+The owner selected the auditable representation target **one successor config = the complete multi-method, multi-seed baseline matrix**, rather than two mirrored single-seed configs. This is a configuration/orchestration capability extension only; it does not freeze any scientific hyperparameter value or initialization estimand.
+
+Accordingly, this same development scope additionally authorizes:
+
+- plural transfer method seeds while retaining byte-for-byte compatibility with historical singular `task_transfer_seed_offset` configs;
+- a config-level baseline matrix container that composes AsymRE, Joint Fitted-Reference beta-TOPR, and canonical DPO cells in one experiment identity;
+- method-aware liveness, dispatch, aggregation, resume identity, and plan generation for that composed matrix;
+- synthetic regression coverage for the target arithmetic `8 tasks x 2 seeds x (5 + 3 + 3) = 176` cells, where synthetic test values are capability fixtures and **must not** be interpreted as the future frozen protocol grid.
+
+This follow-up still does **not** authorize selecting the five/three/three production hyperparameters, imposing a new AsymRE upper-domain gate, declaring TOPR beta `1.0` historical-canonical, choosing DPO fresh-LoRA versus shared-SFT for the final estimand, changing formal artifact status semantics, editing `docs/handoff.md` / `experiments/registry.yaml`, or launching any scientific run.
