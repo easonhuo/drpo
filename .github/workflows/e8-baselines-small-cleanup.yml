@@ -54,10 +54,20 @@ jobs:
           if text.count(old) != 1:
               raise SystemExit(f'expected one DPO wrapper block, found {text.count(old)}')
           text = text.replace(old, new, 1)
-          restore = '        arena.completion_stats = original_completion_stats\n'
-          if text.count(restore) != 1:
-              raise SystemExit(f'expected one DPO completion_stats restore, found {text.count(restore)}')
-          text = text.replace(restore, '', 1)
+          old_finally = '''        arena.clean_expression = original_clean_expression
+                  arena.SYSTEM_PROMPT = original_system_prompt
+                  arena.evaluate_rows = original_evaluate_rows
+                  arena.completion_stats = original_completion_stats
+                  if "model" in locals():
+          '''.replace('                  ', '        ')
+          new_finally = '''        arena.clean_expression = original_clean_expression
+                  arena.SYSTEM_PROMPT = original_system_prompt
+                  arena.evaluate_rows = original_evaluate_rows
+                  if "model" in locals():
+          '''.replace('                  ', '        ')
+          if text.count(old_finally) != 1:
+              raise SystemExit(f'expected one DPO finally block, found {text.count(old_finally)}')
+          text = text.replace(old_finally, new_finally, 1)
           runner.write_text(text, encoding='utf-8')
 
           tests = Path('tests/test_e8_multitask_p0.py')
