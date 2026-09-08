@@ -3600,3 +3600,84 @@ def test_dpo_emits_recovery_summary_and_audited_pr268_diagnostics() -> None:
     reusable = inspect.getsource(exp_tuning._reusable_cell_manifests)
     assert 'value.get("canonical_summary"' in reusable
     assert 'value.get("canonical_summary_sha256"' in reusable
+
+
+
+def test_fifth_review_rejects_asymre_delta_below_runtime_domain() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _asymre_capability_test_config()
+    config["sweep"]["task_delta_v"]["word_sorting"] = [-1.01]
+    with pytest.raises(ValueError, match="delta_v values must be >= -1"):
+        exp_tuning.validate_config(config)
+
+
+def test_fifth_review_rejects_dpo_controls_that_dispatch_cannot_consume() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    positive = _dpo_capability_test_config()
+    positive["sweep"]["transfer_positive_only_seed_offsets"] = [5000]
+    with pytest.raises(ValueError, match="does not implement Positive-only or Global"):
+        exp_tuning.validate_config(positive)
+
+    global_control = _dpo_capability_test_config()
+    global_control["sweep"]["include_global_endpoint"] = True
+    with pytest.raises(ValueError, match="does not implement Positive-only or Global"):
+        exp_tuning.validate_config(global_control)
+
+
+def test_fifth_review_requires_dpo_liveness_beta_on_liveness_task_grid() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _dpo_capability_test_config()
+    config["dpo"]["liveness_beta"] = 0.3
+    with pytest.raises(ValueError, match="liveness_beta must be one configured beta point"):
+        exp_tuning.validate_config(config)
+
+
+def test_fifth_review_rejects_silently_ignored_coldstart_tuning_seed() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _asymre_capability_test_config()
+    config["sweep"]["tuning_seed"] = 5000
+    with pytest.raises(ValueError, match="tuning_seed must match task_transfer_seed_offset"):
+        exp_tuning.validate_config(config)
+
+
+def test_fifth_review_shared_sft_adapter_binds_reviewed_lora_shape(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _dpo_capability_test_config(shared_sft=True)
+    adapter = tmp_path / "shared"
+    adapter.mkdir()
+    adapter_config = {
+        "peft_type": "LORA",
+        "r": config["model"]["lora_rank"],
+        "lora_alpha": config["model"]["lora_alpha"],
+        "lora_dropout": config["model"]["lora_dropout"],
+    }
+    (adapter / "adapter_config.json").write_text(
+        json.dumps(adapter_config), encoding="utf-8"
+    )
+    (adapter / "adapter_model.safetensors").write_bytes(b"identity-only-test")
+    monkeypatch.setenv("E8_DPO_SHARED_SFT_ADAPTER", str(adapter))
+    assert exp_tuning._dpo_shared_sft_adapter(config) == adapter.resolve()
+
+    adapter_config["r"] = int(config["model"]["lora_rank"]) + 1
+    (adapter / "adapter_config.json").write_text(
+        json.dumps(adapter_config), encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="LoRA configuration does not match"):
+        exp_tuning._dpo_shared_sft_adapter(config)
+
+
+def test_fifth_review_terminal_audit_does_not_mislabel_non_exp_methods() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning.cmd_audit)
+    assert "transfer_exp_single_seed_response_shape_localization" in source
+    assert "_coldstart_method(config) == METHOD_EXPONENTIAL" in source

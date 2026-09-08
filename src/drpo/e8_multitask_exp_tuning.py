@@ -4003,10 +4003,31 @@ def _dpo_shared_sft_adapter(config: Mapping[str, Any]) -> Path | None:
     if not value:
         raise RuntimeError(f"Shared-SFT DPO requires environment variable {env_name}")
     path = Path(value).resolve()
-    if not (path / "adapter_config.json").is_file() or not any(
+    adapter_config_path = path / "adapter_config.json"
+    if not adapter_config_path.is_file() or not any(
         (path / name).is_file() for name in ("adapter_model.safetensors", "adapter_model.bin")
     ):
         raise FileNotFoundError(f"Shared-SFT DPO adapter is incomplete: {path}")
+    adapter_config = json.loads(adapter_config_path.read_text(encoding="utf-8"))
+    if not isinstance(adapter_config, dict):
+        raise TypeError("Shared-SFT DPO adapter_config.json must contain a mapping")
+    model_config = config["model"]
+    compatible = (
+        str(adapter_config.get("peft_type", "")).upper() == "LORA"
+        and int(adapter_config.get("r", -1)) == int(model_config["lora_rank"])
+        and int(adapter_config.get("lora_alpha", -1)) == int(model_config["lora_alpha"])
+        and math.isclose(
+            float(adapter_config.get("lora_dropout", -1.0)),
+            float(model_config["lora_dropout"]),
+            rel_tol=0.0,
+            abs_tol=1.0e-12,
+        )
+    )
+    if not compatible:
+        raise ValueError(
+            "Shared-SFT DPO adapter LoRA configuration does not match reviewed model.* "
+            "LoRA values"
+        )
     return path
 
 
@@ -8024,7 +8045,9 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "aggregate_complete": aggregate_complete,
         "countdown_protocol_diagnostic_status": reproduction_gate_status,
         "countdown_result_gate": False if _is_coldstart(config) else None,
-        "transfer_exp_single_seed_response_shape_localization": _is_coldstart(config),
+        "transfer_exp_single_seed_response_shape_localization": (
+            _is_coldstart(config) and _coldstart_method(config) == METHOD_EXPONENTIAL
+        ),
         "excluded_tasks": (
             dict(config["suite"]["excluded_tasks"])
             if (_is_dense(config) or _is_coldstart(config))

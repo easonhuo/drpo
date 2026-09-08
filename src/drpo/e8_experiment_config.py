@@ -186,7 +186,13 @@ def task_delta_vs(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
         config["sweep"]["task_delta_v"][task],
         f"{task} delta_v grid",
     )
-    return tuple(_number(value, f"{task} delta_v value") for value in raw)
+    values = tuple(_number(value, f"{task} delta_v value") for value in raw)
+    if any(value < -1.0 for value in values):
+        raise ValueError(
+            f"{task} delta_v values must be >= -1 so canonical alpha=1+delta_v "
+            "remains non-negative"
+        )
+    return values
 
 
 def task_betas(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
@@ -676,8 +682,20 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
     )
     if len(set(positive_seeds)) != len(positive_seeds):
         raise ValueError("Transfer Positive-only seed offsets must be unique")
-    _integer(sweep.get("task_transfer_seed_offset"), "task_transfer_seed_offset")
-    _integer(sweep.get("tuning_seed"), "tuning_seed")
+    if method == COLDSTART_METHOD_DPO and (positive_seeds or include_global):
+        raise ValueError(
+            "Current multitask DPO capability does not implement Positive-only or Global "
+            "control cells inside a DPO config"
+        )
+    task_transfer_seed = _integer(
+        sweep.get("task_transfer_seed_offset"), "task_transfer_seed_offset"
+    )
+    tuning_seed = _integer(sweep.get("tuning_seed"), "tuning_seed")
+    if tuning_seed != task_transfer_seed:
+        raise ValueError(
+            "Cold-start tuning_seed must match task_transfer_seed_offset so the reviewed "
+            "seed is not silently ignored"
+        )
 
     transfer_tasks = set(tasks) - {"countdown"}
     provenance = _mapping(sweep.get("task_grid_provenance"), "task_grid_provenance")
@@ -695,6 +713,19 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
             raise ValueError(f"{task} task-grid provenance must be non-empty")
         if values:
             transfer_cell_count += len(positive_seeds) + int(include_global) + len(values)
+
+    if method == COLDSTART_METHOD_DPO:
+        dpo = _mapping(config.get("dpo"), "dpo")
+        liveness_task = str(dpo["liveness_task"])
+        liveness_beta = float(dpo["liveness_beta"])
+        liveness_values = read_values(config, liveness_task)
+        if not any(
+            math.isclose(liveness_beta, value, rel_tol=0.0, abs_tol=1.0e-12)
+            for value in liveness_values
+        ):
+            raise ValueError(
+                "DPO liveness_beta must be one configured beta point for dpo.liveness_task"
+            )
 
     expanded = (
         len(countdown_seeds) * (1 + int(countdown_positive) + len(countdown_values))
