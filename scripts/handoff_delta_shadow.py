@@ -16,10 +16,11 @@ import statistics
 import subprocess
 import sys
 import time
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 import yaml
 
@@ -124,8 +125,7 @@ def git(repo_root: Path, *args: str, check: bool = True) -> subprocess.Completed
         ["git", "-C", str(repo_root), *args],
         check=False,
         text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
     )
     if check and result.returncode != 0:
         raise HandoffDeltaError(
@@ -302,10 +302,7 @@ def insert_canonical_block(
             raise HandoffDeltaError(f"Block {block_id} already exists with different content")
         return text
 
-    if location == "after_heading":
-        cluster_start = heading.line_end
-        cluster_limit = heading.section_end
-    elif location == "section_end":
+    if location == "after_heading" or location == "section_end":
         cluster_start = heading.line_end
         cluster_limit = heading.section_end
     else:
@@ -1013,8 +1010,7 @@ def verify_authoritative_state(repo_root: Path) -> dict[str, Any]:
     result = subprocess.run(
         [sys.executable, str(script), "verify", "--repo-root", str(repo_root), "--json"],
         text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         check=False,
     )
     if result.returncode != 0:
@@ -1031,6 +1027,121 @@ def verify_authoritative_state(repo_root: Path) -> dict[str, Any]:
     return payload
 
 
+def first_parent_repository_commit_for_path(repo_root: Path, path: Path) -> str:
+    """Map an authoritative path to its unique first-parent integration commit."""
+
+    relative = path.resolve().relative_to(repo_root.resolve()).as_posix()
+    touches = git_text(repo_root, "log", "--format=%H", "--", relative).splitlines()
+    adds = git_text(
+        repo_root,
+        "log",
+        "--diff-filter=A",
+        "--format=%H",
+        "--",
+        relative,
+    ).splitlines()
+    if not touches:
+        raise HandoffDeltaError(
+            "authoritative path must have non-empty history: " + relative
+        )
+    if len(adds) == 1:
+        first_add = adds[0]
+    elif not adds:
+        first_add = touches[-1]
+        parents = git_text(
+            repo_root, "rev-list", "--parents", "-n", "1", first_add
+        ).split()
+        if len(parents) != 3:
+            raise HandoffDeltaError(
+                "authoritative path lacks a bounded two-parent merge origin: "
+                + relative
+            )
+        if git(
+            repo_root,
+            "cat-file",
+            "-e",
+            f"{parents[1]}:{relative}",
+            check=False,
+        ).returncode == 0:
+            raise HandoffDeltaError(
+                "authoritative path predates its merge-introduced origin: "
+                + relative
+            )
+    else:
+        raise HandoffDeltaError(
+            "authoritative path has multiple addition commits: " + relative
+        )
+
+    candidates: list[str] = []
+    for commit in git_text(
+        repo_root, "rev-list", "--first-parent", "--reverse", "HEAD"
+    ).splitlines():
+        if git(
+            repo_root,
+            "merge-base",
+            "--is-ancestor",
+            first_add,
+            commit,
+            check=False,
+        ).returncode != 0:
+            continue
+        if git(
+            repo_root,
+            "cat-file",
+            "-e",
+            f"{commit}:{relative}",
+            check=False,
+        ).returncode != 0:
+            continue
+        parents = git_text(
+            repo_root, "rev-list", "--parents", "-n", "1", commit
+        ).split()
+        if len(parents) < 2:
+            continue
+        if git(
+            repo_root,
+            "cat-file",
+            "-e",
+            f"{parents[1]}:{relative}",
+            check=False,
+        ).returncode == 0:
+            continue
+        candidates.append(commit)
+    if len(candidates) != 1:
+        raise HandoffDeltaError(
+            "authoritative path must have exactly one first-parent integration: "
+            + relative
+        )
+    return candidates[0]
+
+
+def verify_authoritative_path_unchanged_after_integration(
+    repo_root: Path, path: Path, integration_commit: str
+) -> None:
+    """Reject every path touch that is not already integrated."""
+
+    relative = path.resolve().relative_to(repo_root.resolve()).as_posix()
+    touches = git_text(repo_root, "log", "--format=%H", "--", relative).splitlines()
+    for touch in touches:
+        if git(
+            repo_root,
+            "merge-base",
+            "--is-ancestor",
+            touch,
+            integration_commit,
+            check=False,
+        ).returncode != 0:
+            raise HandoffDeltaError(
+                "authoritative delta/report changed after first-parent integration"
+            )
+    if git_show_text(repo_root, integration_commit, relative) != path.read_text(
+        encoding="utf-8"
+    ):
+        raise HandoffDeltaError(
+            "authoritative delta/report bytes differ from integration commit"
+        )
+
+
 def authoritative_report_metadata(repo_root: Path, delta_path: Path) -> dict[str, Any]:
     report_path = delta_path.parent / AUTHORITY_REPORT_FILENAME
     report = load_json(report_path, "materialization report")
@@ -1040,18 +1151,18 @@ def authoritative_report_metadata(repo_root: Path, delta_path: Path) -> dict[str
         raise HandoffDeltaError("materialization report must be authoritative")
     if report.get("update_id") != delta_path.parent.name:
         raise HandoffDeltaError("materialization report update_id mismatch")
-    repository_commit = repository_commit_for_added_path(repo_root, delta_path)
-    report_commit = repository_commit_for_added_path(repo_root, report_path)
-    if repository_commit is None or report_commit != repository_commit:
-        raise HandoffDeltaError("authoritative delta/report must enter Git in the same commit")
-    delta_touches = git_text(
-        repo_root, "log", "--format=%H", "--", delta_path.relative_to(repo_root).as_posix()
-    ).splitlines()
-    report_touches = git_text(
-        repo_root, "log", "--format=%H", "--", report_path.relative_to(repo_root).as_posix()
-    ).splitlines()
-    if delta_touches != [repository_commit] or report_touches != [repository_commit]:
-        raise HandoffDeltaError("authoritative delta/report must remain immutable")
+    repository_commit = first_parent_repository_commit_for_path(repo_root, delta_path)
+    report_commit = first_parent_repository_commit_for_path(repo_root, report_path)
+    if report_commit != repository_commit:
+        raise HandoffDeltaError(
+            "authoritative delta/report must share one first-parent integration commit"
+        )
+    verify_authoritative_path_unchanged_after_integration(
+        repo_root, delta_path, repository_commit
+    )
+    verify_authoritative_path_unchanged_after_integration(
+        repo_root, report_path, repository_commit
+    )
     if report.get("delta_sha256") != sha256_file(delta_path):
         raise HandoffDeltaError("materialization report delta hash mismatch")
     return {
@@ -1062,7 +1173,6 @@ def authoritative_report_metadata(repo_root: Path, delta_path: Path) -> dict[str
         "legacy_head_commit_field": None,
         "performance_total_ms": None,
     }
-
 
 def classify_observation(update_id: str) -> str:
     if update_id.startswith("GOV-STAGE3-SHADOW-BOOTSTRAP-"):
@@ -1411,7 +1521,7 @@ def percentile(values: Sequence[float], percentile_value: float) -> float | None
     if not values:
         return None
     ordered = sorted(values)
-    index = max(0, min(len(ordered) - 1, int(round((len(ordered) - 1) * percentile_value))))
+    index = max(0, min(len(ordered) - 1, round((len(ordered) - 1) * percentile_value)))
     return ordered[index]
 
 
@@ -1433,6 +1543,8 @@ def observation_records(
     root = repo_root / "docs" / "handoff_deltas"
     records: list[dict[str, Any]] = []
     authoritative_verified = False
+    authority_payload: dict[str, Any] | None = None
+    legacy_inert_update_ids: set[str] = set()
     for delta_path in sorted(root.glob(f"*/{DELTA_FILENAME}")):
         delta = load_yaml(delta_path, "handoff delta")
         if delta.get("schema_version") == AUTHORITATIVE_DELTA_SCHEMA_VERSION:
@@ -1440,8 +1552,22 @@ def observation_records(
                 raise HandoffDeltaError(
                     "schema-v3 authoritative delta exists while authority mode is not delta"
                 )
+            report_path = delta_path.parent / AUTHORITY_REPORT_FILENAME
+            if (replay or not report_path.is_file()) and authority_payload is None:
+                authority_payload = verify_authoritative_state(repo_root)
+                authoritative_verified = True
+                raw_legacy_ids = authority_payload.get("legacy_inert_update_ids", [])
+                if not isinstance(raw_legacy_ids, list) or not all(
+                    isinstance(value, str) for value in raw_legacy_ids
+                ):
+                    raise HandoffDeltaError(
+                        "Stage 5 authority verifier returned invalid legacy_inert_update_ids"
+                    )
+                legacy_inert_update_ids = set(raw_legacy_ids)
+            if delta.get("update_id") in legacy_inert_update_ids:
+                continue
             if replay and not authoritative_verified:
-                verify_authoritative_state(repo_root)
+                authority_payload = verify_authoritative_state(repo_root)
                 authoritative_verified = True
             report_meta = authoritative_report_metadata(repo_root, delta_path)
             repository_commit = report_meta["repository_commit"]
@@ -1962,7 +2088,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             payload = pair_check(args.repo_root.resolve(), args.delta_a.resolve(), args.delta_b.resolve())
         else:
             raise AssertionError(args.command)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         if args.command == "check" and getattr(args, "candidate_on_failure", None):
             try:
                 delta = load_yaml(args.delta.resolve(), "handoff delta")
@@ -1972,7 +2098,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 rendered = render(base_text, delta["operations"]).text
                 args.candidate_on_failure.parent.mkdir(parents=True, exist_ok=True)
                 args.candidate_on_failure.write_text(rendered, encoding="utf-8")
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2

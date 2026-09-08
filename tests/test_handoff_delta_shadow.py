@@ -1335,3 +1335,144 @@ def test_full_acceptance_runner_canonicalizes_coverage_order() -> None:
         {"update_id": "A-FIRST", "kind": "real"},
     ]
     assert RUNNER.real_observation_ids(observations) == ["A-FIRST", "Z-LAST"]
+
+
+
+def test_authoritative_metadata_accepts_side_branch_preintegration_history(
+    tmp_path: Path,
+) -> None:
+    repo, _base = make_repo(tmp_path)
+    main_branch = git(repo, "branch", "--show-current")
+    git(repo, "checkout", "-b", "topic")
+
+    update_id = "TEST-AUTHORITATIVE-MERGE-HISTORY-01"
+    delta_dir = repo / "docs/handoff_deltas" / update_id
+    delta_dir.mkdir(parents=True)
+    delta = delta_dir / MODULE.DELTA_FILENAME
+    delta.write_text(
+        "schema_version: 3\nupdate_id: TEST-AUTHORITATIVE-MERGE-HISTORY-01\n"
+    )
+    git(repo, "add", delta.relative_to(repo).as_posix())
+    git(repo, "commit", "-m", "add authoritative delta on topic")
+
+    report = delta_dir / MODULE.AUTHORITY_REPORT_FILENAME
+    report.write_text(
+        json.dumps(
+            {
+                "report_schema_version": 1,
+                "status": "PASS",
+                "mode": "authoritative",
+                "update_id": update_id,
+                "delta_sha256": MODULE.sha256_file(delta),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    git(repo, "add", report.relative_to(repo).as_posix())
+    git(repo, "commit", "-m", "add materialization report on topic")
+
+    git(repo, "checkout", main_branch)
+    git(repo, "merge", "--no-ff", "topic", "-m", "integrate authoritative update")
+    integration = git(repo, "rev-parse", "HEAD")
+
+    metadata = MODULE.authoritative_report_metadata(repo, delta)
+    assert metadata["repository_commit"] == integration
+
+
+def test_authoritative_metadata_rejects_postintegration_mutation(tmp_path: Path) -> None:
+    repo, _base = make_repo(tmp_path)
+    main_branch = git(repo, "branch", "--show-current")
+    git(repo, "checkout", "-b", "topic")
+
+    update_id = "TEST-AUTHORITATIVE-MERGE-HISTORY-02"
+    delta_dir = repo / "docs/handoff_deltas" / update_id
+    delta_dir.mkdir(parents=True)
+    delta = delta_dir / MODULE.DELTA_FILENAME
+    delta.write_text(
+        "schema_version: 3\nupdate_id: TEST-AUTHORITATIVE-MERGE-HISTORY-02\n"
+    )
+    report = delta_dir / MODULE.AUTHORITY_REPORT_FILENAME
+    report.write_text(
+        json.dumps(
+            {
+                "report_schema_version": 1,
+                "status": "PASS",
+                "mode": "authoritative",
+                "update_id": update_id,
+                "delta_sha256": MODULE.sha256_file(delta),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    git(repo, "add", delta_dir.relative_to(repo).as_posix())
+    git(repo, "commit", "-m", "add authoritative pair on topic")
+
+    git(repo, "checkout", main_branch)
+    git(repo, "merge", "--no-ff", "topic", "-m", "integrate authoritative pair")
+    report.write_text(report.read_text() + "\n")
+    git(repo, "add", report.relative_to(repo).as_posix())
+    git(repo, "commit", "-m", "tamper after integration")
+
+    with pytest.raises(
+        MODULE.HandoffDeltaError, match="changed after first-parent integration"
+    ):
+        MODULE.authoritative_report_metadata(repo, delta)
+
+
+
+def test_observation_records_skips_stage5_legacy_inert_without_report(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, _base = make_repo(tmp_path)
+    update_id = "TEST-LEGACY-INERT-V3"
+    delta_dir = repo / "docs/handoff_deltas" / update_id
+    delta_dir.mkdir(parents=True)
+    delta = delta_dir / MODULE.DELTA_FILENAME
+    delta.write_text(
+        "schema_version: 3\nupdate_id: TEST-LEGACY-INERT-V3\n",
+        encoding="utf-8",
+    )
+    git(repo, "add", delta.relative_to(repo).as_posix())
+    git(repo, "commit", "-m", "add inert v3 delta")
+
+    monkeypatch.setattr(MODULE, "authority_mode", lambda _repo: "delta")
+    monkeypatch.setattr(
+        MODULE,
+        "verify_authoritative_state",
+        lambda _repo: {
+            "status": "PASS",
+            "legacy_inert_update_ids": [update_id],
+        },
+    )
+
+    assert MODULE.observation_records(repo, replay=False) == []
+
+
+def test_observation_records_missing_unlisted_v3_report_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, _base = make_repo(tmp_path)
+    update_id = "TEST-MISSING-V3-REPORT"
+    delta_dir = repo / "docs/handoff_deltas" / update_id
+    delta_dir.mkdir(parents=True)
+    delta = delta_dir / MODULE.DELTA_FILENAME
+    delta.write_text(
+        "schema_version: 3\nupdate_id: TEST-MISSING-V3-REPORT\n",
+        encoding="utf-8",
+    )
+    git(repo, "add", delta.relative_to(repo).as_posix())
+    git(repo, "commit", "-m", "add unlisted v3 delta")
+
+    monkeypatch.setattr(MODULE, "authority_mode", lambda _repo: "delta")
+    monkeypatch.setattr(
+        MODULE,
+        "verify_authoritative_state",
+        lambda _repo: {"status": "PASS", "legacy_inert_update_ids": []},
+    )
+
+    with pytest.raises(MODULE.HandoffDeltaError, match="materialization report"):
+        MODULE.observation_records(repo, replay=False)
