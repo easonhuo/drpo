@@ -4212,6 +4212,7 @@ def _train_canonical_dpo_transfer_cell(
         arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
         arena.completion_stats = lambda model, batch: {
             **original_completion_stats(model, batch),
+            "lengths": (batch["labels"] != -100).sum(dim=1),
         }
         if evaluator is not None:
             arena.evaluate_rows = evaluator
