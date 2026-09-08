@@ -3681,13 +3681,3 @@ def test_fifth_review_terminal_audit_does_not_mislabel_non_exp_methods() -> None
     source = inspect.getsource(exp_tuning.cmd_audit)
     assert "transfer_exp_single_seed_response_shape_localization" in source
     assert "_coldstart_method(config) == METHOD_EXPONENTIAL" in source
-
-
-def test_dpo_full_sequence_bridge_supplies_completion_lengths() -> None:
-    import inspect
-
-    from drpo import e8_multitask_exp_tuning as exp_tuning
-
-    source = inspect.getsource(exp_tuning._train_canonical_dpo_transfer_cell)
-    assert '"lengths": (batch["labels"] != -100).sum(dim=1)' in source
-    assert "full_sequence_log_probability" in source
