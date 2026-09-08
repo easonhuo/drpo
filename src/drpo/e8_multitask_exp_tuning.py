@@ -4069,6 +4069,122 @@ def _is_nan_inf_numerical_failure(value: Any) -> bool:
     return isinstance(value, str) and value.startswith("nonfinite_")
 
 
+def _load_verified_canonical_calibration(
+    task: str,
+    *,
+    split_manifest: Mapping[str, Any],
+    base_model_path: str,
+    config: Mapping[str, Any],
+    output_root: Path,
+    error_prefix: str,
+) -> dict[str, Any]:
+    path = output_root / "calibration" / f"{task}.json"
+    if not path.is_file():
+        raise RuntimeError(f"Run the no-calibration identity gate before {task}")
+    calibration = json.loads(path.read_text(encoding="utf-8"))
+    expected = _canonical_calibration_identity(
+        task,
+        split_manifest=split_manifest,
+        base_model_path=base_model_path,
+        config=config,
+    )
+    if (
+        calibration.get("identity_hash") != expected["identity_hash"]
+        or calibration.get("enabled") is not False
+        or not calibration.get("complete")
+    ):
+        raise RuntimeError(f"{error_prefix} no-calibration identity mismatch for {task}")
+    return calibration
+
+
+def _prepare_cell_output(
+    output_root: Path,
+    *,
+    root_name: str,
+    cell: Cell,
+    identity: Mapping[str, Any],
+    force: bool,
+    mismatch_prefix: str,
+    existing_prefix: str,
+    unsafe_prefix: str,
+) -> tuple[Path, Path, dict[str, Any] | None]:
+    cell_root = output_root / root_name / cell.key
+    manifest_path = cell_root / "cell_manifest.json"
+    if manifest_path.is_file() and not force:
+        existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if existing.get("identity_hash") == identity["identity_hash"] and existing.get("complete"):
+            return cell_root, manifest_path, existing
+        raise RuntimeError(f"{mismatch_prefix}: {cell.key}")
+    if cell_root.exists():
+        if not force:
+            raise RuntimeError(f"{existing_prefix}: {cell_root}")
+        expected_parent = (output_root / root_name).resolve()
+        if expected_parent not in cell_root.resolve().parents:
+            raise RuntimeError(f"{unsafe_prefix}: {cell_root}")
+        shutil.rmtree(cell_root)
+    cell_root.mkdir(parents=True, exist_ok=False)
+    return cell_root, manifest_path, None
+
+
+def _verify_fresh_process_adapter_reload(
+    config_path: Path,
+    output_root: Path,
+    *,
+    base_model_path: str,
+    adapter_path: Path,
+    expected_adapter_identity: Mapping[str, Any],
+    require_base_identity: bool,
+    label: str,
+) -> dict[str, Any]:
+    command = [
+        sys.executable,
+        "-m",
+        "drpo.e8_multitask_exp_tuning",
+        "--config",
+        str(config_path.resolve()),
+        "--output-root",
+        str(output_root.resolve()),
+        "reload-adapter",
+        "--base-model-path",
+        base_model_path,
+        "--adapter-path",
+        str(adapter_path),
+    ]
+    completed = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        env=os.environ.copy(),
+        check=False,
+    )
+    descriptor = f" {label}" if label else ""
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f"Fresh-process{descriptor} adapter reload failed: {completed.stderr[-2000:]}"
+        )
+    try:
+        result = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"Fresh-process{descriptor} adapter reload returned invalid JSON"
+        ) from exc
+    identity_ok = result.get("adapter_identity") == expected_adapter_identity
+    if require_base_identity:
+        identity_ok = identity_ok and (
+            result.get("base_model_identity") == model_identity(base_model_path, None)["model"]
+        )
+    if (
+        not result.get("complete")
+        or not result.get("finite")
+        or int(result.get("process_id", os.getpid())) == os.getpid()
+        or not identity_ok
+    ):
+        raise RuntimeError(
+            f"Fresh-process{descriptor} adapter reload identity or finiteness mismatch"
+        )
+    return result
+
+
 def _train_canonical_dpo_transfer_cell(
     cell: Cell,
     *,
@@ -4097,26 +4213,16 @@ def _train_canonical_dpo_transfer_cell(
     paper_common = modules["paper_common"]
     scan_trainer = modules["scan_trainer"]
     record = _canonical_task_record(split_manifest, cell.task)
-    calibration_path = output_root / "calibration" / f"{cell.task}.json"
-    if not calibration_path.is_file():
-        raise RuntimeError(f"Run the no-calibration identity gate before {cell.task}")
-    calibration = json.loads(calibration_path.read_text(encoding="utf-8"))
-    expected_calibration = _canonical_calibration_identity(
+    calibration = _load_verified_canonical_calibration(
         cell.task,
         split_manifest=split_manifest,
         base_model_path=base_model_path,
         config=config,
+        output_root=output_root,
+        error_prefix="DPO",
     )
-    if (
-        calibration.get("identity_hash") != expected_calibration["identity_hash"]
-        or calibration.get("enabled") is not False
-        or not calibration.get("complete")
-    ):
-        raise RuntimeError(f"DPO no-calibration identity mismatch for {cell.task}")
 
     root_name = "liveness" if engineering_liveness else "cells"
-    cell_root = output_root / root_name / cell.key
-    manifest_path = cell_root / "cell_manifest.json"
     shared_adapter = _dpo_shared_sft_adapter(config)
     identity = _cell_identity(
         cell,
@@ -4148,19 +4254,18 @@ def _train_canonical_dpo_transfer_cell(
         }
     )
     identity["identity_hash"] = stable_hash(identity)
-    if manifest_path.is_file() and not force:
-        existing = json.loads(manifest_path.read_text(encoding="utf-8"))
-        if existing.get("identity_hash") == identity["identity_hash"] and existing.get("complete"):
-            return existing
-        raise RuntimeError(f"Existing DPO cell identity mismatch: {cell.key}")
-    if cell_root.exists():
-        if not force:
-            raise RuntimeError(f"DPO cell output exists without reusable identity: {cell_root}")
-        expected_parent = (output_root / root_name).resolve()
-        if expected_parent not in cell_root.resolve().parents:
-            raise RuntimeError(f"Refusing unsafe DPO cell removal: {cell_root}")
-        shutil.rmtree(cell_root)
-    cell_root.mkdir(parents=True, exist_ok=False)
+    cell_root, manifest_path, reusable = _prepare_cell_output(
+        output_root,
+        root_name=root_name,
+        cell=cell,
+        identity=identity,
+        force=force,
+        mismatch_prefix="Existing DPO cell identity mismatch",
+        existing_prefix="DPO cell output exists without reusable identity",
+        unsafe_prefix="Refusing unsafe DPO cell removal",
+    )
+    if reusable is not None:
+        return reusable
 
     bank = Path(str(record["train"]))
     validation = Path(str(record["validation"]))
@@ -4293,7 +4398,6 @@ def _train_canonical_dpo_transfer_cell(
         best_dir = cell_root / "supplementary_best_adapter"
         terminal_dir = cell_root / "terminal_adapter"
         last_finite_dir = cell_root / "last_finite_adapter"
-        metric_rows: list[dict[str, Any]] = []
         best_pass8 = -math.inf
         optimizer_update_norms: list[float] = []
         initial_pair_margin_max_abs: float | None = None
@@ -4324,7 +4428,6 @@ def _train_canonical_dpo_transfer_cell(
             sampled_valid_rate = getattr(evaluator, "_last_primary_sampled_valid_rate", None)
             if sampled_valid_rate is not None:
                 row["val_sampled_valid_rate"] = float(sampled_valid_rate)
-            metric_rows.append(row)
             append_jsonl(
                 evaluation_path,
                 {
@@ -4626,7 +4729,7 @@ def _train_canonical_dpo_transfer_cell(
                     "validation_best_greedy": summary["supplementary_best_greedy"],
                     "validation_terminal_greedy": summary["validation_terminal_greedy"],
                     "validation_best_greedy_valid_rate": max(
-                        float(row["greedy_valid_rate"]) for row in read_jsonl(evaluation_path)
+                        float(row["greedy_valid_rate"]) for row in evaluations
                     ),
                     "validation_terminal_greedy_valid_rate": summary[
                         "validation_terminal_greedy_valid_rate"
@@ -4669,16 +4772,14 @@ def _cmd_dpo_liveness(
     values = _task_method_values(config, task)
     if beta not in values:
         raise RuntimeError("DPO liveness_beta must be one configured beta point")
-    cell = Cell(
+    cell = _coldstart_method_cell(
         task,
         METHOD_DPO,
-        None,
         int(config["sweep"]["task_transfer_seed_offset"]),
         "liveness",
-        None,
-        None,
         beta,
-        str(config["dpo"]["initialization_mode"]),
+        lambda_only=False,
+        dpo_initialization=str(config["dpo"]["initialization_mode"]),
     )
     result = train_cell(
         cell,
@@ -4691,37 +4792,15 @@ def _cmd_dpo_liveness(
         updates_override=2,
         engineering_liveness=True,
     )
-    reload_command = [
-        sys.executable,
-        "-m",
-        "drpo.e8_multitask_exp_tuning",
-        "--config",
-        str(config_path.resolve()),
-        "--output-root",
-        str(output_root.resolve()),
-        "reload-adapter",
-        "--base-model-path",
-        base_model_path,
-        "--adapter-path",
-        str(result["terminal_adapter"]),
-    ]
-    reload_process = subprocess.run(
-        reload_command,
-        capture_output=True,
-        text=True,
-        env=os.environ.copy(),
-        check=False,
+    reload_result = _verify_fresh_process_adapter_reload(
+        config_path,
+        output_root,
+        base_model_path=base_model_path,
+        adapter_path=Path(result["terminal_adapter"]),
+        expected_adapter_identity=result["terminal_adapter_identity"],
+        require_base_identity=False,
+        label="DPO",
     )
-    if reload_process.returncode != 0:
-        raise RuntimeError(f"Fresh-process DPO adapter reload failed: {reload_process.stderr[-2000:]}")
-    reload_result = json.loads(reload_process.stdout)
-    if (
-        not reload_result.get("complete")
-        or not reload_result.get("finite")
-        or int(reload_result.get("process_id", os.getpid())) == os.getpid()
-        or reload_result.get("adapter_identity") != result["terminal_adapter_identity"]
-    ):
-        raise RuntimeError("Fresh-process DPO adapter reload identity or finiteness mismatch")
     if not math.isfinite(float(result.get("optimizer_update_norm", 0.0))) or float(
         result.get("optimizer_update_norm", 0.0)
     ) <= 0.0:
@@ -4759,22 +4838,14 @@ def _train_canonical_cold_cell(
     modules = _canonical_cold_modules(config)
     arena = modules["arena"]
     record = _canonical_task_record(split_manifest, cell.task)
-    calibration_path = output_root / "calibration" / f"{cell.task}.json"
-    if not calibration_path.is_file():
-        raise RuntimeError(f"Run the no-calibration identity gate before {cell.task}")
-    calibration = json.loads(calibration_path.read_text(encoding="utf-8"))
-    expected_calibration = _canonical_calibration_identity(
+    calibration = _load_verified_canonical_calibration(
         cell.task,
         split_manifest=split_manifest,
         base_model_path=base_model_path,
         config=config,
+        output_root=output_root,
+        error_prefix="Paper",
     )
-    if (
-        calibration.get("identity_hash") != expected_calibration["identity_hash"]
-        or calibration.get("enabled") is not False
-        or not calibration.get("complete")
-    ):
-        raise RuntimeError(f"Paper no-calibration identity mismatch for {cell.task}")
 
     bank = Path(str(record["train"]))
     validation = Path(str(record["validation"]))
@@ -4844,21 +4915,18 @@ def _train_canonical_cold_cell(
         identity["legacy_runtime_bridge"] = _runtime_bridge_contract(effective_runtime)
     identity["identity_hash"] = stable_hash(identity)
 
-    cell_root = output_root / root_name / cell.key
-    manifest_path = cell_root / "cell_manifest.json"
-    if manifest_path.is_file() and not force:
-        existing = json.loads(manifest_path.read_text(encoding="utf-8"))
-        if existing.get("identity_hash") == identity["identity_hash"] and existing.get("complete"):
-            return existing
-        raise RuntimeError(f"Existing paper cell identity mismatch: {cell.key}")
-    if cell_root.exists():
-        if not force:
-            raise RuntimeError(f"Cell output exists without a reusable manifest: {cell_root}")
-        expected_parent = (output_root / root_name).resolve()
-        if expected_parent not in cell_root.resolve().parents:
-            raise RuntimeError(f"Refusing unsafe paper cell removal: {cell_root}")
-        shutil.rmtree(cell_root)
-    cell_root.mkdir(parents=True, exist_ok=False)
+    cell_root, manifest_path, reusable = _prepare_cell_output(
+        output_root,
+        root_name=root_name,
+        cell=cell,
+        identity=identity,
+        force=force,
+        mismatch_prefix="Existing paper cell identity mismatch",
+        existing_prefix="Cell output exists without a reusable manifest",
+        unsafe_prefix="Refusing unsafe paper cell removal",
+    )
+    if reusable is not None:
+        return reusable
     canonical_output = cell_root / "canonical"
 
     evaluator = None
@@ -5115,8 +5183,6 @@ def _train_cell_impl(
         raise RuntimeError(f"Incomplete calibration for {cell.task}")
 
     root_name = "liveness" if engineering_liveness else "cells"
-    cell_root = output_root / root_name / cell.key
-    manifest_path = cell_root / "cell_manifest.json"
     identity = _cell_identity(
         cell,
         inputs=inputs,
@@ -5128,19 +5194,18 @@ def _train_cell_impl(
     identity["engineering_liveness"] = engineering_liveness
     identity["updates_override"] = updates_override
     identity["identity_hash"] = stable_hash(identity)
-    if manifest_path.is_file() and not force:
-        existing = json.loads(manifest_path.read_text(encoding="utf-8"))
-        if existing.get("identity_hash") == identity["identity_hash"] and existing.get("complete"):
-            return existing
-        raise RuntimeError(f"Existing cell identity mismatch: {cell.key}")
-    if cell_root.exists():
-        if not force:
-            raise RuntimeError(f"Cell output exists without reusable manifest: {cell_root}")
-        expected_parent = (output_root / root_name).resolve()
-        if expected_parent not in cell_root.resolve().parents:
-            raise RuntimeError(f"Refusing unsafe cell removal: {cell_root}")
-        shutil.rmtree(cell_root)
-    cell_root.mkdir(parents=True, exist_ok=False)
+    cell_root, manifest_path, reusable = _prepare_cell_output(
+        output_root,
+        root_name=root_name,
+        cell=cell,
+        identity=identity,
+        force=force,
+        mismatch_prefix="Existing cell identity mismatch",
+        existing_prefix="Cell output exists without reusable manifest",
+        unsafe_prefix="Refusing unsafe cell removal",
+    )
+    if reusable is not None:
+        return reusable
 
     initialization_seed = (
         int(config["initialization"]["seed"]) if _is_coldstart(config) else cell.seed
@@ -5641,43 +5706,15 @@ def _cmd_canonical_cold_liveness(
     terminal_adapter = canonical_output / "terminal_adapter"
     terminal_hash = sha256_file(_adapter_weight_file(terminal_adapter))
 
-    reload_command = [
-        sys.executable,
-        "-m",
-        "drpo.e8_multitask_exp_tuning",
-        "--config",
-        str(config_path.resolve()),
-        "--output-root",
-        str(output_root.resolve()),
-        "reload-adapter",
-        "--base-model-path",
-        base_model_path,
-        "--adapter-path",
-        str(terminal_adapter),
-    ]
-    reload_process = subprocess.run(
-        reload_command,
-        capture_output=True,
-        text=True,
-        env=os.environ.copy(),
-        check=False,
+    reload_result = _verify_fresh_process_adapter_reload(
+        config_path,
+        output_root,
+        base_model_path=base_model_path,
+        adapter_path=terminal_adapter,
+        expected_adapter_identity=model_identity(base_model_path, str(terminal_adapter))["adapter"],
+        require_base_identity=False,
+        label="canonical",
     )
-    if reload_process.returncode != 0:
-        raise RuntimeError(
-            f"Fresh-process canonical adapter reload failed: {reload_process.stderr[-2000:]}"
-        )
-    try:
-        reload_result = json.loads(reload_process.stdout)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("Fresh-process canonical reload returned invalid JSON") from exc
-    if (
-        not reload_result.get("complete")
-        or not reload_result.get("finite")
-        or int(reload_result.get("process_id", os.getpid())) == os.getpid()
-        or reload_result.get("adapter_identity")
-        != model_identity(base_model_path, str(terminal_adapter))["adapter"]
-    ):
-        raise RuntimeError("Fresh-process canonical adapter reload gate failed")
     calibration = json.loads(
         (output_root / "calibration" / "countdown.json").read_text(encoding="utf-8")
     )
@@ -5796,42 +5833,15 @@ def cmd_liveness(
         updates_override=2,
         engineering_liveness=True,
     )
-    reload_command = [
-        sys.executable,
-        "-m",
-        "drpo.e8_multitask_exp_tuning",
-        "--config",
-        str(config_path.resolve()),
-        "--output-root",
-        str(output_root.resolve()),
-        "reload-adapter",
-        "--base-model-path",
-        base_model_path,
-        "--adapter-path",
-        str(result["terminal_adapter"]),
-    ]
-    reload_process = subprocess.run(
-        reload_command,
-        capture_output=True,
-        text=True,
-        env=os.environ.copy(),
-        check=False,
+    reload_result = _verify_fresh_process_adapter_reload(
+        config_path,
+        output_root,
+        base_model_path=base_model_path,
+        adapter_path=Path(result["terminal_adapter"]),
+        expected_adapter_identity=result["terminal_adapter_identity"],
+        require_base_identity=True,
+        label="",
     )
-    if reload_process.returncode != 0:
-        raise RuntimeError(f"Fresh-process adapter reload failed: {reload_process.stderr[-2000:]}")
-    try:
-        reload_result = json.loads(reload_process.stdout)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("Fresh-process adapter reload returned invalid JSON") from exc
-    if (
-        not reload_result.get("complete")
-        or not reload_result.get("finite")
-        or int(reload_result.get("process_id", os.getpid())) == os.getpid()
-        or reload_result.get("base_model_identity")
-        != model_identity(base_model_path, None)["model"]
-        or reload_result.get("adapter_identity") != result["terminal_adapter_identity"]
-    ):
-        raise RuntimeError("Fresh-process adapter reload identity or finiteness mismatch")
     training_rows = read_jsonl(Path(result["training_metrics"]))
     if not training_rows:
         raise RuntimeError("Liveness training metrics are missing")
@@ -5846,14 +5856,7 @@ def cmd_liveness(
     if not math.isfinite(raw_gradient_norm) or raw_gradient_norm <= 0.0:
         raise RuntimeError("Liveness raw gradient norm is not finite and positive")
 
-    def adapter_weight_file(adapter_root: Path) -> Path:
-        for name in ("adapter_model.safetensors", "adapter_model.bin"):
-            candidate = adapter_root / name
-            if candidate.is_file():
-                return candidate
-        raise FileNotFoundError(f"Adapter weight file is missing: {adapter_root}")
-
-    terminal_hash = sha256_file(adapter_weight_file(Path(result["terminal_adapter"])))
+    terminal_hash = sha256_file(_adapter_weight_file(Path(result["terminal_adapter"])))
     if _is_coldstart(config):
         reference_hash = str(result["initialization_state_sha256"])
         changed = reference_hash != str(result["terminal_trainable_state_sha256"])
@@ -5861,7 +5864,7 @@ def cmd_liveness(
         reference_adapter = inputs[task].reference_adapter
         if reference_adapter is None:
             raise RuntimeError("Liveness reference adapter is missing")
-        reference_hash = sha256_file(adapter_weight_file(reference_adapter))
+        reference_hash = sha256_file(_adapter_weight_file(reference_adapter))
         changed = reference_hash != terminal_hash
     if not changed:
         raise RuntimeError("Liveness adapter weights did not change after two updates")
@@ -7095,6 +7098,53 @@ def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
         writer.writerows(rows)
 
 
+def _coldstart_result_row(
+    config: Mapping[str, Any],
+    cell: Cell,
+    value: Mapping[str, Any],
+    *,
+    source: str,
+) -> dict[str, Any]:
+    if not _is_engineering_self_test(config) and (
+        "validation_late_window_pass8_mean" not in value
+        or "validation_late_window_greedy_mean" not in value
+    ):
+        raise RuntimeError(f"{cell.key} is missing the paper primary late-window metric")
+    return {
+        "source": source,
+        "task": cell.task,
+        "method": cell.method,
+        "delta_v": cell.delta_v,
+        "beta": cell.beta,
+        "dpo_initialization": cell.dpo_initialization,
+        "rho": cell.rho,
+        "lambda": (
+            cell.lambda_value
+            if cell.lambda_value is not None
+            else (None if cell.rho is None else coefficient_from_rho(cell.rho))
+        ),
+        "seed": cell.seed,
+        "stage": cell.stage,
+        "cell_key": cell.key,
+        "nan_inf_failure": bool(value["nan_inf_failure"]),
+        "late_window_pass8_mean": value.get(
+            "validation_late_window_pass8_mean", value["validation_best_pass8"]
+        ),
+        "late_window_greedy_mean": value.get(
+            "validation_late_window_greedy_mean", value["validation_best_greedy"]
+        ),
+        "best_pass8": value["validation_best_pass8"],
+        "terminal_pass8": value["validation_terminal_pass8"],
+        "best_greedy": value["validation_best_greedy"],
+        "terminal_greedy": value["validation_terminal_greedy"],
+        "best_greedy_valid_rate": value["validation_best_greedy_valid_rate"],
+        "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
+        "best_step": value["best_step"],
+        "terminal_step": value["terminal_step"],
+        "stop_reason": value["stop_reason"],
+    }
+
+
 def _coldstart_completed_task_rows(
     config: Mapping[str, Any],
     output_root: Path,
@@ -7121,47 +7171,8 @@ def _coldstart_completed_task_rows(
             or value.get("config_hash") != expected_hash
         ):
             raise RuntimeError(f"{cell.key} per-task result identity mismatch")
-        if not _is_engineering_self_test(config) and (
-            "validation_late_window_pass8_mean" not in value
-            or "validation_late_window_greedy_mean" not in value
-        ):
-            raise RuntimeError(f"{cell.key} is missing the paper primary late-window metric")
         rows.append(
-            {
-                "source": "current",
-                "task": cell.task,
-                "method": cell.method,
-                "delta_v": cell.delta_v,
-                "beta": cell.beta,
-                "dpo_initialization": cell.dpo_initialization,
-                "rho": cell.rho,
-                "lambda": (
-                    cell.lambda_value
-                    if cell.lambda_value is not None
-                    else (None if cell.rho is None else coefficient_from_rho(cell.rho))
-                ),
-                "seed": cell.seed,
-                "stage": cell.stage,
-                "cell_key": cell.key,
-                "nan_inf_failure": bool(value["nan_inf_failure"]),
-                "late_window_pass8_mean": value.get(
-                    "validation_late_window_pass8_mean",
-                    value["validation_best_pass8"],
-                ),
-                "late_window_greedy_mean": value.get(
-                    "validation_late_window_greedy_mean",
-                    value["validation_best_greedy"],
-                ),
-                "best_pass8": value["validation_best_pass8"],
-                "terminal_pass8": value["validation_terminal_pass8"],
-                "best_greedy": value["validation_best_greedy"],
-                "terminal_greedy": value["validation_terminal_greedy"],
-                "best_greedy_valid_rate": value["validation_best_greedy_valid_rate"],
-                "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
-                "best_step": value["best_step"],
-                "terminal_step": value["terminal_step"],
-                "stop_reason": value["stop_reason"],
-            }
+            _coldstart_result_row(config, cell, value, source="current")
         )
     return rows
 
@@ -7434,6 +7445,15 @@ def _aggregate_dense(
     return summary
 
 
+def _coldstart_run_provenance(output_root: Path) -> tuple[str, str]:
+    path = output_root / "source_provenance.json"
+    value = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    return (
+        str(value.get("run_id", output_root.name)),
+        str(value.get("source_commit", "unrecorded")),
+    )
+
+
 def _aggregate_coldstart_unranked(
     config: Mapping[str, Any],
     output_root: Path,
@@ -7468,14 +7488,7 @@ def _aggregate_coldstart_unranked(
             "dpo_initialization_mode": str(config["dpo"]["initialization_mode"]),
         }
 
-    provenance_path = output_root / "source_provenance.json"
-    provenance = (
-        json.loads(provenance_path.read_text(encoding="utf-8"))
-        if provenance_path.is_file()
-        else {}
-    )
-    run_id = str(provenance.get("run_id", output_root.name))
-    source_commit = str(provenance.get("source_commit", "unrecorded"))
+    run_id, source_commit = _coldstart_run_provenance(output_root)
     direct_fields = (
         "task", "method", "dpo_initialization", "seed", "stage",
         "late_window_pass8_mean",
@@ -7613,12 +7626,7 @@ def _aggregate_coldstart(
 ) -> dict[str, Any]:
     if _coldstart_method(config) != METHOD_EXPONENTIAL:
         return _aggregate_coldstart_unranked(config, output_root, rows)
-    provenance_path = output_root / "source_provenance.json"
-    provenance = (
-        json.loads(provenance_path.read_text(encoding="utf-8")) if provenance_path.is_file() else {}
-    )
-    run_id = str(provenance.get("run_id", output_root.name))
-    source_commit = str(provenance.get("source_commit", "unrecorded"))
+    run_id, source_commit = _coldstart_run_provenance(output_root)
     plot_rows: list[dict[str, Any]] = []
     for row in rows:
         plot_rows.append(
@@ -7817,8 +7825,12 @@ def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any
         if not value.get("complete") or value.get("evaluation_status") != "complete":
             missing.append(cell.key)
             continue
+        source = "dense" if _is_dense(config) else "current"
+        if _is_coldstart(config):
+            rows.append(_coldstart_result_row(config, cell, value, source=source))
+            continue
         common = {
-            "source": "dense" if _is_dense(config) else "current",
+            "source": source,
             "task": cell.task,
             "method": cell.method,
             "delta_v": cell.delta_v,
@@ -7834,44 +7846,12 @@ def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any
             "stage": cell.stage,
             "cell_key": cell.key,
             "nan_inf_failure": bool(value["nan_inf_failure"]),
+            "late_window_pass8_mean": value["validation_late_window_pass8_mean"],
+            "terminal_pass8": value["validation_terminal_pass8"],
+            "late_window_greedy_mean": value["validation_late_window_greedy_mean"],
+            "terminal_greedy": value["validation_terminal_greedy"],
+            "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
         }
-        if _is_coldstart(config):
-            if not _is_engineering_self_test(config) and (
-                "validation_late_window_pass8_mean" not in value
-                or "validation_late_window_greedy_mean" not in value
-            ):
-                raise RuntimeError(f"{cell.key} is missing the paper primary late-window metric")
-            common.update(
-                {
-                    "late_window_pass8_mean": value.get(
-                        "validation_late_window_pass8_mean",
-                        value["validation_best_pass8"],
-                    ),
-                    "late_window_greedy_mean": value.get(
-                        "validation_late_window_greedy_mean",
-                        value["validation_best_greedy"],
-                    ),
-                    "best_pass8": value["validation_best_pass8"],
-                    "terminal_pass8": value["validation_terminal_pass8"],
-                    "best_greedy": value["validation_best_greedy"],
-                    "terminal_greedy": value["validation_terminal_greedy"],
-                    "best_greedy_valid_rate": value["validation_best_greedy_valid_rate"],
-                    "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
-                    "best_step": value["best_step"],
-                    "terminal_step": value["terminal_step"],
-                    "stop_reason": value["stop_reason"],
-                }
-            )
-        else:
-            common.update(
-                {
-                    "late_window_pass8_mean": value["validation_late_window_pass8_mean"],
-                    "terminal_pass8": value["validation_terminal_pass8"],
-                    "late_window_greedy_mean": value["validation_late_window_greedy_mean"],
-                    "terminal_greedy": value["validation_terminal_greedy"],
-                    "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
-                }
-            )
         rows.append(common)
     if missing:
         raise RuntimeError(f"Cannot aggregate; missing/incomplete cells: {missing}")
