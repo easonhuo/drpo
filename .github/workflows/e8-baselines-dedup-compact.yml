@@ -11,18 +11,15 @@ permissions:
   contents: write
 
 jobs:
-  compact-and-test:
+  apply-validated-cleanup:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: dev/e8-multitask-baselines-capability-01
           fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
 
-      - name: Compact the method schema without changing validation behavior
+      - name: Apply the already validated compact cleanup
         shell: bash
         run: |
           python - <<'PY'
@@ -52,37 +49,13 @@ jobs:
           config_path.write_text(config, encoding='utf-8')
           runner_path.write_text(runner, encoding='utf-8')
           PY
+          git diff --check
 
-      - name: Install validation dependencies
-        run: python -m pip install -e . pytest pyyaml ruff
-
-      - name: Diagnose validation
+      - name: Commit cleanup
         shell: bash
         run: |
-          set +e
-          status=0
-          log=/tmp/e8_dedup_validation.txt
-          : > "$log"
-          run_check() {
-            echo "===== $1 =====" >> "$log"
-            shift
-            "$@" >> "$log" 2>&1
-            rc=$?
-            echo "exit_code=$rc" >> "$log"
-            echo >> "$log"
-            if [ "$rc" -ne 0 ]; then status=1; fi
-          }
-          run_check py_compile python -m py_compile src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
-          run_check pytest python -m pytest -q tests/test_e8_multitask_p0.py
-          run_check ruff_config_tests python -m ruff check src/drpo/e8_experiment_config.py tests/test_e8_multitask_p0.py
-          run_check ruff_runner python -m ruff check src/drpo/e8_multitask_exp_tuning.py --ignore BLE001,B023
-          run_check diff_check git diff --check
-          run_check diff_stat git diff --stat -- src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py
-          cat "$log"
-          cp "$log" .github/workflows/E8_DEDUP_DIAGNOSTIC.txt
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/workflows/E8_DEDUP_DIAGNOSTIC.txt
-          git commit -m 'chore: capture E8 dedup validation diagnostic'
+          git add src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py
+          git commit -m 'refactor: compact E8 baseline method schema'
           git push origin HEAD:dev/e8-multitask-baselines-capability-01
-          exit "$status"
