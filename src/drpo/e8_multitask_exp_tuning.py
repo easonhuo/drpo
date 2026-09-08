@@ -290,12 +290,7 @@ def _coldstart_method(config: Mapping[str, Any]) -> str:
 
 
 def _task_method_values(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
-    method = _coldstart_method(config)
-    if method == METHOD_ASYMRE:
-        return experiment_config.task_delta_vs(config, task)
-    if method in {METHOD_TOPR, METHOD_DPO}:
-        return experiment_config.task_betas(config, task)
-    return _task_lambdas(config, task)
+    return experiment_config.task_method_values(config, task)
 
 def _task_rhos(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
     if _uses_task_lambdas(config):
@@ -4104,9 +4099,9 @@ def _prepare_cell_output(
     cell: Cell,
     identity: Mapping[str, Any],
     force: bool,
-    mismatch_prefix: str,
-    existing_prefix: str,
-    unsafe_prefix: str,
+    mismatch_prefix: str = "Existing cell identity mismatch",
+    existing_prefix: str = "Cell output exists without reusable manifest",
+    unsafe_prefix: str = "Refusing unsafe cell removal",
 ) -> tuple[Path, Path, dict[str, Any] | None]:
     cell_root = output_root / root_name / cell.key
     manifest_path = cell_root / "cell_manifest.json"
@@ -5200,9 +5195,6 @@ def _train_cell_impl(
         cell=cell,
         identity=identity,
         force=force,
-        mismatch_prefix="Existing cell identity mismatch",
-        existing_prefix="Cell output exists without reusable manifest",
-        unsafe_prefix="Refusing unsafe cell removal",
     )
     if reusable is not None:
         return reusable

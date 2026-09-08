@@ -31,6 +31,33 @@ ASYMRE_PARAMETERIZATION = "asymre_delta_v"
 TOPR_PARAMETERIZATION = "joint_fitted_reference_beta_topr"
 DPO_PARAMETERIZATION = "canonical_dpo_beta"
 
+_COLDSTART_SWEEP_SPECS = {
+    COLDSTART_METHOD_EXPONENTIAL: (
+        ("paper_coefficient_c", "paper_lambda_c1"),
+        "task_lambda",
+        "Unsupported exponential cold-start parameterization",
+        "Cold-start task_lambda must contain the exact nine tasks",
+    ),
+    COLDSTART_METHOD_ASYMRE: (
+        (ASYMRE_PARAMETERIZATION,),
+        "task_delta_v",
+        "AsymRE cold-start requires asymre_delta_v parameterization",
+        "Cold-start task_delta_v must contain the exact nine tasks",
+    ),
+    COLDSTART_METHOD_TOPR: (
+        (TOPR_PARAMETERIZATION,),
+        "task_beta",
+        "Joint Fitted-Reference beta-TOPR requires joint_fitted_reference_beta_topr parameterization",
+        "Cold-start task_beta must contain the exact nine tasks",
+    ),
+    COLDSTART_METHOD_DPO: (
+        (DPO_PARAMETERIZATION,),
+        "task_beta",
+        "Canonical DPO requires canonical_dpo_beta parameterization",
+        "Cold-start DPO task_beta must contain the exact nine tasks",
+    ),
+}
+
 SWEEP_PROFILE_RHO = "nine_task_rho_v1"
 SWEEP_PROFILE_DENSE = "task_lambda_dense_v1"
 SWEEP_PROFILE_COLDSTART = "eight_task_coldstart_lambda_v1"
@@ -204,6 +231,22 @@ def task_betas(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
     if any(value < 0.0 for value in values):
         raise ValueError(f"{task} beta values must be non-negative")
     return values
+
+
+_COLDSTART_VALUE_READERS = {
+    COLDSTART_METHOD_EXPONENTIAL: task_lambdas,
+    COLDSTART_METHOD_ASYMRE: task_delta_vs,
+    COLDSTART_METHOD_TOPR: task_betas,
+    COLDSTART_METHOD_DPO: task_betas,
+}
+
+
+def task_method_values(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
+    method = coldstart_method(config)
+    reader = _COLDSTART_VALUE_READERS.get(method)
+    if reader is None:
+        raise ValueError(f"Unsupported sweep.method for cold-start: {method}")
+    return reader(config, task)
 
 
 def _validate_scalar_types(config: Mapping[str, Any]) -> None:
@@ -605,43 +648,17 @@ def _validate_runtime_authority_consistency(
 def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
     sweep = _mapping(config.get("sweep"), "sweep")
     method = coldstart_method(config)
-    if method == COLDSTART_METHOD_EXPONENTIAL:
-        if sweep.get("parameterization") not in (
-            "paper_coefficient_c",
-            "paper_lambda_c1",
-        ):
-            raise ValueError("Unsupported exponential cold-start parameterization")
-        task_values = _mapping(sweep.get("task_lambda"), "sweep.task_lambda")
-        if set(task_values) != set(tasks):
-            raise ValueError("Cold-start task_lambda must contain the exact nine tasks")
-        read_values = task_lambdas
-    elif method == COLDSTART_METHOD_ASYMRE:
-        if sweep.get("parameterization") != ASYMRE_PARAMETERIZATION:
-            raise ValueError("AsymRE cold-start requires asymre_delta_v parameterization")
-        task_values = _mapping(sweep.get("task_delta_v"), "sweep.task_delta_v")
-        if set(task_values) != set(tasks):
-            raise ValueError("Cold-start task_delta_v must contain the exact nine tasks")
-        read_values = task_delta_vs
-    elif method == COLDSTART_METHOD_TOPR:
-        if sweep.get("parameterization") != TOPR_PARAMETERIZATION:
-            raise ValueError(
-                "Joint Fitted-Reference beta-TOPR requires joint_fitted_reference_beta_topr parameterization"
-            )
-        task_values = _mapping(sweep.get("task_beta"), "sweep.task_beta")
-        if set(task_values) != set(tasks):
-            raise ValueError("Cold-start task_beta must contain the exact nine tasks")
-        read_values = task_betas
-    elif method == COLDSTART_METHOD_DPO:
-        if sweep.get("parameterization") != DPO_PARAMETERIZATION:
-            raise ValueError("Canonical DPO requires canonical_dpo_beta parameterization")
-        task_values = _mapping(sweep.get("task_beta"), "sweep.task_beta")
-        if set(task_values) != set(tasks):
-            raise ValueError("Cold-start DPO task_beta must contain the exact nine tasks")
-        read_values = task_betas
-    else:
+    spec = _COLDSTART_SWEEP_SPECS.get(method)
+    if spec is None:
         raise ValueError(f"Unsupported sweep.method for cold-start: {method}")
+    parameterizations, grid_field, parameterization_error, grid_error = spec
+    if sweep.get("parameterization") not in parameterizations:
+        raise ValueError(parameterization_error)
+    task_values = _mapping(sweep.get(grid_field), f"sweep.{grid_field}")
+    if set(task_values) != set(tasks):
+        raise ValueError(grid_error)
 
-    countdown_values = read_values(config, "countdown")
+    countdown_values = task_method_values(config, "countdown")
     if len(set(countdown_values)) != len(countdown_values):
         raise ValueError("Countdown parameter grid contains duplicates")
     if method == COLDSTART_METHOD_DPO and countdown_values:
@@ -704,7 +721,7 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
 
     transfer_cell_count = 0
     for task in transfer_tasks:
-        values = read_values(config, task)
+        values = task_method_values(config, task)
         if len(set(values)) != len(values):
             raise ValueError(f"{task} parameter grid contains duplicates")
         if method == COLDSTART_METHOD_DPO and any(value <= 0.0 for value in values):
@@ -718,7 +735,7 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
         dpo = _mapping(config.get("dpo"), "dpo")
         liveness_task = str(dpo["liveness_task"])
         liveness_beta = float(dpo["liveness_beta"])
-        liveness_values = read_values(config, liveness_task)
+        liveness_values = task_method_values(config, liveness_task)
         if not any(
             math.isclose(liveness_beta, value, rel_tol=0.0, abs_tol=1.0e-12)
             for value in liveness_values
