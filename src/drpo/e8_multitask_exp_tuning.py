@@ -1,9 +1,10 @@
-"""Paper-aligned exponential-taper response tuning on frozen multitask banks.
+"""Paper-aligned multitask cold-start baseline orchestration on frozen banks.
 
 The module keeps the P0 occurrence/gradient diagnostic separate from downstream
-method tuning.  The cold-start profile dispatches every scientific update to
-the byte-locked paper Countdown trainer.  Task adapters may change only data
-schema, verifier, and explicitly whitelisted length/evaluation-batch fields.
+method tuning.  EXP, AsymRE, and TOPR dispatch to the byte-locked paper trainers;
+DPO ports the audited PR #268 semantics because no canonical DPO runtime is merged
+on main.  Task adapters may change only the explicitly governed task-interface
+fields.
 """
 
 from __future__ import annotations
@@ -173,6 +174,7 @@ class Cell:
     lambda_value: float | None = None
     delta_v: float | None = None
     beta: float | None = None
+    dpo_initialization: str | None = None
 
     @property
     def key(self) -> str:
@@ -193,8 +195,13 @@ class Cell:
         if self.method == METHOD_DPO:
             if self.beta is None:
                 raise AssertionError("Canonical DPO cell requires beta")
+            if self.dpo_initialization is None:
+                raise AssertionError("Canonical DPO cell requires initialization identity")
             tag = f"{self.beta:.12g}".replace("-", "m").replace(".", "p")
-            return f"{self.task}__canonical_dpo_beta{tag}__seed{self.seed}"
+            return (
+                f"{self.task}__canonical_dpo_beta{tag}__"
+                f"init_{self.dpo_initialization}__seed{self.seed}"
+            )
         if self.lambda_value is not None:
             tag = f"{self.lambda_value:.12g}".replace(".", "p")
             return f"{self.task}__exp_lambda{tag}__seed{self.seed}"
@@ -594,11 +601,19 @@ def _coldstart_method_cell(
     value: float,
     *,
     lambda_only: bool,
+    dpo_initialization: str | None = None,
 ) -> Cell:
     if method == METHOD_ASYMRE:
         return Cell(task, method, None, seed, stage, delta_v=value)
-    if method in {METHOD_TOPR, METHOD_DPO}:
+    if method == METHOD_TOPR:
         return Cell(task, method, None, seed, stage, beta=value)
+    if method == METHOD_DPO:
+        if dpo_initialization is None:
+            raise ValueError("DPO cell construction requires initialization identity")
+        return Cell(
+            task, method, None, seed, stage, beta=value,
+            dpo_initialization=dpo_initialization,
+        )
     if method == METHOD_EXPONENTIAL:
         rho = None if lambda_only else math.exp(-value)
         return Cell(task, method, rho, seed, stage, value)
@@ -632,6 +647,11 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
             method == METHOD_EXPONENTIAL
             and config["sweep"]["parameterization"] == "paper_lambda_c1"
         )
+        dpo_initialization = (
+            str(config["dpo"]["initialization_mode"])
+            if method == METHOD_DPO
+            else None
+        )
         countdown_values = _task_method_values(config, "countdown")
         countdown_include_positive_only = bool(
             config["sweep"].get("countdown_include_positive_only", True)
@@ -663,6 +683,7 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
                     "countdown_sentinel",
                     value,
                     lambda_only=lambda_only,
+                    dpo_initialization=dpo_initialization,
                 )
                 for value in countdown_values
             )
@@ -693,6 +714,7 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
                     "task_transfer",
                     value,
                     lambda_only=lambda_only,
+                    dpo_initialization=dpo_initialization,
                 )
                 for value in values
             )
@@ -774,6 +796,7 @@ def write_plan(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
                     "method": cell.method,
                     "delta_v": cell.delta_v,
                     "beta": cell.beta,
+                    "dpo_initialization": cell.dpo_initialization,
                     "rho": cell.rho,
                     "lambda": (
                         cell.lambda_value
@@ -1050,6 +1073,13 @@ def _canonical_asymre_grid_path() -> Path:
     path = (_repo_root() / CANONICAL_ASYMRE_GRID).resolve()
     if not path.is_file():
         raise FileNotFoundError(f"Canonical AsymRE grid is missing: {path}")
+    return path
+
+
+def _canonical_topr_grid_path() -> Path:
+    path = (_repo_root() / CANONICAL_TOPR_GRID).resolve()
+    if not path.is_file():
+        raise FileNotFoundError(f"Canonical TOPR grid is missing: {path}")
     return path
 
 def _leaf_values(value: Any, prefix: str = "") -> dict[str, Any]:
@@ -3026,7 +3056,7 @@ def _paper_grid_for_cell(record: Mapping[str, Any], cell: Cell) -> Path:
     if cell.method == METHOD_ASYMRE:
         return _canonical_asymre_grid_path()
     if cell.method == METHOD_TOPR:
-        return CANONICAL_TOPR_GRID.resolve()
+        return _canonical_topr_grid_path()
     if cell.task != "countdown":
         # Transfer coefficients are passed directly to the locked trainer.
         return Path(str(record["round1_grid"]))
@@ -3226,11 +3256,7 @@ def cmd_calibrate(
     tasks: Sequence[str] | None,
     force: bool,
 ) -> dict[str, Any]:
-    if (
-        _is_coldstart(config)
-        and _coldstart_method(config) != METHOD_DPO
-        and not _is_engineering_self_test(config)
-    ):
+    if _is_coldstart(config) and not _is_engineering_self_test(config):
         _derive_reference_remoteness_banks(
             config,
             output_root,
@@ -3330,10 +3356,7 @@ def cmd_calibrate_task(
         raise RuntimeError("calibrate-task is available only for canonical cold-start")
     if task not in config["suite"]["tasks"]:
         raise ValueError(f"Unknown calibration task: {task}")
-    if (
-        _coldstart_method(config) != METHOD_DPO
-        and not _is_engineering_self_test(config)
-    ):
+    if not _is_engineering_self_test(config):
         _derive_reference_remoteness_banks(
             config,
             output_root,
@@ -3703,6 +3726,7 @@ def _cell_identity(
             "method": cell.method,
             "delta_v": cell.delta_v,
             "beta": cell.beta,
+            "dpo_initialization": cell.dpo_initialization,
             "rho": cell.rho,
             "lambda": (
                 cell.lambda_value
@@ -4076,6 +4100,10 @@ def _train_canonical_dpo_transfer_cell(
             "canonical_dispatch": "e8_multitask_exp_tuning._train_canonical_dpo_transfer_cell",
             "dpo_semantics_source": "historical_PR_268_protected_implementation_cc0ead2be00c89a3c35296b7adc1ddeae8d14759",
             "dpo_initialization_mode": str(config["dpo"]["initialization_mode"]),
+            "reference_remoteness_bank_identity_hash": record.get(
+                "reference_remoteness_bank_identity_hash"
+            ),
+            "canonical_train_sha256": record["train_sha256"],
             "shared_sft_adapter_identity": (
                 None
                 if shared_adapter is None
@@ -4222,11 +4250,16 @@ def _train_canonical_dpo_transfer_cell(
         evaluation_path = cell_root / "evaluation_metrics.jsonl"
         best_dir = cell_root / "supplementary_best_adapter"
         terminal_dir = cell_root / "terminal_adapter"
+        last_finite_dir = cell_root / "last_finite_adapter"
         metric_rows: list[dict[str, Any]] = []
         best_pass8 = -math.inf
         optimizer_update_norms: list[float] = []
         initial_pair_margin_max_abs: float | None = None
         tolerance = float(config["dpo"]["initial_pair_margin_max_abs_tolerance"])
+        numerical_failure: str | None = None
+        stop_reason = "max_steps"
+        terminal_step = 0
+        last_finite_step = 0
 
         def evaluate(step: int) -> None:
             nonlocal best_pass8
@@ -4277,6 +4310,7 @@ def _train_canonical_dpo_transfer_cell(
             pair_margin_total = 0.0
             preference_accuracy_total = 0.0
             saturation_total = 0.0
+            abort_update = False
             for accumulation_index in range(accumulation):
                 try:
                     packed = next(iterator)
@@ -4319,9 +4353,10 @@ def _train_canonical_dpo_transfer_cell(
                 if update == 1 and accumulation_index == 0:
                     initial_pair_margin_max_abs = float(pair_margin.detach().abs().max())
                     if initial_pair_margin_max_abs > tolerance:
-                        raise RuntimeError(
-                            "DPO initial policy/reference pair margin exceeds exact-copy tolerance"
-                        )
+                        numerical_failure = "initial_policy_reference_pair_margin_mismatch"
+                        stop_reason = numerical_failure
+                        abort_update = True
+                        break
                 logits = beta * pair_margin
                 pair_losses = F.softplus(-logits)
                 loss = _dpo_prompt_balanced_mean(
@@ -4331,7 +4366,10 @@ def _train_canonical_dpo_transfer_cell(
                     paper_common=paper_common,
                 )
                 if not bool(torch.isfinite(loss)):
-                    raise RuntimeError(f"{cell.key} non-finite DPO loss at update {update}")
+                    numerical_failure = f"nonfinite_loss_at_step_{update}"
+                    stop_reason = numerical_failure
+                    abort_update = True
+                    break
                 (loss / accumulation).backward()
                 loss_total += float(loss.detach().cpu())
                 pair_margin_total += float(pair_margin.detach().mean().cpu())
@@ -4340,12 +4378,17 @@ def _train_canonical_dpo_transfer_cell(
                 )
                 saturation_total += float((logits.detach().abs() >= 10.0).float().mean().cpu())
 
+            if abort_update:
+                break
+
             gradient_norm = torch.nn.utils.clip_grad_norm_(
                 policy_parameters,
                 float(effective["training"]["max_grad_norm"]),
             )
             if not bool(torch.isfinite(gradient_norm)):
-                raise RuntimeError(f"{cell.key} non-finite DPO gradient at update {update}")
+                numerical_failure = f"nonfinite_gradient_at_step_{update}"
+                stop_reason = numerical_failure
+                break
             sample_update_norm = update % 10 == 0 or update == updates
             before = (
                 [parameter.detach().float().cpu().clone() for parameter in policy_parameters]
@@ -4353,9 +4396,13 @@ def _train_canonical_dpo_transfer_cell(
                 else []
             )
             if not arena.optimizer_step_with_last_finite_guard(optimizer, policy_parameters):
-                raise RuntimeError(f"{cell.key} non-finite DPO parameters at update {update}")
+                numerical_failure = f"nonfinite_parameters_at_step_{update}"
+                stop_reason = numerical_failure
+                break
             scheduler.step()
             optimizer.zero_grad(set_to_none=True)
+            terminal_step = update
+            last_finite_step = update
             update_norm = (
                 scan_trainer._parameter_update_norm(before, policy_parameters)
                 if sample_update_norm
@@ -4389,22 +4436,36 @@ def _train_canonical_dpo_transfer_cell(
         reference_terminal_sha256 = _parameter_sequence_sha256(reference_parameters)
         if reference_terminal_sha256 != reference_initial_sha256:
             raise RuntimeError("Frozen DPO reference changed during policy optimization")
-        if terminal_policy_sha256 == policy_initial_sha256:
-            raise RuntimeError("DPO policy parameters did not change")
-        model.save_pretrained(terminal_dir, safe_serialization=True)
-        tokenizer.save_pretrained(terminal_dir)
-        terminal_identity = model_identity(base_model_path, str(terminal_dir))["adapter"]
+        policy_parameters_changed = terminal_policy_sha256 != policy_initial_sha256
+        final_adapter_dir = last_finite_dir if numerical_failure else terminal_dir
+        model.save_pretrained(final_adapter_dir, safe_serialization=True)
+        tokenizer.save_pretrained(final_adapter_dir)
+        terminal_identity = model_identity(base_model_path, str(final_adapter_dir))["adapter"]
+        if numerical_failure is not None:
+            append_jsonl(
+                training_path,
+                {
+                    "update": terminal_step,
+                    "numerical_failure": numerical_failure,
+                    "stop_reason": stop_reason,
+                    "last_finite_step": last_finite_step,
+                    "reference_role": "exact_frozen_initial_policy",
+                    "test_data_used": False,
+                },
+            )
 
         if engineering_liveness:
             summary: dict[str, Any] = {
                 "engineering_liveness": True,
-                "optimizer_updates": updates,
-                "evaluation_status": "not_applicable",
             }
             scientific_status = "not_run"
         else:
             evaluations = read_jsonl(evaluation_path)
-            summary = _summarize_evaluations(evaluations, config)
+            summary = (
+                _summarize_evaluations(evaluations, config)
+                if numerical_failure is None
+                else {}
+            )
             scientific_status = "pilot"
         result = {
             **identity,
@@ -4429,7 +4490,11 @@ def _train_canonical_dpo_transfer_cell(
             "reference_terminal_state_sha256": reference_terminal_sha256,
             "terminal_trainable_state_sha256": terminal_policy_sha256,
             "initialization_state_sha256": policy_initial_sha256,
-            "terminal_adapter": str(terminal_dir.resolve()),
+            "policy_parameters_changed": policy_parameters_changed,
+            "terminal_checkpoint_kind": (
+                "last_finite" if numerical_failure else "terminal"
+            ),
+            "terminal_adapter": str(final_adapter_dir.resolve()),
             "terminal_adapter_identity": terminal_identity,
             "best_adapter": (
                 str(best_dir.resolve()) if best_dir.is_dir() else str(terminal_dir.resolve())
@@ -4445,18 +4510,26 @@ def _train_canonical_dpo_transfer_cell(
                 if optimizer_update_norms
                 else 0.0
             ),
-            "optimizer_updates": updates,
-            "nan_inf_failure": False,
+            "optimizer_updates": terminal_step,
+            "optimizer_updates_requested": updates,
+            "last_finite_step": last_finite_step,
+            "numerical_failure": numerical_failure,
+            "stop_reason": stop_reason,
+            "nan_inf_failure": bool(
+                numerical_failure is not None and numerical_failure.startswith("nonfinite_")
+            ),
+            "evaluation_status": (
+                "complete" if numerical_failure is None else "incomplete"
+            ),
             "test_partition_accessed": False,
-            "complete": True,
+            "complete": numerical_failure is None,
             "scientific_status": scientific_status,
         }
-        if not engineering_liveness:
+        if not engineering_liveness and numerical_failure is None:
             result.update(
                 {
                     "best_step": summary["supplementary_best_step"],
-                    "terminal_step": updates,
-                    "stop_reason": "max_steps",
+                    "terminal_step": terminal_step,
                     "validation_best_pass8": summary["supplementary_best_pass8"],
                     "validation_terminal_pass8": summary["validation_terminal_pass8"],
                     "validation_best_greedy": summary["supplementary_best_greedy"],
@@ -4509,6 +4582,7 @@ def _cmd_dpo_liveness(
         None,
         None,
         beta,
+        str(config["dpo"]["initialization_mode"]),
     )
     result = train_cell(
         cell,
@@ -4614,7 +4688,7 @@ def _train_canonical_cold_cell(
     if cell.method == METHOD_ASYMRE:
         grid_source_path = _canonical_asymre_grid_path()
     elif cell.method == METHOD_TOPR:
-        grid_source_path = CANONICAL_TOPR_GRID.resolve()
+        grid_source_path = _canonical_topr_grid_path()
     else:
         grid_source_name = (
             "round1_grid"
@@ -4652,7 +4726,11 @@ def _train_canonical_cold_cell(
             "paper_formula": (
                 "delegated_to_existing_canonical_asymre"
                 if cell.method == METHOD_ASYMRE
-                else "alpha*exp(-c*(current_sequence_surprisal/2))"
+                else (
+                    "delegated_to_existing_joint_fitted_reference_beta_topr"
+                    if cell.method == METHOD_TOPR
+                    else "alpha*exp(-c*(current_sequence_surprisal/2))"
+                )
             ),
             "paper_grid_config": str(grid_path.resolve()),
             "paper_grid_config_sha256": sha256_file(grid_path),
@@ -5416,7 +5494,7 @@ def _cmd_canonical_cold_liveness(
     if method == METHOD_ASYMRE:
         grid_path = _canonical_asymre_grid_path()
     elif method == METHOD_TOPR:
-        grid_path = CANONICAL_TOPR_GRID.resolve()
+        grid_path = _canonical_topr_grid_path()
     else:
         grid_path = Path(str(record["round1_grid"]))
     modules = _activate_paper_grid_modules(modules, grid_path)
@@ -6950,6 +7028,7 @@ def _coldstart_completed_task_rows(
                 "method": cell.method,
                 "delta_v": cell.delta_v,
                 "beta": cell.beta,
+                "dpo_initialization": cell.dpo_initialization,
                 "rho": cell.rho,
                 "lambda": (
                     cell.lambda_value
@@ -7016,6 +7095,8 @@ def _write_coldstart_task_result(
             "task": row["task"],
             "method": row["method"],
             "delta_v": row.get("delta_v"),
+            "beta": row.get("beta"),
+            "dpo_initialization": row.get("dpo_initialization"),
             "lambda": row["lambda"],
             "rho": row["rho"],
             "seed": row["seed"],
@@ -7272,7 +7353,7 @@ def _aggregate_coldstart_unranked(
             "canonical_asymre_grid_sha256": sha256_file(grid),
         }
     elif method == METHOD_TOPR:
-        grid = CANONICAL_TOPR_GRID.resolve()
+        grid = _canonical_topr_grid_path()
         method_metadata = {
             "canonical_topr_grid": str(grid),
             "canonical_topr_grid_sha256": sha256_file(grid),
@@ -7291,7 +7372,8 @@ def _aggregate_coldstart_unranked(
     run_id = str(provenance.get("run_id", output_root.name))
     source_commit = str(provenance.get("source_commit", "unrecorded"))
     direct_fields = (
-        "task", "method", "seed", "stage", "late_window_pass8_mean",
+        "task", "method", "dpo_initialization", "seed", "stage",
+        "late_window_pass8_mean",
         "late_window_greedy_mean", "terminal_pass8", "terminal_greedy",
         "best_greedy_valid_rate", "terminal_greedy_valid_rate", "best_step",
         "terminal_step", "stop_reason", "nan_inf_failure",
@@ -7636,6 +7718,7 @@ def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any
             "method": cell.method,
             "delta_v": cell.delta_v,
             "beta": cell.beta,
+            "dpo_initialization": cell.dpo_initialization,
             "rho": cell.rho,
             "lambda": (
                 cell.lambda_value

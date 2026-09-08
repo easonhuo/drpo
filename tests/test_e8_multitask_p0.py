@@ -3402,3 +3402,77 @@ def test_dpo_train_cell_dispatch_supports_two_update_liveness() -> None:
     assert "updates_override=2" in liveness
     assert "fresh_process_reload_passed" in liveness
     assert "optimizer_update_norm" in liveness
+
+
+
+def test_dpo_identity_plan_and_key_expose_initialization_mode(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    cold = _dpo_capability_test_config(shared_sft=False)
+    warm = _dpo_capability_test_config(shared_sft=True)
+    cold_cells = exp_tuning.build_cells(cold)
+    warm_cells = exp_tuning.build_cells(warm)
+    assert {cell.dpo_initialization for cell in cold_cells} == {"base_model_fresh_lora"}
+    assert {cell.dpo_initialization for cell in warm_cells} == {"shared_sft_adapter"}
+    cold_by_tuple = {(cell.task, cell.beta, cell.seed): cell for cell in cold_cells}
+    warm_by_tuple = {(cell.task, cell.beta, cell.seed): cell for cell in warm_cells}
+    assert set(cold_by_tuple) == set(warm_by_tuple)
+    assert all(cold_by_tuple[key].key != warm_by_tuple[key].key for key in cold_by_tuple)
+    assert all("init_base_model_fresh_lora" in cell.key for cell in cold_cells)
+    assert all("init_shared_sft_adapter" in cell.key for cell in warm_cells)
+
+    cold_plan = exp_tuning.write_plan(cold, tmp_path / "cold")
+    warm_plan = exp_tuning.write_plan(warm, tmp_path / "warm")
+    assert {row["dpo_initialization"] for row in cold_plan["rows"]} == {
+        "base_model_fresh_lora"
+    }
+    assert {row["dpo_initialization"] for row in warm_plan["rows"]} == {
+        "shared_sft_adapter"
+    }
+
+
+def test_dpo_uses_same_reference_remoteness_bank_derivation_as_other_coldstart_methods() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    calibrate = inspect.getsource(exp_tuning.cmd_calibrate)
+    calibrate_task = inspect.getsource(exp_tuning.cmd_calibrate_task)
+    assert "_derive_reference_remoteness_banks" in calibrate
+    assert "_derive_reference_remoteness_banks" in calibrate_task
+    assert "_coldstart_method(config) != METHOD_DPO" not in calibrate
+    assert "_coldstart_method(config) != METHOD_DPO" not in calibrate_task
+    dpo = inspect.getsource(exp_tuning._train_canonical_dpo_transfer_cell)
+    assert '"reference_remoteness_bank_identity_hash"' in dpo
+    assert '"canonical_train_sha256"' in dpo
+
+
+def test_topr_dispatch_records_topr_formula_identity_not_exp_formula() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+    assert "delegated_to_existing_joint_fitted_reference_beta_topr" in source
+    assert "if cell.method == METHOD_TOPR" in source
+    assert "_canonical_topr_grid_path()" in source
+
+
+def test_dpo_failure_path_preserves_last_finite_without_extra_policy_change_gate() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning._train_canonical_dpo_transfer_cell)
+    assert 'last_finite_dir = cell_root / "last_finite_adapter"' in source
+    assert 'numerical_failure = "initial_policy_reference_pair_margin_mismatch"' in source
+    assert 'numerical_failure = f"nonfinite_loss_at_step_{update}"' in source
+    assert 'numerical_failure = f"nonfinite_gradient_at_step_{update}"' in source
+    assert 'numerical_failure = f"nonfinite_parameters_at_step_{update}"' in source
+    assert '"terminal_checkpoint_kind"' in source
+    assert '"nan_inf_failure"' in source
+    assert '"complete": numerical_failure is None' in source
+    assert "DPO policy parameters did not change" not in source
+    liveness = inspect.getsource(exp_tuning._cmd_dpo_liveness)
+    assert "optimizer_update_norm" in liveness
+    assert "<= 0.0" in liveness
