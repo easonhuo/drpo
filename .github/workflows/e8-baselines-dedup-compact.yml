@@ -1,0 +1,76 @@
+name: E8 baseline compact dedup
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-baselines-capability-01
+    paths:
+      - .github/workflows/e8-baselines-dedup-compact.yml
+
+permissions:
+  contents: write
+
+jobs:
+  compact-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-baselines-capability-01
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compact the method schema without changing validation behavior
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          config_path = Path('src/drpo/e8_experiment_config.py')
+          runner_path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          config = config_path.read_text(encoding='utf-8')
+          runner = runner_path.read_text(encoding='utf-8')
+
+          old_specs = '''_COLDSTART_SWEEP_SPECS = {\n    COLDSTART_METHOD_EXPONENTIAL: (\n        ("paper_coefficient_c", "paper_lambda_c1"),\n        "task_lambda",\n        "Unsupported exponential cold-start parameterization",\n        "Cold-start task_lambda must contain the exact nine tasks",\n    ),\n    COLDSTART_METHOD_ASYMRE: (\n        (ASYMRE_PARAMETERIZATION,),\n        "task_delta_v",\n        "AsymRE cold-start requires asymre_delta_v parameterization",\n        "Cold-start task_delta_v must contain the exact nine tasks",\n    ),\n    COLDSTART_METHOD_TOPR: (\n        (TOPR_PARAMETERIZATION,),\n        "task_beta",\n        "Joint Fitted-Reference beta-TOPR requires joint_fitted_reference_beta_topr parameterization",\n        "Cold-start task_beta must contain the exact nine tasks",\n    ),\n    COLDSTART_METHOD_DPO: (\n        (DPO_PARAMETERIZATION,),\n        "task_beta",\n        "Canonical DPO requires canonical_dpo_beta parameterization",\n        "Cold-start DPO task_beta must contain the exact nine tasks",\n    ),\n}\n'''
+          new_specs = '''_COLDSTART_SWEEP_SPECS = {\n    COLDSTART_METHOD_EXPONENTIAL: (\n        ("paper_coefficient_c", "paper_lambda_c1"), "task_lambda",\n        "Unsupported exponential cold-start parameterization", "Cold-start task_lambda must contain the exact nine tasks",\n    ),\n    COLDSTART_METHOD_ASYMRE: (\n        (ASYMRE_PARAMETERIZATION,), "task_delta_v",\n        "AsymRE cold-start requires asymre_delta_v parameterization", "Cold-start task_delta_v must contain the exact nine tasks",\n    ),\n    COLDSTART_METHOD_TOPR: (\n        (TOPR_PARAMETERIZATION,), "task_beta",\n        "Joint Fitted-Reference beta-TOPR requires joint_fitted_reference_beta_topr parameterization", "Cold-start task_beta must contain the exact nine tasks",\n    ),\n    COLDSTART_METHOD_DPO: (\n        (DPO_PARAMETERIZATION,), "task_beta",\n        "Canonical DPO requires canonical_dpo_beta parameterization", "Cold-start DPO task_beta must contain the exact nine tasks",\n    ),\n}\n'''
+          assert config.count(old_specs) == 1
+          config = config.replace(old_specs, new_specs, 1)
+
+          old_readers = '''_COLDSTART_VALUE_READERS = {\n    COLDSTART_METHOD_EXPONENTIAL: task_lambdas,\n    COLDSTART_METHOD_ASYMRE: task_delta_vs,\n    COLDSTART_METHOD_TOPR: task_betas,\n    COLDSTART_METHOD_DPO: task_betas,\n}\n\n\ndef task_method_values(config: Mapping[str, Any], task: str) -> tuple[float, ...]:\n    method = coldstart_method(config)\n    reader = _COLDSTART_VALUE_READERS.get(method)\n    if reader is None:\n        raise ValueError(f"Unsupported sweep.method for cold-start: {method}")\n    return reader(config, task)\n'''
+          new_readers = '''def task_method_values(config: Mapping[str, Any], task: str) -> tuple[float, ...]:\n    method = coldstart_method(config)\n    spec = _COLDSTART_SWEEP_SPECS.get(method)\n    if spec is None:\n        raise ValueError(f"Unsupported sweep.method for cold-start: {method}")\n    grid_field = spec[1]\n    if grid_field == "task_lambda":\n        return task_lambdas(config, task)\n    if grid_field == "task_delta_v":\n        return task_delta_vs(config, task)\n    return task_betas(config, task)\n'''
+          assert config.count(old_readers) == 1
+          config = config.replace(old_readers, new_readers, 1)
+
+          old_wrapper = '''def _task_method_values(config: Mapping[str, Any], task: str) -> tuple[float, ...]:\n    return experiment_config.task_method_values(config, task)\n\n'''
+          assert runner.count(old_wrapper) == 1
+          runner = runner.replace(old_wrapper, '', 1)
+          assert runner.count('_task_method_values(config, ') == 3
+          runner = runner.replace('_task_method_values(config, ', 'experiment_config.task_method_values(config, ')
+
+          config_path.write_text(config, encoding='utf-8')
+          runner_path.write_text(runner, encoding='utf-8')
+          PY
+
+      - name: Install validation dependencies
+        run: python -m pip install -e . pytest pyyaml ruff
+
+      - name: Validate
+        shell: bash
+        run: |
+          python -m py_compile src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          python -m ruff check src/drpo/e8_experiment_config.py tests/test_e8_multitask_p0.py
+          python -m ruff check src/drpo/e8_multitask_exp_tuning.py --ignore BLE001,B023
+          git diff --check
+          git diff --stat -- src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py
+
+      - name: Commit validated refinement
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py
+          git commit -m 'refactor: compact E8 baseline method schema'
+          git push origin HEAD:dev/e8-multitask-baselines-capability-01
