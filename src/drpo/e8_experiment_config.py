@@ -33,28 +33,20 @@ DPO_PARAMETERIZATION = "canonical_dpo_beta"
 
 _COLDSTART_SWEEP_SPECS = {
     COLDSTART_METHOD_EXPONENTIAL: (
-        ("paper_coefficient_c", "paper_lambda_c1"),
-        "task_lambda",
-        "Unsupported exponential cold-start parameterization",
-        "Cold-start task_lambda must contain the exact nine tasks",
+        ("paper_coefficient_c", "paper_lambda_c1"), "task_lambda",
+        "Unsupported exponential cold-start parameterization", "Cold-start task_lambda must contain the exact nine tasks",
     ),
     COLDSTART_METHOD_ASYMRE: (
-        (ASYMRE_PARAMETERIZATION,),
-        "task_delta_v",
-        "AsymRE cold-start requires asymre_delta_v parameterization",
-        "Cold-start task_delta_v must contain the exact nine tasks",
+        (ASYMRE_PARAMETERIZATION,), "task_delta_v",
+        "AsymRE cold-start requires asymre_delta_v parameterization", "Cold-start task_delta_v must contain the exact nine tasks",
     ),
     COLDSTART_METHOD_TOPR: (
-        (TOPR_PARAMETERIZATION,),
-        "task_beta",
-        "Joint Fitted-Reference beta-TOPR requires joint_fitted_reference_beta_topr parameterization",
-        "Cold-start task_beta must contain the exact nine tasks",
+        (TOPR_PARAMETERIZATION,), "task_beta",
+        "Joint Fitted-Reference beta-TOPR requires joint_fitted_reference_beta_topr parameterization", "Cold-start task_beta must contain the exact nine tasks",
     ),
     COLDSTART_METHOD_DPO: (
-        (DPO_PARAMETERIZATION,),
-        "task_beta",
-        "Canonical DPO requires canonical_dpo_beta parameterization",
-        "Cold-start DPO task_beta must contain the exact nine tasks",
+        (DPO_PARAMETERIZATION,), "task_beta",
+        "Canonical DPO requires canonical_dpo_beta parameterization", "Cold-start DPO task_beta must contain the exact nine tasks",
     ),
 }
 
@@ -233,20 +225,17 @@ def task_betas(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
     return values
 
 
-_COLDSTART_VALUE_READERS = {
-    COLDSTART_METHOD_EXPONENTIAL: task_lambdas,
-    COLDSTART_METHOD_ASYMRE: task_delta_vs,
-    COLDSTART_METHOD_TOPR: task_betas,
-    COLDSTART_METHOD_DPO: task_betas,
-}
-
-
 def task_method_values(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
     method = coldstart_method(config)
-    reader = _COLDSTART_VALUE_READERS.get(method)
-    if reader is None:
+    spec = _COLDSTART_SWEEP_SPECS.get(method)
+    if spec is None:
         raise ValueError(f"Unsupported sweep.method for cold-start: {method}")
-    return reader(config, task)
+    grid_field = spec[1]
+    if grid_field == "task_lambda":
+        return task_lambdas(config, task)
+    if grid_field == "task_delta_v":
+        return task_delta_vs(config, task)
+    return task_betas(config, task)
 
 
 def _validate_scalar_types(config: Mapping[str, Any]) -> None:

@@ -289,9 +289,6 @@ def _coldstart_method(config: Mapping[str, Any]) -> str:
     return experiment_config.coldstart_method(config)
 
 
-def _task_method_values(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
-    return experiment_config.task_method_values(config, task)
-
 def _task_rhos(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
     if _uses_task_lambdas(config):
         return tuple(math.exp(-value) for value in _task_lambdas(config, task))
@@ -647,7 +644,7 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
             if method == METHOD_DPO
             else None
         )
-        countdown_values = _task_method_values(config, "countdown")
+        countdown_values = experiment_config.task_method_values(config, "countdown")
         countdown_include_positive_only = bool(
             config["sweep"].get("countdown_include_positive_only", True)
         )
@@ -690,7 +687,7 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
         for task in tasks:
             if task == "countdown":
                 continue
-            values = _task_method_values(config, task)
+            values = experiment_config.task_method_values(config, task)
             if not values:
                 continue
             cells.extend(
@@ -4764,7 +4761,7 @@ def _cmd_dpo_liveness(
     if task != str(config["dpo"]["liveness_task"]):
         raise RuntimeError("DPO liveness must use the configured transfer-task anchor")
     beta = float(config["dpo"]["liveness_beta"])
-    values = _task_method_values(config, task)
+    values = experiment_config.task_method_values(config, task)
     if beta not in values:
         raise RuntimeError("DPO liveness_beta must be one configured beta point")
     cell = _coldstart_method_cell(
