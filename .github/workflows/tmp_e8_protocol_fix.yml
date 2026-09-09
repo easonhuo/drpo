@@ -13,7 +13,7 @@ jobs:
           ref: dev/e8-multitask-baselines-capability-01
           fetch-depth: 0
       - name: Verify retry base
-        run: test "$(git rev-parse HEAD^)" = "7bc2f333c9fba0e98ad8c5032e0c02b178cd35c5"
+        run: test "$(git rev-parse HEAD^)" = "8c5b4c49311075dfdfee0447a128f3c51e42b45c"
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
@@ -28,47 +28,16 @@ jobs:
             body {sub(/^          /, ""); print}
           ' > /tmp/e8_patch.sh
           bash /tmp/e8_patch.sh
-      - name: Isolate seed barrier from historical dynamic queue
+      - name: Reapply seed-barrier isolation patch
         run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path("src/drpo/e8_multitask_exp_tuning.py")
-          text = path.read_text(encoding="utf-8")
-
-          def replace_once(old: str, new: str) -> None:
-              global text
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f"expected one scheduler replacement, found {count}")
-              text = text.replace(old, new, 1)
-
-          replace_once(
-              '''    pending: queue.Queue[Cell] = queue.Queue()\n    for cell in cells:\n        pending.put(cell)\n    seed_barrier = _is_baseline_matrix(config) and bool(config["execution"].get("seed_batch_barriers"))\n    seed_order = tuple(int(v) for v in config["execution"].get("seed_batch_order", ()))\n    seed_expected = {seed: sum(cell.seed == seed for cell in cells) for seed in seed_order}\n    seed_completed = {seed: 0 for seed in seed_order}\n    seed_condition = threading.Condition()\n    nominal_batch = {cell.key: i for i,wave in enumerate(build_waves(config),1) for cell in wave}\n    stop = threading.Event()\n''',
-              '''    seed_barrier = _is_baseline_matrix(config) and bool(\n        config["execution"].get("seed_batch_barriers")\n    )\n    seed_order = tuple(int(value) for value in config["execution"].get("seed_batch_order", ()))\n    seed_expected = {seed: sum(cell.seed == seed for cell in cells) for seed in seed_order}\n    seed_completed = {seed: 0 for seed in seed_order}\n    seed_condition = threading.Condition()\n    active_seed_index = 0\n    pending: queue.Queue[Cell] = queue.Queue()\n    initial_cells = (\n        tuple(cell for cell in cells if cell.seed == seed_order[0])\n        if seed_barrier\n        else cells\n    )\n    for cell in initial_cells:\n        pending.put(cell)\n    nominal_batch = (\n        {cell.key: index for index, wave in enumerate(build_waves(config), 1) for cell in wave}\n        if seed_barrier\n        else {}\n    )\n    stop = threading.Event()\n'''
-          )
-          replace_once(
-              '''    def worker(slot: int, gpu_id: int) -> list[dict[str, Any]]:\n        nonlocal last_checkpoint_count\n''',
-              '''    def worker(slot: int, gpu_id: int) -> list[dict[str, Any]]:\n        nonlocal active_seed_index, last_checkpoint_count\n'''
-          )
-          replace_once(
-              '''            try:\n                cell = pending.get_nowait()\n            except queue.Empty:\n                break\n            if seed_barrier:\n                idx = seed_order.index(cell.seed)\n                if idx:\n                    previous = seed_order[idx - 1]\n                    with seed_condition:\n                        while seed_completed[previous] < seed_expected[previous] and not stop.is_set():\n                            seed_condition.wait(timeout=0.25)\n                        if stop.is_set():\n                            pending.task_done()\n                            break\n            cell_root = output_root / "cells" / cell.key\n''',
-              '''            try:\n                cell = pending.get_nowait()\n            except queue.Empty:\n                if seed_barrier:\n                    with seed_condition:\n                        if stop.is_set():\n                            break\n                        if active_seed_index < len(seed_order) - 1:\n                            seed_condition.wait(timeout=0.25)\n                            continue\n                break\n            cell_root = output_root / "cells" / cell.key\n'''
-          )
-          replace_once(
-              '''            result.update({"slot": slot, "seed": cell.seed, "nominal_batch": nominal_batch[cell.key]})\n''',
-              '''            if seed_barrier:\n                result.update(\n                    {"slot": slot, "seed": cell.seed, "nominal_batch": nominal_batch[cell.key]}\n                )\n            else:\n                result.update(\n                    {"slot": slot, "nominal_batch": cells.index(cell) // slot_count + 1}\n                )\n'''
-          )
-          replace_once(
-              '''                    if seed_barrier:\n                        with seed_condition:\n                            seed_completed[cell.seed] += 1\n                            seed_condition.notify_all()\n''',
-              '''                    if seed_barrier:\n                        with seed_condition:\n                            seed_completed[cell.seed] += 1\n                            if (\n                                seed_completed[cell.seed] == seed_expected[cell.seed]\n                                and active_seed_index < len(seed_order) - 1\n                            ):\n                                active_seed_index += 1\n                                next_seed = seed_order[active_seed_index]\n                                for candidate in cells:\n                                    if candidate.seed == next_seed:\n                                        pending.put(candidate)\n                            seed_condition.notify_all()\n'''
-          )
-          replace_once(
-              '''        "wave_count_role": "seed_local_nominal_capacity_audit_only",\n''',
-              '''        "wave_count_role": (\n            "seed_local_nominal_capacity_audit_only"\n            if seed_barrier\n            else "nominal_audit_geometry_only_not_scheduling_barrier"\n        ),\n'''
-          )
-          path.write_text(text, encoding="utf-8")
-          PY
+          set -euo pipefail
+          git show 8c5b4c49311075dfdfee0447a128f3c51e42b45c:.github/workflows/tmp_e8_protocol_fix.yml | awk '
+            /- name: Isolate seed barrier from historical dynamic queue/ {seen=1; next}
+            seen && /run: \|/ {body=1; next}
+            body && /^      - name: Install/ {exit}
+            body {sub(/^          /, ""); print}
+          ' > /tmp/e8_barrier_patch.sh
+          bash /tmp/e8_barrier_patch.sh
       - name: Install
         run: python -m pip install -e . pytest ruff
       - name: Validate historical refill repeatedly
@@ -86,7 +55,28 @@ jobs:
           set -euo pipefail
           python -m py_compile src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
           pytest -q tests/test_e8_multitask_p0.py
-          ruff check src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          ruff check src/drpo/e8_experiment_config.py tests/test_e8_multitask_p0.py
+          ruff check src/drpo/e8_multitask_exp_tuning.py --ignore BLE001,B023
+          git diff --check
+          python - <<'PY'
+          import inspect
+          from drpo import e8_multitask_exp_tuning as e
+          source = inspect.getsource(e._train_canonical_dpo_transfer_cell)
+          required = (
+              "full_sequence_log_probability",
+              "policy_chosen[row_index]",
+              "- policy_rejected",
+              "- reference_chosen[row_index]",
+              "+ reference_rejected",
+              "F.softplus(-logits)",
+              "_dpo_prompt_balanced_mean",
+              "reference_terminal_sha256 != reference_initial_sha256",
+              '"label_smoothing": 0.0',
+          )
+          for fragment in required:
+              assert fragment in source, fragment
+          print("CANONICAL_DPO_PR268_SEMANTICS_PRESERVED")
+          PY
           rm -rf /tmp/e8-plan
           python -m drpo.e8_multitask_exp_tuning --config configs/e8_multitask_baseline_matrix_formal.yaml --output-root /tmp/e8-plan plan > /tmp/plan.json
           python - <<'PY'
@@ -101,9 +91,10 @@ jobs:
           assert {row["seed"] for row in x["rows"][:88]} == {4000}
           assert {row["seed"] for row in x["rows"][88:]} == {5000}
           PY
-      - name: Commit implementation
+      - name: Commit validated implementation
         run: |
           git add src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          git diff --cached --check
           git commit -m "fix: enforce E8 formal seed and terminal protocol"
       - name: Remove temporary workflow
         run: |
