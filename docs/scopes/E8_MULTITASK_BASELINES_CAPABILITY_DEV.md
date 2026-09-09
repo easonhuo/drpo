@@ -95,3 +95,9 @@ The multitask runner's AsymRE, TOPR, DPO, Exponential, and baseline-matrix metho
 ### P4 — canonical AsymRE/TOPR grid provenance consistency, non-gating
 
 Centralize the runtime provenance record for the extra canonical AsymRE/TOPR grid files so path plus actual SHA-256 are reported consistently by single-method and matrix aggregation. This remains **non-gating**: no new expected-Git-blob mismatch rejection is authorized here. Turning those grid files into a new immutable expected-blob hard gate would require a separate explicit governance approval.
+
+## P2 exact-loader weight closure (2026-09-09)
+
+The owner explicitly approved one final fail-closed robustness repair for the optional `shared_sft_adapter` path. The reviewed failure mode is that the contract can hash one recognized PEFT adapter-weight file while `PeftModel.from_pretrained(model, adapter_directory, ...)` can select another recognized weight file present in the same directory. Under the pinned PEFT loader, `adapter_model.safetensors` is preferred over `adapter_model.bin`, so a directory containing both files can make the verified artifact differ from the loaded artifact.
+
+For `dpo.initialization_mode=shared_sft_adapter` only, the adapter directory must therefore contain exactly one recognized adapter-weight filename among `adapter_model.safetensors` and `adapter_model.bin`, and that singleton must equal `dpo.shared_sft_adapter_contract.adapter_weight_file`. A missing contracted file or any additional recognized alternative weight file must fail closed before model loading. Regression coverage must include the valid singleton case and the ambiguous dual-weight case. This rule closes exact artifact identity only; it does not modify canonical DPO mathematics, fresh-LoRA behavior, any production initialization choice, scientific grids, seeds, data, thresholds, or experiment status.
