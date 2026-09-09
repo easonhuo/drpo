@@ -1,0 +1,66 @@
+{
+  "experiment_id": "EXT-H-E7-BENCH-01",
+  "run_kind": "pilot",
+  "scientific_status": "d4rl9_taskwise_global_linear_quadratic_tuning_pilot_only",
+  "canonical_alpha": 0.11,
+  "reference_distance": 2.0,
+  "coefficients": {
+    "reciprocal_linear": 0.5,
+    "reciprocal_quadratic": 0.5,
+    "exponential": 0.374162511054291
+  },
+  "anchors": {},
+  "negative_scale_grid": {},
+  "global_scale_grid": [
+    0.001,
+    0.003,
+    0.01,
+    0.03,
+    0.1
+  ],
+  "coefficient_grid": {
+    "reciprocal_linear": [
+      0.5,
+      1.0,
+      3.0,
+      10.0,
+      30.0
+    ],
+    "reciprocal_quadratic": [
+      0.5,
+      1.0,
+      3.0,
+      10.0,
+      30.0
+    ]
+  },
+  "expected_datasets": [
+    "hopper-medium-v2",
+    "hopper-medium-replay-v2",
+    "hopper-medium-expert-v2",
+    "walker2d-medium-v2",
+    "walker2d-medium-replay-v2",
+    "walker2d-medium-expert-v2",
+    "halfcheetah-medium-v2",
+    "halfcheetah-medium-replay-v2",
+    "halfcheetah-medium-expert-v2"
+  ],
+  "source_run_spec_seeds": [200, 201],
+  "tuning_seeds": [200, 201, 202, 203],
+  "held_out_seeds": [204, 205, 206, 207],
+  "fixed_max_workers": 60,
+  "branch_count_per_dataset_seed": 15,
+  "expected_total_branches": 540,
+  "primary_selection_metric": "late_window_mean_750k_to_1m",
+  "late_window_steps": [750000, 800000, 850000, 900000, 950000, 1000000],
+  "selection_scope": "per_dataset_per_method",
+  "notes": [
+    "This pilot tunes only Global, Reciprocal-Linear, and Reciprocal-Quadratic on all nine D4RL locomotion cells.",
+    "Each family receives exactly five candidates. Global tunes negative_scale; reciprocal families fix negative_scale=1 and tune only the distance-decay coefficient.",
+    "R_ref is fixed at 2.0 and is not co-tuned with the decay coefficient.",
+    "Positive-only and Exponential are intentionally not rerun in this tuning matrix; later confirmation must restore the required anchors before any method ranking or paper-table claim.",
+    "Selection is performed independently for each dataset and method using the four development seeds 200-203. Held-out seeds 204-207 must remain untouched.",
+    "The primary metric is the mean score over evaluations from 750k through 1M steps. Final, best, best-to-late drop, and terminal slope remain diagnostics.",
+    "This pilot cannot populate the formal D4RL-9 table, establish convergence, or establish a cross-method ranking."
+  ]
+}
