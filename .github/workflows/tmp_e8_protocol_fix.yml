@@ -1,0 +1,128 @@
+name: tmp-e8-protocol-fix
+on:
+  push:
+    branches: [dev/e8-multitask-baselines-capability-01]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-baselines-capability-01
+          fetch-depth: 0
+      - name: Verify base
+        run: test "$(git rev-parse HEAD^)" = "9ba958349763d276a087fec21f365f5bd72bec6a"
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Patch implementation and tests
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def rep(path, old, new):
+              p=Path(path); s=p.read_text(); n=s.count(old)
+              if n != 1: raise SystemExit(f'{path}: expected 1 match, got {n}')
+              p.write_text(s.replace(old,new,1))
+
+          c='src/drpo/e8_experiment_config.py'
+          rep(c,
+              '    current_id = experiment_id(config)\n    if sweep_profile(config) != SWEEP_PROFILE_COLDSTART:\n',
+              '    current_id = experiment_id(config)\n    execution_class = str(config.get("execution_class", "pilot"))\n    if execution_class not in {"pilot", "formal"}:\n        raise ValueError("Cold-start execution_class must be pilot or formal")\n    if sweep_profile(config) != SWEEP_PROFILE_COLDSTART:\n')
+          rep(c,
+              '        required_waves = math.ceil(configured_cells / capacity)\n        if expected_waves != required_waves:\n',
+              '        required_waves = math.ceil(configured_cells / capacity)\n        if method == COLDSTART_METHOD_BASELINE_MATRIX and execution.get("seed_batch_barriers") is True:\n            seeds = task_transfer_seeds(config)\n            if configured_cells % len(seeds) != 0:\n                raise ValueError("Baseline matrix cells must divide evenly across transfer seeds")\n            required_waves = len(seeds) * math.ceil((configured_cells // len(seeds)) / capacity)\n        if expected_waves != required_waves:\n')
+          rep(c,
+              '    if execution.get("oom_policy") != "fail_cell_no_automatic_scientific_parameter_mutation":\n        raise ValueError("Cold-start OOM policy may not mutate scientific parameters")\n',
+              '    if execution.get("oom_policy") != "fail_cell_no_automatic_scientific_parameter_mutation":\n        raise ValueError("Cold-start OOM policy may not mutate scientific parameters")\n    if method == COLDSTART_METHOD_BASELINE_MATRIX:\n        if _boolean(execution.get("seed_batch_barriers"), "execution.seed_batch_barriers") is not True:\n            raise ValueError("Baseline matrix requires the frozen transfer-seed batch barrier")\n        order = tuple(_integer(v, "execution.seed_batch_order entry") for v in _sequence(execution.get("seed_batch_order"), "execution.seed_batch_order"))\n        if order != task_transfer_seeds(config):\n            raise ValueError("Baseline matrix seed_batch_order must equal task_transfer_seed_offsets")\n')
+
+          p=Path('src/drpo/e8_multitask_exp_tuning.py'); s=p.read_text()
+          rep('src/drpo/e8_multitask_exp_tuning.py',
+              'def _is_engineering_self_test(config: Mapping[str, Any]) -> bool:\n    value = config.get("engineering_self_test")\n    return isinstance(value, Mapping) and value.get("placeholder_backend") is True\n\n\ndef _uses_task_lambdas',
+              'def _is_engineering_self_test(config: Mapping[str, Any]) -> bool:\n    value = config.get("engineering_self_test")\n    return isinstance(value, Mapping) and value.get("placeholder_backend") is True\n\n\ndef _execution_class(config: Mapping[str, Any]) -> str:\n    value = str(config.get("execution_class", "pilot"))\n    if value not in {"pilot", "formal"}:\n        raise ValueError("execution_class must be pilot or formal")\n    return value\n\n\ndef _audited_scientific_status(config: Mapping[str, Any], complete: bool) -> str:\n    if _is_engineering_self_test(config):\n        return "not_run"\n    return "finite_step_validated" if _execution_class(config) == "formal" and complete else "pilot"\n\n\ndef _uses_task_lambdas')
+          s=p.read_text(); a=s.index('        if _is_baseline_matrix(config):\n            dpo_initialization'); b=s.index('        else:\n            method = methods[0]',a)
+          new='''        if _is_baseline_matrix(config):\n            dpo_initialization = str(config["dpo"]["initialization_mode"])\n            for method_seed in method_seeds:\n                for task in tasks:\n                    if task == "countdown":\n                        continue\n                    for method in methods:\n                        values = experiment_config.task_method_values(config, task, method=method)\n                        cells.extend(\n                            _coldstart_method_cell(\n                                task, method, method_seed, "task_transfer", value,\n                                lambda_only=False,\n                                dpo_initialization=(dpo_initialization if method == METHOD_DPO else None),\n                            )\n                            for value in values\n                        )\n'''
+          p.write_text(s[:a]+new+s[b:])
+          s=p.read_text(); a=s.index('    if _is_coldstart(config):\n        waves = tuple(', s.index('def build_waves')); b=s.index('    coarse = tuple(',a)
+          new='''    if _is_coldstart(config):\n        if _is_baseline_matrix(config) and bool(config["execution"].get("seed_batch_barriers")):\n            waves = tuple(\n                tuple(seed_cells[i:i + capacity])\n                for seed in config["execution"]["seed_batch_order"]\n                for seed_cells in [tuple(cell for cell in cells if cell.seed == int(seed))]\n                for i in range(0, len(seed_cells), capacity)\n            )\n            if tuple(len(w) for w in waves) != (16, 16, 16, 16, 16, 8) * 2:\n                raise AssertionError("Baseline matrix must form two 88-cell seed-local batches")\n            return waves\n        waves = tuple(tuple(cells[i:i + capacity]) for i in range(0, len(cells), capacity))\n        if not waves or any(len(w) != capacity for w in waves[:-1]) or not 0 < len(waves[-1]) <= capacity:\n            raise AssertionError("Cold-start nominal batches must fill capacity except possibly the final batch")\n        return waves\n'''
+          p.write_text(s[:a]+new+s[b:])
+          rep(str(p),
+              '        "wave_is_scheduling_barrier": bool(config["execution"].get("wave_barriers", False)),\n        "rows": rows,\n',
+              '        "wave_is_scheduling_barrier": bool(config["execution"].get("wave_barriers", False)),\n        "seed_batch_barriers": bool(config["execution"].get("seed_batch_barriers", False)),\n        "seed_batch_order": list(config["execution"].get("seed_batch_order", ())),\n        "execution_class": _execution_class(config),\n        "rows": rows,\n')
+          rep(str(p),
+              '    pending: queue.Queue[Cell] = queue.Queue()\n    for cell in cells:\n        pending.put(cell)\n    stop = threading.Event()\n',
+              '    pending: queue.Queue[Cell] = queue.Queue()\n    for cell in cells:\n        pending.put(cell)\n    seed_barrier = _is_baseline_matrix(config) and bool(config["execution"].get("seed_batch_barriers"))\n    seed_order = tuple(int(v) for v in config["execution"].get("seed_batch_order", ()))\n    seed_expected = {seed: sum(cell.seed == seed for cell in cells) for seed in seed_order}\n    seed_completed = {seed: 0 for seed in seed_order}\n    seed_condition = threading.Condition()\n    nominal_batch = {cell.key: i for i,wave in enumerate(build_waves(config),1) for cell in wave}\n    stop = threading.Event()\n')
+          rep(str(p),
+              '            cell_root = output_root / "cells" / cell.key\n            manifest_path = cell_root / "cell_manifest.json"\n',
+              '            if seed_barrier:\n                idx = seed_order.index(cell.seed)\n                if idx:\n                    previous = seed_order[idx - 1]\n                    with seed_condition:\n                        while seed_completed[previous] < seed_expected[previous] and not stop.is_set():\n                            seed_condition.wait(timeout=0.25)\n                        if stop.is_set():\n                            pending.task_done()\n                            break\n            cell_root = output_root / "cells" / cell.key\n            manifest_path = cell_root / "cell_manifest.json"\n')
+          rep(str(p),
+              '                    "cell_key": cell.key,\n                    "slot": slot,\n',
+              '                    "cell_key": cell.key,\n                    "seed": cell.seed,\n                    "slot": slot,\n')
+          s=p.read_text(); old='''            result.update({"slot": slot, "nominal_batch": cells.index(cell) // slot_count + 1})\n            local.append(result)\n            record({"event": "finish", **result, "unix_time": time.time()})\n            pending.task_done()\n            if int(result["returncode"]) != 0:\n                stop.set()\n            else:\n                try:\n                    publish_completed_task(cell.task)\n                except Exception:\n                    stop.set()\n                    raise\n'''; new='''            result.update({"slot": slot, "seed": cell.seed, "nominal_batch": nominal_batch[cell.key]})\n            local.append(result)\n            record({"event": "finish", **result, "unix_time": time.time()})\n            pending.task_done()\n            if int(result["returncode"]) != 0:\n                stop.set()\n                with seed_condition:\n                    seed_condition.notify_all()\n            else:\n                try:\n                    publish_completed_task(cell.task)\n                    if seed_barrier:\n                        with seed_condition:\n                            seed_completed[cell.seed] += 1\n                            seed_condition.notify_all()\n                except Exception:\n                    stop.set()\n                    with seed_condition:\n                        seed_condition.notify_all()\n                    raise\n'''
+          if s.count(old)!=1: raise SystemExit('scheduler tail mismatch')
+          p.write_text(s.replace(old,new,1))
+          rep(str(p),
+              '        "wave_count_role": "nominal_audit_geometry_only_not_scheduling_barrier",\n        "slot_count": slot_count,\n',
+              '        "wave_count_role": "seed_local_nominal_capacity_audit_only",\n        "seed_batch_barriers": seed_barrier,\n        "seed_batch_order": list(seed_order),\n        "seed_batch_expected_cells": {str(k): v for k,v in seed_expected.items()},\n        "seed_batch_completed_cells": {str(k): v for k,v in seed_completed.items()},\n        "execution_class": _execution_class(config),\n        "slot_count": slot_count,\n')
+          rep(str(p),
+              '        "method": METHOD_BASELINE_MATRIX,\n        "methods": list(methods),\n        "method_metadata": method_metadata,\n',
+              '        "method": METHOD_BASELINE_MATRIX,\n        "methods": list(methods),\n        "execution_class": _execution_class(config),\n        "method_metadata": method_metadata,\n')
+          rep(str(p),
+              '    missing: list[str] = []\n    incomplete: list[str] = []\n    nan_inf: list[str] = []\n    for cell in cells:\n',
+              '    missing: list[str] = []\n    incomplete: list[str] = []\n    nan_inf: list[str] = []\n    terminal_contract_failures: list[str] = []\n    dpo_reference_identity_failures: list[str] = []\n    expected_terminal_step = int(config["training"]["optimizer_updates"])\n    for cell in cells:\n')
+          rep(str(p),
+              '        if value.get("nan_inf_failure"):\n            nan_inf.append(cell.key)\n    inherited_complete = True\n',
+              '        if value.get("nan_inf_failure"):\n            nan_inf.append(cell.key)\n        if not _is_engineering_self_test(config):\n            if int(value.get("terminal_step", -1)) != expected_terminal_step or value.get("stop_reason") != "max_steps" or value.get("test_partition_accessed") is not False:\n                terminal_contract_failures.append(cell.key)\n            if cell.method == METHOD_DPO and (value.get("reference_initial_state_sha256") != value.get("reference_terminal_state_sha256") or value.get("reference_trainable") is not False):\n                dpo_reference_identity_failures.append(cell.key)\n    inherited_complete = True\n')
+          rep(str(p),
+              '    all_complete = (\n        not missing and not incomplete and not nan_inf and inherited_complete and aggregate_complete\n    )\n',
+              '    seed_batch_protocol_complete: bool | None = None\n    if _is_baseline_matrix(config):\n        sp = output_root / "scheduler" / "dynamic_run.json"\n        scheduler = json.loads(sp.read_text(encoding="utf-8")) if sp.is_file() else {}\n        order = [int(v) for v in config["execution"]["seed_batch_order"]]\n        expected = {str(seed): sum(cell.seed == seed for cell in cells) for seed in order}\n        seed_batch_protocol_complete = scheduler.get("seed_batch_barriers") is True and scheduler.get("seed_batch_order") == order and scheduler.get("seed_batch_expected_cells") == expected and scheduler.get("seed_batch_completed_cells") == expected and scheduler.get("complete") is True\n    all_complete = not missing and not incomplete and not nan_inf and not terminal_contract_failures and not dpo_reference_identity_failures and inherited_complete and aggregate_complete and seed_batch_protocol_complete is not False\n')
+          rep(str(p),
+              '        "nan_inf_cells": sorted(set(nan_inf)),\n        "all_training_and_evaluation_complete": all_complete,\n',
+              '        "nan_inf_cells": sorted(set(nan_inf)),\n        "terminal_contract_failures": sorted(set(terminal_contract_failures)),\n        "dpo_reference_identity_failures": sorted(set(dpo_reference_identity_failures)),\n        "seed_batch_protocol_complete": seed_batch_protocol_complete,\n        "all_training_and_evaluation_complete": all_complete,\n        "execution_class": _execution_class(config),\n')
+          rep(str(p),
+              '        "scientific_status": (\n            "not_run" if _is_engineering_self_test(config) or not all_complete else "pilot"\n        ),\n',
+              '        "scientific_status": _audited_scientific_status(config, all_complete),\n')
+          rep(str(p),
+              '        "engineering_placeholder_backend": self_test,\n        "scientific_status": "not_run" if self_test else "pilot",\n',
+              '        "engineering_placeholder_backend": self_test,\n        "execution_class": _execution_class(config),\n        "scientific_status": str(audit["scientific_status"]),\n')
+          rep(str(p),
+              '    result = {\n        "schema_version": 1,\n        "experiment_id": experiment_id(config),\n        "artifact_kind": (\n            "engineering_self_test" if _is_engineering_self_test(config) else "pilot_results"\n        ),\n',
+              '    execution_class = _execution_class(config)\n    result = {\n        "schema_version": 1,\n        "experiment_id": experiment_id(config),\n        "execution_class": execution_class,\n        "scientific_status": str(audit["scientific_status"]),\n        "artifact_kind": ("engineering_self_test" if _is_engineering_self_test(config) else ("formal_results" if execution_class == "formal" else "pilot_results")),\n')
+          rep(str(p),
+              '        "artifact_state": "raw_complete",\n        "canonical_archive_owner": "scripts/run_experiment_guard_hardened.py",\n',
+              '        "artifact_state": "raw_complete",\n        "execution_class": _execution_class(config),\n        "scientific_status": str(audit["scientific_status"]),\n        "canonical_archive_owner": "scripts/run_experiment_guard_hardened.py",\n')
+
+          t=Path('tests/test_e8_multitask_p0.py'); x=t.read_text()
+          x=x.replace('    config["execution"]["expected_waves"] = 11\n','    config["execution"]["expected_waves"] = 12\n    config["execution"]["seed_batch_barriers"] = True\n    config["execution"]["seed_batch_order"] = [4000, 5000]\n',1)
+          x=x.replace('    assert plan["wave_sizes"] == [16] * 11\n','    assert plan["wave_sizes"] == [16, 16, 16, 16, 16, 8] * 2\n',1)
+          anchor='    assert scheduler["completed_cells"] == 176\n    assert len(scheduler["task_results"]) == 8\n'
+          insert='''    assert scheduler["completed_cells"] == 176\n    assert scheduler["seed_batch_completed_cells"] == {"4000": 88, "5000": 88}\n    events = [json.loads(line) for line in (tmp_path / "scheduler" / "queue_events.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]\n    finishes = [row["unix_time"] for row in events if row["event"] == "finish" and row.get("seed") == 4000]\n    starts = [row["unix_time"] for row in events if row["event"] == "start" and row.get("seed") == 5000]\n    assert len(finishes) == len(starts) == 88\n    assert max(finishes) <= min(starts)\n    assert len(scheduler["task_results"]) == 8\n'''
+          if x.count(anchor)!=1: raise SystemExit('test anchor mismatch')
+          x=x.replace(anchor,insert,1)
+          x += '''\n\ndef test_formal_baseline_matrix_config_matches_september7_runbook() -> None:\n    from drpo import e8_multitask_exp_tuning as exp_tuning\n    config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")\n    cells = exp_tuning.build_cells(config)\n    assert config["execution_class"] == "formal"\n    assert len(cells) == 176\n    assert {cell.seed for cell in cells[:88]} == {4000}\n    assert {cell.seed for cell in cells[88:]} == {5000}\n    assert [len(w) for w in exp_tuning.build_waves(config)] == [16,16,16,16,16,8] * 2\n    for task in config["suite"]["p0_tasks"]:\n        dvs = exp_tuning.experiment_config.task_delta_vs(config, task, method=exp_tuning.METHOD_ASYMRE)\n        assert dvs == (-1.0,-0.9,-0.75,-0.5,0.0)\n        assert tuple(round(1.0+v, 10) for v in dvs) == (0.0,0.1,0.25,0.5,1.0)\n        assert exp_tuning.experiment_config.task_betas(config, task, method=exp_tuning.METHOD_TOPR) == (0.25,0.5,1.0)\n        assert exp_tuning.experiment_config.task_betas(config, task, method=exp_tuning.METHOD_DPO) == (0.05,0.1,0.2)\n    assert {c.dpo_initialization for c in cells if c.method == exp_tuning.METHOD_DPO} == {"base_model_fresh_lora"}\n\n\ndef test_formal_terminal_status_requires_full_terminal_contract(tmp_path: Path) -> None:\n    from drpo import e8_multitask_exp_tuning as exp_tuning\n    config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")\n    cells = exp_tuning.build_cells(config)\n    p0.atomic_json(tmp_path / "source_provenance.json", {"source_commit": "a"*40})\n    for cell in cells:\n        value={"complete":True,"evaluation_status":"complete","nan_inf_failure":False,"terminal_step":1200,"stop_reason":"max_steps","test_partition_accessed":False}\n        if cell.method == exp_tuning.METHOD_DPO:\n            value.update({"reference_initial_state_sha256":"b"*64,"reference_terminal_state_sha256":"b"*64,"reference_trainable":False})\n        p0.atomic_json(tmp_path / "cells" / cell.key / "cell_manifest.json", value)\n    p0.atomic_json(tmp_path / "aggregate" / "aggregate_summary.json", {"cell_count":176})\n    p0.atomic_json(tmp_path / "aggregate" / "countdown_protocol_diagnostic.json", {"status":"NOT_RUN"})\n    p0.atomic_json(tmp_path / "scheduler" / "dynamic_run.json", {"complete":True,"seed_batch_barriers":True,"seed_batch_order":[4000,5000],"seed_batch_expected_cells":{"4000":88,"5000":88},"seed_batch_completed_cells":{"4000":88,"5000":88}})\n    audit=exp_tuning.cmd_audit(config,tmp_path)\n    assert audit["all_training_and_evaluation_complete"] is True\n    assert audit["scientific_status"] == "finite_step_validated"\n    victim=cells[0]; path=tmp_path / "cells" / victim.key / "cell_manifest.json"\n    value=json.loads(path.read_text()); value["terminal_step"]=1199; p0.atomic_json(path,value)\n    failed=exp_tuning.cmd_audit(config,tmp_path)\n    assert failed["scientific_status"] == "pilot" and victim.key in failed["terminal_contract_failures"]\n'''
+          t.write_text(x)
+          PY
+      - name: Install
+        run: python -m pip install -e . pytest ruff
+      - name: Test
+        run: |
+          set -euo pipefail
+          python -m py_compile src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          pytest -q tests/test_e8_multitask_p0.py
+          ruff check src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          rm -rf /tmp/e8-plan
+          python -m drpo.e8_multitask_exp_tuning --config configs/e8_multitask_baseline_matrix_formal.yaml --output-root /tmp/e8-plan plan > /tmp/plan.json
+          python -c 'import json; x=json.load(open("/tmp/plan.json")); assert x["cell_count"]==176 and x["wave_count"]==12 and x["seed_batch_order"]==[4000,5000]'
+      - name: Commit
+        run: |
+          git add src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          git commit -m "fix: enforce E8 formal seed and terminal protocol"
+      - name: Cleanup
+        run: |
+          git rm .github/workflows/tmp_e8_protocol_fix.yml
+          git commit -m "chore: remove temporary E8 protocol workflow"
+      - name: Push
+        run: git push origin HEAD:dev/e8-multitask-baselines-capability-01
