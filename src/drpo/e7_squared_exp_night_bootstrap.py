@@ -34,7 +34,11 @@ from drpo.e7_ppo_kl_refresh import (
     PPOKLEarlyRefreshControl,
     patch_canonical_module_ppo_kl_refresh,
 )
-from drpo.e7_squared_exp_kernel import FORMULA, install_squared_exponential_kernel
+from drpo.e7_squared_exp_kernel import (
+    FORMULA,
+    THRESHOLDED_FORMULA,
+    install_squared_exponential_kernel,
+)
 from drpo.e7_w0_geometry_diagnostics import (
     GeometryDiagnostics,
     install_controlled_advantage_observer,
@@ -83,12 +87,70 @@ def _validate_weight_control(raw: Mapping[str, Any]) -> dict[str, Any]:
     forbidden = {"negative_scale", "canonical_alpha", "effective_alpha"}
     if forbidden & set(raw):
         raise ValueError("public branch config contains legacy scale/alpha fields")
+    formula = str(raw.get("formula"))
+    if formula == THRESHOLDED_FORMULA:
+        control = {
+            "method": str(raw.get("method")),
+            "weight_at_zero": float(raw.get("weight_at_zero")),
+            "reference_distance": float(raw.get("reference_distance")),
+            "formula": formula,
+            "coordinate": str(raw.get("coordinate")),
+            "remoteness_threshold": float(raw.get("remoteness_threshold")),
+            "remoteness_scale": float(raw.get("remoteness_scale")),
+            "taper_lambda": float(raw.get("taper_lambda")),
+            "derived_exp_coefficient": float(raw.get("derived_exp_coefficient")),
+        }
+        finite = all(
+            math.isfinite(float(control[name]))
+            for name in (
+                "weight_at_zero",
+                "reference_distance",
+                "remoteness_threshold",
+                "remoteness_scale",
+                "taper_lambda",
+                "derived_exp_coefficient",
+            )
+        )
+        if not finite:
+            raise ValueError("thresholded taper parameters must be finite")
+        if control["method"] not in {
+            "positive_only",
+            "thresholded_exponential",
+            "uncontrolled",
+        }:
+            raise ValueError("unknown P1 thresholded control")
+        if control["coordinate"] != "normalized_squared_standardized_distance":
+            raise ValueError("P1 remoteness coordinate changed")
+        if control["reference_distance"] != suite.REFERENCE_DISTANCE:
+            raise ValueError("reference_distance changed")
+        if control["remoteness_threshold"] < 0.0:
+            raise ValueError("remoteness_threshold must be non-negative")
+        if control["remoteness_scale"] <= 0.0 or control["taper_lambda"] <= 0.0:
+            raise ValueError("remoteness_scale and taper_lambda must be positive")
+        method = control["method"]
+        expected = control["taper_lambda"] / control["remoteness_scale"]
+        if method == "thresholded_exponential":
+            if control["weight_at_zero"] != 1.0 or not math.isclose(
+                control["derived_exp_coefficient"],
+                expected,
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            ):
+                raise ValueError("thresholded EXP requires w(0)=1 and lambda/c")
+        elif control["derived_exp_coefficient"] != 0.0:
+            raise ValueError("anchor controls require zero derived coefficient")
+        if method == "positive_only" and control["weight_at_zero"] != 0.0:
+            raise ValueError("Positive-only requires zero negative weight")
+        if method == "uncontrolled" and control["weight_at_zero"] != 1.0:
+            raise ValueError("uncontrolled requires unit negative weight")
+        return control
+
     control = {
         "method": str(raw.get("method")),
         "weight_at_zero": float(raw.get("weight_at_zero")),
         "exp_coefficient": float(raw.get("exp_coefficient")),
         "reference_distance": float(raw.get("reference_distance")),
-        "formula": str(raw.get("formula")),
+        "formula": formula,
     }
     method, w0, coefficient = (
         control["method"],
@@ -101,7 +163,7 @@ def _validate_weight_control(raw: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError("weight_at_zero must be finite and in [0,1]")
     if not math.isfinite(coefficient) or coefficient < 0.0:
         raise ValueError("exp_coefficient must be finite and non-negative")
-    if control["reference_distance"] != suite.REFERENCE_DISTANCE or control["formula"] != FORMULA:
+    if control["reference_distance"] != suite.REFERENCE_DISTANCE or formula != FORMULA:
         raise ValueError("squared-remoteness public contract changed")
     if method == "positive_only" and (w0 != 0.0 or coefficient != 0.0):
         raise ValueError("Positive-only requires w(0)=0,c=0")
@@ -111,13 +173,30 @@ def _validate_weight_control(raw: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _internal_control(public: Mapping[str, Any], alpha: float) -> NegativeControl:
-    positive_only = public["method"] == "positive_only"
+    method = str(public["method"])
+    if method == "positive_only":
+        return NegativeControl(
+            method="positive_only",
+            negative_scale=0.0,
+            canonical_alpha=alpha,
+            reference_distance=suite.REFERENCE_DISTANCE,
+        )
+    if method == "uncontrolled":
+        return NegativeControl(
+            method="global",
+            negative_scale=1.0 / alpha,
+            canonical_alpha=alpha,
+            reference_distance=suite.REFERENCE_DISTANCE,
+        )
+    coefficient = float(
+        public.get("derived_exp_coefficient", public.get("exp_coefficient"))
+    )
     return NegativeControl(
-        method="positive_only" if positive_only else "exponential",
-        negative_scale=0.0 if positive_only else float(public["weight_at_zero"]) / alpha,
+        method="exponential",
+        negative_scale=float(public["weight_at_zero"]) / alpha,
         canonical_alpha=alpha,
         reference_distance=suite.REFERENCE_DISTANCE,
-        exponential_coefficient=float(public["exp_coefficient"]),
+        exponential_coefficient=coefficient,
     )
 
 
@@ -138,10 +217,15 @@ def _sanitize_ppo_diagnostics(
             if line.strip()
         ]
         temporary = jsonl_path.with_suffix(jsonl_path.suffix + ".tmp")
-        temporary.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in records))
+        temporary.write_text(
+            "".join(json.dumps(row, sort_keys=True) + "\n" for row in records)
+        )
         os.replace(temporary, jsonl_path)
     if latest_path.is_file():
-        _atomic_json(latest_path, _public_record(json.loads(latest_path.read_text()), public))
+        _atomic_json(
+            latest_path,
+            _public_record(json.loads(latest_path.read_text()), public),
+        )
 
 
 def _validate_ordered_hdf5(path: str | Path) -> Path:
@@ -170,7 +254,10 @@ def compute_snapshot_tables(
     gamma: float,
     gae_lambda: float,
 ) -> tuple[np.ndarray, np.ndarray]:
-    arrays = [np.asarray(x).reshape(-1) for x in (rewards, values, next_values, terminals, timeouts)]
+    arrays = [
+        np.asarray(x).reshape(-1)
+        for x in (rewards, values, next_values, terminals, timeouts)
+    ]
     reward, value, next_value = [x.astype(np.float64) for x in arrays[:3]]
     terminal, timeout = [x.astype(np.bool_) for x in arrays[3:]]
     if not reward.size or len({x.shape for x in arrays}) != 1:
@@ -211,7 +298,11 @@ def _critic_values(critic: torch.nn.Module, observations: np.ndarray) -> np.ndar
     try:
         with torch.no_grad():
             for start in range(0, len(observations), 8192):
-                states = torch.as_tensor(observations[start : start + 8192], dtype=torch.float32, device=device)
+                states = torch.as_tensor(
+                    observations[start : start + 8192],
+                    dtype=torch.float32,
+                    device=device,
+                )
                 values = critic(states).squeeze(-1).detach().cpu().numpy()
                 output[start : start + len(values)] = values
     finally:
@@ -224,7 +315,12 @@ def _critic_values(critic: torch.nn.Module, observations: np.ndarray) -> np.ndar
 class TrajectorySnapshotAdvantage:
     """Periodic TD/GAE lookup; the canonical update still owns both optimizers."""
 
-    def __init__(self, replay: Mapping[str, np.ndarray], estimator: str, batch_size: int = 256) -> None:
+    def __init__(
+        self,
+        replay: Mapping[str, np.ndarray],
+        estimator: str,
+        batch_size: int = 256,
+    ) -> None:
         if estimator not in {"td", "gae"}:
             raise ValueError(f"unsupported estimator={estimator!r}")
         if len({len(value) for value in replay.values()}) != 1:
@@ -256,7 +352,11 @@ class TrajectorySnapshotAdvantage:
         ids = raw.round().long().cpu()
         if not bool(torch.isfinite(raw).all()) or not torch.equal(raw, ids.float()):
             raise ValueError("transition IDs must be finite exact integers")
-        if ids.numel() != default.numel() or int(ids.min()) < 0 or int(ids.max()) >= len(self.table):
+        if (
+            ids.numel() != default.numel()
+            or int(ids.min()) < 0
+            or int(ids.max()) >= len(self.table)
+        ):
             raise ValueError("transition IDs are outside or misaligned with ordered replay")
         return self.table.index_select(0, ids)
 
@@ -305,11 +405,19 @@ def main(argv: list[str] | None = None) -> int:
     experiment_id = str(branch.get("experiment_id"))
     if experiment_id not in {suite.EXPERIMENT_ID, suite.GAE_EXPERIMENT_ID}:
         raise ValueError("branch experiment_id mismatch")
+    if branch.get("profile_id") not in {
+        None,
+        suite.TUNING_PROFILE_ID,
+        suite.P3_PROFILE_ID,
+    }:
+        raise ValueError("branch tuning profile mismatch")
     if branch.get("branch_kind") != "injected" or "negative_control" in branch:
         raise ValueError("bootstrap requires a public injected branch")
     public = _validate_weight_control(branch["weight_control"])
     control = _internal_control(public, contract.expected_canonical_alpha)
-    values = {str(key): str(value) for key, value in branch["template_values"].items()}
+    values = {
+        str(key): str(value) for key, value in branch["template_values"].items()
+    }
     actor_mode, expected_steps = values["actor_update_mode"], int(values["steps"])
     runtime_probe = os.environ.get("DRPO_RUNTIME_RESOURCE_PROBE") == "1"
     bounded = runtime_probe or values.get("execution_mode") == "liveness"
@@ -322,12 +430,22 @@ def main(argv: list[str] | None = None) -> int:
     provider = None
     train_loop = original_returns = None
     if experiment_id == suite.GAE_EXPERIMENT_ID:
-        if actor_mode != "a2c" or suite._flag_value(trainer_args, "--batch") != "256":  # noqa: SLF001
+        if (
+            actor_mode != "a2c"
+            or suite._flag_value(trainer_args, "--batch") != "256"  # noqa: SLF001
+        ):
             raise ValueError("GAE successor requires canonical A2C batch 256")
-        if "--ret_weight_mode" in trainer_args and suite._flag_value(trainer_args, "--ret_weight_mode") != "none":  # noqa: SLF001
+        if (
+            "--ret_weight_mode" in trainer_args
+            and suite._flag_value(trainer_args, "--ret_weight_mode")  # noqa: SLF001
+            != "none"
+        ):
             raise ValueError("transition IDs require ret_weight_mode=none")
         replay, train_loop = _ordered_replay(branch)
-        provider = TrajectorySnapshotAdvantage(replay, values["advantage_estimator"])
+        provider = TrajectorySnapshotAdvantage(
+            replay,
+            values["advantage_estimator"],
+        )
         original_returns = train_loop.compute_mc_returns
         train_loop.compute_mc_returns = lambda rewards, *_args, **_kwargs: np.arange(
             len(rewards), dtype=np.float32
@@ -365,9 +483,19 @@ def main(argv: list[str] | None = None) -> int:
 
     old_argv, old_cwd = sys.argv[:], Path.cwd()
     try:
-        with install_squared_exponential_kernel(), install_controlled_advantage_observer(geometry):
+        with (
+            install_squared_exponential_kernel(
+                remoteness_threshold=float(public.get("remoteness_threshold", 0.0))
+            ),
+            install_controlled_advantage_observer(geometry),
+        ):
             if actor_mode == "a2c":
-                patch_canonical_module(module, contract, control, advantage_provider=provider)
+                patch_canonical_module(
+                    module,
+                    contract,
+                    control,
+                    advantage_provider=provider,
+                )
                 manifest.update(ppo_control=None, kl_control=None)
             else:
                 if provider is not None:
@@ -391,9 +519,15 @@ def main(argv: list[str] | None = None) -> int:
                         diagnostics_jsonl=paths["ppo_jsonl"],
                         diagnostics_latest=paths["ppo_latest"],
                     )
-                    manifest.update(ppo_control=dataclasses.asdict(ppo), kl_control=None)
+                    manifest.update(
+                        ppo_control=dataclasses.asdict(ppo),
+                        kl_control=None,
+                    )
                 elif actor_mode == "ppo_clip_kl_k16":
-                    kl = PPOKLEarlyRefreshControl(target_kl=0.01, diagnostics_interval=int(values["diagnostics_interval"]))
+                    kl = PPOKLEarlyRefreshControl(
+                        target_kl=0.01,
+                        diagnostics_interval=int(values["diagnostics_interval"]),
+                    )
                     patch_canonical_module_ppo_kl_refresh(
                         module,
                         contract.target_class,
@@ -406,7 +540,10 @@ def main(argv: list[str] | None = None) -> int:
                         kl_diagnostics_jsonl=paths["kl_jsonl"],
                         kl_diagnostics_latest=paths["kl_latest"],
                     )
-                    manifest.update(ppo_control=dataclasses.asdict(ppo), kl_control=dataclasses.asdict(kl))
+                    manifest.update(
+                        ppo_control=dataclasses.asdict(ppo),
+                        kl_control=dataclasses.asdict(kl),
+                    )
                 else:
                     raise ValueError(f"unsupported actor_update_mode={actor_mode!r}")
             os.chdir(contract.source_root)
@@ -425,7 +562,8 @@ def main(argv: list[str] | None = None) -> int:
         if provider is not None:
             snapshot = provider.summary()
             if not runtime_probe and (
-                snapshot["snapshot_count"] < 2 or not snapshot["critic_evolution_observed"]
+                snapshot["snapshot_count"] < 2
+                or not snapshot["critic_evolution_observed"]
             ):
                 raise RuntimeError("GAE branch did not prove snapshots and critic evolution")
             manifest.update(
@@ -436,18 +574,34 @@ def main(argv: list[str] | None = None) -> int:
                 trajectory_snapshot=snapshot,
             )
         if actor_mode != "a2c":
-            _sanitize_ppo_diagnostics(paths["ppo_jsonl"], paths["ppo_latest"], public)
+            _sanitize_ppo_diagnostics(
+                paths["ppo_jsonl"], paths["ppo_latest"], public
+            )
             latest = json.loads(paths["ppo_latest"].read_text())
-            if latest.get("status") != "complete" or int(latest.get("update", -1)) != expected_steps:
+            if latest.get("status") != "complete" or int(
+                latest.get("update", -1)
+            ) != expected_steps:
                 raise RuntimeError("PPO diagnostics final update mismatch")
-            manifest["ppo_diagnostics"] = {"jsonl": str(paths["ppo_jsonl"]), "latest": str(paths["ppo_latest"]), "final": latest}
+            manifest["ppo_diagnostics"] = {
+                "jsonl": str(paths["ppo_jsonl"]),
+                "latest": str(paths["ppo_latest"]),
+                "final": latest,
+            }
         if actor_mode == "ppo_clip_kl_k16":
             latest = json.loads(paths["kl_latest"].read_text())
-            if latest.get("status") != "complete" or int(latest.get("update", -1)) != expected_steps:
+            if latest.get("status") != "complete" or int(
+                latest.get("update", -1)
+            ) != expected_steps:
                 raise RuntimeError("KL diagnostics final update mismatch")
-            manifest["kl_diagnostics"] = {"jsonl": str(paths["kl_jsonl"]), "latest": str(paths["kl_latest"]), "final": latest}
+            manifest["kl_diagnostics"] = {
+                "jsonl": str(paths["kl_jsonl"]),
+                "latest": str(paths["kl_latest"]),
+                "final": latest,
+            }
     except BaseException as exc:
-        _sanitize_ppo_diagnostics(paths["ppo_jsonl"], paths["ppo_latest"], public)
+        _sanitize_ppo_diagnostics(
+            paths["ppo_jsonl"], paths["ppo_latest"], public
+        )
         manifest.update(status="failed", error_type=type(exc).__name__, error=str(exc))
         _atomic_json(manifest_path, manifest)
         raise
