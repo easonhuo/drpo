@@ -95,10 +95,10 @@ CANONICAL_TOPR_GRID = Path(
     "configs/countdown_e8_oracle_offline_v2_joint_fitted_reference_beta_topr_dense_0p5b.yaml"
 )
 METHOD_POSITIVE_ONLY = "positive_only"
-METHOD_EXPONENTIAL = "exponential"
-METHOD_ASYMRE = "asymre"
-METHOD_TOPR = "joint_fitted_reference_topr"
-METHOD_DPO = "canonical_dpo"
+METHOD_EXPONENTIAL = experiment_config.COLDSTART_METHOD_EXPONENTIAL
+METHOD_ASYMRE = experiment_config.COLDSTART_METHOD_ASYMRE
+METHOD_TOPR = experiment_config.COLDSTART_METHOD_TOPR
+METHOD_DPO = experiment_config.COLDSTART_METHOD_DPO
 METHOD_BASELINE_MATRIX = experiment_config.COLDSTART_METHOD_BASELINE_MATRIX
 METHOD_GLOBAL = "global"
 TRANSFER_SYSTEM_PROMPT = "Answer with only the requested final output and no explanation."
@@ -4041,25 +4041,79 @@ def _legacy_paper_runtime_bridge(
 
 
 
-def _dpo_shared_sft_adapter(config: Mapping[str, Any]) -> Path | None:
+def _canonical_baseline_grid_identity(method: str) -> dict[str, Any]:
+    """Record actual canonical-grid bytes without introducing a new expected-blob gate."""
+
+    if method == METHOD_ASYMRE:
+        path = _canonical_asymre_grid_path()
+    elif method == METHOD_TOPR:
+        path = _canonical_topr_grid_path()
+    else:
+        raise ValueError(f"No extra canonical grid identity for method: {method}")
+    return {
+        "canonical_grid": str(path),
+        "canonical_grid_sha256": sha256_file(path),
+        "identity_policy": "runtime_actual_sha256_recorded_non_gating",
+        "expected_git_blob_gate": False,
+    }
+
+
+def _normalized_adapter_config_sequence(value: Any, *, field: str) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        values = (value,)
+    elif isinstance(value, Sequence):
+        values = tuple(str(item) for item in value)
+    else:
+        raise TypeError(f"Shared-SFT DPO adapter {field} must be a string sequence or null")
+    normalized = tuple(sorted(item.strip() for item in values))
+    if any(not item for item in normalized) or len(set(normalized)) != len(normalized):
+        raise ValueError(f"Shared-SFT DPO adapter {field} contains invalid names")
+    return normalized
+
+
+def _dpo_shared_sft_adapter_identity(config: Mapping[str, Any]) -> dict[str, Any] | None:
     dpo = config["dpo"]
     mode = str(dpo["initialization_mode"])
     if mode == "base_model_fresh_lora":
         return None
+    contract = dpo["shared_sft_adapter_contract"]
     env_name = str(dpo["shared_sft_adapter_env"])
     value = os.environ.get(env_name)
     if not value:
         raise RuntimeError(f"Shared-SFT DPO requires environment variable {env_name}")
     path = Path(value).resolve()
     adapter_config_path = path / "adapter_config.json"
-    if not adapter_config_path.is_file() or not any(
-        (path / name).is_file() for name in ("adapter_model.safetensors", "adapter_model.bin")
-    ):
-        raise FileNotFoundError(f"Shared-SFT DPO adapter is incomplete: {path}")
+    weight_name = str(contract["adapter_weight_file"])
+    weight_path = path / weight_name
+    provenance_relative = Path(str(contract["provenance_file"]))
+    provenance_path = (path / provenance_relative).resolve()
+    if path not in provenance_path.parents:
+        raise RuntimeError("Shared-SFT DPO provenance escaped the adapter root")
+    for required in (adapter_config_path, weight_path, provenance_path):
+        if not required.is_file():
+            raise FileNotFoundError(f"Shared-SFT DPO adapter is incomplete: {required}")
+    observed_hashes = {
+        "adapter_config_sha256": sha256_file(adapter_config_path),
+        "adapter_weight_sha256": sha256_file(weight_path),
+        "provenance_sha256": sha256_file(provenance_path),
+    }
+    if any(observed_hashes[field] != str(contract[field]) for field in observed_hashes):
+        raise ValueError("Shared-SFT DPO adapter identity hash mismatch")
+
     adapter_config = json.loads(adapter_config_path.read_text(encoding="utf-8"))
     if not isinstance(adapter_config, dict):
         raise TypeError("Shared-SFT DPO adapter_config.json must contain a mapping")
     model_config = config["model"]
+    target_modules = _normalized_adapter_config_sequence(
+        adapter_config.get("target_modules"), field="target_modules"
+    )
+    modules_to_save = _normalized_adapter_config_sequence(
+        adapter_config.get("modules_to_save"), field="modules_to_save"
+    )
+    expected_target_modules = tuple(sorted(str(value) for value in contract["target_modules"]))
+    expected_modules_to_save = tuple(sorted(str(value) for value in contract["modules_to_save"]))
     compatible = (
         str(adapter_config.get("peft_type", "")).upper() == "LORA"
         and int(adapter_config.get("r", -1)) == int(model_config["lora_rank"])
@@ -4070,13 +4124,53 @@ def _dpo_shared_sft_adapter(config: Mapping[str, Any]) -> Path | None:
             rel_tol=0.0,
             abs_tol=1.0e-12,
         )
+        and str(adapter_config.get("base_model_name_or_path", ""))
+        == str(contract["adapter_base_model_name_or_path"])
+        and target_modules == expected_target_modules
+        and modules_to_save == expected_modules_to_save
+        and str(adapter_config.get("bias", "")) == str(contract["bias"])
     )
     if not compatible:
         raise ValueError(
-            "Shared-SFT DPO adapter LoRA configuration does not match reviewed model.* "
-            "LoRA values"
+            "Shared-SFT DPO adapter LoRA/base-model parameterization does not match reviewed contract"
         )
-    return path
+
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    if not isinstance(provenance, dict):
+        raise TypeError("Shared-SFT DPO provenance file must contain a mapping")
+    provenance_expected = dict(contract["provenance_expected"])
+    if any(provenance.get(key) != expected for key, expected in provenance_expected.items()):
+        raise ValueError("Shared-SFT DPO provenance does not match reviewed contract")
+    if (
+        provenance.get("base_model") != model_config["base_model"]
+        or provenance.get("base_model_revision") != model_config["revision"]
+    ):
+        raise ValueError("Shared-SFT DPO provenance base-model/revision mismatch")
+
+    identity = {
+        **observed_hashes,
+        "adapter_weight_file": weight_name,
+        "provenance_file": provenance_relative.as_posix(),
+        "adapter_parameterization": {
+            "peft_type": "LORA",
+            "r": int(adapter_config["r"]),
+            "lora_alpha": int(adapter_config["lora_alpha"]),
+            "lora_dropout": float(adapter_config["lora_dropout"]),
+            "base_model_name_or_path": str(adapter_config["base_model_name_or_path"]),
+            "target_modules": list(target_modules),
+            "modules_to_save": list(modules_to_save),
+            "bias": str(adapter_config["bias"]),
+        },
+        "provenance_expected": provenance_expected,
+        "contract_hash": stable_hash(contract),
+    }
+    identity["identity_hash"] = stable_hash(identity)
+    return {"path": str(path), **identity}
+
+
+def _dpo_shared_sft_adapter(config: Mapping[str, Any]) -> Path | None:
+    identity = _dpo_shared_sft_adapter_identity(config)
+    return None if identity is None else Path(str(identity["path"]))
 
 
 def _parameter_sequence_sha256(parameters: Sequence[Any]) -> str:
@@ -4271,7 +4365,10 @@ def _train_canonical_dpo_transfer_cell(
     )
 
     root_name = "liveness" if engineering_liveness else "cells"
-    shared_adapter = _dpo_shared_sft_adapter(config)
+    shared_adapter_record = _dpo_shared_sft_adapter_identity(config)
+    shared_adapter = (
+        None if shared_adapter_record is None else Path(str(shared_adapter_record["path"]))
+    )
     identity = _cell_identity(
         cell,
         inputs=inputs,
@@ -4296,6 +4393,15 @@ def _train_canonical_dpo_transfer_cell(
                 None
                 if shared_adapter is None
                 else model_identity(base_model_path, str(shared_adapter))["adapter"]
+            ),
+            "shared_sft_adapter_provenance": (
+                None
+                if shared_adapter_record is None
+                else {
+                    key: value
+                    for key, value in shared_adapter_record.items()
+                    if key != "path"
+                }
             ),
             "engineering_liveness": engineering_liveness,
             "updates_override": updates_override,
@@ -7585,16 +7691,20 @@ def _aggregate_coldstart_unranked(
     )
     method_metadata: dict[str, Any]
     if method == METHOD_ASYMRE:
-        grid = _canonical_asymre_grid_path()
+        grid_identity = _canonical_baseline_grid_identity(METHOD_ASYMRE)
         method_metadata = {
-            "canonical_asymre_grid": str(grid),
-            "canonical_asymre_grid_sha256": sha256_file(grid),
+            "canonical_asymre_grid": grid_identity["canonical_grid"],
+            "canonical_asymre_grid_sha256": grid_identity["canonical_grid_sha256"],
+            "canonical_grid_identity_policy": grid_identity["identity_policy"],
+            "canonical_grid_expected_git_blob_gate": grid_identity["expected_git_blob_gate"],
         }
     elif method == METHOD_TOPR:
-        grid = _canonical_topr_grid_path()
+        grid_identity = _canonical_baseline_grid_identity(METHOD_TOPR)
         method_metadata = {
-            "canonical_topr_grid": str(grid),
-            "canonical_topr_grid_sha256": sha256_file(grid),
+            "canonical_topr_grid": grid_identity["canonical_grid"],
+            "canonical_topr_grid_sha256": grid_identity["canonical_grid_sha256"],
+            "canonical_grid_identity_policy": grid_identity["identity_policy"],
+            "canonical_grid_expected_git_blob_gate": grid_identity["expected_git_blob_gate"],
         }
     else:
         method_metadata = {
@@ -7779,16 +7889,15 @@ def _aggregate_coldstart_matrix_unranked(
     _write_csv(output_root / "aggregate" / "task_summary.csv", summary_rows)
 
     method_metadata = {
-        METHOD_ASYMRE: {
-            "canonical_grid": str(_canonical_asymre_grid_path()),
-            "canonical_grid_sha256": sha256_file(_canonical_asymre_grid_path()),
-        },
-        METHOD_TOPR: {
-            "canonical_grid": str(_canonical_topr_grid_path()),
-            "canonical_grid_sha256": sha256_file(_canonical_topr_grid_path()),
-        },
+        METHOD_ASYMRE: _canonical_baseline_grid_identity(METHOD_ASYMRE),
+        METHOD_TOPR: _canonical_baseline_grid_identity(METHOD_TOPR),
         METHOD_DPO: {
             "initialization_mode": str(config["dpo"]["initialization_mode"]),
+            "shared_sft_adapter_contract_hash": (
+                stable_hash(config["dpo"]["shared_sft_adapter_contract"])
+                if config["dpo"]["initialization_mode"] == "shared_sft_adapter"
+                else None
+            ),
             "semantics_source": (
                 "historical_PR_268_protected_implementation_"
                 "cc0ead2be00c89a3c35296b7adc1ddeae8d14759"

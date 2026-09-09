@@ -3267,6 +3267,29 @@ def test_topr_liveness_uses_existing_joint_reference_profile() -> None:
 
 
 
+def _synthetic_shared_sft_adapter_contract(config: dict) -> dict:
+    return {
+        "base_model": config["model"]["base_model"],
+        "base_model_revision": config["model"]["revision"],
+        "adapter_base_model_name_or_path": config["model"]["base_model"],
+        "target_modules": ["q_proj", "v_proj"],
+        "modules_to_save": [],
+        "bias": "none",
+        "adapter_config_sha256": "a" * 64,
+        "adapter_weight_file": "adapter_model.safetensors",
+        "adapter_weight_sha256": "b" * 64,
+        "provenance_file": "SFT_PROVENANCE.json",
+        "provenance_sha256": "c" * 64,
+        "provenance_expected": {
+            "base_model": config["model"]["base_model"],
+            "base_model_revision": config["model"]["revision"],
+            "source_experiment_id": "SYNTHETIC-SFT-CAPABILITY-ONLY",
+            "source_run_id": "SYNTHETIC-SFT-RUN",
+            "source_checkpoint": "synthetic_adapter",
+        },
+    }
+
+
 def _dpo_capability_test_config(*, shared_sft: bool = False) -> dict:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
@@ -3306,6 +3329,9 @@ def _dpo_capability_test_config(*, shared_sft: bool = False) -> dict:
         "liveness_beta": 0.1,
     }
     if shared_sft:
+        config["dpo"]["shared_sft_adapter_contract"] = (
+            _synthetic_shared_sft_adapter_contract(config)
+        )
         config["reference"]["checkpoint_kind"] = "exact_frozen_copy_of_initialized_policy"
         config["initialization"].update(
             {
@@ -3634,7 +3660,7 @@ def test_fifth_review_rejects_silently_ignored_coldstart_tuning_seed() -> None:
         exp_tuning.validate_config(config)
 
 
-def test_fifth_review_shared_sft_adapter_binds_reviewed_lora_shape(
+def test_shared_sft_adapter_binds_full_identity_and_provenance(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
@@ -3647,20 +3673,66 @@ def test_fifth_review_shared_sft_adapter_binds_reviewed_lora_shape(
         "r": config["model"]["lora_rank"],
         "lora_alpha": config["model"]["lora_alpha"],
         "lora_dropout": config["model"]["lora_dropout"],
+        "base_model_name_or_path": config["model"]["base_model"],
+        "target_modules": ["v_proj", "q_proj"],
+        "modules_to_save": None,
+        "bias": "none",
+        "task_type": "CAUSAL_LM",
     }
-    (adapter / "adapter_config.json").write_text(
-        json.dumps(adapter_config), encoding="utf-8"
-    )
-    (adapter / "adapter_model.safetensors").write_bytes(b"identity-only-test")
+    adapter_config_path = adapter / "adapter_config.json"
+    adapter_config_path.write_text(json.dumps(adapter_config, sort_keys=True), encoding="utf-8")
+    weight_path = adapter / "adapter_model.safetensors"
+    weight_path.write_bytes(b"identity-only-test")
+    provenance = dict(config["dpo"]["shared_sft_adapter_contract"]["provenance_expected"])
+    provenance["extra_audit_field"] = "synthetic-only"
+    provenance_path = adapter / "SFT_PROVENANCE.json"
+    provenance_path.write_text(json.dumps(provenance, sort_keys=True), encoding="utf-8")
+
+    contract = config["dpo"]["shared_sft_adapter_contract"]
+    contract["adapter_config_sha256"] = exp_tuning.sha256_file(adapter_config_path)
+    contract["adapter_weight_sha256"] = exp_tuning.sha256_file(weight_path)
+    contract["provenance_sha256"] = exp_tuning.sha256_file(provenance_path)
+    exp_tuning.validate_config(config)
     monkeypatch.setenv("E8_DPO_SHARED_SFT_ADAPTER", str(adapter))
+
+    identity = exp_tuning._dpo_shared_sft_adapter_identity(config)
+    assert identity is not None
+    assert identity["path"] == str(adapter.resolve())
+    assert identity["adapter_config_sha256"] == contract["adapter_config_sha256"]
+    assert identity["adapter_weight_sha256"] == contract["adapter_weight_sha256"]
+    assert identity["provenance_sha256"] == contract["provenance_sha256"]
+    assert identity["adapter_parameterization"]["target_modules"] == ["q_proj", "v_proj"]
     assert exp_tuning._dpo_shared_sft_adapter(config) == adapter.resolve()
 
-    adapter_config["r"] = int(config["model"]["lora_rank"]) + 1
-    (adapter / "adapter_config.json").write_text(
-        json.dumps(adapter_config), encoding="utf-8"
-    )
-    with pytest.raises(ValueError, match="LoRA configuration does not match"):
-        exp_tuning._dpo_shared_sft_adapter(config)
+    adapter_config["target_modules"] = ["q_proj", "k_proj"]
+    adapter_config_path.write_text(json.dumps(adapter_config, sort_keys=True), encoding="utf-8")
+    contract["adapter_config_sha256"] = exp_tuning.sha256_file(adapter_config_path)
+    with pytest.raises(ValueError, match="parameterization does not match"):
+        exp_tuning._dpo_shared_sft_adapter_identity(config)
+
+    adapter_config["target_modules"] = ["v_proj", "q_proj"]
+    adapter_config_path.write_text(json.dumps(adapter_config, sort_keys=True), encoding="utf-8")
+    contract["adapter_config_sha256"] = exp_tuning.sha256_file(adapter_config_path)
+    weight_path.write_bytes(b"wrong-adapter-bytes")
+    with pytest.raises(ValueError, match="identity hash mismatch"):
+        exp_tuning._dpo_shared_sft_adapter_identity(config)
+    weight_path.write_bytes(b"identity-only-test")
+    contract["adapter_weight_sha256"] = exp_tuning.sha256_file(weight_path)
+
+    provenance["source_run_id"] = "WRONG-SOURCE-RUN"
+    provenance_path.write_text(json.dumps(provenance, sort_keys=True), encoding="utf-8")
+    contract["provenance_sha256"] = exp_tuning.sha256_file(provenance_path)
+    with pytest.raises(ValueError, match="provenance does not match"):
+        exp_tuning._dpo_shared_sft_adapter_identity(config)
+
+
+def test_shared_sft_mode_requires_config_defined_identity_contract() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _dpo_capability_test_config(shared_sft=True)
+    config["dpo"].pop("shared_sft_adapter_contract")
+    with pytest.raises((TypeError, ValueError), match="shared_sft_adapter_contract"):
+        exp_tuning.validate_config(config)
 
 
 def test_fifth_review_terminal_audit_does_not_mislabel_non_exp_methods() -> None:
@@ -3754,6 +3826,10 @@ def _baseline_matrix_capability_test_config(*, shared_sft: bool = False) -> dict
         "liveness_task": "word_sorting",
         "liveness_beta": 0.05,
     }
+    if shared_sft:
+        config["dpo"]["shared_sft_adapter_contract"] = (
+            _synthetic_shared_sft_adapter_contract(config)
+        )
     exp_tuning.validate_config(config)
     return config
 
@@ -3824,3 +3900,210 @@ def test_baseline_matrix_rejects_ambiguous_singular_and_plural_transfer_seed_fie
     config["sweep"]["task_transfer_seed_offset"] = 4000
     with pytest.raises(ValueError, match="exactly one"):
         exp_tuning.validate_config(config)
+
+
+def test_method_vocabulary_aliases_config_authority() -> None:
+    from drpo import e8_experiment_config as experiment_config
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    assert exp_tuning.METHOD_EXPONENTIAL == experiment_config.COLDSTART_METHOD_EXPONENTIAL
+    assert exp_tuning.METHOD_ASYMRE == experiment_config.COLDSTART_METHOD_ASYMRE
+    assert exp_tuning.METHOD_TOPR == experiment_config.COLDSTART_METHOD_TOPR
+    assert exp_tuning.METHOD_DPO == experiment_config.COLDSTART_METHOD_DPO
+    assert exp_tuning.METHOD_BASELINE_MATRIX == experiment_config.COLDSTART_METHOD_BASELINE_MATRIX
+    source = Path("src/drpo/e8_multitask_exp_tuning.py").read_text(encoding="utf-8")
+    assert "METHOD_ASYMRE = experiment_config.COLDSTART_METHOD_ASYMRE" in source
+    assert "METHOD_TOPR = experiment_config.COLDSTART_METHOD_TOPR" in source
+    assert "METHOD_DPO = experiment_config.COLDSTART_METHOD_DPO" in source
+
+
+def test_canonical_baseline_grid_identity_is_actual_sha_non_gating() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    for method in (exp_tuning.METHOD_ASYMRE, exp_tuning.METHOD_TOPR):
+        identity = exp_tuning._canonical_baseline_grid_identity(method)
+        path = Path(identity["canonical_grid"])
+        assert path.is_file()
+        assert identity["canonical_grid_sha256"] == exp_tuning.sha256_file(path)
+        assert identity["identity_policy"] == "runtime_actual_sha256_recorded_non_gating"
+        assert identity["expected_git_blob_gate"] is False
+    with pytest.raises(ValueError, match="No extra canonical grid identity"):
+        exp_tuning._canonical_baseline_grid_identity(exp_tuning.METHOD_DPO)
+
+
+def test_baseline_matrix_liveness_dispatches_all_three_methods(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _baseline_matrix_capability_test_config()
+    calls: list[str] = []
+    monkeypatch.setattr(
+        exp_tuning,
+        "_load_ready_inputs",
+        lambda *args, **kwargs: ({}, {"countdown": object()}),
+    )
+
+    def fake_canonical(*args, method=None, **kwargs):
+        del args, kwargs
+        calls.append(str(method))
+        return {"method": method, "complete": True}
+
+    def fake_dpo(*args, **kwargs):
+        del args, kwargs
+        calls.append(exp_tuning.METHOD_DPO)
+        return {"method": exp_tuning.METHOD_DPO, "complete": True}
+
+    monkeypatch.setattr(exp_tuning, "_cmd_canonical_cold_liveness", fake_canonical)
+    monkeypatch.setattr(exp_tuning, "_cmd_dpo_liveness", fake_dpo)
+    result = exp_tuning.cmd_liveness(
+        config,
+        tmp_path / "synthetic.yaml",
+        tmp_path,
+        task="countdown",
+        rho=None,
+        base_model_path="unused",
+        force=False,
+    )
+    assert calls == [
+        exp_tuning.METHOD_ASYMRE,
+        exp_tuning.METHOD_TOPR,
+        exp_tuning.METHOD_DPO,
+    ]
+    assert set(result["methods"]) == set(calls)
+    assert result["complete"] is True
+
+
+def test_baseline_matrix_tail_pipeline_scheduler_aggregate_and_resume_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning._engineering_self_test_config(
+        _baseline_matrix_capability_test_config()
+    )
+    cells = exp_tuning.build_cells(config)
+    assert len(cells) == 176
+    source_commit = "d" * 40
+    p0.atomic_json(
+        tmp_path / "source_provenance.json",
+        {
+            "source_commit": source_commit,
+            "run_id": "SYNTHETIC-BASELINE-MATRIX-TAIL",
+        },
+    )
+    monkeypatch.delenv("E8_COLDSTART_RECOVERY_PACKAGE", raising=False)
+    monkeypatch.setattr(exp_tuning, "_require_calibration_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)
+
+    method_offset = {
+        exp_tuning.METHOD_ASYMRE: 0.10,
+        exp_tuning.METHOD_TOPR: 0.40,
+        exp_tuning.METHOD_DPO: 0.70,
+    }
+
+    def fake_subprocess_cell(**kwargs):
+        cell = kwargs["cell"]
+        output_root = kwargs["output_root"]
+        parameter = cell.delta_v if cell.method == exp_tuning.METHOD_ASYMRE else cell.beta
+        assert parameter is not None
+        seed_term = 0.001 if cell.seed == 5000 else 0.0
+        score = method_offset[cell.method] + 0.01 * float(parameter) + seed_term
+        manifest = {
+            "schema_version": 1,
+            "experiment_id": exp_tuning.experiment_id(config),
+            "config_hash": exp_tuning.stable_config_hash(config),
+            "cell": {
+                "task": cell.task,
+                "method": cell.method,
+                "delta_v": cell.delta_v,
+                "beta": cell.beta,
+                "dpo_initialization": cell.dpo_initialization,
+                "seed": cell.seed,
+            },
+            "complete": True,
+            "evaluation_status": "complete",
+            "nan_inf_failure": False,
+            "engineering_placeholder_backend": True,
+            "validation_late_window_pass8_mean": score,
+            "validation_late_window_greedy_mean": score / 2.0,
+            "validation_best_pass8": score + 0.01,
+            "validation_terminal_pass8": score - 0.01,
+            "validation_best_greedy": score / 2.0 + 0.01,
+            "validation_terminal_greedy": score / 2.0 - 0.01,
+            "validation_best_greedy_valid_rate": 0.99,
+            "validation_terminal_greedy_valid_rate": 0.98,
+            "best_step": 1100,
+            "terminal_step": 1200,
+            "stop_reason": "max_steps",
+        }
+        p0.atomic_json(
+            output_root / "cells" / cell.key / "cell_manifest.json",
+            manifest,
+        )
+        return {
+            "cell_key": cell.key,
+            "method": cell.method,
+            "seed": cell.seed,
+            "returncode": 0,
+        }
+
+    monkeypatch.setattr(exp_tuning, "_run_subprocess_cell", fake_subprocess_cell)
+    scheduler = exp_tuning.cmd_run_dynamic(
+        config,
+        tmp_path / "synthetic.yaml",
+        tmp_path,
+        base_model_path="unused",
+        force=False,
+        retry_incomplete=False,
+    )
+    assert scheduler["complete"] is True
+    assert scheduler["expected_cells"] == 176
+    assert scheduler["completed_cells"] == 176
+    assert len(scheduler["task_results"]) == 8
+    assert all(marker["cell_count"] == 22 for marker in scheduler["task_results"].values())
+
+    summary = exp_tuning.cmd_aggregate(config, tmp_path)
+    assert summary["cell_count"] == 176
+    assert summary["method_ranking_allowed"] is False
+    assert summary["significance_claim_allowed"] is False
+    assert summary["parameter_selection_deferred_to_reviewed_protocol"] is True
+    serialized = json.dumps(summary, sort_keys=True)
+    assert '"selected_exp"' not in serialized
+    assert summary["method_metadata"][exp_tuning.METHOD_DPO]["initialization_mode"] == (
+        "base_model_fresh_lora"
+    )
+    for task in config["suite"]["p0_tasks"]:
+        methods = summary["tasks"][task]["methods"]
+        asymre = methods[exp_tuning.METHOD_ASYMRE]["grouped_curve"]
+        topr = methods[exp_tuning.METHOD_TOPR]["grouped_curve"]
+        dpo = methods[exp_tuning.METHOD_DPO]["grouped_curve"]
+        assert len(asymre) == 5
+        assert len(topr) == 3
+        assert len(dpo) == 3
+        assert all(row["seeds"] == [4000, 5000] for row in (*asymre, *topr, *dpo))
+        assert all(row["method"] == exp_tuning.METHOD_ASYMRE for row in asymre)
+        assert all(row["method"] == exp_tuning.METHOD_TOPR for row in topr)
+        assert all(row["method"] == exp_tuning.METHOD_DPO for row in dpo)
+
+    plot_rows = list(
+        csv.DictReader((tmp_path / "aggregate" / "plot_curve_points.csv").open(encoding="utf-8"))
+    )
+    assert len(plot_rows) == 176
+    dpo_rows = [row for row in plot_rows if row["method"] == exp_tuning.METHOD_DPO]
+    assert len(dpo_rows) == 48
+    assert {row["dpo_initialization"] for row in dpo_rows} == {"base_model_fresh_lora"}
+
+    reusable, rejected = exp_tuning._reusable_cell_manifests(config, tmp_path)
+    assert set(reusable) == {cell.key for cell in cells}
+    assert rejected == {}
+
+    victim = cells[0]
+    victim_path = tmp_path / "cells" / victim.key / "cell_manifest.json"
+    victim_manifest = json.loads(victim_path.read_text(encoding="utf-8"))
+    victim_manifest["config_hash"] = "0" * 64
+    p0.atomic_json(victim_path, victim_manifest)
+    reusable, rejected = exp_tuning._reusable_cell_manifests(config, tmp_path)
+    assert victim.key not in reusable
+    assert victim.key in rejected
+    assert len(reusable) == 175

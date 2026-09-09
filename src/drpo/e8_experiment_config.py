@@ -447,6 +447,113 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
                 "Cold-start initialization must remain zero-update deterministic fresh LoRA"
             )
 
+    def validate_shared_sft_adapter_contract(dpo: Mapping[str, Any]) -> None:
+        contract = _mapping(
+            dpo.get("shared_sft_adapter_contract"),
+            "dpo.shared_sft_adapter_contract",
+        )
+        required_fields = {
+            "base_model",
+            "base_model_revision",
+            "adapter_base_model_name_or_path",
+            "target_modules",
+            "modules_to_save",
+            "bias",
+            "adapter_config_sha256",
+            "adapter_weight_file",
+            "adapter_weight_sha256",
+            "provenance_file",
+            "provenance_sha256",
+            "provenance_expected",
+        }
+        if set(contract) != required_fields:
+            raise ValueError(
+                "Shared-SFT DPO adapter contract must contain the exact identity/provenance fields"
+            )
+        model_contract = _mapping(config.get("model"), "model")
+        if (
+            contract.get("base_model") != model_contract.get("base_model")
+            or contract.get("base_model_revision") != model_contract.get("revision")
+        ):
+            raise ValueError("Shared-SFT DPO base-model/revision contract drifted")
+        if not isinstance(contract.get("adapter_base_model_name_or_path"), str) or not str(
+            contract.get("adapter_base_model_name_or_path")
+        ).strip():
+            raise ValueError("Shared-SFT DPO adapter base-model field must be non-empty")
+        target_modules = tuple(
+            str(value).strip()
+            for value in _sequence(contract.get("target_modules"), "dpo shared-SFT target_modules")
+        )
+        if (
+            not target_modules
+            or any(not value for value in target_modules)
+            or len(set(target_modules)) != len(target_modules)
+        ):
+            raise ValueError("Shared-SFT DPO target_modules must be non-empty and unique")
+        modules_to_save = tuple(
+            str(value).strip()
+            for value in _sequence(
+                contract.get("modules_to_save"), "dpo shared-SFT modules_to_save"
+            )
+        )
+        if any(not value for value in modules_to_save) or len(set(modules_to_save)) != len(
+            modules_to_save
+        ):
+            raise ValueError("Shared-SFT DPO modules_to_save must be unique non-empty names")
+        if not isinstance(contract.get("bias"), str) or not str(contract.get("bias")).strip():
+            raise ValueError("Shared-SFT DPO bias contract must be non-empty")
+
+        def require_sha256(field: str) -> None:
+            value = contract.get(field)
+            if (
+                not isinstance(value, str)
+                or len(value) != 64
+                or any(character not in "0123456789abcdef" for character in value)
+            ):
+                raise ValueError(f"dpo.shared_sft_adapter_contract.{field} must be one SHA-256")
+
+        for field in (
+            "adapter_config_sha256",
+            "adapter_weight_sha256",
+            "provenance_sha256",
+        ):
+            require_sha256(field)
+        if contract.get("adapter_weight_file") not in {
+            "adapter_model.safetensors",
+            "adapter_model.bin",
+        }:
+            raise ValueError("Shared-SFT DPO adapter weight filename is unsupported")
+        provenance_file = Path(str(contract.get("provenance_file", "")))
+        if (
+            str(provenance_file) in {"", "."}
+            or provenance_file.is_absolute()
+            or ".." in provenance_file.parts
+        ):
+            raise ValueError("Shared-SFT DPO provenance_file must stay inside the adapter root")
+        provenance_expected = _mapping(
+            contract.get("provenance_expected"),
+            "dpo.shared_sft_adapter_contract.provenance_expected",
+        )
+        required_provenance = {
+            "base_model",
+            "base_model_revision",
+            "source_experiment_id",
+            "source_run_id",
+            "source_checkpoint",
+        }
+        if not required_provenance.issubset(provenance_expected):
+            raise ValueError("Shared-SFT DPO provenance_expected is incomplete")
+        if (
+            provenance_expected.get("base_model") != model_contract.get("base_model")
+            or provenance_expected.get("base_model_revision") != model_contract.get("revision")
+        ):
+            raise ValueError("Shared-SFT DPO provenance base-model/revision drifted")
+        for field in ("source_experiment_id", "source_run_id", "source_checkpoint"):
+            if not isinstance(provenance_expected.get(field), str) or not str(
+                provenance_expected.get(field)
+            ).strip():
+                raise ValueError(f"Shared-SFT DPO provenance {field} must be non-empty")
+
     def validate_dpo(*, bind_global_initialization: bool) -> None:
         dpo = _mapping(config.get("dpo"), "dpo")
         mode = str(dpo.get("initialization_mode", ""))
@@ -490,6 +597,10 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
                 or not str(dpo.get("shared_sft_adapter_env")).strip()
             ):
                 raise ValueError("Baseline-matrix shared-SFT DPO requires an adapter environment")
+        if mode == "shared_sft_adapter":
+            validate_shared_sft_adapter_contract(dpo)
+        elif dpo.get("shared_sft_adapter_contract") not in (None, {}):
+            raise ValueError("Fresh-LoRA DPO may not carry a shared-SFT adapter contract")
         if (
             dpo.get("policy_adapter") != "default"
             or dpo.get("reference_adapter") != "reference"
