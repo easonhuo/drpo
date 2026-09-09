@@ -73,3 +73,25 @@ Accordingly, this same development scope additionally authorizes:
 - synthetic regression coverage for the target arithmetic `8 tasks x 2 seeds x (5 + 3 + 3) = 176` cells, where synthetic test values are capability fixtures and **must not** be interpreted as the future frozen protocol grid.
 
 This follow-up still does **not** authorize selecting the five/three/three production hyperparameters, imposing a new AsymRE upper-domain gate, declaring TOPR beta `1.0` historical-canonical, choosing DPO fresh-LoRA versus shared-SFT for the final estimand, changing formal artifact status semantics, editing `docs/handoff.md` / `experiments/registry.yaml`, or launching any scientific run.
+
+## Post-review P1-P4 hardening (2026-09-09)
+
+The owner explicitly approved the four post-review hardening items below on the same active development branch. They remain capability/engineering changes and do not authorize a scientific run or a final protocol choice.
+
+### P1 — baseline-matrix tail regression coverage
+
+Add behavior-level regression coverage for the composed matrix after cell expansion, including method-aware liveness, mixed-method dynamic scheduling, task-local result materialization, mixed-method aggregation, and recovery/reuse identity. Synthetic manifests may exercise the full 176-cell geometry because they execute no model, optimizer, GPU, or scientific metric. This coverage records already intended orchestration semantics; it must not introduce a new scientific acceptance threshold, result-selection rule, or independent mandatory launch gate.
+
+### P2 — conditional shared-SFT DPO identity/provenance binding
+
+When `dpo.initialization_mode=shared_sft_adapter` is selected, capability code must support an exact config-defined adapter contract rather than accepting an adapter solely because rank/alpha/dropout happen to match. The contract may bind the logical base model and revision, the adapter's recorded base-model field, LoRA target modules, `modules_to_save`, bias, the complete adapter-config SHA-256, exact adapter-weight file/SHA-256, and an exact provenance JSON file/SHA-256 plus expected source fields. These identities must enter DPO cell provenance/resume identity.
+
+This approval does **not** name or freeze a production SFT adapter, adapter SHA, source run, checkpoint, or final DPO initialization. Synthetic tests may use synthetic hashes/provenance only. If the final experiment chooses fresh LoRA, the shared-SFT contract is irrelevant to that run. Most importantly, this hardening must not alter the historical Countdown canonical DPO scientific algorithm: chosen/rejected construction, full-completion summed log probabilities, policy/reference margin, beta placement, sigmoid/softplus loss, prompt-balanced rejected-pair aggregation, exact frozen reference, zero label smoothing, and optimizer semantics remain unchanged.
+
+### P3 — single authority for method vocabulary
+
+The multitask runner's AsymRE, TOPR, DPO, Exponential, and baseline-matrix method constants should alias `e8_experiment_config.py` rather than independently repeating the same protocol strings. This is maintenance-only and changes no method identity or scientific behavior.
+
+### P4 — canonical AsymRE/TOPR grid provenance consistency, non-gating
+
+Centralize the runtime provenance record for the extra canonical AsymRE/TOPR grid files so path plus actual SHA-256 are reported consistently by single-method and matrix aggregation. This remains **non-gating**: no new expected-Git-blob mismatch rejection is authorized here. Turning those grid files into a new immutable expected-blob hard gate would require a separate explicit governance approval.
