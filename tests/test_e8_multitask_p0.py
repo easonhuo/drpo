@@ -3704,6 +3704,31 @@ def test_shared_sft_adapter_binds_full_identity_and_provenance(
     assert identity["adapter_parameterization"]["target_modules"] == ["q_proj", "v_proj"]
     assert exp_tuning._dpo_shared_sft_adapter(config) == adapter.resolve()
 
+    # PEFT loads safetensors before bin when both recognized files are present.
+    # A contract that hashes the bin file must therefore fail before model loading
+    # if safetensors is also present; otherwise verified identity can differ from
+    # the artifact actually selected by the directory loader.
+    alternate_weight_path = adapter / "adapter_model.bin"
+    alternate_weight_path.write_bytes(b"alternate-loader-weight")
+    contract["adapter_weight_file"] = "adapter_model.bin"
+    contract["adapter_weight_sha256"] = exp_tuning.sha256_file(alternate_weight_path)
+    with pytest.raises(ValueError, match="exactly the contracted recognized weight file"):
+        exp_tuning._dpo_shared_sft_adapter_identity(config)
+
+    # Either recognized filename remains supported when it is the directory's
+    # unique recognized adapter-weight artifact.
+    weight_path.unlink()
+    bin_identity = exp_tuning._dpo_shared_sft_adapter_identity(config)
+    assert bin_identity is not None
+    assert bin_identity["adapter_weight_file"] == "adapter_model.bin"
+    weight_path.write_bytes(b"identity-only-test")
+    with pytest.raises(ValueError, match="exactly the contracted recognized weight file"):
+        exp_tuning._dpo_shared_sft_adapter_identity(config)
+
+    alternate_weight_path.unlink()
+    contract["adapter_weight_file"] = "adapter_model.safetensors"
+    contract["adapter_weight_sha256"] = exp_tuning.sha256_file(weight_path)
+
     adapter_config["target_modules"] = ["q_proj", "k_proj"]
     adapter_config_path.write_text(json.dumps(adapter_config, sort_keys=True), encoding="utf-8")
     contract["adapter_config_sha256"] = exp_tuning.sha256_file(adapter_config_path)

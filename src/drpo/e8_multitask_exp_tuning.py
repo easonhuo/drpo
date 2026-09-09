@@ -4086,6 +4086,16 @@ def _dpo_shared_sft_adapter_identity(config: Mapping[str, Any]) -> dict[str, Any
     path = Path(value).resolve()
     adapter_config_path = path / "adapter_config.json"
     weight_name = str(contract["adapter_weight_file"])
+    recognized_weight_names = {"adapter_model.safetensors", "adapter_model.bin"}
+    present_weight_names = {
+        name for name in recognized_weight_names if (path / name).is_file()
+    }
+    if present_weight_names != {weight_name}:
+        raise ValueError(
+            "Shared-SFT DPO adapter directory must contain exactly the contracted "
+            f"recognized weight file: expected={weight_name}, "
+            f"present={sorted(present_weight_names)}"
+        )
     weight_path = path / weight_name
     provenance_relative = Path(str(contract["provenance_file"]))
     provenance_path = (path / provenance_relative).resolve()
