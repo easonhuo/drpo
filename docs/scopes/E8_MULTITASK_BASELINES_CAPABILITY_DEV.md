@@ -101,3 +101,23 @@ Centralize the runtime provenance record for the extra canonical AsymRE/TOPR gri
 The owner explicitly approved one final fail-closed robustness repair for the optional `shared_sft_adapter` path. The reviewed failure mode is that the contract can hash one recognized PEFT adapter-weight file while `PeftModel.from_pretrained(model, adapter_directory, ...)` can select another recognized weight file present in the same directory. Under the pinned PEFT loader, `adapter_model.safetensors` is preferred over `adapter_model.bin`, so a directory containing both files can make the verified artifact differ from the loaded artifact.
 
 For `dpo.initialization_mode=shared_sft_adapter` only, the adapter directory must therefore contain exactly one recognized adapter-weight filename among `adapter_model.safetensors` and `adapter_model.bin`, and that singleton must equal `dpo.shared_sft_adapter_contract.adapter_weight_file`. A missing contracted file or any additional recognized alternative weight file must fail closed before model loading. Regression coverage must include the valid singleton case and the ambiguous dual-weight case. This rule closes exact artifact identity only; it does not modify canonical DPO mathematics, fresh-LoRA behavior, any production initialization choice, scientific grids, seeds, data, thresholds, or experiment status.
+
+## Owner-authorized September-7 protocol closure (2026-09-09)
+
+The owner explicitly authorized resolving the remaining pre-run protocol issues on this same active branch. This closure supersedes only the earlier capability exclusions that deferred the final 176-cell parameter grid, DPO initialization choice, seed-batch execution semantics, formal execution metadata, and terminal-audit completeness checks. It does not authorize launching a scientific run, changing the DPO mathematics, changing the frozen task/data/training budget, or editing handoff/registry directly.
+
+The September 7 Runbook v1.0 parameterization is frozen as follows for the successor eight-task baseline matrix (Countdown is reused and has no new cells):
+
+- transfer seeds: `[4000, 5000]`, with a hard scientific batch barrier: all 88 seed-4000 cells must finish successfully before any seed-5000 scientific cell may start;
+- AsymRE: the Runbook shorthand `asymre_alpha=[0, 0.1, 0.25, 0.5, 1.0]` denotes the canonical negative-repulsion coefficient. The existing canonical AsymRE contract is `negative_repulsion_coefficient = 1 + delta_v`, so the exact runner grid is `delta_v=[-1.0, -0.9, -0.75, -0.5, 0.0]`;
+- Joint Fitted-Reference beta-TOPR: `beta=[0.25, 0.5, 1.0]`;
+- canonical DPO: `beta=[0.05, 0.1, 0.2]`;
+- DPO initialization: `base_model_fresh_lora`, preserving the historical Countdown PR #268 objective and optimizer semantics exactly.
+
+The final matrix geometry is therefore `8 tasks x 2 seeds x (5 + 3 + 3) = 176` cells, with 80 AsymRE, 48 TOPR, and 48 DPO cells. Because the seed barrier prevents using spare slots from the final partial seed-4000 batch for seed 5000, the nominal capacity audit is 12 seed-local batches (`6 + 6`), not the barrier-free `ceil(176/16)=11` geometry. Dynamic scheduling remains enabled within each seed batch.
+
+A successor formal config may set `execution_class: formal`. Formal execution class is distinct from scientific result status: before terminal audit, intermediate artifacts remain unadjudicated/pilot-like evidence; after all frozen terminal checks pass, the fixed-horizon scientific status may be `finite_step_validated`. This does not imply convergence or steady state.
+
+Terminal audit for the formal matrix must independently re-check every scientific cell for the frozen 1,200-step terminal condition, `stop_reason=max_steps`, no test-partition access, and no NaN/Inf. Canonical DPO cells must additionally re-check that the frozen reference state is unchanged from initialization. The audit must also verify the configured paired seed-batch order/completion. These are checks of already frozen protocol conditions, not new scientific thresholds.
+
+The successor formal experiment ID used by the repository config is `EXT-C-E8-MULTITASK-BASELINE-MATRIX-01`. Its responsibility is finite-horizon external-validity comparison of the three registered baseline families on the exact eight P0 transfer tasks under shared frozen banks and training/evaluation budgets. It does not rerun Countdown, establish convergence, or make a universal method-ranking claim.
