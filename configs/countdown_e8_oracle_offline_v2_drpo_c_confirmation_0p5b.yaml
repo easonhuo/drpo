@@ -1,0 +1,134 @@
+schema_version: 1
+experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-DRPO-C-CONFIRMATION-0.5B-01
+result_status: pilot
+registration_state: dev_code_first_unregistered
+claim: >-
+  Confirm one paper-facing DRPO exponential taper coefficient from four
+  preselected high-scoring candidates using four new paired development seed
+  offsets. The run is validation-only parameter confirmation, not a formal
+  cross-method comparison and not convergence evidence.
+model:
+  identity: Qwen2.5-0.5B-Instruct
+  initialization: pretrained_base_plus_fresh_lora
+  parameterization: lora
+bank:
+  source_experiment: EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01
+  use_all_unique_negatives: true
+  deduplicate_expression_rule: arena_clean_expression_first_occurrence
+  explicit_near_far_training_classes: false
+  extreme_selection_forbidden: true
+remoteness:
+  distance: d=current_sequence_surprisal
+  coordinate: u=d/2
+  detached: true
+  weight: alpha*exp(-c*u)
+  reference_distance: 2.0
+  recalibrated_during_training: false
+  extra_square_forbidden: true
+selection_basis:
+  purpose: frozen_parameter_confirmation
+  candidates_frozen_before_new_seed_results: true
+  prior_seed_offsets_excluded_from_confirmation_aggregate:
+    - 4000
+    - 5000
+    - 9000
+    - 10000
+    - 11000
+    - 12000
+  candidate_notes:
+    c_1p897119985: paper_aligned_linear_scan_highest_observed_late_window_point
+    c_3: integer_anchor_near_the_c_2p995732274_point_and_existing_high_c_scan
+    c_5: logarithmic_midpoint_anchor_between_c_3_and_c_8
+    c_8: existing_high_c_plateau_anchor
+sweep:
+  cartesian_product: false
+  parameter_points:
+    - {alpha: 1.0, c: 1.897119985, role: prior_linear_scan_peak}
+    - {alpha: 1.0, c: 3.0, role: lower_high_c_anchor}
+    - {alpha: 1.0, c: 5.0, role: logarithmic_midpoint_anchor}
+    - {alpha: 1.0, c: 8.0, role: upper_high_c_anchor}
+  seed_offsets: [17000, 18000, 19000, 20000]
+  unique_parameter_points: 4
+  cells: 16
+  positive_only_same_seed_control: false
+  historical_positive_only_reference_only: false
+training:
+  steps: 1200
+  early_stop: false
+  eval_every: 100
+  pass64_every: 200
+  denominator: unique_negative_count_per_prompt
+  normalize_by_weight_sum: false
+  hidden_negative_scale: false
+  gradient_budget_matching: false
+execution:
+  default_gpus: [0, 1, 2, 3, 4, 5, 6, 7]
+  parallel_cells_per_gpu: 2
+  expected_full_waves: 1
+  runtime_scope: GOV-RUNTIME-E8-GPU-SLOT-HOTFIX-01
+  identity_checked_resume: true
+  continue_after_cell_failure: true
+  autotune:
+    enabled: true
+    required_free_gpu_memory_gib: 36.0
+    required_host_memory_gib_per_gpu: 8.0
+    gpu_memory_headroom_fraction: 0.12
+    host_memory_headroom_fraction: 0.15
+    maximum_gpu_utilization_percent: 20.0
+  liveness:
+    required_before_full_run: true
+    representative_alpha: 1.0
+    representative_c: 5.0
+    steps: 2
+    validation_examples: 8
+    scientific_evidence: false
+evaluation:
+  validation_only_during_tuning: true
+  test_access_forbidden: true
+  greedy_every: 100
+  pass_at_8_every: 100
+  pass_at_64_every: 200
+  primary_selection_metric: late_window_pass_at_8
+  secondary_selection_metric: terminal_pass_at_8
+  best_checkpoint_metric_is_supplementary_only: true
+  late_window_steps: [800, 900, 1000, 1100, 1200]
+selection:
+  aggregate_unit: seed_level_late_window_mean
+  checkpoint_values_are_not_independent_samples: true
+  winner_rule: highest_mean_late_window_pass_at_8
+  no_posthoc_candidate_change: true
+  report_all_paired_seed_values: true
+reporting:
+  distinguish_task_performance: true
+  distinguish_support_or_structure_boundary: true
+  distinguish_nan_inf_numerical_failure: true
+  fixed_horizon_is_not_convergence: true
+  method_ranking_claim_allowed: false
+  countdown_role: external_validity_only
+  compare_terminal_and_late_window: true
+  seed_11000_exclusion_forbidden: true
+exclusions:
+  - asymre_rerun
+  - topr_rerun
+  - positive_only_rerun
+  - global_rerun
+  - alpha_scan
+  - tau_parameterization
+  - scale_c_parameterization
+  - current_near_current_far_selection
+  - binary_near_far_mixture
+  - rho_parameterization
+  - negative_scale_calibration
+  - bank_negative_scale
+  - global_gamma
+  - gradient_rms_matching
+  - weight_sum_normalization
+  - dynamic_alpha
+  - sbrc
+  - hybrid
+  - entropy_bonus
+  - low_sft_initialization
+  - full_sft_initialization
+  - on_policy
+  - online_replay
+  - test_split_access
