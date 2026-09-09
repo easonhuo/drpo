@@ -270,6 +270,19 @@ def _is_engineering_self_test(config: Mapping[str, Any]) -> bool:
     return isinstance(value, Mapping) and value.get("placeholder_backend") is True
 
 
+def _execution_class(config: Mapping[str, Any]) -> str:
+    value = str(config.get("execution_class", "pilot"))
+    if value not in {"pilot", "formal"}:
+        raise ValueError("execution_class must be pilot or formal")
+    return value
+
+
+def _audited_scientific_status(config: Mapping[str, Any], complete: bool) -> str:
+    if _is_engineering_self_test(config):
+        return "not_run"
+    return "finite_step_validated" if _execution_class(config) == "formal" and complete else "pilot"
+
+
 def _uses_task_lambdas(config: Mapping[str, Any]) -> bool:
     return _is_dense(config) or _is_coldstart(config)
 
@@ -649,25 +662,17 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
         method_seeds = experiment_config.task_transfer_seeds(config)
         if _is_baseline_matrix(config):
             dpo_initialization = str(config["dpo"]["initialization_mode"])
-            for task in tasks:
-                if task == "countdown":
-                    continue
-                for method in methods:
-                    values = experiment_config.task_method_values(
-                        config, task, method=method
-                    )
-                    for method_seed in method_seeds:
+            for method_seed in method_seeds:
+                for task in tasks:
+                    if task == "countdown":
+                        continue
+                    for method in methods:
+                        values = experiment_config.task_method_values(config, task, method=method)
                         cells.extend(
                             _coldstart_method_cell(
-                                task,
-                                method,
-                                method_seed,
-                                "task_transfer",
-                                value,
+                                task, method, method_seed, "task_transfer", value,
                                 lambda_only=False,
-                                dpo_initialization=(
-                                    dpo_initialization if method == METHOD_DPO else None
-                                ),
+                                dpo_initialization=(dpo_initialization if method == METHOD_DPO else None),
                             )
                             for value in values
                         )
@@ -790,17 +795,19 @@ def build_waves(config: Mapping[str, Any]) -> tuple[tuple[Cell, ...], ...]:
             raise AssertionError("Dense wave geometry must be seven task-local 16-cell waves")
         return waves
     if _is_coldstart(config):
-        waves = tuple(
-            tuple(cells[index : index + capacity]) for index in range(0, len(cells), capacity)
-        )
-        if (
-            not waves
-            or any(len(wave) != capacity for wave in waves[:-1])
-            or not 0 < len(waves[-1]) <= capacity
-        ):
-            raise AssertionError(
-                "Cold-start nominal batches must fill capacity except possibly the final batch"
+        if _is_baseline_matrix(config) and bool(config["execution"].get("seed_batch_barriers")):
+            waves = tuple(
+                tuple(seed_cells[i:i + capacity])
+                for seed in config["execution"]["seed_batch_order"]
+                for seed_cells in [tuple(cell for cell in cells if cell.seed == int(seed))]
+                for i in range(0, len(seed_cells), capacity)
             )
+            if tuple(len(w) for w in waves) != (16, 16, 16, 16, 16, 8) * 2:
+                raise AssertionError("Baseline matrix must form two 88-cell seed-local batches")
+            return waves
+        waves = tuple(tuple(cells[i:i + capacity]) for i in range(0, len(cells), capacity))
+        if not waves or any(len(w) != capacity for w in waves[:-1]) or not 0 < len(waves[-1]) <= capacity:
+            raise AssertionError("Cold-start nominal batches must fill capacity except possibly the final batch")
         return waves
     coarse = tuple(cell for cell in cells if cell.stage == "coarse")
     refinement = tuple(cell for cell in cells if cell.stage == "refinement")
@@ -858,6 +865,9 @@ def write_plan(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "max_concurrent_cells": int(config["execution"]["max_concurrent_cells"]),
         "scheduler": str(config["execution"].get("scheduler", "wave_barrier")),
         "wave_is_scheduling_barrier": bool(config["execution"].get("wave_barriers", False)),
+        "seed_batch_barriers": bool(config["execution"].get("seed_batch_barriers", False)),
+        "seed_batch_order": list(config["execution"].get("seed_batch_order", ())),
+        "execution_class": _execution_class(config),
         "rows": rows,
         "scientific_status": "not_run",
     }
@@ -7066,9 +7076,27 @@ def cmd_run_dynamic(
     if slot_count != int(config["execution"]["max_concurrent_cells"]) or slot_count != 16:
         raise RuntimeError("Declared 16-slot capacity is internally inconsistent")
 
+    seed_barrier = _is_baseline_matrix(config) and bool(
+        config["execution"].get("seed_batch_barriers")
+    )
+    seed_order = tuple(int(value) for value in config["execution"].get("seed_batch_order", ()))
+    seed_expected = {seed: sum(cell.seed == seed for cell in cells) for seed in seed_order}
+    seed_completed = {seed: 0 for seed in seed_order}
+    seed_condition = threading.Condition()
+    active_seed_index = 0
     pending: queue.Queue[Cell] = queue.Queue()
-    for cell in cells:
+    initial_cells = (
+        tuple(cell for cell in cells if cell.seed == seed_order[0])
+        if seed_barrier
+        else cells
+    )
+    for cell in initial_cells:
         pending.put(cell)
+    nominal_batch = (
+        {cell.key: index for index, wave in enumerate(build_waves(config), 1) for cell in wave}
+        if seed_barrier
+        else {}
+    )
     stop = threading.Event()
     lock = threading.Lock()
     checkpoint_lock = threading.Lock()
@@ -7104,12 +7132,19 @@ def cmd_run_dynamic(
                 )
 
     def worker(slot: int, gpu_id: int) -> list[dict[str, Any]]:
-        nonlocal last_checkpoint_count
+        nonlocal active_seed_index, last_checkpoint_count
         local: list[dict[str, Any]] = []
         while not stop.is_set():
             try:
                 cell = pending.get_nowait()
             except queue.Empty:
+                if seed_barrier:
+                    with seed_condition:
+                        if stop.is_set():
+                            break
+                        if active_seed_index < len(seed_order) - 1:
+                            seed_condition.wait(timeout=0.25)
+                            continue
                 break
             cell_root = output_root / "cells" / cell.key
             manifest_path = cell_root / "cell_manifest.json"
@@ -7128,6 +7163,7 @@ def cmd_run_dynamic(
                 {
                     "event": "start",
                     "cell_key": cell.key,
+                    "seed": cell.seed,
                     "slot": slot,
                     "gpu_id": gpu_id,
                     "unix_time": time.time(),
@@ -7177,17 +7213,41 @@ def cmd_run_dynamic(
                 except Exception as exc:
                     result["returncode"] = 74
                     result["recovery_checkpoint_error"] = f"{type(exc).__name__}: {exc}"
-            result.update({"slot": slot, "nominal_batch": cells.index(cell) // slot_count + 1})
+            if seed_barrier:
+                result.update(
+                    {"slot": slot, "seed": cell.seed, "nominal_batch": nominal_batch[cell.key]}
+                )
+            else:
+                result.update(
+                    {"slot": slot, "nominal_batch": cells.index(cell) // slot_count + 1}
+                )
             local.append(result)
             record({"event": "finish", **result, "unix_time": time.time()})
             pending.task_done()
             if int(result["returncode"]) != 0:
                 stop.set()
+                with seed_condition:
+                    seed_condition.notify_all()
             else:
                 try:
                     publish_completed_task(cell.task)
+                    if seed_barrier:
+                        with seed_condition:
+                            seed_completed[cell.seed] += 1
+                            if (
+                                seed_completed[cell.seed] == seed_expected[cell.seed]
+                                and active_seed_index < len(seed_order) - 1
+                            ):
+                                active_seed_index += 1
+                                next_seed = seed_order[active_seed_index]
+                                for candidate in cells:
+                                    if candidate.seed == next_seed:
+                                        pending.put(candidate)
+                            seed_condition.notify_all()
                 except Exception:
                     stop.set()
+                    with seed_condition:
+                        seed_condition.notify_all()
                     raise
         return local
 
@@ -7224,7 +7284,16 @@ def cmd_run_dynamic(
         "scheduler_run_id": scheduler_run_id,
         "wave_barriers": False,
         "wave_count": len(build_waves(config)),
-        "wave_count_role": "nominal_audit_geometry_only_not_scheduling_barrier",
+        "wave_count_role": (
+            "seed_local_nominal_capacity_audit_only"
+            if seed_barrier
+            else "nominal_audit_geometry_only_not_scheduling_barrier"
+        ),
+        "seed_batch_barriers": seed_barrier,
+        "seed_batch_order": list(seed_order),
+        "seed_batch_expected_cells": {str(k): v for k,v in seed_expected.items()},
+        "seed_batch_completed_cells": {str(k): v for k,v in seed_completed.items()},
+        "execution_class": _execution_class(config),
         "slot_count": slot_count,
         "gpu_ids": list(gpu_ids),
         "slots_per_gpu": slots_per_gpu,
@@ -7923,6 +7992,7 @@ def _aggregate_coldstart_matrix_unranked(
         "plot_curve_point_count": len(plot_rows),
         "method": METHOD_BASELINE_MATRIX,
         "methods": list(methods),
+        "execution_class": _execution_class(config),
         "method_metadata": method_metadata,
         "transfer_seed_offsets": list(experiment_config.task_transfer_seeds(config)),
         "tasks": task_summaries,
@@ -8260,6 +8330,9 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
     missing: list[str] = []
     incomplete: list[str] = []
     nan_inf: list[str] = []
+    terminal_contract_failures: list[str] = []
+    dpo_reference_identity_failures: list[str] = []
+    expected_terminal_step = int(config["training"]["optimizer_updates"])
     for cell in cells:
         cell_root = output_root / "cells" / cell.key
         path = cell_root / "cell_manifest.json"
@@ -8278,6 +8351,11 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             incomplete.append(cell.key)
         if value.get("nan_inf_failure"):
             nan_inf.append(cell.key)
+        if not _is_engineering_self_test(config):
+            if int(value.get("terminal_step", -1)) != expected_terminal_step or value.get("stop_reason") != "max_steps" or value.get("test_partition_accessed") is not False:
+                terminal_contract_failures.append(cell.key)
+            if cell.method == METHOD_DPO and (value.get("reference_initial_state_sha256") != value.get("reference_terminal_state_sha256") or value.get("reference_trainable") is not False):
+                dpo_reference_identity_failures.append(cell.key)
     inherited_complete = True
     aggregate_complete = True
     reproduction_gate_status: str | None = None
@@ -8308,9 +8386,14 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             == len(cells)
             and reproduction_gate_status == expected_protocol_status
         )
-    all_complete = (
-        not missing and not incomplete and not nan_inf and inherited_complete and aggregate_complete
-    )
+    seed_batch_protocol_complete: bool | None = None
+    if _is_baseline_matrix(config):
+        sp = output_root / "scheduler" / "dynamic_run.json"
+        scheduler = json.loads(sp.read_text(encoding="utf-8")) if sp.is_file() else {}
+        order = [int(v) for v in config["execution"]["seed_batch_order"]]
+        expected = {str(seed): sum(cell.seed == seed for cell in cells) for seed in order}
+        seed_batch_protocol_complete = scheduler.get("seed_batch_barriers") is True and scheduler.get("seed_batch_order") == order and scheduler.get("seed_batch_expected_cells") == expected and scheduler.get("seed_batch_completed_cells") == expected and scheduler.get("complete") is True
+    all_complete = not missing and not incomplete and not nan_inf and not terminal_contract_failures and not dpo_reference_identity_failures and inherited_complete and aggregate_complete and seed_batch_protocol_complete is not False
     audit = {
         "schema_version": 1,
         "experiment_id": experiment_id(config),
@@ -8319,7 +8402,11 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "missing_cells": sorted(set(missing)),
         "incomplete_cells": sorted(set(incomplete)),
         "nan_inf_cells": sorted(set(nan_inf)),
+        "terminal_contract_failures": sorted(set(terminal_contract_failures)),
+        "dpo_reference_identity_failures": sorted(set(dpo_reference_identity_failures)),
+        "seed_batch_protocol_complete": seed_batch_protocol_complete,
         "all_training_and_evaluation_complete": all_complete,
+        "execution_class": _execution_class(config),
         "test_partition_accessed": False,
         "task_performance_event": "not_adjudicated_without_registered_collapse_threshold",
         "structure_event": "greedy_and_sampled_valid_rate_diagnostic_only",
@@ -8353,9 +8440,7 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             )
         ),
         "fixed_horizon_is_convergence": False,
-        "scientific_status": (
-            "not_run" if _is_engineering_self_test(config) or not all_complete else "pilot"
-        ),
+        "scientific_status": _audited_scientific_status(config, all_complete),
         "engineering_placeholder_backend": _is_engineering_self_test(config),
     }
     atomic_json(output_root / "terminal_audit.json", audit)
@@ -8418,7 +8503,8 @@ def _write_completion_manifests(
         "scheduler_run_id": scheduler["scheduler_run_id"],
         "test_partition_accessed": False,
         "engineering_placeholder_backend": self_test,
-        "scientific_status": "not_run" if self_test else "pilot",
+        "execution_class": _execution_class(config),
+        "scientific_status": str(audit["scientific_status"]),
         "artifact_state": "engineering_self_test_complete" if self_test else "raw_complete",
     }
     atomic_json(output_root / "run_manifest.json", run_manifest)
@@ -8561,12 +8647,13 @@ def cmd_package(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for path in payload_paths:
             archive.write(path, arcname=path.relative_to(output_root).as_posix())
+    execution_class = _execution_class(config)
     result = {
         "schema_version": 1,
         "experiment_id": experiment_id(config),
-        "artifact_kind": (
-            "engineering_self_test" if _is_engineering_self_test(config) else "pilot_results"
-        ),
+        "execution_class": execution_class,
+        "scientific_status": str(audit["scientific_status"]),
+        "artifact_kind": ("engineering_self_test" if _is_engineering_self_test(config) else ("formal_results" if execution_class == "formal" else "pilot_results")),
         "full_results_zip": str(zip_path.resolve()),
         "full_results_zip_sha256": sha256_file(zip_path),
         "full_results_zip_bytes": zip_path.stat().st_size,
@@ -8600,6 +8687,8 @@ def cmd_finalize(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]
         "experiment_id": experiment_id(config),
         "base_commit": audit["base_commit"],
         "artifact_state": "raw_complete",
+        "execution_class": _execution_class(config),
+        "scientific_status": str(audit["scientific_status"]),
         "canonical_archive_owner": "scripts/run_experiment_guard_hardened.py",
         "plot_curve_points_csv": str(plot_path.resolve()),
         "plot_curve_points_csv_sha256": sha256_file(plot_path),

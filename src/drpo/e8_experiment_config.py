@@ -1058,6 +1058,11 @@ def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
             config["sweep"].get("expected_cells"), "sweep.expected_cells"
         )
         required_waves = math.ceil(configured_cells / capacity)
+        if method == COLDSTART_METHOD_BASELINE_MATRIX and execution.get("seed_batch_barriers") is True:
+            seeds = task_transfer_seeds(config)
+            if configured_cells % len(seeds) != 0:
+                raise ValueError("Baseline matrix cells must divide evenly across transfer seeds")
+            required_waves = len(seeds) * math.ceil((configured_cells // len(seeds)) / capacity)
         if expected_waves != required_waves:
             raise ValueError(
                 "execution.expected_waves must match the expanded matrix and capacity"
@@ -1085,12 +1090,21 @@ def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
             raise ValueError(f"execution.{field} violates the recovery safety contract")
     if execution.get("oom_policy") != "fail_cell_no_automatic_scientific_parameter_mutation":
         raise ValueError("Cold-start OOM policy may not mutate scientific parameters")
+    if method == COLDSTART_METHOD_BASELINE_MATRIX:
+        if _boolean(execution.get("seed_batch_barriers"), "execution.seed_batch_barriers") is not True:
+            raise ValueError("Baseline matrix requires the frozen transfer-seed batch barrier")
+        order = tuple(_integer(v, "execution.seed_batch_order entry") for v in _sequence(execution.get("seed_batch_order"), "execution.seed_batch_order"))
+        if order != task_transfer_seeds(config):
+            raise ValueError("Baseline matrix seed_batch_order must equal task_transfer_seed_offsets")
 
 
 def validate_coldstart_config(config: Mapping[str, Any]) -> None:
     if config.get("schema_version") != 1:
         raise ValueError("Expected schema_version: 1")
     current_id = experiment_id(config)
+    execution_class = str(config.get("execution_class", "pilot"))
+    if execution_class not in {"pilot", "formal"}:
+        raise ValueError("Cold-start execution_class must be pilot or formal")
     if sweep_profile(config) != SWEEP_PROFILE_COLDSTART:
         raise ValueError("validate_coldstart_config requires the cold-start profile")
     if current_id in (P0_EXPERIMENT_ID, RHO_EXPERIMENT_ID, DENSE_EXPERIMENT_ID):

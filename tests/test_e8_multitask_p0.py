@@ -3826,7 +3826,9 @@ def _baseline_matrix_capability_test_config(*, shared_sft: bool = False) -> dict
         },
         "expected_cells": 176,
     }
-    config["execution"]["expected_waves"] = 11
+    config["execution"]["expected_waves"] = 12
+    config["execution"]["seed_batch_barriers"] = True
+    config["execution"]["seed_batch_order"] = [4000, 5000]
     config["canonical_coldstart"].update(
         {
             "scientific_kernel": "per_cell_canonical_baseline_dispatch",
@@ -3882,7 +3884,7 @@ def test_baseline_matrix_one_config_expands_exact_176_cells(tmp_path: Path) -> N
 
     plan = exp_tuning.write_plan(config, tmp_path)
     assert plan["cell_count"] == 176
-    assert plan["wave_sizes"] == [16] * 11
+    assert plan["wave_sizes"] == [16, 16, 16, 16, 16, 8] * 2
     assert {row["method"] for row in plan["rows"]} == {
         exp_tuning.METHOD_ASYMRE,
         exp_tuning.METHOD_TOPR,
@@ -4085,6 +4087,12 @@ def test_baseline_matrix_tail_pipeline_scheduler_aggregate_and_resume_identity(
     assert scheduler["complete"] is True
     assert scheduler["expected_cells"] == 176
     assert scheduler["completed_cells"] == 176
+    assert scheduler["seed_batch_completed_cells"] == {"4000": 88, "5000": 88}
+    events = [json.loads(line) for line in (tmp_path / "scheduler" / "queue_events.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+    finishes = [row["unix_time"] for row in events if row["event"] == "finish" and row.get("seed") == 4000]
+    starts = [row["unix_time"] for row in events if row["event"] == "start" and row.get("seed") == 5000]
+    assert len(finishes) == len(starts) == 88
+    assert max(finishes) <= min(starts)
     assert len(scheduler["task_results"]) == 8
     assert all(marker["cell_count"] == 22 for marker in scheduler["task_results"].values())
 
@@ -4132,3 +4140,43 @@ def test_baseline_matrix_tail_pipeline_scheduler_aggregate_and_resume_identity(
     assert victim.key not in reusable
     assert victim.key in rejected
     assert len(reusable) == 175
+
+
+def test_formal_baseline_matrix_config_matches_september7_runbook() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+    config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")
+    cells = exp_tuning.build_cells(config)
+    assert config["execution_class"] == "formal"
+    assert len(cells) == 176
+    assert {cell.seed for cell in cells[:88]} == {4000}
+    assert {cell.seed for cell in cells[88:]} == {5000}
+    assert [len(w) for w in exp_tuning.build_waves(config)] == [16,16,16,16,16,8] * 2
+    for task in config["suite"]["p0_tasks"]:
+        dvs = exp_tuning.experiment_config.task_delta_vs(config, task, method=exp_tuning.METHOD_ASYMRE)
+        assert dvs == (-1.0,-0.9,-0.75,-0.5,0.0)
+        assert tuple(round(1.0+v, 10) for v in dvs) == (0.0,0.1,0.25,0.5,1.0)
+        assert exp_tuning.experiment_config.task_betas(config, task, method=exp_tuning.METHOD_TOPR) == (0.25,0.5,1.0)
+        assert exp_tuning.experiment_config.task_betas(config, task, method=exp_tuning.METHOD_DPO) == (0.05,0.1,0.2)
+    assert {c.dpo_initialization for c in cells if c.method == exp_tuning.METHOD_DPO} == {"base_model_fresh_lora"}
+
+
+def test_formal_terminal_status_requires_full_terminal_contract(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+    config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")
+    cells = exp_tuning.build_cells(config)
+    p0.atomic_json(tmp_path / "source_provenance.json", {"source_commit": "a"*40})
+    for cell in cells:
+        value={"complete":True,"evaluation_status":"complete","nan_inf_failure":False,"terminal_step":1200,"stop_reason":"max_steps","test_partition_accessed":False}
+        if cell.method == exp_tuning.METHOD_DPO:
+            value.update({"reference_initial_state_sha256":"b"*64,"reference_terminal_state_sha256":"b"*64,"reference_trainable":False})
+        p0.atomic_json(tmp_path / "cells" / cell.key / "cell_manifest.json", value)
+    p0.atomic_json(tmp_path / "aggregate" / "aggregate_summary.json", {"cell_count":176})
+    p0.atomic_json(tmp_path / "aggregate" / "countdown_protocol_diagnostic.json", {"status":"NOT_RUN"})
+    p0.atomic_json(tmp_path / "scheduler" / "dynamic_run.json", {"complete":True,"seed_batch_barriers":True,"seed_batch_order":[4000,5000],"seed_batch_expected_cells":{"4000":88,"5000":88},"seed_batch_completed_cells":{"4000":88,"5000":88}})
+    audit=exp_tuning.cmd_audit(config,tmp_path)
+    assert audit["all_training_and_evaluation_complete"] is True
+    assert audit["scientific_status"] == "finite_step_validated"
+    victim=cells[0]; path=tmp_path / "cells" / victim.key / "cell_manifest.json"
+    value=json.loads(path.read_text()); value["terminal_step"]=1199; p0.atomic_json(path,value)
+    failed=exp_tuning.cmd_audit(config,tmp_path)
+    assert failed["scientific_status"] == "pilot" and victim.key in failed["terminal_contract_failures"]
