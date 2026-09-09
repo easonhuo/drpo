@@ -34,6 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           python .github/workflows/e8-baselines-p1-p4-hardening-script.txt
+          python -c 'from pathlib import Path; p=Path("tests/test_e8_multitask_p0.py"); p.write_text(p.read_text(encoding="utf-8").rstrip()+"\n", encoding="utf-8")'
 
       - name: Install test dependencies
         shell: bash
