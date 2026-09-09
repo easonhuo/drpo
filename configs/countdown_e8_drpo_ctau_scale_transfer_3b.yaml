@@ -1,0 +1,106 @@
+schema_version: 1
+experiment_id: EXT-C-E8-DRPO-CTAU-SCALE-TRANSFER-3B-01
+result_status: pilot
+registration_state: dev_code_first_unregistered
+claim: >-
+  Test whether four preselected DRPO c/tau points from the completed 0.5B
+  validation response surface remain usable when transferred without retuning
+  to Qwen2.5-3B-Instruct on the same frozen model-independent E8 V2 bank.
+  This is a model-scale external-validity pilot, not a new hyperparameter search,
+  convergence study, significance claim, or formal method ranking.
+model:
+  identity: Qwen2.5-3B-Instruct
+  transfer_source_model: Qwen2.5-0.5B-Instruct
+  initialization: pretrained_base_plus_fresh_lora
+  parameterization: lora
+bank:
+  source_experiment: EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01
+  model_independent: true
+  use_all_unique_negatives: true
+  deduplicate_expression_rule: arena_clean_expression_first_occurrence
+  explicit_near_far_training_classes: false
+  extreme_selection_forbidden: true
+remoteness:
+  distance: current_mean_token_surprisal
+  coordinate: u=current_sequence_surprisal/2
+  weight: alpha*exp(-c*max(u-tau,0))
+  alpha: 1.0
+  detached: true
+  retune_on_3b: false
+sweep:
+  cartesian_product: false
+  parameter_points:
+    - {label: A, c: 1.609437912, tau: 0.125, role: historical_0p5b_anchor_a}
+    - {label: B, c: 1.897119985, tau: 0.25, role: historical_0p5b_anchor_b}
+    - {label: C, c: 2.995732274, tau: 0.125, role: historical_0p5b_anchor_c}
+    - {label: D, c: 4.605170186, tau: 0.75, role: historical_0p5b_anchor_d}
+  seed_offsets: [4000, 5000]
+  unique_parameter_points: 4
+  cells: 8
+training:
+  steps: 1200
+  early_stop: false
+  eval_every: 100
+  pass64_every: 200
+  denominator: unique_negative_count_per_prompt
+  normalize_by_weight_sum: false
+  hidden_negative_scale: false
+  gradient_budget_matching: false
+execution:
+  default_gpus: [0, 1, 2, 3]
+  parallel_cells_per_gpu: 1
+  expected_full_waves: 2
+  runtime_scope: EXT-C-E8-DRPO-CTAU-SCALE-TRANSFER-3B-01
+  identity_checked_resume: true
+  continue_after_cell_failure: true
+  autotune:
+    enabled: true
+    required_free_gpu_memory_gib: 60.0
+    required_host_memory_gib_per_gpu: 12.0
+    gpu_memory_headroom_fraction: 0.10
+    host_memory_headroom_fraction: 0.15
+    maximum_gpu_utilization_percent: 20.0
+  liveness:
+    required_before_full_run: true
+    representative_label: A
+    representative_alpha: 1.0
+    representative_c: 1.609437912
+    representative_tau: 0.125
+    steps: 2
+    validation_examples: 8
+    scientific_evidence: false
+evaluation:
+  split_file: val.jsonl
+  split_role: structurally_disjoint_held_out_evaluation
+  enters_training_loss: false
+  separate_test_split_access: false
+  greedy_every: 100
+  pass_at_8_every: 100
+  pass_at_64_every: 200
+  primary_reporting_metric: late_window_pass_at_8
+  secondary_reporting_metric: terminal_pass_at_8
+  paper_facing_checkpoint_policy: late_window_and_terminal
+  best_checkpoint_role: supplementary_only
+  best_checkpoint_metric_is_supplementary_only: true
+  late_window_steps: [800, 900, 1000, 1100, 1200]
+reporting:
+  distinguish_task_performance: true
+  distinguish_support_or_structure_boundary: true
+  distinguish_nan_inf_numerical_failure: true
+  fixed_horizon_is_not_convergence: true
+  method_ranking_claim_allowed: false
+  statistical_significance_claim_allowed: false
+  countdown_role: external_validity_only
+  compare_terminal_and_late_window: true
+exclusions:
+  - c_or_tau_retuning_on_3b
+  - top_r_or_behavior_ratio_control
+  - asymre
+  - reciprocal_family
+  - current_near_current_far_selection
+  - binary_near_far_mixture
+  - weight_sum_normalization
+  - dynamic_alpha
+  - sbrc
+  - hybrid
+  - test_split_access
