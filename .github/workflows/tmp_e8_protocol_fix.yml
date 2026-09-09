@@ -13,36 +13,73 @@ jobs:
           ref: dev/e8-multitask-baselines-capability-01
           fetch-depth: 0
       - name: Verify retry base
-        run: test "$(git rev-parse HEAD^)" = "9977772a49369fdf12049240d7b82fa789cb9017"
+        run: test "$(git rev-parse HEAD^)" = "7bc2f333c9fba0e98ad8c5032e0c02b178cd35c5"
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-      - name: Reuse reviewed patch body
+      - name: Reapply reviewed implementation patch
         run: |
           set -euo pipefail
-          git show HEAD^:.github/workflows/tmp_e8_protocol_fix.yml | awk '
+          git show 9977772a49369fdf12049240d7b82fa789cb9017:.github/workflows/tmp_e8_protocol_fix.yml | awk '
             /- name: Patch implementation and tests/ {seen=1; next}
             seen && /run: \|/ {body=1; next}
             body && /^      - name: Install/ {exit}
             body {sub(/^          /, ""); print}
           ' > /tmp/e8_patch.sh
           bash /tmp/e8_patch.sh
-      - name: Preserve historical EXP metadata compatibility
+      - name: Isolate seed barrier from historical dynamic queue
         run: |
           python - <<'PY'
           from pathlib import Path
+
           path = Path("src/drpo/e8_multitask_exp_tuning.py")
           text = path.read_text(encoding="utf-8")
-          old = '        "wave_count_role": "seed_local_nominal_capacity_audit_only",\n'
-          new = '''        "wave_count_role": (\n            "seed_local_nominal_capacity_audit_only"\n            if seed_barrier\n            else "nominal_audit_geometry_only_not_scheduling_barrier"\n        ),\n'''
-          if text.count(old) != 1:
-              raise SystemExit("wave_count_role retry anchor mismatch")
-          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          def replace_once(old: str, new: str) -> None:
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"expected one scheduler replacement, found {count}")
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              '''    pending: queue.Queue[Cell] = queue.Queue()\n    for cell in cells:\n        pending.put(cell)\n    seed_barrier = _is_baseline_matrix(config) and bool(config["execution"].get("seed_batch_barriers"))\n    seed_order = tuple(int(v) for v in config["execution"].get("seed_batch_order", ()))\n    seed_expected = {seed: sum(cell.seed == seed for cell in cells) for seed in seed_order}\n    seed_completed = {seed: 0 for seed in seed_order}\n    seed_condition = threading.Condition()\n    nominal_batch = {cell.key: i for i,wave in enumerate(build_waves(config),1) for cell in wave}\n    stop = threading.Event()\n''',
+              '''    seed_barrier = _is_baseline_matrix(config) and bool(\n        config["execution"].get("seed_batch_barriers")\n    )\n    seed_order = tuple(int(value) for value in config["execution"].get("seed_batch_order", ()))\n    seed_expected = {seed: sum(cell.seed == seed for cell in cells) for seed in seed_order}\n    seed_completed = {seed: 0 for seed in seed_order}\n    seed_condition = threading.Condition()\n    active_seed_index = 0\n    pending: queue.Queue[Cell] = queue.Queue()\n    initial_cells = (\n        tuple(cell for cell in cells if cell.seed == seed_order[0])\n        if seed_barrier\n        else cells\n    )\n    for cell in initial_cells:\n        pending.put(cell)\n    nominal_batch = (\n        {cell.key: index for index, wave in enumerate(build_waves(config), 1) for cell in wave}\n        if seed_barrier\n        else {}\n    )\n    stop = threading.Event()\n'''
+          )
+          replace_once(
+              '''    def worker(slot: int, gpu_id: int) -> list[dict[str, Any]]:\n        nonlocal last_checkpoint_count\n''',
+              '''    def worker(slot: int, gpu_id: int) -> list[dict[str, Any]]:\n        nonlocal active_seed_index, last_checkpoint_count\n'''
+          )
+          replace_once(
+              '''            try:\n                cell = pending.get_nowait()\n            except queue.Empty:\n                break\n            if seed_barrier:\n                idx = seed_order.index(cell.seed)\n                if idx:\n                    previous = seed_order[idx - 1]\n                    with seed_condition:\n                        while seed_completed[previous] < seed_expected[previous] and not stop.is_set():\n                            seed_condition.wait(timeout=0.25)\n                        if stop.is_set():\n                            pending.task_done()\n                            break\n            cell_root = output_root / "cells" / cell.key\n''',
+              '''            try:\n                cell = pending.get_nowait()\n            except queue.Empty:\n                if seed_barrier:\n                    with seed_condition:\n                        if stop.is_set():\n                            break\n                        if active_seed_index < len(seed_order) - 1:\n                            seed_condition.wait(timeout=0.25)\n                            continue\n                break\n            cell_root = output_root / "cells" / cell.key\n'''
+          )
+          replace_once(
+              '''            result.update({"slot": slot, "seed": cell.seed, "nominal_batch": nominal_batch[cell.key]})\n''',
+              '''            if seed_barrier:\n                result.update(\n                    {"slot": slot, "seed": cell.seed, "nominal_batch": nominal_batch[cell.key]}\n                )\n            else:\n                result.update(\n                    {"slot": slot, "nominal_batch": cells.index(cell) // slot_count + 1}\n                )\n'''
+          )
+          replace_once(
+              '''                    if seed_barrier:\n                        with seed_condition:\n                            seed_completed[cell.seed] += 1\n                            seed_condition.notify_all()\n''',
+              '''                    if seed_barrier:\n                        with seed_condition:\n                            seed_completed[cell.seed] += 1\n                            if (\n                                seed_completed[cell.seed] == seed_expected[cell.seed]\n                                and active_seed_index < len(seed_order) - 1\n                            ):\n                                active_seed_index += 1\n                                next_seed = seed_order[active_seed_index]\n                                for candidate in cells:\n                                    if candidate.seed == next_seed:\n                                        pending.put(candidate)\n                            seed_condition.notify_all()\n'''
+          )
+          replace_once(
+              '''        "wave_count_role": "seed_local_nominal_capacity_audit_only",\n''',
+              '''        "wave_count_role": (\n            "seed_local_nominal_capacity_audit_only"\n            if seed_barrier\n            else "nominal_audit_geometry_only_not_scheduling_barrier"\n        ),\n'''
+          )
+          path.write_text(text, encoding="utf-8")
           PY
       - name: Install
         run: python -m pip install -e . pytest ruff
-      - name: Test
+      - name: Validate historical refill repeatedly
+        env:
+          PYTHONPATH: .
+        run: |
+          set -euo pipefail
+          for i in 1 2 3 4 5; do
+            pytest -q tests/test_e8_multitask_p0.py::test_exp_coldstart_scheduler_refills_without_nominal_batch_barriers
+          done
+      - name: Full validation
         env:
           PYTHONPATH: .
         run: |
@@ -61,6 +98,8 @@ jobs:
           assert x["seed_batch_order"] == [4000, 5000]
           assert x["seed_batch_barriers"] is True
           assert x["execution_class"] == "formal"
+          assert {row["seed"] for row in x["rows"][:88]} == {4000}
+          assert {row["seed"] for row in x["rows"][88:]} == {5000}
           PY
       - name: Commit implementation
         run: |
