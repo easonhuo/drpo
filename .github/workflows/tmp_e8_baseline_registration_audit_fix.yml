@@ -1,0 +1,86 @@
+name: tmp-e8-baseline-registration-audit-fix
+on:
+  push:
+    branches: [dev/e8-multitask-baselines-capability-01]
+permissions:
+  contents: write
+jobs:
+  validate-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-baselines-capability-01
+          fetch-depth: 0
+      - name: Verify restored scientific tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t other < <(git diff --name-only 50cd7c7c3e938d6cb9c00ef7a2ec0d8ce4d93322 HEAD | grep -v '^\.github/workflows/tmp_e8_baseline_registration_audit_fix.yml$' || true)
+          test "${#other[@]}" -eq 0
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Replay reviewed workflow with corrected registry insertion
+        shell: bash
+        env:
+          PYTHONPATH: .
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import os
+          import subprocess
+          import sys
+          import yaml
+
+          historical = subprocess.check_output(
+              [
+                  "git",
+                  "show",
+                  "3e1ab09c0979c13dec330bad9c4b7b23395bf193:.github/workflows/tmp_e8_baseline_registration_audit_fix.yml",
+              ],
+              text=True,
+          )
+          workflow = yaml.safe_load(historical)
+          steps = workflow["jobs"]["validate-and-commit"]["steps"]
+          wanted = [
+              "Install documentation tooling",
+              "Freeze registration source before code repair",
+              "Materialize Stage-5 handoff authority",
+              "Repair independent seed-barrier terminal audit",
+              "Add temporal-audit regression",
+              "Install test dependencies",
+              "Full focused validation",
+              "Remove temporary validation workflow",
+              "Push validated branch",
+          ]
+          by_name = {step.get("name"): step for step in steps if "run" in step}
+          missing = [name for name in wanted if name not in by_name]
+          if missing:
+              raise SystemExit(f"historical workflow missing steps: {missing}")
+
+          env = os.environ.copy()
+          env["PYTHONPATH"] = "."
+          for name in wanted:
+              command = by_name[name]["run"]
+              if name == "Freeze registration source before code repair":
+                  old_marker = 'marker = "\\nallowed_execution_states:\\n"'
+                  new_marker = 'marker = "experiments:\\n"'
+                  old_insert = 'updated_registry = current_registry.replace(marker, "\\n" + entity + marker, 1)'
+                  new_insert = 'updated_registry = current_registry.replace(marker, marker + entity, 1)'
+                  if old_marker not in command or old_insert not in command:
+                      raise SystemExit("historical registry insertion fragments not found")
+                  command = command.replace(old_marker, new_marker, 1)
+                  command = command.replace(old_insert, new_insert, 1)
+              print(f"=== {name} ===", flush=True)
+              result = subprocess.run(
+                  ["bash", "-euo", "pipefail", "-c", command],
+                  env=env,
+                  text=True,
+              )
+              if result.returncode:
+                  raise SystemExit(result.returncode)
+          PY
