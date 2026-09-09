@@ -22,7 +22,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-      - name: Replay reviewed workflow with root-level registry insertion
+      - name: Replay reviewed workflow with canonical Stage-5 amend
         shell: bash
         env:
           PYTHONPATH: .
@@ -74,6 +74,12 @@ jobs:
                       raise SystemExit("historical registry insertion fragments not found")
                   command = command.replace(old_precheck, new_precheck, 1)
                   command = command.replace(old_insert, new_insert, 1)
+              if name == "Materialize Stage-5 handoff authority":
+                  old_commit = 'git commit -m "docs: materialize E8 baseline registration"'
+                  new_commit = 'git commit --amend --no-edit'
+                  if old_commit not in command:
+                      raise SystemExit("historical materialization commit fragment not found")
+                  command = command.replace(old_commit, new_commit, 1)
               print(f"=== {name} ===", flush=True)
               result = subprocess.run(
                   ["bash", "-euo", "pipefail", "-c", command],
