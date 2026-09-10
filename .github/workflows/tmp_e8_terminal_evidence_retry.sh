@@ -33,7 +33,15 @@ replace_identity_hash_in_function("_train_canonical_dpo_transfer_cell")
 replace_identity_hash_in_function("_train_canonical_cold_cell")
 
 '''
-path.write_text(text[:start] + replacement + text[end:], encoding='utf-8')
+text = text[:start] + replacement + text[end:]
+# The reuse regression targets queue/provenance behavior only.  Do not make it
+# depend on unrelated task-result metric fixture fields.
+old = '    monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)\n\n    def fake_subprocess_cell(**kwargs):\n'
+new = '    monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)\n    monkeypatch.setattr(exp_tuning, "_coldstart_completed_task_rows", lambda *args, **kwargs: None)\n\n    def fake_subprocess_cell(**kwargs):\n'
+if text.count(old) != 1:
+    raise SystemExit(f'reuse-regression isolation anchor mismatch: {text.count(old)}')
+text = text.replace(old, new, 1)
+path.write_text(text, encoding='utf-8')
 PY
 
 bash .github/workflows/tmp_e8_terminal_evidence_patch.sh
