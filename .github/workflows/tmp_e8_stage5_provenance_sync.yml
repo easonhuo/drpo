@@ -100,19 +100,19 @@ jobs:
 
           registry = registry_path.read_text(encoding='utf-8')
           old_registry = '''    seed_batch_summary_check: true
-              seed_batch_temporal_event_history_check: true
-              seed_batch_event_cell_identity_check: exact_expected_cell_keys_no_duplicates
-              temporal_event_source: scheduler/queue_events.jsonl
-              temporal_condition: max_seed_4000_successful_finish_time_le_min_seed_5000_start_time
-          '''.replace('          ', '')
+    seed_batch_temporal_event_history_check: true
+    seed_batch_event_cell_identity_check: exact_expected_cell_keys_no_duplicates
+    temporal_event_source: scheduler/queue_events.jsonl
+    temporal_condition: max_seed_4000_successful_finish_time_le_min_seed_5000_start_time
+'''
           new_registry = '''    seed_batch_summary_check: true
-              seed_batch_event_cell_identity_check: exact_expected_cell_keys_no_duplicates
-              queue_event_identity_source: scheduler/queue_events.jsonl
-              seed_batch_temporal_scientific_provenance_check: true
-              scientific_temporal_source: cells/*/cell_manifest.json::scientific_execution_provenance
-              recovery_reuse_rule: preserve_original_scientific_execution_provenance
-              temporal_condition: max_seed_4000_successful_finish_time_le_min_seed_5000_start_time
-          '''.replace('          ', '')
+    seed_batch_event_cell_identity_check: exact_expected_cell_keys_no_duplicates
+    queue_event_identity_source: scheduler/queue_events.jsonl
+    seed_batch_temporal_scientific_provenance_check: true
+    scientific_temporal_source: cells/*/cell_manifest.json::scientific_execution_provenance
+    recovery_reuse_rule: preserve_original_scientific_execution_provenance
+    temporal_condition: max_seed_4000_successful_finish_time_le_min_seed_5000_start_time
+'''
           if old_registry not in registry:
               raise SystemExit('old registry temporal provenance block not found')
           registry = registry.replace(old_registry, new_registry, 1)
@@ -159,13 +159,9 @@ jobs:
             --repo-root "$STAGE" \
             --json | tee /tmp/e8-verify.json
           python "$TRUSTED/scripts/validate_governance_pipeline_stage_status.py" --repo-root "$STAGE"
-          python "$TRUSTED/scripts/validate_experiment_governance.py" --repo-root "$STAGE"
-          if test -f "$TRUSTED/scripts/validate_formal_channel_sync.py"; then
-            python "$TRUSTED/scripts/validate_formal_channel_sync.py" --repo-root "$STAGE"
-          fi
+          python "$TRUSTED/scripts/validate_formal_execution_channel.py" --repo-root "$STAGE"
           git -C "$STAGE" diff --check "$MAIN_SHA"..HEAD
 
-          # Copy the trusted normalized tree delta back onto the active dev branch.
           while IFS= read -r -d '' f; do
             if test -e "$STAGE/$f"; then
               mkdir -p "$ROOT/$(dirname "$f")"
@@ -182,15 +178,11 @@ jobs:
           fi
           git commit -m 'docs: synchronize E8 formal provenance authority'
 
-          # Validate the actual branch tree that will be pushed.
           python "$TRUSTED/scripts/handoff_authority.py" verify \
             --repo-root "$ROOT" \
             --json | tee /tmp/e8-branch-verify.json
           python "$TRUSTED/scripts/validate_governance_pipeline_stage_status.py" --repo-root "$ROOT"
-          python "$TRUSTED/scripts/validate_experiment_governance.py" --repo-root "$ROOT"
-          if test -f "$TRUSTED/scripts/validate_formal_channel_sync.py"; then
-            python "$TRUSTED/scripts/validate_formal_channel_sync.py" --repo-root "$ROOT"
-          fi
+          python "$TRUSTED/scripts/validate_formal_execution_channel.py" --repo-root "$ROOT"
           git diff --check "$MAIN_SHA"..HEAD
 
       - name: Focused E8 regression suite
