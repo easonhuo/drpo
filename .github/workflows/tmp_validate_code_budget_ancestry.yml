@@ -1,0 +1,85 @@
+name: Temporary Code Budget Ancestry Validation
+
+on:
+  push:
+    branches:
+      - dev/gov-code-change-budget-ancestry-bugfix-01
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      MAIN_SHA: 8a21fd16e63ea96a0cde2a477353d24562624655
+      E8_HEAD: bc43212db599b33a611e6060e9e4e658ed381d72
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate exact after-image
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse origin/main)" = "$MAIN_SHA"
+          git fetch --no-tags origin "$E8_HEAD"
+          python - <<'PY'
+          import os
+          import subprocess
+          from pathlib import Path
+
+          main_sha = os.environ["MAIN_SHA"]
+          base = subprocess.check_output(
+              ["git", "show", f"{main_sha}:.github/workflows/code-change-budget.yml"],
+              text=True,
+          )
+          current = Path(".github/workflows/code-change-budget.yml").read_text(encoding="utf-8")
+          old = 'git fetch --no-tags --depth=1 origin "$HEAD_SHA"'
+          new = 'git fetch --no-tags origin "$HEAD_SHA"'
+          assert base.count(old) == 2, base.count(old)
+          expected = base.replace(old, new)
+          assert current == expected
+          print("EXACT_AFTER_IMAGE_TWO_FETCH_EDITS_ONLY")
+          PY
+          git diff --check "$MAIN_SHA" HEAD
+
+      - name: Reproduce shallow false negative and validate fixed fetch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git merge-base "$MAIN_SHA" "$E8_HEAD")" = "$MAIN_SHA"
+
+          git fetch --no-tags --depth=1 origin "$E8_HEAD"
+          test "$(git rev-parse --is-shallow-repository)" = true
+          if git merge-base "$MAIN_SHA" "$E8_HEAD" >/dev/null 2>&1; then
+            echo "Old shallow fetch unexpectedly preserved ancestry" >&2
+            exit 1
+          fi
+          echo "OLD_DEPTH1_FALSE_NEGATIVE_REPRODUCED"
+
+          git fetch --unshallow --no-tags origin
+          test "$(git rev-parse --is-shallow-repository)" = false
+          git fetch --no-tags origin "$E8_HEAD"
+          test "$(git merge-base "$MAIN_SHA" "$E8_HEAD")" = "$MAIN_SHA"
+          echo "FIXED_FETCH_PRESERVES_ANCESTRY"
+
+      - name: Run existing gate regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tests/test_new_python_file_gate.sh
+          bash tests/test_human_approval_record_gate.sh
+
+      - name: Self-delete validation workflow
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/tmp_validate_code_budget_ancestry.yml
+          git commit -m 'chore: remove temporary ancestry validation workflow'
+          git push origin HEAD:dev/gov-code-change-budget-ancestry-bugfix-01
