@@ -1,4 +1,4 @@
-name: Temporary E8 Stage-5 provenance sync
+name: Temporary E8 Stage-5 successor-delta closure
 
 on:
   push:
@@ -31,172 +31,280 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
-      - name: Re-materialize Stage-5 authority with corrected provenance semantics
+      - name: Append immutable successor delta and materialize atomically
         env:
           MAIN_SHA: 8a21fd16e63ea96a0cde2a477353d24562624655
         run: |
           set -euo pipefail
           test "$(git rev-parse origin/main)" = "$MAIN_SHA"
           ROOT="$PWD"
+          BASE_HEAD="$(git rev-parse HEAD)"
           TRUSTED=/tmp/e8-trusted
           SOURCE=/tmp/e8-source
           STAGE=/tmp/e8-stage
           rm -rf "$TRUSTED" "$SOURCE" "$STAGE"
           git worktree add --detach "$TRUSTED" "$MAIN_SHA"
-          git worktree add --detach "$SOURCE" "$MAIN_SHA"
 
-          copy_source_file() {
-            local f="$1"
-            mkdir -p "$SOURCE/$(dirname "$f")"
-            cp "$ROOT/$f" "$SOURCE/$f"
-          }
+          # The existing branch authority state must be healthy before the successor update.
+          python "$TRUSTED/scripts/handoff_authority.py" verify \
+            --repo-root "$ROOT" \
+            --json | tee /tmp/e8-predecessor-verify.json
 
-          for f in \
-            configs/e8_multitask_baseline_matrix_formal.yaml \
-            docs/scopes/E8_MULTITASK_ASYMRE_CAPABILITY_DEV.md \
-            docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md \
-            src/drpo/e8_experiment_config.py \
-            src/drpo/e8_multitask_exp_tuning.py \
-            tests/test_e8_multitask_p0.py \
-            experiments/registry.yaml \
-            docs/handoff_deltas/EXT-C-E8-MULTITASK-BASELINE-MATRIX-01-FORMAL-REGISTRATION-2026-09-10/HANDOFF_DELTA.yaml
-          do
-            copy_source_file "$f"
-          done
+          git worktree add --detach "$SOURCE" "$BASE_HEAD"
 
-          ROOT="$ROOT" SOURCE="$SOURCE" python - <<'PY'
+          SOURCE="$SOURCE" TRUSTED="$TRUSTED" BASE_HEAD="$BASE_HEAD" python - <<'PY'
           from __future__ import annotations
+
           import hashlib
           import os
+          import sys
           from pathlib import Path
+
           import yaml
 
-          root = Path(os.environ['ROOT'])
-          source = Path(os.environ['SOURCE'])
-          delta_path = source / 'docs/handoff_deltas/EXT-C-E8-MULTITASK-BASELINE-MATRIX-01-FORMAL-REGISTRATION-2026-09-10/HANDOFF_DELTA.yaml'
-          registry_path = source / 'experiments/registry.yaml'
+          source = Path(os.environ["SOURCE"])
+          trusted = Path(os.environ["TRUSTED"])
+          base_head = os.environ["BASE_HEAD"]
+          sys.path.insert(0, str(trusted / "scripts"))
+          import handoff_delta_shadow as shadow
 
-          old_segment = (
-              'terminal audit 除复核 `scheduler/dynamic_run.json` 的 batch summary 外，还必须独立读取同一 '
-              '`scheduler_run_id` 的 `scheduler/queue_events.jsonl`，验证每个 seed 的 start 与 successful-finish '
-              '`cell_key` 集合都与冻结的 88 个预期 cell 完全一致、无重复、无缺失，随后再验证 '
-              '`max(seed4000 successful finish time) <= min(seed5000 start time)`。'
+          update_id = (
+              "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01-"
+              "PROVENANCE-CORRECTION-2026-09-10"
           )
-          new_segment = (
-              'terminal audit 除复核 `scheduler/dynamic_run.json` 的 batch summary 外，同一 `scheduler_run_id` '
-              '的 `scheduler/queue_events.jsonl` 只用于验证每个 seed 的 start 与 successful-finish `cell_key` '
-              '集合与冻结的 88 个预期 cell 完全一致、无重复、无缺失，并核对 `execution_origin`；真正的 seed '
-              '先后时间证据必须来自各 cell manifest 中持久化的原始 `scientific_execution_provenance.started_unix` '
-              '与 `scientific_execution_provenance.successful_finish_unix`，recovery/reuse 不得用当前重放的 queue '
-              'timestamp 覆盖原始 scientific provenance，最终验证 '
-              '`max(seed4000 successful finish time) <= min(seed5000 start time)`。'
-          )
+          delta_dir = source / "docs" / "handoff_deltas" / update_id
+          delta_path = delta_dir / "HANDOFF_DELTA.yaml"
+          if delta_dir.exists():
+              raise SystemExit(f"successor delta already exists: {delta_dir}")
 
-          data = yaml.safe_load(delta_path.read_text(encoding='utf-8'))
-          content = data['operations'][0]['content']
-          if old_segment not in content:
-              raise SystemExit('old handoff provenance segment not found in delta')
-          data['operations'][0]['content'] = content.replace(old_segment, new_segment, 1)
+          registry_path = source / "experiments" / "registry.yaml"
+          handoff_path = source / "docs" / "handoff.md"
+          base_registry = registry_path.read_text(encoding="utf-8")
+          base_handoff = handoff_path.read_text(encoding="utf-8")
 
-          registry = registry_path.read_text(encoding='utf-8')
-          old_registry = (
-              '    seed_batch_summary_check: true\n'
-              '    seed_batch_temporal_event_history_check: true\n'
-              '    seed_batch_event_cell_identity_check: exact_expected_cell_keys_no_duplicates\n'
-              '    temporal_event_source: scheduler/queue_events.jsonl\n'
-              '    temporal_condition: max_seed_4000_successful_finish_time_le_min_seed_5000_start_time\n'
+          blocking_reason = (
+              "Under GOV-FORMAL-ENTRYPOINT-01 this field refers to the canonical "
+              "formal-entrypoint integration, not to the already implemented and "
+              "regression-validated scientific runner. The current tuning module still "
+              "contains a direct ZIP package subcommand, so a canonical formal entrypoint "
+              "that delegates artifact ownership entirely to hardened-v1 remains planned; "
+              "formal activation and the 176-cell scientific run remain blocked/not_run "
+              "pending a separate implementation and launch decision."
           )
-          new_registry = (
-              '    seed_batch_summary_check: true\n'
-              '    seed_batch_event_cell_identity_check: exact_expected_cell_keys_no_duplicates\n'
-              '    queue_event_identity_source: scheduler/queue_events.jsonl\n'
-              '    seed_batch_temporal_scientific_provenance_check: true\n'
-              '    scientific_temporal_source: cells/*/cell_manifest.json::scientific_execution_provenance\n'
-              '    recovery_reuse_rule: preserve_original_scientific_execution_provenance\n'
-              '    temporal_condition: max_seed_4000_successful_finish_time_le_min_seed_5000_start_time\n'
-          )
-          if old_registry not in registry:
-              raise SystemExit('old registry temporal provenance block not found')
-          registry = registry.replace(old_registry, new_registry, 1)
+          formal_execution = {
+              "channel_ref": "hardened-v1",
+              "activation_state": "blocked",
+              "entrypoint_status": "planned",
+              "launch_mode": "canonical_guard",
+              "artifact_owner": "canonical_channel",
+              "guard_entrypoint": "scripts/run_experiment_guard_hardened.py",
+              "package_entrypoint": "scripts/package_experiment_hardened.py",
+              "verify_entrypoint": "scripts/verify_experiment_package_hardened.py",
+              "hardened_core": "scripts/artifact_protocol_hardened.py",
+              "artifact_protocol": "docs/formal_experiment_artifact_protocol.md",
+          }
 
+          registry = base_registry
           formal_anchor = (
-              '  registration_state: formal_protocol_registered_not_run\n'
-              '  claim: >-\n'
+              "  registration_state: formal_protocol_registered_not_run\n"
+              "  claim: >-\n"
           )
           formal_replacement = (
-              '  registration_state: formal_protocol_registered_not_run\n'
-              '  implementation_state: not_implemented\n'
-              '  blocking_reason: >-\n'
-              '    Under GOV-FORMAL-ENTRYPOINT-01 this field refers to the canonical formal-entrypoint '
-              'integration, not to the already implemented and regression-validated scientific runner. '
-              'The current tuning module still contains a direct ZIP package subcommand, so a canonical '
-              'formal entrypoint that delegates artifact ownership entirely to hardened-v1 remains planned; '
-              'formal activation and the 176-cell scientific run remain blocked/not_run pending a separate '
-              'implementation and launch decision.\n'
-              '  formal_execution:\n'
-              '    channel_ref: hardened-v1\n'
-              '    activation_state: blocked\n'
-              '    entrypoint_status: planned\n'
-              '    launch_mode: canonical_guard\n'
-              '    artifact_owner: canonical_channel\n'
-              '    guard_entrypoint: scripts/run_experiment_guard_hardened.py\n'
-              '    package_entrypoint: scripts/package_experiment_hardened.py\n'
-              '    verify_entrypoint: scripts/verify_experiment_package_hardened.py\n'
-              '    hardened_core: scripts/artifact_protocol_hardened.py\n'
-              '    artifact_protocol: docs/formal_experiment_artifact_protocol.md\n'
-              '  claim: >-\n'
+              "  registration_state: formal_protocol_registered_not_run\n"
+              "  implementation_state: not_implemented\n"
+              "  blocking_reason: >-\n"
+              "    Under GOV-FORMAL-ENTRYPOINT-01 this field refers to the canonical formal-entrypoint \n"
+              "    integration, not to the already implemented and regression-validated scientific runner. \n"
+              "    The current tuning module still contains a direct ZIP package subcommand, so a canonical \n"
+              "    formal entrypoint that delegates artifact ownership entirely to hardened-v1 remains planned; \n"
+              "    formal activation and the 176-cell scientific run remain blocked/not_run pending a separate \n"
+              "    implementation and launch decision.\n"
+              "  formal_execution:\n"
+              "    channel_ref: hardened-v1\n"
+              "    activation_state: blocked\n"
+              "    entrypoint_status: planned\n"
+              "    launch_mode: canonical_guard\n"
+              "    artifact_owner: canonical_channel\n"
+              "    guard_entrypoint: scripts/run_experiment_guard_hardened.py\n"
+              "    package_entrypoint: scripts/package_experiment_hardened.py\n"
+              "    verify_entrypoint: scripts/verify_experiment_package_hardened.py\n"
+              "    hardened_core: scripts/artifact_protocol_hardened.py\n"
+              "    artifact_protocol: docs/formal_experiment_artifact_protocol.md\n"
+              "  claim: >-\n"
           )
-          if '  formal_execution:\n' not in registry.split('- id: C-U1-E3-ADAM-RERUN', 1)[0]:
-              if registry.count(formal_anchor) != 1:
-                  raise SystemExit('E8 formal execution registration anchor mismatch')
-              registry = registry.replace(formal_anchor, formal_replacement, 1)
+          prefix = registry.split("- id: C-U1-E3-ADAM-RERUN", 1)[0]
+          if "  formal_execution:\n" in prefix or "  implementation_state:" in prefix:
+              raise SystemExit("formal execution correction already present before successor delta")
+          if registry.count(formal_anchor) != 1:
+              raise SystemExit("E8 formal registration anchor mismatch")
+          registry = registry.replace(formal_anchor, formal_replacement, 1)
 
-          registry_path.write_text(registry, encoding='utf-8')
+          temporal_anchor = (
+              "    temporal_event_source: scheduler/queue_events.jsonl\n"
+              "    temporal_condition: max_seed_4000_successful_finish_time_le_min_seed_5000_start_time\n"
+          )
+          temporal_replacement = (
+              "    temporal_event_source: scheduler/queue_events.jsonl\n"
+              "    queue_event_identity_source: scheduler/queue_events.jsonl\n"
+              "    temporal_event_semantics: identity_and_execution_origin_only_not_seed_ordering\n"
+              "    seed_batch_temporal_scientific_provenance_check: true\n"
+              "    scientific_temporal_source: cells/*/cell_manifest.json::scientific_execution_provenance\n"
+              "    recovery_reuse_rule: preserve_original_scientific_execution_provenance\n"
+              "    temporal_condition: max_seed_4000_successful_finish_time_le_min_seed_5000_start_time\n"
+          )
+          if registry.count(temporal_anchor) != 1:
+              raise SystemExit("E8 temporal provenance anchor mismatch")
+          registry = registry.replace(temporal_anchor, temporal_replacement, 1)
+          registry_path.write_text(registry, encoding="utf-8")
 
-          desired_handoff = (root / 'docs/handoff.md').read_text(encoding='utf-8')
-          if old_segment not in desired_handoff:
-              raise SystemExit('old handoff provenance segment not found in materialized handoff')
-          desired_handoff = desired_handoff.replace(old_segment, new_segment, 1)
-          handoff_sha = hashlib.sha256(desired_handoff.encode()).hexdigest()
-          registry_sha = hashlib.sha256(registry.encode()).hexdigest()
-          data['registry']['exact_base_after_sha256'] = registry_sha
-          data['expected']['exact_base_candidate_sha256'] = handoff_sha
-          delta_path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding='utf-8')
-          print('desired_handoff_sha256', handoff_sha)
-          print('desired_registry_sha256', registry_sha)
+          correction_content = (
+              "- **E8 multitask baseline provenance / formal-channel correction "
+              "(`EXT-C-E8-MULTITASK-BASELINE-MATRIX-01`)：**本条只纠正前一登记中的执行 provenance 与 "
+              "formal-channel 表述，不改变 176-cell 科学矩阵、8 个 transfer tasks、seeds `[4000,5000]`、"
+              "AsymRE/TOPR/DPO 网格、1200-update horizon 或 historical Countdown PR #268 DPO 语义；"
+              "科学状态继续为 **not_run**。`scheduler/queue_events.jsonl` 只承担 start/successful-finish "
+              "`cell_key` 集合、重复/缺失和 `execution_origin` 身份审计，不能在 recovery/reuse 时作为 seed "
+              "先后时间的科学证据。seed 顺序的时间证据必须读取各 cell manifest 持久化的原始 "
+              "`scientific_execution_provenance.started_unix` 与 "
+              "`scientific_execution_provenance.successful_finish_unix`；reuse 必须保留原始 provenance，"
+              "并验证 `max(seed4000 successful finish time) <= min(seed5000 start time)`。另外，现有 "
+              "`src/drpo/e8_multitask_exp_tuning.py` 的科学 runner 已实现并完成回归验证，但仍包含直接 ZIP "
+              "package subcommand，因此在 `GOV-FORMAL-ENTRYPOINT-01` 语义下 canonical hardened-v1 formal "
+              "entrypoint 仍是 **planned + blocked**，`implementation_state=not_implemented` 指的是该 formal "
+              "entrypoint integration，而不是科学 runner 未实现；这不改变当前 launch simplification 规则，也不构成启动授权。"
+          )
+          operation = {
+              "operation_id": "append-e8-baseline-provenance-correction",
+              "op": "append_to_section",
+              "heading_path": [
+                  "0. 研究与执行原则（每次新会话首先阅读）",
+                  "0.1 当前执行门禁",
+              ],
+              "block_id": "e8-multitask-baseline-provenance-correction-2026-09-10",
+              "content": correction_content,
+          }
+          candidate = shadow.render(base_handoff, [operation]).text
+
+          evidence = [
+              "configs/e8_multitask_baseline_matrix_formal.yaml",
+              "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+              "experiments/registry.yaml",
+              "src/drpo/e8_multitask_exp_tuning.py",
+              "tests/test_e8_multitask_p0.py",
+          ]
+          terminal_additions = {
+              "queue_event_identity_source": "scheduler/queue_events.jsonl",
+              "temporal_event_semantics": "identity_and_execution_origin_only_not_seed_ordering",
+              "seed_batch_temporal_scientific_provenance_check": True,
+              "scientific_temporal_source": (
+                  "cells/*/cell_manifest.json::scientific_execution_provenance"
+              ),
+              "recovery_reuse_rule": "preserve_original_scientific_execution_provenance",
+          }
+          changes = [
+              {
+                  "change_id": "add-e8-formal-implementation-state",
+                  "kind": "update_field",
+                  "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+                  "field_path": ["implementation_state"],
+                  "from": None,
+                  "to": "not_implemented",
+                  "reason": "Register the canonical formal-entrypoint integration state without changing scientific runner readiness.",
+                  "evidence": evidence,
+              },
+              {
+                  "change_id": "add-e8-formal-blocking-reason",
+                  "kind": "update_field",
+                  "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+                  "field_path": ["blocking_reason"],
+                  "from": None,
+                  "to": blocking_reason,
+                  "reason": "Explain why formal hardened-v1 integration remains planned and blocked while science stays not_run.",
+                  "evidence": evidence,
+              },
+              {
+                  "change_id": "add-e8-formal-execution-state",
+                  "kind": "update_field",
+                  "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+                  "field_path": ["formal_execution"],
+                  "from": None,
+                  "to": formal_execution,
+                  "reason": "Bind the experiment to the existing hardened-v1 channel as a planned blocked entrypoint.",
+                  "evidence": evidence,
+              },
+          ]
+          for key, value in terminal_additions.items():
+              changes.append(
+                  {
+                      "change_id": f"add-e8-{key.replace('_', '-')}",
+                      "kind": "update_field",
+                      "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+                      "field_path": ["terminal_audit", key],
+                      "from": None,
+                      "to": value,
+                      "reason": "Clarify recovery-safe seed-barrier terminal-audit provenance without changing the frozen scientific protocol.",
+                      "evidence": evidence,
+                  }
+              )
+
+          sha = lambda text: hashlib.sha256(text.encode("utf-8")).hexdigest()
+          delta = {
+              "schema_version": 3,
+              "update_id": update_id,
+              "mode": "authoritative",
+              "base": {
+                  "commit": base_head,
+                  "handoff_sha256": sha(base_handoff),
+                  "registry_sha256": sha(base_registry),
+              },
+              "renderer_version": 1,
+              "operations": [operation],
+              "registry": {
+                  "mode": "expected_after",
+                  "exact_base_after_sha256": sha(registry),
+                  "changes": changes,
+              },
+              "expected": {
+                  "exact_base_candidate_sha256": sha(candidate),
+              },
+          }
+          delta_dir.mkdir(parents=True, exist_ok=False)
+          delta_path.write_text(
+              yaml.safe_dump(delta, sort_keys=False, allow_unicode=True),
+              encoding="utf-8",
+          )
+          print("successor_delta", delta_path.relative_to(source))
+          print("base_head", base_head)
+          print("candidate_handoff_sha256", sha(candidate))
+          print("registry_after_sha256", sha(registry))
           PY
 
           git -C "$SOURCE" add \
-            configs/e8_multitask_baseline_matrix_formal.yaml \
-            docs/scopes/E8_MULTITASK_ASYMRE_CAPABILITY_DEV.md \
-            docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md \
-            src/drpo/e8_experiment_config.py \
-            src/drpo/e8_multitask_exp_tuning.py \
-            tests/test_e8_multitask_p0.py \
             experiments/registry.yaml \
-            docs/handoff_deltas/EXT-C-E8-MULTITASK-BASELINE-MATRIX-01-FORMAL-REGISTRATION-2026-09-10/HANDOFF_DELTA.yaml
-          git -C "$SOURCE" commit -m 'source: synchronize E8 formal provenance semantics'
+            docs/handoff_deltas/EXT-C-E8-MULTITASK-BASELINE-MATRIX-01-PROVENANCE-CORRECTION-2026-09-10/HANDOFF_DELTA.yaml
+          git -C "$SOURCE" commit -m 'source: append E8 provenance correction delta'
           SOURCE_COMMIT="$(git -C "$SOURCE" rev-parse HEAD)"
 
           git worktree add --detach "$STAGE" "$SOURCE_COMMIT"
           python "$TRUSTED/scripts/handoff_authority.py" normalize \
             --repo-root "$STAGE" \
             --trusted-repo-root "$TRUSTED" \
-            --current-before "$MAIN_SHA" \
-            --source-base "$MAIN_SHA" \
+            --current-before "$BASE_HEAD" \
+            --source-base "$BASE_HEAD" \
             --source-patch-commit "$SOURCE_COMMIT" \
-            --json | tee /tmp/e8-normalize.json
+            --json | tee /tmp/e8-successor-normalize.json
 
           git -C "$STAGE" add -A
           git -C "$STAGE" commit --amend --no-edit
 
           python "$TRUSTED/scripts/handoff_authority.py" verify \
             --repo-root "$STAGE" \
-            --json | tee /tmp/e8-verify.json
+            --json | tee /tmp/e8-successor-stage-verify.json
           python "$TRUSTED/scripts/validate_governance_pipeline_stage_status.py" --repo-root "$STAGE"
           python "$TRUSTED/scripts/validate_formal_execution_channel.py" --repo-root "$STAGE"
-          git -C "$STAGE" diff --check "$MAIN_SHA"..HEAD
+          git -C "$STAGE" diff --check "$BASE_HEAD"..HEAD
 
+          # Copy only the successor transaction after-image back to the real dev branch.
           while IFS= read -r -d '' f; do
             if test -e "$STAGE/$f"; then
               mkdir -p "$ROOT/$(dirname "$f")"
@@ -204,18 +312,18 @@ jobs:
             else
               rm -f "$ROOT/$f"
             fi
-          done < <(git -C "$STAGE" diff --name-only -z "$MAIN_SHA"..HEAD)
+          done < <(git -C "$STAGE" diff --name-only -z "$BASE_HEAD"..HEAD)
 
           git add -A -- ':!.github/workflows/tmp_e8_stage5_provenance_sync.yml'
           if git diff --cached --quiet; then
-            echo 'No authority closure changes produced' >&2
+            echo 'No successor authority changes produced' >&2
             exit 1
           fi
-          git commit -m 'docs: synchronize E8 formal provenance authority'
+          git commit -m 'docs: append E8 provenance correction authority'
 
           python "$TRUSTED/scripts/handoff_authority.py" verify \
             --repo-root "$ROOT" \
-            --json | tee /tmp/e8-branch-verify.json
+            --json | tee /tmp/e8-successor-branch-verify.json
           python "$TRUSTED/scripts/validate_governance_pipeline_stage_status.py" --repo-root "$ROOT"
           python "$TRUSTED/scripts/validate_formal_execution_channel.py" --repo-root "$ROOT"
           git diff --check "$MAIN_SHA"..HEAD
