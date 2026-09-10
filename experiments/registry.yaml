@@ -127,14 +127,10 @@ experiments:
   role: external_validity_finite_horizon_baseline_comparison
   execution_class: formal
   registration_state: formal_protocol_registered_not_run
-  implementation_state: not_implemented
-  blocking_reason: >-
-    Under GOV-FORMAL-ENTRYPOINT-01 this field refers to the canonical formal-entrypoint
-    integration, not to the already implemented and regression-validated scientific runner.
-    The current tuning module still contains a direct ZIP package subcommand, so a canonical
-    formal entrypoint that delegates artifact ownership entirely to hardened-v1 remains planned;
-    formal activation and the 176-cell scientific run remain blocked/not_run pending a separate
-    implementation and launch decision.
+  implementation_state: implemented
+  scientific_runner_state: implemented
+  launch_blocked_by_formal_channel: false
+  blocking_reason: null
   formal_execution:
     channel_ref: hardened-v1
     activation_state: blocked
@@ -146,6 +142,9 @@ experiments:
     verify_entrypoint: scripts/verify_experiment_package_hardened.py
     hardened_core: scripts/artifact_protocol_hardened.py
     artifact_protocol: docs/formal_experiment_artifact_protocol.md
+    bookkeeping_role: optional_legacy_compatibility_only
+    launch_permission: false
+    launch_blocking: false
   claim: >-
     On the exact eight P0 transfer tasks and frozen model-independent banks, compare
     AsymRE, Joint Fitted-Reference beta-TOPR, and canonical PR-268-semantics DPO under

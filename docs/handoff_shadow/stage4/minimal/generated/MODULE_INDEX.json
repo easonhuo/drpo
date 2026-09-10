@@ -178,10 +178,10 @@
   ],
   "graph_hash": "0db2d992b651a2ed85d93d68c298214ba6bdbee1ae15b7b7c48d92162a7fb87c",
   "input_hashes": {
-    "docs/handoff.md": "40e22125c7a059546fd3ffc339709189f535e8bb800040a52a7ae7b1171114cb",
+    "docs/handoff.md": "3e6f7c108b5e5621a00b1c1327a035ec25fda10a121ea855864dfb50d343fca9",
     "docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml": "fb19da70ea2db6a35c4320e23a91640d0f21887c46bb79873d9548357271f4da",
     "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "9eb67303232bb2362b8a4571f383687aca0cfd2c25eeb9b8e68733c84b3701e8",
-    "experiments/registry.yaml": "3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04"
+    "experiments/registry.yaml": "a20c80d5c467730b4c560604f5c695c86e52a1587e133b6ece76179887734720"
   },
   "module_order": [
     "global_core_governance",
@@ -242,9 +242,9 @@
       "deduplicated_source_labels": [],
       "depends_on": [],
       "module_id": "global_core_governance",
-      "snapshot_hash": "c75269617fe7b1543c31c8b961c72db09c35dff30a6f058fab060266d1b58775",
-      "source_chars": 62490,
-      "source_hash": "db8824f85eceda24dbf6e3d9e5bbc62260d9de59641390d41f275501015f5994",
+      "snapshot_hash": "0f7ef7e4dc9b523f50b177d87f09f54ddd1af3f17a0b32af62daeb65b64835d8",
+      "source_chars": 63911,
+      "source_hash": "3b394dd37f87fa7ddafd9171eebdbea576b080018b7eea3558fe293458bf5acc",
       "source_labels": [
         "docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线"
       ]
@@ -559,9 +559,9 @@
         "categorical_e6_generalization"
       ],
       "module_id": "countdown_e8",
-      "snapshot_hash": "b95c07ba559a82bbabed27f4f6bbd04da95e81496940e5be90b63d2e7454ef60",
-      "source_chars": 89748,
-      "source_hash": "c8aa86401b3ac5b7d8ae53566906977744330bf0d291aa7c58e826a380321203",
+      "snapshot_hash": "cb97a8488a7f5c5679f901d9b99a950f51676e9c22ca74ea6b91c0c3d29b6915",
+      "source_chars": 91037,
+      "source_hash": "8bce599be51d7b6103637d174e96b7f5de2cabfeaf2147c975612ce9c206cd1c",
       "source_labels": [
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v52-ext-c-e8-v43-dynamic-control",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v53-stage3-observation-automation",
@@ -574,6 +574,7 @@
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e8-asymre-deltav-joint-closure-20260722",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e8-base-rl-replay-0p5b-gate",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e8-lowsft-rft-dirty-pilot-record-20260708",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e8-multitask-baseline-launch-semantics-timestamp-correction-2026-09-10",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e8-multitask-baseline-matrix-formal-registration-2026-09-10",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e8-multitask-baseline-provenance-correction-2026-09-10",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e8-multitask-coldstart-result-closure-2026-08-25",

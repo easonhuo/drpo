@@ -1,0 +1,652 @@
+{
+  "current_before_commit": "3b182cacad71e80f8bf5a4109dbb2933631743ee",
+  "current_handoff_before_sha256": "40e22125c7a059546fd3ffc339709189f535e8bb800040a52a7ae7b1171114cb",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "correct-e8-implementation-state",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "AGENTS.md",
+            "sha256": "78366396a1f0f728f4d0e030dd93bf2890974357992b0279e780fdfcf207a8cd"
+          },
+          {
+            "path": "docs/scopes/GOV-EXPERIMENT-LAUNCH-SIMPLIFICATION-01.md",
+            "sha256": "447270885b0d91bbd442dcfc3a5fad26485b664ce767e024af57594112390ee9"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "b7aa46b52f7b43eed57ba7152a108ea785f7c81e1bfe1dae9c629b366472f554"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "a20c80d5c467730b4c560604f5c695c86e52a1587e133b6ece76179887734720"
+          },
+          {
+            "path": "scripts/run_e8_multitask_exp_coldstart.sh",
+            "sha256": "85c3aca379ab7de0cd6ff85533ea23bbf6ca923272586a4cf2cf6df9e353036e"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "d4d913205390b6078301818698b49101edba2775ccf688b1db3a9a17696df493"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "ac54d9fe87904f535c2d5bd03bede50bfa539fc53f4cdeacbecb67853ed87576"
+          }
+        ],
+        "field_path": [
+          "implementation_state"
+        ],
+        "from": "not_implemented",
+        "kind": "update_field",
+        "reason": "Scientific runner is implemented; legacy channel completeness is not the experiment implementation state.",
+        "to": "implemented"
+      },
+      {
+        "change_id": "add-e8-scientific-runner-state",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "AGENTS.md",
+            "sha256": "78366396a1f0f728f4d0e030dd93bf2890974357992b0279e780fdfcf207a8cd"
+          },
+          {
+            "path": "docs/scopes/GOV-EXPERIMENT-LAUNCH-SIMPLIFICATION-01.md",
+            "sha256": "447270885b0d91bbd442dcfc3a5fad26485b664ce767e024af57594112390ee9"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "b7aa46b52f7b43eed57ba7152a108ea785f7c81e1bfe1dae9c629b366472f554"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "a20c80d5c467730b4c560604f5c695c86e52a1587e133b6ece76179887734720"
+          },
+          {
+            "path": "scripts/run_e8_multitask_exp_coldstart.sh",
+            "sha256": "85c3aca379ab7de0cd6ff85533ea23bbf6ca923272586a4cf2cf6df9e353036e"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "d4d913205390b6078301818698b49101edba2775ccf688b1db3a9a17696df493"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "ac54d9fe87904f535c2d5bd03bede50bfa539fc53f4cdeacbecb67853ed87576"
+          }
+        ],
+        "field_path": [
+          "scientific_runner_state"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Make scientific runner implementation explicit.",
+        "to": "implemented"
+      },
+      {
+        "change_id": "add-e8-formal-channel-launch-blocking",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "AGENTS.md",
+            "sha256": "78366396a1f0f728f4d0e030dd93bf2890974357992b0279e780fdfcf207a8cd"
+          },
+          {
+            "path": "docs/scopes/GOV-EXPERIMENT-LAUNCH-SIMPLIFICATION-01.md",
+            "sha256": "447270885b0d91bbd442dcfc3a5fad26485b664ce767e024af57594112390ee9"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "b7aa46b52f7b43eed57ba7152a108ea785f7c81e1bfe1dae9c629b366472f554"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "a20c80d5c467730b4c560604f5c695c86e52a1587e133b6ece76179887734720"
+          },
+          {
+            "path": "scripts/run_e8_multitask_exp_coldstart.sh",
+            "sha256": "85c3aca379ab7de0cd6ff85533ea23bbf6ca923272586a4cf2cf6df9e353036e"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "d4d913205390b6078301818698b49101edba2775ccf688b1db3a9a17696df493"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "ac54d9fe87904f535c2d5bd03bede50bfa539fc53f4cdeacbecb67853ed87576"
+          }
+        ],
+        "field_path": [
+          "launch_blocked_by_formal_channel"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Current launch simplification forbids formal-channel activation bookkeeping from acting as launch veto.",
+        "to": false
+      },
+      {
+        "change_id": "clear-e8-formal-channel-blocking-reason",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "AGENTS.md",
+            "sha256": "78366396a1f0f728f4d0e030dd93bf2890974357992b0279e780fdfcf207a8cd"
+          },
+          {
+            "path": "docs/scopes/GOV-EXPERIMENT-LAUNCH-SIMPLIFICATION-01.md",
+            "sha256": "447270885b0d91bbd442dcfc3a5fad26485b664ce767e024af57594112390ee9"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "b7aa46b52f7b43eed57ba7152a108ea785f7c81e1bfe1dae9c629b366472f554"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "a20c80d5c467730b4c560604f5c695c86e52a1587e133b6ece76179887734720"
+          },
+          {
+            "path": "scripts/run_e8_multitask_exp_coldstart.sh",
+            "sha256": "85c3aca379ab7de0cd6ff85533ea23bbf6ca923272586a4cf2cf6df9e353036e"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "d4d913205390b6078301818698b49101edba2775ccf688b1db3a9a17696df493"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "ac54d9fe87904f535c2d5bd03bede50bfa539fc53f4cdeacbecb67853ed87576"
+          }
+        ],
+        "field_path": [
+          "blocking_reason"
+        ],
+        "from": "Under GOV-FORMAL-ENTRYPOINT-01 this field refers to the canonical formal-entrypoint integration, not to the already implemented and regression-validated scientific runner. The current tuning module still contains a direct ZIP package subcommand, so a canonical formal entrypoint that delegates artifact ownership entirely to hardened-v1 remains planned; formal activation and the 176-cell scientific run remain blocked/not_run pending a separate implementation and launch decision.",
+        "kind": "update_field",
+        "reason": "Remove stale launch-blocking semantics while preserving not_run scientific status.",
+        "to": null
+      },
+      {
+        "change_id": "add-e8-formal-bookkeeping-role",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "AGENTS.md",
+            "sha256": "78366396a1f0f728f4d0e030dd93bf2890974357992b0279e780fdfcf207a8cd"
+          },
+          {
+            "path": "docs/scopes/GOV-EXPERIMENT-LAUNCH-SIMPLIFICATION-01.md",
+            "sha256": "447270885b0d91bbd442dcfc3a5fad26485b664ce767e024af57594112390ee9"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "b7aa46b52f7b43eed57ba7152a108ea785f7c81e1bfe1dae9c629b366472f554"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "a20c80d5c467730b4c560604f5c695c86e52a1587e133b6ece76179887734720"
+          },
+          {
+            "path": "scripts/run_e8_multitask_exp_coldstart.sh",
+            "sha256": "85c3aca379ab7de0cd6ff85533ea23bbf6ca923272586a4cf2cf6df9e353036e"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "d4d913205390b6078301818698b49101edba2775ccf688b1db3a9a17696df493"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "ac54d9fe87904f535c2d5bd03bede50bfa539fc53f4cdeacbecb67853ed87576"
+          }
+        ],
+        "field_path": [
+          "formal_execution",
+          "bookkeeping_role"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Classify remaining hardened-v1 completeness metadata as optional legacy operational bookkeeping.",
+        "to": "optional_legacy_compatibility_only"
+      },
+      {
+        "change_id": "add-e8-formal-launch-permission-role",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "AGENTS.md",
+            "sha256": "78366396a1f0f728f4d0e030dd93bf2890974357992b0279e780fdfcf207a8cd"
+          },
+          {
+            "path": "docs/scopes/GOV-EXPERIMENT-LAUNCH-SIMPLIFICATION-01.md",
+            "sha256": "447270885b0d91bbd442dcfc3a5fad26485b664ce767e024af57594112390ee9"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "b7aa46b52f7b43eed57ba7152a108ea785f7c81e1bfe1dae9c629b366472f554"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "a20c80d5c467730b4c560604f5c695c86e52a1587e133b6ece76179887734720"
+          },
+          {
+            "path": "scripts/run_e8_multitask_exp_coldstart.sh",
+            "sha256": "85c3aca379ab7de0cd6ff85533ea23bbf6ca923272586a4cf2cf6df9e353036e"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "d4d913205390b6078301818698b49101edba2775ccf688b1db3a9a17696df493"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "ac54d9fe87904f535c2d5bd03bede50bfa539fc53f4cdeacbecb67853ed87576"
+          }
+        ],
+        "field_path": [
+          "formal_execution",
+          "launch_permission"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Formal-channel bookkeeping does not grant scientific launch permission.",
+        "to": false
+      },
+      {
+        "change_id": "add-e8-formal-launch-blocking-role",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "AGENTS.md",
+            "sha256": "78366396a1f0f728f4d0e030dd93bf2890974357992b0279e780fdfcf207a8cd"
+          },
+          {
+            "path": "docs/scopes/GOV-EXPERIMENT-LAUNCH-SIMPLIFICATION-01.md",
+            "sha256": "447270885b0d91bbd442dcfc3a5fad26485b664ce767e024af57594112390ee9"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "b7aa46b52f7b43eed57ba7152a108ea785f7c81e1bfe1dae9c629b366472f554"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "a20c80d5c467730b4c560604f5c695c86e52a1587e133b6ece76179887734720"
+          },
+          {
+            "path": "scripts/run_e8_multitask_exp_coldstart.sh",
+            "sha256": "85c3aca379ab7de0cd6ff85533ea23bbf6ca923272586a4cf2cf6df9e353036e"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "d4d913205390b6078301818698b49101edba2775ccf688b1db3a9a17696df493"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "ac54d9fe87904f535c2d5bd03bede50bfa539fc53f4cdeacbecb67853ed87576"
+          }
+        ],
+        "field_path": [
+          "formal_execution",
+          "launch_blocking"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Formal-channel bookkeeping does not block an otherwise valid frozen launch.",
+        "to": false
+      }
+    ],
+    "coverage": {
+      "added_entities": [],
+      "changed_field_count": 7,
+      "declared_assertion_count": 7,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "40c329644bc0a9501760363b7af9c1d0116e03b94adc92002eb15ade8835d49a",
+  "exact_base_candidate_sha256": "3e6f7c108b5e5621a00b1c1327a035ec25fda10a121ea855864dfb50d343fca9",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "correct-e8-implementation-state",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "AGENTS.md",
+            "sha256": "78366396a1f0f728f4d0e030dd93bf2890974357992b0279e780fdfcf207a8cd"
+          },
+          {
+            "path": "docs/scopes/GOV-EXPERIMENT-LAUNCH-SIMPLIFICATION-01.md",
+            "sha256": "447270885b0d91bbd442dcfc3a5fad26485b664ce767e024af57594112390ee9"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "b7aa46b52f7b43eed57ba7152a108ea785f7c81e1bfe1dae9c629b366472f554"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "a20c80d5c467730b4c560604f5c695c86e52a1587e133b6ece76179887734720"
+          },
+          {
+            "path": "scripts/run_e8_multitask_exp_coldstart.sh",
+            "sha256": "85c3aca379ab7de0cd6ff85533ea23bbf6ca923272586a4cf2cf6df9e353036e"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "d4d913205390b6078301818698b49101edba2775ccf688b1db3a9a17696df493"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "ac54d9fe87904f535c2d5bd03bede50bfa539fc53f4cdeacbecb67853ed87576"
+          }
+        ],
+        "field_path": [
+          "implementation_state"
+        ],
+        "from": "not_implemented",
+        "kind": "update_field",
+        "reason": "Scientific runner is implemented; legacy channel completeness is not the experiment implementation state.",
+        "to": "implemented"
+      },
+      {
+        "change_id": "add-e8-scientific-runner-state",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "AGENTS.md",
+            "sha256": "78366396a1f0f728f4d0e030dd93bf2890974357992b0279e780fdfcf207a8cd"
+          },
+          {
+            "path": "docs/scopes/GOV-EXPERIMENT-LAUNCH-SIMPLIFICATION-01.md",
+            "sha256": "447270885b0d91bbd442dcfc3a5fad26485b664ce767e024af57594112390ee9"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "b7aa46b52f7b43eed57ba7152a108ea785f7c81e1bfe1dae9c629b366472f554"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "a20c80d5c467730b4c560604f5c695c86e52a1587e133b6ece76179887734720"
+          },
+          {
+            "path": "scripts/run_e8_multitask_exp_coldstart.sh",
+            "sha256": "85c3aca379ab7de0cd6ff85533ea23bbf6ca923272586a4cf2cf6df9e353036e"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "d4d913205390b6078301818698b49101edba2775ccf688b1db3a9a17696df493"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "ac54d9fe87904f535c2d5bd03bede50bfa539fc53f4cdeacbecb67853ed87576"
+          }
+        ],
+        "field_path": [
+          "scientific_runner_state"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Make scientific runner implementation explicit.",
+        "to": "implemented"
+      },
+      {
+        "change_id": "add-e8-formal-channel-launch-blocking",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "AGENTS.md",
+            "sha256": "78366396a1f0f728f4d0e030dd93bf2890974357992b0279e780fdfcf207a8cd"
+          },
+          {
+            "path": "docs/scopes/GOV-EXPERIMENT-LAUNCH-SIMPLIFICATION-01.md",
+            "sha256": "447270885b0d91bbd442dcfc3a5fad26485b664ce767e024af57594112390ee9"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "b7aa46b52f7b43eed57ba7152a108ea785f7c81e1bfe1dae9c629b366472f554"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "a20c80d5c467730b4c560604f5c695c86e52a1587e133b6ece76179887734720"
+          },
+          {
+            "path": "scripts/run_e8_multitask_exp_coldstart.sh",
+            "sha256": "85c3aca379ab7de0cd6ff85533ea23bbf6ca923272586a4cf2cf6df9e353036e"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "d4d913205390b6078301818698b49101edba2775ccf688b1db3a9a17696df493"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "ac54d9fe87904f535c2d5bd03bede50bfa539fc53f4cdeacbecb67853ed87576"
+          }
+        ],
+        "field_path": [
+          "launch_blocked_by_formal_channel"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Current launch simplification forbids formal-channel activation bookkeeping from acting as launch veto.",
+        "to": false
+      },
+      {
+        "change_id": "clear-e8-formal-channel-blocking-reason",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "AGENTS.md",
+            "sha256": "78366396a1f0f728f4d0e030dd93bf2890974357992b0279e780fdfcf207a8cd"
+          },
+          {
+            "path": "docs/scopes/GOV-EXPERIMENT-LAUNCH-SIMPLIFICATION-01.md",
+            "sha256": "447270885b0d91bbd442dcfc3a5fad26485b664ce767e024af57594112390ee9"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "b7aa46b52f7b43eed57ba7152a108ea785f7c81e1bfe1dae9c629b366472f554"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "a20c80d5c467730b4c560604f5c695c86e52a1587e133b6ece76179887734720"
+          },
+          {
+            "path": "scripts/run_e8_multitask_exp_coldstart.sh",
+            "sha256": "85c3aca379ab7de0cd6ff85533ea23bbf6ca923272586a4cf2cf6df9e353036e"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "d4d913205390b6078301818698b49101edba2775ccf688b1db3a9a17696df493"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "ac54d9fe87904f535c2d5bd03bede50bfa539fc53f4cdeacbecb67853ed87576"
+          }
+        ],
+        "field_path": [
+          "blocking_reason"
+        ],
+        "from": "Under GOV-FORMAL-ENTRYPOINT-01 this field refers to the canonical formal-entrypoint integration, not to the already implemented and regression-validated scientific runner. The current tuning module still contains a direct ZIP package subcommand, so a canonical formal entrypoint that delegates artifact ownership entirely to hardened-v1 remains planned; formal activation and the 176-cell scientific run remain blocked/not_run pending a separate implementation and launch decision.",
+        "kind": "update_field",
+        "reason": "Remove stale launch-blocking semantics while preserving not_run scientific status.",
+        "to": null
+      },
+      {
+        "change_id": "add-e8-formal-bookkeeping-role",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "AGENTS.md",
+            "sha256": "78366396a1f0f728f4d0e030dd93bf2890974357992b0279e780fdfcf207a8cd"
+          },
+          {
+            "path": "docs/scopes/GOV-EXPERIMENT-LAUNCH-SIMPLIFICATION-01.md",
+            "sha256": "447270885b0d91bbd442dcfc3a5fad26485b664ce767e024af57594112390ee9"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "b7aa46b52f7b43eed57ba7152a108ea785f7c81e1bfe1dae9c629b366472f554"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "a20c80d5c467730b4c560604f5c695c86e52a1587e133b6ece76179887734720"
+          },
+          {
+            "path": "scripts/run_e8_multitask_exp_coldstart.sh",
+            "sha256": "85c3aca379ab7de0cd6ff85533ea23bbf6ca923272586a4cf2cf6df9e353036e"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "d4d913205390b6078301818698b49101edba2775ccf688b1db3a9a17696df493"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "ac54d9fe87904f535c2d5bd03bede50bfa539fc53f4cdeacbecb67853ed87576"
+          }
+        ],
+        "field_path": [
+          "formal_execution",
+          "bookkeeping_role"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Classify remaining hardened-v1 completeness metadata as optional legacy operational bookkeeping.",
+        "to": "optional_legacy_compatibility_only"
+      },
+      {
+        "change_id": "add-e8-formal-launch-permission-role",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "AGENTS.md",
+            "sha256": "78366396a1f0f728f4d0e030dd93bf2890974357992b0279e780fdfcf207a8cd"
+          },
+          {
+            "path": "docs/scopes/GOV-EXPERIMENT-LAUNCH-SIMPLIFICATION-01.md",
+            "sha256": "447270885b0d91bbd442dcfc3a5fad26485b664ce767e024af57594112390ee9"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "b7aa46b52f7b43eed57ba7152a108ea785f7c81e1bfe1dae9c629b366472f554"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "a20c80d5c467730b4c560604f5c695c86e52a1587e133b6ece76179887734720"
+          },
+          {
+            "path": "scripts/run_e8_multitask_exp_coldstart.sh",
+            "sha256": "85c3aca379ab7de0cd6ff85533ea23bbf6ca923272586a4cf2cf6df9e353036e"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "d4d913205390b6078301818698b49101edba2775ccf688b1db3a9a17696df493"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "ac54d9fe87904f535c2d5bd03bede50bfa539fc53f4cdeacbecb67853ed87576"
+          }
+        ],
+        "field_path": [
+          "formal_execution",
+          "launch_permission"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Formal-channel bookkeeping does not grant scientific launch permission.",
+        "to": false
+      },
+      {
+        "change_id": "add-e8-formal-launch-blocking-role",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "AGENTS.md",
+            "sha256": "78366396a1f0f728f4d0e030dd93bf2890974357992b0279e780fdfcf207a8cd"
+          },
+          {
+            "path": "docs/scopes/GOV-EXPERIMENT-LAUNCH-SIMPLIFICATION-01.md",
+            "sha256": "447270885b0d91bbd442dcfc3a5fad26485b664ce767e024af57594112390ee9"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "b7aa46b52f7b43eed57ba7152a108ea785f7c81e1bfe1dae9c629b366472f554"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "a20c80d5c467730b4c560604f5c695c86e52a1587e133b6ece76179887734720"
+          },
+          {
+            "path": "scripts/run_e8_multitask_exp_coldstart.sh",
+            "sha256": "85c3aca379ab7de0cd6ff85533ea23bbf6ca923272586a4cf2cf6df9e353036e"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "d4d913205390b6078301818698b49101edba2775ccf688b1db3a9a17696df493"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "ac54d9fe87904f535c2d5bd03bede50bfa539fc53f4cdeacbecb67853ed87576"
+          }
+        ],
+        "field_path": [
+          "formal_execution",
+          "launch_blocking"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Formal-channel bookkeeping does not block an otherwise valid frozen launch.",
+        "to": false
+      }
+    ],
+    "coverage": {
+      "added_entities": [],
+      "changed_field_count": 7,
+      "declared_assertion_count": 7,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "3e6f7c108b5e5621a00b1c1327a035ec25fda10a121ea855864dfb50d343fca9",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "a20c80d5c467730b4c560604f5c695c86e52a1587e133b6ece76179887734720",
+  "registry_before_sha256": "3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04",
+  "report_schema_version": 1,
+  "source_base_commit": "3b182cacad71e80f8bf5a4109dbb2933631743ee",
+  "source_patch_commit": "260be5b585d52ce1e49096c4bf990c2591d9f036",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "2c86cc5b19df5d64cc3febf8b3317a0405b82ba5a0cdc9f2b38f60693161b4cc",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01-LAUNCH-SEMANTICS-TIMESTAMP-CORRECTION-2026-09-10"
+}

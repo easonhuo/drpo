@@ -1,0 +1,116 @@
+schema_version: 3
+update_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01-LAUNCH-SEMANTICS-TIMESTAMP-CORRECTION-2026-09-10
+mode: authoritative
+base:
+  commit: 3b182cacad71e80f8bf5a4109dbb2933631743ee
+  handoff_sha256: 40e22125c7a059546fd3ffc339709189f535e8bb800040a52a7ae7b1171114cb
+  registry_sha256: 3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04
+renderer_version: 1
+operations:
+- operation_id: append-e8-baseline-launch-semantics-timestamp-correction
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-multitask-baseline-launch-semantics-timestamp-correction-2026-09-10
+  content: '- **E8 multitask baseline launch-semantics / timestamp correction (`EXT-C-E8-MULTITASK-BASELINE-MATRIX-01`)：**本条覆盖前一
+    provenance correction 中仅关于“canonical hardened-v1 planned + blocked 因而 176-cell
+    scientific run blocked”的表述。按照当前 `GOV-EXPERIMENT-LAUNCH-SIMPLIFICATION-01`，registry/READY/schema-v3/formal-channel/lane
+    activation 不是 workload launch permission，也不得仅因其缺失、stale 或未激活而阻塞已经冻结且 source/config-valid
+    的科学 workload。现有 E8 scientific runner 与 hardened shell execution path 记为 **implemented**；仍计划中的
+    hardened-v1 formal-channel registration completeness 只保留为 optional legacy operational
+    bookkeeping，`launch_blocked_by_formal_channel=false`，既不授权 launch，也没有 launch veto。科学状态仍为
+    **not_run**；实际启动仍须满足 exact commit、clean checkout、frozen science、provenance、recovery、supervision、terminal
+    audit、artifact 与现行 merge/launch 决策要求。另将已批准的 scientific execution chronology 写入端改为
+    fail-closed：`_run_subprocess_cell()` 必须实际返回 present、numeric-convertible、finite
+    且 `finished_unix >= started_unix` 的 `started_unix/finished_unix`，缺失、非法、非有限或倒序都必须失败，禁止使用
+    `time.time()` 现场补造 authoritative evidence。本修正不改变 176-cell 矩阵、tasks、seeds、AsymRE/TOPR/DPO
+    网格、1200-update horizon、optimizer 或 historical Countdown PR #268 DPO 语义。'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: a20c80d5c467730b4c560604f5c695c86e52a1587e133b6ece76179887734720
+  changes:
+  - change_id: correct-e8-implementation-state
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - implementation_state
+    from: not_implemented
+    to: implemented
+    reason: Scientific runner is implemented; legacy channel completeness is not the
+      experiment implementation state.
+    evidence: &id001
+    - AGENTS.md
+    - docs/scopes/GOV-EXPERIMENT-LAUNCH-SIMPLIFICATION-01.md
+    - docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md
+    - experiments/registry.yaml
+    - scripts/run_e8_multitask_exp_coldstart.sh
+    - src/drpo/e8_multitask_exp_tuning.py
+    - tests/test_e8_multitask_p0.py
+  - change_id: add-e8-scientific-runner-state
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - scientific_runner_state
+    from: null
+    to: implemented
+    reason: Make scientific runner implementation explicit.
+    evidence: *id001
+  - change_id: add-e8-formal-channel-launch-blocking
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - launch_blocked_by_formal_channel
+    from: null
+    to: false
+    reason: Current launch simplification forbids formal-channel activation bookkeeping
+      from acting as launch veto.
+    evidence: *id001
+  - change_id: clear-e8-formal-channel-blocking-reason
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - blocking_reason
+    from: Under GOV-FORMAL-ENTRYPOINT-01 this field refers to the canonical formal-entrypoint
+      integration, not to the already implemented and regression-validated scientific
+      runner. The current tuning module still contains a direct ZIP package subcommand,
+      so a canonical formal entrypoint that delegates artifact ownership entirely
+      to hardened-v1 remains planned; formal activation and the 176-cell scientific
+      run remain blocked/not_run pending a separate implementation and launch decision.
+    to: null
+    reason: Remove stale launch-blocking semantics while preserving not_run scientific
+      status.
+    evidence: *id001
+  - change_id: add-e8-formal-bookkeeping-role
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - formal_execution
+    - bookkeeping_role
+    from: null
+    to: optional_legacy_compatibility_only
+    reason: Classify remaining hardened-v1 completeness metadata as optional legacy
+      operational bookkeeping.
+    evidence: *id001
+  - change_id: add-e8-formal-launch-permission-role
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - formal_execution
+    - launch_permission
+    from: null
+    to: false
+    reason: Formal-channel bookkeeping does not grant scientific launch permission.
+    evidence: *id001
+  - change_id: add-e8-formal-launch-blocking-role
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - formal_execution
+    - launch_blocking
+    from: null
+    to: false
+    reason: Formal-channel bookkeeping does not block an otherwise valid frozen launch.
+    evidence: *id001
+expected:
+  exact_base_candidate_sha256: 3e6f7c108b5e5621a00b1c1327a035ec25fda10a121ea855864dfb50d343fca9
