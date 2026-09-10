@@ -127,6 +127,25 @@ experiments:
   role: external_validity_finite_horizon_baseline_comparison
   execution_class: formal
   registration_state: formal_protocol_registered_not_run
+  implementation_state: not_implemented
+  blocking_reason: >-
+    Under GOV-FORMAL-ENTRYPOINT-01 this field refers to the canonical formal-entrypoint
+    integration, not to the already implemented and regression-validated scientific runner.
+    The current tuning module still contains a direct ZIP package subcommand, so a canonical
+    formal entrypoint that delegates artifact ownership entirely to hardened-v1 remains planned;
+    formal activation and the 176-cell scientific run remain blocked/not_run pending a separate
+    implementation and launch decision.
+  formal_execution:
+    channel_ref: hardened-v1
+    activation_state: blocked
+    entrypoint_status: planned
+    launch_mode: canonical_guard
+    artifact_owner: canonical_channel
+    guard_entrypoint: scripts/run_experiment_guard_hardened.py
+    package_entrypoint: scripts/package_experiment_hardened.py
+    verify_entrypoint: scripts/verify_experiment_package_hardened.py
+    hardened_core: scripts/artifact_protocol_hardened.py
+    artifact_protocol: docs/formal_experiment_artifact_protocol.md
   claim: >-
     On the exact eight P0 transfer tasks and frozen model-independent banks, compare
     AsymRE, Joint Fitted-Reference beta-TOPR, and canonical PR-268-semantics DPO under
@@ -205,6 +224,11 @@ experiments:
     seed_batch_temporal_event_history_check: true
     seed_batch_event_cell_identity_check: exact_expected_cell_keys_no_duplicates
     temporal_event_source: scheduler/queue_events.jsonl
+    queue_event_identity_source: scheduler/queue_events.jsonl
+    temporal_event_semantics: identity_and_execution_origin_only_not_seed_ordering
+    seed_batch_temporal_scientific_provenance_check: true
+    scientific_temporal_source: cells/*/cell_manifest.json::scientific_execution_provenance
+    recovery_reuse_rule: preserve_original_scientific_execution_provenance
     temporal_condition: max_seed_4000_successful_finish_time_le_min_seed_5000_start_time
   reporting_separation:
   - task_performance
