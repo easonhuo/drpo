@@ -6252,6 +6252,59 @@ def _reusable_cell_manifests(
     return reusable, rejected
 
 
+def _recovery_reuse_eligible_keys(
+    config: Mapping[str, Any],
+    cells: Sequence[Cell],
+    reusable: Mapping[str, Mapping[str, Any]],
+) -> set[str]:
+    """Apply the frozen seed chronology to otherwise reusable cell evidence."""
+
+    if not _is_baseline_matrix(config) or _is_engineering_self_test(config):
+        return set(reusable)
+    eligible: set[str] = set()
+    cascade_rerun = False
+    previous_finish: float | None = None
+    for seed_value in config["execution"]["seed_batch_order"]:
+        seed = int(seed_value)
+        seed_keys = {cell.key for cell in cells if cell.seed == seed}
+        if cascade_rerun:
+            continue
+        present = seed_keys & set(reusable)
+        compatible = set(present)
+        if previous_finish is not None:
+            compatible = {
+                key
+                for key in present
+                if float(
+                    reusable[key]["scientific_execution_provenance"]["started_unix"]
+                )
+                >= previous_finish
+            }
+        eligible.update(compatible)
+        if compatible != seed_keys:
+            cascade_rerun = True
+            continue
+        previous_finish = max(
+            float(
+                reusable[key]["scientific_execution_provenance"]["successful_finish_unix"]
+            )
+            for key in seed_keys
+        )
+    return eligible
+
+
+def _recovery_reusable_cell_manifests(
+    config: Mapping[str, Any],
+    output_root: Path,
+) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
+    reusable, rejected = _reusable_cell_manifests(config, output_root)
+    cells = build_cells(config)
+    eligible = _recovery_reuse_eligible_keys(config, cells, reusable)
+    for key in sorted(set(reusable) - eligible):
+        rejected[key] = "baseline_seed_chronology_requires_reexecution"
+    return {key: reusable[key] for key in sorted(eligible)}, rejected
+
+
 def _recovery_stage_plan(
     config: Mapping[str, Any],
     output_root: Path,
@@ -6288,7 +6341,7 @@ def _recovery_stage_plan(
     else:
         liveness_complete = False
         liveness_error = "calibration_incomplete"
-    reusable, rejected = _reusable_cell_manifests(config, output_root)
+    reusable, rejected = _recovery_reusable_cell_manifests(config, output_root)
     expected_cells = len(build_cells(config))
     cells_complete = len(reusable) == expected_cells
     aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
@@ -6530,7 +6583,7 @@ def _recovery_checkpoint_snapshot(
     *,
     source_commit: str,
 ) -> dict[str, Any]:
-    reusable, rejected = _reusable_cell_manifests(config, output_root)
+    reusable, rejected = _recovery_reusable_cell_manifests(config, output_root)
     temporary = snapshot_root.with_name(f".{snapshot_root.name}.tmp-{os.getpid()}-{time.time_ns()}")
     if temporary.exists():
         shutil.rmtree(temporary)
@@ -6560,7 +6613,7 @@ def _recovery_checkpoint_snapshot(
         "completed_cells": len(cells),
         "cells": cells,
         "rejected_cells": rejected,
-        "recovery_semantics": "reuse complete identity-checked cells; rerun incomplete cells",
+        "recovery_semantics": "reuse complete identity-and-seed-chronology-checked cells; rerun rejected or incomplete cells",
         "intra_cell_resume_supported": False,
         "scientific_status": "not_run" if _is_engineering_self_test(config) else "pilot",
     }
@@ -7120,7 +7173,11 @@ def cmd_run_dynamic(
     recovery_interval = int(os.environ.get("E8_COLDSTART_RECOVERY_INTERVAL_CELLS", "5"))
     if recovery_interval <= 0:
         raise ValueError("E8_COLDSTART_RECOVERY_INTERVAL_CELLS must be positive")
-    initially_reusable, _ = _reusable_cell_manifests(config, output_root)
+    initially_reusable, initially_rejected = _recovery_reusable_cell_manifests(
+        config,
+        output_root,
+    )
+    reuse_eligible_keys = set(initially_reusable)
     last_checkpoint_count = (len(initially_reusable) // recovery_interval) * recovery_interval
 
     def record(event: Mapping[str, Any]) -> None:
@@ -7157,22 +7214,17 @@ def cmd_run_dynamic(
                 break
             cell_root = output_root / "cells" / cell.key
             manifest_path = cell_root / "cell_manifest.json"
-            reusable_complete = False
-            if manifest_path.is_file():
-                try:
-                    reusable_complete = bool(
-                        json.loads(manifest_path.read_text(encoding="utf-8")).get("complete")
-                    )
-                except (OSError, json.JSONDecodeError):
-                    reusable_complete = False
+            cell_exists = cell_root.exists()
+            reuse_eligible = cell.key in reuse_eligible_keys
             child_force = force or (
-                retry_incomplete and cell_root.exists() and not reusable_complete
+                retry_incomplete and cell_exists and not reuse_eligible
             )
-            execution_origin = (
-                "reused_existing"
-                if reusable_complete and not child_force
-                else "executed_current_run"
-            )
+            if reuse_eligible and cell_exists and not child_force:
+                execution_origin = "reused_existing"
+            elif cell_exists and not child_force:
+                execution_origin = "rejected_existing_not_executed"
+            else:
+                execution_origin = "executed_current_run"
             record(
                 {
                     "event": "start",
@@ -7185,14 +7237,30 @@ def cmd_run_dynamic(
                     "execution_origin": execution_origin,
                 }
             )
-            result = _run_subprocess_cell(
-                config_path=config_path.resolve(),
-                output_root=output_root.resolve(),
-                base_model_path=base_model_path,
-                cell=cell,
-                gpu_id=gpu_id,
-                force=child_force,
-            )
+            if execution_origin == "rejected_existing_not_executed":
+                result = {
+                    "cell_key": cell.key,
+                    "gpu_id": gpu_id,
+                    "returncode": 76,
+                    "log": str((output_root / "logs" / f"{cell.key}.log").resolve()),
+                    "cell_completion_error": (
+                        "existing cell is not reuse-eligible; rerun with "
+                        "--retry-incomplete or --force: "
+                        + initially_rejected.get(
+                            cell.key,
+                            "existing evidence rejected by recovery eligibility",
+                        )
+                    ),
+                }
+            else:
+                result = _run_subprocess_cell(
+                    config_path=config_path.resolve(),
+                    output_root=output_root.resolve(),
+                    base_model_path=base_model_path,
+                    cell=cell,
+                    gpu_id=gpu_id,
+                    force=child_force,
+                )
             if int(result["returncode"]) == 0:
                 try:
                     completed_manifest = _read_json_object(manifest_path)
@@ -7233,7 +7301,7 @@ def cmd_run_dynamic(
             if int(result["returncode"]) == 0 and recovery_package is not None:
                 try:
                     with checkpoint_lock:
-                        current_reusable, _ = _reusable_cell_manifests(config, output_root)
+                        current_reusable, _ = _recovery_reusable_cell_manifests(config, output_root)
                         completed_count = len(current_reusable)
                         if completed_count >= last_checkpoint_count + recovery_interval:
                             checkpoint = _publish_recovery_checkpoint(
@@ -7470,6 +7538,11 @@ def _coldstart_completed_task_rows(
     expected = [cell for cell in build_cells(config) if cell.task == task]
     if not expected:
         return None
+    if _is_baseline_matrix(config) and not _is_engineering_self_test(config):
+        reusable, _ = _recovery_reusable_cell_manifests(config, output_root)
+        reusable_keys = set(reusable)
+        if any(cell.key not in reusable_keys for cell in expected):
+            return None
     expected_hash = stable_config_hash(config)
     rows: list[dict[str, Any]] = []
     for cell in expected:
@@ -8599,9 +8672,9 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             and scheduler.get("complete") is True
         )
 
-        # Independently audit the append-only event history for the same scheduler run.
-        # The summary alone is not sufficient evidence that a later seed batch did not
-        # start before the preceding batch had finished successfully.
+        # Independently audit append-only scheduler events for exact cell/origin identity.
+        # Scientific seed chronology is proved only by the persisted per-cell execution
+        # provenance below; queue-event wall times are not authoritative after recovery.
         seed_batch_temporal_order_complete = False
         event_path = output_root / "scheduler" / "queue_events.jsonl"
         scheduler_run_id = str(scheduler.get("scheduler_run_id", ""))
@@ -9266,6 +9339,8 @@ def _audit_engineering_queue(
     maximum_by_gpu = dict(active_by_gpu)
     starts: dict[str, float] = {}
     finishes: dict[str, float] = {}
+    first_start_by_slot: dict[int, str] = {}
+    replacement_keys: set[str] = set()
     for event in events:
         gpu_id = int(event["gpu_id"])
         cell_key = str(event["cell_key"])
@@ -9273,6 +9348,11 @@ def _audit_engineering_queue(
             active_by_gpu[gpu_id] += 1
             maximum_by_gpu[gpu_id] = max(maximum_by_gpu[gpu_id], active_by_gpu[gpu_id])
             starts[cell_key] = float(event["unix_time"])
+            slot = int(event["slot"])
+            if slot not in first_start_by_slot:
+                first_start_by_slot[slot] = cell_key
+            else:
+                replacement_keys.add(cell_key)
         elif event["event"] == "finish":
             active_by_gpu[gpu_id] -= 1
             finishes[cell_key] = float(event["unix_time"])
@@ -9285,13 +9365,24 @@ def _audit_engineering_queue(
         or max(maximum_by_gpu.values()) > slots_per_gpu
     ):
         raise RuntimeError("Engineering queue exceeded the declared per-GPU capacity")
-    slot_count = int(config["execution"]["max_concurrent_cells"])
-    initial_keys = {cell.key for cell in cells[:slot_count]}
-    replacement_keys = {cell.key for cell in cells[slot_count:]}
+    initial_keys = set(first_start_by_slot.values())
     if not replacement_keys:
         raise RuntimeError("Engineering queue requires replacement cells to audit dynamic refill")
-    if min(starts[key] for key in replacement_keys) >= max(finishes[key] for key in initial_keys):
-        raise RuntimeError("Engineering queue did not refill before the initial 16 cells finished")
+    finished_initial: set[str] = set()
+    dynamic_refill_observed = False
+    for event in events:
+        cell_key = str(event["cell_key"])
+        if event["event"] == "finish" and cell_key in initial_keys:
+            finished_initial.add(cell_key)
+        elif (
+            event["event"] == "start"
+            and cell_key in replacement_keys
+            and len(finished_initial) < len(initial_keys)
+        ):
+            dynamic_refill_observed = True
+            break
+    if not dynamic_refill_observed:
+        raise RuntimeError("Engineering queue did not dynamically refill before initial slots drained")
     return {
         "all_cells_observed": True,
         "maximum_active_by_gpu": maximum_by_gpu,

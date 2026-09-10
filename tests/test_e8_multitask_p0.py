@@ -4508,3 +4508,273 @@ def test_baseline_matrix_reuse_preserves_original_scientific_execution_provenanc
         value = json.loads((tmp_path / "cells" / cell.key / "cell_manifest.json").read_text())
         assert value["scientific_execution_provenance"] == original[cell.key]
         assert value["scientific_execution_provenance"]["scheduler_run_id"] == first_run_id
+
+
+def _synthetic_recovery_manifest(cell, *, start: float, finish: float):
+    return {
+        "scientific_execution_provenance": {
+            "scheduler_run_id": f"prior-{cell.seed}",
+            "cell_key": cell.key,
+            "seed": cell.seed,
+            "started_unix": start,
+            "successful_finish_unix": finish,
+            "execution_origin": "executed_current_run",
+        }
+    }
+
+
+def test_baseline_recovery_global_eligibility_cascades_after_earlier_seed_gap() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")
+    cells = exp_tuning.build_cells(config)
+    seed_4000 = [cell for cell in cells if cell.seed == 4000]
+    seed_5000 = [cell for cell in cells if cell.seed == 5000]
+    reusable = {
+        cell.key: _synthetic_recovery_manifest(
+            cell,
+            start=10.0 if cell.seed == 4000 else 30.0,
+            finish=20.0 if cell.seed == 4000 else 40.0,
+        )
+        for cell in cells
+    }
+    missing = seed_4000[0]
+    reusable.pop(missing.key)
+    eligible = exp_tuning._recovery_reuse_eligible_keys(config, cells, reusable)
+    assert eligible == {cell.key for cell in seed_4000[1:]}
+    assert not ({cell.key for cell in seed_5000} & eligible)
+
+
+def test_baseline_recovery_global_eligibility_reruns_temporally_invalid_later_seed() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")
+    cells = exp_tuning.build_cells(config)
+    seed_4000 = [cell for cell in cells if cell.seed == 4000]
+    seed_5000 = [cell for cell in cells if cell.seed == 5000]
+    reusable = {
+        cell.key: _synthetic_recovery_manifest(
+            cell,
+            start=10.0 if cell.seed == 4000 else 15.0,
+            finish=20.0 if cell.seed == 4000 else 25.0,
+        )
+        for cell in cells
+    }
+    eligible = exp_tuning._recovery_reuse_eligible_keys(config, cells, reusable)
+    assert eligible == {cell.key for cell in seed_4000}
+    assert not ({cell.key for cell in seed_5000} & eligible)
+
+
+def test_baseline_recovery_partial_later_seed_keeps_compatible_same_seed_reuse() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")
+    cells = exp_tuning.build_cells(config)
+    seed_5000 = [cell for cell in cells if cell.seed == 5000]
+    reusable = {
+        cell.key: _synthetic_recovery_manifest(
+            cell,
+            start=10.0 if cell.seed == 4000 else 30.0,
+            finish=20.0 if cell.seed == 4000 else 40.0,
+        )
+        for cell in cells
+    }
+    missing = seed_5000[0]
+    reusable.pop(missing.key)
+    eligible = exp_tuning._recovery_reuse_eligible_keys(config, cells, reusable)
+    assert eligible == set(reusable)
+
+
+def test_retry_incomplete_forces_complete_manifest_rejected_from_authoritative_reuse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning._engineering_self_test_config(
+        _baseline_matrix_capability_test_config()
+    )
+    cells = exp_tuning.build_cells(config)
+    victim = cells[0]
+    p0.atomic_json(tmp_path / "source_provenance.json", {"source_commit": "f" * 40})
+    p0.atomic_json(
+        tmp_path / "cells" / victim.key / "cell_manifest.json",
+        {
+            "experiment_id": exp_tuning.experiment_id(config),
+            "config_hash": exp_tuning.stable_config_hash(config),
+            "complete": True,
+            "evaluation_status": "complete",
+            "nan_inf_failure": False,
+            "engineering_placeholder_backend": True,
+        },
+    )
+    monkeypatch.delenv("E8_COLDSTART_RECOVERY_PACKAGE", raising=False)
+    monkeypatch.setattr(exp_tuning, "_require_calibration_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(exp_tuning, "_coldstart_completed_task_rows", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        exp_tuning,
+        "_recovery_reusable_cell_manifests",
+        lambda *args, **kwargs: ({}, {victim.key: "synthetic_reuse_rejection"}),
+    )
+    observed_force: dict[str, bool] = {}
+
+    def fake_subprocess_cell(**kwargs):
+        cell = kwargs["cell"]
+        observed_force[cell.key] = bool(kwargs["force"])
+        manifest_path = kwargs["output_root"] / "cells" / cell.key / "cell_manifest.json"
+        p0.atomic_json(
+            manifest_path,
+            {
+                "experiment_id": exp_tuning.experiment_id(config),
+                "config_hash": exp_tuning.stable_config_hash(config),
+                "complete": True,
+                "evaluation_status": "complete",
+                "nan_inf_failure": False,
+                "engineering_placeholder_backend": True,
+            },
+        )
+        now = time.time()
+        return {
+            "cell_key": cell.key,
+            "returncode": 0,
+            "started_unix": now,
+            "finished_unix": now + 0.001,
+        }
+
+    monkeypatch.setattr(exp_tuning, "_run_subprocess_cell", fake_subprocess_cell)
+    result = exp_tuning.cmd_run_dynamic(
+        config,
+        tmp_path / "synthetic.yaml",
+        tmp_path,
+        base_model_path="unused",
+        force=False,
+        retry_incomplete=True,
+    )
+    assert result["complete"] is True
+    assert observed_force[victim.key] is True
+    assert all(observed_force[cell.key] is False for cell in cells[1:])
+
+
+def test_non_retry_path_never_stamps_rejected_complete_manifest_as_new_execution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning._engineering_self_test_config(
+        _baseline_matrix_capability_test_config()
+    )
+    cells = exp_tuning.build_cells(config)
+    victim = cells[0]
+    p0.atomic_json(tmp_path / "source_provenance.json", {"source_commit": "a" * 40})
+    p0.atomic_json(
+        tmp_path / "cells" / victim.key / "cell_manifest.json",
+        {
+            "experiment_id": exp_tuning.experiment_id(config),
+            "config_hash": exp_tuning.stable_config_hash(config),
+            "complete": True,
+            "evaluation_status": "complete",
+            "nan_inf_failure": False,
+            "engineering_placeholder_backend": True,
+        },
+    )
+    monkeypatch.delenv("E8_COLDSTART_RECOVERY_PACKAGE", raising=False)
+    monkeypatch.setattr(exp_tuning, "_require_calibration_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(exp_tuning, "_coldstart_completed_task_rows", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        exp_tuning,
+        "_recovery_reusable_cell_manifests",
+        lambda *args, **kwargs: ({}, {victim.key: "synthetic_reuse_rejection"}),
+    )
+    called = set()
+
+    def fake_subprocess_cell(**kwargs):
+        cell = kwargs["cell"]
+        called.add(cell.key)
+        if cell.key == victim.key:
+            raise AssertionError("rejected existing cell must not enter subprocess path")
+        manifest_path = kwargs["output_root"] / "cells" / cell.key / "cell_manifest.json"
+        p0.atomic_json(
+            manifest_path,
+            {
+                "experiment_id": exp_tuning.experiment_id(config),
+                "config_hash": exp_tuning.stable_config_hash(config),
+                "complete": True,
+                "evaluation_status": "complete",
+                "nan_inf_failure": False,
+                "engineering_placeholder_backend": True,
+            },
+        )
+        now = time.time()
+        return {
+            "cell_key": cell.key,
+            "returncode": 0,
+            "started_unix": now,
+            "finished_unix": now + 0.001,
+        }
+
+    monkeypatch.setattr(exp_tuning, "_run_subprocess_cell", fake_subprocess_cell)
+    with pytest.raises(RuntimeError, match="Cold-start scheduling stopped fail-closed"):
+        exp_tuning.cmd_run_dynamic(
+            config,
+            tmp_path / "synthetic.yaml",
+            tmp_path,
+            base_model_path="unused",
+            force=False,
+            retry_incomplete=False,
+        )
+    assert victim.key not in called
+    victim_manifest = json.loads(
+        (tmp_path / "cells" / victim.key / "cell_manifest.json").read_text()
+    )
+    assert "scientific_execution_provenance" not in victim_manifest
+
+
+def test_baseline_recovery_keeps_compatible_cells_within_temporally_partial_seed() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")
+    cells = exp_tuning.build_cells(config)
+    seed_4000 = [cell for cell in cells if cell.seed == 4000]
+    seed_5000 = [cell for cell in cells if cell.seed == 5000]
+    stale = seed_5000[0]
+    reusable = {}
+    for cell in cells:
+        if cell.seed == 4000:
+            start, finish = 10.0, 20.0
+        elif cell.key == stale.key:
+            start, finish = 15.0, 25.0
+        else:
+            start, finish = 30.0, 40.0
+        reusable[cell.key] = _synthetic_recovery_manifest(
+            cell,
+            start=start,
+            finish=finish,
+        )
+    eligible = exp_tuning._recovery_reuse_eligible_keys(config, cells, reusable)
+    assert {cell.key for cell in seed_4000} <= eligible
+    assert stale.key not in eligible
+    assert {cell.key for cell in seed_5000[1:]} <= eligible
+
+
+def test_baseline_task_rows_wait_for_global_recovery_eligibility(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")
+    task = str(config["suite"]["p0_tasks"][0])
+    expected = [cell for cell in exp_tuning.build_cells(config) if cell.task == task]
+    victim = expected[0]
+    eligible = {
+        cell.key: {}
+        for cell in exp_tuning.build_cells(config)
+        if cell.key != victim.key
+    }
+    monkeypatch.setattr(
+        exp_tuning,
+        "_recovery_reusable_cell_manifests",
+        lambda *args, **kwargs: (eligible, {victim.key: "synthetic_reuse_rejection"}),
+    )
+    assert exp_tuning._coldstart_completed_task_rows(config, tmp_path, task) is None
