@@ -8,6 +8,11 @@
 - Reason: canonical registry experiment is not mapped to any minimal module
 - Automatic action: `false`
 
+## candidate_add_or_map_module: `EXT-C-E8-MULTITASK-BASELINE-MATRIX-01`
+
+- Reason: canonical registry experiment is not mapped to any minimal module
+- Automatic action: `false`
+
 ## candidate_add_or_map_module: `EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01`
 
 - Reason: canonical registry experiment is not mapped to any minimal module
@@ -120,7 +125,7 @@
 
 ## candidate_split_module: `global_core_governance`
 
-- Reason: source content has 59949 characters, above the configured 50000 threshold
+- Reason: source content has 61269 characters, above the configured 50000 threshold
 - Automatic action: `false`
 
 ## candidate_split_module: `continuous_e4_taper`
@@ -140,5 +145,5 @@
 
 ## candidate_split_module: `countdown_e8`
 
-- Reason: source content has 87444 characters, above the configured 50000 threshold
+- Reason: source content has 88643 characters, above the configured 50000 threshold
 - Automatic action: `false`

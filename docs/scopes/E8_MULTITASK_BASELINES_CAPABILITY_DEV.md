@@ -2,7 +2,7 @@
 
 ## Status
 
-Code-only development scope. No scientific experiment is launched by this change, and no final baseline-comparison experiment ID, hyperparameter grid, initialization choice, RunSpec, ranking, or result claim is frozen here.
+This scope began as code-only capability development. The later owner-authorized September-7 protocol closure recorded below now freezes the successor formal experiment ID, exact 176-cell hyperparameter matrix, fresh-LoRA DPO initialization, paired transfer seeds, hard seed-batch ordering, and formal terminal-audit responsibilities. The scientific experiment itself remains **not_run**: no 176-cell training run, result, significance claim, convergence claim, or method ranking is produced by this development work. Earlier capability-only exclusions are retained as historical scope and are superseded only where the later owner-authorized closure explicitly says so.
 
 Base repository state for this task: `easonhuo/drpo@8a21fd16e63ea96a0cde2a477353d24562624655` on `main`. This development branch is based on the already validated AsymRE capability commit `384c6141f330b8e440d9dae532d97b1115dc94e7`.
 
@@ -121,3 +121,7 @@ A successor formal config may set `execution_class: formal`. Formal execution cl
 Terminal audit for the formal matrix must independently re-check every scientific cell for the frozen 1,200-step terminal condition, `stop_reason=max_steps`, no test-partition access, and no NaN/Inf. Canonical DPO cells must additionally re-check that the frozen reference state is unchanged from initialization. The audit must also verify the configured paired seed-batch order/completion. These are checks of already frozen protocol conditions, not new scientific thresholds.
 
 The successor formal experiment ID used by the repository config is `EXT-C-E8-MULTITASK-BASELINE-MATRIX-01`. Its responsibility is finite-horizon external-validity comparison of the three registered baseline families on the exact eight P0 transfer tasks under shared frozen banks and training/evaluation budgets. It does not rerun Countdown, establish convergence, or make a universal method-ranking claim.
+
+## Owner-authorized exact scheduler-event identity audit (2026-09-10)
+
+The owner explicitly approved strengthening the formal seed-barrier terminal audit so event counts alone cannot certify a malformed scheduler history. For the active `scheduler_run_id`, every configured seed must have exactly the expected scientific `cell_key` set in both start events and successful finish events, with no duplicates and no missing or extra cell keys. This exact-identity check is fail-closed and precedes the existing temporal ordering check. It changes no scientific method, hyperparameter, seed, training horizon, task, DPO semantics, or runtime scheduling behavior; it only strengthens terminal evidence validation.
