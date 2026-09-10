@@ -4172,11 +4172,99 @@ def test_formal_terminal_status_requires_full_terminal_contract(tmp_path: Path) 
         p0.atomic_json(tmp_path / "cells" / cell.key / "cell_manifest.json", value)
     p0.atomic_json(tmp_path / "aggregate" / "aggregate_summary.json", {"cell_count":176})
     p0.atomic_json(tmp_path / "aggregate" / "countdown_protocol_diagnostic.json", {"status":"NOT_RUN"})
-    p0.atomic_json(tmp_path / "scheduler" / "dynamic_run.json", {"complete":True,"seed_batch_barriers":True,"seed_batch_order":[4000,5000],"seed_batch_expected_cells":{"4000":88,"5000":88},"seed_batch_completed_cells":{"4000":88,"5000":88}})
-    audit=exp_tuning.cmd_audit(config,tmp_path)
+    scheduler_run_id = "formal-terminal-audit-test"
+    p0.atomic_json(
+        tmp_path / "scheduler" / "dynamic_run.json",
+        {
+            "complete": True,
+            "scheduler_run_id": scheduler_run_id,
+            "seed_batch_barriers": True,
+            "seed_batch_order": [4000, 5000],
+            "seed_batch_expected_cells": {"4000": 88, "5000": 88},
+            "seed_batch_completed_cells": {"4000": 88, "5000": 88},
+        },
+    )
+    events = [
+        {
+            "scheduler_run_id": "stale-prior-run",
+            "event": "start",
+            "seed": 5000,
+            "unix_time": 0.0,
+        }
+    ]
+    seed_4000 = [cell for cell in cells if cell.seed == 4000]
+    seed_5000 = [cell for cell in cells if cell.seed == 5000]
+    for index, cell in enumerate(seed_4000):
+        events.extend(
+            [
+                {
+                    "scheduler_run_id": scheduler_run_id,
+                    "event": "start",
+                    "cell_key": cell.key,
+                    "seed": 4000,
+                    "unix_time": float(index),
+                },
+                {
+                    "scheduler_run_id": scheduler_run_id,
+                    "event": "finish",
+                    "cell_key": cell.key,
+                    "seed": 4000,
+                    "returncode": 0,
+                    "unix_time": 1000.0 + float(index),
+                },
+            ]
+        )
+    for index, cell in enumerate(seed_5000):
+        events.extend(
+            [
+                {
+                    "scheduler_run_id": scheduler_run_id,
+                    "event": "start",
+                    "cell_key": cell.key,
+                    "seed": 5000,
+                    "unix_time": 2000.0 + float(index),
+                },
+                {
+                    "scheduler_run_id": scheduler_run_id,
+                    "event": "finish",
+                    "cell_key": cell.key,
+                    "seed": 5000,
+                    "returncode": 0,
+                    "unix_time": 3000.0 + float(index),
+                },
+            ]
+        )
+    event_path = tmp_path / "scheduler" / "queue_events.jsonl"
+    p0.atomic_jsonl(event_path, events)
+
+    audit = exp_tuning.cmd_audit(config, tmp_path)
+    assert audit["seed_batch_protocol_complete"] is True
+    assert audit["seed_batch_temporal_order_complete"] is True
     assert audit["all_training_and_evaluation_complete"] is True
     assert audit["scientific_status"] == "finite_step_validated"
-    victim=cells[0]; path=tmp_path / "cells" / victim.key / "cell_manifest.json"
-    value=json.loads(path.read_text()); value["terminal_step"]=1199; p0.atomic_json(path,value)
-    failed=exp_tuning.cmd_audit(config,tmp_path)
-    assert failed["scientific_status"] == "pilot" and victim.key in failed["terminal_contract_failures"]
+
+    bad_events = [dict(row) for row in events]
+    bad_start = next(
+        row
+        for row in bad_events
+        if row.get("scheduler_run_id") == scheduler_run_id
+        and row.get("event") == "start"
+        and row.get("seed") == 5000
+    )
+    bad_start["unix_time"] = 1.0
+    p0.atomic_jsonl(event_path, bad_events)
+    temporal_failed = exp_tuning.cmd_audit(config, tmp_path)
+    assert temporal_failed["seed_batch_protocol_complete"] is True
+    assert temporal_failed["seed_batch_temporal_order_complete"] is False
+    assert temporal_failed["all_training_and_evaluation_complete"] is False
+    assert temporal_failed["scientific_status"] == "pilot"
+
+    p0.atomic_jsonl(event_path, events)
+    victim = cells[0]
+    path = tmp_path / "cells" / victim.key / "cell_manifest.json"
+    value = json.loads(path.read_text())
+    value["terminal_step"] = 1199
+    p0.atomic_json(path, value)
+    failed = exp_tuning.cmd_audit(config, tmp_path)
+    assert failed["scientific_status"] == "pilot"
+    assert victim.key in failed["terminal_contract_failures"]

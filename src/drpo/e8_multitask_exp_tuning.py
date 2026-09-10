@@ -8387,13 +8387,96 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             and reproduction_gate_status == expected_protocol_status
         )
     seed_batch_protocol_complete: bool | None = None
+    seed_batch_temporal_order_complete: bool | None = None
     if _is_baseline_matrix(config):
-        sp = output_root / "scheduler" / "dynamic_run.json"
-        scheduler = json.loads(sp.read_text(encoding="utf-8")) if sp.is_file() else {}
-        order = [int(v) for v in config["execution"]["seed_batch_order"]]
+        scheduler_path = output_root / "scheduler" / "dynamic_run.json"
+        scheduler = (
+            json.loads(scheduler_path.read_text(encoding="utf-8"))
+            if scheduler_path.is_file()
+            else {}
+        )
+        order = [int(value) for value in config["execution"]["seed_batch_order"]]
         expected = {str(seed): sum(cell.seed == seed for cell in cells) for seed in order}
-        seed_batch_protocol_complete = scheduler.get("seed_batch_barriers") is True and scheduler.get("seed_batch_order") == order and scheduler.get("seed_batch_expected_cells") == expected and scheduler.get("seed_batch_completed_cells") == expected and scheduler.get("complete") is True
-    all_complete = not missing and not incomplete and not nan_inf and not terminal_contract_failures and not dpo_reference_identity_failures and inherited_complete and aggregate_complete and seed_batch_protocol_complete is not False
+        seed_batch_protocol_complete = (
+            scheduler.get("seed_batch_barriers") is True
+            and scheduler.get("seed_batch_order") == order
+            and scheduler.get("seed_batch_expected_cells") == expected
+            and scheduler.get("seed_batch_completed_cells") == expected
+            and scheduler.get("complete") is True
+        )
+
+        # Independently audit the append-only event history for the same scheduler run.
+        # The summary alone is not sufficient evidence that a later seed batch did not
+        # start before the preceding batch had finished successfully.
+        seed_batch_temporal_order_complete = False
+        event_path = output_root / "scheduler" / "queue_events.jsonl"
+        scheduler_run_id = str(scheduler.get("scheduler_run_id", ""))
+        if event_path.is_file() and scheduler_run_id:
+            try:
+                event_rows: list[dict[str, Any]] = []
+                for line in event_path.read_text(encoding="utf-8").splitlines():
+                    if not line.strip():
+                        continue
+                    row = json.loads(line)
+                    if not isinstance(row, dict):
+                        raise TypeError("queue event must be a JSON object")
+                    if str(row.get("scheduler_run_id", "")) == scheduler_run_id:
+                        event_rows.append(row)
+
+                successful_finishes = {
+                    seed: [
+                        row
+                        for row in event_rows
+                        if row.get("event") == "finish"
+                        and row.get("seed") == seed
+                        and row.get("returncode") == 0
+                    ]
+                    for seed in order
+                }
+                starts = {
+                    seed: [
+                        row
+                        for row in event_rows
+                        if row.get("event") == "start" and row.get("seed") == seed
+                    ]
+                    for seed in order
+                }
+                counts_complete = bool(order) and all(
+                    len(successful_finishes[seed]) == expected[str(seed)] for seed in order
+                )
+                counts_complete = counts_complete and all(
+                    len(starts[seed]) == expected[str(seed)] for seed in order[1:]
+                )
+                temporal_complete = counts_complete
+                for previous_seed, next_seed in zip(order, order[1:]):
+                    previous_finish_times = [
+                        float(row["unix_time"]) for row in successful_finishes[previous_seed]
+                    ]
+                    next_start_times = [float(row["unix_time"]) for row in starts[next_seed]]
+                    times = previous_finish_times + next_start_times
+                    if (
+                        not previous_finish_times
+                        or not next_start_times
+                        or not all(math.isfinite(value) for value in times)
+                        or max(previous_finish_times) > min(next_start_times)
+                    ):
+                        temporal_complete = False
+                        break
+                seed_batch_temporal_order_complete = temporal_complete
+            except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+                seed_batch_temporal_order_complete = False
+
+    all_complete = (
+        not missing
+        and not incomplete
+        and not nan_inf
+        and not terminal_contract_failures
+        and not dpo_reference_identity_failures
+        and inherited_complete
+        and aggregate_complete
+        and seed_batch_protocol_complete is not False
+        and seed_batch_temporal_order_complete is not False
+    )
     audit = {
         "schema_version": 1,
         "experiment_id": experiment_id(config),
@@ -8405,6 +8488,7 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "terminal_contract_failures": sorted(set(terminal_contract_failures)),
         "dpo_reference_identity_failures": sorted(set(dpo_reference_identity_failures)),
         "seed_batch_protocol_complete": seed_batch_protocol_complete,
+        "seed_batch_temporal_order_complete": seed_batch_temporal_order_complete,
         "all_training_and_evaluation_complete": all_complete,
         "execution_class": _execution_class(config),
         "test_partition_accessed": False,
