@@ -118,6 +118,39 @@ jobs:
           if old_registry not in registry:
               raise SystemExit('old registry temporal provenance block not found')
           registry = registry.replace(old_registry, new_registry, 1)
+
+          formal_anchor = (
+              '  registration_state: formal_protocol_registered_not_run\n'
+              '  claim: >-\n'
+          )
+          formal_replacement = (
+              '  registration_state: formal_protocol_registered_not_run\n'
+              '  implementation_state: implemented\n'
+              '  blocking_reason: >-\n'
+              '    Formal launch activation is intentionally deferred in this capability closure; '
+              'the 176-cell scientific run remains not_run and requires a separate launch decision.\n'
+              '  formal_execution:\n'
+              '    channel_ref: hardened-v1\n'
+              '    activation_state: blocked\n'
+              '    entrypoint_status: implemented\n'
+              '    entrypoint: src/drpo/e8_multitask_exp_tuning.py\n'
+              '    launch_mode: canonical_guard\n'
+              '    artifact_owner: canonical_channel\n'
+              '    guard_entrypoint: scripts/run_experiment_guard_hardened.py\n'
+              '    package_entrypoint: scripts/package_experiment_hardened.py\n'
+              '    verify_entrypoint: scripts/verify_experiment_package_hardened.py\n'
+              '    hardened_core: scripts/artifact_protocol_hardened.py\n'
+              '    artifact_protocol: docs/formal_experiment_artifact_protocol.md\n'
+              '    inherit_default_artifact_budget: true\n'
+              '    runner_archive_policy:\n'
+              '      mode: forbid\n'
+              '  claim: >-\n'
+          )
+          if '  formal_execution:\n' not in registry.split('- id: C-U1-E3-ADAM-RERUN', 1)[0]:
+              if registry.count(formal_anchor) != 1:
+                  raise SystemExit('E8 formal execution registration anchor mismatch')
+              registry = registry.replace(formal_anchor, formal_replacement, 1)
+
           registry_path.write_text(registry, encoding='utf-8')
 
           desired_handoff = (root / 'docs/handoff.md').read_text(encoding='utf-8')
