@@ -34,6 +34,12 @@ replace_identity_hash_in_function("_train_canonical_cold_cell")
 
 '''
 text = text[:start] + replacement + text[end:]
+# Make scheduler_run_id collision-safe for sequential invocations within one process/second.
+marker = '# Scheduler: classify actual execution vs reuse and persist actual successful execution times.\n'
+insert = '''replace_once(\n    '    scheduler_run_id = f"queue-{int(time.time())}-{os.getpid()}"\\n',\n    '    scheduler_run_id = f"queue-{time.time_ns()}-{os.getpid()}"\\n',\n)\n'''
+if text.count(marker) != 1:
+    raise SystemExit(f'scheduler-run-id marker mismatch: {text.count(marker)}')
+text = text.replace(marker, marker + insert, 1)
 # The reuse regression targets queue/provenance behavior only.  Do not make it
 # depend on unrelated task-result metric fixture fields.
 old = '    monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)\n\n    def fake_subprocess_cell(**kwargs):\n'
