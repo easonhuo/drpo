@@ -32,6 +32,7 @@ from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass
+from itertools import pairwise
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -8387,6 +8388,7 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             and reproduction_gate_status == expected_protocol_status
         )
     seed_batch_protocol_complete: bool | None = None
+    seed_batch_event_identity_complete: bool | None = None
     seed_batch_temporal_order_complete: bool | None = None
     if _is_baseline_matrix(config):
         scheduler_path = output_root / "scheduler" / "dynamic_run.json"
@@ -8441,14 +8443,28 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
                     ]
                     for seed in order
                 }
-                counts_complete = bool(order) and all(
-                    len(successful_finishes[seed]) == expected[str(seed)] for seed in order
+                expected_cell_keys = {
+                    seed: {cell.key for cell in cells if cell.seed == seed} for seed in order
+                }
+
+                def exact_cell_keys(rows: list[dict[str, Any]], seed: int) -> bool:
+                    keys = [str(row.get("cell_key", "")) for row in rows]
+                    expected_keys = expected_cell_keys[seed]
+                    return (
+                        len(keys) == len(expected_keys)
+                        and len(keys) == len(set(keys))
+                        and set(keys) == expected_keys
+                    )
+
+                seed_batch_event_identity_complete = bool(order) and all(
+                    exact_cell_keys(successful_finishes[seed], seed) for seed in order
                 )
-                counts_complete = counts_complete and all(
-                    len(starts[seed]) == expected[str(seed)] for seed in order[1:]
+                seed_batch_event_identity_complete = (
+                    seed_batch_event_identity_complete
+                    and all(exact_cell_keys(starts[seed], seed) for seed in order)
                 )
-                temporal_complete = counts_complete
-                for previous_seed, next_seed in zip(order, order[1:]):
+                temporal_complete = seed_batch_event_identity_complete
+                for previous_seed, next_seed in pairwise(order):
                     previous_finish_times = [
                         float(row["unix_time"]) for row in successful_finishes[previous_seed]
                     ]
@@ -8488,6 +8504,7 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "terminal_contract_failures": sorted(set(terminal_contract_failures)),
         "dpo_reference_identity_failures": sorted(set(dpo_reference_identity_failures)),
         "seed_batch_protocol_complete": seed_batch_protocol_complete,
+        "seed_batch_event_identity_complete": seed_batch_event_identity_complete,
         "seed_batch_temporal_order_complete": seed_batch_temporal_order_complete,
         "all_training_and_evaluation_complete": all_complete,
         "execution_class": _execution_class(config),

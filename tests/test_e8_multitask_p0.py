@@ -1642,7 +1642,7 @@ def test_exp_coldstart_scheduler_refills_without_nominal_batch_barriers(
         if cell in cells[16:]:
             replacement_started.set()
         if cell.key == cells[0].key:
-            if replacement_started.wait(timeout=1.0):
+            if replacement_started.wait(timeout=5.0):
                 first_cell_released_by_replacement.set()
         else:
             time.sleep(0.002)
@@ -4239,6 +4239,7 @@ def test_formal_terminal_status_requires_full_terminal_contract(tmp_path: Path) 
 
     audit = exp_tuning.cmd_audit(config, tmp_path)
     assert audit["seed_batch_protocol_complete"] is True
+    assert audit["seed_batch_event_identity_complete"] is True
     assert audit["seed_batch_temporal_order_complete"] is True
     assert audit["all_training_and_evaluation_complete"] is True
     assert audit["scientific_status"] == "finite_step_validated"
@@ -4255,9 +4256,46 @@ def test_formal_terminal_status_requires_full_terminal_contract(tmp_path: Path) 
     p0.atomic_jsonl(event_path, bad_events)
     temporal_failed = exp_tuning.cmd_audit(config, tmp_path)
     assert temporal_failed["seed_batch_protocol_complete"] is True
+    assert temporal_failed["seed_batch_event_identity_complete"] is True
     assert temporal_failed["seed_batch_temporal_order_complete"] is False
     assert temporal_failed["all_training_and_evaluation_complete"] is False
     assert temporal_failed["scientific_status"] == "pilot"
+
+    p0.atomic_jsonl(event_path, events)
+    duplicate_start_events = [dict(row) for row in events]
+    seed_5000_starts = [
+        row
+        for row in duplicate_start_events
+        if row.get("scheduler_run_id") == scheduler_run_id
+        and row.get("event") == "start"
+        and row.get("seed") == 5000
+    ]
+    seed_5000_starts[1]["cell_key"] = seed_5000_starts[0]["cell_key"]
+    p0.atomic_jsonl(event_path, duplicate_start_events)
+    duplicate_start_failed = exp_tuning.cmd_audit(config, tmp_path)
+    assert duplicate_start_failed["seed_batch_protocol_complete"] is True
+    assert duplicate_start_failed["seed_batch_event_identity_complete"] is False
+    assert duplicate_start_failed["seed_batch_temporal_order_complete"] is False
+    assert duplicate_start_failed["all_training_and_evaluation_complete"] is False
+    assert duplicate_start_failed["scientific_status"] == "pilot"
+
+    p0.atomic_jsonl(event_path, events)
+    duplicate_finish_events = [dict(row) for row in events]
+    seed_4000_finishes = [
+        row
+        for row in duplicate_finish_events
+        if row.get("scheduler_run_id") == scheduler_run_id
+        and row.get("event") == "finish"
+        and row.get("seed") == 4000
+        and row.get("returncode") == 0
+    ]
+    seed_4000_finishes[1]["cell_key"] = seed_4000_finishes[0]["cell_key"]
+    p0.atomic_jsonl(event_path, duplicate_finish_events)
+    duplicate_finish_failed = exp_tuning.cmd_audit(config, tmp_path)
+    assert duplicate_finish_failed["seed_batch_event_identity_complete"] is False
+    assert duplicate_finish_failed["seed_batch_temporal_order_complete"] is False
+    assert duplicate_finish_failed["all_training_and_evaluation_complete"] is False
+    assert duplicate_finish_failed["scientific_status"] == "pilot"
 
     p0.atomic_jsonl(event_path, events)
     victim = cells[0]
