@@ -154,11 +154,9 @@ jobs:
 
           git -C "$STAGE" add -A
           git -C "$STAGE" commit --amend --no-edit
-          FINAL_TREE_COMMIT="$(git -C "$STAGE" rev-parse HEAD)"
 
           python "$TRUSTED/scripts/handoff_authority.py" verify \
             --repo-root "$STAGE" \
-            --trusted-repo-root "$TRUSTED" \
             --json | tee /tmp/e8-verify.json
           python "$TRUSTED/scripts/validate_governance_pipeline_stage_status.py" --repo-root "$STAGE"
           python "$TRUSTED/scripts/validate_experiment_governance.py" --repo-root "$STAGE"
@@ -184,10 +182,9 @@ jobs:
           fi
           git commit -m 'docs: synchronize E8 formal provenance authority'
 
-          # Validate the actual branch history/tree that will be pushed.
+          # Validate the actual branch tree that will be pushed.
           python "$TRUSTED/scripts/handoff_authority.py" verify \
             --repo-root "$ROOT" \
-            --trusted-repo-root "$TRUSTED" \
             --json | tee /tmp/e8-branch-verify.json
           python "$TRUSTED/scripts/validate_governance_pipeline_stage_status.py" --repo-root "$ROOT"
           python "$TRUSTED/scripts/validate_experiment_governance.py" --repo-root "$ROOT"
