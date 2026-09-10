@@ -1,0 +1,44 @@
+name: Temporary E8 launch semantics timestamp closure v3
+
+on:
+  push:
+    branches: [dev/e8-multitask-baselines-capability-01]
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-baselines-capability-01
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Install validation dependencies
+        run: python -m pip install pyyaml pytest ruff numpy
+      - name: Fix helper EOF normalization and execute reviewed closure
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/workflows/tmp_e8_launch_semantics_timestamp_closure.sh')
+          text = path.read_text(encoding='utf-8')
+          old = "path.write_text(text.rstrip() + block + '\\n', encoding='utf-8')"
+          new = "path.write_text(text.rstrip() + block.rstrip() + '\\n', encoding='utf-8')"
+          if text.count(old) != 1:
+              raise SystemExit(f'EOF normalization anchor count={text.count(old)}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          bash .github/workflows/tmp_e8_launch_semantics_timestamp_closure.sh
+      - name: Remove final temporary retry workflow
+        if: success()
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/tmp_e8_launch_semantics_timestamp_closure_v3.yml
+          git commit -m 'chore: remove final temporary E8 retry workflow'
+          git push origin HEAD:dev/e8-multitask-baselines-capability-01
