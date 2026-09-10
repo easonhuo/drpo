@@ -1,0 +1,210 @@
+name: Temporary E8 Stage-5 provenance sync
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-baselines-capability-01
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install lightweight validation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyyaml pytest ruff numpy
+
+      - name: Configure git
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+      - name: Re-materialize Stage-5 authority with corrected provenance semantics
+        env:
+          MAIN_SHA: 8a21fd16e63ea96a0cde2a477353d24562624655
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse origin/main)" = "$MAIN_SHA"
+          ROOT="$PWD"
+          TRUSTED=/tmp/e8-trusted
+          SOURCE=/tmp/e8-source
+          STAGE=/tmp/e8-stage
+          rm -rf "$TRUSTED" "$SOURCE" "$STAGE"
+          git worktree add --detach "$TRUSTED" "$MAIN_SHA"
+          git worktree add --detach "$SOURCE" "$MAIN_SHA"
+
+          copy_source_file() {
+            local f="$1"
+            mkdir -p "$SOURCE/$(dirname "$f")"
+            cp "$ROOT/$f" "$SOURCE/$f"
+          }
+
+          for f in \
+            configs/e8_multitask_baseline_matrix_formal.yaml \
+            docs/scopes/E8_MULTITASK_ASYMRE_CAPABILITY_DEV.md \
+            docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md \
+            src/drpo/e8_experiment_config.py \
+            src/drpo/e8_multitask_exp_tuning.py \
+            tests/test_e8_multitask_p0.py \
+            experiments/registry.yaml \
+            docs/handoff_deltas/EXT-C-E8-MULTITASK-BASELINE-MATRIX-01-FORMAL-REGISTRATION-2026-09-10/HANDOFF_DELTA.yaml
+          do
+            copy_source_file "$f"
+          done
+
+          ROOT="$ROOT" SOURCE="$SOURCE" python - <<'PY'
+          from __future__ import annotations
+          import hashlib
+          import os
+          from pathlib import Path
+          import yaml
+
+          root = Path(os.environ['ROOT'])
+          source = Path(os.environ['SOURCE'])
+          delta_path = source / 'docs/handoff_deltas/EXT-C-E8-MULTITASK-BASELINE-MATRIX-01-FORMAL-REGISTRATION-2026-09-10/HANDOFF_DELTA.yaml'
+          registry_path = source / 'experiments/registry.yaml'
+
+          old_segment = (
+              'terminal audit 除复核 `scheduler/dynamic_run.json` 的 batch summary 外，还必须独立读取同一 '
+              '`scheduler_run_id` 的 `scheduler/queue_events.jsonl`，验证每个 seed 的 start 与 successful-finish '
+              '`cell_key` 集合都与冻结的 88 个预期 cell 完全一致、无重复、无缺失，随后再验证 '
+              '`max(seed4000 successful finish time) <= min(seed5000 start time)`。'
+          )
+          new_segment = (
+              'terminal audit 除复核 `scheduler/dynamic_run.json` 的 batch summary 外，同一 `scheduler_run_id` '
+              '的 `scheduler/queue_events.jsonl` 只用于验证每个 seed 的 start 与 successful-finish `cell_key` '
+              '集合与冻结的 88 个预期 cell 完全一致、无重复、无缺失，并核对 `execution_origin`；真正的 seed '
+              '先后时间证据必须来自各 cell manifest 中持久化的原始 `scientific_execution_provenance.started_unix` '
+              '与 `scientific_execution_provenance.successful_finish_unix`，recovery/reuse 不得用当前重放的 queue '
+              'timestamp 覆盖原始 scientific provenance，最终验证 '
+              '`max(seed4000 successful finish time) <= min(seed5000 start time)`。'
+          )
+
+          data = yaml.safe_load(delta_path.read_text(encoding='utf-8'))
+          content = data['operations'][0]['content']
+          if old_segment not in content:
+              raise SystemExit('old handoff provenance segment not found in delta')
+          data['operations'][0]['content'] = content.replace(old_segment, new_segment, 1)
+
+          registry = registry_path.read_text(encoding='utf-8')
+          old_registry = '''    seed_batch_summary_check: true
+              seed_batch_temporal_event_history_check: true
+              seed_batch_event_cell_identity_check: exact_expected_cell_keys_no_duplicates
+              temporal_event_source: scheduler/queue_events.jsonl
+              temporal_condition: max_seed_4000_successful_finish_time_le_min_seed_5000_start_time
+          '''.replace('          ', '')
+          new_registry = '''    seed_batch_summary_check: true
+              seed_batch_event_cell_identity_check: exact_expected_cell_keys_no_duplicates
+              queue_event_identity_source: scheduler/queue_events.jsonl
+              seed_batch_temporal_scientific_provenance_check: true
+              scientific_temporal_source: cells/*/cell_manifest.json::scientific_execution_provenance
+              recovery_reuse_rule: preserve_original_scientific_execution_provenance
+              temporal_condition: max_seed_4000_successful_finish_time_le_min_seed_5000_start_time
+          '''.replace('          ', '')
+          if old_registry not in registry:
+              raise SystemExit('old registry temporal provenance block not found')
+          registry = registry.replace(old_registry, new_registry, 1)
+          registry_path.write_text(registry, encoding='utf-8')
+
+          desired_handoff = (root / 'docs/handoff.md').read_text(encoding='utf-8')
+          if old_segment not in desired_handoff:
+              raise SystemExit('old handoff provenance segment not found in materialized handoff')
+          desired_handoff = desired_handoff.replace(old_segment, new_segment, 1)
+          handoff_sha = hashlib.sha256(desired_handoff.encode()).hexdigest()
+          registry_sha = hashlib.sha256(registry.encode()).hexdigest()
+          data['registry']['exact_base_after_sha256'] = registry_sha
+          data['expected']['exact_base_candidate_sha256'] = handoff_sha
+          delta_path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding='utf-8')
+          print('desired_handoff_sha256', handoff_sha)
+          print('desired_registry_sha256', registry_sha)
+          PY
+
+          git -C "$SOURCE" add \
+            configs/e8_multitask_baseline_matrix_formal.yaml \
+            docs/scopes/E8_MULTITASK_ASYMRE_CAPABILITY_DEV.md \
+            docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md \
+            src/drpo/e8_experiment_config.py \
+            src/drpo/e8_multitask_exp_tuning.py \
+            tests/test_e8_multitask_p0.py \
+            experiments/registry.yaml \
+            docs/handoff_deltas/EXT-C-E8-MULTITASK-BASELINE-MATRIX-01-FORMAL-REGISTRATION-2026-09-10/HANDOFF_DELTA.yaml
+          git -C "$SOURCE" commit -m 'source: synchronize E8 formal provenance semantics'
+          SOURCE_COMMIT="$(git -C "$SOURCE" rev-parse HEAD)"
+
+          git worktree add --detach "$STAGE" "$SOURCE_COMMIT"
+          python "$TRUSTED/scripts/handoff_authority.py" normalize \
+            --repo-root "$STAGE" \
+            --trusted-repo-root "$TRUSTED" \
+            --current-before "$MAIN_SHA" \
+            --source-base "$MAIN_SHA" \
+            --source-patch-commit "$SOURCE_COMMIT" \
+            --json | tee /tmp/e8-normalize.json
+
+          git -C "$STAGE" add -A
+          git -C "$STAGE" commit --amend --no-edit
+          FINAL_TREE_COMMIT="$(git -C "$STAGE" rev-parse HEAD)"
+
+          python "$TRUSTED/scripts/handoff_authority.py" verify \
+            --repo-root "$STAGE" \
+            --trusted-repo-root "$TRUSTED" \
+            --json | tee /tmp/e8-verify.json
+          python "$TRUSTED/scripts/validate_governance_pipeline_stage_status.py" --repo-root "$STAGE"
+          python "$TRUSTED/scripts/validate_experiment_governance.py" --repo-root "$STAGE"
+          if test -f "$TRUSTED/scripts/validate_formal_channel_sync.py"; then
+            python "$TRUSTED/scripts/validate_formal_channel_sync.py" --repo-root "$STAGE"
+          fi
+          git -C "$STAGE" diff --check "$MAIN_SHA"..HEAD
+
+          # Copy the trusted normalized tree delta back onto the active dev branch.
+          while IFS= read -r -d '' f; do
+            if test -e "$STAGE/$f"; then
+              mkdir -p "$ROOT/$(dirname "$f")"
+              cp "$STAGE/$f" "$ROOT/$f"
+            else
+              rm -f "$ROOT/$f"
+            fi
+          done < <(git -C "$STAGE" diff --name-only -z "$MAIN_SHA"..HEAD)
+
+          git add -A -- ':!.github/workflows/tmp_e8_stage5_provenance_sync.yml'
+          if git diff --cached --quiet; then
+            echo 'No authority closure changes produced' >&2
+            exit 1
+          fi
+          git commit -m 'docs: synchronize E8 formal provenance authority'
+
+          # Validate the actual branch history/tree that will be pushed.
+          python "$TRUSTED/scripts/handoff_authority.py" verify \
+            --repo-root "$ROOT" \
+            --trusted-repo-root "$TRUSTED" \
+            --json | tee /tmp/e8-branch-verify.json
+          python "$TRUSTED/scripts/validate_governance_pipeline_stage_status.py" --repo-root "$ROOT"
+          python "$TRUSTED/scripts/validate_experiment_governance.py" --repo-root "$ROOT"
+          if test -f "$TRUSTED/scripts/validate_formal_channel_sync.py"; then
+            python "$TRUSTED/scripts/validate_formal_channel_sync.py" --repo-root "$ROOT"
+          fi
+          git diff --check "$MAIN_SHA"..HEAD
+
+      - name: Focused E8 regression suite
+        env:
+          PYTHONPATH: src
+        run: |
+          pytest -q tests/test_e8_multitask_p0.py
+          ruff check src/drpo/e8_experiment_config.py tests/test_e8_multitask_p0.py
+          ruff check --ignore BLE001,B023 src/drpo/e8_multitask_exp_tuning.py
+          python -m py_compile src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py
+
+      - name: Push closure commit
+        run: |
+          git push origin HEAD:dev/e8-multitask-baselines-capability-01
