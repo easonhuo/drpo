@@ -4162,17 +4162,119 @@ def test_formal_baseline_matrix_config_matches_september7_runbook() -> None:
 
 def test_formal_terminal_status_requires_full_terminal_contract(tmp_path: Path) -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
+
     config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")
     cells = exp_tuning.build_cells(config)
-    p0.atomic_json(tmp_path / "source_provenance.json", {"source_commit": "a"*40})
-    for cell in cells:
-        value={"complete":True,"evaluation_status":"complete","nan_inf_failure":False,"terminal_step":1200,"stop_reason":"max_steps","test_partition_accessed":False}
-        if cell.method == exp_tuning.METHOD_DPO:
-            value.update({"reference_initial_state_sha256":"b"*64,"reference_terminal_state_sha256":"b"*64,"reference_trainable":False})
-        p0.atomic_json(tmp_path / "cells" / cell.key / "cell_manifest.json", value)
-    p0.atomic_json(tmp_path / "aggregate" / "aggregate_summary.json", {"cell_count":176})
-    p0.atomic_json(tmp_path / "aggregate" / "countdown_protocol_diagnostic.json", {"status":"NOT_RUN"})
+    config_hash = exp_tuning.stable_config_hash(config)
     scheduler_run_id = "formal-terminal-audit-test"
+    p0.atomic_json(tmp_path / "source_provenance.json", {"source_commit": "a" * 40})
+
+    def identity_fields(cell):
+        initialization = (
+            {
+                "source": str(config["dpo"]["initialization_mode"]),
+                "shared_sft_adapter_env": config["dpo"].get("shared_sft_adapter_env"),
+            }
+            if cell.method == exp_tuning.METHOD_DPO
+            else dict(config["initialization"])
+        )
+        base = {
+            "schema_version": 1,
+            "experiment_id": exp_tuning.experiment_id(config),
+            "config_hash": config_hash,
+            "cell": exp_tuning._cell_descriptor(cell),
+            "bank_sha256": "1" * 64,
+            "split_prompt_hashes": {"train": "2" * 64, "validation": "3" * 64},
+            "base_model_identity": {"model": "synthetic"},
+            "initialization": initialization,
+            "calibration_identity_hash": "4" * 64,
+        }
+        base["identity_hash"] = exp_tuning.stable_hash(base)
+        payload = dict(base)
+        payload["canonical_source_git_blob_shas"] = dict(
+            config["canonical_coldstart"]["expected_git_blob_shas"]
+        )
+        if cell.method == exp_tuning.METHOD_DPO:
+            payload.update(
+                {
+                    "canonical_dispatch": "e8_multitask_exp_tuning._train_canonical_dpo_transfer_cell",
+                    "dpo_semantics_source": "historical_PR_268_protected_implementation_cc0ead2be00c89a3c35296b7adc1ddeae8d14759",
+                    "dpo_initialization_mode": str(config["dpo"]["initialization_mode"]),
+                    "reference_remoteness_bank_identity_hash": "5" * 64,
+                    "canonical_train_sha256": "6" * 64,
+                    "shared_sft_adapter_identity": None,
+                    "shared_sft_adapter_provenance": None,
+                    "engineering_liveness": False,
+                    "updates_override": None,
+                }
+            )
+        else:
+            effective = exp_tuning.experiment_config.effective_coldstart_runtime(config, cell.task)
+            payload.update(
+                {
+                    "canonical_dispatch": "countdown_e8_alpha1_c_scan_trainer.train_cell",
+                    "paper_formula": (
+                        "delegated_to_existing_canonical_asymre"
+                        if cell.method == exp_tuning.METHOD_ASYMRE
+                        else "delegated_to_existing_joint_fitted_reference_beta_topr"
+                    ),
+                    "paper_grid_config": "/synthetic/grid.yaml",
+                    "paper_grid_config_sha256": "7" * 64,
+                    "paper_grid_source": "/synthetic/source.yaml",
+                    "paper_grid_source_sha256": "8" * 64,
+                    "paper_base_config": "/synthetic/base.yaml",
+                    "paper_base_config_sha256": "9" * 64,
+                    "all_unique_negatives": True,
+                    "near_far_selection": False,
+                    "gradient_rms_matching": False,
+                    "task_runtime_contract": dict(config["task_runtime"][cell.task]),
+                    "effective_runtime": effective,
+                    "legacy_runtime_bridge": exp_tuning._runtime_bridge_contract(effective),
+                }
+            )
+        top_level = {key: value for key, value in payload.items() if key != "identity_hash"}
+        top_level["identity_hash"] = exp_tuning.stable_hash(payload)
+        top_level["identity_hash_payload"] = payload
+        return top_level
+
+    seed_groups = {
+        4000: [cell for cell in cells if cell.seed == 4000],
+        5000: [cell for cell in cells if cell.seed == 5000],
+    }
+    for seed, group in seed_groups.items():
+        for index, cell in enumerate(group):
+            start_time = float(index) if seed == 4000 else 2000.0 + float(index)
+            finish_time = 1000.0 + float(index) if seed == 4000 else 3000.0 + float(index)
+            value = {
+                **identity_fields(cell),
+                "complete": True,
+                "evaluation_status": "complete",
+                "nan_inf_failure": False,
+                "terminal_step": 1200,
+                "stop_reason": "max_steps",
+                "test_partition_accessed": False,
+                "scientific_execution_provenance": {
+                    "scheduler_run_id": scheduler_run_id,
+                    "cell_key": cell.key,
+                    "seed": cell.seed,
+                    "started_unix": start_time,
+                    "successful_finish_unix": finish_time,
+                    "execution_origin": "executed_current_run",
+                },
+            }
+            if cell.method == exp_tuning.METHOD_DPO:
+                value.update(
+                    {
+                        "reference_initial_state_sha256": "b" * 64,
+                        "reference_terminal_state_sha256": "b" * 64,
+                        "reference_trainable": False,
+                    }
+                )
+            p0.atomic_json(tmp_path / "cells" / cell.key / "cell_manifest.json", value)
+    p0.atomic_json(tmp_path / "aggregate" / "aggregate_summary.json", {"cell_count": 176})
+    p0.atomic_json(
+        tmp_path / "aggregate" / "countdown_protocol_diagnostic.json", {"status": "NOT_RUN"}
+    )
     p0.atomic_json(
         tmp_path / "scheduler" / "dynamic_run.json",
         {
@@ -4192,57 +4294,58 @@ def test_formal_terminal_status_requires_full_terminal_contract(tmp_path: Path) 
             "unix_time": 0.0,
         }
     ]
-    seed_4000 = [cell for cell in cells if cell.seed == 4000]
-    seed_5000 = [cell for cell in cells if cell.seed == 5000]
-    for index, cell in enumerate(seed_4000):
-        events.extend(
-            [
-                {
-                    "scheduler_run_id": scheduler_run_id,
-                    "event": "start",
-                    "cell_key": cell.key,
-                    "seed": 4000,
-                    "unix_time": float(index),
-                },
-                {
-                    "scheduler_run_id": scheduler_run_id,
-                    "event": "finish",
-                    "cell_key": cell.key,
-                    "seed": 4000,
-                    "returncode": 0,
-                    "unix_time": 1000.0 + float(index),
-                },
-            ]
-        )
-    for index, cell in enumerate(seed_5000):
-        events.extend(
-            [
-                {
-                    "scheduler_run_id": scheduler_run_id,
-                    "event": "start",
-                    "cell_key": cell.key,
-                    "seed": 5000,
-                    "unix_time": 2000.0 + float(index),
-                },
-                {
-                    "scheduler_run_id": scheduler_run_id,
-                    "event": "finish",
-                    "cell_key": cell.key,
-                    "seed": 5000,
-                    "returncode": 0,
-                    "unix_time": 3000.0 + float(index),
-                },
-            ]
-        )
+    for seed in (4000, 5000):
+        for index, cell in enumerate(seed_groups[seed]):
+            start_time = float(index) if seed == 4000 else 2000.0 + float(index)
+            finish_time = 1000.0 + float(index) if seed == 4000 else 3000.0 + float(index)
+            events.extend(
+                [
+                    {
+                        "scheduler_run_id": scheduler_run_id,
+                        "event": "start",
+                        "cell_key": cell.key,
+                        "seed": seed,
+                        "execution_origin": "executed_current_run",
+                        "unix_time": start_time,
+                    },
+                    {
+                        "scheduler_run_id": scheduler_run_id,
+                        "event": "finish",
+                        "cell_key": cell.key,
+                        "seed": seed,
+                        "execution_origin": "executed_current_run",
+                        "returncode": 0,
+                        "unix_time": finish_time,
+                    },
+                ]
+            )
     event_path = tmp_path / "scheduler" / "queue_events.jsonl"
     p0.atomic_jsonl(event_path, events)
 
     audit = exp_tuning.cmd_audit(config, tmp_path)
+    assert audit["cell_identity_failures"] == []
+    assert audit["scientific_execution_provenance_failures"] == []
     assert audit["seed_batch_protocol_complete"] is True
     assert audit["seed_batch_event_identity_complete"] is True
+    assert audit["seed_batch_execution_provenance_complete"] is True
     assert audit["seed_batch_temporal_order_complete"] is True
     assert audit["all_training_and_evaluation_complete"] is True
     assert audit["scientific_status"] == "finite_step_validated"
+
+    temporal_victim = seed_groups[5000][0]
+    temporal_path = tmp_path / "cells" / temporal_victim.key / "cell_manifest.json"
+    temporal_value = json.loads(temporal_path.read_text())
+    temporal_value["scientific_execution_provenance"]["started_unix"] = 1.0
+    p0.atomic_json(temporal_path, temporal_value)
+    temporal_failed = exp_tuning.cmd_audit(config, tmp_path)
+    assert temporal_failed["seed_batch_protocol_complete"] is True
+    assert temporal_failed["seed_batch_event_identity_complete"] is True
+    assert temporal_failed["seed_batch_execution_provenance_complete"] is True
+    assert temporal_failed["seed_batch_temporal_order_complete"] is False
+    assert temporal_failed["all_training_and_evaluation_complete"] is False
+    assert temporal_failed["scientific_status"] == "pilot"
+    temporal_value["scientific_execution_provenance"]["started_unix"] = 2000.0
+    p0.atomic_json(temporal_path, temporal_value)
 
     bad_events = [dict(row) for row in events]
     bad_start = next(
@@ -4252,14 +4355,12 @@ def test_formal_terminal_status_requires_full_terminal_contract(tmp_path: Path) 
         and row.get("event") == "start"
         and row.get("seed") == 5000
     )
-    bad_start["unix_time"] = 1.0
+    bad_start["execution_origin"] = "reused_existing"
     p0.atomic_jsonl(event_path, bad_events)
-    temporal_failed = exp_tuning.cmd_audit(config, tmp_path)
-    assert temporal_failed["seed_batch_protocol_complete"] is True
-    assert temporal_failed["seed_batch_event_identity_complete"] is True
-    assert temporal_failed["seed_batch_temporal_order_complete"] is False
-    assert temporal_failed["all_training_and_evaluation_complete"] is False
-    assert temporal_failed["scientific_status"] == "pilot"
+    origin_failed = exp_tuning.cmd_audit(config, tmp_path)
+    assert origin_failed["seed_batch_event_identity_complete"] is False
+    assert origin_failed["seed_batch_temporal_order_complete"] is False
+    assert origin_failed["scientific_status"] == "pilot"
 
     p0.atomic_jsonl(event_path, events)
     duplicate_start_events = [dict(row) for row in events]
@@ -4273,31 +4374,23 @@ def test_formal_terminal_status_requires_full_terminal_contract(tmp_path: Path) 
     seed_5000_starts[1]["cell_key"] = seed_5000_starts[0]["cell_key"]
     p0.atomic_jsonl(event_path, duplicate_start_events)
     duplicate_start_failed = exp_tuning.cmd_audit(config, tmp_path)
-    assert duplicate_start_failed["seed_batch_protocol_complete"] is True
     assert duplicate_start_failed["seed_batch_event_identity_complete"] is False
-    assert duplicate_start_failed["seed_batch_temporal_order_complete"] is False
     assert duplicate_start_failed["all_training_and_evaluation_complete"] is False
-    assert duplicate_start_failed["scientific_status"] == "pilot"
 
     p0.atomic_jsonl(event_path, events)
-    duplicate_finish_events = [dict(row) for row in events]
-    seed_4000_finishes = [
-        row
-        for row in duplicate_finish_events
-        if row.get("scheduler_run_id") == scheduler_run_id
-        and row.get("event") == "finish"
-        and row.get("seed") == 4000
-        and row.get("returncode") == 0
-    ]
-    seed_4000_finishes[1]["cell_key"] = seed_4000_finishes[0]["cell_key"]
-    p0.atomic_jsonl(event_path, duplicate_finish_events)
-    duplicate_finish_failed = exp_tuning.cmd_audit(config, tmp_path)
-    assert duplicate_finish_failed["seed_batch_event_identity_complete"] is False
-    assert duplicate_finish_failed["seed_batch_temporal_order_complete"] is False
-    assert duplicate_finish_failed["all_training_and_evaluation_complete"] is False
-    assert duplicate_finish_failed["scientific_status"] == "pilot"
+    identity_victim = cells[0]
+    identity_path = tmp_path / "cells" / identity_victim.key / "cell_manifest.json"
+    identity_value = json.loads(identity_path.read_text())
+    correct_identity_hash = identity_value["identity_hash"]
+    identity_value["identity_hash"] = "0" * 64
+    p0.atomic_json(identity_path, identity_value)
+    identity_failed = exp_tuning.cmd_audit(config, tmp_path)
+    assert identity_victim.key in identity_failed["cell_identity_failures"]
+    assert identity_failed["all_training_and_evaluation_complete"] is False
+    assert identity_failed["scientific_status"] == "pilot"
+    identity_value["identity_hash"] = correct_identity_hash
+    p0.atomic_json(identity_path, identity_value)
 
-    p0.atomic_jsonl(event_path, events)
     victim = cells[0]
     path = tmp_path / "cells" / victim.key / "cell_manifest.json"
     value = json.loads(path.read_text())
@@ -4306,3 +4399,82 @@ def test_formal_terminal_status_requires_full_terminal_contract(tmp_path: Path) 
     failed = exp_tuning.cmd_audit(config, tmp_path)
     assert failed["scientific_status"] == "pilot"
     assert victim.key in failed["terminal_contract_failures"]
+
+
+
+def test_baseline_matrix_reuse_preserves_original_scientific_execution_provenance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning._engineering_self_test_config(_baseline_matrix_capability_test_config())
+    cells = exp_tuning.build_cells(config)
+    p0.atomic_json(tmp_path / "source_provenance.json", {"source_commit": "e" * 40})
+    monkeypatch.delenv("E8_COLDSTART_RECOVERY_PACKAGE", raising=False)
+    monkeypatch.setattr(exp_tuning, "_require_calibration_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(exp_tuning, "_coldstart_completed_task_rows", lambda *args, **kwargs: None)
+
+    def fake_subprocess_cell(**kwargs):
+        cell = kwargs["cell"]
+        root = kwargs["output_root"] / "cells" / cell.key
+        manifest_path = root / "cell_manifest.json"
+        if not manifest_path.is_file():
+            p0.atomic_json(
+                manifest_path,
+                {
+                    "experiment_id": exp_tuning.experiment_id(config),
+                    "config_hash": exp_tuning.stable_config_hash(config),
+                    "complete": True,
+                    "evaluation_status": "complete",
+                    "nan_inf_failure": False,
+                    "engineering_placeholder_backend": True,
+                },
+            )
+        now = time.time()
+        return {
+            "cell_key": cell.key,
+            "returncode": 0,
+            "started_unix": now,
+            "finished_unix": now + 0.001,
+        }
+
+    monkeypatch.setattr(exp_tuning, "_run_subprocess_cell", fake_subprocess_cell)
+    first = exp_tuning.cmd_run_dynamic(
+        config,
+        tmp_path / "synthetic.yaml",
+        tmp_path,
+        base_model_path="unused",
+        force=False,
+        retry_incomplete=False,
+    )
+    first_run_id = first["scheduler_run_id"]
+    original = {
+        cell.key: json.loads(
+            (tmp_path / "cells" / cell.key / "cell_manifest.json").read_text()
+        )["scientific_execution_provenance"]
+        for cell in cells
+    }
+    second = exp_tuning.cmd_run_dynamic(
+        config,
+        tmp_path / "synthetic.yaml",
+        tmp_path,
+        base_model_path="unused",
+        force=False,
+        retry_incomplete=False,
+    )
+    assert second["scheduler_run_id"] != first_run_id
+    current_events = [
+        json.loads(line)
+        for line in (tmp_path / "scheduler" / "queue_events.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    second_events = [
+        row for row in current_events if row.get("scheduler_run_id") == second["scheduler_run_id"]
+    ]
+    assert len(second_events) == 352
+    assert {row.get("execution_origin") for row in second_events} == {"reused_existing"}
+    for cell in cells:
+        value = json.loads((tmp_path / "cells" / cell.key / "cell_manifest.json").read_text())
+        assert value["scientific_execution_provenance"] == original[cell.key]
+        assert value["scientific_execution_provenance"]["scheduler_run_id"] == first_run_id

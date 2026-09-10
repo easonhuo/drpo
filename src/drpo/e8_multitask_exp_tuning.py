@@ -4428,7 +4428,9 @@ def _train_canonical_dpo_transfer_cell(
             "updates_override": updates_override,
         }
     )
-    identity["identity_hash"] = stable_hash(identity)
+    identity_hash_payload = copy.deepcopy(identity)
+    identity["identity_hash"] = stable_hash(identity_hash_payload)
+    identity["identity_hash_payload"] = identity_hash_payload
     cell_root, manifest_path, reusable = _prepare_cell_output(
         output_root,
         root_name=root_name,
@@ -5088,7 +5090,9 @@ def _train_canonical_cold_cell(
     if not experiment_config.is_historical_coldstart_config(config):
         identity["effective_runtime"] = effective_runtime
         identity["legacy_runtime_bridge"] = _runtime_bridge_contract(effective_runtime)
-    identity["identity_hash"] = stable_hash(identity)
+    identity_hash_payload = copy.deepcopy(identity)
+    identity["identity_hash"] = stable_hash(identity_hash_payload)
+    identity["identity_hash_payload"] = identity_hash_payload
 
     cell_root, manifest_path, reusable = _prepare_cell_output(
         output_root,
@@ -6217,6 +6221,10 @@ def _reusable_cell_manifests(
                 if value.get("engineering_placeholder_backend") is not True:
                     raise RuntimeError("placeholder_backend_marker_missing")
             else:
+                if _is_baseline_matrix(config) and not _terminal_cell_identity_matches(config, cell, value):
+                    raise RuntimeError("baseline_matrix_terminal_identity_mismatch")
+                if _is_baseline_matrix(config) and not _scientific_execution_provenance_valid(value, cell):
+                    raise RuntimeError("baseline_matrix_scientific_execution_provenance_missing")
                 if (
                     not isinstance(value.get("identity_hash"), str)
                     or len(str(value["identity_hash"])) != 64
@@ -7106,7 +7114,7 @@ def cmd_run_dynamic(
     task_results: dict[str, dict[str, Any]] = {}
     event_path = output_root / "scheduler" / "queue_events.jsonl"
     event_path.parent.mkdir(parents=True, exist_ok=True)
-    scheduler_run_id = f"queue-{int(time.time())}-{os.getpid()}"
+    scheduler_run_id = f"queue-{time.time_ns()}-{os.getpid()}"
     recovery_package_value = os.environ.get("E8_COLDSTART_RECOVERY_PACKAGE", "").strip()
     recovery_package = Path(recovery_package_value).resolve() if recovery_package_value else None
     recovery_interval = int(os.environ.get("E8_COLDSTART_RECOVERY_INTERVAL_CELLS", "5"))
@@ -7160,6 +7168,11 @@ def cmd_run_dynamic(
             child_force = force or (
                 retry_incomplete and cell_root.exists() and not reusable_complete
             )
+            execution_origin = (
+                "reused_existing"
+                if reusable_complete and not child_force
+                else "executed_current_run"
+            )
             record(
                 {
                     "event": "start",
@@ -7169,6 +7182,7 @@ def cmd_run_dynamic(
                     "gpu_id": gpu_id,
                     "unix_time": time.time(),
                     "retry_incomplete": child_force and not force,
+                    "execution_origin": execution_origin,
                 }
             )
             result = _run_subprocess_cell(
@@ -7188,6 +7202,24 @@ def cmd_run_dynamic(
                         or completed_manifest.get("nan_inf_failure") is not False
                     ):
                         raise RuntimeError("child returned zero without a complete finite cell")
+                    if execution_origin == "executed_current_run":
+                        started_unix = float(result.get("started_unix", time.time()))
+                        finished_unix = float(result.get("finished_unix", time.time()))
+                        completed_manifest["scientific_execution_provenance"] = {
+                            "scheduler_run_id": scheduler_run_id,
+                            "cell_key": cell.key,
+                            "seed": cell.seed,
+                            "started_unix": started_unix,
+                            "successful_finish_unix": finished_unix,
+                            "execution_origin": "executed_current_run",
+                        }
+                        atomic_json(manifest_path, completed_manifest)
+                    elif seed_barrier and not _is_engineering_self_test(config) and not (
+                        _scientific_execution_provenance_valid(completed_manifest, cell)
+                    ):
+                        raise RuntimeError(
+                            "reused baseline-matrix cell lacks valid original scientific execution provenance"
+                        )
                 except (
                     OSError,
                     ValueError,
@@ -7214,6 +7246,7 @@ def cmd_run_dynamic(
                 except Exception as exc:
                     result["returncode"] = 74
                     result["recovery_checkpoint_error"] = f"{type(exc).__name__}: {exc}"
+            result["execution_origin"] = execution_origin
             if seed_barrier:
                 result.update(
                     {"slot": slot, "seed": cell.seed, "nominal_batch": nominal_batch[cell.key]}
@@ -8319,6 +8352,140 @@ def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any
     return summary
 
 
+
+def _cell_descriptor(cell: Cell) -> dict[str, Any]:
+    return {
+        "task": cell.task,
+        "method": cell.method,
+        "delta_v": cell.delta_v,
+        "beta": cell.beta,
+        "dpo_initialization": cell.dpo_initialization,
+        "rho": cell.rho,
+        "lambda": (
+            cell.lambda_value
+            if cell.lambda_value is not None
+            else (None if cell.rho is None else coefficient_from_rho(cell.rho))
+        ),
+        "seed": cell.seed,
+        "stage": cell.stage,
+    }
+
+
+def _terminal_cell_identity_matches(
+    config: Mapping[str, Any],
+    cell: Cell,
+    value: Mapping[str, Any],
+) -> bool:
+    """Verify the stored final identity hash and its frozen config/cell bindings."""
+
+    payload = value.get("identity_hash_payload")
+    if not isinstance(payload, Mapping):
+        return False
+    payload_dict = dict(payload)
+    expected_config_hash = stable_config_hash(config)
+    descriptor = _cell_descriptor(cell)
+    if (
+        value.get("experiment_id") != experiment_id(config)
+        or value.get("config_hash") != expected_config_hash
+        or value.get("cell") != descriptor
+        or payload_dict.get("experiment_id") != experiment_id(config)
+        or payload_dict.get("config_hash") != expected_config_hash
+        or payload_dict.get("cell") != descriptor
+    ):
+        return False
+    recorded_hash = value.get("identity_hash")
+    if not isinstance(recorded_hash, str) or stable_hash(payload_dict) != recorded_hash:
+        return False
+    if any(
+        value.get(key) != expected
+        for key, expected in payload_dict.items()
+        if key != "identity_hash"
+    ):
+        return False
+    base_keys = (
+        "schema_version",
+        "experiment_id",
+        "config_hash",
+        "cell",
+        "bank_sha256",
+        "split_prompt_hashes",
+        "base_model_identity",
+        "initialization",
+        "calibration_identity_hash",
+    )
+    if any(key not in payload_dict for key in (*base_keys, "identity_hash")):
+        return False
+    base_payload = {key: payload_dict[key] for key in base_keys}
+    if stable_hash(base_payload) != payload_dict["identity_hash"]:
+        return False
+    expected_initialization = (
+        {
+            "source": str(config["dpo"]["initialization_mode"]),
+            "shared_sft_adapter_env": config["dpo"].get("shared_sft_adapter_env"),
+        }
+        if cell.method == METHOD_DPO
+        else dict(config["initialization"])
+    )
+    if payload_dict.get("initialization") != expected_initialization:
+        return False
+    if payload_dict.get("canonical_source_git_blob_shas") != dict(
+        config["canonical_coldstart"]["expected_git_blob_shas"]
+    ):
+        return False
+    if cell.method == METHOD_DPO:
+        return (
+            payload_dict.get("canonical_dispatch")
+            == "e8_multitask_exp_tuning._train_canonical_dpo_transfer_cell"
+            and payload_dict.get("dpo_semantics_source")
+            == "historical_PR_268_protected_implementation_cc0ead2be00c89a3c35296b7adc1ddeae8d14759"
+            and payload_dict.get("dpo_initialization_mode")
+            == str(config["dpo"]["initialization_mode"])
+            and payload_dict.get("engineering_liveness") is False
+            and payload_dict.get("updates_override") is None
+        )
+    if cell.method in {METHOD_ASYMRE, METHOD_TOPR}:
+        expected_formula = (
+            "delegated_to_existing_canonical_asymre"
+            if cell.method == METHOD_ASYMRE
+            else "delegated_to_existing_joint_fitted_reference_beta_topr"
+        )
+        return (
+            payload_dict.get("canonical_dispatch")
+            == "countdown_e8_alpha1_c_scan_trainer.train_cell"
+            and payload_dict.get("paper_formula") == expected_formula
+            and payload_dict.get("task_runtime_contract")
+            == dict(config["task_runtime"][cell.task])
+            and isinstance(payload_dict.get("paper_grid_config_sha256"), str)
+            and len(str(payload_dict["paper_grid_config_sha256"])) == 64
+            and isinstance(payload_dict.get("paper_grid_source_sha256"), str)
+            and len(str(payload_dict["paper_grid_source_sha256"])) == 64
+            and isinstance(payload_dict.get("paper_base_config_sha256"), str)
+            and len(str(payload_dict["paper_base_config_sha256"])) == 64
+        )
+    return False
+
+
+def _scientific_execution_provenance_valid(value: Mapping[str, Any], cell: Cell) -> bool:
+    provenance = value.get("scientific_execution_provenance")
+    if not isinstance(provenance, Mapping):
+        return False
+    try:
+        started = float(provenance["started_unix"])
+        finished = float(provenance["successful_finish_unix"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    return (
+        provenance.get("execution_origin") == "executed_current_run"
+        and isinstance(provenance.get("scheduler_run_id"), str)
+        and bool(provenance.get("scheduler_run_id"))
+        and provenance.get("cell_key") == cell.key
+        and provenance.get("seed") == cell.seed
+        and math.isfinite(started)
+        and math.isfinite(finished)
+        and started <= finished
+    )
+
+
 def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
     provenance_path = output_root / "source_provenance.json"
     if not provenance_path.is_file():
@@ -8332,6 +8499,8 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
     incomplete: list[str] = []
     nan_inf: list[str] = []
     terminal_contract_failures: list[str] = []
+    cell_identity_failures: list[str] = []
+    scientific_execution_provenance_failures: list[str] = []
     dpo_reference_identity_failures: list[str] = []
     expected_terminal_step = int(config["training"]["optimizer_updates"])
     for cell in cells:
@@ -8353,6 +8522,10 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         if value.get("nan_inf_failure"):
             nan_inf.append(cell.key)
         if not _is_engineering_self_test(config):
+            if _is_baseline_matrix(config) and not _terminal_cell_identity_matches(config, cell, value):
+                cell_identity_failures.append(cell.key)
+            if _is_baseline_matrix(config) and not _scientific_execution_provenance_valid(value, cell):
+                scientific_execution_provenance_failures.append(cell.key)
             if int(value.get("terminal_step", -1)) != expected_terminal_step or value.get("stop_reason") != "max_steps" or value.get("test_partition_accessed") is not False:
                 terminal_contract_failures.append(cell.key)
             if cell.method == METHOD_DPO and (value.get("reference_initial_state_sha256") != value.get("reference_terminal_state_sha256") or value.get("reference_trainable") is not False):
@@ -8389,6 +8562,7 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         )
     seed_batch_protocol_complete: bool | None = None
     seed_batch_event_identity_complete: bool | None = None
+    seed_batch_execution_provenance_complete: bool | None = None
     seed_batch_temporal_order_complete: bool | None = None
     if _is_baseline_matrix(config):
         scheduler_path = output_root / "scheduler" / "dynamic_run.json"
@@ -8463,12 +8637,63 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
                     seed_batch_event_identity_complete
                     and all(exact_cell_keys(starts[seed], seed) for seed in order)
                 )
-                temporal_complete = seed_batch_event_identity_complete
+                manifests = {
+                    cell.key: _read_json_object(
+                        output_root / "cells" / cell.key / "cell_manifest.json"
+                    )
+                    for cell in cells
+                }
+                event_origin_complete = seed_batch_event_identity_complete
+                if event_origin_complete:
+                    for cell in cells:
+                        start_row = next(
+                            row for row in starts[cell.seed] if row.get("cell_key") == cell.key
+                        )
+                        finish_row = next(
+                            row
+                            for row in successful_finishes[cell.seed]
+                            if row.get("cell_key") == cell.key
+                        )
+                        origin = start_row.get("execution_origin")
+                        provenance = manifests[cell.key].get("scientific_execution_provenance", {})
+                        if (
+                            origin not in {"executed_current_run", "reused_existing"}
+                            or finish_row.get("execution_origin") != origin
+                            or not isinstance(provenance, Mapping)
+                            or (
+                                origin == "executed_current_run"
+                                and provenance.get("scheduler_run_id") != scheduler_run_id
+                            )
+                            or (
+                                origin == "reused_existing"
+                                and provenance.get("scheduler_run_id") == scheduler_run_id
+                            )
+                        ):
+                            event_origin_complete = False
+                            break
+                seed_batch_event_identity_complete = event_origin_complete
+                seed_batch_execution_provenance_complete = (
+                    not scientific_execution_provenance_failures
+                    and all(
+                        _scientific_execution_provenance_valid(manifests[cell.key], cell)
+                        for cell in cells
+                    )
+                )
+                temporal_complete = (
+                    seed_batch_event_identity_complete
+                    and seed_batch_execution_provenance_complete
+                )
                 for previous_seed, next_seed in pairwise(order):
                     previous_finish_times = [
-                        float(row["unix_time"]) for row in successful_finishes[previous_seed]
+                        float(manifests[cell.key]["scientific_execution_provenance"]["successful_finish_unix"])
+                        for cell in cells
+                        if cell.seed == previous_seed
                     ]
-                    next_start_times = [float(row["unix_time"]) for row in starts[next_seed]]
+                    next_start_times = [
+                        float(manifests[cell.key]["scientific_execution_provenance"]["started_unix"])
+                        for cell in cells
+                        if cell.seed == next_seed
+                    ]
                     times = previous_finish_times + next_start_times
                     if (
                         not previous_finish_times
@@ -8487,10 +8712,14 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         and not incomplete
         and not nan_inf
         and not terminal_contract_failures
+        and not cell_identity_failures
+        and not scientific_execution_provenance_failures
         and not dpo_reference_identity_failures
         and inherited_complete
         and aggregate_complete
         and seed_batch_protocol_complete is not False
+        and seed_batch_event_identity_complete is not False
+        and seed_batch_execution_provenance_complete is not False
         and seed_batch_temporal_order_complete is not False
     )
     audit = {
@@ -8502,9 +8731,12 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "incomplete_cells": sorted(set(incomplete)),
         "nan_inf_cells": sorted(set(nan_inf)),
         "terminal_contract_failures": sorted(set(terminal_contract_failures)),
+        "cell_identity_failures": sorted(set(cell_identity_failures)),
+        "scientific_execution_provenance_failures": sorted(set(scientific_execution_provenance_failures)),
         "dpo_reference_identity_failures": sorted(set(dpo_reference_identity_failures)),
         "seed_batch_protocol_complete": seed_batch_protocol_complete,
         "seed_batch_event_identity_complete": seed_batch_event_identity_complete,
+        "seed_batch_execution_provenance_complete": seed_batch_execution_provenance_complete,
         "seed_batch_temporal_order_complete": seed_batch_temporal_order_complete,
         "all_training_and_evaluation_complete": all_complete,
         "execution_class": _execution_class(config),
