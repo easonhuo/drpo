@@ -1,2 +1,0 @@
-Temporary trigger for E8 Stage-5 successor-delta closure. Remove after validation.
-Trigger generation: 2
