@@ -1,0 +1,168 @@
+name: Temporary E8 terminal evidence hardening v5
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-baselines-capability-01
+    paths:
+      - .github/workflows/tmp_e8_terminal_evidence_fix_v5.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-baselines-capability-01
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Install validation dependencies
+        run: python -m pip install pyyaml pytest ruff numpy
+      - name: Apply, validate, and publish scoped terminal evidence hardening
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Apply the docs-first/source/test patch. Its embedded test run is
+          # expected to stop on the legacy non-matrix package fixture; repair
+          # that compatibility boundary below, then rerun the complete suite.
+          bash .github/workflows/tmp_e8_terminal_evidence_fix.sh || true
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          text = path.read_text(encoding='utf-8')
+          start = text.index('def _successful_attempt_matches_current_identity(')
+          end = text.index('\ndef _effective_recovery_config(', start)
+          replacement = '''def _successful_attempt_matches_current_identity(
+              config: Mapping[str, Any],
+              workload_root: Path,
+              *,
+              source_commit: str,
+              artifact_path: Path | None = None,
+          ) -> bool:
+              """Return whether live and packaged completed evidence matches this invocation."""
+
+              expected_id = experiment_id(config)
+              expected_hash = stable_config_hash(config)
+              try:
+                  provenance = _read_json_object(workload_root / "source_provenance.json")
+                  prepare = _read_json_object(workload_root / "prepare_manifest.json")
+                  if not (
+                      provenance.get("source_commit") == source_commit
+                      and prepare.get("experiment_id") == expected_id
+                      and prepare.get("config_hash") == expected_hash
+                  ):
+                      return False
+                  if artifact_path is None:
+                      return True
+
+                  baseline_terminal_binding = _is_baseline_matrix(config)
+                  if baseline_terminal_binding and not _completed_workload_terminal_evidence_matches(
+                      config, workload_root, source_commit=source_commit
+                  ):
+                      return False
+                  prefix = f"results/{expected_id}"
+                  terminal_members = (
+                      "source_provenance.json",
+                      "prepare_manifest.json",
+                      "scheduler/dynamic_run.json",
+                      "aggregate/aggregate_summary.json",
+                      "aggregate/plot_curve_points.csv",
+                      "terminal_audit.json",
+                      "run_manifest.json",
+                      "scientific_run_manifest.json",
+                      "RUN_COMPLETE.json",
+                  )
+                  with zipfile.ZipFile(artifact_path) as archive:
+                      artifact_manifest = json.loads(archive.read("ARTIFACT_MANIFEST.json"))
+                      base_commit = archive.read("BASE_COMMIT.txt").decode("utf-8").strip()
+                      outer_run_manifest = json.loads(archive.read(f"{prefix}/run_manifest.json"))
+                      packaged_provenance = json.loads(
+                          archive.read(f"{prefix}/workload/source_provenance.json")
+                      )
+                      packaged_prepare = json.loads(
+                          archive.read(f"{prefix}/workload/prepare_manifest.json")
+                      )
+                      packaged_terminal_payloads = (
+                          {
+                              relative: archive.read(f"{prefix}/workload/{relative}")
+                              for relative in terminal_members
+                          }
+                          if baseline_terminal_binding
+                          else {}
+                      )
+              except (
+                  OSError,
+                  ValueError,
+                  TypeError,
+                  KeyError,
+                  UnicodeDecodeError,
+                  json.JSONDecodeError,
+                  zipfile.BadZipFile,
+              ):
+                  return False
+              if not all(
+                  isinstance(value, dict)
+                  for value in (
+                      artifact_manifest,
+                      outer_run_manifest,
+                      packaged_provenance,
+                      packaged_prepare,
+                  )
+              ):
+                  return False
+              if not (
+                  artifact_manifest.get("package_kind") == "experiment-raw-complete"
+                  and artifact_manifest.get("experiment_id") == expected_id
+                  and artifact_manifest.get("base_commit") == source_commit
+                  and base_commit == source_commit
+                  and outer_run_manifest.get("experiment_id") == expected_id
+                  and outer_run_manifest.get("base_commit") == source_commit
+                  and packaged_provenance.get("source_commit") == source_commit
+                  and packaged_prepare.get("experiment_id") == expected_id
+                  and packaged_prepare.get("config_hash") == expected_hash
+              ):
+                  return False
+              if baseline_terminal_binding:
+                  for relative, packaged in packaged_terminal_payloads.items():
+                      live = workload_root / relative
+                      if not live.is_file():
+                          return False
+                      try:
+                          if hashlib.sha256(packaged).hexdigest() != sha256_file(live):
+                              return False
+                      except OSError:
+                          return False
+              return True
+
+          '''
+          text = text[:start] + replacement + text[end + 1:]
+          path.write_text(text, encoding='utf-8')
+          PY
+          python -m py_compile src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          ruff check src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          python scripts/handoff_authority.py verify --repo-root .
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          git diff --check
+          git add src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          git diff --cached --check
+          git commit -m 'fix: bind E8 completed attempt terminal evidence'
+          git rm \
+            .github/workflows/tmp_e8_terminal_evidence_fix.sh \
+            .github/workflows/tmp_e8_terminal_evidence_fix.yml \
+            .github/workflows/tmp_e8_terminal_evidence_fix_v2.yml \
+            .github/workflows/tmp_e8_terminal_evidence_fix_v3.yml \
+            .github/workflows/tmp_e8_terminal_evidence_fix_v4.yml \
+            .github/workflows/tmp_e8_terminal_evidence_fix_v5.yml
+          git commit -m 'chore: remove temporary E8 terminal evidence transport'
+          git push origin HEAD:dev/e8-multitask-baselines-capability-01
