@@ -1,0 +1,279 @@
+name: Temporary E8 terminal evidence hardening v4
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-baselines-capability-01
+    paths:
+      - .github/workflows/tmp_e8_terminal_evidence_fix_v4.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-baselines-capability-01
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Install validation dependencies
+        run: python -m pip install pyyaml pytest ruff numpy
+      - name: Apply, validate, and publish terminal evidence hardening
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash .github/workflows/tmp_e8_terminal_evidence_fix.sh || true
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          text = path.read_text(encoding='utf-8')
+
+          start = text.index('def _completed_workload_terminal_evidence_matches(')
+          end = text.index('\ndef _effective_recovery_config(', start)
+          functions = '''def _completed_workload_terminal_evidence_matches(
+              config: Mapping[str, Any],
+              workload_root: Path,
+              *,
+              source_commit: str,
+          ) -> bool:
+              """Validate terminal E8 evidence before a guarded completed matrix is reused."""
+
+              expected_id = experiment_id(config)
+              expected_hash = stable_config_hash(config)
+              expected_cells = len(build_cells(config))
+              try:
+                  scheduler_path = workload_root / "scheduler" / "dynamic_run.json"
+                  aggregate_path = workload_root / "aggregate" / "aggregate_summary.json"
+                  audit_path = workload_root / "terminal_audit.json"
+                  run_manifest_path = workload_root / "run_manifest.json"
+                  scientific_manifest_path = workload_root / "scientific_run_manifest.json"
+                  complete_path = workload_root / "RUN_COMPLETE.json"
+                  plot_path = workload_root / "aggregate" / "plot_curve_points.csv"
+                  if not all(
+                      candidate.is_file()
+                      for candidate in (
+                          scheduler_path,
+                          aggregate_path,
+                          audit_path,
+                          run_manifest_path,
+                          scientific_manifest_path,
+                          complete_path,
+                          plot_path,
+                      )
+                  ):
+                      return False
+                  scheduler = _read_json_object(scheduler_path)
+                  aggregate = _read_json_object(aggregate_path)
+                  audit = _read_json_object(audit_path)
+                  run_manifest = _read_json_object(run_manifest_path)
+                  scientific_manifest = _read_json_object(scientific_manifest_path)
+                  complete = _read_json_object(complete_path)
+
+                  if not (
+                      scheduler.get("experiment_id") == expected_id
+                      and scheduler.get("complete") is True
+                      and int(scheduler.get("expected_cells", -1)) == expected_cells
+                      and int(scheduler.get("completed_cells", -1)) == expected_cells
+                      and not scheduler.get("failed_cells")
+                      and not scheduler.get("unscheduled_cells")
+                      and aggregate.get("experiment_id") == expected_id
+                      and aggregate.get("source_commit") == source_commit
+                      and int(aggregate.get("cell_count", -1)) == expected_cells
+                      and audit.get("experiment_id") == expected_id
+                      and audit.get("base_commit") == source_commit
+                      and int(audit.get("expected_cells", -1)) == expected_cells
+                      and audit.get("all_training_and_evaluation_complete") is True
+                      and audit.get("test_partition_accessed") is False
+                      and run_manifest.get("experiment_id") == expected_id
+                      and run_manifest.get("base_commit") == source_commit
+                      and run_manifest.get("source_commit") == source_commit
+                      and run_manifest.get("config_hash") == expected_hash
+                      and int(run_manifest.get("expected_cells", -1)) == expected_cells
+                      and int(run_manifest.get("completed_cells", -1)) == expected_cells
+                      and run_manifest.get("scheduler_run_id") == scheduler.get("scheduler_run_id")
+                      and scientific_manifest == run_manifest
+                      and complete.get("experiment_id") == expected_id
+                      and complete.get("base_commit") == source_commit
+                      and complete.get("source_commit") == source_commit
+                      and complete.get("config_hash") == expected_hash
+                      and int(complete.get("expected_cells", -1)) == expected_cells
+                      and int(complete.get("completed_cells", -1)) == expected_cells
+                      and complete.get("scheduler_run_id") == scheduler.get("scheduler_run_id")
+                      and complete.get("all_training_and_evaluation_complete") is True
+                      and complete.get("complete") is True
+                      and complete.get("terminal_audit_sha256") == sha256_file(audit_path)
+                      and complete.get("aggregate_sha256") == sha256_file(aggregate_path)
+                  ):
+                      return False
+                  if _is_baseline_matrix(config):
+                      if not _baseline_aggregate_identity_matches(config, workload_root, aggregate):
+                          return False
+                      if not all(
+                          audit.get(field) is True
+                          for field in (
+                              "seed_batch_protocol_complete",
+                              "seed_batch_event_identity_complete",
+                              "seed_batch_execution_provenance_complete",
+                              "seed_batch_temporal_order_complete",
+                          )
+                      ):
+                          return False
+                      if (
+                          audit.get("cell_manifest_set_sha256")
+                          != aggregate.get("cell_manifest_set_sha256")
+                          or audit.get("aggregate_summary_sha256") != sha256_file(aggregate_path)
+                      ):
+                          return False
+                  return True
+              except (
+                  OSError,
+                  ValueError,
+                  TypeError,
+                  KeyError,
+                  json.JSONDecodeError,
+              ):
+                  return False
+
+
+          def _successful_attempt_matches_current_identity(
+              config: Mapping[str, Any],
+              workload_root: Path,
+              *,
+              source_commit: str,
+              artifact_path: Path | None = None,
+          ) -> bool:
+              """Return whether live and packaged completed evidence matches this invocation."""
+
+              expected_id = experiment_id(config)
+              expected_hash = stable_config_hash(config)
+              try:
+                  provenance = _read_json_object(workload_root / "source_provenance.json")
+                  prepare = _read_json_object(workload_root / "prepare_manifest.json")
+                  if not (
+                      provenance.get("source_commit") == source_commit
+                      and prepare.get("experiment_id") == expected_id
+                      and prepare.get("config_hash") == expected_hash
+                  ):
+                      return False
+                  if artifact_path is None:
+                      return True
+                  baseline_terminal_binding = _is_baseline_matrix(config)
+                  if baseline_terminal_binding and not _completed_workload_terminal_evidence_matches(
+                      config, workload_root, source_commit=source_commit
+                  ):
+                      return False
+                  prefix = f"results/{expected_id}"
+                  workload_members = (
+                      (
+                          "source_provenance.json",
+                          "prepare_manifest.json",
+                          "scheduler/dynamic_run.json",
+                          "aggregate/aggregate_summary.json",
+                          "aggregate/plot_curve_points.csv",
+                          "terminal_audit.json",
+                          "run_manifest.json",
+                          "scientific_run_manifest.json",
+                          "RUN_COMPLETE.json",
+                      )
+                      if baseline_terminal_binding
+                      else ("source_provenance.json", "prepare_manifest.json")
+                  )
+                  with zipfile.ZipFile(artifact_path) as archive:
+                      artifact_manifest = json.loads(archive.read("ARTIFACT_MANIFEST.json"))
+                      base_commit = archive.read("BASE_COMMIT.txt").decode("utf-8").strip()
+                      outer_run_manifest = json.loads(archive.read(f"{prefix}/run_manifest.json"))
+                      packaged_payloads = {
+                          relative: archive.read(f"{prefix}/workload/{relative}")
+                          for relative in workload_members
+                      }
+                  if not isinstance(artifact_manifest, dict) or not isinstance(
+                      outer_run_manifest, dict
+                  ):
+                      return False
+                  if not (
+                      artifact_manifest.get("package_kind") == "experiment-raw-complete"
+                      and artifact_manifest.get("experiment_id") == expected_id
+                      and artifact_manifest.get("base_commit") == source_commit
+                      and base_commit == source_commit
+                      and outer_run_manifest.get("experiment_id") == expected_id
+                      and outer_run_manifest.get("base_commit") == source_commit
+                  ):
+                      return False
+                  for relative, packaged in packaged_payloads.items():
+                      live = workload_root / relative
+                      if not live.is_file():
+                          return False
+                      if hashlib.sha256(packaged).hexdigest() != sha256_file(live):
+                          return False
+                  return True
+              except (
+                  OSError,
+                  ValueError,
+                  TypeError,
+                  KeyError,
+                  UnicodeDecodeError,
+                  json.JSONDecodeError,
+                  zipfile.BadZipFile,
+              ):
+                  return False
+
+          '''
+          text = text[:start] + functions + text[end + 1:]
+
+          agg_start = text.index('def _baseline_aggregate_identity_matches(')
+          agg_end = text.index('\ndef _aggregate_coldstart_matrix_unranked(', agg_start)
+          agg_helper = '''def _baseline_aggregate_identity_matches(
+              config: Mapping[str, Any],
+              output_root: Path,
+              aggregate: Mapping[str, Any],
+          ) -> bool:
+              """Verify that a baseline aggregate is bound to this source/config/cell set."""
+
+              if not _is_baseline_matrix(config):
+                  return True
+              try:
+                  provenance = _read_json_object(output_root / "source_provenance.json")
+                  source_commit = str(provenance.get("source_commit", ""))
+                  cell_set = _cell_manifest_set_sha256(config, output_root)
+                  return (
+                      aggregate.get("experiment_id") == experiment_id(config)
+                      and aggregate.get("config_hash") == stable_config_hash(config)
+                      and aggregate.get("source_commit") == source_commit
+                      and int(aggregate.get("cell_count", -1)) == len(build_cells(config))
+                      and aggregate.get("cell_manifest_set_sha256") == cell_set
+                  )
+              except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                  return False
+
+
+          '''
+          text = text[:agg_start] + agg_helper + text[agg_end + 1:]
+          path.write_text(text, encoding='utf-8')
+          PY
+          python -m py_compile src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          ruff check src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          python scripts/handoff_authority.py verify --repo-root .
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          git diff --check
+          git add src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          git diff --cached --check
+          git commit -m 'fix: bind E8 completed attempt terminal evidence'
+          git rm \
+            .github/workflows/tmp_e8_terminal_evidence_fix.sh \
+            .github/workflows/tmp_e8_terminal_evidence_fix.yml \
+            .github/workflows/tmp_e8_terminal_evidence_fix_v2.yml \
+            .github/workflows/tmp_e8_terminal_evidence_fix_v3.yml \
+            .github/workflows/tmp_e8_terminal_evidence_fix_v4.yml
+          git commit -m 'chore: remove temporary E8 terminal evidence transport'
+          git push origin HEAD:dev/e8-multitask-baselines-capability-01
