@@ -22,7 +22,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-      - name: Replay reviewed workflow with canonical Stage-5 amend
+      - name: Replay reviewed workflow with exact event identity
         shell: bash
         env:
           PYTHONPATH: .
@@ -33,6 +33,8 @@ jobs:
 
           import os
           import subprocess
+          from pathlib import Path
+
           import yaml
 
           historical = subprocess.check_output(
@@ -74,12 +76,32 @@ jobs:
                       raise SystemExit("historical registry insertion fragments not found")
                   command = command.replace(old_precheck, new_precheck, 1)
                   command = command.replace(old_insert, new_insert, 1)
+
+                  old_scope_write = 'scope_path.write_text(scope.replace(old, new, 1), encoding="utf-8")'
+                  new_scope_write = '''scope = scope.replace(old, new, 1)\naudit_closure = """\n\n## Owner-authorized exact scheduler-event identity audit (2026-09-10)\n\nThe owner explicitly approved strengthening the formal seed-barrier terminal audit so event counts alone cannot certify a malformed scheduler history. For the active `scheduler_run_id`, every configured seed must have exactly the expected scientific `cell_key` set in both start events and successful finish events, with no duplicates and no missing or extra cell keys. This exact-identity check is fail-closed and precedes the existing temporal ordering check. It changes no scientific method, hyperparameter, seed, training horizon, task, DPO semantics, or runtime scheduling behavior; it only strengthens terminal evidence validation.\n"""\nif "## Owner-authorized exact scheduler-event identity audit (2026-09-10)" in scope:\n    raise SystemExit("exact scheduler-event identity audit already documented")\nscope_path.write_text(scope.rstrip() + audit_closure + "\\n", encoding="utf-8")'''
+                  if command.count(old_scope_write) != 1:
+                      raise SystemExit("scope write fragment did not match exactly once")
+                  command = command.replace(old_scope_write, new_scope_write, 1)
+
+                  old_registry_audit = '''                  seed_batch_temporal_event_history_check: true\n                  temporal_event_source: scheduler/queue_events.jsonl'''
+                  new_registry_audit = '''                  seed_batch_temporal_event_history_check: true\n                  seed_batch_event_cell_identity_check: exact_expected_cell_keys_no_duplicates\n                  temporal_event_source: scheduler/queue_events.jsonl'''
+                  if command.count(old_registry_audit) != 1:
+                      raise SystemExit("registry terminal-audit fragment did not match exactly once")
+                  command = command.replace(old_registry_audit, new_registry_audit, 1)
+
+                  old_handoff = '''              "`scheduler/queue_events.jsonl`，验证 seed-4000 成功 finish 计数、seed-5000 start/成功 finish 计数以及 "\n              "`max(seed4000 successful finish time) <= min(seed5000 start time)`。固定 1200 updates 通过全部终态审计后最多登记为 "'''
+                  new_handoff = '''              "`scheduler/queue_events.jsonl`，验证每个 seed 的 start 与 successful-finish `cell_key` 集合都与冻结的 88 个预期 cell 完全一致、无重复、无缺失，随后再验证 "\n              "`max(seed4000 successful finish time) <= min(seed5000 start time)`。固定 1200 updates 通过全部终态审计后最多登记为 "'''
+                  if command.count(old_handoff) != 1:
+                      raise SystemExit("handoff terminal-audit fragment did not match exactly once")
+                  command = command.replace(old_handoff, new_handoff, 1)
+
               if name == "Materialize Stage-5 handoff authority":
                   old_commit = 'git commit -m "docs: materialize E8 baseline registration"'
                   new_commit = 'git commit --amend --no-edit'
                   if old_commit not in command:
                       raise SystemExit("historical materialization commit fragment not found")
                   command = command.replace(old_commit, new_commit, 1)
+
               print(f"=== {name} ===", flush=True)
               result = subprocess.run(
                   ["bash", "-euo", "pipefail", "-c", command],
@@ -88,4 +110,69 @@ jobs:
               )
               if result.returncode:
                   raise SystemExit(result.returncode)
+
+              if name == "Add temporal-audit regression":
+                  runner_path = Path("src/drpo/e8_multitask_exp_tuning.py")
+                  runner = runner_path.read_text(encoding="utf-8")
+                  import_anchor = "from dataclasses import dataclass\n"
+                  if "from itertools import pairwise\n" not in runner:
+                      if runner.count(import_anchor) != 1:
+                          raise SystemExit("pairwise import anchor did not match once")
+                      runner = runner.replace(
+                          import_anchor,
+                          import_anchor + "from itertools import pairwise\n",
+                          1,
+                      )
+
+                  declaration_old = '''    seed_batch_protocol_complete: bool | None = None\n    seed_batch_temporal_order_complete: bool | None = None\n    if _is_baseline_matrix(config):'''
+                  declaration_new = '''    seed_batch_protocol_complete: bool | None = None\n    seed_batch_event_identity_complete: bool | None = None\n    seed_batch_temporal_order_complete: bool | None = None\n    if _is_baseline_matrix(config):'''
+                  if runner.count(declaration_old) != 1:
+                      raise SystemExit("event-identity declaration fragment did not match once")
+                  runner = runner.replace(declaration_old, declaration_new, 1)
+
+                  identity_old = '''                counts_complete = bool(order) and all(\n                    len(successful_finishes[seed]) == expected[str(seed)] for seed in order\n                )\n                counts_complete = counts_complete and all(\n                    len(starts[seed]) == expected[str(seed)] for seed in order[1:]\n                )\n                temporal_complete = counts_complete\n                for previous_seed, next_seed in zip(order, order[1:]):'''
+                  identity_new = '''                expected_cell_keys = {\n                    seed: {cell.key for cell in cells if cell.seed == seed} for seed in order\n                }\n\n                def exact_cell_keys(rows: list[dict[str, Any]], seed: int) -> bool:\n                    keys = [str(row.get("cell_key", "")) for row in rows]\n                    expected_keys = expected_cell_keys[seed]\n                    return (\n                        len(keys) == len(expected_keys)\n                        and len(keys) == len(set(keys))\n                        and set(keys) == expected_keys\n                    )\n\n                seed_batch_event_identity_complete = bool(order) and all(\n                    exact_cell_keys(successful_finishes[seed], seed) for seed in order\n                )\n                seed_batch_event_identity_complete = (\n                    seed_batch_event_identity_complete\n                    and all(exact_cell_keys(starts[seed], seed) for seed in order)\n                )\n                temporal_complete = seed_batch_event_identity_complete\n                for previous_seed, next_seed in pairwise(order):'''
+                  if runner.count(identity_old) != 1:
+                      raise SystemExit("event-identity audit replacement did not match once")
+                  runner = runner.replace(identity_old, identity_new, 1)
+
+                  output_old = '        "seed_batch_temporal_order_complete": seed_batch_temporal_order_complete,\n'
+                  output_new = (
+                      '        "seed_batch_event_identity_complete": seed_batch_event_identity_complete,\n'
+                      + output_old
+                  )
+                  if runner.count(output_old) != 1:
+                      raise SystemExit("event-identity audit output fragment did not match once")
+                  runner = runner.replace(output_old, output_new, 1)
+                  runner_path.write_text(runner, encoding="utf-8")
+
+                  test_path = Path("tests/test_e8_multitask_p0.py")
+                  tests = test_path.read_text(encoding="utf-8")
+                  good_old = '''    assert audit["seed_batch_protocol_complete"] is True\n    assert audit["seed_batch_temporal_order_complete"] is True\n    assert audit["all_training_and_evaluation_complete"] is True'''
+                  good_new = '''    assert audit["seed_batch_protocol_complete"] is True\n    assert audit["seed_batch_event_identity_complete"] is True\n    assert audit["seed_batch_temporal_order_complete"] is True\n    assert audit["all_training_and_evaluation_complete"] is True'''
+                  if tests.count(good_old) != 1:
+                      raise SystemExit("good audit assertion fragment did not match once")
+                  tests = tests.replace(good_old, good_new, 1)
+
+                  temporal_old = '''    assert temporal_failed["seed_batch_protocol_complete"] is True\n    assert temporal_failed["seed_batch_temporal_order_complete"] is False\n    assert temporal_failed["all_training_and_evaluation_complete"] is False\n    assert temporal_failed["scientific_status"] == "pilot"\n\n    p0.atomic_jsonl(event_path, events)'''
+                  temporal_new = '''    assert temporal_failed["seed_batch_protocol_complete"] is True\n    assert temporal_failed["seed_batch_event_identity_complete"] is True\n    assert temporal_failed["seed_batch_temporal_order_complete"] is False\n    assert temporal_failed["all_training_and_evaluation_complete"] is False\n    assert temporal_failed["scientific_status"] == "pilot"\n\n    p0.atomic_jsonl(event_path, events)\n    duplicate_start_events = [dict(row) for row in events]\n    seed_5000_starts = [\n        row\n        for row in duplicate_start_events\n        if row.get("scheduler_run_id") == scheduler_run_id\n        and row.get("event") == "start"\n        and row.get("seed") == 5000\n    ]\n    seed_5000_starts[1]["cell_key"] = seed_5000_starts[0]["cell_key"]\n    p0.atomic_jsonl(event_path, duplicate_start_events)\n    duplicate_start_failed = exp_tuning.cmd_audit(config, tmp_path)\n    assert duplicate_start_failed["seed_batch_protocol_complete"] is True\n    assert duplicate_start_failed["seed_batch_event_identity_complete"] is False\n    assert duplicate_start_failed["seed_batch_temporal_order_complete"] is False\n    assert duplicate_start_failed["all_training_and_evaluation_complete"] is False\n    assert duplicate_start_failed["scientific_status"] == "pilot"\n\n    p0.atomic_jsonl(event_path, events)\n    duplicate_finish_events = [dict(row) for row in events]\n    seed_4000_finishes = [\n        row\n        for row in duplicate_finish_events\n        if row.get("scheduler_run_id") == scheduler_run_id\n        and row.get("event") == "finish"\n        and row.get("seed") == 4000\n        and row.get("returncode") == 0\n    ]\n    seed_4000_finishes[1]["cell_key"] = seed_4000_finishes[0]["cell_key"]\n    p0.atomic_jsonl(event_path, duplicate_finish_events)\n    duplicate_finish_failed = exp_tuning.cmd_audit(config, tmp_path)\n    assert duplicate_finish_failed["seed_batch_event_identity_complete"] is False\n    assert duplicate_finish_failed["seed_batch_temporal_order_complete"] is False\n    assert duplicate_finish_failed["all_training_and_evaluation_complete"] is False\n    assert duplicate_finish_failed["scientific_status"] == "pilot"\n\n    p0.atomic_jsonl(event_path, events)'''
+                  if tests.count(temporal_old) != 1:
+                      raise SystemExit("temporal audit assertion fragment did not match once")
+                  tests = tests.replace(temporal_old, temporal_new, 1)
+
+                  flaky_old = 'if replacement_started.wait(timeout=1.0):'
+                  flaky_new = 'if replacement_started.wait(timeout=5.0):'
+                  if tests.count(flaky_old) != 1:
+                      raise SystemExit("scheduler refill timing fragment did not match once")
+                  tests = tests.replace(flaky_old, flaky_new, 1)
+                  test_path.write_text(tests, encoding="utf-8")
+
+                  subprocess.run(["git", "diff", "--check"], check=True)
+                  subprocess.run(
+                      ["git", "add", str(runner_path), str(test_path)], check=True
+                  )
+                  subprocess.run(
+                      ["git", "commit", "-m", "fix: require exact E8 seed-event identity"],
+                      check=True,
+                  )
           PY
