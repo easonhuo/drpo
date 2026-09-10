@@ -97,10 +97,10 @@ if text.count(old_fake) != 1:
     raise SystemExit(f'non-retry fake anchor count={text.count(old_fake)}')
 text = text.replace(old_fake, new_fake, 1)
 
-# Replace the engineering queue audit with an event-order audit.  The old
+# Replace the engineering queue audit with an event-order audit. The old
 # version assumed build_cells()[:16] were the first cells actually dispatched;
 # recovery/reuse can change the observed start order, so that assumption can
-# produce a false failure.  Event order is authoritative for this engineering
+# produce a false failure. Event order is authoritative for this engineering
 # liveness check, while scientific seed chronology remains proven only from
 # persisted scientific_execution_provenance.
 old_source_tail = '''if text.count(old_semantics) != 1:
@@ -108,7 +108,7 @@ old_source_tail = '''if text.count(old_semantics) != 1:
 text = text.replace(old_semantics, new_semantics, 1)
 path.write_text(text, encoding='utf-8')
 '''
-new_source_tail = '''if text.count(old_semantics) != 1:
+new_source_tail = """if text.count(old_semantics) != 1:
     raise SystemExit(f'recovery semantics anchor count={text.count(old_semantics)}')
 text = text.replace(old_semantics, new_semantics, 1)
 
@@ -193,7 +193,7 @@ queue_audit = '''def _audit_engineering_queue(
 '''
 text = text[:queue_audit_start] + queue_audit + text[queue_audit_end:]
 path.write_text(text, encoding='utf-8')
-'''
+"""
 if text.count(old_source_tail) != 1:
     raise SystemExit(f'queue audit injection anchor count={text.count(old_source_tail)}')
 text = text.replace(old_source_tail, new_source_tail, 1)
