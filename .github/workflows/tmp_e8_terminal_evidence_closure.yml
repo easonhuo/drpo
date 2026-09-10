@@ -12,5 +12,5 @@ jobs:
         with:
           ref: dev/e8-multitask-baselines-capability-01
           fetch-depth: 0
-      - name: Apply, validate, commit, clean up, and push
-        run: bash .github/workflows/tmp_e8_terminal_evidence_patch.sh
+      - name: Apply function-scoped patch, validate, clean up, and push
+        run: bash .github/workflows/tmp_e8_terminal_evidence_retry.sh
