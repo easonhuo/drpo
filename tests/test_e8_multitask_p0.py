@@ -4073,6 +4073,8 @@ def test_baseline_matrix_tail_pipeline_scheduler_aggregate_and_resume_identity(
             "method": cell.method,
             "seed": cell.seed,
             "returncode": 0,
+            "started_unix": 0.0,
+            "finished_unix": 1.0,
         }
 
     monkeypatch.setattr(exp_tuning, "_run_subprocess_cell", fake_subprocess_cell)
@@ -4141,6 +4143,34 @@ def test_baseline_matrix_tail_pipeline_scheduler_aggregate_and_resume_identity(
     assert victim.key in rejected
     assert len(reusable) == 175
 
+
+
+@pytest.mark.parametrize(
+    "result",
+    [
+        {},
+        {"started_unix": 1.0},
+        {"finished_unix": 2.0},
+        {"started_unix": "bad", "finished_unix": 2.0},
+        {"started_unix": 1.0, "finished_unix": "bad"},
+        {"started_unix": float("nan"), "finished_unix": 2.0},
+        {"started_unix": 1.0, "finished_unix": float("inf")},
+        {"started_unix": 2.0, "finished_unix": 1.0},
+    ],
+)
+def test_scientific_execution_timestamps_fail_closed(result) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    with pytest.raises(RuntimeError):
+        exp_tuning._require_scientific_execution_timestamps(result)
+
+
+def test_scientific_execution_timestamps_accept_actual_ordered_values() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    assert exp_tuning._require_scientific_execution_timestamps(
+        {"started_unix": "1.25", "finished_unix": 2}
+    ) == (1.25, 2.0)
 
 def test_formal_baseline_matrix_config_matches_september7_runbook() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning

@@ -7203,8 +7203,9 @@ def cmd_run_dynamic(
                     ):
                         raise RuntimeError("child returned zero without a complete finite cell")
                     if execution_origin == "executed_current_run":
-                        started_unix = float(result.get("started_unix", time.time()))
-                        finished_unix = float(result.get("finished_unix", time.time()))
+                        started_unix, finished_unix = _require_scientific_execution_timestamps(
+                            result
+                        )
                         completed_manifest["scientific_execution_provenance"] = {
                             "scheduler_run_id": scheduler_run_id,
                             "cell_key": cell.key,
@@ -8463,6 +8464,23 @@ def _terminal_cell_identity_matches(
             and len(str(payload_dict["paper_base_config_sha256"])) == 64
         )
     return False
+
+
+def _require_scientific_execution_timestamps(
+    result: Mapping[str, Any],
+) -> tuple[float, float]:
+    try:
+        started = float(result["started_unix"])
+        finished = float(result["finished_unix"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RuntimeError(
+            "subprocess result must contain numeric scientific execution timestamps"
+        ) from exc
+    if not math.isfinite(started) or not math.isfinite(finished):
+        raise RuntimeError("scientific execution timestamps must be finite")
+    if finished < started:
+        raise RuntimeError("scientific execution finish timestamp precedes start timestamp")
+    return started, finished
 
 
 def _scientific_execution_provenance_valid(value: Mapping[str, Any], cell: Cell) -> bool:
