@@ -99,20 +99,22 @@ jobs:
           data['operations'][0]['content'] = content.replace(old_segment, new_segment, 1)
 
           registry = registry_path.read_text(encoding='utf-8')
-          old_registry = '''    seed_batch_summary_check: true
-    seed_batch_temporal_event_history_check: true
-    seed_batch_event_cell_identity_check: exact_expected_cell_keys_no_duplicates
-    temporal_event_source: scheduler/queue_events.jsonl
-    temporal_condition: max_seed_4000_successful_finish_time_le_min_seed_5000_start_time
-'''
-          new_registry = '''    seed_batch_summary_check: true
-    seed_batch_event_cell_identity_check: exact_expected_cell_keys_no_duplicates
-    queue_event_identity_source: scheduler/queue_events.jsonl
-    seed_batch_temporal_scientific_provenance_check: true
-    scientific_temporal_source: cells/*/cell_manifest.json::scientific_execution_provenance
-    recovery_reuse_rule: preserve_original_scientific_execution_provenance
-    temporal_condition: max_seed_4000_successful_finish_time_le_min_seed_5000_start_time
-'''
+          old_registry = (
+              '    seed_batch_summary_check: true\n'
+              '    seed_batch_temporal_event_history_check: true\n'
+              '    seed_batch_event_cell_identity_check: exact_expected_cell_keys_no_duplicates\n'
+              '    temporal_event_source: scheduler/queue_events.jsonl\n'
+              '    temporal_condition: max_seed_4000_successful_finish_time_le_min_seed_5000_start_time\n'
+          )
+          new_registry = (
+              '    seed_batch_summary_check: true\n'
+              '    seed_batch_event_cell_identity_check: exact_expected_cell_keys_no_duplicates\n'
+              '    queue_event_identity_source: scheduler/queue_events.jsonl\n'
+              '    seed_batch_temporal_scientific_provenance_check: true\n'
+              '    scientific_temporal_source: cells/*/cell_manifest.json::scientific_execution_provenance\n'
+              '    recovery_reuse_rule: preserve_original_scientific_execution_provenance\n'
+              '    temporal_condition: max_seed_4000_successful_finish_time_le_min_seed_5000_start_time\n'
+          )
           if old_registry not in registry:
               raise SystemExit('old registry temporal provenance block not found')
           registry = registry.replace(old_registry, new_registry, 1)
