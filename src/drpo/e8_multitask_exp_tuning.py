@@ -6116,6 +6116,106 @@ def _read_json_object(path: Path) -> dict[str, Any]:
     return value
 
 
+def _completed_workload_terminal_evidence_matches(
+    config: Mapping[str, Any],
+    workload_root: Path,
+    *,
+    source_commit: str,
+) -> bool:
+    """Validate terminal E8 evidence before a guarded completed attempt is reused."""
+
+    expected_id = experiment_id(config)
+    expected_hash = stable_config_hash(config)
+    expected_cells = len(build_cells(config))
+    try:
+        scheduler_path = workload_root / "scheduler" / "dynamic_run.json"
+        aggregate_path = workload_root / "aggregate" / "aggregate_summary.json"
+        audit_path = workload_root / "terminal_audit.json"
+        run_manifest_path = workload_root / "run_manifest.json"
+        scientific_manifest_path = workload_root / "scientific_run_manifest.json"
+        complete_path = workload_root / "RUN_COMPLETE.json"
+        plot_path = workload_root / "aggregate" / "plot_curve_points.csv"
+        if not all(
+            path.is_file()
+            for path in (
+                scheduler_path,
+                aggregate_path,
+                audit_path,
+                run_manifest_path,
+                scientific_manifest_path,
+                complete_path,
+                plot_path,
+            )
+        ):
+            return False
+        scheduler = _read_json_object(scheduler_path)
+        aggregate = _read_json_object(aggregate_path)
+        audit = _read_json_object(audit_path)
+        run_manifest = _read_json_object(run_manifest_path)
+        scientific_manifest = _read_json_object(scientific_manifest_path)
+        complete = _read_json_object(complete_path)
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return False
+
+    if not (
+        scheduler.get("experiment_id") == expected_id
+        and scheduler.get("complete") is True
+        and int(scheduler.get("expected_cells", -1)) == expected_cells
+        and int(scheduler.get("completed_cells", -1)) == expected_cells
+        and not scheduler.get("failed_cells")
+        and not scheduler.get("unscheduled_cells")
+        and aggregate.get("experiment_id") == expected_id
+        and aggregate.get("source_commit") == source_commit
+        and int(aggregate.get("cell_count", -1)) == expected_cells
+        and audit.get("experiment_id") == expected_id
+        and audit.get("base_commit") == source_commit
+        and int(audit.get("expected_cells", -1)) == expected_cells
+        and audit.get("all_training_and_evaluation_complete") is True
+        and audit.get("test_partition_accessed") is False
+        and run_manifest.get("experiment_id") == expected_id
+        and run_manifest.get("base_commit") == source_commit
+        and run_manifest.get("source_commit") == source_commit
+        and run_manifest.get("config_hash") == expected_hash
+        and int(run_manifest.get("expected_cells", -1)) == expected_cells
+        and int(run_manifest.get("completed_cells", -1)) == expected_cells
+        and run_manifest.get("scheduler_run_id") == scheduler.get("scheduler_run_id")
+        and scientific_manifest == run_manifest
+        and complete.get("experiment_id") == expected_id
+        and complete.get("base_commit") == source_commit
+        and complete.get("source_commit") == source_commit
+        and complete.get("config_hash") == expected_hash
+        and int(complete.get("expected_cells", -1)) == expected_cells
+        and int(complete.get("completed_cells", -1)) == expected_cells
+        and complete.get("scheduler_run_id") == scheduler.get("scheduler_run_id")
+        and complete.get("all_training_and_evaluation_complete") is True
+        and complete.get("complete") is True
+        and complete.get("terminal_audit_sha256") == sha256_file(audit_path)
+        and complete.get("aggregate_sha256") == sha256_file(aggregate_path)
+    ):
+        return False
+
+    if _is_baseline_matrix(config):
+        if not _baseline_aggregate_identity_matches(config, workload_root, aggregate):
+            return False
+        if not all(
+            audit.get(field) is True
+            for field in (
+                "seed_batch_protocol_complete",
+                "seed_batch_event_identity_complete",
+                "seed_batch_execution_provenance_complete",
+                "seed_batch_temporal_order_complete",
+            )
+        ):
+            return False
+        if (
+            audit.get("cell_manifest_set_sha256")
+            != aggregate.get("cell_manifest_set_sha256")
+            or audit.get("aggregate_summary_sha256") != sha256_file(aggregate_path)
+        ):
+            return False
+    return True
+
+
 def _successful_attempt_matches_current_identity(
     config: Mapping[str, Any],
     workload_root: Path,
@@ -6138,16 +6238,41 @@ def _successful_attempt_matches_current_identity(
             return False
         if artifact_path is None:
             return True
+
+        baseline_terminal_binding = _is_baseline_matrix(config)
+        if baseline_terminal_binding and not _completed_workload_terminal_evidence_matches(
+            config, workload_root, source_commit=source_commit
+        ):
+            return False
         prefix = f"results/{expected_id}"
+        terminal_members = (
+            "source_provenance.json",
+            "prepare_manifest.json",
+            "scheduler/dynamic_run.json",
+            "aggregate/aggregate_summary.json",
+            "aggregate/plot_curve_points.csv",
+            "terminal_audit.json",
+            "run_manifest.json",
+            "scientific_run_manifest.json",
+            "RUN_COMPLETE.json",
+        )
         with zipfile.ZipFile(artifact_path) as archive:
             artifact_manifest = json.loads(archive.read("ARTIFACT_MANIFEST.json"))
             base_commit = archive.read("BASE_COMMIT.txt").decode("utf-8").strip()
-            run_manifest = json.loads(archive.read(f"{prefix}/run_manifest.json"))
+            outer_run_manifest = json.loads(archive.read(f"{prefix}/run_manifest.json"))
             packaged_provenance = json.loads(
                 archive.read(f"{prefix}/workload/source_provenance.json")
             )
             packaged_prepare = json.loads(
                 archive.read(f"{prefix}/workload/prepare_manifest.json")
+            )
+            packaged_terminal_payloads = (
+                {
+                    relative: archive.read(f"{prefix}/workload/{relative}")
+                    for relative in terminal_members
+                }
+                if baseline_terminal_binding
+                else {}
             )
     except (
         OSError,
@@ -6155,6 +6280,7 @@ def _successful_attempt_matches_current_identity(
         TypeError,
         KeyError,
         UnicodeDecodeError,
+        json.JSONDecodeError,
         zipfile.BadZipFile,
     ):
         return False
@@ -6162,24 +6288,35 @@ def _successful_attempt_matches_current_identity(
         isinstance(value, dict)
         for value in (
             artifact_manifest,
-            run_manifest,
+            outer_run_manifest,
             packaged_provenance,
             packaged_prepare,
         )
     ):
         return False
-    return (
+    if not (
         artifact_manifest.get("package_kind") == "experiment-raw-complete"
         and artifact_manifest.get("experiment_id") == expected_id
         and artifact_manifest.get("base_commit") == source_commit
         and base_commit == source_commit
-        and run_manifest.get("experiment_id") == expected_id
-        and run_manifest.get("base_commit") == source_commit
+        and outer_run_manifest.get("experiment_id") == expected_id
+        and outer_run_manifest.get("base_commit") == source_commit
         and packaged_provenance.get("source_commit") == source_commit
         and packaged_prepare.get("experiment_id") == expected_id
         and packaged_prepare.get("config_hash") == expected_hash
-    )
-
+    ):
+        return False
+    if baseline_terminal_binding:
+        for relative, packaged in packaged_terminal_payloads.items():
+            live = workload_root / relative
+            if not live.is_file():
+                return False
+            try:
+                if hashlib.sha256(packaged).hexdigest() != sha256_file(live):
+                    return False
+            except OSError:
+                return False
+    return True
 
 def _effective_recovery_config(
     config: Mapping[str, Any],
@@ -6318,14 +6455,14 @@ def _recovery_stage_plan(
     try:
         _load_prepared(output_root, config)
         prepare_complete = True
-    except Exception as exc:  # The plan records the exact fail-closed reason.
+    except Exception as exc:  # noqa: BLE001 - record any prepare failure fail-closed.
         prepare_complete = False
         prepare_error = f"{type(exc).__name__}: {exc}"
     if prepare_complete:
         try:
             _require_calibration_gate(config, output_root, base_model_path=base_model_path)
             calibration_complete = True
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - record any calibration failure.
             calibration_complete = False
             calibration_error = f"{type(exc).__name__}: {exc}"
     else:
@@ -6335,7 +6472,7 @@ def _recovery_stage_plan(
         try:
             _require_liveness_gate(config, output_root, base_model_path=base_model_path)
             liveness_complete = True
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - record any liveness failure.
             liveness_complete = False
             liveness_error = f"{type(exc).__name__}: {exc}"
     else:
@@ -6346,27 +6483,47 @@ def _recovery_stage_plan(
     cells_complete = len(reusable) == expected_cells
     aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
     aggregate_complete = False
+    aggregate_value: dict[str, Any] = {}
     if aggregate_path.is_file():
         try:
-            aggregate_complete = int(_read_json_object(aggregate_path).get("cell_count", 0)) == (
-                expected_cells
-            )
+            aggregate_value = _read_json_object(aggregate_path)
+            aggregate_complete = int(aggregate_value.get("cell_count", 0)) == expected_cells
+            if _is_baseline_matrix(config):
+                aggregate_complete = aggregate_complete and _baseline_aggregate_identity_matches(
+                    config, output_root, aggregate_value
+                )
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             aggregate_complete = False
     audit_path = output_root / "terminal_audit.json"
     audit_complete = False
+    audit_value: dict[str, Any] = {}
     if audit_path.is_file():
         try:
-            audit_complete = bool(
-                _read_json_object(audit_path).get("all_training_and_evaluation_complete")
-            )
+            audit_value = _read_json_object(audit_path)
+            audit_complete = bool(audit_value.get("all_training_and_evaluation_complete"))
+            if _is_baseline_matrix(config):
+                audit_complete = (
+                    audit_complete
+                    and aggregate_complete
+                    and audit_value.get("cell_manifest_set_sha256")
+                    == _cell_manifest_set_sha256(config, output_root)
+                    and audit_value.get("aggregate_summary_sha256")
+                    == sha256_file(aggregate_path)
+                )
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             audit_complete = False
     finalized = False
     complete_path = output_root / "RUN_COMPLETE.json"
     if complete_path.is_file():
         try:
-            finalized = bool(_read_json_object(complete_path).get("complete")) and audit_complete
+            complete_value = _read_json_object(complete_path)
+            finalized = bool(complete_value.get("complete")) and audit_complete
+            if _is_baseline_matrix(config):
+                finalized = (
+                    finalized
+                    and complete_value.get("terminal_audit_sha256") == sha256_file(audit_path)
+                    and complete_value.get("aggregate_sha256") == sha256_file(aggregate_path)
+                )
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             finalized = False
     if not prepare_complete:
@@ -7312,7 +7469,7 @@ def cmd_run_dynamic(
                             last_checkpoint_count = int(checkpoint["completed_cells"])
                             result["recovery_checkpoint"] = checkpoint["package"]
                             result["recovery_checkpoint_completed_cells"] = last_checkpoint_count
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - checkpoint failure is terminal.
                     result["returncode"] = 74
                     result["recovery_checkpoint_error"] = f"{type(exc).__name__}: {exc}"
             result["execution_origin"] = execution_origin
@@ -8008,6 +8165,45 @@ def _aggregate_coldstart_unranked(
     atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
     return summary
 
+def _cell_manifest_set_sha256(
+    config: Mapping[str, Any],
+    output_root: Path,
+) -> str:
+    """Hash the ordered exact cell-manifest bytes for terminal evidence binding."""
+
+    records = []
+    for cell in build_cells(config):
+        path = output_root / "cells" / cell.key / "cell_manifest.json"
+        if not path.is_file():
+            raise FileNotFoundError(f"Cell manifest is missing for evidence binding: {cell.key}")
+        records.append({"cell_key": cell.key, "sha256": sha256_file(path)})
+    return stable_hash(records)
+
+
+def _baseline_aggregate_identity_matches(
+    config: Mapping[str, Any],
+    output_root: Path,
+    aggregate: Mapping[str, Any],
+) -> bool:
+    """Verify that a baseline aggregate is bound to this source/config/cell set."""
+
+    if not _is_baseline_matrix(config):
+        return True
+    try:
+        provenance = _read_json_object(output_root / "source_provenance.json")
+        source_commit = str(provenance.get("source_commit", ""))
+        cell_set = _cell_manifest_set_sha256(config, output_root)
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return False
+    return (
+        aggregate.get("experiment_id") == experiment_id(config)
+        and aggregate.get("config_hash") == stable_config_hash(config)
+        and aggregate.get("source_commit") == source_commit
+        and int(aggregate.get("cell_count", -1)) == len(build_cells(config))
+        and aggregate.get("cell_manifest_set_sha256") == cell_set
+    )
+
+
 def _aggregate_coldstart_matrix_unranked(
     config: Mapping[str, Any],
     output_root: Path,
@@ -8096,6 +8292,8 @@ def _aggregate_coldstart_matrix_unranked(
         "experiment_id": experiment_id(config),
         "run_id": run_id,
         "source_commit": source_commit,
+        "config_hash": stable_config_hash(config),
+        "cell_manifest_set_sha256": _cell_manifest_set_sha256(config, output_root),
         "cell_count": len(rows),
         "plot_curve_point_count": len(plot_rows),
         "method": METHOD_BASELINE_MATRIX,
@@ -8172,7 +8370,9 @@ def _aggregate_coldstart(
         if (len(positive_rows), len(global_rows), len(exp_rows)) != expected_counts:
             raise RuntimeError(f"{task} cold-start cell counts differ from {expected_counts}")
 
-        def aggregate_group(group: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+        def aggregate_group(
+            group: Sequence[Mapping[str, Any]], task: str = task
+        ) -> dict[str, Any]:
             first = group[0]
             return {
                 "task": task,
@@ -8645,12 +8845,18 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             if _is_engineering_self_test(config)
             else ("NOT_RUN" if not any(cell.task == "countdown" for cell in cells) else "PASS")
         )
+        aggregate_value = (
+            _read_json_object(aggregate_path) if aggregate_path.is_file() else {}
+        )
         aggregate_complete = (
             aggregate_path.is_file()
-            and int(json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0))
-            == len(cells)
+            and int(aggregate_value.get("cell_count", 0)) == len(cells)
             and reproduction_gate_status == expected_protocol_status
         )
+        if _is_baseline_matrix(config):
+            aggregate_complete = aggregate_complete and _baseline_aggregate_identity_matches(
+                config, output_root, aggregate_value
+            )
     seed_batch_protocol_complete: bool | None = None
     seed_batch_event_identity_complete: bool | None = None
     seed_batch_execution_provenance_complete: bool | None = None
@@ -8798,6 +9004,19 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
                 seed_batch_temporal_order_complete = False
 
+    cell_manifest_set_sha256: str | None = None
+    aggregate_summary_sha256: str | None = None
+    if _is_baseline_matrix(config):
+        try:
+            if not missing:
+                cell_manifest_set_sha256 = _cell_manifest_set_sha256(config, output_root)
+            aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
+            if aggregate_path.is_file():
+                aggregate_summary_sha256 = sha256_file(aggregate_path)
+        except (OSError, ValueError, TypeError):
+            cell_manifest_set_sha256 = None
+            aggregate_summary_sha256 = None
+
     all_complete = (
         not missing
         and not incomplete
@@ -8825,6 +9044,8 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "cell_identity_failures": sorted(set(cell_identity_failures)),
         "scientific_execution_provenance_failures": sorted(set(scientific_execution_provenance_failures)),
         "dpo_reference_identity_failures": sorted(set(dpo_reference_identity_failures)),
+        "cell_manifest_set_sha256": cell_manifest_set_sha256,
+        "aggregate_summary_sha256": aggregate_summary_sha256,
         "seed_batch_protocol_complete": seed_batch_protocol_complete,
         "seed_batch_event_identity_complete": seed_batch_event_identity_complete,
         "seed_batch_execution_provenance_complete": seed_batch_execution_provenance_complete,
@@ -8913,6 +9134,15 @@ def _write_completion_manifests(
         or int(aggregate.get("cell_count", 0)) != expected_cells
     ):
         raise RuntimeError("Scheduler or aggregate is not terminal-complete")
+    if _is_baseline_matrix(config):
+        if not _baseline_aggregate_identity_matches(config, output_root, aggregate):
+            raise RuntimeError("Baseline aggregate is not bound to the current cell manifests")
+        if (
+            audit.get("cell_manifest_set_sha256")
+            != aggregate.get("cell_manifest_set_sha256")
+            or audit.get("aggregate_summary_sha256") != sha256_file(aggregate_path)
+        ):
+            raise RuntimeError("Baseline terminal audit is stale relative to aggregate/cell evidence")
     self_test = _is_engineering_self_test(config)
     run_manifest = {
         "schema_version": 1,
