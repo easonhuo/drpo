@@ -88,6 +88,10 @@ BOOTSTRAP_WAS_COMPLETE=0
 if [[ -e "${BOOTSTRAP_ROOT}" ]]; then
   [[ -d "${BOOTSTRAP_ROOT}" ]] || fail "bootstrap root exists but is not a directory"
   [[ -f "${STATE_FILE}" ]] || fail "existing bootstrap root has no identity state: ${STATE_FILE}"
+  if [[ ! -d "${CHECKOUT}" ]] && grep -Fqx "status=failed" "${STATE_FILE}"; then
+    mv "${BOOTSTRAP_ROOT}" "${BOOTSTRAP_ROOT}.failed.$(date +%Y%m%d%H%M%S).$$"
+    mkdir -p "${BOOTSTRAP_ROOT}"
+  else
   [[ -d "${CHECKOUT}" ]] || fail "existing bootstrap root has no isolated checkout: ${CHECKOUT}"
   state_experiment_id="$(
     sed -nE 's/^experiment_id=([A-Za-z0-9][A-Za-z0-9._-]{0,127})$/\1/p' "${STATE_FILE}"
@@ -108,6 +112,7 @@ if [[ -e "${BOOTSTRAP_ROOT}" ]]; then
     BOOTSTRAP_WAS_COMPLETE=1
   fi
   BOOTSTRAP_STATUS="recovering"
+  fi
 else
   mkdir -p "${BOOTSTRAP_ROOT}"
 fi
