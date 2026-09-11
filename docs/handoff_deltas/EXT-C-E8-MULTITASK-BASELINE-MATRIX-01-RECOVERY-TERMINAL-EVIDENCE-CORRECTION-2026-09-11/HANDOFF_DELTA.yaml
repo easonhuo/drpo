@@ -1,0 +1,122 @@
+schema_version: 3
+update_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01-RECOVERY-TERMINAL-EVIDENCE-CORRECTION-2026-09-11
+mode: authoritative
+base:
+  commit: 3bf8fa08eda676269bda26aa8d015fd56e9c11ff
+  handoff_sha256: 3e6f7c108b5e5621a00b1c1327a035ec25fda10a121ea855864dfb50d343fca9
+  registry_sha256: a20c80d5c467730b4c560604f5c695c86e52a1587e133b6ece76179887734720
+renderer_version: 1
+operations:
+- operation_id: append-e8-baseline-recovery-terminal-evidence-correction
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-multitask-baseline-recovery-terminal-evidence-correction-2026-09-11
+  content: '- **E8 multitask baseline recovery / terminal-evidence successor correction
+    (`EXT-C-E8-MULTITASK-BASELINE-MATRIX-01`)：**本条覆盖旧字段名可能造成的歧义，不改动已冻结的 176-cell 科学矩阵、8
+    个 transfer tasks、seeds `[4000,5000]`、AsymRE/TOPR/DPO 网格、1200-update horizon、optimizer
+    或 historical Countdown PR #268 DPO 语义。`scheduler/queue_events.jsonl` 的 wall-clock
+    时间明确**不**作为 seed chronology 科学证据；其职责仅为 exact cell identity、无重复/无缺失和 `execution_origin`
+    审计，因此 registry 中旧的 `seed_batch_temporal_event_history_check` 退役为 `false`。真正的 seed-4000→5000
+    时间顺序继续只由各 cell manifest 中持久化的 `scientific_execution_provenance.started_unix/successful_finish_unix`
+    证明。recovery reuse 按全局 seed chronology 计算：任一较早 seed 需要重跑时，所有较晚 seed 的旧 reuse 一并失效；reuse
+    必须保留原始 scientific provenance，禁止把 complete-but-reuse-invalid cell 重新打时间戳。终态证据链进一步
+    fail-closed：aggregate 绑定当前全部 cell-manifest bytes 与 deterministic aggregate CSV/diagnostic
+    bytes；terminal audit 绑定 aggregate、`scheduler/dynamic_run.json` 和 `queue_events.jsonl`
+    bytes；`RUN_COMPLETE.json` 继续绑定 audit/aggregate/scheduler evidence，completed-attempt
+    fast path 还要求 live terminal evidence 与 packaged workload 对应文件逐字节一致。任何 post-aggregate
+    / post-audit mutation 都必须使 recovery/finalize/reuse 退回到相应阶段。科学状态继续为 **not_run**，本修正既不启动实验，也不授予
+    merge/launch permission。'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: a964b7ad5dc89e1f100fffff84a7dc76869a954b65514c01e4a5c33afb2d5b88
+  changes:
+  - change_id: retire-queue-event-temporal-authority
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - terminal_audit
+    - seed_batch_temporal_event_history_check
+    from: true
+    to: false
+    reason: Queue-event wall time is not authoritative scientific seed chronology.
+    evidence: &id001
+    - docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md
+    - src/drpo/e8_multitask_exp_tuning.py
+    - tests/test_e8_multitask_p0.py
+    - experiments/registry.yaml
+  - change_id: record-global-recovery-reuse-scope
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - terminal_audit
+    - recovery_reuse_eligibility_scope
+    from: null
+    to: global_seed_chronology
+    reason: Recovery eligibility is evaluated across the ordered seed batches.
+    evidence: *id001
+  - change_id: record-later-seed-reuse-cascade
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - terminal_audit
+    - later_seed_reuse_requires_all_earlier_seed_reuse_eligible
+    from: null
+    to: true
+    reason: An earlier-seed rerun invalidates reuse of all later-seed old evidence.
+    evidence: *id001
+  - change_id: record-cell-manifest-set-binding
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - terminal_audit
+    - aggregate_cell_manifest_set_sha256_check
+    from: null
+    to: true
+    reason: Aggregate identity binds the exact ordered current cell-manifest set.
+    evidence: *id001
+  - change_id: record-aggregate-artifact-binding
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - terminal_audit
+    - aggregate_artifact_sha256_check
+    from: null
+    to: true
+    reason: Aggregate identity binds deterministic reporting CSV and diagnostic bytes.
+    evidence: *id001
+  - change_id: record-scheduler-manifest-binding
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - terminal_audit
+    - scheduler_dynamic_run_sha256_check
+    from: null
+    to: true
+    reason: Terminal audit binds scheduler/dynamic_run.json bytes.
+    evidence: *id001
+  - change_id: record-queue-event-binding
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - terminal_audit
+    - scheduler_queue_events_sha256_check
+    from: null
+    to: true
+    reason: Terminal audit binds scheduler/queue_events.jsonl bytes for identity/origin
+      audit.
+    evidence: *id001
+  - change_id: record-live-package-terminal-byte-binding
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - terminal_audit
+    - completed_attempt_live_vs_packaged_terminal_byte_check
+    from: null
+    to: true
+    reason: Completed-attempt reuse requires live terminal evidence to match packaged
+      bytes.
+    evidence: *id001
+expected:
+  exact_base_candidate_sha256: d4749f322970392d215c1814371dfce539989ae09d14e3abd0fdff2c03568c49

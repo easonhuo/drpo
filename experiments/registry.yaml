@@ -220,7 +220,7 @@ experiments:
     nan_inf_required_absent: true
     dpo_frozen_reference_identity_required: true
     seed_batch_summary_check: true
-    seed_batch_temporal_event_history_check: true
+    seed_batch_temporal_event_history_check: false
     seed_batch_event_cell_identity_check: exact_expected_cell_keys_no_duplicates
     temporal_event_source: scheduler/queue_events.jsonl
     queue_event_identity_source: scheduler/queue_events.jsonl
@@ -229,6 +229,13 @@ experiments:
     scientific_temporal_source: cells/*/cell_manifest.json::scientific_execution_provenance
     recovery_reuse_rule: preserve_original_scientific_execution_provenance
     temporal_condition: max_seed_4000_successful_finish_time_le_min_seed_5000_start_time
+    recovery_reuse_eligibility_scope: global_seed_chronology
+    later_seed_reuse_requires_all_earlier_seed_reuse_eligible: true
+    aggregate_cell_manifest_set_sha256_check: true
+    aggregate_artifact_sha256_check: true
+    scheduler_dynamic_run_sha256_check: true
+    scheduler_queue_events_sha256_check: true
+    completed_attempt_live_vs_packaged_terminal_byte_check: true
   reporting_separation:
   - task_performance
   - valid_or_structure_diagnostic
