@@ -6195,7 +6195,16 @@ def _completed_workload_terminal_evidence_matches(
         return False
 
     if _is_baseline_matrix(config):
-        if not _baseline_aggregate_identity_matches(config, workload_root, aggregate):
+        if not _baseline_terminal_audit_identity_matches(
+            config, workload_root, audit, aggregate
+        ):
+            return False
+        if (
+            complete.get("scheduler_dynamic_run_sha256")
+            != audit.get("scheduler_dynamic_run_sha256")
+            or complete.get("scheduler_queue_events_sha256")
+            != audit.get("scheduler_queue_events_sha256")
+        ):
             return False
         if not all(
             audit.get(field) is True
@@ -6249,8 +6258,12 @@ def _successful_attempt_matches_current_identity(
             "source_provenance.json",
             "prepare_manifest.json",
             "scheduler/dynamic_run.json",
+            "scheduler/queue_events.jsonl",
             "aggregate/aggregate_summary.json",
+            "aggregate/all_cells.csv",
             "aggregate/plot_curve_points.csv",
+            "aggregate/task_summary.csv",
+            "aggregate/countdown_protocol_diagnostic.json",
             "terminal_audit.json",
             "run_manifest.json",
             "scientific_run_manifest.json",
@@ -6502,13 +6515,9 @@ def _recovery_stage_plan(
             audit_value = _read_json_object(audit_path)
             audit_complete = bool(audit_value.get("all_training_and_evaluation_complete"))
             if _is_baseline_matrix(config):
-                audit_complete = (
-                    audit_complete
-                    and aggregate_complete
-                    and audit_value.get("cell_manifest_set_sha256")
-                    == _cell_manifest_set_sha256(config, output_root)
-                    and audit_value.get("aggregate_summary_sha256")
-                    == sha256_file(aggregate_path)
+                aggregate_value = _read_json_object(aggregate_path)
+                audit_complete = audit_complete and _baseline_terminal_audit_identity_matches(
+                    config, output_root, audit_value, aggregate_value
                 )
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             audit_complete = False
@@ -8165,6 +8174,24 @@ def _aggregate_coldstart_unranked(
     atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
     return summary
 
+BASELINE_AGGREGATE_BOUND_ARTIFACTS = (
+    "all_cells.csv",
+    "plot_curve_points.csv",
+    "task_summary.csv",
+    "countdown_protocol_diagnostic.json",
+)
+
+
+def _baseline_aggregate_artifact_sha256(output_root: Path) -> dict[str, str]:
+    """Hash deterministic baseline-matrix aggregate outputs used for reporting."""
+
+    aggregate_root = output_root / "aggregate"
+    return {
+        name: sha256_file(aggregate_root / name)
+        for name in BASELINE_AGGREGATE_BOUND_ARTIFACTS
+    }
+
+
 def _cell_manifest_set_sha256(
     config: Mapping[str, Any],
     output_root: Path,
@@ -8173,10 +8200,12 @@ def _cell_manifest_set_sha256(
 
     records = []
     for cell in build_cells(config):
-        path = output_root / "cells" / cell.key / "cell_manifest.json"
-        if not path.is_file():
-            raise FileNotFoundError(f"Cell manifest is missing for evidence binding: {cell.key}")
-        records.append({"cell_key": cell.key, "sha256": sha256_file(path)})
+        manifest_path = output_root / "cells" / cell.key / "cell_manifest.json"
+        if not manifest_path.is_file():
+            raise FileNotFoundError(
+                f"Cell manifest is missing for evidence binding: {cell.key}"
+            )
+        records.append({"cell_key": cell.key, "sha256": sha256_file(manifest_path)})
     return stable_hash(records)
 
 
@@ -8185,7 +8214,7 @@ def _baseline_aggregate_identity_matches(
     output_root: Path,
     aggregate: Mapping[str, Any],
 ) -> bool:
-    """Verify that a baseline aggregate is bound to this source/config/cell set."""
+    """Verify that a baseline aggregate is bound to source, config, cells, and outputs."""
 
     if not _is_baseline_matrix(config):
         return True
@@ -8193,16 +8222,76 @@ def _baseline_aggregate_identity_matches(
         provenance = _read_json_object(output_root / "source_provenance.json")
         source_commit = str(provenance.get("source_commit", ""))
         cell_set = _cell_manifest_set_sha256(config, output_root)
+        aggregate_artifacts = _baseline_aggregate_artifact_sha256(output_root)
+        cell_count = int(aggregate.get("cell_count", -1))
     except (OSError, ValueError, TypeError, json.JSONDecodeError):
         return False
     return (
         aggregate.get("experiment_id") == experiment_id(config)
         and aggregate.get("config_hash") == stable_config_hash(config)
         and aggregate.get("source_commit") == source_commit
-        and int(aggregate.get("cell_count", -1)) == len(build_cells(config))
+        and cell_count == len(build_cells(config))
         and aggregate.get("cell_manifest_set_sha256") == cell_set
+        and aggregate.get("aggregate_artifact_sha256") == aggregate_artifacts
     )
 
+
+def _baseline_terminal_audit_identity_matches(
+    config: Mapping[str, Any],
+    output_root: Path,
+    audit: Mapping[str, Any],
+    aggregate: Mapping[str, Any],
+) -> bool:
+    """Verify that a baseline terminal audit matches the exact evidence it audited."""
+
+    if not _is_baseline_matrix(config):
+        return True
+    try:
+        provenance = _read_json_object(output_root / "source_provenance.json")
+        source_commit = str(provenance.get("source_commit", ""))
+        expected_cells = len(build_cells(config))
+        aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
+        scheduler_path = output_root / "scheduler" / "dynamic_run.json"
+        event_path = output_root / "scheduler" / "queue_events.jsonl"
+        current_cell_set = _cell_manifest_set_sha256(config, output_root)
+        aggregate_sha = sha256_file(aggregate_path)
+        scheduler_sha = sha256_file(scheduler_path)
+        event_sha = sha256_file(event_path)
+        nan_inf_event_count = int(audit.get("nan_inf_event_count", -1))
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return False
+    empty_failure_fields = (
+        "missing_cells",
+        "incomplete_cells",
+        "nan_inf_cells",
+        "terminal_contract_failures",
+        "cell_identity_failures",
+        "scientific_execution_provenance_failures",
+        "dpo_reference_identity_failures",
+    )
+    return (
+        _baseline_aggregate_identity_matches(config, output_root, aggregate)
+        and audit.get("experiment_id") == experiment_id(config)
+        and audit.get("base_commit") == source_commit
+        and audit.get("expected_cells") == expected_cells
+        and audit.get("execution_class") == _execution_class(config)
+        and audit.get("scientific_status") == _audited_scientific_status(config, True)
+        and audit.get("all_training_and_evaluation_complete") is True
+        and audit.get("aggregate_complete") is True
+        and audit.get("test_partition_accessed") is False
+        and all(audit.get(field) == [] for field in empty_failure_fields)
+        and nan_inf_event_count == 0
+        and audit.get("seed_batch_protocol_complete") is True
+        and audit.get("seed_batch_event_identity_complete") is True
+        and audit.get("seed_batch_execution_provenance_complete") is True
+        and audit.get("seed_batch_temporal_order_complete") is True
+        and audit.get("cell_manifest_set_sha256") == current_cell_set
+        and audit.get("cell_manifest_set_sha256")
+        == aggregate.get("cell_manifest_set_sha256")
+        and audit.get("aggregate_summary_sha256") == aggregate_sha
+        and audit.get("scheduler_dynamic_run_sha256") == scheduler_sha
+        and audit.get("scheduler_queue_events_sha256") == event_sha
+    )
 
 def _aggregate_coldstart_matrix_unranked(
     config: Mapping[str, Any],
@@ -8271,6 +8360,11 @@ def _aggregate_coldstart_matrix_unranked(
         summary_rows.append(summary_row)
     _write_csv(output_root / "aggregate" / "task_summary.csv", summary_rows)
 
+    protocol_diagnostic = _countdown_protocol_diagnostic(
+        config,
+        output_root,
+        destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
+    )
     method_metadata = {
         METHOD_ASYMRE: _canonical_baseline_grid_identity(METHOD_ASYMRE),
         METHOD_TOPR: _canonical_baseline_grid_identity(METHOD_TOPR),
@@ -8294,6 +8388,7 @@ def _aggregate_coldstart_matrix_unranked(
         "source_commit": source_commit,
         "config_hash": stable_config_hash(config),
         "cell_manifest_set_sha256": _cell_manifest_set_sha256(config, output_root),
+        "aggregate_artifact_sha256": _baseline_aggregate_artifact_sha256(output_root),
         "cell_count": len(rows),
         "plot_curve_point_count": len(plot_rows),
         "method": METHOD_BASELINE_MATRIX,
@@ -8303,11 +8398,7 @@ def _aggregate_coldstart_matrix_unranked(
         "transfer_seed_offsets": list(experiment_config.task_transfer_seeds(config)),
         "tasks": task_summaries,
         "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
-        "countdown_protocol_diagnostic": _countdown_protocol_diagnostic(
-            config,
-            output_root,
-            destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
-        ),
+        "countdown_protocol_diagnostic": protocol_diagnostic,
         "countdown_result_gate": False,
         "primary_metric": "validation_late_window_pass8_mean",
         "parameter_selection_deferred_to_reviewed_protocol": True,
@@ -9006,16 +9097,26 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
 
     cell_manifest_set_sha256: str | None = None
     aggregate_summary_sha256: str | None = None
+    scheduler_dynamic_run_sha256: str | None = None
+    scheduler_queue_events_sha256: str | None = None
     if _is_baseline_matrix(config):
         try:
             if not missing:
                 cell_manifest_set_sha256 = _cell_manifest_set_sha256(config, output_root)
             aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
+            scheduler_path = output_root / "scheduler" / "dynamic_run.json"
+            event_path = output_root / "scheduler" / "queue_events.jsonl"
             if aggregate_path.is_file():
                 aggregate_summary_sha256 = sha256_file(aggregate_path)
+            if scheduler_path.is_file():
+                scheduler_dynamic_run_sha256 = sha256_file(scheduler_path)
+            if event_path.is_file():
+                scheduler_queue_events_sha256 = sha256_file(event_path)
         except (OSError, ValueError, TypeError):
             cell_manifest_set_sha256 = None
             aggregate_summary_sha256 = None
+            scheduler_dynamic_run_sha256 = None
+            scheduler_queue_events_sha256 = None
 
     all_complete = (
         not missing
@@ -9046,6 +9147,8 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "dpo_reference_identity_failures": sorted(set(dpo_reference_identity_failures)),
         "cell_manifest_set_sha256": cell_manifest_set_sha256,
         "aggregate_summary_sha256": aggregate_summary_sha256,
+        "scheduler_dynamic_run_sha256": scheduler_dynamic_run_sha256,
+        "scheduler_queue_events_sha256": scheduler_queue_events_sha256,
         "seed_batch_protocol_complete": seed_batch_protocol_complete,
         "seed_batch_event_identity_complete": seed_batch_event_identity_complete,
         "seed_batch_execution_provenance_complete": seed_batch_execution_provenance_complete,
@@ -9134,15 +9237,12 @@ def _write_completion_manifests(
         or int(aggregate.get("cell_count", 0)) != expected_cells
     ):
         raise RuntimeError("Scheduler or aggregate is not terminal-complete")
-    if _is_baseline_matrix(config):
-        if not _baseline_aggregate_identity_matches(config, output_root, aggregate):
-            raise RuntimeError("Baseline aggregate is not bound to the current cell manifests")
-        if (
-            audit.get("cell_manifest_set_sha256")
-            != aggregate.get("cell_manifest_set_sha256")
-            or audit.get("aggregate_summary_sha256") != sha256_file(aggregate_path)
-        ):
-            raise RuntimeError("Baseline terminal audit is stale relative to aggregate/cell evidence")
+    if _is_baseline_matrix(config) and not _baseline_terminal_audit_identity_matches(
+        config, output_root, audit, aggregate
+    ):
+        raise RuntimeError(
+            "Baseline terminal audit is stale or inconsistent with current terminal evidence"
+        )
     self_test = _is_engineering_self_test(config)
     run_manifest = {
         "schema_version": 1,
@@ -9163,18 +9263,23 @@ def _write_completion_manifests(
     }
     atomic_json(output_root / "run_manifest.json", run_manifest)
     atomic_json(output_root / "scientific_run_manifest.json", run_manifest)
-    atomic_json(
-        output_root / "RUN_COMPLETE.json",
-        {
-            **run_manifest,
-            "all_training_and_evaluation_complete": bool(
-                audit["all_training_and_evaluation_complete"]
-            ),
-            "terminal_audit_sha256": sha256_file(output_root / "terminal_audit.json"),
-            "aggregate_sha256": sha256_file(aggregate_path),
-            "complete": True,
-        },
-    )
+    completion = {
+        **run_manifest,
+        "all_training_and_evaluation_complete": bool(
+            audit["all_training_and_evaluation_complete"]
+        ),
+        "terminal_audit_sha256": sha256_file(output_root / "terminal_audit.json"),
+        "aggregate_sha256": sha256_file(aggregate_path),
+        "complete": True,
+    }
+    if _is_baseline_matrix(config):
+        completion.update(
+            {
+                "scheduler_dynamic_run_sha256": audit["scheduler_dynamic_run_sha256"],
+                "scheduler_queue_events_sha256": audit["scheduler_queue_events_sha256"],
+            }
+        )
+    atomic_json(output_root / "RUN_COMPLETE.json", completion)
 
 
 def _result_payload_paths(output_root: Path, excluded_parts: set[str]) -> list[Path]:

@@ -4303,8 +4303,14 @@ def test_formal_terminal_status_requires_full_terminal_contract(tmp_path: Path) 
                     }
                 )
             p0.atomic_json(tmp_path / "cells" / cell.key / "cell_manifest.json", value)
+    aggregate_root = tmp_path / "aggregate"
+    aggregate_root.mkdir(parents=True, exist_ok=True)
+    (aggregate_root / "all_cells.csv").write_text("cell_key\n", encoding="utf-8")
+    (aggregate_root / "plot_curve_points.csv").write_text("cell_key\n", encoding="utf-8")
+    (aggregate_root / "task_summary.csv").write_text("task\n", encoding="utf-8")
+    p0.atomic_json(aggregate_root / "countdown_protocol_diagnostic.json", {"status": "NOT_RUN"})
     p0.atomic_json(
-        tmp_path / "aggregate" / "aggregate_summary.json",
+        aggregate_root / "aggregate_summary.json",
         {
             "schema_version": 1,
             "experiment_id": exp_tuning.experiment_id(config),
@@ -4312,10 +4318,8 @@ def test_formal_terminal_status_requires_full_terminal_contract(tmp_path: Path) 
             "config_hash": config_hash,
             "cell_count": 176,
             "cell_manifest_set_sha256": exp_tuning._cell_manifest_set_sha256(config, tmp_path),
+            "aggregate_artifact_sha256": exp_tuning._baseline_aggregate_artifact_sha256(tmp_path),
         },
-    )
-    p0.atomic_json(
-        tmp_path / "aggregate" / "countdown_protocol_diagnostic.json", {"status": "NOT_RUN"}
     )
     p0.atomic_json(
         tmp_path / "scheduler" / "dynamic_run.json",
@@ -4866,16 +4870,24 @@ def test_completed_workload_terminal_evidence_rejects_stale_hash_chain(
                 "engineering_placeholder_backend": True,
             },
         )
+    aggregate_root = tmp_path / "aggregate"
+    aggregate_root.mkdir(parents=True, exist_ok=True)
+    (aggregate_root / "all_cells.csv").write_text("cell_key\n", encoding="utf-8")
+    (aggregate_root / "plot_curve_points.csv").write_text("cell_key\n", encoding="utf-8")
+    (aggregate_root / "task_summary.csv").write_text("task\n", encoding="utf-8")
+    p0.atomic_json(
+        aggregate_root / "countdown_protocol_diagnostic.json",
+        {"status": "NOT_RUN_ENGINEERING"},
+    )
     aggregate = {
         "experiment_id": exp_tuning.experiment_id(config),
         "source_commit": source_commit,
         "config_hash": exp_tuning.stable_config_hash(config),
         "cell_count": expected_cells,
         "cell_manifest_set_sha256": exp_tuning._cell_manifest_set_sha256(config, tmp_path),
+        "aggregate_artifact_sha256": exp_tuning._baseline_aggregate_artifact_sha256(tmp_path),
     }
-    p0.atomic_json(tmp_path / "aggregate" / "aggregate_summary.json", aggregate)
-    (tmp_path / "aggregate" / "plot_curve_points.csv").write_text("cell_key\
-", encoding="utf-8")
+    p0.atomic_json(aggregate_root / "aggregate_summary.json", aggregate)
     p0.atomic_json(
         tmp_path / "scheduler" / "dynamic_run.json",
         {
@@ -4888,12 +4900,24 @@ def test_completed_workload_terminal_evidence_rejects_stale_hash_chain(
             "complete": True,
         },
     )
+    (tmp_path / "scheduler" / "queue_events.jsonl").write_text("{}\n", encoding="utf-8")
     audit = {
         "experiment_id": exp_tuning.experiment_id(config),
         "base_commit": source_commit,
         "expected_cells": expected_cells,
+        "missing_cells": [],
+        "incomplete_cells": [],
+        "nan_inf_cells": [],
+        "terminal_contract_failures": [],
+        "cell_identity_failures": [],
+        "scientific_execution_provenance_failures": [],
+        "dpo_reference_identity_failures": [],
+        "nan_inf_event_count": 0,
         "all_training_and_evaluation_complete": True,
+        "aggregate_complete": True,
         "test_partition_accessed": False,
+        "execution_class": exp_tuning._execution_class(config),
+        "scientific_status": exp_tuning._audited_scientific_status(config, True),
         "seed_batch_protocol_complete": True,
         "seed_batch_event_identity_complete": True,
         "seed_batch_execution_provenance_complete": True,
@@ -4901,6 +4925,12 @@ def test_completed_workload_terminal_evidence_rejects_stale_hash_chain(
         "cell_manifest_set_sha256": aggregate["cell_manifest_set_sha256"],
         "aggregate_summary_sha256": exp_tuning.sha256_file(
             tmp_path / "aggregate" / "aggregate_summary.json"
+        ),
+        "scheduler_dynamic_run_sha256": exp_tuning.sha256_file(
+            tmp_path / "scheduler" / "dynamic_run.json"
+        ),
+        "scheduler_queue_events_sha256": exp_tuning.sha256_file(
+            tmp_path / "scheduler" / "queue_events.jsonl"
         ),
     }
     p0.atomic_json(tmp_path / "terminal_audit.json", audit)
@@ -4924,6 +4954,8 @@ def test_completed_workload_terminal_evidence_rejects_stale_hash_chain(
             "aggregate_sha256": exp_tuning.sha256_file(
                 tmp_path / "aggregate" / "aggregate_summary.json"
             ),
+            "scheduler_dynamic_run_sha256": audit["scheduler_dynamic_run_sha256"],
+            "scheduler_queue_events_sha256": audit["scheduler_queue_events_sha256"],
             "complete": True,
         },
     )
@@ -4937,3 +4969,68 @@ def test_completed_workload_terminal_evidence_rejects_stale_hash_chain(
     assert not exp_tuning._completed_workload_terminal_evidence_matches(
         config, tmp_path, source_commit=source_commit
     )
+
+
+
+def test_baseline_terminal_chain_rejects_post_audit_scheduler_and_derived_mutation(
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")
+    source_commit = "e" * 40
+    root = tmp_path / "terminal-chain"
+    result = exp_tuning.cmd_engineering_self_test(config, root, source_commit=source_commit)
+    assert result["complete"] is True
+    effective = exp_tuning.load_config(root / "engineering_self_test_config.yaml")
+    aggregate_path = root / "aggregate" / "aggregate_summary.json"
+    audit_path = root / "terminal_audit.json"
+    aggregate = json.loads(aggregate_path.read_text(encoding="utf-8"))
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    assert exp_tuning._baseline_aggregate_identity_matches(effective, root, aggregate)
+    assert exp_tuning._baseline_terminal_audit_identity_matches(
+        effective, root, audit, aggregate
+    )
+    assert exp_tuning._completed_workload_terminal_evidence_matches(
+        effective, root, source_commit=source_commit
+    )
+
+    plot_path = root / "aggregate" / "plot_curve_points.csv"
+    plot_bytes = plot_path.read_bytes()
+    plot_path.write_bytes(plot_bytes + b"tampered\n")
+    assert not exp_tuning._baseline_aggregate_identity_matches(effective, root, aggregate)
+    plan = exp_tuning._recovery_stage_plan(
+        effective,
+        root,
+        base_model_path=str(root / "engineering_fixtures" / "placeholder_model"),
+    )
+    assert plan["aggregate_complete"] is False
+    assert plan["audit_complete"] is False
+    assert plan["finalized"] is False
+    plot_path.write_bytes(plot_bytes)
+
+    event_path = root / "scheduler" / "queue_events.jsonl"
+    event_bytes = event_path.read_bytes()
+    event_path.write_bytes(event_bytes + b"{}\n")
+    aggregate = json.loads(aggregate_path.read_text(encoding="utf-8"))
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    assert not exp_tuning._baseline_terminal_audit_identity_matches(
+        effective, root, audit, aggregate
+    )
+    assert not exp_tuning._completed_workload_terminal_evidence_matches(
+        effective, root, source_commit=source_commit
+    )
+    plan = exp_tuning._recovery_stage_plan(
+        effective,
+        root,
+        base_model_path=str(root / "engineering_fixtures" / "placeholder_model"),
+    )
+    assert plan["audit_complete"] is False
+    assert plan["finalized"] is False
+    event_path.write_bytes(event_bytes)
+
+    stale_audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    stale_audit["base_commit"] = "f" * 40
+    p0.atomic_json(audit_path, stale_audit)
+    with pytest.raises(RuntimeError, match="stale or inconsistent"):
+        exp_tuning.cmd_finalize(effective, root)
