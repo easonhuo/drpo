@@ -155,3 +155,12 @@ The owner requested continued fail-closed review and repair before any scientifi
 For the formal baseline matrix, the terminal aggregate must additionally bind the exact current set of 176 cell-manifest bytes through an ordered content fingerprint. Terminal audit and recovery stage planning must verify that binding before treating aggregate/audit/finalize as complete. A post-aggregate cell-manifest change therefore invalidates the aggregate and all downstream completion markers until aggregation and audit are rerun. `RUN_COMPLETE.json` must remain hash-bound to the terminal audit and aggregate that it certifies.
 
 This is engineering/evidence hardening only. It changes no task, seed, AsymRE/TOPR/DPO hyperparameter, 1,200-update horizon, optimizer, evaluator, DPO initialization, historical PR #268 DPO mathematics, method ranking policy, or scientific status. The 176-cell experiment remains **not_run**.
+
+
+## Terminal chain mutation closure (2026-09-11)
+
+Continued pre-run review found that the already-authorized terminal-evidence contract must bind not only the aggregate to the exact cell-manifest set, but also the terminal audit to the exact scheduler result/event bytes it audited and the aggregate summary to its user-facing derived CSV/diagnostic files. Otherwise a post-audit scheduler-event mutation, or a post-aggregate derived-output mutation, could leave stale downstream completion markers apparently usable.
+
+For the formal baseline matrix, `aggregate_summary.json` therefore records and revalidates SHA-256 for `all_cells.csv`, `plot_curve_points.csv`, `task_summary.csv`, and `countdown_protocol_diagnostic.json`. `terminal_audit.json` records and revalidates SHA-256 for `scheduler/dynamic_run.json` and `scheduler/queue_events.jsonl`, in addition to its existing cell-manifest-set and aggregate-summary bindings. Recovery planning, finalize/package completion markers, and successful-attempt reuse must reject stale or mutated members of this chain. Packaged completed-attempt reuse must byte-match these bound scheduler and aggregate artifacts to the live workload.
+
+This closes the already-approved exact scheduler-event identity and terminal evidence binding requirements; it introduces no new scientific threshold or experiment responsibility. The 176 cells, seeds `[4000,5000]`, hard seed barrier, AsymRE/TOPR/DPO grids, 1,200-update horizon, optimizer/evaluator settings, historical PR #268 DPO semantics, and **not_run** status are unchanged.
