@@ -1,0 +1,103 @@
+name: tmp-e8-bootstrap-retry-fix
+
+on:
+  push:
+    branches:
+      - dev/e8-baseline-matrix-launchable-50cd-01-min5
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-commit:
+    if: github.event.head_commit.message == 'ci: apply E8 bootstrap retry fix'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-baseline-matrix-launchable-50cd-01-min5
+          fetch-depth: 0
+
+      - name: Apply minimal retry fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/bootstrap_e8_multitask_exp_coldstart.sh')
+          text = path.read_text(encoding='utf-8')
+          old_head = '''  [[ -d "${CHECKOUT}" ]] || fail "existing bootstrap root has no isolated checkout: ${CHECKOUT}"
+  state_experiment_id="$(
+'''
+          new_head = '''  if [[ ! -d "${CHECKOUT}" ]] && grep -Fqx "status=failed" "${STATE_FILE}"; then
+    mv "${BOOTSTRAP_ROOT}" "${BOOTSTRAP_ROOT}.failed.$(date +%Y%m%d%H%M%S).$$"
+    mkdir -p "${BOOTSTRAP_ROOT}"
+  else
+  [[ -d "${CHECKOUT}" ]] || fail "existing bootstrap root has no isolated checkout: ${CHECKOUT}"
+  state_experiment_id="$(
+'''
+          old_tail = '''  BOOTSTRAP_STATUS="recovering"
+else
+  mkdir -p "${BOOTSTRAP_ROOT}"
+fi
+'''
+          new_tail = '''  BOOTSTRAP_STATUS="recovering"
+  fi
+else
+  mkdir -p "${BOOTSTRAP_ROOT}"
+fi
+'''
+          assert text.count(old_head) == 1, text.count(old_head)
+          assert text.count(old_tail) == 1, text.count(old_tail)
+          text = text.replace(old_head, new_head, 1).replace(old_tail, new_tail, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Validate targeted retry behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/bootstrap_e8_multitask_exp_coldstart.sh
+          git diff --check
+          test "$(git diff --numstat -- scripts/bootstrap_e8_multitask_exp_coldstart.sh | awk '{print $1}')" = "5"
+          test "$(git diff --numstat -- scripts/bootstrap_e8_multitask_exp_coldstart.sh | awk '{print $2}')" = "0"
+
+          tmp="$(mktemp -d)"
+          root="${tmp}/bootstrap"
+          mkdir -p "${root}"
+          cat >"${root}/BOOTSTRAP_STATE.env" <<'EOF'
+          experiment_id=UNRESOLVED_FROM_CONFIG
+          mode=full
+          status=failed
+          stage=fetch_authoritative_ref
+          EOF
+
+          set +e
+          E8_COLDSTART_BOOTSTRAP_ROOT="${root}" \
+          E8_COLDSTART_EXISTING_REPO="${GITHUB_WORKSPACE}" \
+          E8_COLDSTART_TARGET_REF=refs/heads/__e8_retry_test_missing_ref__ \
+          bash scripts/bootstrap_e8_multitask_exp_coldstart.sh full \
+          >"${tmp}/retry.log" 2>&1
+          rc=$?
+          set -e
+
+          test "${rc}" -ne 0
+          test -d "${root}"
+          compgen -G "${root}.failed.*" >/dev/null
+          grep -Fqx 'status=failed' "${root}/BOOTSTRAP_STATE.env"
+          ! grep -Fq 'existing bootstrap root has no isolated checkout' "${tmp}/retry.log"
+          rm -rf "${tmp}"
+
+      - name: Commit only the reviewed fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/tmp-e8-bootstrap-retry-fix.yml
+          git config user.name 'easonhuo'
+          git config user.email 'huoyusen1@126.com'
+          test "$(git diff --name-only HEAD~0 -- | sort | tr '\n' ' ')" = "scripts/bootstrap_e8_multitask_exp_coldstart.sh " || true
+          git add scripts/bootstrap_e8_multitask_exp_coldstart.sh
+          git diff --cached --check
+          git commit -m 'fix: retry E8 bootstrap after early failure'
+          git push origin HEAD:dev/e8-baseline-matrix-launchable-50cd-01-min5
