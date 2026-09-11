@@ -208,7 +208,7 @@ SOURCE_COMMIT="$(git -C "${SOURCE_REPO}" rev-parse 'HEAD^{commit}')" || \
 
 resolve_target_ref() {
   if [[ "${MODE}" == "full" ]]; then
-    TARGET_REF="${E8_COLDSTART_TARGET_REF:-refs/heads/dev/e8-baseline-matrix-launchable-50cd-01-min5}"
+    TARGET_REF="${E8_COLDSTART_TARGET_REF:-refs/heads/main}"
     git check-ref-format "${TARGET_REF}" >/dev/null 2>&1 ||       fail "invalid full target ref: ${TARGET_REF}"
     [[ "${TARGET_REF}" == refs/heads/* ]] ||       fail "full target ref must be under refs/heads/: ${TARGET_REF}"
     LOCAL_FETCH_REF="refs/e8-coldstart-bootstrap/full-target"
