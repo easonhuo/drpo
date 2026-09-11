@@ -44,6 +44,12 @@ if text.count(nested) != 1:
     raise SystemExit(f'finalize nested guard count={text.count(nested)}')
 text = text.replace(nested, combined, 1)
 
+# The preflight script imports the package from src/ without installing it.
+text = text.replace(
+    'python scripts/preflight_e8_multitask_config.py --config configs/e8_multitask_baseline_matrix_formal.yaml',
+    'PYTHONPATH=src python scripts/preflight_e8_multitask_config.py --config configs/e8_multitask_baseline_matrix_formal.yaml',
+    1,
+)
 text = text.replace(
     'git rm .github/workflows/tmp_e8_terminal_binding_round2.sh .github/workflows/tmp_e8_terminal_binding_round2.yml',
     'git rm .github/workflows/tmp_e8_terminal_binding_round2.sh .github/workflows/tmp_e8_terminal_binding_round2_fix.sh .github/workflows/tmp_e8_terminal_binding_round2.yml',
