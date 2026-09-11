@@ -23,6 +23,27 @@ text = text[:aggregate_start] + aggregate_fixture + text[scheduler_start:]
 
 '''
 text = text[:start] + replacement + text[end:]
+
+# Ruff SIM102: make the generated finalize guard one combined condition.
+nested = '''new = ''' + "'''" + '''    if _is_baseline_matrix(config):
+        if not _baseline_terminal_audit_identity_matches(
+            config, output_root, audit, aggregate
+        ):
+            raise RuntimeError(
+                \"Baseline terminal audit is stale or inconsistent with current terminal evidence\"
+            )
+''' + "'''"
+combined = '''new = ''' + "'''" + '''    if _is_baseline_matrix(config) and not _baseline_terminal_audit_identity_matches(
+        config, output_root, audit, aggregate
+    ):
+        raise RuntimeError(
+            \"Baseline terminal audit is stale or inconsistent with current terminal evidence\"
+        )
+''' + "'''"
+if text.count(nested) != 1:
+    raise SystemExit(f'finalize nested guard count={text.count(nested)}')
+text = text.replace(nested, combined, 1)
+
 text = text.replace(
     'git rm .github/workflows/tmp_e8_terminal_binding_round2.sh .github/workflows/tmp_e8_terminal_binding_round2.yml',
     'git rm .github/workflows/tmp_e8_terminal_binding_round2.sh .github/workflows/tmp_e8_terminal_binding_round2_fix.sh .github/workflows/tmp_e8_terminal_binding_round2.yml',
