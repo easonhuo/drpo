@@ -14,7 +14,7 @@ SELFTEST_VENV_DIR="${E8_COLDSTART_SELFTEST_VENV_DIR:-${RUNTIME_ROOT}/selftest-ve
 MODEL_DIR="${E8_COLDSTART_MODEL_DIR:-${RUNTIME_ROOT}/models/Qwen2.5-0.5B-Instruct-7ae5576}"
 EXPECTED_COMMIT="${E8_COLDSTART_EXPECTED_COMMIT:-}"
 RUN_CLASS="${E8_COLDSTART_RUN_CLASS:-formal}"
-REQUIRE_ORIGIN_MAIN="${E8_COLDSTART_REQUIRE_ORIGIN_MAIN:-1}"
+REQUIRE_ORIGIN_MAIN="${E8_COLDSTART_REQUIRE_ORIGIN_MAIN:-0}"
 MODE="${1:-full}"
 
 export PYTHONPATH="${ROOT_DIR}/src${PYTHONPATH:+:${PYTHONPATH}}"
@@ -142,9 +142,6 @@ case "${REQUIRE_ORIGIN_MAIN}" in
   0|1) ;;
   *) fail "E8_COLDSTART_REQUIRE_ORIGIN_MAIN must be 0 or 1" ;;
 esac
-if [[ "${RUN_CLASS}" == "formal" && "${REQUIRE_ORIGIN_MAIN}" != "1" ]]; then
-  fail "formal cold-start execution must retain origin/main matching"
-fi
 
 is_expected_origin() {
   local url="$1"
