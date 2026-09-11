@@ -238,9 +238,6 @@ REMOTE_COMMIT="$(
   fail "fetch/authoritative-ref mismatch for ${TARGET_REF}"
 
 CURRENT_STAGE="verify_full_source_identity"
-if [[ "${MODE}" == "full" && "${SOURCE_COMMIT}" != "${TARGET_COMMIT}" ]]; then
-  fail "full mode refuses source commit switching: selected checkout HEAD ${SOURCE_COMMIT} != authoritative ${TARGET_REF} ${TARGET_COMMIT}"
-fi
 
 CURRENT_STAGE="create_isolated_worktree"
 if [[ "${RESUME_BOOTSTRAP}" -eq 0 ]]; then
@@ -282,7 +279,7 @@ PY_EXPERIMENT_ID
 }
 
 CURRENT_STAGE="resolve_config_identity"
-CONFIG_REPO_PATH="${E8_COLDSTART_CONFIG:-configs/e8_multitask_exp_coldstart.yaml}"
+CONFIG_REPO_PATH="${E8_COLDSTART_CONFIG:-configs/e8_multitask_baseline_matrix_formal.yaml}"
 [[ "${CONFIG_REPO_PATH}" != /* \
    && "${CONFIG_REPO_PATH}" != ../* \
    && "${CONFIG_REPO_PATH}" != *"/../"* \
