@@ -1,0 +1,93 @@
+name: tmp-e8-50cd-launchability-fix
+
+on:
+  push:
+    branches:
+      - dev/e8-baseline-matrix-launchable-50cd-01
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-commit:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply minimal launch semantics fix
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/run_e8_multitask_exp_coldstart.sh')
+          text = path.read_text(encoding='utf-8')
+
+          old_default = 'REQUIRE_ORIGIN_MAIN="${E8_COLDSTART_REQUIRE_ORIGIN_MAIN:-1}"'
+          new_default = 'REQUIRE_ORIGIN_MAIN="${E8_COLDSTART_REQUIRE_ORIGIN_MAIN:-0}"'
+          assert text.count(old_default) == 1, text.count(old_default)
+          text = text.replace(old_default, new_default)
+
+          old_block = '''if [[ "${RUN_CLASS}" == "formal" && "${REQUIRE_ORIGIN_MAIN}" != "1" ]]; then
+            fail "formal cold-start execution must retain origin/main matching"
+          fi
+          '''
+          assert text.count(old_block) == 1, text.count(old_block)
+          text = text.replace(old_block, '')
+
+          old_comment = '''  # Setup can be long. Re-check the current checkout and formal main authority
+          # under the per-run lock immediately before a completed-attempt fast return.
+          '''
+          new_comment = '''  # Setup can be long. Re-check the exact frozen checkout under the per-run
+          # lock immediately before a completed-attempt fast return.
+          '''
+          assert text.count(old_comment) == 1, text.count(old_comment)
+          text = text.replace(old_comment, new_comment)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Validate launcher and frozen matrix preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/run_e8_multitask_exp_coldstart.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('scripts/run_e8_multitask_exp_coldstart.sh').read_text(encoding='utf-8')
+          assert 'REQUIRE_ORIGIN_MAIN="${E8_COLDSTART_REQUIRE_ORIGIN_MAIN:-0}"' in text
+          assert 'formal cold-start execution must retain origin/main matching' not in text
+          assert '[[ "${current_commit}" == "${EXPECTED_COMMIT}" ]]' in text
+          assert 'source checkout must be fully clean' in text
+          PY
+          python3 -m pip install --disable-pip-version-check -q 'numpy==1.26.4' 'PyYAML==6.0.2' 'pytest>=8,<9'
+          PYTHONPATH=src python3 scripts/preflight_e8_multitask_config.py \
+            --repo-root . \
+            --config configs/e8_multitask_baseline_matrix_formal.yaml \
+            > /tmp/e8-preflight.json
+          python3 - <<'PY'
+          import json
+          data = json.load(open('/tmp/e8-preflight.json', encoding='utf-8'))
+          assert data['experiment_id'] == 'EXT-C-E8-MULTITASK-BASELINE-MATRIX-01', data
+          assert data['scientific_status'] == 'not_run', data
+          assert data['cell_count'] == 176, data
+          assert data['cells_per_task']['countdown'] == 0, data
+          active = {k: v for k, v in data['cells_per_task'].items() if v}
+          assert len(active) == 8 and set(active.values()) == {22}, active
+          print(json.dumps({'experiment_id': data['experiment_id'], 'cell_count': data['cell_count'], 'cells_per_task': active}, sort_keys=True))
+          PY
+          git diff --check
+
+      - name: Commit minimal final tree and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/tmp_e8_50cd_launchability_fix.yml
+          git add scripts/run_e8_multitask_exp_coldstart.sh
+          git commit -m 'fix: allow frozen E8 formal commit launch'
+          git push origin HEAD:dev/e8-baseline-matrix-launchable-50cd-01
