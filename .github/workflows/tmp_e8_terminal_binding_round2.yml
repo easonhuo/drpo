@@ -1,0 +1,610 @@
+name: Temporary E8 terminal chain closure round2
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-baselines-capability-01
+    paths:
+      - .github/workflows/tmp_e8_terminal_binding_round2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-baselines-capability-01
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Install validation dependencies
+        run: python -m pip install pyyaml pytest ruff numpy
+      - name: Document, repair, validate, and clean transport
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md')
+          text = path.read_text(encoding='utf-8')
+          marker = '## Terminal chain mutation closure (2026-09-11)'
+          if marker not in text:
+              text += '''\n\n## Terminal chain mutation closure (2026-09-11)\n\nContinued pre-run review found that the already-authorized terminal-evidence contract must bind not only the aggregate to the exact cell-manifest set, but also the terminal audit to the exact scheduler result/event bytes it audited and the aggregate summary to its user-facing derived CSV/diagnostic files. Otherwise a post-audit scheduler-event mutation, or a post-aggregate derived-output mutation, could leave stale downstream completion markers apparently usable.\n\nFor the formal baseline matrix, `aggregate_summary.json` therefore records and revalidates SHA-256 for `all_cells.csv`, `plot_curve_points.csv`, `task_summary.csv`, and `countdown_protocol_diagnostic.json`. `terminal_audit.json` records and revalidates SHA-256 for `scheduler/dynamic_run.json` and `scheduler/queue_events.jsonl`, in addition to its existing cell-manifest-set and aggregate-summary bindings. Recovery planning, finalize/package completion markers, and successful-attempt reuse must reject stale or mutated members of this chain. Packaged completed-attempt reuse must byte-match these bound scheduler and aggregate artifacts to the live workload.\n\nThis closes the already-approved exact scheduler-event identity and terminal evidence binding requirements; it introduces no new scientific threshold or experiment responsibility. The 176 cells, seeds `[4000,5000]`, hard seed barrier, AsymRE/TOPR/DPO grids, 1,200-update horizon, optimizer/evaluator settings, historical PR #268 DPO semantics, and **not_run** status are unchanged.\n'''
+              path.write_text(text, encoding='utf-8')
+          PY
+          git add docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md
+          git diff --cached --check
+          git commit -m 'docs: close E8 terminal chain mutation semantics'
+
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          text = path.read_text(encoding='utf-8')
+
+          old = '''def _cell_manifest_set_sha256(
+              config: Mapping[str, Any],
+              output_root: Path,
+          ) -> str:
+              """Hash the ordered exact cell-manifest bytes for terminal evidence binding."""
+
+              records = []
+              for cell in build_cells(config):
+                  path = output_root / "cells" / cell.key / "cell_manifest.json"
+                  if not path.is_file():
+                      raise FileNotFoundError(f"Cell manifest is missing for evidence binding: {cell.key}")
+                  records.append({"cell_key": cell.key, "sha256": sha256_file(path)})
+              return stable_hash(records)
+
+
+          def _baseline_aggregate_identity_matches(
+              config: Mapping[str, Any],
+              output_root: Path,
+              aggregate: Mapping[str, Any],
+          ) -> bool:
+              """Verify that a baseline aggregate is bound to this source/config/cell set."""
+
+              if not _is_baseline_matrix(config):
+                  return True
+              try:
+                  provenance = _read_json_object(output_root / "source_provenance.json")
+                  source_commit = str(provenance.get("source_commit", ""))
+                  cell_set = _cell_manifest_set_sha256(config, output_root)
+              except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                  return False
+              return (
+                  aggregate.get("experiment_id") == experiment_id(config)
+                  and aggregate.get("config_hash") == stable_config_hash(config)
+                  and aggregate.get("source_commit") == source_commit
+                  and int(aggregate.get("cell_count", -1)) == len(build_cells(config))
+                  and aggregate.get("cell_manifest_set_sha256") == cell_set
+              )
+'''
+          new = '''BASELINE_AGGREGATE_BOUND_ARTIFACTS = (
+              "all_cells.csv",
+              "plot_curve_points.csv",
+              "task_summary.csv",
+              "countdown_protocol_diagnostic.json",
+          )
+
+
+          def _baseline_aggregate_artifact_sha256(output_root: Path) -> dict[str, str]:
+              """Hash deterministic baseline-matrix aggregate outputs used for reporting."""
+
+              aggregate_root = output_root / "aggregate"
+              return {
+                  name: sha256_file(aggregate_root / name)
+                  for name in BASELINE_AGGREGATE_BOUND_ARTIFACTS
+              }
+
+
+          def _cell_manifest_set_sha256(
+              config: Mapping[str, Any],
+              output_root: Path,
+          ) -> str:
+              """Hash the ordered exact cell-manifest bytes for terminal evidence binding."""
+
+              records = []
+              for cell in build_cells(config):
+                  path = output_root / "cells" / cell.key / "cell_manifest.json"
+                  if not path.is_file():
+                      raise FileNotFoundError(f"Cell manifest is missing for evidence binding: {cell.key}")
+                  records.append({"cell_key": cell.key, "sha256": sha256_file(path)})
+              return stable_hash(records)
+
+
+          def _baseline_aggregate_identity_matches(
+              config: Mapping[str, Any],
+              output_root: Path,
+              aggregate: Mapping[str, Any],
+          ) -> bool:
+              """Verify that a baseline aggregate is bound to this source/config/cell set."""
+
+              if not _is_baseline_matrix(config):
+                  return True
+              try:
+                  provenance = _read_json_object(output_root / "source_provenance.json")
+                  source_commit = str(provenance.get("source_commit", ""))
+                  cell_set = _cell_manifest_set_sha256(config, output_root)
+                  aggregate_artifacts = _baseline_aggregate_artifact_sha256(output_root)
+              except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                  return False
+              try:
+                  cell_count = int(aggregate.get("cell_count", -1))
+              except (ValueError, TypeError):
+                  return False
+              return (
+                  aggregate.get("experiment_id") == experiment_id(config)
+                  and aggregate.get("config_hash") == stable_config_hash(config)
+                  and aggregate.get("source_commit") == source_commit
+                  and cell_count == len(build_cells(config))
+                  and aggregate.get("cell_manifest_set_sha256") == cell_set
+                  and aggregate.get("aggregate_artifact_sha256") == aggregate_artifacts
+              )
+
+
+          def _baseline_terminal_audit_identity_matches(
+              config: Mapping[str, Any],
+              output_root: Path,
+              audit: Mapping[str, Any],
+              aggregate: Mapping[str, Any],
+          ) -> bool:
+              """Verify that a baseline terminal audit is current and internally fail-closed."""
+
+              if not _is_baseline_matrix(config):
+                  return True
+              try:
+                  provenance = _read_json_object(output_root / "source_provenance.json")
+                  source_commit = str(provenance.get("source_commit", ""))
+                  expected_cells = len(build_cells(config))
+                  aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
+                  scheduler_path = output_root / "scheduler" / "dynamic_run.json"
+                  event_path = output_root / "scheduler" / "queue_events.jsonl"
+                  current_cell_set = _cell_manifest_set_sha256(config, output_root)
+                  aggregate_sha = sha256_file(aggregate_path)
+                  scheduler_sha = sha256_file(scheduler_path)
+                  event_sha = sha256_file(event_path)
+                  nan_inf_event_count = int(audit.get("nan_inf_event_count", -1))
+              except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                  return False
+              empty_failure_fields = (
+                  "missing_cells",
+                  "incomplete_cells",
+                  "nan_inf_cells",
+                  "terminal_contract_failures",
+                  "cell_identity_failures",
+                  "scientific_execution_provenance_failures",
+                  "dpo_reference_identity_failures",
+              )
+              return (
+                  _baseline_aggregate_identity_matches(config, output_root, aggregate)
+                  and audit.get("experiment_id") == experiment_id(config)
+                  and audit.get("base_commit") == source_commit
+                  and audit.get("expected_cells") == expected_cells
+                  and audit.get("execution_class") == _execution_class(config)
+                  and audit.get("scientific_status") == _audited_scientific_status(config, True)
+                  and audit.get("all_training_and_evaluation_complete") is True
+                  and audit.get("aggregate_complete") is True
+                  and audit.get("test_partition_accessed") is False
+                  and all(not audit.get(field) for field in empty_failure_fields)
+                  and nan_inf_event_count == 0
+                  and audit.get("seed_batch_protocol_complete") is True
+                  and audit.get("seed_batch_event_identity_complete") is True
+                  and audit.get("seed_batch_execution_provenance_complete") is True
+                  and audit.get("seed_batch_temporal_order_complete") is True
+                  and audit.get("cell_manifest_set_sha256") == current_cell_set
+                  and audit.get("cell_manifest_set_sha256")
+                  == aggregate.get("cell_manifest_set_sha256")
+                  and audit.get("aggregate_summary_sha256") == aggregate_sha
+                  and audit.get("scheduler_dynamic_run_sha256") == scheduler_sha
+                  and audit.get("scheduler_queue_events_sha256") == event_sha
+              )
+'''
+          if old not in text:
+              raise SystemExit('baseline evidence helper anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''    method_metadata = {
+                  METHOD_ASYMRE: _canonical_baseline_grid_identity(METHOD_ASYMRE),
+'''
+          new = '''    protocol_diagnostic = _countdown_protocol_diagnostic(
+                  config,
+                  output_root,
+                  destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
+              )
+              method_metadata = {
+                  METHOD_ASYMRE: _canonical_baseline_grid_identity(METHOD_ASYMRE),
+'''
+          if old not in text:
+              raise SystemExit('matrix method metadata anchor not found')
+          text = text.replace(old, new, 1)
+          old = '''        "cell_manifest_set_sha256": _cell_manifest_set_sha256(config, output_root),
+                  "cell_count": len(rows),
+'''
+          new = '''        "cell_manifest_set_sha256": _cell_manifest_set_sha256(config, output_root),
+                  "aggregate_artifact_sha256": _baseline_aggregate_artifact_sha256(output_root),
+                  "cell_count": len(rows),
+'''
+          if old not in text:
+              raise SystemExit('matrix aggregate hash anchor not found')
+          text = text.replace(old, new, 1)
+          old = '''        "countdown_protocol_diagnostic": _countdown_protocol_diagnostic(
+                      config,
+                      output_root,
+                      destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
+                  ),
+'''
+          new = '''        "countdown_protocol_diagnostic": protocol_diagnostic,
+'''
+          if old not in text:
+              raise SystemExit('matrix diagnostic anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''            if _is_baseline_matrix(config):
+                          audit_complete = (
+                              audit_complete
+                              and aggregate_complete
+                              and audit_value.get("cell_manifest_set_sha256")
+                              == _cell_manifest_set_sha256(config, output_root)
+                              and audit_value.get("aggregate_summary_sha256")
+                              == sha256_file(aggregate_path)
+                          )
+'''
+          new = '''            if _is_baseline_matrix(config):
+                          audit_complete = audit_complete and _baseline_terminal_audit_identity_matches(
+                              config, output_root, audit_value, aggregate_value
+                          )
+'''
+          if old not in text:
+              raise SystemExit('recovery audit anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''    cell_manifest_set_sha256: str | None = None
+              aggregate_summary_sha256: str | None = None
+              if _is_baseline_matrix(config):
+                  try:
+                      if not missing:
+                          cell_manifest_set_sha256 = _cell_manifest_set_sha256(config, output_root)
+                      aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
+                      if aggregate_path.is_file():
+                          aggregate_summary_sha256 = sha256_file(aggregate_path)
+                  except (OSError, ValueError, TypeError):
+                      cell_manifest_set_sha256 = None
+                      aggregate_summary_sha256 = None
+'''
+          new = '''    cell_manifest_set_sha256: str | None = None
+              aggregate_summary_sha256: str | None = None
+              scheduler_dynamic_run_sha256: str | None = None
+              scheduler_queue_events_sha256: str | None = None
+              if _is_baseline_matrix(config):
+                  try:
+                      if not missing:
+                          cell_manifest_set_sha256 = _cell_manifest_set_sha256(config, output_root)
+                      aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
+                      scheduler_path = output_root / "scheduler" / "dynamic_run.json"
+                      event_path = output_root / "scheduler" / "queue_events.jsonl"
+                      if aggregate_path.is_file():
+                          aggregate_summary_sha256 = sha256_file(aggregate_path)
+                      if scheduler_path.is_file():
+                          scheduler_dynamic_run_sha256 = sha256_file(scheduler_path)
+                      if event_path.is_file():
+                          scheduler_queue_events_sha256 = sha256_file(event_path)
+                  except (OSError, ValueError, TypeError):
+                      cell_manifest_set_sha256 = None
+                      aggregate_summary_sha256 = None
+                      scheduler_dynamic_run_sha256 = None
+                      scheduler_queue_events_sha256 = None
+'''
+          if old not in text:
+              raise SystemExit('audit hash anchor not found')
+          text = text.replace(old, new, 1)
+          old = '''        "aggregate_summary_sha256": aggregate_summary_sha256,
+                  "seed_batch_protocol_complete": seed_batch_protocol_complete,
+'''
+          new = '''        "aggregate_summary_sha256": aggregate_summary_sha256,
+                  "scheduler_dynamic_run_sha256": scheduler_dynamic_run_sha256,
+                  "scheduler_queue_events_sha256": scheduler_queue_events_sha256,
+                  "seed_batch_protocol_complete": seed_batch_protocol_complete,
+'''
+          if old not in text:
+              raise SystemExit('audit dict hash anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''    if _is_baseline_matrix(config):
+                  if not _baseline_aggregate_identity_matches(config, output_root, aggregate):
+                      raise RuntimeError("Baseline aggregate is not bound to the current cell manifests")
+                  if (
+                      audit.get("cell_manifest_set_sha256")
+                      != aggregate.get("cell_manifest_set_sha256")
+                      or audit.get("aggregate_summary_sha256") != sha256_file(aggregate_path)
+                  ):
+                      raise RuntimeError("Baseline terminal audit is stale relative to aggregate/cell evidence")
+'''
+          new = '''    if _is_baseline_matrix(config):
+                  if not _baseline_terminal_audit_identity_matches(
+                      config, output_root, audit, aggregate
+                  ):
+                      raise RuntimeError(
+                          "Baseline terminal audit is stale or inconsistent with current terminal evidence"
+                      )
+'''
+          if old not in text:
+              raise SystemExit('completion manifest audit anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''        "scheduler/dynamic_run.json",
+                      "aggregate/aggregate_summary.json",
+                      "aggregate/plot_curve_points.csv",
+'''
+          new = '''        "scheduler/dynamic_run.json",
+                      "scheduler/queue_events.jsonl",
+                      "aggregate/aggregate_summary.json",
+                      "aggregate/all_cells.csv",
+                      "aggregate/plot_curve_points.csv",
+                      "aggregate/task_summary.csv",
+                      "aggregate/countdown_protocol_diagnostic.json",
+'''
+          if old not in text:
+              raise SystemExit('completed package member anchor not found')
+          text = text.replace(old, new, 1)
+          old = '''    if _is_baseline_matrix(config):
+                  if not _baseline_aggregate_identity_matches(config, workload_root, aggregate):
+                      return False
+                  if not all(
+'''
+          new = '''    if _is_baseline_matrix(config):
+                  if not _baseline_terminal_audit_identity_matches(
+                      config, workload_root, audit, aggregate
+                  ):
+                      return False
+                  if not all(
+'''
+          if old not in text:
+              raise SystemExit('completed workload baseline anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''    atomic_json(
+                  output_root / "RUN_COMPLETE.json",
+                  {
+                      **run_manifest,
+                      "all_training_and_evaluation_complete": bool(
+                          audit["all_training_and_evaluation_complete"]
+                      ),
+                      "terminal_audit_sha256": sha256_file(output_root / "terminal_audit.json"),
+                      "aggregate_sha256": sha256_file(aggregate_path),
+                      "complete": True,
+                  },
+              )
+'''
+          new = '''    completion = {
+                  **run_manifest,
+                  "all_training_and_evaluation_complete": bool(
+                      audit["all_training_and_evaluation_complete"]
+                  ),
+                  "terminal_audit_sha256": sha256_file(output_root / "terminal_audit.json"),
+                  "aggregate_sha256": sha256_file(aggregate_path),
+                  "complete": True,
+              }
+              if _is_baseline_matrix(config):
+                  completion.update(
+                      {
+                          "scheduler_dynamic_run_sha256": audit["scheduler_dynamic_run_sha256"],
+                          "scheduler_queue_events_sha256": audit["scheduler_queue_events_sha256"],
+                      }
+                  )
+              atomic_json(output_root / "RUN_COMPLETE.json", completion)
+'''
+          if old not in text:
+              raise SystemExit('RUN_COMPLETE anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''        and complete.get("terminal_audit_sha256") == sha256_file(audit_path)
+                  and complete.get("aggregate_sha256") == sha256_file(aggregate_path)
+              ):
+'''
+          new = '''        and complete.get("terminal_audit_sha256") == sha256_file(audit_path)
+                  and complete.get("aggregate_sha256") == sha256_file(aggregate_path)
+              ):
+'''
+          # Keep the common chain above unchanged; baseline-specific scheduler hashes
+          # are checked immediately below alongside the terminal audit identity.
+          if old not in text:
+              raise SystemExit('completed common chain anchor not found')
+          old2 = '''    if _is_baseline_matrix(config):
+                  if not _baseline_terminal_audit_identity_matches(
+                      config, workload_root, audit, aggregate
+                  ):
+                      return False
+                  if not all(
+'''
+          new2 = '''    if _is_baseline_matrix(config):
+                  if not _baseline_terminal_audit_identity_matches(
+                      config, workload_root, audit, aggregate
+                  ):
+                      return False
+                  if (
+                      complete.get("scheduler_dynamic_run_sha256")
+                      != audit.get("scheduler_dynamic_run_sha256")
+                      or complete.get("scheduler_queue_events_sha256")
+                      != audit.get("scheduler_queue_events_sha256")
+                  ):
+                      return False
+                  if not all(
+'''
+          if old2 not in text:
+              raise SystemExit('completed scheduler hash anchor not found')
+          text = text.replace(old2, new2, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/test_e8_multitask_p0.py')
+          text = path.read_text(encoding='utf-8')
+
+          helper = '''\n\ndef _write_baseline_aggregate_test_artifacts(root: Path, *, diagnostic_status: str) -> None:\n    aggregate_root = root / "aggregate"\n    aggregate_root.mkdir(parents=True, exist_ok=True)\n    (aggregate_root / "all_cells.csv").write_text("cell_key\\n", encoding="utf-8")\n    (aggregate_root / "plot_curve_points.csv").write_text("cell_key\\n", encoding="utf-8")\n    (aggregate_root / "task_summary.csv").write_text("task\\n", encoding="utf-8")\n    p0.atomic_json(\n        aggregate_root / "countdown_protocol_diagnostic.json",\n        {"status": diagnostic_status},\n    )\n'''
+          if '_write_baseline_aggregate_test_artifacts' not in text:
+              text += helper
+
+          old = '''    p0.atomic_json(
+                  tmp_path / "aggregate" / "aggregate_summary.json",
+                  {
+                      "schema_version": 1,
+                      "experiment_id": exp_tuning.experiment_id(config),
+                      "source_commit": "a" * 40,
+                      "config_hash": config_hash,
+                      "cell_count": 176,
+                      "cell_manifest_set_sha256": exp_tuning._cell_manifest_set_sha256(config, tmp_path),
+                  },
+              )
+              p0.atomic_json(
+                  tmp_path / "aggregate" / "countdown_protocol_diagnostic.json", {"status": "NOT_RUN"}
+              )
+'''
+          new = '''    _write_baseline_aggregate_test_artifacts(tmp_path, diagnostic_status="NOT_RUN")
+              p0.atomic_json(
+                  tmp_path / "aggregate" / "aggregate_summary.json",
+                  {
+                      "schema_version": 1,
+                      "experiment_id": exp_tuning.experiment_id(config),
+                      "source_commit": "a" * 40,
+                      "config_hash": config_hash,
+                      "cell_count": 176,
+                      "cell_manifest_set_sha256": exp_tuning._cell_manifest_set_sha256(config, tmp_path),
+                      "aggregate_artifact_sha256": exp_tuning._baseline_aggregate_artifact_sha256(
+                          tmp_path
+                      ),
+                  },
+              )
+'''
+          if old not in text:
+              raise SystemExit('formal terminal aggregate fixture anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''    aggregate = {
+                  "experiment_id": exp_tuning.experiment_id(config),
+                  "source_commit": source_commit,
+                  "config_hash": exp_tuning.stable_config_hash(config),
+                  "cell_count": expected_cells,
+                  "cell_manifest_set_sha256": exp_tuning._cell_manifest_set_sha256(config, tmp_path),
+              }
+              p0.atomic_json(tmp_path / "aggregate" / "aggregate_summary.json", aggregate)
+              (tmp_path / "aggregate" / "plot_curve_points.csv").write_text("cell_key\\n", encoding="utf-8")
+'''
+          new = '''    _write_baseline_aggregate_test_artifacts(
+                  tmp_path, diagnostic_status="NOT_RUN_ENGINEERING"
+              )
+              aggregate = {
+                  "experiment_id": exp_tuning.experiment_id(config),
+                  "source_commit": source_commit,
+                  "config_hash": exp_tuning.stable_config_hash(config),
+                  "cell_count": expected_cells,
+                  "cell_manifest_set_sha256": exp_tuning._cell_manifest_set_sha256(config, tmp_path),
+                  "aggregate_artifact_sha256": exp_tuning._baseline_aggregate_artifact_sha256(tmp_path),
+              }
+              p0.atomic_json(tmp_path / "aggregate" / "aggregate_summary.json", aggregate)
+'''
+          if old not in text:
+              raise SystemExit('completed evidence aggregate fixture anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''    audit = {
+                  "experiment_id": exp_tuning.experiment_id(config),
+                  "base_commit": source_commit,
+                  "expected_cells": expected_cells,
+                  "all_training_and_evaluation_complete": True,
+                  "test_partition_accessed": False,
+                  "seed_batch_protocol_complete": True,
+                  "seed_batch_event_identity_complete": True,
+                  "seed_batch_execution_provenance_complete": True,
+                  "seed_batch_temporal_order_complete": True,
+                  "cell_manifest_set_sha256": aggregate["cell_manifest_set_sha256"],
+                  "aggregate_summary_sha256": exp_tuning.sha256_file(
+                      tmp_path / "aggregate" / "aggregate_summary.json"
+                  ),
+              }
+'''
+          new = '''    (tmp_path / "scheduler" / "queue_events.jsonl").write_text("{}\\n", encoding="utf-8")
+              audit = {
+                  "experiment_id": exp_tuning.experiment_id(config),
+                  "base_commit": source_commit,
+                  "expected_cells": expected_cells,
+                  "missing_cells": [],
+                  "incomplete_cells": [],
+                  "nan_inf_cells": [],
+                  "terminal_contract_failures": [],
+                  "cell_identity_failures": [],
+                  "scientific_execution_provenance_failures": [],
+                  "dpo_reference_identity_failures": [],
+                  "nan_inf_event_count": 0,
+                  "all_training_and_evaluation_complete": True,
+                  "aggregate_complete": True,
+                  "test_partition_accessed": False,
+                  "execution_class": exp_tuning._execution_class(config),
+                  "scientific_status": exp_tuning._audited_scientific_status(config, True),
+                  "seed_batch_protocol_complete": True,
+                  "seed_batch_event_identity_complete": True,
+                  "seed_batch_execution_provenance_complete": True,
+                  "seed_batch_temporal_order_complete": True,
+                  "cell_manifest_set_sha256": aggregate["cell_manifest_set_sha256"],
+                  "aggregate_summary_sha256": exp_tuning.sha256_file(
+                      tmp_path / "aggregate" / "aggregate_summary.json"
+                  ),
+                  "scheduler_dynamic_run_sha256": exp_tuning.sha256_file(
+                      tmp_path / "scheduler" / "dynamic_run.json"
+                  ),
+                  "scheduler_queue_events_sha256": exp_tuning.sha256_file(
+                      tmp_path / "scheduler" / "queue_events.jsonl"
+                  ),
+              }
+'''
+          if old not in text:
+              raise SystemExit('completed evidence audit fixture anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''            "aggregate_sha256": exp_tuning.sha256_file(
+                      tmp_path / "aggregate" / "aggregate_summary.json"
+                  ),
+                  "complete": True,
+'''
+          new = '''            "aggregate_sha256": exp_tuning.sha256_file(
+                      tmp_path / "aggregate" / "aggregate_summary.json"
+                  ),
+                  "scheduler_dynamic_run_sha256": audit["scheduler_dynamic_run_sha256"],
+                  "scheduler_queue_events_sha256": audit["scheduler_queue_events_sha256"],
+                  "complete": True,
+'''
+          if old not in text:
+              raise SystemExit('completed evidence RUN_COMPLETE fixture anchor not found')
+          text = text.replace(old, new, 1)
+
+          extra_test = '''\n\ndef test_baseline_terminal_chain_rejects_post_audit_scheduler_and_derived_mutation(\n    tmp_path: Path,\n) -> None:\n    from drpo import e8_multitask_exp_tuning as exp_tuning\n\n    config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")\n    source_commit = "e" * 40\n    root = tmp_path / "terminal-chain"\n    result = exp_tuning.cmd_engineering_self_test(config, root, source_commit=source_commit)\n    assert result["complete"] is True\n    effective = exp_tuning.load_config(root / "engineering_self_test_config.yaml")\n    aggregate_path = root / "aggregate" / "aggregate_summary.json"\n    aggregate = json.loads(aggregate_path.read_text(encoding="utf-8"))\n    audit_path = root / "terminal_audit.json"\n    audit = json.loads(audit_path.read_text(encoding="utf-8"))\n    assert exp_tuning._baseline_aggregate_identity_matches(effective, root, aggregate)\n    assert exp_tuning._baseline_terminal_audit_identity_matches(\n        effective, root, audit, aggregate\n    )\n    assert exp_tuning._completed_workload_terminal_evidence_matches(\n        effective, root, source_commit=source_commit\n    )\n\n    plot_path = root / "aggregate" / "plot_curve_points.csv"\n    plot_bytes = plot_path.read_bytes()\n    plot_path.write_bytes(plot_bytes + b"tampered\\n")\n    assert not exp_tuning._baseline_aggregate_identity_matches(effective, root, aggregate)\n    plan = exp_tuning._recovery_stage_plan(\n        effective,\n        root,\n        base_model_path=str(root / "engineering_fixtures" / "placeholder_model"),\n    )\n    assert plan["aggregate_complete"] is False\n    assert plan["audit_complete"] is False\n    assert plan["finalized"] is False\n    plot_path.write_bytes(plot_bytes)\n\n    event_path = root / "scheduler" / "queue_events.jsonl"\n    event_bytes = event_path.read_bytes()\n    event_path.write_bytes(event_bytes + b"{}\\n")\n    aggregate = json.loads(aggregate_path.read_text(encoding="utf-8"))\n    audit = json.loads(audit_path.read_text(encoding="utf-8"))\n    assert not exp_tuning._baseline_terminal_audit_identity_matches(\n        effective, root, audit, aggregate\n    )\n    assert not exp_tuning._completed_workload_terminal_evidence_matches(\n        effective, root, source_commit=source_commit\n    )\n    plan = exp_tuning._recovery_stage_plan(\n        effective,\n        root,\n        base_model_path=str(root / "engineering_fixtures" / "placeholder_model"),\n    )\n    assert plan["audit_complete"] is False\n    assert plan["finalized"] is False\n    event_path.write_bytes(event_bytes)\n\n    stale_audit = json.loads(audit_path.read_text(encoding="utf-8"))\n    stale_audit["base_commit"] = "f" * 40\n    p0.atomic_json(audit_path, stale_audit)\n    with pytest.raises(RuntimeError, match="stale or inconsistent"):\n        exp_tuning.cmd_finalize(effective, root)\n'''
+          if 'test_baseline_terminal_chain_rejects_post_audit_scheduler_and_derived_mutation' not in text:
+              text += extra_test
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          python -m py_compile src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          ruff check src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          python scripts/handoff_authority.py verify --repo-root .
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          python scripts/preflight_e8_multitask_config.py --config configs/e8_multitask_baseline_matrix_formal.yaml
+          git diff --check
+          git add src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          git diff --cached --check
+          git commit -m 'fix: bind E8 terminal scheduler and aggregate artifacts'
+          git rm .github/workflows/tmp_e8_terminal_binding_round2.yml
+          git commit -m 'chore: remove temporary E8 terminal chain transport'
+          git push origin HEAD:dev/e8-multitask-baselines-capability-01
