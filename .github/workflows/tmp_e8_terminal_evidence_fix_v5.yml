@@ -31,9 +31,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Apply the docs-first/source/test patch. Its embedded test run is
-          # expected to stop on the legacy non-matrix package fixture; repair
-          # that compatibility boundary below, then rerun the complete suite.
+          # Apply the docs-first/source/test patch. Its embedded test run may stop
+          # before publication; the compatibility/lint repairs below are applied
+          # to the resulting worktree and the complete suite is then rerun.
           bash .github/workflows/tmp_e8_terminal_evidence_fix.sh || true
           python - <<'PY'
           from pathlib import Path
@@ -146,6 +146,39 @@ jobs:
 
           '''
           text = text[:start] + replacement + text[end + 1:]
+
+          # These broad catches are intentional recovery/supervisor boundaries:
+          # they convert any gate/checkpoint failure into explicit fail-closed
+          # recovery state instead of letting the recovery report disappear.
+          text = text.replace(
+              'except Exception as exc:  # The plan records the exact fail-closed reason.',
+              'except Exception as exc:  # noqa: BLE001 - record any prepare failure fail-closed.',
+              1,
+          )
+          text = text.replace(
+              '        except Exception as exc:\n            calibration_complete = False',
+              '        except Exception as exc:  # noqa: BLE001 - record any calibration failure.\n            calibration_complete = False',
+              1,
+          )
+          text = text.replace(
+              '        except Exception as exc:\n            liveness_complete = False',
+              '        except Exception as exc:  # noqa: BLE001 - record any liveness failure.\n            liveness_complete = False',
+              1,
+          )
+          text = text.replace(
+              '                except Exception as exc:\n                    result["returncode"] = 74',
+              '                except Exception as exc:  # noqa: BLE001 - checkpoint failure is terminal.\n                    result["returncode"] = 74',
+              1,
+          )
+
+          # Bind the per-task closure to the current loop value. The function is
+          # invoked within the loop today, but explicit binding removes the late-
+          # binding hazard and makes that invariant robust to future call movement.
+          text = text.replace(
+              '        def aggregate_group(group: Sequence[Mapping[str, Any]]) -> dict[str, Any]:\n',
+              '        def aggregate_group(\n            group: Sequence[Mapping[str, Any]], task: str = task\n        ) -> dict[str, Any]:\n',
+              1,
+          )
           path.write_text(text, encoding='utf-8')
           PY
           python -m py_compile src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
