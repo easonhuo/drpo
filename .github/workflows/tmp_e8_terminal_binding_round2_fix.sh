@@ -52,7 +52,7 @@ text = text.replace(
 )
 text = text.replace(
     'git rm .github/workflows/tmp_e8_terminal_binding_round2.sh .github/workflows/tmp_e8_terminal_binding_round2.yml',
-    'git rm .github/workflows/tmp_e8_terminal_binding_round2.sh .github/workflows/tmp_e8_terminal_binding_round2_fix.sh .github/workflows/tmp_e8_terminal_binding_round2.yml',
+    'git rm -f .github/workflows/tmp_e8_terminal_binding_round2.sh .github/workflows/tmp_e8_terminal_binding_round2_fix.sh .github/workflows/tmp_e8_terminal_binding_round2.yml',
     1,
 )
 path.write_text(text, encoding='utf-8')
