@@ -1,0 +1,50 @@
+name: tmp-e8-main-merge-cleanup
+
+on:
+  push:
+    branches:
+      - dev/e8-baseline-matrix-launchable-50cd-01-min5
+
+permissions:
+  contents: write
+
+jobs:
+  retarget-and-commit:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-baseline-matrix-launchable-50cd-01-min5
+          fetch-depth: 0
+
+      - name: Retarget full bootstrap default to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/bootstrap_e8_multitask_exp_coldstart.sh')
+          text = path.read_text(encoding='utf-8')
+          old = 'TARGET_REF="${E8_COLDSTART_TARGET_REF:-refs/heads/dev/e8-baseline-matrix-launchable-50cd-01-min5}"'
+          new = 'TARGET_REF="${E8_COLDSTART_TARGET_REF:-refs/heads/main}"'
+          assert text.count(old) == 1, text.count(old)
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          bash -n scripts/bootstrap_e8_multitask_exp_coldstart.sh
+          git diff --check
+          grep -Fq 'TARGET_REF="${E8_COLDSTART_TARGET_REF:-refs/heads/main}"' scripts/bootstrap_e8_multitask_exp_coldstart.sh
+          ! grep -Fq 'E8_COLDSTART_TARGET_REF:-refs/heads/dev/e8-baseline-matrix-launchable-50cd-01-min5' scripts/bootstrap_e8_multitask_exp_coldstart.sh
+          test "$(git diff --numstat -- scripts/bootstrap_e8_multitask_exp_coldstart.sh)" = $'1\t1\tscripts/bootstrap_e8_multitask_exp_coldstart.sh'
+
+      - name: Remove temporary workflow and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/tmp-e8-main-merge-cleanup.yml
+          git add scripts/bootstrap_e8_multitask_exp_coldstart.sh
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore: retarget E8 bootstrap to main for merge'
+          git push origin HEAD:dev/e8-baseline-matrix-launchable-50cd-01-min5
