@@ -76,6 +76,27 @@ assert [
     )
 ] == [4, 4]
 
+# Mirror the frozen baseline-matrix scheduling geometry without importing any
+# scientific method implementation: 88 cells per reviewed seed, 16 slots.
+formal_shape_cells = tuple(
+    DummyCell(
+        task=f"task-{index % 8}",
+        method="opaque_method",
+        seed=seed,
+        stage="task_transfer",
+        parameter=float(index),
+    )
+    for seed in (4000, 5000)
+    for index in range(88)
+)
+formal_batches = nominal_batches(
+    formal_shape_cells,
+    slot_count=16,
+    seed_barrier=True,
+    seed_order=(4000, 5000),
+)
+assert [len(batch) for batch in formal_batches] == [16, 16, 16, 16, 16, 8] * 2
+
 started: list[tuple[str, int, int, int, float]] = []
 lock = threading.Lock()
 seed4000_success_hooks = 0
@@ -225,11 +246,26 @@ with tempfile.TemporaryDirectory() as temporary:
     assert [row["path"] for row in inventory] == ["a.txt", "nested/b.txt"]
     assert all(len(row["sha256"]) == 64 for row in inventory)
 
+# Architecture acceptance: generic production modules must not know current
+# scientific method names. This is a maintenance-contract check, not a new
+# experiment acceptance gate.
+repo_root = Path(__import__("os").environ["PYTHONPATH"].split(":", 1)[0]).parent
+for relative in (
+    "src/drpo/e8_multitask_orchestration.py",
+    "src/drpo/e8_multitask_results.py",
+    "src/drpo/e8_multitask_runtime.py",
+):
+    text = (repo_root / relative).read_text(encoding="utf-8").lower()
+    for forbidden in ("asymre", "topr", "canonical_dpo"):
+        assert forbidden not in text, (relative, forbidden)
+
 print(
     json.dumps(
         {
             "compile": "pass",
             "dummy_cells": len(cells),
+            "formal_nominal_batches": [len(batch) for batch in formal_batches],
+            "method_name_leakage": "pass",
             "package_inventory": "pass",
             "recovery_identity": "pass",
             "result_projection": "pass",
