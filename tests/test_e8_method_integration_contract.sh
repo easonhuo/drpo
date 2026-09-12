@@ -215,6 +215,7 @@ records = {
         "terminal_step": 1200,
         "stop_reason": "max_steps",
         "nan_inf_failure": False,
+        "test_partition_accessed": False,
     }
     for cell in cells
 }
