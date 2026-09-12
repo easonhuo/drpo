@@ -1,6 +1,6 @@
 """Method-agnostic result projection and aggregation helpers for E8.
 
-Concrete methods own their parameter projection.  This module only handles
+Concrete methods own their parameter projection. This module only handles
 common cell identity, common metric payloads, deterministic grouping, and CSV
 materialization; it must not acquire branches for individual E8 algorithms.
 """
@@ -35,6 +35,23 @@ class MethodResultProjection:
     compatibility_columns: Mapping[str, Any]
 
 
+_RESERVED_COMMON_COLUMNS = frozenset(
+    {"source", "task", "method", "seed", "stage", "cell_key", "method_parameters"}
+)
+
+
+def _checked_merge(
+    target: dict[str, Any],
+    values: Mapping[str, Any],
+    *,
+    label: str,
+) -> None:
+    collisions = sorted(set(target).intersection(values))
+    if collisions:
+        raise ValueError(f"{label} attempted to overwrite result columns: {collisions}")
+    target.update(values)
+
+
 def common_result_row(
     cell: CellLike,
     value: Mapping[str, Any],
@@ -46,17 +63,22 @@ def common_result_row(
     """Build one generic row without interpreting method-specific parameters."""
 
     projection = project_method(cell)
-    return {
+    compatibility = dict(projection.compatibility_columns)
+    reserved = sorted(_RESERVED_COMMON_COLUMNS.intersection(compatibility))
+    if reserved:
+        raise ValueError(f"Method compatibility projection uses reserved columns: {reserved}")
+    row: dict[str, Any] = {
         "source": source,
         "task": cell.task,
         "method": cell.method,
-        "seed": cell.seed,
+        "seed": int(cell.seed),
         "stage": cell.stage,
         "cell_key": cell.key,
         "method_parameters": dict(projection.parameters),
-        **dict(projection.compatibility_columns),
-        **dict(project_metrics(value)),
     }
+    _checked_merge(row, compatibility, label="Method compatibility projection")
+    _checked_merge(row, dict(project_metrics(value)), label="Metric projection")
+    return row
 
 
 def parameter_identity(parameters: Mapping[str, Any]) -> str:
@@ -96,15 +118,32 @@ def grouped_curve(
     rows: Sequence[Mapping[str, Any]],
     *,
     metric_names: Sequence[str],
+    group_order: Callable[[str, str, Mapping[str, Any]], Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """Create deterministic method curves without knowing parameter names."""
+    """Create deterministic method curves without knowing parameter names.
+
+    ``group_order`` is supplied by the scientific/config layer when numeric or
+    reviewed-grid ordering matters. The generic fallback orders by the stable
+    JSON parameter identity, which is deterministic but intentionally carries
+    no scientific meaning.
+    """
 
     grouped = group_parameter_rows(rows)
-    output: list[dict[str, Any]] = []
-    for (task, method, identity), group in sorted(grouped.items()):
+    entries: list[tuple[Any, str, str, str, list[Mapping[str, Any]]]] = []
+    for (task, method, identity), group in grouped.items():
         parameters = dict(group[0].get("method_parameters", {}))
         if any(parameter_identity(row.get("method_parameters", {})) != identity for row in group):
             raise RuntimeError("Method parameter identity changed inside one aggregation group")
+        sort_value = (
+            group_order(task, method, parameters)
+            if group_order is not None
+            else (task, method, identity)
+        )
+        entries.append((sort_value, task, method, identity, group))
+
+    output: list[dict[str, Any]] = []
+    for _, task, method, identity, group in sorted(entries, key=lambda item: item[0]):
+        parameters = dict(group[0].get("method_parameters", {}))
         output.append(
             {
                 "task": task,
