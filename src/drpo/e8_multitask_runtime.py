@@ -59,10 +59,10 @@ def recovery_identity(
     """Build the existing nested E8 identity shape without knowing method fields.
 
     The scientific layer projects the compatibility fields that belong inside
-    ``cell`` (today these include legacy named parameters). Future methods may
-    project one opaque ``method_parameters`` mapping instead. Common provenance
+    ``cell`` (today these include legacy named parameters).  Future methods may
+    project one opaque ``method_parameters`` mapping instead.  Common provenance
     such as bank/split/model/initialization/calibration identity is supplied
-    separately. Keeping the nested layout and hash encoding here lets current
+    separately.  Keeping the nested layout and hash encoding here lets current
     cells preserve their frozen ``identity_hash`` byte-for-byte.
     """
 
@@ -108,9 +108,16 @@ def validate_common_terminal_record(
     *,
     expected_terminal_step: int,
     expected_stop_reason: str,
+    require_test_partition_unaccessed: bool = True,
 ) -> tuple[str, ...]:
-    """Audit only invariants shared by every method and fail closed on bad types."""
+    """Audit only terminal invariants already enforced by the E8 runner.
 
+    This refactor deliberately does not add cell-key/method/seed rejection rules.
+    Those would strengthen the existing terminal gate and therefore require a
+    separate owner approval under ``GOV-GATE-CHANGE-APPROVAL-01``.
+    """
+
+    del cell  # The common contract is method- and identity-agnostic.
     failures: list[str] = []
     if record.get("complete") is not True:
         failures.append("cell_not_complete")
@@ -122,15 +129,8 @@ def validate_common_terminal_record(
         failures.append("stop_reason_mismatch")
     if record.get("nan_inf_failure") is not False:
         failures.append("nan_inf_failure")
-    recorded_key = record.get("cell_key")
-    if recorded_key is not None and str(recorded_key) != cell.key:
-        failures.append("cell_key_mismatch")
-    recorded_method = record.get("method")
-    if recorded_method is not None and str(recorded_method) != cell.method:
-        failures.append("method_mismatch")
-    recorded_seed = record.get("seed")
-    if recorded_seed is not None and not _matches_int(recorded_seed, int(cell.seed)):
-        failures.append("seed_mismatch")
+    if require_test_partition_unaccessed and record.get("test_partition_accessed") is not False:
+        failures.append("test_partition_accessed")
     return tuple(failures)
 
 
@@ -141,6 +141,7 @@ def audit_terminal_cell(
     expected_terminal_step: int,
     expected_stop_reason: str,
     method_audit: MethodAuditHook,
+    require_test_partition_unaccessed: bool = True,
 ) -> dict[str, Any]:
     """Combine common runtime checks with one method-owned invariant hook."""
 
@@ -149,6 +150,7 @@ def audit_terminal_cell(
         record,
         expected_terminal_step=expected_terminal_step,
         expected_stop_reason=expected_stop_reason,
+        require_test_partition_unaccessed=require_test_partition_unaccessed,
     )
     method_result = method_audit(cell, record)
     method_failures = tuple(method_result.failures)
@@ -175,6 +177,7 @@ def audit_terminal_cells(
     expected_terminal_step: int,
     expected_stop_reason: str,
     method_audit: MethodAuditHook,
+    require_test_partition_unaccessed: bool = True,
 ) -> dict[str, Any]:
     """Audit a full plan and report missing, unexpected, and failed cells."""
 
@@ -191,6 +194,7 @@ def audit_terminal_cells(
             expected_terminal_step=expected_terminal_step,
             expected_stop_reason=expected_stop_reason,
             method_audit=method_audit,
+            require_test_partition_unaccessed=require_test_partition_unaccessed,
         )
         for key in expected
         if key in records
