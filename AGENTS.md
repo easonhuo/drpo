@@ -16,7 +16,7 @@ Chat history alone is not a source of truth.
 
 ## Mandatory startup protocol
 
-Before changing code, designing a new experiment, or running an experiment:
+Before changing code or repository documents, editing manuscript artifacts, designing a new experiment, or running an experiment:
 
 1. Read `docs/handoff.md`.
 2. Read Section 0 of `docs/handoff.md` first and inherit all locked conclusions, terminology rules, execution gates, and experiment priorities.
