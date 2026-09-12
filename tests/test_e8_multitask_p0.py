@@ -1642,7 +1642,7 @@ def test_exp_coldstart_scheduler_refills_without_nominal_batch_barriers(
         if cell in cells[16:]:
             replacement_started.set()
         if cell.key == cells[0].key:
-            if replacement_started.wait(timeout=1.0):
+            if replacement_started.wait(timeout=5.0):
                 first_cell_released_by_replacement.set()
         else:
             time.sleep(0.002)
@@ -4073,6 +4073,8 @@ def test_baseline_matrix_tail_pipeline_scheduler_aggregate_and_resume_identity(
             "method": cell.method,
             "seed": cell.seed,
             "returncode": 0,
+            "started_unix": 0.0,
+            "finished_unix": 1.0,
         }
 
     monkeypatch.setattr(exp_tuning, "_run_subprocess_cell", fake_subprocess_cell)
@@ -4098,6 +4100,8 @@ def test_baseline_matrix_tail_pipeline_scheduler_aggregate_and_resume_identity(
 
     summary = exp_tuning.cmd_aggregate(config, tmp_path)
     assert summary["cell_count"] == 176
+    assert summary["config_hash"] == exp_tuning.stable_config_hash(config)
+    assert summary["cell_manifest_set_sha256"] == exp_tuning._cell_manifest_set_sha256(config, tmp_path)
     assert summary["method_ranking_allowed"] is False
     assert summary["significance_claim_allowed"] is False
     assert summary["parameter_selection_deferred_to_reviewed_protocol"] is True
@@ -4142,6 +4146,34 @@ def test_baseline_matrix_tail_pipeline_scheduler_aggregate_and_resume_identity(
     assert len(reusable) == 175
 
 
+
+@pytest.mark.parametrize(
+    "result",
+    [
+        {},
+        {"started_unix": 1.0},
+        {"finished_unix": 2.0},
+        {"started_unix": "bad", "finished_unix": 2.0},
+        {"started_unix": 1.0, "finished_unix": "bad"},
+        {"started_unix": float("nan"), "finished_unix": 2.0},
+        {"started_unix": 1.0, "finished_unix": float("inf")},
+        {"started_unix": 2.0, "finished_unix": 1.0},
+    ],
+)
+def test_scientific_execution_timestamps_fail_closed(result) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    with pytest.raises(RuntimeError):
+        exp_tuning._require_scientific_execution_timestamps(result)
+
+
+def test_scientific_execution_timestamps_accept_actual_ordered_values() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    assert exp_tuning._require_scientific_execution_timestamps(
+        {"started_unix": "1.25", "finished_unix": 2}
+    ) == (1.25, 2.0)
+
 def test_formal_baseline_matrix_config_matches_september7_runbook() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
     config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")
@@ -4162,21 +4194,843 @@ def test_formal_baseline_matrix_config_matches_september7_runbook() -> None:
 
 def test_formal_terminal_status_requires_full_terminal_contract(tmp_path: Path) -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
+
     config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")
     cells = exp_tuning.build_cells(config)
-    p0.atomic_json(tmp_path / "source_provenance.json", {"source_commit": "a"*40})
-    for cell in cells:
-        value={"complete":True,"evaluation_status":"complete","nan_inf_failure":False,"terminal_step":1200,"stop_reason":"max_steps","test_partition_accessed":False}
+    config_hash = exp_tuning.stable_config_hash(config)
+    scheduler_run_id = "formal-terminal-audit-test"
+    p0.atomic_json(tmp_path / "source_provenance.json", {"source_commit": "a" * 40})
+
+    def identity_fields(cell):
+        initialization = (
+            {
+                "source": str(config["dpo"]["initialization_mode"]),
+                "shared_sft_adapter_env": config["dpo"].get("shared_sft_adapter_env"),
+            }
+            if cell.method == exp_tuning.METHOD_DPO
+            else dict(config["initialization"])
+        )
+        base = {
+            "schema_version": 1,
+            "experiment_id": exp_tuning.experiment_id(config),
+            "config_hash": config_hash,
+            "cell": exp_tuning._cell_descriptor(cell),
+            "bank_sha256": "1" * 64,
+            "split_prompt_hashes": {"train": "2" * 64, "validation": "3" * 64},
+            "base_model_identity": {"model": "synthetic"},
+            "initialization": initialization,
+            "calibration_identity_hash": "4" * 64,
+        }
+        base["identity_hash"] = exp_tuning.stable_hash(base)
+        payload = dict(base)
+        payload["canonical_source_git_blob_shas"] = dict(
+            config["canonical_coldstart"]["expected_git_blob_shas"]
+        )
         if cell.method == exp_tuning.METHOD_DPO:
-            value.update({"reference_initial_state_sha256":"b"*64,"reference_terminal_state_sha256":"b"*64,"reference_trainable":False})
-        p0.atomic_json(tmp_path / "cells" / cell.key / "cell_manifest.json", value)
-    p0.atomic_json(tmp_path / "aggregate" / "aggregate_summary.json", {"cell_count":176})
-    p0.atomic_json(tmp_path / "aggregate" / "countdown_protocol_diagnostic.json", {"status":"NOT_RUN"})
-    p0.atomic_json(tmp_path / "scheduler" / "dynamic_run.json", {"complete":True,"seed_batch_barriers":True,"seed_batch_order":[4000,5000],"seed_batch_expected_cells":{"4000":88,"5000":88},"seed_batch_completed_cells":{"4000":88,"5000":88}})
-    audit=exp_tuning.cmd_audit(config,tmp_path)
+            payload.update(
+                {
+                    "canonical_dispatch": "e8_multitask_exp_tuning._train_canonical_dpo_transfer_cell",
+                    "dpo_semantics_source": "historical_PR_268_protected_implementation_cc0ead2be00c89a3c35296b7adc1ddeae8d14759",
+                    "dpo_initialization_mode": str(config["dpo"]["initialization_mode"]),
+                    "reference_remoteness_bank_identity_hash": "5" * 64,
+                    "canonical_train_sha256": "6" * 64,
+                    "shared_sft_adapter_identity": None,
+                    "shared_sft_adapter_provenance": None,
+                    "engineering_liveness": False,
+                    "updates_override": None,
+                }
+            )
+        else:
+            effective = exp_tuning.experiment_config.effective_coldstart_runtime(config, cell.task)
+            payload.update(
+                {
+                    "canonical_dispatch": "countdown_e8_alpha1_c_scan_trainer.train_cell",
+                    "paper_formula": (
+                        "delegated_to_existing_canonical_asymre"
+                        if cell.method == exp_tuning.METHOD_ASYMRE
+                        else "delegated_to_existing_joint_fitted_reference_beta_topr"
+                    ),
+                    "paper_grid_config": "/synthetic/grid.yaml",
+                    "paper_grid_config_sha256": "7" * 64,
+                    "paper_grid_source": "/synthetic/source.yaml",
+                    "paper_grid_source_sha256": "8" * 64,
+                    "paper_base_config": "/synthetic/base.yaml",
+                    "paper_base_config_sha256": "9" * 64,
+                    "all_unique_negatives": True,
+                    "near_far_selection": False,
+                    "gradient_rms_matching": False,
+                    "task_runtime_contract": dict(config["task_runtime"][cell.task]),
+                    "effective_runtime": effective,
+                    "legacy_runtime_bridge": exp_tuning._runtime_bridge_contract(effective),
+                }
+            )
+        top_level = {key: value for key, value in payload.items() if key != "identity_hash"}
+        top_level["identity_hash"] = exp_tuning.stable_hash(payload)
+        top_level["identity_hash_payload"] = payload
+        return top_level
+
+    seed_groups = {
+        4000: [cell for cell in cells if cell.seed == 4000],
+        5000: [cell for cell in cells if cell.seed == 5000],
+    }
+    for seed, group in seed_groups.items():
+        for index, cell in enumerate(group):
+            start_time = float(index) if seed == 4000 else 2000.0 + float(index)
+            finish_time = 1000.0 + float(index) if seed == 4000 else 3000.0 + float(index)
+            value = {
+                **identity_fields(cell),
+                "complete": True,
+                "evaluation_status": "complete",
+                "nan_inf_failure": False,
+                "terminal_step": 1200,
+                "stop_reason": "max_steps",
+                "test_partition_accessed": False,
+                "scientific_execution_provenance": {
+                    "scheduler_run_id": scheduler_run_id,
+                    "cell_key": cell.key,
+                    "seed": cell.seed,
+                    "started_unix": start_time,
+                    "successful_finish_unix": finish_time,
+                    "execution_origin": "executed_current_run",
+                },
+            }
+            if cell.method == exp_tuning.METHOD_DPO:
+                value.update(
+                    {
+                        "reference_initial_state_sha256": "b" * 64,
+                        "reference_terminal_state_sha256": "b" * 64,
+                        "reference_trainable": False,
+                    }
+                )
+            p0.atomic_json(tmp_path / "cells" / cell.key / "cell_manifest.json", value)
+    aggregate_root = tmp_path / "aggregate"
+    aggregate_root.mkdir(parents=True, exist_ok=True)
+    (aggregate_root / "all_cells.csv").write_text("cell_key\n", encoding="utf-8")
+    (aggregate_root / "plot_curve_points.csv").write_text("cell_key\n", encoding="utf-8")
+    (aggregate_root / "task_summary.csv").write_text("task\n", encoding="utf-8")
+    p0.atomic_json(aggregate_root / "countdown_protocol_diagnostic.json", {"status": "NOT_RUN"})
+    p0.atomic_json(
+        aggregate_root / "aggregate_summary.json",
+        {
+            "schema_version": 1,
+            "experiment_id": exp_tuning.experiment_id(config),
+            "source_commit": "a" * 40,
+            "config_hash": config_hash,
+            "cell_count": 176,
+            "cell_manifest_set_sha256": exp_tuning._cell_manifest_set_sha256(config, tmp_path),
+            "aggregate_artifact_sha256": exp_tuning._baseline_aggregate_artifact_sha256(tmp_path),
+        },
+    )
+    p0.atomic_json(
+        tmp_path / "scheduler" / "dynamic_run.json",
+        {
+            "complete": True,
+            "scheduler_run_id": scheduler_run_id,
+            "seed_batch_barriers": True,
+            "seed_batch_order": [4000, 5000],
+            "seed_batch_expected_cells": {"4000": 88, "5000": 88},
+            "seed_batch_completed_cells": {"4000": 88, "5000": 88},
+        },
+    )
+    events = [
+        {
+            "scheduler_run_id": "stale-prior-run",
+            "event": "start",
+            "seed": 5000,
+            "unix_time": 0.0,
+        }
+    ]
+    for seed in (4000, 5000):
+        for index, cell in enumerate(seed_groups[seed]):
+            start_time = float(index) if seed == 4000 else 2000.0 + float(index)
+            finish_time = 1000.0 + float(index) if seed == 4000 else 3000.0 + float(index)
+            events.extend(
+                [
+                    {
+                        "scheduler_run_id": scheduler_run_id,
+                        "event": "start",
+                        "cell_key": cell.key,
+                        "seed": seed,
+                        "execution_origin": "executed_current_run",
+                        "unix_time": start_time,
+                    },
+                    {
+                        "scheduler_run_id": scheduler_run_id,
+                        "event": "finish",
+                        "cell_key": cell.key,
+                        "seed": seed,
+                        "execution_origin": "executed_current_run",
+                        "returncode": 0,
+                        "unix_time": finish_time,
+                    },
+                ]
+            )
+    event_path = tmp_path / "scheduler" / "queue_events.jsonl"
+    p0.atomic_jsonl(event_path, events)
+
+    audit = exp_tuning.cmd_audit(config, tmp_path)
+    assert audit["cell_identity_failures"] == []
+    assert audit["scientific_execution_provenance_failures"] == []
+    assert audit["seed_batch_protocol_complete"] is True
+    assert audit["seed_batch_event_identity_complete"] is True
+    assert audit["seed_batch_execution_provenance_complete"] is True
+    assert audit["seed_batch_temporal_order_complete"] is True
     assert audit["all_training_and_evaluation_complete"] is True
     assert audit["scientific_status"] == "finite_step_validated"
-    victim=cells[0]; path=tmp_path / "cells" / victim.key / "cell_manifest.json"
-    value=json.loads(path.read_text()); value["terminal_step"]=1199; p0.atomic_json(path,value)
-    failed=exp_tuning.cmd_audit(config,tmp_path)
-    assert failed["scientific_status"] == "pilot" and victim.key in failed["terminal_contract_failures"]
+
+    temporal_victim = seed_groups[5000][0]
+    temporal_path = tmp_path / "cells" / temporal_victim.key / "cell_manifest.json"
+    temporal_value = json.loads(temporal_path.read_text())
+    temporal_value["scientific_execution_provenance"]["started_unix"] = 1.0
+    p0.atomic_json(temporal_path, temporal_value)
+    temporal_failed = exp_tuning.cmd_audit(config, tmp_path)
+    assert temporal_failed["seed_batch_protocol_complete"] is True
+    assert temporal_failed["seed_batch_event_identity_complete"] is True
+    assert temporal_failed["seed_batch_execution_provenance_complete"] is True
+    assert temporal_failed["seed_batch_temporal_order_complete"] is False
+    assert temporal_failed["all_training_and_evaluation_complete"] is False
+    assert temporal_failed["scientific_status"] == "pilot"
+    temporal_value["scientific_execution_provenance"]["started_unix"] = 2000.0
+    p0.atomic_json(temporal_path, temporal_value)
+
+    bad_events = [dict(row) for row in events]
+    bad_start = next(
+        row
+        for row in bad_events
+        if row.get("scheduler_run_id") == scheduler_run_id
+        and row.get("event") == "start"
+        and row.get("seed") == 5000
+    )
+    bad_start["execution_origin"] = "reused_existing"
+    p0.atomic_jsonl(event_path, bad_events)
+    origin_failed = exp_tuning.cmd_audit(config, tmp_path)
+    assert origin_failed["seed_batch_event_identity_complete"] is False
+    assert origin_failed["seed_batch_temporal_order_complete"] is False
+    assert origin_failed["scientific_status"] == "pilot"
+
+    p0.atomic_jsonl(event_path, events)
+    duplicate_start_events = [dict(row) for row in events]
+    seed_5000_starts = [
+        row
+        for row in duplicate_start_events
+        if row.get("scheduler_run_id") == scheduler_run_id
+        and row.get("event") == "start"
+        and row.get("seed") == 5000
+    ]
+    seed_5000_starts[1]["cell_key"] = seed_5000_starts[0]["cell_key"]
+    p0.atomic_jsonl(event_path, duplicate_start_events)
+    duplicate_start_failed = exp_tuning.cmd_audit(config, tmp_path)
+    assert duplicate_start_failed["seed_batch_event_identity_complete"] is False
+    assert duplicate_start_failed["all_training_and_evaluation_complete"] is False
+
+    p0.atomic_jsonl(event_path, events)
+    identity_victim = cells[0]
+    identity_path = tmp_path / "cells" / identity_victim.key / "cell_manifest.json"
+    identity_value = json.loads(identity_path.read_text())
+    correct_identity_hash = identity_value["identity_hash"]
+    identity_value["identity_hash"] = "0" * 64
+    p0.atomic_json(identity_path, identity_value)
+    identity_failed = exp_tuning.cmd_audit(config, tmp_path)
+    assert identity_victim.key in identity_failed["cell_identity_failures"]
+    assert identity_failed["all_training_and_evaluation_complete"] is False
+    assert identity_failed["scientific_status"] == "pilot"
+    identity_value["identity_hash"] = correct_identity_hash
+    p0.atomic_json(identity_path, identity_value)
+
+    victim = cells[0]
+    path = tmp_path / "cells" / victim.key / "cell_manifest.json"
+    value = json.loads(path.read_text())
+    value["terminal_step"] = 1199
+    p0.atomic_json(path, value)
+    failed = exp_tuning.cmd_audit(config, tmp_path)
+    assert failed["scientific_status"] == "pilot"
+    assert victim.key in failed["terminal_contract_failures"]
+
+
+
+def test_baseline_matrix_reuse_preserves_original_scientific_execution_provenance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning._engineering_self_test_config(_baseline_matrix_capability_test_config())
+    cells = exp_tuning.build_cells(config)
+    p0.atomic_json(tmp_path / "source_provenance.json", {"source_commit": "e" * 40})
+    monkeypatch.delenv("E8_COLDSTART_RECOVERY_PACKAGE", raising=False)
+    monkeypatch.setattr(exp_tuning, "_require_calibration_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(exp_tuning, "_coldstart_completed_task_rows", lambda *args, **kwargs: None)
+
+    def fake_subprocess_cell(**kwargs):
+        cell = kwargs["cell"]
+        root = kwargs["output_root"] / "cells" / cell.key
+        manifest_path = root / "cell_manifest.json"
+        if not manifest_path.is_file():
+            p0.atomic_json(
+                manifest_path,
+                {
+                    "experiment_id": exp_tuning.experiment_id(config),
+                    "config_hash": exp_tuning.stable_config_hash(config),
+                    "complete": True,
+                    "evaluation_status": "complete",
+                    "nan_inf_failure": False,
+                    "engineering_placeholder_backend": True,
+                },
+            )
+        now = time.time()
+        return {
+            "cell_key": cell.key,
+            "returncode": 0,
+            "started_unix": now,
+            "finished_unix": now + 0.001,
+        }
+
+    monkeypatch.setattr(exp_tuning, "_run_subprocess_cell", fake_subprocess_cell)
+    first = exp_tuning.cmd_run_dynamic(
+        config,
+        tmp_path / "synthetic.yaml",
+        tmp_path,
+        base_model_path="unused",
+        force=False,
+        retry_incomplete=False,
+    )
+    first_run_id = first["scheduler_run_id"]
+    original = {
+        cell.key: json.loads(
+            (tmp_path / "cells" / cell.key / "cell_manifest.json").read_text()
+        )["scientific_execution_provenance"]
+        for cell in cells
+    }
+    second = exp_tuning.cmd_run_dynamic(
+        config,
+        tmp_path / "synthetic.yaml",
+        tmp_path,
+        base_model_path="unused",
+        force=False,
+        retry_incomplete=False,
+    )
+    assert second["scheduler_run_id"] != first_run_id
+    current_events = [
+        json.loads(line)
+        for line in (tmp_path / "scheduler" / "queue_events.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    second_events = [
+        row for row in current_events if row.get("scheduler_run_id") == second["scheduler_run_id"]
+    ]
+    assert len(second_events) == 352
+    assert {row.get("execution_origin") for row in second_events} == {"reused_existing"}
+    for cell in cells:
+        value = json.loads((tmp_path / "cells" / cell.key / "cell_manifest.json").read_text())
+        assert value["scientific_execution_provenance"] == original[cell.key]
+        assert value["scientific_execution_provenance"]["scheduler_run_id"] == first_run_id
+
+
+def _synthetic_recovery_manifest(cell, *, start: float, finish: float):
+    return {
+        "scientific_execution_provenance": {
+            "scheduler_run_id": f"prior-{cell.seed}",
+            "cell_key": cell.key,
+            "seed": cell.seed,
+            "started_unix": start,
+            "successful_finish_unix": finish,
+            "execution_origin": "executed_current_run",
+        }
+    }
+
+
+def test_baseline_recovery_global_eligibility_cascades_after_earlier_seed_gap() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")
+    cells = exp_tuning.build_cells(config)
+    seed_4000 = [cell for cell in cells if cell.seed == 4000]
+    seed_5000 = [cell for cell in cells if cell.seed == 5000]
+    reusable = {
+        cell.key: _synthetic_recovery_manifest(
+            cell,
+            start=10.0 if cell.seed == 4000 else 30.0,
+            finish=20.0 if cell.seed == 4000 else 40.0,
+        )
+        for cell in cells
+    }
+    missing = seed_4000[0]
+    reusable.pop(missing.key)
+    eligible = exp_tuning._recovery_reuse_eligible_keys(config, cells, reusable)
+    assert eligible == {cell.key for cell in seed_4000[1:]}
+    assert not ({cell.key for cell in seed_5000} & eligible)
+
+
+def test_baseline_recovery_global_eligibility_reruns_temporally_invalid_later_seed() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")
+    cells = exp_tuning.build_cells(config)
+    seed_4000 = [cell for cell in cells if cell.seed == 4000]
+    seed_5000 = [cell for cell in cells if cell.seed == 5000]
+    reusable = {
+        cell.key: _synthetic_recovery_manifest(
+            cell,
+            start=10.0 if cell.seed == 4000 else 15.0,
+            finish=20.0 if cell.seed == 4000 else 25.0,
+        )
+        for cell in cells
+    }
+    eligible = exp_tuning._recovery_reuse_eligible_keys(config, cells, reusable)
+    assert eligible == {cell.key for cell in seed_4000}
+    assert not ({cell.key for cell in seed_5000} & eligible)
+
+
+def test_baseline_recovery_partial_later_seed_keeps_compatible_same_seed_reuse() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")
+    cells = exp_tuning.build_cells(config)
+    seed_5000 = [cell for cell in cells if cell.seed == 5000]
+    reusable = {
+        cell.key: _synthetic_recovery_manifest(
+            cell,
+            start=10.0 if cell.seed == 4000 else 30.0,
+            finish=20.0 if cell.seed == 4000 else 40.0,
+        )
+        for cell in cells
+    }
+    missing = seed_5000[0]
+    reusable.pop(missing.key)
+    eligible = exp_tuning._recovery_reuse_eligible_keys(config, cells, reusable)
+    assert eligible == set(reusable)
+
+
+def test_retry_incomplete_forces_complete_manifest_rejected_from_authoritative_reuse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning._engineering_self_test_config(
+        _baseline_matrix_capability_test_config()
+    )
+    cells = exp_tuning.build_cells(config)
+    victim = cells[0]
+    p0.atomic_json(tmp_path / "source_provenance.json", {"source_commit": "f" * 40})
+    p0.atomic_json(
+        tmp_path / "cells" / victim.key / "cell_manifest.json",
+        {
+            "experiment_id": exp_tuning.experiment_id(config),
+            "config_hash": exp_tuning.stable_config_hash(config),
+            "complete": True,
+            "evaluation_status": "complete",
+            "nan_inf_failure": False,
+            "engineering_placeholder_backend": True,
+        },
+    )
+    monkeypatch.delenv("E8_COLDSTART_RECOVERY_PACKAGE", raising=False)
+    monkeypatch.setattr(exp_tuning, "_require_calibration_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(exp_tuning, "_coldstart_completed_task_rows", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        exp_tuning,
+        "_recovery_reusable_cell_manifests",
+        lambda *args, **kwargs: ({}, {victim.key: "synthetic_reuse_rejection"}),
+    )
+    observed_force: dict[str, bool] = {}
+
+    def fake_subprocess_cell(**kwargs):
+        cell = kwargs["cell"]
+        observed_force[cell.key] = bool(kwargs["force"])
+        manifest_path = kwargs["output_root"] / "cells" / cell.key / "cell_manifest.json"
+        p0.atomic_json(
+            manifest_path,
+            {
+                "experiment_id": exp_tuning.experiment_id(config),
+                "config_hash": exp_tuning.stable_config_hash(config),
+                "complete": True,
+                "evaluation_status": "complete",
+                "nan_inf_failure": False,
+                "engineering_placeholder_backend": True,
+            },
+        )
+        now = time.time()
+        return {
+            "cell_key": cell.key,
+            "returncode": 0,
+            "started_unix": now,
+            "finished_unix": now + 0.001,
+        }
+
+    monkeypatch.setattr(exp_tuning, "_run_subprocess_cell", fake_subprocess_cell)
+    result = exp_tuning.cmd_run_dynamic(
+        config,
+        tmp_path / "synthetic.yaml",
+        tmp_path,
+        base_model_path="unused",
+        force=False,
+        retry_incomplete=True,
+    )
+    assert result["complete"] is True
+    assert observed_force[victim.key] is True
+    assert all(observed_force[cell.key] is False for cell in cells[1:])
+
+
+def test_non_retry_path_never_stamps_rejected_complete_manifest_as_new_execution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning._engineering_self_test_config(
+        _baseline_matrix_capability_test_config()
+    )
+    cells = exp_tuning.build_cells(config)
+    victim = cells[0]
+    p0.atomic_json(tmp_path / "source_provenance.json", {"source_commit": "a" * 40})
+    p0.atomic_json(
+        tmp_path / "cells" / victim.key / "cell_manifest.json",
+        {
+            "experiment_id": exp_tuning.experiment_id(config),
+            "config_hash": exp_tuning.stable_config_hash(config),
+            "complete": True,
+            "evaluation_status": "complete",
+            "nan_inf_failure": False,
+            "engineering_placeholder_backend": True,
+        },
+    )
+    monkeypatch.delenv("E8_COLDSTART_RECOVERY_PACKAGE", raising=False)
+    monkeypatch.setattr(exp_tuning, "_require_calibration_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(exp_tuning, "_coldstart_completed_task_rows", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        exp_tuning,
+        "_recovery_reusable_cell_manifests",
+        lambda *args, **kwargs: ({}, {victim.key: "synthetic_reuse_rejection"}),
+    )
+    called = set()
+
+    def fake_subprocess_cell(**kwargs):
+        cell = kwargs["cell"]
+        called.add(cell.key)
+        if cell.key == victim.key:
+            raise AssertionError("rejected existing cell must not enter subprocess path")
+        manifest_path = kwargs["output_root"] / "cells" / cell.key / "cell_manifest.json"
+        p0.atomic_json(
+            manifest_path,
+            {
+                "experiment_id": exp_tuning.experiment_id(config),
+                "config_hash": exp_tuning.stable_config_hash(config),
+                "complete": True,
+                "evaluation_status": "complete",
+                "nan_inf_failure": False,
+                "engineering_placeholder_backend": True,
+            },
+        )
+        now = time.time()
+        return {
+            "cell_key": cell.key,
+            "returncode": 0,
+            "started_unix": now,
+            "finished_unix": now + 0.001,
+        }
+
+    monkeypatch.setattr(exp_tuning, "_run_subprocess_cell", fake_subprocess_cell)
+    with pytest.raises(RuntimeError, match="Cold-start scheduling stopped fail-closed"):
+        exp_tuning.cmd_run_dynamic(
+            config,
+            tmp_path / "synthetic.yaml",
+            tmp_path,
+            base_model_path="unused",
+            force=False,
+            retry_incomplete=False,
+        )
+    assert victim.key not in called
+    victim_manifest = json.loads(
+        (tmp_path / "cells" / victim.key / "cell_manifest.json").read_text()
+    )
+    assert "scientific_execution_provenance" not in victim_manifest
+
+
+def test_baseline_recovery_keeps_compatible_cells_within_temporally_partial_seed() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")
+    cells = exp_tuning.build_cells(config)
+    seed_4000 = [cell for cell in cells if cell.seed == 4000]
+    seed_5000 = [cell for cell in cells if cell.seed == 5000]
+    stale = seed_5000[0]
+    reusable = {}
+    for cell in cells:
+        if cell.seed == 4000:
+            start, finish = 10.0, 20.0
+        elif cell.key == stale.key:
+            start, finish = 15.0, 25.0
+        else:
+            start, finish = 30.0, 40.0
+        reusable[cell.key] = _synthetic_recovery_manifest(
+            cell,
+            start=start,
+            finish=finish,
+        )
+    eligible = exp_tuning._recovery_reuse_eligible_keys(config, cells, reusable)
+    assert {cell.key for cell in seed_4000} <= eligible
+    assert stale.key not in eligible
+    assert {cell.key for cell in seed_5000[1:]} <= eligible
+
+
+def test_baseline_task_rows_wait_for_global_recovery_eligibility(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")
+    task = str(config["suite"]["p0_tasks"][0])
+    expected = [cell for cell in exp_tuning.build_cells(config) if cell.task == task]
+    victim = expected[0]
+    eligible = {
+        cell.key: {}
+        for cell in exp_tuning.build_cells(config)
+        if cell.key != victim.key
+    }
+    monkeypatch.setattr(
+        exp_tuning,
+        "_recovery_reusable_cell_manifests",
+        lambda *args, **kwargs: (eligible, {victim.key: "synthetic_reuse_rejection"}),
+    )
+    assert exp_tuning._coldstart_completed_task_rows(config, tmp_path, task) is None
+
+
+def test_baseline_terminal_evidence_binding_rejects_post_aggregate_cell_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning._engineering_self_test_config(
+        _baseline_matrix_capability_test_config()
+    )
+    cells = exp_tuning.build_cells(config)
+    source_commit = "c" * 40
+    p0.atomic_json(
+        tmp_path / "source_provenance.json",
+        {"source_commit": source_commit, "run_id": "terminal-binding-test"},
+    )
+    for cell in cells:
+        score = 0.1
+        p0.atomic_json(
+            tmp_path / "cells" / cell.key / "cell_manifest.json",
+            {
+                "schema_version": 1,
+                "experiment_id": exp_tuning.experiment_id(config),
+                "config_hash": exp_tuning.stable_config_hash(config),
+                "cell": exp_tuning._cell_descriptor(cell),
+                "complete": True,
+                "evaluation_status": "complete",
+                "nan_inf_failure": False,
+                "engineering_placeholder_backend": True,
+                "validation_late_window_pass8_mean": score,
+                "validation_late_window_greedy_mean": score,
+                "validation_best_pass8": score,
+                "validation_terminal_pass8": score,
+                "validation_best_greedy": score,
+                "validation_terminal_greedy": score,
+                "validation_best_greedy_valid_rate": 1.0,
+                "validation_terminal_greedy_valid_rate": 1.0,
+                "best_step": 1200,
+                "terminal_step": 1200,
+                "stop_reason": "max_steps",
+            },
+        )
+    aggregate = exp_tuning.cmd_aggregate(config, tmp_path)
+    assert exp_tuning._baseline_aggregate_identity_matches(config, tmp_path, aggregate)
+
+    victim = tmp_path / "cells" / cells[0].key / "cell_manifest.json"
+    changed = json.loads(victim.read_text(encoding="utf-8"))
+    changed["validation_terminal_pass8"] = 0.2
+    p0.atomic_json(victim, changed)
+    assert not exp_tuning._baseline_aggregate_identity_matches(config, tmp_path, aggregate)
+
+
+def test_completed_workload_terminal_evidence_rejects_stale_hash_chain(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning._engineering_self_test_config(
+        _baseline_matrix_capability_test_config()
+    )
+    source_commit = "d" * 40
+    expected_cells = len(exp_tuning.build_cells(config))
+    scheduler_run_id = "terminal-evidence-run"
+    p0.atomic_json(tmp_path / "source_provenance.json", {"source_commit": source_commit})
+    for cell in exp_tuning.build_cells(config):
+        p0.atomic_json(
+            tmp_path / "cells" / cell.key / "cell_manifest.json",
+            {
+                "experiment_id": exp_tuning.experiment_id(config),
+                "config_hash": exp_tuning.stable_config_hash(config),
+                "complete": True,
+                "evaluation_status": "complete",
+                "nan_inf_failure": False,
+                "engineering_placeholder_backend": True,
+            },
+        )
+    aggregate_root = tmp_path / "aggregate"
+    aggregate_root.mkdir(parents=True, exist_ok=True)
+    (aggregate_root / "all_cells.csv").write_text("cell_key\n", encoding="utf-8")
+    (aggregate_root / "plot_curve_points.csv").write_text("cell_key\n", encoding="utf-8")
+    (aggregate_root / "task_summary.csv").write_text("task\n", encoding="utf-8")
+    p0.atomic_json(
+        aggregate_root / "countdown_protocol_diagnostic.json",
+        {"status": "NOT_RUN_ENGINEERING"},
+    )
+    aggregate = {
+        "experiment_id": exp_tuning.experiment_id(config),
+        "source_commit": source_commit,
+        "config_hash": exp_tuning.stable_config_hash(config),
+        "cell_count": expected_cells,
+        "cell_manifest_set_sha256": exp_tuning._cell_manifest_set_sha256(config, tmp_path),
+        "aggregate_artifact_sha256": exp_tuning._baseline_aggregate_artifact_sha256(tmp_path),
+    }
+    p0.atomic_json(aggregate_root / "aggregate_summary.json", aggregate)
+    p0.atomic_json(
+        tmp_path / "scheduler" / "dynamic_run.json",
+        {
+            "experiment_id": exp_tuning.experiment_id(config),
+            "scheduler_run_id": scheduler_run_id,
+            "expected_cells": expected_cells,
+            "completed_cells": expected_cells,
+            "failed_cells": [],
+            "unscheduled_cells": [],
+            "complete": True,
+        },
+    )
+    (tmp_path / "scheduler" / "queue_events.jsonl").write_text("{}\n", encoding="utf-8")
+    audit = {
+        "experiment_id": exp_tuning.experiment_id(config),
+        "base_commit": source_commit,
+        "expected_cells": expected_cells,
+        "missing_cells": [],
+        "incomplete_cells": [],
+        "nan_inf_cells": [],
+        "terminal_contract_failures": [],
+        "cell_identity_failures": [],
+        "scientific_execution_provenance_failures": [],
+        "dpo_reference_identity_failures": [],
+        "nan_inf_event_count": 0,
+        "all_training_and_evaluation_complete": True,
+        "aggregate_complete": True,
+        "test_partition_accessed": False,
+        "execution_class": exp_tuning._execution_class(config),
+        "scientific_status": exp_tuning._audited_scientific_status(config, True),
+        "seed_batch_protocol_complete": True,
+        "seed_batch_event_identity_complete": True,
+        "seed_batch_execution_provenance_complete": True,
+        "seed_batch_temporal_order_complete": True,
+        "cell_manifest_set_sha256": aggregate["cell_manifest_set_sha256"],
+        "aggregate_summary_sha256": exp_tuning.sha256_file(
+            tmp_path / "aggregate" / "aggregate_summary.json"
+        ),
+        "scheduler_dynamic_run_sha256": exp_tuning.sha256_file(
+            tmp_path / "scheduler" / "dynamic_run.json"
+        ),
+        "scheduler_queue_events_sha256": exp_tuning.sha256_file(
+            tmp_path / "scheduler" / "queue_events.jsonl"
+        ),
+    }
+    p0.atomic_json(tmp_path / "terminal_audit.json", audit)
+    run_manifest = {
+        "experiment_id": exp_tuning.experiment_id(config),
+        "base_commit": source_commit,
+        "source_commit": source_commit,
+        "config_hash": exp_tuning.stable_config_hash(config),
+        "expected_cells": expected_cells,
+        "completed_cells": expected_cells,
+        "scheduler_run_id": scheduler_run_id,
+    }
+    p0.atomic_json(tmp_path / "run_manifest.json", run_manifest)
+    p0.atomic_json(tmp_path / "scientific_run_manifest.json", run_manifest)
+    p0.atomic_json(
+        tmp_path / "RUN_COMPLETE.json",
+        {
+            **run_manifest,
+            "all_training_and_evaluation_complete": True,
+            "terminal_audit_sha256": exp_tuning.sha256_file(tmp_path / "terminal_audit.json"),
+            "aggregate_sha256": exp_tuning.sha256_file(
+                tmp_path / "aggregate" / "aggregate_summary.json"
+            ),
+            "scheduler_dynamic_run_sha256": audit["scheduler_dynamic_run_sha256"],
+            "scheduler_queue_events_sha256": audit["scheduler_queue_events_sha256"],
+            "complete": True,
+        },
+    )
+    assert exp_tuning._completed_workload_terminal_evidence_matches(
+        config, tmp_path, source_commit=source_commit
+    )
+
+    stale = json.loads((tmp_path / "terminal_audit.json").read_text(encoding="utf-8"))
+    stale["seed_batch_temporal_order_complete"] = False
+    p0.atomic_json(tmp_path / "terminal_audit.json", stale)
+    assert not exp_tuning._completed_workload_terminal_evidence_matches(
+        config, tmp_path, source_commit=source_commit
+    )
+
+
+
+def test_baseline_terminal_chain_rejects_post_audit_scheduler_and_derived_mutation(
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")
+    source_commit = "e" * 40
+    root = tmp_path / "terminal-chain"
+    result = exp_tuning.cmd_engineering_self_test(config, root, source_commit=source_commit)
+    assert result["complete"] is True
+    effective = exp_tuning.load_config(root / "engineering_self_test_config.yaml")
+    aggregate_path = root / "aggregate" / "aggregate_summary.json"
+    audit_path = root / "terminal_audit.json"
+    aggregate = json.loads(aggregate_path.read_text(encoding="utf-8"))
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    assert exp_tuning._baseline_aggregate_identity_matches(effective, root, aggregate)
+    assert exp_tuning._baseline_terminal_audit_identity_matches(
+        effective, root, audit, aggregate
+    )
+    assert exp_tuning._completed_workload_terminal_evidence_matches(
+        effective, root, source_commit=source_commit
+    )
+
+    plot_path = root / "aggregate" / "plot_curve_points.csv"
+    plot_bytes = plot_path.read_bytes()
+    plot_path.write_bytes(plot_bytes + b"tampered\n")
+    assert not exp_tuning._baseline_aggregate_identity_matches(effective, root, aggregate)
+    plan = exp_tuning._recovery_stage_plan(
+        effective,
+        root,
+        base_model_path=str(root / "engineering_fixtures" / "placeholder_model"),
+    )
+    assert plan["aggregate_complete"] is False
+    assert plan["audit_complete"] is False
+    assert plan["finalized"] is False
+    plot_path.write_bytes(plot_bytes)
+
+    event_path = root / "scheduler" / "queue_events.jsonl"
+    event_bytes = event_path.read_bytes()
+    event_path.write_bytes(event_bytes + b"{}\n")
+    aggregate = json.loads(aggregate_path.read_text(encoding="utf-8"))
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    assert not exp_tuning._baseline_terminal_audit_identity_matches(
+        effective, root, audit, aggregate
+    )
+    assert not exp_tuning._completed_workload_terminal_evidence_matches(
+        effective, root, source_commit=source_commit
+    )
+    plan = exp_tuning._recovery_stage_plan(
+        effective,
+        root,
+        base_model_path=str(root / "engineering_fixtures" / "placeholder_model"),
+    )
+    assert plan["audit_complete"] is False
+    assert plan["finalized"] is False
+    event_path.write_bytes(event_bytes)
+
+    stale_audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    stale_audit["base_commit"] = "f" * 40
+    p0.atomic_json(audit_path, stale_audit)
+    with pytest.raises(RuntimeError, match="stale or inconsistent"):
+        exp_tuning.cmd_finalize(effective, root)

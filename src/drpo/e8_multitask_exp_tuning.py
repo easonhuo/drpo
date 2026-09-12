@@ -32,6 +32,7 @@ from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass
+from itertools import pairwise
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -4427,7 +4428,9 @@ def _train_canonical_dpo_transfer_cell(
             "updates_override": updates_override,
         }
     )
-    identity["identity_hash"] = stable_hash(identity)
+    identity_hash_payload = copy.deepcopy(identity)
+    identity["identity_hash"] = stable_hash(identity_hash_payload)
+    identity["identity_hash_payload"] = identity_hash_payload
     cell_root, manifest_path, reusable = _prepare_cell_output(
         output_root,
         root_name=root_name,
@@ -5087,7 +5090,9 @@ def _train_canonical_cold_cell(
     if not experiment_config.is_historical_coldstart_config(config):
         identity["effective_runtime"] = effective_runtime
         identity["legacy_runtime_bridge"] = _runtime_bridge_contract(effective_runtime)
-    identity["identity_hash"] = stable_hash(identity)
+    identity_hash_payload = copy.deepcopy(identity)
+    identity["identity_hash"] = stable_hash(identity_hash_payload)
+    identity["identity_hash_payload"] = identity_hash_payload
 
     cell_root, manifest_path, reusable = _prepare_cell_output(
         output_root,
@@ -6111,6 +6116,115 @@ def _read_json_object(path: Path) -> dict[str, Any]:
     return value
 
 
+def _completed_workload_terminal_evidence_matches(
+    config: Mapping[str, Any],
+    workload_root: Path,
+    *,
+    source_commit: str,
+) -> bool:
+    """Validate terminal E8 evidence before a guarded completed attempt is reused."""
+
+    expected_id = experiment_id(config)
+    expected_hash = stable_config_hash(config)
+    expected_cells = len(build_cells(config))
+    try:
+        scheduler_path = workload_root / "scheduler" / "dynamic_run.json"
+        aggregate_path = workload_root / "aggregate" / "aggregate_summary.json"
+        audit_path = workload_root / "terminal_audit.json"
+        run_manifest_path = workload_root / "run_manifest.json"
+        scientific_manifest_path = workload_root / "scientific_run_manifest.json"
+        complete_path = workload_root / "RUN_COMPLETE.json"
+        plot_path = workload_root / "aggregate" / "plot_curve_points.csv"
+        if not all(
+            path.is_file()
+            for path in (
+                scheduler_path,
+                aggregate_path,
+                audit_path,
+                run_manifest_path,
+                scientific_manifest_path,
+                complete_path,
+                plot_path,
+            )
+        ):
+            return False
+        scheduler = _read_json_object(scheduler_path)
+        aggregate = _read_json_object(aggregate_path)
+        audit = _read_json_object(audit_path)
+        run_manifest = _read_json_object(run_manifest_path)
+        scientific_manifest = _read_json_object(scientific_manifest_path)
+        complete = _read_json_object(complete_path)
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return False
+
+    if not (
+        scheduler.get("experiment_id") == expected_id
+        and scheduler.get("complete") is True
+        and int(scheduler.get("expected_cells", -1)) == expected_cells
+        and int(scheduler.get("completed_cells", -1)) == expected_cells
+        and not scheduler.get("failed_cells")
+        and not scheduler.get("unscheduled_cells")
+        and aggregate.get("experiment_id") == expected_id
+        and aggregate.get("source_commit") == source_commit
+        and int(aggregate.get("cell_count", -1)) == expected_cells
+        and audit.get("experiment_id") == expected_id
+        and audit.get("base_commit") == source_commit
+        and int(audit.get("expected_cells", -1)) == expected_cells
+        and audit.get("all_training_and_evaluation_complete") is True
+        and audit.get("test_partition_accessed") is False
+        and run_manifest.get("experiment_id") == expected_id
+        and run_manifest.get("base_commit") == source_commit
+        and run_manifest.get("source_commit") == source_commit
+        and run_manifest.get("config_hash") == expected_hash
+        and int(run_manifest.get("expected_cells", -1)) == expected_cells
+        and int(run_manifest.get("completed_cells", -1)) == expected_cells
+        and run_manifest.get("scheduler_run_id") == scheduler.get("scheduler_run_id")
+        and scientific_manifest == run_manifest
+        and complete.get("experiment_id") == expected_id
+        and complete.get("base_commit") == source_commit
+        and complete.get("source_commit") == source_commit
+        and complete.get("config_hash") == expected_hash
+        and int(complete.get("expected_cells", -1)) == expected_cells
+        and int(complete.get("completed_cells", -1)) == expected_cells
+        and complete.get("scheduler_run_id") == scheduler.get("scheduler_run_id")
+        and complete.get("all_training_and_evaluation_complete") is True
+        and complete.get("complete") is True
+        and complete.get("terminal_audit_sha256") == sha256_file(audit_path)
+        and complete.get("aggregate_sha256") == sha256_file(aggregate_path)
+    ):
+        return False
+
+    if _is_baseline_matrix(config):
+        if not _baseline_terminal_audit_identity_matches(
+            config, workload_root, audit, aggregate
+        ):
+            return False
+        if (
+            complete.get("scheduler_dynamic_run_sha256")
+            != audit.get("scheduler_dynamic_run_sha256")
+            or complete.get("scheduler_queue_events_sha256")
+            != audit.get("scheduler_queue_events_sha256")
+        ):
+            return False
+        if not all(
+            audit.get(field) is True
+            for field in (
+                "seed_batch_protocol_complete",
+                "seed_batch_event_identity_complete",
+                "seed_batch_execution_provenance_complete",
+                "seed_batch_temporal_order_complete",
+            )
+        ):
+            return False
+        if (
+            audit.get("cell_manifest_set_sha256")
+            != aggregate.get("cell_manifest_set_sha256")
+            or audit.get("aggregate_summary_sha256") != sha256_file(aggregate_path)
+        ):
+            return False
+    return True
+
+
 def _successful_attempt_matches_current_identity(
     config: Mapping[str, Any],
     workload_root: Path,
@@ -6133,16 +6247,45 @@ def _successful_attempt_matches_current_identity(
             return False
         if artifact_path is None:
             return True
+
+        baseline_terminal_binding = _is_baseline_matrix(config)
+        if baseline_terminal_binding and not _completed_workload_terminal_evidence_matches(
+            config, workload_root, source_commit=source_commit
+        ):
+            return False
         prefix = f"results/{expected_id}"
+        terminal_members = (
+            "source_provenance.json",
+            "prepare_manifest.json",
+            "scheduler/dynamic_run.json",
+            "scheduler/queue_events.jsonl",
+            "aggregate/aggregate_summary.json",
+            "aggregate/all_cells.csv",
+            "aggregate/plot_curve_points.csv",
+            "aggregate/task_summary.csv",
+            "aggregate/countdown_protocol_diagnostic.json",
+            "terminal_audit.json",
+            "run_manifest.json",
+            "scientific_run_manifest.json",
+            "RUN_COMPLETE.json",
+        )
         with zipfile.ZipFile(artifact_path) as archive:
             artifact_manifest = json.loads(archive.read("ARTIFACT_MANIFEST.json"))
             base_commit = archive.read("BASE_COMMIT.txt").decode("utf-8").strip()
-            run_manifest = json.loads(archive.read(f"{prefix}/run_manifest.json"))
+            outer_run_manifest = json.loads(archive.read(f"{prefix}/run_manifest.json"))
             packaged_provenance = json.loads(
                 archive.read(f"{prefix}/workload/source_provenance.json")
             )
             packaged_prepare = json.loads(
                 archive.read(f"{prefix}/workload/prepare_manifest.json")
+            )
+            packaged_terminal_payloads = (
+                {
+                    relative: archive.read(f"{prefix}/workload/{relative}")
+                    for relative in terminal_members
+                }
+                if baseline_terminal_binding
+                else {}
             )
     except (
         OSError,
@@ -6150,6 +6293,7 @@ def _successful_attempt_matches_current_identity(
         TypeError,
         KeyError,
         UnicodeDecodeError,
+        json.JSONDecodeError,
         zipfile.BadZipFile,
     ):
         return False
@@ -6157,24 +6301,35 @@ def _successful_attempt_matches_current_identity(
         isinstance(value, dict)
         for value in (
             artifact_manifest,
-            run_manifest,
+            outer_run_manifest,
             packaged_provenance,
             packaged_prepare,
         )
     ):
         return False
-    return (
+    if not (
         artifact_manifest.get("package_kind") == "experiment-raw-complete"
         and artifact_manifest.get("experiment_id") == expected_id
         and artifact_manifest.get("base_commit") == source_commit
         and base_commit == source_commit
-        and run_manifest.get("experiment_id") == expected_id
-        and run_manifest.get("base_commit") == source_commit
+        and outer_run_manifest.get("experiment_id") == expected_id
+        and outer_run_manifest.get("base_commit") == source_commit
         and packaged_provenance.get("source_commit") == source_commit
         and packaged_prepare.get("experiment_id") == expected_id
         and packaged_prepare.get("config_hash") == expected_hash
-    )
-
+    ):
+        return False
+    if baseline_terminal_binding:
+        for relative, packaged in packaged_terminal_payloads.items():
+            live = workload_root / relative
+            if not live.is_file():
+                return False
+            try:
+                if hashlib.sha256(packaged).hexdigest() != sha256_file(live):
+                    return False
+            except OSError:
+                return False
+    return True
 
 def _effective_recovery_config(
     config: Mapping[str, Any],
@@ -6216,6 +6371,10 @@ def _reusable_cell_manifests(
                 if value.get("engineering_placeholder_backend") is not True:
                     raise RuntimeError("placeholder_backend_marker_missing")
             else:
+                if _is_baseline_matrix(config) and not _terminal_cell_identity_matches(config, cell, value):
+                    raise RuntimeError("baseline_matrix_terminal_identity_mismatch")
+                if _is_baseline_matrix(config) and not _scientific_execution_provenance_valid(value, cell):
+                    raise RuntimeError("baseline_matrix_scientific_execution_provenance_missing")
                 if (
                     not isinstance(value.get("identity_hash"), str)
                     or len(str(value["identity_hash"])) != 64
@@ -6243,6 +6402,59 @@ def _reusable_cell_manifests(
     return reusable, rejected
 
 
+def _recovery_reuse_eligible_keys(
+    config: Mapping[str, Any],
+    cells: Sequence[Cell],
+    reusable: Mapping[str, Mapping[str, Any]],
+) -> set[str]:
+    """Apply the frozen seed chronology to otherwise reusable cell evidence."""
+
+    if not _is_baseline_matrix(config) or _is_engineering_self_test(config):
+        return set(reusable)
+    eligible: set[str] = set()
+    cascade_rerun = False
+    previous_finish: float | None = None
+    for seed_value in config["execution"]["seed_batch_order"]:
+        seed = int(seed_value)
+        seed_keys = {cell.key for cell in cells if cell.seed == seed}
+        if cascade_rerun:
+            continue
+        present = seed_keys & set(reusable)
+        compatible = set(present)
+        if previous_finish is not None:
+            compatible = {
+                key
+                for key in present
+                if float(
+                    reusable[key]["scientific_execution_provenance"]["started_unix"]
+                )
+                >= previous_finish
+            }
+        eligible.update(compatible)
+        if compatible != seed_keys:
+            cascade_rerun = True
+            continue
+        previous_finish = max(
+            float(
+                reusable[key]["scientific_execution_provenance"]["successful_finish_unix"]
+            )
+            for key in seed_keys
+        )
+    return eligible
+
+
+def _recovery_reusable_cell_manifests(
+    config: Mapping[str, Any],
+    output_root: Path,
+) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
+    reusable, rejected = _reusable_cell_manifests(config, output_root)
+    cells = build_cells(config)
+    eligible = _recovery_reuse_eligible_keys(config, cells, reusable)
+    for key in sorted(set(reusable) - eligible):
+        rejected[key] = "baseline_seed_chronology_requires_reexecution"
+    return {key: reusable[key] for key in sorted(eligible)}, rejected
+
+
 def _recovery_stage_plan(
     config: Mapping[str, Any],
     output_root: Path,
@@ -6256,14 +6468,14 @@ def _recovery_stage_plan(
     try:
         _load_prepared(output_root, config)
         prepare_complete = True
-    except Exception as exc:  # The plan records the exact fail-closed reason.
+    except Exception as exc:  # noqa: BLE001 - record any prepare failure fail-closed.
         prepare_complete = False
         prepare_error = f"{type(exc).__name__}: {exc}"
     if prepare_complete:
         try:
             _require_calibration_gate(config, output_root, base_model_path=base_model_path)
             calibration_complete = True
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - record any calibration failure.
             calibration_complete = False
             calibration_error = f"{type(exc).__name__}: {exc}"
     else:
@@ -6273,38 +6485,54 @@ def _recovery_stage_plan(
         try:
             _require_liveness_gate(config, output_root, base_model_path=base_model_path)
             liveness_complete = True
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - record any liveness failure.
             liveness_complete = False
             liveness_error = f"{type(exc).__name__}: {exc}"
     else:
         liveness_complete = False
         liveness_error = "calibration_incomplete"
-    reusable, rejected = _reusable_cell_manifests(config, output_root)
+    reusable, rejected = _recovery_reusable_cell_manifests(config, output_root)
     expected_cells = len(build_cells(config))
     cells_complete = len(reusable) == expected_cells
     aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
     aggregate_complete = False
+    aggregate_value: dict[str, Any] = {}
     if aggregate_path.is_file():
         try:
-            aggregate_complete = int(_read_json_object(aggregate_path).get("cell_count", 0)) == (
-                expected_cells
-            )
+            aggregate_value = _read_json_object(aggregate_path)
+            aggregate_complete = int(aggregate_value.get("cell_count", 0)) == expected_cells
+            if _is_baseline_matrix(config):
+                aggregate_complete = aggregate_complete and _baseline_aggregate_identity_matches(
+                    config, output_root, aggregate_value
+                )
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             aggregate_complete = False
     audit_path = output_root / "terminal_audit.json"
     audit_complete = False
+    audit_value: dict[str, Any] = {}
     if audit_path.is_file():
         try:
-            audit_complete = bool(
-                _read_json_object(audit_path).get("all_training_and_evaluation_complete")
-            )
+            audit_value = _read_json_object(audit_path)
+            audit_complete = bool(audit_value.get("all_training_and_evaluation_complete"))
+            if _is_baseline_matrix(config):
+                aggregate_value = _read_json_object(aggregate_path)
+                audit_complete = audit_complete and _baseline_terminal_audit_identity_matches(
+                    config, output_root, audit_value, aggregate_value
+                )
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             audit_complete = False
     finalized = False
     complete_path = output_root / "RUN_COMPLETE.json"
     if complete_path.is_file():
         try:
-            finalized = bool(_read_json_object(complete_path).get("complete")) and audit_complete
+            complete_value = _read_json_object(complete_path)
+            finalized = bool(complete_value.get("complete")) and audit_complete
+            if _is_baseline_matrix(config):
+                finalized = (
+                    finalized
+                    and complete_value.get("terminal_audit_sha256") == sha256_file(audit_path)
+                    and complete_value.get("aggregate_sha256") == sha256_file(aggregate_path)
+                )
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             finalized = False
     if not prepare_complete:
@@ -6521,7 +6749,7 @@ def _recovery_checkpoint_snapshot(
     *,
     source_commit: str,
 ) -> dict[str, Any]:
-    reusable, rejected = _reusable_cell_manifests(config, output_root)
+    reusable, rejected = _recovery_reusable_cell_manifests(config, output_root)
     temporary = snapshot_root.with_name(f".{snapshot_root.name}.tmp-{os.getpid()}-{time.time_ns()}")
     if temporary.exists():
         shutil.rmtree(temporary)
@@ -6551,7 +6779,7 @@ def _recovery_checkpoint_snapshot(
         "completed_cells": len(cells),
         "cells": cells,
         "rejected_cells": rejected,
-        "recovery_semantics": "reuse complete identity-checked cells; rerun incomplete cells",
+        "recovery_semantics": "reuse complete identity-and-seed-chronology-checked cells; rerun rejected or incomplete cells",
         "intra_cell_resume_supported": False,
         "scientific_status": "not_run" if _is_engineering_self_test(config) else "pilot",
     }
@@ -7105,13 +7333,17 @@ def cmd_run_dynamic(
     task_results: dict[str, dict[str, Any]] = {}
     event_path = output_root / "scheduler" / "queue_events.jsonl"
     event_path.parent.mkdir(parents=True, exist_ok=True)
-    scheduler_run_id = f"queue-{int(time.time())}-{os.getpid()}"
+    scheduler_run_id = f"queue-{time.time_ns()}-{os.getpid()}"
     recovery_package_value = os.environ.get("E8_COLDSTART_RECOVERY_PACKAGE", "").strip()
     recovery_package = Path(recovery_package_value).resolve() if recovery_package_value else None
     recovery_interval = int(os.environ.get("E8_COLDSTART_RECOVERY_INTERVAL_CELLS", "5"))
     if recovery_interval <= 0:
         raise ValueError("E8_COLDSTART_RECOVERY_INTERVAL_CELLS must be positive")
-    initially_reusable, _ = _reusable_cell_manifests(config, output_root)
+    initially_reusable, initially_rejected = _recovery_reusable_cell_manifests(
+        config,
+        output_root,
+    )
+    reuse_eligible_keys = set(initially_reusable)
     last_checkpoint_count = (len(initially_reusable) // recovery_interval) * recovery_interval
 
     def record(event: Mapping[str, Any]) -> None:
@@ -7148,17 +7380,17 @@ def cmd_run_dynamic(
                 break
             cell_root = output_root / "cells" / cell.key
             manifest_path = cell_root / "cell_manifest.json"
-            reusable_complete = False
-            if manifest_path.is_file():
-                try:
-                    reusable_complete = bool(
-                        json.loads(manifest_path.read_text(encoding="utf-8")).get("complete")
-                    )
-                except (OSError, json.JSONDecodeError):
-                    reusable_complete = False
+            cell_exists = cell_root.exists()
+            reuse_eligible = cell.key in reuse_eligible_keys
             child_force = force or (
-                retry_incomplete and cell_root.exists() and not reusable_complete
+                retry_incomplete and cell_exists and not reuse_eligible
             )
+            if reuse_eligible and cell_exists and not child_force:
+                execution_origin = "reused_existing"
+            elif cell_exists and not child_force:
+                execution_origin = "rejected_existing_not_executed"
+            else:
+                execution_origin = "executed_current_run"
             record(
                 {
                     "event": "start",
@@ -7168,16 +7400,33 @@ def cmd_run_dynamic(
                     "gpu_id": gpu_id,
                     "unix_time": time.time(),
                     "retry_incomplete": child_force and not force,
+                    "execution_origin": execution_origin,
                 }
             )
-            result = _run_subprocess_cell(
-                config_path=config_path.resolve(),
-                output_root=output_root.resolve(),
-                base_model_path=base_model_path,
-                cell=cell,
-                gpu_id=gpu_id,
-                force=child_force,
-            )
+            if execution_origin == "rejected_existing_not_executed":
+                result = {
+                    "cell_key": cell.key,
+                    "gpu_id": gpu_id,
+                    "returncode": 76,
+                    "log": str((output_root / "logs" / f"{cell.key}.log").resolve()),
+                    "cell_completion_error": (
+                        "existing cell is not reuse-eligible; rerun with "
+                        "--retry-incomplete or --force: "
+                        + initially_rejected.get(
+                            cell.key,
+                            "existing evidence rejected by recovery eligibility",
+                        )
+                    ),
+                }
+            else:
+                result = _run_subprocess_cell(
+                    config_path=config_path.resolve(),
+                    output_root=output_root.resolve(),
+                    base_model_path=base_model_path,
+                    cell=cell,
+                    gpu_id=gpu_id,
+                    force=child_force,
+                )
             if int(result["returncode"]) == 0:
                 try:
                     completed_manifest = _read_json_object(manifest_path)
@@ -7187,6 +7436,25 @@ def cmd_run_dynamic(
                         or completed_manifest.get("nan_inf_failure") is not False
                     ):
                         raise RuntimeError("child returned zero without a complete finite cell")
+                    if execution_origin == "executed_current_run":
+                        started_unix, finished_unix = _require_scientific_execution_timestamps(
+                            result
+                        )
+                        completed_manifest["scientific_execution_provenance"] = {
+                            "scheduler_run_id": scheduler_run_id,
+                            "cell_key": cell.key,
+                            "seed": cell.seed,
+                            "started_unix": started_unix,
+                            "successful_finish_unix": finished_unix,
+                            "execution_origin": "executed_current_run",
+                        }
+                        atomic_json(manifest_path, completed_manifest)
+                    elif seed_barrier and not _is_engineering_self_test(config) and not (
+                        _scientific_execution_provenance_valid(completed_manifest, cell)
+                    ):
+                        raise RuntimeError(
+                            "reused baseline-matrix cell lacks valid original scientific execution provenance"
+                        )
                 except (
                     OSError,
                     ValueError,
@@ -7199,7 +7467,7 @@ def cmd_run_dynamic(
             if int(result["returncode"]) == 0 and recovery_package is not None:
                 try:
                     with checkpoint_lock:
-                        current_reusable, _ = _reusable_cell_manifests(config, output_root)
+                        current_reusable, _ = _recovery_reusable_cell_manifests(config, output_root)
                         completed_count = len(current_reusable)
                         if completed_count >= last_checkpoint_count + recovery_interval:
                             checkpoint = _publish_recovery_checkpoint(
@@ -7210,9 +7478,10 @@ def cmd_run_dynamic(
                             last_checkpoint_count = int(checkpoint["completed_cells"])
                             result["recovery_checkpoint"] = checkpoint["package"]
                             result["recovery_checkpoint_completed_cells"] = last_checkpoint_count
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - checkpoint failure is terminal.
                     result["returncode"] = 74
                     result["recovery_checkpoint_error"] = f"{type(exc).__name__}: {exc}"
+            result["execution_origin"] = execution_origin
             if seed_barrier:
                 result.update(
                     {"slot": slot, "seed": cell.seed, "nominal_batch": nominal_batch[cell.key]}
@@ -7435,6 +7704,11 @@ def _coldstart_completed_task_rows(
     expected = [cell for cell in build_cells(config) if cell.task == task]
     if not expected:
         return None
+    if _is_baseline_matrix(config) and not _is_engineering_self_test(config):
+        reusable, _ = _recovery_reusable_cell_manifests(config, output_root)
+        reusable_keys = set(reusable)
+        if any(cell.key not in reusable_keys for cell in expected):
+            return None
     expected_hash = stable_config_hash(config)
     rows: list[dict[str, Any]] = []
     for cell in expected:
@@ -7900,6 +8174,125 @@ def _aggregate_coldstart_unranked(
     atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
     return summary
 
+BASELINE_AGGREGATE_BOUND_ARTIFACTS = (
+    "all_cells.csv",
+    "plot_curve_points.csv",
+    "task_summary.csv",
+    "countdown_protocol_diagnostic.json",
+)
+
+
+def _baseline_aggregate_artifact_sha256(output_root: Path) -> dict[str, str]:
+    """Hash deterministic baseline-matrix aggregate outputs used for reporting."""
+
+    aggregate_root = output_root / "aggregate"
+    return {
+        name: sha256_file(aggregate_root / name)
+        for name in BASELINE_AGGREGATE_BOUND_ARTIFACTS
+    }
+
+
+def _cell_manifest_set_sha256(
+    config: Mapping[str, Any],
+    output_root: Path,
+) -> str:
+    """Hash the ordered exact cell-manifest bytes for terminal evidence binding."""
+
+    records = []
+    for cell in build_cells(config):
+        manifest_path = output_root / "cells" / cell.key / "cell_manifest.json"
+        if not manifest_path.is_file():
+            raise FileNotFoundError(
+                f"Cell manifest is missing for evidence binding: {cell.key}"
+            )
+        records.append({"cell_key": cell.key, "sha256": sha256_file(manifest_path)})
+    return stable_hash(records)
+
+
+def _baseline_aggregate_identity_matches(
+    config: Mapping[str, Any],
+    output_root: Path,
+    aggregate: Mapping[str, Any],
+) -> bool:
+    """Verify that a baseline aggregate is bound to source, config, cells, and outputs."""
+
+    if not _is_baseline_matrix(config):
+        return True
+    try:
+        provenance = _read_json_object(output_root / "source_provenance.json")
+        source_commit = str(provenance.get("source_commit", ""))
+        cell_set = _cell_manifest_set_sha256(config, output_root)
+        aggregate_artifacts = _baseline_aggregate_artifact_sha256(output_root)
+        cell_count = int(aggregate.get("cell_count", -1))
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return False
+    return (
+        aggregate.get("experiment_id") == experiment_id(config)
+        and aggregate.get("config_hash") == stable_config_hash(config)
+        and aggregate.get("source_commit") == source_commit
+        and cell_count == len(build_cells(config))
+        and aggregate.get("cell_manifest_set_sha256") == cell_set
+        and aggregate.get("aggregate_artifact_sha256") == aggregate_artifacts
+    )
+
+
+def _baseline_terminal_audit_identity_matches(
+    config: Mapping[str, Any],
+    output_root: Path,
+    audit: Mapping[str, Any],
+    aggregate: Mapping[str, Any],
+) -> bool:
+    """Verify that a baseline terminal audit matches the exact evidence it audited."""
+
+    if not _is_baseline_matrix(config):
+        return True
+    try:
+        provenance = _read_json_object(output_root / "source_provenance.json")
+        source_commit = str(provenance.get("source_commit", ""))
+        expected_cells = len(build_cells(config))
+        aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
+        scheduler_path = output_root / "scheduler" / "dynamic_run.json"
+        event_path = output_root / "scheduler" / "queue_events.jsonl"
+        current_cell_set = _cell_manifest_set_sha256(config, output_root)
+        aggregate_sha = sha256_file(aggregate_path)
+        scheduler_sha = sha256_file(scheduler_path)
+        event_sha = sha256_file(event_path)
+        nan_inf_event_count = int(audit.get("nan_inf_event_count", -1))
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return False
+    empty_failure_fields = (
+        "missing_cells",
+        "incomplete_cells",
+        "nan_inf_cells",
+        "terminal_contract_failures",
+        "cell_identity_failures",
+        "scientific_execution_provenance_failures",
+        "dpo_reference_identity_failures",
+    )
+    return (
+        _baseline_aggregate_identity_matches(config, output_root, aggregate)
+        and audit.get("experiment_id") == experiment_id(config)
+        and audit.get("base_commit") == source_commit
+        and audit.get("expected_cells") == expected_cells
+        and audit.get("execution_class") == _execution_class(config)
+        and audit.get("scientific_status") == _audited_scientific_status(config, True)
+        and audit.get("all_training_and_evaluation_complete") is True
+        and audit.get("aggregate_complete") is True
+        and audit.get("test_partition_accessed") is False
+        and all(audit.get(field) == [] for field in empty_failure_fields)
+        and nan_inf_event_count == 0
+        and audit.get("seed_batch_protocol_complete") is True
+        and audit.get("seed_batch_event_identity_complete") is True
+        and audit.get("seed_batch_execution_provenance_complete") is True
+        and audit.get("seed_batch_temporal_order_complete") is True
+        and audit.get("cell_manifest_set_sha256") == current_cell_set
+        and audit.get("cell_manifest_set_sha256")
+        == aggregate.get("cell_manifest_set_sha256")
+        and audit.get("aggregate_summary_sha256") == aggregate_sha
+        and audit.get("scheduler_dynamic_run_sha256") == scheduler_sha
+        and audit.get("scheduler_queue_events_sha256") == event_sha
+    )
+
 def _aggregate_coldstart_matrix_unranked(
     config: Mapping[str, Any],
     output_root: Path,
@@ -7967,6 +8360,11 @@ def _aggregate_coldstart_matrix_unranked(
         summary_rows.append(summary_row)
     _write_csv(output_root / "aggregate" / "task_summary.csv", summary_rows)
 
+    protocol_diagnostic = _countdown_protocol_diagnostic(
+        config,
+        output_root,
+        destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
+    )
     method_metadata = {
         METHOD_ASYMRE: _canonical_baseline_grid_identity(METHOD_ASYMRE),
         METHOD_TOPR: _canonical_baseline_grid_identity(METHOD_TOPR),
@@ -7988,6 +8386,9 @@ def _aggregate_coldstart_matrix_unranked(
         "experiment_id": experiment_id(config),
         "run_id": run_id,
         "source_commit": source_commit,
+        "config_hash": stable_config_hash(config),
+        "cell_manifest_set_sha256": _cell_manifest_set_sha256(config, output_root),
+        "aggregate_artifact_sha256": _baseline_aggregate_artifact_sha256(output_root),
         "cell_count": len(rows),
         "plot_curve_point_count": len(plot_rows),
         "method": METHOD_BASELINE_MATRIX,
@@ -7997,11 +8398,7 @@ def _aggregate_coldstart_matrix_unranked(
         "transfer_seed_offsets": list(experiment_config.task_transfer_seeds(config)),
         "tasks": task_summaries,
         "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
-        "countdown_protocol_diagnostic": _countdown_protocol_diagnostic(
-            config,
-            output_root,
-            destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
-        ),
+        "countdown_protocol_diagnostic": protocol_diagnostic,
         "countdown_result_gate": False,
         "primary_metric": "validation_late_window_pass8_mean",
         "parameter_selection_deferred_to_reviewed_protocol": True,
@@ -8064,7 +8461,9 @@ def _aggregate_coldstart(
         if (len(positive_rows), len(global_rows), len(exp_rows)) != expected_counts:
             raise RuntimeError(f"{task} cold-start cell counts differ from {expected_counts}")
 
-        def aggregate_group(group: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+        def aggregate_group(
+            group: Sequence[Mapping[str, Any]], task: str = task
+        ) -> dict[str, Any]:
             first = group[0]
             return {
                 "task": task,
@@ -8318,6 +8717,157 @@ def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any
     return summary
 
 
+
+def _cell_descriptor(cell: Cell) -> dict[str, Any]:
+    return {
+        "task": cell.task,
+        "method": cell.method,
+        "delta_v": cell.delta_v,
+        "beta": cell.beta,
+        "dpo_initialization": cell.dpo_initialization,
+        "rho": cell.rho,
+        "lambda": (
+            cell.lambda_value
+            if cell.lambda_value is not None
+            else (None if cell.rho is None else coefficient_from_rho(cell.rho))
+        ),
+        "seed": cell.seed,
+        "stage": cell.stage,
+    }
+
+
+def _terminal_cell_identity_matches(
+    config: Mapping[str, Any],
+    cell: Cell,
+    value: Mapping[str, Any],
+) -> bool:
+    """Verify the stored final identity hash and its frozen config/cell bindings."""
+
+    payload = value.get("identity_hash_payload")
+    if not isinstance(payload, Mapping):
+        return False
+    payload_dict = dict(payload)
+    expected_config_hash = stable_config_hash(config)
+    descriptor = _cell_descriptor(cell)
+    if (
+        value.get("experiment_id") != experiment_id(config)
+        or value.get("config_hash") != expected_config_hash
+        or value.get("cell") != descriptor
+        or payload_dict.get("experiment_id") != experiment_id(config)
+        or payload_dict.get("config_hash") != expected_config_hash
+        or payload_dict.get("cell") != descriptor
+    ):
+        return False
+    recorded_hash = value.get("identity_hash")
+    if not isinstance(recorded_hash, str) or stable_hash(payload_dict) != recorded_hash:
+        return False
+    if any(
+        value.get(key) != expected
+        for key, expected in payload_dict.items()
+        if key != "identity_hash"
+    ):
+        return False
+    base_keys = (
+        "schema_version",
+        "experiment_id",
+        "config_hash",
+        "cell",
+        "bank_sha256",
+        "split_prompt_hashes",
+        "base_model_identity",
+        "initialization",
+        "calibration_identity_hash",
+    )
+    if any(key not in payload_dict for key in (*base_keys, "identity_hash")):
+        return False
+    base_payload = {key: payload_dict[key] for key in base_keys}
+    if stable_hash(base_payload) != payload_dict["identity_hash"]:
+        return False
+    expected_initialization = (
+        {
+            "source": str(config["dpo"]["initialization_mode"]),
+            "shared_sft_adapter_env": config["dpo"].get("shared_sft_adapter_env"),
+        }
+        if cell.method == METHOD_DPO
+        else dict(config["initialization"])
+    )
+    if payload_dict.get("initialization") != expected_initialization:
+        return False
+    if payload_dict.get("canonical_source_git_blob_shas") != dict(
+        config["canonical_coldstart"]["expected_git_blob_shas"]
+    ):
+        return False
+    if cell.method == METHOD_DPO:
+        return (
+            payload_dict.get("canonical_dispatch")
+            == "e8_multitask_exp_tuning._train_canonical_dpo_transfer_cell"
+            and payload_dict.get("dpo_semantics_source")
+            == "historical_PR_268_protected_implementation_cc0ead2be00c89a3c35296b7adc1ddeae8d14759"
+            and payload_dict.get("dpo_initialization_mode")
+            == str(config["dpo"]["initialization_mode"])
+            and payload_dict.get("engineering_liveness") is False
+            and payload_dict.get("updates_override") is None
+        )
+    if cell.method in {METHOD_ASYMRE, METHOD_TOPR}:
+        expected_formula = (
+            "delegated_to_existing_canonical_asymre"
+            if cell.method == METHOD_ASYMRE
+            else "delegated_to_existing_joint_fitted_reference_beta_topr"
+        )
+        return (
+            payload_dict.get("canonical_dispatch")
+            == "countdown_e8_alpha1_c_scan_trainer.train_cell"
+            and payload_dict.get("paper_formula") == expected_formula
+            and payload_dict.get("task_runtime_contract")
+            == dict(config["task_runtime"][cell.task])
+            and isinstance(payload_dict.get("paper_grid_config_sha256"), str)
+            and len(str(payload_dict["paper_grid_config_sha256"])) == 64
+            and isinstance(payload_dict.get("paper_grid_source_sha256"), str)
+            and len(str(payload_dict["paper_grid_source_sha256"])) == 64
+            and isinstance(payload_dict.get("paper_base_config_sha256"), str)
+            and len(str(payload_dict["paper_base_config_sha256"])) == 64
+        )
+    return False
+
+
+def _require_scientific_execution_timestamps(
+    result: Mapping[str, Any],
+) -> tuple[float, float]:
+    try:
+        started = float(result["started_unix"])
+        finished = float(result["finished_unix"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RuntimeError(
+            "subprocess result must contain numeric scientific execution timestamps"
+        ) from exc
+    if not math.isfinite(started) or not math.isfinite(finished):
+        raise RuntimeError("scientific execution timestamps must be finite")
+    if finished < started:
+        raise RuntimeError("scientific execution finish timestamp precedes start timestamp")
+    return started, finished
+
+
+def _scientific_execution_provenance_valid(value: Mapping[str, Any], cell: Cell) -> bool:
+    provenance = value.get("scientific_execution_provenance")
+    if not isinstance(provenance, Mapping):
+        return False
+    try:
+        started = float(provenance["started_unix"])
+        finished = float(provenance["successful_finish_unix"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    return (
+        provenance.get("execution_origin") == "executed_current_run"
+        and isinstance(provenance.get("scheduler_run_id"), str)
+        and bool(provenance.get("scheduler_run_id"))
+        and provenance.get("cell_key") == cell.key
+        and provenance.get("seed") == cell.seed
+        and math.isfinite(started)
+        and math.isfinite(finished)
+        and started <= finished
+    )
+
+
 def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
     provenance_path = output_root / "source_provenance.json"
     if not provenance_path.is_file():
@@ -8331,6 +8881,8 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
     incomplete: list[str] = []
     nan_inf: list[str] = []
     terminal_contract_failures: list[str] = []
+    cell_identity_failures: list[str] = []
+    scientific_execution_provenance_failures: list[str] = []
     dpo_reference_identity_failures: list[str] = []
     expected_terminal_step = int(config["training"]["optimizer_updates"])
     for cell in cells:
@@ -8352,6 +8904,10 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         if value.get("nan_inf_failure"):
             nan_inf.append(cell.key)
         if not _is_engineering_self_test(config):
+            if _is_baseline_matrix(config) and not _terminal_cell_identity_matches(config, cell, value):
+                cell_identity_failures.append(cell.key)
+            if _is_baseline_matrix(config) and not _scientific_execution_provenance_valid(value, cell):
+                scientific_execution_provenance_failures.append(cell.key)
             if int(value.get("terminal_step", -1)) != expected_terminal_step or value.get("stop_reason") != "max_steps" or value.get("test_partition_accessed") is not False:
                 terminal_contract_failures.append(cell.key)
             if cell.method == METHOD_DPO and (value.get("reference_initial_state_sha256") != value.get("reference_terminal_state_sha256") or value.get("reference_trainable") is not False):
@@ -8380,20 +8936,203 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             if _is_engineering_self_test(config)
             else ("NOT_RUN" if not any(cell.task == "countdown" for cell in cells) else "PASS")
         )
+        aggregate_value = (
+            _read_json_object(aggregate_path) if aggregate_path.is_file() else {}
+        )
         aggregate_complete = (
             aggregate_path.is_file()
-            and int(json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0))
-            == len(cells)
+            and int(aggregate_value.get("cell_count", 0)) == len(cells)
             and reproduction_gate_status == expected_protocol_status
         )
+        if _is_baseline_matrix(config):
+            aggregate_complete = aggregate_complete and _baseline_aggregate_identity_matches(
+                config, output_root, aggregate_value
+            )
     seed_batch_protocol_complete: bool | None = None
+    seed_batch_event_identity_complete: bool | None = None
+    seed_batch_execution_provenance_complete: bool | None = None
+    seed_batch_temporal_order_complete: bool | None = None
     if _is_baseline_matrix(config):
-        sp = output_root / "scheduler" / "dynamic_run.json"
-        scheduler = json.loads(sp.read_text(encoding="utf-8")) if sp.is_file() else {}
-        order = [int(v) for v in config["execution"]["seed_batch_order"]]
+        scheduler_path = output_root / "scheduler" / "dynamic_run.json"
+        scheduler = (
+            json.loads(scheduler_path.read_text(encoding="utf-8"))
+            if scheduler_path.is_file()
+            else {}
+        )
+        order = [int(value) for value in config["execution"]["seed_batch_order"]]
         expected = {str(seed): sum(cell.seed == seed for cell in cells) for seed in order}
-        seed_batch_protocol_complete = scheduler.get("seed_batch_barriers") is True and scheduler.get("seed_batch_order") == order and scheduler.get("seed_batch_expected_cells") == expected and scheduler.get("seed_batch_completed_cells") == expected and scheduler.get("complete") is True
-    all_complete = not missing and not incomplete and not nan_inf and not terminal_contract_failures and not dpo_reference_identity_failures and inherited_complete and aggregate_complete and seed_batch_protocol_complete is not False
+        seed_batch_protocol_complete = (
+            scheduler.get("seed_batch_barriers") is True
+            and scheduler.get("seed_batch_order") == order
+            and scheduler.get("seed_batch_expected_cells") == expected
+            and scheduler.get("seed_batch_completed_cells") == expected
+            and scheduler.get("complete") is True
+        )
+
+        # Independently audit append-only scheduler events for exact cell/origin identity.
+        # Scientific seed chronology is proved only by the persisted per-cell execution
+        # provenance below; queue-event wall times are not authoritative after recovery.
+        seed_batch_temporal_order_complete = False
+        event_path = output_root / "scheduler" / "queue_events.jsonl"
+        scheduler_run_id = str(scheduler.get("scheduler_run_id", ""))
+        if event_path.is_file() and scheduler_run_id:
+            try:
+                event_rows: list[dict[str, Any]] = []
+                for line in event_path.read_text(encoding="utf-8").splitlines():
+                    if not line.strip():
+                        continue
+                    row = json.loads(line)
+                    if not isinstance(row, dict):
+                        raise TypeError("queue event must be a JSON object")
+                    if str(row.get("scheduler_run_id", "")) == scheduler_run_id:
+                        event_rows.append(row)
+
+                successful_finishes = {
+                    seed: [
+                        row
+                        for row in event_rows
+                        if row.get("event") == "finish"
+                        and row.get("seed") == seed
+                        and row.get("returncode") == 0
+                    ]
+                    for seed in order
+                }
+                starts = {
+                    seed: [
+                        row
+                        for row in event_rows
+                        if row.get("event") == "start" and row.get("seed") == seed
+                    ]
+                    for seed in order
+                }
+                expected_cell_keys = {
+                    seed: {cell.key for cell in cells if cell.seed == seed} for seed in order
+                }
+
+                def exact_cell_keys(rows: list[dict[str, Any]], seed: int) -> bool:
+                    keys = [str(row.get("cell_key", "")) for row in rows]
+                    expected_keys = expected_cell_keys[seed]
+                    return (
+                        len(keys) == len(expected_keys)
+                        and len(keys) == len(set(keys))
+                        and set(keys) == expected_keys
+                    )
+
+                seed_batch_event_identity_complete = bool(order) and all(
+                    exact_cell_keys(successful_finishes[seed], seed) for seed in order
+                )
+                seed_batch_event_identity_complete = (
+                    seed_batch_event_identity_complete
+                    and all(exact_cell_keys(starts[seed], seed) for seed in order)
+                )
+                manifests = {
+                    cell.key: _read_json_object(
+                        output_root / "cells" / cell.key / "cell_manifest.json"
+                    )
+                    for cell in cells
+                }
+                event_origin_complete = seed_batch_event_identity_complete
+                if event_origin_complete:
+                    for cell in cells:
+                        start_row = next(
+                            row for row in starts[cell.seed] if row.get("cell_key") == cell.key
+                        )
+                        finish_row = next(
+                            row
+                            for row in successful_finishes[cell.seed]
+                            if row.get("cell_key") == cell.key
+                        )
+                        origin = start_row.get("execution_origin")
+                        provenance = manifests[cell.key].get("scientific_execution_provenance", {})
+                        if (
+                            origin not in {"executed_current_run", "reused_existing"}
+                            or finish_row.get("execution_origin") != origin
+                            or not isinstance(provenance, Mapping)
+                            or (
+                                origin == "executed_current_run"
+                                and provenance.get("scheduler_run_id") != scheduler_run_id
+                            )
+                            or (
+                                origin == "reused_existing"
+                                and provenance.get("scheduler_run_id") == scheduler_run_id
+                            )
+                        ):
+                            event_origin_complete = False
+                            break
+                seed_batch_event_identity_complete = event_origin_complete
+                seed_batch_execution_provenance_complete = (
+                    not scientific_execution_provenance_failures
+                    and all(
+                        _scientific_execution_provenance_valid(manifests[cell.key], cell)
+                        for cell in cells
+                    )
+                )
+                temporal_complete = (
+                    seed_batch_event_identity_complete
+                    and seed_batch_execution_provenance_complete
+                )
+                for previous_seed, next_seed in pairwise(order):
+                    previous_finish_times = [
+                        float(manifests[cell.key]["scientific_execution_provenance"]["successful_finish_unix"])
+                        for cell in cells
+                        if cell.seed == previous_seed
+                    ]
+                    next_start_times = [
+                        float(manifests[cell.key]["scientific_execution_provenance"]["started_unix"])
+                        for cell in cells
+                        if cell.seed == next_seed
+                    ]
+                    times = previous_finish_times + next_start_times
+                    if (
+                        not previous_finish_times
+                        or not next_start_times
+                        or not all(math.isfinite(value) for value in times)
+                        or max(previous_finish_times) > min(next_start_times)
+                    ):
+                        temporal_complete = False
+                        break
+                seed_batch_temporal_order_complete = temporal_complete
+            except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+                seed_batch_temporal_order_complete = False
+
+    cell_manifest_set_sha256: str | None = None
+    aggregate_summary_sha256: str | None = None
+    scheduler_dynamic_run_sha256: str | None = None
+    scheduler_queue_events_sha256: str | None = None
+    if _is_baseline_matrix(config):
+        try:
+            if not missing:
+                cell_manifest_set_sha256 = _cell_manifest_set_sha256(config, output_root)
+            aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
+            scheduler_path = output_root / "scheduler" / "dynamic_run.json"
+            event_path = output_root / "scheduler" / "queue_events.jsonl"
+            if aggregate_path.is_file():
+                aggregate_summary_sha256 = sha256_file(aggregate_path)
+            if scheduler_path.is_file():
+                scheduler_dynamic_run_sha256 = sha256_file(scheduler_path)
+            if event_path.is_file():
+                scheduler_queue_events_sha256 = sha256_file(event_path)
+        except (OSError, ValueError, TypeError):
+            cell_manifest_set_sha256 = None
+            aggregate_summary_sha256 = None
+            scheduler_dynamic_run_sha256 = None
+            scheduler_queue_events_sha256 = None
+
+    all_complete = (
+        not missing
+        and not incomplete
+        and not nan_inf
+        and not terminal_contract_failures
+        and not cell_identity_failures
+        and not scientific_execution_provenance_failures
+        and not dpo_reference_identity_failures
+        and inherited_complete
+        and aggregate_complete
+        and seed_batch_protocol_complete is not False
+        and seed_batch_event_identity_complete is not False
+        and seed_batch_execution_provenance_complete is not False
+        and seed_batch_temporal_order_complete is not False
+    )
     audit = {
         "schema_version": 1,
         "experiment_id": experiment_id(config),
@@ -8403,8 +9142,17 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "incomplete_cells": sorted(set(incomplete)),
         "nan_inf_cells": sorted(set(nan_inf)),
         "terminal_contract_failures": sorted(set(terminal_contract_failures)),
+        "cell_identity_failures": sorted(set(cell_identity_failures)),
+        "scientific_execution_provenance_failures": sorted(set(scientific_execution_provenance_failures)),
         "dpo_reference_identity_failures": sorted(set(dpo_reference_identity_failures)),
+        "cell_manifest_set_sha256": cell_manifest_set_sha256,
+        "aggregate_summary_sha256": aggregate_summary_sha256,
+        "scheduler_dynamic_run_sha256": scheduler_dynamic_run_sha256,
+        "scheduler_queue_events_sha256": scheduler_queue_events_sha256,
         "seed_batch_protocol_complete": seed_batch_protocol_complete,
+        "seed_batch_event_identity_complete": seed_batch_event_identity_complete,
+        "seed_batch_execution_provenance_complete": seed_batch_execution_provenance_complete,
+        "seed_batch_temporal_order_complete": seed_batch_temporal_order_complete,
         "all_training_and_evaluation_complete": all_complete,
         "execution_class": _execution_class(config),
         "test_partition_accessed": False,
@@ -8489,6 +9237,12 @@ def _write_completion_manifests(
         or int(aggregate.get("cell_count", 0)) != expected_cells
     ):
         raise RuntimeError("Scheduler or aggregate is not terminal-complete")
+    if _is_baseline_matrix(config) and not _baseline_terminal_audit_identity_matches(
+        config, output_root, audit, aggregate
+    ):
+        raise RuntimeError(
+            "Baseline terminal audit is stale or inconsistent with current terminal evidence"
+        )
     self_test = _is_engineering_self_test(config)
     run_manifest = {
         "schema_version": 1,
@@ -8509,18 +9263,23 @@ def _write_completion_manifests(
     }
     atomic_json(output_root / "run_manifest.json", run_manifest)
     atomic_json(output_root / "scientific_run_manifest.json", run_manifest)
-    atomic_json(
-        output_root / "RUN_COMPLETE.json",
-        {
-            **run_manifest,
-            "all_training_and_evaluation_complete": bool(
-                audit["all_training_and_evaluation_complete"]
-            ),
-            "terminal_audit_sha256": sha256_file(output_root / "terminal_audit.json"),
-            "aggregate_sha256": sha256_file(aggregate_path),
-            "complete": True,
-        },
-    )
+    completion = {
+        **run_manifest,
+        "all_training_and_evaluation_complete": bool(
+            audit["all_training_and_evaluation_complete"]
+        ),
+        "terminal_audit_sha256": sha256_file(output_root / "terminal_audit.json"),
+        "aggregate_sha256": sha256_file(aggregate_path),
+        "complete": True,
+    }
+    if _is_baseline_matrix(config):
+        completion.update(
+            {
+                "scheduler_dynamic_run_sha256": audit["scheduler_dynamic_run_sha256"],
+                "scheduler_queue_events_sha256": audit["scheduler_queue_events_sha256"],
+            }
+        )
+    atomic_json(output_root / "RUN_COMPLETE.json", completion)
 
 
 def _result_payload_paths(output_root: Path, excluded_parts: set[str]) -> list[Path]:
@@ -8915,6 +9674,8 @@ def _audit_engineering_queue(
     maximum_by_gpu = dict(active_by_gpu)
     starts: dict[str, float] = {}
     finishes: dict[str, float] = {}
+    first_start_by_slot: dict[int, str] = {}
+    replacement_keys: set[str] = set()
     for event in events:
         gpu_id = int(event["gpu_id"])
         cell_key = str(event["cell_key"])
@@ -8922,6 +9683,11 @@ def _audit_engineering_queue(
             active_by_gpu[gpu_id] += 1
             maximum_by_gpu[gpu_id] = max(maximum_by_gpu[gpu_id], active_by_gpu[gpu_id])
             starts[cell_key] = float(event["unix_time"])
+            slot = int(event["slot"])
+            if slot not in first_start_by_slot:
+                first_start_by_slot[slot] = cell_key
+            else:
+                replacement_keys.add(cell_key)
         elif event["event"] == "finish":
             active_by_gpu[gpu_id] -= 1
             finishes[cell_key] = float(event["unix_time"])
@@ -8934,13 +9700,24 @@ def _audit_engineering_queue(
         or max(maximum_by_gpu.values()) > slots_per_gpu
     ):
         raise RuntimeError("Engineering queue exceeded the declared per-GPU capacity")
-    slot_count = int(config["execution"]["max_concurrent_cells"])
-    initial_keys = {cell.key for cell in cells[:slot_count]}
-    replacement_keys = {cell.key for cell in cells[slot_count:]}
+    initial_keys = set(first_start_by_slot.values())
     if not replacement_keys:
         raise RuntimeError("Engineering queue requires replacement cells to audit dynamic refill")
-    if min(starts[key] for key in replacement_keys) >= max(finishes[key] for key in initial_keys):
-        raise RuntimeError("Engineering queue did not refill before the initial 16 cells finished")
+    finished_initial: set[str] = set()
+    dynamic_refill_observed = False
+    for event in events:
+        cell_key = str(event["cell_key"])
+        if event["event"] == "finish" and cell_key in initial_keys:
+            finished_initial.add(cell_key)
+        elif (
+            event["event"] == "start"
+            and cell_key in replacement_keys
+            and len(finished_initial) < len(initial_keys)
+        ):
+            dynamic_refill_observed = True
+            break
+    if not dynamic_refill_observed:
+        raise RuntimeError("Engineering queue did not dynamically refill before initial slots drained")
     return {
         "all_cells_observed": True,
         "maximum_active_by_gpu": maximum_by_gpu,
