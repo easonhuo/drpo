@@ -1,0 +1,1525 @@
+name: Apply E8 method integration refactor
+
+on:
+  push:
+    branches:
+      - dev/e8-method-integration-cost-refactor-01
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-method-integration-cost-refactor-01
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt || pip install pytest pyyaml numpy ruff
+      - name: Apply reviewed method-boundary refactor
+        shell: bash
+        run: |
+          cat > /tmp/refactor_e8.py <<'PY'
+          from __future__ import annotations
+
+          import ast
+          import textwrap
+          from pathlib import Path
+
+          target = Path('src/drpo/e8_multitask_exp_tuning.py')
+          source = target.read_text(encoding='utf-8')
+
+          def replace_node(name: str, replacement: str, *, kind: type[ast.AST]) -> None:
+              global source
+              tree = ast.parse(source)
+              node = next(
+                  (item for item in tree.body if isinstance(item, kind) and getattr(item, 'name', None) == name),
+                  None,
+              )
+              if node is None or not hasattr(node, 'end_lineno'):
+                  raise RuntimeError(f'cannot find top-level node {name}')
+              lines = source.splitlines(keepends=True)
+              new = textwrap.dedent(replacement).strip('\n') + '\n'
+              source = ''.join(lines[: node.lineno - 1]) + new + ''.join(lines[node.end_lineno :])
+
+          def replace_once(old: str, new: str, label: str) -> None:
+              global source
+              count = source.count(old)
+              if count != 1:
+                  raise RuntimeError(f'{label}: expected one occurrence, found {count}')
+              source = source.replace(old, new, 1)
+
+          replace_once(
+              'from collections.abc import Mapping, Sequence\n',
+              'from collections.abc import Callable, Mapping, Sequence\n',
+              'collections import',
+          )
+          replace_once(
+              'from drpo import e8_experiment_config as experiment_config\n',
+              'from drpo import e8_experiment_config as experiment_config\n'
+              'from drpo import e8_multitask_orchestration as e8_orchestration\n'
+              'from drpo import e8_multitask_results as e8_results\n'
+              'from drpo import e8_multitask_runtime as e8_runtime\n',
+              'generic module imports',
+          )
+
+          replace_node(
+              'Cell',
+              r'''
+              @dataclass(frozen=True)
+              class Cell:
+                  task: str
+                  method: str
+                  rho: float | None
+                  seed: int
+                  stage: str
+                  lambda_value: float | None = None
+                  delta_v: float | None = None
+                  beta: float | None = None
+                  dpo_initialization: str | None = None
+                  method_parameters: Mapping[str, Any] | None = None
+
+                  @property
+                  def key(self) -> str:
+                      return _method_spec(self.method).cell_key(self)
+
+
+              @dataclass(frozen=True)
+              class MethodSpec:
+                  """One scientific-method adapter; generic infrastructure never branches on names."""
+
+                  name: str
+                  build_cell: Callable[..., Cell]
+                  cell_key: Callable[[Cell], str]
+                  parameters: Callable[[Cell], Mapping[str, Any]]
+                  compatibility_columns: Callable[[Cell], Mapping[str, Any]]
+                  cell_initialization: Callable[[Mapping[str, Any]], str | None]
+                  initialization_identity: Callable[[Mapping[str, Any]], Mapping[str, Any]]
+                  train_cold: Callable[..., dict[str, Any]]
+                  liveness_task: Callable[[Mapping[str, Any]], str]
+                  liveness_runner: Callable[..., dict[str, Any]]
+                  canonical_liveness_grid: Callable[[Mapping[str, Any], Mapping[str, Any]], Path] | None
+                  paper_grid_source: Callable[[Mapping[str, Any], Cell], Path]
+                  paper_cell_parameters: Callable[[Cell], tuple[str, float, float]]
+                  paper_formula: str
+                  audit_record: Callable[[Cell, Mapping[str, Any]], e8_runtime.MethodAuditResult]
+                  audit_failure_bucket: str
+                  group_projection: Callable[[Mapping[str, Any]], Mapping[str, Any]]
+                  group_order: Callable[[Mapping[str, Any]], Any]
+                  plot_columns: tuple[str, ...]
+                  plot_projection: Callable[[Cell], Mapping[str, Any]]
+                  scientific_kernel: str
+                  single_aggregate_metadata: Callable[[Mapping[str, Any]], Mapping[str, Any]]
+                  matrix_aggregate_metadata: Callable[[Mapping[str, Any]], Mapping[str, Any]]
+
+
+              _METHOD_SPECS: dict[str, MethodSpec] = {}
+
+
+              def _register_method_spec(spec: MethodSpec, *, replace: bool = False) -> None:
+                  if spec.name in _METHOD_SPECS and not replace:
+                      raise ValueError(f"Method spec already registered: {spec.name}")
+                  _METHOD_SPECS[spec.name] = spec
+
+
+              def _method_spec(method: str) -> MethodSpec:
+                  try:
+                      return _METHOD_SPECS[method]
+                  except KeyError as exc:
+                      raise ValueError(f"No E8 method spec registered for {method}") from exc
+
+
+              def _cell_lambda(cell: Cell) -> float | None:
+                  if cell.lambda_value is not None:
+                      return float(cell.lambda_value)
+                  return None if cell.rho is None else coefficient_from_rho(float(cell.rho))
+
+
+              def _legacy_compatibility_columns(cell: Cell) -> Mapping[str, Any]:
+                  return {
+                      "delta_v": cell.delta_v,
+                      "beta": cell.beta,
+                      "dpo_initialization": cell.dpo_initialization,
+                      "rho": cell.rho,
+                      "lambda": _cell_lambda(cell),
+                  }
+
+
+              def _positive_key(cell: Cell) -> str:
+                  return f"{cell.task}__positive_only__seed{cell.seed}"
+
+
+              def _global_key(cell: Cell) -> str:
+                  return f"{cell.task}__global__seed{cell.seed}"
+
+
+              def _exp_key(cell: Cell) -> str:
+                  if cell.lambda_value is not None:
+                      tag = f"{cell.lambda_value:.12g}".replace(".", "p")
+                      return f"{cell.task}__exp_lambda{tag}__seed{cell.seed}"
+                  if cell.rho is None:
+                      raise AssertionError("Exponential cell requires rho or lambda")
+                  tag = f"{cell.rho:.6f}".rstrip("0").rstrip(".").replace(".", "p")
+                  return f"{cell.task}__exp_rho{tag}__seed{cell.seed}"
+
+
+              def _asymre_key(cell: Cell) -> str:
+                  if cell.delta_v is None:
+                      raise AssertionError("AsymRE cell requires delta_v")
+                  tag = f"{cell.delta_v:.12g}".replace("-", "m").replace(".", "p")
+                  return f"{cell.task}__asymre_delta_v{tag}__seed{cell.seed}"
+
+
+              def _topr_key(cell: Cell) -> str:
+                  if cell.beta is None:
+                      raise AssertionError("Joint Fitted-Reference TOPR cell requires beta")
+                  tag = f"{cell.beta:.12g}".replace("-", "m").replace(".", "p")
+                  return f"{cell.task}__joint_fitted_reference_topr_beta{tag}__seed{cell.seed}"
+
+
+              def _dpo_key(cell: Cell) -> str:
+                  if cell.beta is None:
+                      raise AssertionError("Canonical DPO cell requires beta")
+                  if cell.dpo_initialization is None:
+                      raise AssertionError("Canonical DPO cell requires initialization identity")
+                  tag = f"{cell.beta:.12g}".replace("-", "m").replace(".", "p")
+                  return (
+                      f"{cell.task}__canonical_dpo_beta{tag}__"
+                      f"init_{cell.dpo_initialization}__seed{cell.seed}"
+                  )
+
+
+              def _build_control_cell(
+                  *, task: str, method: str, seed: int, stage: str, value: float,
+                  lambda_only: bool, dpo_initialization: str | None,
+              ) -> Cell:
+                  del lambda_only, dpo_initialization
+                  if method == METHOD_POSITIVE_ONLY:
+                      return Cell(task, method, None, seed, stage)
+                  if method == METHOD_GLOBAL:
+                      return Cell(task, method, 1.0, seed, stage, 0.0)
+                  raise ValueError(f"Unsupported control method: {method}")
+
+
+              def _build_exponential_cell(
+                  *, task: str, method: str, seed: int, stage: str, value: float,
+                  lambda_only: bool, dpo_initialization: str | None,
+              ) -> Cell:
+                  del dpo_initialization
+                  rho = None if lambda_only else math.exp(-value)
+                  return Cell(task, method, rho, seed, stage, value)
+
+
+              def _build_asymre_cell(
+                  *, task: str, method: str, seed: int, stage: str, value: float,
+                  lambda_only: bool, dpo_initialization: str | None,
+              ) -> Cell:
+                  del lambda_only, dpo_initialization
+                  return Cell(task, method, None, seed, stage, delta_v=value)
+
+
+              def _build_topr_cell(
+                  *, task: str, method: str, seed: int, stage: str, value: float,
+                  lambda_only: bool, dpo_initialization: str | None,
+              ) -> Cell:
+                  del lambda_only, dpo_initialization
+                  return Cell(task, method, None, seed, stage, beta=value)
+
+
+              def _build_dpo_cell(
+                  *, task: str, method: str, seed: int, stage: str, value: float,
+                  lambda_only: bool, dpo_initialization: str | None,
+              ) -> Cell:
+                  del lambda_only
+                  if dpo_initialization is None:
+                      raise ValueError("DPO cell construction requires initialization identity")
+                  return Cell(
+                      task, method, None, seed, stage, beta=value,
+                      dpo_initialization=dpo_initialization,
+                  )
+
+
+              def _default_initialization_identity(config: Mapping[str, Any]) -> Mapping[str, Any]:
+                  return dict(config["initialization"])
+
+
+              def _dpo_initialization_identity(config: Mapping[str, Any]) -> Mapping[str, Any]:
+                  if _is_baseline_matrix(config):
+                      return {
+                          "source": str(config["dpo"]["initialization_mode"]),
+                          "shared_sft_adapter_env": config["dpo"].get("shared_sft_adapter_env"),
+                      }
+                  return dict(config["initialization"])
+
+
+              def _cold_train_paper(cell: Cell, **kwargs: Any) -> dict[str, Any]:
+                  updates_override = kwargs.pop("updates_override", None)
+                  engineering_liveness = bool(kwargs.pop("engineering_liveness", False))
+                  if updates_override is not None or engineering_liveness:
+                      raise RuntimeError(
+                          "Canonical cold liveness requires its derived old-core config path"
+                      )
+                  return _train_canonical_cold_cell(cell, **kwargs)
+
+
+              def _cold_train_dpo(cell: Cell, **kwargs: Any) -> dict[str, Any]:
+                  return _train_canonical_dpo_transfer_cell(cell, **kwargs)
+
+
+              def _run_canonical_method_liveness(
+                  method: str,
+                  *,
+                  config: Mapping[str, Any],
+                  config_path: Path,
+                  output_root: Path,
+                  inputs: Mapping[str, TaskInputs],
+                  splits: Mapping[str, Any],
+                  base_model_path: str,
+                  task: str,
+                  force: bool,
+              ) -> dict[str, Any]:
+                  if task != "countdown":
+                      raise RuntimeError(f"{method} liveness anchor must be Countdown")
+                  return _cmd_canonical_cold_liveness(
+                      config,
+                      config_path,
+                      output_root,
+                      inputs=inputs["countdown"],
+                      splits=splits,
+                      base_model_path=base_model_path,
+                      force=force,
+                      method=method,
+                  )
+
+
+              def _run_dpo_method_liveness(
+                  *,
+                  config: Mapping[str, Any],
+                  config_path: Path,
+                  output_root: Path,
+                  inputs: Mapping[str, TaskInputs],
+                  splits: Mapping[str, Any],
+                  base_model_path: str,
+                  task: str,
+                  force: bool,
+              ) -> dict[str, Any]:
+                  return _cmd_dpo_liveness(
+                      config,
+                      config_path,
+                      output_root,
+                      inputs=inputs,
+                      splits=splits,
+                      base_model_path=base_model_path,
+                      task=task,
+                      force=force,
+                  )
+
+
+              def _paper_grid_source_exponential(config: Mapping[str, Any], cell: Cell) -> Path:
+                  grid_source_name = (
+                      "round1_grid"
+                      if cell.task != "countdown"
+                      else _paper_grid_name(0.0 if cell.lambda_value is None else float(cell.lambda_value))
+                  )
+                  return _canonical_paths(config)[grid_source_name]
+
+
+              def _paper_params_exponential(cell: Cell) -> tuple[str, float, float]:
+                  alpha = 0.0 if cell.method == METHOD_POSITIVE_ONLY else 1.0
+                  coefficient = (
+                      0.0
+                      if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL}
+                      else float(cell.lambda_value)
+                  )
+                  return "exponential", alpha, coefficient
+
+
+              def _paper_params_asymre(cell: Cell) -> tuple[str, float, float]:
+                  if cell.delta_v is None:
+                      raise AssertionError("AsymRE cell has no delta_v")
+                  return METHOD_ASYMRE, 1.0 + float(cell.delta_v), 0.0
+
+
+              def _paper_params_topr(cell: Cell) -> tuple[str, float, float]:
+                  if cell.beta is None:
+                      raise AssertionError("Joint Fitted-Reference TOPR cell has no beta")
+                  return METHOD_TOPR, 1.0, float(cell.beta)
+
+
+              def _unsupported_paper_grid(config: Mapping[str, Any], cell: Cell) -> Path:
+                  del config, cell
+                  raise RuntimeError("This method does not use the canonical paper grid runtime")
+
+
+              def _unsupported_paper_params(cell: Cell) -> tuple[str, float, float]:
+                  raise RuntimeError(f"{cell.method} does not use canonical paper cell parameters")
+
+
+              def _default_method_audit(
+                  cell: Cell, record: Mapping[str, Any]
+              ) -> e8_runtime.MethodAuditResult:
+                  del cell, record
+                  return e8_runtime.MethodAuditResult(True, {})
+
+
+              def _dpo_method_audit(
+                  cell: Cell, record: Mapping[str, Any]
+              ) -> e8_runtime.MethodAuditResult:
+                  del cell
+                  failures: list[str] = []
+                  if record.get("reference_initial_state_sha256") != record.get(
+                      "reference_terminal_state_sha256"
+                  ):
+                      failures.append("reference_state_changed")
+                  if record.get("reference_trainable") is not False:
+                      failures.append("reference_trainable")
+                  return e8_runtime.MethodAuditResult(
+                      not failures,
+                      {
+                          "reference_initial_state_sha256": record.get(
+                              "reference_initial_state_sha256"
+                          ),
+                          "reference_terminal_state_sha256": record.get(
+                              "reference_terminal_state_sha256"
+                          ),
+                          "reference_trainable": record.get("reference_trainable"),
+                      },
+                      tuple(failures),
+                  )
+
+
+              def _asymre_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
+                  del config
+                  identity = _canonical_baseline_grid_identity(METHOD_ASYMRE)
+                  return {
+                      "canonical_asymre_grid": identity["canonical_grid"],
+                      "canonical_asymre_grid_sha256": identity["canonical_grid_sha256"],
+                      "canonical_grid_identity_policy": identity["identity_policy"],
+                      "canonical_grid_expected_git_blob_gate": identity[
+                          "expected_git_blob_gate"
+                      ],
+                  }
+
+
+              def _topr_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
+                  del config
+                  identity = _canonical_baseline_grid_identity(METHOD_TOPR)
+                  return {
+                      "canonical_topr_grid": identity["canonical_grid"],
+                      "canonical_topr_grid_sha256": identity["canonical_grid_sha256"],
+                      "canonical_grid_identity_policy": identity["identity_policy"],
+                      "canonical_grid_expected_git_blob_gate": identity[
+                          "expected_git_blob_gate"
+                      ],
+                  }
+
+
+              def _dpo_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
+                  return {"dpo_initialization_mode": str(config["dpo"]["initialization_mode"])}
+
+
+              def _dpo_matrix_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
+                  return {
+                      "initialization_mode": str(config["dpo"]["initialization_mode"]),
+                      "shared_sft_adapter_contract_hash": (
+                          stable_hash(config["dpo"]["shared_sft_adapter_contract"])
+                          if config["dpo"]["initialization_mode"] == "shared_sft_adapter"
+                          else None
+                      ),
+                      "semantics_source": (
+                          "historical_PR_268_protected_implementation_"
+                          "cc0ead2be00c89a3c35296b7adc1ddeae8d14759"
+                      ),
+                  }
+
+
+              def _empty_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
+                  del config
+                  return {}
+
+
+              def _register_builtin_method_specs() -> None:
+                  common = {
+                      "compatibility_columns": _legacy_compatibility_columns,
+                      "audit_record": _default_method_audit,
+                      "audit_failure_bucket": "terminal_contract_failures",
+                      "single_aggregate_metadata": _empty_metadata,
+                      "matrix_aggregate_metadata": _empty_metadata,
+                  }
+                  _register_method_spec(
+                      MethodSpec(
+                          name=METHOD_POSITIVE_ONLY,
+                          build_cell=_build_control_cell,
+                          cell_key=_positive_key,
+                          parameters=lambda cell: {},
+                          cell_initialization=lambda config: None,
+                          initialization_identity=_default_initialization_identity,
+                          train_cold=_cold_train_paper,
+                          liveness_task=lambda config: "countdown",
+                          liveness_runner=lambda **kwargs: _run_canonical_method_liveness(
+                              METHOD_EXPONENTIAL, **kwargs
+                          ),
+                          canonical_liveness_grid=lambda config, record: Path(
+                              str(record["round1_grid"])
+                          ),
+                          paper_grid_source=_paper_grid_source_exponential,
+                          paper_cell_parameters=_paper_params_exponential,
+                          paper_formula="alpha*exp(-c*(current_sequence_surprisal/2))",
+                          group_projection=lambda params: {},
+                          group_order=lambda params: (),
+                          plot_columns=(),
+                          plot_projection=lambda cell: {},
+                          scientific_kernel="canonical_old_coldstart_imports",
+                          **common,
+                      )
+                  )
+                  _register_method_spec(
+                      MethodSpec(
+                          name=METHOD_GLOBAL,
+                          build_cell=_build_control_cell,
+                          cell_key=_global_key,
+                          parameters=lambda cell: {"lambda": 0.0},
+                          cell_initialization=lambda config: None,
+                          initialization_identity=_default_initialization_identity,
+                          train_cold=_cold_train_paper,
+                          liveness_task=lambda config: "countdown",
+                          liveness_runner=lambda **kwargs: _run_canonical_method_liveness(
+                              METHOD_EXPONENTIAL, **kwargs
+                          ),
+                          canonical_liveness_grid=lambda config, record: Path(
+                              str(record["round1_grid"])
+                          ),
+                          paper_grid_source=_paper_grid_source_exponential,
+                          paper_cell_parameters=_paper_params_exponential,
+                          paper_formula="alpha*exp(-c*(current_sequence_surprisal/2))",
+                          group_projection=lambda params: {"lambda": params["lambda"]},
+                          group_order=lambda params: float(params["lambda"]),
+                          plot_columns=("lambda", "rho"),
+                          plot_projection=lambda cell: {
+                              "lambda": _cell_lambda(cell), "rho": cell.rho
+                          },
+                          scientific_kernel="canonical_old_coldstart_imports",
+                          **common,
+                      )
+                  )
+                  _register_method_spec(
+                      MethodSpec(
+                          name=METHOD_EXPONENTIAL,
+                          build_cell=_build_exponential_cell,
+                          cell_key=_exp_key,
+                          parameters=lambda cell: {"lambda": _cell_lambda(cell), "rho": cell.rho},
+                          cell_initialization=lambda config: None,
+                          initialization_identity=_default_initialization_identity,
+                          train_cold=_cold_train_paper,
+                          liveness_task=lambda config: "countdown",
+                          liveness_runner=lambda **kwargs: _run_canonical_method_liveness(
+                              METHOD_EXPONENTIAL, **kwargs
+                          ),
+                          canonical_liveness_grid=lambda config, record: Path(
+                              str(record["round1_grid"])
+                          ),
+                          paper_grid_source=_paper_grid_source_exponential,
+                          paper_cell_parameters=_paper_params_exponential,
+                          paper_formula="alpha*exp(-c*(current_sequence_surprisal/2))",
+                          group_projection=lambda params: {
+                              "lambda": params["lambda"], "rho": params["rho"]
+                          },
+                          group_order=lambda params: (
+                              -1.0 if params["lambda"] is None else float(params["lambda"])
+                          ),
+                          plot_columns=("lambda", "rho"),
+                          plot_projection=lambda cell: {
+                              "lambda": _cell_lambda(cell), "rho": cell.rho
+                          },
+                          scientific_kernel="canonical_old_coldstart_imports",
+                          **common,
+                      )
+                  )
+                  _register_method_spec(
+                      MethodSpec(
+                          name=METHOD_ASYMRE,
+                          build_cell=_build_asymre_cell,
+                          cell_key=_asymre_key,
+                          parameters=lambda cell: {"delta_v": cell.delta_v},
+                          cell_initialization=lambda config: None,
+                          initialization_identity=_default_initialization_identity,
+                          train_cold=_cold_train_paper,
+                          liveness_task=lambda config: "countdown",
+                          liveness_runner=lambda **kwargs: _run_canonical_method_liveness(
+                              METHOD_ASYMRE, **kwargs
+                          ),
+                          canonical_liveness_grid=lambda config, record: _canonical_asymre_grid_path(),
+                          paper_grid_source=lambda config, cell: _canonical_asymre_grid_path(),
+                          paper_cell_parameters=_paper_params_asymre,
+                          paper_formula="delegated_to_existing_canonical_asymre",
+                          group_projection=lambda params: {"delta_v": params["delta_v"]},
+                          group_order=lambda params: float(params["delta_v"]),
+                          plot_columns=("delta_v",),
+                          plot_projection=lambda cell: {"delta_v": cell.delta_v},
+                          scientific_kernel="canonical_old_coldstart_imports",
+                          single_aggregate_metadata=_asymre_single_metadata,
+                          matrix_aggregate_metadata=lambda config: _canonical_baseline_grid_identity(
+                              METHOD_ASYMRE
+                          ),
+                          **{k: v for k, v in common.items() if k not in {
+                              "single_aggregate_metadata", "matrix_aggregate_metadata"
+                          }},
+                      )
+                  )
+                  _register_method_spec(
+                      MethodSpec(
+                          name=METHOD_TOPR,
+                          build_cell=_build_topr_cell,
+                          cell_key=_topr_key,
+                          parameters=lambda cell: {"beta": cell.beta},
+                          cell_initialization=lambda config: None,
+                          initialization_identity=_default_initialization_identity,
+                          train_cold=_cold_train_paper,
+                          liveness_task=lambda config: "countdown",
+                          liveness_runner=lambda **kwargs: _run_canonical_method_liveness(
+                              METHOD_TOPR, **kwargs
+                          ),
+                          canonical_liveness_grid=lambda config, record: _canonical_topr_grid_path(),
+                          paper_grid_source=lambda config, cell: _canonical_topr_grid_path(),
+                          paper_cell_parameters=_paper_params_topr,
+                          paper_formula="delegated_to_existing_joint_fitted_reference_beta_topr",
+                          group_projection=lambda params: {"beta": params["beta"]},
+                          group_order=lambda params: float(params["beta"]),
+                          plot_columns=("beta",),
+                          plot_projection=lambda cell: {"beta": cell.beta},
+                          scientific_kernel="canonical_old_coldstart_imports",
+                          single_aggregate_metadata=_topr_single_metadata,
+                          matrix_aggregate_metadata=lambda config: _canonical_baseline_grid_identity(
+                              METHOD_TOPR
+                          ),
+                          **{k: v for k, v in common.items() if k not in {
+                              "single_aggregate_metadata", "matrix_aggregate_metadata"
+                          }},
+                      )
+                  )
+                  _register_method_spec(
+                      MethodSpec(
+                          name=METHOD_DPO,
+                          build_cell=_build_dpo_cell,
+                          cell_key=_dpo_key,
+                          parameters=lambda cell: {
+                              "beta": cell.beta,
+                              "dpo_initialization": cell.dpo_initialization,
+                          },
+                          compatibility_columns=_legacy_compatibility_columns,
+                          cell_initialization=lambda config: str(config["dpo"]["initialization_mode"]),
+                          initialization_identity=_dpo_initialization_identity,
+                          train_cold=_cold_train_dpo,
+                          liveness_task=lambda config: str(config["dpo"]["liveness_task"]),
+                          liveness_runner=_run_dpo_method_liveness,
+                          canonical_liveness_grid=None,
+                          paper_grid_source=_unsupported_paper_grid,
+                          paper_cell_parameters=_unsupported_paper_params,
+                          paper_formula="canonical_dpo_pair_log_probability_margin",
+                          audit_record=_dpo_method_audit,
+                          audit_failure_bucket="dpo_reference_identity_failures",
+                          group_projection=lambda params: {"beta": params["beta"]},
+                          group_order=lambda params: float(params["beta"]),
+                          plot_columns=("beta", "dpo_initialization"),
+                          plot_projection=lambda cell: {
+                              "beta": cell.beta,
+                              "dpo_initialization": cell.dpo_initialization,
+                          },
+                          scientific_kernel=(
+                              "historical_pr268_semantics_port_in_existing_multitask_runner"
+                          ),
+                          single_aggregate_metadata=_dpo_single_metadata,
+                          matrix_aggregate_metadata=_dpo_matrix_metadata,
+                      )
+                  )
+
+
+              _register_builtin_method_specs()
+              ''',
+              kind=ast.ClassDef,
+          )
+
+          replace_node(
+              '_coldstart_method_cell',
+              r'''
+              def _coldstart_method_cell(
+                  task: str,
+                  method: str,
+                  seed: int,
+                  stage: str,
+                  value: float,
+                  *,
+                  lambda_only: bool,
+                  dpo_initialization: str | None = None,
+              ) -> Cell:
+                  return _method_spec(method).build_cell(
+                      task=task,
+                      method=method,
+                      seed=seed,
+                      stage=stage,
+                      value=value,
+                      lambda_only=lambda_only,
+                      dpo_initialization=dpo_initialization,
+                  )
+              ''',
+              kind=ast.FunctionDef,
+          )
+
+          source = source.replace(
+              '        if _is_baseline_matrix(config):\n'
+              '            dpo_initialization = str(config["dpo"]["initialization_mode"])\n',
+              '        if _is_baseline_matrix(config):\n',
+              1,
+          )
+          replace_once(
+              '                                dpo_initialization=(dpo_initialization if method == METHOD_DPO else None),\n',
+              '                                dpo_initialization=_method_spec(method).cell_initialization(config),\n',
+              'baseline cell initialization',
+          )
+          old = '''            dpo_initialization = (\n                str(config["dpo"]["initialization_mode"])\n                if method == METHOD_DPO\n                else None\n            )\n'''
+          replace_once(
+              old,
+              '            dpo_initialization = _method_spec(method).cell_initialization(config)\n',
+              'single-method initialization',
+          )
+
+          replace_node(
+              'build_waves',
+              r'''
+              def build_waves(config: Mapping[str, Any]) -> tuple[tuple[Cell, ...], ...]:
+                  cells = build_cells(config)
+                  capacity = int(config["execution"]["max_concurrent_cells"])
+                  if _is_dense(config):
+                      waves = tuple(
+                          tuple(cell for cell in cells if cell.task == str(task))
+                          for task in config["suite"]["tasks"]
+                      )
+                      if len(waves) != 7 or any(len(wave) != capacity for wave in waves):
+                          raise AssertionError("Dense wave geometry must be seven task-local 16-cell waves")
+                      return waves
+                  if _is_coldstart(config):
+                      seed_barrier = _is_baseline_matrix(config) and bool(
+                          config["execution"].get("seed_batch_barriers")
+                      )
+                      seed_order = (
+                          tuple(int(value) for value in config["execution"].get("seed_batch_order", ()))
+                          if seed_barrier
+                          else None
+                      )
+                      waves = e8_orchestration.nominal_batches(
+                          cells,
+                          slot_count=capacity,
+                          seed_barrier=seed_barrier,
+                          seed_order=seed_order,
+                      )
+                      if seed_barrier and tuple(len(wave) for wave in waves) != (
+                          16, 16, 16, 16, 16, 8,
+                      ) * 2:
+                          raise AssertionError("Baseline matrix must form two 88-cell seed-local batches")
+                      if not waves or any(len(wave) != capacity for wave in waves[:-1]) and not seed_barrier:
+                          raise AssertionError(
+                              "Cold-start nominal batches must fill capacity except possibly the final batch"
+                          )
+                      return waves
+                  coarse = tuple(cell for cell in cells if cell.stage == "coarse")
+                  refinement = tuple(cell for cell in cells if cell.stage == "refinement")
+
+                  def chunk(values: tuple[Cell, ...]) -> tuple[tuple[Cell, ...], ...]:
+                      return tuple(
+                          tuple(values[index : index + capacity])
+                          for index in range(0, len(values), capacity)
+                      )
+
+                  waves = chunk(coarse) + chunk(refinement)
+                  if tuple(len(wave) for wave in waves) != (16, 16, 13, 16, 11):
+                      raise AssertionError("Frozen wave geometry must be 16/16/13/16/11")
+                  if any(cell.stage != "coarse" for wave in waves[:3] for cell in wave):
+                      raise AssertionError("Refinement leaked into the first three waves")
+                  if any(cell.stage != "refinement" for wave in waves[3:] for cell in wave):
+                      raise AssertionError("Coarse cells leaked into the last two waves")
+                  return waves
+              ''',
+              kind=ast.FunctionDef,
+          )
+
+          replace_node(
+              'write_plan',
+              r'''
+              def write_plan(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
+                  waves = build_waves(config)
+                  gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
+                  rows = e8_orchestration.plan_rows(
+                      waves,
+                      gpu_ids=gpu_ids,
+                      project_cell=lambda cell: _method_spec(cell.method).compatibility_columns(cell),
+                  )
+                  plan = {
+                      "schema_version": 1,
+                      "experiment_id": experiment_id(config),
+                      "config_hash": stable_config_hash(config),
+                      "cell_count": len(rows),
+                      "wave_count": len(waves),
+                      "wave_sizes": [len(wave) for wave in waves],
+                      "max_concurrent_cells": int(config["execution"]["max_concurrent_cells"]),
+                      "scheduler": str(config["execution"].get("scheduler", "wave_barrier")),
+                      "wave_is_scheduling_barrier": bool(
+                          config["execution"].get("wave_barriers", False)
+                      ),
+                      "seed_batch_barriers": bool(
+                          config["execution"].get("seed_batch_barriers", False)
+                      ),
+                      "seed_batch_order": list(config["execution"].get("seed_batch_order", ())),
+                      "execution_class": _execution_class(config),
+                      "rows": rows,
+                      "scientific_status": "not_run",
+                  }
+                  atomic_json(output_root / "plan.json", plan)
+                  atomic_jsonl(output_root / "plan.jsonl", rows)
+                  return plan
+              ''',
+              kind=ast.FunctionDef,
+          )
+
+          replace_node(
+              '_cell_identity',
+              r'''
+              def _cell_identity(
+                  cell: Cell,
+                  *,
+                  inputs: TaskInputs,
+                  split_manifest: Mapping[str, Any],
+                  base_model_path: str,
+                  config: Mapping[str, Any],
+                  calibration: Mapping[str, Any],
+              ) -> dict[str, Any]:
+                  spec = _method_spec(cell.method)
+                  initialization = (
+                      spec.initialization_identity(config)
+                      if _is_coldstart(config)
+                      else {
+                          "source": "reference_adapter",
+                          "reference_adapter_identity": model_identity(
+                              base_model_path, str(inputs.reference_adapter)
+                          )["adapter"],
+                      }
+                  )
+                  return e8_runtime.recovery_identity(
+                      cell,
+                      experiment_id=experiment_id(config),
+                      config_hash=stable_config_hash(config),
+                      cell_identity_fields=spec.compatibility_columns(cell),
+                      common_identity_fields={
+                          "bank_sha256": split_manifest["tasks"][cell.task]["bank_sha256"],
+                          "split_prompt_hashes": split_manifest["tasks"][cell.task][
+                              "prompt_id_hashes"
+                          ],
+                          "base_model_identity": model_identity(base_model_path, None)["model"],
+                          "initialization": initialization,
+                          "calibration_identity_hash": calibration["identity_hash"],
+                      },
+                  )
+              ''',
+              kind=ast.FunctionDef,
+          )
+
+          old_grid = '''    grid_path = _paper_grid_for_cell(record, cell)\n    if cell.method == METHOD_ASYMRE:\n        grid_source_path = _canonical_asymre_grid_path()\n    elif cell.method == METHOD_TOPR:\n        grid_source_path = _canonical_topr_grid_path()\n    else:\n        grid_source_name = (\n            "round1_grid"\n            if cell.task != "countdown"\n            else _paper_grid_name(\n                0.0 if cell.lambda_value is None else float(cell.lambda_value)\n            )\n        )\n        grid_source_path = _canonical_paths(config)[grid_source_name]\n'''
+          replace_once(
+              old_grid,
+              '    grid_path = _paper_grid_for_cell(record, cell)\n'
+              '    method_spec = _method_spec(cell.method)\n'
+              '    grid_source_path = method_spec.paper_grid_source(config, cell)\n',
+              'canonical grid source dispatch',
+          )
+          old_formula = '''            "paper_formula": (\n                "delegated_to_existing_canonical_asymre"\n                if cell.method == METHOD_ASYMRE\n                else (\n                    "delegated_to_existing_joint_fitted_reference_beta_topr"\n                    if cell.method == METHOD_TOPR\n                    else "alpha*exp(-c*(current_sequence_surprisal/2))"\n                )\n            ),\n'''
+          replace_once(
+              old_formula,
+              '            "paper_formula": method_spec.paper_formula,\n',
+              'paper formula projection',
+          )
+          old_params = '''    if cell.method == METHOD_ASYMRE:\n        if cell.delta_v is None:\n            raise AssertionError("AsymRE cell has no delta_v")\n        paper_family = METHOD_ASYMRE\n        alpha = 1.0 + float(cell.delta_v)\n        coefficient = 0.0\n    elif cell.method == METHOD_TOPR:\n        if cell.beta is None:\n            raise AssertionError("Joint Fitted-Reference TOPR cell has no beta")\n        paper_family = METHOD_TOPR\n        alpha = 1.0\n        coefficient = float(cell.beta)\n    else:\n        paper_family = "exponential"\n        alpha = 0.0 if cell.method == METHOD_POSITIVE_ONLY else 1.0\n        coefficient = (\n            0.0\n            if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL}\n            else float(cell.lambda_value)\n        )\n'''
+          replace_once(
+              old_params,
+              '    paper_family, alpha, coefficient = method_spec.paper_cell_parameters(cell)\n',
+              'paper parameter dispatch',
+          )
+
+          replace_node(
+              'train_cell',
+              r'''
+              def train_cell(
+                  cell: Cell,
+                  *,
+                  inputs: TaskInputs,
+                  split_manifest: Mapping[str, Any],
+                  base_model_path: str,
+                  config: Mapping[str, Any],
+                  output_root: Path,
+                  force: bool,
+                  updates_override: int | None = None,
+                  engineering_liveness: bool = False,
+              ) -> dict[str, Any]:
+                  root_name = "liveness" if engineering_liveness else "cells"
+                  failure_root = output_root / root_name / cell.key
+                  try:
+                      if _is_coldstart(config):
+                          return _method_spec(cell.method).train_cold(
+                              cell,
+                              inputs=inputs,
+                              split_manifest=split_manifest,
+                              base_model_path=base_model_path,
+                              config=config,
+                              output_root=output_root,
+                              force=force,
+                              updates_override=updates_override,
+                              engineering_liveness=engineering_liveness,
+                          )
+                      return _train_cell_impl(
+                          cell,
+                          inputs=inputs,
+                          split_manifest=split_manifest,
+                          base_model_path=base_model_path,
+                          config=config,
+                          output_root=output_root,
+                          force=force,
+                          updates_override=updates_override,
+                          engineering_liveness=engineering_liveness,
+                      )
+                  except Exception as exc:
+                      failure_root.mkdir(parents=True, exist_ok=True)
+                      atomic_json(
+                          failure_root / "failure.json",
+                          {
+                              "schema_version": 1,
+                              "experiment_id": experiment_id(config),
+                              "cell_key": cell.key,
+                              "error_type": type(exc).__name__,
+                              "error": str(exc),
+                              "traceback": traceback.format_exc(),
+                              "scientific_status": "not_run" if engineering_liveness else "pilot",
+                              "nan_inf_failure": (
+                                  "non-finite" in str(exc).lower()
+                                  or "nan/inf" in str(exc).lower()
+                              ),
+                              "complete": False,
+                          },
+                      )
+                      raise
+              ''',
+              kind=ast.FunctionDef,
+          )
+
+          # Canonical liveness grid selection is method-owned.
+          marker = 'def _cmd_canonical_cold_liveness('
+          pos = source.index(marker)
+          local = source[pos:]
+          old = '''    method = method or _coldstart_method(config)\n    if method == METHOD_ASYMRE:\n        grid_path = _canonical_asymre_grid_path()\n    elif method == METHOD_TOPR:\n        grid_path = _canonical_topr_grid_path()\n    else:\n        grid_path = Path(str(record["round1_grid"]))\n'''
+          if old not in local:
+              raise RuntimeError('canonical liveness selection block missing')
+          local = local.replace(
+              old,
+              '    method = method or _coldstart_method(config)\n'
+              '    method_spec = _method_spec(method)\n'
+              '    if method_spec.canonical_liveness_grid is None:\n'
+              '        raise RuntimeError(f"{method} does not use canonical paper-runtime liveness")\n'
+              '    grid_path = method_spec.canonical_liveness_grid(config, record)\n',
+              1,
+          )
+          source = source[:pos] + local
+
+          # Replace only the cold-start dispatch block of cmd_liveness; preserve legacy non-cold path.
+          tree = ast.parse(source)
+          cmd = next(item for item in tree.body if isinstance(item, ast.FunctionDef) and item.name == 'cmd_liveness')
+          lines = source.splitlines(keepends=True)
+          func_text = ''.join(lines[cmd.lineno - 1 : cmd.end_lineno])
+          start = func_text.index('    if _is_coldstart(config):\n')
+          end = func_text.index('    if rho is None:\n', start)
+          new_cold = textwrap.dedent(r'''
+                  if _is_coldstart(config):
+                      splits, inputs = _load_ready_inputs(
+                          output_root,
+                          config,
+                          base_model_path=base_model_path,
+                      )
+                      if _is_baseline_matrix(config):
+                          if task != "countdown":
+                              raise RuntimeError(
+                                  "Baseline-matrix liveness is launched once from the Countdown anchor"
+                              )
+                          results: dict[str, Any] = {}
+                          for method in _coldstart_methods(config):
+                              spec = _method_spec(method)
+                              method_task = spec.liveness_task(config)
+                              results[method] = spec.liveness_runner(
+                                  config=config,
+                                  config_path=config_path,
+                                  output_root=output_root,
+                                  inputs=inputs,
+                                  splits=splits,
+                                  base_model_path=base_model_path,
+                                  task=method_task,
+                                  force=force,
+                              )
+                          return {
+                              "schema_version": 1,
+                              "experiment_id": experiment_id(config),
+                              "methods": results,
+                              "complete": all(
+                                  bool(value.get("complete")) for value in results.values()
+                              ),
+                              "scientific_status": "not_run",
+                          }
+                      method = _coldstart_method(config)
+                      spec = _method_spec(method)
+                      expected_task = spec.liveness_task(config)
+                      if task != expected_task:
+                          raise RuntimeError(
+                              f"{method} liveness anchor must be {expected_task}"
+                          )
+                      return spec.liveness_runner(
+                          config=config,
+                          config_path=config_path,
+                          output_root=output_root,
+                          inputs=inputs,
+                          splits=splits,
+                          base_model_path=base_model_path,
+                          task=task,
+                          force=force,
+                      )
+              ''').lstrip('\n')
+          func_text = func_text[:start] + new_cold + func_text[end:]
+          source = ''.join(lines[: cmd.lineno - 1]) + func_text + ''.join(lines[cmd.end_lineno :])
+
+          replace_node(
+              '_write_csv',
+              r'''
+              def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
+                  e8_results.write_csv(path, rows)
+              ''',
+              kind=ast.FunctionDef,
+          )
+
+          replace_node(
+              '_coldstart_result_row',
+              r'''
+              def _coldstart_result_row(
+                  config: Mapping[str, Any],
+                  cell: Cell,
+                  value: Mapping[str, Any],
+                  *,
+                  source: str,
+              ) -> dict[str, Any]:
+                  if not _is_engineering_self_test(config) and (
+                      "validation_late_window_pass8_mean" not in value
+                      or "validation_late_window_greedy_mean" not in value
+                  ):
+                      raise RuntimeError(
+                          f"{cell.key} is missing the paper primary late-window metric"
+                      )
+                  spec = _method_spec(cell.method)
+                  record = e8_results.common_result_record(
+                      cell,
+                      value,
+                      source=source,
+                      project_method=lambda current: e8_results.MethodResultProjection(
+                          parameters=dict(spec.parameters(current)),
+                          compatibility_columns=dict(spec.compatibility_columns(current)),
+                      ),
+                      project_metrics=lambda current: {
+                          "nan_inf_failure": bool(current["nan_inf_failure"]),
+                          "late_window_pass8_mean": current.get(
+                              "validation_late_window_pass8_mean",
+                              current["validation_best_pass8"],
+                          ),
+                          "late_window_greedy_mean": current.get(
+                              "validation_late_window_greedy_mean",
+                              current["validation_best_greedy"],
+                          ),
+                          "best_pass8": current["validation_best_pass8"],
+                          "terminal_pass8": current["validation_terminal_pass8"],
+                          "best_greedy": current["validation_best_greedy"],
+                          "terminal_greedy": current["validation_terminal_greedy"],
+                          "best_greedy_valid_rate": current[
+                              "validation_best_greedy_valid_rate"
+                          ],
+                          "terminal_greedy_valid_rate": current[
+                              "validation_terminal_greedy_valid_rate"
+                          ],
+                          "best_step": current["best_step"],
+                          "terminal_step": current["terminal_step"],
+                          "stop_reason": current["stop_reason"],
+                      },
+                  )
+                  return record.public_row()
+              ''',
+              kind=ast.FunctionDef,
+          )
+
+          replace_node(
+              'cmd_run_dynamic',
+              r'''
+              def cmd_run_dynamic(
+                  config: Mapping[str, Any],
+                  config_path: Path,
+                  output_root: Path,
+                  *,
+                  base_model_path: str,
+                  force: bool,
+                  retry_incomplete: bool,
+              ) -> dict[str, Any]:
+                  """Run the cold-start plan through method-agnostic slot scheduling."""
+
+                  if not _is_coldstart(config):
+                      raise RuntimeError("Dynamic scheduling is frozen for the cold-start profile only")
+                  _require_calibration_gate(config, output_root, base_model_path=base_model_path)
+                  _require_liveness_gate(config, output_root, base_model_path=base_model_path)
+                  cells = build_cells(config)
+                  gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
+                  slots_per_gpu = int(config["execution"]["slots_per_gpu"])
+                  seed_barrier = _is_baseline_matrix(config) and bool(
+                      config["execution"].get("seed_batch_barriers")
+                  )
+                  seed_order = (
+                      tuple(int(value) for value in config["execution"].get("seed_batch_order", ()))
+                      if seed_barrier
+                      else None
+                  )
+                  geometry = e8_orchestration.execution_geometry(
+                      cells,
+                      gpu_ids=gpu_ids,
+                      slots_per_gpu=slots_per_gpu,
+                      max_concurrent_cells=int(config["execution"]["max_concurrent_cells"]),
+                      seed_barrier=seed_barrier,
+                      seed_order=seed_order,
+                  )
+                  if geometry.slot_count != 16:
+                      raise RuntimeError("Declared 16-slot capacity is internally inconsistent")
+
+                  nominal_batch = {
+                      cell.key: index
+                      for index, wave in enumerate(build_waves(config), 1)
+                      for cell in wave
+                  }
+                  event_path = output_root / "scheduler" / "queue_events.jsonl"
+                  event_path.parent.mkdir(parents=True, exist_ok=True)
+                  scheduler_run_id = f"queue-{int(time.time())}-{os.getpid()}"
+                  task_result_lock = threading.Lock()
+                  checkpoint_lock = threading.Lock()
+                  task_results: dict[str, dict[str, Any]] = {}
+                  recovery_package_value = os.environ.get(
+                      "E8_COLDSTART_RECOVERY_PACKAGE", ""
+                  ).strip()
+                  recovery_package = (
+                      Path(recovery_package_value).resolve() if recovery_package_value else None
+                  )
+                  recovery_interval = int(
+                      os.environ.get("E8_COLDSTART_RECOVERY_INTERVAL_CELLS", "5")
+                  )
+                  if recovery_interval <= 0:
+                      raise ValueError("E8_COLDSTART_RECOVERY_INTERVAL_CELLS must be positive")
+                  initially_reusable, _ = _reusable_cell_manifests(config, output_root)
+                  last_checkpoint_count = (
+                      len(initially_reusable) // recovery_interval
+                  ) * recovery_interval
+
+                  def record(event: Mapping[str, Any]) -> None:
+                      append_jsonl(
+                          event_path,
+                          {
+                              "scheduler_run_id": scheduler_run_id,
+                              **dict(event),
+                              "unix_time": time.time(),
+                          },
+                      )
+
+                  def publish_completed_task(task: str) -> None:
+                      with task_result_lock:
+                          if task in task_results:
+                              return
+                          rows = _coldstart_completed_task_rows(config, output_root, task)
+                          if rows is not None:
+                              task_results[task] = _write_coldstart_task_result(
+                                  config, output_root, task, rows
+                              )
+
+                  def run_cell(cell: Cell, slot: int, gpu_id: int) -> Mapping[str, Any]:
+                      del slot
+                      cell_root = output_root / "cells" / cell.key
+                      manifest_path = cell_root / "cell_manifest.json"
+                      reusable_complete = False
+                      if manifest_path.is_file():
+                          try:
+                              reusable_complete = bool(
+                                  json.loads(manifest_path.read_text(encoding="utf-8")).get(
+                                      "complete"
+                                  )
+                              )
+                          except (OSError, json.JSONDecodeError):
+                              reusable_complete = False
+                      child_force = force or (
+                          retry_incomplete and cell_root.exists() and not reusable_complete
+                      )
+                      result = _run_subprocess_cell(
+                          config_path=config_path.resolve(),
+                          output_root=output_root.resolve(),
+                          base_model_path=base_model_path,
+                          cell=cell,
+                          gpu_id=gpu_id,
+                          force=child_force,
+                      )
+                      if int(result["returncode"]) == 0:
+                          try:
+                              completed_manifest = _read_json_object(manifest_path)
+                              if (
+                                  completed_manifest.get("complete") is not True
+                                  or completed_manifest.get("evaluation_status") != "complete"
+                                  or completed_manifest.get("nan_inf_failure") is not False
+                              ):
+                                  raise RuntimeError(
+                                      "child returned zero without a complete finite cell"
+                                  )
+                          except (
+                              OSError,
+                              ValueError,
+                              TypeError,
+                              RuntimeError,
+                              json.JSONDecodeError,
+                          ) as exc:
+                              result["returncode"] = 75
+                              result["cell_completion_error"] = (
+                                  f"{type(exc).__name__}: {exc}"
+                              )
+                      result["nominal_batch"] = nominal_batch[cell.key]
+                      return result
+
+                  def after_success(cell: Cell, row: Mapping[str, Any]) -> None:
+                      nonlocal last_checkpoint_count
+                      mutable = row if isinstance(row, dict) else dict(row)
+                      if recovery_package is not None:
+                          try:
+                              with checkpoint_lock:
+                                  current_reusable, _ = _reusable_cell_manifests(
+                                      config, output_root
+                                  )
+                                  completed_count = len(current_reusable)
+                                  if completed_count >= last_checkpoint_count + recovery_interval:
+                                      checkpoint = _publish_recovery_checkpoint(
+                                          config,
+                                          output_root,
+                                          package_output=recovery_package,
+                                      )
+                                      last_checkpoint_count = int(
+                                          checkpoint["completed_cells"]
+                                      )
+                                      mutable["recovery_checkpoint"] = checkpoint["package"]
+                                      mutable["recovery_checkpoint_completed_cells"] = (
+                                          last_checkpoint_count
+                                      )
+                          except Exception:
+                              mutable["returncode"] = 74
+                              raise
+                      publish_completed_task(cell.task)
+
+                  results = list(
+                      e8_orchestration.run_dynamic_queue(
+                          cells,
+                          gpu_ids=gpu_ids,
+                          slots_per_gpu=slots_per_gpu,
+                          max_concurrent_cells=geometry.slot_count,
+                          seed_barrier=seed_barrier,
+                          seed_order=seed_order,
+                          callbacks=e8_orchestration.SchedulerCallbacks(
+                              run_cell=run_cell,
+                              record_event=record,
+                              after_success=after_success,
+                          ),
+                      )
+                  )
+                  results.sort(key=lambda row: str(row["cell_key"]))
+                  failures = [row for row in results if int(row["returncode"]) != 0]
+                  returned_keys = {str(row["cell_key"]) for row in results}
+                  completed_keys = {
+                      str(row["cell_key"])
+                      for row in results
+                      if int(row["returncode"]) == 0
+                  }
+                  unscheduled = [cell.key for cell in cells if cell.key not in returned_keys]
+                  seed_expected = dict(geometry.expected_cells_by_seed) if seed_barrier else {}
+                  seed_completed = (
+                      {
+                          seed: sum(
+                              int(row["returncode"]) == 0 and int(row["seed"]) == seed
+                              for row in results
+                          )
+                          for seed in geometry.seed_order
+                      }
+                      if seed_barrier
+                      else {}
+                  )
+                  protocol_diagnostic = (
+                      _countdown_protocol_diagnostic(
+                          config,
+                          output_root,
+                          destination=(
+                              output_root
+                              / "scheduler"
+                              / "countdown_protocol_diagnostic.json"
+                          ),
+                      )
+                      if not failures and not unscheduled
+                      else {
+                          "status": "PENDING",
+                          "result_gate": False,
+                          "controls_task_transfer_release": False,
+                      }
+                  )
+                  manifest = {
+                      "schema_version": 1,
+                      "experiment_id": experiment_id(config),
+                      "scheduler": "dynamic_slot_queue",
+                      "scheduler_run_id": scheduler_run_id,
+                      "wave_barriers": False,
+                      "wave_count": len(build_waves(config)),
+                      "wave_count_role": (
+                          "seed_local_nominal_capacity_audit_only"
+                          if seed_barrier
+                          else "nominal_audit_geometry_only_not_scheduling_barrier"
+                      ),
+                      "seed_batch_barriers": seed_barrier,
+                      "seed_batch_order": list(geometry.seed_order) if seed_barrier else [],
+                      "seed_batch_expected_cells": {
+                          str(key): value for key, value in seed_expected.items()
+                      },
+                      "seed_batch_completed_cells": {
+                          str(key): value for key, value in seed_completed.items()
+                      },
+                      "execution_class": _execution_class(config),
+                      "slot_count": geometry.slot_count,
+                      "gpu_ids": list(gpu_ids),
+                      "slots_per_gpu": slots_per_gpu,
+                      "countdown_protocol_diagnostic": protocol_diagnostic,
+                      "countdown_result_controls_transfer_release": False,
+                      "expected_cells": len(cells),
+                      "completed_cells": len(completed_keys),
+                      "results": results,
+                      "failed_cells": [row["cell_key"] for row in failures],
+                      "unscheduled_cells": unscheduled,
+                      "queue_events": str(event_path.resolve()),
+                      "analysis_ready_tasks": sorted(task_results),
+                      "task_results": task_results,
+                      "complete": (
+                          not failures
+                          and not unscheduled
+                          and len(completed_keys) == len(cells)
+                      ),
+                      "scientific_status": (
+                          "not_run" if _is_engineering_self_test(config) else "pilot"
+                      ),
+                      "engineering_placeholder_backend": _is_engineering_self_test(config),
+                  }
+                  atomic_json(output_root / "scheduler" / "dynamic_run.json", manifest)
+                  if failures or unscheduled:
+                      raise RuntimeError(
+                          "Cold-start scheduling stopped fail-closed; "
+                          f"failed={manifest['failed_cells']} unscheduled={len(unscheduled)}"
+                      )
+                  return manifest
+              ''',
+              kind=ast.FunctionDef,
+          )
+
+          # Method-specific terminal invariants now dispatch through MethodSpec.
+          old_audit = '''            if cell.method == METHOD_DPO and (value.get("reference_initial_state_sha256") != value.get("reference_terminal_state_sha256") or value.get("reference_trainable") is not False):\n                dpo_reference_identity_failures.append(cell.key)\n'''
+          new_audit = '''            method_audit = _method_spec(cell.method).audit_record(cell, value)\n            if not method_audit.passed:\n                bucket = _method_spec(cell.method).audit_failure_bucket\n                if bucket == "dpo_reference_identity_failures":\n                    dpo_reference_identity_failures.append(cell.key)\n                else:\n                    terminal_contract_failures.append(cell.key)\n'''
+          replace_once(old_audit, new_audit, 'terminal method audit')
+
+          target.write_text(source, encoding='utf-8')
+
+          # Wire generic orchestration plan projection and preserve caller-set error codes.
+          orchestration = Path('src/drpo/e8_multitask_orchestration.py')
+          orch = orchestration.read_text(encoding='utf-8')
+          insert_marker = '\n\n@dataclass(frozen=True)\nclass SchedulerCallbacks:'
+          if insert_marker not in orch:
+              raise RuntimeError('orchestration SchedulerCallbacks marker missing')
+          plan_helper = r'''
+
+          def plan_rows(
+              batches: Sequence[Sequence[TCell]],
+              *,
+              gpu_ids: Sequence[int],
+              project_cell: Callable[[TCell], Mapping[str, Any]],
+          ) -> list[dict[str, Any]]:
+              """Materialize deterministic plan rows without interpreting method parameters."""
+
+              if not gpu_ids:
+                  raise ValueError("gpu_ids must be non-empty")
+              rows: list[dict[str, Any]] = []
+              seen: list[TCell] = []
+              for batch_index, batch in enumerate(batches, start=1):
+                  for slot, cell in enumerate(batch):
+                      row: dict[str, Any] = {
+                          "wave": batch_index,
+                          "nominal_batch": batch_index,
+                          "slot": slot,
+                          "gpu_id": int(gpu_ids[slot % len(gpu_ids)]),
+                          "cell_key": cell.key,
+                          "task": cell.task,
+                          "method": cell.method,
+                      }
+                      projected = dict(project_cell(cell))
+                      collisions = sorted(set(row).intersection(projected))
+                      if collisions:
+                          raise ValueError(
+                              f"Method plan projection attempted to overwrite: {collisions}"
+                          )
+                      row.update(projected)
+                      row.update({"seed": int(cell.seed), "stage": cell.stage})
+                      rows.append(row)
+                      seen.append(cell)
+              validate_unique_cell_keys(seen)
+              return rows
+          '''
+          orch = orch.replace(insert_marker, textwrap.dedent(plan_helper).rstrip() + insert_marker, 1)
+          old_after = '''                except Exception as exc:  # Keep failure evidence in scheduler output.\n                    succeeded = False\n                    raw["returncode"] = 1\n                    raw["error"] = f"after_success {type(exc).__name__}: {exc}"\n'''
+          new_after = '''                except Exception as exc:  # Keep failure evidence in scheduler output.\n                    succeeded = False\n                    existing_code = int(raw.get("returncode", 0))\n                    raw["returncode"] = existing_code if existing_code != 0 else 1\n                    raw["error"] = f"after_success {type(exc).__name__}: {exc}"\n'''
+          if old_after not in orch:
+              raise RuntimeError('orchestration after_success block missing')
+          orch = orch.replace(old_after, new_after, 1)
+          orchestration.write_text(orch, encoding='utf-8')
+
+          # Preserve public result schema while allowing generic opaque grouping.
+          results_path = Path('src/drpo/e8_multitask_results.py')
+          results_source = results_path.read_text(encoding='utf-8')
+          tree = ast.parse(results_source)
+          node = next(item for item in tree.body if isinstance(item, ast.FunctionDef) and item.name == 'common_result_record')
+          lines = results_source.splitlines(keepends=True)
+          common_replacement = textwrap.dedent(r'''
+          def common_result_record(
+              cell: CellLike,
+              value: Mapping[str, Any],
+              *,
+              source: str,
+              project_method: Callable[[CellLike], MethodResultProjection],
+              project_metrics: Callable[[Mapping[str, Any]], Mapping[str, Any]],
+          ) -> ResultRecord:
+              """Build one record without exposing opaque parameters in public artifacts."""
+
+              projection = project_method(cell)
+              compatibility = dict(projection.compatibility_columns)
+              reserved = sorted(_RESERVED_COMMON_COLUMNS.intersection(compatibility))
+              if reserved:
+                  raise ValueError(
+                      f"Method compatibility projection uses reserved columns: {reserved}"
+                  )
+              public: dict[str, Any] = {
+                  "source": source,
+                  "task": cell.task,
+                  "method": cell.method,
+              }
+              _checked_merge(
+                  public,
+                  compatibility,
+                  label="Method compatibility projection",
+              )
+              public.update(
+                  {
+                      "seed": int(cell.seed),
+                      "stage": cell.stage,
+                      "cell_key": cell.key,
+                  }
+              )
+              _checked_merge(
+                  public,
+                  dict(project_metrics(value)),
+                  label="Metric projection",
+              )
+              return ResultRecord(
+                  public=public,
+                  method_parameters=dict(projection.parameters),
+              )
+          ''').lstrip('\n')
+          results_source = ''.join(lines[:node.lineno - 1]) + common_replacement + ''.join(lines[node.end_lineno:])
+          tree = ast.parse(results_source)
+          node = next(item for item in tree.body if isinstance(item, ast.FunctionDef) and item.name == 'grouped_curve')
+          lines = results_source.splitlines(keepends=True)
+          grouped_replacement = textwrap.dedent(r'''
+          def grouped_curve(
+              records: Sequence[ResultRecord],
+              *,
+              metric_names: Sequence[str] = (),
+              group_order: Callable[[str, str, Mapping[str, Any]], Any] | None = None,
+              project_group: Callable[[str, Mapping[str, Any]], Mapping[str, Any]] | None = None,
+              aggregate_metrics: Callable[[Sequence[ResultRecord]], Mapping[str, Any]] | None = None,
+          ) -> list[dict[str, Any]]:
+              """Create deterministic public method curves from opaque parameter identities."""
+
+              grouped = group_parameter_records(records)
+              entries: list[tuple[Any, str, str, str, list[ResultRecord]]] = []
+              for (task, method, identity), group in grouped.items():
+                  parameters = dict(group[0].method_parameters)
+                  if any(
+                      parameter_identity(record.method_parameters) != identity
+                      for record in group
+                  ):
+                      raise RuntimeError(
+                          "Method parameter identity changed inside one aggregation group"
+                      )
+                  sort_value = (
+                      group_order(task, method, parameters)
+                      if group_order is not None
+                      else (task, method, identity)
+                  )
+                  entries.append((sort_value, task, method, identity, group))
+
+              output: list[dict[str, Any]] = []
+              for _, task, method, _, group in sorted(entries, key=lambda item: item[0]):
+                  parameters = dict(group[0].method_parameters)
+                  row: dict[str, Any] = {"task": task, "method": method}
+                  if project_group is not None:
+                      _checked_merge(
+                          row,
+                          dict(project_group(method, parameters)),
+                          label="Grouped method compatibility projection",
+                      )
+                  metrics = (
+                      dict(aggregate_metrics(group))
+                      if aggregate_metrics is not None
+                      else mean_metrics(group, metric_names)
+                  )
+                  _checked_merge(row, metrics, label="Grouped metric projection")
+                  output.append(row)
+              return output
+          ''').lstrip('\n')
+          results_source = ''.join(lines[:node.lineno - 1]) + grouped_replacement + ''.join(lines[node.end_lineno:])
+          results_path.write_text(results_source, encoding='utf-8')
+          PY
+          python /tmp/refactor_e8.py
+      - name: Static compile
+        run: |
+          python -m py_compile \
+            src/drpo/e8_multitask_exp_tuning.py \
+            src/drpo/e8_multitask_orchestration.py \
+            src/drpo/e8_multitask_results.py \
+            src/drpo/e8_multitask_runtime.py
+      - name: Method contract regression
+        run: bash tests/test_e8_method_integration_contract.sh
+      - name: Focused E8 regression
+        run: pytest -q tests/test_e8_multitask_p0.py
+      - name: Ruff
+        run: ruff check src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_orchestration.py src/drpo/e8_multitask_results.py src/drpo/e8_multitask_runtime.py
+      - name: Commit generated refactor and remove one-shot workflow
+        run: |
+          git diff --check
+          git rm .github/workflows/e8-method-refactor-apply.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_orchestration.py src/drpo/e8_multitask_results.py
+          git commit -m 'refactor: wire E8 method contract through generic layers'
+          git push origin HEAD:dev/e8-method-integration-cost-refactor-01
