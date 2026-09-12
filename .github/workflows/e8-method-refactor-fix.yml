@@ -63,6 +63,23 @@ jobs:
           Path('/tmp/refactor_e8.py').write_text('\n'.join(extracted) + '\n', encoding='utf-8')
           PY
           python /tmp/refactor_e8.py
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/drpo/e8_multitask_results.py')
+          text = path.read_text(encoding='utf-8')
+          old = '        row: dict[str, Any] = {"task": task, "method": method}\n'
+          new = (
+              '        row: dict[str, Any] = {\n'
+              '            "task": task,\n'
+              '            "method": method,\n'
+              '            "seed_count": len({int(record.public["seed"]) for record in group}),\n'
+              '        }\n'
+          )
+          if text.count(old) != 1:
+              raise SystemExit(f'grouped row anchor count={text.count(old)}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
       - name: Static compile
         run: |
           python -m py_compile \
