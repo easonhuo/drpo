@@ -1,0 +1,30 @@
+{
+  "schema_version": 3,
+  "experiment_id": "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02",
+  "run_class": "pilot",
+  "start_utc": "2026-09-01T12:16:18.095812+00:00",
+  "end_utc": "2026-09-02T01:44:00.391579+00:00",
+  "elapsed_seconds": 48462.296,
+  "pid": 1182165,
+  "returncode": 2,
+  "supervisor_error_type": null,
+  "supervisor_error": null,
+  "traceback_file": null,
+  "forwarded_signal": null,
+  "stale_detected": false,
+  "stale_term_sent": false,
+  "stale_kill_sent": false,
+  "missing_required_outputs": [],
+  "base_commit": "71d792ab6dc9ba5c7086852f94db043563740d9e",
+  "end_commit": "71d792ab6dc9ba5c7086852f94db043563740d9e",
+  "git_status_at_end": [],
+  "provenance_compromised": false,
+  "branch": "DETACHED",
+  "command": [
+    "bash",
+    "/apdcephfs_qy3/private_haibinlv/E8_MULTITASK_EXP_LAMBDA_CURVE_COMPLETION_02/bootstrap4/repo/scripts/run_e8_multitask_exp_coldstart.sh",
+    "guarded-full-internal"
+  ],
+  "scientific_acceptance_pending": true,
+  "execution_state": "failed"
+}

@@ -1,0 +1,41 @@
+schema_version: 3
+update_id: EXT-C-E8-MULTITASK-LAMBDA-RESULT-CLOSURE-2026-09-02
+mode: authoritative
+base:
+  commit: 6ed153d5ad7361a4e52348610b86b51b71e25e47
+  handoff_sha256: 7cc7780a408ff89cceb7742af17b6151d1cb4134a8fec5b9531ec3b1dddecdb3
+  registry_sha256: aa97eadd8bd348d8fe337ab4232f44feca1cd6d9c02dacaed8968726162c132f
+renderer_version: 1
+operations:
+- operation_id: rename-v81-e8-lambda-result-closure
+  op: replace_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v80（Dev-Review 协作流程与 GLM 执行角色固化版）
+  new_heading: DRPO / SNA2C 远场负梯度动力学研究主文档 v81（E8 Multitask λ response-curve 结果闭环版）
+  reason: Record the E8 multitask lambda response-curve pilot result closure without changing frozen scientific variables or upgrading evidence status.
+- operation_id: append-v81-e8-lambda-result-closure-current-gate
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: v81-e8-lambda-result-closure-2026-09-02
+  content: '> **v81 E8 Multitask λ response-curve 结果闭环（`EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01` + `EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02`）：**本次只登记外部有效性 response-shape / curve-boundary pilot 证据，不改变任何已冻结科学变量，也不形成 convergence、steady state、significance 或正式方法排名。
+
+    >
+
+    > - Completion-01 已完成 `199/199` cells，raw-complete、terminal audit `PASS`、独立 test 未访问、NaN/Inf numerical failure `0`。Completion-02 的科学 workload 已完成 `140/140` cells，terminal audit `PASS`、test 未访问、NaN/Inf `0`；外层 supervisor 的 return code `2` 发生在科学 workload 完成后的 hardened packaging，原因为 main package `42.271 MiB > 25 MiB`，且 `missing_required_outputs=[]`，不得误报为训练失败或数值崩溃。
+
+    > - 两轮固定 `1200` optimizer updates 仍只构成 **pilot / finite-horizon response-curve evidence**；transfer Exp 曲线主要使用单一 tuning seed，必须禁止 fresh-seed significance、稳态排名或 universal Exp-superiority claim。任务性能崩溃、validity/support-structure diagnostic 与 NaN/Inf 数值失败继续分开报告。
+
+    > - 两个运行源码 SHA `831b3ab5b24bf42464e79abfaf7e1077b03addf0` 与 `71d792ab6dc9ba5c7086852f94db043563740d9e` 在本闭环时仍无法从 authoritative GitHub 解析，且 run manifest 均记录 `origin_matches_local=false`；该 provenance limitation 必须保留，因此不得将结果升级为 authoritative formal evidence。
+
+    > - 已将仓库历史 cold-start `208` rows 与 Completion-01 `199` rows、Completion-02 `140` rows 拼接为 `547`-row joint curve anchor。当前 response-shape 判断仅用于下一轮边界补全：Word Sorting、Mini Sudoku、Maze、Knights & Knaves、WikiSQL 的 sampled right-tail 尚未充分封闭；Word Ladder 与 Graph Coloring 已有更清楚的 peak/right-tail decline，Spiral Matrix 处于 ceiling，Countdown 继续走独立 external-validity evidence chain。
+
+    > - 用户已批准下一轮的**设计方向**为上述 5 个任务、每任务 `20` 个点、相较 140-cell 轮使用更宽的 λ 间距；但 exact λ grid 与 successor experiment ID **尚未冻结**，必须先另行文档化 protocol 后才能启动。
+
+    > - Countdown 演示图中由图片数字化得到的 22-point 曲线只用于可视化，不写入本次 raw scientific evidence。compact closure 位于 `docs/results/E8_MULTITASK_EXP_LAMBDA_COMPLETION_JOINT_RESULT_2026-09-02.md` 与 `experiments/results/e8_multitask_exp_lambda_joint_20260902/`。'
+registry:
+  mode: unchanged
+  changes: []
+expected:
+  exact_base_candidate_sha256: 8bc8747f592dcfa0fe38f07d3ed5efc09f6cb753a043bfdf5a1bdbb2f3c30e64
