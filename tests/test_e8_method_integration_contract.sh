@@ -199,11 +199,11 @@ identity = recovery_identity(
     cells[0],
     experiment_id="DEV-DUMMY",
     config_hash="cfg",
-    method_identity_fields={"method_parameters": {"temperature": 0.1}},
+    cell_identity_fields={"method_parameters": {"temperature": 0.1}},
     common_identity_fields={"bank_hash": "bank"},
 )
-assert identity["method_parameters"] == {"temperature": 0.1}
-assert len(identity["identity_sha256"]) == 64
+assert identity["cell"]["method_parameters"] == {"temperature": 0.1}
+assert len(identity["identity_hash"]) == 64
 
 records = {
     cell.key: {
