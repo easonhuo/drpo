@@ -35,12 +35,14 @@ class MethodAuditResult:
 MethodAuditHook = Callable[[CellLike, Mapping[str, Any]], MethodAuditResult]
 
 
-def stable_json_hash(value: Mapping[str, Any]) -> str:
+def stable_json_hash(value: Any) -> str:
+    """Match the repository's existing stable-hash encoding exactly."""
+
     payload = json.dumps(
-        dict(value),
+        value,
         sort_keys=True,
         separators=(",", ":"),
-        ensure_ascii=True,
+        ensure_ascii=False,
     ).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
 
@@ -50,36 +52,45 @@ def recovery_identity(
     *,
     experiment_id: str,
     config_hash: str,
-    method_identity_fields: Mapping[str, Any],
-    common_identity_fields: Mapping[str, Any] | None = None,
+    cell_identity_fields: Mapping[str, Any],
+    common_identity_fields: Mapping[str, Any],
+    schema_version: int = 1,
 ) -> dict[str, Any]:
-    """Build a generic recovery identity without interpreting method fields.
+    """Build the existing nested E8 identity shape without knowing method fields.
 
-    Existing methods can project their legacy top-level identity fields through
-    ``method_identity_fields`` so frozen hashes remain reproducible. A future
-    method can instead project a single opaque ``method_parameters`` mapping.
-    Generic runtime never branches on the method name.
+    The scientific layer projects the compatibility fields that belong inside
+    ``cell`` (today these include legacy named parameters). Future methods may
+    project one opaque ``method_parameters`` mapping instead. Common provenance
+    such as bank/split/model/initialization/calibration identity is supplied
+    separately. Keeping the nested layout and hash encoding here lets current
+    cells preserve their frozen ``identity_hash`` byte-for-byte.
     """
 
-    identity: dict[str, Any] = {
-        "experiment_id": experiment_id,
-        "config_hash": config_hash,
-        "cell_key": cell.key,
+    cell_identity: dict[str, Any] = {
         "task": cell.task,
         "method": cell.method,
-        "seed": int(cell.seed),
-        "stage": cell.stage,
     }
-    if common_identity_fields:
-        collisions = sorted(set(identity).intersection(common_identity_fields))
-        if collisions:
-            raise ValueError(f"Common recovery identity attempted to overwrite: {collisions}")
-        identity.update(common_identity_fields)
-    collisions = sorted(set(identity).intersection(method_identity_fields))
+    collisions = sorted(set(cell_identity).intersection(cell_identity_fields))
     if collisions:
-        raise ValueError(f"Method recovery identity attempted to overwrite: {collisions}")
-    identity.update(method_identity_fields)
-    return {**identity, "identity_sha256": stable_json_hash(identity)}
+        raise ValueError(f"Method cell identity attempted to overwrite: {collisions}")
+    cell_identity.update(cell_identity_fields)
+    for reserved, expected in (("seed", int(cell.seed)), ("stage", cell.stage)):
+        if reserved in cell_identity:
+            raise ValueError(f"Method cell identity attempted to overwrite: ['{reserved}']")
+        cell_identity[reserved] = expected
+
+    identity: dict[str, Any] = {
+        "schema_version": int(schema_version),
+        "experiment_id": experiment_id,
+        "config_hash": config_hash,
+        "cell": cell_identity,
+    }
+    collisions = sorted(set(identity).intersection(common_identity_fields))
+    if collisions:
+        raise ValueError(f"Common recovery identity attempted to overwrite: {collisions}")
+    identity.update(common_identity_fields)
+    identity["identity_hash"] = stable_json_hash(identity)
+    return identity
 
 
 def _matches_int(value: Any, expected: int) -> bool:
