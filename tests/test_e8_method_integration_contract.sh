@@ -24,7 +24,7 @@ from drpo.e8_multitask_orchestration import (
 )
 from drpo.e8_multitask_results import (
     MethodResultProjection,
-    common_result_row,
+    common_result_record,
     grouped_curve,
 )
 from drpo.e8_multitask_runtime import (
@@ -177,7 +177,7 @@ def project_method(cell: DummyCell) -> MethodResultProjection:
 
 
 rows = [
-    common_result_row(
+    common_result_record(
         cell,
         {"score": cell.parameter + cell.seed / 100000.0},
         source="dummy",
@@ -190,10 +190,12 @@ curve = grouped_curve(
     rows,
     metric_names=("score",),
     group_order=lambda task, method, params: (task, method, params["temperature"]),
+    project_group=lambda method, params: {"legacy_parameter": params["temperature"]},
 )
 assert len(curve) == 4
-assert [row["method_parameters"]["temperature"] for row in curve[:2]] == [0.1, 0.2]
+assert [row["legacy_parameter"] for row in curve[:2]] == [0.1, 0.2]
 assert all(row["seed_count"] == 2 for row in curve)
+assert all("method_parameters" not in row for row in curve)
 
 identity = recovery_identity(
     cells[0],
