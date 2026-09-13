@@ -1,0 +1,46 @@
+name: tmp-e8-reciprocal-compress-artifact-v2
+on:
+  push:
+    branches: [dev/e8-multitask-reciprocal-shape-128-01]
+permissions:
+  contents: read
+jobs:
+  compress-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply reviewed compression transform
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet PyYAML
+          python3 - <<'PY'
+          import subprocess
+          import yaml
+          from pathlib import Path
+          wf = yaml.safe_load(Path('.github/workflows/tmp-e8-reciprocal-compress-artifact.yml').read_text())
+          steps = wf['jobs']['compress-review']['steps']
+          script = next(step['run'] for step in steps if step.get('name') == 'Apply no-semantics-change compression in workspace')
+          subprocess.run(['bash', '-lc', script], check=True)
+          PY
+      - name: Validate compressed capability
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'numpy<2' PyYAML pytest ruff
+          export PYTHONPATH=.:src
+          python3 -m py_compile src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py
+          ruff check src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py
+          bash tests/test_e8_method_integration_contract.sh
+          pytest -q tests/test_e8_multitask_p0.py
+          python3 scripts/handoff_authority.py verify --repo-root .
+          python3 scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          git diff --check
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reciprocal-compressed-files-v2
+          path: |
+            src/drpo/e8_experiment_config.py
+            src/drpo/e8_multitask_exp_tuning.py
