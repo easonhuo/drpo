@@ -16,7 +16,7 @@ Chat history alone is not a source of truth.
 
 ## Mandatory startup protocol
 
-Before changing code, designing a new experiment, or running an experiment:
+Before changing code or repository documents, editing manuscript artifacts, designing a new experiment, or running an experiment:
 
 1. Read `docs/handoff.md`.
 2. Read Section 0 of `docs/handoff.md` first and inherit all locked conclusions, terminology rules, execution gates, and experiment priorities.
@@ -24,6 +24,7 @@ Before changing code, designing a new experiment, or running an experiment:
 4. Read the nearest directory-specific `AGENTS.md`, if present.
 5. Inspect the current Git branch and commit SHA when the environment provides Git access.
 6. Summarize the active experiment, its current status, relevant constraints, and remaining uncertainties before implementation.
+7. Identify all repository-owner `LOCKED` decisions relevant to the task before proposing or implementing changes; do not reopen them unless the owner explicitly requests reconsideration.
 
 `docs/handoff.md` is the unique research master document. Do not introduce a second competing master-status document.
 
@@ -119,6 +120,24 @@ Before making an evaluative or comparative judgment:
 6. Change a prior verdict only when the compared object, evidence, evaluation criteria, or identified reasoning error has materially changed.
 7. When changing a verdict, state exactly which premise, evidence, criterion, or object changed.
 8. If nothing material changed, preserve the prior conclusion despite pressure in either direction.
+
+## Repository-owner decision lock
+
+Under `GOV-OWNER-DECISION-LOCK-01`, an explicit repository-owner decision is a project constraint within its stated scope. Once the owner clearly settles an issue, selects an option, says not to revisit it, or limits the task to a specific change, an agent must not reopen, override, dilute, or silently reframe that decision unless the owner explicitly requests reconsideration.
+
+Repository files, configs, historical implementations, prior drafts, and provenance remain evidence sources; they do not automatically acquire decision authority over a `LOCKED` owner choice. A non-hard conflict must not trigger re-argument or a request to approve the same choice again. Execute the locked choice exactly within scope.
+
+Do not invent a third option merely because a locked choice differs from historical evidence. A third option may be proposed only when the owner asks for alternatives or a hard conflict makes literal execution impossible.
+
+A hard conflict exists only when literal execution would require a knowingly false factual claim, fabrication of experiment or repository state, violation of a system or repository hard constraint, or a false claim that an unavailable operation succeeded. Raise such a conflict once, concisely, with the smallest permissible implementation that preserves the owner's intent. After the owner selects or confirms a permissible implementation, execute it without further advocacy.
+
+When the owner says to change only a specified file, section, figure, table, parameter, claim, or behavior, that scope is locked. Do not add opportunistic cleanup, reframing, renaming, or unrelated improvements. If an unavoidable cascade is outside the approved scope, disclose it before applying it.
+
+A locked decision remains active until the owner explicitly changes, supersedes, or reopens it. New evidence, another model's recommendation, a different config, an older handoff entry, or agent disagreement does not supersede it.
+
+Locks that materially affect future research, experiment execution, manuscript structure, or project governance must be persisted through the repository's existing canonical authority path. Research and experiment locks use the production schema-v3 handoff-delta authority; manuscript structural locks use the active outline/blueprint hierarchy; repository-wide agent behavior belongs in `AGENTS.md` and `docs/governance_owner_decision_lock.md`. Do not create a competing master-status document.
+
+Before delivering work affected by an owner lock, perform the ten-pass review in `docs/governance_owner_decision_lock.md`. Fix any failed pass before delivery rather than asking the owner to rediscover the violation.
 
 ## Governance pipeline stage closure
 
