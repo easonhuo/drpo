@@ -1,0 +1,39 @@
+name: E8 source gate focused validation
+
+on:
+  push:
+    branches:
+      - dev/e8-remove-source-snapshot-gate-01
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install focused test dependencies
+        run: python -m pip install --disable-pip-version-check pytest==8.3.5 numpy==1.26.4 PyYAML==6.0.2
+      - name: Run focused validation
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src
+        run: |
+          bash -n scripts/run_e8_multitask_exp_coldstart.sh
+          python -m py_compile src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          python scripts/preflight_e8_multitask_config.py --repo-root . --config configs/e8_multitask_baseline_matrix_formal.yaml > /tmp/e8_preflight.json
+          python -m pytest -q tests/test_e8_multitask_p0.py -k 'lambda_completion_matrix_is_config_driven_and_lambda_only or final_correctness_audit_after_image'
+          git diff --check 4deb00030426446cc3b66efc0e31b875c3f41698...HEAD
+      - name: Remove temporary validation workflow
+        if: success()
+        run: |
+          git rm .github/workflows/e8_source_gate_validation.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Remove temporary E8 source-gate validation workflow"
+          git push origin HEAD:dev/e8-remove-source-snapshot-gate-01
