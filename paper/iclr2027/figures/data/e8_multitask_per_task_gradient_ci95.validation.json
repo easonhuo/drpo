@@ -1,0 +1,16 @@
+{
+  "source_results_commit": "a5541e6487d74988f07a381a837972bdc5d3282c",
+  "derived_results_commit": "a43a6eb73749347f3e3d8e9346702731ec1f09b8",
+  "run_id": "E8_MULTITASK_P0_FIG1_20260729_01",
+  "experiment_id": "EXT-C-E8-MULTITASK-P0-01",
+  "scientific_status": "pilot",
+  "valid_bootstrap_replicates": 2000,
+  "requested_bootstrap_replicates": 2000,
+  "bootstrap_seed": 161803,
+  "bootstrap_unit": "prompt_within_task",
+  "max_per_task_mean_abs_error_vs_saved": 0.0,
+  "max_aggregate_mean_abs_error_vs_saved": 0.0,
+  "max_aggregate_ci95_abs_error_vs_saved": 0.0,
+  "validation": "pass",
+  "note": "Per-task intervals are a post-hoc extension of the frozen P0 bootstrap loop; the saved aggregate mean and CI were reproduced exactly before emitting them."
+}
