@@ -18,7 +18,6 @@ import importlib
 import json
 import math
 import os
-import queue
 import random
 import shutil
 import subprocess
@@ -28,7 +27,7 @@ import threading
 import time
 import traceback
 import zipfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -39,6 +38,9 @@ import numpy as np
 import yaml
 
 from drpo import e8_experiment_config as experiment_config
+from drpo import e8_multitask_orchestration as e8_orchestration
+from drpo import e8_multitask_results as e8_results
+from drpo import e8_multitask_runtime as e8_runtime
 
 try:
     import torch
@@ -176,40 +178,517 @@ class Cell:
     delta_v: float | None = None
     beta: float | None = None
     dpo_initialization: str | None = None
+    method_parameters: Mapping[str, Any] | None = None
 
     @property
     def key(self) -> str:
-        if self.method == METHOD_POSITIVE_ONLY:
-            return f"{self.task}__positive_only__seed{self.seed}"
-        if self.method == METHOD_GLOBAL:
-            return f"{self.task}__global__seed{self.seed}"
-        if self.method == METHOD_ASYMRE:
-            if self.delta_v is None:
-                raise AssertionError("AsymRE cell requires delta_v")
-            tag = f"{self.delta_v:.12g}".replace("-", "m").replace(".", "p")
-            return f"{self.task}__asymre_delta_v{tag}__seed{self.seed}"
-        if self.method == METHOD_TOPR:
-            if self.beta is None:
-                raise AssertionError("Joint Fitted-Reference TOPR cell requires beta")
-            tag = f"{self.beta:.12g}".replace("-", "m").replace(".", "p")
-            return f"{self.task}__joint_fitted_reference_topr_beta{tag}__seed{self.seed}"
-        if self.method == METHOD_DPO:
-            if self.beta is None:
-                raise AssertionError("Canonical DPO cell requires beta")
-            if self.dpo_initialization is None:
-                raise AssertionError("Canonical DPO cell requires initialization identity")
-            tag = f"{self.beta:.12g}".replace("-", "m").replace(".", "p")
-            return (
-                f"{self.task}__canonical_dpo_beta{tag}__"
-                f"init_{self.dpo_initialization}__seed{self.seed}"
+        return _method_spec(self.method).cell_key(self)
+
+
+def _default_method_audit(
+    cell: Cell, record: Mapping[str, Any]
+) -> e8_runtime.MethodAuditResult:
+    del cell, record
+    return e8_runtime.MethodAuditResult(True)
+
+
+def _empty_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    del config
+    return {}
+
+
+@dataclass(frozen=True)
+class PaperRuntimeSpec:
+    """Optional capability for methods using the canonical paper runtime."""
+
+    liveness_grid: Callable[[Mapping[str, Any], Mapping[str, Any]], Path]
+    liveness_parameter: str
+    grid_paths: Callable[
+        [Mapping[str, Any], Mapping[str, Any], Cell], tuple[Path, Path]
+    ]
+    cell_parameters: Callable[[Cell], tuple[str, float, float]]
+    formula: str
+
+
+@dataclass(frozen=True)
+class MethodSpec:
+    """One scientific-method adapter; generic infrastructure never branches on names."""
+
+    name: str
+    build_cell: Callable[..., Cell]
+    cell_key: Callable[[Cell], str]
+    parameters: Callable[[Cell], Mapping[str, Any]]
+    cell_initialization: Callable[[Mapping[str, Any]], str | None]
+    initialization_identity: Callable[[Mapping[str, Any]], Mapping[str, Any]]
+    train_cold: Callable[..., dict[str, Any]]
+    liveness_task: Callable[[Mapping[str, Any]], str]
+    liveness_runner: Callable[..., dict[str, Any]]
+    scientific_kernel: str
+    paper_runtime: PaperRuntimeSpec | None = None
+    audit_record: Callable[
+        [Cell, Mapping[str, Any]], e8_runtime.MethodAuditResult
+    ] = _default_method_audit
+    single_aggregate_metadata: Callable[
+        [Mapping[str, Any]], Mapping[str, Any]
+    ] = _empty_metadata
+    matrix_aggregate_metadata: Callable[
+        [Mapping[str, Any]], Mapping[str, Any]
+    ] = _empty_metadata
+
+
+
+_METHOD_SPECS: dict[str, MethodSpec] = {}
+
+
+def _register_method_spec(spec: MethodSpec, *, replace: bool = False) -> None:
+    if spec.name in _METHOD_SPECS and not replace:
+        raise ValueError(f"Method spec already registered: {spec.name}")
+    _METHOD_SPECS[spec.name] = spec
+
+
+def _method_spec(method: str) -> MethodSpec:
+    try:
+        return _METHOD_SPECS[method]
+    except KeyError as exc:
+        raise ValueError(f"No E8 method spec registered for {method}") from exc
+
+
+def _cell_lambda(cell: Cell) -> float | None:
+    if cell.lambda_value is not None:
+        return float(cell.lambda_value)
+    return None if cell.rho is None else coefficient_from_rho(float(cell.rho))
+
+
+def _legacy_compatibility_columns(cell: Cell) -> Mapping[str, Any]:
+    return {
+        "delta_v": cell.delta_v,
+        "beta": cell.beta,
+        "dpo_initialization": cell.dpo_initialization,
+        "rho": cell.rho,
+        "lambda": _cell_lambda(cell),
+    }
+
+def _method_output_columns(cell: Cell) -> dict[str, Any]:
+    """Merge frozen legacy columns with the method's single parameter source."""
+
+    columns = dict(_legacy_compatibility_columns(cell))
+    for name, value in _method_spec(cell.method).parameters(cell).items():
+        if name in columns and columns[name] != value:
+            raise ValueError(
+                f"Method parameter {name!r} conflicts with its legacy cell value"
             )
-        if self.lambda_value is not None:
-            tag = f"{self.lambda_value:.12g}".replace(".", "p")
-            return f"{self.task}__exp_lambda{tag}__seed{self.seed}"
-        if self.rho is None:
-            raise AssertionError("Exponential cell requires rho or lambda")
-        tag = f"{self.rho:.6f}".rstrip("0").rstrip(".").replace(".", "p")
-        return f"{self.task}__exp_rho{tag}__seed{self.seed}"
+        columns[name] = value
+    return columns
+
+
+
+def _positive_key(cell: Cell) -> str:
+    return f"{cell.task}__positive_only__seed{cell.seed}"
+
+
+def _global_key(cell: Cell) -> str:
+    return f"{cell.task}__global__seed{cell.seed}"
+
+
+def _exp_key(cell: Cell) -> str:
+    if cell.lambda_value is not None:
+        tag = f"{cell.lambda_value:.12g}".replace(".", "p")
+        return f"{cell.task}__exp_lambda{tag}__seed{cell.seed}"
+    if cell.rho is None:
+        raise AssertionError("Exponential cell requires rho or lambda")
+    tag = f"{cell.rho:.6f}".rstrip("0").rstrip(".").replace(".", "p")
+    return f"{cell.task}__exp_rho{tag}__seed{cell.seed}"
+
+
+def _asymre_key(cell: Cell) -> str:
+    if cell.delta_v is None:
+        raise AssertionError("AsymRE cell requires delta_v")
+    tag = f"{cell.delta_v:.12g}".replace("-", "m").replace(".", "p")
+    return f"{cell.task}__asymre_delta_v{tag}__seed{cell.seed}"
+
+
+def _topr_key(cell: Cell) -> str:
+    if cell.beta is None:
+        raise AssertionError("Joint Fitted-Reference TOPR cell requires beta")
+    tag = f"{cell.beta:.12g}".replace("-", "m").replace(".", "p")
+    return f"{cell.task}__joint_fitted_reference_topr_beta{tag}__seed{cell.seed}"
+
+
+def _dpo_key(cell: Cell) -> str:
+    if cell.beta is None:
+        raise AssertionError("Canonical DPO cell requires beta")
+    if cell.dpo_initialization is None:
+        raise AssertionError("Canonical DPO cell requires initialization identity")
+    tag = f"{cell.beta:.12g}".replace("-", "m").replace(".", "p")
+    return (
+        f"{cell.task}__canonical_dpo_beta{tag}__"
+        f"init_{cell.dpo_initialization}__seed{cell.seed}"
+    )
+
+
+def _build_control_cell(
+    *, task: str, method: str, seed: int, stage: str, value: float,
+    lambda_only: bool, dpo_initialization: str | None,
+) -> Cell:
+    del lambda_only, dpo_initialization
+    if method == METHOD_POSITIVE_ONLY:
+        return Cell(task, method, None, seed, stage)
+    if method == METHOD_GLOBAL:
+        return Cell(task, method, 1.0, seed, stage, 0.0)
+    raise ValueError(f"Unsupported control method: {method}")
+
+
+def _build_exponential_cell(
+    *, task: str, method: str, seed: int, stage: str, value: float,
+    lambda_only: bool, dpo_initialization: str | None,
+) -> Cell:
+    del dpo_initialization
+    rho = None if lambda_only else math.exp(-value)
+    return Cell(task, method, rho, seed, stage, value)
+
+
+def _build_asymre_cell(
+    *, task: str, method: str, seed: int, stage: str, value: float,
+    lambda_only: bool, dpo_initialization: str | None,
+) -> Cell:
+    del lambda_only, dpo_initialization
+    return Cell(task, method, None, seed, stage, delta_v=value)
+
+
+def _build_topr_cell(
+    *, task: str, method: str, seed: int, stage: str, value: float,
+    lambda_only: bool, dpo_initialization: str | None,
+) -> Cell:
+    del lambda_only, dpo_initialization
+    return Cell(task, method, None, seed, stage, beta=value)
+
+
+def _build_dpo_cell(
+    *, task: str, method: str, seed: int, stage: str, value: float,
+    lambda_only: bool, dpo_initialization: str | None,
+) -> Cell:
+    del lambda_only
+    if dpo_initialization is None:
+        raise ValueError("DPO cell construction requires initialization identity")
+    return Cell(
+        task, method, None, seed, stage, beta=value,
+        dpo_initialization=dpo_initialization,
+    )
+
+
+def _default_initialization_identity(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    return dict(config["initialization"])
+
+
+def _dpo_initialization_identity(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    if _is_baseline_matrix(config):
+        return {
+            "source": str(config["dpo"]["initialization_mode"]),
+            "shared_sft_adapter_env": config["dpo"].get("shared_sft_adapter_env"),
+        }
+    return dict(config["initialization"])
+
+
+def _cold_train_paper(cell: Cell, **kwargs: Any) -> dict[str, Any]:
+    updates_override = kwargs.pop("updates_override", None)
+    engineering_liveness = bool(kwargs.pop("engineering_liveness", False))
+    if updates_override is not None or engineering_liveness:
+        raise RuntimeError(
+            "Canonical cold liveness requires its derived old-core config path"
+        )
+    return _train_canonical_cold_cell(cell, **kwargs)
+
+
+def _cold_train_dpo(cell: Cell, **kwargs: Any) -> dict[str, Any]:
+    return _train_canonical_dpo_transfer_cell(cell, **kwargs)
+
+
+
+
+def _run_canonical_method_liveness(
+    method: str,
+    *,
+    config: Mapping[str, Any],
+    config_path: Path,
+    output_root: Path,
+    inputs: Mapping[str, TaskInputs],
+    splits: Mapping[str, Any],
+    base_model_path: str,
+    task: str,
+    force: bool,
+) -> dict[str, Any]:
+    if task != "countdown":
+        raise RuntimeError(f"{method} liveness anchor must be Countdown")
+    return _cmd_canonical_cold_liveness(
+        config,
+        config_path,
+        output_root,
+        inputs=inputs["countdown"],
+        splits=splits,
+        base_model_path=base_model_path,
+        force=force,
+        method=method,
+    )
+
+
+def _run_dpo_method_liveness(
+    *,
+    config: Mapping[str, Any],
+    config_path: Path,
+    output_root: Path,
+    inputs: Mapping[str, TaskInputs],
+    splits: Mapping[str, Any],
+    base_model_path: str,
+    task: str,
+    force: bool,
+) -> dict[str, Any]:
+    return _cmd_dpo_liveness(
+        config,
+        config_path,
+        output_root,
+        inputs=inputs,
+        splits=splits,
+        base_model_path=base_model_path,
+        task=task,
+        force=force,
+    )
+
+
+def _paper_grid_paths_exponential(
+    config: Mapping[str, Any],
+    record: Mapping[str, Any],
+    cell: Cell,
+) -> tuple[Path, Path]:
+    grid_name = (
+        "round1_grid"
+        if cell.task != "countdown"
+        else _paper_grid_name(
+            0.0 if cell.lambda_value is None else float(cell.lambda_value)
+        )
+    )
+    return Path(str(record[grid_name])), _canonical_paths(config)[grid_name]
+
+
+def _paper_params_exponential(cell: Cell) -> tuple[str, float, float]:
+    alpha = 0.0 if cell.method == METHOD_POSITIVE_ONLY else 1.0
+    coefficient = (
+        0.0
+        if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL}
+        else float(cell.lambda_value)
+    )
+    return "exponential", alpha, coefficient
+
+
+def _paper_params_asymre(cell: Cell) -> tuple[str, float, float]:
+    if cell.delta_v is None:
+        raise AssertionError("AsymRE cell has no delta_v")
+    return METHOD_ASYMRE, 1.0 + float(cell.delta_v), 0.0
+
+
+def _paper_params_topr(cell: Cell) -> tuple[str, float, float]:
+    if cell.beta is None:
+        raise AssertionError("Joint Fitted-Reference TOPR cell has no beta")
+    return METHOD_TOPR, 1.0, float(cell.beta)
+
+
+
+
+
+
+
+
+def _dpo_method_audit(
+    cell: Cell, record: Mapping[str, Any]
+) -> e8_runtime.MethodAuditResult:
+    del cell
+    failures: list[str] = []
+    if record.get("reference_initial_state_sha256") != record.get(
+        "reference_terminal_state_sha256"
+    ):
+        failures.append("reference_state_changed")
+    if record.get("reference_trainable") is not False:
+        failures.append("reference_trainable")
+    return e8_runtime.MethodAuditResult(
+        passed=not failures,
+        failure_bucket="dpo_reference_identity_failures",
+        failures=tuple(failures),
+    )
+
+
+
+def _asymre_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    del config
+    identity = _canonical_baseline_grid_identity(METHOD_ASYMRE)
+    return {
+        "canonical_asymre_grid": identity["canonical_grid"],
+        "canonical_asymre_grid_sha256": identity["canonical_grid_sha256"],
+        "canonical_grid_identity_policy": identity["identity_policy"],
+        "canonical_grid_expected_git_blob_gate": identity[
+            "expected_git_blob_gate"
+        ],
+    }
+
+
+def _topr_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    del config
+    identity = _canonical_baseline_grid_identity(METHOD_TOPR)
+    return {
+        "canonical_topr_grid": identity["canonical_grid"],
+        "canonical_topr_grid_sha256": identity["canonical_grid_sha256"],
+        "canonical_grid_identity_policy": identity["identity_policy"],
+        "canonical_grid_expected_git_blob_gate": identity[
+            "expected_git_blob_gate"
+        ],
+    }
+
+
+def _dpo_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    return {"dpo_initialization_mode": str(config["dpo"]["initialization_mode"])}
+
+
+def _dpo_matrix_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    return {
+        "initialization_mode": str(config["dpo"]["initialization_mode"]),
+        "shared_sft_adapter_contract_hash": (
+            stable_hash(config["dpo"]["shared_sft_adapter_contract"])
+            if config["dpo"]["initialization_mode"] == "shared_sft_adapter"
+            else None
+        ),
+        "semantics_source": (
+            "historical_PR_268_protected_implementation_"
+            "cc0ead2be00c89a3c35296b7adc1ddeae8d14759"
+        ),
+    }
+
+
+
+
+def _register_builtin_method_specs() -> None:
+    exponential_paper_runtime = PaperRuntimeSpec(
+        liveness_grid=lambda config, record: Path(str(record["round1_grid"])),
+        liveness_parameter="representative_c",
+        grid_paths=_paper_grid_paths_exponential,
+        cell_parameters=_paper_params_exponential,
+        formula="alpha*exp(-c*(current_sequence_surprisal/2))",
+    )
+    for method, build_cell, cell_key, parameters in (
+        (METHOD_POSITIVE_ONLY, _build_control_cell, _positive_key, lambda cell: {}),
+        (
+            METHOD_GLOBAL,
+            _build_control_cell,
+            _global_key,
+            lambda cell: {"lambda": 0.0},
+        ),
+        (
+            METHOD_EXPONENTIAL,
+            _build_exponential_cell,
+            _exp_key,
+            lambda cell: {"lambda": _cell_lambda(cell), "rho": cell.rho},
+        ),
+    ):
+        _register_method_spec(
+            MethodSpec(
+                name=method,
+                build_cell=build_cell,
+                cell_key=cell_key,
+                parameters=parameters,
+                cell_initialization=lambda config: None,
+                initialization_identity=_default_initialization_identity,
+                train_cold=_cold_train_paper,
+                liveness_task=lambda config: "countdown",
+                liveness_runner=lambda _method=method, **kwargs: (
+                    _run_canonical_method_liveness(_method, **kwargs)
+                ),
+                scientific_kernel="canonical_old_coldstart_imports",
+                paper_runtime=exponential_paper_runtime,
+            )
+        )
+
+    _register_method_spec(
+        MethodSpec(
+            name=METHOD_ASYMRE,
+            build_cell=_build_asymre_cell,
+            cell_key=_asymre_key,
+            parameters=lambda cell: {"delta_v": cell.delta_v},
+            cell_initialization=lambda config: None,
+            initialization_identity=_default_initialization_identity,
+            train_cold=_cold_train_paper,
+            liveness_task=lambda config: "countdown",
+            liveness_runner=lambda **kwargs: _run_canonical_method_liveness(
+                METHOD_ASYMRE, **kwargs
+            ),
+            scientific_kernel="canonical_old_coldstart_imports",
+            paper_runtime=PaperRuntimeSpec(
+                liveness_grid=lambda config, record: _canonical_asymre_grid_path(),
+                liveness_parameter="representative_delta_v",
+                grid_paths=lambda config, record, cell: (
+                    _canonical_asymre_grid_path(),
+                    _canonical_asymre_grid_path(),
+                ),
+                cell_parameters=_paper_params_asymre,
+                formula="delegated_to_existing_canonical_asymre",
+            ),
+            single_aggregate_metadata=_asymre_single_metadata,
+            matrix_aggregate_metadata=lambda config: (
+                _canonical_baseline_grid_identity(METHOD_ASYMRE)
+            ),
+        )
+    )
+    _register_method_spec(
+        MethodSpec(
+            name=METHOD_TOPR,
+            build_cell=_build_topr_cell,
+            cell_key=_topr_key,
+            parameters=lambda cell: {"beta": cell.beta},
+            cell_initialization=lambda config: None,
+            initialization_identity=_default_initialization_identity,
+            train_cold=_cold_train_paper,
+            liveness_task=lambda config: "countdown",
+            liveness_runner=lambda **kwargs: _run_canonical_method_liveness(
+                METHOD_TOPR, **kwargs
+            ),
+            scientific_kernel="canonical_old_coldstart_imports",
+            paper_runtime=PaperRuntimeSpec(
+                liveness_grid=lambda config, record: _canonical_topr_grid_path(),
+                liveness_parameter="representative_c",
+                grid_paths=lambda config, record, cell: (
+                    _canonical_topr_grid_path(),
+                    _canonical_topr_grid_path(),
+                ),
+                cell_parameters=_paper_params_topr,
+                formula="delegated_to_existing_joint_fitted_reference_beta_topr",
+            ),
+            single_aggregate_metadata=_topr_single_metadata,
+            matrix_aggregate_metadata=lambda config: (
+                _canonical_baseline_grid_identity(METHOD_TOPR)
+            ),
+        )
+    )
+    _register_method_spec(
+        MethodSpec(
+            name=METHOD_DPO,
+            build_cell=_build_dpo_cell,
+            cell_key=_dpo_key,
+            parameters=lambda cell: {"beta": cell.beta},
+            cell_initialization=lambda config: str(
+                config["dpo"]["initialization_mode"]
+            ),
+            initialization_identity=_dpo_initialization_identity,
+            train_cold=_cold_train_dpo,
+            liveness_task=lambda config: str(config["dpo"]["liveness_task"]),
+            liveness_runner=_run_dpo_method_liveness,
+            scientific_kernel=(
+                "historical_pr268_semantics_port_in_existing_multitask_runner"
+            ),
+            audit_record=_dpo_method_audit,
+            single_aggregate_metadata=_dpo_single_metadata,
+            matrix_aggregate_metadata=_dpo_matrix_metadata,
+        )
+    )
+
+
+
+_register_builtin_method_specs()
 
 @dataclass(frozen=True)
 class TaskInputs:
@@ -619,21 +1098,15 @@ def _coldstart_method_cell(
     lambda_only: bool,
     dpo_initialization: str | None = None,
 ) -> Cell:
-    if method == METHOD_ASYMRE:
-        return Cell(task, method, None, seed, stage, delta_v=value)
-    if method == METHOD_TOPR:
-        return Cell(task, method, None, seed, stage, beta=value)
-    if method == METHOD_DPO:
-        if dpo_initialization is None:
-            raise ValueError("DPO cell construction requires initialization identity")
-        return Cell(
-            task, method, None, seed, stage, beta=value,
-            dpo_initialization=dpo_initialization,
-        )
-    if method == METHOD_EXPONENTIAL:
-        rho = None if lambda_only else math.exp(-value)
-        return Cell(task, method, rho, seed, stage, value)
-    raise ValueError(f"Unsupported cold-start method: {method}")
+    return _method_spec(method).build_cell(
+        task=task,
+        method=method,
+        seed=seed,
+        stage=stage,
+        value=value,
+        lambda_only=lambda_only,
+        dpo_initialization=dpo_initialization,
+    )
 
 
 def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
@@ -661,7 +1134,6 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
         methods = _coldstart_methods(config)
         method_seeds = experiment_config.task_transfer_seeds(config)
         if _is_baseline_matrix(config):
-            dpo_initialization = str(config["dpo"]["initialization_mode"])
             for method_seed in method_seeds:
                 for task in tasks:
                     if task == "countdown":
@@ -672,7 +1144,7 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
                             _coldstart_method_cell(
                                 task, method, method_seed, "task_transfer", value,
                                 lambda_only=False,
-                                dpo_initialization=(dpo_initialization if method == METHOD_DPO else None),
+                                dpo_initialization=_method_spec(method).cell_initialization(config),
                             )
                             for value in values
                         )
@@ -682,11 +1154,7 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
                 method == METHOD_EXPONENTIAL
                 and config["sweep"]["parameterization"] == "paper_lambda_c1"
             )
-            dpo_initialization = (
-                str(config["dpo"]["initialization_mode"])
-                if method == METHOD_DPO
-                else None
-            )
+            dpo_initialization = _method_spec(method).cell_initialization(config)
             countdown_values = experiment_config.task_method_values(
                 config, "countdown", method=method
             )
@@ -795,26 +1263,36 @@ def build_waves(config: Mapping[str, Any]) -> tuple[tuple[Cell, ...], ...]:
             raise AssertionError("Dense wave geometry must be seven task-local 16-cell waves")
         return waves
     if _is_coldstart(config):
-        if _is_baseline_matrix(config) and bool(config["execution"].get("seed_batch_barriers")):
-            waves = tuple(
-                tuple(seed_cells[i:i + capacity])
-                for seed in config["execution"]["seed_batch_order"]
-                for seed_cells in [tuple(cell for cell in cells if cell.seed == int(seed))]
-                for i in range(0, len(seed_cells), capacity)
+        seed_barrier = _is_baseline_matrix(config) and bool(
+            config["execution"].get("seed_batch_barriers")
+        )
+        seed_order = (
+            tuple(int(value) for value in config["execution"].get("seed_batch_order", ()))
+            if seed_barrier
+            else None
+        )
+        waves = e8_orchestration.nominal_batches(
+            cells,
+            slot_count=capacity,
+            seed_barrier=seed_barrier,
+            seed_order=seed_order,
+        )
+        if seed_barrier and tuple(len(wave) for wave in waves) != (
+            16, 16, 16, 16, 16, 8,
+        ) * 2:
+            raise AssertionError("Baseline matrix must form two 88-cell seed-local batches")
+        if not waves or any(len(wave) != capacity for wave in waves[:-1]) and not seed_barrier:
+            raise AssertionError(
+                "Cold-start nominal batches must fill capacity except possibly the final batch"
             )
-            if tuple(len(w) for w in waves) != (16, 16, 16, 16, 16, 8) * 2:
-                raise AssertionError("Baseline matrix must form two 88-cell seed-local batches")
-            return waves
-        waves = tuple(tuple(cells[i:i + capacity]) for i in range(0, len(cells), capacity))
-        if not waves or any(len(w) != capacity for w in waves[:-1]) or not 0 < len(waves[-1]) <= capacity:
-            raise AssertionError("Cold-start nominal batches must fill capacity except possibly the final batch")
         return waves
     coarse = tuple(cell for cell in cells if cell.stage == "coarse")
     refinement = tuple(cell for cell in cells if cell.stage == "refinement")
 
     def chunk(values: tuple[Cell, ...]) -> tuple[tuple[Cell, ...], ...]:
         return tuple(
-            tuple(values[index : index + capacity]) for index in range(0, len(values), capacity)
+            tuple(values[index : index + capacity])
+            for index in range(0, len(values), capacity)
         )
 
     waves = chunk(coarse) + chunk(refinement)
@@ -828,33 +1306,13 @@ def build_waves(config: Mapping[str, Any]) -> tuple[tuple[Cell, ...], ...]:
 
 
 def write_plan(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
-    rows: list[dict[str, Any]] = []
     waves = build_waves(config)
     gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
-    for wave_index, wave in enumerate(waves, start=1):
-        for slot, cell in enumerate(wave):
-            rows.append(
-                {
-                    "wave": wave_index,
-                    "nominal_batch": wave_index,
-                    "slot": slot,
-                    "gpu_id": gpu_ids[slot % len(gpu_ids)],
-                    "cell_key": cell.key,
-                    "task": cell.task,
-                    "method": cell.method,
-                    "delta_v": cell.delta_v,
-                    "beta": cell.beta,
-                    "dpo_initialization": cell.dpo_initialization,
-                    "rho": cell.rho,
-                    "lambda": (
-                        cell.lambda_value
-                        if cell.lambda_value is not None
-                        else (None if cell.rho is None else coefficient_from_rho(cell.rho))
-                    ),
-                    "seed": cell.seed,
-                    "stage": cell.stage,
-                }
-            )
+    rows = e8_orchestration.plan_rows(
+        waves,
+        gpu_ids=gpu_ids,
+        project_cell=_method_output_columns,
+    )
     plan = {
         "schema_version": 1,
         "experiment_id": experiment_id(config),
@@ -864,8 +1322,12 @@ def write_plan(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "wave_sizes": [len(wave) for wave in waves],
         "max_concurrent_cells": int(config["execution"]["max_concurrent_cells"]),
         "scheduler": str(config["execution"].get("scheduler", "wave_barrier")),
-        "wave_is_scheduling_barrier": bool(config["execution"].get("wave_barriers", False)),
-        "seed_batch_barriers": bool(config["execution"].get("seed_batch_barriers", False)),
+        "wave_is_scheduling_barrier": bool(
+            config["execution"].get("wave_barriers", False)
+        ),
+        "seed_batch_barriers": bool(
+            config["execution"].get("seed_batch_barriers", False)
+        ),
         "seed_batch_order": list(config["execution"].get("seed_batch_order", ())),
         "execution_class": _execution_class(config),
         "rows": rows,
@@ -3103,16 +3565,18 @@ def _canonical_calibration_identity(
     return value
 
 
-def _paper_grid_for_cell(record: Mapping[str, Any], cell: Cell) -> Path:
-    if cell.method == METHOD_ASYMRE:
-        return _canonical_asymre_grid_path()
-    if cell.method == METHOD_TOPR:
-        return _canonical_topr_grid_path()
-    if cell.task != "countdown":
-        # Transfer coefficients are passed directly to the locked trainer.
-        return Path(str(record["round1_grid"]))
-    coefficient = 0.0 if cell.lambda_value is None else float(cell.lambda_value)
-    return Path(str(record[_paper_grid_name(coefficient)]))
+def _paper_grid_for_cell(
+    config: Mapping[str, Any],
+    record: Mapping[str, Any],
+    cell: Cell,
+) -> tuple[Path, Path]:
+    paper_runtime = _method_spec(cell.method).paper_runtime
+    if paper_runtime is None:
+        raise RuntimeError(
+            f"{cell.method} does not use the canonical paper grid runtime"
+        )
+    return paper_runtime.grid_paths(config, record, cell)
+
 
 def calibrate_canonical_cold_task(
     task: str,
@@ -3770,49 +4234,32 @@ def _cell_identity(
     config: Mapping[str, Any],
     calibration: Mapping[str, Any],
 ) -> dict[str, Any]:
-    value = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": stable_config_hash(config),
-        "cell": {
-            "task": cell.task,
-            "method": cell.method,
-            "delta_v": cell.delta_v,
-            "beta": cell.beta,
-            "dpo_initialization": cell.dpo_initialization,
-            "rho": cell.rho,
-            "lambda": (
-                cell.lambda_value
-                if cell.lambda_value is not None
-                else (None if cell.rho is None else coefficient_from_rho(cell.rho))
-            ),
-            "seed": cell.seed,
-            "stage": cell.stage,
+    spec = _method_spec(cell.method)
+    initialization = (
+        spec.initialization_identity(config)
+        if _is_coldstart(config)
+        else {
+            "source": "reference_adapter",
+            "reference_adapter_identity": model_identity(
+                base_model_path, str(inputs.reference_adapter)
+            )["adapter"],
+        }
+    )
+    return e8_runtime.recovery_identity(
+        cell,
+        experiment_id=experiment_id(config),
+        config_hash=stable_config_hash(config),
+        cell_identity_fields=_method_output_columns(cell),
+        common_identity_fields={
+            "bank_sha256": split_manifest["tasks"][cell.task]["bank_sha256"],
+            "split_prompt_hashes": split_manifest["tasks"][cell.task][
+                "prompt_id_hashes"
+            ],
+            "base_model_identity": model_identity(base_model_path, None)["model"],
+            "initialization": initialization,
+            "calibration_identity_hash": calibration["identity_hash"],
         },
-        "bank_sha256": split_manifest["tasks"][cell.task]["bank_sha256"],
-        "split_prompt_hashes": split_manifest["tasks"][cell.task]["prompt_id_hashes"],
-        "base_model_identity": model_identity(base_model_path, None)["model"],
-        "initialization": (
-            {
-                "source": str(config["dpo"]["initialization_mode"]),
-                "shared_sft_adapter_env": config["dpo"].get("shared_sft_adapter_env"),
-            }
-            if _is_baseline_matrix(config) and cell.method == METHOD_DPO
-            else (
-                dict(config["initialization"])
-                if _is_coldstart(config)
-                else {
-                    "source": "reference_adapter",
-                    "reference_adapter_identity": model_identity(
-                        base_model_path, str(inputs.reference_adapter)
-                    )["adapter"],
-                }
-            )
-        ),
-        "calibration_identity_hash": calibration["identity_hash"],
-    }
-    value["identity_hash"] = stable_hash(value)
-    return value
+    )
 
 
 def _summarize_evaluations(
@@ -5024,20 +5471,13 @@ def _train_canonical_cold_cell(
     bank = Path(str(record["train"]))
     validation = Path(str(record["validation"]))
     base_config_path = base_config_override or Path(str(record["base_config"]))
-    grid_path = _paper_grid_for_cell(record, cell)
-    if cell.method == METHOD_ASYMRE:
-        grid_source_path = _canonical_asymre_grid_path()
-    elif cell.method == METHOD_TOPR:
-        grid_source_path = _canonical_topr_grid_path()
-    else:
-        grid_source_name = (
-            "round1_grid"
-            if cell.task != "countdown"
-            else _paper_grid_name(
-                0.0 if cell.lambda_value is None else float(cell.lambda_value)
-            )
+    method_spec = _method_spec(cell.method)
+    paper_runtime = method_spec.paper_runtime
+    if paper_runtime is None:
+        raise RuntimeError(
+            f"{cell.method} does not use canonical paper cell parameters"
         )
-        grid_source_path = _canonical_paths(config)[grid_source_name]
+    grid_path, grid_source_path = _paper_grid_for_cell(config, record, cell)
     modules = _activate_paper_grid_modules(modules, grid_source_path)
     arena = modules["arena"]
     runtime = modules["paper_runtime"]
@@ -5063,15 +5503,7 @@ def _train_canonical_cold_cell(
                 if cell.task == "countdown"
                 else "countdown_e8_alpha1_c_scan_trainer.train_cell"
             ),
-            "paper_formula": (
-                "delegated_to_existing_canonical_asymre"
-                if cell.method == METHOD_ASYMRE
-                else (
-                    "delegated_to_existing_joint_fitted_reference_beta_topr"
-                    if cell.method == METHOD_TOPR
-                    else "alpha*exp(-c*(current_sequence_surprisal/2))"
-                )
-            ),
+            "paper_formula": paper_runtime.formula,
             "paper_grid_config": str(grid_path.resolve()),
             "paper_grid_config_sha256": sha256_file(grid_path),
             "paper_grid_source": str(grid_source_path.resolve()),
@@ -5178,26 +5610,7 @@ def _train_canonical_cold_cell(
             arena.completion_stats = original_completion_stats
             scan_trainer._evaluate_validation = original_trainer_evaluate
 
-    if cell.method == METHOD_ASYMRE:
-        if cell.delta_v is None:
-            raise AssertionError("AsymRE cell has no delta_v")
-        paper_family = METHOD_ASYMRE
-        alpha = 1.0 + float(cell.delta_v)
-        coefficient = 0.0
-    elif cell.method == METHOD_TOPR:
-        if cell.beta is None:
-            raise AssertionError("Joint Fitted-Reference TOPR cell has no beta")
-        paper_family = METHOD_TOPR
-        alpha = 1.0
-        coefficient = float(cell.beta)
-    else:
-        paper_family = "exponential"
-        alpha = 0.0 if cell.method == METHOD_POSITIVE_ONLY else 1.0
-        coefficient = (
-            0.0
-            if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL}
-            else float(cell.lambda_value)
-        )
+    paper_family, alpha, coefficient = paper_runtime.cell_parameters(cell)
     with (
         _legacy_paper_runtime_bridge(
             modules,
@@ -5615,23 +6028,7 @@ def train_cell(
     failure_root = output_root / root_name / cell.key
     try:
         if _is_coldstart(config):
-            if cell.method == METHOD_DPO:
-                return _train_canonical_dpo_transfer_cell(
-                    cell,
-                    inputs=inputs,
-                    split_manifest=split_manifest,
-                    base_model_path=base_model_path,
-                    config=config,
-                    output_root=output_root,
-                    force=force,
-                    updates_override=updates_override,
-                    engineering_liveness=engineering_liveness,
-                )
-            if updates_override is not None or engineering_liveness:
-                raise RuntimeError(
-                    "Canonical cold liveness requires its derived old-core config path"
-                )
-            return _train_canonical_cold_cell(
+            return _method_spec(cell.method).train_cold(
                 cell,
                 inputs=inputs,
                 split_manifest=split_manifest,
@@ -5639,6 +6036,8 @@ def train_cell(
                 config=config,
                 output_root=output_root,
                 force=force,
+                updates_override=updates_override,
+                engineering_liveness=engineering_liveness,
             )
         return _train_cell_impl(
             cell,
@@ -5664,7 +6063,8 @@ def train_cell(
                 "traceback": traceback.format_exc(),
                 "scientific_status": "not_run" if engineering_liveness else "pilot",
                 "nan_inf_failure": (
-                    "non-finite" in str(exc).lower() or "nan/inf" in str(exc).lower()
+                    "non-finite" in str(exc).lower()
+                    or "nan/inf" in str(exc).lower()
                 ),
                 "complete": False,
             },
@@ -5785,39 +6185,32 @@ def _canonical_liveness_base_config(config: Mapping[str, Any], output_root: Path
 
 
 def _canonical_cold_liveness_cell(grid_path: Path) -> Cell:
-    """Derive wrapper identity from the exact canonical method liveness grid."""
+    """Derive one paper-runtime liveness cell through the method contract."""
 
     grid = yaml.safe_load(grid_path.read_text(encoding="utf-8"))
     if not isinstance(grid, dict):
         raise TypeError("Canonical liveness grid root must be a mapping")
     liveness = grid["execution"]["liveness"]
     seed_offsets = grid["sweep"]["seed_offsets"]
-    family = str(liveness.get("representative_family", "exponential"))
-    if family == METHOD_ASYMRE:
-        delta_v = float(liveness["representative_delta_v"])
-        return Cell(
-  "countdown",
-  METHOD_ASYMRE,
-  None,
-  int(seed_offsets[0]),
-  "liveness",
-  None,
-  delta_v,
+    method = str(liveness.get("representative_family", METHOD_EXPONENTIAL))
+    spec = _method_spec(method)
+    if spec.paper_runtime is None:
+        raise RuntimeError(f"{method} does not use canonical paper-runtime liveness")
+    parameter_key = spec.paper_runtime.liveness_parameter
+    if parameter_key not in liveness:
+        raise RuntimeError(
+            f"Canonical liveness grid for {method} lacks {parameter_key}"
         )
-    if family == METHOD_TOPR:
-        beta = float(liveness["representative_c"])
-        return Cell(
-            "countdown", METHOD_TOPR, None, int(seed_offsets[0]), "liveness", None, None, beta
-        )
-    coefficient = float(liveness["representative_c"])
-    return Cell(
-        "countdown",
-        METHOD_EXPONENTIAL,
-        math.exp(-coefficient),
-        int(seed_offsets[0]),
-        "liveness",
-        coefficient,
+    return spec.build_cell(
+        task="countdown",
+        method=method,
+        seed=int(seed_offsets[0]),
+        stage="liveness",
+        value=float(liveness[parameter_key]),
+        lambda_only=False,
+        dpo_initialization=None,
     )
+
 
 def _cmd_canonical_cold_liveness(
     config: Mapping[str, Any],
@@ -5833,12 +6226,10 @@ def _cmd_canonical_cold_liveness(
     modules = _canonical_cold_modules(config)
     record = _canonical_task_record(splits, "countdown")
     method = method or _coldstart_method(config)
-    if method == METHOD_ASYMRE:
-        grid_path = _canonical_asymre_grid_path()
-    elif method == METHOD_TOPR:
-        grid_path = _canonical_topr_grid_path()
-    else:
-        grid_path = Path(str(record["round1_grid"]))
+    paper_runtime = _method_spec(method).paper_runtime
+    if paper_runtime is None:
+        raise RuntimeError(f"{method} does not use canonical paper-runtime liveness")
+    grid_path = paper_runtime.liveness_grid(config, record)
     modules = _activate_paper_grid_modules(modules, grid_path)
     runtime = modules["paper_runtime"]
     cell = _canonical_cold_liveness_cell(grid_path)
@@ -5958,56 +6349,42 @@ def cmd_liveness(
                 )
             results: dict[str, Any] = {}
             for method in _coldstart_methods(config):
-                if method == METHOD_DPO:
-                    dpo_task = str(config["dpo"]["liveness_task"])
-                    results[method] = _cmd_dpo_liveness(
-                        config,
-                        config_path,
-                        output_root,
-                        inputs=inputs,
-                        splits=splits,
-                        base_model_path=base_model_path,
-                        task=dpo_task,
-                        force=force,
-                    )
-                else:
-                    results[method] = _cmd_canonical_cold_liveness(
-                        config,
-                        config_path,
-                        output_root,
-                        inputs=inputs["countdown"],
-                        splits=splits,
-                        base_model_path=base_model_path,
-                        force=force,
-                        method=method,
-                    )
+                spec = _method_spec(method)
+                method_task = spec.liveness_task(config)
+                results[method] = spec.liveness_runner(
+                    config=config,
+                    config_path=config_path,
+                    output_root=output_root,
+                    inputs=inputs,
+                    splits=splits,
+                    base_model_path=base_model_path,
+                    task=method_task,
+                    force=force,
+                )
             return {
                 "schema_version": 1,
                 "experiment_id": experiment_id(config),
                 "methods": results,
-                "complete": all(bool(value.get("complete")) for value in results.values()),
+                "complete": all(
+                    bool(value.get("complete")) for value in results.values()
+                ),
                 "scientific_status": "not_run",
             }
-        if _coldstart_method(config) == METHOD_DPO:
-            return _cmd_dpo_liveness(
-                config,
-                config_path,
-                output_root,
-                inputs=inputs,
-                splits=splits,
-                base_model_path=base_model_path,
-                task=task,
-                force=force,
+        method = _coldstart_method(config)
+        spec = _method_spec(method)
+        expected_task = spec.liveness_task(config)
+        if task != expected_task:
+            raise RuntimeError(
+                f"{method} liveness anchor must be {expected_task}"
             )
-        if task != "countdown":
-            raise RuntimeError("The paper-runtime liveness anchor must be Countdown")
-        return _cmd_canonical_cold_liveness(
-            config,
-            config_path,
-            output_root,
-            inputs=inputs["countdown"],
+        return spec.liveness_runner(
+            config=config,
+            config_path=config_path,
+            output_root=output_root,
+            inputs=inputs,
             splits=splits,
             base_model_path=base_model_path,
+            task=task,
             force=force,
         )
     if rho is None:
@@ -6256,14 +6633,14 @@ def _recovery_stage_plan(
     try:
         _load_prepared(output_root, config)
         prepare_complete = True
-    except Exception as exc:  # The plan records the exact fail-closed reason.
+    except Exception as exc:  # noqa: BLE001 - fail-closed reason capture
         prepare_complete = False
         prepare_error = f"{type(exc).__name__}: {exc}"
     if prepare_complete:
         try:
             _require_calibration_gate(config, output_root, base_model_path=base_model_path)
             calibration_complete = True
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - fail-closed reason capture
             calibration_complete = False
             calibration_error = f"{type(exc).__name__}: {exc}"
     else:
@@ -6273,7 +6650,7 @@ def _recovery_stage_plan(
         try:
             _require_liveness_gate(config, output_root, base_model_path=base_model_path)
             liveness_complete = True
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - fail-closed reason capture
             liveness_complete = False
             liveness_error = f"{type(exc).__name__}: {exc}"
     else:
@@ -7063,7 +7440,7 @@ def cmd_run_dynamic(
     force: bool,
     retry_incomplete: bool,
 ) -> dict[str, Any]:
-    """Run one shared recovery-aware queue on 16 fixed GPU slots, without batch barriers."""
+    """Run the cold-start plan through method-agnostic slot scheduling."""
 
     if not _is_coldstart(config):
         raise RuntimeError("Dynamic scheduling is frozen for the cold-start profile only")
@@ -7072,51 +7449,61 @@ def cmd_run_dynamic(
     cells = build_cells(config)
     gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
     slots_per_gpu = int(config["execution"]["slots_per_gpu"])
-    slot_count = len(gpu_ids) * slots_per_gpu
-    if slot_count != int(config["execution"]["max_concurrent_cells"]) or slot_count != 16:
-        raise RuntimeError("Declared 16-slot capacity is internally inconsistent")
-
     seed_barrier = _is_baseline_matrix(config) and bool(
         config["execution"].get("seed_batch_barriers")
     )
-    seed_order = tuple(int(value) for value in config["execution"].get("seed_batch_order", ()))
-    seed_expected = {seed: sum(cell.seed == seed for cell in cells) for seed in seed_order}
-    seed_completed = {seed: 0 for seed in seed_order}
-    seed_condition = threading.Condition()
-    active_seed_index = 0
-    pending: queue.Queue[Cell] = queue.Queue()
-    initial_cells = (
-        tuple(cell for cell in cells if cell.seed == seed_order[0])
+    seed_order = (
+        tuple(int(value) for value in config["execution"].get("seed_batch_order", ()))
         if seed_barrier
-        else cells
+        else None
     )
-    for cell in initial_cells:
-        pending.put(cell)
-    nominal_batch = (
-        {cell.key: index for index, wave in enumerate(build_waves(config), 1) for cell in wave}
-        if seed_barrier
-        else {}
+    geometry = e8_orchestration.execution_geometry(
+        cells,
+        gpu_ids=gpu_ids,
+        slots_per_gpu=slots_per_gpu,
+        max_concurrent_cells=int(config["execution"]["max_concurrent_cells"]),
+        seed_barrier=seed_barrier,
+        seed_order=seed_order,
     )
-    stop = threading.Event()
-    lock = threading.Lock()
-    checkpoint_lock = threading.Lock()
-    task_result_lock = threading.Lock()
-    results: list[dict[str, Any]] = []
-    task_results: dict[str, dict[str, Any]] = {}
+    if geometry.slot_count != 16:
+        raise RuntimeError("Declared 16-slot capacity is internally inconsistent")
+
+    nominal_batch = {
+        cell.key: index
+        for index, wave in enumerate(build_waves(config), 1)
+        for cell in wave
+    }
     event_path = output_root / "scheduler" / "queue_events.jsonl"
     event_path.parent.mkdir(parents=True, exist_ok=True)
     scheduler_run_id = f"queue-{int(time.time())}-{os.getpid()}"
-    recovery_package_value = os.environ.get("E8_COLDSTART_RECOVERY_PACKAGE", "").strip()
-    recovery_package = Path(recovery_package_value).resolve() if recovery_package_value else None
-    recovery_interval = int(os.environ.get("E8_COLDSTART_RECOVERY_INTERVAL_CELLS", "5"))
+    task_result_lock = threading.Lock()
+    checkpoint_lock = threading.Lock()
+    task_results: dict[str, dict[str, Any]] = {}
+    recovery_package_value = os.environ.get(
+        "E8_COLDSTART_RECOVERY_PACKAGE", ""
+    ).strip()
+    recovery_package = (
+        Path(recovery_package_value).resolve() if recovery_package_value else None
+    )
+    recovery_interval = int(
+        os.environ.get("E8_COLDSTART_RECOVERY_INTERVAL_CELLS", "5")
+    )
     if recovery_interval <= 0:
         raise ValueError("E8_COLDSTART_RECOVERY_INTERVAL_CELLS must be positive")
     initially_reusable, _ = _reusable_cell_manifests(config, output_root)
-    last_checkpoint_count = (len(initially_reusable) // recovery_interval) * recovery_interval
+    last_checkpoint_count = (
+        len(initially_reusable) // recovery_interval
+    ) * recovery_interval
 
     def record(event: Mapping[str, Any]) -> None:
-        with lock:
-            append_jsonl(event_path, {"scheduler_run_id": scheduler_run_id, **dict(event)})
+        append_jsonl(
+            event_path,
+            {
+                "scheduler_run_id": scheduler_run_id,
+                **dict(event),
+                "unix_time": time.time(),
+            },
+        )
 
     def publish_completed_task(task: str) -> None:
         with task_result_lock:
@@ -7125,150 +7512,132 @@ def cmd_run_dynamic(
             rows = _coldstart_completed_task_rows(config, output_root, task)
             if rows is not None:
                 task_results[task] = _write_coldstart_task_result(
-                    config,
-                    output_root,
-                    task,
-                    rows,
+                    config, output_root, task, rows
                 )
 
-    def worker(slot: int, gpu_id: int) -> list[dict[str, Any]]:
-        nonlocal active_seed_index, last_checkpoint_count
-        local: list[dict[str, Any]] = []
-        while not stop.is_set():
+    def run_cell(cell: Cell, slot: int, gpu_id: int) -> Mapping[str, Any]:
+        del slot
+        cell_root = output_root / "cells" / cell.key
+        manifest_path = cell_root / "cell_manifest.json"
+        reusable_complete = False
+        if manifest_path.is_file():
             try:
-                cell = pending.get_nowait()
-            except queue.Empty:
-                if seed_barrier:
-                    with seed_condition:
-                        if stop.is_set():
-                            break
-                        if active_seed_index < len(seed_order) - 1:
-                            seed_condition.wait(timeout=0.25)
-                            continue
-                break
-            cell_root = output_root / "cells" / cell.key
-            manifest_path = cell_root / "cell_manifest.json"
-            reusable_complete = False
-            if manifest_path.is_file():
-                try:
-                    reusable_complete = bool(
-                        json.loads(manifest_path.read_text(encoding="utf-8")).get("complete")
+                reusable_complete = bool(
+                    json.loads(manifest_path.read_text(encoding="utf-8")).get(
+                        "complete"
                     )
-                except (OSError, json.JSONDecodeError):
-                    reusable_complete = False
-            child_force = force or (
-                retry_incomplete and cell_root.exists() and not reusable_complete
-            )
-            record(
-                {
-                    "event": "start",
-                    "cell_key": cell.key,
-                    "seed": cell.seed,
-                    "slot": slot,
-                    "gpu_id": gpu_id,
-                    "unix_time": time.time(),
-                    "retry_incomplete": child_force and not force,
-                }
-            )
-            result = _run_subprocess_cell(
-                config_path=config_path.resolve(),
-                output_root=output_root.resolve(),
-                base_model_path=base_model_path,
-                cell=cell,
-                gpu_id=gpu_id,
-                force=child_force,
-            )
-            if int(result["returncode"]) == 0:
-                try:
-                    completed_manifest = _read_json_object(manifest_path)
-                    if (
-                        completed_manifest.get("complete") is not True
-                        or completed_manifest.get("evaluation_status") != "complete"
-                        or completed_manifest.get("nan_inf_failure") is not False
-                    ):
-                        raise RuntimeError("child returned zero without a complete finite cell")
-                except (
-                    OSError,
-                    ValueError,
-                    TypeError,
-                    RuntimeError,
-                    json.JSONDecodeError,
-                ) as exc:
-                    result["returncode"] = 75
-                    result["cell_completion_error"] = f"{type(exc).__name__}: {exc}"
-            if int(result["returncode"]) == 0 and recovery_package is not None:
-                try:
-                    with checkpoint_lock:
-                        current_reusable, _ = _reusable_cell_manifests(config, output_root)
-                        completed_count = len(current_reusable)
-                        if completed_count >= last_checkpoint_count + recovery_interval:
-                            checkpoint = _publish_recovery_checkpoint(
-                                config,
-                                output_root,
-                                package_output=recovery_package,
-                            )
-                            last_checkpoint_count = int(checkpoint["completed_cells"])
-                            result["recovery_checkpoint"] = checkpoint["package"]
-                            result["recovery_checkpoint_completed_cells"] = last_checkpoint_count
-                except Exception as exc:
-                    result["returncode"] = 74
-                    result["recovery_checkpoint_error"] = f"{type(exc).__name__}: {exc}"
-            if seed_barrier:
-                result.update(
-                    {"slot": slot, "seed": cell.seed, "nominal_batch": nominal_batch[cell.key]}
                 )
-            else:
-                result.update(
-                    {"slot": slot, "nominal_batch": cells.index(cell) // slot_count + 1}
+            except (OSError, json.JSONDecodeError):
+                reusable_complete = False
+        child_force = force or (
+            retry_incomplete and cell_root.exists() and not reusable_complete
+        )
+        result = _run_subprocess_cell(
+            config_path=config_path.resolve(),
+            output_root=output_root.resolve(),
+            base_model_path=base_model_path,
+            cell=cell,
+            gpu_id=gpu_id,
+            force=child_force,
+        )
+        if int(result["returncode"]) == 0:
+            try:
+                completed_manifest = _read_json_object(manifest_path)
+                if (
+                    completed_manifest.get("complete") is not True
+                    or completed_manifest.get("evaluation_status") != "complete"
+                    or completed_manifest.get("nan_inf_failure") is not False
+                ):
+                    raise RuntimeError(
+                        "child returned zero without a complete finite cell"
+                    )
+            except (
+                OSError,
+                ValueError,
+                TypeError,
+                RuntimeError,
+                json.JSONDecodeError,
+            ) as exc:
+                result["returncode"] = 75
+                result["cell_completion_error"] = (
+                    f"{type(exc).__name__}: {exc}"
                 )
-            local.append(result)
-            record({"event": "finish", **result, "unix_time": time.time()})
-            pending.task_done()
-            if int(result["returncode"]) != 0:
-                stop.set()
-                with seed_condition:
-                    seed_condition.notify_all()
-            else:
-                try:
-                    publish_completed_task(cell.task)
-                    if seed_barrier:
-                        with seed_condition:
-                            seed_completed[cell.seed] += 1
-                            if (
-                                seed_completed[cell.seed] == seed_expected[cell.seed]
-                                and active_seed_index < len(seed_order) - 1
-                            ):
-                                active_seed_index += 1
-                                next_seed = seed_order[active_seed_index]
-                                for candidate in cells:
-                                    if candidate.seed == next_seed:
-                                        pending.put(candidate)
-                            seed_condition.notify_all()
-                except Exception:
-                    stop.set()
-                    with seed_condition:
-                        seed_condition.notify_all()
-                    raise
-        return local
+        result["nominal_batch"] = nominal_batch[cell.key]
+        return result
 
-    with ThreadPoolExecutor(max_workers=slot_count) as executor:
-        futures = [
-            executor.submit(worker, slot, gpu_ids[slot % len(gpu_ids)])
-            for slot in range(slot_count)
-        ]
-        for future in as_completed(futures):
-            results.extend(future.result())
+    def after_success(cell: Cell, row: Mapping[str, Any]) -> None:
+        nonlocal last_checkpoint_count
+        mutable = row if isinstance(row, dict) else dict(row)
+        if recovery_package is not None:
+            try:
+                with checkpoint_lock:
+                    current_reusable, _ = _reusable_cell_manifests(
+                        config, output_root
+                    )
+                    completed_count = len(current_reusable)
+                    if completed_count >= last_checkpoint_count + recovery_interval:
+                        checkpoint = _publish_recovery_checkpoint(
+                            config,
+                            output_root,
+                            package_output=recovery_package,
+                        )
+                        last_checkpoint_count = int(
+                            checkpoint["completed_cells"]
+                        )
+                        mutable["recovery_checkpoint"] = checkpoint["package"]
+                        mutable["recovery_checkpoint_completed_cells"] = (
+                            last_checkpoint_count
+                        )
+            except Exception:
+                mutable["returncode"] = 74
+                raise
+        publish_completed_task(cell.task)
 
+    results = list(
+        e8_orchestration.run_dynamic_queue(
+            cells,
+            gpu_ids=gpu_ids,
+            slots_per_gpu=slots_per_gpu,
+            max_concurrent_cells=geometry.slot_count,
+            seed_barrier=seed_barrier,
+            seed_order=seed_order,
+            callbacks=e8_orchestration.SchedulerCallbacks(
+                run_cell=run_cell,
+                record_event=record,
+                after_success=after_success,
+            ),
+        )
+    )
     results.sort(key=lambda row: str(row["cell_key"]))
     failures = [row for row in results if int(row["returncode"]) != 0]
     returned_keys = {str(row["cell_key"]) for row in results}
-    completed_keys = {str(row["cell_key"]) for row in results if int(row["returncode"]) == 0}
+    completed_keys = {
+        str(row["cell_key"])
+        for row in results
+        if int(row["returncode"]) == 0
+    }
     unscheduled = [cell.key for cell in cells if cell.key not in returned_keys]
+    seed_expected = dict(geometry.expected_cells_by_seed) if seed_barrier else {}
+    seed_completed = (
+        {
+            seed: sum(
+                int(row["returncode"]) == 0 and int(row["seed"]) == seed
+                for row in results
+            )
+            for seed in geometry.seed_order
+        }
+        if seed_barrier
+        else {}
+    )
     protocol_diagnostic = (
         _countdown_protocol_diagnostic(
             config,
             output_root,
-            destination=output_root / "scheduler" / "countdown_protocol_diagnostic.json",
+            destination=(
+                output_root
+                / "scheduler"
+                / "countdown_protocol_diagnostic.json"
+            ),
         )
         if not failures and not unscheduled
         else {
@@ -7290,11 +7659,15 @@ def cmd_run_dynamic(
             else "nominal_audit_geometry_only_not_scheduling_barrier"
         ),
         "seed_batch_barriers": seed_barrier,
-        "seed_batch_order": list(seed_order),
-        "seed_batch_expected_cells": {str(k): v for k,v in seed_expected.items()},
-        "seed_batch_completed_cells": {str(k): v for k,v in seed_completed.items()},
+        "seed_batch_order": list(geometry.seed_order) if seed_barrier else [],
+        "seed_batch_expected_cells": {
+            str(key): value for key, value in seed_expected.items()
+        },
+        "seed_batch_completed_cells": {
+            str(key): value for key, value in seed_completed.items()
+        },
         "execution_class": _execution_class(config),
-        "slot_count": slot_count,
+        "slot_count": geometry.slot_count,
         "gpu_ids": list(gpu_ids),
         "slots_per_gpu": slots_per_gpu,
         "countdown_protocol_diagnostic": protocol_diagnostic,
@@ -7307,8 +7680,14 @@ def cmd_run_dynamic(
         "queue_events": str(event_path.resolve()),
         "analysis_ready_tasks": sorted(task_results),
         "task_results": task_results,
-        "complete": not failures and not unscheduled and len(completed_keys) == len(cells),
-        "scientific_status": "not_run" if _is_engineering_self_test(config) else "pilot",
+        "complete": (
+            not failures
+            and not unscheduled
+            and len(completed_keys) == len(cells)
+        ),
+        "scientific_status": (
+            "not_run" if _is_engineering_self_test(config) else "pilot"
+        ),
         "engineering_placeholder_backend": _is_engineering_self_test(config),
     }
     atomic_json(output_root / "scheduler" / "dynamic_run.json", manifest)
@@ -7362,18 +7741,7 @@ def cmd_run_all(
 
 
 def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
-    if not rows:
-        raise ValueError(f"Cannot write empty CSV: {path}")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        fieldnames = list(rows[0])
-        for row in rows[1:]:
-            for key in row:
-                if key not in fieldnames:
-                    fieldnames.append(key)
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
+    e8_results.write_csv(path, rows)
 
 
 def _coldstart_result_row(
@@ -7387,40 +7755,39 @@ def _coldstart_result_row(
         "validation_late_window_pass8_mean" not in value
         or "validation_late_window_greedy_mean" not in value
     ):
-        raise RuntimeError(f"{cell.key} is missing the paper primary late-window metric")
-    return {
-        "source": source,
-        "task": cell.task,
-        "method": cell.method,
-        "delta_v": cell.delta_v,
-        "beta": cell.beta,
-        "dpo_initialization": cell.dpo_initialization,
-        "rho": cell.rho,
-        "lambda": (
-            cell.lambda_value
-            if cell.lambda_value is not None
-            else (None if cell.rho is None else coefficient_from_rho(cell.rho))
-        ),
-        "seed": cell.seed,
-        "stage": cell.stage,
-        "cell_key": cell.key,
-        "nan_inf_failure": bool(value["nan_inf_failure"]),
-        "late_window_pass8_mean": value.get(
-            "validation_late_window_pass8_mean", value["validation_best_pass8"]
-        ),
-        "late_window_greedy_mean": value.get(
-            "validation_late_window_greedy_mean", value["validation_best_greedy"]
-        ),
-        "best_pass8": value["validation_best_pass8"],
-        "terminal_pass8": value["validation_terminal_pass8"],
-        "best_greedy": value["validation_best_greedy"],
-        "terminal_greedy": value["validation_terminal_greedy"],
-        "best_greedy_valid_rate": value["validation_best_greedy_valid_rate"],
-        "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
-        "best_step": value["best_step"],
-        "terminal_step": value["terminal_step"],
-        "stop_reason": value["stop_reason"],
-    }
+        raise RuntimeError(
+            f"{cell.key} is missing the paper primary late-window metric"
+        )
+    return e8_results.common_result_row(
+        cell,
+        source=source,
+        method_columns=_method_output_columns(cell),
+        metrics={
+            "nan_inf_failure": bool(value["nan_inf_failure"]),
+            "late_window_pass8_mean": value.get(
+                "validation_late_window_pass8_mean",
+                value["validation_best_pass8"],
+            ),
+            "late_window_greedy_mean": value.get(
+                "validation_late_window_greedy_mean",
+                value["validation_best_greedy"],
+            ),
+            "best_pass8": value["validation_best_pass8"],
+            "terminal_pass8": value["validation_terminal_pass8"],
+            "best_greedy": value["validation_best_greedy"],
+            "terminal_greedy": value["validation_terminal_greedy"],
+            "best_greedy_valid_rate": value[
+                "validation_best_greedy_valid_rate"
+            ],
+            "terminal_greedy_valid_rate": value[
+                "validation_terminal_greedy_valid_rate"
+            ],
+            "best_step": value["best_step"],
+            "terminal_step": value["terminal_step"],
+            "stop_reason": value["stop_reason"],
+        },
+    )
+
 
 
 def _coldstart_completed_task_rows(
@@ -7481,24 +7848,42 @@ def _write_coldstart_task_result(
     all_cells_path = root / "all_cells.csv"
     plot_path = root / "plot_curve_points.csv"
     _write_csv(all_cells_path, rows)
-    plot_rows = [
-        {
-            "experiment_id": experiment_id(config),
-            "run_id": run_id,
-            "source_commit": source_commit,
-            "task": row["task"],
-            "method": row["method"],
-            "delta_v": row.get("delta_v"),
-            "beta": row.get("beta"),
-            "dpo_initialization": row.get("dpo_initialization"),
-            "lambda": row["lambda"],
-            "rho": row["rho"],
-            "seed": row["seed"],
-            "stage": row["stage"],
-            **_coldstart_plot_metrics(row),
-        }
-        for row in rows
-    ]
+    cells_by_key = {
+        cell.key: cell for cell in build_cells(config) if cell.task == task
+    }
+    legacy_parameter_columns = (
+        "delta_v", "beta", "dpo_initialization", "lambda", "rho"
+    )
+    extra_parameter_names = tuple(
+        dict.fromkeys(
+            name
+            for cell in cells_by_key.values()
+            for name in _method_spec(cell.method).parameters(cell)
+            if name not in legacy_parameter_columns
+        )
+    )
+    plot_rows: list[dict[str, Any]] = []
+    for row in rows:
+        cell = cells_by_key[str(row["cell_key"])]
+        parameters = dict(_method_spec(cell.method).parameters(cell))
+        plot_rows.append(
+            {
+                "experiment_id": experiment_id(config),
+                "run_id": run_id,
+                "source_commit": source_commit,
+                "task": row["task"],
+                "method": row["method"],
+                "delta_v": row.get("delta_v"),
+                "beta": row.get("beta"),
+                "dpo_initialization": row.get("dpo_initialization"),
+                "lambda": row["lambda"],
+                "rho": row["rho"],
+                **{name: parameters.get(name) for name in extra_parameter_names},
+                "seed": row["seed"],
+                "stage": row["stage"],
+                **_coldstart_plot_metrics(row),
+            }
+        )
     _write_csv(plot_path, plot_rows)
     cell_manifest_sha256 = {
         row["cell_key"]: sha256_file(
@@ -7752,63 +8137,94 @@ def _coldstart_run_provenance(output_root: Path) -> tuple[str, str]:
     )
 
 
+def _coldstart_method_grouped_curve(
+    *,
+    task: str,
+    method: str,
+    method_rows: Sequence[Mapping[str, Any]],
+    cells_by_key: Mapping[str, Cell],
+) -> list[dict[str, Any]]:
+    """Group one method through its registered opaque parameter contract."""
+
+    spec = _method_spec(method)
+    groups: dict[
+        str,
+        tuple[dict[str, Any], list[Mapping[str, Any]]],
+    ] = {}
+    for row in method_rows:
+        cell_key = str(row["cell_key"])
+        if cell_key not in cells_by_key:
+            raise RuntimeError(f"Unknown cold-start cell in aggregate: {cell_key}")
+        cell = cells_by_key[cell_key]
+        if cell.task != task or cell.method != method:
+            raise RuntimeError(
+                f"Cold-start aggregate identity mismatch for {cell_key}"
+            )
+        parameters = dict(spec.parameters(cell))
+        identity = e8_results.parameter_identity(parameters)
+        if identity not in groups:
+            groups[identity] = (parameters, [])
+        elif groups[identity][0] != parameters:
+            raise RuntimeError(f"Method parameter identity changed for {cell_key}")
+        groups[identity][1].append(row)
+
+    ordered = sorted(
+        groups.values(),
+        key=lambda item: e8_results.parameter_sort_key(item[0]),
+    )
+    return [
+        {
+            "task": task,
+            "method": method,
+            **parameters,
+            **_coldstart_group_metrics(group),
+        }
+        for parameters, group in ordered
+    ]
+
+
 def _aggregate_coldstart_unranked(
     config: Mapping[str, Any],
     output_root: Path,
     rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Aggregate AsymRE/TOPR/DPO curves without method selection or ranking."""
+    """Aggregate one registered non-Exp curve without selection or ranking."""
 
     method = _coldstart_method(config)
-    if method not in {METHOD_ASYMRE, METHOD_TOPR, METHOD_DPO}:
-        raise ValueError(f"Unsupported unranked cold-start method: {method}")
-    parameter_name = "delta_v" if method == METHOD_ASYMRE else "beta"
-    scientific_kernel = (
-        "historical_pr268_semantics_port_in_existing_multitask_runner"
-        if method == METHOD_DPO
-        else "canonical_old_coldstart_imports"
-    )
-    method_metadata: dict[str, Any]
-    if method == METHOD_ASYMRE:
-        grid_identity = _canonical_baseline_grid_identity(METHOD_ASYMRE)
-        method_metadata = {
-            "canonical_asymre_grid": grid_identity["canonical_grid"],
-            "canonical_asymre_grid_sha256": grid_identity["canonical_grid_sha256"],
-            "canonical_grid_identity_policy": grid_identity["identity_policy"],
-            "canonical_grid_expected_git_blob_gate": grid_identity["expected_git_blob_gate"],
-        }
-    elif method == METHOD_TOPR:
-        grid_identity = _canonical_baseline_grid_identity(METHOD_TOPR)
-        method_metadata = {
-            "canonical_topr_grid": grid_identity["canonical_grid"],
-            "canonical_topr_grid_sha256": grid_identity["canonical_grid_sha256"],
-            "canonical_grid_identity_policy": grid_identity["identity_policy"],
-            "canonical_grid_expected_git_blob_gate": grid_identity["expected_git_blob_gate"],
-        }
-    else:
-        method_metadata = {
-            "dpo_initialization_mode": str(config["dpo"]["initialization_mode"]),
-        }
+    spec = _method_spec(method)
+    configured_cells = build_cells(config)
+    cells_by_key = {cell.key: cell for cell in configured_cells}
+    if len(cells_by_key) != len(configured_cells):
+        raise RuntimeError("Cold-start aggregate contains duplicate cell keys")
 
     run_id, source_commit = _coldstart_run_provenance(output_root)
-    plot_rows = [
-        {
-            "task": row["task"],
-            "method": row["method"],
-            "dpo_initialization": row["dpo_initialization"],
-            "seed": row["seed"],
-            "stage": row["stage"],
-            "experiment_id": experiment_id(config),
-            "run_id": run_id,
-            "source_commit": source_commit,
-            parameter_name: row.get(parameter_name),
-            **_coldstart_plot_metrics(row),
+    plot_rows: list[dict[str, Any]] = []
+    for row in rows:
+        cell_key = str(row["cell_key"])
+        if cell_key not in cells_by_key:
+            raise RuntimeError(f"Unknown cold-start cell in plot aggregate: {cell_key}")
+        projection = dict(spec.parameters(cells_by_key[cell_key]))
+        parameter_columns = {
+            name: value
+            for name, value in projection.items()
+            if name != "dpo_initialization"
         }
-        for row in rows
-    ]
+        plot_rows.append(
+            {
+                "task": row["task"],
+                "method": row["method"],
+                "dpo_initialization": row["dpo_initialization"],
+                "seed": row["seed"],
+                "stage": row["stage"],
+                "experiment_id": experiment_id(config),
+                "run_id": run_id,
+                "source_commit": source_commit,
+                **parameter_columns,
+                **_coldstart_plot_metrics(row),
+            }
+        )
     _write_csv(output_root / "aggregate" / "plot_curve_points.csv", plot_rows)
 
-    configured_cells = build_cells(config)
     summaries: dict[str, Any] = {}
     summary_rows: list[dict[str, Any]] = []
     for task_value in config["suite"]["tasks"]:
@@ -7827,25 +8243,19 @@ def _aggregate_coldstart_unranked(
             for candidate in (method, *controls)
         }
         if len(method_rows) != expected[method] or any(
-            len(group) != expected[control] for control, group in controls.items()
+            len(group) != expected[control]
+            for control, group in controls.items()
         ):
-            raise RuntimeError(f"{task} {method} cold-start cell geometry is incomplete")
+            raise RuntimeError(
+                f"{task} {method} cold-start cell geometry is incomplete"
+            )
 
-        groups: dict[float, list[dict[str, Any]]] = {}
-        for row in method_rows:
-            value = row.get(parameter_name)
-            if value is None:
-                raise RuntimeError(f"{task} {method} row is missing {parameter_name}")
-            groups.setdefault(float(value), []).append(row)
-        grouped_curve = [
-            {
-                "task": task,
-                "method": method,
-                parameter_name: value,
-                **_coldstart_group_metrics(group),
-            }
-            for value, group in sorted(groups.items())
-        ]
+        grouped_curve = _coldstart_method_grouped_curve(
+            task=task,
+            method=method,
+            method_rows=method_rows,
+            cells_by_key=cells_by_key,
+        )
         summaries[task] = {
             "task": task,
             "grouped_curve": grouped_curve,
@@ -7877,8 +8287,8 @@ def _aggregate_coldstart_unranked(
         "tasks": summaries,
         "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
         "initialization": dict(config["initialization"]),
-        "scientific_kernel": scientific_kernel,
-        **method_metadata,
+        "scientific_kernel": spec.scientific_kernel,
+        **dict(spec.single_aggregate_metadata(config)),
         "countdown_protocol_diagnostic": _countdown_protocol_diagnostic(
             config,
             output_root,
@@ -7894,7 +8304,9 @@ def _aggregate_coldstart_unranked(
         "task_performance_reported_separately": True,
         "structure_diagnostic_reported_separately": True,
         "nan_inf_reported_separately": True,
-        "scientific_status": "not_run" if _is_engineering_self_test(config) else "pilot",
+        "scientific_status": (
+            "not_run" if _is_engineering_self_test(config) else "pilot"
+        ),
         "engineering_placeholder_backend": _is_engineering_self_test(config),
     }
     atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
@@ -7909,25 +8321,41 @@ def _aggregate_coldstart_matrix_unranked(
 
     methods = _coldstart_methods(config)
     run_id, source_commit = _coldstart_run_provenance(output_root)
-    plot_rows = [
-        {
-            "task": row["task"],
-            "method": row["method"],
-            "delta_v": row.get("delta_v"),
-            "beta": row.get("beta"),
-            "dpo_initialization": row.get("dpo_initialization"),
-            "seed": row["seed"],
-            "stage": row["stage"],
-            "experiment_id": experiment_id(config),
-            "run_id": run_id,
-            "source_commit": source_commit,
-            **_coldstart_plot_metrics(row),
-        }
-        for row in rows
-    ]
-    _write_csv(output_root / "aggregate" / "plot_curve_points.csv", plot_rows)
-
     configured_cells = build_cells(config)
+    cells_by_key = {cell.key: cell for cell in configured_cells}
+    if len(cells_by_key) != len(configured_cells):
+        raise RuntimeError("Baseline matrix contains duplicate cell keys")
+    legacy_parameter_columns = ("delta_v", "beta", "dpo_initialization")
+    extra_parameter_names = tuple(
+        dict.fromkeys(
+            name
+            for cell in configured_cells
+            if cell.method in methods
+            for name in _method_spec(cell.method).parameters(cell)
+            if name not in legacy_parameter_columns
+        )
+    )
+    plot_rows: list[dict[str, Any]] = []
+    for row in rows:
+        cell = cells_by_key[str(row["cell_key"])]
+        parameters = dict(_method_spec(cell.method).parameters(cell))
+        plot_rows.append(
+            {
+                "task": row["task"],
+                "method": row["method"],
+                "delta_v": row.get("delta_v"),
+                "beta": row.get("beta"),
+                "dpo_initialization": row.get("dpo_initialization"),
+                **{name: parameters.get(name) for name in extra_parameter_names},
+                "seed": row["seed"],
+                "stage": row["stage"],
+                "experiment_id": experiment_id(config),
+                "run_id": run_id,
+                "source_commit": source_commit,
+                **_coldstart_plot_metrics(row),
+            }
+        )
+    _write_csv(output_root / "aggregate" / "plot_curve_points.csv", plot_rows)
     task_summaries: dict[str, Any] = {}
     summary_rows: list[dict[str, Any]] = []
     for task_value in config["suite"]["p0_tasks"]:
@@ -7940,23 +8368,15 @@ def _aggregate_coldstart_matrix_unranked(
             method_rows = [row for row in task_rows if row["method"] == method]
             expected = sum(cell.method == method for cell in task_cells)
             if len(method_rows) != expected:
-                raise RuntimeError(f"{task} {method} baseline-matrix cell geometry is incomplete")
-            parameter_name = "delta_v" if method == METHOD_ASYMRE else "beta"
-            groups: dict[float, list[dict[str, Any]]] = {}
-            for row in method_rows:
-                value = row.get(parameter_name)
-                if value is None:
-                    raise RuntimeError(f"{task} {method} row is missing {parameter_name}")
-                groups.setdefault(float(value), []).append(row)
-            grouped_curve = [
-                {
-                    "task": task,
-                    "method": method,
-                    parameter_name: value,
-                    **_coldstart_group_metrics(group),
-                }
-                for value, group in sorted(groups.items())
-            ]
+                raise RuntimeError(
+                    f"{task} {method} baseline-matrix cell geometry is incomplete"
+                )
+            grouped_curve = _coldstart_method_grouped_curve(
+                task=task,
+                method=method,
+                method_rows=method_rows,
+                cells_by_key=cells_by_key,
+            )
             method_summaries[method] = {
                 "grouped_curve": grouped_curve,
                 "parameter_selection_deferred_to_reviewed_protocol": True,
@@ -7968,20 +8388,8 @@ def _aggregate_coldstart_matrix_unranked(
     _write_csv(output_root / "aggregate" / "task_summary.csv", summary_rows)
 
     method_metadata = {
-        METHOD_ASYMRE: _canonical_baseline_grid_identity(METHOD_ASYMRE),
-        METHOD_TOPR: _canonical_baseline_grid_identity(METHOD_TOPR),
-        METHOD_DPO: {
-            "initialization_mode": str(config["dpo"]["initialization_mode"]),
-            "shared_sft_adapter_contract_hash": (
-                stable_hash(config["dpo"]["shared_sft_adapter_contract"])
-                if config["dpo"]["initialization_mode"] == "shared_sft_adapter"
-                else None
-            ),
-            "semantics_source": (
-                "historical_PR_268_protected_implementation_"
-                "cc0ead2be00c89a3c35296b7adc1ddeae8d14759"
-            ),
-        },
+        method: dict(_method_spec(method).matrix_aggregate_metadata(config))
+        for method in methods
     }
     summary = {
         "schema_version": 1,
@@ -8012,7 +8420,9 @@ def _aggregate_coldstart_matrix_unranked(
         "task_performance_reported_separately": True,
         "structure_diagnostic_reported_separately": True,
         "nan_inf_reported_separately": True,
-        "scientific_status": "not_run" if _is_engineering_self_test(config) else "pilot",
+        "scientific_status": (
+            "not_run" if _is_engineering_self_test(config) else "pilot"
+        ),
         "engineering_placeholder_backend": _is_engineering_self_test(config),
     }
     atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
@@ -8064,10 +8474,12 @@ def _aggregate_coldstart(
         if (len(positive_rows), len(global_rows), len(exp_rows)) != expected_counts:
             raise RuntimeError(f"{task} cold-start cell counts differ from {expected_counts}")
 
-        def aggregate_group(group: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+        def aggregate_group(
+            group: Sequence[Mapping[str, Any]], task_name: str = task
+        ) -> dict[str, Any]:
             first = group[0]
             return {
-                "task": task,
+                "task": task_name,
                 "method": first["method"],
                 "lambda": first["lambda"],
                 "rho": first["rho"],
@@ -8354,8 +8766,13 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         if not _is_engineering_self_test(config):
             if int(value.get("terminal_step", -1)) != expected_terminal_step or value.get("stop_reason") != "max_steps" or value.get("test_partition_accessed") is not False:
                 terminal_contract_failures.append(cell.key)
-            if cell.method == METHOD_DPO and (value.get("reference_initial_state_sha256") != value.get("reference_terminal_state_sha256") or value.get("reference_trainable") is not False):
-                dpo_reference_identity_failures.append(cell.key)
+            method_audit = _method_spec(cell.method).audit_record(cell, value)
+            if not method_audit.passed:
+                bucket = method_audit.failure_bucket
+                if bucket == "dpo_reference_identity_failures":
+                    dpo_reference_identity_failures.append(cell.key)
+                else:
+                    terminal_contract_failures.append(cell.key)
     inherited_complete = True
     aggregate_complete = True
     reproduction_gate_status: str | None = None

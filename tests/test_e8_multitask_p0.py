@@ -3062,6 +3062,7 @@ def test_coldstart_liveness_cli_path_needs_no_scientific_grid_selector(
         splits,
         base_model_path,
         force,
+        method,
     ):
         observed.update(
             {
@@ -3072,6 +3073,7 @@ def test_coldstart_liveness_cli_path_needs_no_scientific_grid_selector(
                 "splits": splits,
                 "base_model_path": base_model_path,
                 "force": force,
+                "method": method,
             }
         )
         return {"complete": True}
@@ -3089,6 +3091,7 @@ def test_coldstart_liveness_cli_path_needs_no_scientific_grid_selector(
 
     assert result == {"complete": True}
     assert observed["inputs"] is fake_inputs["countdown"]
+    assert observed["method"] == exp_tuning.METHOD_EXPONENTIAL
     runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
     liveness = runner.split("\nliveness() {\n", 1)[1].split("\nrun_queue() {\n", 1)[0]
     assert "--lambda " not in liveness
@@ -3187,10 +3190,26 @@ def test_asymre_capability_dispatches_existing_kernel_without_loss_copy() -> Non
 
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
+    spec = exp_tuning._method_spec(exp_tuning.METHOD_ASYMRE)
+    cell = exp_tuning.Cell(
+        "word_sorting",
+        exp_tuning.METHOD_ASYMRE,
+        None,
+        4000,
+        "task_transfer",
+        delta_v=-0.25,
+    )
+    assert spec.paper_runtime is not None
+    assert spec.paper_runtime.cell_parameters(cell) == (
+        exp_tuning.METHOD_ASYMRE,
+        0.75,
+        0.0,
+    )
+    assert spec.paper_runtime.formula == "delegated_to_existing_canonical_asymre"
+    assert spec.scientific_kernel == "canonical_old_coldstart_imports"
     source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
-    assert "paper_family = METHOD_ASYMRE" in source
+    assert "paper_runtime.cell_parameters(cell)" in source
     assert "family=paper_family" in source
-    assert "alpha = 1.0 + float(cell.delta_v)" in source
     assert "positive_coefficient" not in source
     assert "negative_repulsion_coefficient" not in source
     assert "value_network" not in source
@@ -3249,9 +3268,27 @@ def test_topr_capability_dispatches_existing_joint_reference_kernel() -> None:
 
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
+    spec = exp_tuning._method_spec(exp_tuning.METHOD_TOPR)
+    cell = exp_tuning.Cell(
+        "word_sorting",
+        exp_tuning.METHOD_TOPR,
+        None,
+        4000,
+        "task_transfer",
+        beta=0.25,
+    )
+    assert spec.paper_runtime is not None
+    assert spec.paper_runtime.cell_parameters(cell) == (
+        exp_tuning.METHOD_TOPR,
+        1.0,
+        0.25,
+    )
+    assert (
+        spec.paper_runtime.formula
+        == "delegated_to_existing_joint_fitted_reference_beta_topr"
+    )
     source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
-    assert "paper_family = METHOD_TOPR" in source
-    assert "coefficient = float(cell.beta)" in source
+    assert "paper_runtime.cell_parameters(cell)" in source
     assert "family=paper_family" in source
     assert "joint_topr_negative_weights" not in source
     assert "branch_balanced_reference_loss" not in source
@@ -3411,9 +3448,12 @@ def test_dpo_train_cell_dispatch_supports_two_update_liveness() -> None:
 
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
+    spec = exp_tuning._method_spec(exp_tuning.METHOD_DPO)
+    assert spec.train_cold is exp_tuning._cold_train_dpo
     source = inspect.getsource(exp_tuning.train_cell)
-    assert "if cell.method == METHOD_DPO" in source
-    assert "_train_canonical_dpo_transfer_cell" in source
+    assert "_method_spec(cell.method).train_cold" in source
+    helper = inspect.getsource(exp_tuning._cold_train_dpo)
+    assert "_train_canonical_dpo_transfer_cell" in helper
     liveness = inspect.getsource(exp_tuning._cmd_dpo_liveness)
     assert "updates_override=2" in liveness
     assert "fresh_process_reload_passed" in liveness
@@ -3468,10 +3508,14 @@ def test_topr_dispatch_records_topr_formula_identity_not_exp_formula() -> None:
 
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
+    spec = exp_tuning._method_spec(exp_tuning.METHOD_TOPR)
+    assert (
+        spec.paper_runtime.formula
+        == "delegated_to_existing_joint_fitted_reference_beta_topr"
+    )
     source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
-    assert "delegated_to_existing_joint_fitted_reference_beta_topr" in source
-    assert "if cell.method == METHOD_TOPR" in source
-    assert "_canonical_topr_grid_path()" in source
+    assert "paper_runtime.formula" in source
+    assert "_paper_grid_for_cell(config, record, cell)" in source
 
 
 def test_dpo_failure_path_preserves_last_finite_without_extra_policy_change_gate() -> None:
