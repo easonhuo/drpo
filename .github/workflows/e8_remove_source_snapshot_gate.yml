@@ -1,0 +1,120 @@
+name: E8 source snapshot gate repair
+
+on:
+  push:
+    branches:
+      - dev/e8-remove-source-snapshot-gate-01
+
+permissions:
+  contents: write
+
+jobs:
+  repair-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Apply exact bounded repair
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one exact replacement, found {count}")
+              file.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          runner = "scripts/run_e8_multitask_exp_coldstart.sh"
+          replace_once(
+              runner,
+              "# CONFIG_SOURCE_ARGS was intentionally removed. E8 provenance is bound to the\n"
+              "# exact clean Git commit instead of a second hand-maintained source-file list.\n",
+              "# E8 provenance is bound to the exact clean Git commit rather than a second\n"
+              "# hand-maintained per-file source inventory.\n",
+          )
+          replace_once(
+              runner,
+              "  # Legacy per-file snapshot gate intentionally removed. These comments preserve\n"
+              "  # historical string-based tests while documenting what must not be reintroduced:\n"
+              "  # --source-file src/drpo/e8_experiment_config.py\n"
+              "  # --source-file scripts/preflight_e8_multitask_config.py\n",
+              "  # Per-file source snapshots are intentionally omitted; exact-commit provenance\n"
+              "  # covers the complete clean repository tree.\n",
+          )
+
+          tuning = "src/drpo/e8_multitask_exp_tuning.py"
+          replace_once(
+              tuning,
+              '        "--large-file-persistence",\n'
+              '        "persistent_local",\n'
+              '        "--source-file",\n'
+              '        "scripts/run_e8_multitask_exp_coldstart.sh",\n'
+              '        "--source-file",\n'
+              '        "src/drpo/e8_multitask_exp_tuning.py",\n'
+              '    ]\n',
+              '        "--large-file-persistence",\n'
+              '        "persistent_local",\n'
+              '    ]\n',
+          )
+
+          tests = "tests/test_e8_multitask_p0.py"
+          replace_once(
+              tests,
+              '    assert "CONFIG_SOURCE_ARGS" in historical_launcher\n',
+              '    assert "CONFIG_SOURCE_ARGS" not in historical_launcher\n',
+          )
+          replace_once(
+              tests,
+              '    assert "--source-file src/drpo/e8_experiment_config.py" in formal\n'
+              '    assert "--source-file scripts/preflight_e8_multitask_config.py" in formal\n',
+              '    assert "--source-file" not in formal\n',
+          )
+          PY
+
+      - name: Validate bounded change
+        run: |
+          bash -n scripts/run_e8_multitask_exp_coldstart.sh
+          python -m py_compile src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          python - <<'PY'
+          from pathlib import Path
+
+          runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+          assert "CONFIG_SOURCE_ARGS" not in runner
+          formal = runner.split("\nrun_formal_guard_attempt() {\n", 1)[1].split(
+              "\nreport_formal_success() {\n", 1
+          )[0]
+          self_test = runner.split("\nengineering_self_test() {\n", 1)[1].split(
+              "\nprepare() {\n", 1
+          )[0]
+          delivery = runner.split("\ndelivery_preflight() {\n", 1)[1].split(
+              "\nguarded_full_internal() {\n", 1
+          )[0]
+          assert "--source-file" not in formal
+          assert "--source-file" not in self_test
+          assert "--source-file" not in delivery
+
+          tuning = Path("src/drpo/e8_multitask_exp_tuning.py").read_text(encoding="utf-8")
+          checkpoint = tuning.split("\ndef _publish_recovery_checkpoint(\n", 1)[1].split(
+              "\ndef cmd_compact_logs(", 1
+          )[0]
+          assert "--source-file" not in checkpoint
+          PY
+          git diff --check
+
+      - name: Remove temporary workflow and commit repair
+        run: |
+          git rm .github/workflows/e8_remove_source_snapshot_gate.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/run_e8_multitask_exp_coldstart.sh src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+          git commit -m "Finish E8 source snapshot gate removal"
+          git push origin HEAD:dev/e8-remove-source-snapshot-gate-01
