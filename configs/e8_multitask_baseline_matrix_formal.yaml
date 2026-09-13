@@ -1,0 +1,288 @@
+schema_version: 1
+experiment_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+execution_class: formal
+result_status: not_run
+claim: >-
+  On the exact eight P0 transfer tasks and frozen model-independent banks, compare
+  AsymRE, Joint Fitted-Reference beta-TOPR, and canonical PR-268-semantics DPO under
+  matched training/evaluation budgets using two paired development seeds. This is
+  finite-horizon external-validity evidence; Countdown is reused rather than rerun,
+  and convergence or universal method-ranking claims are excluded.
+parent:
+  experiment_id: EXT-C-E8-MULTITASK-P0-01
+  qualified_banks_required: true
+reference:
+  checkpoint_kind: fresh_lora_from_base_model
+  optimizer_updates: 0
+  validation_rows_seen: 0
+  test_rows_seen: 0
+initialization:
+  source: base_model
+  optimizer_updates: 0
+  external_adapter_allowed: false
+  deterministic_fresh_lora: true
+  seed: 2026070803
+model:
+  base_model: Qwen/Qwen2.5-0.5B-Instruct
+  revision: 7ae557604adf67be50417f59c2c2f167def9a775
+  parameterization: lora
+  lora_rank: 32
+  lora_alpha: 64
+  lora_dropout: 0.05
+  dtype: auto
+  max_length: 256
+  max_new_tokens: 80
+  gradient_checkpointing: true
+suite:
+  tasks: [countdown, word_sorting, spiral_matrix, mini_sudoku, maze, word_ladder, knights_knaves, graph_color, wikisql]
+  p0_tasks: [word_sorting, spiral_matrix, mini_sudoku, maze, word_ladder, knights_knaves, graph_color, wikisql]
+  external_tasks: [countdown]
+  excluded_tasks: {}
+split:
+  p0_train_rows: 5000
+  p0_validation_rows: 500
+  p0_test_rows: 500
+  countdown_train_rows: 6000
+  countdown_validation_rows: 500
+  hash_seed: 2026072901
+  test_access_allowed: false
+  countdown_subsampling_forbidden: true
+training:
+  optimizer_updates: 1200
+  micro_batch: 1
+  gradient_accumulation: 8
+  learning_rate: 5.0e-05
+  weight_decay: 0.01
+  warmup_ratio: 0.03
+  max_grad_norm: 1.0
+  evaluation_every_updates: 100
+  early_stopping: false
+  late_window_updates: [800, 900, 1000, 1100, 1200]
+  terminal_adapter_required: true
+evaluation:
+  greedy_prompt_rows: 500
+  passk_prompt_rows: 500
+  pass_k: 8
+  auxiliary_pass_ks: [64]
+  batch_size: 8
+  sampling_temperature: 0.8
+  top_p: 0.95
+  max_new_tokens: 80
+  generation_seed: 2026070801
+  primary_checkpoint_policy: late_window_and_terminal
+  best_checkpoint_role: supplementary_only
+negative_sampling:
+  negatives_per_prompt: 16
+  consumer: all_unique_negatives_per_prompt
+  deduplicate_rule: first_canonical_completion_occurrence
+  denominator: unique_negative_count_per_prompt
+  near_far_selection: false
+  selection_stop_gradient: true
+  weight_sum_normalization: false
+  gradient_budget_matching: false
+  reference_remoteness_bank:
+    enabled: true
+    scope: non_countdown_training_only
+    source_candidates: all_deterministic_verified_wrong_mutations
+    reference_policy: zero_update_base_plus_fresh_lora
+    coordinate: mean_completion_token_surprisal
+    selected_negatives_per_prompt: 16
+    selection: source_p0_error_class_sequence_then_within_class_reference_rank_spread
+    coverage_threshold: null
+    reference_rank_role: provenance_and_diagnostic_only
+    static_reference_rank_enters_training_weight: false
+    current_policy_surprisal_recomputed_each_update: true
+    original_p0_bank_preserved: true
+    audit_quantiles: [min, q25, median, q75, max]
+remoteness_calibration:
+  enabled: false
+  mode: paper_linear_surprisal_no_calibration
+  coordinate: current_sequence_surprisal_div_2
+  detached: true
+  extra_square: false
+  gradient_rms_matching: false
+task_runtime:
+  override_whitelist:
+    - model.max_length
+    - model.max_new_tokens
+    - evaluation.batch_size
+    - evaluation.greedy_prompt_rows
+    - evaluation.passk_prompt_rows
+    - evaluation.pass_ks
+  countdown:
+    max_length: 256
+    max_new_tokens: 80
+    evaluation_batch_size: 8
+    greedy_prompt_rows: 500
+    passk_prompt_rows: 500
+    auxiliary_pass_ks: [64]
+  word_sorting: &transfer_runtime
+    max_length: 512
+    max_new_tokens: 128
+    evaluation_batch_size: 16
+    greedy_prompt_rows: 500
+    passk_prompt_rows: 128
+    auxiliary_pass_ks: []
+  spiral_matrix: *transfer_runtime
+  mini_sudoku: *transfer_runtime
+  maze: *transfer_runtime
+  word_ladder: *transfer_runtime
+  knights_knaves: *transfer_runtime
+  graph_color: *transfer_runtime
+  wikisql: *transfer_runtime
+sweep:
+  profile: eight_task_coldstart_lambda_v1
+  method: baseline_matrix
+  parameterization: baseline_family_matrix_v1
+  tuning_seed: 4000
+  countdown_seed_offsets: []
+  countdown_include_positive_only: false
+  include_global_endpoint: false
+  transfer_positive_only_seed_offsets: []
+  task_transfer_seed_offsets: [4000, 5000]
+  methods:
+    asymre:
+      parameterization: asymre_delta_v
+      task_delta_v:
+        countdown: []
+        word_sorting: &asymre_grid [-1.0, -0.9, -0.75, -0.5, 0.0]
+        spiral_matrix: *asymre_grid
+        mini_sudoku: *asymre_grid
+        maze: *asymre_grid
+        word_ladder: *asymre_grid
+        knights_knaves: *asymre_grid
+        graph_color: *asymre_grid
+        wikisql: *asymre_grid
+      task_grid_provenance:
+        word_sorting: &asymre_prov september7_runbook_v1_asymre_alpha_exact_conversion
+        spiral_matrix: *asymre_prov
+        mini_sudoku: *asymre_prov
+        maze: *asymre_prov
+        word_ladder: *asymre_prov
+        knights_knaves: *asymre_prov
+        graph_color: *asymre_prov
+        wikisql: *asymre_prov
+    joint_fitted_reference_topr:
+      parameterization: joint_fitted_reference_beta_topr
+      task_beta:
+        countdown: []
+        word_sorting: &topr_grid [0.25, 0.5, 1.0]
+        spiral_matrix: *topr_grid
+        mini_sudoku: *topr_grid
+        maze: *topr_grid
+        word_ladder: *topr_grid
+        knights_knaves: *topr_grid
+        graph_color: *topr_grid
+        wikisql: *topr_grid
+      task_grid_provenance:
+        word_sorting: &topr_prov september7_runbook_v1_topr_grid
+        spiral_matrix: *topr_prov
+        mini_sudoku: *topr_prov
+        maze: *topr_prov
+        word_ladder: *topr_prov
+        knights_knaves: *topr_prov
+        graph_color: *topr_prov
+        wikisql: *topr_prov
+    canonical_dpo:
+      parameterization: canonical_dpo_beta
+      task_beta:
+        countdown: []
+        word_sorting: &dpo_grid [0.05, 0.1, 0.2]
+        spiral_matrix: *dpo_grid
+        mini_sudoku: *dpo_grid
+        maze: *dpo_grid
+        word_ladder: *dpo_grid
+        knights_knaves: *dpo_grid
+        graph_color: *dpo_grid
+        wikisql: *dpo_grid
+      task_grid_provenance:
+        word_sorting: &dpo_prov september7_runbook_v1_dpo_grid
+        spiral_matrix: *dpo_prov
+        mini_sudoku: *dpo_prov
+        maze: *dpo_prov
+        word_ladder: *dpo_prov
+        knights_knaves: *dpo_prov
+        graph_color: *dpo_prov
+        wikisql: *dpo_prov
+  expected_cells: 176
+dpo:
+  initialization_mode: base_model_fresh_lora
+  shared_sft_adapter_env: null
+  policy_adapter: default
+  reference_adapter: reference
+  reference_role: exact_frozen_initial_policy
+  copy_policy_to_reference_before_update_1: true
+  reference_trainable: false
+  label_smoothing: 0.0
+  sequence_log_probability: full_completion_summed_log_probability
+  pair_aggregation: mean_unique_negative_within_prompt_then_mean_prompts
+  initial_pair_margin_max_abs_tolerance: 1.0e-5
+  liveness_task: word_sorting
+  liveness_beta: 0.05
+canonical_coldstart:
+  scientific_kernel: per_cell_canonical_baseline_dispatch
+  initialization: per_method_initial_policy_and_reference_contract
+  formula: per_cell_asymre_topr_or_dpo
+  countdown_entry: disabled_no_baseline_matrix_countdown_cells
+  transfer_entry: e8_multitask_exp_tuning.train_cell
+  paths:
+    arena: src/drpo/countdown_qwen_arena_onefile.py
+    scan_common: src/drpo/countdown_e8_alpha1_c_scan_common.py
+    scan_runtime: src/drpo/countdown_e8_alpha1_c_scan_runtime.py
+    scan_trainer: src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    paper_common: src/drpo/countdown_e8_alpha1_highc_scan_common.py
+    paper_runtime: src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+    base_config: configs/countdown_e8_base_rl_replay_0p5b.yaml
+    round1_grid: configs/countdown_e8_oracle_offline_v2_alpha1_highc_scan_0p5b.yaml
+    extension_grid: configs/countdown_e8_oracle_offline_v2_linear_c_extension_0p5b.yaml
+    bank_generator: src/drpo/countdown_e8_oracle_bank_v2.py
+    bank_config: configs/countdown_e8_oracle_offline_bank_v2_0p5b.yaml
+    bank_converter: scripts/v2_bank_convert.py
+    p0_bank_pipeline: src/drpo/e8_multitask_p0.py
+    p0_task_adapters: src/drpo/e8_multitask_tasks.py
+    p0_config: configs/e8_multitask_p0.yaml
+    p0_launcher: scripts/run_e8_multitask_p0.sh
+    result_reference: experiments/results/e8_paper_aligned_linear_scan_round1_pilot/RESULT_SUMMARY.json
+  expected_git_blob_shas:
+    arena: d8a04f3ae3edd08042aa1004b4cbf927fc5cea72
+    scan_common: 572f6ad98bf063c88e52a4594fde892842c4fe15
+    scan_runtime: b4ad8581f0afd6e4d24069524f909eaa1b0c9563
+    scan_trainer: e026afbefc09205bb1632b5dd1bd6db33b5df358
+    paper_common: 720415583e9e372fafa5aa3520e07de04e6494d8
+    paper_runtime: a57cd88287daf95864f7e30caf658473a32d3602
+    base_config: 10f27f32719298376bdc7be7e01023626c6ad3f8
+    round1_grid: e6d70895ad9e4caceb029425fbed523b8530c2d3
+    extension_grid: e7657ef7c8fbb1ae81e0a7b9dd6f4b9cea32262d
+    bank_generator: 545119fdf8e560b5e81a862e1e48134dd52ac869
+    bank_config: d1873efae15c778d2472a927206d8620aa43be71
+    bank_converter: a935e2d721b06437568556040475736bbf45ceee
+    p0_bank_pipeline: 3482967fe656156500f4598f16f5e7031e198d48
+    p0_task_adapters: 454f3076171ee25636109c33f5a177ee2201b5f8
+    p0_config: 14605ae3a79f18e435feafd3927bc21485edbbc9
+    p0_launcher: ffcad2a64cb2f42906cae67dabdcc98c3eb46ff0
+    result_reference: 972a67867aafb5ddea6e1625bacd337b6939f097
+execution:
+  max_concurrent_cells: 16
+  gpu_ids: [0, 1, 2, 3, 4, 5, 6, 7]
+  slots_per_gpu: 2
+  expected_waves: 12
+  scheduler: dynamic_slot_queue
+  wave_barriers: false
+  seed_batch_barriers: true
+  seed_batch_order: [4000, 5000]
+  identity_checked_resume: true
+  retry_incomplete_requires_explicit_flag: true
+  fail_closed: true
+  test_partition_forbidden: true
+  oom_policy: fail_cell_no_automatic_scientific_parameter_mutation
+reporting:
+  separate_events: [task_performance, valid_or_structure_diagnostic, nan_inf_numerical_failure]
+  countdown_role: reused_predecessor_no_new_scientific_cells
+  other_tasks_task_interface_adaptation_only: true
+  paired_seed_confirmation: true
+  seed_batch_order: [4000, 5000]
+  convergence_claim_allowed: false
+  significance_claim_allowed: false
+  method_ranking_allowed_before_terminal_audit: false
+  fixed_horizon_status_after_terminal_audit: finite_step_validated
+  scientific_role: external_validity_baseline_matrix_finite_horizon

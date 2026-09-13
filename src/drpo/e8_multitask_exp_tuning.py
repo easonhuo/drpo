@@ -1,9 +1,10 @@
-"""Paper-aligned exponential-taper response tuning on frozen multitask banks.
+"""Paper-aligned multitask cold-start baseline orchestration on frozen banks.
 
 The module keeps the P0 occurrence/gradient diagnostic separate from downstream
-method tuning.  The cold-start profile dispatches every scientific update to
-the byte-locked paper Countdown trainer.  Task adapters may change only data
-schema, verifier, and explicitly whitelisted length/evaluation-batch fields.
+method tuning.  EXP, AsymRE, and TOPR dispatch to the byte-locked paper trainers;
+DPO ports the audited PR #268 semantics because no canonical DPO runtime is merged
+on main.  Task adapters may change only the explicitly governed task-interface
+fields.
 """
 
 from __future__ import annotations
@@ -17,7 +18,6 @@ import importlib
 import json
 import math
 import os
-import queue
 import random
 import shutil
 import subprocess
@@ -27,7 +27,7 @@ import threading
 import time
 import traceback
 import zipfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -36,6 +36,11 @@ from typing import Any
 
 import numpy as np
 import yaml
+
+from drpo import e8_experiment_config as experiment_config
+from drpo import e8_multitask_orchestration as e8_orchestration
+from drpo import e8_multitask_results as e8_results
+from drpo import e8_multitask_runtime as e8_runtime
 
 try:
     import torch
@@ -71,24 +76,37 @@ from drpo.e8_multitask_tasks import (
     stable_hash,
 )
 
-EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-TUNING-01"
-DENSE_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-DENSE-01"
-COLDSTART_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-COLDSTART-01"
-LAMBDA_COMPLETION_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"
-LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02"
-SUPPORTED_EXPERIMENT_IDS = (EXPERIMENT_ID, DENSE_EXPERIMENT_ID, COLDSTART_EXPERIMENT_ID, LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID)
-P0_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-P0-01"
+# Backward-compatible aliases; e8_experiment_config is the single authority for
+# experiment IDs and sweep-profile names.
+EXPERIMENT_ID = experiment_config.RHO_EXPERIMENT_ID
+DENSE_EXPERIMENT_ID = experiment_config.DENSE_EXPERIMENT_ID
+COLDSTART_EXPERIMENT_ID = experiment_config.COLDSTART_EXPERIMENT_ID
+LAMBDA_COMPLETION_EXPERIMENT_ID = experiment_config.LAMBDA_COMPLETION_EXPERIMENT_ID
+LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID = (
+    experiment_config.LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID
+)
+P0_EXPERIMENT_ID = experiment_config.P0_EXPERIMENT_ID
 # Backward-compatible name used by predecessor tests and downstream callers.
 PARENT_EXPERIMENT_ID = P0_EXPERIMENT_ID
 DEFAULT_CONFIG = Path("configs/e8_multitask_exp_tuning.yaml")
 DEFAULT_P0_CONFIG = Path("configs/e8_multitask_p0.yaml")
+CANONICAL_ASYMRE_GRID = Path(
+    "configs/countdown_e8_oracle_offline_v2_asymre_deltav_scan_0p5b.yaml"
+)
+CANONICAL_TOPR_GRID = Path(
+    "configs/countdown_e8_oracle_offline_v2_joint_fitted_reference_beta_topr_dense_0p5b.yaml"
+)
 METHOD_POSITIVE_ONLY = "positive_only"
-METHOD_EXPONENTIAL = "exponential"
+METHOD_EXPONENTIAL = experiment_config.COLDSTART_METHOD_EXPONENTIAL
+METHOD_ASYMRE = experiment_config.COLDSTART_METHOD_ASYMRE
+METHOD_TOPR = experiment_config.COLDSTART_METHOD_TOPR
+METHOD_DPO = experiment_config.COLDSTART_METHOD_DPO
+METHOD_BASELINE_MATRIX = experiment_config.COLDSTART_METHOD_BASELINE_MATRIX
 METHOD_GLOBAL = "global"
 TRANSFER_SYSTEM_PROMPT = "Answer with only the requested final output and no explanation."
-SWEEP_PROFILE_RHO = "nine_task_rho_v1"
-SWEEP_PROFILE_DENSE = "task_lambda_dense_v1"
-SWEEP_PROFILE_COLDSTART = "eight_task_coldstart_lambda_v1"
+SWEEP_PROFILE_RHO = experiment_config.SWEEP_PROFILE_RHO
+SWEEP_PROFILE_DENSE = experiment_config.SWEEP_PROFILE_DENSE
+SWEEP_PROFILE_COLDSTART = experiment_config.SWEEP_PROFILE_COLDSTART
 
 RECOVERY_SNAPSHOT_SCHEMA_VERSION = 1
 RECOVERY_TRANSIENT_TOP_LEVEL = {
@@ -157,21 +175,520 @@ class Cell:
     seed: int
     stage: str
     lambda_value: float | None = None
+    delta_v: float | None = None
+    beta: float | None = None
+    dpo_initialization: str | None = None
+    method_parameters: Mapping[str, Any] | None = None
 
     @property
     def key(self) -> str:
-        if self.method == METHOD_POSITIVE_ONLY:
-            return f"{self.task}__positive_only__seed{self.seed}"
-        if self.method == METHOD_GLOBAL:
-            return f"{self.task}__global__seed{self.seed}"
-        if self.lambda_value is not None:
-            tag = f"{self.lambda_value:.12g}".replace(".", "p")
-            return f"{self.task}__exp_lambda{tag}__seed{self.seed}"
-        if self.rho is None:
-            raise AssertionError("Exponential cell requires rho or lambda")
-        tag = f"{self.rho:.6f}".rstrip("0").rstrip(".").replace(".", "p")
-        return f"{self.task}__exp_rho{tag}__seed{self.seed}"
+        return _method_spec(self.method).cell_key(self)
 
+
+def _default_method_audit(
+    cell: Cell, record: Mapping[str, Any]
+) -> e8_runtime.MethodAuditResult:
+    del cell, record
+    return e8_runtime.MethodAuditResult(True)
+
+
+def _empty_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    del config
+    return {}
+
+
+@dataclass(frozen=True)
+class PaperRuntimeSpec:
+    """Optional capability for methods using the canonical paper runtime."""
+
+    liveness_grid: Callable[[Mapping[str, Any], Mapping[str, Any]], Path]
+    liveness_parameter: str
+    grid_paths: Callable[
+        [Mapping[str, Any], Mapping[str, Any], Cell], tuple[Path, Path]
+    ]
+    cell_parameters: Callable[[Cell], tuple[str, float, float]]
+    formula: str
+
+
+@dataclass(frozen=True)
+class MethodSpec:
+    """One scientific-method adapter; generic infrastructure never branches on names."""
+
+    name: str
+    build_cell: Callable[..., Cell]
+    cell_key: Callable[[Cell], str]
+    parameters: Callable[[Cell], Mapping[str, Any]]
+    cell_initialization: Callable[[Mapping[str, Any]], str | None]
+    initialization_identity: Callable[[Mapping[str, Any]], Mapping[str, Any]]
+    train_cold: Callable[..., dict[str, Any]]
+    liveness_task: Callable[[Mapping[str, Any]], str]
+    liveness_runner: Callable[..., dict[str, Any]]
+    scientific_kernel: str
+    paper_runtime: PaperRuntimeSpec | None = None
+    audit_record: Callable[
+        [Cell, Mapping[str, Any]], e8_runtime.MethodAuditResult
+    ] = _default_method_audit
+    single_aggregate_metadata: Callable[
+        [Mapping[str, Any]], Mapping[str, Any]
+    ] = _empty_metadata
+    matrix_aggregate_metadata: Callable[
+        [Mapping[str, Any]], Mapping[str, Any]
+    ] = _empty_metadata
+
+
+
+_METHOD_SPECS: dict[str, MethodSpec] = {}
+
+
+def _register_method_spec(spec: MethodSpec, *, replace: bool = False) -> None:
+    if spec.name in _METHOD_SPECS and not replace:
+        raise ValueError(f"Method spec already registered: {spec.name}")
+    _METHOD_SPECS[spec.name] = spec
+
+
+def _method_spec(method: str) -> MethodSpec:
+    try:
+        return _METHOD_SPECS[method]
+    except KeyError as exc:
+        raise ValueError(f"No E8 method spec registered for {method}") from exc
+
+
+def _cell_lambda(cell: Cell) -> float | None:
+    if cell.lambda_value is not None:
+        return float(cell.lambda_value)
+    return None if cell.rho is None else coefficient_from_rho(float(cell.rho))
+
+
+def _legacy_compatibility_columns(cell: Cell) -> Mapping[str, Any]:
+    return {
+        "delta_v": cell.delta_v,
+        "beta": cell.beta,
+        "dpo_initialization": cell.dpo_initialization,
+        "rho": cell.rho,
+        "lambda": _cell_lambda(cell),
+    }
+
+def _method_output_columns(cell: Cell) -> dict[str, Any]:
+    """Merge frozen legacy columns with the method's single parameter source."""
+
+    columns = dict(_legacy_compatibility_columns(cell))
+    for name, value in _method_spec(cell.method).parameters(cell).items():
+        if name in columns and columns[name] != value:
+            raise ValueError(
+                f"Method parameter {name!r} conflicts with its legacy cell value"
+            )
+        columns[name] = value
+    return columns
+
+
+
+def _positive_key(cell: Cell) -> str:
+    return f"{cell.task}__positive_only__seed{cell.seed}"
+
+
+def _global_key(cell: Cell) -> str:
+    return f"{cell.task}__global__seed{cell.seed}"
+
+
+def _exp_key(cell: Cell) -> str:
+    if cell.lambda_value is not None:
+        tag = f"{cell.lambda_value:.12g}".replace(".", "p")
+        return f"{cell.task}__exp_lambda{tag}__seed{cell.seed}"
+    if cell.rho is None:
+        raise AssertionError("Exponential cell requires rho or lambda")
+    tag = f"{cell.rho:.6f}".rstrip("0").rstrip(".").replace(".", "p")
+    return f"{cell.task}__exp_rho{tag}__seed{cell.seed}"
+
+
+def _asymre_key(cell: Cell) -> str:
+    if cell.delta_v is None:
+        raise AssertionError("AsymRE cell requires delta_v")
+    tag = f"{cell.delta_v:.12g}".replace("-", "m").replace(".", "p")
+    return f"{cell.task}__asymre_delta_v{tag}__seed{cell.seed}"
+
+
+def _topr_key(cell: Cell) -> str:
+    if cell.beta is None:
+        raise AssertionError("Joint Fitted-Reference TOPR cell requires beta")
+    tag = f"{cell.beta:.12g}".replace("-", "m").replace(".", "p")
+    return f"{cell.task}__joint_fitted_reference_topr_beta{tag}__seed{cell.seed}"
+
+
+def _dpo_key(cell: Cell) -> str:
+    if cell.beta is None:
+        raise AssertionError("Canonical DPO cell requires beta")
+    if cell.dpo_initialization is None:
+        raise AssertionError("Canonical DPO cell requires initialization identity")
+    tag = f"{cell.beta:.12g}".replace("-", "m").replace(".", "p")
+    return (
+        f"{cell.task}__canonical_dpo_beta{tag}__"
+        f"init_{cell.dpo_initialization}__seed{cell.seed}"
+    )
+
+
+def _build_control_cell(
+    *, task: str, method: str, seed: int, stage: str, value: float,
+    lambda_only: bool, dpo_initialization: str | None,
+) -> Cell:
+    del lambda_only, dpo_initialization
+    if method == METHOD_POSITIVE_ONLY:
+        return Cell(task, method, None, seed, stage)
+    if method == METHOD_GLOBAL:
+        return Cell(task, method, 1.0, seed, stage, 0.0)
+    raise ValueError(f"Unsupported control method: {method}")
+
+
+def _build_exponential_cell(
+    *, task: str, method: str, seed: int, stage: str, value: float,
+    lambda_only: bool, dpo_initialization: str | None,
+) -> Cell:
+    del dpo_initialization
+    rho = None if lambda_only else math.exp(-value)
+    return Cell(task, method, rho, seed, stage, value)
+
+
+def _build_asymre_cell(
+    *, task: str, method: str, seed: int, stage: str, value: float,
+    lambda_only: bool, dpo_initialization: str | None,
+) -> Cell:
+    del lambda_only, dpo_initialization
+    return Cell(task, method, None, seed, stage, delta_v=value)
+
+
+def _build_topr_cell(
+    *, task: str, method: str, seed: int, stage: str, value: float,
+    lambda_only: bool, dpo_initialization: str | None,
+) -> Cell:
+    del lambda_only, dpo_initialization
+    return Cell(task, method, None, seed, stage, beta=value)
+
+
+def _build_dpo_cell(
+    *, task: str, method: str, seed: int, stage: str, value: float,
+    lambda_only: bool, dpo_initialization: str | None,
+) -> Cell:
+    del lambda_only
+    if dpo_initialization is None:
+        raise ValueError("DPO cell construction requires initialization identity")
+    return Cell(
+        task, method, None, seed, stage, beta=value,
+        dpo_initialization=dpo_initialization,
+    )
+
+
+def _default_initialization_identity(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    return dict(config["initialization"])
+
+
+def _dpo_initialization_identity(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    if _is_baseline_matrix(config):
+        return {
+            "source": str(config["dpo"]["initialization_mode"]),
+            "shared_sft_adapter_env": config["dpo"].get("shared_sft_adapter_env"),
+        }
+    return dict(config["initialization"])
+
+
+def _cold_train_paper(cell: Cell, **kwargs: Any) -> dict[str, Any]:
+    updates_override = kwargs.pop("updates_override", None)
+    engineering_liveness = bool(kwargs.pop("engineering_liveness", False))
+    if updates_override is not None or engineering_liveness:
+        raise RuntimeError(
+            "Canonical cold liveness requires its derived old-core config path"
+        )
+    return _train_canonical_cold_cell(cell, **kwargs)
+
+
+def _cold_train_dpo(cell: Cell, **kwargs: Any) -> dict[str, Any]:
+    return _train_canonical_dpo_transfer_cell(cell, **kwargs)
+
+
+
+
+def _run_canonical_method_liveness(
+    method: str,
+    *,
+    config: Mapping[str, Any],
+    config_path: Path,
+    output_root: Path,
+    inputs: Mapping[str, TaskInputs],
+    splits: Mapping[str, Any],
+    base_model_path: str,
+    task: str,
+    force: bool,
+) -> dict[str, Any]:
+    if task != "countdown":
+        raise RuntimeError(f"{method} liveness anchor must be Countdown")
+    return _cmd_canonical_cold_liveness(
+        config,
+        config_path,
+        output_root,
+        inputs=inputs["countdown"],
+        splits=splits,
+        base_model_path=base_model_path,
+        force=force,
+        method=method,
+    )
+
+
+def _run_dpo_method_liveness(
+    *,
+    config: Mapping[str, Any],
+    config_path: Path,
+    output_root: Path,
+    inputs: Mapping[str, TaskInputs],
+    splits: Mapping[str, Any],
+    base_model_path: str,
+    task: str,
+    force: bool,
+) -> dict[str, Any]:
+    return _cmd_dpo_liveness(
+        config,
+        config_path,
+        output_root,
+        inputs=inputs,
+        splits=splits,
+        base_model_path=base_model_path,
+        task=task,
+        force=force,
+    )
+
+
+def _paper_grid_paths_exponential(
+    config: Mapping[str, Any],
+    record: Mapping[str, Any],
+    cell: Cell,
+) -> tuple[Path, Path]:
+    grid_name = (
+        "round1_grid"
+        if cell.task != "countdown"
+        else _paper_grid_name(
+            0.0 if cell.lambda_value is None else float(cell.lambda_value)
+        )
+    )
+    return Path(str(record[grid_name])), _canonical_paths(config)[grid_name]
+
+
+def _paper_params_exponential(cell: Cell) -> tuple[str, float, float]:
+    alpha = 0.0 if cell.method == METHOD_POSITIVE_ONLY else 1.0
+    coefficient = (
+        0.0
+        if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL}
+        else float(cell.lambda_value)
+    )
+    return "exponential", alpha, coefficient
+
+
+def _paper_params_asymre(cell: Cell) -> tuple[str, float, float]:
+    if cell.delta_v is None:
+        raise AssertionError("AsymRE cell has no delta_v")
+    return METHOD_ASYMRE, 1.0 + float(cell.delta_v), 0.0
+
+
+def _paper_params_topr(cell: Cell) -> tuple[str, float, float]:
+    if cell.beta is None:
+        raise AssertionError("Joint Fitted-Reference TOPR cell has no beta")
+    return METHOD_TOPR, 1.0, float(cell.beta)
+
+
+
+
+
+
+
+
+def _dpo_method_audit(
+    cell: Cell, record: Mapping[str, Any]
+) -> e8_runtime.MethodAuditResult:
+    del cell
+    failures: list[str] = []
+    if record.get("reference_initial_state_sha256") != record.get(
+        "reference_terminal_state_sha256"
+    ):
+        failures.append("reference_state_changed")
+    if record.get("reference_trainable") is not False:
+        failures.append("reference_trainable")
+    return e8_runtime.MethodAuditResult(
+        passed=not failures,
+        failure_bucket="dpo_reference_identity_failures",
+        failures=tuple(failures),
+    )
+
+
+
+def _asymre_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    del config
+    identity = _canonical_baseline_grid_identity(METHOD_ASYMRE)
+    return {
+        "canonical_asymre_grid": identity["canonical_grid"],
+        "canonical_asymre_grid_sha256": identity["canonical_grid_sha256"],
+        "canonical_grid_identity_policy": identity["identity_policy"],
+        "canonical_grid_expected_git_blob_gate": identity[
+            "expected_git_blob_gate"
+        ],
+    }
+
+
+def _topr_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    del config
+    identity = _canonical_baseline_grid_identity(METHOD_TOPR)
+    return {
+        "canonical_topr_grid": identity["canonical_grid"],
+        "canonical_topr_grid_sha256": identity["canonical_grid_sha256"],
+        "canonical_grid_identity_policy": identity["identity_policy"],
+        "canonical_grid_expected_git_blob_gate": identity[
+            "expected_git_blob_gate"
+        ],
+    }
+
+
+def _dpo_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    return {"dpo_initialization_mode": str(config["dpo"]["initialization_mode"])}
+
+
+def _dpo_matrix_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    return {
+        "initialization_mode": str(config["dpo"]["initialization_mode"]),
+        "shared_sft_adapter_contract_hash": (
+            stable_hash(config["dpo"]["shared_sft_adapter_contract"])
+            if config["dpo"]["initialization_mode"] == "shared_sft_adapter"
+            else None
+        ),
+        "semantics_source": (
+            "historical_PR_268_protected_implementation_"
+            "cc0ead2be00c89a3c35296b7adc1ddeae8d14759"
+        ),
+    }
+
+
+
+
+def _register_builtin_method_specs() -> None:
+    exponential_paper_runtime = PaperRuntimeSpec(
+        liveness_grid=lambda config, record: Path(str(record["round1_grid"])),
+        liveness_parameter="representative_c",
+        grid_paths=_paper_grid_paths_exponential,
+        cell_parameters=_paper_params_exponential,
+        formula="alpha*exp(-c*(current_sequence_surprisal/2))",
+    )
+    for method, build_cell, cell_key, parameters in (
+        (METHOD_POSITIVE_ONLY, _build_control_cell, _positive_key, lambda cell: {}),
+        (
+            METHOD_GLOBAL,
+            _build_control_cell,
+            _global_key,
+            lambda cell: {"lambda": 0.0},
+        ),
+        (
+            METHOD_EXPONENTIAL,
+            _build_exponential_cell,
+            _exp_key,
+            lambda cell: {"lambda": _cell_lambda(cell), "rho": cell.rho},
+        ),
+    ):
+        _register_method_spec(
+            MethodSpec(
+                name=method,
+                build_cell=build_cell,
+                cell_key=cell_key,
+                parameters=parameters,
+                cell_initialization=lambda config: None,
+                initialization_identity=_default_initialization_identity,
+                train_cold=_cold_train_paper,
+                liveness_task=lambda config: "countdown",
+                liveness_runner=lambda _method=method, **kwargs: (
+                    _run_canonical_method_liveness(_method, **kwargs)
+                ),
+                scientific_kernel="canonical_old_coldstart_imports",
+                paper_runtime=exponential_paper_runtime,
+            )
+        )
+
+    _register_method_spec(
+        MethodSpec(
+            name=METHOD_ASYMRE,
+            build_cell=_build_asymre_cell,
+            cell_key=_asymre_key,
+            parameters=lambda cell: {"delta_v": cell.delta_v},
+            cell_initialization=lambda config: None,
+            initialization_identity=_default_initialization_identity,
+            train_cold=_cold_train_paper,
+            liveness_task=lambda config: "countdown",
+            liveness_runner=lambda **kwargs: _run_canonical_method_liveness(
+                METHOD_ASYMRE, **kwargs
+            ),
+            scientific_kernel="canonical_old_coldstart_imports",
+            paper_runtime=PaperRuntimeSpec(
+                liveness_grid=lambda config, record: _canonical_asymre_grid_path(),
+                liveness_parameter="representative_delta_v",
+                grid_paths=lambda config, record, cell: (
+                    _canonical_asymre_grid_path(),
+                    _canonical_asymre_grid_path(),
+                ),
+                cell_parameters=_paper_params_asymre,
+                formula="delegated_to_existing_canonical_asymre",
+            ),
+            single_aggregate_metadata=_asymre_single_metadata,
+            matrix_aggregate_metadata=lambda config: (
+                _canonical_baseline_grid_identity(METHOD_ASYMRE)
+            ),
+        )
+    )
+    _register_method_spec(
+        MethodSpec(
+            name=METHOD_TOPR,
+            build_cell=_build_topr_cell,
+            cell_key=_topr_key,
+            parameters=lambda cell: {"beta": cell.beta},
+            cell_initialization=lambda config: None,
+            initialization_identity=_default_initialization_identity,
+            train_cold=_cold_train_paper,
+            liveness_task=lambda config: "countdown",
+            liveness_runner=lambda **kwargs: _run_canonical_method_liveness(
+                METHOD_TOPR, **kwargs
+            ),
+            scientific_kernel="canonical_old_coldstart_imports",
+            paper_runtime=PaperRuntimeSpec(
+                liveness_grid=lambda config, record: _canonical_topr_grid_path(),
+                liveness_parameter="representative_c",
+                grid_paths=lambda config, record, cell: (
+                    _canonical_topr_grid_path(),
+                    _canonical_topr_grid_path(),
+                ),
+                cell_parameters=_paper_params_topr,
+                formula="delegated_to_existing_joint_fitted_reference_beta_topr",
+            ),
+            single_aggregate_metadata=_topr_single_metadata,
+            matrix_aggregate_metadata=lambda config: (
+                _canonical_baseline_grid_identity(METHOD_TOPR)
+            ),
+        )
+    )
+    _register_method_spec(
+        MethodSpec(
+            name=METHOD_DPO,
+            build_cell=_build_dpo_cell,
+            cell_key=_dpo_key,
+            parameters=lambda cell: {"beta": cell.beta},
+            cell_initialization=lambda config: str(
+                config["dpo"]["initialization_mode"]
+            ),
+            initialization_identity=_dpo_initialization_identity,
+            train_cold=_cold_train_dpo,
+            liveness_task=lambda config: str(config["dpo"]["liveness_task"]),
+            liveness_runner=_run_dpo_method_liveness,
+            scientific_kernel=(
+                "historical_pr268_semantics_port_in_existing_multitask_runner"
+            ),
+            audit_record=_dpo_method_audit,
+            single_aggregate_metadata=_dpo_single_metadata,
+            matrix_aggregate_metadata=_dpo_matrix_metadata,
+        )
+    )
+
+
+
+_register_builtin_method_specs()
 
 @dataclass(frozen=True)
 class TaskInputs:
@@ -195,10 +712,15 @@ class RowDataset(Dataset):
 
 
 def load_config(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
-    value = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    source = Path(path)
+    repo_root = Path(__file__).resolve().parents[2]
+    if not source.is_absolute():
+        source = repo_root / source
+    value = yaml.safe_load(source.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
         raise TypeError("Configuration root must be a mapping")
     validate_config(value)
+    experiment_config.validate_historical_config_identity(source, value, repo_root=repo_root)
     return value
 
 
@@ -207,14 +729,11 @@ def _tuple_floats(values: Sequence[Any]) -> tuple[float, ...]:
 
 
 def experiment_id(config: Mapping[str, Any]) -> str:
-    value = str(config.get("experiment_id", ""))
-    if value not in SUPPORTED_EXPERIMENT_IDS:
-        raise ValueError(f"Unsupported experiment_id: {value}")
-    return value
+    return experiment_config.experiment_id(config)
 
 
 def sweep_profile(config: Mapping[str, Any]) -> str:
-    return str(config.get("sweep", {}).get("profile", SWEEP_PROFILE_RHO))
+    return experiment_config.sweep_profile(config)
 
 
 def _is_dense(config: Mapping[str, Any]) -> bool:
@@ -230,6 +749,19 @@ def _is_engineering_self_test(config: Mapping[str, Any]) -> bool:
     return isinstance(value, Mapping) and value.get("placeholder_backend") is True
 
 
+def _execution_class(config: Mapping[str, Any]) -> str:
+    value = str(config.get("execution_class", "pilot"))
+    if value not in {"pilot", "formal"}:
+        raise ValueError("execution_class must be pilot or formal")
+    return value
+
+
+def _audited_scientific_status(config: Mapping[str, Any], complete: bool) -> str:
+    if _is_engineering_self_test(config):
+        return "not_run"
+    return "finite_step_validated" if _execution_class(config) == "formal" and complete else "pilot"
+
+
 def _uses_task_lambdas(config: Mapping[str, Any]) -> bool:
     return _is_dense(config) or _is_coldstart(config)
 
@@ -241,10 +773,23 @@ def _dense_tasks() -> set[str]:
 def _task_lambdas(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
     if not _uses_task_lambdas(config):
         raise ValueError("Task-local lambdas are not defined for this profile")
-    values = _tuple_floats(config["sweep"]["task_lambda"][task])
-    if any(not math.isfinite(value) or value <= 0.0 for value in values):
-        raise ValueError(f"{task} lambda values must be finite and positive")
-    return values
+    return experiment_config.task_lambdas(config, task)
+
+
+def _coldstart_method(config: Mapping[str, Any]) -> str:
+    if not _is_coldstart(config):
+        raise ValueError("Cold-start method is defined only for the cold-start profile")
+    return experiment_config.coldstart_method(config)
+
+
+def _coldstart_methods(config: Mapping[str, Any]) -> tuple[str, ...]:
+    if not _is_coldstart(config):
+        raise ValueError("Cold-start methods are defined only for the cold-start profile")
+    return experiment_config.coldstart_methods(config)
+
+
+def _is_baseline_matrix(config: Mapping[str, Any]) -> bool:
+    return _is_coldstart(config) and _coldstart_method(config) == METHOD_BASELINE_MATRIX
 
 
 def _task_rhos(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
@@ -270,10 +815,11 @@ def _reference_seed(
 def validate_config(config: Mapping[str, Any]) -> None:
     if config.get("schema_version") != 1:
         raise ValueError("Expected schema_version: 1")
-    current_experiment = experiment_id(config)
     profile = sweep_profile(config)
-    if profile not in (SWEEP_PROFILE_RHO, SWEEP_PROFILE_DENSE, SWEEP_PROFILE_COLDSTART):
-        raise ValueError(f"Unsupported sweep profile: {profile}")
+    experiment_config.validate_profile_experiment_id(config)
+    if profile == SWEEP_PROFILE_COLDSTART:
+        return
+
     expected_parent = EXPERIMENT_ID if profile == SWEEP_PROFILE_DENSE else P0_EXPERIMENT_ID
     if config.get("parent", {}).get("experiment_id") != expected_parent:
         raise ValueError("Unexpected parent experiment")
@@ -286,13 +832,8 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("suite.p0_tasks must be the exact eight P0 tasks")
         if tuple(config["suite"].get("external_tasks", ())) != ("countdown",):
             raise ValueError("Countdown must be the only external task")
-    elif profile == SWEEP_PROFILE_DENSE:
-        if (
-            current_experiment != DENSE_EXPERIMENT_ID
-            or len(tasks) != 7
-            or len(set(tasks)) != 7
-            or set(tasks) != _dense_tasks()
-        ):
+    else:
+        if len(tasks) != 7 or len(set(tasks)) != 7 or set(tasks) != _dense_tasks():
             raise ValueError(
                 "The dense suite must be the exact seven non-Countdown, non-Spiral tasks"
             )
@@ -300,52 +841,14 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("Dense suite.p0_tasks must preserve the exact task order")
         if tuple(config["suite"].get("external_tasks", ())) != ():
             raise ValueError("Dense refinement has no external Countdown task")
-    else:
-        expected_tasks = set(TASK_NAMES)
-        if (
-            current_experiment not in (COLDSTART_EXPERIMENT_ID, LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID)
-            or len(tasks) != 9
-            or len(set(tasks)) != 9
-            or set(tasks) != expected_tasks
-        ):
-            raise ValueError("The cold-start suite must be Countdown plus the exact eight P0 tasks")
-        if set(config["suite"].get("p0_tasks", ())) != expected_tasks - {"countdown"}:
-            raise ValueError("Cold-start suite.p0_tasks must be the exact eight P0 tasks")
-        if tuple(config["suite"].get("external_tasks", ())) != ("countdown",):
-            raise ValueError("Countdown must be the only cold-start external task")
+
     reference = config["reference"]
-    expected_reference = (
-        "fresh_lora_from_base_model"
-        if _is_coldstart(config)
-        else "train_only_task_positive_warmstart_100"
-    )
-    if reference["checkpoint_kind"] != expected_reference:
-        raise ValueError(f"reference.checkpoint_kind must be {expected_reference}")
-    expected_reference_updates = 0 if _is_coldstart(config) else 100
-    if int(reference["optimizer_updates"]) != expected_reference_updates:
-        raise ValueError(f"Reference initialization must use {expected_reference_updates} updates")
+    if reference["checkpoint_kind"] != "train_only_task_positive_warmstart_100":
+        raise ValueError("reference.checkpoint_kind must be train_only_task_positive_warmstart_100")
+    if int(reference["optimizer_updates"]) != 100:
+        raise ValueError("Reference initialization must use 100 updates")
     if int(reference["validation_rows_seen"]) != 0 or int(reference["test_rows_seen"]) != 0:
         raise ValueError("Train-only reference preparation must not see validation or test rows")
-    if _is_coldstart(config):
-        model = config["model"]
-        if (
-            model.get("base_model") != "Qwen/Qwen2.5-0.5B-Instruct"
-            or model.get("revision")
-            != "7ae557604adf67be50417f59c2c2f167def9a775"
-            or model.get("parameterization") != "lora"
-            or model.get("dtype") != "auto"
-            or not bool(model.get("gradient_checkpointing", False))
-        ):
-            raise ValueError("Cold-start base-model identity/runtime contract drifted")
-        old_lora_contract = (
-            int(model["lora_rank"]),
-            int(model["lora_alpha"]),
-            float(model["lora_dropout"]),
-            int(model["max_length"]),
-            int(model["max_new_tokens"]),
-        )
-        if old_lora_contract != (32, 64, 0.05, 256, 80):
-            raise ValueError("Cold-start must preserve the old base-RL LoRA/model contract")
 
     split = config["split"]
     if _is_engineering_self_test(config):
@@ -362,41 +865,22 @@ def validate_config(config: Mapping[str, Any]) -> None:
             "p0_validation_rows": 500,
             "p0_test_rows": 500,
         }
-        if profile in (SWEEP_PROFILE_RHO, SWEEP_PROFILE_COLDSTART):
-            expected_split.update(
-                {
-                    "countdown_train_rows": 6000 if _is_coldstart(config) else 5000,
-                    "countdown_validation_rows": 500,
-                }
-            )
+        if profile == SWEEP_PROFILE_RHO:
+            expected_split.update({"countdown_train_rows": 5000, "countdown_validation_rows": 500})
     for key, expected in expected_split.items():
         if int(split[key]) != expected:
             raise ValueError(f"{key} must remain {expected}")
     if bool(split.get("test_access_allowed", True)):
         raise ValueError("Tuning must forbid test access")
-    if _is_coldstart(config) and not bool(
-        split.get("countdown_subsampling_forbidden", False)
-    ):
-        raise ValueError("Countdown source-order bank subsampling must remain forbidden")
 
     training = config["training"]
     if int(training["optimizer_updates"]) != 1200:
         raise ValueError("The tuning horizon must remain 1200 updates")
     if int(training["micro_batch"]) != 1 or int(training["gradient_accumulation"]) != 8:
         raise ValueError("The method-training effective prompt batch must remain 8")
-    if not math.isclose(
-        float(training["learning_rate"]),
-        5.0e-5,
-        rel_tol=0.0,
-        abs_tol=1.0e-12,
-    ):
+    if not math.isclose(float(training["learning_rate"]), 5.0e-5, rel_tol=0.0, abs_tol=1.0e-12):
         raise ValueError("The method-training learning rate must remain 5e-5")
-    if not math.isclose(
-        float(training["warmup_ratio"]),
-        0.03,
-        rel_tol=0.0,
-        abs_tol=1.0e-12,
-    ):
+    if not math.isclose(float(training["warmup_ratio"]), 0.03, rel_tol=0.0, abs_tol=1.0e-12):
         raise ValueError("The method-training warmup ratio must remain 0.03")
     if int(training["evaluation_every_updates"]) != 100:
         raise ValueError("Evaluation cadence must remain 100 updates")
@@ -404,102 +888,35 @@ def validate_config(config: Mapping[str, Any]) -> None:
         float(training["max_grad_norm"]), 1.0
     ):
         raise ValueError("The old optimizer weight-decay/gradient-clip contract changed")
-    if _is_coldstart(config):
-        if (
-            bool(training.get("early_stopping", True))
-            or tuple(int(value) for value in training.get("late_window_updates", ()))
-            != (800, 900, 1000, 1100, 1200)
-            or not bool(training.get("terminal_adapter_required", False))
-        ):
-            raise ValueError("Cold-start must preserve fixed-1200 paper late-window training")
-    else:
-        if bool(training.get("early_stopping", True)):
-            raise ValueError("Early stopping is forbidden")
-        if tuple(int(value) for value in training["late_window_updates"]) != (
-            800,
-            900,
-            1000,
-            1100,
-            1200,
-        ):
-            raise ValueError("Unexpected late-window updates")
+    if bool(training.get("early_stopping", True)):
+        raise ValueError("Early stopping is forbidden")
+    if tuple(int(value) for value in training["late_window_updates"]) != (
+        800,
+        900,
+        1000,
+        1100,
+        1200,
+    ):
+        raise ValueError("Unexpected late-window updates")
 
     evaluation = config["evaluation"]
     if int(evaluation["greedy_prompt_rows"]) != 500:
         raise ValueError("Greedy validation must use 500 prompts")
-    expected_passk_rows = 500 if _is_coldstart(config) else 128
-    if (
-        int(evaluation["passk_prompt_rows"]) != expected_passk_rows
-        or int(evaluation["pass_k"]) != 8
-    ):
-        raise ValueError(
-            f"Pass@8 validation must use the frozen {expected_passk_rows}-prompt subset"
-        )
-    if _is_coldstart(config) and (
-        int(evaluation["batch_size"]) != 8 or int(evaluation["max_new_tokens"]) != 80
-    ):
-        raise ValueError("Cold-start must preserve the old evaluation batch/length contract")
-    if _is_coldstart(config) and (
-        tuple(int(value) for value in evaluation.get("auxiliary_pass_ks", ())) != (64,)
-        or evaluation.get("primary_checkpoint_policy") != "late_window_and_terminal"
-        or evaluation.get("best_checkpoint_role") != "supplementary_only"
-    ):
-        raise ValueError("Cold-start evaluation/reporting policy drifted")
+    if int(evaluation["passk_prompt_rows"]) != 128 or int(evaluation["pass_k"]) != 8:
+        raise ValueError("Pass@8 validation must use the frozen 128-prompt subset")
 
     negative = config["negative_sampling"]
     if int(negative["negatives_per_prompt"]) != 16:
         raise ValueError("Every training prompt must retain exactly 16 negatives")
-    if _is_coldstart(config):
-        if (
-            negative.get("consumer") != "all_unique_negatives_per_prompt"
-            or negative.get("deduplicate_rule")
-            != "first_canonical_completion_occurrence"
-            or negative.get("denominator") != "unique_negative_count_per_prompt"
-            or bool(negative.get("near_far_selection", True))
-            or bool(negative.get("weight_sum_normalization", True))
-            or bool(negative.get("gradient_budget_matching", True))
-        ):
-            raise ValueError("Cold-start negative consumption must match the paper trainer")
-        reference_bank = negative.get("reference_remoteness_bank")
-        if not isinstance(reference_bank, Mapping):
-            raise ValueError("Cold-start requires the derived reference-remoteness bank contract")
-        expected_reference_bank = {
-            "enabled": True,
-            "scope": "non_countdown_training_only",
-            "source_candidates": "all_deterministic_verified_wrong_mutations",
-            "reference_policy": "zero_update_base_plus_fresh_lora",
-            "coordinate": "mean_completion_token_surprisal",
-            "selected_negatives_per_prompt": 16,
-            "selection": "source_p0_error_class_sequence_then_within_class_reference_rank_spread",
-            "coverage_threshold": None,
-            "reference_rank_role": "provenance_and_diagnostic_only",
-            "static_reference_rank_enters_training_weight": False,
-            "current_policy_surprisal_recomputed_each_update": True,
-            "original_p0_bank_preserved": True,
-            "audit_quantiles": ["min", "q25", "median", "q75", "max"],
-        }
-        if dict(reference_bank) != expected_reference_bank:
-            raise ValueError("Reference-remoteness bank selection contract drifted")
-    else:
-        if _tuple_floats(negative["near_far_mix"]) != (0.5, 0.5):
-            raise ValueError("Near/far branch mass must remain 0.5/0.5")
-        if not bool(negative["selection_stop_gradient"]):
-            raise ValueError("Current near/far selection must be stop-gradient")
-        if bool(negative["weight_sum_normalization"]):
-            raise ValueError("Weight-sum normalization is forbidden")
+    if _tuple_floats(negative["near_far_mix"]) != (0.5, 0.5):
+        raise ValueError("Near/far branch mass must remain 0.5/0.5")
+    if not bool(negative["selection_stop_gradient"]):
+        raise ValueError("Current near/far selection must be stop-gradient")
+    if bool(negative["weight_sum_normalization"]):
+        raise ValueError("Weight-sum normalization is forbidden")
 
     calibration = config["remoteness_calibration"]
-    if _is_coldstart(config):
-        if (
-            bool(calibration.get("enabled", True))
-            or calibration.get("mode") != "paper_linear_surprisal_no_calibration"
-            or calibration.get("coordinate") != "current_sequence_surprisal_div_2"
-            or not bool(calibration.get("detached", False))
-            or bool(calibration.get("extra_square", True))
-            or bool(calibration.get("gradient_rms_matching", True))
-        ):
-            raise ValueError("Paper cold-start forbids remoteness/RMS calibration")
-    elif not math.isclose(
+    if not math.isclose(
         float(calibration["target_negative_to_positive_gradient_ratio"]),
         1.0 / 32.0,
         rel_tol=0.0,
@@ -525,7 +942,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("Unexpected full rho grid")
         if int(sweep["positive_only_per_task"]) != 1 or int(sweep["expected_cells"]) != 72:
             raise ValueError("The rho matrix must be 7 Exp plus 1 Positive-only per task")
-    elif profile == SWEEP_PROFILE_DENSE:
+    else:
         task_lambda = sweep.get("task_lambda")
         bridges = sweep.get("bridge_lambda")
         if not isinstance(task_lambda, Mapping) or set(task_lambda) != set(tasks):
@@ -543,174 +960,6 @@ def validate_config(config: Mapping[str, Any]) -> None:
             raise ValueError("The dense matrix must be 16 Exp cells for each of seven tasks")
         if int(sweep["tuning_seed"]) != 2026072904:
             raise ValueError("Dense shape discovery must preserve the predecessor tuning seed")
-    else:
-        task_lambda = sweep.get("task_lambda")
-        if not isinstance(task_lambda, Mapping) or set(task_lambda) != set(tasks):
-            raise ValueError("Cold-start task_lambda must contain the exact nine tasks")
-        countdown_sentinels = (
-            0.105360516,
-            0.430782916,
-            0.916290732,
-            1.897119985,
-            2.302585093,
-            2.995732274,
-        )
-        if _tuple_floats(sweep.get("countdown_sentinel_coefficients", ())) != countdown_sentinels:
-            raise ValueError("Countdown sentinel coefficients drifted")
-        if _task_lambdas(config, "countdown") != countdown_sentinels:
-            raise ValueError("Countdown task_lambda must equal the six diagnostic sentinels")
-        expected_parameterization = "paper_lambda_c1" if current_experiment in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID) else "paper_coefficient_c"
-        if sweep.get("parameterization") != expected_parameterization:
-            raise ValueError("Cold-start parameterization drifted")
-        expected_countdown_seeds = () if current_experiment in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID) else PAPER_SEED_OFFSETS
-        if tuple(int(value) for value in sweep.get("countdown_seed_offsets", ())) != expected_countdown_seeds:
-            raise ValueError("Countdown seed offsets drifted")
-        transfer_positive_seeds = tuple(
-            int(value) for value in sweep.get("transfer_positive_only_seed_offsets", ())
-        )
-        if current_experiment == LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID:
-            if transfer_positive_seeds:
-                raise ValueError("Lambda Curve Completion must not schedule Positive-only seeds")
-        elif (current_experiment == LAMBDA_COMPLETION_EXPERIMENT_ID and (not transfer_positive_seeds or len(transfer_positive_seeds) != len(set(transfer_positive_seeds)))) or (current_experiment != LAMBDA_COMPLETION_EXPERIMENT_ID and transfer_positive_seeds != (4000, 5000, 6000, 7000)):
-            raise ValueError("Transfer Positive-only seed offsets drifted")
-        if int(sweep.get("task_transfer_seed_offset", -1)) != 4000:
-            raise ValueError("Transfer Exp response-shape localization must use seed 4000")
-        if int(sweep.get("tuning_seed", -1)) != 4000:
-            raise ValueError("Cold-start tuning_seed must remain 4000")
-
-        transfer_tasks = set(tasks) - {"countdown"}
-        grid_hashes = sweep.get("task_grid_hashes")
-        provenance = sweep.get("task_grid_provenance")
-        expected_hashes = {
-            "word_sorting": "d24edbd6099f1d4f081318b305e62b39834db7ab94af6b4279d706f94e8d6de3",
-            "spiral_matrix": "805966b9e3e1774e748d1d96ca64667e23276782681e15c1e072e5536a02199a",
-            "mini_sudoku": "2340c4729b70ae5bafb7b6bf07049f38056b18368749bba3b967b4bbd950e29c",
-            "maze": "399732f8572faf670a0486cd5f838d3956bfa56cabbb5ae79b8521fbbfc45d33",
-            "word_ladder": "4fff6be5b923b9071ae0ee949e734087330463072d9be02015a661e51a2689e4",
-            "knights_knaves": "37f675c933e909ac1ca8a6464c8ed72497758b31d1c8a82c855cad10961c4cab",
-            "graph_color": "65c02a38a4339888d2e485c277fa1668a5e0309fab857e3ae2b2b2c0dc862f9d",
-            "wikisql": "e42e516dbbe0bfd0f9fd00f5dec22949f88503253a2235c8c81bd908af4779a0",
-        }
-        if not isinstance(grid_hashes, Mapping) or set(grid_hashes) != transfer_tasks or (current_experiment not in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID) and dict(grid_hashes) != expected_hashes):
-            raise ValueError("Transfer task-grid hashes drifted")
-        if not isinstance(provenance, Mapping) or set(provenance) != transfer_tasks:
-            raise ValueError("Transfer task-grid provenance must cover the exact eight tasks")
-        if any(not str(provenance[task]).strip() for task in transfer_tasks):
-            raise ValueError("Transfer task-grid provenance entries must be non-empty")
-        for task in transfer_tasks:
-            values = _task_lambdas(config, str(task))
-            if len(values) != len(set(values)) or (current_experiment == LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID and len(values) != (0 if task == "spiral_matrix" else 20)) or (current_experiment not in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID) and len(values) != 20):
-                raise ValueError(f"{task} Exp coefficient grid has invalid cardinality")
-            if stable_hash(list(values)) != str(grid_hashes[task]):
-                raise ValueError(f"{task} coefficient grid does not match its locked hash")
-        expanded_cells = len(expected_countdown_seeds) * (2 + len(countdown_sentinels)) + sum(len(transfer_positive_seeds) + len(_task_lambdas(config, str(task))) for task in transfer_tasks)
-        if int(sweep.get("expected_cells", -1)) != expanded_cells:
-            raise ValueError("Cold-start expected_cells must match the configured matrix")
-
-        initialization = config.get("initialization", {})
-        if (
-            initialization.get("source") != "base_model"
-            or int(initialization.get("optimizer_updates", -1)) != 0
-            or bool(initialization.get("external_adapter_allowed", True))
-        ):
-            raise ValueError("Cold-start must use a zero-update base-model LoRA initialization")
-        canonical = config.get("canonical_coldstart", {})
-        expected_paths = {
-            "arena": "src/drpo/countdown_qwen_arena_onefile.py",
-            "scan_common": "src/drpo/countdown_e8_alpha1_c_scan_common.py",
-            "scan_runtime": "src/drpo/countdown_e8_alpha1_c_scan_runtime.py",
-            "scan_trainer": "src/drpo/countdown_e8_alpha1_c_scan_trainer.py",
-            "paper_common": "src/drpo/countdown_e8_alpha1_highc_scan_common.py",
-            "paper_runtime": "src/drpo/countdown_e8_alpha1_highc_scan_runtime.py",
-            "base_config": "configs/countdown_e8_base_rl_replay_0p5b.yaml",
-            "round1_grid": (
-                "configs/countdown_e8_oracle_offline_v2_alpha1_highc_scan_0p5b.yaml"
-            ),
-            "extension_grid": (
-                "configs/countdown_e8_oracle_offline_v2_linear_c_extension_0p5b.yaml"
-            ),
-            "bank_generator": "src/drpo/countdown_e8_oracle_bank_v2.py",
-            "bank_config": "configs/countdown_e8_oracle_offline_bank_v2_0p5b.yaml",
-            "bank_converter": "scripts/v2_bank_convert.py",
-            "p0_bank_pipeline": "src/drpo/e8_multitask_p0.py",
-            "p0_task_adapters": "src/drpo/e8_multitask_tasks.py",
-            "p0_config": "configs/e8_multitask_p0.yaml",
-            "p0_launcher": "scripts/run_e8_multitask_p0.sh",
-            "result_reference": (
-                "experiments/results/e8_paper_aligned_linear_scan_round1_pilot/"
-                "RESULT_SUMMARY.json"
-            ),
-        }
-        if canonical.get("paths") != expected_paths:
-            raise ValueError("Cold-start canonical paths must point to the old implementation")
-        blob_shas = canonical.get("expected_git_blob_shas", {})
-        if set(blob_shas) != set(expected_paths) or any(
-            len(str(value)) != 40 for value in blob_shas.values()
-        ):
-            raise ValueError("Cold-start must pin every old source/config Git blob SHA")
-        if canonical.get("scientific_kernel") != "import_only_no_loss_reimplementation":
-            raise ValueError("Cold-start scientific kernel must be imported, not reimplemented")
-        if canonical.get("countdown_entry") != "countdown_e8_alpha1_highc_scan_runtime.worker":
-            raise ValueError("Countdown dispatch must remain the exact paper worker")
-        if canonical.get("transfer_entry") != "countdown_e8_alpha1_c_scan_trainer.train_cell":
-            raise ValueError("Transfer dispatch must remain the locked paper trainer")
-
-        runtime = config.get("task_runtime", {})
-        expected_whitelist = (
-            "model.max_length",
-            "model.max_new_tokens",
-            "evaluation.batch_size",
-            "evaluation.greedy_prompt_rows",
-            "evaluation.passk_prompt_rows",
-            "evaluation.pass_ks",
-        )
-        if tuple(runtime.get("override_whitelist", ())) != expected_whitelist or set(runtime) != {
-            "override_whitelist",
-            *tasks,
-        }:
-            raise ValueError("Task runtime overrides must use the exact six-field whitelist")
-        for task in tasks:
-            task_runtime = runtime[task]
-            if set(task_runtime) != {
-                "max_length",
-                "max_new_tokens",
-                "evaluation_batch_size",
-                "greedy_prompt_rows",
-                "passk_prompt_rows",
-                "auxiliary_pass_ks",
-            }:
-                raise ValueError(f"{task} contains a non-whitelisted runtime override")
-            is_countdown = task == "countdown"
-            expected_length = 256 if is_countdown else 512
-            expected_new_tokens = 80 if is_countdown else 128
-            expected_batch = 8 if is_countdown else 16
-            expected_passk_rows = 500 if is_countdown else 128
-            expected_aux = (64,) if is_countdown else ()
-            if (
-                int(task_runtime["max_length"]) != expected_length
-                or int(task_runtime["max_new_tokens"]) != expected_new_tokens
-                or int(task_runtime["evaluation_batch_size"]) != expected_batch
-                or int(task_runtime["greedy_prompt_rows"]) != 500
-                or int(task_runtime["passk_prompt_rows"]) != expected_passk_rows
-                or tuple(int(value) for value in task_runtime["auxiliary_pass_ks"])
-                != expected_aux
-            ):
-                raise ValueError(f"{task} task-interface length/evaluation contract drifted")
-
-        selection = config.get("selection", {})
-        if (
-            selection.get("primary_metric") != "validation_late_window_pass8_mean"
-            or not bool(selection.get("finite_required", False))
-            or selection.get("terminal_valid_rate_role")
-            != "diagnostic_only_not_selection_eligibility"
-            or tuple(selection.get("tie_breakers", ()))
-            != (
-                "validation_terminal_pass8",
-                "validation_late_window_greedy_mean",
-                "smaller_lambda",
-            )
-        ):
-            raise ValueError("Cold-start selection policy drifted")
 
     execution = config["execution"]
     expected_capacity = 16
@@ -718,27 +967,9 @@ def validate_config(config: Mapping[str, Any]) -> None:
         raise ValueError(f"The scheduler must expose exactly {expected_capacity} slots")
     if tuple(int(value) for value in execution["gpu_ids"]) != tuple(range(8)):
         raise ValueError("The default GPU pool must remain 0--7")
-    expected_waves = (
-        math.ceil(int(config["sweep"]["expected_cells"]) / expected_capacity)
-        if profile == SWEEP_PROFILE_COLDSTART
-        else (7 if profile == SWEEP_PROFILE_DENSE else 5)
-    )
+    expected_waves = 7 if profile == SWEEP_PROFILE_DENSE else 5
     if int(execution["slots_per_gpu"]) != 2 or int(execution["expected_waves"]) != expected_waves:
-        raise ValueError(
-            f"The frozen topology is two slots per GPU and {expected_waves} {'nominal batches' if _is_coldstart(config) else 'waves'}"
-        )
-    if _is_coldstart(config) and execution.get("scheduler") != "dynamic_slot_queue":
-        raise ValueError("Cold-start execution must use the recovery-aware slot scheduler")
-    if _is_coldstart(config) and (
-        bool(execution.get("wave_barriers", True))
-        or not bool(execution.get("identity_checked_resume", False))
-        or not bool(execution.get("retry_incomplete_requires_explicit_flag", False))
-        or not bool(execution.get("fail_closed", False))
-        or not bool(execution.get("test_partition_forbidden", False))
-        or execution.get("oom_policy")
-        != "fail_cell_no_automatic_scientific_parameter_mutation"
-    ):
-        raise ValueError("Cold-start recovery/OOM safety contract drifted")
+        raise ValueError(f"The frozen topology is two slots per GPU and {expected_waves} waves")
 
 
 def coefficient_from_rho(rho: float) -> float:
@@ -857,6 +1088,27 @@ def taper_weight(distance: torch.Tensor, rho: float) -> torch.Tensor:
     return torch.exp(-coefficient_from_rho(rho) * distance)
 
 
+def _coldstart_method_cell(
+    task: str,
+    method: str,
+    seed: int,
+    stage: str,
+    value: float,
+    *,
+    lambda_only: bool,
+    dpo_initialization: str | None = None,
+) -> Cell:
+    return _method_spec(method).build_cell(
+        task=task,
+        method=method,
+        seed=seed,
+        stage=stage,
+        value=value,
+        lambda_only=lambda_only,
+        dpo_initialization=dpo_initialization,
+    )
+
+
 def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
     validate_config(config)
     tasks = tuple(str(task) for task in config["suite"]["tasks"])
@@ -879,50 +1131,111 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
         return cells
     if _is_coldstart(config):
         cells: list[Cell] = []
-        lambda_only = experiment_id(config) in (LAMBDA_COMPLETION_EXPERIMENT_ID, LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID)
-        countdown_coefficients = _task_lambdas(config, "countdown")
-        for seed_offset in tuple(int(value) for value in config["sweep"]["countdown_seed_offsets"]):
-            cells.append(
-                Cell("countdown", METHOD_POSITIVE_ONLY, None, seed_offset, "countdown_sentinel")
+        methods = _coldstart_methods(config)
+        method_seeds = experiment_config.task_transfer_seeds(config)
+        if _is_baseline_matrix(config):
+            for method_seed in method_seeds:
+                for task in tasks:
+                    if task == "countdown":
+                        continue
+                    for method in methods:
+                        values = experiment_config.task_method_values(config, task, method=method)
+                        cells.extend(
+                            _coldstart_method_cell(
+                                task, method, method_seed, "task_transfer", value,
+                                lambda_only=False,
+                                dpo_initialization=_method_spec(method).cell_initialization(config),
+                            )
+                            for value in values
+                        )
+        else:
+            method = methods[0]
+            lambda_only = (
+                method == METHOD_EXPONENTIAL
+                and config["sweep"]["parameterization"] == "paper_lambda_c1"
             )
-            cells.append(
-                Cell("countdown", METHOD_GLOBAL, 1.0, seed_offset, "countdown_sentinel", 0.0)
+            dpo_initialization = _method_spec(method).cell_initialization(config)
+            countdown_values = experiment_config.task_method_values(
+                config, "countdown", method=method
             )
-            cells.extend(
-                Cell(
-                    "countdown",
-                    METHOD_EXPONENTIAL,
-                    None if lambda_only else math.exp(-coefficient),
-                    seed_offset,
-                    "countdown_sentinel",
-                    coefficient,
+            countdown_include_positive_only = bool(
+                config["sweep"].get("countdown_include_positive_only", True)
+            )
+            include_global_endpoint = bool(
+                config["sweep"].get("include_global_endpoint", False)
+            )
+            for seed_offset in tuple(
+                int(value) for value in config["sweep"]["countdown_seed_offsets"]
+            ):
+                if countdown_include_positive_only:
+                    cells.append(
+                        Cell(
+                            "countdown", METHOD_POSITIVE_ONLY, None, seed_offset,
+                            "countdown_sentinel"
+                        )
+                    )
+                cells.append(
+                    Cell(
+                        "countdown", METHOD_GLOBAL, 1.0, seed_offset,
+                        "countdown_sentinel", 0.0
+                    )
                 )
-                for coefficient in countdown_coefficients
-            )
-        positive_seeds = tuple(
-            int(value) for value in config["sweep"]["transfer_positive_only_seed_offsets"]
-        )
-        exp_seed = int(config["sweep"]["task_transfer_seed_offset"])
-        for task in tasks:
-            if task == "countdown":
-                continue
-            cells.extend(
-                Cell(task, METHOD_POSITIVE_ONLY, None, seed_offset, "task_transfer")
-                for seed_offset in positive_seeds
-            )
-            cells.extend(
-                Cell(
-                    task,
-                    METHOD_EXPONENTIAL,
-                    None if lambda_only else math.exp(-coefficient),
-                    exp_seed,
-                    "task_transfer",
-                    coefficient,
+                if method == METHOD_DPO:
+                    raise AssertionError(
+                        "Countdown DPO cells are disabled by config validation"
+                    )
+                cells.extend(
+                    _coldstart_method_cell(
+                        "countdown",
+                        method,
+                        seed_offset,
+                        "countdown_sentinel",
+                        value,
+                        lambda_only=lambda_only,
+                        dpo_initialization=dpo_initialization,
+                    )
+                    for value in countdown_values
                 )
-                for coefficient in _task_lambdas(config, task)
+            positive_seeds = tuple(
+                int(value)
+                for value in config["sweep"]["transfer_positive_only_seed_offsets"]
             )
+            for task in tasks:
+                if task == "countdown":
+                    continue
+                values = experiment_config.task_method_values(
+                    config, task, method=method
+                )
+                if not values:
+                    continue
+                cells.extend(
+                    Cell(task, METHOD_POSITIVE_ONLY, None, seed_offset, "task_transfer")
+                    for seed_offset in positive_seeds
+                )
+                for method_seed in method_seeds:
+                    if include_global_endpoint:
+                        cells.append(
+                            Cell(
+                                task, METHOD_GLOBAL, 1.0, method_seed,
+                                "task_transfer", 0.0
+                            )
+                        )
+                    cells.extend(
+                        _coldstart_method_cell(
+                            task,
+                            method,
+                            method_seed,
+                            "task_transfer",
+                            value,
+                            lambda_only=lambda_only,
+                            dpo_initialization=dpo_initialization,
+                        )
+                        for value in values
+                    )
         result = tuple(cells)
-        if len(result) != int(config["sweep"]["expected_cells"]) or len({cell.key for cell in result}) != len(result):
+        if len(result) != int(config["sweep"]["expected_cells"]) or len(
+            {cell.key for cell in result}
+        ) != len(result):
             raise AssertionError("Internal cold-start cell identity failure")
         return result
     coarse = _tuple_floats(config["sweep"]["coarse_rho"])
@@ -950,15 +1263,25 @@ def build_waves(config: Mapping[str, Any]) -> tuple[tuple[Cell, ...], ...]:
             raise AssertionError("Dense wave geometry must be seven task-local 16-cell waves")
         return waves
     if _is_coldstart(config):
-        waves = tuple(
-            tuple(cells[index : index + capacity]) for index in range(0, len(cells), capacity)
+        seed_barrier = _is_baseline_matrix(config) and bool(
+            config["execution"].get("seed_batch_barriers")
         )
-        if (
-            not waves
-            or len(waves) != int(config["execution"]["expected_waves"])
-            or any(len(wave) != capacity for wave in waves[:-1])
-            or not 0 < len(waves[-1]) <= capacity
-        ):
+        seed_order = (
+            tuple(int(value) for value in config["execution"].get("seed_batch_order", ()))
+            if seed_barrier
+            else None
+        )
+        waves = e8_orchestration.nominal_batches(
+            cells,
+            slot_count=capacity,
+            seed_barrier=seed_barrier,
+            seed_order=seed_order,
+        )
+        if seed_barrier and tuple(len(wave) for wave in waves) != (
+            16, 16, 16, 16, 16, 8,
+        ) * 2:
+            raise AssertionError("Baseline matrix must form two 88-cell seed-local batches")
+        if not waves or any(len(wave) != capacity for wave in waves[:-1]) and not seed_barrier:
             raise AssertionError(
                 "Cold-start nominal batches must fill capacity except possibly the final batch"
             )
@@ -968,7 +1291,8 @@ def build_waves(config: Mapping[str, Any]) -> tuple[tuple[Cell, ...], ...]:
 
     def chunk(values: tuple[Cell, ...]) -> tuple[tuple[Cell, ...], ...]:
         return tuple(
-            tuple(values[index : index + capacity]) for index in range(0, len(values), capacity)
+            tuple(values[index : index + capacity])
+            for index in range(0, len(values), capacity)
         )
 
     waves = chunk(coarse) + chunk(refinement)
@@ -982,30 +1306,13 @@ def build_waves(config: Mapping[str, Any]) -> tuple[tuple[Cell, ...], ...]:
 
 
 def write_plan(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
-    rows: list[dict[str, Any]] = []
     waves = build_waves(config)
     gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
-    for wave_index, wave in enumerate(waves, start=1):
-        for slot, cell in enumerate(wave):
-            rows.append(
-                {
-                    "wave": wave_index,
-                    "nominal_batch": wave_index,
-                    "slot": slot,
-                    "gpu_id": gpu_ids[slot % len(gpu_ids)],
-                    "cell_key": cell.key,
-                    "task": cell.task,
-                    "method": cell.method,
-                    "rho": cell.rho,
-                    "lambda": (
-                        cell.lambda_value
-                        if cell.lambda_value is not None
-                        else (None if cell.rho is None else coefficient_from_rho(cell.rho))
-                    ),
-                    "seed": cell.seed,
-                    "stage": cell.stage,
-                }
-            )
+    rows = e8_orchestration.plan_rows(
+        waves,
+        gpu_ids=gpu_ids,
+        project_cell=_method_output_columns,
+    )
     plan = {
         "schema_version": 1,
         "experiment_id": experiment_id(config),
@@ -1015,7 +1322,14 @@ def write_plan(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "wave_sizes": [len(wave) for wave in waves],
         "max_concurrent_cells": int(config["execution"]["max_concurrent_cells"]),
         "scheduler": str(config["execution"].get("scheduler", "wave_barrier")),
-        "wave_is_scheduling_barrier": bool(config["execution"].get("wave_barriers", False)),
+        "wave_is_scheduling_barrier": bool(
+            config["execution"].get("wave_barriers", False)
+        ),
+        "seed_batch_barriers": bool(
+            config["execution"].get("seed_batch_barriers", False)
+        ),
+        "seed_batch_order": list(config["execution"].get("seed_batch_order", ())),
+        "execution_class": _execution_class(config),
         "rows": rows,
         "scientific_status": "not_run",
     }
@@ -1213,6 +1527,7 @@ def split_countdown_rows(
     _audit_partition_prompt_ids("countdown", partitions)
     return partitions
 
+
 def _canonical_train_row(row: Mapping[str, Any]) -> dict[str, Any]:
     """Translate task schema while preserving the paper all-unique-negative loss."""
 
@@ -1267,6 +1582,42 @@ def _paper_grid_name(coefficient: float) -> str:
     raise ValueError(f"Coefficient {coefficient} is outside the locked paper grids")
 
 
+def _canonical_asymre_grid_path() -> Path:
+    path = (_repo_root() / CANONICAL_ASYMRE_GRID).resolve()
+    if not path.is_file():
+        raise FileNotFoundError(f"Canonical AsymRE grid is missing: {path}")
+    return path
+
+
+def _canonical_topr_grid_path() -> Path:
+    path = (_repo_root() / CANONICAL_TOPR_GRID).resolve()
+    if not path.is_file():
+        raise FileNotFoundError(f"Canonical TOPR grid is missing: {path}")
+    return path
+
+def _leaf_values(value: Any, prefix: str = "") -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        return {prefix: value}
+    result: dict[str, Any] = {}
+    for key, item in value.items():
+        child = f"{prefix}.{key}" if prefix else str(key)
+        result.update(_leaf_values(item, child))
+    return result
+
+
+def _changed_leaf_paths(original: Mapping[str, Any], derived: Mapping[str, Any]) -> list[str]:
+    left = _leaf_values(original)
+    right = _leaf_values(derived)
+    return sorted(key for key in set(left) | set(right) if left.get(key) != right.get(key))
+
+
+def _atomic_yaml(path: Path, value: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(yaml.safe_dump(dict(value), sort_keys=False), encoding="utf-8")
+    temporary.replace(path)
+
+
 def _task_base_config(
     config: Mapping[str, Any],
     *,
@@ -1274,52 +1625,104 @@ def _task_base_config(
     canonical_paths: Mapping[str, Path],
     task_root: Path,
 ) -> tuple[Path, list[str]]:
-    """Materialize only the three declared task-interface overrides."""
+    """Materialize effective base runtime without editing the canonical source."""
 
     base_path = canonical_paths["base_config"]
-    if task == "countdown":
-        return base_path, []
     original = yaml.safe_load(base_path.read_text(encoding="utf-8"))
     if not isinstance(original, dict):
         raise TypeError("Paper base config root must be a mapping")
+    historical = experiment_config.is_historical_coldstart_config(config)
+    if historical and task == "countdown":
+        return base_path, []
+
     derived = copy.deepcopy(original)
+    effective = experiment_config.effective_coldstart_runtime(config, task)
     runtime = config["task_runtime"][task]
-    derived["model"]["max_length"] = int(runtime["max_length"])
-    derived["model"]["max_new_tokens"] = int(runtime["max_new_tokens"])
-    derived["evaluation"]["batch_size"] = int(runtime["evaluation_batch_size"])
-    derived["evaluation"]["pass_ks"] = [8] + [
-        int(value) for value in runtime["auxiliary_pass_ks"]
-    ]
-    allowed = {
-        "model.max_length",
-        "model.max_new_tokens",
-        "evaluation.batch_size",
-        "evaluation.pass_ks",
-    }
-
-    def leaves(value: Any, prefix: str = "") -> dict[str, Any]:
-        if not isinstance(value, Mapping):
-            return {prefix: value}
-        result: dict[str, Any] = {}
-        for key, item in value.items():
-            child = f"{prefix}.{key}" if prefix else str(key)
-            result.update(leaves(item, child))
-        return result
-
-    original_leaves = leaves(original)
-    derived_leaves = leaves(derived)
-    changed = sorted(
-        key
-        for key in set(original_leaves) | set(derived_leaves)
-        if original_leaves.get(key) != derived_leaves.get(key)
-    )
-    if set(changed) - allowed:
-        raise RuntimeError(f"{task} changed non-whitelisted paper base fields: {changed}")
+    if historical:
+        # Preserve the exact wrapper behavior of the three closed historical IDs.
+        derived["model"]["max_length"] = int(runtime["max_length"])
+        derived["model"]["max_new_tokens"] = int(runtime["max_new_tokens"])
+        derived["evaluation"]["batch_size"] = int(runtime["evaluation_batch_size"])
+        derived["evaluation"]["pass_ks"] = [8] + [
+            int(value) for value in runtime["auxiliary_pass_ks"]
+        ]
+    else:
+        model = effective["model"]
+        training = effective["training"]
+        evaluation = effective["evaluation"]
+        derived["model"].update(
+            {
+                "max_length": int(model["max_length"]),
+                "max_new_tokens": int(model["max_new_tokens"]),
+                "dtype": str(model["dtype"]),
+                "lora_rank": int(model["lora_rank"]),
+                "lora_alpha": int(model["lora_alpha"]),
+                "lora_dropout": float(model["lora_dropout"]),
+                "gradient_checkpointing": bool(model["gradient_checkpointing"]),
+            }
+        )
+        derived["offline_training"].update(
+            {
+                "seed": int(effective["initialization_seed"]),
+                "steps": int(training["optimizer_updates"]),
+                "micro_batch": int(training["micro_batch"]),
+                "gradient_accumulation": int(training["gradient_accumulation"]),
+                "learning_rate": float(training["learning_rate"]),
+                "weight_decay": float(training["weight_decay"]),
+                "warmup_ratio": float(training["warmup_ratio"]),
+                "maximum_gradient_norm": float(training["max_grad_norm"]),
+                "eval_every": int(training["evaluation_every_updates"]),
+            }
+        )
+        derived["evaluation"].update(
+            {
+                "examples": int(evaluation["examples"]),
+                "batch_size": int(evaluation["batch_size"]),
+                "pass_ks": [int(value) for value in evaluation["pass_ks"]],
+                "seed": int(evaluation["generation_seed"]),
+                "sampling_temperature": float(evaluation["sampling_temperature"]),
+                "top_p": float(evaluation["top_p"]),
+                "greedy_prompt_rows": int(evaluation["greedy_prompt_rows"]),
+                "passk_prompt_rows": int(evaluation["passk_prompt_rows"]),
+            }
+        )
     path = task_root / "paper_base_task_interface.yaml"
-    temporary = path.with_suffix(".yaml.tmp")
-    temporary.write_text(yaml.safe_dump(derived, sort_keys=False), encoding="utf-8")
-    temporary.replace(path)
-    return path, changed
+    _atomic_yaml(path, derived)
+    return path, _changed_leaf_paths(original, derived)
+
+
+def _task_grid_configs(
+    config: Mapping[str, Any],
+    *,
+    canonical_paths: Mapping[str, Path],
+    task_root: Path,
+) -> dict[str, dict[str, Any]]:
+    """Return historical grids unchanged or generic derived runtime-grid copies."""
+
+    result: dict[str, dict[str, Any]] = {}
+    historical = experiment_config.is_historical_coldstart_config(config)
+    training = config["training"]
+    for name in ("round1_grid", "extension_grid"):
+        source = canonical_paths[name]
+        original = yaml.safe_load(source.read_text(encoding="utf-8"))
+        if not isinstance(original, dict):
+            raise TypeError(f"Paper grid root must be a mapping: {source}")
+        if historical:
+            runtime_path = source
+            changed: list[str] = []
+        else:
+            derived = copy.deepcopy(original)
+            derived["training"]["steps"] = int(training["optimizer_updates"])
+            derived["training"]["eval_every"] = int(training["evaluation_every_updates"])
+            runtime_path = task_root / f"paper_{name}_runtime.yaml"
+            _atomic_yaml(runtime_path, derived)
+            changed = _changed_leaf_paths(original, derived)
+        result[name] = {
+            "path": runtime_path,
+            "source": source,
+            "changed_fields": changed,
+        }
+    return result
 
 
 def _evenly_spaced_rank_indices(candidate_count: int, selected_count: int = 16) -> tuple[int, ...]:
@@ -1331,8 +1734,7 @@ def _evenly_spaced_rank_indices(candidate_count: int, selected_count: int = 16) 
             f"found {candidate_count}"
         )
     indices = tuple(
-        (index * (candidate_count - 1)) // (selected_count - 1)
-        for index in range(selected_count)
+        (index * (candidate_count - 1)) // (selected_count - 1) for index in range(selected_count)
     )
     if len(set(indices)) != selected_count or indices[0] != 0 or indices[-1] != candidate_count - 1:
         raise AssertionError("Even rank selection must be unique and include both extremes")
@@ -1414,8 +1816,7 @@ def _reference_error_class_audit(
         if len(chosen) >= 2:
             endpoint_total += 1
             endpoint_ok = (
-                candidate_ranks[0] in selected_ranks
-                and candidate_ranks[-1] in selected_ranks
+                candidate_ranks[0] in selected_ranks and candidate_ranks[-1] in selected_ranks
             )
             if not endpoint_ok:
                 raise RuntimeError(
@@ -1625,15 +2026,17 @@ def _derive_reference_remoteness_banks(
         )
         if not isinstance(base_config, Mapping):
             raise TypeError("Canonical base config is not a mapping")
-        model = arena.load_model(
-            str(Path(base_model_path).resolve()),
-            adapter_path=None,
-            trainable_adapter=True,
-            load_in_4bit=bool(base_config["model"].get("load_in_4bit", False)),
-            dtype=str(base_config["model"].get("dtype", "auto")),
-            gradient_checkpointing=False,
-            parameterization="lora",
-        )
+        reference_effective = experiment_config.effective_coldstart_runtime(config, pending[0])
+        with _legacy_arena_runtime_bridge(arena, reference_effective):
+            model = arena.load_model(
+                str(Path(base_model_path).resolve()),
+                adapter_path=None,
+                trainable_adapter=True,
+                load_in_4bit=bool(base_config["model"].get("load_in_4bit", False)),
+                dtype=str(base_config["model"].get("dtype", "auto")),
+                gradient_checkpointing=False,
+                parameterization="lora",
+            )
         model.eval()
         original_clean_expression = arena.clean_expression
         original_system_prompt = arena.SYSTEM_PROMPT
@@ -1682,7 +2085,9 @@ def _derive_reference_remoteness_banks(
                             ),
                         )
                     )
-                    selected_indices = _coverage_first_reference_rank_indices(scored, source_row["negatives"], 16)
+                    selected_indices = _coverage_first_reference_rank_indices(
+                        scored, source_row["negatives"], 16
+                    )
                     selected: list[dict[str, Any]] = []
                     for slot, rank in enumerate(selected_indices):
                         item = dict(scored[rank])
@@ -1732,10 +2137,7 @@ def _derive_reference_remoteness_banks(
                 audit_path = root / "prompt_audit.jsonl"
                 atomic_jsonl(bank_path_value, derived_rows)
                 atomic_jsonl(audit_path, audit_rows)
-                ranges = [
-                    float(row["selected_reference_surprisal"]["range"])
-                    for row in audit_rows
-                ]
+                ranges = [float(row["selected_reference_surprisal"]["range"]) for row in audit_rows]
                 class_rows = [
                     value
                     for row in audit_rows
@@ -1792,10 +2194,16 @@ def _derive_reference_remoteness_banks(
                         [float(row["candidate_reference_surprisal"]["iqr"]) for row in class_rows]
                     ),
                     "selected_within_class_range": _reference_surprisal_summary(
-                        [float(row["selected_reference_surprisal"]["range"]) for row in selected_class_rows]
+                        [
+                            float(row["selected_reference_surprisal"]["range"])
+                            for row in selected_class_rows
+                        ]
                     ),
                     "selected_within_class_iqr": _reference_surprisal_summary(
-                        [float(row["selected_reference_surprisal"]["iqr"]) for row in selected_class_rows]
+                        [
+                            float(row["selected_reference_surprisal"]["iqr"])
+                            for row in selected_class_rows
+                        ]
                     ),
                     "selected_range_median": float(np.median(np.asarray(ranges, dtype=float))),
                     "prompt_audit": str(audit_path.resolve()),
@@ -1907,7 +2315,9 @@ def write_canonical_cold_inputs(
                     or sha256_file(reference_path) != reference_record.get("sha256")
                     or not reference_record.get("complete")
                 ):
-                    raise RuntimeError(f"Derived reference-remoteness bank identity failed for {task}")
+                    raise RuntimeError(
+                        f"Derived reference-remoteness bank identity failed for {task}"
+                    )
                 train_source = reference_path
                 reference_selection_applied = True
                 reference_selection_identity = str(reference_record["identity_hash"])
@@ -1917,9 +2327,7 @@ def write_canonical_cold_inputs(
                 train_source = Path(source_paths["train"])
                 reference_selection_applied = False
                 reference_selection_identity = None
-            train_rows = [
-                _canonical_train_row(row) for row in read_jsonl(train_source)
-            ]
+            train_rows = [_canonical_train_row(row) for row in read_jsonl(train_source)]
             validation_rows = [
                 _canonical_validation_row(row)
                 for row in read_jsonl(Path(source_paths["validation"]))
@@ -1938,16 +2346,21 @@ def write_canonical_cold_inputs(
             canonical_paths=canonical_paths,
             task_root=task_root,
         )
+        runtime_grids = _task_grid_configs(
+            config,
+            canonical_paths=canonical_paths,
+            task_root=task_root,
+        )
         canonical_record = {
             "train": str(train_path.resolve()),
             "validation": str(validation_path.resolve()),
             "sealed_test": str(sealed_test_path.resolve()),
             "base_config": str(task_base_config.resolve()),
             "base_config_sha256": sha256_file(task_base_config),
-            "round1_grid": str(canonical_paths["round1_grid"]),
-            "round1_grid_sha256": sha256_file(canonical_paths["round1_grid"]),
-            "extension_grid": str(canonical_paths["extension_grid"]),
-            "extension_grid_sha256": sha256_file(canonical_paths["extension_grid"]),
+            "round1_grid": str(runtime_grids["round1_grid"]["path"].resolve()),
+            "round1_grid_sha256": sha256_file(runtime_grids["round1_grid"]["path"]),
+            "extension_grid": str(runtime_grids["extension_grid"]["path"].resolve()),
+            "extension_grid_sha256": sha256_file(runtime_grids["extension_grid"]["path"]),
             "task_interface_changed_fields": changed_fields,
             "countdown_exact_source_files": exact_countdown_sources,
             "reference_remoteness_bank_applied": reference_selection_applied,
@@ -1961,6 +2374,18 @@ def write_canonical_cold_inputs(
             "validation_rows": len(validation_rows),
             "test_rows": 0,
         }
+        if not experiment_config.is_historical_coldstart_config(config):
+            canonical_record["effective_runtime"] = experiment_config.effective_coldstart_runtime(
+                config, task
+            )
+            canonical_record["runtime_grid_sources"] = {
+                name: {
+                    "source": str(runtime_grids[name]["source"].resolve()),
+                    "source_sha256": sha256_file(runtime_grids[name]["source"]),
+                    "changed_fields": list(runtime_grids[name]["changed_fields"]),
+                }
+                for name in ("round1_grid", "extension_grid")
+            }
         record["canonical_coldstart"] = canonical_record
         records[task] = canonical_record
 
@@ -2768,7 +3193,9 @@ def _load_prepared(
             if canonical.get("negative_consumer") != "all_unique_negatives_per_prompt":
                 raise RuntimeError(f"Canonical negative consumer drifted for {task}")
             if task == "countdown" and canonical.get("countdown_exact_source_files") is not True:
-                raise RuntimeError("Countdown must dispatch the exact generated bank/validation files")
+                raise RuntimeError(
+                    "Countdown must dispatch the exact generated bank/validation files"
+                )
     return splits, inputs
 
 
@@ -3138,13 +3565,17 @@ def _canonical_calibration_identity(
     return value
 
 
-def _paper_grid_for_cell(record: Mapping[str, Any], cell: Cell) -> Path:
-    if cell.task != "countdown":
-        # Transfer c values are passed directly to the locked trainer. The round-1
-        # grid supplies only the frozen training/runtime profile.
-        return Path(str(record["round1_grid"]))
-    coefficient = 0.0 if cell.lambda_value is None else float(cell.lambda_value)
-    return Path(str(record[_paper_grid_name(coefficient)]))
+def _paper_grid_for_cell(
+    config: Mapping[str, Any],
+    record: Mapping[str, Any],
+    cell: Cell,
+) -> tuple[Path, Path]:
+    paper_runtime = _method_spec(cell.method).paper_runtime
+    if paper_runtime is None:
+        raise RuntimeError(
+            f"{cell.method} does not use the canonical paper grid runtime"
+        )
+    return paper_runtime.grid_paths(config, record, cell)
 
 
 def calibrate_canonical_cold_task(
@@ -3511,6 +3942,8 @@ def _canonical_environment_evaluator(
     instances: Mapping[str, TaskInstance],
     greedy_prompt_rows: int,
     passk_prompt_rows: int,
+    sampling_temperature: float = 0.8,
+    top_p: float = 0.95,
 ) -> Any:
     """Return the old evaluator signature backed only by the selected task verifier."""
 
@@ -3566,8 +3999,8 @@ def _canonical_environment_evaluator(
                 prompts,
                 int(max_new_tokens),
                 int(pass_k) > 1,
-                0.8 if int(pass_k) > 1 else 1.0,
-                0.95 if int(pass_k) > 1 else 1.0,
+                float(sampling_temperature) if int(pass_k) > 1 else 1.0,
+                float(top_p) if int(pass_k) > 1 else 1.0,
                 int(pass_k),
             )
             for row, sampled_outputs in zip(chunk, sampled, strict=True):
@@ -3590,6 +4023,10 @@ def _canonical_environment_evaluator(
         numeric = [value for value in metrics.values() if isinstance(value, (int, float))]
         if not all(math.isfinite(float(value)) for value in numeric):
             raise RuntimeError("Task verifier evaluation produced a non-finite metric")
+        if int(pass_k) == 8:
+            evaluate_rows._last_primary_sampled_valid_rate = float(
+                metrics["sampled_valid_rate"]
+            )
         if was_training:
             model.train()
         return metrics
@@ -3797,39 +4234,32 @@ def _cell_identity(
     config: Mapping[str, Any],
     calibration: Mapping[str, Any],
 ) -> dict[str, Any]:
-    value = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": stable_config_hash(config),
-        "cell": {
-            "task": cell.task,
-            "method": cell.method,
-            "rho": cell.rho,
-            "lambda": (
-                cell.lambda_value
-                if cell.lambda_value is not None
-                else (None if cell.rho is None else coefficient_from_rho(cell.rho))
-            ),
-            "seed": cell.seed,
-            "stage": cell.stage,
+    spec = _method_spec(cell.method)
+    initialization = (
+        spec.initialization_identity(config)
+        if _is_coldstart(config)
+        else {
+            "source": "reference_adapter",
+            "reference_adapter_identity": model_identity(
+                base_model_path, str(inputs.reference_adapter)
+            )["adapter"],
+        }
+    )
+    return e8_runtime.recovery_identity(
+        cell,
+        experiment_id=experiment_id(config),
+        config_hash=stable_config_hash(config),
+        cell_identity_fields=_method_output_columns(cell),
+        common_identity_fields={
+            "bank_sha256": split_manifest["tasks"][cell.task]["bank_sha256"],
+            "split_prompt_hashes": split_manifest["tasks"][cell.task][
+                "prompt_id_hashes"
+            ],
+            "base_model_identity": model_identity(base_model_path, None)["model"],
+            "initialization": initialization,
+            "calibration_identity_hash": calibration["identity_hash"],
         },
-        "bank_sha256": split_manifest["tasks"][cell.task]["bank_sha256"],
-        "split_prompt_hashes": split_manifest["tasks"][cell.task]["prompt_id_hashes"],
-        "base_model_identity": model_identity(base_model_path, None)["model"],
-        "initialization": (
-            dict(config["initialization"])
-            if _is_coldstart(config)
-            else {
-                "source": "reference_adapter",
-                "reference_adapter_identity": model_identity(
-                    base_model_path, str(inputs.reference_adapter)
-                )["adapter"],
-            }
-        ),
-        "calibration_identity_hash": calibration["identity_hash"],
-    }
-    value["identity_hash"] = stable_hash(value)
-    return value
+    )
 
 
 def _summarize_evaluations(
@@ -3868,7 +4298,11 @@ def _summarize_evaluations(
         "validation_terminal_pass8": float(terminal["pass8"]),
         "validation_terminal_greedy": float(terminal["greedy_success"]),
         "validation_terminal_greedy_valid_rate": float(terminal["greedy_valid_rate"]),
-        "validation_terminal_sampled_valid_rate": float(terminal["sampled_valid_rate"]),
+        "validation_terminal_sampled_valid_rate": (
+            None
+            if terminal.get("sampled_valid_rate") is None
+            else float(terminal["sampled_valid_rate"])
+        ),
         "supplementary_best_step": int(best["update"]),
         "supplementary_best_pass8": float(best["pass8"]),
         "supplementary_best_greedy": float(best["greedy_success"]),
@@ -3886,6 +4320,1125 @@ def _load_cell_splits(
     validation_rows = [] if engineering_liveness else read_jsonl(Path(paths["validation"]))
     return train_rows, validation_rows
 
+
+def _runtime_bridge_contract(effective: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "fresh_lora": {
+            "rank": int(effective["model"]["lora_rank"]),
+            "alpha": int(effective["model"]["lora_alpha"]),
+            "dropout": float(effective["model"]["lora_dropout"]),
+        },
+        "gradient_checkpointing": bool(effective["model"]["gradient_checkpointing"]),
+        "optimizer_weight_decay": float(effective["training"]["weight_decay"]),
+        "sampling_temperature": float(effective["evaluation"]["sampling_temperature"]),
+        "top_p": float(effective["evaluation"]["top_p"]),
+    }
+
+
+@contextmanager
+def _legacy_arena_runtime_bridge(arena: Any, effective: Mapping[str, Any]) -> Any:
+    """Temporarily parameterize legacy arena interface literals; never touch loss math."""
+
+    original_lora_config = arena.LoraConfig
+    original_load_model = arena.load_model
+    original_generate_outputs = arena.generate_outputs
+    original_scheduler = getattr(arena, "get_cosine_schedule_with_warmup", None)
+    contract = _runtime_bridge_contract(effective)
+
+    def configured_lora_config(*args: Any, **kwargs: Any) -> Any:
+        kwargs["r"] = int(contract["fresh_lora"]["rank"])
+        kwargs["lora_alpha"] = int(contract["fresh_lora"]["alpha"])
+        kwargs["lora_dropout"] = float(contract["fresh_lora"]["dropout"])
+        return original_lora_config(*args, **kwargs)
+
+    def configured_load_model(*args: Any, **kwargs: Any) -> Any:
+        values = list(args)
+        if len(values) > 5:
+            values[5] = bool(contract["gradient_checkpointing"])
+        else:
+            kwargs["gradient_checkpointing"] = bool(contract["gradient_checkpointing"])
+        return original_load_model(*values, **kwargs)
+
+    def configured_generate_outputs(
+        model: Any,
+        tokenizer: Any,
+        prompts: list[str],
+        max_new_tokens: int,
+        do_sample: bool,
+        temperature: float,
+        top_p: float,
+        num_return_sequences: int = 1,
+    ) -> Any:
+        if do_sample:
+            temperature = float(contract["sampling_temperature"])
+            top_p = float(contract["top_p"])
+        return original_generate_outputs(
+            model,
+            tokenizer,
+            prompts,
+            max_new_tokens,
+            do_sample,
+            temperature,
+            top_p,
+            num_return_sequences,
+        )
+
+    def configured_scheduler(
+        optimizer: Any,
+        num_warmup_steps: int,
+        num_training_steps: int,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Any:
+        if original_scheduler is None:
+            raise RuntimeError("Canonical arena scheduler is unavailable")
+        if float(effective["training"]["warmup_ratio"]) == 0.0:
+            num_warmup_steps = 0
+        return original_scheduler(optimizer, num_warmup_steps, num_training_steps, *args, **kwargs)
+
+    arena.LoraConfig = configured_lora_config
+    arena.load_model = configured_load_model
+    arena.generate_outputs = configured_generate_outputs
+    if original_scheduler is not None:
+        arena.get_cosine_schedule_with_warmup = configured_scheduler
+    try:
+        yield contract
+    finally:
+        arena.LoraConfig = original_lora_config
+        arena.load_model = original_load_model
+        arena.generate_outputs = original_generate_outputs
+        if original_scheduler is not None:
+            arena.get_cosine_schedule_with_warmup = original_scheduler
+
+
+def _validated_runtime_grid(
+    candidate: Mapping[str, Any],
+    *,
+    canonical_grid: Mapping[str, Any],
+    effective: Mapping[str, Any],
+    strict_validator: Any,
+) -> None:
+    allowed = {"training.steps", "training.eval_every"}
+    changed = set(_changed_leaf_paths(canonical_grid, candidate))
+    forbidden = sorted(changed - allowed)
+    if forbidden:
+        raise ValueError(f"Derived runtime grid changed non-runtime fields: {forbidden}")
+    training = candidate.get("training", {})
+    if int(training.get("steps", -1)) != int(effective["training"]["optimizer_updates"]):
+        raise ValueError("Derived runtime grid steps do not match effective runtime")
+    if int(training.get("eval_every", -1)) != int(
+        effective["training"]["evaluation_every_updates"]
+    ):
+        raise ValueError("Derived runtime grid eval_every does not match effective runtime")
+    strict = copy.deepcopy(dict(candidate))
+    strict["training"]["steps"] = canonical_grid["training"]["steps"]
+    strict["training"]["eval_every"] = canonical_grid["training"]["eval_every"]
+    strict_validator(strict)
+
+
+@contextmanager
+def _legacy_paper_runtime_bridge(
+    modules: Mapping[str, Any],
+    effective: Mapping[str, Any],
+    *,
+    grid_path: Path,
+    grid_source_path: Path,
+) -> Any:
+    """Bridge configured runtime scalars into byte-locked paper interfaces."""
+
+    scan_trainer = modules["scan_trainer"]
+    paper_common = modules["paper_common"]
+    canonical_grid = yaml.safe_load(grid_source_path.read_text(encoding="utf-8"))
+    if not isinstance(canonical_grid, dict):
+        raise TypeError("Canonical paper grid root must be a mapping")
+    candidate_grid = yaml.safe_load(grid_path.read_text(encoding="utf-8"))
+    if not isinstance(candidate_grid, dict):
+        raise TypeError("Derived paper grid root must be a mapping")
+
+    validator_targets: list[tuple[Any, str, Any]] = []
+    seen: set[tuple[int, str]] = set()
+    for module_name in ("paper_common", "scan_common", "scan_trainer", "scan_runtime"):
+        module = modules[module_name]
+        if not hasattr(module, "validate_grid_config"):
+            continue
+        key = (id(module), "validate_grid_config")
+        if key in seen:
+            continue
+        seen.add(key)
+        validator_targets.append((module, "validate_grid_config", module.validate_grid_config))
+    strict_validator = paper_common.validate_grid_config
+
+    def configured_validator(value: Mapping[str, Any]) -> None:
+        _validated_runtime_grid(
+            value,
+            canonical_grid=canonical_grid,
+            effective=effective,
+            strict_validator=strict_validator,
+        )
+
+    optimizer_holder = scan_trainer.torch.optim
+    original_adamw = optimizer_holder.AdamW
+
+    def configured_adamw(*args: Any, **kwargs: Any) -> Any:
+        kwargs["weight_decay"] = float(effective["training"]["weight_decay"])
+        return original_adamw(*args, **kwargs)
+
+    with _legacy_arena_runtime_bridge(modules["arena"], effective) as contract:
+        optimizer_holder.AdamW = configured_adamw
+        for module, name, _ in validator_targets:
+            setattr(module, name, configured_validator)
+        try:
+            configured_validator(candidate_grid)
+            yield contract
+        finally:
+            optimizer_holder.AdamW = original_adamw
+            for module, name, original in validator_targets:
+                setattr(module, name, original)
+
+
+
+
+def _canonical_baseline_grid_identity(method: str) -> dict[str, Any]:
+    """Record actual canonical-grid bytes without introducing a new expected-blob gate."""
+
+    if method == METHOD_ASYMRE:
+        path = _canonical_asymre_grid_path()
+    elif method == METHOD_TOPR:
+        path = _canonical_topr_grid_path()
+    else:
+        raise ValueError(f"No extra canonical grid identity for method: {method}")
+    return {
+        "canonical_grid": str(path),
+        "canonical_grid_sha256": sha256_file(path),
+        "identity_policy": "runtime_actual_sha256_recorded_non_gating",
+        "expected_git_blob_gate": False,
+    }
+
+
+def _normalized_adapter_config_sequence(value: Any, *, field: str) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        values = (value,)
+    elif isinstance(value, Sequence):
+        values = tuple(str(item) for item in value)
+    else:
+        raise TypeError(f"Shared-SFT DPO adapter {field} must be a string sequence or null")
+    normalized = tuple(sorted(item.strip() for item in values))
+    if any(not item for item in normalized) or len(set(normalized)) != len(normalized):
+        raise ValueError(f"Shared-SFT DPO adapter {field} contains invalid names")
+    return normalized
+
+
+def _dpo_shared_sft_adapter_identity(config: Mapping[str, Any]) -> dict[str, Any] | None:
+    dpo = config["dpo"]
+    mode = str(dpo["initialization_mode"])
+    if mode == "base_model_fresh_lora":
+        return None
+    contract = dpo["shared_sft_adapter_contract"]
+    env_name = str(dpo["shared_sft_adapter_env"])
+    value = os.environ.get(env_name)
+    if not value:
+        raise RuntimeError(f"Shared-SFT DPO requires environment variable {env_name}")
+    path = Path(value).resolve()
+    adapter_config_path = path / "adapter_config.json"
+    weight_name = str(contract["adapter_weight_file"])
+    recognized_weight_names = {"adapter_model.safetensors", "adapter_model.bin"}
+    present_weight_names = {
+        name for name in recognized_weight_names if (path / name).is_file()
+    }
+    if present_weight_names != {weight_name}:
+        raise ValueError(
+            "Shared-SFT DPO adapter directory must contain exactly the contracted "
+            f"recognized weight file: expected={weight_name}, "
+            f"present={sorted(present_weight_names)}"
+        )
+    weight_path = path / weight_name
+    provenance_relative = Path(str(contract["provenance_file"]))
+    provenance_path = (path / provenance_relative).resolve()
+    if path not in provenance_path.parents:
+        raise RuntimeError("Shared-SFT DPO provenance escaped the adapter root")
+    for required in (adapter_config_path, weight_path, provenance_path):
+        if not required.is_file():
+            raise FileNotFoundError(f"Shared-SFT DPO adapter is incomplete: {required}")
+    observed_hashes = {
+        "adapter_config_sha256": sha256_file(adapter_config_path),
+        "adapter_weight_sha256": sha256_file(weight_path),
+        "provenance_sha256": sha256_file(provenance_path),
+    }
+    if any(observed_hashes[field] != str(contract[field]) for field in observed_hashes):
+        raise ValueError("Shared-SFT DPO adapter identity hash mismatch")
+
+    adapter_config = json.loads(adapter_config_path.read_text(encoding="utf-8"))
+    if not isinstance(adapter_config, dict):
+        raise TypeError("Shared-SFT DPO adapter_config.json must contain a mapping")
+    model_config = config["model"]
+    target_modules = _normalized_adapter_config_sequence(
+        adapter_config.get("target_modules"), field="target_modules"
+    )
+    modules_to_save = _normalized_adapter_config_sequence(
+        adapter_config.get("modules_to_save"), field="modules_to_save"
+    )
+    expected_target_modules = tuple(sorted(str(value) for value in contract["target_modules"]))
+    expected_modules_to_save = tuple(sorted(str(value) for value in contract["modules_to_save"]))
+    compatible = (
+        str(adapter_config.get("peft_type", "")).upper() == "LORA"
+        and int(adapter_config.get("r", -1)) == int(model_config["lora_rank"])
+        and int(adapter_config.get("lora_alpha", -1)) == int(model_config["lora_alpha"])
+        and math.isclose(
+            float(adapter_config.get("lora_dropout", -1.0)),
+            float(model_config["lora_dropout"]),
+            rel_tol=0.0,
+            abs_tol=1.0e-12,
+        )
+        and str(adapter_config.get("base_model_name_or_path", ""))
+        == str(contract["adapter_base_model_name_or_path"])
+        and target_modules == expected_target_modules
+        and modules_to_save == expected_modules_to_save
+        and str(adapter_config.get("bias", "")) == str(contract["bias"])
+    )
+    if not compatible:
+        raise ValueError(
+            "Shared-SFT DPO adapter LoRA/base-model parameterization does not match reviewed contract"
+        )
+
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    if not isinstance(provenance, dict):
+        raise TypeError("Shared-SFT DPO provenance file must contain a mapping")
+    provenance_expected = dict(contract["provenance_expected"])
+    if any(provenance.get(key) != expected for key, expected in provenance_expected.items()):
+        raise ValueError("Shared-SFT DPO provenance does not match reviewed contract")
+    if (
+        provenance.get("base_model") != model_config["base_model"]
+        or provenance.get("base_model_revision") != model_config["revision"]
+    ):
+        raise ValueError("Shared-SFT DPO provenance base-model/revision mismatch")
+
+    identity = {
+        **observed_hashes,
+        "adapter_weight_file": weight_name,
+        "provenance_file": provenance_relative.as_posix(),
+        "adapter_parameterization": {
+            "peft_type": "LORA",
+            "r": int(adapter_config["r"]),
+            "lora_alpha": int(adapter_config["lora_alpha"]),
+            "lora_dropout": float(adapter_config["lora_dropout"]),
+            "base_model_name_or_path": str(adapter_config["base_model_name_or_path"]),
+            "target_modules": list(target_modules),
+            "modules_to_save": list(modules_to_save),
+            "bias": str(adapter_config["bias"]),
+        },
+        "provenance_expected": provenance_expected,
+        "contract_hash": stable_hash(contract),
+    }
+    identity["identity_hash"] = stable_hash(identity)
+    return {"path": str(path), **identity}
+
+
+def _dpo_shared_sft_adapter(config: Mapping[str, Any]) -> Path | None:
+    identity = _dpo_shared_sft_adapter_identity(config)
+    return None if identity is None else Path(str(identity["path"]))
+
+
+def _parameter_sequence_sha256(parameters: Sequence[Any]) -> str:
+    if torch is None:
+        raise RuntimeError("Torch is required")
+    digest = hashlib.sha256()
+    if not parameters:
+        raise RuntimeError("Cannot hash an empty parameter sequence")
+    for index, parameter in enumerate(parameters):
+        value = parameter.detach().cpu().contiguous()
+        digest.update(str(index).encode("ascii"))
+        digest.update(str(tuple(value.shape)).encode("ascii"))
+        digest.update(str(value.dtype).encode("ascii"))
+        digest.update(value.view(torch.uint8).numpy().tobytes())
+    return digest.hexdigest()
+
+
+def _dpo_prompt_balanced_mean(
+    values: Any,
+    row_index: Any,
+    unique_counts: Any,
+    *,
+    paper_common: Any,
+) -> Any:
+    return paper_common.mean_unique_negative_term(
+        values,
+        torch.ones_like(values),
+        row_index,
+        unique_counts,
+    )
+
+
+def _dpo_quantile(values: Any, q: float) -> float:
+    return float(torch.quantile(values.detach().float().cpu(), q).item())
+
+
+def _is_nan_inf_numerical_failure(value: Any) -> bool:
+    return isinstance(value, str) and value.startswith("nonfinite_")
+
+
+def _load_verified_canonical_calibration(
+    task: str,
+    *,
+    split_manifest: Mapping[str, Any],
+    base_model_path: str,
+    config: Mapping[str, Any],
+    output_root: Path,
+    error_prefix: str,
+) -> dict[str, Any]:
+    path = output_root / "calibration" / f"{task}.json"
+    if not path.is_file():
+        raise RuntimeError(f"Run the no-calibration identity gate before {task}")
+    calibration = json.loads(path.read_text(encoding="utf-8"))
+    expected = _canonical_calibration_identity(
+        task,
+        split_manifest=split_manifest,
+        base_model_path=base_model_path,
+        config=config,
+    )
+    if (
+        calibration.get("identity_hash") != expected["identity_hash"]
+        or calibration.get("enabled") is not False
+        or not calibration.get("complete")
+    ):
+        raise RuntimeError(f"{error_prefix} no-calibration identity mismatch for {task}")
+    return calibration
+
+
+def _prepare_cell_output(
+    output_root: Path,
+    *,
+    root_name: str,
+    cell: Cell,
+    identity: Mapping[str, Any],
+    force: bool,
+    mismatch_prefix: str = "Existing cell identity mismatch",
+    existing_prefix: str = "Cell output exists without reusable manifest",
+    unsafe_prefix: str = "Refusing unsafe cell removal",
+) -> tuple[Path, Path, dict[str, Any] | None]:
+    cell_root = output_root / root_name / cell.key
+    manifest_path = cell_root / "cell_manifest.json"
+    if manifest_path.is_file() and not force:
+        existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if existing.get("identity_hash") == identity["identity_hash"] and existing.get("complete"):
+            return cell_root, manifest_path, existing
+        raise RuntimeError(f"{mismatch_prefix}: {cell.key}")
+    if cell_root.exists():
+        if not force:
+            raise RuntimeError(f"{existing_prefix}: {cell_root}")
+        expected_parent = (output_root / root_name).resolve()
+        if expected_parent not in cell_root.resolve().parents:
+            raise RuntimeError(f"{unsafe_prefix}: {cell_root}")
+        shutil.rmtree(cell_root)
+    cell_root.mkdir(parents=True, exist_ok=False)
+    return cell_root, manifest_path, None
+
+
+def _verify_fresh_process_adapter_reload(
+    config_path: Path,
+    output_root: Path,
+    *,
+    base_model_path: str,
+    adapter_path: Path,
+    expected_adapter_identity: Mapping[str, Any],
+    require_base_identity: bool,
+    label: str,
+) -> dict[str, Any]:
+    command = [
+        sys.executable,
+        "-m",
+        "drpo.e8_multitask_exp_tuning",
+        "--config",
+        str(config_path.resolve()),
+        "--output-root",
+        str(output_root.resolve()),
+        "reload-adapter",
+        "--base-model-path",
+        base_model_path,
+        "--adapter-path",
+        str(adapter_path),
+    ]
+    completed = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        env=os.environ.copy(),
+        check=False,
+    )
+    descriptor = f" {label}" if label else ""
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f"Fresh-process{descriptor} adapter reload failed: {completed.stderr[-2000:]}"
+        )
+    try:
+        result = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"Fresh-process{descriptor} adapter reload returned invalid JSON"
+        ) from exc
+    identity_ok = result.get("adapter_identity") == expected_adapter_identity
+    if require_base_identity:
+        identity_ok = identity_ok and (
+            result.get("base_model_identity") == model_identity(base_model_path, None)["model"]
+        )
+    if (
+        not result.get("complete")
+        or not result.get("finite")
+        or int(result.get("process_id", os.getpid())) == os.getpid()
+        or not identity_ok
+    ):
+        raise RuntimeError(
+            f"Fresh-process{descriptor} adapter reload identity or finiteness mismatch"
+        )
+    return result
+
+
+def _train_canonical_dpo_transfer_cell(
+    cell: Cell,
+    *,
+    inputs: TaskInputs,
+    split_manifest: Mapping[str, Any],
+    base_model_path: str,
+    config: Mapping[str, Any],
+    output_root: Path,
+    force: bool,
+    updates_override: int | None = None,
+    engineering_liveness: bool = False,
+) -> dict[str, Any]:
+    """Port the reviewed PR #268 DPO semantics onto the frozen multitask task interface."""
+
+    if torch is None or F is None or DataLoader is None:
+        raise RuntimeError("Canonical DPO training requires Torch")
+    if cell.method != METHOD_DPO or cell.beta is None:
+        raise ValueError("Canonical DPO transfer trainer received a non-DPO cell")
+    configured_initialization = str(config["dpo"]["initialization_mode"])
+    if cell.dpo_initialization != configured_initialization:
+        raise RuntimeError("DPO cell/config initialization identity mismatch")
+    if cell.task == "countdown":
+        raise ValueError("Current multitask DPO capability does not execute Countdown cells")
+    modules = _canonical_cold_modules(config)
+    arena = modules["arena"]
+    paper_common = modules["paper_common"]
+    scan_trainer = modules["scan_trainer"]
+    record = _canonical_task_record(split_manifest, cell.task)
+    calibration = _load_verified_canonical_calibration(
+        cell.task,
+        split_manifest=split_manifest,
+        base_model_path=base_model_path,
+        config=config,
+        output_root=output_root,
+        error_prefix="DPO",
+    )
+
+    root_name = "liveness" if engineering_liveness else "cells"
+    shared_adapter_record = _dpo_shared_sft_adapter_identity(config)
+    shared_adapter = (
+        None if shared_adapter_record is None else Path(str(shared_adapter_record["path"]))
+    )
+    identity = _cell_identity(
+        cell,
+        inputs=inputs,
+        split_manifest=split_manifest,
+        base_model_path=base_model_path,
+        config=config,
+        calibration=calibration,
+    )
+    identity.update(
+        {
+            "canonical_source_git_blob_shas": dict(
+                config["canonical_coldstart"]["expected_git_blob_shas"]
+            ),
+            "canonical_dispatch": "e8_multitask_exp_tuning._train_canonical_dpo_transfer_cell",
+            "dpo_semantics_source": "historical_PR_268_protected_implementation_cc0ead2be00c89a3c35296b7adc1ddeae8d14759",
+            "dpo_initialization_mode": str(config["dpo"]["initialization_mode"]),
+            "reference_remoteness_bank_identity_hash": record.get(
+                "reference_remoteness_bank_identity_hash"
+            ),
+            "canonical_train_sha256": record["train_sha256"],
+            "shared_sft_adapter_identity": (
+                None
+                if shared_adapter is None
+                else model_identity(base_model_path, str(shared_adapter))["adapter"]
+            ),
+            "shared_sft_adapter_provenance": (
+                None
+                if shared_adapter_record is None
+                else {
+                    key: value
+                    for key, value in shared_adapter_record.items()
+                    if key != "path"
+                }
+            ),
+            "engineering_liveness": engineering_liveness,
+            "updates_override": updates_override,
+        }
+    )
+    identity["identity_hash"] = stable_hash(identity)
+    cell_root, manifest_path, reusable = _prepare_cell_output(
+        output_root,
+        root_name=root_name,
+        cell=cell,
+        identity=identity,
+        force=force,
+        mismatch_prefix="Existing DPO cell identity mismatch",
+        existing_prefix="DPO cell output exists without reusable identity",
+        unsafe_prefix="Refusing unsafe DPO cell removal",
+    )
+    if reusable is not None:
+        return reusable
+
+    bank = Path(str(record["train"]))
+    validation = Path(str(record["validation"]))
+    base_config_path = Path(str(record["base_config"]))
+    base_config = yaml.safe_load(base_config_path.read_text(encoding="utf-8"))
+    if not isinstance(base_config, dict):
+        raise TypeError("DPO paper base config root must be a mapping")
+    effective = experiment_config.effective_coldstart_runtime(config, cell.task)
+    model_cfg = copy.deepcopy(base_config["model"])
+    model_cfg["max_length"] = int(effective["model"]["max_length"])
+    model_cfg["max_new_tokens"] = int(effective["model"]["max_new_tokens"])
+    train_cfg = base_config["offline_training"]
+    eval_cfg = copy.deepcopy(base_config["evaluation"])
+    eval_cfg["examples"] = int(effective["evaluation"]["examples"])
+    eval_cfg["batch_size"] = int(effective["evaluation"]["batch_size"])
+    eval_cfg["pass_ks"] = list(effective["evaluation"]["pass_ks"])
+    eval_cfg["seed"] = int(effective["evaluation"]["generation_seed"])
+    updates = int(updates_override or effective["training"]["optimizer_updates"])
+    eval_every = int(effective["training"]["evaluation_every_updates"])
+    log_every = int(train_cfg["log_every"])
+    seed = int(train_cfg["seed"]) + int(cell.seed)
+    beta = float(cell.beta)
+    arena.seed_all(seed)
+
+    validation_rows = [] if engineering_liveness else read_jsonl(validation)
+    evaluator = None
+    if not engineering_liveness:
+        task_adapter, instances = _load_task_adapter_and_instances(
+            cell.task,
+            inputs=inputs,
+            validation_rows=validation_rows,
+        )
+        evaluator = _canonical_environment_evaluator(
+            arena=arena,
+            task_adapter=task_adapter,
+            instances=instances,
+            greedy_prompt_rows=int(config["task_runtime"][cell.task]["greedy_prompt_rows"]),
+            passk_prompt_rows=int(config["task_runtime"][cell.task]["passk_prompt_rows"]),
+            sampling_temperature=float(effective["evaluation"]["sampling_temperature"]),
+            top_p=float(effective["evaluation"]["top_p"]),
+        )
+
+    original_clean_expression = arena.clean_expression
+    original_system_prompt = arena.SYSTEM_PROMPT
+    original_evaluate_rows = arena.evaluate_rows
+    try:
+        arena.clean_expression = lambda value: str(value)
+        arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
+        if evaluator is not None:
+            arena.evaluate_rows = evaluator
+
+        tokenizer = arena.load_tokenizer(str(Path(base_model_path).resolve()))
+        train_rows = arena.read_jsonl(bank)
+        dataset = paper_common.ContinuousUniqueBankDataset(
+            train_rows,
+            tokenizer,
+            int(effective["model"]["max_length"]),
+        )
+        generator = torch.Generator().manual_seed(seed)
+        loader = DataLoader(
+            dataset,
+            batch_size=int(effective["training"]["micro_batch"]),
+            shuffle=True,
+            generator=generator,
+            collate_fn=paper_common.make_continuous_unique_bank_collator(
+                tokenizer.pad_token_id
+            ),
+            num_workers=int(train_cfg["num_workers"]),
+        )
+        iterator = iter(loader)
+        with _legacy_arena_runtime_bridge(arena, effective):
+            model = arena.load_model(
+                str(Path(base_model_path).resolve()),
+                adapter_path=None if shared_adapter is None else str(shared_adapter),
+                trainable_adapter=True,
+                load_in_4bit=bool(model_cfg.get("load_in_4bit", False)),
+                dtype=str(effective["model"]["dtype"]),
+                gradient_checkpointing=bool(effective["model"]["gradient_checkpointing"]),
+                parameterization="lora",
+            )
+        policy_adapter = str(config["dpo"]["policy_adapter"])
+        reference_adapter = str(config["dpo"]["reference_adapter"])
+        if not hasattr(model, "add_adapter") or not hasattr(model, "set_adapter"):
+            raise RuntimeError("Canonical DPO requires PEFT multi-adapter support")
+        if policy_adapter not in model.peft_config:
+            raise RuntimeError("DPO policy adapter is missing after model initialization")
+        if reference_adapter in model.peft_config:
+            raise RuntimeError("DPO reference adapter exists before exact initialization copy")
+        model.add_adapter(
+            reference_adapter,
+            copy.deepcopy(model.peft_config[policy_adapter]),
+        )
+        scan_trainer._copy_adapter_parameters(model, policy_adapter, reference_adapter)
+        policy_parameters = scan_trainer._adapter_parameters(model, policy_adapter)
+        reference_parameters = scan_trainer._adapter_parameters(model, reference_adapter)
+
+        def activate_reference() -> None:
+            model.set_adapter(reference_adapter)
+            for parameter in reference_parameters:
+                parameter.requires_grad_(False)
+
+        def activate_policy() -> None:
+            model.set_adapter(policy_adapter)
+            for parameter in policy_parameters:
+                parameter.requires_grad_(True)
+            for parameter in reference_parameters:
+                parameter.requires_grad_(False)
+
+        activate_policy()
+        policy_initial_sha256 = _parameter_sequence_sha256(policy_parameters)
+        reference_initial_sha256 = _parameter_sequence_sha256(reference_parameters)
+        if policy_initial_sha256 != reference_initial_sha256:
+            raise RuntimeError("DPO policy/reference exact initialization copy failed")
+        optimizer = torch.optim.AdamW(
+            policy_parameters,
+            lr=float(effective["training"]["learning_rate"]),
+            weight_decay=float(effective["training"]["weight_decay"]),
+        )
+        warmup_ratio = float(effective["training"]["warmup_ratio"])
+        warmup_steps = 0 if warmup_ratio == 0.0 else max(1, int(updates * warmup_ratio))
+        scheduler = arena.get_cosine_schedule_with_warmup(
+            optimizer,
+            warmup_steps,
+            updates,
+        )
+        device = next(model.parameters()).device
+        model.eval()
+        training_path = cell_root / "training_metrics.jsonl"
+        evaluation_path = cell_root / "evaluation_metrics.jsonl"
+        best_dir = cell_root / "supplementary_best_adapter"
+        terminal_dir = cell_root / "terminal_adapter"
+        last_finite_dir = cell_root / "last_finite_adapter"
+        best_pass8 = -math.inf
+        optimizer_update_norms: list[float] = []
+        initial_pair_margin_max_abs: float | None = None
+        tolerance = float(config["dpo"]["initial_pair_margin_max_abs_tolerance"])
+        numerical_failure: str | None = None
+        stop_reason = "max_steps"
+        terminal_step = 0
+        last_finite_step = 0
+
+        def evaluate(step: int) -> None:
+            nonlocal best_pass8
+            if evaluator is None:
+                return
+            activate_policy()
+            model.eval()
+            row = scan_trainer._evaluate_validation(
+                model=model,
+                tokenizer=tokenizer,
+                val_rows=validation_rows,
+                known_structures={f"{cell.task}:task_verifier"},
+                model_cfg=model_cfg,
+                eval_cfg=eval_cfg,
+                step=step,
+                pass64_every=200,
+                pass64_enabled=64
+                in {int(value) for value in effective["evaluation"]["auxiliary_pass_ks"]},
+            )
+            sampled_valid_rate = getattr(evaluator, "_last_primary_sampled_valid_rate", None)
+            if sampled_valid_rate is not None:
+                row["val_sampled_valid_rate"] = float(sampled_valid_rate)
+            append_jsonl(
+                evaluation_path,
+                {
+                    "update": int(row["step"]),
+                    "pass8": float(row["val_pass_at_8"]),
+                    "greedy_success": float(row["val_greedy"]),
+                    "greedy_valid_rate": float(row["val_valid_rate"]),
+                    "sampled_valid_rate": row.get("val_sampled_valid_rate"),
+                },
+            )
+            if float(row["val_pass_at_8"]) > best_pass8:
+                best_pass8 = float(row["val_pass_at_8"])
+                if best_dir.exists():
+                    shutil.rmtree(best_dir)
+                activate_policy()
+                model.save_pretrained(best_dir, safe_serialization=True)
+                tokenizer.save_pretrained(best_dir)
+
+        if not engineering_liveness:
+            evaluate(0)
+        optimizer.zero_grad(set_to_none=True)
+        accumulation = int(effective["training"]["gradient_accumulation"])
+        for update in range(1, updates + 1):
+            loss_total = 0.0
+            diagnostic_totals = {
+                "policy_chosen_sum_lp": 0.0,
+                "policy_rejected_sum_lp": 0.0,
+                "reference_chosen_sum_lp": 0.0,
+                "reference_rejected_sum_lp": 0.0,
+                "pair_margin_mean": 0.0,
+                "pair_margin_p10": 0.0,
+                "pair_margin_p50": 0.0,
+                "pair_margin_p90": 0.0,
+                "preference_accuracy": 0.0,
+                "logit_saturation_fraction": 0.0,
+                "unique_negative_count_mean": 0.0,
+                "raw_bank_count_mean": 0.0,
+                "duplicates_removed_mean": 0.0,
+            }
+            abort_update = False
+            for accumulation_index in range(accumulation):
+                try:
+                    packed = next(iterator)
+                except StopIteration:
+                    iterator = iter(loader)
+                    packed = next(iterator)
+                positive_batch = arena.move_to_device(packed["positive"], device)
+                bank_batch = arena.move_to_device(packed["bank"], device)
+                row_index = packed["bank_row_index"].to(device)
+                unique_counts = packed["unique_counts"].to(device)
+
+                activate_reference()
+                model.eval()
+                with torch.no_grad():
+                    reference_positive_stats = arena.completion_stats(model, positive_batch)
+                    reference_bank_stats = arena.completion_stats(model, bank_batch)
+                    reference_chosen = paper_common.full_sequence_log_probability(
+                        reference_positive_stats
+                    ).detach()
+                    reference_rejected = paper_common.full_sequence_log_probability(
+                        reference_bank_stats
+                    ).detach()
+
+                activate_policy()
+                model.eval()
+                policy_positive_stats = arena.completion_stats(model, positive_batch)
+                policy_bank_stats = arena.completion_stats(model, bank_batch)
+                policy_chosen = paper_common.full_sequence_log_probability(
+                    policy_positive_stats
+                )
+                policy_rejected = paper_common.full_sequence_log_probability(
+                    policy_bank_stats
+                )
+                pair_margin = (
+                    policy_chosen[row_index]
+                    - policy_rejected
+                    - reference_chosen[row_index]
+                    + reference_rejected
+                )
+                if update == 1 and accumulation_index == 0:
+                    initial_pair_margin_max_abs = float(pair_margin.detach().abs().max())
+                    if initial_pair_margin_max_abs > tolerance:
+                        numerical_failure = "initial_policy_reference_pair_margin_mismatch"
+                        stop_reason = numerical_failure
+                        abort_update = True
+                        break
+                logits = beta * pair_margin
+                pair_losses = F.softplus(-logits)
+                loss = _dpo_prompt_balanced_mean(
+                    pair_losses,
+                    row_index,
+                    unique_counts,
+                    paper_common=paper_common,
+                )
+                if not bool(torch.isfinite(loss)):
+                    numerical_failure = f"nonfinite_loss_at_step_{update}"
+                    stop_reason = numerical_failure
+                    abort_update = True
+                    break
+                (loss / accumulation).backward()
+                loss_total += float(loss.detach().cpu())
+                policy_rejected_mean = _dpo_prompt_balanced_mean(
+                    policy_rejected.detach(),
+                    row_index,
+                    unique_counts,
+                    paper_common=paper_common,
+                )
+                reference_rejected_mean = _dpo_prompt_balanced_mean(
+                    reference_rejected,
+                    row_index,
+                    unique_counts,
+                    paper_common=paper_common,
+                )
+                diagnostics = {
+                    "policy_chosen_sum_lp": float(policy_chosen.detach().mean().cpu()),
+                    "policy_rejected_sum_lp": float(policy_rejected_mean.detach().cpu()),
+                    "reference_chosen_sum_lp": float(reference_chosen.mean().cpu()),
+                    "reference_rejected_sum_lp": float(reference_rejected_mean.cpu()),
+                    "pair_margin_mean": float(pair_margin.detach().mean().cpu()),
+                    "pair_margin_p10": _dpo_quantile(pair_margin, 0.10),
+                    "pair_margin_p50": _dpo_quantile(pair_margin, 0.50),
+                    "pair_margin_p90": _dpo_quantile(pair_margin, 0.90),
+                    "preference_accuracy": float(
+                        (pair_margin.detach() > 0.0).float().mean().cpu()
+                    ),
+                    "logit_saturation_fraction": float(
+                        (logits.detach().abs() >= 10.0).float().mean().cpu()
+                    ),
+                    "unique_negative_count_mean": float(
+                        packed["unique_counts"].float().mean().cpu()
+                    ),
+                    "raw_bank_count_mean": float(
+                        packed["raw_bank_counts"].float().mean().cpu()
+                    ),
+                    "duplicates_removed_mean": float(
+                        (packed["raw_bank_counts"] - packed["unique_counts"])
+                        .float()
+                        .mean()
+                        .cpu()
+                    ),
+                }
+                for key, value in diagnostics.items():
+                    diagnostic_totals[key] += value
+
+            if abort_update:
+                break
+
+            gradient_norm = torch.nn.utils.clip_grad_norm_(
+                policy_parameters,
+                float(effective["training"]["max_grad_norm"]),
+            )
+            if not bool(torch.isfinite(gradient_norm)):
+                numerical_failure = f"nonfinite_gradient_at_step_{update}"
+                stop_reason = numerical_failure
+                break
+            sample_update_norm = update % log_every == 0 or update == updates
+            before = (
+                [parameter.detach().float().cpu().clone() for parameter in policy_parameters]
+                if sample_update_norm
+                else []
+            )
+            if not arena.optimizer_step_with_last_finite_guard(optimizer, policy_parameters):
+                numerical_failure = f"nonfinite_parameters_at_step_{update}"
+                stop_reason = numerical_failure
+                break
+            scheduler.step()
+            optimizer.zero_grad(set_to_none=True)
+            terminal_step = update
+            last_finite_step = update
+            update_norm = (
+                scan_trainer._parameter_update_norm(before, policy_parameters)
+                if sample_update_norm
+                else None
+            )
+            if update_norm is not None:
+                optimizer_update_norms.append(float(update_norm))
+            if update % log_every == 0 or update == updates:
+                append_jsonl(
+                    training_path,
+                    {
+                        "update": update,
+                        "dpo_beta": beta,
+                        "dpo_pair_loss": loss_total / accumulation,
+                        **{
+                            key: value / accumulation
+                            for key, value in diagnostic_totals.items()
+                        },
+                        "raw_gradient_norm_before_clip": float(gradient_norm.detach().cpu()),
+                        "optimizer_update_norm": update_norm,
+                        "initial_pair_margin_max_abs": initial_pair_margin_max_abs,
+                        "reference_role": "exact_frozen_initial_policy",
+                        "label_smoothing": 0.0,
+                        "test_data_used": False,
+                    },
+                )
+            if not engineering_liveness and (update % eval_every == 0 or update == updates):
+                evaluate(update)
+
+        activate_policy()
+        terminal_policy_sha256 = _parameter_sequence_sha256(policy_parameters)
+        reference_terminal_sha256 = _parameter_sequence_sha256(reference_parameters)
+        if reference_terminal_sha256 != reference_initial_sha256:
+            raise RuntimeError("Frozen DPO reference changed during policy optimization")
+        policy_parameters_changed = terminal_policy_sha256 != policy_initial_sha256
+        final_adapter_dir = last_finite_dir if numerical_failure else terminal_dir
+        model.save_pretrained(final_adapter_dir, safe_serialization=True)
+        tokenizer.save_pretrained(final_adapter_dir)
+        terminal_identity = model_identity(base_model_path, str(final_adapter_dir))["adapter"]
+        if numerical_failure is not None:
+            append_jsonl(
+                training_path,
+                {
+                    "update": terminal_step,
+                    "numerical_failure": numerical_failure,
+                    "stop_reason": stop_reason,
+                    "last_finite_step": last_finite_step,
+                    "reference_role": "exact_frozen_initial_policy",
+                    "test_data_used": False,
+                },
+            )
+
+        if engineering_liveness:
+            summary: dict[str, Any] = {
+                "engineering_liveness": True,
+            }
+            scientific_status = "not_run"
+        else:
+            evaluations = read_jsonl(evaluation_path)
+            summary = (
+                _summarize_evaluations(evaluations, config)
+                if numerical_failure is None
+                else {}
+            )
+            scientific_status = "pilot"
+        result = {
+            **identity,
+            **summary,
+            "beta": beta,
+            "dpo_beta": beta,
+            "objective_formula": (
+                "mean_prompt(mean_unique_negative(softplus(-beta*((logpi_chosen-logpi_rejected)-"
+                "(logref_chosen-logref_rejected)))))"
+            ),
+            "sequence_log_probability": "full_completion_summed_log_probability",
+            "chosen_completion": "oracle_completion",
+            "rejected_completions": "all_unique_verifier_wrong_completions",
+            "pair_aggregation": "mean_unique_negative_within_prompt_then_mean_prompts",
+            "label_smoothing": 0.0,
+            "reference_role": "exact_frozen_initial_policy",
+            "reference_trainable": False,
+            "initial_pair_margin_max_abs": initial_pair_margin_max_abs,
+            "initial_pair_margin_max_abs_tolerance": tolerance,
+            "policy_initial_state_sha256": policy_initial_sha256,
+            "reference_initial_state_sha256": reference_initial_sha256,
+            "reference_terminal_state_sha256": reference_terminal_sha256,
+            "terminal_trainable_state_sha256": terminal_policy_sha256,
+            "initialization_state_sha256": policy_initial_sha256,
+            "policy_parameters_changed": policy_parameters_changed,
+            "terminal_checkpoint_kind": (
+                "last_finite" if numerical_failure else "terminal"
+            ),
+            "terminal_adapter": str(final_adapter_dir.resolve()),
+            "terminal_adapter_identity": terminal_identity,
+            "best_adapter": (
+                str(best_dir.resolve()) if best_dir.is_dir() else str(final_adapter_dir.resolve())
+            ),
+            "training_metrics": str(training_path.resolve()),
+            "evaluation_metrics": (
+                str(evaluation_path.resolve()) if evaluation_path.is_file() else None
+            ),
+            "canonical_dispatch_verified": True,
+            "finite_old_core_updates": numerical_failure is None,
+            "optimizer_update_norm": (
+                min(value for value in optimizer_update_norms if math.isfinite(value))
+                if optimizer_update_norms
+                else 0.0
+            ),
+            "optimizer_updates": terminal_step,
+            "terminal_step": terminal_step,
+            "optimizer_updates_requested": updates,
+            "last_finite_step": last_finite_step,
+            "numerical_failure": numerical_failure,
+            "stop_reason": stop_reason,
+            "nan_inf_failure": _is_nan_inf_numerical_failure(numerical_failure),
+            "evaluation_status": (
+                "complete" if numerical_failure is None else "incomplete"
+            ),
+            "test_partition_accessed": False,
+            "complete": numerical_failure is None,
+            "scientific_status": scientific_status,
+        }
+        if not engineering_liveness and numerical_failure is None:
+            result.update(
+                {
+                    "best_step": summary["supplementary_best_step"],
+                    "terminal_step": terminal_step,
+                    "validation_best_pass8": summary["supplementary_best_pass8"],
+                    "validation_terminal_pass8": summary["validation_terminal_pass8"],
+                    "validation_best_greedy": summary["supplementary_best_greedy"],
+                    "validation_terminal_greedy": summary["validation_terminal_greedy"],
+                    "validation_best_greedy_valid_rate": max(
+                        float(row["greedy_valid_rate"]) for row in evaluations
+                    ),
+                    "validation_terminal_greedy_valid_rate": summary[
+                        "validation_terminal_greedy_valid_rate"
+                    ],
+                }
+            )
+        if not engineering_liveness:
+            summary_path = cell_root / "summary.json"
+            atomic_json(summary_path, result)
+            result["canonical_summary"] = str(summary_path.resolve())
+            result["canonical_summary_sha256"] = sha256_file(summary_path)
+            result["canonical_output"] = str(cell_root.resolve())
+        atomic_json(manifest_path, result)
+        return result
+    finally:
+        arena.clean_expression = original_clean_expression
+        arena.SYSTEM_PROMPT = original_system_prompt
+        arena.evaluate_rows = original_evaluate_rows
+        if "model" in locals():
+            del model
+        gc.collect()
+        if torch is not None and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+
+def _cmd_dpo_liveness(
+    config: Mapping[str, Any],
+    config_path: Path,
+    output_root: Path,
+    *,
+    inputs: Mapping[str, TaskInputs],
+    splits: Mapping[str, Any],
+    base_model_path: str,
+    task: str,
+    force: bool,
+) -> dict[str, Any]:
+    if task != str(config["dpo"]["liveness_task"]):
+        raise RuntimeError("DPO liveness must use the configured transfer-task anchor")
+    beta = float(config["dpo"]["liveness_beta"])
+    values = experiment_config.task_method_values(config, task, method=METHOD_DPO)
+    if beta not in values:
+        raise RuntimeError("DPO liveness_beta must be one configured beta point")
+    cell = _coldstart_method_cell(
+        task,
+        METHOD_DPO,
+        experiment_config.task_transfer_seeds(config)[0],
+        "liveness",
+        beta,
+        lambda_only=False,
+        dpo_initialization=str(config["dpo"]["initialization_mode"]),
+    )
+    result = train_cell(
+        cell,
+        inputs=inputs[task],
+        split_manifest=splits,
+        base_model_path=base_model_path,
+        config=config,
+        output_root=output_root,
+        force=force,
+        updates_override=2,
+        engineering_liveness=True,
+    )
+    reload_result = _verify_fresh_process_adapter_reload(
+        config_path,
+        output_root,
+        base_model_path=base_model_path,
+        adapter_path=Path(result["terminal_adapter"]),
+        expected_adapter_identity=result["terminal_adapter_identity"],
+        require_base_identity=False,
+        label="DPO",
+    )
+    if not math.isfinite(float(result.get("optimizer_update_norm", 0.0))) or float(
+        result.get("optimizer_update_norm", 0.0)
+    ) <= 0.0:
+        raise RuntimeError("DPO liveness did not perform a finite nonzero optimizer update")
+    result.update(
+        {
+            "reload_gate_passed": True,
+            "adapter_weight_changed": True,
+            "fresh_process_reload_passed": True,
+            "liveness_parent_process_id": os.getpid(),
+            "reload_process_id": int(reload_result["process_id"]),
+            "terminal_adapter_weight_sha256": sha256_file(_adapter_weight_file(Path(result["terminal_adapter"]))),
+            "evaluation_status": "complete",
+        }
+    )
+    atomic_json(output_root / "liveness" / cell.key / "cell_manifest.json", result)
+    return result
 
 def _train_canonical_cold_cell(
     cell: Cell,
@@ -3906,30 +5459,29 @@ def _train_canonical_cold_cell(
     modules = _canonical_cold_modules(config)
     arena = modules["arena"]
     record = _canonical_task_record(split_manifest, cell.task)
-    calibration_path = output_root / "calibration" / f"{cell.task}.json"
-    if not calibration_path.is_file():
-        raise RuntimeError(f"Run the no-calibration identity gate before {cell.task}")
-    calibration = json.loads(calibration_path.read_text(encoding="utf-8"))
-    expected_calibration = _canonical_calibration_identity(
+    calibration = _load_verified_canonical_calibration(
         cell.task,
         split_manifest=split_manifest,
         base_model_path=base_model_path,
         config=config,
+        output_root=output_root,
+        error_prefix="Paper",
     )
-    if (
-        calibration.get("identity_hash") != expected_calibration["identity_hash"]
-        or calibration.get("enabled") is not False
-        or not calibration.get("complete")
-    ):
-        raise RuntimeError(f"Paper no-calibration identity mismatch for {cell.task}")
 
     bank = Path(str(record["train"]))
     validation = Path(str(record["validation"]))
     base_config_path = base_config_override or Path(str(record["base_config"]))
-    grid_path = _paper_grid_for_cell(record, cell)
-    modules = _activate_paper_grid_modules(modules, grid_path)
+    method_spec = _method_spec(cell.method)
+    paper_runtime = method_spec.paper_runtime
+    if paper_runtime is None:
+        raise RuntimeError(
+            f"{cell.method} does not use canonical paper cell parameters"
+        )
+    grid_path, grid_source_path = _paper_grid_for_cell(config, record, cell)
+    modules = _activate_paper_grid_modules(modules, grid_source_path)
     arena = modules["arena"]
     runtime = modules["paper_runtime"]
+    effective_runtime = experiment_config.effective_coldstart_runtime(config, cell.task)
     base_config = yaml.safe_load(base_config_path.read_text(encoding="utf-8"))
     if not isinstance(base_config, dict):
         raise TypeError("Paper base config root must be a mapping")
@@ -3951,9 +5503,11 @@ def _train_canonical_cold_cell(
                 if cell.task == "countdown"
                 else "countdown_e8_alpha1_c_scan_trainer.train_cell"
             ),
-            "paper_formula": "alpha*exp(-c*(current_sequence_surprisal/2))",
+            "paper_formula": paper_runtime.formula,
             "paper_grid_config": str(grid_path.resolve()),
             "paper_grid_config_sha256": sha256_file(grid_path),
+            "paper_grid_source": str(grid_source_path.resolve()),
+            "paper_grid_source_sha256": sha256_file(grid_source_path),
             "paper_base_config": str(base_config_path.resolve()),
             "paper_base_config_sha256": sha256_file(base_config_path),
             "all_unique_negatives": True,
@@ -3962,23 +5516,23 @@ def _train_canonical_cold_cell(
             "task_runtime_contract": dict(config["task_runtime"][cell.task]),
         }
     )
+    if not experiment_config.is_historical_coldstart_config(config):
+        identity["effective_runtime"] = effective_runtime
+        identity["legacy_runtime_bridge"] = _runtime_bridge_contract(effective_runtime)
     identity["identity_hash"] = stable_hash(identity)
 
-    cell_root = output_root / root_name / cell.key
-    manifest_path = cell_root / "cell_manifest.json"
-    if manifest_path.is_file() and not force:
-        existing = json.loads(manifest_path.read_text(encoding="utf-8"))
-        if existing.get("identity_hash") == identity["identity_hash"] and existing.get("complete"):
-            return existing
-        raise RuntimeError(f"Existing paper cell identity mismatch: {cell.key}")
-    if cell_root.exists():
-        if not force:
-            raise RuntimeError(f"Cell output exists without a reusable manifest: {cell_root}")
-        expected_parent = (output_root / root_name).resolve()
-        if expected_parent not in cell_root.resolve().parents:
-            raise RuntimeError(f"Refusing unsafe paper cell removal: {cell_root}")
-        shutil.rmtree(cell_root)
-    cell_root.mkdir(parents=True, exist_ok=False)
+    cell_root, manifest_path, reusable = _prepare_cell_output(
+        output_root,
+        root_name=root_name,
+        cell=cell,
+        identity=identity,
+        force=force,
+        mismatch_prefix="Existing paper cell identity mismatch",
+        existing_prefix="Cell output exists without a reusable manifest",
+        unsafe_prefix="Refusing unsafe paper cell removal",
+    )
+    if reusable is not None:
+        return reusable
     canonical_output = cell_root / "canonical"
 
     evaluator = None
@@ -3995,6 +5549,8 @@ def _train_canonical_cold_cell(
             instances=instances,
             greedy_prompt_rows=int(config["task_runtime"][cell.task]["greedy_prompt_rows"]),
             passk_prompt_rows=int(config["task_runtime"][cell.task]["passk_prompt_rows"]),
+            sampling_temperature=float(effective_runtime["evaluation"]["sampling_temperature"]),
+            top_p=float(effective_runtime["evaluation"]["top_p"]),
         )
 
     scan_trainer = modules["scan_trainer"]
@@ -4008,19 +5564,44 @@ def _train_canonical_cold_cell(
         original_completion_stats = arena.completion_stats
         original_trainer_evaluate = scan_trainer._evaluate_validation
         try:
+            if evaluator is None:
+
+                def configured_evaluate(**kwargs: Any) -> dict[str, Any]:
+                    kwargs["pass64_enabled"] = 64 in {
+                        int(value)
+                        for value in effective_runtime["evaluation"]["auxiliary_pass_ks"]
+                    }
+                    return original_trainer_evaluate(**kwargs)
+
+                scan_trainer._evaluate_validation = configured_evaluate
             if evaluator is not None:
                 arena.evaluate_rows = evaluator
                 arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
-                arena.completion_stats = lambda model, batch: {"seq_lp": -arena.sequence_surprisal_only(model, batch)}
+                arena.completion_stats = lambda model, batch: {
+                    "seq_lp": -arena.sequence_surprisal_only(model, batch),
+                    "lengths": (batch["labels"] != -100).sum(dim=1),
+                }
                 # Non-arithmetic task outputs are already canonicalized by the P0
                 # verifier. Arithmetic-only cleanup would corrupt structured outputs.
                 arena.clean_expression = lambda value: str(value)
 
-                def transfer_evaluate(**kwargs: Any) -> dict[str, Any]:
-                    kwargs["pass64_enabled"] = False
-                    return original_trainer_evaluate(**kwargs)
+                def configured_evaluate(**kwargs: Any) -> dict[str, Any]:
+                    kwargs["pass64_enabled"] = 64 in {
+                        int(value)
+                        for value in effective_runtime["evaluation"]["auxiliary_pass_ks"]
+                    }
+                    row = original_trainer_evaluate(**kwargs)
+                    sampled_valid_rate = getattr(
+                        evaluator, "_last_primary_sampled_valid_rate", None
+                    )
+                    if sampled_valid_rate is None:
+                        raise RuntimeError(
+                            "Transfer evaluator did not report primary sampled validity"
+                        )
+                    row["val_sampled_valid_rate"] = float(sampled_valid_rate)
+                    return row
 
-                scan_trainer._evaluate_validation = transfer_evaluate
+                scan_trainer._evaluate_validation = configured_evaluate
             yield
         finally:
             arena.evaluate_rows = original_evaluate_rows
@@ -4029,15 +5610,20 @@ def _train_canonical_cold_cell(
             arena.completion_stats = original_completion_stats
             scan_trainer._evaluate_validation = original_trainer_evaluate
 
-    alpha = 0.0 if cell.method == METHOD_POSITIVE_ONLY else 1.0
-    coefficient = 0.0 if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL} else float(
-        cell.lambda_value
-    )
-    with task_interface():
+    paper_family, alpha, coefficient = paper_runtime.cell_parameters(cell)
+    with (
+        _legacy_paper_runtime_bridge(
+            modules,
+            effective_runtime,
+            grid_path=grid_path,
+            grid_source_path=grid_source_path,
+        ),
+        task_interface(),
+    ):
         if cell.task == "countdown":
             returncode = runtime.worker(
                 argparse.Namespace(
-                    family="exponential",
+                    family=paper_family,
                     alpha=alpha,
                     c=coefficient,
                     seed_offset=int(cell.seed),
@@ -4056,7 +5642,7 @@ def _train_canonical_cold_cell(
                 alpha=alpha,
                 coefficient=coefficient,
                 seed_offset=int(cell.seed),
-                family="exponential",
+                family=paper_family,
             )
             scan_trainer.train_cell(
                 cell=paper_cell,
@@ -4081,12 +5667,20 @@ def _train_canonical_cold_cell(
             "pass8": float(row["val_pass_at_8"]),
             "greedy_success": float(row["val_greedy"]),
             "greedy_valid_rate": float(row["val_valid_rate"]),
-            "sampled_valid_rate": float(row["val_valid_rate"]),
+            "sampled_valid_rate": (
+                None
+                if row.get("val_sampled_valid_rate") in (None, "")
+                else float(row["val_sampled_valid_rate"])
+            ),
         }
         for row in metric_rows
     ]
-    metrics_summary = _summarize_evaluations(evaluations, config)
     numerical_failure = canonical_summary.get("numerical_failure")
+    metrics_summary = (
+        _summarize_evaluations(evaluations, config)
+        if numerical_failure is None
+        else {}
+    )
     best_adapter = canonical_output / "best_pass8_adapter"
     terminal_adapter = canonical_output / (
         "last_finite_adapter" if numerical_failure else "terminal_adapter"
@@ -4094,6 +5688,8 @@ def _train_canonical_cold_cell(
     result = {
         **identity,
         **metrics_summary,
+        "delta_v": cell.delta_v,
+        "beta": cell.beta,
         "canonical_summary": str(canonical_summary_path.resolve()),
         "canonical_summary_sha256": sha256_file(canonical_summary_path),
         "canonical_output": str(canonical_output.resolve()),
@@ -4115,26 +5711,30 @@ def _train_canonical_cold_cell(
         "adapter_path_argument": None,
         "sft_adapter_path_argument": None,
         "initialization_optimizer_updates": 0,
-        "best_step": metrics_summary["supplementary_best_step"],
+        "best_step": metrics_summary.get("supplementary_best_step"),
         "terminal_step": canonical_summary.get("terminal_step"),
         "stop_reason": canonical_summary.get("stop_reason"),
-        "validation_best_pass8": metrics_summary["supplementary_best_pass8"],
-        "validation_terminal_pass8": metrics_summary["validation_terminal_pass8"],
-        "validation_best_greedy": metrics_summary["supplementary_best_greedy"],
-        "validation_terminal_greedy": metrics_summary["validation_terminal_greedy"],
-        "validation_best_greedy_valid_rate": max(
-            float(row["greedy_valid_rate"]) for row in evaluations
+        "validation_best_pass8": metrics_summary.get("supplementary_best_pass8"),
+        "validation_terminal_pass8": metrics_summary.get("validation_terminal_pass8"),
+        "validation_best_greedy": metrics_summary.get("supplementary_best_greedy"),
+        "validation_terminal_greedy": metrics_summary.get("validation_terminal_greedy"),
+        "validation_best_greedy_valid_rate": (
+            max(float(row["greedy_valid_rate"]) for row in evaluations)
+            if numerical_failure is None and evaluations
+            else None
         ),
-        "validation_terminal_greedy_valid_rate": metrics_summary[
+        "validation_terminal_greedy_valid_rate": metrics_summary.get(
             "validation_terminal_greedy_valid_rate"
-        ],
-        "validation_terminal_sampled_valid_rate": metrics_summary[
+        ),
+        "validation_terminal_sampled_valid_rate": metrics_summary.get(
             "validation_terminal_sampled_valid_rate"
-        ],
-        "optimizer_updates": int(canonical_summary.get("terminal_step", 0)),
+        ),
+        "optimizer_updates": int(canonical_summary.get("terminal_step") or 0),
         "numerical_failure": numerical_failure,
-        "nan_inf_failure": numerical_failure is not None,
-        "evaluation_status": "complete" if evaluations else "incomplete",
+        "nan_inf_failure": _is_nan_inf_numerical_failure(numerical_failure),
+        "evaluation_status": (
+            "complete" if evaluations and numerical_failure is None else "incomplete"
+        ),
         "test_partition_accessed": False,
         "complete": bool(evaluations and numerical_failure is None),
         "scientific_status": "pilot",
@@ -4170,8 +5770,6 @@ def _train_cell_impl(
         raise RuntimeError(f"Incomplete calibration for {cell.task}")
 
     root_name = "liveness" if engineering_liveness else "cells"
-    cell_root = output_root / root_name / cell.key
-    manifest_path = cell_root / "cell_manifest.json"
     identity = _cell_identity(
         cell,
         inputs=inputs,
@@ -4183,19 +5781,15 @@ def _train_cell_impl(
     identity["engineering_liveness"] = engineering_liveness
     identity["updates_override"] = updates_override
     identity["identity_hash"] = stable_hash(identity)
-    if manifest_path.is_file() and not force:
-        existing = json.loads(manifest_path.read_text(encoding="utf-8"))
-        if existing.get("identity_hash") == identity["identity_hash"] and existing.get("complete"):
-            return existing
-        raise RuntimeError(f"Existing cell identity mismatch: {cell.key}")
-    if cell_root.exists():
-        if not force:
-            raise RuntimeError(f"Cell output exists without reusable manifest: {cell_root}")
-        expected_parent = (output_root / root_name).resolve()
-        if expected_parent not in cell_root.resolve().parents:
-            raise RuntimeError(f"Refusing unsafe cell removal: {cell_root}")
-        shutil.rmtree(cell_root)
-    cell_root.mkdir(parents=True, exist_ok=False)
+    cell_root, manifest_path, reusable = _prepare_cell_output(
+        output_root,
+        root_name=root_name,
+        cell=cell,
+        identity=identity,
+        force=force,
+    )
+    if reusable is not None:
+        return reusable
 
     initialization_seed = (
         int(config["initialization"]["seed"]) if _is_coldstart(config) else cell.seed
@@ -4434,11 +6028,7 @@ def train_cell(
     failure_root = output_root / root_name / cell.key
     try:
         if _is_coldstart(config):
-            if updates_override is not None or engineering_liveness:
-                raise RuntimeError(
-                    "Canonical cold liveness requires its derived old-core config path"
-                )
-            return _train_canonical_cold_cell(
+            return _method_spec(cell.method).train_cold(
                 cell,
                 inputs=inputs,
                 split_manifest=split_manifest,
@@ -4446,6 +6036,8 @@ def train_cell(
                 config=config,
                 output_root=output_root,
                 force=force,
+                updates_override=updates_override,
+                engineering_liveness=engineering_liveness,
             )
         return _train_cell_impl(
             cell,
@@ -4471,7 +6063,8 @@ def train_cell(
                 "traceback": traceback.format_exc(),
                 "scientific_status": "not_run" if engineering_liveness else "pilot",
                 "nan_inf_failure": (
-                    "non-finite" in str(exc).lower() or "nan/inf" in str(exc).lower()
+                    "non-finite" in str(exc).lower()
+                    or "nan/inf" in str(exc).lower()
                 ),
                 "complete": False,
             },
@@ -4591,24 +6184,59 @@ def _canonical_liveness_base_config(config: Mapping[str, Any], output_root: Path
     return path
 
 
+def _canonical_cold_liveness_cell(grid_path: Path) -> Cell:
+    """Derive one paper-runtime liveness cell through the method contract."""
+
+    grid = yaml.safe_load(grid_path.read_text(encoding="utf-8"))
+    if not isinstance(grid, dict):
+        raise TypeError("Canonical liveness grid root must be a mapping")
+    liveness = grid["execution"]["liveness"]
+    seed_offsets = grid["sweep"]["seed_offsets"]
+    method = str(liveness.get("representative_family", METHOD_EXPONENTIAL))
+    spec = _method_spec(method)
+    if spec.paper_runtime is None:
+        raise RuntimeError(f"{method} does not use canonical paper-runtime liveness")
+    parameter_key = spec.paper_runtime.liveness_parameter
+    if parameter_key not in liveness:
+        raise RuntimeError(
+            f"Canonical liveness grid for {method} lacks {parameter_key}"
+        )
+    return spec.build_cell(
+        task="countdown",
+        method=method,
+        seed=int(seed_offsets[0]),
+        stage="liveness",
+        value=float(liveness[parameter_key]),
+        lambda_only=False,
+        dpo_initialization=None,
+    )
+
+
 def _cmd_canonical_cold_liveness(
     config: Mapping[str, Any],
     config_path: Path,
     output_root: Path,
     *,
-    cell: Cell,
     inputs: TaskInputs,
     splits: Mapping[str, Any],
     base_model_path: str,
     force: bool,
+    method: str | None = None,
 ) -> dict[str, Any]:
-    if cell.task != "countdown":
-        raise RuntimeError("The paper-runtime liveness anchor must be Countdown")
     modules = _canonical_cold_modules(config)
+    record = _canonical_task_record(splits, "countdown")
+    method = method or _coldstart_method(config)
+    paper_runtime = _method_spec(method).paper_runtime
+    if paper_runtime is None:
+        raise RuntimeError(f"{method} does not use canonical paper-runtime liveness")
+    grid_path = paper_runtime.liveness_grid(config, record)
+    modules = _activate_paper_grid_modules(modules, grid_path)
     runtime = modules["paper_runtime"]
-    record = _canonical_task_record(splits, cell.task)
-    grid_path = Path(str(record["round1_grid"]))
-    smoke_root = output_root / "liveness" / "paper_runtime_smoke"
+    cell = _canonical_cold_liveness_cell(grid_path)
+    smoke_name = (
+        f"paper_runtime_smoke_{method}" if _is_baseline_matrix(config) else "paper_runtime_smoke"
+    )
+    smoke_root = output_root / "liveness" / smoke_name
     if force and smoke_root.exists():
         shutil.rmtree(smoke_root)
     returncode = runtime.smoke(
@@ -4644,43 +6272,15 @@ def _cmd_canonical_cold_liveness(
     terminal_adapter = canonical_output / "terminal_adapter"
     terminal_hash = sha256_file(_adapter_weight_file(terminal_adapter))
 
-    reload_command = [
-        sys.executable,
-        "-m",
-        "drpo.e8_multitask_exp_tuning",
-        "--config",
-        str(config_path.resolve()),
-        "--output-root",
-        str(output_root.resolve()),
-        "reload-adapter",
-        "--base-model-path",
-        base_model_path,
-        "--adapter-path",
-        str(terminal_adapter),
-    ]
-    reload_process = subprocess.run(
-        reload_command,
-        capture_output=True,
-        text=True,
-        env=os.environ.copy(),
-        check=False,
+    reload_result = _verify_fresh_process_adapter_reload(
+        config_path,
+        output_root,
+        base_model_path=base_model_path,
+        adapter_path=terminal_adapter,
+        expected_adapter_identity=model_identity(base_model_path, str(terminal_adapter))["adapter"],
+        require_base_identity=False,
+        label="canonical",
     )
-    if reload_process.returncode != 0:
-        raise RuntimeError(
-            f"Fresh-process canonical adapter reload failed: {reload_process.stderr[-2000:]}"
-        )
-    try:
-        reload_result = json.loads(reload_process.stdout)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("Fresh-process canonical reload returned invalid JSON") from exc
-    if (
-        not reload_result.get("complete")
-        or not reload_result.get("finite")
-        or int(reload_result.get("process_id", os.getpid())) == os.getpid()
-        or reload_result.get("adapter_identity")
-        != model_identity(base_model_path, str(terminal_adapter))["adapter"]
-    ):
-        raise RuntimeError("Fresh-process canonical adapter reload gate failed")
     calibration = json.loads(
         (output_root / "calibration" / "countdown.json").read_text(encoding="utf-8")
     )
@@ -4730,12 +6330,65 @@ def cmd_liveness(
     output_root: Path,
     *,
     task: str,
-    rho: float,
+    rho: float | None,
     base_model_path: str,
     force: bool,
 ) -> dict[str, Any]:
     if task not in config["suite"]["tasks"]:
         raise ValueError(f"Unknown liveness task: {task}")
+    if _is_coldstart(config):
+        splits, inputs = _load_ready_inputs(
+            output_root,
+            config,
+            base_model_path=base_model_path,
+        )
+        if _is_baseline_matrix(config):
+            if task != "countdown":
+                raise RuntimeError(
+                    "Baseline-matrix liveness is launched once from the Countdown anchor"
+                )
+            results: dict[str, Any] = {}
+            for method in _coldstart_methods(config):
+                spec = _method_spec(method)
+                method_task = spec.liveness_task(config)
+                results[method] = spec.liveness_runner(
+                    config=config,
+                    config_path=config_path,
+                    output_root=output_root,
+                    inputs=inputs,
+                    splits=splits,
+                    base_model_path=base_model_path,
+                    task=method_task,
+                    force=force,
+                )
+            return {
+                "schema_version": 1,
+                "experiment_id": experiment_id(config),
+                "methods": results,
+                "complete": all(
+                    bool(value.get("complete")) for value in results.values()
+                ),
+                "scientific_status": "not_run",
+            }
+        method = _coldstart_method(config)
+        spec = _method_spec(method)
+        expected_task = spec.liveness_task(config)
+        if task != expected_task:
+            raise RuntimeError(
+                f"{method} liveness anchor must be {expected_task}"
+            )
+        return spec.liveness_runner(
+            config=config,
+            config_path=config_path,
+            output_root=output_root,
+            inputs=inputs,
+            splits=splits,
+            base_model_path=base_model_path,
+            task=task,
+            force=force,
+        )
+    if rho is None:
+        raise ValueError("Liveness rho is required outside cold-start")
     if rho not in _task_rhos(config, task):
         raise ValueError("Liveness rho must be one frozen grid point")
     splits, inputs = _load_ready_inputs(
@@ -4758,17 +6411,6 @@ def cmd_liveness(
         "liveness",
         lambda_value,
     )
-    if _is_coldstart(config):
-        return _cmd_canonical_cold_liveness(
-            config,
-            config_path,
-            output_root,
-            cell=cell,
-            inputs=inputs[task],
-            splits=splits,
-            base_model_path=base_model_path,
-            force=force,
-        )
     result = train_cell(
         cell,
         inputs=inputs[task],
@@ -4780,42 +6422,15 @@ def cmd_liveness(
         updates_override=2,
         engineering_liveness=True,
     )
-    reload_command = [
-        sys.executable,
-        "-m",
-        "drpo.e8_multitask_exp_tuning",
-        "--config",
-        str(config_path.resolve()),
-        "--output-root",
-        str(output_root.resolve()),
-        "reload-adapter",
-        "--base-model-path",
-        base_model_path,
-        "--adapter-path",
-        str(result["terminal_adapter"]),
-    ]
-    reload_process = subprocess.run(
-        reload_command,
-        capture_output=True,
-        text=True,
-        env=os.environ.copy(),
-        check=False,
+    reload_result = _verify_fresh_process_adapter_reload(
+        config_path,
+        output_root,
+        base_model_path=base_model_path,
+        adapter_path=Path(result["terminal_adapter"]),
+        expected_adapter_identity=result["terminal_adapter_identity"],
+        require_base_identity=True,
+        label="",
     )
-    if reload_process.returncode != 0:
-        raise RuntimeError(f"Fresh-process adapter reload failed: {reload_process.stderr[-2000:]}")
-    try:
-        reload_result = json.loads(reload_process.stdout)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("Fresh-process adapter reload returned invalid JSON") from exc
-    if (
-        not reload_result.get("complete")
-        or not reload_result.get("finite")
-        or int(reload_result.get("process_id", os.getpid())) == os.getpid()
-        or reload_result.get("base_model_identity")
-        != model_identity(base_model_path, None)["model"]
-        or reload_result.get("adapter_identity") != result["terminal_adapter_identity"]
-    ):
-        raise RuntimeError("Fresh-process adapter reload identity or finiteness mismatch")
     training_rows = read_jsonl(Path(result["training_metrics"]))
     if not training_rows:
         raise RuntimeError("Liveness training metrics are missing")
@@ -4830,14 +6445,7 @@ def cmd_liveness(
     if not math.isfinite(raw_gradient_norm) or raw_gradient_norm <= 0.0:
         raise RuntimeError("Liveness raw gradient norm is not finite and positive")
 
-    def adapter_weight_file(adapter_root: Path) -> Path:
-        for name in ("adapter_model.safetensors", "adapter_model.bin"):
-            candidate = adapter_root / name
-            if candidate.is_file():
-                return candidate
-        raise FileNotFoundError(f"Adapter weight file is missing: {adapter_root}")
-
-    terminal_hash = sha256_file(adapter_weight_file(Path(result["terminal_adapter"])))
+    terminal_hash = sha256_file(_adapter_weight_file(Path(result["terminal_adapter"])))
     if _is_coldstart(config):
         reference_hash = str(result["initialization_state_sha256"])
         changed = reference_hash != str(result["terminal_trainable_state_sha256"])
@@ -4845,7 +6453,7 @@ def cmd_liveness(
         reference_adapter = inputs[task].reference_adapter
         if reference_adapter is None:
             raise RuntimeError("Liveness reference adapter is missing")
-        reference_hash = sha256_file(adapter_weight_file(reference_adapter))
+        reference_hash = sha256_file(_adapter_weight_file(reference_adapter))
         changed = reference_hash != terminal_hash
     if not changed:
         raise RuntimeError("Liveness adapter weights did not change after two updates")
@@ -4878,6 +6486,71 @@ def _read_json_object(path: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise TypeError(f"Expected one JSON object: {path}")
     return value
+
+
+def _successful_attempt_matches_current_identity(
+    config: Mapping[str, Any],
+    workload_root: Path,
+    *,
+    source_commit: str,
+    artifact_path: Path | None = None,
+) -> bool:
+    """Return whether live and packaged completed evidence matches this invocation."""
+
+    expected_id = experiment_id(config)
+    expected_hash = stable_config_hash(config)
+    try:
+        provenance = _read_json_object(workload_root / "source_provenance.json")
+        prepare = _read_json_object(workload_root / "prepare_manifest.json")
+        if not (
+            provenance.get("source_commit") == source_commit
+            and prepare.get("experiment_id") == expected_id
+            and prepare.get("config_hash") == expected_hash
+        ):
+            return False
+        if artifact_path is None:
+            return True
+        prefix = f"results/{expected_id}"
+        with zipfile.ZipFile(artifact_path) as archive:
+            artifact_manifest = json.loads(archive.read("ARTIFACT_MANIFEST.json"))
+            base_commit = archive.read("BASE_COMMIT.txt").decode("utf-8").strip()
+            run_manifest = json.loads(archive.read(f"{prefix}/run_manifest.json"))
+            packaged_provenance = json.loads(
+                archive.read(f"{prefix}/workload/source_provenance.json")
+            )
+            packaged_prepare = json.loads(
+                archive.read(f"{prefix}/workload/prepare_manifest.json")
+            )
+    except (
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        UnicodeDecodeError,
+        zipfile.BadZipFile,
+    ):
+        return False
+    if not all(
+        isinstance(value, dict)
+        for value in (
+            artifact_manifest,
+            run_manifest,
+            packaged_provenance,
+            packaged_prepare,
+        )
+    ):
+        return False
+    return (
+        artifact_manifest.get("package_kind") == "experiment-raw-complete"
+        and artifact_manifest.get("experiment_id") == expected_id
+        and artifact_manifest.get("base_commit") == source_commit
+        and base_commit == source_commit
+        and run_manifest.get("experiment_id") == expected_id
+        and run_manifest.get("base_commit") == source_commit
+        and packaged_provenance.get("source_commit") == source_commit
+        and packaged_prepare.get("experiment_id") == expected_id
+        and packaged_prepare.get("config_hash") == expected_hash
+    )
 
 
 def _effective_recovery_config(
@@ -4960,14 +6633,14 @@ def _recovery_stage_plan(
     try:
         _load_prepared(output_root, config)
         prepare_complete = True
-    except Exception as exc:  # The plan records the exact fail-closed reason.
+    except Exception as exc:  # noqa: BLE001 - fail-closed reason capture
         prepare_complete = False
         prepare_error = f"{type(exc).__name__}: {exc}"
     if prepare_complete:
         try:
             _require_calibration_gate(config, output_root, base_model_path=base_model_path)
             calibration_complete = True
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - fail-closed reason capture
             calibration_complete = False
             calibration_error = f"{type(exc).__name__}: {exc}"
     else:
@@ -4977,7 +6650,7 @@ def _recovery_stage_plan(
         try:
             _require_liveness_gate(config, output_root, base_model_path=base_model_path)
             liveness_complete = True
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - fail-closed reason capture
             liveness_complete = False
             liveness_error = f"{type(exc).__name__}: {exc}"
     else:
@@ -5083,9 +6756,7 @@ def _replace_path_prefix(value: Any, source: str, destination: str) -> Any:
     if isinstance(value, list):
         return [_replace_path_prefix(item, source, destination) for item in value]
     if isinstance(value, dict):
-        return {
-            key: _replace_path_prefix(item, source, destination) for key, item in value.items()
-        }
+        return {key: _replace_path_prefix(item, source, destination) for key, item in value.items()}
     return value
 
 
@@ -5111,9 +6782,7 @@ def cmd_import_recovery(
         raise ValueError("Recovery import requires one full lowercase source commit")
     provenance = _read_json_object(source_output_root / "source_provenance.json")
     if provenance.get("source_commit") != source_commit:
-        raise RuntimeError(
-            "Recovery source commit does not match the reviewed execution commit"
-        )
+        raise RuntimeError("Recovery source commit does not match the reviewed execution commit")
     output_root.mkdir(parents=True, exist_ok=True)
     effective = _effective_recovery_config(config, source_output_root)
     source_plan = _recovery_stage_plan(
@@ -5121,9 +6790,7 @@ def cmd_import_recovery(
         source_output_root,
         base_model_path=base_model_path,
     )
-    reusable = (
-        set(source_plan["reusable_cell_keys"]) if source_plan["prepare_complete"] else set()
-    )
+    reusable = set(source_plan["reusable_cell_keys"]) if source_plan["prepare_complete"] else set()
     source_text = str(source_output_root)
     destination_text = str(output_root)
     linked_files = 0
@@ -5134,6 +6801,7 @@ def cmd_import_recovery(
     }
     if source_plan["prepare_complete"]:
         recovery_label = source_output_root.parent.name
+
         def mapped_relative(relative: Path) -> Path | None:
             if relative.parts[0] in RECOVERY_TRANSIENT_TOP_LEVEL:
                 return None
@@ -5456,10 +7124,9 @@ def cmd_compact_logs(config: Mapping[str, Any], output_root: Path) -> dict[str, 
         if not tail.is_file():
             raise RuntimeError(f"Prepared log tail is missing: {tail}")
         if path.is_file():
-            if (
-                path.stat().st_size != int(row.get("size_bytes", -1))
-                or sha256_file(path) != row.get("sha256")
-            ):
+            if path.stat().st_size != int(row.get("size_bytes", -1)) or sha256_file(
+                path
+            ) != row.get("sha256"):
                 raise RuntimeError(f"Log changed during compaction transaction: {path}")
             path.unlink()
     value = {
@@ -5599,6 +7266,8 @@ def _require_liveness_gate(
         raise RuntimeError("Run and pass the two-update liveness gate before launching a wave")
     base_identity = model_identity(base_model_path, None)["model"]
     passed: list[str] = []
+    passed_methods: set[str] = set()
+    required_methods = set(_coldstart_methods(config)) if _is_coldstart(config) else set()
     for path in sorted(root.glob("*/cell_manifest.json")):
         result = json.loads(path.read_text(encoding="utf-8"))
         common = (
@@ -5618,6 +7287,7 @@ def _require_liveness_gate(
             _is_coldstart(config)
             and result.get("canonical_dispatch_verified") is True
             and result.get("finite_old_core_updates") is True
+            and result.get("cell", {}).get("method") in required_methods
             and math.isfinite(float(result.get("optimizer_update_norm", 0.0)))
             and float(result.get("optimizer_update_norm", 0.0)) > 0.0
         )
@@ -5631,8 +7301,13 @@ def _require_liveness_gate(
         )
         if common and (canonical_cold or legacy):
             passed.append(str(result.get("cell", {}).get("task", path.parent.name)))
+            if canonical_cold:
+                passed_methods.add(str(result.get("cell", {}).get("method")))
     if not passed:
         raise RuntimeError("No identity-matched liveness result passes every engineering gate")
+    if _is_coldstart(config) and passed_methods != required_methods:
+        missing = sorted(required_methods - passed_methods)
+        raise RuntimeError(f"Missing method-specific cold-start liveness gates: {missing}")
 
 
 def cmd_run_wave(
@@ -5742,7 +7417,9 @@ def _countdown_protocol_diagnostic(
         diagnostic = {
             "schema_version": 1,
             "experiment_id": experiment_id(config),
-            "status": "NOT_RUN" if countdown_not_run else ("PASS" if not identity_failures and len(countdown_cells) == 16 else "FAIL"),
+            "status": "NOT_RUN"
+            if countdown_not_run
+            else ("PASS" if not identity_failures else "FAIL"),
             "countdown_cells": len(countdown_cells),
             "identity_failures": identity_failures,
             "result_gate": False,
@@ -5763,7 +7440,7 @@ def cmd_run_dynamic(
     force: bool,
     retry_incomplete: bool,
 ) -> dict[str, Any]:
-    """Run one shared recovery-aware queue on 16 fixed GPU slots, without batch barriers."""
+    """Run the cold-start plan through method-agnostic slot scheduling."""
 
     if not _is_coldstart(config):
         raise RuntimeError("Dynamic scheduling is frozen for the cold-start profile only")
@@ -5772,33 +7449,61 @@ def cmd_run_dynamic(
     cells = build_cells(config)
     gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
     slots_per_gpu = int(config["execution"]["slots_per_gpu"])
-    slot_count = len(gpu_ids) * slots_per_gpu
-    if slot_count != int(config["execution"]["max_concurrent_cells"]) or slot_count != 16:
+    seed_barrier = _is_baseline_matrix(config) and bool(
+        config["execution"].get("seed_batch_barriers")
+    )
+    seed_order = (
+        tuple(int(value) for value in config["execution"].get("seed_batch_order", ()))
+        if seed_barrier
+        else None
+    )
+    geometry = e8_orchestration.execution_geometry(
+        cells,
+        gpu_ids=gpu_ids,
+        slots_per_gpu=slots_per_gpu,
+        max_concurrent_cells=int(config["execution"]["max_concurrent_cells"]),
+        seed_barrier=seed_barrier,
+        seed_order=seed_order,
+    )
+    if geometry.slot_count != 16:
         raise RuntimeError("Declared 16-slot capacity is internally inconsistent")
 
-    pending: queue.Queue[Cell] = queue.Queue()
-    for cell in cells:
-        pending.put(cell)
-    stop = threading.Event()
-    lock = threading.Lock()
-    checkpoint_lock = threading.Lock()
-    task_result_lock = threading.Lock()
-    results: list[dict[str, Any]] = []
-    task_results: dict[str, dict[str, Any]] = {}
+    nominal_batch = {
+        cell.key: index
+        for index, wave in enumerate(build_waves(config), 1)
+        for cell in wave
+    }
     event_path = output_root / "scheduler" / "queue_events.jsonl"
     event_path.parent.mkdir(parents=True, exist_ok=True)
     scheduler_run_id = f"queue-{int(time.time())}-{os.getpid()}"
-    recovery_package_value = os.environ.get("E8_COLDSTART_RECOVERY_PACKAGE", "").strip()
-    recovery_package = Path(recovery_package_value).resolve() if recovery_package_value else None
-    recovery_interval = int(os.environ.get("E8_COLDSTART_RECOVERY_INTERVAL_CELLS", "5"))
+    task_result_lock = threading.Lock()
+    checkpoint_lock = threading.Lock()
+    task_results: dict[str, dict[str, Any]] = {}
+    recovery_package_value = os.environ.get(
+        "E8_COLDSTART_RECOVERY_PACKAGE", ""
+    ).strip()
+    recovery_package = (
+        Path(recovery_package_value).resolve() if recovery_package_value else None
+    )
+    recovery_interval = int(
+        os.environ.get("E8_COLDSTART_RECOVERY_INTERVAL_CELLS", "5")
+    )
     if recovery_interval <= 0:
         raise ValueError("E8_COLDSTART_RECOVERY_INTERVAL_CELLS must be positive")
     initially_reusable, _ = _reusable_cell_manifests(config, output_root)
-    last_checkpoint_count = (len(initially_reusable) // recovery_interval) * recovery_interval
+    last_checkpoint_count = (
+        len(initially_reusable) // recovery_interval
+    ) * recovery_interval
 
     def record(event: Mapping[str, Any]) -> None:
-        with lock:
-            append_jsonl(event_path, {"scheduler_run_id": scheduler_run_id, **dict(event)})
+        append_jsonl(
+            event_path,
+            {
+                "scheduler_run_id": scheduler_run_id,
+                **dict(event),
+                "unix_time": time.time(),
+            },
+        )
 
     def publish_completed_task(task: str) -> None:
         with task_result_lock:
@@ -5807,104 +7512,140 @@ def cmd_run_dynamic(
             rows = _coldstart_completed_task_rows(config, output_root, task)
             if rows is not None:
                 task_results[task] = _write_coldstart_task_result(
-                    config,
-                    output_root,
-                    task,
-                    rows,
+                    config, output_root, task, rows
                 )
 
-    def worker(slot: int, gpu_id: int) -> list[dict[str, Any]]:
-        nonlocal last_checkpoint_count
-        local: list[dict[str, Any]] = []
-        while not stop.is_set():
+    def run_cell(cell: Cell, slot: int, gpu_id: int) -> Mapping[str, Any]:
+        del slot
+        cell_root = output_root / "cells" / cell.key
+        manifest_path = cell_root / "cell_manifest.json"
+        reusable_complete = False
+        if manifest_path.is_file():
             try:
-                cell = pending.get_nowait()
-            except queue.Empty:
-                break
-            cell_root = output_root / "cells" / cell.key
-            manifest_path = cell_root / "cell_manifest.json"
-            reusable_complete = False
-            if manifest_path.is_file():
-                try:
-                    reusable_complete = bool(
-                        json.loads(manifest_path.read_text(encoding="utf-8")).get("complete")
+                reusable_complete = bool(
+                    json.loads(manifest_path.read_text(encoding="utf-8")).get(
+                        "complete"
                     )
-                except (OSError, json.JSONDecodeError):
-                    reusable_complete = False
-            child_force = force or (
-                retry_incomplete and cell_root.exists() and not reusable_complete
-            )
-            record(
-                {
-                    "event": "start",
-                    "cell_key": cell.key,
-                    "slot": slot,
-                    "gpu_id": gpu_id,
-                    "unix_time": time.time(),
-                    "retry_incomplete": child_force and not force,
-                }
-            )
-            result = _run_subprocess_cell(
-                config_path=config_path.resolve(),
-                output_root=output_root.resolve(),
-                base_model_path=base_model_path,
-                cell=cell,
-                gpu_id=gpu_id,
-                force=child_force,
-            )
-            if int(result["returncode"]) == 0 and recovery_package is not None:
-                try:
-                    with checkpoint_lock:
-                        current_reusable, _ = _reusable_cell_manifests(config, output_root)
-                        completed_count = len(current_reusable)
-                        if completed_count >= last_checkpoint_count + recovery_interval:
-                            checkpoint = _publish_recovery_checkpoint(
-                                config,
-                                output_root,
-                                package_output=recovery_package,
-                            )
-                            last_checkpoint_count = int(checkpoint["completed_cells"])
-                            result["recovery_checkpoint"] = checkpoint["package"]
-                            result["recovery_checkpoint_completed_cells"] = last_checkpoint_count
-                except Exception as exc:
-                    result["returncode"] = 74
-                    result["recovery_checkpoint_error"] = f"{type(exc).__name__}: {exc}"
-            result.update({"slot": slot, "nominal_batch": cells.index(cell) // slot_count + 1})
-            local.append(result)
-            record({"event": "finish", **result, "unix_time": time.time()})
-            pending.task_done()
-            if int(result["returncode"]) != 0:
-                stop.set()
-            else:
-                try:
-                    publish_completed_task(cell.task)
-                except Exception:
-                    stop.set()
-                    raise
-        return local
+                )
+            except (OSError, json.JSONDecodeError):
+                reusable_complete = False
+        child_force = force or (
+            retry_incomplete and cell_root.exists() and not reusable_complete
+        )
+        result = _run_subprocess_cell(
+            config_path=config_path.resolve(),
+            output_root=output_root.resolve(),
+            base_model_path=base_model_path,
+            cell=cell,
+            gpu_id=gpu_id,
+            force=child_force,
+        )
+        if int(result["returncode"]) == 0:
+            try:
+                completed_manifest = _read_json_object(manifest_path)
+                if (
+                    completed_manifest.get("complete") is not True
+                    or completed_manifest.get("evaluation_status") != "complete"
+                    or completed_manifest.get("nan_inf_failure") is not False
+                ):
+                    raise RuntimeError(
+                        "child returned zero without a complete finite cell"
+                    )
+            except (
+                OSError,
+                ValueError,
+                TypeError,
+                RuntimeError,
+                json.JSONDecodeError,
+            ) as exc:
+                result["returncode"] = 75
+                result["cell_completion_error"] = (
+                    f"{type(exc).__name__}: {exc}"
+                )
+        result["nominal_batch"] = nominal_batch[cell.key]
+        return result
 
-    with ThreadPoolExecutor(max_workers=slot_count) as executor:
-        futures = [
-            executor.submit(worker, slot, gpu_ids[slot % len(gpu_ids)])
-            for slot in range(slot_count)
-        ]
-        for future in as_completed(futures):
-            results.extend(future.result())
+    def after_success(cell: Cell, row: Mapping[str, Any]) -> None:
+        nonlocal last_checkpoint_count
+        mutable = row if isinstance(row, dict) else dict(row)
+        if recovery_package is not None:
+            try:
+                with checkpoint_lock:
+                    current_reusable, _ = _reusable_cell_manifests(
+                        config, output_root
+                    )
+                    completed_count = len(current_reusable)
+                    if completed_count >= last_checkpoint_count + recovery_interval:
+                        checkpoint = _publish_recovery_checkpoint(
+                            config,
+                            output_root,
+                            package_output=recovery_package,
+                        )
+                        last_checkpoint_count = int(
+                            checkpoint["completed_cells"]
+                        )
+                        mutable["recovery_checkpoint"] = checkpoint["package"]
+                        mutable["recovery_checkpoint_completed_cells"] = (
+                            last_checkpoint_count
+                        )
+            except Exception:
+                mutable["returncode"] = 74
+                raise
+        publish_completed_task(cell.task)
 
+    results = list(
+        e8_orchestration.run_dynamic_queue(
+            cells,
+            gpu_ids=gpu_ids,
+            slots_per_gpu=slots_per_gpu,
+            max_concurrent_cells=geometry.slot_count,
+            seed_barrier=seed_barrier,
+            seed_order=seed_order,
+            callbacks=e8_orchestration.SchedulerCallbacks(
+                run_cell=run_cell,
+                record_event=record,
+                after_success=after_success,
+            ),
+        )
+    )
     results.sort(key=lambda row: str(row["cell_key"]))
     failures = [row for row in results if int(row["returncode"]) != 0]
     returned_keys = {str(row["cell_key"]) for row in results}
-    completed_keys = {str(row["cell_key"]) for row in results if int(row["returncode"]) == 0}
-    unscheduled = [cell.key for cell in cells if cell.key not in returned_keys]
-    protocol_diagnostic = _countdown_protocol_diagnostic(
-        config,
-        output_root,
-        destination=output_root / "scheduler" / "countdown_protocol_diagnostic.json",
-    ) if not failures and not unscheduled else {
-        "status": "PENDING",
-        "result_gate": False,
-        "controls_task_transfer_release": False,
+    completed_keys = {
+        str(row["cell_key"])
+        for row in results
+        if int(row["returncode"]) == 0
     }
+    unscheduled = [cell.key for cell in cells if cell.key not in returned_keys]
+    seed_expected = dict(geometry.expected_cells_by_seed) if seed_barrier else {}
+    seed_completed = (
+        {
+            seed: sum(
+                int(row["returncode"]) == 0 and int(row["seed"]) == seed
+                for row in results
+            )
+            for seed in geometry.seed_order
+        }
+        if seed_barrier
+        else {}
+    )
+    protocol_diagnostic = (
+        _countdown_protocol_diagnostic(
+            config,
+            output_root,
+            destination=(
+                output_root
+                / "scheduler"
+                / "countdown_protocol_diagnostic.json"
+            ),
+        )
+        if not failures and not unscheduled
+        else {
+            "status": "PENDING",
+            "result_gate": False,
+            "controls_task_transfer_release": False,
+        }
+    )
     manifest = {
         "schema_version": 1,
         "experiment_id": experiment_id(config),
@@ -5912,8 +7653,21 @@ def cmd_run_dynamic(
         "scheduler_run_id": scheduler_run_id,
         "wave_barriers": False,
         "wave_count": len(build_waves(config)),
-        "wave_count_role": "nominal_audit_geometry_only_not_scheduling_barrier",
-        "slot_count": slot_count,
+        "wave_count_role": (
+            "seed_local_nominal_capacity_audit_only"
+            if seed_barrier
+            else "nominal_audit_geometry_only_not_scheduling_barrier"
+        ),
+        "seed_batch_barriers": seed_barrier,
+        "seed_batch_order": list(geometry.seed_order) if seed_barrier else [],
+        "seed_batch_expected_cells": {
+            str(key): value for key, value in seed_expected.items()
+        },
+        "seed_batch_completed_cells": {
+            str(key): value for key, value in seed_completed.items()
+        },
+        "execution_class": _execution_class(config),
+        "slot_count": geometry.slot_count,
         "gpu_ids": list(gpu_ids),
         "slots_per_gpu": slots_per_gpu,
         "countdown_protocol_diagnostic": protocol_diagnostic,
@@ -5926,8 +7680,14 @@ def cmd_run_dynamic(
         "queue_events": str(event_path.resolve()),
         "analysis_ready_tasks": sorted(task_results),
         "task_results": task_results,
-        "complete": not failures and not unscheduled and len(completed_keys) == len(cells),
-        "scientific_status": "not_run" if _is_engineering_self_test(config) else "pilot",
+        "complete": (
+            not failures
+            and not unscheduled
+            and len(completed_keys) == len(cells)
+        ),
+        "scientific_status": (
+            "not_run" if _is_engineering_self_test(config) else "pilot"
+        ),
         "engineering_placeholder_backend": _is_engineering_self_test(config),
     }
     atomic_json(output_root / "scheduler" / "dynamic_run.json", manifest)
@@ -5981,18 +7741,53 @@ def cmd_run_all(
 
 
 def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
-    if not rows:
-        raise ValueError(f"Cannot write empty CSV: {path}")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        fieldnames = list(rows[0])
-        for row in rows[1:]:
-            for key in row:
-                if key not in fieldnames:
-                    fieldnames.append(key)
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
+    e8_results.write_csv(path, rows)
+
+
+def _coldstart_result_row(
+    config: Mapping[str, Any],
+    cell: Cell,
+    value: Mapping[str, Any],
+    *,
+    source: str,
+) -> dict[str, Any]:
+    if not _is_engineering_self_test(config) and (
+        "validation_late_window_pass8_mean" not in value
+        or "validation_late_window_greedy_mean" not in value
+    ):
+        raise RuntimeError(
+            f"{cell.key} is missing the paper primary late-window metric"
+        )
+    return e8_results.common_result_row(
+        cell,
+        source=source,
+        method_columns=_method_output_columns(cell),
+        metrics={
+            "nan_inf_failure": bool(value["nan_inf_failure"]),
+            "late_window_pass8_mean": value.get(
+                "validation_late_window_pass8_mean",
+                value["validation_best_pass8"],
+            ),
+            "late_window_greedy_mean": value.get(
+                "validation_late_window_greedy_mean",
+                value["validation_best_greedy"],
+            ),
+            "best_pass8": value["validation_best_pass8"],
+            "terminal_pass8": value["validation_terminal_pass8"],
+            "best_greedy": value["validation_best_greedy"],
+            "terminal_greedy": value["validation_terminal_greedy"],
+            "best_greedy_valid_rate": value[
+                "validation_best_greedy_valid_rate"
+            ],
+            "terminal_greedy_valid_rate": value[
+                "validation_terminal_greedy_valid_rate"
+            ],
+            "best_step": value["best_step"],
+            "terminal_step": value["terminal_step"],
+            "stop_reason": value["stop_reason"],
+        },
+    )
+
 
 
 def _coldstart_completed_task_rows(
@@ -6021,46 +7816,8 @@ def _coldstart_completed_task_rows(
             or value.get("config_hash") != expected_hash
         ):
             raise RuntimeError(f"{cell.key} per-task result identity mismatch")
-        if not _is_engineering_self_test(config) and (
-            "validation_late_window_pass8_mean" not in value
-            or "validation_late_window_greedy_mean" not in value
-        ):
-            raise RuntimeError(f"{cell.key} is missing the paper primary late-window metric")
         rows.append(
-            {
-                "source": "current",
-                "task": cell.task,
-                "method": cell.method,
-                "rho": cell.rho,
-                "lambda": (
-                    cell.lambda_value
-                    if cell.lambda_value is not None
-                    else (None if cell.rho is None else coefficient_from_rho(cell.rho))
-                ),
-                "seed": cell.seed,
-                "stage": cell.stage,
-                "cell_key": cell.key,
-                "nan_inf_failure": bool(value["nan_inf_failure"]),
-                "late_window_pass8_mean": value.get(
-                    "validation_late_window_pass8_mean",
-                    value["validation_best_pass8"],
-                ),
-                "late_window_greedy_mean": value.get(
-                    "validation_late_window_greedy_mean",
-                    value["validation_best_greedy"],
-                ),
-                "best_pass8": value["validation_best_pass8"],
-                "terminal_pass8": value["validation_terminal_pass8"],
-                "best_greedy": value["validation_best_greedy"],
-                "terminal_greedy": value["validation_terminal_greedy"],
-                "best_greedy_valid_rate": value["validation_best_greedy_valid_rate"],
-                "terminal_greedy_valid_rate": value[
-                    "validation_terminal_greedy_valid_rate"
-                ],
-                "best_step": value["best_step"],
-                "terminal_step": value["terminal_step"],
-                "stop_reason": value["stop_reason"],
-            }
+            _coldstart_result_row(config, cell, value, source="current")
         )
     return rows
 
@@ -6091,33 +7848,42 @@ def _write_coldstart_task_result(
     all_cells_path = root / "all_cells.csv"
     plot_path = root / "plot_curve_points.csv"
     _write_csv(all_cells_path, rows)
-    plot_rows = [
-        {
-            "experiment_id": experiment_id(config),
-            "run_id": run_id,
-            "source_commit": source_commit,
-            "task": row["task"],
-            "method": row["method"],
-            "lambda": row["lambda"],
-            "rho": row["rho"],
-            "seed": row["seed"],
-            "stage": row["stage"],
-            "late_window_pass8_mean": row["late_window_pass8_mean"],
-            "late_window_greedy_mean": row["late_window_greedy_mean"],
-            "best_validation_pass8": row["best_pass8"],
-            "terminal_pass8": row["terminal_pass8"],
-            "best_validation_greedy": row["best_greedy"],
-            "terminal_greedy": row["terminal_greedy"],
-            "best_greedy_valid_rate": row["best_greedy_valid_rate"],
-            "terminal_greedy_valid_rate": row["terminal_greedy_valid_rate"],
-            "best_step": row["best_step"],
-            "terminal_step": row["terminal_step"],
-            "stop_reason": row["stop_reason"],
-            "nan_inf_failure": row["nan_inf_failure"],
-            "complete": True,
-        }
-        for row in rows
-    ]
+    cells_by_key = {
+        cell.key: cell for cell in build_cells(config) if cell.task == task
+    }
+    legacy_parameter_columns = (
+        "delta_v", "beta", "dpo_initialization", "lambda", "rho"
+    )
+    extra_parameter_names = tuple(
+        dict.fromkeys(
+            name
+            for cell in cells_by_key.values()
+            for name in _method_spec(cell.method).parameters(cell)
+            if name not in legacy_parameter_columns
+        )
+    )
+    plot_rows: list[dict[str, Any]] = []
+    for row in rows:
+        cell = cells_by_key[str(row["cell_key"])]
+        parameters = dict(_method_spec(cell.method).parameters(cell))
+        plot_rows.append(
+            {
+                "experiment_id": experiment_id(config),
+                "run_id": run_id,
+                "source_commit": source_commit,
+                "task": row["task"],
+                "method": row["method"],
+                "delta_v": row.get("delta_v"),
+                "beta": row.get("beta"),
+                "dpo_initialization": row.get("dpo_initialization"),
+                "lambda": row["lambda"],
+                "rho": row["rho"],
+                **{name: parameters.get(name) for name in extra_parameter_names},
+                "seed": row["seed"],
+                "stage": row["stage"],
+                **_coldstart_plot_metrics(row),
+            }
+        )
     _write_csv(plot_path, plot_rows)
     cell_manifest_sha256 = {
         row["cell_key"]: sha256_file(
@@ -6144,9 +7910,7 @@ def _write_coldstart_task_result(
         "test_partition_accessed": False,
         "method_ranking_allowed": False,
         "complete": True,
-        "scientific_status": (
-            "not_run" if _is_engineering_self_test(config) else "pilot"
-        ),
+        "scientific_status": ("not_run" if _is_engineering_self_test(config) else "pilot"),
         "note": (
             "Deterministic early task snapshot from completed identity-matched cells; "
             "the terminal aggregate remains the final reporting authority."
@@ -6170,6 +7934,7 @@ def _materialize_completed_coldstart_task_results(
             continue
         ready[task] = _write_coldstart_task_result(config, output_root, task, rows)
     return ready
+
 
 def _aggregate_dense(
     config: Mapping[str, Any],
@@ -6331,45 +8096,364 @@ def _aggregate_dense(
     return summary
 
 
+def _coldstart_plot_metrics(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "late_window_pass8_mean": row["late_window_pass8_mean"],
+        "late_window_greedy_mean": row["late_window_greedy_mean"],
+        "best_validation_pass8": row["best_pass8"],
+        "terminal_pass8": row["terminal_pass8"],
+        "best_validation_greedy": row["best_greedy"],
+        "terminal_greedy": row["terminal_greedy"],
+        "best_greedy_valid_rate": row["best_greedy_valid_rate"],
+        "terminal_greedy_valid_rate": row["terminal_greedy_valid_rate"],
+        "best_step": row["best_step"],
+        "terminal_step": row["terminal_step"],
+        "stop_reason": row["stop_reason"],
+        "nan_inf_failure": row["nan_inf_failure"],
+        "complete": True,
+    }
+
+
+def _coldstart_group_metrics(group: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    def mean(key: str) -> float:
+        return float(np.mean([float(row[key]) for row in group]))
+
+    return {
+        "seeds": sorted(int(row["seed"]) for row in group),
+        "late_window_pass8_mean": mean("late_window_pass8_mean"),
+        "late_window_greedy_mean": mean("late_window_greedy_mean"),
+        "terminal_pass8_mean": mean("terminal_pass8"),
+        "terminal_greedy_valid_rate_mean": mean("terminal_greedy_valid_rate"),
+        "nan_inf_failure": any(bool(row["nan_inf_failure"]) for row in group),
+    }
+
+
+def _coldstart_run_provenance(output_root: Path) -> tuple[str, str]:
+    path = output_root / "source_provenance.json"
+    value = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    return (
+        str(value.get("run_id", output_root.name)),
+        str(value.get("source_commit", "unrecorded")),
+    )
+
+
+def _coldstart_method_grouped_curve(
+    *,
+    task: str,
+    method: str,
+    method_rows: Sequence[Mapping[str, Any]],
+    cells_by_key: Mapping[str, Cell],
+) -> list[dict[str, Any]]:
+    """Group one method through its registered opaque parameter contract."""
+
+    spec = _method_spec(method)
+    groups: dict[
+        str,
+        tuple[dict[str, Any], list[Mapping[str, Any]]],
+    ] = {}
+    for row in method_rows:
+        cell_key = str(row["cell_key"])
+        if cell_key not in cells_by_key:
+            raise RuntimeError(f"Unknown cold-start cell in aggregate: {cell_key}")
+        cell = cells_by_key[cell_key]
+        if cell.task != task or cell.method != method:
+            raise RuntimeError(
+                f"Cold-start aggregate identity mismatch for {cell_key}"
+            )
+        parameters = dict(spec.parameters(cell))
+        identity = e8_results.parameter_identity(parameters)
+        if identity not in groups:
+            groups[identity] = (parameters, [])
+        elif groups[identity][0] != parameters:
+            raise RuntimeError(f"Method parameter identity changed for {cell_key}")
+        groups[identity][1].append(row)
+
+    ordered = sorted(
+        groups.values(),
+        key=lambda item: e8_results.parameter_sort_key(item[0]),
+    )
+    return [
+        {
+            "task": task,
+            "method": method,
+            **parameters,
+            **_coldstart_group_metrics(group),
+        }
+        for parameters, group in ordered
+    ]
+
+
+def _aggregate_coldstart_unranked(
+    config: Mapping[str, Any],
+    output_root: Path,
+    rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Aggregate one registered non-Exp curve without selection or ranking."""
+
+    method = _coldstart_method(config)
+    spec = _method_spec(method)
+    configured_cells = build_cells(config)
+    cells_by_key = {cell.key: cell for cell in configured_cells}
+    if len(cells_by_key) != len(configured_cells):
+        raise RuntimeError("Cold-start aggregate contains duplicate cell keys")
+
+    run_id, source_commit = _coldstart_run_provenance(output_root)
+    plot_rows: list[dict[str, Any]] = []
+    for row in rows:
+        cell_key = str(row["cell_key"])
+        if cell_key not in cells_by_key:
+            raise RuntimeError(f"Unknown cold-start cell in plot aggregate: {cell_key}")
+        projection = dict(spec.parameters(cells_by_key[cell_key]))
+        parameter_columns = {
+            name: value
+            for name, value in projection.items()
+            if name != "dpo_initialization"
+        }
+        plot_rows.append(
+            {
+                "task": row["task"],
+                "method": row["method"],
+                "dpo_initialization": row["dpo_initialization"],
+                "seed": row["seed"],
+                "stage": row["stage"],
+                "experiment_id": experiment_id(config),
+                "run_id": run_id,
+                "source_commit": source_commit,
+                **parameter_columns,
+                **_coldstart_plot_metrics(row),
+            }
+        )
+    _write_csv(output_root / "aggregate" / "plot_curve_points.csv", plot_rows)
+
+    summaries: dict[str, Any] = {}
+    summary_rows: list[dict[str, Any]] = []
+    for task_value in config["suite"]["tasks"]:
+        task = str(task_value)
+        task_cells = [cell for cell in configured_cells if cell.task == task]
+        if not task_cells:
+            continue
+        task_rows = [row for row in rows if row["task"] == task]
+        controls = {
+            control: [row for row in task_rows if row["method"] == control]
+            for control in (METHOD_POSITIVE_ONLY, METHOD_GLOBAL)
+        }
+        method_rows = [row for row in task_rows if row["method"] == method]
+        expected = {
+            candidate: sum(cell.method == candidate for cell in task_cells)
+            for candidate in (method, *controls)
+        }
+        if len(method_rows) != expected[method] or any(
+            len(group) != expected[control]
+            for control, group in controls.items()
+        ):
+            raise RuntimeError(
+                f"{task} {method} cold-start cell geometry is incomplete"
+            )
+
+        grouped_curve = _coldstart_method_grouped_curve(
+            task=task,
+            method=method,
+            method_rows=method_rows,
+            cells_by_key=cells_by_key,
+        )
+        summaries[task] = {
+            "task": task,
+            "grouped_curve": grouped_curve,
+            "positive_only": controls[METHOD_POSITIVE_ONLY] or None,
+            "global": controls[METHOD_GLOBAL] or None,
+            "parameter_selection_deferred_to_reviewed_protocol": True,
+            "terminal_valid_rate_role": "diagnostic_only_not_selection_eligibility",
+        }
+        summary_rows.append(
+            {
+                "task": task,
+                f"{method}_parameter_points": len(grouped_curve),
+                "finite_parameter_points": sum(
+                    not bool(row["nan_inf_failure"]) for row in grouped_curve
+                ),
+                "parameter_selection_deferred": True,
+            }
+        )
+    _write_csv(output_root / "aggregate" / "task_summary.csv", summary_rows)
+
+    summary = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "run_id": run_id,
+        "source_commit": source_commit,
+        "cell_count": len(rows),
+        "plot_curve_point_count": len(plot_rows),
+        "method": method,
+        "tasks": summaries,
+        "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
+        "initialization": dict(config["initialization"]),
+        "scientific_kernel": spec.scientific_kernel,
+        **dict(spec.single_aggregate_metadata(config)),
+        "countdown_protocol_diagnostic": _countdown_protocol_diagnostic(
+            config,
+            output_root,
+            destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
+        ),
+        "countdown_result_gate": False,
+        "primary_metric": "validation_late_window_pass8_mean",
+        "parameter_selection_deferred_to_reviewed_protocol": True,
+        "test_partition_accessed": False,
+        "method_ranking_allowed": False,
+        "significance_claim_allowed": False,
+        "fixed_horizon_is_convergence": False,
+        "task_performance_reported_separately": True,
+        "structure_diagnostic_reported_separately": True,
+        "nan_inf_reported_separately": True,
+        "scientific_status": (
+            "not_run" if _is_engineering_self_test(config) else "pilot"
+        ),
+        "engineering_placeholder_backend": _is_engineering_self_test(config),
+    }
+    atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
+    return summary
+
+def _aggregate_coldstart_matrix_unranked(
+    config: Mapping[str, Any],
+    output_root: Path,
+    rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Aggregate a multi-method transfer matrix without selecting or ranking methods."""
+
+    methods = _coldstart_methods(config)
+    run_id, source_commit = _coldstart_run_provenance(output_root)
+    configured_cells = build_cells(config)
+    cells_by_key = {cell.key: cell for cell in configured_cells}
+    if len(cells_by_key) != len(configured_cells):
+        raise RuntimeError("Baseline matrix contains duplicate cell keys")
+    legacy_parameter_columns = ("delta_v", "beta", "dpo_initialization")
+    extra_parameter_names = tuple(
+        dict.fromkeys(
+            name
+            for cell in configured_cells
+            if cell.method in methods
+            for name in _method_spec(cell.method).parameters(cell)
+            if name not in legacy_parameter_columns
+        )
+    )
+    plot_rows: list[dict[str, Any]] = []
+    for row in rows:
+        cell = cells_by_key[str(row["cell_key"])]
+        parameters = dict(_method_spec(cell.method).parameters(cell))
+        plot_rows.append(
+            {
+                "task": row["task"],
+                "method": row["method"],
+                "delta_v": row.get("delta_v"),
+                "beta": row.get("beta"),
+                "dpo_initialization": row.get("dpo_initialization"),
+                **{name: parameters.get(name) for name in extra_parameter_names},
+                "seed": row["seed"],
+                "stage": row["stage"],
+                "experiment_id": experiment_id(config),
+                "run_id": run_id,
+                "source_commit": source_commit,
+                **_coldstart_plot_metrics(row),
+            }
+        )
+    _write_csv(output_root / "aggregate" / "plot_curve_points.csv", plot_rows)
+    task_summaries: dict[str, Any] = {}
+    summary_rows: list[dict[str, Any]] = []
+    for task_value in config["suite"]["p0_tasks"]:
+        task = str(task_value)
+        task_rows = [row for row in rows if row["task"] == task]
+        task_cells = [cell for cell in configured_cells if cell.task == task]
+        method_summaries: dict[str, Any] = {}
+        summary_row: dict[str, Any] = {"task": task}
+        for method in methods:
+            method_rows = [row for row in task_rows if row["method"] == method]
+            expected = sum(cell.method == method for cell in task_cells)
+            if len(method_rows) != expected:
+                raise RuntimeError(
+                    f"{task} {method} baseline-matrix cell geometry is incomplete"
+                )
+            grouped_curve = _coldstart_method_grouped_curve(
+                task=task,
+                method=method,
+                method_rows=method_rows,
+                cells_by_key=cells_by_key,
+            )
+            method_summaries[method] = {
+                "grouped_curve": grouped_curve,
+                "parameter_selection_deferred_to_reviewed_protocol": True,
+                "terminal_valid_rate_role": "diagnostic_only_not_selection_eligibility",
+            }
+            summary_row[f"{method}_parameter_points"] = len(grouped_curve)
+        task_summaries[task] = {"task": task, "methods": method_summaries}
+        summary_rows.append(summary_row)
+    _write_csv(output_root / "aggregate" / "task_summary.csv", summary_rows)
+
+    method_metadata = {
+        method: dict(_method_spec(method).matrix_aggregate_metadata(config))
+        for method in methods
+    }
+    summary = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "run_id": run_id,
+        "source_commit": source_commit,
+        "cell_count": len(rows),
+        "plot_curve_point_count": len(plot_rows),
+        "method": METHOD_BASELINE_MATRIX,
+        "methods": list(methods),
+        "execution_class": _execution_class(config),
+        "method_metadata": method_metadata,
+        "transfer_seed_offsets": list(experiment_config.task_transfer_seeds(config)),
+        "tasks": task_summaries,
+        "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
+        "countdown_protocol_diagnostic": _countdown_protocol_diagnostic(
+            config,
+            output_root,
+            destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
+        ),
+        "countdown_result_gate": False,
+        "primary_metric": "validation_late_window_pass8_mean",
+        "parameter_selection_deferred_to_reviewed_protocol": True,
+        "method_ranking_allowed": False,
+        "significance_claim_allowed": False,
+        "test_partition_accessed": False,
+        "fixed_horizon_is_convergence": False,
+        "task_performance_reported_separately": True,
+        "structure_diagnostic_reported_separately": True,
+        "nan_inf_reported_separately": True,
+        "scientific_status": (
+            "not_run" if _is_engineering_self_test(config) else "pilot"
+        ),
+        "engineering_placeholder_backend": _is_engineering_self_test(config),
+    }
+    atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
+    return summary
+
+
 def _aggregate_coldstart(
     config: Mapping[str, Any],
     output_root: Path,
     rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    provenance_path = output_root / "source_provenance.json"
-    provenance = (
-        json.loads(provenance_path.read_text(encoding="utf-8")) if provenance_path.is_file() else {}
-    )
-    run_id = str(provenance.get("run_id", output_root.name))
-    source_commit = str(provenance.get("source_commit", "unrecorded"))
-    plot_rows: list[dict[str, Any]] = []
-    for row in rows:
-        plot_rows.append(
-            {
-                "experiment_id": experiment_id(config),
-                "run_id": run_id,
-                "source_commit": source_commit,
-                "task": row["task"],
-                "method": row["method"],
-                "lambda": row["lambda"],
-                "rho": row["rho"],
-                "seed": row["seed"],
-                "stage": row["stage"],
-                "late_window_pass8_mean": row["late_window_pass8_mean"],
-                "late_window_greedy_mean": row["late_window_greedy_mean"],
-                "best_validation_pass8": row["best_pass8"],
-                "terminal_pass8": row["terminal_pass8"],
-                "best_validation_greedy": row["best_greedy"],
-                "terminal_greedy": row["terminal_greedy"],
-                "best_greedy_valid_rate": row["best_greedy_valid_rate"],
-                "terminal_greedy_valid_rate": row["terminal_greedy_valid_rate"],
-                "best_step": row["best_step"],
-                "terminal_step": row["terminal_step"],
-                "stop_reason": row["stop_reason"],
-                "nan_inf_failure": row["nan_inf_failure"],
-                "complete": True,
-            }
-        )
+    if _is_baseline_matrix(config):
+        return _aggregate_coldstart_matrix_unranked(config, output_root, rows)
+    if _coldstart_method(config) != METHOD_EXPONENTIAL:
+        return _aggregate_coldstart_unranked(config, output_root, rows)
+    run_id, source_commit = _coldstart_run_provenance(output_root)
+    plot_rows = [
+        {
+            "experiment_id": experiment_id(config),
+            "run_id": run_id,
+            "source_commit": source_commit,
+            "task": row["task"],
+            "method": row["method"],
+            "lambda": row["lambda"],
+            "rho": row["rho"],
+            "seed": row["seed"],
+            "stage": row["stage"],
+            **_coldstart_plot_metrics(row),
+        }
+        for row in rows
+    ]
     _write_csv(output_root / "aggregate" / "plot_curve_points.csv", plot_rows)
 
     summaries: dict[str, Any] = {}
@@ -6383,32 +8467,26 @@ def _aggregate_coldstart(
         configured_methods = [cell.method for cell in build_cells(config) if cell.task == task]
         if not configured_methods:
             continue
-        expected_counts = tuple(configured_methods.count(method) for method in (METHOD_POSITIVE_ONLY, METHOD_GLOBAL, METHOD_EXPONENTIAL))
+        expected_counts = tuple(
+            configured_methods.count(method)
+            for method in (METHOD_POSITIVE_ONLY, METHOD_GLOBAL, METHOD_EXPONENTIAL)
+        )
         if (len(positive_rows), len(global_rows), len(exp_rows)) != expected_counts:
             raise RuntimeError(f"{task} cold-start cell counts differ from {expected_counts}")
 
-        def aggregate_group(group: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+        def aggregate_group(
+            group: Sequence[Mapping[str, Any]], task_name: str = task
+        ) -> dict[str, Any]:
             first = group[0]
             return {
-                "task": task,
+                "task": task_name,
                 "method": first["method"],
                 "lambda": first["lambda"],
                 "rho": first["rho"],
-                "seeds": sorted(int(row["seed"]) for row in group),
-                "late_window_pass8_mean": float(
-                    np.mean([float(row["late_window_pass8_mean"]) for row in group])
+                **_coldstart_group_metrics(group),
+                "best_pass8_mean": float(
+                    np.mean([float(row["best_pass8"]) for row in group])
                 ),
-                "late_window_greedy_mean": float(
-                    np.mean([float(row["late_window_greedy_mean"]) for row in group])
-                ),
-                "terminal_pass8_mean": float(
-                    np.mean([float(row["terminal_pass8"]) for row in group])
-                ),
-                "terminal_greedy_valid_rate_mean": float(
-                    np.mean([float(row["terminal_greedy_valid_rate"]) for row in group])
-                ),
-                "best_pass8_mean": float(np.mean([float(row["best_pass8"]) for row in group])),
-                "nan_inf_failure": any(bool(row["nan_inf_failure"]) for row in group),
             }
 
         coefficient_groups: dict[tuple[str, float | None], list[dict[str, Any]]] = {}
@@ -6416,8 +8494,6 @@ def _aggregate_coldstart(
             coefficient_groups.setdefault((str(row["method"]), row["lambda"]), []).append(row)
         grouped = [aggregate_group(group) for group in coefficient_groups.values()]
         positive = next((row for row in grouped if row["method"] == METHOD_POSITIVE_ONLY), None)
-        if positive is None and experiment_id(config) != LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID:
-            raise RuntimeError("Cold-start aggregate requires Positive-only reference rows")
         positive_score = None if positive is None else float(positive["late_window_pass8_mean"])
         grouped_exp = [row for row in grouped if row["method"] == METHOD_EXPONENTIAL]
         selectable = [row for row in grouped_exp if not row["nan_inf_failure"]]
@@ -6451,9 +8527,9 @@ def _aggregate_coldstart(
             "selected_exp": selected,
             "selected_on_grid_edge": selected_on_edge,
             "terminal_valid_rate_role": "diagnostic_only_not_selection_eligibility",
-            "all_exp_below_positive_only": None if positive_score is None else all(
-                float(row["late_window_pass8_mean"]) < positive_score for row in grouped_exp
-            ),
+            "all_exp_below_positive_only": None
+            if positive_score is None
+            else all(float(row["late_window_pass8_mean"]) < positive_score for row in grouped_exp),
             "grouped_curve": sorted(
                 grouped,
                 key=lambda row: (
@@ -6493,7 +8569,9 @@ def _aggregate_coldstart(
         "tasks": summaries,
         "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
         "initialization": dict(config["initialization"]),
-        "positive_only_and_exp_share_fresh_initialization": bool(tuple(config["sweep"].get("transfer_positive_only_seed_offsets", ()))),
+        "positive_only_and_exp_share_fresh_initialization": bool(
+            tuple(config["sweep"].get("transfer_positive_only_seed_offsets", ()))
+        ),
         "scientific_kernel": "canonical_old_coldstart_imports",
         "canonical_source_git_blob_shas": dict(
             config["canonical_coldstart"]["expected_git_blob_shas"]
@@ -6504,7 +8582,12 @@ def _aggregate_coldstart(
         "terminal_valid_rate_role": "diagnostic_only_not_selection_eligibility",
         "test_partition_accessed": False,
         "transfer_exp_single_seed_response_shape_localization": True,
-        "transfer_positive_only_seed_count": len(tuple(int(value) for value in config["sweep"].get("transfer_positive_only_seed_offsets", ()))),
+        "transfer_positive_only_seed_count": len(
+            tuple(
+                int(value)
+                for value in config["sweep"].get("transfer_positive_only_seed_offsets", ())
+            )
+        ),
         "fresh_seed_confirmation_required_for_winner_claim": True,
         "method_ranking_allowed": False,
         "significance_claim_allowed": False,
@@ -6532,10 +8615,17 @@ def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any
         if not value.get("complete") or value.get("evaluation_status") != "complete":
             missing.append(cell.key)
             continue
+        source = "dense" if _is_dense(config) else "current"
+        if _is_coldstart(config):
+            rows.append(_coldstart_result_row(config, cell, value, source=source))
+            continue
         common = {
-            "source": "dense" if _is_dense(config) else "current",
+            "source": source,
             "task": cell.task,
             "method": cell.method,
+            "delta_v": cell.delta_v,
+            "beta": cell.beta,
+            "dpo_initialization": cell.dpo_initialization,
             "rho": cell.rho,
             "lambda": (
                 cell.lambda_value
@@ -6546,44 +8636,12 @@ def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any
             "stage": cell.stage,
             "cell_key": cell.key,
             "nan_inf_failure": bool(value["nan_inf_failure"]),
+            "late_window_pass8_mean": value["validation_late_window_pass8_mean"],
+            "terminal_pass8": value["validation_terminal_pass8"],
+            "late_window_greedy_mean": value["validation_late_window_greedy_mean"],
+            "terminal_greedy": value["validation_terminal_greedy"],
+            "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
         }
-        if _is_coldstart(config):
-            if not _is_engineering_self_test(config) and (
-                "validation_late_window_pass8_mean" not in value
-                or "validation_late_window_greedy_mean" not in value
-            ):
-                raise RuntimeError(f"{cell.key} is missing the paper primary late-window metric")
-            common.update(
-                {
-                    "late_window_pass8_mean": value.get(
-                        "validation_late_window_pass8_mean",
-                        value["validation_best_pass8"],
-                    ),
-                    "late_window_greedy_mean": value.get(
-                        "validation_late_window_greedy_mean",
-                        value["validation_best_greedy"],
-                    ),
-                    "best_pass8": value["validation_best_pass8"],
-                    "terminal_pass8": value["validation_terminal_pass8"],
-                    "best_greedy": value["validation_best_greedy"],
-                    "terminal_greedy": value["validation_terminal_greedy"],
-                    "best_greedy_valid_rate": value["validation_best_greedy_valid_rate"],
-                    "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
-                    "best_step": value["best_step"],
-                    "terminal_step": value["terminal_step"],
-                    "stop_reason": value["stop_reason"],
-                }
-            )
-        else:
-            common.update(
-                {
-                    "late_window_pass8_mean": value["validation_late_window_pass8_mean"],
-                    "terminal_pass8": value["validation_terminal_pass8"],
-                    "late_window_greedy_mean": value["validation_late_window_greedy_mean"],
-                    "terminal_greedy": value["validation_terminal_greedy"],
-                    "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
-                }
-            )
         rows.append(common)
     if missing:
         raise RuntimeError(f"Cannot aggregate; missing/incomplete cells: {missing}")
@@ -6684,6 +8742,9 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
     missing: list[str] = []
     incomplete: list[str] = []
     nan_inf: list[str] = []
+    terminal_contract_failures: list[str] = []
+    dpo_reference_identity_failures: list[str] = []
+    expected_terminal_step = int(config["training"]["optimizer_updates"])
     for cell in cells:
         cell_root = output_root / "cells" / cell.key
         path = cell_root / "cell_manifest.json"
@@ -6702,6 +8763,16 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             incomplete.append(cell.key)
         if value.get("nan_inf_failure"):
             nan_inf.append(cell.key)
+        if not _is_engineering_self_test(config):
+            if int(value.get("terminal_step", -1)) != expected_terminal_step or value.get("stop_reason") != "max_steps" or value.get("test_partition_accessed") is not False:
+                terminal_contract_failures.append(cell.key)
+            method_audit = _method_spec(cell.method).audit_record(cell, value)
+            if not method_audit.passed:
+                bucket = method_audit.failure_bucket
+                if bucket == "dpo_reference_identity_failures":
+                    dpo_reference_identity_failures.append(cell.key)
+                else:
+                    terminal_contract_failures.append(cell.key)
     inherited_complete = True
     aggregate_complete = True
     reproduction_gate_status: str | None = None
@@ -6721,13 +8792,25 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             reproduction_gate_status = str(
                 json.loads(protocol_path.read_text(encoding="utf-8")).get("status")
             )
-        expected_protocol_status = "NOT_RUN_ENGINEERING" if _is_engineering_self_test(config) else ("NOT_RUN" if not any(cell.task == "countdown" for cell in cells) else "PASS")
-        aggregate_complete = aggregate_path.is_file() and int(
-            json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0)
-        ) == len(cells) and reproduction_gate_status == expected_protocol_status
-    all_complete = (
-        not missing and not incomplete and not nan_inf and inherited_complete and aggregate_complete
-    )
+        expected_protocol_status = (
+            "NOT_RUN_ENGINEERING"
+            if _is_engineering_self_test(config)
+            else ("NOT_RUN" if not any(cell.task == "countdown" for cell in cells) else "PASS")
+        )
+        aggregate_complete = (
+            aggregate_path.is_file()
+            and int(json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0))
+            == len(cells)
+            and reproduction_gate_status == expected_protocol_status
+        )
+    seed_batch_protocol_complete: bool | None = None
+    if _is_baseline_matrix(config):
+        sp = output_root / "scheduler" / "dynamic_run.json"
+        scheduler = json.loads(sp.read_text(encoding="utf-8")) if sp.is_file() else {}
+        order = [int(v) for v in config["execution"]["seed_batch_order"]]
+        expected = {str(seed): sum(cell.seed == seed for cell in cells) for seed in order}
+        seed_batch_protocol_complete = scheduler.get("seed_batch_barriers") is True and scheduler.get("seed_batch_order") == order and scheduler.get("seed_batch_expected_cells") == expected and scheduler.get("seed_batch_completed_cells") == expected and scheduler.get("complete") is True
+    all_complete = not missing and not incomplete and not nan_inf and not terminal_contract_failures and not dpo_reference_identity_failures and inherited_complete and aggregate_complete and seed_batch_protocol_complete is not False
     audit = {
         "schema_version": 1,
         "experiment_id": experiment_id(config),
@@ -6736,7 +8819,11 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "missing_cells": sorted(set(missing)),
         "incomplete_cells": sorted(set(incomplete)),
         "nan_inf_cells": sorted(set(nan_inf)),
+        "terminal_contract_failures": sorted(set(terminal_contract_failures)),
+        "dpo_reference_identity_failures": sorted(set(dpo_reference_identity_failures)),
+        "seed_batch_protocol_complete": seed_batch_protocol_complete,
         "all_training_and_evaluation_complete": all_complete,
+        "execution_class": _execution_class(config),
         "test_partition_accessed": False,
         "task_performance_event": "not_adjudicated_without_registered_collapse_threshold",
         "structure_event": "greedy_and_sampled_valid_rate_diagnostic_only",
@@ -6745,18 +8832,32 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         "aggregate_complete": aggregate_complete,
         "countdown_protocol_diagnostic_status": reproduction_gate_status,
         "countdown_result_gate": False if _is_coldstart(config) else None,
-        "transfer_exp_single_seed_response_shape_localization": _is_coldstart(config),
+        "transfer_exp_single_seed_response_shape_localization": (
+            _is_coldstart(config)
+            and _coldstart_method(config) == METHOD_EXPONENTIAL
+            and len(experiment_config.task_transfer_seeds(config)) == 1
+        ),
         "excluded_tasks": (
             dict(config["suite"]["excluded_tasks"])
             if (_is_dense(config) or _is_coldstart(config))
             else {}
         ),
-        "single_seed_shape_discovery": _is_dense(config) or _is_coldstart(config),
-        "fresh_seed_confirmation_required": _is_dense(config) or _is_coldstart(config),
-        "fixed_horizon_is_convergence": False,
-        "scientific_status": (
-            "not_run" if _is_engineering_self_test(config) or not all_complete else "pilot"
+        "single_seed_shape_discovery": (
+            _is_dense(config)
+            or (
+                _is_coldstart(config)
+                and len(experiment_config.task_transfer_seeds(config)) == 1
+            )
         ),
+        "fresh_seed_confirmation_required": (
+            _is_dense(config)
+            or (
+                _is_coldstart(config)
+                and len(experiment_config.task_transfer_seeds(config)) == 1
+            )
+        ),
+        "fixed_horizon_is_convergence": False,
+        "scientific_status": _audited_scientific_status(config, all_complete),
         "engineering_placeholder_backend": _is_engineering_self_test(config),
     }
     atomic_json(output_root / "terminal_audit.json", audit)
@@ -6819,7 +8920,8 @@ def _write_completion_manifests(
         "scheduler_run_id": scheduler["scheduler_run_id"],
         "test_partition_accessed": False,
         "engineering_placeholder_backend": self_test,
-        "scientific_status": "not_run" if self_test else "pilot",
+        "execution_class": _execution_class(config),
+        "scientific_status": str(audit["scientific_status"]),
         "artifact_state": "engineering_self_test_complete" if self_test else "raw_complete",
     }
     atomic_json(output_root / "run_manifest.json", run_manifest)
@@ -6962,12 +9064,13 @@ def cmd_package(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for path in payload_paths:
             archive.write(path, arcname=path.relative_to(output_root).as_posix())
+    execution_class = _execution_class(config)
     result = {
         "schema_version": 1,
         "experiment_id": experiment_id(config),
-        "artifact_kind": (
-            "engineering_self_test" if _is_engineering_self_test(config) else "pilot_results"
-        ),
+        "execution_class": execution_class,
+        "scientific_status": str(audit["scientific_status"]),
+        "artifact_kind": ("engineering_self_test" if _is_engineering_self_test(config) else ("formal_results" if execution_class == "formal" else "pilot_results")),
         "full_results_zip": str(zip_path.resolve()),
         "full_results_zip_sha256": sha256_file(zip_path),
         "full_results_zip_bytes": zip_path.stat().st_size,
@@ -7001,6 +9104,8 @@ def cmd_finalize(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]
         "experiment_id": experiment_id(config),
         "base_commit": audit["base_commit"],
         "artifact_state": "raw_complete",
+        "execution_class": _execution_class(config),
+        "scientific_status": str(audit["scientific_status"]),
         "canonical_archive_owner": "scripts/run_experiment_guard_hardened.py",
         "plot_curve_points_csv": str(plot_path.resolve()),
         "plot_curve_points_csv_sha256": sha256_file(plot_path),
@@ -7168,31 +9273,41 @@ def _write_engineering_gates(
         },
     )
     base_identity = model_identity(base_model_path, None)["model"]
-    liveness_key = "countdown__engineering_placeholder_liveness"
-    liveness = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": stable_config_hash(config),
-        "base_model_identity": base_identity,
-        "engineering_liveness": True,
-        "engineering_placeholder_backend": True,
-        "optimizer_updates": 2,
-        "complete": True,
-        "reload_gate_passed": True,
-        "adapter_weight_changed": True,
-        "fresh_process_reload_passed": True,
-        "liveness_parent_process_id": 1001,
-        "reload_process_id": 1002,
-        "nan_inf_failure": False,
-        "canonical_dispatch_verified": True,
-        "finite_old_core_updates": True,
-        "optimizer_update_norm": 1.0,
-        "initial_adapter_weight_sha256": "0" * 64,
-        "terminal_adapter_weight_sha256": "1" * 64,
-        "cell": {"task": "countdown"},
-        "scientific_status": "not_run",
-    }
-    atomic_json(output_root / "liveness" / liveness_key / "cell_manifest.json", liveness)
+    methods = _coldstart_methods(config) if _is_coldstart(config) else (_coldstart_method(config),)
+    for method in methods:
+        task = (
+            str(config["dpo"]["liveness_task"])
+            if method == METHOD_DPO
+            else "countdown"
+        )
+        liveness_key = f"{task}__{method}__engineering_placeholder_liveness"
+        liveness = {
+            "schema_version": 1,
+            "experiment_id": experiment_id(config),
+            "config_hash": stable_config_hash(config),
+            "base_model_identity": base_identity,
+            "engineering_liveness": True,
+            "engineering_placeholder_backend": True,
+            "optimizer_updates": 2,
+            "complete": True,
+            "reload_gate_passed": True,
+            "adapter_weight_changed": True,
+            "fresh_process_reload_passed": True,
+            "liveness_parent_process_id": 1001,
+            "reload_process_id": 1002,
+            "nan_inf_failure": False,
+            "canonical_dispatch_verified": True,
+            "finite_old_core_updates": True,
+            "optimizer_update_norm": 1.0,
+            "initial_adapter_weight_sha256": "0" * 64,
+            "terminal_adapter_weight_sha256": "1" * 64,
+            "cell": {
+                "task": task,
+                "method": method,
+            },
+            "scientific_status": "not_run",
+        }
+        atomic_json(output_root / "liveness" / liveness_key / "cell_manifest.json", liveness)
     (output_root / "logs" / "liveness.log").write_text(
         "engineering placeholder liveness complete\n",
         encoding="utf-8",
@@ -7231,16 +9346,17 @@ def _audit_engineering_queue(
     if set(starts) != expected_keys or set(finishes) != expected_keys:
         raise RuntimeError(f"Engineering queue did not observe all {len(cells)} starts/finishes")
     slots_per_gpu = int(config["execution"]["slots_per_gpu"])
-    if any(value != 0 for value in active_by_gpu.values()) or max(maximum_by_gpu.values()) > slots_per_gpu:
+    if (
+        any(value != 0 for value in active_by_gpu.values())
+        or max(maximum_by_gpu.values()) > slots_per_gpu
+    ):
         raise RuntimeError("Engineering queue exceeded the declared per-GPU capacity")
     slot_count = int(config["execution"]["max_concurrent_cells"])
     initial_keys = {cell.key for cell in cells[:slot_count]}
     replacement_keys = {cell.key for cell in cells[slot_count:]}
     if not replacement_keys:
         raise RuntimeError("Engineering queue requires replacement cells to audit dynamic refill")
-    if min(starts[key] for key in replacement_keys) >= max(
-        finishes[key] for key in initial_keys
-    ):
+    if min(starts[key] for key in replacement_keys) >= max(finishes[key] for key in initial_keys):
         raise RuntimeError("Engineering queue did not refill before the initial 16 cells finished")
     return {
         "all_cells_observed": True,
@@ -7451,7 +9567,9 @@ def cmd_engineering_self_test(
             else:
                 raise RuntimeError("Engineering failure injection did not fail closed")
             if not first_failure["failed_cells"] or not first_failure["unscheduled_cells"]:
-                raise RuntimeError("Engineering failure did not preserve failed and unscheduled work")
+                raise RuntimeError(
+                    "Engineering failure did not preserve failed and unscheduled work"
+                )
             resumed = cmd_run_dynamic(
                 self_test_config,
                 config_path,
@@ -7633,7 +9751,7 @@ def make_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> None:
     args = make_parser().parse_args(argv)
-    config_path = Path(args.config).resolve()
+    config_path, _, _ = experiment_config.require_tracked_config(args.config, _repo_root())
     config = load_config(config_path)
     output_root = validate_work_dir(args.output_root)
     if args.command == "prepare":
@@ -7690,14 +9808,14 @@ def main(argv: Sequence[str] | None = None) -> None:
         rho = args.rho
         if args.lambda_value is not None:
             rho = math.exp(-float(args.lambda_value))
-        if rho is None:
+        if rho is None and not _is_coldstart(config):
             rho = _task_rhos(config, str(args.task))[0]
         result = cmd_liveness(
             config,
             config_path,
             output_root,
             task=args.task,
-            rho=float(rho),
+            rho=None if rho is None else float(rho),
             base_model_path=args.base_model_path,
             force=bool(args.force),
         )

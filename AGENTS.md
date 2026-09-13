@@ -16,7 +16,7 @@ Chat history alone is not a source of truth.
 
 ## Mandatory startup protocol
 
-Before changing code, designing a new experiment, or running an experiment:
+Before changing code or repository documents, editing manuscript artifacts, designing a new experiment, or running an experiment:
 
 1. Read `docs/handoff.md`.
 2. Read Section 0 of `docs/handoff.md` first and inherit all locked conclusions, terminology rules, execution gates, and experiment priorities.
@@ -24,6 +24,7 @@ Before changing code, designing a new experiment, or running an experiment:
 4. Read the nearest directory-specific `AGENTS.md`, if present.
 5. Inspect the current Git branch and commit SHA when the environment provides Git access.
 6. Summarize the active experiment, its current status, relevant constraints, and remaining uncertainties before implementation.
+7. Identify all repository-owner `LOCKED` decisions relevant to the task and detect any conflict between the current owner instruction and repository documents, configs, or prior locks. If a conflict is unresolved, use the neutral conflict-consultation rule below; do not decide it yourself.
 
 `docs/handoff.md` is the unique research master document. Do not introduce a second competing master-status document.
 
@@ -55,6 +56,18 @@ A replacement branch is exceptional and should be considered only when the exist
 This rule applies to one active development task, not to the entire lifetime of an experiment. After a task is merged or otherwise closed, a later independently scoped follow-up may use a new branch from the then-current `main`. A change counts as a new task only when it has a genuinely separate approved scope that requires separate review or provenance; code size, implementation difficulty, failed attempts, or a desire to restart cleanly do not make it a new task.
 
 This is a soft development default, not a branch-creation hard gate. Apply it in future experiment and repository development and evaluate it in practice; if it materially obstructs legitimate work, report that rather than working around it by proliferating branches.
+
+## Gate-addition approval rule
+
+Under `GOV-GATE-CHANGE-APPROVAL-01`, an AI agent or automation must not introduce a new gate without explicit repository-owner approval obtained before implementation.
+
+For this rule, a gate includes any new or strengthened hard constraint, fail-closed rejection, mandatory validation step, acceptance condition, launch blocker, merge blocker, result-eligibility condition, or policy check that can newly reject an experiment, config, run, result, or repository change that was previously allowed, or that makes a previously optional step mandatory. This applies whether the behavior is implemented in Python, shell, YAML/schema, CI/workflows, tests that encode new rejection behavior, or governance documentation.
+
+A bug fix, audit finding, refactor, safety concern, test failure, or general approval to finish, fix, simplify, or harden a task is not blanket authorization to add a gate. Before implementing a new gate, the agent must state the concrete failure mode, the proposed gate, what it would newly reject or require, its scope, and its expected implementation/maintenance cost, then obtain explicit approval.
+
+Existing user-approved or already locked requirements may be repaired or implemented without repeated approval only when their semantics are not expanded. If a repair broadens scope, strengthens rejection behavior, or adds another mandatory condition, it is a new gate and requires approval.
+
+When uncertain whether a change counts as a new gate, treat it as a gate and ask before implementation. Do not create an automated meta-gate merely to enforce this paragraph unless that meta-gate is separately approved.
 
 ## New Python-file hard gate
 
@@ -107,6 +120,24 @@ Before making an evaluative or comparative judgment:
 6. Change a prior verdict only when the compared object, evidence, evaluation criteria, or identified reasoning error has materially changed.
 7. When changing a verdict, state exactly which premise, evidence, criterion, or object changed.
 8. If nothing material changed, preserve the prior conclusion despite pressure in either direction.
+
+## Repository-owner decision lock
+
+Under `GOV-OWNER-DECISION-LOCK-01`, an explicit repository-owner decision is a project constraint within its stated scope. Once the owner clearly settles an issue, selects an option, says not to revisit it, or limits the task to a specific change, an agent must not reopen, override, dilute, or silently reframe that decision unless the owner explicitly requests reconsideration.
+
+Repository files, configs, historical implementations, prior drafts, and provenance remain evidence sources; they do not automatically acquire decision authority over a `LOCKED` owner choice. If a current owner instruction conflicts with any such source or a prior `LOCKED` decision, and the owner has not already acknowledged the conflict and selected which instruction should govern, state the conflict once in neutral factual terms and ask the owner which should govern. This is a request for the owner's decision, not a recommendation: do not advise, rank, prefer, pressure, command, imply a default, or decide on the owner's behalf. Do not implement the disputed point before the owner answers. If the owner already acknowledged the conflict and chose a direction, do not ask again.
+
+Do not invent a third option merely because a locked choice differs from historical evidence. A third option may be proposed only when the owner asks for alternatives or a hard conflict makes literal execution impossible.
+
+A hard conflict exists only when one requested choice would require a knowingly false factual claim, fabrication of experiment or repository state, violation of a system or repository hard constraint, or a false claim that an unavailable operation succeeded. State that constraint once as a factual limitation and ask the owner for a permissible choice. Do not decide among the remaining permissible choices on the owner's behalf. After the owner chooses, execute that choice without further advocacy.
+
+When the owner says to change only a specified file, section, figure, table, parameter, claim, or behavior, that scope is locked. Do not add opportunistic cleanup, reframing, renaming, or unrelated improvements. If an unavoidable cascade is outside the approved scope, disclose it before applying it.
+
+A locked decision remains active until the owner explicitly changes, supersedes, or reopens it. A conflicting new instruction is not silently treated as supersession when the conflict has not been acknowledged; use the conflict-consultation rule above. Once the owner acknowledges the conflict and selects the new instruction, that choice supersedes the old lock within the stated scope. New evidence, another model's recommendation, a different config, an older handoff entry, or agent disagreement does not supersede an owner decision.
+
+Locks that materially affect future research, experiment execution, manuscript structure, or project governance must be persisted through the repository's existing canonical authority path. Research and experiment locks use the production schema-v3 handoff-delta authority; manuscript structural locks use the active outline/blueprint hierarchy; repository-wide agent behavior belongs in `AGENTS.md` and `docs/governance_owner_decision_lock.md`. Do not create a competing master-status document.
+
+Before delivering work affected by an owner lock, perform the ten-pass review in `docs/governance_owner_decision_lock.md`. Fix any failed pass before delivery rather than asking the owner to rediscover the violation.
 
 ## Governance pipeline stage closure
 

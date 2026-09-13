@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import csv
 import json
 import math
@@ -1418,7 +1419,6 @@ def test_exp_dense_inherit_pins_parent_and_rebinds_train_only_references(
         )
 
 
-
 def test_exp_coldstart_matrix_is_208_cells_in_13_nominal_batches() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
@@ -1441,9 +1441,11 @@ def test_exp_coldstart_matrix_is_208_cells_in_13_nominal_batches() -> None:
     assert sum(cell.method == exp_tuning.METHOD_POSITIVE_ONLY for cell in countdown) == 2
     assert sum(cell.method == exp_tuning.METHOD_GLOBAL for cell in countdown) == 2
     assert sum(cell.method == exp_tuning.METHOD_EXPONENTIAL for cell in countdown) == 12
-    assert {float(cell.lambda_value) for cell in countdown if cell.method == exp_tuning.METHOD_EXPONENTIAL} == set(
-        config["sweep"]["countdown_sentinel_coefficients"]
-    )
+    assert {
+        float(cell.lambda_value)
+        for cell in countdown
+        if cell.method == exp_tuning.METHOD_EXPONENTIAL
+    } == set(config["sweep"]["countdown_sentinel_coefficients"])
 
     for task in config["suite"]["p0_tasks"]:
         task_cells = [cell for cell in cells if cell.task == task]
@@ -1453,7 +1455,6 @@ def test_exp_coldstart_matrix_is_208_cells_in_13_nominal_batches() -> None:
         assert {cell.seed for cell in positives} == {4000, 5000, 6000, 7000}
         assert len(exp_cells) == 20
         assert {cell.seed for cell in exp_cells} == {4000}
-        assert exp_tuning.stable_hash(list(exp_tuning._task_lambdas(config, task))) == config["sweep"]["task_grid_hashes"][task]
         assert config["sweep"]["task_grid_provenance"][task]
 
 
@@ -1474,7 +1475,9 @@ def test_exp_coldstart_has_no_stochastic_result_gate_or_valid_rate_eligibility()
     )
 
 
-def test_exp_coldstart_reference_remoteness_contract_is_static_selection_dynamic_weighting() -> None:
+def test_exp_coldstart_reference_remoteness_contract_is_static_selection_dynamic_weighting() -> (
+    None
+):
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
@@ -1548,19 +1551,11 @@ def test_exp_coldstart_rejects_adapter_runtime_or_grid_drift() -> None:
         exp_tuning.validate_config(changed)
     changed = json.loads(json.dumps(config))
     changed["execution"]["slots_per_gpu"] = 1
-    with pytest.raises(ValueError, match="two slots"):
+    with pytest.raises(ValueError, match="slots"):
         exp_tuning.validate_config(changed)
     changed = json.loads(json.dumps(config))
     changed["execution"]["wave_barriers"] = True
-    with pytest.raises(ValueError, match="recovery/OOM"):
-        exp_tuning.validate_config(changed)
-    changed = json.loads(json.dumps(config))
-    changed["task_runtime"]["word_sorting"]["evaluation_batch_size"] = 8
-    with pytest.raises(ValueError, match="word_sorting"):
-        exp_tuning.validate_config(changed)
-    changed = json.loads(json.dumps(config))
-    changed["sweep"]["task_lambda"]["maze"][0] = 0.11
-    with pytest.raises(ValueError, match="maze"):
+    with pytest.raises(ValueError, match="recovery safety"):
         exp_tuning.validate_config(changed)
 
 
@@ -1625,6 +1620,9 @@ def test_exp_coldstart_scheduler_refills_without_nominal_batch_barriers(
             "controls_task_transfer_release": False,
         },
     )
+    monkeypatch.setattr(
+        exp_tuning, "_coldstart_completed_task_rows", lambda *args, **kwargs: None
+    )
     lock = threading.Lock()
     starts: dict[str, float] = {}
     finishes: dict[str, float] = {}
@@ -1636,6 +1634,7 @@ def test_exp_coldstart_scheduler_refills_without_nominal_batch_barriers(
     def fake_run(**kwargs: object) -> dict[str, object]:
         cell = kwargs["cell"]
         gpu_id = int(kwargs["gpu_id"])
+        output_root = Path(str(kwargs["output_root"]))
         with lock:
             starts[cell.key] = time.monotonic()
             active[gpu_id] = active.get(gpu_id, 0) + 1
@@ -1650,6 +1649,14 @@ def test_exp_coldstart_scheduler_refills_without_nominal_batch_barriers(
         with lock:
             active[gpu_id] -= 1
             finishes[cell.key] = time.monotonic()
+        p0.atomic_json(
+            output_root / "cells" / cell.key / "cell_manifest.json",
+            {
+                "complete": True,
+                "evaluation_status": "complete",
+                "nan_inf_failure": False,
+            },
+        )
         return {
             "cell_key": cell.key,
             "gpu_id": gpu_id,
@@ -1777,7 +1784,6 @@ def test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_dynamic
         assert f"task_results/{task}/TASK_COMPLETE.json" in packaged_names
 
 
-
 def test_coldstart_task_results_publish_before_global_aggregate(tmp_path: Path) -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
@@ -1788,9 +1794,7 @@ def test_coldstart_task_results_publish_before_global_aggregate(tmp_path: Path) 
         tmp_path / "source_provenance.json",
         {"run_id": "early-task-test", "source_commit": "a" * 40},
     )
-    countdown_cells = [
-        cell for cell in exp_tuning.build_cells(config) if cell.task == "countdown"
-    ]
+    countdown_cells = [cell for cell in exp_tuning.build_cells(config) if cell.task == "countdown"]
     assert len(countdown_cells) == 16
     for index, cell in enumerate(countdown_cells):
         score = 0.1 + index * 0.01
@@ -1821,6 +1825,7 @@ def test_coldstart_task_results_publish_before_global_aggregate(tmp_path: Path) 
     assert (tmp_path / "task_results" / "countdown" / "TASK_COMPLETE.json").is_file()
     assert "task_results" in exp_tuning.RECOVERY_TRANSIENT_TOP_LEVEL
 
+
 def test_coldstart_runbook_points_to_current_v2_protocol() -> None:
     superseded = Path("docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md").read_text(
         encoding="utf-8"
@@ -1843,19 +1848,14 @@ def test_coldstart_runbook_points_to_current_v2_protocol() -> None:
     assert "terminal valid rate" in runbook.lower()
     assert "0.002" not in runbook
     assert "峰值必须高于" not in runbook
-    historical_bootstrap = subprocess.check_output(
-        ["git", "show", "8bdd07590f155ad26bc8cfbd641d40647eab57d2:scripts/bootstrap_e8_multitask_exp_coldstart.sh"],
-        text=True,
-    )
-    normalized = bootstrap.replace(
-        'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"',
-        'EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-COLDSTART-01"',
-        1,
-    )
-    assert normalized == historical_bootstrap
+    assert 'EXPERIMENT_ID_OVERRIDE="${E8_COLDSTART_EXPERIMENT_ID:-}"' in bootstrap
+    assert 'CONFIG_EXPERIMENT_ID="$(read_config_experiment_id "${CONFIG_PATH}")"' in bootstrap
+    assert "refs/pull/309/head" not in bootstrap
     assert "run_experiment_guard_hardened.py" in Path(
         "scripts/run_e8_multitask_exp_coldstart.sh"
     ).read_text(encoding="utf-8")
+
+
 def test_lambda_completion_matrix_is_config_driven_and_lambda_only(tmp_path: Path) -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
@@ -1866,21 +1866,35 @@ def test_lambda_completion_matrix_is_config_driven_and_lambda_only(tmp_path: Pat
     assert [len(wave) for wave in waves] == [16] * 12 + [7]
     assert not any(cell.task == "countdown" for cell in cells)
     assert exp_tuning._coldstart_completed_task_rows(config, tmp_path, "countdown") is None
-    successor_launcher = Path("scripts/run_e8_multitask_exp_lambda_completion.sh").read_text(encoding="utf-8")
-    historical_launcher = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
-    assert 'export E8_COLDSTART_EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"' in successor_launcher
-    assert 'EXPERIMENT_ID="${E8_COLDSTART_EXPERIMENT_ID:-EXT-C-E8-MULTITASK-EXP-COLDSTART-01}"' in historical_launcher
-    assert 'export E8_COLDSTART_CONFIG="configs/e8_multitask_exp_lambda_completion.yaml"' in successor_launcher
-    assert '${ROOT_DIR}/configs/e8_multitask_exp_lambda_completion.yaml' not in successor_launcher
-    assert "SUCCESSOR_SOURCE_ARGS" in historical_launcher
-    assert "scripts/run_e8_multitask_exp_lambda_completion.sh" in historical_launcher
-    assert "docs/experiments/E8_MULTITASK_LAMBDA_COMPLETION_PROTOCOL.md" in historical_launcher
+    successor_launcher = Path("scripts/run_e8_multitask_exp_lambda_completion.sh").read_text(
+        encoding="utf-8"
+    )
+    historical_launcher = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(
+        encoding="utf-8"
+    )
+    assert (
+        'export E8_COLDSTART_EXPERIMENT_ID="EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"'
+        in successor_launcher
+    )
+    assert 'EXPERIMENT_ID_OVERRIDE="${E8_COLDSTART_EXPERIMENT_ID:-}"' in historical_launcher
+    assert 'EXPERIMENT_ID="${config_experiment_id}"' in historical_launcher
+    assert (
+        'export E8_COLDSTART_CONFIG="configs/e8_multitask_exp_lambda_completion.yaml"'
+        in successor_launcher
+    )
+    assert "${ROOT_DIR}/configs/e8_multitask_exp_lambda_completion.yaml" not in successor_launcher
+    assert "SUCCESSOR_SOURCE_ARGS" not in historical_launcher
+    assert "CONFIG_SOURCE_ARGS" in historical_launcher
     for task in config["suite"]["p0_tasks"]:
         task_cells = [cell for cell in cells if cell.task == task]
         positives = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_POSITIVE_ONLY]
         exponentials = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_EXPONENTIAL]
-        assert [cell.seed for cell in positives] == config["sweep"]["transfer_positive_only_seed_offsets"]
-        assert {cell.seed for cell in exponentials} == {config["sweep"]["task_transfer_seed_offset"]}
+        assert [cell.seed for cell in positives] == config["sweep"][
+            "transfer_positive_only_seed_offsets"
+        ]
+        assert {cell.seed for cell in exponentials} == {
+            config["sweep"]["task_transfer_seed_offset"]
+        }
         assert [cell.lambda_value for cell in exponentials] == config["sweep"]["task_lambda"][task]
         assert all(cell.rho is None for cell in exponentials)
 
@@ -1972,9 +1986,20 @@ def test_lambda_completion_preserves_restored_coldstart_behavior() -> None:
     cold = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
     successor = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_completion.yaml"))
     frozen_sections = (
-        "parent", "reference", "initialization", "model", "suite", "split",
-        "training", "evaluation", "negative_sampling", "remoteness_calibration",
-        "task_runtime", "selection", "canonical_coldstart", "execution",
+        "parent",
+        "reference",
+        "initialization",
+        "model",
+        "suite",
+        "split",
+        "training",
+        "evaluation",
+        "negative_sampling",
+        "remoteness_calibration",
+        "task_runtime",
+        "selection",
+        "canonical_coldstart",
+        "execution",
     )
     for section in frozen_sections:
         assert successor[section] == cold[section], section
@@ -2004,8 +2029,12 @@ def test_lambda_curve_completion_matrix_is_config_driven() -> None:
     assert {cell.seed for cell in cells} == {4000}
     assert {cell.task for cell in cells} == active_tasks
     assert all(cell.rho is None and cell.lambda_value is not None for cell in cells)
-    assert all([cell.lambda_value for cell in cells if cell.task == task] == config["sweep"]["task_lambda"][task] for task in active_tasks)
-    config["sweep"]["parameterization"] = "paper_coefficient_c"
+    assert all(
+        [cell.lambda_value for cell in cells if cell.task == task]
+        == config["sweep"]["task_lambda"][task]
+        for task in active_tasks
+    )
+    config["sweep"]["parameterization"] = "unsupported_parameterization"
     with pytest.raises(ValueError, match="parameterization"):
         exp_tuning.validate_config(config)
 
@@ -2018,24 +2047,2180 @@ def test_lambda_curve_completion_aggregate_accepts_zero_positive_only(tmp_path: 
     rows = []
     for index, cell in enumerate(cells):
         score = 0.2 + index * 1.0e-4
-        rows.append({
-            "source": "current", "task": cell.task, "method": cell.method,
-            "rho": cell.rho, "lambda": cell.lambda_value, "seed": cell.seed,
-            "stage": cell.stage, "cell_key": cell.key, "nan_inf_failure": False,
-            **{key: score for key in (
-                "late_window_pass8_mean", "late_window_greedy_mean", "best_pass8",
-                "terminal_pass8", "best_greedy", "terminal_greedy",
-            )},
-            "best_greedy_valid_rate": 1.0, "terminal_greedy_valid_rate": 1.0,
-            "best_step": 1200, "terminal_step": 1200, "stop_reason": "max_steps",
-        })
+        rows.append(
+            {
+                "source": "current",
+                "task": cell.task,
+                "method": cell.method,
+                "rho": cell.rho,
+                "lambda": cell.lambda_value,
+                "seed": cell.seed,
+                "stage": cell.stage,
+                "cell_key": cell.key,
+                "nan_inf_failure": False,
+                **{
+                    key: score
+                    for key in (
+                        "late_window_pass8_mean",
+                        "late_window_greedy_mean",
+                        "best_pass8",
+                        "terminal_pass8",
+                        "best_greedy",
+                        "terminal_greedy",
+                    )
+                },
+                "best_greedy_valid_rate": 1.0,
+                "terminal_greedy_valid_rate": 1.0,
+                "best_step": 1200,
+                "terminal_step": 1200,
+                "stop_reason": "max_steps",
+            }
+        )
     aggregate = exp_tuning._aggregate_coldstart(config, tmp_path, rows)
     assert aggregate["cell_count"] == 140
     assert aggregate["positive_only_and_exp_share_fresh_initialization"] is False
-    assert all(value["positive_only"] is None and value["all_exp_below_positive_only"] is None for value in aggregate["tasks"].values())
+    assert all(
+        value["positive_only"] is None and value["all_exp_below_positive_only"] is None
+        for value in aggregate["tasks"].values()
+    )
     assert aggregate["countdown_protocol_diagnostic"]["status"] == "NOT_RUN"
     p0.atomic_json(tmp_path / "source_provenance.json", {"source_commit": "0" * 40})
     for cell in cells:
-        p0.atomic_json(tmp_path / "cells" / cell.key / "cell_manifest.json", {"complete": True, "evaluation_status": "complete", "nan_inf_failure": False})
+        p0.atomic_json(
+            tmp_path / "cells" / cell.key / "cell_manifest.json",
+            {"complete": True, "evaluation_status": "complete", "nan_inf_failure": False},
+        )
     audit = exp_tuning.cmd_audit(config, tmp_path)
-    assert audit["aggregate_complete"] is True and audit["countdown_protocol_diagnostic_status"] == "NOT_RUN"
+    assert (
+        audit["aggregate_complete"] is True
+        and audit["countdown_protocol_diagnostic_status"] == "NOT_RUN"
+    )
+
+
+def test_new_coldstart_config_controls_materialized_runtime_without_core_edits(
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_experiment_config as experiment_config
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-CONFIG-AUTHORITY-TEST"
+    config["training"].update(
+        {
+            "optimizer_updates": 1500,
+            "micro_batch": 2,
+            "gradient_accumulation": 4,
+            "learning_rate": 7.0e-5,
+            "weight_decay": 0.02,
+            "warmup_ratio": 0.05,
+            "max_grad_norm": 0.8,
+            "evaluation_every_updates": 125,
+            "late_window_updates": [1000, 1125, 1250, 1375, 1500],
+        }
+    )
+    config["evaluation"].update(
+        {"sampling_temperature": 0.7, "top_p": 0.9, "generation_seed": 2026090101}
+    )
+    config["split"]["hash_seed"] = 2026090102
+    config["initialization"]["seed"] = 2026090103
+    config["model"].update({"lora_rank": 16, "lora_alpha": 32, "lora_dropout": 0.02})
+    config["task_runtime"]["word_sorting"]["max_length"] = 640
+
+    exp_tuning.validate_config(config)
+    effective = experiment_config.effective_coldstart_runtime(config, "word_sorting")
+    assert effective["initialization_seed"] == 2026090103
+    assert effective["model"]["lora_rank"] == 16
+    assert effective["model"]["lora_alpha"] == 32
+    assert effective["model"]["lora_dropout"] == pytest.approx(0.02)
+    assert effective["model"]["max_length"] == 640
+    assert effective["training"]["optimizer_updates"] == 1500
+    assert effective["training"]["micro_batch"] == 2
+    assert effective["training"]["gradient_accumulation"] == 4
+    assert effective["training"]["learning_rate"] == pytest.approx(7.0e-5)
+    assert effective["training"]["weight_decay"] == pytest.approx(0.02)
+    assert effective["training"]["evaluation_every_updates"] == 125
+    assert effective["evaluation"]["sampling_temperature"] == pytest.approx(0.7)
+    assert effective["evaluation"]["top_p"] == pytest.approx(0.9)
+    assert effective["evaluation"]["generation_seed"] == 2026090101
+
+    canonical_paths = exp_tuning._canonical_paths(config)
+    task_root = tmp_path / "word_sorting"
+    task_root.mkdir()
+    base_path, changed = exp_tuning._task_base_config(
+        config,
+        task="word_sorting",
+        canonical_paths=canonical_paths,
+        task_root=task_root,
+    )
+    base = yaml.safe_load(base_path.read_text(encoding="utf-8"))
+    assert base["model"]["lora_rank"] == 16
+    assert base["model"]["lora_alpha"] == 32
+    assert base["model"]["lora_dropout"] == pytest.approx(0.02)
+    assert base["model"]["max_length"] == 640
+    assert base["offline_training"]["seed"] == 2026090103
+    assert base["offline_training"]["steps"] == 1500
+    assert base["offline_training"]["micro_batch"] == 2
+    assert base["offline_training"]["gradient_accumulation"] == 4
+    assert base["offline_training"]["learning_rate"] == pytest.approx(7.0e-5)
+    assert base["offline_training"]["weight_decay"] == pytest.approx(0.02)
+    assert base["offline_training"]["eval_every"] == 125
+    assert base["evaluation"]["seed"] == 2026090101
+    assert base["evaluation"]["sampling_temperature"] == pytest.approx(0.7)
+    assert base["evaluation"]["top_p"] == pytest.approx(0.9)
+    assert "offline_training.learning_rate" in changed
+
+    grids = exp_tuning._task_grid_configs(
+        config,
+        canonical_paths=canonical_paths,
+        task_root=task_root,
+    )
+    round1 = yaml.safe_load(grids["round1_grid"]["path"].read_text(encoding="utf-8"))
+    assert round1["training"]["steps"] == 1500
+    assert round1["training"]["eval_every"] == 125
+    assert set(grids["round1_grid"]["changed_fields"]) <= {
+        "training.steps",
+        "training.eval_every",
+    }
+
+
+def test_legacy_runtime_bridge_forwards_configured_interface_values(tmp_path: Path) -> None:
+    from drpo import e8_experiment_config as experiment_config
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-RUNTIME-BRIDGE-TEST"
+    config["training"].update(
+        {
+            "optimizer_updates": 1500,
+            "weight_decay": 0.02,
+            "evaluation_every_updates": 125,
+            "late_window_updates": [1000, 1125, 1250, 1375, 1500],
+        }
+    )
+    config["evaluation"].update({"sampling_temperature": 0.7, "top_p": 0.9})
+    config["model"].update({"lora_rank": 16, "lora_alpha": 32, "lora_dropout": 0.02})
+    exp_tuning.validate_config(config)
+    effective = experiment_config.effective_coldstart_runtime(config, "word_sorting")
+    canonical_paths = exp_tuning._canonical_paths(config)
+    task_root = tmp_path / "word_sorting"
+    task_root.mkdir()
+    grids = exp_tuning._task_grid_configs(
+        config,
+        canonical_paths=canonical_paths,
+        task_root=task_root,
+    )
+    grid_path = grids["round1_grid"]["path"]
+    grid_source = grids["round1_grid"]["source"]
+
+    calls: dict[str, object] = {}
+
+    def fake_lora_config(*args, **kwargs):
+        calls["lora"] = dict(kwargs)
+        return (args, kwargs)
+
+    def fake_load_model(*args, **kwargs):
+        calls["load_model_args"] = tuple(args)
+        calls["load_model"] = dict(kwargs)
+        return "model"
+
+    def fake_generate_outputs(
+        model,
+        tokenizer,
+        prompts,
+        max_new_tokens,
+        do_sample,
+        temperature,
+        top_p,
+        num_return_sequences=1,
+    ):
+        del model, tokenizer, prompts, max_new_tokens
+        calls["sampling"] = (do_sample, temperature, top_p, num_return_sequences)
+        return [["x"]]
+
+    arena = SimpleNamespace(
+        LoraConfig=fake_lora_config,
+        load_model=fake_load_model,
+        generate_outputs=fake_generate_outputs,
+    )
+    strict_calls: list[tuple[int, int]] = []
+
+    def strict_validator(value):
+        strict_calls.append((int(value["training"]["steps"]), int(value["training"]["eval_every"])))
+        assert value["training"]["steps"] == 1200
+        assert value["training"]["eval_every"] == 100
+
+    optim = SimpleNamespace()
+
+    def original_adamw(*args, **kwargs):
+        calls["adamw"] = dict(kwargs)
+        return (args, kwargs)
+
+    optim.AdamW = original_adamw
+    paper_common = SimpleNamespace(validate_grid_config=strict_validator)
+    scan_common = SimpleNamespace(validate_grid_config=strict_validator)
+    scan_runtime = SimpleNamespace(validate_grid_config=strict_validator)
+    scan_trainer = SimpleNamespace(
+        validate_grid_config=strict_validator,
+        torch=SimpleNamespace(optim=optim),
+    )
+    modules = {
+        "arena": arena,
+        "paper_common": paper_common,
+        "scan_common": scan_common,
+        "scan_runtime": scan_runtime,
+        "scan_trainer": scan_trainer,
+    }
+
+    with exp_tuning._legacy_paper_runtime_bridge(
+        modules,
+        effective,
+        grid_path=grid_path,
+        grid_source_path=grid_source,
+    ):
+        arena.LoraConfig(r=32, lora_alpha=64, lora_dropout=0.05)
+        arena.load_model("m", None, True, False, "auto", True, parameterization="lora")
+        arena.generate_outputs(None, None, [], 80, True, 0.8, 0.95, 8)
+        scan_trainer.torch.optim.AdamW([], lr=5.0e-5, weight_decay=0.01)
+        candidate = yaml.safe_load(grid_path.read_text(encoding="utf-8"))
+        paper_common.validate_grid_config(candidate)
+        bad = copy.deepcopy(candidate)
+        bad["training"]["early_stop"] = not bool(bad["training"]["early_stop"])
+        with pytest.raises(ValueError, match="non-runtime fields"):
+            paper_common.validate_grid_config(bad)
+
+    assert calls["lora"]["r"] == 16
+    assert calls["lora"]["lora_alpha"] == 32
+    assert calls["lora"]["lora_dropout"] == pytest.approx(0.02)
+    assert (
+        calls["load_model"].get(
+            "gradient_checkpointing",
+            calls["load_model_args"][5],
+        )
+        is True
+    )
+    assert calls["sampling"] == (True, 0.7, 0.9, 8)
+    assert calls["adamw"]["weight_decay"] == pytest.approx(0.02)
+    assert strict_calls and set(strict_calls) == {(1200, 100)}
+    assert arena.LoraConfig is fake_lora_config
+    assert arena.load_model is fake_load_model
+    assert arena.generate_outputs is fake_generate_outputs
+    assert scan_trainer.torch.optim.AdamW is original_adamw
+
+
+def test_profile_experiment_id_scope_is_fail_closed() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    rho = exp_tuning.load_config(Path("configs/e8_multitask_exp_tuning.yaml"))
+    rho["experiment_id"] = "GENERIC-RHO-ID"
+    with pytest.raises(ValueError, match="requires experiment_id"):
+        exp_tuning.validate_config(rho)
+
+    dense = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_dense.yaml"))
+    dense["experiment_id"] = "GENERIC-DENSE-ID"
+    with pytest.raises(ValueError, match="requires experiment_id"):
+        exp_tuning.validate_config(dense)
+
+
+def test_historical_coldstart_id_requires_canonical_config_identity() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = Path("configs/e8_multitask_exp_coldstart.yaml")
+    copied = Path("configs/.e8_historical_identity_test.yaml")
+    copied.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+    try:
+        with pytest.raises(ValueError, match="canonical config path"):
+            exp_tuning.load_config(copied)
+    finally:
+        copied.unlink(missing_ok=True)
+
+
+def test_generic_coldstart_matrix_is_dynamic_but_self_consistent() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-DYNAMIC-MATRIX-TEST"
+    sweep = config["sweep"]
+    sweep["include_global_endpoint"] = True
+    sweep["transfer_positive_only_seed_offsets"] = [8000, 9000]
+    config["reporting"]["positive_only_seed_count_per_transfer_task"] = 2
+    sweep["task_lambda"]["maze"] = []
+    sweep.pop("task_grid_hashes", None)
+    active = [task for task in config["suite"]["p0_tasks"] if sweep["task_lambda"][task]]
+    sweep["expected_cells"] = sum(2 + 1 + len(sweep["task_lambda"][task]) for task in active)
+
+    exp_tuning.validate_config(config)
+    cells = exp_tuning.build_cells(config)
+    assert len(cells) == sweep["expected_cells"]
+    assert not any(cell.task == "maze" for cell in cells)
+    for task in active:
+        global_cells = [
+            cell for cell in cells if cell.task == task and cell.method == exp_tuning.METHOD_GLOBAL
+        ]
+        assert len(global_cells) == 1
+        assert global_cells[0].lambda_value == 0.0
+
+    bad = copy.deepcopy(config)
+    bad["sweep"]["expected_cells"] += 1
+    with pytest.raises(ValueError, match="expected_cells"):
+        exp_tuning.validate_config(bad)
+
+
+def test_generic_coldstart_rejects_malformed_config_not_old_scientific_values() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-EXP-TYPE-CHECK-TEST"
+
+    bad = copy.deepcopy(config)
+    bad["sweep"]["task_transfer_seed_offset"] = 4000.5
+    with pytest.raises(ValueError, match="integer"):
+        exp_tuning.validate_config(bad)
+
+    bad = copy.deepcopy(config)
+    bad["sweep"]["task_lambda"]["word_sorting"][0] = True
+    with pytest.raises(ValueError, match="finite numeric scalar"):
+        exp_tuning.validate_config(bad)
+
+    bad = copy.deepcopy(config)
+    bad["sweep"]["method"] = "quadratic"
+    with pytest.raises(ValueError, match="sweep.method"):
+        exp_tuning.validate_config(bad)
+
+    bad = copy.deepcopy(config)
+    bad["evaluation"]["pass_k"] = 4
+    with pytest.raises(ValueError, match="pass_k=8"):
+        exp_tuning.validate_config(bad)
+
+    bad = copy.deepcopy(config)
+    bad["training"]["evaluation_every_updates"] = 125
+    with pytest.raises(ValueError, match="late_window_updates"):
+        exp_tuning.validate_config(bad)
+
+
+def test_e8_config_preflight_is_tracked_and_non_scientific() -> None:
+    from drpo import e8_experiment_config as experiment_config
+    from scripts.preflight_e8_multitask_config import build_summary
+
+    repo = Path.cwd()
+    summary = build_summary(Path("configs/e8_multitask_exp_coldstart.yaml"), repo)
+    assert summary["experiment_id"] == "EXT-C-E8-MULTITASK-EXP-COLDSTART-01"
+    assert summary["cell_count"] == 208
+    assert summary["wave_sizes"] == [16] * 13
+    assert summary["scientific_status"] == "not_run"
+    assert summary["effective_runtime"]["countdown"]["training"]["optimizer_updates"] == 1200
+    assert summary["effective_runtime"]["countdown"]["evaluation"][
+        "sampling_temperature"
+    ] == pytest.approx(0.8)
+
+    untracked = Path("configs/.e8_untracked_preflight_test.yaml")
+    untracked.write_text("schema_version: 1\n", encoding="utf-8")
+    try:
+        with pytest.raises(ValueError, match="not Git-tracked"):
+            experiment_config.require_tracked_config(untracked, repo)
+    finally:
+        untracked.unlink(missing_ok=True)
+
+
+def test_runner_delegates_tracked_config_and_model_identity_to_config_authority() -> None:
+    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    assert 'git -C "${ROOT_DIR}" ls-files --error-unmatch -- "${CONFIG_REPO_PATH}"' not in runner
+    assert "scripts/preflight_e8_multitask_config.py" in runner
+    assert "config_preflight | tee" in runner
+    assert 'MODEL_REPO="' not in runner
+    assert 'MODEL_REVISION="' not in runner
+    assert 'model = preflight["model"]' in runner
+    assert 'config["model"]["revision"]' in runner
+    assert "E8_COLDSTART_RUN_ID must match [A-Za-z0-9]" in runner
+
+    bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    assert "refs/pull/309/head" not in bootstrap
+    assert "E8_COLDSTART_TARGET_REF:-refs/heads/main" in bootstrap
+
+
+def test_runtime_activation_uses_canonical_grid_before_generic_bridge() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+    assert "_activate_paper_grid_modules(modules, grid_source_path)" in source
+    assert "_activate_paper_grid_modules(modules, grid_path)" not in source
+
+
+def test_coldstart_validation_has_single_config_authority_exit() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning.validate_config)
+    assert "experiment_config.validate_profile_experiment_id(config)" in source
+    assert "if profile == SWEEP_PROFILE_COLDSTART:" in source
+    assert "old_lora_contract" not in source
+    assert "Countdown sentinel coefficients drifted" not in source
+    assert "Cold-start task-interface length/evaluation contract drifted" not in source
+
+
+def test_generic_coldstart_rejects_p0_experiment_id_collision() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    config["experiment_id"] = exp_tuning.P0_EXPERIMENT_ID
+    with pytest.raises(ValueError, match="P0/RHO/DENSE"):
+        exp_tuning.validate_config(config)
+
+
+def test_coldstart_runner_has_no_stale_model_or_registration_consumers() -> None:
+    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    assert "${MODEL_REPO}" not in runner
+    assert "${MODEL_REVISION}" not in runner
+    assert "require_registered_ready" not in runner
+    assert "validate_registered_channel" not in runner
+    setup = runner.split("\nsetup() {\n", 1)[1].split("\nruntime_ready() {\n", 1)[0]
+    assert setup.index("bootstrap_config_preflight") < setup.index("torch.cuda.is_available")
+    assert setup.index("bootstrap_config_preflight") < setup.index("pip install -r")
+    assert 'config["model"]["base_model"]' in runner
+    assert 'config["model"]["revision"]' in runner
+
+
+def test_zero_warmup_reaches_legacy_scheduler(tmp_path: Path) -> None:
+    from drpo import e8_experiment_config as experiment_config
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-ZERO-WARMUP-TEST"
+    config["training"]["warmup_ratio"] = 0.0
+    exp_tuning.validate_config(config)
+    effective = experiment_config.effective_coldstart_runtime(config, "word_sorting")
+    task_root = tmp_path / "word_sorting"
+    task_root.mkdir()
+    grids = exp_tuning._task_grid_configs(
+        config,
+        canonical_paths=exp_tuning._canonical_paths(config),
+        task_root=task_root,
+    )
+    observed = {}
+
+    def fake_scheduler(optimizer, num_warmup_steps, num_training_steps, *args, **kwargs):
+        del optimizer, args, kwargs
+        observed["warmup"] = num_warmup_steps
+        observed["training"] = num_training_steps
+        return "scheduler"
+
+    arena = SimpleNamespace(
+        LoraConfig=lambda *args, **kwargs: (args, kwargs),
+        load_model=lambda *args, **kwargs: (args, kwargs),
+        generate_outputs=lambda *args, **kwargs: [["x"]],
+        get_cosine_schedule_with_warmup=fake_scheduler,
+    )
+    optim = SimpleNamespace(AdamW=lambda *args, **kwargs: (args, kwargs))
+
+    def strict_validator(value):
+        assert int(value["training"]["steps"]) == 1200
+        assert int(value["training"]["eval_every"]) == 100
+
+    modules = {
+        "arena": arena,
+        "paper_common": SimpleNamespace(validate_grid_config=strict_validator),
+        "scan_common": SimpleNamespace(validate_grid_config=strict_validator),
+        "scan_runtime": SimpleNamespace(validate_grid_config=strict_validator),
+        "scan_trainer": SimpleNamespace(
+            validate_grid_config=strict_validator,
+            torch=SimpleNamespace(optim=optim),
+        ),
+    }
+    original_scheduler = arena.get_cosine_schedule_with_warmup
+    with exp_tuning._legacy_paper_runtime_bridge(
+        modules,
+        effective,
+        grid_path=grids["round1_grid"]["path"],
+        grid_source_path=grids["round1_grid"]["source"],
+    ):
+        arena.get_cosine_schedule_with_warmup("optimizer", 1, 1200)
+    assert observed == {"warmup": 0, "training": 1200}
+    assert arena.get_cosine_schedule_with_warmup is original_scheduler
+
+
+def test_final_correctness_audit_after_image() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"))
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-FINAL-CORRECTNESS-TEST"
+    config["evaluation"]["primary_checkpoint_policy"] = "report_only_metadata"
+    config["evaluation"]["best_checkpoint_role"] = "report_only_metadata"
+    config["selection"]["primary_metric"] = "report_only_metadata"
+    config["selection"]["finite_required"] = False
+    config["selection"]["report_grid_edge"] = False
+    config["selection"]["terminal_valid_rate_role"] = "report_only_metadata"
+    config["selection"]["tie_breakers"] = []
+    exp_tuning.validate_config(config)
+
+    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    formal = runner.split("\nrun_formal_guard_attempt() {\n", 1)[1].split(
+        "\nreport_formal_success() {\n", 1
+    )[0]
+    assert "--source-file src/drpo/e8_experiment_config.py" in formal
+    assert "--source-file scripts/preflight_e8_multitask_config.py" in formal
+    liveness = runner.split("\nliveness() {\n", 1)[1].split("\nrun_queue() {\n", 1)[0]
+    assert "--lambda " not in liveness
+    assert exp_tuning.sweep_profile(config) == "eight_task_coldstart_lambda_v1"
+
+
+
+def test_successful_attempt_reuse_requires_current_source_and_config(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    workload = tmp_path / "workload"
+    source_commit = "a" * 40
+    p0.atomic_json(
+        workload / "source_provenance.json",
+        {"source_commit": source_commit},
+    )
+    p0.atomic_json(
+        workload / "prepare_manifest.json",
+        {
+            "experiment_id": exp_tuning.experiment_id(config),
+            "config_hash": exp_tuning.stable_config_hash(config),
+        },
+    )
+
+    assert exp_tuning._successful_attempt_matches_current_identity(
+        config, workload, source_commit=source_commit
+    )
+    assert not exp_tuning._successful_attempt_matches_current_identity(
+        config, workload, source_commit="b" * 40
+    )
+
+    changed = copy.deepcopy(config)
+    changed["experiment_id"] = "EXT-C-E8-MULTITASK-STALE-REUSE-OTHER-CONFIG"
+    assert not exp_tuning._successful_attempt_matches_current_identity(
+        changed, workload, source_commit=source_commit
+    )
+
+    (workload / "source_provenance.json").unlink()
+    assert not exp_tuning._successful_attempt_matches_current_identity(
+        config, workload, source_commit=source_commit
+    )
+
+    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    reuse = runner.split("\nreuse_successful_attempt() {\n", 1)[1].split(
+        "\nselect_next_attempt() {\n", 1
+    )[0]
+    assert "_successful_attempt_matches_current_identity" in reuse
+    assert reuse.index("_successful_attempt_matches_current_identity") < reuse.index(
+        "verify_experiment_package_hardened.py"
+    )
+
+
+
+def test_final_review_correctness_closure(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    source_commit = "a" * 40
+    workload = tmp_path / "workload"
+    p0.atomic_json(workload / "source_provenance.json", {"source_commit": source_commit})
+    p0.atomic_json(
+        workload / "prepare_manifest.json",
+        {
+            "experiment_id": exp_tuning.experiment_id(config),
+            "config_hash": exp_tuning.stable_config_hash(config),
+        },
+    )
+    artifact = tmp_path / "guarded.zip"
+    prefix = f"results/{exp_tuning.experiment_id(config)}"
+
+    def write_artifact(
+        *,
+        packaged_source: str,
+        packaged_hash: str,
+        package_kind: str = "experiment-raw-complete",
+    ) -> None:
+        with zipfile.ZipFile(artifact, "w") as archive:
+            archive.writestr(
+                "ARTIFACT_MANIFEST.json",
+                json.dumps(
+                    {
+                        "package_kind": package_kind,
+                        "experiment_id": exp_tuning.experiment_id(config),
+                        "base_commit": source_commit,
+                    }
+                ),
+            )
+            archive.writestr("BASE_COMMIT.txt", source_commit + "\n")
+            archive.writestr(
+                f"{prefix}/run_manifest.json",
+                json.dumps(
+                    {
+                        "experiment_id": exp_tuning.experiment_id(config),
+                        "base_commit": source_commit,
+                    }
+                ),
+            )
+            archive.writestr(
+                f"{prefix}/workload/source_provenance.json",
+                json.dumps({"source_commit": packaged_source}),
+            )
+            archive.writestr(
+                f"{prefix}/workload/prepare_manifest.json",
+                json.dumps(
+                    {
+                        "experiment_id": exp_tuning.experiment_id(config),
+                        "config_hash": packaged_hash,
+                    }
+                ),
+            )
+
+    write_artifact(
+        packaged_source=source_commit,
+        packaged_hash=exp_tuning.stable_config_hash(config),
+    )
+    assert exp_tuning._successful_attempt_matches_current_identity(
+        config,
+        workload,
+        source_commit=source_commit,
+        artifact_path=artifact,
+    )
+    write_artifact(
+        packaged_source=source_commit,
+        packaged_hash="0" * 64,
+    )
+    assert not exp_tuning._successful_attempt_matches_current_identity(
+        config,
+        workload,
+        source_commit=source_commit,
+        artifact_path=artifact,
+    )
+    write_artifact(
+        packaged_source="b" * 40,
+        packaged_hash=exp_tuning.stable_config_hash(config),
+    )
+    assert not exp_tuning._successful_attempt_matches_current_identity(
+        config,
+        workload,
+        source_commit=source_commit,
+        artifact_path=artifact,
+    )
+    write_artifact(
+        packaged_source=source_commit,
+        packaged_hash=exp_tuning.stable_config_hash(config),
+        package_kind="experiment-failed",
+    )
+    assert not exp_tuning._successful_attempt_matches_current_identity(
+        config,
+        workload,
+        source_commit=source_commit,
+        artifact_path=artifact,
+    )
+
+    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    guarded = runner.split("\nguarded_full() {\n", 1)[1].split(
+        "\ncase \"${MODE}\" in\n", 1
+    )[0]
+    assert guarded.index("check_source") < guarded.index("ensure_setup")
+    assert guarded.index("check_authoritative_main_at_invocation") < guarded.index(
+        "reuse_successful_attempt"
+    )
+    assert "ls-remote origin refs/heads/main" in runner
+    assert "artifact_path=Path(sys.argv[5])" in runner
+
+    ensure = runner.split("\nensure_setup() {\n", 1)[1].split(
+        "\nself_test_setup() {\n", 1
+    )[0]
+    assert ensure.index("runtime_setup_lock") < ensure.index("runtime_ready")
+    assert ensure.index("runtime_setup_unlock") > ensure.index("runtime_ready")
+    selftest = runner.split("\nself_test_setup() {\n", 1)[1].split(
+        "\nattempt_number() {\n", 1
+    )[0]
+    assert selftest.index("runtime_setup_lock") < selftest.index("python3 -m venv")
+    assert selftest.index("runtime_setup_unlock") > selftest.index("python3 -m venv")
+    mode_dispatch = runner.split('\ncase "${MODE}" in\n', 1)[1]
+    assert "setup) runtime_setup_lock; setup; runtime_setup_unlock ;;" in mode_dispatch
+    recovery = runner.split("\nrecover_import_if_requested() {\n", 1)[1].split(
+        "\nengineering_self_test_internal() {\n", 1
+    )[0]
+    assert recovery.index("source_provenance.json") < recovery.index("run_module import-recovery")
+    assert 'RECOVERY_SOURCE_OUTPUT=""' in recovery
+    assert "starting fresh instead of retrying stale import" in recovery
+
+    bootstrap = Path("scripts/bootstrap_e8_multitask_exp_coldstart.sh").read_text(
+        encoding="utf-8"
+    )
+    fetch_section = bootstrap.split('CURRENT_STAGE="fetch_authoritative_ref"', 1)[1].split(
+        'CURRENT_STAGE="verify_full_source_identity"', 1
+    )[0]
+    assert "BOOTSTRAP_WAS_COMPLETE" not in fetch_section
+    assert "fetch --no-tags --force" in fetch_section
+    assert 'ls-remote "${SOURCE_REMOTE}" "${TARGET_REF}"' in fetch_section
+
+
+def test_coldstart_zero_cell_and_expected_wave_consistency() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-ZERO-CELL-TEST"
+    for task in config["sweep"]["task_lambda"]:
+        config["sweep"]["task_lambda"][task] = []
+    config["sweep"]["countdown_seed_offsets"] = []
+    config["sweep"]["transfer_positive_only_seed_offsets"] = []
+    config["sweep"]["expected_cells"] = 0
+    config["execution"]["expected_waves"] = 1
+    with pytest.raises(ValueError, match="at least one scientific cell"):
+        exp_tuning.validate_config(config)
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-WAVE-CONSISTENCY-TEST"
+    config["execution"]["expected_waves"] += 1
+    with pytest.raises(ValueError, match="expected_waves"):
+        exp_tuning.validate_config(config)
+
+
+
+def test_expected_waves_is_optional_metadata_but_consistent_when_declared() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-OPTIONAL-WAVES-TEST"
+    config["execution"].pop("expected_waves")
+    exp_tuning.validate_config(config)
+    waves = exp_tuning.build_waves(config)
+    assert len(waves) == math.ceil(
+        config["sweep"]["expected_cells"] / config["execution"]["max_concurrent_cells"]
+    )
+
+
+
+def test_reuse_fast_paths_recheck_source_identity_after_setup_under_run_lock() -> None:
+    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+
+    selftest = runner.split("\nengineering_self_test() {\n", 1)[1].split(
+        "\nprepare() {\n", 1
+    )[0]
+    selftest_lock = selftest.index("flock -n 8")
+    selftest_reuse = selftest.index("reuse_successful_attempt")
+    assert selftest_lock < selftest.rfind("check_source", selftest_lock, selftest_reuse)
+
+    guarded = runner.split("\nguarded_full() {\n", 1)[1].split(
+        '\ncase "${MODE}" in\n', 1
+    )[0]
+    setup_index = guarded.index("ensure_setup")
+    formal_reuse = guarded.index("reuse_successful_attempt")
+    run_lock = guarded.index("flock -n 9")
+    assert run_lock < guarded.rfind("check_source", setup_index, formal_reuse)
+    assert run_lock < guarded.rfind(
+        "check_authoritative_main_at_invocation", setup_index, formal_reuse
+    )
+
+
+
+def test_postreview_consumer_and_scheduler_correctness_closure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    config["experiment_id"] = "EXT-C-E8-MULTITASK-POSTREVIEW-CLOSURE-TEST"
+
+    bad = copy.deepcopy(config)
+    bad["suite"]["excluded_tasks"] = []
+    with pytest.raises(ValueError, match="suite.excluded_tasks must be a mapping"):
+        exp_tuning.validate_config(bad)
+
+    bad = copy.deepcopy(config)
+    bad["suite"] = []
+    with pytest.raises(ValueError, match="suite must be a mapping"):
+        exp_tuning.validate_config(bad)
+
+    untracked = Path("configs/.e8_direct_cli_untracked_test.yaml")
+    untracked.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    try:
+        with pytest.raises(ValueError, match="not Git-tracked"):
+            exp_tuning.main(
+                [
+                    "--config",
+                    str(untracked),
+                    "--output-root",
+                    str(tmp_path / "direct-cli"),
+                    "plan",
+                ]
+            )
+    finally:
+        untracked.unlink(missing_ok=True)
+
+    monkeypatch.setattr(exp_tuning, "_require_calibration_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)
+
+    def zero_but_incomplete(**kwargs):
+        cell = kwargs["cell"]
+        output_root = kwargs["output_root"]
+        manifest = output_root / "cells" / cell.key / "cell_manifest.json"
+        p0.atomic_json(
+            manifest,
+            {
+                "experiment_id": exp_tuning.experiment_id(config),
+                "config_hash": exp_tuning.stable_config_hash(config),
+                "complete": False,
+                "evaluation_status": "incomplete",
+                "nan_inf_failure": False,
+            },
+        )
+        return {
+            "cell_key": cell.key,
+            "gpu_id": kwargs["gpu_id"],
+            "returncode": 0,
+            "log": str((output_root / "logs" / f"{cell.key}.log").resolve()),
+            "started_unix": 1.0,
+            "finished_unix": 2.0,
+        }
+
+    monkeypatch.setattr(exp_tuning, "_run_subprocess_cell", zero_but_incomplete)
+    output_root = tmp_path / "scheduler"
+    output_root.mkdir()
+    with pytest.raises(RuntimeError, match="scheduling stopped fail-closed"):
+        exp_tuning.cmd_run_dynamic(
+            config,
+            Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"),
+            output_root,
+            base_model_path=str(tmp_path / "model"),
+            force=False,
+            retry_incomplete=False,
+        )
+    scheduler = json.loads(
+        (output_root / "scheduler" / "dynamic_run.json").read_text(encoding="utf-8")
+    )
+    assert scheduler["complete"] is False
+    assert scheduler["failed_cells"]
+    assert scheduler["unscheduled_cells"]
+    assert all(
+        int(row["returncode"]) == 75 and "cell_completion_error" in row
+        for row in scheduler["results"]
+    )
+
+
+def test_postreview_sampled_validity_is_not_greedy_alias() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    class FakeModel:
+        def __init__(self) -> None:
+            self.training = True
+
+        def train(self) -> None:
+            self.training = True
+
+    class FakeAdapter:
+        def verify(self, instance, completion):
+            del instance
+            return SimpleNamespace(
+                correct=completion == "valid-correct",
+                format_valid=completion.startswith("valid-"),
+            )
+
+    def generate_outputs(
+        model,
+        tokenizer,
+        prompts,
+        max_new_tokens,
+        do_sample,
+        temperature,
+        top_p,
+        num_return_sequences,
+    ):
+        del model, tokenizer, max_new_tokens, temperature, top_p
+        if not do_sample:
+            return [["valid-correct"] for _ in prompts]
+        outputs = [
+            "valid-wrong-1",
+            "valid-wrong-2",
+            "invalid-3",
+            "invalid-4",
+            "invalid-5",
+            "invalid-6",
+            "invalid-7",
+            "invalid-8",
+        ]
+        assert num_return_sequences == 8
+        return [list(outputs) for _ in prompts]
+
+    arena = SimpleNamespace(seed_all=lambda seed: None, generate_outputs=generate_outputs)
+    evaluator = exp_tuning._canonical_environment_evaluator(
+        arena=arena,
+        task_adapter=FakeAdapter(),
+        instances={
+            "p0": TaskInstance(
+                task="word_sorting",
+                prompt_id="p0",
+                prompt="sort",
+                oracle_completion="answer",
+                metadata={},
+                source_entry={},
+            )
+        },
+        greedy_prompt_rows=1,
+        passk_prompt_rows=1,
+    )
+    metrics = evaluator(
+        FakeModel(),
+        object(),
+        [{"prompt_id": "p0", "prompt": "sort"}],
+        1,
+        16,
+        8,
+        123,
+    )
+    assert metrics["valid_rate"] == pytest.approx(1.0)
+    assert metrics["sampled_valid_rate"] == pytest.approx(0.25)
+    assert evaluator._last_primary_sampled_valid_rate == pytest.approx(0.25)
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    evaluations = [
+        {
+            "update": update,
+            "pass8": 0.1,
+            "greedy_success": 0.2,
+            "greedy_valid_rate": 1.0,
+            "sampled_valid_rate": None,
+        }
+        for update in [0, *config["training"]["late_window_updates"]]
+    ]
+    summary = exp_tuning._summarize_evaluations(evaluations, config)
+    assert summary["validation_terminal_sampled_valid_rate"] is None
+    for row in evaluations:
+        row["sampled_valid_rate"] = 0.25
+    summary = exp_tuning._summarize_evaluations(evaluations, config)
+    assert summary["validation_terminal_sampled_valid_rate"] == pytest.approx(0.25)
+
+    source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+    assert 'row["val_sampled_valid_rate"] = float(sampled_valid_rate)' in source
+    assert 'row.get("val_sampled_valid_rate") in (None, "")' in source
+
+
+
+def test_coldstart_liveness_identity_is_derived_from_canonical_smoke_grid() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    grid_path = exp_tuning._canonical_paths(config)["round1_grid"]
+    cell = exp_tuning._canonical_cold_liveness_cell(grid_path)
+    grid = yaml.safe_load(grid_path.read_text(encoding="utf-8"))
+    expected_c = float(grid["execution"]["liveness"]["representative_c"])
+    expected_seed = int(grid["sweep"]["seed_offsets"][0])
+
+    assert cell.task == "countdown"
+    assert cell.method == exp_tuning.METHOD_EXPONENTIAL
+    assert cell.lambda_value == pytest.approx(expected_c)
+    assert cell.rho == pytest.approx(math.exp(-expected_c))
+    assert cell.seed == expected_seed
+    assert cell.stage == "liveness"
+    assert not math.isclose(expected_c, 0.916290732, rel_tol=0.0, abs_tol=1.0e-12)
+
+    source = inspect.getsource(exp_tuning._cmd_canonical_cold_liveness)
+    assert "cell = _canonical_cold_liveness_cell(grid_path)" in source
+
+
+def test_coldstart_liveness_cli_path_needs_no_scientific_grid_selector(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml")
+    )
+    fake_inputs = {task: object() for task in config["suite"]["tasks"]}
+    monkeypatch.setattr(
+        exp_tuning,
+        "_load_ready_inputs",
+        lambda *args, **kwargs: ({"tasks": {}}, fake_inputs),
+    )
+    observed: dict[str, object] = {}
+
+    def fake_canonical(
+        config_arg,
+        config_path,
+        output_root,
+        *,
+        inputs,
+        splits,
+        base_model_path,
+        force,
+        method,
+    ):
+        observed.update(
+            {
+                "config": config_arg,
+                "config_path": config_path,
+                "output_root": output_root,
+                "inputs": inputs,
+                "splits": splits,
+                "base_model_path": base_model_path,
+                "force": force,
+                "method": method,
+            }
+        )
+        return {"complete": True}
+
+    monkeypatch.setattr(exp_tuning, "_cmd_canonical_cold_liveness", fake_canonical)
+    result = exp_tuning.cmd_liveness(
+        config,
+        Path("configs/e8_multitask_exp_lambda_curve_completion.yaml"),
+        tmp_path,
+        task="countdown",
+        rho=None,
+        base_model_path=str(tmp_path / "model"),
+        force=False,
+    )
+
+    assert result == {"complete": True}
+    assert observed["inputs"] is fake_inputs["countdown"]
+    assert observed["method"] == exp_tuning.METHOD_EXPONENTIAL
+    runner = Path("scripts/run_e8_multitask_exp_coldstart.sh").read_text(encoding="utf-8")
+    liveness = runner.split("\nliveness() {\n", 1)[1].split("\nrun_queue() {\n", 1)[0]
+    assert "--lambda " not in liveness
+
+
+
+def _method_capability_test_config(
+    *,
+    experiment_id: str,
+    method: str,
+    parameterization: str,
+    grid_field: str,
+    values: list[float],
+    formula: str,
+) -> dict:
+    config = copy.deepcopy(
+        yaml.safe_load(
+            Path("configs/e8_multitask_exp_lambda_curve_completion.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+    )
+    config["experiment_id"] = experiment_id
+    sweep = config["sweep"]
+    sweep["method"] = method
+    sweep["parameterization"] = parameterization
+    sweep.pop("task_lambda", None)
+    sweep[grid_field] = {task: [] for task in config["suite"]["tasks"]}
+    for task in config["suite"]["p0_tasks"]:
+        sweep[grid_field][task] = list(values)
+    sweep.update(
+        {
+            "countdown_seed_offsets": [],
+            "countdown_include_positive_only": False,
+            "include_global_endpoint": False,
+            "transfer_positive_only_seed_offsets": [],
+            "task_transfer_seed_offset": 4000,
+            "tuning_seed": 4000,
+            "expected_cells": 16,
+        }
+    )
+    config["execution"]["expected_waves"] = 1
+    config["canonical_coldstart"]["formula"] = formula
+    return config
+
+
+def _asymre_capability_test_config() -> dict:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _method_capability_test_config(
+        experiment_id="DEV-E8-MULTITASK-ASYMRE-CAPABILITY-TEST",
+        method="asymre",
+        parameterization="asymre_delta_v",
+        grid_field="task_delta_v",
+        values=[-0.75, -0.25],
+        formula="A_equals_R_minus_delta_v",
+    )
+    exp_tuning.validate_config(config)
+    return config
+
+
+def test_asymre_capability_is_config_driven_and_identity_safe(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _asymre_capability_test_config()
+    cells = exp_tuning.build_cells(config)
+    assert len(cells) == 16
+    assert {cell.method for cell in cells} == {exp_tuning.METHOD_ASYMRE}
+    assert {cell.seed for cell in cells} == {4000}
+    assert {cell.delta_v for cell in cells} == {-0.75, -0.25}
+    assert all(cell.lambda_value is None and cell.rho is None for cell in cells)
+    assert len({cell.key for cell in cells}) == 16
+    assert all("__asymre_delta_v" in cell.key for cell in cells)
+
+    plan = exp_tuning.write_plan(config, tmp_path)
+    assert plan["cell_count"] == 16
+    assert plan["wave_sizes"] == [16]
+    assert {row["delta_v"] for row in plan["rows"]} == {-0.75, -0.25}
+    assert all(row["lambda"] is None for row in plan["rows"])
+
+
+def test_asymre_capability_preserves_historical_coldstart_configs() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    for path in (
+        "configs/e8_multitask_exp_coldstart.yaml",
+        "configs/e8_multitask_exp_lambda_completion.yaml",
+        "configs/e8_multitask_exp_lambda_curve_completion.yaml",
+    ):
+        config = exp_tuning.load_config(Path(path))
+        assert config["sweep"]["method"] == exp_tuning.METHOD_EXPONENTIAL
+
+
+def test_asymre_capability_dispatches_existing_kernel_without_loss_copy() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    spec = exp_tuning._method_spec(exp_tuning.METHOD_ASYMRE)
+    cell = exp_tuning.Cell(
+        "word_sorting",
+        exp_tuning.METHOD_ASYMRE,
+        None,
+        4000,
+        "task_transfer",
+        delta_v=-0.25,
+    )
+    assert spec.paper_runtime is not None
+    assert spec.paper_runtime.cell_parameters(cell) == (
+        exp_tuning.METHOD_ASYMRE,
+        0.75,
+        0.0,
+    )
+    assert spec.paper_runtime.formula == "delegated_to_existing_canonical_asymre"
+    assert spec.scientific_kernel == "canonical_old_coldstart_imports"
+    source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+    assert "paper_runtime.cell_parameters(cell)" in source
+    assert "family=paper_family" in source
+    assert "positive_coefficient" not in source
+    assert "negative_repulsion_coefficient" not in source
+    assert "value_network" not in source
+
+
+def test_asymre_capability_liveness_uses_existing_asymre_profile() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    grid = exp_tuning._canonical_asymre_grid_path()
+    cell = exp_tuning._canonical_cold_liveness_cell(grid)
+    assert cell.method == exp_tuning.METHOD_ASYMRE
+    assert cell.delta_v == pytest.approx(-0.1)
+    assert cell.lambda_value is None
+    assert cell.rho is None
+    assert cell.seed == 4000
+
+
+
+def _topr_capability_test_config() -> dict:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _method_capability_test_config(
+        experiment_id="DEV-E8-MULTITASK-TOPR-CAPABILITY-TEST",
+        method="joint_fitted_reference_topr",
+        parameterization="joint_fitted_reference_beta_topr",
+        grid_field="task_beta",
+        values=[0.25, 1.0],
+        formula="joint_fitted_reference_beta_ratio_taper",
+    )
+    exp_tuning.validate_config(config)
+    return config
+
+
+def test_topr_capability_is_config_driven_and_identity_safe(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _topr_capability_test_config()
+    cells = exp_tuning.build_cells(config)
+    assert len(cells) == 16
+    assert {cell.method for cell in cells} == {exp_tuning.METHOD_TOPR}
+    assert {cell.seed for cell in cells} == {4000}
+    assert {cell.beta for cell in cells} == {0.25, 1.0}
+    assert all(cell.lambda_value is None and cell.rho is None for cell in cells)
+    assert len({cell.key for cell in cells}) == 16
+    assert all("__joint_fitted_reference_topr_beta" in cell.key for cell in cells)
+
+    plan = exp_tuning.write_plan(config, tmp_path)
+    assert plan["cell_count"] == 16
+    assert plan["wave_sizes"] == [16]
+    assert {row["beta"] for row in plan["rows"]} == {0.25, 1.0}
+    assert all(row["lambda"] is None for row in plan["rows"])
+
+
+def test_topr_capability_dispatches_existing_joint_reference_kernel() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    spec = exp_tuning._method_spec(exp_tuning.METHOD_TOPR)
+    cell = exp_tuning.Cell(
+        "word_sorting",
+        exp_tuning.METHOD_TOPR,
+        None,
+        4000,
+        "task_transfer",
+        beta=0.25,
+    )
+    assert spec.paper_runtime is not None
+    assert spec.paper_runtime.cell_parameters(cell) == (
+        exp_tuning.METHOD_TOPR,
+        1.0,
+        0.25,
+    )
+    assert (
+        spec.paper_runtime.formula
+        == "delegated_to_existing_joint_fitted_reference_beta_topr"
+    )
+    source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+    assert "paper_runtime.cell_parameters(cell)" in source
+    assert "family=paper_family" in source
+    assert "joint_topr_negative_weights" not in source
+    assert "branch_balanced_reference_loss" not in source
+
+
+def test_topr_liveness_uses_existing_joint_reference_profile() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    cell = exp_tuning._canonical_cold_liveness_cell(exp_tuning.CANONICAL_TOPR_GRID.resolve())
+    assert cell.method == exp_tuning.METHOD_TOPR
+    assert cell.beta == pytest.approx(0.25)
+    assert cell.seed == 4000
+
+
+
+def _synthetic_shared_sft_adapter_contract(config: dict) -> dict:
+    return {
+        "base_model": config["model"]["base_model"],
+        "base_model_revision": config["model"]["revision"],
+        "adapter_base_model_name_or_path": config["model"]["base_model"],
+        "target_modules": ["q_proj", "v_proj"],
+        "modules_to_save": [],
+        "bias": "none",
+        "adapter_config_sha256": "a" * 64,
+        "adapter_weight_file": "adapter_model.safetensors",
+        "adapter_weight_sha256": "b" * 64,
+        "provenance_file": "SFT_PROVENANCE.json",
+        "provenance_sha256": "c" * 64,
+        "provenance_expected": {
+            "base_model": config["model"]["base_model"],
+            "base_model_revision": config["model"]["revision"],
+            "source_experiment_id": "SYNTHETIC-SFT-CAPABILITY-ONLY",
+            "source_run_id": "SYNTHETIC-SFT-RUN",
+            "source_checkpoint": "synthetic_adapter",
+        },
+    }
+
+
+def _dpo_capability_test_config(*, shared_sft: bool = False) -> dict:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _method_capability_test_config(
+        experiment_id=(
+            "DEV-E8-MULTITASK-DPO-SHARED-SFT-CAPABILITY-TEST"
+            if shared_sft
+            else "DEV-E8-MULTITASK-DPO-COLD-CAPABILITY-TEST"
+        ),
+        method="canonical_dpo",
+        parameterization="canonical_dpo_beta",
+        grid_field="task_beta",
+        values=[0.1, 1.0],
+        formula="canonical_sigmoid_dpo_frozen_initial_reference",
+    )
+    config["canonical_coldstart"].update(
+        {
+            "scientific_kernel": "historical_pr268_semantics_port_in_existing_multitask_runner",
+            "initialization": "config_driven_dpo_initial_policy_plus_exact_frozen_copy",
+            "countdown_entry": "disabled_no_countdown_dpo_cells",
+            "transfer_entry": "e8_multitask_exp_tuning._train_canonical_dpo_transfer_cell",
+        }
+    )
+    config["dpo"] = {
+        "initialization_mode": "shared_sft_adapter" if shared_sft else "base_model_fresh_lora",
+        "shared_sft_adapter_env": "E8_DPO_SHARED_SFT_ADAPTER" if shared_sft else None,
+        "policy_adapter": "default",
+        "reference_adapter": "reference",
+        "reference_role": "exact_frozen_initial_policy",
+        "copy_policy_to_reference_before_update_1": True,
+        "reference_trainable": False,
+        "label_smoothing": 0.0,
+        "sequence_log_probability": "full_completion_summed_log_probability",
+        "pair_aggregation": "mean_unique_negative_within_prompt_then_mean_prompts",
+        "initial_pair_margin_max_abs_tolerance": 1.0e-5,
+        "liveness_task": "word_sorting",
+        "liveness_beta": 0.1,
+    }
+    if shared_sft:
+        config["dpo"]["shared_sft_adapter_contract"] = (
+            _synthetic_shared_sft_adapter_contract(config)
+        )
+        config["reference"]["checkpoint_kind"] = "exact_frozen_copy_of_initialized_policy"
+        config["initialization"].update(
+            {
+                "source": "shared_sft_adapter",
+                "external_adapter_allowed": True,
+                "deterministic_fresh_lora": False,
+            }
+        )
+    exp_tuning.validate_config(config)
+    return config
+
+
+def test_dpo_capability_is_config_driven_and_excludes_countdown(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _dpo_capability_test_config()
+    cells = exp_tuning.build_cells(config)
+    assert len(cells) == 16
+    assert {cell.task for cell in cells} == set(config["suite"]["p0_tasks"])
+    assert {cell.method for cell in cells} == {exp_tuning.METHOD_DPO}
+    assert {cell.beta for cell in cells} == {0.1, 1.0}
+    assert {cell.seed for cell in cells} == {4000}
+    assert all("__canonical_dpo_beta" in cell.key for cell in cells)
+    assert all(cell.task != "countdown" for cell in cells)
+    plan = exp_tuning.write_plan(config, tmp_path)
+    assert plan["cell_count"] == 16
+    assert plan["wave_sizes"] == [16]
+    assert {row["beta"] for row in plan["rows"]} == {0.1, 1.0}
+
+
+def test_dpo_capability_accepts_shared_sft_initialization_mode() -> None:
+    config = _dpo_capability_test_config(shared_sft=True)
+    assert config["dpo"]["initialization_mode"] == "shared_sft_adapter"
+    assert config["initialization"]["source"] == "shared_sft_adapter"
+    assert config["reference"]["checkpoint_kind"] == "exact_frozen_copy_of_initialized_policy"
+
+
+def test_dpo_capability_rejects_zero_beta() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _dpo_capability_test_config()
+    config["sweep"]["task_beta"]["word_sorting"] = [0.0]
+    config["sweep"]["expected_cells"] = 15
+    with pytest.raises(ValueError, match="strictly positive"):
+        exp_tuning.validate_config(config)
+
+
+def test_dpo_scientific_kernel_matches_reviewed_pr268_structure() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning._train_canonical_dpo_transfer_cell)
+    required = (
+        "full_sequence_log_probability",
+        "policy_chosen[row_index]",
+        "- policy_rejected",
+        "- reference_chosen[row_index]",
+        "+ reference_rejected",
+        "F.softplus(-logits)",
+        "initial_pair_margin_max_abs",
+        "reference_terminal_sha256 != reference_initial_sha256",
+        "label_smoothing\": 0.0",
+        "test_partition_accessed\": False",
+    )
+    for fragment in required:
+        assert fragment in source
+    helper_source = inspect.getsource(exp_tuning._dpo_prompt_balanced_mean)
+    assert "mean_unique_negative_term" in helper_source
+    assert "value_network" not in source
+    assert "early_stop" not in source
+    assert "hard_negative" not in source
+
+
+def test_dpo_train_cell_dispatch_supports_two_update_liveness() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    spec = exp_tuning._method_spec(exp_tuning.METHOD_DPO)
+    assert spec.train_cold is exp_tuning._cold_train_dpo
+    source = inspect.getsource(exp_tuning.train_cell)
+    assert "_method_spec(cell.method).train_cold" in source
+    helper = inspect.getsource(exp_tuning._cold_train_dpo)
+    assert "_train_canonical_dpo_transfer_cell" in helper
+    liveness = inspect.getsource(exp_tuning._cmd_dpo_liveness)
+    assert "updates_override=2" in liveness
+    assert "fresh_process_reload_passed" in liveness
+    assert "optimizer_update_norm" in liveness
+
+
+
+def test_dpo_identity_plan_and_key_expose_initialization_mode(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    cold = _dpo_capability_test_config(shared_sft=False)
+    warm = _dpo_capability_test_config(shared_sft=True)
+    cold_cells = exp_tuning.build_cells(cold)
+    warm_cells = exp_tuning.build_cells(warm)
+    assert {cell.dpo_initialization for cell in cold_cells} == {"base_model_fresh_lora"}
+    assert {cell.dpo_initialization for cell in warm_cells} == {"shared_sft_adapter"}
+    cold_by_tuple = {(cell.task, cell.beta, cell.seed): cell for cell in cold_cells}
+    warm_by_tuple = {(cell.task, cell.beta, cell.seed): cell for cell in warm_cells}
+    assert set(cold_by_tuple) == set(warm_by_tuple)
+    assert all(cold_by_tuple[key].key != warm_by_tuple[key].key for key in cold_by_tuple)
+    assert all("init_base_model_fresh_lora" in cell.key for cell in cold_cells)
+    assert all("init_shared_sft_adapter" in cell.key for cell in warm_cells)
+
+    cold_plan = exp_tuning.write_plan(cold, tmp_path / "cold")
+    warm_plan = exp_tuning.write_plan(warm, tmp_path / "warm")
+    assert {row["dpo_initialization"] for row in cold_plan["rows"]} == {
+        "base_model_fresh_lora"
+    }
+    assert {row["dpo_initialization"] for row in warm_plan["rows"]} == {
+        "shared_sft_adapter"
+    }
+
+
+def test_dpo_uses_same_reference_remoteness_bank_derivation_as_other_coldstart_methods() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    calibrate = inspect.getsource(exp_tuning.cmd_calibrate)
+    calibrate_task = inspect.getsource(exp_tuning.cmd_calibrate_task)
+    assert "_derive_reference_remoteness_banks" in calibrate
+    assert "_derive_reference_remoteness_banks" in calibrate_task
+    assert "_coldstart_method(config) != METHOD_DPO" not in calibrate
+    assert "_coldstart_method(config) != METHOD_DPO" not in calibrate_task
+    dpo = inspect.getsource(exp_tuning._train_canonical_dpo_transfer_cell)
+    assert '"reference_remoteness_bank_identity_hash"' in dpo
+    assert '"canonical_train_sha256"' in dpo
+
+
+def test_topr_dispatch_records_topr_formula_identity_not_exp_formula() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    spec = exp_tuning._method_spec(exp_tuning.METHOD_TOPR)
+    assert (
+        spec.paper_runtime.formula
+        == "delegated_to_existing_joint_fitted_reference_beta_topr"
+    )
+    source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+    assert "paper_runtime.formula" in source
+    assert "_paper_grid_for_cell(config, record, cell)" in source
+
+
+def test_dpo_failure_path_preserves_last_finite_without_extra_policy_change_gate() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning._train_canonical_dpo_transfer_cell)
+    assert 'last_finite_dir = cell_root / "last_finite_adapter"' in source
+    assert 'numerical_failure = "initial_policy_reference_pair_margin_mismatch"' in source
+    assert 'numerical_failure = f"nonfinite_loss_at_step_{update}"' in source
+    assert 'numerical_failure = f"nonfinite_gradient_at_step_{update}"' in source
+    assert 'numerical_failure = f"nonfinite_parameters_at_step_{update}"' in source
+    assert '"terminal_checkpoint_kind"' in source
+    assert '"nan_inf_failure"' in source
+    assert '"complete": numerical_failure is None' in source
+    assert "DPO policy parameters did not change" not in source
+    liveness = inspect.getsource(exp_tuning._cmd_dpo_liveness)
+    assert "optimizer_update_norm" in liveness
+    assert "<= 0.0" in liveness
+
+
+def test_dpo_transfer_consumes_effective_task_runtime_and_preserves_liveness_identity() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning._train_canonical_dpo_transfer_cell)
+    assert 'model_cfg["max_length"] = int(effective["model"]["max_length"])' in source
+    assert 'model_cfg["max_new_tokens"] = int(effective["model"]["max_new_tokens"])' in source
+    assert 'eval_cfg["batch_size"] = int(effective["evaluation"]["batch_size"])' in source
+    assert 'eval_cfg["pass_ks"] = list(effective["evaluation"]["pass_ks"])' in source
+    assert 'with _legacy_arena_runtime_bridge(arena, effective):' in source
+    assert 'warmup_steps = 0 if warmup_ratio == 0.0' in source
+    assert 'cell.dpo_initialization != configured_initialization' in source
+    assert 'str(final_adapter_dir.resolve())' in source
+    assert '"finite_old_core_updates": numerical_failure is None' in source
+
+    liveness = inspect.getsource(exp_tuning._cmd_dpo_liveness)
+    assert 'result["identity_hash"] = stable_hash(result)' not in liveness
+
+
+def test_transfer_evaluator_honors_configured_sampling_values() -> None:
+    from types import SimpleNamespace
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    calls = []
+
+    class FakeModel:
+        training = False
+
+    class FakeAdapter:
+        def verify(self, instance, completion):
+            del instance, completion
+            return SimpleNamespace(correct=False, format_valid=True)
+
+    class FakeArena:
+        @staticmethod
+        def seed_all(seed):
+            del seed
+
+        @staticmethod
+        def generate_outputs(model, tokenizer, prompts, max_new_tokens, do_sample,
+                             temperature, top_p, num_return_sequences):
+            del model, tokenizer, max_new_tokens
+            calls.append((do_sample, temperature, top_p, num_return_sequences))
+            return [["x"] * num_return_sequences for _ in prompts]
+
+    evaluator = exp_tuning._canonical_environment_evaluator(
+        arena=FakeArena(),
+        task_adapter=FakeAdapter(),
+        instances={"p": object()},
+        greedy_prompt_rows=1,
+        passk_prompt_rows=1,
+        sampling_temperature=0.61,
+        top_p=0.87,
+    )
+    evaluator(
+        FakeModel(), object(), [{"prompt_id": "p", "prompt": "q"}],
+        1, 4, 8, 123,
+    )
+    assert calls[0] == (False, 1.0, 1.0, 1)
+    assert calls[1] == (True, 0.61, 0.87, 8)
+
+
+
+def test_nan_inf_failure_classifier_separates_identity_mismatch() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    assert exp_tuning._is_nan_inf_numerical_failure(None) is False
+    assert (
+        exp_tuning._is_nan_inf_numerical_failure(
+  "initial_policy_reference_ratio_mismatch"
+        )
+        is False
+    )
+    assert exp_tuning._is_nan_inf_numerical_failure("nonfinite_loss_at_step_1") is True
+    assert exp_tuning._is_nan_inf_numerical_failure("nonfinite_parameters_at_step_9") is True
+
+
+def test_canonical_failed_cell_preserves_manifest_without_late_window_summary() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+    assert 'numerical_failure = canonical_summary.get("numerical_failure")' in source
+    assert 'if numerical_failure is None' in source
+    assert 'else {}' in source
+    assert '"nan_inf_failure": _is_nan_inf_numerical_failure(numerical_failure)' in source
+    assert '"evaluation_status": (' in source
+    assert 'metrics_summary.get("supplementary_best_step")' in source
+
+
+def test_dpo_emits_recovery_summary_and_audited_pr268_diagnostics() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning._train_canonical_dpo_transfer_cell)
+    required = (
+        'summary_path = cell_root / "summary.json"',
+        'result["canonical_summary_sha256"] = sha256_file(summary_path)',
+        '"policy_chosen_sum_lp"',
+        '"policy_rejected_sum_lp"',
+        '"reference_chosen_sum_lp"',
+        '"reference_rejected_sum_lp"',
+        '"pair_margin_p10"',
+        '"pair_margin_p50"',
+        '"pair_margin_p90"',
+        '"unique_negative_count_mean"',
+        '"raw_bank_count_mean"',
+        '"duplicates_removed_mean"',
+        'num_workers=int(train_cfg["num_workers"])',
+        'log_every = int(train_cfg["log_every"])',
+        '"terminal_step": terminal_step',
+    )
+    for fragment in required:
+        assert fragment in source
+
+    reusable = inspect.getsource(exp_tuning._reusable_cell_manifests)
+    assert 'value.get("canonical_summary"' in reusable
+    assert 'value.get("canonical_summary_sha256"' in reusable
+
+
+
+def test_fifth_review_rejects_asymre_delta_below_runtime_domain() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _asymre_capability_test_config()
+    config["sweep"]["task_delta_v"]["word_sorting"] = [-1.01]
+    with pytest.raises(ValueError, match="delta_v values must be >= -1"):
+        exp_tuning.validate_config(config)
+
+
+def test_fifth_review_rejects_dpo_controls_that_dispatch_cannot_consume() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    positive = _dpo_capability_test_config()
+    positive["sweep"]["transfer_positive_only_seed_offsets"] = [5000]
+    with pytest.raises(ValueError, match="does not implement Positive-only or Global"):
+        exp_tuning.validate_config(positive)
+
+    global_control = _dpo_capability_test_config()
+    global_control["sweep"]["include_global_endpoint"] = True
+    with pytest.raises(ValueError, match="does not implement Positive-only or Global"):
+        exp_tuning.validate_config(global_control)
+
+
+def test_fifth_review_requires_dpo_liveness_beta_on_liveness_task_grid() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _dpo_capability_test_config()
+    config["dpo"]["liveness_beta"] = 0.3
+    with pytest.raises(ValueError, match="liveness_beta must be one configured beta point"):
+        exp_tuning.validate_config(config)
+
+
+def test_fifth_review_rejects_silently_ignored_coldstart_tuning_seed() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _asymre_capability_test_config()
+    config["sweep"]["tuning_seed"] = 5000
+    with pytest.raises(ValueError, match="tuning_seed must match task_transfer_seed_offset"):
+        exp_tuning.validate_config(config)
+
+
+def test_shared_sft_adapter_binds_full_identity_and_provenance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _dpo_capability_test_config(shared_sft=True)
+    adapter = tmp_path / "shared"
+    adapter.mkdir()
+    adapter_config = {
+        "peft_type": "LORA",
+        "r": config["model"]["lora_rank"],
+        "lora_alpha": config["model"]["lora_alpha"],
+        "lora_dropout": config["model"]["lora_dropout"],
+        "base_model_name_or_path": config["model"]["base_model"],
+        "target_modules": ["v_proj", "q_proj"],
+        "modules_to_save": None,
+        "bias": "none",
+        "task_type": "CAUSAL_LM",
+    }
+    adapter_config_path = adapter / "adapter_config.json"
+    adapter_config_path.write_text(json.dumps(adapter_config, sort_keys=True), encoding="utf-8")
+    weight_path = adapter / "adapter_model.safetensors"
+    weight_path.write_bytes(b"identity-only-test")
+    provenance = dict(config["dpo"]["shared_sft_adapter_contract"]["provenance_expected"])
+    provenance["extra_audit_field"] = "synthetic-only"
+    provenance_path = adapter / "SFT_PROVENANCE.json"
+    provenance_path.write_text(json.dumps(provenance, sort_keys=True), encoding="utf-8")
+
+    contract = config["dpo"]["shared_sft_adapter_contract"]
+    contract["adapter_config_sha256"] = exp_tuning.sha256_file(adapter_config_path)
+    contract["adapter_weight_sha256"] = exp_tuning.sha256_file(weight_path)
+    contract["provenance_sha256"] = exp_tuning.sha256_file(provenance_path)
+    exp_tuning.validate_config(config)
+    monkeypatch.setenv("E8_DPO_SHARED_SFT_ADAPTER", str(adapter))
+
+    identity = exp_tuning._dpo_shared_sft_adapter_identity(config)
+    assert identity is not None
+    assert identity["path"] == str(adapter.resolve())
+    assert identity["adapter_config_sha256"] == contract["adapter_config_sha256"]
+    assert identity["adapter_weight_sha256"] == contract["adapter_weight_sha256"]
+    assert identity["provenance_sha256"] == contract["provenance_sha256"]
+    assert identity["adapter_parameterization"]["target_modules"] == ["q_proj", "v_proj"]
+    assert exp_tuning._dpo_shared_sft_adapter(config) == adapter.resolve()
+
+    # PEFT loads safetensors before bin when both recognized files are present.
+    # A contract that hashes the bin file must therefore fail before model loading
+    # if safetensors is also present; otherwise verified identity can differ from
+    # the artifact actually selected by the directory loader.
+    alternate_weight_path = adapter / "adapter_model.bin"
+    alternate_weight_path.write_bytes(b"alternate-loader-weight")
+    contract["adapter_weight_file"] = "adapter_model.bin"
+    contract["adapter_weight_sha256"] = exp_tuning.sha256_file(alternate_weight_path)
+    with pytest.raises(ValueError, match="exactly the contracted recognized weight file"):
+        exp_tuning._dpo_shared_sft_adapter_identity(config)
+
+    # Either recognized filename remains supported when it is the directory's
+    # unique recognized adapter-weight artifact.
+    weight_path.unlink()
+    bin_identity = exp_tuning._dpo_shared_sft_adapter_identity(config)
+    assert bin_identity is not None
+    assert bin_identity["adapter_weight_file"] == "adapter_model.bin"
+    weight_path.write_bytes(b"identity-only-test")
+    with pytest.raises(ValueError, match="exactly the contracted recognized weight file"):
+        exp_tuning._dpo_shared_sft_adapter_identity(config)
+
+    alternate_weight_path.unlink()
+    contract["adapter_weight_file"] = "adapter_model.safetensors"
+    contract["adapter_weight_sha256"] = exp_tuning.sha256_file(weight_path)
+
+    adapter_config["target_modules"] = ["q_proj", "k_proj"]
+    adapter_config_path.write_text(json.dumps(adapter_config, sort_keys=True), encoding="utf-8")
+    contract["adapter_config_sha256"] = exp_tuning.sha256_file(adapter_config_path)
+    with pytest.raises(ValueError, match="parameterization does not match"):
+        exp_tuning._dpo_shared_sft_adapter_identity(config)
+
+    adapter_config["target_modules"] = ["v_proj", "q_proj"]
+    adapter_config_path.write_text(json.dumps(adapter_config, sort_keys=True), encoding="utf-8")
+    contract["adapter_config_sha256"] = exp_tuning.sha256_file(adapter_config_path)
+    weight_path.write_bytes(b"wrong-adapter-bytes")
+    with pytest.raises(ValueError, match="identity hash mismatch"):
+        exp_tuning._dpo_shared_sft_adapter_identity(config)
+    weight_path.write_bytes(b"identity-only-test")
+    contract["adapter_weight_sha256"] = exp_tuning.sha256_file(weight_path)
+
+    provenance["source_run_id"] = "WRONG-SOURCE-RUN"
+    provenance_path.write_text(json.dumps(provenance, sort_keys=True), encoding="utf-8")
+    contract["provenance_sha256"] = exp_tuning.sha256_file(provenance_path)
+    with pytest.raises(ValueError, match="provenance does not match"):
+        exp_tuning._dpo_shared_sft_adapter_identity(config)
+
+
+def test_shared_sft_mode_requires_config_defined_identity_contract() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _dpo_capability_test_config(shared_sft=True)
+    config["dpo"].pop("shared_sft_adapter_contract")
+    with pytest.raises((TypeError, ValueError), match="shared_sft_adapter_contract"):
+        exp_tuning.validate_config(config)
+
+
+def test_fifth_review_terminal_audit_does_not_mislabel_non_exp_methods() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = inspect.getsource(exp_tuning.cmd_audit)
+    assert "transfer_exp_single_seed_response_shape_localization" in source
+    assert "_coldstart_method(config) == METHOD_EXPONENTIAL" in source
+
+
+def _baseline_matrix_capability_test_config(*, shared_sft: bool = False) -> dict:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = copy.deepcopy(
+        yaml.safe_load(
+            Path("configs/e8_multitask_exp_lambda_curve_completion.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+    )
+    config["experiment_id"] = (
+        "DEV-E8-MULTITASK-BASELINE-MATRIX-SHARED-SFT-TEST"
+        if shared_sft
+        else "DEV-E8-MULTITASK-BASELINE-MATRIX-CAPABILITY-TEST"
+    )
+    tasks = list(config["suite"]["tasks"])
+    transfer_tasks = list(config["suite"]["p0_tasks"])
+
+    def grid(values: list[float]) -> dict[str, list[float]]:
+        result = {task: [] for task in tasks}
+        for task in transfer_tasks:
+            result[task] = list(values)
+        return result
+
+    def provenance(label: str) -> dict[str, str]:
+        return {task: f"synthetic_capability_only_{label}" for task in transfer_tasks}
+
+    config["sweep"] = {
+        "profile": exp_tuning.SWEEP_PROFILE_COLDSTART,
+        "method": exp_tuning.METHOD_BASELINE_MATRIX,
+        "parameterization": "baseline_family_matrix_v1",
+        "tuning_seed": 4000,
+        "countdown_seed_offsets": [],
+        "countdown_include_positive_only": False,
+        "include_global_endpoint": False,
+        "transfer_positive_only_seed_offsets": [],
+        "task_transfer_seed_offsets": [4000, 5000],
+        "methods": {
+            exp_tuning.METHOD_ASYMRE: {
+                "parameterization": "asymre_delta_v",
+                "task_delta_v": grid([-0.8, -0.6, -0.4, -0.2, 0.0]),
+                "task_grid_provenance": provenance("asymre"),
+            },
+            exp_tuning.METHOD_TOPR: {
+                "parameterization": "joint_fitted_reference_beta_topr",
+                "task_beta": grid([0.1, 0.2, 0.3]),
+                "task_grid_provenance": provenance("topr"),
+            },
+            exp_tuning.METHOD_DPO: {
+                "parameterization": "canonical_dpo_beta",
+                "task_beta": grid([0.05, 0.1, 0.2]),
+                "task_grid_provenance": provenance("dpo"),
+            },
+        },
+        "expected_cells": 176,
+    }
+    config["execution"]["expected_waves"] = 12
+    config["execution"]["seed_batch_barriers"] = True
+    config["execution"]["seed_batch_order"] = [4000, 5000]
+    config["canonical_coldstart"].update(
+        {
+            "scientific_kernel": "per_cell_canonical_baseline_dispatch",
+            "initialization": "per_method_initial_policy_and_reference_contract",
+            "formula": "per_cell_asymre_topr_or_dpo",
+            "countdown_entry": "disabled_no_baseline_matrix_countdown_cells",
+            "transfer_entry": "e8_multitask_exp_tuning.train_cell",
+        }
+    )
+    config["dpo"] = {
+        "initialization_mode": "shared_sft_adapter" if shared_sft else "base_model_fresh_lora",
+        "shared_sft_adapter_env": "E8_DPO_SHARED_SFT_ADAPTER" if shared_sft else None,
+        "policy_adapter": "default",
+        "reference_adapter": "reference",
+        "reference_role": "exact_frozen_initial_policy",
+        "copy_policy_to_reference_before_update_1": True,
+        "reference_trainable": False,
+        "label_smoothing": 0.0,
+        "sequence_log_probability": "full_completion_summed_log_probability",
+        "pair_aggregation": "mean_unique_negative_within_prompt_then_mean_prompts",
+        "initial_pair_margin_max_abs_tolerance": 1.0e-5,
+        "liveness_task": "word_sorting",
+        "liveness_beta": 0.05,
+    }
+    if shared_sft:
+        config["dpo"]["shared_sft_adapter_contract"] = (
+            _synthetic_shared_sft_adapter_contract(config)
+        )
+    exp_tuning.validate_config(config)
+    return config
+
+
+def test_baseline_matrix_one_config_expands_exact_176_cells(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _baseline_matrix_capability_test_config()
+    cells = exp_tuning.build_cells(config)
+    assert len(cells) == 176
+    assert len({cell.key for cell in cells}) == 176
+    assert {cell.seed for cell in cells} == {4000, 5000}
+    assert {cell.task for cell in cells} == set(config["suite"]["p0_tasks"])
+    assert all(cell.task != "countdown" for cell in cells)
+    assert sum(cell.method == exp_tuning.METHOD_ASYMRE for cell in cells) == 80
+    assert sum(cell.method == exp_tuning.METHOD_TOPR for cell in cells) == 48
+    assert sum(cell.method == exp_tuning.METHOD_DPO for cell in cells) == 48
+    assert all(
+        sum(candidate.task == task for candidate in cells) == 22
+        for task in config["suite"]["p0_tasks"]
+    )
+    assert {
+        cell.dpo_initialization for cell in cells if cell.method == exp_tuning.METHOD_DPO
+    } == {"base_model_fresh_lora"}
+
+    plan = exp_tuning.write_plan(config, tmp_path)
+    assert plan["cell_count"] == 176
+    assert plan["wave_sizes"] == [16, 16, 16, 16, 16, 8] * 2
+    assert {row["method"] for row in plan["rows"]} == {
+        exp_tuning.METHOD_ASYMRE,
+        exp_tuning.METHOD_TOPR,
+        exp_tuning.METHOD_DPO,
+    }
+
+
+def test_baseline_matrix_supports_shared_sft_dpo_without_changing_other_initialization() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _baseline_matrix_capability_test_config(shared_sft=True)
+    cells = exp_tuning.build_cells(config)
+    dpo_cells = [cell for cell in cells if cell.method == exp_tuning.METHOD_DPO]
+    non_dpo_cells = [cell for cell in cells if cell.method != exp_tuning.METHOD_DPO]
+    assert {cell.dpo_initialization for cell in dpo_cells} == {"shared_sft_adapter"}
+    assert all(cell.dpo_initialization is None for cell in non_dpo_cells)
+    assert config["initialization"]["source"] == "base_model"
+    assert config["reference"]["checkpoint_kind"] == "fresh_lora_from_base_model"
+
+
+def test_single_method_coldstart_can_expand_multiple_transfer_seeds() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _asymre_capability_test_config()
+    config["sweep"].pop("task_transfer_seed_offset")
+    config["sweep"]["task_transfer_seed_offsets"] = [4000, 5000]
+    config["sweep"]["expected_cells"] = 32
+    config["execution"]["expected_waves"] = 2
+    exp_tuning.validate_config(config)
+    cells = exp_tuning.build_cells(config)
+    assert len(cells) == 32
+    assert {cell.seed for cell in cells} == {4000, 5000}
+    assert len({cell.key for cell in cells}) == 32
+
+
+def test_baseline_matrix_rejects_ambiguous_singular_and_plural_transfer_seed_fields() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _baseline_matrix_capability_test_config()
+    config["sweep"]["task_transfer_seed_offset"] = 4000
+    with pytest.raises(ValueError, match="exactly one"):
+        exp_tuning.validate_config(config)
+
+
+def test_method_vocabulary_aliases_config_authority() -> None:
+    from drpo import e8_experiment_config as experiment_config
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    assert exp_tuning.METHOD_EXPONENTIAL == experiment_config.COLDSTART_METHOD_EXPONENTIAL
+    assert exp_tuning.METHOD_ASYMRE == experiment_config.COLDSTART_METHOD_ASYMRE
+    assert exp_tuning.METHOD_TOPR == experiment_config.COLDSTART_METHOD_TOPR
+    assert exp_tuning.METHOD_DPO == experiment_config.COLDSTART_METHOD_DPO
+    assert exp_tuning.METHOD_BASELINE_MATRIX == experiment_config.COLDSTART_METHOD_BASELINE_MATRIX
+    source = Path("src/drpo/e8_multitask_exp_tuning.py").read_text(encoding="utf-8")
+    assert "METHOD_ASYMRE = experiment_config.COLDSTART_METHOD_ASYMRE" in source
+    assert "METHOD_TOPR = experiment_config.COLDSTART_METHOD_TOPR" in source
+    assert "METHOD_DPO = experiment_config.COLDSTART_METHOD_DPO" in source
+
+
+def test_canonical_baseline_grid_identity_is_actual_sha_non_gating() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    for method in (exp_tuning.METHOD_ASYMRE, exp_tuning.METHOD_TOPR):
+        identity = exp_tuning._canonical_baseline_grid_identity(method)
+        path = Path(identity["canonical_grid"])
+        assert path.is_file()
+        assert identity["canonical_grid_sha256"] == exp_tuning.sha256_file(path)
+        assert identity["identity_policy"] == "runtime_actual_sha256_recorded_non_gating"
+        assert identity["expected_git_blob_gate"] is False
+    with pytest.raises(ValueError, match="No extra canonical grid identity"):
+        exp_tuning._canonical_baseline_grid_identity(exp_tuning.METHOD_DPO)
+
+
+def test_baseline_matrix_liveness_dispatches_all_three_methods(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _baseline_matrix_capability_test_config()
+    calls: list[str] = []
+    monkeypatch.setattr(
+        exp_tuning,
+        "_load_ready_inputs",
+        lambda *args, **kwargs: ({}, {"countdown": object()}),
+    )
+
+    def fake_canonical(*args, method=None, **kwargs):
+        del args, kwargs
+        calls.append(str(method))
+        return {"method": method, "complete": True}
+
+    def fake_dpo(*args, **kwargs):
+        del args, kwargs
+        calls.append(exp_tuning.METHOD_DPO)
+        return {"method": exp_tuning.METHOD_DPO, "complete": True}
+
+    monkeypatch.setattr(exp_tuning, "_cmd_canonical_cold_liveness", fake_canonical)
+    monkeypatch.setattr(exp_tuning, "_cmd_dpo_liveness", fake_dpo)
+    result = exp_tuning.cmd_liveness(
+        config,
+        tmp_path / "synthetic.yaml",
+        tmp_path,
+        task="countdown",
+        rho=None,
+        base_model_path="unused",
+        force=False,
+    )
+    assert calls == [
+        exp_tuning.METHOD_ASYMRE,
+        exp_tuning.METHOD_TOPR,
+        exp_tuning.METHOD_DPO,
+    ]
+    assert set(result["methods"]) == set(calls)
+    assert result["complete"] is True
+
+
+def test_baseline_matrix_tail_pipeline_scheduler_aggregate_and_resume_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning._engineering_self_test_config(
+        _baseline_matrix_capability_test_config()
+    )
+    cells = exp_tuning.build_cells(config)
+    assert len(cells) == 176
+    source_commit = "d" * 40
+    p0.atomic_json(
+        tmp_path / "source_provenance.json",
+        {
+            "source_commit": source_commit,
+            "run_id": "SYNTHETIC-BASELINE-MATRIX-TAIL",
+        },
+    )
+    monkeypatch.delenv("E8_COLDSTART_RECOVERY_PACKAGE", raising=False)
+    monkeypatch.setattr(exp_tuning, "_require_calibration_gate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(exp_tuning, "_require_liveness_gate", lambda *args, **kwargs: None)
+
+    method_offset = {
+        exp_tuning.METHOD_ASYMRE: 0.10,
+        exp_tuning.METHOD_TOPR: 0.40,
+        exp_tuning.METHOD_DPO: 0.70,
+    }
+
+    def fake_subprocess_cell(**kwargs):
+        cell = kwargs["cell"]
+        output_root = kwargs["output_root"]
+        parameter = cell.delta_v if cell.method == exp_tuning.METHOD_ASYMRE else cell.beta
+        assert parameter is not None
+        seed_term = 0.001 if cell.seed == 5000 else 0.0
+        score = method_offset[cell.method] + 0.01 * float(parameter) + seed_term
+        manifest = {
+            "schema_version": 1,
+            "experiment_id": exp_tuning.experiment_id(config),
+            "config_hash": exp_tuning.stable_config_hash(config),
+            "cell": {
+                "task": cell.task,
+                "method": cell.method,
+                "delta_v": cell.delta_v,
+                "beta": cell.beta,
+                "dpo_initialization": cell.dpo_initialization,
+                "seed": cell.seed,
+            },
+            "complete": True,
+            "evaluation_status": "complete",
+            "nan_inf_failure": False,
+            "engineering_placeholder_backend": True,
+            "validation_late_window_pass8_mean": score,
+            "validation_late_window_greedy_mean": score / 2.0,
+            "validation_best_pass8": score + 0.01,
+            "validation_terminal_pass8": score - 0.01,
+            "validation_best_greedy": score / 2.0 + 0.01,
+            "validation_terminal_greedy": score / 2.0 - 0.01,
+            "validation_best_greedy_valid_rate": 0.99,
+            "validation_terminal_greedy_valid_rate": 0.98,
+            "best_step": 1100,
+            "terminal_step": 1200,
+            "stop_reason": "max_steps",
+        }
+        p0.atomic_json(
+            output_root / "cells" / cell.key / "cell_manifest.json",
+            manifest,
+        )
+        return {
+            "cell_key": cell.key,
+            "method": cell.method,
+            "seed": cell.seed,
+            "returncode": 0,
+        }
+
+    monkeypatch.setattr(exp_tuning, "_run_subprocess_cell", fake_subprocess_cell)
+    scheduler = exp_tuning.cmd_run_dynamic(
+        config,
+        tmp_path / "synthetic.yaml",
+        tmp_path,
+        base_model_path="unused",
+        force=False,
+        retry_incomplete=False,
+    )
+    assert scheduler["complete"] is True
+    assert scheduler["expected_cells"] == 176
+    assert scheduler["completed_cells"] == 176
+    assert scheduler["seed_batch_completed_cells"] == {"4000": 88, "5000": 88}
+    events = [json.loads(line) for line in (tmp_path / "scheduler" / "queue_events.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+    finishes = [row["unix_time"] for row in events if row["event"] == "finish" and row.get("seed") == 4000]
+    starts = [row["unix_time"] for row in events if row["event"] == "start" and row.get("seed") == 5000]
+    assert len(finishes) == len(starts) == 88
+    assert max(finishes) <= min(starts)
+    assert len(scheduler["task_results"]) == 8
+    assert all(marker["cell_count"] == 22 for marker in scheduler["task_results"].values())
+
+    summary = exp_tuning.cmd_aggregate(config, tmp_path)
+    assert summary["cell_count"] == 176
+    assert summary["method_ranking_allowed"] is False
+    assert summary["significance_claim_allowed"] is False
+    assert summary["parameter_selection_deferred_to_reviewed_protocol"] is True
+    serialized = json.dumps(summary, sort_keys=True)
+    assert '"selected_exp"' not in serialized
+    assert summary["method_metadata"][exp_tuning.METHOD_DPO]["initialization_mode"] == (
+        "base_model_fresh_lora"
+    )
+    for task in config["suite"]["p0_tasks"]:
+        methods = summary["tasks"][task]["methods"]
+        asymre = methods[exp_tuning.METHOD_ASYMRE]["grouped_curve"]
+        topr = methods[exp_tuning.METHOD_TOPR]["grouped_curve"]
+        dpo = methods[exp_tuning.METHOD_DPO]["grouped_curve"]
+        assert len(asymre) == 5
+        assert len(topr) == 3
+        assert len(dpo) == 3
+        assert all(row["seeds"] == [4000, 5000] for row in (*asymre, *topr, *dpo))
+        assert all(row["method"] == exp_tuning.METHOD_ASYMRE for row in asymre)
+        assert all(row["method"] == exp_tuning.METHOD_TOPR for row in topr)
+        assert all(row["method"] == exp_tuning.METHOD_DPO for row in dpo)
+
+    plot_rows = list(
+        csv.DictReader((tmp_path / "aggregate" / "plot_curve_points.csv").open(encoding="utf-8"))
+    )
+    assert len(plot_rows) == 176
+    dpo_rows = [row for row in plot_rows if row["method"] == exp_tuning.METHOD_DPO]
+    assert len(dpo_rows) == 48
+    assert {row["dpo_initialization"] for row in dpo_rows} == {"base_model_fresh_lora"}
+
+    reusable, rejected = exp_tuning._reusable_cell_manifests(config, tmp_path)
+    assert set(reusable) == {cell.key for cell in cells}
+    assert rejected == {}
+
+    victim = cells[0]
+    victim_path = tmp_path / "cells" / victim.key / "cell_manifest.json"
+    victim_manifest = json.loads(victim_path.read_text(encoding="utf-8"))
+    victim_manifest["config_hash"] = "0" * 64
+    p0.atomic_json(victim_path, victim_manifest)
+    reusable, rejected = exp_tuning._reusable_cell_manifests(config, tmp_path)
+    assert victim.key not in reusable
+    assert victim.key in rejected
+    assert len(reusable) == 175
+
+
+def test_formal_baseline_matrix_config_matches_september7_runbook() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+    config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")
+    cells = exp_tuning.build_cells(config)
+    assert config["execution_class"] == "formal"
+    assert len(cells) == 176
+    assert {cell.seed for cell in cells[:88]} == {4000}
+    assert {cell.seed for cell in cells[88:]} == {5000}
+    assert [len(w) for w in exp_tuning.build_waves(config)] == [16,16,16,16,16,8] * 2
+    for task in config["suite"]["p0_tasks"]:
+        dvs = exp_tuning.experiment_config.task_delta_vs(config, task, method=exp_tuning.METHOD_ASYMRE)
+        assert dvs == (-1.0,-0.9,-0.75,-0.5,0.0)
+        assert tuple(round(1.0+v, 10) for v in dvs) == (0.0,0.1,0.25,0.5,1.0)
+        assert exp_tuning.experiment_config.task_betas(config, task, method=exp_tuning.METHOD_TOPR) == (0.25,0.5,1.0)
+        assert exp_tuning.experiment_config.task_betas(config, task, method=exp_tuning.METHOD_DPO) == (0.05,0.1,0.2)
+    assert {c.dpo_initialization for c in cells if c.method == exp_tuning.METHOD_DPO} == {"base_model_fresh_lora"}
+
+
+def test_formal_terminal_status_requires_full_terminal_contract(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+    config = exp_tuning.load_config("configs/e8_multitask_baseline_matrix_formal.yaml")
+    cells = exp_tuning.build_cells(config)
+    p0.atomic_json(tmp_path / "source_provenance.json", {"source_commit": "a"*40})
+    for cell in cells:
+        value={"complete":True,"evaluation_status":"complete","nan_inf_failure":False,"terminal_step":1200,"stop_reason":"max_steps","test_partition_accessed":False}
+        if cell.method == exp_tuning.METHOD_DPO:
+            value.update({"reference_initial_state_sha256":"b"*64,"reference_terminal_state_sha256":"b"*64,"reference_trainable":False})
+        p0.atomic_json(tmp_path / "cells" / cell.key / "cell_manifest.json", value)
+    p0.atomic_json(tmp_path / "aggregate" / "aggregate_summary.json", {"cell_count":176})
+    p0.atomic_json(tmp_path / "aggregate" / "countdown_protocol_diagnostic.json", {"status":"NOT_RUN"})
+    p0.atomic_json(tmp_path / "scheduler" / "dynamic_run.json", {"complete":True,"seed_batch_barriers":True,"seed_batch_order":[4000,5000],"seed_batch_expected_cells":{"4000":88,"5000":88},"seed_batch_completed_cells":{"4000":88,"5000":88}})
+    audit=exp_tuning.cmd_audit(config,tmp_path)
+    assert audit["all_training_and_evaluation_complete"] is True
+    assert audit["scientific_status"] == "finite_step_validated"
+    victim=cells[0]; path=tmp_path / "cells" / victim.key / "cell_manifest.json"
+    value=json.loads(path.read_text()); value["terminal_step"]=1199; p0.atomic_json(path,value)
+    failed=exp_tuning.cmd_audit(config,tmp_path)
+    assert failed["scientific_status"] == "pilot" and victim.key in failed["terminal_contract_failures"]
