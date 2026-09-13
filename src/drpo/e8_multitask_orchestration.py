@@ -136,7 +136,7 @@ def execution_geometry(
 ) -> ExecutionGeometry:
     if not gpu_ids:
         raise ValueError("gpu_ids must be non-empty")
-    if len(set(int(value) for value in gpu_ids)) != len(gpu_ids):
+    if len({int(value) for value in gpu_ids}) != len(gpu_ids):
         raise ValueError("gpu_ids must be unique")
     if slots_per_gpu <= 0:
         raise ValueError("slots_per_gpu must be positive")
@@ -306,7 +306,7 @@ def run_dynamic_queue(
             try:
                 raw = dict(callbacks.run_cell(cell, slot, gpu_id))
                 raw.setdefault("returncode", 0)
-            except Exception as exc:  # pragma: no cover - caller-specific failures.
+            except Exception as exc:  # noqa: BLE001  # pragma: no cover
                 raw = {
                     "returncode": 1,
                     "error": f"{type(exc).__name__}: {exc}",
@@ -326,7 +326,7 @@ def run_dynamic_queue(
             if succeeded and callbacks.after_success is not None:
                 try:
                     callbacks.after_success(cell, raw)
-                except Exception as exc:  # Keep failure evidence in scheduler output.
+                except Exception as exc:  # noqa: BLE001 - callback failure evidence
                     succeeded = False
                     existing_code = int(raw.get("returncode", 0))
                     raw["returncode"] = existing_code if existing_code != 0 else 1

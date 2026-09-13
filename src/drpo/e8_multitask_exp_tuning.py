@@ -18,7 +18,6 @@ import importlib
 import json
 import math
 import os
-import queue
 import random
 import shutil
 import subprocess
@@ -201,15 +200,12 @@ class MethodSpec:
     liveness_task: Callable[[Mapping[str, Any]], str]
     liveness_runner: Callable[..., dict[str, Any]]
     canonical_liveness_grid: Callable[[Mapping[str, Any], Mapping[str, Any]], Path] | None
-    paper_grid_source: Callable[[Mapping[str, Any], Cell], Path]
-    paper_cell_parameters: Callable[[Cell], tuple[str, float, float]]
+    canonical_liveness_parameter: str | None
+    paper_grid_paths: Callable[[Mapping[str, Any], Mapping[str, Any], Cell], tuple[Path, Path]] | None
+    paper_cell_parameters: Callable[[Cell], tuple[str, float, float]] | None
     paper_formula: str
     audit_record: Callable[[Cell, Mapping[str, Any]], e8_runtime.MethodAuditResult]
     audit_failure_bucket: str
-    group_projection: Callable[[Mapping[str, Any]], Mapping[str, Any]]
-    group_order: Callable[[Mapping[str, Any]], Any]
-    plot_columns: tuple[str, ...]
-    plot_projection: Callable[[Cell], Mapping[str, Any]]
     scientific_kernel: str
     single_aggregate_metadata: Callable[[Mapping[str, Any]], Mapping[str, Any]]
     matrix_aggregate_metadata: Callable[[Mapping[str, Any]], Mapping[str, Any]]
@@ -368,6 +364,32 @@ def _cold_train_dpo(cell: Cell, **kwargs: Any) -> dict[str, Any]:
     return _train_canonical_dpo_transfer_cell(cell, **kwargs)
 
 
+def _run_default_canonical_liveness(
+    *,
+    config: Mapping[str, Any],
+    config_path: Path,
+    output_root: Path,
+    inputs: Mapping[str, TaskInputs],
+    splits: Mapping[str, Any],
+    base_model_path: str,
+    task: str,
+    force: bool,
+) -> dict[str, Any]:
+    """Preserve the legacy default paper-runtime liveness call surface."""
+
+    if task != "countdown":
+        raise RuntimeError("The paper-runtime liveness anchor must be Countdown")
+    return _cmd_canonical_cold_liveness(
+        config,
+        config_path,
+        output_root,
+        inputs=inputs["countdown"],
+        splits=splits,
+        base_model_path=base_model_path,
+        force=force,
+    )
+
+
 def _run_canonical_method_liveness(
     method: str,
     *,
@@ -417,13 +439,19 @@ def _run_dpo_method_liveness(
     )
 
 
-def _paper_grid_source_exponential(config: Mapping[str, Any], cell: Cell) -> Path:
-    grid_source_name = (
+def _paper_grid_paths_exponential(
+    config: Mapping[str, Any],
+    record: Mapping[str, Any],
+    cell: Cell,
+) -> tuple[Path, Path]:
+    grid_name = (
         "round1_grid"
         if cell.task != "countdown"
-        else _paper_grid_name(0.0 if cell.lambda_value is None else float(cell.lambda_value))
+        else _paper_grid_name(
+            0.0 if cell.lambda_value is None else float(cell.lambda_value)
+        )
     )
-    return _canonical_paths(config)[grid_source_name]
+    return Path(str(record[grid_name])), _canonical_paths(config)[grid_name]
 
 
 def _paper_params_exponential(cell: Cell) -> tuple[str, float, float]:
@@ -448,13 +476,8 @@ def _paper_params_topr(cell: Cell) -> tuple[str, float, float]:
     return METHOD_TOPR, 1.0, float(cell.beta)
 
 
-def _unsupported_paper_grid(config: Mapping[str, Any], cell: Cell) -> Path:
-    del config, cell
-    raise RuntimeError("This method does not use the canonical paper grid runtime")
 
 
-def _unsupported_paper_params(cell: Cell) -> tuple[str, float, float]:
-    raise RuntimeError(f"{cell.method} does not use canonical paper cell parameters")
 
 
 def _default_method_audit(
@@ -558,19 +581,14 @@ def _register_builtin_method_specs() -> None:
             initialization_identity=_default_initialization_identity,
             train_cold=_cold_train_paper,
             liveness_task=lambda config: "countdown",
-            liveness_runner=lambda **kwargs: _run_canonical_method_liveness(
-                METHOD_EXPONENTIAL, **kwargs
-            ),
+            liveness_runner=_run_default_canonical_liveness,
             canonical_liveness_grid=lambda config, record: Path(
                 str(record["round1_grid"])
             ),
-            paper_grid_source=_paper_grid_source_exponential,
+            canonical_liveness_parameter="representative_c",
+            paper_grid_paths=_paper_grid_paths_exponential,
             paper_cell_parameters=_paper_params_exponential,
             paper_formula="alpha*exp(-c*(current_sequence_surprisal/2))",
-            group_projection=lambda params: {},
-            group_order=lambda params: (),
-            plot_columns=(),
-            plot_projection=lambda cell: {},
             scientific_kernel="canonical_old_coldstart_imports",
             **common,
         )
@@ -585,21 +603,14 @@ def _register_builtin_method_specs() -> None:
             initialization_identity=_default_initialization_identity,
             train_cold=_cold_train_paper,
             liveness_task=lambda config: "countdown",
-            liveness_runner=lambda **kwargs: _run_canonical_method_liveness(
-                METHOD_EXPONENTIAL, **kwargs
-            ),
+            liveness_runner=_run_default_canonical_liveness,
             canonical_liveness_grid=lambda config, record: Path(
                 str(record["round1_grid"])
             ),
-            paper_grid_source=_paper_grid_source_exponential,
+            canonical_liveness_parameter="representative_c",
+            paper_grid_paths=_paper_grid_paths_exponential,
             paper_cell_parameters=_paper_params_exponential,
             paper_formula="alpha*exp(-c*(current_sequence_surprisal/2))",
-            group_projection=lambda params: {"lambda": params["lambda"]},
-            group_order=lambda params: float(params["lambda"]),
-            plot_columns=("lambda", "rho"),
-            plot_projection=lambda cell: {
-                "lambda": _cell_lambda(cell), "rho": cell.rho
-            },
             scientific_kernel="canonical_old_coldstart_imports",
             **common,
         )
@@ -614,25 +625,14 @@ def _register_builtin_method_specs() -> None:
             initialization_identity=_default_initialization_identity,
             train_cold=_cold_train_paper,
             liveness_task=lambda config: "countdown",
-            liveness_runner=lambda **kwargs: _run_canonical_method_liveness(
-                METHOD_EXPONENTIAL, **kwargs
-            ),
+            liveness_runner=_run_default_canonical_liveness,
             canonical_liveness_grid=lambda config, record: Path(
                 str(record["round1_grid"])
             ),
-            paper_grid_source=_paper_grid_source_exponential,
+            canonical_liveness_parameter="representative_c",
+            paper_grid_paths=_paper_grid_paths_exponential,
             paper_cell_parameters=_paper_params_exponential,
             paper_formula="alpha*exp(-c*(current_sequence_surprisal/2))",
-            group_projection=lambda params: {
-                "lambda": params["lambda"], "rho": params["rho"]
-            },
-            group_order=lambda params: (
-                -1.0 if params["lambda"] is None else float(params["lambda"])
-            ),
-            plot_columns=("lambda", "rho"),
-            plot_projection=lambda cell: {
-                "lambda": _cell_lambda(cell), "rho": cell.rho
-            },
             scientific_kernel="canonical_old_coldstart_imports",
             **common,
         )
@@ -651,13 +651,12 @@ def _register_builtin_method_specs() -> None:
                 METHOD_ASYMRE, **kwargs
             ),
             canonical_liveness_grid=lambda config, record: _canonical_asymre_grid_path(),
-            paper_grid_source=lambda config, cell: _canonical_asymre_grid_path(),
+            canonical_liveness_parameter="representative_delta_v",
+            paper_grid_paths=lambda config, record, cell: (
+                _canonical_asymre_grid_path(), _canonical_asymre_grid_path()
+            ),
             paper_cell_parameters=_paper_params_asymre,
             paper_formula="delegated_to_existing_canonical_asymre",
-            group_projection=lambda params: {"delta_v": params["delta_v"]},
-            group_order=lambda params: float(params["delta_v"]),
-            plot_columns=("delta_v",),
-            plot_projection=lambda cell: {"delta_v": cell.delta_v},
             scientific_kernel="canonical_old_coldstart_imports",
             single_aggregate_metadata=_asymre_single_metadata,
             matrix_aggregate_metadata=lambda config: _canonical_baseline_grid_identity(
@@ -682,13 +681,12 @@ def _register_builtin_method_specs() -> None:
                 METHOD_TOPR, **kwargs
             ),
             canonical_liveness_grid=lambda config, record: _canonical_topr_grid_path(),
-            paper_grid_source=lambda config, cell: _canonical_topr_grid_path(),
+            canonical_liveness_parameter="representative_c",
+            paper_grid_paths=lambda config, record, cell: (
+                _canonical_topr_grid_path(), _canonical_topr_grid_path()
+            ),
             paper_cell_parameters=_paper_params_topr,
             paper_formula="delegated_to_existing_joint_fitted_reference_beta_topr",
-            group_projection=lambda params: {"beta": params["beta"]},
-            group_order=lambda params: float(params["beta"]),
-            plot_columns=("beta",),
-            plot_projection=lambda cell: {"beta": cell.beta},
             scientific_kernel="canonical_old_coldstart_imports",
             single_aggregate_metadata=_topr_single_metadata,
             matrix_aggregate_metadata=lambda config: _canonical_baseline_grid_identity(
@@ -704,10 +702,7 @@ def _register_builtin_method_specs() -> None:
             name=METHOD_DPO,
             build_cell=_build_dpo_cell,
             cell_key=_dpo_key,
-            parameters=lambda cell: {
-                "beta": cell.beta,
-                "dpo_initialization": cell.dpo_initialization,
-            },
+            parameters=lambda cell: {"beta": cell.beta},
             compatibility_columns=_legacy_compatibility_columns,
             cell_initialization=lambda config: str(config["dpo"]["initialization_mode"]),
             initialization_identity=_dpo_initialization_identity,
@@ -715,18 +710,12 @@ def _register_builtin_method_specs() -> None:
             liveness_task=lambda config: str(config["dpo"]["liveness_task"]),
             liveness_runner=_run_dpo_method_liveness,
             canonical_liveness_grid=None,
-            paper_grid_source=_unsupported_paper_grid,
-            paper_cell_parameters=_unsupported_paper_params,
+            canonical_liveness_parameter=None,
+            paper_grid_paths=None,
+            paper_cell_parameters=None,
             paper_formula="canonical_dpo_pair_log_probability_margin",
             audit_record=_dpo_method_audit,
             audit_failure_bucket="dpo_reference_identity_failures",
-            group_projection=lambda params: {"beta": params["beta"]},
-            group_order=lambda params: float(params["beta"]),
-            plot_columns=("beta", "dpo_initialization"),
-            plot_projection=lambda cell: {
-                "beta": cell.beta,
-                "dpo_initialization": cell.dpo_initialization,
-            },
             scientific_kernel=(
                 "historical_pr268_semantics_port_in_existing_multitask_runner"
             ),
@@ -3613,16 +3602,17 @@ def _canonical_calibration_identity(
     return value
 
 
-def _paper_grid_for_cell(record: Mapping[str, Any], cell: Cell) -> Path:
-    if cell.method == METHOD_ASYMRE:
-        return _canonical_asymre_grid_path()
-    if cell.method == METHOD_TOPR:
-        return _canonical_topr_grid_path()
-    if cell.task != "countdown":
-        # Transfer coefficients are passed directly to the locked trainer.
-        return Path(str(record["round1_grid"]))
-    coefficient = 0.0 if cell.lambda_value is None else float(cell.lambda_value)
-    return Path(str(record[_paper_grid_name(coefficient)]))
+def _paper_grid_for_cell(
+    config: Mapping[str, Any],
+    record: Mapping[str, Any],
+    cell: Cell,
+) -> tuple[Path, Path]:
+    spec = _method_spec(cell.method)
+    if spec.paper_grid_paths is None:
+        raise RuntimeError(
+            f"{cell.method} does not use the canonical paper grid runtime"
+        )
+    return spec.paper_grid_paths(config, record, cell)
 
 def calibrate_canonical_cold_task(
     task: str,
@@ -5517,9 +5507,12 @@ def _train_canonical_cold_cell(
     bank = Path(str(record["train"]))
     validation = Path(str(record["validation"]))
     base_config_path = base_config_override or Path(str(record["base_config"]))
-    grid_path = _paper_grid_for_cell(record, cell)
     method_spec = _method_spec(cell.method)
-    grid_source_path = method_spec.paper_grid_source(config, cell)
+    grid_path, grid_source_path = _paper_grid_for_cell(config, record, cell)
+    if method_spec.paper_cell_parameters is None:
+        raise RuntimeError(
+            f"{cell.method} does not use canonical paper cell parameters"
+        )
     modules = _activate_paper_grid_modules(modules, grid_source_path)
     arena = modules["arena"]
     runtime = modules["paper_runtime"]
@@ -6227,38 +6220,30 @@ def _canonical_liveness_base_config(config: Mapping[str, Any], output_root: Path
 
 
 def _canonical_cold_liveness_cell(grid_path: Path) -> Cell:
-    """Derive wrapper identity from the exact canonical method liveness grid."""
+    """Derive one liveness cell through the registered method contract."""
 
     grid = yaml.safe_load(grid_path.read_text(encoding="utf-8"))
     if not isinstance(grid, dict):
         raise TypeError("Canonical liveness grid root must be a mapping")
     liveness = grid["execution"]["liveness"]
     seed_offsets = grid["sweep"]["seed_offsets"]
-    family = str(liveness.get("representative_family", "exponential"))
-    if family == METHOD_ASYMRE:
-        delta_v = float(liveness["representative_delta_v"])
-        return Cell(
-  "countdown",
-  METHOD_ASYMRE,
-  None,
-  int(seed_offsets[0]),
-  "liveness",
-  None,
-  delta_v,
+    method = str(liveness.get("representative_family", METHOD_EXPONENTIAL))
+    spec = _method_spec(method)
+    parameter_key = spec.canonical_liveness_parameter
+    if parameter_key is None:
+        raise RuntimeError(f"{method} has no canonical cold-liveness parameter")
+    if parameter_key not in liveness:
+        raise RuntimeError(
+            f"Canonical liveness grid for {method} lacks {parameter_key}"
         )
-    if family == METHOD_TOPR:
-        beta = float(liveness["representative_c"])
-        return Cell(
-            "countdown", METHOD_TOPR, None, int(seed_offsets[0]), "liveness", None, None, beta
-        )
-    coefficient = float(liveness["representative_c"])
-    return Cell(
-        "countdown",
-        METHOD_EXPONENTIAL,
-        math.exp(-coefficient),
-        int(seed_offsets[0]),
-        "liveness",
-        coefficient,
+    return spec.build_cell(
+        task="countdown",
+        method=method,
+        seed=int(seed_offsets[0]),
+        stage="liveness",
+        value=float(liveness[parameter_key]),
+        lambda_only=False,
+        dpo_initialization=None,
     )
 
 def _cmd_canonical_cold_liveness(
@@ -6682,14 +6667,14 @@ def _recovery_stage_plan(
     try:
         _load_prepared(output_root, config)
         prepare_complete = True
-    except Exception as exc:  # The plan records the exact fail-closed reason.
+    except Exception as exc:  # noqa: BLE001 - fail-closed reason capture
         prepare_complete = False
         prepare_error = f"{type(exc).__name__}: {exc}"
     if prepare_complete:
         try:
             _require_calibration_gate(config, output_root, base_model_path=base_model_path)
             calibration_complete = True
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - fail-closed reason capture
             calibration_complete = False
             calibration_error = f"{type(exc).__name__}: {exc}"
     else:
@@ -6699,7 +6684,7 @@ def _recovery_stage_plan(
         try:
             _require_liveness_gate(config, output_root, base_model_path=base_model_path)
             liveness_complete = True
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - fail-closed reason capture
             liveness_complete = False
             liveness_error = f"{type(exc).__name__}: {exc}"
     else:
@@ -7902,24 +7887,42 @@ def _write_coldstart_task_result(
     all_cells_path = root / "all_cells.csv"
     plot_path = root / "plot_curve_points.csv"
     _write_csv(all_cells_path, rows)
-    plot_rows = [
-        {
-            "experiment_id": experiment_id(config),
-            "run_id": run_id,
-            "source_commit": source_commit,
-            "task": row["task"],
-            "method": row["method"],
-            "delta_v": row.get("delta_v"),
-            "beta": row.get("beta"),
-            "dpo_initialization": row.get("dpo_initialization"),
-            "lambda": row["lambda"],
-            "rho": row["rho"],
-            "seed": row["seed"],
-            "stage": row["stage"],
-            **_coldstart_plot_metrics(row),
-        }
-        for row in rows
-    ]
+    cells_by_key = {
+        cell.key: cell for cell in build_cells(config) if cell.task == task
+    }
+    legacy_parameter_columns = (
+        "delta_v", "beta", "dpo_initialization", "lambda", "rho"
+    )
+    extra_parameter_names = tuple(
+        dict.fromkeys(
+            name
+            for cell in cells_by_key.values()
+            for name in _method_spec(cell.method).parameters(cell)
+            if name not in legacy_parameter_columns
+        )
+    )
+    plot_rows: list[dict[str, Any]] = []
+    for row in rows:
+        cell = cells_by_key[str(row["cell_key"])]
+        parameters = dict(_method_spec(cell.method).parameters(cell))
+        plot_rows.append(
+            {
+                "experiment_id": experiment_id(config),
+                "run_id": run_id,
+                "source_commit": source_commit,
+                "task": row["task"],
+                "method": row["method"],
+                "delta_v": row.get("delta_v"),
+                "beta": row.get("beta"),
+                "dpo_initialization": row.get("dpo_initialization"),
+                "lambda": row["lambda"],
+                "rho": row["rho"],
+                **{name: parameters.get(name) for name in extra_parameter_names},
+                "seed": row["seed"],
+                "stage": row["stage"],
+                **_coldstart_plot_metrics(row),
+            }
+        )
     _write_csv(plot_path, plot_rows)
     cell_manifest_sha256 = {
         row["cell_key"]: sha256_file(
@@ -8173,63 +8176,94 @@ def _coldstart_run_provenance(output_root: Path) -> tuple[str, str]:
     )
 
 
+def _coldstart_method_grouped_curve(
+    *,
+    task: str,
+    method: str,
+    method_rows: Sequence[Mapping[str, Any]],
+    cells_by_key: Mapping[str, Cell],
+) -> list[dict[str, Any]]:
+    """Group one method through its registered opaque parameter contract."""
+
+    spec = _method_spec(method)
+    groups: dict[
+        str,
+        tuple[dict[str, Any], list[Mapping[str, Any]]],
+    ] = {}
+    for row in method_rows:
+        cell_key = str(row["cell_key"])
+        if cell_key not in cells_by_key:
+            raise RuntimeError(f"Unknown cold-start cell in aggregate: {cell_key}")
+        cell = cells_by_key[cell_key]
+        if cell.task != task or cell.method != method:
+            raise RuntimeError(
+                f"Cold-start aggregate identity mismatch for {cell_key}"
+            )
+        parameters = dict(spec.parameters(cell))
+        identity = e8_results.parameter_identity(parameters)
+        if identity not in groups:
+            groups[identity] = (parameters, [])
+        elif groups[identity][0] != parameters:
+            raise RuntimeError(f"Method parameter identity changed for {cell_key}")
+        groups[identity][1].append(row)
+
+    ordered = sorted(
+        groups.values(),
+        key=lambda item: e8_results.parameter_sort_key(item[0]),
+    )
+    return [
+        {
+            "task": task,
+            "method": method,
+            **parameters,
+            **_coldstart_group_metrics(group),
+        }
+        for parameters, group in ordered
+    ]
+
+
 def _aggregate_coldstart_unranked(
     config: Mapping[str, Any],
     output_root: Path,
     rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Aggregate AsymRE/TOPR/DPO curves without method selection or ranking."""
+    """Aggregate one registered non-Exp curve without selection or ranking."""
 
     method = _coldstart_method(config)
-    if method not in {METHOD_ASYMRE, METHOD_TOPR, METHOD_DPO}:
-        raise ValueError(f"Unsupported unranked cold-start method: {method}")
-    parameter_name = "delta_v" if method == METHOD_ASYMRE else "beta"
-    scientific_kernel = (
-        "historical_pr268_semantics_port_in_existing_multitask_runner"
-        if method == METHOD_DPO
-        else "canonical_old_coldstart_imports"
-    )
-    method_metadata: dict[str, Any]
-    if method == METHOD_ASYMRE:
-        grid_identity = _canonical_baseline_grid_identity(METHOD_ASYMRE)
-        method_metadata = {
-            "canonical_asymre_grid": grid_identity["canonical_grid"],
-            "canonical_asymre_grid_sha256": grid_identity["canonical_grid_sha256"],
-            "canonical_grid_identity_policy": grid_identity["identity_policy"],
-            "canonical_grid_expected_git_blob_gate": grid_identity["expected_git_blob_gate"],
-        }
-    elif method == METHOD_TOPR:
-        grid_identity = _canonical_baseline_grid_identity(METHOD_TOPR)
-        method_metadata = {
-            "canonical_topr_grid": grid_identity["canonical_grid"],
-            "canonical_topr_grid_sha256": grid_identity["canonical_grid_sha256"],
-            "canonical_grid_identity_policy": grid_identity["identity_policy"],
-            "canonical_grid_expected_git_blob_gate": grid_identity["expected_git_blob_gate"],
-        }
-    else:
-        method_metadata = {
-            "dpo_initialization_mode": str(config["dpo"]["initialization_mode"]),
-        }
+    spec = _method_spec(method)
+    configured_cells = build_cells(config)
+    cells_by_key = {cell.key: cell for cell in configured_cells}
+    if len(cells_by_key) != len(configured_cells):
+        raise RuntimeError("Cold-start aggregate contains duplicate cell keys")
 
     run_id, source_commit = _coldstart_run_provenance(output_root)
-    plot_rows = [
-        {
-            "task": row["task"],
-            "method": row["method"],
-            "dpo_initialization": row["dpo_initialization"],
-            "seed": row["seed"],
-            "stage": row["stage"],
-            "experiment_id": experiment_id(config),
-            "run_id": run_id,
-            "source_commit": source_commit,
-            parameter_name: row.get(parameter_name),
-            **_coldstart_plot_metrics(row),
+    plot_rows: list[dict[str, Any]] = []
+    for row in rows:
+        cell_key = str(row["cell_key"])
+        if cell_key not in cells_by_key:
+            raise RuntimeError(f"Unknown cold-start cell in plot aggregate: {cell_key}")
+        projection = dict(spec.parameters(cells_by_key[cell_key]))
+        parameter_columns = {
+            name: value
+            for name, value in projection.items()
+            if name != "dpo_initialization"
         }
-        for row in rows
-    ]
+        plot_rows.append(
+            {
+                "task": row["task"],
+                "method": row["method"],
+                "dpo_initialization": row["dpo_initialization"],
+                "seed": row["seed"],
+                "stage": row["stage"],
+                "experiment_id": experiment_id(config),
+                "run_id": run_id,
+                "source_commit": source_commit,
+                **parameter_columns,
+                **_coldstart_plot_metrics(row),
+            }
+        )
     _write_csv(output_root / "aggregate" / "plot_curve_points.csv", plot_rows)
 
-    configured_cells = build_cells(config)
     summaries: dict[str, Any] = {}
     summary_rows: list[dict[str, Any]] = []
     for task_value in config["suite"]["tasks"]:
@@ -8248,25 +8282,19 @@ def _aggregate_coldstart_unranked(
             for candidate in (method, *controls)
         }
         if len(method_rows) != expected[method] or any(
-            len(group) != expected[control] for control, group in controls.items()
+            len(group) != expected[control]
+            for control, group in controls.items()
         ):
-            raise RuntimeError(f"{task} {method} cold-start cell geometry is incomplete")
+            raise RuntimeError(
+                f"{task} {method} cold-start cell geometry is incomplete"
+            )
 
-        groups: dict[float, list[dict[str, Any]]] = {}
-        for row in method_rows:
-            value = row.get(parameter_name)
-            if value is None:
-                raise RuntimeError(f"{task} {method} row is missing {parameter_name}")
-            groups.setdefault(float(value), []).append(row)
-        grouped_curve = [
-            {
-                "task": task,
-                "method": method,
-                parameter_name: value,
-                **_coldstart_group_metrics(group),
-            }
-            for value, group in sorted(groups.items())
-        ]
+        grouped_curve = _coldstart_method_grouped_curve(
+            task=task,
+            method=method,
+            method_rows=method_rows,
+            cells_by_key=cells_by_key,
+        )
         summaries[task] = {
             "task": task,
             "grouped_curve": grouped_curve,
@@ -8298,8 +8326,8 @@ def _aggregate_coldstart_unranked(
         "tasks": summaries,
         "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
         "initialization": dict(config["initialization"]),
-        "scientific_kernel": scientific_kernel,
-        **method_metadata,
+        "scientific_kernel": spec.scientific_kernel,
+        **dict(spec.single_aggregate_metadata(config)),
         "countdown_protocol_diagnostic": _countdown_protocol_diagnostic(
             config,
             output_root,
@@ -8315,7 +8343,9 @@ def _aggregate_coldstart_unranked(
         "task_performance_reported_separately": True,
         "structure_diagnostic_reported_separately": True,
         "nan_inf_reported_separately": True,
-        "scientific_status": "not_run" if _is_engineering_self_test(config) else "pilot",
+        "scientific_status": (
+            "not_run" if _is_engineering_self_test(config) else "pilot"
+        ),
         "engineering_placeholder_backend": _is_engineering_self_test(config),
     }
     atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
@@ -8330,25 +8360,41 @@ def _aggregate_coldstart_matrix_unranked(
 
     methods = _coldstart_methods(config)
     run_id, source_commit = _coldstart_run_provenance(output_root)
-    plot_rows = [
-        {
-            "task": row["task"],
-            "method": row["method"],
-            "delta_v": row.get("delta_v"),
-            "beta": row.get("beta"),
-            "dpo_initialization": row.get("dpo_initialization"),
-            "seed": row["seed"],
-            "stage": row["stage"],
-            "experiment_id": experiment_id(config),
-            "run_id": run_id,
-            "source_commit": source_commit,
-            **_coldstart_plot_metrics(row),
-        }
-        for row in rows
-    ]
-    _write_csv(output_root / "aggregate" / "plot_curve_points.csv", plot_rows)
-
     configured_cells = build_cells(config)
+    cells_by_key = {cell.key: cell for cell in configured_cells}
+    if len(cells_by_key) != len(configured_cells):
+        raise RuntimeError("Baseline matrix contains duplicate cell keys")
+    legacy_parameter_columns = ("delta_v", "beta", "dpo_initialization")
+    extra_parameter_names = tuple(
+        dict.fromkeys(
+            name
+            for cell in configured_cells
+            if cell.method in methods
+            for name in _method_spec(cell.method).parameters(cell)
+            if name not in legacy_parameter_columns
+        )
+    )
+    plot_rows: list[dict[str, Any]] = []
+    for row in rows:
+        cell = cells_by_key[str(row["cell_key"])]
+        parameters = dict(_method_spec(cell.method).parameters(cell))
+        plot_rows.append(
+            {
+                "task": row["task"],
+                "method": row["method"],
+                "delta_v": row.get("delta_v"),
+                "beta": row.get("beta"),
+                "dpo_initialization": row.get("dpo_initialization"),
+                **{name: parameters.get(name) for name in extra_parameter_names},
+                "seed": row["seed"],
+                "stage": row["stage"],
+                "experiment_id": experiment_id(config),
+                "run_id": run_id,
+                "source_commit": source_commit,
+                **_coldstart_plot_metrics(row),
+            }
+        )
+    _write_csv(output_root / "aggregate" / "plot_curve_points.csv", plot_rows)
     task_summaries: dict[str, Any] = {}
     summary_rows: list[dict[str, Any]] = []
     for task_value in config["suite"]["p0_tasks"]:
@@ -8361,23 +8407,15 @@ def _aggregate_coldstart_matrix_unranked(
             method_rows = [row for row in task_rows if row["method"] == method]
             expected = sum(cell.method == method for cell in task_cells)
             if len(method_rows) != expected:
-                raise RuntimeError(f"{task} {method} baseline-matrix cell geometry is incomplete")
-            parameter_name = "delta_v" if method == METHOD_ASYMRE else "beta"
-            groups: dict[float, list[dict[str, Any]]] = {}
-            for row in method_rows:
-                value = row.get(parameter_name)
-                if value is None:
-                    raise RuntimeError(f"{task} {method} row is missing {parameter_name}")
-                groups.setdefault(float(value), []).append(row)
-            grouped_curve = [
-                {
-                    "task": task,
-                    "method": method,
-                    parameter_name: value,
-                    **_coldstart_group_metrics(group),
-                }
-                for value, group in sorted(groups.items())
-            ]
+                raise RuntimeError(
+                    f"{task} {method} baseline-matrix cell geometry is incomplete"
+                )
+            grouped_curve = _coldstart_method_grouped_curve(
+                task=task,
+                method=method,
+                method_rows=method_rows,
+                cells_by_key=cells_by_key,
+            )
             method_summaries[method] = {
                 "grouped_curve": grouped_curve,
                 "parameter_selection_deferred_to_reviewed_protocol": True,
@@ -8389,20 +8427,8 @@ def _aggregate_coldstart_matrix_unranked(
     _write_csv(output_root / "aggregate" / "task_summary.csv", summary_rows)
 
     method_metadata = {
-        METHOD_ASYMRE: _canonical_baseline_grid_identity(METHOD_ASYMRE),
-        METHOD_TOPR: _canonical_baseline_grid_identity(METHOD_TOPR),
-        METHOD_DPO: {
-            "initialization_mode": str(config["dpo"]["initialization_mode"]),
-            "shared_sft_adapter_contract_hash": (
-                stable_hash(config["dpo"]["shared_sft_adapter_contract"])
-                if config["dpo"]["initialization_mode"] == "shared_sft_adapter"
-                else None
-            ),
-            "semantics_source": (
-                "historical_PR_268_protected_implementation_"
-                "cc0ead2be00c89a3c35296b7adc1ddeae8d14759"
-            ),
-        },
+        method: dict(_method_spec(method).matrix_aggregate_metadata(config))
+        for method in methods
     }
     summary = {
         "schema_version": 1,
@@ -8433,7 +8459,9 @@ def _aggregate_coldstart_matrix_unranked(
         "task_performance_reported_separately": True,
         "structure_diagnostic_reported_separately": True,
         "nan_inf_reported_separately": True,
-        "scientific_status": "not_run" if _is_engineering_self_test(config) else "pilot",
+        "scientific_status": (
+            "not_run" if _is_engineering_self_test(config) else "pilot"
+        ),
         "engineering_placeholder_backend": _is_engineering_self_test(config),
     }
     atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
@@ -8485,10 +8513,12 @@ def _aggregate_coldstart(
         if (len(positive_rows), len(global_rows), len(exp_rows)) != expected_counts:
             raise RuntimeError(f"{task} cold-start cell counts differ from {expected_counts}")
 
-        def aggregate_group(group: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+        def aggregate_group(
+            group: Sequence[Mapping[str, Any]], task_name: str = task
+        ) -> dict[str, Any]:
             first = group[0]
             return {
-                "task": task,
+                "task": task_name,
                 "method": first["method"],
                 "lambda": first["lambda"],
                 "rho": first["rho"],
