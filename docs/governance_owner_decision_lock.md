@@ -6,7 +6,7 @@ This policy makes explicit repository-owner decisions durable project constraint
 
 ## Locked decisions
 
-A decision becomes `LOCKED` when the repository owner clearly settles an issue, selects an option, says not to revisit it, or limits the task to a specific change. Interpret the lock at the narrowest stated scope; do not infer a broader lock from tentative discussion.
+A decision becomes `LOCKED` when the repository owner clearly settles an issue, selects an option, says not to revisit it, or limits the task to a specific change. Interpret the lock at the narrowest stated scope; do not infer a broader lock from tentative discussion. When a newly stated choice conflicts with an existing repository source or prior lock and the conflict has not been acknowledged, the new choice remains pending conflict consultation rather than silently superseding the existing rule.
 
 Repository files, configs, prior implementations, and historical provenance remain evidence sources. They may reveal consequences or conflicts, but they do not automatically override a locked owner decision.
 
