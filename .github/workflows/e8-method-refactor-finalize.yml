@@ -181,12 +181,12 @@ jobs:
 
           contract = Path('tests/test_e8_method_integration_contract.sh')
           contract_text = contract.read_text(encoding='utf-8')
-          dummy_anchor = '            canonical_liveness_grid=None,\n'
+          dummy_anchor = '    canonical_liveness_grid=None,\n'
           if contract_text.count(dummy_anchor) != 1:
               raise RuntimeError('expected one dummy liveness registration')
           contract_text = contract_text.replace(
               dummy_anchor,
-              dummy_anchor + '            canonical_liveness_parameter="representative_temperature",\n',
+              dummy_anchor + '    canonical_liveness_parameter="representative_temperature",\n',
               1,
           )
           contract.write_text(contract_text, encoding='utf-8')
