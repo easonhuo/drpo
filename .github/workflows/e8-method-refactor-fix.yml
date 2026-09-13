@@ -90,10 +90,22 @@ jobs:
       - name: Method contract regression
         run: bash tests/test_e8_method_integration_contract.sh
       - name: Focused E8 regression
-        run: pytest -q tests/test_e8_multitask_p0.py
+        id: focused
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          pytest -q tests/test_e8_multitask_p0.py 2>&1 | tee /tmp/focused_pytest.log
+      - name: Upload focused pytest diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e8-focused-pytest-${{ github.run_id }}
+          path: /tmp/focused_pytest.log
+          if-no-files-found: error
       - name: Ruff
         run: ruff check src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_orchestration.py src/drpo/e8_multitask_results.py src/drpo/e8_multitask_runtime.py
       - name: Commit refactor and remove temporary transport workflows
+        if: steps.focused.outcome == 'success'
         run: |
           git diff --check
           git rm .github/workflows/e8-method-refactor-apply.yml .github/workflows/e8-method-refactor-fix.yml
@@ -102,3 +114,6 @@ jobs:
           git add src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_orchestration.py src/drpo/e8_multitask_results.py
           git commit -m 'refactor: wire E8 method contract through generic layers'
           git push origin HEAD:dev/e8-method-integration-cost-refactor-01
+      - name: Fail after diagnostics if focused regression failed
+        if: steps.focused.outcome != 'success'
+        run: exit 1
