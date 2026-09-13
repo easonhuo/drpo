@@ -23,7 +23,7 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt || pip install pytest pyyaml numpy ruff
+          python -m pip install -e '.[dev]'
       - name: Finalize generic method wiring and characterization tests
         run: |
           python .github/workflows/e8_method_refactor_finalize.py
