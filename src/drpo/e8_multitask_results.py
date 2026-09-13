@@ -78,17 +78,31 @@ def common_result_record(
     compatibility = dict(projection.compatibility_columns)
     reserved = sorted(_RESERVED_COMMON_COLUMNS.intersection(compatibility))
     if reserved:
-        raise ValueError(f"Method compatibility projection uses reserved columns: {reserved}")
+        raise ValueError(
+            f"Method compatibility projection uses reserved columns: {reserved}"
+        )
     public: dict[str, Any] = {
         "source": source,
         "task": cell.task,
         "method": cell.method,
-        "seed": int(cell.seed),
-        "stage": cell.stage,
-        "cell_key": cell.key,
     }
-    _checked_merge(public, compatibility, label="Method compatibility projection")
-    _checked_merge(public, dict(project_metrics(value)), label="Metric projection")
+    _checked_merge(
+        public,
+        compatibility,
+        label="Method compatibility projection",
+    )
+    public.update(
+        {
+            "seed": int(cell.seed),
+            "stage": cell.stage,
+            "cell_key": cell.key,
+        }
+    )
+    _checked_merge(
+        public,
+        dict(project_metrics(value)),
+        label="Metric projection",
+    )
     return ResultRecord(
         public=public,
         method_parameters=dict(projection.parameters),
@@ -133,24 +147,24 @@ def mean_metrics(
 def grouped_curve(
     records: Sequence[ResultRecord],
     *,
-    metric_names: Sequence[str],
+    metric_names: Sequence[str] = (),
     group_order: Callable[[str, str, Mapping[str, Any]], Any] | None = None,
     project_group: Callable[[str, Mapping[str, Any]], Mapping[str, Any]] | None = None,
+    aggregate_metrics: Callable[[Sequence[ResultRecord]], Mapping[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Create deterministic method curves without knowing parameter names.
-
-    Opaque parameters never appear in the returned public rows.  A scientific
-    method adapter may explicitly project reviewed compatibility columns through
-    ``project_group``.  If no projection is requested, the curve contains only
-    common identity/count/metric fields.
-    """
+    """Create deterministic public method curves from opaque parameter identities."""
 
     grouped = group_parameter_records(records)
     entries: list[tuple[Any, str, str, str, list[ResultRecord]]] = []
     for (task, method, identity), group in grouped.items():
         parameters = dict(group[0].method_parameters)
-        if any(parameter_identity(record.method_parameters) != identity for record in group):
-            raise RuntimeError("Method parameter identity changed inside one aggregation group")
+        if any(
+            parameter_identity(record.method_parameters) != identity
+            for record in group
+        ):
+            raise RuntimeError(
+                "Method parameter identity changed inside one aggregation group"
+            )
         sort_value = (
             group_order(task, method, parameters)
             if group_order is not None
@@ -172,7 +186,12 @@ def grouped_curve(
                 dict(project_group(method, parameters)),
                 label="Grouped method compatibility projection",
             )
-        _checked_merge(row, mean_metrics(group, metric_names), label="Grouped metric projection")
+        metrics = (
+            dict(aggregate_metrics(group))
+            if aggregate_metrics is not None
+            else mean_metrics(group, metric_names)
+        )
+        _checked_merge(row, metrics, label="Grouped metric projection")
         output.append(row)
     return output
 

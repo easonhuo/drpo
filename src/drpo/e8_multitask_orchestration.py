@@ -166,6 +166,42 @@ def execution_geometry(
     )
 
 
+def plan_rows(
+    batches: Sequence[Sequence[TCell]],
+    *,
+    gpu_ids: Sequence[int],
+    project_cell: Callable[[TCell], Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Materialize deterministic plan rows without interpreting method parameters."""
+
+    if not gpu_ids:
+        raise ValueError("gpu_ids must be non-empty")
+    rows: list[dict[str, Any]] = []
+    seen: list[TCell] = []
+    for batch_index, batch in enumerate(batches, start=1):
+        for slot, cell in enumerate(batch):
+            row: dict[str, Any] = {
+                "wave": batch_index,
+                "nominal_batch": batch_index,
+                "slot": slot,
+                "gpu_id": int(gpu_ids[slot % len(gpu_ids)]),
+                "cell_key": cell.key,
+                "task": cell.task,
+                "method": cell.method,
+            }
+            projected = dict(project_cell(cell))
+            collisions = sorted(set(row).intersection(projected))
+            if collisions:
+                raise ValueError(
+                    f"Method plan projection attempted to overwrite: {collisions}"
+                )
+            row.update(projected)
+            row.update({"seed": int(cell.seed), "stage": cell.stage})
+            rows.append(row)
+            seen.append(cell)
+    validate_unique_cell_keys(seen)
+    return rows
+
 @dataclass(frozen=True)
 class SchedulerCallbacks:
     """Hooks supplied by the E8 scientific/runtime layers.
@@ -292,7 +328,8 @@ def run_dynamic_queue(
                     callbacks.after_success(cell, raw)
                 except Exception as exc:  # Keep failure evidence in scheduler output.
                     succeeded = False
-                    raw["returncode"] = 1
+                    existing_code = int(raw.get("returncode", 0))
+                    raw["returncode"] = existing_code if existing_code != 0 else 1
                     raw["error"] = f"after_success {type(exc).__name__}: {exc}"
 
             emit({"event": "finish", **raw})
