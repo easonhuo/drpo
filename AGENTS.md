@@ -24,7 +24,7 @@ Before changing code or repository documents, editing manuscript artifacts, desi
 4. Read the nearest directory-specific `AGENTS.md`, if present.
 5. Inspect the current Git branch and commit SHA when the environment provides Git access.
 6. Summarize the active experiment, its current status, relevant constraints, and remaining uncertainties before implementation.
-7. Identify all repository-owner `LOCKED` decisions relevant to the task before proposing or implementing changes; do not reopen them unless the owner explicitly requests reconsideration.
+7. Identify all repository-owner `LOCKED` decisions relevant to the task and detect any conflict between the current owner instruction and repository documents, configs, or prior locks. If a conflict is unresolved, use the neutral conflict-consultation rule below; do not decide it yourself.
 
 `docs/handoff.md` is the unique research master document. Do not introduce a second competing master-status document.
 
@@ -125,15 +125,15 @@ Before making an evaluative or comparative judgment:
 
 Under `GOV-OWNER-DECISION-LOCK-01`, an explicit repository-owner decision is a project constraint within its stated scope. Once the owner clearly settles an issue, selects an option, says not to revisit it, or limits the task to a specific change, an agent must not reopen, override, dilute, or silently reframe that decision unless the owner explicitly requests reconsideration.
 
-Repository files, configs, historical implementations, prior drafts, and provenance remain evidence sources; they do not automatically acquire decision authority over a `LOCKED` owner choice. A non-hard conflict must not trigger re-argument or a request to approve the same choice again. Execute the locked choice exactly within scope.
+Repository files, configs, historical implementations, prior drafts, and provenance remain evidence sources; they do not automatically acquire decision authority over a `LOCKED` owner choice. If a current owner instruction conflicts with any such source or a prior `LOCKED` decision, and the owner has not already acknowledged the conflict and selected which instruction should govern, state the conflict once in neutral factual terms and ask the owner which should govern. This is a request for the owner's decision, not a recommendation: do not advise, rank, prefer, pressure, command, imply a default, or decide on the owner's behalf. Do not implement the disputed point before the owner answers. If the owner already acknowledged the conflict and chose a direction, do not ask again.
 
 Do not invent a third option merely because a locked choice differs from historical evidence. A third option may be proposed only when the owner asks for alternatives or a hard conflict makes literal execution impossible.
 
-A hard conflict exists only when literal execution would require a knowingly false factual claim, fabrication of experiment or repository state, violation of a system or repository hard constraint, or a false claim that an unavailable operation succeeded. Raise such a conflict once, concisely, with the smallest permissible implementation that preserves the owner's intent. After the owner selects or confirms a permissible implementation, execute it without further advocacy.
+A hard conflict exists only when one requested choice would require a knowingly false factual claim, fabrication of experiment or repository state, violation of a system or repository hard constraint, or a false claim that an unavailable operation succeeded. State that constraint once as a factual limitation and ask the owner for a permissible choice. Do not decide among the remaining permissible choices on the owner's behalf. After the owner chooses, execute that choice without further advocacy.
 
 When the owner says to change only a specified file, section, figure, table, parameter, claim, or behavior, that scope is locked. Do not add opportunistic cleanup, reframing, renaming, or unrelated improvements. If an unavoidable cascade is outside the approved scope, disclose it before applying it.
 
-A locked decision remains active until the owner explicitly changes, supersedes, or reopens it. New evidence, another model's recommendation, a different config, an older handoff entry, or agent disagreement does not supersede it.
+A locked decision remains active until the owner explicitly changes, supersedes, or reopens it. A conflicting new instruction is not silently treated as supersession when the conflict has not been acknowledged; use the conflict-consultation rule above. Once the owner acknowledges the conflict and selects the new instruction, that choice supersedes the old lock within the stated scope. New evidence, another model's recommendation, a different config, an older handoff entry, or agent disagreement does not supersede an owner decision.
 
 Locks that materially affect future research, experiment execution, manuscript structure, or project governance must be persisted through the repository's existing canonical authority path. Research and experiment locks use the production schema-v3 handoff-delta authority; manuscript structural locks use the active outline/blueprint hierarchy; repository-wide agent behavior belongs in `AGENTS.md` and `docs/governance_owner_decision_lock.md`. Do not create a competing master-status document.
 
