@@ -1,0 +1,699 @@
+from __future__ import annotations
+
+import ast
+import textwrap
+from pathlib import Path
+
+
+def replace_top_level_function(path: Path, name: str, replacement: str) -> None:
+    source = path.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    node = next(
+        (
+            item
+            for item in tree.body
+            if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and item.name == name
+        ),
+        None,
+    )
+    if node is None or node.end_lineno is None:
+        raise RuntimeError(f"cannot find top-level function {name} in {path}")
+    start_lineno = min(
+        [node.lineno, *(decorator.lineno for decorator in node.decorator_list)]
+    )
+    lines = source.splitlines(keepends=True)
+    new = textwrap.dedent(replacement).strip("\n") + "\n"
+    path.write_text(
+        "".join(lines[: start_lineno - 1])
+        + new
+        + "".join(lines[node.end_lineno :]),
+        encoding="utf-8",
+    )
+
+
+exp_path = Path("src/drpo/e8_multitask_exp_tuning.py")
+replace_top_level_function(
+    exp_path,
+    "_run_canonical_method_liveness",
+    r'''
+    def _run_default_canonical_liveness(
+        *,
+        config: Mapping[str, Any],
+        config_path: Path,
+        output_root: Path,
+        inputs: Mapping[str, TaskInputs],
+        splits: Mapping[str, Any],
+        base_model_path: str,
+        task: str,
+        force: bool,
+    ) -> dict[str, Any]:
+        """Preserve the legacy default paper-runtime liveness call surface."""
+
+        if task != "countdown":
+            raise RuntimeError("The paper-runtime liveness anchor must be Countdown")
+        return _cmd_canonical_cold_liveness(
+            config,
+            config_path,
+            output_root,
+            inputs=inputs["countdown"],
+            splits=splits,
+            base_model_path=base_model_path,
+            force=force,
+        )
+
+
+    def _run_canonical_method_liveness(
+        method: str,
+        *,
+        config: Mapping[str, Any],
+        config_path: Path,
+        output_root: Path,
+        inputs: Mapping[str, TaskInputs],
+        splits: Mapping[str, Any],
+        base_model_path: str,
+        task: str,
+        force: bool,
+    ) -> dict[str, Any]:
+        if task != "countdown":
+            raise RuntimeError(f"{method} liveness anchor must be Countdown")
+        return _cmd_canonical_cold_liveness(
+            config,
+            config_path,
+            output_root,
+            inputs=inputs["countdown"],
+            splits=splits,
+            base_model_path=base_model_path,
+            force=force,
+            method=method,
+        )
+    ''',
+)
+
+text = exp_path.read_text(encoding="utf-8")
+old_runner = '''            liveness_runner=lambda **kwargs: _run_canonical_method_liveness(\n                METHOD_EXPONENTIAL, **kwargs\n            ),\n'''
+if text.count(old_runner) != 3:
+    raise RuntimeError(
+        f"expected three legacy exponential liveness adapters, got {text.count(old_runner)}"
+    )
+text = text.replace(
+    old_runner,
+    "            liveness_runner=_run_default_canonical_liveness,\n",
+)
+exp_path.write_text(text, encoding="utf-8")
+
+replace_top_level_function(
+    exp_path,
+    "_aggregate_coldstart_unranked",
+    r'''
+    def _coldstart_method_grouped_curve(
+        *,
+        task: str,
+        method: str,
+        method_rows: Sequence[Mapping[str, Any]],
+        cells_by_key: Mapping[str, Cell],
+    ) -> list[dict[str, Any]]:
+        """Group one method through its registered opaque parameter contract."""
+
+        spec = _method_spec(method)
+        groups: dict[
+            str,
+            tuple[dict[str, Any], list[Mapping[str, Any]]],
+        ] = {}
+        for row in method_rows:
+            cell_key = str(row["cell_key"])
+            if cell_key not in cells_by_key:
+                raise RuntimeError(f"Unknown cold-start cell in aggregate: {cell_key}")
+            cell = cells_by_key[cell_key]
+            if cell.task != task or cell.method != method:
+                raise RuntimeError(
+                    f"Cold-start aggregate identity mismatch for {cell_key}"
+                )
+            parameters = dict(spec.parameters(cell))
+            identity = e8_results.parameter_identity(parameters)
+            if identity not in groups:
+                groups[identity] = (parameters, [])
+            elif groups[identity][0] != parameters:
+                raise RuntimeError(f"Method parameter identity changed for {cell_key}")
+            groups[identity][1].append(row)
+
+        ordered = sorted(
+            groups.values(),
+            key=lambda item: spec.group_order(item[0]),
+        )
+        return [
+            {
+                "task": task,
+                "method": method,
+                **dict(spec.group_projection(parameters)),
+                **_coldstart_group_metrics(group),
+            }
+            for parameters, group in ordered
+        ]
+
+
+    def _aggregate_coldstart_unranked(
+        config: Mapping[str, Any],
+        output_root: Path,
+        rows: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Aggregate one registered non-Exp curve without selection or ranking."""
+
+        method = _coldstart_method(config)
+        spec = _method_spec(method)
+        configured_cells = build_cells(config)
+        cells_by_key = {cell.key: cell for cell in configured_cells}
+        if len(cells_by_key) != len(configured_cells):
+            raise RuntimeError("Cold-start aggregate contains duplicate cell keys")
+
+        run_id, source_commit = _coldstart_run_provenance(output_root)
+        plot_rows: list[dict[str, Any]] = []
+        for row in rows:
+            cell_key = str(row["cell_key"])
+            if cell_key not in cells_by_key:
+                raise RuntimeError(f"Unknown cold-start cell in plot aggregate: {cell_key}")
+            projection = dict(spec.plot_projection(cells_by_key[cell_key]))
+            parameter_columns = {
+                column: projection.get(column)
+                for column in spec.plot_columns
+                if column != "dpo_initialization"
+            }
+            plot_rows.append(
+                {
+                    "task": row["task"],
+                    "method": row["method"],
+                    "dpo_initialization": row["dpo_initialization"],
+                    "seed": row["seed"],
+                    "stage": row["stage"],
+                    "experiment_id": experiment_id(config),
+                    "run_id": run_id,
+                    "source_commit": source_commit,
+                    **parameter_columns,
+                    **_coldstart_plot_metrics(row),
+                }
+            )
+        _write_csv(output_root / "aggregate" / "plot_curve_points.csv", plot_rows)
+
+        summaries: dict[str, Any] = {}
+        summary_rows: list[dict[str, Any]] = []
+        for task_value in config["suite"]["tasks"]:
+            task = str(task_value)
+            task_cells = [cell for cell in configured_cells if cell.task == task]
+            if not task_cells:
+                continue
+            task_rows = [row for row in rows if row["task"] == task]
+            controls = {
+                control: [row for row in task_rows if row["method"] == control]
+                for control in (METHOD_POSITIVE_ONLY, METHOD_GLOBAL)
+            }
+            method_rows = [row for row in task_rows if row["method"] == method]
+            expected = {
+                candidate: sum(cell.method == candidate for cell in task_cells)
+                for candidate in (method, *controls)
+            }
+            if len(method_rows) != expected[method] or any(
+                len(group) != expected[control]
+                for control, group in controls.items()
+            ):
+                raise RuntimeError(
+                    f"{task} {method} cold-start cell geometry is incomplete"
+                )
+
+            grouped_curve = _coldstart_method_grouped_curve(
+                task=task,
+                method=method,
+                method_rows=method_rows,
+                cells_by_key=cells_by_key,
+            )
+            summaries[task] = {
+                "task": task,
+                "grouped_curve": grouped_curve,
+                "positive_only": controls[METHOD_POSITIVE_ONLY] or None,
+                "global": controls[METHOD_GLOBAL] or None,
+                "parameter_selection_deferred_to_reviewed_protocol": True,
+                "terminal_valid_rate_role": "diagnostic_only_not_selection_eligibility",
+            }
+            summary_rows.append(
+                {
+                    "task": task,
+                    f"{method}_parameter_points": len(grouped_curve),
+                    "finite_parameter_points": sum(
+                        not bool(row["nan_inf_failure"]) for row in grouped_curve
+                    ),
+                    "parameter_selection_deferred": True,
+                }
+            )
+        _write_csv(output_root / "aggregate" / "task_summary.csv", summary_rows)
+
+        summary = {
+            "schema_version": 1,
+            "experiment_id": experiment_id(config),
+            "run_id": run_id,
+            "source_commit": source_commit,
+            "cell_count": len(rows),
+            "plot_curve_point_count": len(plot_rows),
+            "method": method,
+            "tasks": summaries,
+            "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
+            "initialization": dict(config["initialization"]),
+            "scientific_kernel": spec.scientific_kernel,
+            **dict(spec.single_aggregate_metadata(config)),
+            "countdown_protocol_diagnostic": _countdown_protocol_diagnostic(
+                config,
+                output_root,
+                destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
+            ),
+            "countdown_result_gate": False,
+            "primary_metric": "validation_late_window_pass8_mean",
+            "parameter_selection_deferred_to_reviewed_protocol": True,
+            "test_partition_accessed": False,
+            "method_ranking_allowed": False,
+            "significance_claim_allowed": False,
+            "fixed_horizon_is_convergence": False,
+            "task_performance_reported_separately": True,
+            "structure_diagnostic_reported_separately": True,
+            "nan_inf_reported_separately": True,
+            "scientific_status": (
+                "not_run" if _is_engineering_self_test(config) else "pilot"
+            ),
+            "engineering_placeholder_backend": _is_engineering_self_test(config),
+        }
+        atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
+        return summary
+    ''',
+)
+
+replace_top_level_function(
+    exp_path,
+    "_aggregate_coldstart_matrix_unranked",
+    r'''
+    def _aggregate_coldstart_matrix_unranked(
+        config: Mapping[str, Any],
+        output_root: Path,
+        rows: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Aggregate a multi-method transfer matrix without selecting or ranking methods."""
+
+        methods = _coldstart_methods(config)
+        run_id, source_commit = _coldstart_run_provenance(output_root)
+        plot_rows = [
+            {
+                "task": row["task"],
+                "method": row["method"],
+                "delta_v": row.get("delta_v"),
+                "beta": row.get("beta"),
+                "dpo_initialization": row.get("dpo_initialization"),
+                "seed": row["seed"],
+                "stage": row["stage"],
+                "experiment_id": experiment_id(config),
+                "run_id": run_id,
+                "source_commit": source_commit,
+                **_coldstart_plot_metrics(row),
+            }
+            for row in rows
+        ]
+        _write_csv(output_root / "aggregate" / "plot_curve_points.csv", plot_rows)
+
+        configured_cells = build_cells(config)
+        cells_by_key = {cell.key: cell for cell in configured_cells}
+        if len(cells_by_key) != len(configured_cells):
+            raise RuntimeError("Baseline matrix contains duplicate cell keys")
+        task_summaries: dict[str, Any] = {}
+        summary_rows: list[dict[str, Any]] = []
+        for task_value in config["suite"]["p0_tasks"]:
+            task = str(task_value)
+            task_rows = [row for row in rows if row["task"] == task]
+            task_cells = [cell for cell in configured_cells if cell.task == task]
+            method_summaries: dict[str, Any] = {}
+            summary_row: dict[str, Any] = {"task": task}
+            for method in methods:
+                method_rows = [row for row in task_rows if row["method"] == method]
+                expected = sum(cell.method == method for cell in task_cells)
+                if len(method_rows) != expected:
+                    raise RuntimeError(
+                        f"{task} {method} baseline-matrix cell geometry is incomplete"
+                    )
+                grouped_curve = _coldstart_method_grouped_curve(
+                    task=task,
+                    method=method,
+                    method_rows=method_rows,
+                    cells_by_key=cells_by_key,
+                )
+                method_summaries[method] = {
+                    "grouped_curve": grouped_curve,
+                    "parameter_selection_deferred_to_reviewed_protocol": True,
+                    "terminal_valid_rate_role": "diagnostic_only_not_selection_eligibility",
+                }
+                summary_row[f"{method}_parameter_points"] = len(grouped_curve)
+            task_summaries[task] = {"task": task, "methods": method_summaries}
+            summary_rows.append(summary_row)
+        _write_csv(output_root / "aggregate" / "task_summary.csv", summary_rows)
+
+        method_metadata = {
+            method: dict(_method_spec(method).matrix_aggregate_metadata(config))
+            for method in methods
+        }
+        summary = {
+            "schema_version": 1,
+            "experiment_id": experiment_id(config),
+            "run_id": run_id,
+            "source_commit": source_commit,
+            "cell_count": len(rows),
+            "plot_curve_point_count": len(plot_rows),
+            "method": METHOD_BASELINE_MATRIX,
+            "methods": list(methods),
+            "execution_class": _execution_class(config),
+            "method_metadata": method_metadata,
+            "transfer_seed_offsets": list(experiment_config.task_transfer_seeds(config)),
+            "tasks": task_summaries,
+            "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
+            "countdown_protocol_diagnostic": _countdown_protocol_diagnostic(
+                config,
+                output_root,
+                destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
+            ),
+            "countdown_result_gate": False,
+            "primary_metric": "validation_late_window_pass8_mean",
+            "parameter_selection_deferred_to_reviewed_protocol": True,
+            "method_ranking_allowed": False,
+            "significance_claim_allowed": False,
+            "test_partition_accessed": False,
+            "fixed_horizon_is_convergence": False,
+            "task_performance_reported_separately": True,
+            "structure_diagnostic_reported_separately": True,
+            "nan_inf_reported_separately": True,
+            "scientific_status": (
+                "not_run" if _is_engineering_self_test(config) else "pilot"
+            ),
+            "engineering_placeholder_backend": _is_engineering_self_test(config),
+        }
+        atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
+        return summary
+    ''',
+)
+
+test_path = Path("tests/test_e8_multitask_p0.py")
+replace_top_level_function(
+    test_path,
+    "test_asymre_capability_dispatches_existing_kernel_without_loss_copy",
+    r'''
+    def test_asymre_capability_dispatches_existing_kernel_without_loss_copy() -> None:
+        import inspect
+
+        from drpo import e8_multitask_exp_tuning as exp_tuning
+
+        spec = exp_tuning._method_spec(exp_tuning.METHOD_ASYMRE)
+        cell = exp_tuning.Cell(
+            "word_sorting",
+            exp_tuning.METHOD_ASYMRE,
+            None,
+            4000,
+            "task_transfer",
+            delta_v=-0.25,
+        )
+        assert spec.paper_cell_parameters(cell) == (
+            exp_tuning.METHOD_ASYMRE,
+            0.75,
+            0.0,
+        )
+        assert spec.paper_formula == "delegated_to_existing_canonical_asymre"
+        assert spec.scientific_kernel == "canonical_old_coldstart_imports"
+        source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+        assert "method_spec.paper_cell_parameters(cell)" in source
+        assert "family=paper_family" in source
+        assert "positive_coefficient" not in source
+        assert "negative_repulsion_coefficient" not in source
+        assert "value_network" not in source
+    ''',
+)
+replace_top_level_function(
+    test_path,
+    "test_topr_capability_dispatches_existing_joint_reference_kernel",
+    r'''
+    def test_topr_capability_dispatches_existing_joint_reference_kernel() -> None:
+        import inspect
+
+        from drpo import e8_multitask_exp_tuning as exp_tuning
+
+        spec = exp_tuning._method_spec(exp_tuning.METHOD_TOPR)
+        cell = exp_tuning.Cell(
+            "word_sorting",
+            exp_tuning.METHOD_TOPR,
+            None,
+            4000,
+            "task_transfer",
+            beta=0.25,
+        )
+        assert spec.paper_cell_parameters(cell) == (
+            exp_tuning.METHOD_TOPR,
+            1.0,
+            0.25,
+        )
+        assert (
+            spec.paper_formula
+            == "delegated_to_existing_joint_fitted_reference_beta_topr"
+        )
+        source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+        assert "method_spec.paper_cell_parameters(cell)" in source
+        assert "family=paper_family" in source
+        assert "joint_topr_negative_weights" not in source
+        assert "branch_balanced_reference_loss" not in source
+    ''',
+)
+replace_top_level_function(
+    test_path,
+    "test_dpo_train_cell_dispatch_supports_two_update_liveness",
+    r'''
+    def test_dpo_train_cell_dispatch_supports_two_update_liveness() -> None:
+        import inspect
+
+        from drpo import e8_multitask_exp_tuning as exp_tuning
+
+        spec = exp_tuning._method_spec(exp_tuning.METHOD_DPO)
+        assert spec.train_cold is exp_tuning._cold_train_dpo
+        source = inspect.getsource(exp_tuning.train_cell)
+        assert "_method_spec(cell.method).train_cold" in source
+        helper = inspect.getsource(exp_tuning._cold_train_dpo)
+        assert "_train_canonical_dpo_transfer_cell" in helper
+        liveness = inspect.getsource(exp_tuning._cmd_dpo_liveness)
+        assert "updates_override=2" in liveness
+        assert "fresh_process_reload_passed" in liveness
+        assert "optimizer_update_norm" in liveness
+    ''',
+)
+replace_top_level_function(
+    test_path,
+    "test_topr_dispatch_records_topr_formula_identity_not_exp_formula",
+    r'''
+    def test_topr_dispatch_records_topr_formula_identity_not_exp_formula() -> None:
+        import inspect
+
+        from drpo import e8_multitask_exp_tuning as exp_tuning
+
+        spec = exp_tuning._method_spec(exp_tuning.METHOD_TOPR)
+        assert (
+            spec.paper_formula
+            == "delegated_to_existing_joint_fitted_reference_beta_topr"
+        )
+        source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+        assert "method_spec.paper_formula" in source
+        assert "method_spec.paper_grid_source(config, cell)" in source
+    ''',
+)
+
+contract_path = Path("tests/test_e8_method_integration_contract.sh")
+contract = contract_path.read_text(encoding="utf-8")
+old_import = '''from drpo.e8_multitask_orchestration import (\n    SchedulerCallbacks,\n    execution_geometry,\n    nominal_batches,\n    run_dynamic_queue,\n)\n'''
+new_import = '''from drpo import e8_multitask_exp_tuning as exp_tuning\nfrom drpo.e8_multitask_orchestration import (\n    SchedulerCallbacks,\n    execution_geometry,\n    nominal_batches,\n    plan_rows,\n    run_dynamic_queue,\n)\n'''
+if contract.count(old_import) != 1:
+    raise RuntimeError("contract orchestration import anchor changed")
+contract = contract.replace(old_import, new_import, 1)
+anchor = '''# Architecture acceptance: generic production modules must not know current\n# scientific method names. This is a maintenance-contract check, not a new\n# experiment acceptance gate.\n'''
+if contract.count(anchor) != 1:
+    raise RuntimeError("contract architecture anchor changed")
+addition = r'''
+# Phase-3 acceptance on the real MethodSpec registry. The dummy is registered
+# only inside this process and removed before exit; no scientific method or
+# frozen experiment configuration is changed.
+dummy_method_name = "dummy_contract_method"
+
+
+def dummy_build_cell(
+    *, task, method, seed, stage, value, lambda_only, dpo_initialization
+):
+    del lambda_only, dpo_initialization
+    return exp_tuning.Cell(
+        task=task,
+        method=method,
+        rho=None,
+        seed=seed,
+        stage=stage,
+        method_parameters={"temperature": float(value)},
+    )
+
+
+def dummy_parameters(cell):
+    return dict(cell.method_parameters or {})
+
+
+def dummy_compatibility(cell):
+    return {"legacy_parameter": dummy_parameters(cell)["temperature"]}
+
+
+def dummy_key(cell):
+    value = dummy_parameters(cell)["temperature"]
+    tag = f"{value:.3f}".replace(".", "p")
+    return f"{cell.task}__{cell.method}_{tag}__seed{cell.seed}"
+
+
+dummy_spec = exp_tuning.MethodSpec(
+    name=dummy_method_name,
+    build_cell=dummy_build_cell,
+    cell_key=dummy_key,
+    parameters=dummy_parameters,
+    compatibility_columns=dummy_compatibility,
+    cell_initialization=lambda config: None,
+    initialization_identity=lambda config: {},
+    train_cold=lambda cell, **kwargs: {"complete": True},
+    liveness_task=lambda config: "a",
+    liveness_runner=lambda **kwargs: {"complete": True},
+    canonical_liveness_grid=None,
+    paper_grid_source=lambda config, cell: Path("dummy-grid.yaml"),
+    paper_cell_parameters=lambda cell: (
+        dummy_method_name,
+        1.0,
+        dummy_parameters(cell)["temperature"],
+    ),
+    paper_formula="dummy_contract_only",
+    audit_record=lambda cell, record: MethodAuditResult(
+        True, {"dummy_parameter": dummy_parameters(cell)["temperature"]}
+    ),
+    audit_failure_bucket="terminal_contract_failures",
+    group_projection=lambda params: {"legacy_parameter": params["temperature"]},
+    group_order=lambda params: float(params["temperature"]),
+    plot_columns=("legacy_parameter",),
+    plot_projection=lambda cell: dummy_compatibility(cell),
+    scientific_kernel="dummy_contract_only",
+    single_aggregate_metadata=lambda config: {},
+    matrix_aggregate_metadata=lambda config: {},
+)
+exp_tuning._register_method_spec(dummy_spec)
+try:
+    registered_cells = tuple(
+        exp_tuning._coldstart_method_cell(
+            task,
+            dummy_method_name,
+            seed,
+            "task_transfer",
+            parameter,
+            lambda_only=False,
+        )
+        for seed in (4000, 5000)
+        for task in ("a", "b")
+        for parameter in (0.1, 0.2)
+    )
+    registered_batches = nominal_batches(
+        registered_cells,
+        slot_count=4,
+        seed_barrier=True,
+        seed_order=(4000, 5000),
+    )
+    registered_plan = plan_rows(
+        registered_batches,
+        gpu_ids=(0, 1),
+        project_cell=lambda cell: exp_tuning._method_spec(
+            cell.method
+        ).compatibility_columns(cell),
+    )
+    assert len(registered_plan) == 8
+    assert {row["legacy_parameter"] for row in registered_plan} == {0.1, 0.2}
+
+    registered_geometry = execution_geometry(
+        registered_cells,
+        gpu_ids=(0, 1),
+        slots_per_gpu=2,
+        max_concurrent_cells=4,
+        seed_barrier=True,
+        seed_order=(4000, 5000),
+    )
+    assert registered_geometry.expected_cells_by_seed == {4000: 4, 5000: 4}
+    registered_run = run_dynamic_queue(
+        registered_cells,
+        gpu_ids=(0, 1),
+        slots_per_gpu=2,
+        max_concurrent_cells=4,
+        seed_barrier=True,
+        seed_order=(4000, 5000),
+        callbacks=SchedulerCallbacks(
+            run_cell=lambda cell, slot, gpu_id: {"returncode": 0}
+        ),
+    )
+    assert len(registered_run) == 8
+
+    registered_records = [
+        common_result_record(
+            cell,
+            {"score": dummy_parameters(cell)["temperature"]},
+            source="dummy_registry",
+            project_method=lambda current: MethodResultProjection(
+                parameters=dummy_parameters(current),
+                compatibility_columns=dummy_compatibility(current),
+            ),
+            project_metrics=lambda value: {"score": value["score"]},
+        )
+        for cell in registered_cells
+    ]
+    registered_curve = grouped_curve(
+        registered_records,
+        metric_names=("score",),
+        group_order=lambda task, method, params: (
+            task,
+            method,
+            exp_tuning._method_spec(method).group_order(params),
+        ),
+        project_group=lambda method, params: exp_tuning._method_spec(
+            method
+        ).group_projection(params),
+    )
+    assert len(registered_curve) == 4
+    assert all(row["seed_count"] == 2 for row in registered_curve)
+
+    registered_identity = recovery_identity(
+        registered_cells[0],
+        experiment_id="DEV-DUMMY-METHOD-SPEC",
+        config_hash="cfg",
+        cell_identity_fields=dummy_compatibility(registered_cells[0]),
+        common_identity_fields={"bank_hash": "bank"},
+    )
+    assert len(registered_identity["identity_hash"]) == 64
+
+    registered_terminal_records = {
+        cell.key: {
+            "cell_key": cell.key,
+            "method": cell.method,
+            "seed": cell.seed,
+            "complete": True,
+            "evaluation_status": "complete",
+            "terminal_step": 1200,
+            "stop_reason": "max_steps",
+            "nan_inf_failure": False,
+            "test_partition_accessed": False,
+        }
+        for cell in registered_cells
+    }
+    registered_audit = audit_terminal_cells(
+        registered_cells,
+        registered_terminal_records,
+        expected_terminal_step=1200,
+        expected_stop_reason="max_steps",
+        method_audit=lambda cell, record: exp_tuning._method_spec(
+            cell.method
+        ).audit_record(cell, record),
+    )
+    assert registered_audit["passed"]
+finally:
+    removed = exp_tuning._METHOD_SPECS.pop(dummy_method_name)
+    assert removed is dummy_spec
+
+'''
+contract_path.write_text(contract.replace(anchor, addition + anchor, 1), encoding="utf-8")
