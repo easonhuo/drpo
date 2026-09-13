@@ -490,16 +490,6 @@ def _paper_grid_paths_exponential(
     return Path(str(record[grid_name])), _canonical_paths(config)[grid_name]
 
 
-def _paper_grid_paths_reciprocal(
-    config: Mapping[str, Any],
-    record: Mapping[str, Any],
-    cell: Cell,
-) -> tuple[Path, Path]:
-    del config, record, cell
-    path = _canonical_reciprocal_grid_path()
-    return path, path
-
-
 def _paper_params_reciprocal(cell: Cell) -> tuple[str, float, float]:
     if cell.method not in {METHOD_RECIPROCAL_LINEAR, METHOD_RECIPROCAL_QUADRATIC}:
         raise AssertionError(f"Unsupported reciprocal family: {cell.method}")
@@ -669,7 +659,7 @@ def _register_builtin_method_specs() -> None:
                 paper_runtime=PaperRuntimeSpec(
                     liveness_grid=lambda config, record: _canonical_reciprocal_grid_path(),
                     liveness_parameter="representative_c",
-                    grid_paths=_paper_grid_paths_reciprocal,
+                    grid_paths=lambda config, record, cell: (_canonical_reciprocal_grid_path(),) * 2,
                     cell_parameters=_paper_params_reciprocal,
                     formula=formula,
                 ),
@@ -3663,32 +3653,6 @@ def _paper_grid_for_cell(
     return paper_runtime.grid_paths(config, record, cell)
 
 
-def _coldstart_remoteness_metadata(config: Mapping[str, Any]) -> dict[str, Any]:
-    method = _coldstart_method(config)
-    if method in {
-        METHOD_RECIPROCAL_LINEAR,
-        METHOD_RECIPROCAL_QUADRATIC,
-        METHOD_RECIPROCAL_MATRIX,
-    }:
-        return {
-            "enabled": False,
-            "mode": "paper_reciprocal_excess_remoteness_tau_0p125",
-            "coordinate": "relu(current_sequence_surprisal/2-0.125)",
-            "tau_code": 0.125,
-            "detached": True,
-            "extra_square": False,
-            "gradient_rms_matching": False,
-        }
-    return {
-        "enabled": False,
-        "mode": "paper_linear_surprisal_no_calibration",
-        "coordinate": "current_sequence_surprisal/2",
-        "detached": True,
-        "extra_square": False,
-        "gradient_rms_matching": False,
-    }
-
-
 def calibrate_canonical_cold_task(
     task: str,
     *,
@@ -3713,7 +3677,7 @@ def calibrate_canonical_cold_task(
         raise RuntimeError(f"Existing canonical calibration identity mismatch for {task}")
     result = {
         **identity,
-        **_coldstart_remoteness_metadata(config),
+        **experiment_config.coldstart_remoteness_metadata(config),
         "canonical_train_sha256": record["train_sha256"],
         "task_metrics_used": False,
         "test_data_used": False,
@@ -7373,7 +7337,7 @@ def _require_calibration_gate(
         ):
             raise RuntimeError(f"Calibration gate identity mismatch for {task}")
         if _is_coldstart(config):
-            expected_remoteness = _coldstart_remoteness_metadata(config)
+            expected_remoteness = experiment_config.coldstart_remoteness_metadata(config)
             if (
                 result.get("enabled") is not False
                 or result.get("mode") != expected_remoteness["mode"]
@@ -9374,7 +9338,7 @@ def _write_engineering_gates(
         )
         result = {
             **identity,
-            **_coldstart_remoteness_metadata(config),
+            **experiment_config.coldstart_remoteness_metadata(config),
             "complete": True,
             "scientific_status": "not_run",
             "engineering_placeholder_backend": True,

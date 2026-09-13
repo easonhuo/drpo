@@ -235,6 +235,29 @@ def coldstart_method(config: Mapping[str, Any]) -> str:
     return str(_mapping(config.get("sweep"), "sweep").get("method", ""))
 
 
+def coldstart_remoteness_metadata(config: Mapping[str, Any]) -> dict[str, Any]:
+    reciprocal = coldstart_method(config) in RECIPROCAL_MATRIX_METHODS + (
+        COLDSTART_METHOD_RECIPROCAL_MATRIX,
+    )
+    return {
+        "enabled": False,
+        "mode": (
+            "paper_reciprocal_excess_remoteness_tau_0p125"
+            if reciprocal
+            else "paper_linear_surprisal_no_calibration"
+        ),
+        "coordinate": (
+            "relu(current_sequence_surprisal/2-0.125)"
+            if reciprocal
+            else "current_sequence_surprisal/2"
+        ),
+        **({"tau_code": 0.125} if reciprocal else {}),
+        "detached": True,
+        "extra_square": False,
+        "gradient_rms_matching": False,
+    }
+
+
 def coldstart_methods(config: Mapping[str, Any]) -> tuple[str, ...]:
     method = coldstart_method(config)
     matrix_spec = _METHOD_MATRIX_SPECS.get(method)
@@ -715,29 +738,15 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
         raise ValueError("Reference-remoteness bank mode is not implemented")
 
     calibration = config["remoteness_calibration"]
-    reciprocal = method in {
-        COLDSTART_METHOD_RECIPROCAL_LINEAR,
-        COLDSTART_METHOD_RECIPROCAL_QUADRATIC,
-        COLDSTART_METHOD_RECIPROCAL_MATRIX,
-    }
-    expected_mode = (
-        "paper_reciprocal_excess_remoteness_tau_0p125"
-        if reciprocal
-        else "paper_linear_surprisal_no_calibration"
-    )
-    expected_coordinate = (
-        "relu_current_sequence_surprisal_div_2_minus_0p125"
-        if reciprocal
-        else "current_sequence_surprisal_div_2"
-    )
-    if (
-        calibration.get("enabled") is not False
-        or calibration.get("mode") != expected_mode
-        or calibration.get("coordinate") != expected_coordinate
-        or calibration.get("detached") is not True
-        or calibration.get("extra_square") is not False
-        or calibration.get("gradient_rms_matching") is not False
-        or (reciprocal and float(calibration.get("tau_code", -1.0)) != 0.125)
+    expected = coldstart_remoteness_metadata(config)
+    expected["coordinate"] = expected["coordinate"].replace(
+        "relu(current_sequence_surprisal/2-0.125)",
+        "relu_current_sequence_surprisal_div_2_minus_0p125",
+    ).replace("current_sequence_surprisal/2", "current_sequence_surprisal_div_2")
+    tau_code = expected.pop("tau_code", None)
+    if any(calibration.get(key) != value for key, value in expected.items()) or (
+        tau_code is not None
+        and float(calibration.get("tau_code", -1.0)) != float(tau_code)
     ):
         raise ValueError("Cold-start remoteness-calibration mode is not implemented")
 
