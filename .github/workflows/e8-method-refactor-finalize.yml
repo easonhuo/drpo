@@ -82,6 +82,115 @@ jobs:
           path.write_text(text, encoding='utf-8')
           PY
           python .github/workflows/e8_method_refactor_lintfix.py
+          python - <<'PY'
+          import ast
+          import textwrap
+          from pathlib import Path
+
+          exp = Path('src/drpo/e8_multitask_exp_tuning.py')
+          text = exp.read_text(encoding='utf-8')
+          anchor = (
+              '    canonical_liveness_grid: Callable[[Mapping[str, Any], Mapping[str, Any]], Path] | None\n'
+          )
+          if text.count(anchor) != 1:
+              raise RuntimeError('unexpected MethodSpec canonical_liveness_grid field')
+          text = text.replace(
+              anchor,
+              anchor + '    canonical_liveness_parameter: str | None\n',
+              1,
+          )
+          default_anchor = (
+              '            canonical_liveness_grid=lambda config, record: Path(\n'
+              '                str(record["round1_grid"])\n'
+              '            ),\n'
+          )
+          if text.count(default_anchor) != 3:
+              raise RuntimeError('expected three default canonical liveness registrations')
+          text = text.replace(
+              default_anchor,
+              default_anchor + '            canonical_liveness_parameter="representative_c",\n',
+          )
+          asymre_anchor = (
+              '            canonical_liveness_grid=lambda config, record: _canonical_asymre_grid_path(),\n'
+          )
+          if text.count(asymre_anchor) != 1:
+              raise RuntimeError('expected one AsymRE liveness registration')
+          text = text.replace(
+              asymre_anchor,
+              asymre_anchor + '            canonical_liveness_parameter="representative_delta_v",\n',
+              1,
+          )
+          topr_anchor = (
+              '            canonical_liveness_grid=lambda config, record: _canonical_topr_grid_path(),\n'
+          )
+          if text.count(topr_anchor) != 1:
+              raise RuntimeError('expected one TOPR liveness registration')
+          text = text.replace(
+              topr_anchor,
+              topr_anchor + '            canonical_liveness_parameter="representative_c",\n',
+              1,
+          )
+          dpo_anchor = '            canonical_liveness_grid=None,\n'
+          if text.count(dpo_anchor) != 1:
+              raise RuntimeError('expected one DPO liveness registration')
+          text = text.replace(
+              dpo_anchor,
+              dpo_anchor + '            canonical_liveness_parameter=None,\n',
+              1,
+          )
+          exp.write_text(text, encoding='utf-8')
+
+          source = exp.read_text(encoding='utf-8')
+          tree = ast.parse(source)
+          node = next(
+              item for item in tree.body
+              if isinstance(item, ast.FunctionDef)
+              and item.name == '_canonical_cold_liveness_cell'
+          )
+          lines = source.splitlines(keepends=True)
+          replacement = textwrap.dedent('''
+          def _canonical_cold_liveness_cell(grid_path: Path) -> Cell:
+              """Derive one liveness cell through the registered method contract."""
+
+              grid = yaml.safe_load(grid_path.read_text(encoding="utf-8"))
+              if not isinstance(grid, dict):
+                  raise TypeError("Canonical liveness grid root must be a mapping")
+              liveness = grid["execution"]["liveness"]
+              seed_offsets = grid["sweep"]["seed_offsets"]
+              method = str(liveness.get("representative_family", METHOD_EXPONENTIAL))
+              spec = _method_spec(method)
+              parameter_key = spec.canonical_liveness_parameter
+              if parameter_key is None:
+                  raise RuntimeError(f"{method} has no canonical cold-liveness parameter")
+              if parameter_key not in liveness:
+                  raise RuntimeError(
+                      f"Canonical liveness grid for {method} lacks {parameter_key}"
+                  )
+              return spec.build_cell(
+                  task="countdown",
+                  method=method,
+                  seed=int(seed_offsets[0]),
+                  stage="liveness",
+                  value=float(liveness[parameter_key]),
+                  lambda_only=False,
+                  dpo_initialization=None,
+              )
+          ''').lstrip()
+          source = ''.join(lines[:node.lineno - 1]) + replacement + ''.join(lines[node.end_lineno:])
+          exp.write_text(source, encoding='utf-8')
+
+          contract = Path('tests/test_e8_method_integration_contract.sh')
+          contract_text = contract.read_text(encoding='utf-8')
+          dummy_anchor = '            canonical_liveness_grid=None,\n'
+          if contract_text.count(dummy_anchor) != 1:
+              raise RuntimeError('expected one dummy liveness registration')
+          contract_text = contract_text.replace(
+              dummy_anchor,
+              dummy_anchor + '            canonical_liveness_parameter="representative_temperature",\n',
+              1,
+          )
+          contract.write_text(contract_text, encoding='utf-8')
+          PY
       - name: Static compile
         run: |
           python -m py_compile \
