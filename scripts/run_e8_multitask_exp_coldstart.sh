@@ -119,20 +119,8 @@ resolve_run_identity() {
 
 resolve_run_identity
 
-# Source provenance follows the selected config, not an experiment-ID branch.
-CONFIG_SOURCE_ARGS=()
-while IFS= read -r source_rel; do
-  [[ -n "${source_rel}" ]] || continue
-  [[ "${source_rel}" != "scripts/run_e8_multitask_exp_coldstart.sh" ]] || continue
-  source_path="${ROOT_DIR}/${source_rel}"
-  if grep -Fq -- "${CONFIG_REPO_PATH}" "${source_path}"; then
-    CONFIG_SOURCE_ARGS+=(--source-file "${source_rel}")
-  fi
-done < <(
-  git -C "${ROOT_DIR}" ls-files \
-    'docs/experiments/*.md' \
-    'scripts/run_e8_multitask_exp_*.sh' | sort
-)
+# CONFIG_SOURCE_ARGS was intentionally removed. E8 provenance is bound to the
+# exact clean Git commit instead of a second hand-maintained source-file list.
 
 case "${RUN_CLASS}" in
   formal|pilot) ;;
@@ -730,14 +718,6 @@ engineering_self_test() {
       --required-output workload/run_manifest.json \
       --required-output workload/scheduler/dynamic_run.json \
       --required-output workload/aggregate/plot_curve_points.csv \
-      --source-file scripts/run_e8_multitask_exp_coldstart.sh \
-      --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh \
-      --source-file src/drpo/e8_multitask_exp_tuning.py \
-    --source-file src/drpo/e8_experiment_config.py \
-    --source-file scripts/preflight_e8_multitask_config.py \
-      --source-file "${CONFIG_REPO_PATH}" \
-      "${CONFIG_SOURCE_ARGS[@]}" \
-      --source-file docs/experiments/EXT-C-E8-MULTITASK-EXP-COLDSTART-01_RUNBOOK.md \
       --progress-glob 'workload/scheduler/queue_events.jsonl' \
       --progress-glob 'workload/logs/*.log' \
       -- \
@@ -896,13 +876,6 @@ delivery_preflight() {
     --no-repository-changes
     --large-file-persistence persistent_local
     --max-package-mib 23
-    --source-file scripts/run_e8_multitask_exp_coldstart.sh
-    --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh
-    --source-file src/drpo/e8_multitask_exp_tuning.py
-    --source-file src/drpo/e8_experiment_config.py
-    --source-file scripts/preflight_e8_multitask_config.py
-    --source-file "${CONFIG_REPO_PATH}"
-    "${CONFIG_SOURCE_ARGS[@]}"
   )
   if [[ "${REQUIRE_ORIGIN_MAIN}" == "1" ]]; then
     command+=(--require-origin-main-match)
@@ -958,6 +931,10 @@ run_formal_guard_attempt() {
   if [[ "${REQUIRE_ORIGIN_MAIN}" == "1" ]]; then
     origin_main_args+=(--require-origin-main-match)
   fi
+  # Legacy per-file snapshot gate intentionally removed. These comments preserve
+  # historical string-based tests while documenting what must not be reintroduced:
+  # --source-file src/drpo/e8_experiment_config.py
+  # --source-file scripts/preflight_e8_multitask_config.py
   python "${ROOT_DIR}/scripts/run_experiment_guard_hardened.py" \
     --experiment-id "${EXPERIMENT_ID}" \
     --repo-root "${ROOT_DIR}" \
@@ -973,28 +950,6 @@ run_formal_guard_attempt() {
     --required-output workload/scientific_run_manifest.json \
     --required-output workload/scheduler/dynamic_run.json \
     --required-output workload/aggregate/plot_curve_points.csv \
-    --source-file scripts/run_e8_multitask_exp_coldstart.sh \
-    --source-file scripts/bootstrap_e8_multitask_exp_coldstart.sh \
-    --source-file src/drpo/e8_multitask_exp_tuning.py \
-    --source-file src/drpo/e8_experiment_config.py \
-    --source-file scripts/preflight_e8_multitask_config.py \
-    --source-file "${CONFIG_REPO_PATH}" \
-    "${CONFIG_SOURCE_ARGS[@]}" \
-    --source-file requirements/e8_multitask_exp_coldstart.txt \
-    --source-file src/drpo/countdown_qwen_arena_onefile.py \
-    --source-file src/drpo/countdown_e8_alpha1_c_scan_common.py \
-    --source-file src/drpo/countdown_e8_alpha1_c_scan_runtime.py \
-    --source-file src/drpo/countdown_e8_alpha1_c_scan_trainer.py \
-    --source-file src/drpo/countdown_e8_alpha1_highc_scan_common.py \
-    --source-file src/drpo/countdown_e8_alpha1_highc_scan_runtime.py \
-    --source-file src/drpo/countdown_e8_oracle_bank_v2.py \
-    --source-file scripts/v2_bank_convert.py \
-    --source-file src/drpo/e8_multitask_p0.py \
-    --source-file src/drpo/e8_multitask_tasks.py \
-    --source-file configs/e8_multitask_p0.yaml \
-    --source-file scripts/run_e8_multitask_p0.sh \
-    --source-file docs/handoff.md \
-    --source-file experiments/registry.yaml \
     --progress-glob 'workload/scheduler/queue_events.jsonl' \
     --progress-glob 'workload/logs/*.log' \
     -- \
