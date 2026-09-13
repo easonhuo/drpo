@@ -1,0 +1,63 @@
+name: tmp-e8-reciprocal-compress-artifact
+on:
+  push:
+    branches: [dev/e8-multitask-reciprocal-shape-128-01]
+permissions:
+  contents: read
+jobs:
+  compress-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply no-semantics-change compression in workspace
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def one(text, old, new, label):
+              if text.count(old) != 1:
+                  raise SystemExit(f'{label}: expected one match, got {text.count(old)}')
+              return text.replace(old, new, 1)
+
+          p = Path('src/drpo/e8_experiment_config.py')
+          s = p.read_text()
+          s = one(s,
+              'def coldstart_method(config: Mapping[str, Any]) -> str:\n    return str(_mapping(config.get("sweep"), "sweep").get("method", ""))\n\n\ndef coldstart_methods(config: Mapping[str, Any]) -> tuple[str, ...]:\n',
+              'def coldstart_method(config: Mapping[str, Any]) -> str:\n    return str(_mapping(config.get("sweep"), "sweep").get("method", ""))\n\n\ndef coldstart_remoteness_metadata(config: Mapping[str, Any]) -> dict[str, Any]:\n    reciprocal = coldstart_method(config) in RECIPROCAL_MATRIX_METHODS + (\n        COLDSTART_METHOD_RECIPROCAL_MATRIX,\n    )\n    return {\n        "enabled": False,\n        "mode": (\n            "paper_reciprocal_excess_remoteness_tau_0p125"\n            if reciprocal\n            else "paper_linear_surprisal_no_calibration"\n        ),\n        "coordinate": (\n            "relu(current_sequence_surprisal/2-0.125)"\n            if reciprocal\n            else "current_sequence_surprisal/2"\n        ),\n        **({"tau_code": 0.125} if reciprocal else {}),\n        "detached": True,\n        "extra_square": False,\n        "gradient_rms_matching": False,\n    }\n\n\ndef coldstart_methods(config: Mapping[str, Any]) -> tuple[str, ...]:\n',
+              'insert remoteness authority')
+          old = '''    calibration = config["remoteness_calibration"]\n    reciprocal = method in {\n        COLDSTART_METHOD_RECIPROCAL_LINEAR,\n        COLDSTART_METHOD_RECIPROCAL_QUADRATIC,\n        COLDSTART_METHOD_RECIPROCAL_MATRIX,\n    }\n    expected_mode = (\n        "paper_reciprocal_excess_remoteness_tau_0p125"\n        if reciprocal\n        else "paper_linear_surprisal_no_calibration"\n    )\n    expected_coordinate = (\n        "relu_current_sequence_surprisal_div_2_minus_0p125"\n        if reciprocal\n        else "current_sequence_surprisal_div_2"\n    )\n    if (\n        calibration.get("enabled") is not False\n        or calibration.get("mode") != expected_mode\n        or calibration.get("coordinate") != expected_coordinate\n        or calibration.get("detached") is not True\n        or calibration.get("extra_square") is not False\n        or calibration.get("gradient_rms_matching") is not False\n        or (reciprocal and float(calibration.get("tau_code", -1.0)) != 0.125)\n    ):\n        raise ValueError("Cold-start remoteness-calibration mode is not implemented")\n'''
+          new = '''    calibration = config["remoteness_calibration"]\n    expected = coldstart_remoteness_metadata(config)\n    expected["coordinate"] = expected["coordinate"].replace(\n        "relu(current_sequence_surprisal/2-0.125)",\n        "relu_current_sequence_surprisal_div_2_minus_0p125",\n    ).replace("current_sequence_surprisal/2", "current_sequence_surprisal_div_2")\n    tau_code = expected.pop("tau_code", None)\n    if any(calibration.get(key) != value for key, value in expected.items()) or (\n        tau_code is not None\n        and float(calibration.get("tau_code", -1.0)) != float(tau_code)\n    ):\n        raise ValueError("Cold-start remoteness-calibration mode is not implemented")\n'''
+          s = one(s, old, new, 'centralize remoteness validation')
+          p.write_text(s)
+
+          p = Path('src/drpo/e8_multitask_exp_tuning.py')
+          s = p.read_text()
+          s = one(s, '''def _paper_grid_paths_reciprocal(\n    config: Mapping[str, Any],\n    record: Mapping[str, Any],\n    cell: Cell,\n) -> tuple[Path, Path]:\n    del config, record, cell\n    path = _canonical_reciprocal_grid_path()\n    return path, path\n\n\n''', '', 'remove reciprocal grid wrapper')
+          s = one(s, '                    grid_paths=_paper_grid_paths_reciprocal,\n', '                    grid_paths=lambda config, record, cell: (_canonical_reciprocal_grid_path(),) * 2,\n', 'inline reciprocal grid pair')
+          old = '''def _coldstart_remoteness_metadata(config: Mapping[str, Any]) -> dict[str, Any]:\n    method = _coldstart_method(config)\n    if method in {\n        METHOD_RECIPROCAL_LINEAR,\n        METHOD_RECIPROCAL_QUADRATIC,\n        METHOD_RECIPROCAL_MATRIX,\n    }:\n        return {\n            "enabled": False,\n            "mode": "paper_reciprocal_excess_remoteness_tau_0p125",\n            "coordinate": "relu(current_sequence_surprisal/2-0.125)",\n            "tau_code": 0.125,\n            "detached": True,\n            "extra_square": False,\n            "gradient_rms_matching": False,\n        }\n    return {\n        "enabled": False,\n        "mode": "paper_linear_surprisal_no_calibration",\n        "coordinate": "current_sequence_surprisal/2",\n        "detached": True,\n        "extra_square": False,\n        "gradient_rms_matching": False,\n    }\n\n\n'''
+          s = one(s, old, '', 'remove duplicate remoteness helper')
+          if s.count('_coldstart_remoteness_metadata(config)') != 3:
+              raise SystemExit('unexpected remoteness helper call count')
+          s = s.replace('_coldstart_remoteness_metadata(config)', 'experiment_config.coldstart_remoteness_metadata(config)')
+          p.write_text(s)
+          PY
+      - name: Validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'numpy<2' PyYAML pytest ruff
+          export PYTHONPATH=.:src
+          python3 -m py_compile src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py
+          ruff check src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py
+          bash tests/test_e8_method_integration_contract.sh
+          pytest -q tests/test_e8_multitask_p0.py
+          python3 scripts/handoff_authority.py verify --repo-root .
+          python3 scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          git diff --check
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reciprocal-compressed-files
+          path: |
+            src/drpo/e8_experiment_config.py
+            src/drpo/e8_multitask_exp_tuning.py
