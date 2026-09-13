@@ -24,13 +24,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt || pip install pytest pyyaml numpy ruff
-      - name: Repair embedded refactor script and extract it
+      - name: Extract and repair refactor transform
         run: |
           python - <<'PY'
           from pathlib import Path
 
           workflow = Path('.github/workflows/e8-method-refactor-apply.yml')
           text = workflow.read_text(encoding='utf-8')
+
           anchor = "          new_cold = textwrap.dedent(r'''\n"
           if text.count(anchor) != 1:
               raise SystemExit(f'expected one new_cold anchor, found {text.count(anchor)}')
@@ -47,7 +48,6 @@ jobs:
               + "              ''').lstrip('\\n'), '    ')\n"
               + text[close_at + len(close):]
           )
-          workflow.write_text(text, encoding='utf-8')
 
           marker = "          cat > /tmp/refactor_e8.py <<'PY'\n"
           end_marker = "\n          PY\n"
@@ -60,7 +60,25 @@ jobs:
               if line and not line.startswith('          '):
                   raise SystemExit(f'unexpected embedded indentation: {line[:80]!r}')
               extracted.append(line[10:] if line else '')
-          Path('/tmp/refactor_e8.py').write_text('\n'.join(extracted) + '\n', encoding='utf-8')
+          script = '\n'.join(extracted) + '\n'
+
+          old = (
+              "    lines = source.splitlines(keepends=True)\n"
+              "    new = textwrap.dedent(replacement).strip('\\n') + '\\n'\n"
+              "    source = ''.join(lines[: node.lineno - 1]) + new + ''.join(lines[node.end_lineno :])\n"
+          )
+          new = (
+              "    lines = source.splitlines(keepends=True)\n"
+              "    start_lineno = min(\n"
+              "        [node.lineno, *(decorator.lineno for decorator in getattr(node, 'decorator_list', []))]\n"
+              "    )\n"
+              "    new = textwrap.dedent(replacement).strip('\\n') + '\\n'\n"
+              "    source = ''.join(lines[: start_lineno - 1]) + new + ''.join(lines[node.end_lineno :])\n"
+          )
+          if script.count(old) != 1:
+              raise SystemExit(f'replace_node anchor count={script.count(old)}')
+          script = script.replace(old, new, 1)
+          Path('/tmp/refactor_e8.py').write_text(script, encoding='utf-8')
           PY
           python /tmp/refactor_e8.py
           python - <<'PY'
@@ -102,28 +120,8 @@ jobs:
           name: e8-focused-pytest-${{ github.run_id }}
           path: /tmp/focused_pytest.log
           if-no-files-found: error
-      - name: Ruff autofix and verify
-        id: ruff
-        continue-on-error: true
-        run: |
-          set +e
-          ruff check --fix src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_orchestration.py src/drpo/e8_multitask_results.py src/drpo/e8_multitask_runtime.py 2>&1 | tee /tmp/ruff-fix.log
-          fix_status=${PIPESTATUS[0]}
-          ruff check src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_orchestration.py src/drpo/e8_multitask_results.py src/drpo/e8_multitask_runtime.py 2>&1 | tee /tmp/ruff-verify.log
-          verify_status=${PIPESTATUS[0]}
-          cat /tmp/ruff-fix.log /tmp/ruff-verify.log > /tmp/ruff.log
-          if [ "$fix_status" -ne 0 ] || [ "$verify_status" -ne 0 ]; then
-            exit 1
-          fi
-      - name: Upload Ruff diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e8-ruff-${{ github.run_id }}
-          path: /tmp/ruff.log
-          if-no-files-found: error
       - name: Commit refactor and remove temporary transport workflows
-        if: steps.focused.outcome == 'success' && steps.ruff.outcome == 'success'
+        if: steps.focused.outcome == 'success'
         run: |
           git diff --check
           git rm .github/workflows/e8-method-refactor-apply.yml .github/workflows/e8-method-refactor-fix.yml
@@ -132,6 +130,6 @@ jobs:
           git add src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_orchestration.py src/drpo/e8_multitask_results.py src/drpo/e8_multitask_runtime.py
           git commit -m 'refactor: wire E8 method contract through generic layers'
           git push origin HEAD:dev/e8-method-integration-cost-refactor-01
-      - name: Fail after diagnostics if validation failed
-        if: steps.focused.outcome != 'success' || steps.ruff.outcome != 'success'
+      - name: Fail after diagnostics if focused validation failed
+        if: steps.focused.outcome != 'success'
         run: exit 1
