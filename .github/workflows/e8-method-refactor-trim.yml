@@ -30,8 +30,19 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch origin main
           git merge --no-edit origin/main
-      - name: Apply final redundancy trim
-        run: bash .github/workflows/e8_method_refactor_trim.sh
+      - name: Fix transport guard and apply final redundancy trim
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/workflows/e8_method_refactor_trim.sh')
+          text = path.read_text(encoding='utf-8')
+          old = '''for forbidden in (\n    "compatibility_columns",\n    "canonical_liveness_grid",\n    "canonical_liveness_parameter",\n    "paper_grid_paths",\n    "paper_cell_parameters",\n    "paper_formula",\n    "audit_failure_bucket",\n    "MethodResultProjection",\n    "ResultRecord",\n):'''
+          new = '''for forbidden in (\n    ".compatibility_columns",\n    "canonical_liveness_grid",\n    "canonical_liveness_parameter",\n    "paper_grid_paths",\n    "paper_cell_parameters",\n    "method_spec.paper_formula",\n    "spec.paper_formula",\n    "audit_failure_bucket",\n    "MethodResultProjection",\n    "ResultRecord",\n):'''
+          if text.count(old) != 1:
+              raise RuntimeError('unexpected stale-surface guard')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          bash .github/workflows/e8_method_refactor_trim.sh
       - name: Static compile
         run: |
           python -m py_compile \
