@@ -30,33 +30,32 @@ jobs:
           echo '9e6f101e639b8006dcde78c4d53b7b3b72003153e4fbdfedc5e5018e86dba7c0  /tmp/manuscript_v10.patch.gz' | sha256sum --check --strict
           gunzip -c /tmp/manuscript_v10.patch.gz > /tmp/manuscript_v10.patch
           echo 'deb49d8e96ee7cc31b0a73c5c20c998a125c03f84157af63aa776adc51f40d4a  /tmp/manuscript_v10.patch' | sha256sum --check --strict
+
+          # The reviewed local patch was produced from an executable working-copy
+          # generator, while the canonical GitHub file is tracked as 100644.
+          # Normalize only that mode metadata after verifying the original patch bytes.
+          sed -i 's/^index 98916ad\.\.aeb3820 100755$/index 98916ad..aeb3820 100644/' /tmp/manuscript_v10.patch
+          echo '61947902ef6d1aba905097cedf021d8b20e2777c367f284cf583645e33b77073  /tmp/manuscript_v10.patch' | sha256sum --check --strict
           git apply --check /tmp/manuscript_v10.patch
 
       - name: Build local V10 candidate commit
         shell: bash
         run: |
           set -euo pipefail
-          echo 'MARKER: apply patch'
           git apply /tmp/manuscript_v10.patch
-          chmod 644 paper/iclr2027/generate_iclr.sh
           git diff --check
           test "$(git hash-object paper/overleaf/main_replacement.tex)" = "4af4d989ba37bf5d55c501dc77ab421b2bc96243"
           test "$(git hash-object paper/iclr2027/generate_iclr.sh)" = "aeb38208670d09c4ad1a3475c3973ee7d07e9b98"
 
-          echo 'MARKER: remove transport'
           rm -rf .github/paper-v10-payload
           rm -f .github/workflows/apply-manuscript-v10-text.yml
           git add -A
-          git status --short
-
-          echo 'MARKER: verify cumulative file set'
           git diff --cached --name-only origin/main > /tmp/changed.txt
           cat /tmp/changed.txt
           test "$(wc -l < /tmp/changed.txt)" -eq 2
           grep -Fxq 'paper/iclr2027/generate_iclr.sh' /tmp/changed.txt
           grep -Fxq 'paper/overleaf/main_replacement.tex' /tmp/changed.txt
 
-          echo 'MARKER: local commit'
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'paper: update ICLR 2027 manuscript to V10 text'
