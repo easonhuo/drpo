@@ -27,6 +27,75 @@ jobs:
       - name: Finalize and optimize method wiring
         run: |
           python .github/workflows/e8_method_refactor_finalize.py
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/e8_method_refactor_lintfix.py')
+          text = path.read_text(encoding='utf-8')
+          start = text.index('# Reuse parameters directly for grouping and plotting.')
+          plot_anchor = 'text = replace_once(\n    text,\n    "            projection = dict(spec.plot_projection(cells_by_key[cell_key]))\\n"'
+          plot_start = text.index(plot_anchor, start)
+          replacement = r'''# Reuse parameters directly for grouping and plotting.
+          replace_top_level_function(
+              exp_path,
+              "_coldstart_method_grouped_curve",
+              r'''
+              def _coldstart_method_grouped_curve(
+                  *,
+                  task: str,
+                  method: str,
+                  method_rows: Sequence[Mapping[str, Any]],
+                  cells_by_key: Mapping[str, Cell],
+              ) -> list[dict[str, Any]]:
+                  """Group one method by its opaque parameter contract."""
+
+                  spec = _method_spec(method)
+                  groups: dict[
+                      str,
+                      tuple[dict[str, Any], list[Mapping[str, Any]]],
+                  ] = {}
+                  for row in method_rows:
+                      cell_key = str(row["cell_key"])
+                      if cell_key not in cells_by_key:
+                          raise RuntimeError(
+                              f"Unknown cold-start cell in aggregate: {cell_key}"
+                          )
+                      cell = cells_by_key[cell_key]
+                      if cell.task != task or cell.method != method:
+                          raise RuntimeError(
+                              f"Cold-start aggregate identity mismatch for {cell_key}"
+                          )
+                      parameters = dict(spec.parameters(cell))
+                      identity = e8_results.parameter_identity(parameters)
+                      if identity not in groups:
+                          groups[identity] = (parameters, [])
+                      elif groups[identity][0] != parameters:
+                          raise RuntimeError(
+                              f"Method parameter identity changed for {cell_key}"
+                          )
+                      groups[identity][1].append(row)
+
+                  ordered = sorted(
+                      groups.values(),
+                      key=lambda item: e8_results.parameter_sort_key(item[0]),
+                  )
+                  return [
+                      {
+                          "task": task,
+                          "method": method,
+                          **parameters,
+                          **_coldstart_group_metrics(group),
+                      }
+                      for parameters, group in ordered
+                  ]
+              ''',
+          )
+
+          text = exp_path.read_text(encoding="utf-8")
+          '''
+          text = text[:start] + replacement + text[plot_start:]
+          path.write_text(text, encoding='utf-8')
+          PY
           python .github/workflows/e8_method_refactor_lintfix.py
       - name: Static compile
         run: |
