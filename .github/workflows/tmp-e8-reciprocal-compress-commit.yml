@@ -12,12 +12,11 @@ jobs:
         with:
           ref: dev/e8-multitask-reciprocal-shape-128-01
           fetch-depth: 0
-      - name: Merge current main without committing
+      - name: Refresh current main reference
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin main
-          git merge --no-commit --no-ff origin/main
       - name: Apply reviewed no-semantics-change compression
         shell: bash
         run: |
@@ -49,7 +48,6 @@ jobs:
           python3 scripts/handoff_authority.py verify --repo-root .
           python3 scripts/validate_governance_pipeline_stage_status.py --repo-root .
           git diff --check
-          git diff --cached --check
       - name: Remove temporary workflows and commit
         shell: bash
         run: |
