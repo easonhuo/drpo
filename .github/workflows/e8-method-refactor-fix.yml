@@ -103,11 +103,27 @@ jobs:
           path: /tmp/focused_pytest.log
           if-no-files-found: error
       - name: Ruff autofix and verify
+        id: ruff
+        continue-on-error: true
         run: |
-          ruff check --fix src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_orchestration.py src/drpo/e8_multitask_results.py src/drpo/e8_multitask_runtime.py
-          ruff check src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_orchestration.py src/drpo/e8_multitask_results.py src/drpo/e8_multitask_runtime.py
+          set +e
+          ruff check --fix src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_orchestration.py src/drpo/e8_multitask_results.py src/drpo/e8_multitask_runtime.py 2>&1 | tee /tmp/ruff-fix.log
+          fix_status=${PIPESTATUS[0]}
+          ruff check src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_orchestration.py src/drpo/e8_multitask_results.py src/drpo/e8_multitask_runtime.py 2>&1 | tee /tmp/ruff-verify.log
+          verify_status=${PIPESTATUS[0]}
+          cat /tmp/ruff-fix.log /tmp/ruff-verify.log > /tmp/ruff.log
+          if [ "$fix_status" -ne 0 ] || [ "$verify_status" -ne 0 ]; then
+            exit 1
+          fi
+      - name: Upload Ruff diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e8-ruff-${{ github.run_id }}
+          path: /tmp/ruff.log
+          if-no-files-found: error
       - name: Commit refactor and remove temporary transport workflows
-        if: steps.focused.outcome == 'success'
+        if: steps.focused.outcome == 'success' && steps.ruff.outcome == 'success'
         run: |
           git diff --check
           git rm .github/workflows/e8-method-refactor-apply.yml .github/workflows/e8-method-refactor-fix.yml
@@ -116,6 +132,6 @@ jobs:
           git add src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_orchestration.py src/drpo/e8_multitask_results.py src/drpo/e8_multitask_runtime.py
           git commit -m 'refactor: wire E8 method contract through generic layers'
           git push origin HEAD:dev/e8-method-integration-cost-refactor-01
-      - name: Fail after diagnostics if focused regression failed
-        if: steps.focused.outcome != 'success'
+      - name: Fail after diagnostics if validation failed
+        if: steps.focused.outcome != 'success' || steps.ruff.outcome != 'success'
         run: exit 1
