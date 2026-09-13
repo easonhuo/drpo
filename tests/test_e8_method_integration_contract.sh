@@ -107,14 +107,34 @@ try:
     assert geometry.expected_cells_by_seed == {4000: 4, 5000: 4}
 
     lock = threading.Lock()
-    state = {"seed4000_hooks": 0, "released_early": False}
+    finish_barrier = threading.Barrier(4)
+    state = {
+        "seed4000_hooks": 0,
+        "released_early": False,
+        "event_callbacks_active": 0,
+        "event_callbacks_peak": 0,
+        "event_callbacks": 0,
+    }
+
+    def record_event(event):
+        del event
+        with lock:
+            state["event_callbacks_active"] += 1
+            state["event_callbacks_peak"] = max(
+                state["event_callbacks_peak"],
+                state["event_callbacks_active"],
+            )
+        time.sleep(0.002)
+        with lock:
+            state["event_callbacks_active"] -= 1
+            state["event_callbacks"] += 1
 
     def run_cell(cell, slot, gpu_id):
         del slot, gpu_id
         with lock:
             if cell.seed == 5000 and state["seed4000_hooks"] < 4:
                 state["released_early"] = True
-        time.sleep(0.001)
+        finish_barrier.wait(timeout=2.0)
         return {"returncode": 0}
 
     def after_success(cell, row):
@@ -132,12 +152,15 @@ try:
         seed_order=(4000, 5000),
         callbacks=SchedulerCallbacks(
             run_cell=run_cell,
+            record_event=record_event,
             after_success=after_success,
         ),
     )
     assert len(run) == 8
     assert not state["released_early"]
     assert state["seed4000_hooks"] == 4
+    assert state["event_callbacks"] == 16
+    assert state["event_callbacks_peak"] == 1
 
     aggregate_rows = [
         {
@@ -203,6 +226,7 @@ print(
     json.dumps(
         {
             "dummy_cells": len(cells),
+            "event_callback_serialization": "pass",
             "generic_liveness_cell": "pass",
             "matrix_parameter_extensibility": "pass",
             "method_name_leakage": "pass",

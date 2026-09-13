@@ -251,6 +251,7 @@ def run_dynamic_queue(
     pending: queue.Queue[TCell] = queue.Queue()
     stop = threading.Event()
     lock = threading.Lock()
+    event_lock = threading.Lock()
     results: list[dict[str, Any]] = []
     seed_groups = ordered_seed_groups(cells, seed_order=geometry.seed_order)
     seed_index = 0
@@ -266,7 +267,8 @@ def run_dynamic_queue(
 
     def emit(event: Mapping[str, Any]) -> None:
         if callbacks.record_event is not None:
-            callbacks.record_event(event)
+            with event_lock:
+                callbacks.record_event(event)
 
     def worker(slot: int, gpu_id: int) -> None:
         nonlocal seed_index
