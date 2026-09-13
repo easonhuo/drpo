@@ -33,6 +33,7 @@
 
 % if you use cleveref..
 \usepackage[capitalize,noabbrev]{cleveref}
+\providecommand{\Description}[1]{}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % THEOREMS
@@ -730,7 +731,7 @@ Remoteness is recomputed under the current policy but detached before it is
 used as a coefficient; DRPO is therefore a dynamic weighting rule rather than
 a differentiable distance regularizer.
 
-At each policy iterate, tapering preserves the aggregate regime structure
+At each policy iterate, tapering preserves the aggregate field form
 after replacing the negative mass and moment by
 \[
 q_\omega=\mathbb E_\nu[\widehat A^-\omega],
@@ -963,8 +964,8 @@ first test whether the predicted far-field pattern appears in realistic
 continuous-control and autoregressive policies. Controlled environments then
 separate coefficient magnitude from policy geometry, trace the resulting
 update into policy behavior, and compare negative-weighting rules under known
-near/far structure. The final task-level sections retain the D4RL and Countdown
-evaluation targets.
+near/far structure. The final task-level sections evaluate D4RL and
+structured-generation tasks.
 
 \subsection{Environments and Datasets}
 \label{sec:environments_datasets}
@@ -973,10 +974,14 @@ We use two controlled environments and two external diagnostic domains.
 C-U1 is a contextual bandit with a Gaussian policy over continuous actions,
 while D-U1 uses unordered categorical actions with shared representations.
 They provide known ground truth for source isolation, policy dynamics, and
-held-out-context generalization. The nine D4RL locomotion dataset cells and
-Countdown arithmetic generation provide continuous offline-control and
-autoregressive sequence diagnostics, respectively. Full configurations are
-in Appendix~\ref{app:experimental_details}.
+held-out-context generalization. The nine D4RL locomotion dataset cells
+\citep{fu2020d4rl} and structured-generation tasks provide continuous-action
+and discrete autoregressive diagnostics, respectively. The
+structured-generation tasks comprise
+Countdown~\citep{hutton2002countdown,pan2025tinyzero},
+seven Reasoning Gym tasks~\citep{stojanovski2025reasoninggym}, and
+WikiSQL~\citep{zhong2017seq2sql}. Full configurations are in
+Appendix~\ref{app:experimental_details}.
 
 \paragraph{Conventions.}
 Controlled source-isolation experiments report policy-score response,
@@ -990,25 +995,20 @@ Appendix~\ref{app:controlled_protocols}.
 \subsection{External Diagnostic of Far-Field Repulsion}
 \label{sec:external_far_field}
 
-For D4RL, probing is performed around fixed Positive-only Gaussian reference
-actors without policy updates; Countdown provides the autoregressive
-counterpart. In both domains, learner-relative remoteness varies while
-sample-quality magnitude is held fixed. Full protocols are given in
+For D4RL and structured-generation tasks, learner-relative remoteness varies
+while sample-quality magnitude is held fixed; full protocols are given in
 Appendices~\ref{app:d4rl_gradient_diagnostic}
-and~\ref{app:countdown_methods}.
+and~\ref{app:structured_generation_methods}.
 
-Across all nine D4RL locomotion dataset cells, the implemented
-full-parameter actor-gradient diagnostic increases strongly with
-policy-relative standardized distance, with per-dataset panels
-(Figure~\ref{fig:app_d4rl9_gradient_panels}) showing that the pattern is not
-driven by a single environment or dataset quality. The approximately linear
-scaling agrees with the Gaussian prediction that mean-score magnitude grows
-linearly with standardized distance. In Countdown, the fixed-coefficient
-diagnostic remains substantial at high mean-token surprisal, consistent with
-persistent categorical suppression. These probes show that the predicted
-near-to-far pattern appears in realistic neural policies; the controlled
-experiments below separate remoteness from coefficient magnitude and test
-whether far-field updates drive instability.
+Across both D4RL and structured-generation tasks, the implemented
+actor-gradient increases from the near to the far field
+(Figure~\ref{fig:app_external_gradient_panels}). The approximately linear
+D4RL trend agrees with the Gaussian prediction, while the fixed-coefficient
+structured-generation trend is consistent with persistent categorical
+suppression. These probes show that the predicted near-to-far pattern appears
+in realistic neural policies; the controlled experiments below separate
+remoteness from coefficient magnitude and test whether far-field updates
+drive instability.
 
 
 
@@ -1030,19 +1030,17 @@ Appendix~\ref{app:controlled_protocols}.
     ]{figures/figure1_external_gradient_d4rl9.pdf}
 
     \caption{
-        \textbf{External far-field diagnostics.}
-        \textbf{(a)} D4RL-9 equal-weight aggregate of relative implemented
-        actor-gradient magnitude for negative frozen-advantage transitions versus
-        policy-relative standardized distance. Each far transition is normalized by
-        its matched near partner within seed and dataset; the matched far/near
-        absolute-advantage ratio checks matching quality (shading:
-        hierarchical-bootstrap 95\% CI; per-dataset panels:
-        Figure~\ref{fig:app_d4rl9_gradient_panels}).
-        \textbf{(b)} Countdown relative implemented actor-gradient diagnostic and
-        fixed negative coefficient versus mean-token surprisal decile among
-        verifier-matched unsuccessful responses, normalized to the lowest-surprisal
-        decile (shading: puzzle-level bootstrap 95\% CI).
-    }
+\textbf{External far-field diagnostics.}
+Relative implemented actor-gradient versus learner-relative remoteness,
+aggregated over nine D4RL locomotion dataset cells in (a) and
+structured-generation tasks in (b). Gradients are normalized to the
+corresponding near-field reference; dashed lines show matched negative-signal
+controls and shading shows 95\% confidence intervals
+(disaggregated panels: Figure~\ref{fig:app_external_gradient_panels}).
+}
+    \Description{Two-panel external diagnostic of relative implemented
+actor-gradient versus learner-relative remoteness in D4RL and
+structured-generation tasks.}
     \label{fig:external_far_field}
 \end{figure}
 
@@ -1211,12 +1209,11 @@ while suppressing the far-field tail.
 \caption{
 \textbf{Controlled taper comparison and external transfer.}
 \textbf{(a)} Matched operating points (left: near-field-retention matched;
-right: aggregate-budget matched); bars decompose retained negative-update
-magnitude into near- and far-field components, and dashed traces show
-held-out-context reward.
+right: matched for \(B(\omega)\), the weighted sum of per-sample
+output-coordinate update magnitudes). Bars split \(B(\omega)\) into near-
+and far-field contributions; dashed traces show held-out-context reward.
 \textbf{(b)} Countdown-0.5B fixed-budget transfer reports the best observed
-two-seed late-window Pass@8 from each registered development sweep (full
-curves: Figure~\ref{fig:app_countdown_taper_coefficient_response}); D4RL locomotion remains pending the formal run and terminal audit.
+two-seed late-window Pass@8 from each registered development sweep.
 }
 \label{fig:taper_control_and_transfer}
 \end{figure}
@@ -1239,8 +1236,7 @@ tapers. Positive-only removes both components, whereas global scaling reduces
 them indiscriminately. In the fixed-budget Countdown transfer summary, the
 best observed point in the two-seed development sweep is DRPO's 15.7\%
 late-window Pass@8, followed by Reciprocal-Quadratic (14.5\%), Positive-only
-(14.0\%), Reciprocal-Linear (13.6\%), and Global-\(\alpha\) (14.2\%)
-(full curves: Figure~\ref{fig:app_countdown_taper_coefficient_response}).
+(14.0\%), Reciprocal-Linear (13.6\%), and Global-\(\alpha\) (14.2\%).
 
 \subsubsection{External Validation of Remoteness Tapering}
 \label{sec:external_tapers}
@@ -1250,19 +1246,20 @@ standardized remoteness from the current Gaussian policy and Countdown
 responses by mean-token surprisal, with protocol-matched methods sharing
 data, labels, initialization, optimizer, and budget. Because external tasks
 lack counterfactual near/far geometry, Figure~\ref{fig:taper_control_and_transfer}b
-provides transfer evidence rather than a closed cross-task ranking; Hopper
-entries remain open pending the formal run and terminal audit.
+provides transfer evidence rather than a closed cross-task ranking.
 
 \subsection{Overall Task Performance}
 \label{sec:overall_performance}
 
 Having established the controlled mechanism, we evaluate DRPO as
-a complete policy-optimization method on D4RL locomotion and Countdown.
+a complete policy-optimization method on D4RL locomotion and
+structured-generation tasks.
 We compare it with published domain-specific baselines and
 protocol-matched controls spanning positive-only learning, global
 negative scaling, and alternative remoteness tapers. All
-protocol-matched methods use the same data and continuation budget. We
-report normalized return for D4RL and verifier success for Countdown,
+protocol-matched methods use the same data and compute budgets. We
+report normalized return for D4RL and verifier success for
+structured-generation tasks,
 while task-performance failures, support or variance-boundary events,
 and NaN/Inf numerical failures remain separate outcomes.
 
@@ -1273,7 +1270,7 @@ and NaN/Inf numerical failures remain separate outcomes.
 \subsubsection{D4RL Locomotion}
 \label{sec:d4rl_performance}
 
-We evaluate the nine D4RL Gym locomotion tasks formed by HalfCheetah,
+We evaluate the nine D4RL Gym locomotion dataset cells formed by HalfCheetah,
 Hopper, and Walker2d under the medium, medium-replay, and medium-expert
 datasets. These datasets vary in behavior quality and coverage, with
 medium-replay containing the broadest mixture of historical policies.
@@ -1372,79 +1369,119 @@ shown. DRPO reports the mean over 10 runs.
 
 \end{table}
 
-\subsubsection{Countdown}
-\label{sec:countdown_performance}
+\subsubsection{Structured Generation}
+\label{sec:structured_generation_performance}
 
-We evaluate DRPO on held-out Countdown puzzles using
-Qwen2.5-0.5B-Instruct~\citep{qwen2024qwen25}, where a response is
-successful only if it forms a valid arithmetic expression that uses the
-provided numbers and reaches the target value. Pass@8 is the primary task metric because it measures
-sampling-level solution coverage under stochastic decoding, while
-greedy verifier success provides a deterministic-decoding check.
-Valid-expression rate is reported separately to distinguish reasoning
-failure from formatting or execution failure.
+We evaluate Qwen2.5-0.5B-Instruct~\citep{qwen2024qwen25} on the
+structured-generation tasks listed in
+Section~\ref{sec:environments_datasets}. Task success is determined by
+the corresponding deterministic verifier, and Pass@8 is the primary task
+metric.
 
-We use a four-number Countdown variant \citep{hutton2002countdown}, following
-the verifier-guided formulation of TinyZero \citep{pan2025tinyzero}. A
-registered model-independent generator constructs one frozen prompt-indexed
-bank of verified oracle solutions and verifier-incorrect completions, shared
-with fixed labels and update budget by all protocol-matched methods;
-method-specific learner-relative statistics are recomputed during training.
-This zero-refresh limit isolates stale-negative reuse
-(Appendices~\ref{app:countdown_dataset} and~\ref{app:countdown_methods}).
+Registered model-independent generators construct frozen
+prompt-indexed banks of verified oracle solutions and verifier-incorrect
+completions. Within each task, fixed labels and update budgets are shared by
+protocol-matched methods, while learner-relative statistics are recomputed
+during training. This zero-refresh limit isolates stale-negative reuse
+(Appendices~\ref{app:structured_generation_dataset}
+and~\ref{app:structured_generation_methods}).
 
 We compare DRPO with
-AsymRE~\citep{arnal2025asymmetric}, the Joint Fitted-Reference
-\(\beta\)-TOPR variant~\citep{leroux2025tapered}, and canonical
-DPO~\citep{rafailov2023direct}, preceded by a short SFT stage to ensure
-a task-capable initialization. The corresponding validation sweeps and
-selected coefficients are reported in
-Appendix~\ref{app:countdown_baseline_sensitivity}.
-The shared objectives and taper functions are defined in
-Appendix~\ref{app:shared_methods}.
+AsymRE~\citep{arnal2025asymmetric},
+the Joint Fitted-Reference \(\beta\)-TOPR
+variant~\citep{leroux2025tapered}, and canonical
+DPO~\citep{rafailov2023direct}. The Countdown DPO entry reuses the
+registered short-SFT predecessor run, whereas the eight transfer tasks use
+the frozen baseline-matrix protocol with fresh-LoRA initialization from the
+base model and an exact frozen copy as the DPO reference. The shared
+objectives, baseline definitions, and taper functions are given in
+Appendices~\ref{app:shared_methods}
+and~\ref{app:structured_generation_methods}.
 
 \begin{table}[t]
 \centering
-\caption{Performance on held-out Countdown puzzles.}
-\label{tab:countdown_performance}
+\caption{Pass@8 on structured-generation tasks.}
+\label{tab:structured_generation_performance}
 
 \small
-\renewcommand{\arraystretch}{1.10}
-\setlength{\tabcolsep}{3.2pt}
+\renewcommand{\arraystretch}{1.08}
+\setlength{\tabcolsep}{3.5pt}
 
 \begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lcccc}
 \toprule
-Metric
+Task
 &
 AsymRE
 &
-\makecell{\(\beta\)-TOPR\\(joint ref.)}
+\makecell{\(\beta\)-TOPR\\(joint fitted ref.)}
 &
-DPO\(^{\ddagger}\)
+DPO
 &
 \textbf{DRPO}
 \\
 \midrule
 
-Greedy success (\%)
-& 6.80
-& 7.53
-& 2.32
-& \textbf{7.62}
-\\
-
-Pass@8 (\%)
+Countdown
 & 14.38
 & 14.41
-& 8.48
+& 8.48\(^{\ddagger}\)
 & \textbf{15.72}
 \\
 
-Valid expression (\%)
-& \textbf{99.48}
-& 99.14
-& 66.24
-& 99.40
+Word Sorting
+&
+&
+&
+&
+\\
+
+Spiral Matrix
+&
+&
+&
+&
+\\
+
+Mini Sudoku
+&
+&
+&
+&
+\\
+
+Maze
+&
+&
+&
+&
+\\
+
+Word Ladder
+&
+&
+&
+&
+\\
+
+Knights \& Knaves
+&
+&
+&
+&
+\\
+
+Graph Coloring
+&
+&
+&
+&
+\\
+
+WikiSQL
+&
+&
+&
+&
 \\
 
 \bottomrule
@@ -1455,21 +1492,23 @@ Valid expression (\%)
 \begin{minipage}{\columnwidth}
 \small
 \textit{Note.}
-AsymRE, \(\beta\)-TOPR, and DRPO initialize their trainable LoRA
-adapters directly from the same Qwen2.5-0.5B-Instruct backbone;
-\(^{\ddagger}\)DPO uses the same parameterization but initializes
-its policy and frozen reference from the short SFT checkpoint
-described in Appendix~\ref{app:countdown_methods}.
-All entries are arithmetic means over evaluation steps 800, 900, 1000,
-1100, and 1200 on the held-out validation split. The TOPR arm implements
-the joint fitted-reference \(\beta\)-TOPR variant; it is not a canonical
-frozen-behavior reproduction of \citet{leroux2025tapered}. Bold indicates
-the highest observed value in each row.
+For Countdown, AsymRE, \(\beta\)-TOPR, and DRPO initialize their
+trainable LoRA adapters directly from the same Qwen2.5-0.5B-Instruct backbone;
+\(^{\ddagger}\)the reported DPO entry reuses the registered short-SFT
+predecessor run. For the eight transfer tasks, the frozen baseline matrix uses
+fresh-LoRA initialization from the same base model for all three baseline
+families; DPO freezes an exact copy of its initial policy adapter as the
+reference. The TOPR arm implements the joint fitted-reference
+\(\beta\)-TOPR variant; it is not a canonical frozen-behavior reproduction of
+\citet{leroux2025tapered}.
 \end{minipage}
 
 \end{table}
 
-DRPO delivers the strongest observed task performance while retaining a near-saturated valid-expression rate. Despite its task-capable warm start, DPO does not preserve its initial validation performance under repeated frozen-bank reuse in this setting.
+In the currently populated Countdown row, DRPO has the highest observed
+Pass@8 among the compared methods. The eight transfer-task baseline entries
+remain unreported until the registered 176-cell matrix completes its terminal
+audit.
 
 \section{Conclusion}
 
@@ -2026,9 +2065,8 @@ occurs at \(r=a^{-1/2}\), giving
 \(\widetilde\tau_i\ge0\), the untapered plateau ends at
 \(r_\tau=\sqrt{2\widetilde\tau_i}\). When
 \(a^{-1/2}\le r_\tau\), the maximum is \(r_\tau\); otherwise it is the
-same interior-tail value. These are exactly the three displayed
-branches for \(G_i\), and the triangle inequality proves the bound on
-\(B_\omega\).
+same interior-tail value. These cases show that \(g_i\) has a finite
+maximum, and the triangle inequality gives \(B_\omega<\infty\).
 
 For near-field fidelity, let \(\mu^*\) be an uncontrolled equilibrium
 with \(D_{\mu^*}(a_i)<\tau_i\) for every negative atom. Strictness and
@@ -2515,7 +2553,9 @@ and the discrete trajectory is
     \right).
     \label{eq:app_critical_discrete}
 \end{equation}
-Both exhibit persistent linear drift and admit no finite equilibrium.
+Both exhibit linear drift and admit no finite equilibrium; the drift persists
+for all forward time whenever the natural-parameter domain is full or forward
+invariant along the drift direction.
 
 If \(\mathbf m_+=\mathbf m_-\), then
 \(\mathbf F(\xi)=\mathbf 0\) for every \(\xi\). Every point is
@@ -3386,20 +3426,25 @@ Finally, the effective step generated by a sample weight \(w\) is
     \eta w I(D).
     \label{eq:weight_effective_step}
 \end{equation}
-Consequently, the population analogue of the utility-optimal sample
-weight must satisfy
+Because Lemma~\ref{lem:far_field_utility} is local to
+\(\rho\in[0,\rho_0]\), let
+\[
+w_{\mathcal U,\mathrm{loc}}^\star(D)
+\in
+\arg\max_{\substack{0\le w\le1\\ \eta w I(D)\le\rho_0}}
+\mathcal V_D\!\left(\eta w I(D)\right).
+\]
+By the lemma's quadratic bound and feasibility of zero,
 \begin{equation}
-    \eta
-    w_{\mathcal U}^{\star}(D)
-    I(D)
-    =
-    \rho_{\mathcal U}^{\star}(D)
-    \longrightarrow0.
-    \label{eq:oracle_weighted_influence_vanishes}
+0\le \eta I(D)w_{\mathcal U,\mathrm{loc}}^\star(D)
+\le \frac{2[a(D)]_+}{\kappa}
+\longrightarrow0.
+\label{eq:oracle_weighted_influence_vanishes}
 \end{equation}
-Thus, when the raw far-field response remains nonvanishing or grows, the
-utility-optimal sample weight itself must shrink so that the weighted
-response vanishes.
+For fixed \(\eta>0\), the weight also vanishes if
+\(\liminf_{D\to\infty}I(D)>0\). Thus, when the raw far-field response
+remains nonvanishing or grows, the utility-optimal local sample weight itself
+must shrink so that the weighted response vanishes.
 
 \subsection{Proof of Proposition~\ref{prop:exp_vanishing_influence}}
 \label{app:exp_vanishing_influence}
@@ -3526,8 +3571,11 @@ complete off-target symmetry, symmetry is preserved and
 \(c_K(t)\equiv K/(K-1)\).
 
 Now apply the taper
-\(\omega_i=\min\{1,(e^{\tau_i}\pi_i)^\beta\}\). In the far branch,
-let \(U=e^{-\beta y_i}\). Since
+\(\omega_i=\min\{1,(e^{\tau_i}\pi_i)^\beta\}\). Since the tapered
+log-odds is strictly decreasing with a rate bounded away from zero on every
+bounded log-odds interval, it reaches the far branch
+\(\pi_i<\min\{1/2,e^{-\tau_i}\}\) in finite time. Thereafter let
+\(U=e^{-\beta y_i}\). Since
 \(\pi_i e^{-y_i}=1-\pi_i\),
 \begin{align}
 \dot U
@@ -3536,7 +3584,7 @@ let \(U=e^{-\beta y_i}\). Since
 c_K(t)(1-\pi_i)^{\beta+1}.
 \label{eq:app_categorical_tapered_u}
 \end{align}
-After the finite crossing above, the right-hand side is bounded above
+Thereafter, the right-hand side is bounded above
 and below by positive constants. Thus \(U=\Theta(t)\), which is
 equivalent to
 \[
@@ -3558,8 +3606,8 @@ upward restoration.
 
 \begin{proposition}[Finite restoring crossing]
 \label{prop:categorical_restoring_crossing}
-Assume \(E\) and \(S_{\mathrm{tap}}\) are continuous and their zeros in
-\([y_L,y_R]\) are isolated. If
+Assume \(E\) and \(S_{\mathrm{tap}}\) are continuous and the zeros of
+\(F=E-S_{\mathrm{tap}}\) in \([y_L,y_R]\) are isolated. If
 \(F(y_L)>0\) and \(F(y_R)<0\), then the interval contains a zero at
 which the phase line has a positive-to-negative crossing. Such a
 crossing is locally asymptotically stable; if it is hyperbolic, its
@@ -3573,7 +3621,7 @@ F'(y^*)<0
 
 \begin{proof}
 The intermediate value theorem gives at least one zero. Because the
-zeros are isolated on a compact interval, only finitely many occur; as
+zeros of \(F\) are isolated on a compact interval, only finitely many occur; as
 the endpoint signs differ, at least one has positive sign immediately
 to its left and negative sign immediately to its right. The flow then
 points toward that zero from both sides, proving phase-line stability. At a
@@ -3728,9 +3776,7 @@ length-normalized values replaces
 \(r_{\mathrm{beh},\theta}\) by
 \(r_{\mathrm{beh},\theta}^{1/L}\).
 
-Relative to this behavior-ratio form, DRPO treats the threshold and decay
-rate as design quantities, recomputes remoteness under the current policy,
-and applies the taper only to the negative branch.
+For the fitted-reference comparator used in the structured-generation evaluation, the key distinction is the control coordinate: it uses the current-to-reference completion log-ratio, whereas DRPO uses learner-relative mean-token surprisal with a designed threshold and decay scale.
 
 \paragraph{Conditional-versus-population constants.}
 
@@ -3874,20 +3920,30 @@ Uncertainty & Hierarchical bootstrap over dataset cells and seeds \\
 \end{table*}
 
 \begin{figure*}[t]
+\centering
+
+\begin{minipage}[t]{0.49\textwidth}
     \centering
-    \includegraphics[width=\textwidth]{figures/fig_app_d4rl9_gradient_panels.pdf}
-    \caption{
-    \textbf{Per-dataset D4RL locomotion gradient diagnostics.}
-    Rows correspond to HalfCheetah, Hopper, and Walker2d; columns correspond to
-    the medium, medium-replay, and medium-expert datasets. Each panel reports the
-    relative implemented full-parameter actor-gradient diagnostic and matched
-    absolute frozen advantage as functions of policy-relative standardized
-    distance. Each far transition is normalized by its original matched near
-    partner within seed; lines show 10-seed means and shaded regions show seed-level bootstrap 95\%
-    confidence intervals. The common near-to-far increase across all nine dataset
-    cells demonstrates that the aggregate result is not driven by a single task.
-    }
-    \label{fig:app_d4rl9_gradient_panels}
+    \textbf{(a) D4RL}\\[-0.2em]
+    \includegraphics[width=\linewidth]
+    {figures/fig_app_d4rl9_gradient_panels.pdf}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.49\textwidth}
+    \centering
+    \textbf{(b) Structured-generation tasks}\\[-0.2em]
+    \includegraphics[width=\linewidth]
+    {figures/fig_app_structured9_gradient_panels.pdf}
+\end{minipage}
+
+\caption{
+\textbf{Disaggregated external far-field diagnostics.}
+(a) Nine D4RL locomotion dataset cells.
+(b) Nine structured-generation tasks.
+}
+\Description{Side-by-side external diagnostic panels for the nine D4RL
+dataset cells and nine structured-generation tasks.}
+\label{fig:app_external_gradient_panels}
 \end{figure*}
 
 \subsection{Unified Continuous Environment C-U1}
@@ -4391,80 +4447,61 @@ diagnostic because its broader behavioral coverage provides a wider range of
 learner-relative distances, while all three Hopper datasets are retained for
 the task-level performance evaluation.
 
-\subsection{Countdown Task and Puzzle Dataset}
-\label{app:countdown_dataset}
+\subsection{Structured-Generation Tasks and Dataset Construction}
+\label{app:structured_generation_dataset}
 
-Countdown is an arithmetic generation task in which the policy receives
-a multiset of integers and a target value, and must generate an
-arithmetic expression that evaluates exactly to the target. A valid
-output must use every supplied number exactly once and may contain only
-addition, subtraction, multiplication, division, and parentheses.
+The structured-generation evaluation contains nine tasks:
+Countdown, Word Sorting, Spiral Matrix, Mini Sudoku, Maze, Word Ladder,
+Knights \& Knaves, Graph Coloring, and WikiSQL. Countdown follows the
+arithmetic task of \citet{hutton2002countdown} and the verifier-guided
+LLM formulation used by TinyZero~\citep{pan2025tinyzero}; Word Sorting,
+Spiral Matrix, Mini Sudoku, Maze, Word Ladder, Knights \& Knaves, and
+Graph Coloring are generated from Reasoning Gym
+\citep{stojanovski2025reasoninggym}; WikiSQL follows
+\citet{zhong2017seq2sql}. The corresponding source revisions are fixed by
+the registered experiment configuration.
 
-Puzzle instances and the frozen replay pool are constructed by our
-registered model-independent generator; the cited works establish
-the task provenance and prior LLM use, not the provenance of our
-generated corpus.
+All tasks use a common prompt-indexed replay-bank schema containing the
+task identity, prompt, verifier-confirmed oracle completion, verifier
+outcomes, model-independent negative completions, and task metadata.
+Learner-relative quantities are excluded from bank construction:
+current-policy probability, surprisal, near/far labels, and taper weights
+are recomputed from the learner when required rather than stored with the
+data. The replay banks remain frozen during optimization.
 
-Let
-$x=(\mathcal N,T)$
-denote a puzzle, where
-$\mathcal N$
-is the supplied multiset of numbers and
-$T$
-is the target. The policy action is a complete token sequence
-$y$ representing the generated expression. Task success is determined
-by a deterministic verifier:
-\begin{equation}
-    R(x,y)
-    =
-    \mathbf 1
-    \left[
-    \begin{aligned}
-        &y
-        \text{ is syntactically valid, uses }
-        \mathcal N
-        \text{ exactly once,} \\
-        &\text{and evaluates to }T
-    \end{aligned}
-    \right].
-    \label{eq:countdown_reward}
-\end{equation}
-Because multiple expressions can solve the same puzzle, evaluation is
-based on verifier success rather than exact string matching.
+\begin{table}[t]
+\centering
+\caption{Structured-generation task interfaces.}
+\label{tab:structured_generation_tasks}
+\small
+\setlength{\tabcolsep}{3.2pt}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lll}
+\toprule
+Task & Source & Verified output \\
+\midrule
+Countdown & Generated & Arithmetic expression \\
+Word Sorting & Reasoning Gym & Word permutation \\
+Spiral Matrix & Reasoning Gym & Integer sequence \\
+Mini Sudoku & Reasoning Gym & \(4\times4\) grid \\
+Maze & Reasoning Gym & Shortest-path length \\
+Word Ladder & Reasoning Gym & Word path \\
+Knights \& Knaves & Reasoning Gym & Role assignment \\
+Graph Coloring & Reasoning Gym & Vertex-color map \\
+WikiSQL & WikiSQL & SQL logical form \\
+\bottomrule
+\end{tabular*}
+\end{table}
 
-The puzzle corpus is procedurally generated from valid arithmetic
-expressions and divided into disjoint training, validation, and test
-sets. Duplicate puzzles with the same number multiset and target are
-removed across the corpus. Validation puzzles are used for checkpoint
-selection, while the test split is reserved for final evaluation.
-
-Countdown provides an external discrete-action setting with
-autoregressive sequence generation and shared Transformer parameters.
-For the diagnostic in Figure~\ref{fig:external_far_field}, unsuccessful
-responses are verifier-matched and grouped by current mean-token surprisal.
-
-\paragraph{Corpus construction and audit.}
-The procedurally generated puzzle source contains 6{,}000 training,
-500 validation, and 1{,}000 test puzzles, separated by canonical
-arithmetic-structure family. For each training puzzle, the positive is
-a verified oracle solution, while negatives are generated without a
-learner model and stratified into detail-wrong, near-value,
-mid-value, and far-value error bins. The corpus contains 9--16 unique
-negative expressions per prompt. A fixed-width representation with
-16 negative slots was also materialized for downstream compatibility:
-4{,}943 prompts already contained 16 unique negatives, while 1{,}057
-prompts were padded by cycling existing exact expressions. No new
-synthetic negative is introduced by this conversion. This representation
-records conversion provenance rather than the multiplicity used by the
-paper-facing objectives. The paper-facing trainers deduplicate exact
-expressions and optimize over all unique negatives available for each
-prompt. Failure statistics recorded at construction time are for
-analysis only: learner-relative near/far status is never stored and is
-recomputed only by methods that use the corresponding remoteness
-coordinate. The corpus and its replay-pool hash are shared by the
-protocol-matched V2 methods; initialization, sampling, calibration,
-and ratio-denominator rules are method-specific and are reported in
-their corresponding protocol subsections.
+The eight transfer tasks use 5,000 training prompts and 500 validation
+prompts under the unified paper-facing protocol. Countdown reuses its
+predecessor corpus with 6,000 training puzzles and 500 validation puzzles.
+Reserved test data are not used for coefficient tuning. The transfer-task
+interface selects 16 verifier-incorrect responses per training prompt;
+Countdown retains the predecessor bank's unique-negative consumer. Replay data
+remain fixed during optimization, while learner-relative mean completion-token
+surprisal is recomputed from the current policy. This zero-refresh construction
+isolates stale-negative reuse without storing learner-relative remoteness in the
+bank.
 
 \subsection{Training and Evaluation Protocols}
 
@@ -4943,11 +4980,11 @@ boundary, and NaN/Inf outcomes remain separate in both domains.
 \label{app:shared_methods}
 
 This section defines the protocol controls and remoteness-aware
-weighting rules shared by the D4RL and Countdown experiments. Their
-task-specific remoteness signals, data construction, and optimization
+weighting rules shared by the D4RL and structured-generation experiments.
+Their task-specific remoteness signals, data construction, and optimization
 protocols are described separately in
 Appendices~\ref{app:d4rl_methods} and
-\ref{app:countdown_methods}.
+\ref{app:structured_generation_methods}.
 
 \paragraph{Shared signed objective.}
 
@@ -5007,9 +5044,9 @@ Positive-only removes all negative updates:
 \]
 
 It therefore provides an extreme no-repulsion reference. In D4RL it
-retains only transitions with positive actor advantages; in Countdown
-it retains only verified successful responses under the corresponding
-binary learning signal.
+retains only transitions with positive actor advantages; in
+structured-generation tasks it retains only verifier-confirmed positive
+responses under the corresponding task signal.
 
 \paragraph{Global-\(\alpha\).}
 
@@ -5106,7 +5143,7 @@ and evaluation procedure.
 \paragraph{Tasks and datasets.}
 
 We evaluate HalfCheetah, Hopper, and Walker2d on the medium,
-medium-replay, and medium-expert datasets, producing the nine tasks
+medium-replay, and medium-expert datasets, producing the nine dataset cells
 reported in Table~\ref{tab:d4rl_performance}. The same fixed offline
 dataset is used by every protocol-matched method within a task.
 
@@ -5220,15 +5257,16 @@ method ranking is based on the registered terminal audit rather than an
 intermediate checkpoint.
 
 
-\subsection{Countdown Baselines and Experimental Protocol}
-\label{app:countdown_methods}
+\subsection{Structured-Generation Baselines and Experimental Protocol}
+\label{app:structured_generation_methods}
 
-Positive-only, Global-\(\alpha\), Reciprocal-Linear,
-Reciprocal-Quadratic, and DRPO follow the shared definitions in
-Appendix~\ref{app:shared_methods}. This section defines AsymRE, the
-Joint Fitted-Reference \(\beta\)-TOPR variant, and canonical DPO,
-together with the Countdown-specific response-bank, remoteness,
-training, and evaluation protocols.
+All structured-generation experiments use
+Qwen2.5-0.5B-Instruct~\citep{qwen2024qwen25} with LoRA adaptation and
+frozen prompt-indexed replay data. Learner-relative remoteness for DRPO is
+the current-policy mean completion-token surprisal and is recomputed during
+training rather than stored in the replay bank. Protocol-matched methods
+share the registered task data, verifier labels, optimization budget, and
+evaluation schedule within each task.
 
 \paragraph{AsymRE.}
 
@@ -5275,8 +5313,8 @@ rules.
 
 Let \(\mathcal X\) be the training-prompt set. For each
 \(x\in\mathcal X\), let \(y_x^+\) be the verified oracle solution and
-let \(\mathcal N_x\) be the set of unique negative expressions after
-exact-expression deduplication. Define the mean completion-token log
+let \(\mathcal N_x\) be the set of unique negative completions after
+canonical-completion deduplication. Define the mean completion-token log
 probability
 
 \[
@@ -5379,19 +5417,24 @@ outputs and ratio-derived weights are detached from the policy
 gradient. The 0.5/0.5 masses belong only to the reference-fitting
 objective, not to the policy objective. The data records do not contain
 behavior-policy log probabilities; the ratio denominator is supplied by
-the jointly fitted reference adapter during training. The completed
+the jointly fitted reference adapter during training. The completed Countdown
 TOPR coefficient scan is a provenance-limited development pilot and does
 not establish convergence, statistical significance, steady state, or
-a formal method ranking.
+a formal method ranking. The eight transfer-task scans belong to the
+registered formal baseline matrix and are not treated as results before its
+terminal audit.
 
-\paragraph{Canonical DPO.}
-Canonical DPO~\citep{rafailov2023direct} uses the same LoRA
-parameterization as the other Countdown methods and is preceded by a
-short oracle-positive SFT stage so that preference optimization starts
-from a task-capable policy rather than a near-random solver. The
-resulting SFT LoRA checkpoint reaches held-out Pass@8 in the
-\(0.10\)--\(0.14\) range and initializes both the trainable policy
-adapter and the frozen reference adapter. For each prompt \(x\), the verified oracle solution
+\paragraph{DPO.}
+
+Canonical DPO~\citep{rafailov2023direct} is trained with the same LoRA
+parameterization as the other structured-generation methods. For Countdown,
+the reported predecessor run initializes both the policy and frozen reference
+from the registered short-SFT checkpoint; this row-specific difference is
+marked by \(^{\ddagger}\) in
+Table~\ref{tab:structured_generation_performance}. For the eight transfer
+tasks, the frozen baseline matrix uses fresh LoRA from the base model and
+copies the initial policy adapter exactly into the frozen reference before the
+first DPO update. For each prompt \(x\), the verified oracle solution
 \(y_x^+\) is paired with every unique verifier-incorrect completion
 \(y\in\mathcal N_x\). Using the summed completion log probability
 \(s_\theta\) defined above, the loss is
@@ -5427,7 +5470,7 @@ coordinate for a prompt \(x\) and completion
 \(y=(y_1,\ldots,y_T)\) is the current mean completion-token surprisal
 
 \[
-D_{\mathrm{CD}}(x,y)
+D_{\mathrm{SG}}(x,y)
 =
 -\frac{1}{T}
 \sum_{t=1}^{T}
@@ -5450,94 +5493,53 @@ objective; neither baseline uses DRPO's mean-token remoteness.
 
 \paragraph{Frozen response-bank construction.}
 
-Before policy optimization, the registered model-independent generator
-constructs a frozen prompt-indexed V2 bank. Each training prompt has one
-verified oracle solution and 9--16 unique programmatically generated
-negative expressions stratified by construction-time error type. The
-paper-facing trainers deduplicate exact expressions and use all unique
-negatives available for each prompt. The bank stores no learner-relative
-near/far label and no behavior-policy log probability. Verifier outcome,
-response length, syntax status, number-use status, and arithmetic result
-remain separate stored diagnostics even when they share the same binary
-training reward.
+Before policy optimization, registered model-independent generators
+construct frozen prompt-indexed replay banks. For each of the eight transfer
+tasks, every training prompt has one verifier-confirmed oracle completion and
+16 model-independent verifier-incorrect completions under the registered
+training interface. Countdown reuses its predecessor bank, whose paper-facing
+consumer deduplicates exact expressions and may expose 9--16 unique negatives
+per prompt; a fixed-width 16-slot representation does not create additional
+unique negatives. The paper-facing trainers canonicalize exact outputs before
+consumption. The banks store no learner-relative near/far label and no
+behavior-policy log probability. Verifier outcome, response length,
+output-validity status, and task-specific error metadata remain separate stored
+diagnostics even when they share the same binary training reward.
 
 \paragraph{Training and checkpoint selection.}
 
-AsymRE, the Joint Fitted-Reference \(\beta\)-TOPR variant, and DRPO
-initialize their trainable policy LoRA adapters directly from the same
-Qwen2.5-0.5B-Instruct backbone~\citep{qwen2024qwen25}. The TOPR arm
-additionally creates a reference LoRA copied from its initial policy
-adapter. Canonical DPO uses the same LoRA parameterization but instead
-initializes both its trainable policy adapter and permanently frozen
-reference adapter from the short SFT LoRA checkpoint before the first
-DPO update. The registered continuation
-methods share the AdamW optimizer~\citep{loshchilov2019decoupled},
-learning-rate schedule, minibatch construction, number of optimizer
-steps, and validation split unless a method-specific protocol states
-otherwise. Hyperparameters are selected using the registered validation
-rule.
+All protocol-matched methods use Qwen2.5-0.5B-Instruct
+\citep{qwen2024qwen25} with the registered LoRA parameterization. The
+Joint Fitted-Reference \(\beta\)-TOPR arm additionally creates a fresh
+reference LoRA with parameters copied from the initial policy adapter.
+Within each structured-generation task, protocol-matched methods share the
+AdamW optimizer~\citep{loshchilov2019decoupled}, learning-rate schedule,
+minibatch construction, optimizer-step budget, validation protocol, and
+evaluation schedule unless a method-specific protocol states otherwise.
+Hyperparameters are selected using the registered validation rule.
 
-The registered training and selection configuration is summarized in
-Table~\ref{tab:countdown_registered_config}. All entries must be
-populated directly from the frozen experiment configuration rather than
-reconstructed after observing the test results.
-
-
-\begin{table}[t]
-\centering
-\caption{Registered configuration for the Countdown performance experiments.}
-\label{tab:countdown_registered_config}
-
-\footnotesize
-\setlength{\tabcolsep}{4pt}
-\renewcommand{\arraystretch}{1.10}
-
-\begin{tabular}{@{}p{0.38\columnwidth}p{0.56\columnwidth}@{}}
-\toprule
-Configuration & Registered value \\
-\midrule
-
-Training horizon
-& $1{,}200$ optimizer steps; no early stopping \\
-
-Update configuration
-& Micro-batch $1$, gradient accumulation $8$; AdamW with learning rate
-$5\times10^{-5}$, weight decay $0.01$, cosine decay, and $3\%$ warmup \\
-
-AsymRE
-& Selected $V=\delta_v=-1$ \\
-
-Joint fitted-reference TOPR
-& Selected $\beta=0.25$ \\
-
-Canonical DPO
-& One-epoch SFT warm start; selected $\beta=1.0$ \\
-
-DRPO
-& $\tau=0$, $c=2$, and selected $\lambda=1.897119985$ \\
-
-Global reference
-& $\alpha=0.03125$ ($1/32$) \\
-
-Evaluation
-& Pass@8 primary; Pass@64 supplementary \\
-
-\bottomrule
-\end{tabular}
-\end{table}
-
+The eight transfer tasks use 5,000 training prompts and 500 validation
+prompts per task, while Countdown reuses its predecessor protocol with 6,000
+training puzzles and 500 validation puzzles. Reserved test data are not used
+for coefficient tuning. All structured-generation runs use 1,200 optimizer
+updates and no early stopping; the transfer-task matrix selects 16 negatives
+per training prompt, while Countdown retains its predecessor unique-negative
+consumer. Pass@8 is the primary sampled-decoding metric. The common LoRA
+configuration is rank 32, alpha 64, and dropout 0.05.
+Task-specific runtime overrides such as sequence length and evaluation batch
+size follow the registered task adapters and are not varied as scientific
+comparison factors.
 
 \paragraph{Verifier-based evaluation.}
 
-Greedy verifier success is the fraction of held-out puzzles solved by
+Greedy verifier success is the fraction of held-out instances solved by
 greedy decoding. Pass@$k$ is the fraction solved by at least one of
-the registered \(k\) sampled responses. Valid-expression rate is the
-fraction of generated responses that satisfy the parser and number-use
-constraints, irrespective of whether they reach the target.
+the registered \(k\) sampled responses. Task-specific output-validity
+diagnostics are reported separately from verifier success where applicable.
 
-These three metrics are reported separately. In particular, a higher
-verifier success rate is not attributed to improved reasoning when it
-is accompanied by a deterioration in expression validity.
+A higher verifier success rate is not attributed to improved task
+performance when it is accompanied by a deterioration in the corresponding
+output-validity diagnostic.
 
 Task-performance degradation, token- or sequence-support boundary
 events, and NaN/Inf numerical failures are audited independently.
@@ -5545,107 +5547,56 @@ Claims about stability or final method ranking use the registered
 terminal checkpoint audit rather than finite-step pilot behavior.
 
 
-\subsection{Countdown Baseline-Coefficient Sensitivity}
-\label{app:countdown_baseline_sensitivity}
+\paragraph{Baseline coefficient selection.}
+For each of the eight transfer tasks, AsymRE scans
+\(\delta_v\in\{-1.0,-0.9,-0.75,-0.5,0.0\}\), Joint Fitted-Reference
+\(\beta\)-TOPR scans \(\beta\in\{0.25,0.5,1.0\}\), and canonical DPO
+scans \(\beta\in\{0.05,0.1,0.2\}\). Coefficients are selected on the
+registered validation metric using the same task-level selection rule as the
+main structured-generation comparison; test data are not used for coefficient
+selection. Countdown is reused from the registered predecessor comparison and
+has no new cells in this baseline matrix.
 
-Figure~\ref{fig:app_countdown_baseline_parameter_response} reports the
-complete parameter-response sweeps of AsymRE and the Joint
-Fitted-Reference \(\beta\)-TOPR variant. For AsymRE, performance is
-maximized at \(\delta_v=-1\) and drops substantially as \(\delta_v\)
-increases, placing the strongest tested finite-horizon configuration at
-the zero-negative boundary. For joint fitted-reference \(\beta\)-TOPR,
-\(\beta=0\) performs poorly, while positive \(\beta\) values recover
-performance and form a broad plateau rather than a sharply isolated
-optimum. We therefore use \(\delta_v=-1\) for AsymRE and \(\beta=0.25\)
-for joint fitted-reference \(\beta\)-TOPR in the main comparison.
-Across the registered \(\beta\) sweep, warm-started canonical DPO
-fails to preserve its initial task capability and collapses under
-every tested setting.
+\subsection{Structured-Generation DRPO Coefficient Response}
+\label{app:structured_generation_taper_sensitivity}
 
-\begin{figure}[t]
-    \centering
+Figure~\ref{fig:app_structured_generation_coefficient_response} reports the
+DRPO coefficient-response curves across the structured-generation tasks.
+Each panel plots late-window Pass@8 against the registered taper coefficient
+\(\lambda\), with the corresponding Positive-only result shown as a
+horizontal reference.
 
-    \begin{minipage}[t]{0.49\columnwidth}
-        \centering
-        \vspace{0pt}
-        \parbox[t][2.8em][t]{\linewidth}{
-            \centering
-            \textbf{(a) AsymRE}
-        }
-        \includegraphics[
-            width=\linewidth
-        ]{figures/fig_app_countdown_asymre_parameter_response.pdf}
-    \end{minipage}
-    \hfill
-    \begin{minipage}[t]{0.49\columnwidth}
-        \centering
-        \vspace{0pt}
-        \parbox[t][2.8em][t]{\linewidth}{
-            \centering
-            \textbf{(b) Joint fitted-reference}\\[-0.1em]
-            \textbf{\(\beta\)-TOPR}
-        }
-        \includegraphics[
-            width=\linewidth
-        ]{figures/fig_app_countdown_topr_parameter_response.pdf}
-    \end{minipage}
+Across tasks, the response is task dependent rather than a monotone
+``larger is better'' relationship. Countdown, Word Ladder, and
+Knights \& Knaves show substantial gains over Positive-only over part of the
+evaluated coefficient range, while Mini Sudoku and Maze show smaller
+improvements. Spiral Matrix is already near the task ceiling. Word Sorting
+and WikiSQL improve as \(\lambda\) increases but the observed sweeps do not
+establish a closed interior optimum. For Graph Coloring, small
+\(\lambda\) is insufficient, an intermediate range is effective, and the
+benefit declines as \(\lambda\) becomes large, with high-\(\lambda\)
+performance returning toward the Positive-only level. These fixed-horizon
+curves characterize coefficient sensitivity and task-dependent useful
+operating ranges; they do not establish convergence, steady state, or a
+universal cross-task value of \(\lambda\).
 
-    \vspace{-0.35em}
-    \caption{
-        \textbf{Countdown-0.5B baseline-coefficient response.}
-        \textbf{(a)} AsymRE late-window Pass@8 versus \(\delta_v\).
-        \textbf{(b)} Joint fitted-reference \(\beta\)-TOPR late-window
-        Pass@8 versus \(\beta\). Points denote means over the available
-        development trajectories; error bars span their minimum--maximum
-        range. The dashed line denotes DRPO at
-        \(\lambda=1.897\) with \(c=2\), and stars mark the baseline
-        settings used in Table~\ref{tab:countdown_performance}:
-        \(\delta_v=-1\) and \(\beta=0.25\).
-    }
-    \label{fig:app_countdown_baseline_parameter_response}
-\end{figure}
-
-\subsection{Countdown Taper-Coefficient Sensitivity}
-\label{app:countdown_taper_sensitivity}
-
-Figure~\ref{fig:app_countdown_taper_coefficient_response} reports the
-complete stored late-window Pass@8 coefficient response for the
-Countdown-0.5B taper study under the fixed 1,200-step budget. Here the
-late-window metric averages the final five evaluations (steps 800, 900,
-1000, 1100, and 1200). Each point is the mean of the two paired
-development seeds, and each error bar spans the corresponding pair of
-seed values. The horizontal reference is the Positive-only late-window
-mean of 14.0\%.
-
-\begin{figure}[t]
+\begin{figure*}[t]
     \centering
     \includegraphics[
-        width=\columnwidth
-    ]{figures/fig_app_countdown_taper_coefficient_response.pdf}
+        width=\textwidth
+    ]{figures/fig_app_structured9_drpo_coefficient_response.pdf}
     \caption{
-        \textbf{Countdown-0.5B taper-coefficient response.}
-        Late-window Pass@8 is shown against the taper coefficient $\lambda$
-        under the fixed 1,200-step budget. Curves report two-seed late-window means;
-        error bars span the paired seed values, and the dashed horizontal
-        line denotes Positive-only. Exp./DRPO is shown over
-        $\lambda\in[0.01,9.2103]$, Reciprocal-Linear through $319$, and
-        Reciprocal-Quadratic through $1279$.
+        \textbf{DRPO coefficient response across structured-generation tasks.}
+        Each panel reports late-window Pass@8 versus the registered taper
+        coefficient \(\lambda\); dashed horizontal lines denote the
+        corresponding Positive-only references. Task-specific vertical scales
+        are used to make within-task response shape visible.
     }
-    \label{fig:app_countdown_taper_coefficient_response}
-\end{figure}
-
-The exponential response rises above Positive-only over an intermediate
-coefficient region, reaches a maximum two-seed late-window mean of 15.7\%,
-and returns toward the Positive-only level at the largest evaluated
-coefficients. Reciprocal-Linear increases toward a broad plateau but
-remains slightly below Positive-only, with a maximum late-window mean of
-13.6\%. Reciprocal-Quadratic reaches 14.5\% at $\lambda=24$ and then
-fluctuates around a broad reference-level plateau through $\lambda=1279$.
-These complete curves show that the observed difference is a
-response-shape effect rather than a comparison of isolated best points.
-Because this study uses two paired development seeds and a fixed horizon,
-it supports a bounded tail-shape sensitivity claim, not convergence,
-statistical significance, or a universal method ranking.
+    \Description{Nine-panel DRPO coefficient-response figure covering
+    Countdown, Word Sorting, Spiral Matrix, Mini Sudoku, Maze, Word Ladder,
+    Knights and Knaves, Graph Coloring, and WikiSQL.}
+    \label{fig:app_structured_generation_coefficient_response}
+\end{figure*}
 
 \clearpage
 \end{document}
