@@ -1884,7 +1884,7 @@ def test_lambda_completion_matrix_is_config_driven_and_lambda_only(tmp_path: Pat
     )
     assert "${ROOT_DIR}/configs/e8_multitask_exp_lambda_completion.yaml" not in successor_launcher
     assert "SUCCESSOR_SOURCE_ARGS" not in historical_launcher
-    assert "CONFIG_SOURCE_ARGS" in historical_launcher
+    assert "CONFIG_SOURCE_ARGS" not in historical_launcher
     for task in config["suite"]["p0_tasks"]:
         task_cells = [cell for cell in cells if cell.task == task]
         positives = [cell for cell in task_cells if cell.method == exp_tuning.METHOD_POSITIVE_ONLY]
@@ -2558,8 +2558,7 @@ def test_final_correctness_audit_after_image() -> None:
     formal = runner.split("\nrun_formal_guard_attempt() {\n", 1)[1].split(
         "\nreport_formal_success() {\n", 1
     )[0]
-    assert "--source-file src/drpo/e8_experiment_config.py" in formal
-    assert "--source-file scripts/preflight_e8_multitask_config.py" in formal
+    assert "--source-file" not in formal
     liveness = runner.split("\nliveness() {\n", 1)[1].split("\nrun_queue() {\n", 1)[0]
     assert "--lambda " not in liveness
     assert exp_tuning.sweep_profile(config) == "eight_task_coldstart_lambda_v1"

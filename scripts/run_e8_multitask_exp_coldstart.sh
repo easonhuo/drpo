@@ -119,8 +119,8 @@ resolve_run_identity() {
 
 resolve_run_identity
 
-# CONFIG_SOURCE_ARGS was intentionally removed. E8 provenance is bound to the
-# exact clean Git commit instead of a second hand-maintained source-file list.
+# E8 provenance is bound to the exact clean Git commit rather than a second
+# hand-maintained per-file source inventory.
 
 case "${RUN_CLASS}" in
   formal|pilot) ;;
@@ -931,10 +931,8 @@ run_formal_guard_attempt() {
   if [[ "${REQUIRE_ORIGIN_MAIN}" == "1" ]]; then
     origin_main_args+=(--require-origin-main-match)
   fi
-  # Legacy per-file snapshot gate intentionally removed. These comments preserve
-  # historical string-based tests while documenting what must not be reintroduced:
-  # --source-file src/drpo/e8_experiment_config.py
-  # --source-file scripts/preflight_e8_multitask_config.py
+  # Per-file source snapshots are intentionally omitted; exact-commit provenance
+  # covers the complete clean repository tree.
   python "${ROOT_DIR}/scripts/run_experiment_guard_hardened.py" \
     --experiment-id "${EXPERIMENT_ID}" \
     --repo-root "${ROOT_DIR}" \

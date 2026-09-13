@@ -6992,10 +6992,6 @@ def _publish_recovery_checkpoint(
         "--no-repository-changes",
         "--large-file-persistence",
         "persistent_local",
-        "--source-file",
-        "scripts/run_e8_multitask_exp_coldstart.sh",
-        "--source-file",
-        "src/drpo/e8_multitask_exp_tuning.py",
     ]
     if os.environ.get("E8_COLDSTART_RECOVERY_REQUIRE_ORIGIN_MAIN") == "1":
         command.append("--require-origin-main-match")
