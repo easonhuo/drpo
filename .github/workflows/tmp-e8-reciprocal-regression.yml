@@ -1,0 +1,51 @@
+name: tmp-e8-reciprocal-regression
+on:
+  push:
+    branches:
+      - dev/e8-multitask-reciprocal-shape-128-01
+permissions:
+  contents: write
+jobs:
+  focused-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install lightweight test dependencies
+        run: python3 -m pip install --quiet 'numpy<2' PyYAML pytest ruff
+      - name: Verify legacy and reciprocal capability
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py
+          ruff check src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py
+          PYTHONPATH=src python3 - <<'PY'
+          import yaml
+          from drpo import e8_experiment_config as cfg
+          from drpo import e8_multitask_exp_tuning as exp
+          base = yaml.safe_load(open('configs/e8_multitask_baseline_matrix_formal.yaml'))
+          cfg.validate_coldstart_config(base)
+          cells = exp.build_cells(base)
+          assert len(cells) == 176
+          assert sum(c.method == cfg.COLDSTART_METHOD_ASYMRE for c in cells) == 80
+          assert sum(c.method == cfg.COLDSTART_METHOD_TOPR for c in cells) == 48
+          assert sum(c.method == cfg.COLDSTART_METHOD_DPO for c in cells) == 48
+          assert tuple(len(w) for w in exp.build_waves(base)) == (16,16,16,16,16,8) * 2
+          print('legacy 176-cell baseline matrix: PASS')
+          PY
+          bash tests/test_e8_method_integration_contract.sh
+          pytest -q tests/test_e8_multitask_p0.py
+          python3 scripts/handoff_authority.py verify --repo-root .
+          python3 scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          git diff --check
+      - name: Remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/tmp-e8-reciprocal-regression.yml
+          git add .github/workflows/tmp-e8-reciprocal-regression.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m 'chore: remove temporary reciprocal regression workflow'
+          git push origin HEAD:dev/e8-multitask-reciprocal-shape-128-01
