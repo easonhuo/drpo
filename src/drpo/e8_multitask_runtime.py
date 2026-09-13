@@ -22,7 +22,7 @@ class CellLike(Protocol):
 @dataclass(frozen=True)
 class MethodAuditResult:
     passed: bool
-    evidence: Mapping[str, Any]
+    failure_bucket: str = "terminal_contract_failures"
     failures: tuple[str, ...] = ()
 
 
@@ -49,9 +49,7 @@ def recovery_identity(
         "task": cell.task,
         "method": cell.method,
     }
-    collisions = sorted(
-        set(cell_identity).intersection(cell_identity_fields)
-    )
+    collisions = sorted(set(cell_identity).intersection(cell_identity_fields))
     if collisions:
         raise ValueError(
             f"Method cell identity attempted to overwrite: {collisions}"

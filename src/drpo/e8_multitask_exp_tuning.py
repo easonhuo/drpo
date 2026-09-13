@@ -185,6 +185,31 @@ class Cell:
         return _method_spec(self.method).cell_key(self)
 
 
+def _default_method_audit(
+    cell: Cell, record: Mapping[str, Any]
+) -> e8_runtime.MethodAuditResult:
+    del cell, record
+    return e8_runtime.MethodAuditResult(True)
+
+
+def _empty_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    del config
+    return {}
+
+
+@dataclass(frozen=True)
+class PaperRuntimeSpec:
+    """Optional capability for methods using the canonical paper runtime."""
+
+    liveness_grid: Callable[[Mapping[str, Any], Mapping[str, Any]], Path]
+    liveness_parameter: str
+    grid_paths: Callable[
+        [Mapping[str, Any], Mapping[str, Any], Cell], tuple[Path, Path]
+    ]
+    cell_parameters: Callable[[Cell], tuple[str, float, float]]
+    formula: str
+
+
 @dataclass(frozen=True)
 class MethodSpec:
     """One scientific-method adapter; generic infrastructure never branches on names."""
@@ -193,22 +218,23 @@ class MethodSpec:
     build_cell: Callable[..., Cell]
     cell_key: Callable[[Cell], str]
     parameters: Callable[[Cell], Mapping[str, Any]]
-    compatibility_columns: Callable[[Cell], Mapping[str, Any]]
     cell_initialization: Callable[[Mapping[str, Any]], str | None]
     initialization_identity: Callable[[Mapping[str, Any]], Mapping[str, Any]]
     train_cold: Callable[..., dict[str, Any]]
     liveness_task: Callable[[Mapping[str, Any]], str]
     liveness_runner: Callable[..., dict[str, Any]]
-    canonical_liveness_grid: Callable[[Mapping[str, Any], Mapping[str, Any]], Path] | None
-    canonical_liveness_parameter: str | None
-    paper_grid_paths: Callable[[Mapping[str, Any], Mapping[str, Any], Cell], tuple[Path, Path]] | None
-    paper_cell_parameters: Callable[[Cell], tuple[str, float, float]] | None
-    paper_formula: str
-    audit_record: Callable[[Cell, Mapping[str, Any]], e8_runtime.MethodAuditResult]
-    audit_failure_bucket: str
     scientific_kernel: str
-    single_aggregate_metadata: Callable[[Mapping[str, Any]], Mapping[str, Any]]
-    matrix_aggregate_metadata: Callable[[Mapping[str, Any]], Mapping[str, Any]]
+    paper_runtime: PaperRuntimeSpec | None = None
+    audit_record: Callable[
+        [Cell, Mapping[str, Any]], e8_runtime.MethodAuditResult
+    ] = _default_method_audit
+    single_aggregate_metadata: Callable[
+        [Mapping[str, Any]], Mapping[str, Any]
+    ] = _empty_metadata
+    matrix_aggregate_metadata: Callable[
+        [Mapping[str, Any]], Mapping[str, Any]
+    ] = _empty_metadata
+
 
 
 _METHOD_SPECS: dict[str, MethodSpec] = {}
@@ -241,6 +267,19 @@ def _legacy_compatibility_columns(cell: Cell) -> Mapping[str, Any]:
         "rho": cell.rho,
         "lambda": _cell_lambda(cell),
     }
+
+def _method_output_columns(cell: Cell) -> dict[str, Any]:
+    """Merge frozen legacy columns with the method's single parameter source."""
+
+    columns = dict(_legacy_compatibility_columns(cell))
+    for name, value in _method_spec(cell.method).parameters(cell).items():
+        if name in columns and columns[name] != value:
+            raise ValueError(
+                f"Method parameter {name!r} conflicts with its legacy cell value"
+            )
+        columns[name] = value
+    return columns
+
 
 
 def _positive_key(cell: Cell) -> str:
@@ -364,30 +403,6 @@ def _cold_train_dpo(cell: Cell, **kwargs: Any) -> dict[str, Any]:
     return _train_canonical_dpo_transfer_cell(cell, **kwargs)
 
 
-def _run_default_canonical_liveness(
-    *,
-    config: Mapping[str, Any],
-    config_path: Path,
-    output_root: Path,
-    inputs: Mapping[str, TaskInputs],
-    splits: Mapping[str, Any],
-    base_model_path: str,
-    task: str,
-    force: bool,
-) -> dict[str, Any]:
-    """Preserve the legacy default paper-runtime liveness call surface."""
-
-    if task != "countdown":
-        raise RuntimeError("The paper-runtime liveness anchor must be Countdown")
-    return _cmd_canonical_cold_liveness(
-        config,
-        config_path,
-        output_root,
-        inputs=inputs["countdown"],
-        splits=splits,
-        base_model_path=base_model_path,
-        force=force,
-    )
 
 
 def _run_canonical_method_liveness(
@@ -480,11 +495,6 @@ def _paper_params_topr(cell: Cell) -> tuple[str, float, float]:
 
 
 
-def _default_method_audit(
-    cell: Cell, record: Mapping[str, Any]
-) -> e8_runtime.MethodAuditResult:
-    del cell, record
-    return e8_runtime.MethodAuditResult(True, {})
 
 
 def _dpo_method_audit(
@@ -499,18 +509,11 @@ def _dpo_method_audit(
     if record.get("reference_trainable") is not False:
         failures.append("reference_trainable")
     return e8_runtime.MethodAuditResult(
-        not failures,
-        {
-            "reference_initial_state_sha256": record.get(
-                "reference_initial_state_sha256"
-            ),
-            "reference_terminal_state_sha256": record.get(
-                "reference_terminal_state_sha256"
-            ),
-            "reference_trainable": record.get("reference_trainable"),
-        },
-        tuple(failures),
+        passed=not failures,
+        failure_bucket="dpo_reference_identity_failures",
+        failures=tuple(failures),
     )
+
 
 
 def _asymre_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -558,85 +561,49 @@ def _dpo_matrix_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
     }
 
 
-def _empty_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
-    del config
-    return {}
 
 
 def _register_builtin_method_specs() -> None:
-    common = {
-        "compatibility_columns": _legacy_compatibility_columns,
-        "audit_record": _default_method_audit,
-        "audit_failure_bucket": "terminal_contract_failures",
-        "single_aggregate_metadata": _empty_metadata,
-        "matrix_aggregate_metadata": _empty_metadata,
-    }
-    _register_method_spec(
-        MethodSpec(
-            name=METHOD_POSITIVE_ONLY,
-            build_cell=_build_control_cell,
-            cell_key=_positive_key,
-            parameters=lambda cell: {},
-            cell_initialization=lambda config: None,
-            initialization_identity=_default_initialization_identity,
-            train_cold=_cold_train_paper,
-            liveness_task=lambda config: "countdown",
-            liveness_runner=_run_default_canonical_liveness,
-            canonical_liveness_grid=lambda config, record: Path(
-                str(record["round1_grid"])
-            ),
-            canonical_liveness_parameter="representative_c",
-            paper_grid_paths=_paper_grid_paths_exponential,
-            paper_cell_parameters=_paper_params_exponential,
-            paper_formula="alpha*exp(-c*(current_sequence_surprisal/2))",
-            scientific_kernel="canonical_old_coldstart_imports",
-            **common,
-        )
+    exponential_paper_runtime = PaperRuntimeSpec(
+        liveness_grid=lambda config, record: Path(str(record["round1_grid"])),
+        liveness_parameter="representative_c",
+        grid_paths=_paper_grid_paths_exponential,
+        cell_parameters=_paper_params_exponential,
+        formula="alpha*exp(-c*(current_sequence_surprisal/2))",
     )
-    _register_method_spec(
-        MethodSpec(
-            name=METHOD_GLOBAL,
-            build_cell=_build_control_cell,
-            cell_key=_global_key,
-            parameters=lambda cell: {"lambda": 0.0},
-            cell_initialization=lambda config: None,
-            initialization_identity=_default_initialization_identity,
-            train_cold=_cold_train_paper,
-            liveness_task=lambda config: "countdown",
-            liveness_runner=_run_default_canonical_liveness,
-            canonical_liveness_grid=lambda config, record: Path(
-                str(record["round1_grid"])
-            ),
-            canonical_liveness_parameter="representative_c",
-            paper_grid_paths=_paper_grid_paths_exponential,
-            paper_cell_parameters=_paper_params_exponential,
-            paper_formula="alpha*exp(-c*(current_sequence_surprisal/2))",
-            scientific_kernel="canonical_old_coldstart_imports",
-            **common,
+    for method, build_cell, cell_key, parameters in (
+        (METHOD_POSITIVE_ONLY, _build_control_cell, _positive_key, lambda cell: {}),
+        (
+            METHOD_GLOBAL,
+            _build_control_cell,
+            _global_key,
+            lambda cell: {"lambda": 0.0},
+        ),
+        (
+            METHOD_EXPONENTIAL,
+            _build_exponential_cell,
+            _exp_key,
+            lambda cell: {"lambda": _cell_lambda(cell), "rho": cell.rho},
+        ),
+    ):
+        _register_method_spec(
+            MethodSpec(
+                name=method,
+                build_cell=build_cell,
+                cell_key=cell_key,
+                parameters=parameters,
+                cell_initialization=lambda config: None,
+                initialization_identity=_default_initialization_identity,
+                train_cold=_cold_train_paper,
+                liveness_task=lambda config: "countdown",
+                liveness_runner=lambda _method=method, **kwargs: (
+                    _run_canonical_method_liveness(_method, **kwargs)
+                ),
+                scientific_kernel="canonical_old_coldstart_imports",
+                paper_runtime=exponential_paper_runtime,
+            )
         )
-    )
-    _register_method_spec(
-        MethodSpec(
-            name=METHOD_EXPONENTIAL,
-            build_cell=_build_exponential_cell,
-            cell_key=_exp_key,
-            parameters=lambda cell: {"lambda": _cell_lambda(cell), "rho": cell.rho},
-            cell_initialization=lambda config: None,
-            initialization_identity=_default_initialization_identity,
-            train_cold=_cold_train_paper,
-            liveness_task=lambda config: "countdown",
-            liveness_runner=_run_default_canonical_liveness,
-            canonical_liveness_grid=lambda config, record: Path(
-                str(record["round1_grid"])
-            ),
-            canonical_liveness_parameter="representative_c",
-            paper_grid_paths=_paper_grid_paths_exponential,
-            paper_cell_parameters=_paper_params_exponential,
-            paper_formula="alpha*exp(-c*(current_sequence_surprisal/2))",
-            scientific_kernel="canonical_old_coldstart_imports",
-            **common,
-        )
-    )
+
     _register_method_spec(
         MethodSpec(
             name=METHOD_ASYMRE,
@@ -650,21 +617,21 @@ def _register_builtin_method_specs() -> None:
             liveness_runner=lambda **kwargs: _run_canonical_method_liveness(
                 METHOD_ASYMRE, **kwargs
             ),
-            canonical_liveness_grid=lambda config, record: _canonical_asymre_grid_path(),
-            canonical_liveness_parameter="representative_delta_v",
-            paper_grid_paths=lambda config, record, cell: (
-                _canonical_asymre_grid_path(), _canonical_asymre_grid_path()
-            ),
-            paper_cell_parameters=_paper_params_asymre,
-            paper_formula="delegated_to_existing_canonical_asymre",
             scientific_kernel="canonical_old_coldstart_imports",
-            single_aggregate_metadata=_asymre_single_metadata,
-            matrix_aggregate_metadata=lambda config: _canonical_baseline_grid_identity(
-                METHOD_ASYMRE
+            paper_runtime=PaperRuntimeSpec(
+                liveness_grid=lambda config, record: _canonical_asymre_grid_path(),
+                liveness_parameter="representative_delta_v",
+                grid_paths=lambda config, record, cell: (
+                    _canonical_asymre_grid_path(),
+                    _canonical_asymre_grid_path(),
+                ),
+                cell_parameters=_paper_params_asymre,
+                formula="delegated_to_existing_canonical_asymre",
             ),
-            **{k: v for k, v in common.items() if k not in {
-                "single_aggregate_metadata", "matrix_aggregate_metadata"
-            }},
+            single_aggregate_metadata=_asymre_single_metadata,
+            matrix_aggregate_metadata=lambda config: (
+                _canonical_baseline_grid_identity(METHOD_ASYMRE)
+            ),
         )
     )
     _register_method_spec(
@@ -680,21 +647,21 @@ def _register_builtin_method_specs() -> None:
             liveness_runner=lambda **kwargs: _run_canonical_method_liveness(
                 METHOD_TOPR, **kwargs
             ),
-            canonical_liveness_grid=lambda config, record: _canonical_topr_grid_path(),
-            canonical_liveness_parameter="representative_c",
-            paper_grid_paths=lambda config, record, cell: (
-                _canonical_topr_grid_path(), _canonical_topr_grid_path()
-            ),
-            paper_cell_parameters=_paper_params_topr,
-            paper_formula="delegated_to_existing_joint_fitted_reference_beta_topr",
             scientific_kernel="canonical_old_coldstart_imports",
-            single_aggregate_metadata=_topr_single_metadata,
-            matrix_aggregate_metadata=lambda config: _canonical_baseline_grid_identity(
-                METHOD_TOPR
+            paper_runtime=PaperRuntimeSpec(
+                liveness_grid=lambda config, record: _canonical_topr_grid_path(),
+                liveness_parameter="representative_c",
+                grid_paths=lambda config, record, cell: (
+                    _canonical_topr_grid_path(),
+                    _canonical_topr_grid_path(),
+                ),
+                cell_parameters=_paper_params_topr,
+                formula="delegated_to_existing_joint_fitted_reference_beta_topr",
             ),
-            **{k: v for k, v in common.items() if k not in {
-                "single_aggregate_metadata", "matrix_aggregate_metadata"
-            }},
+            single_aggregate_metadata=_topr_single_metadata,
+            matrix_aggregate_metadata=lambda config: (
+                _canonical_baseline_grid_identity(METHOD_TOPR)
+            ),
         )
     )
     _register_method_spec(
@@ -703,26 +670,22 @@ def _register_builtin_method_specs() -> None:
             build_cell=_build_dpo_cell,
             cell_key=_dpo_key,
             parameters=lambda cell: {"beta": cell.beta},
-            compatibility_columns=_legacy_compatibility_columns,
-            cell_initialization=lambda config: str(config["dpo"]["initialization_mode"]),
+            cell_initialization=lambda config: str(
+                config["dpo"]["initialization_mode"]
+            ),
             initialization_identity=_dpo_initialization_identity,
             train_cold=_cold_train_dpo,
             liveness_task=lambda config: str(config["dpo"]["liveness_task"]),
             liveness_runner=_run_dpo_method_liveness,
-            canonical_liveness_grid=None,
-            canonical_liveness_parameter=None,
-            paper_grid_paths=None,
-            paper_cell_parameters=None,
-            paper_formula="canonical_dpo_pair_log_probability_margin",
-            audit_record=_dpo_method_audit,
-            audit_failure_bucket="dpo_reference_identity_failures",
             scientific_kernel=(
                 "historical_pr268_semantics_port_in_existing_multitask_runner"
             ),
+            audit_record=_dpo_method_audit,
             single_aggregate_metadata=_dpo_single_metadata,
             matrix_aggregate_metadata=_dpo_matrix_metadata,
         )
     )
+
 
 
 _register_builtin_method_specs()
@@ -1348,7 +1311,7 @@ def write_plan(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
     rows = e8_orchestration.plan_rows(
         waves,
         gpu_ids=gpu_ids,
-        project_cell=lambda cell: _method_spec(cell.method).compatibility_columns(cell),
+        project_cell=_method_output_columns,
     )
     plan = {
         "schema_version": 1,
@@ -3607,12 +3570,13 @@ def _paper_grid_for_cell(
     record: Mapping[str, Any],
     cell: Cell,
 ) -> tuple[Path, Path]:
-    spec = _method_spec(cell.method)
-    if spec.paper_grid_paths is None:
+    paper_runtime = _method_spec(cell.method).paper_runtime
+    if paper_runtime is None:
         raise RuntimeError(
             f"{cell.method} does not use the canonical paper grid runtime"
         )
-    return spec.paper_grid_paths(config, record, cell)
+    return paper_runtime.grid_paths(config, record, cell)
+
 
 def calibrate_canonical_cold_task(
     task: str,
@@ -4285,7 +4249,7 @@ def _cell_identity(
         cell,
         experiment_id=experiment_id(config),
         config_hash=stable_config_hash(config),
-        cell_identity_fields=spec.compatibility_columns(cell),
+        cell_identity_fields=_method_output_columns(cell),
         common_identity_fields={
             "bank_sha256": split_manifest["tasks"][cell.task]["bank_sha256"],
             "split_prompt_hashes": split_manifest["tasks"][cell.task][
@@ -5508,11 +5472,12 @@ def _train_canonical_cold_cell(
     validation = Path(str(record["validation"]))
     base_config_path = base_config_override or Path(str(record["base_config"]))
     method_spec = _method_spec(cell.method)
-    grid_path, grid_source_path = _paper_grid_for_cell(config, record, cell)
-    if method_spec.paper_cell_parameters is None:
+    paper_runtime = method_spec.paper_runtime
+    if paper_runtime is None:
         raise RuntimeError(
             f"{cell.method} does not use canonical paper cell parameters"
         )
+    grid_path, grid_source_path = _paper_grid_for_cell(config, record, cell)
     modules = _activate_paper_grid_modules(modules, grid_source_path)
     arena = modules["arena"]
     runtime = modules["paper_runtime"]
@@ -5538,7 +5503,7 @@ def _train_canonical_cold_cell(
                 if cell.task == "countdown"
                 else "countdown_e8_alpha1_c_scan_trainer.train_cell"
             ),
-            "paper_formula": method_spec.paper_formula,
+            "paper_formula": paper_runtime.formula,
             "paper_grid_config": str(grid_path.resolve()),
             "paper_grid_config_sha256": sha256_file(grid_path),
             "paper_grid_source": str(grid_source_path.resolve()),
@@ -5645,7 +5610,7 @@ def _train_canonical_cold_cell(
             arena.completion_stats = original_completion_stats
             scan_trainer._evaluate_validation = original_trainer_evaluate
 
-    paper_family, alpha, coefficient = method_spec.paper_cell_parameters(cell)
+    paper_family, alpha, coefficient = paper_runtime.cell_parameters(cell)
     with (
         _legacy_paper_runtime_bridge(
             modules,
@@ -6220,7 +6185,7 @@ def _canonical_liveness_base_config(config: Mapping[str, Any], output_root: Path
 
 
 def _canonical_cold_liveness_cell(grid_path: Path) -> Cell:
-    """Derive one liveness cell through the registered method contract."""
+    """Derive one paper-runtime liveness cell through the method contract."""
 
     grid = yaml.safe_load(grid_path.read_text(encoding="utf-8"))
     if not isinstance(grid, dict):
@@ -6229,9 +6194,9 @@ def _canonical_cold_liveness_cell(grid_path: Path) -> Cell:
     seed_offsets = grid["sweep"]["seed_offsets"]
     method = str(liveness.get("representative_family", METHOD_EXPONENTIAL))
     spec = _method_spec(method)
-    parameter_key = spec.canonical_liveness_parameter
-    if parameter_key is None:
-        raise RuntimeError(f"{method} has no canonical cold-liveness parameter")
+    if spec.paper_runtime is None:
+        raise RuntimeError(f"{method} does not use canonical paper-runtime liveness")
+    parameter_key = spec.paper_runtime.liveness_parameter
     if parameter_key not in liveness:
         raise RuntimeError(
             f"Canonical liveness grid for {method} lacks {parameter_key}"
@@ -6245,6 +6210,7 @@ def _canonical_cold_liveness_cell(grid_path: Path) -> Cell:
         lambda_only=False,
         dpo_initialization=None,
     )
+
 
 def _cmd_canonical_cold_liveness(
     config: Mapping[str, Any],
@@ -6260,10 +6226,10 @@ def _cmd_canonical_cold_liveness(
     modules = _canonical_cold_modules(config)
     record = _canonical_task_record(splits, "countdown")
     method = method or _coldstart_method(config)
-    method_spec = _method_spec(method)
-    if method_spec.canonical_liveness_grid is None:
+    paper_runtime = _method_spec(method).paper_runtime
+    if paper_runtime is None:
         raise RuntimeError(f"{method} does not use canonical paper-runtime liveness")
-    grid_path = method_spec.canonical_liveness_grid(config, record)
+    grid_path = paper_runtime.liveness_grid(config, record)
     modules = _activate_paper_grid_modules(modules, grid_path)
     runtime = modules["paper_runtime"]
     cell = _canonical_cold_liveness_cell(grid_path)
@@ -7792,41 +7758,36 @@ def _coldstart_result_row(
         raise RuntimeError(
             f"{cell.key} is missing the paper primary late-window metric"
         )
-    spec = _method_spec(cell.method)
-    record = e8_results.common_result_record(
+    return e8_results.common_result_row(
         cell,
-        value,
         source=source,
-        project_method=lambda current: e8_results.MethodResultProjection(
-            parameters=dict(spec.parameters(current)),
-            compatibility_columns=dict(spec.compatibility_columns(current)),
-        ),
-        project_metrics=lambda current: {
-            "nan_inf_failure": bool(current["nan_inf_failure"]),
-            "late_window_pass8_mean": current.get(
+        method_columns=_method_output_columns(cell),
+        metrics={
+            "nan_inf_failure": bool(value["nan_inf_failure"]),
+            "late_window_pass8_mean": value.get(
                 "validation_late_window_pass8_mean",
-                current["validation_best_pass8"],
+                value["validation_best_pass8"],
             ),
-            "late_window_greedy_mean": current.get(
+            "late_window_greedy_mean": value.get(
                 "validation_late_window_greedy_mean",
-                current["validation_best_greedy"],
+                value["validation_best_greedy"],
             ),
-            "best_pass8": current["validation_best_pass8"],
-            "terminal_pass8": current["validation_terminal_pass8"],
-            "best_greedy": current["validation_best_greedy"],
-            "terminal_greedy": current["validation_terminal_greedy"],
-            "best_greedy_valid_rate": current[
+            "best_pass8": value["validation_best_pass8"],
+            "terminal_pass8": value["validation_terminal_pass8"],
+            "best_greedy": value["validation_best_greedy"],
+            "terminal_greedy": value["validation_terminal_greedy"],
+            "best_greedy_valid_rate": value[
                 "validation_best_greedy_valid_rate"
             ],
-            "terminal_greedy_valid_rate": current[
+            "terminal_greedy_valid_rate": value[
                 "validation_terminal_greedy_valid_rate"
             ],
-            "best_step": current["best_step"],
-            "terminal_step": current["terminal_step"],
-            "stop_reason": current["stop_reason"],
+            "best_step": value["best_step"],
+            "terminal_step": value["terminal_step"],
+            "stop_reason": value["stop_reason"],
         },
     )
-    return record.public_row()
+
 
 
 def _coldstart_completed_task_rows(
@@ -8807,7 +8768,7 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
                 terminal_contract_failures.append(cell.key)
             method_audit = _method_spec(cell.method).audit_record(cell, value)
             if not method_audit.passed:
-                bucket = _method_spec(cell.method).audit_failure_bucket
+                bucket = method_audit.failure_bucket
                 if bucket == "dpo_reference_identity_failures":
                     dpo_reference_identity_failures.append(cell.key)
                 else:

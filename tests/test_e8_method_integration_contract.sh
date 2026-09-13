@@ -11,12 +11,9 @@ from __future__ import annotations
 
 import inspect
 import json
-import tempfile
 import threading
 import time
 from pathlib import Path
-
-import yaml
 
 from drpo import e8_multitask_exp_tuning as exp_tuning
 from drpo.e8_multitask_orchestration import (
@@ -54,16 +51,6 @@ def build_dummy(*, task, method, seed, stage, value, lambda_only, dpo_initializa
 def parameters(cell):
     return dict(cell.method_parameters or {})
 
-def compatibility(cell):
-    return {
-        "delta_v": None,
-        "beta": None,
-        "dpo_initialization": None,
-        "rho": None,
-        "lambda": None,
-        "temperature": parameters(cell)["temperature"],
-    }
-
 def cell_key(cell):
     tag = f"{parameters(cell)['temperature']:.3f}".replace(".", "p")
     return f"{cell.task}__{cell.method}_{tag}__seed{cell.seed}"
@@ -73,24 +60,13 @@ spec = exp_tuning.MethodSpec(
     build_cell=build_dummy,
     cell_key=cell_key,
     parameters=parameters,
-    compatibility_columns=compatibility,
     cell_initialization=lambda config: None,
     initialization_identity=lambda config: {},
     train_cold=lambda cell, **kwargs: {"complete": True},
     liveness_task=lambda config: "countdown",
     liveness_runner=lambda **kwargs: {"complete": True},
-    canonical_liveness_grid=None,
-    canonical_liveness_parameter="representative_temperature",
-    paper_grid_paths=None,
-    paper_cell_parameters=None,
-    paper_formula="dummy_contract_only",
-    audit_record=lambda cell, record: MethodAuditResult(
-        True, {"temperature": parameters(cell)["temperature"]}
-    ),
-    audit_failure_bucket="terminal_contract_failures",
     scientific_kernel="dummy_contract_only",
-    single_aggregate_metadata=lambda config: {},
-    matrix_aggregate_metadata=lambda config: {},
+    audit_record=lambda cell, record: MethodAuditResult(True),
 )
 exp_tuning._register_method_spec(spec)
 try:
@@ -116,9 +92,7 @@ try:
     rows = plan_rows(
         batches,
         gpu_ids=(0, 1),
-        project_cell=lambda cell: exp_tuning._method_spec(
-            cell.method
-        ).compatibility_columns(cell),
+        project_cell=exp_tuning._method_output_columns,
     )
     assert len(rows) == 8
     assert {row["temperature"] for row in rows} == {0.1, 0.2}
@@ -191,29 +165,13 @@ try:
         cells[0],
         experiment_id="DEV-DUMMY-METHOD-SPEC",
         config_hash="cfg",
-        cell_identity_fields=compatibility(cells[0]),
+        cell_identity_fields=exp_tuning._method_output_columns(cells[0]),
         common_identity_fields={"bank_hash": "bank"},
     )
     assert len(identity["identity_hash"]) == 64
 
-    with tempfile.TemporaryDirectory() as temporary:
-        grid_path = Path(temporary) / "liveness.yaml"
-        grid_path.write_text(
-            yaml.safe_dump(
-                {
-                    "execution": {
-                        "liveness": {
-                            "representative_family": dummy_name,
-                            "representative_temperature": 0.1,
-                        }
-                    },
-                    "sweep": {"seed_offsets": [4000]},
-                }
-            ),
-            encoding="utf-8",
-        )
-        live_cell = exp_tuning._canonical_cold_liveness_cell(grid_path)
-        assert parameters(live_cell) == {"temperature": 0.1}
+    assert spec.liveness_task({}) == "countdown"
+    assert spec.liveness_runner()["complete"]
 
     assert spec.audit_record(cells[0], {}).passed
     audit_source = inspect.getsource(exp_tuning.cmd_audit)
@@ -229,6 +187,13 @@ try:
         "group_order",
         "plot_columns",
         "plot_projection",
+        "compatibility_columns",
+        "canonical_liveness_grid",
+        "canonical_liveness_parameter",
+        "paper_grid_paths",
+        "paper_cell_parameters",
+        "paper_formula",
+        "audit_failure_bucket",
     }.intersection(method_spec_fields)
 finally:
     removed = exp_tuning._METHOD_SPECS.pop(dummy_name)

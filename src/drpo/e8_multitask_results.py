@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
-from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -18,21 +17,6 @@ class CellLike(Protocol):
     method: str
     seed: int
     stage: str
-
-
-@dataclass(frozen=True)
-class MethodResultProjection:
-    parameters: Mapping[str, Any]
-    compatibility_columns: Mapping[str, Any]
-
-
-@dataclass(frozen=True)
-class ResultRecord:
-    public: Mapping[str, Any]
-    method_parameters: Mapping[str, Any]
-
-    def public_row(self) -> dict[str, Any]:
-        return dict(self.public)
 
 
 _RESERVED_COMMON_COLUMNS = frozenset(
@@ -51,31 +35,25 @@ def _checked_merge(
     target.update(values)
 
 
-def common_result_record(
+def common_result_row(
     cell: CellLike,
-    value: Mapping[str, Any],
     *,
     source: str,
-    project_method: Callable[[CellLike], MethodResultProjection],
-    project_metrics: Callable[[Mapping[str, Any]], Mapping[str, Any]],
-) -> ResultRecord:
-    projection = project_method(cell)
-    compatibility = dict(projection.compatibility_columns)
+    method_columns: Mapping[str, Any],
+    metrics: Mapping[str, Any],
+) -> dict[str, Any]:
+    compatibility = dict(method_columns)
     reserved = sorted(_RESERVED_COMMON_COLUMNS.intersection(compatibility))
     if reserved:
         raise ValueError(
-            f"Method compatibility projection uses reserved columns: {reserved}"
+            f"Method projection uses reserved result columns: {reserved}"
         )
     public: dict[str, Any] = {
         "source": source,
         "task": cell.task,
         "method": cell.method,
     }
-    _checked_merge(
-        public,
-        compatibility,
-        label="Method compatibility projection",
-    )
+    _checked_merge(public, compatibility, label="Method projection")
     public.update(
         {
             "seed": int(cell.seed),
@@ -83,15 +61,8 @@ def common_result_record(
             "cell_key": cell.key,
         }
     )
-    _checked_merge(
-        public,
-        dict(project_metrics(value)),
-        label="Metric projection",
-    )
-    return ResultRecord(
-        public=public,
-        method_parameters=dict(projection.parameters),
-    )
+    _checked_merge(public, dict(metrics), label="Metric projection")
+    return public
 
 
 def parameter_identity(parameters: Mapping[str, Any]) -> str:
@@ -121,15 +92,10 @@ def parameter_sort_key(parameters: Mapping[str, Any]) -> tuple[Any, ...]:
     )
 
 
-def write_csv(
-    path: Path, rows: Sequence[Mapping[str, Any] | ResultRecord]
-) -> None:
+def write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
     if not rows:
         raise ValueError(f"Cannot write empty CSV: {path}")
-    materialized = [
-        row.public_row() if isinstance(row, ResultRecord) else dict(row)
-        for row in rows
-    ]
+    materialized = [dict(row) for row in rows]
     path.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = list(materialized[0])
     for row in materialized[1:]:
