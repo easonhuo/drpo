@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Render the E8 multitask + Countdown surprisal-gradient 3x3 diagnostic.
 
 The checked-in E8 plot-ready CSV contains per-task 95% bootstrap intervals
@@ -15,8 +14,9 @@ import csv
 import json
 import random
 from collections import defaultdict
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
