@@ -6,6 +6,9 @@ on:
       - dev/manuscript-iclr2027-9task-gradient-fig-01
     paths:
       - '.github/workflows/generate-e8-nine-panel-figure-temp.yml'
+      - 'scripts/figures/plot_e8_multitask_countdown_nine_panel.py'
+      - 'paper/iclr2027/figures/data/e8_multitask_per_task_gradient_ci95.csv'
+      - 'results/FIGURE1_EXTERNAL_GRADIENT/countdown_gradient_deciles_seed100.csv'
 
 permissions:
   contents: write
