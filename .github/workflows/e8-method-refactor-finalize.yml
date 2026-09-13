@@ -25,7 +25,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt || pip install pytest pyyaml numpy ruff
       - name: Finalize generic method wiring and characterization tests
-        run: python .github/workflows/e8_method_refactor_finalize.py
+        run: |
+          python .github/workflows/e8_method_refactor_finalize.py
+          python .github/workflows/e8_method_refactor_lintfix.py
       - name: Static compile
         run: |
           python -m py_compile \
@@ -42,16 +44,22 @@ jobs:
         run: python -m ruff check src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_orchestration.py src/drpo/e8_multitask_results.py src/drpo/e8_multitask_runtime.py tests/test_e8_multitask_p0.py
       - name: Governance fast gate
         run: bash tests/test_governance_pipeline.sh --mode fast
+      - name: Full pytest
+        run: python -m pytest -q
+      - name: Governance full gate
+        run: bash tests/test_governance_pipeline.sh --mode full
       - name: Land finalized refactor and remove transport files
         run: |
           git diff --check
           git rm \
             .github/workflows/e8-method-refactor-finalize.yml \
-            .github/workflows/e8_method_refactor_finalize.py
+            .github/workflows/e8_method_refactor_finalize.py \
+            .github/workflows/e8_method_refactor_lintfix.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add \
             src/drpo/e8_multitask_exp_tuning.py \
+            src/drpo/e8_multitask_orchestration.py \
             tests/test_e8_multitask_p0.py \
             tests/test_e8_method_integration_contract.sh
           git commit -m 'refactor: complete E8 generic method integration'
