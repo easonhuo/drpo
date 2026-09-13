@@ -1,0 +1,71 @@
+name: Apply manuscript V10 staged patch
+
+on:
+  push:
+    branches:
+      - dev/manuscript-iclr2027-v10-text-01
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/manuscript-iclr2027-v10-text-01
+          fetch-depth: 0
+
+      - name: Verify base and reconstruct reviewed patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "4deb00030426446cc3b66efc0e31b875c3f41698"
+          git diff --quiet origin/main -- \
+            paper/overleaf/main_replacement.tex \
+            paper/iclr2027/generate_iclr.sh
+
+          cat .github/paper-v10-payload/gz-*.b64 > /tmp/manuscript_v10.patch.gz.b64
+          echo 'c32bc0f407da2ca8c43ddd43be5f99aeac79e82c9409f679e390d6a3f3b734ae  /tmp/manuscript_v10.patch.gz.b64' | sha256sum --check --strict
+          base64 --decode /tmp/manuscript_v10.patch.gz.b64 > /tmp/manuscript_v10.patch.gz
+          echo '9e6f101e639b8006dcde78c4d53b7b3b72003153e4fbdfedc5e5018e86dba7c0  /tmp/manuscript_v10.patch.gz' | sha256sum --check --strict
+          gunzip -c /tmp/manuscript_v10.patch.gz > /tmp/manuscript_v10.patch
+          echo 'deb49d8e96ee7cc31b0a73c5c20c998a125c03f84157af63aa776adc51f40d4a  /tmp/manuscript_v10.patch' | sha256sum --check --strict
+          git apply --check /tmp/manuscript_v10.patch
+
+      - name: Apply and validate canonical manuscript
+        shell: bash
+        run: |
+          set -euo pipefail
+          git apply /tmp/manuscript_v10.patch
+          git diff --check
+
+          test "$(git hash-object paper/overleaf/main_replacement.tex)" = "4af4d989ba37bf5d55c501dc77ab421b2bc96243"
+          test "$(git hash-object paper/iclr2027/generate_iclr.sh)" = "aeb38208670d09c4ad1a3475c3973ee7d07e9b98"
+
+          rm -rf /tmp/iclr-v10-generated
+          bash paper/iclr2027/generate_iclr.sh /tmp/iclr-v10-generated
+          echo 'dec782ff6278e9292e825a46087ecc520cbb08275b937bcf059e61c6d4efe5d4  /tmp/iclr-v10-generated/main.tex' | sha256sum --check --strict
+
+      - name: Remove staging transport and commit only manuscript files
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .github/paper-v10-patch .github/paper-v10-patch2 .github/paper-v10-payload
+          rm -f .github/workflows/apply-manuscript-v10-text.yml
+          git add -A
+          git diff --cached --check
+
+          mapfile -t changed < <(git diff --cached --name-only origin/main)
+          printf 'Cumulative changed files vs main:\n%s\n' "${changed[*]}"
+          test "${#changed[@]}" -eq 2
+          test "${changed[0]}" = "paper/iclr2027/generate_iclr.sh"
+          test "${changed[1]}" = "paper/overleaf/main_replacement.tex"
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'paper: update ICLR 2027 manuscript to V10 text'
+          git push origin HEAD:dev/manuscript-iclr2027-v10-text-01
