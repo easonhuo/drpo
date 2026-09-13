@@ -18,16 +18,12 @@ jobs:
           ref: dev/manuscript-iclr2027-v10-text-02
           fetch-depth: 0
 
-      - name: Verify base and reconstruct reviewed patch
+      - name: Reconstruct and verify reviewed patch
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin main
           test "$(git rev-parse origin/main)" = "5dd0ae6c5549e8eb30249043f441b26ddd2475a2"
-          git diff --quiet origin/main -- \
-            paper/overleaf/main_replacement.tex \
-            paper/iclr2027/generate_iclr.sh
-
           cat .github/paper-v10-payload/gz-*.b64 > /tmp/manuscript_v10.patch.gz.b64
           echo 'c32bc0f407da2ca8c43ddd43be5f99aeac79e82c9409f679e390d6a3f3b734ae  /tmp/manuscript_v10.patch.gz.b64' | sha256sum --check --strict
           base64 --decode /tmp/manuscript_v10.patch.gz.b64 > /tmp/manuscript_v10.patch.gz
@@ -36,49 +32,50 @@ jobs:
           echo 'deb49d8e96ee7cc31b0a73c5c20c998a125c03f84157af63aa776adc51f40d4a  /tmp/manuscript_v10.patch' | sha256sum --check --strict
           git apply --check /tmp/manuscript_v10.patch
 
-      - name: Apply patch and create local candidate commit
+      - name: Build local V10 candidate commit
         shell: bash
         run: |
           set -euo pipefail
+          echo 'MARKER: apply patch'
           git apply /tmp/manuscript_v10.patch
           chmod 644 paper/iclr2027/generate_iclr.sh
           git diff --check
-
           test "$(git hash-object paper/overleaf/main_replacement.tex)" = "4af4d989ba37bf5d55c501dc77ab421b2bc96243"
           test "$(git hash-object paper/iclr2027/generate_iclr.sh)" = "aeb38208670d09c4ad1a3475c3973ee7d07e9b98"
 
+          echo 'MARKER: remove transport'
           rm -rf .github/paper-v10-payload
           rm -f .github/workflows/apply-manuscript-v10-text.yml
           git add -A
-          git diff --cached --check
+          git status --short
 
-          mapfile -t changed < <(git diff --cached --name-only origin/main)
-          printf 'Cumulative changed files vs main:\n%s\n' "${changed[*]}"
-          test "${#changed[@]}" -eq 2
-          test "${changed[0]}" = "paper/iclr2027/generate_iclr.sh"
-          test "${changed[1]}" = "paper/overleaf/main_replacement.tex"
+          echo 'MARKER: verify cumulative file set'
+          git diff --cached --name-only origin/main > /tmp/changed.txt
+          cat /tmp/changed.txt
+          test "$(wc -l < /tmp/changed.txt)" -eq 2
+          grep -Fxq 'paper/iclr2027/generate_iclr.sh' /tmp/changed.txt
+          grep -Fxq 'paper/overleaf/main_replacement.tex' /tmp/changed.txt
 
+          echo 'MARKER: local commit'
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'paper: update ICLR 2027 manuscript to V10 text'
 
-      - name: Validate committed canonical source and exact ICLR projection
+      - name: Validate committed ICLR projection
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD:paper/overleaf/main_replacement.tex)" = "4af4d989ba37bf5d55c501dc77ab421b2bc96243"
           test "$(git rev-parse HEAD:paper/iclr2027/generate_iclr.sh)" = "aeb38208670d09c4ad1a3475c3973ee7d07e9b98"
-          test ! -e .github/paper-v10-payload
-          test ! -e .github/workflows/apply-manuscript-v10-text.yml
-
           rm -rf /tmp/iclr-v10-generated
           bash paper/iclr2027/generate_iclr.sh /tmp/iclr-v10-generated
           echo 'dec782ff6278e9292e825a46087ecc520cbb08275b937bcf059e61c6d4efe5d4  /tmp/iclr-v10-generated/main.tex' | sha256sum --check --strict
-
-          mapfile -t committed_changed < <(git diff --name-only origin/main...HEAD)
-          test "${#committed_changed[@]}" -eq 2
-          test "${committed_changed[0]}" = "paper/iclr2027/generate_iclr.sh"
-          test "${committed_changed[1]}" = "paper/overleaf/main_replacement.tex"
+          git diff --check origin/main...HEAD
+          git diff --name-only origin/main...HEAD > /tmp/final-changed.txt
+          cat /tmp/final-changed.txt
+          test "$(wc -l < /tmp/final-changed.txt)" -eq 2
+          grep -Fxq 'paper/iclr2027/generate_iclr.sh' /tmp/final-changed.txt
+          grep -Fxq 'paper/overleaf/main_replacement.tex' /tmp/final-changed.txt
 
       - name: Push validated manuscript commit
         shell: bash
