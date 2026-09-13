@@ -245,7 +245,7 @@ jobs:
             src/drpo/e8_multitask_runtime.py
       - name: Land optimized refactor and remove transport files
         run: |
-          git rm \
+          git rm -f \
             .github/workflows/e8-method-refactor-finalize.yml \
             .github/workflows/e8_method_refactor_finalize.py \
             .github/workflows/e8_method_refactor_lintfix.py
