@@ -1,0 +1,136 @@
+schema_version: 3
+update_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01-PROVENANCE-CORRECTION-2026-09-10
+mode: authoritative
+base:
+  commit: 02d7d51cdd613d5ffc0993e4bbe7c2c772a9c3d8
+  handoff_sha256: 3ce98fd3746d99230bf1ae7ca0936c75a901217327b32868d4b3c83fb96943e7
+  registry_sha256: a552cd3e2058c756d92d2223ea77ee9b8e9b76bf02ffd8215b8cd3854595c573
+renderer_version: 1
+operations:
+- operation_id: append-e8-baseline-provenance-correction
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-multitask-baseline-provenance-correction-2026-09-10
+  content: '- **E8 multitask baseline provenance / formal-channel correction (`EXT-C-E8-MULTITASK-BASELINE-MATRIX-01`)：**本条只纠正前一登记中的执行
+    provenance 与 formal-channel 表述，不改变 176-cell 科学矩阵、8 个 transfer tasks、seeds `[4000,5000]`、AsymRE/TOPR/DPO
+    网格、1200-update horizon 或 historical Countdown PR #268 DPO 语义；科学状态继续为 **not_run**。`scheduler/queue_events.jsonl`
+    只承担 start/successful-finish `cell_key` 集合、重复/缺失和 `execution_origin` 身份审计，不能在 recovery/reuse
+    时作为 seed 先后时间的科学证据。seed 顺序的时间证据必须读取各 cell manifest 持久化的原始 `scientific_execution_provenance.started_unix`
+    与 `scientific_execution_provenance.successful_finish_unix`；reuse 必须保留原始 provenance，并验证
+    `max(seed4000 successful finish time) <= min(seed5000 start time)`。另外，现有 `src/drpo/e8_multitask_exp_tuning.py`
+    的科学 runner 已实现并完成回归验证，但仍包含直接 ZIP package subcommand，因此在 `GOV-FORMAL-ENTRYPOINT-01`
+    语义下 canonical hardened-v1 formal entrypoint 仍是 **planned + blocked**，`implementation_state=not_implemented`
+    指的是该 formal entrypoint integration，而不是科学 runner 未实现；这不改变当前 launch simplification
+    规则，也不构成启动授权。'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: 3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04
+  changes:
+  - change_id: add-e8-formal-implementation-state
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - implementation_state
+    from: null
+    to: not_implemented
+    reason: Register canonical formal-entrypoint integration state without changing
+      scientific runner readiness.
+    evidence: &id001
+    - configs/e8_multitask_baseline_matrix_formal.yaml
+    - docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md
+    - experiments/registry.yaml
+    - src/drpo/e8_multitask_exp_tuning.py
+    - tests/test_e8_multitask_p0.py
+  - change_id: add-e8-formal-blocking-reason
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - blocking_reason
+    from: null
+    to: Under GOV-FORMAL-ENTRYPOINT-01 this field refers to the canonical formal-entrypoint
+      integration, not to the already implemented and regression-validated scientific
+      runner. The current tuning module still contains a direct ZIP package subcommand,
+      so a canonical formal entrypoint that delegates artifact ownership entirely
+      to hardened-v1 remains planned; formal activation and the 176-cell scientific
+      run remain blocked/not_run pending a separate implementation and launch decision.
+    reason: Explain why hardened-v1 integration remains planned and blocked while
+      science stays not_run.
+    evidence: *id001
+  - change_id: add-e8-formal-execution-state
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - formal_execution
+    from: null
+    to:
+      channel_ref: hardened-v1
+      activation_state: blocked
+      entrypoint_status: planned
+      launch_mode: canonical_guard
+      artifact_owner: canonical_channel
+      guard_entrypoint: scripts/run_experiment_guard_hardened.py
+      package_entrypoint: scripts/package_experiment_hardened.py
+      verify_entrypoint: scripts/verify_experiment_package_hardened.py
+      hardened_core: scripts/artifact_protocol_hardened.py
+      artifact_protocol: docs/formal_experiment_artifact_protocol.md
+    reason: Bind the experiment to hardened-v1 as a planned blocked entrypoint.
+    evidence: *id001
+  - change_id: add-e8-queue-event-identity-source
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - terminal_audit
+    - queue_event_identity_source
+    from: null
+    to: scheduler/queue_events.jsonl
+    reason: Clarify recovery-safe seed-barrier provenance without changing frozen
+      science.
+    evidence: *id001
+  - change_id: add-e8-temporal-event-semantics
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - terminal_audit
+    - temporal_event_semantics
+    from: null
+    to: identity_and_execution_origin_only_not_seed_ordering
+    reason: Clarify recovery-safe seed-barrier provenance without changing frozen
+      science.
+    evidence: *id001
+  - change_id: add-e8-seed-batch-temporal-scientific-provenance-check
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - terminal_audit
+    - seed_batch_temporal_scientific_provenance_check
+    from: null
+    to: true
+    reason: Clarify recovery-safe seed-barrier provenance without changing frozen
+      science.
+    evidence: *id001
+  - change_id: add-e8-scientific-temporal-source
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - terminal_audit
+    - scientific_temporal_source
+    from: null
+    to: cells/*/cell_manifest.json::scientific_execution_provenance
+    reason: Clarify recovery-safe seed-barrier provenance without changing frozen
+      science.
+    evidence: *id001
+  - change_id: add-e8-recovery-reuse-rule
+    kind: update_field
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    field_path:
+    - terminal_audit
+    - recovery_reuse_rule
+    from: null
+    to: preserve_original_scientific_execution_provenance
+    reason: Clarify recovery-safe seed-barrier provenance without changing frozen
+      science.
+    evidence: *id001
+expected:
+  exact_base_candidate_sha256: 40e22125c7a059546fd3ffc339709189f535e8bb800040a52a7ae7b1171114cb

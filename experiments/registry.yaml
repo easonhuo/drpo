@@ -119,6 +119,137 @@ formal_execution_channel:
       guard and packager. New formal entrypoints may not copy this exception.
     no_new_entrypoints: true
 experiments:
+- id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+  environment: EXT-C
+  name: e8_multitask_baseline_matrix_formal
+  status: not_run
+  scientific_status: not_run
+  role: external_validity_finite_horizon_baseline_comparison
+  execution_class: formal
+  registration_state: formal_protocol_registered_not_run
+  implementation_state: implemented
+  scientific_runner_state: implemented
+  launch_blocked_by_formal_channel: false
+  blocking_reason: null
+  formal_execution:
+    channel_ref: hardened-v1
+    activation_state: blocked
+    entrypoint_status: planned
+    launch_mode: canonical_guard
+    artifact_owner: canonical_channel
+    guard_entrypoint: scripts/run_experiment_guard_hardened.py
+    package_entrypoint: scripts/package_experiment_hardened.py
+    verify_entrypoint: scripts/verify_experiment_package_hardened.py
+    hardened_core: scripts/artifact_protocol_hardened.py
+    artifact_protocol: docs/formal_experiment_artifact_protocol.md
+    bookkeeping_role: optional_legacy_compatibility_only
+    launch_permission: false
+    launch_blocking: false
+  claim: >-
+    On the exact eight P0 transfer tasks and frozen model-independent banks, compare
+    AsymRE, Joint Fitted-Reference beta-TOPR, and canonical PR-268-semantics DPO under
+    matched training/evaluation budgets using the frozen paired transfer seeds. This is
+    finite-horizon external-validity evidence; Countdown is reused rather than rerun,
+    and convergence or universal method-ranking claims are excluded.
+  code_entrypoint: src/drpo/e8_multitask_exp_tuning.py
+  config_entrypoint: configs/e8_multitask_baseline_matrix_formal.yaml
+  protocol_scope: docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md
+  model:
+    identity: Qwen2.5-0.5B-Instruct
+    initialization: pretrained_base_plus_fresh_lora
+    parameterization: lora
+  tasks:
+    transfer: [word_sorting, spiral_matrix, mini_sudoku, maze, word_ladder, knights_knaves, graph_color, wikisql]
+    reused_external: [countdown]
+  data:
+    p0_train_rows_per_task: 5000
+    p0_validation_rows_per_task: 500
+    p0_test_rows_per_task: 500
+    negatives_per_prompt: 16
+    test_access_allowed: false
+    bank_role: shared_frozen_qualified_p0_banks
+  methods:
+    asymre:
+      parameterization: asymre_delta_v
+      delta_v: [-1.0, -0.9, -0.75, -0.5, 0.0]
+    joint_fitted_reference_topr:
+      parameterization: joint_fitted_reference_beta_topr
+      beta: [0.25, 0.5, 1.0]
+    canonical_dpo:
+      parameterization: canonical_dpo_beta
+      beta: [0.05, 0.1, 0.2]
+      initialization: base_model_fresh_lora
+      semantics_source: historical_countdown_pr268
+  controls:
+  - shared_model_and_frozen_bank_budget
+  - countdown_reused_without_new_cells
+  - no_positive_only_or_global_cells_in_this_matrix
+  seeds:
+    development_seeds: [4000, 5000]
+    held_out_seeds: []
+    role: paired_transfer_comparison
+  training:
+    optimizer_updates: 1200
+    early_stopping: false
+    micro_batch: 1
+    gradient_accumulation: 8
+    learning_rate: 5.0e-05
+    weight_decay: 0.01
+    warmup_ratio: 0.03
+    max_grad_norm: 1.0
+  matrix:
+    expected_cells: 176
+    asymre_cells: 80
+    topr_cells: 48
+    dpo_cells: 48
+  scheduling:
+    scheduler: dynamic_slot_queue
+    max_concurrent_cells: 16
+    seed_batch_order: [4000, 5000]
+    seed_batch_expected_cells: {4000: 88, 5000: 88}
+    hard_seed_barrier: all_88_seed_4000_cells_finish_successfully_before_any_seed_5000_scientific_cell_starts
+  metrics:
+    primary: validation_late_window_pass8_mean
+    supplementary: [validation_terminal_pass8, validation_late_window_greedy_mean, validation_terminal_greedy]
+    structure_diagnostic: greedy_and_sampled_valid_rate
+  terminal_audit:
+    required: true
+    fixed_terminal_step: 1200
+    stop_reason: max_steps
+    test_partition_accessed: false
+    nan_inf_required_absent: true
+    dpo_frozen_reference_identity_required: true
+    seed_batch_summary_check: true
+    seed_batch_temporal_event_history_check: false
+    seed_batch_event_cell_identity_check: exact_expected_cell_keys_no_duplicates
+    temporal_event_source: scheduler/queue_events.jsonl
+    queue_event_identity_source: scheduler/queue_events.jsonl
+    temporal_event_semantics: identity_and_execution_origin_only_not_seed_ordering
+    seed_batch_temporal_scientific_provenance_check: true
+    scientific_temporal_source: cells/*/cell_manifest.json::scientific_execution_provenance
+    recovery_reuse_rule: preserve_original_scientific_execution_provenance
+    temporal_condition: max_seed_4000_successful_finish_time_le_min_seed_5000_start_time
+    recovery_reuse_eligibility_scope: global_seed_chronology
+    later_seed_reuse_requires_all_earlier_seed_reuse_eligible: true
+    aggregate_cell_manifest_set_sha256_check: true
+    aggregate_artifact_sha256_check: true
+    scheduler_dynamic_run_sha256_check: true
+    scheduler_queue_events_sha256_check: true
+    completed_attempt_live_vs_packaged_terminal_byte_check: true
+  reporting_separation:
+  - task_performance
+  - valid_or_structure_diagnostic
+  - nan_inf_numerical_failure
+  non_claims:
+  - convergence_or_steady_state
+  - universal_method_ranking
+  - statistical_significance_before_terminal_audit
+  execution:
+    state: registered
+    scientific_run_started: false
+  evidence:
+    scientific_run_completed: false
+    terminal_audited: false
 - id: C-U1-E3-ADAM-RERUN
   environment: C-U1
   name: cu1_far_field_causal_intervention_unified_adam

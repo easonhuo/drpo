@@ -1,0 +1,43 @@
+schema_version: 3
+update_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01-FORMAL-REGISTRATION-2026-09-10
+mode: authoritative
+base:
+  commit: 8a21fd16e63ea96a0cde2a477353d24562624655
+  handoff_sha256: 7cc7780a408ff89cceb7742af17b6151d1cb4134a8fec5b9531ec3b1dddecdb3
+  registry_sha256: aa97eadd8bd348d8fe337ab4232f44feca1cd6d9c02dacaed8968726162c132f
+renderer_version: 1
+operations:
+- operation_id: append-e8-multitask-baseline-matrix-formal-registration
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-multitask-baseline-matrix-formal-registration-2026-09-10
+  content: '- **E8 multitask baseline formal matrix registration (`EXT-C-E8-MULTITASK-BASELINE-MATRIX-01`)：**正式协议已登记但仍为
+    **not_run**。冻结矩阵为 8 个 P0 transfer tasks × 2 seeds × (AsymRE 5 + TOPR 3 + DPO 3)
+    = `176` cells；Countdown 仅复用既有外部有效性结果，不新增 cell。AsymRE `delta_v=[-1.0,-0.9,-0.75,-0.5,0.0]`，TOPR
+    `beta=[0.25,0.5,1.0]`，DPO `beta=[0.05,0.1,0.2]` 且使用 `base_model_fresh_lora`，保持
+    historical Countdown PR #268 DPO 语义不变。seeds 固定为 `[4000,5000]`，硬顺序要求是 seed-4000
+    的 88 个 cell 全部成功结束后，才允许任何 seed-5000 scientific cell 启动。terminal audit 除复核 `scheduler/dynamic_run.json`
+    的 batch summary 外，还必须独立读取同一 `scheduler_run_id` 的 `scheduler/queue_events.jsonl`，验证每个
+    seed 的 start 与 successful-finish `cell_key` 集合都与冻结的 88 个预期 cell 完全一致、无重复、无缺失，随后再验证
+    `max(seed4000 successful finish time) <= min(seed5000 start time)`。固定 1200 updates
+    通过全部终态审计后最多登记为 **finite_step_validated**，不得写成 convergence/steady state，也不得预设 universal
+    method ranking。任务性能、valid/support-structure diagnostic 与 NaN/Inf numerical failure
+    继续分开报告。本登记不重新引入 registry/READY 作为 launch permission；正式启动仍须满足当前治理规定的 exact commit、provenance、recovery、supervision、terminal
+    audit 与 artifact 要求。'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: a552cd3e2058c756d92d2223ea77ee9b8e9b76bf02ffd8215b8cd3854595c573
+  changes:
+  - change_id: add-e8-multitask-baseline-matrix-formal
+    kind: add_entity
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    evidence:
+    - configs/e8_multitask_baseline_matrix_formal.yaml
+    - docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md
+    - experiments/registry.yaml
+    - src/drpo/e8_multitask_exp_tuning.py
+    - tests/test_e8_multitask_p0.py
+expected:
+  exact_base_candidate_sha256: 3ce98fd3746d99230bf1ae7ca0936c75a901217327b32868d4b3c83fb96943e7

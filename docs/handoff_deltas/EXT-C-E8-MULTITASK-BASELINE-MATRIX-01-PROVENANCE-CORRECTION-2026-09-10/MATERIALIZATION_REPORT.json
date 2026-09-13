@@ -1,0 +1,632 @@
+{
+  "current_before_commit": "02d7d51cdd613d5ffc0993e4bbe7c2c772a9c3d8",
+  "current_handoff_before_sha256": "3ce98fd3746d99230bf1ae7ca0936c75a901217327b32868d4b3c83fb96943e7",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e8-formal-implementation-state",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "configs/e8_multitask_baseline_matrix_formal.yaml",
+            "sha256": "e864e07a17ca330ce2485124580c07033fe8b2c41268e216abbd6be079fd3dc1"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "e12c5515b167bebfad290267542dca845e039ff053459bfdf1427896858218fd"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "44318b2654d1fc196c3293166786b7ea41da580d311cdb6d5fb21aa41379b965"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "516ba2588cc576b2af021c41762dec59d4c74d33ed9a1176ce5a355c562d927e"
+          }
+        ],
+        "field_path": [
+          "implementation_state"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register canonical formal-entrypoint integration state without changing scientific runner readiness.",
+        "to": "not_implemented"
+      },
+      {
+        "change_id": "add-e8-formal-blocking-reason",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "configs/e8_multitask_baseline_matrix_formal.yaml",
+            "sha256": "e864e07a17ca330ce2485124580c07033fe8b2c41268e216abbd6be079fd3dc1"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "e12c5515b167bebfad290267542dca845e039ff053459bfdf1427896858218fd"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "44318b2654d1fc196c3293166786b7ea41da580d311cdb6d5fb21aa41379b965"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "516ba2588cc576b2af021c41762dec59d4c74d33ed9a1176ce5a355c562d927e"
+          }
+        ],
+        "field_path": [
+          "blocking_reason"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Explain why hardened-v1 integration remains planned and blocked while science stays not_run.",
+        "to": "Under GOV-FORMAL-ENTRYPOINT-01 this field refers to the canonical formal-entrypoint integration, not to the already implemented and regression-validated scientific runner. The current tuning module still contains a direct ZIP package subcommand, so a canonical formal entrypoint that delegates artifact ownership entirely to hardened-v1 remains planned; formal activation and the 176-cell scientific run remain blocked/not_run pending a separate implementation and launch decision."
+      },
+      {
+        "change_id": "add-e8-formal-execution-state",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "configs/e8_multitask_baseline_matrix_formal.yaml",
+            "sha256": "e864e07a17ca330ce2485124580c07033fe8b2c41268e216abbd6be079fd3dc1"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "e12c5515b167bebfad290267542dca845e039ff053459bfdf1427896858218fd"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "44318b2654d1fc196c3293166786b7ea41da580d311cdb6d5fb21aa41379b965"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "516ba2588cc576b2af021c41762dec59d4c74d33ed9a1176ce5a355c562d927e"
+          }
+        ],
+        "field_path": [
+          "formal_execution"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Bind the experiment to hardened-v1 as a planned blocked entrypoint.",
+        "to": {
+          "activation_state": "blocked",
+          "artifact_owner": "canonical_channel",
+          "artifact_protocol": "docs/formal_experiment_artifact_protocol.md",
+          "channel_ref": "hardened-v1",
+          "entrypoint_status": "planned",
+          "guard_entrypoint": "scripts/run_experiment_guard_hardened.py",
+          "hardened_core": "scripts/artifact_protocol_hardened.py",
+          "launch_mode": "canonical_guard",
+          "package_entrypoint": "scripts/package_experiment_hardened.py",
+          "verify_entrypoint": "scripts/verify_experiment_package_hardened.py"
+        }
+      },
+      {
+        "change_id": "add-e8-queue-event-identity-source",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "configs/e8_multitask_baseline_matrix_formal.yaml",
+            "sha256": "e864e07a17ca330ce2485124580c07033fe8b2c41268e216abbd6be079fd3dc1"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "e12c5515b167bebfad290267542dca845e039ff053459bfdf1427896858218fd"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "44318b2654d1fc196c3293166786b7ea41da580d311cdb6d5fb21aa41379b965"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "516ba2588cc576b2af021c41762dec59d4c74d33ed9a1176ce5a355c562d927e"
+          }
+        ],
+        "field_path": [
+          "terminal_audit",
+          "queue_event_identity_source"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify recovery-safe seed-barrier provenance without changing frozen science.",
+        "to": "scheduler/queue_events.jsonl"
+      },
+      {
+        "change_id": "add-e8-temporal-event-semantics",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "configs/e8_multitask_baseline_matrix_formal.yaml",
+            "sha256": "e864e07a17ca330ce2485124580c07033fe8b2c41268e216abbd6be079fd3dc1"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "e12c5515b167bebfad290267542dca845e039ff053459bfdf1427896858218fd"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "44318b2654d1fc196c3293166786b7ea41da580d311cdb6d5fb21aa41379b965"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "516ba2588cc576b2af021c41762dec59d4c74d33ed9a1176ce5a355c562d927e"
+          }
+        ],
+        "field_path": [
+          "terminal_audit",
+          "temporal_event_semantics"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify recovery-safe seed-barrier provenance without changing frozen science.",
+        "to": "identity_and_execution_origin_only_not_seed_ordering"
+      },
+      {
+        "change_id": "add-e8-seed-batch-temporal-scientific-provenance-check",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "configs/e8_multitask_baseline_matrix_formal.yaml",
+            "sha256": "e864e07a17ca330ce2485124580c07033fe8b2c41268e216abbd6be079fd3dc1"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "e12c5515b167bebfad290267542dca845e039ff053459bfdf1427896858218fd"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "44318b2654d1fc196c3293166786b7ea41da580d311cdb6d5fb21aa41379b965"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "516ba2588cc576b2af021c41762dec59d4c74d33ed9a1176ce5a355c562d927e"
+          }
+        ],
+        "field_path": [
+          "terminal_audit",
+          "seed_batch_temporal_scientific_provenance_check"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify recovery-safe seed-barrier provenance without changing frozen science.",
+        "to": true
+      },
+      {
+        "change_id": "add-e8-scientific-temporal-source",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "configs/e8_multitask_baseline_matrix_formal.yaml",
+            "sha256": "e864e07a17ca330ce2485124580c07033fe8b2c41268e216abbd6be079fd3dc1"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "e12c5515b167bebfad290267542dca845e039ff053459bfdf1427896858218fd"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "44318b2654d1fc196c3293166786b7ea41da580d311cdb6d5fb21aa41379b965"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "516ba2588cc576b2af021c41762dec59d4c74d33ed9a1176ce5a355c562d927e"
+          }
+        ],
+        "field_path": [
+          "terminal_audit",
+          "scientific_temporal_source"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify recovery-safe seed-barrier provenance without changing frozen science.",
+        "to": "cells/*/cell_manifest.json::scientific_execution_provenance"
+      },
+      {
+        "change_id": "add-e8-recovery-reuse-rule",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "configs/e8_multitask_baseline_matrix_formal.yaml",
+            "sha256": "e864e07a17ca330ce2485124580c07033fe8b2c41268e216abbd6be079fd3dc1"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "e12c5515b167bebfad290267542dca845e039ff053459bfdf1427896858218fd"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "44318b2654d1fc196c3293166786b7ea41da580d311cdb6d5fb21aa41379b965"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "516ba2588cc576b2af021c41762dec59d4c74d33ed9a1176ce5a355c562d927e"
+          }
+        ],
+        "field_path": [
+          "terminal_audit",
+          "recovery_reuse_rule"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify recovery-safe seed-barrier provenance without changing frozen science.",
+        "to": "preserve_original_scientific_execution_provenance"
+      }
+    ],
+    "coverage": {
+      "added_entities": [],
+      "changed_field_count": 8,
+      "declared_assertion_count": 8,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "8631061945a9d8f69a191eca627001e240585dc45babd85d1a8d431bcdf01cd9",
+  "exact_base_candidate_sha256": "40e22125c7a059546fd3ffc339709189f535e8bb800040a52a7ae7b1171114cb",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e8-formal-implementation-state",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "configs/e8_multitask_baseline_matrix_formal.yaml",
+            "sha256": "e864e07a17ca330ce2485124580c07033fe8b2c41268e216abbd6be079fd3dc1"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "e12c5515b167bebfad290267542dca845e039ff053459bfdf1427896858218fd"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "44318b2654d1fc196c3293166786b7ea41da580d311cdb6d5fb21aa41379b965"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "516ba2588cc576b2af021c41762dec59d4c74d33ed9a1176ce5a355c562d927e"
+          }
+        ],
+        "field_path": [
+          "implementation_state"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register canonical formal-entrypoint integration state without changing scientific runner readiness.",
+        "to": "not_implemented"
+      },
+      {
+        "change_id": "add-e8-formal-blocking-reason",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "configs/e8_multitask_baseline_matrix_formal.yaml",
+            "sha256": "e864e07a17ca330ce2485124580c07033fe8b2c41268e216abbd6be079fd3dc1"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "e12c5515b167bebfad290267542dca845e039ff053459bfdf1427896858218fd"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "44318b2654d1fc196c3293166786b7ea41da580d311cdb6d5fb21aa41379b965"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "516ba2588cc576b2af021c41762dec59d4c74d33ed9a1176ce5a355c562d927e"
+          }
+        ],
+        "field_path": [
+          "blocking_reason"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Explain why hardened-v1 integration remains planned and blocked while science stays not_run.",
+        "to": "Under GOV-FORMAL-ENTRYPOINT-01 this field refers to the canonical formal-entrypoint integration, not to the already implemented and regression-validated scientific runner. The current tuning module still contains a direct ZIP package subcommand, so a canonical formal entrypoint that delegates artifact ownership entirely to hardened-v1 remains planned; formal activation and the 176-cell scientific run remain blocked/not_run pending a separate implementation and launch decision."
+      },
+      {
+        "change_id": "add-e8-formal-execution-state",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "configs/e8_multitask_baseline_matrix_formal.yaml",
+            "sha256": "e864e07a17ca330ce2485124580c07033fe8b2c41268e216abbd6be079fd3dc1"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "e12c5515b167bebfad290267542dca845e039ff053459bfdf1427896858218fd"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "44318b2654d1fc196c3293166786b7ea41da580d311cdb6d5fb21aa41379b965"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "516ba2588cc576b2af021c41762dec59d4c74d33ed9a1176ce5a355c562d927e"
+          }
+        ],
+        "field_path": [
+          "formal_execution"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Bind the experiment to hardened-v1 as a planned blocked entrypoint.",
+        "to": {
+          "activation_state": "blocked",
+          "artifact_owner": "canonical_channel",
+          "artifact_protocol": "docs/formal_experiment_artifact_protocol.md",
+          "channel_ref": "hardened-v1",
+          "entrypoint_status": "planned",
+          "guard_entrypoint": "scripts/run_experiment_guard_hardened.py",
+          "hardened_core": "scripts/artifact_protocol_hardened.py",
+          "launch_mode": "canonical_guard",
+          "package_entrypoint": "scripts/package_experiment_hardened.py",
+          "verify_entrypoint": "scripts/verify_experiment_package_hardened.py"
+        }
+      },
+      {
+        "change_id": "add-e8-queue-event-identity-source",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "configs/e8_multitask_baseline_matrix_formal.yaml",
+            "sha256": "e864e07a17ca330ce2485124580c07033fe8b2c41268e216abbd6be079fd3dc1"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "e12c5515b167bebfad290267542dca845e039ff053459bfdf1427896858218fd"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "44318b2654d1fc196c3293166786b7ea41da580d311cdb6d5fb21aa41379b965"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "516ba2588cc576b2af021c41762dec59d4c74d33ed9a1176ce5a355c562d927e"
+          }
+        ],
+        "field_path": [
+          "terminal_audit",
+          "queue_event_identity_source"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify recovery-safe seed-barrier provenance without changing frozen science.",
+        "to": "scheduler/queue_events.jsonl"
+      },
+      {
+        "change_id": "add-e8-temporal-event-semantics",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "configs/e8_multitask_baseline_matrix_formal.yaml",
+            "sha256": "e864e07a17ca330ce2485124580c07033fe8b2c41268e216abbd6be079fd3dc1"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "e12c5515b167bebfad290267542dca845e039ff053459bfdf1427896858218fd"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "44318b2654d1fc196c3293166786b7ea41da580d311cdb6d5fb21aa41379b965"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "516ba2588cc576b2af021c41762dec59d4c74d33ed9a1176ce5a355c562d927e"
+          }
+        ],
+        "field_path": [
+          "terminal_audit",
+          "temporal_event_semantics"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify recovery-safe seed-barrier provenance without changing frozen science.",
+        "to": "identity_and_execution_origin_only_not_seed_ordering"
+      },
+      {
+        "change_id": "add-e8-seed-batch-temporal-scientific-provenance-check",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "configs/e8_multitask_baseline_matrix_formal.yaml",
+            "sha256": "e864e07a17ca330ce2485124580c07033fe8b2c41268e216abbd6be079fd3dc1"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "e12c5515b167bebfad290267542dca845e039ff053459bfdf1427896858218fd"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "44318b2654d1fc196c3293166786b7ea41da580d311cdb6d5fb21aa41379b965"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "516ba2588cc576b2af021c41762dec59d4c74d33ed9a1176ce5a355c562d927e"
+          }
+        ],
+        "field_path": [
+          "terminal_audit",
+          "seed_batch_temporal_scientific_provenance_check"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify recovery-safe seed-barrier provenance without changing frozen science.",
+        "to": true
+      },
+      {
+        "change_id": "add-e8-scientific-temporal-source",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "configs/e8_multitask_baseline_matrix_formal.yaml",
+            "sha256": "e864e07a17ca330ce2485124580c07033fe8b2c41268e216abbd6be079fd3dc1"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "e12c5515b167bebfad290267542dca845e039ff053459bfdf1427896858218fd"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "44318b2654d1fc196c3293166786b7ea41da580d311cdb6d5fb21aa41379b965"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "516ba2588cc576b2af021c41762dec59d4c74d33ed9a1176ce5a355c562d927e"
+          }
+        ],
+        "field_path": [
+          "terminal_audit",
+          "scientific_temporal_source"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify recovery-safe seed-barrier provenance without changing frozen science.",
+        "to": "cells/*/cell_manifest.json::scientific_execution_provenance"
+      },
+      {
+        "change_id": "add-e8-recovery-reuse-rule",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "configs/e8_multitask_baseline_matrix_formal.yaml",
+            "sha256": "e864e07a17ca330ce2485124580c07033fe8b2c41268e216abbd6be079fd3dc1"
+          },
+          {
+            "path": "docs/scopes/E8_MULTITASK_BASELINES_CAPABILITY_DEV.md",
+            "sha256": "e12c5515b167bebfad290267542dca845e039ff053459bfdf1427896858218fd"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "44318b2654d1fc196c3293166786b7ea41da580d311cdb6d5fb21aa41379b965"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "516ba2588cc576b2af021c41762dec59d4c74d33ed9a1176ce5a355c562d927e"
+          }
+        ],
+        "field_path": [
+          "terminal_audit",
+          "recovery_reuse_rule"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Clarify recovery-safe seed-barrier provenance without changing frozen science.",
+        "to": "preserve_original_scientific_execution_provenance"
+      }
+    ],
+    "coverage": {
+      "added_entities": [],
+      "changed_field_count": 8,
+      "declared_assertion_count": 8,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "40e22125c7a059546fd3ffc339709189f535e8bb800040a52a7ae7b1171114cb",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "3d104f040caa341876f764472f10bbcad21894a95522a43889c3eed5db8beb04",
+  "registry_before_sha256": "a552cd3e2058c756d92d2223ea77ee9b8e9b76bf02ffd8215b8cd3854595c573",
+  "report_schema_version": 1,
+  "source_base_commit": "02d7d51cdd613d5ffc0993e4bbe7c2c772a9c3d8",
+  "source_patch_commit": "c71c1173e8ed06cef758d7fada56f1939af3b395",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "2c86cc5b19df5d64cc3febf8b3317a0405b82ba5a0cdc9f2b38f60693161b4cc",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01-PROVENANCE-CORRECTION-2026-09-10"
+}
