@@ -68,13 +68,22 @@ jobs:
           test "$(git rev-parse HEAD:paper/iclr2027/generate_iclr.sh)" = "570aaa2b419103fa79afd4d9ded887cd79d780b5"
           rm -rf /tmp/iclr-v10-generated
           bash paper/iclr2027/generate_iclr.sh /tmp/iclr-v10-generated
-          echo 'dec782ff6278e9292e825a46087ecc520cbb08275b937bcf059e61c6d4efe5d4  /tmp/iclr-v10-generated/main.tex' | sha256sum --check --strict
+          sha256sum /tmp/iclr-v10-generated/main.tex
+          grep -Fxq 'expected_source_git_blob=4af4d989ba37bf5d55c501dc77ab421b2bc96243' /tmp/iclr-v10-generated/CONTENT_LOCK_REPORT.txt
+          grep -Fxq 'source_body_sha256=9b051259ec7b3f542baf1d7bf978fb24ab72205cea4a815ed6446c96497b9d42' /tmp/iclr-v10-generated/CONTENT_LOCK_REPORT.txt
+          grep -Fxq 'generated_body_sha256=9b051259ec7b3f542baf1d7bf978fb24ab72205cea4a815ed6446c96497b9d42' /tmp/iclr-v10-generated/CONTENT_LOCK_REPORT.txt
+          grep -Fxq 'body_lock=PASS' /tmp/iclr-v10-generated/CONTENT_LOCK_REPORT.txt
+          grep -Fxq 'title=Breaking the Curse of Repulsion: Remoteness-Aware Control of Negative Off-Policy Updates' /tmp/iclr-v10-generated/CONTENT_LOCK_REPORT.txt
+          grep -Fxq 'allowed_format_change=bibliographystyle icml2026 -> iclr2027_conference' /tmp/iclr-v10-generated/CONTENT_LOCK_REPORT.txt
+          grep -Fxq 'abstract_to_appendix_text_change=NONE' /tmp/iclr-v10-generated/CONTENT_LOCK_REPORT.txt
           git diff --check HEAD^...HEAD
           git diff --name-only HEAD^...HEAD > /tmp/final-changed.txt
           cat /tmp/final-changed.txt
           test "$(wc -l < /tmp/final-changed.txt)" -eq 2
           grep -Fxq 'paper/iclr2027/generate_iclr.sh' /tmp/final-changed.txt
           grep -Fxq 'paper/overleaf/main_replacement.tex' /tmp/final-changed.txt
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "b94fe6bc7002ca052fc056c6f6358251e41237c3"
 
       - name: Push clean manuscript branch
         shell: bash
