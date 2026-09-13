@@ -119,7 +119,7 @@ jobs:
             src/drpo/e8_multitask_runtime.py
       - name: Land trim and remove transport files
         run: |
-          git rm \
+          git rm -f \
             .github/workflows/e8-method-refactor-trim.yml \
             .github/workflows/e8_method_refactor_trim.sh
           git add \
