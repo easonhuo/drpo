@@ -18,9 +18,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          export PYTHONPATH=.:src
           python3 -m py_compile src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py
           ruff check src/drpo/e8_experiment_config.py src/drpo/e8_multitask_exp_tuning.py
-          PYTHONPATH=src python3 - <<'PY'
+          python3 - <<'PY'
           import yaml
           from drpo import e8_experiment_config as cfg
           from drpo import e8_multitask_exp_tuning as exp
