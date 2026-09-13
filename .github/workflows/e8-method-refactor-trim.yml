@@ -43,6 +43,28 @@ jobs:
           path.write_text(text.replace(old, new, 1), encoding='utf-8')
           PY
           bash .github/workflows/e8_method_refactor_trim.sh
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/test_e8_multitask_p0.py')
+          text = path.read_text(encoding='utf-8')
+          old_signature = '''    def fake_canonical(\n        config_arg,\n        config_path,\n        output_root,\n        *,\n        inputs,\n        splits,\n        base_model_path,\n        force,\n    ):'''
+          new_signature = '''    def fake_canonical(\n        config_arg,\n        config_path,\n        output_root,\n        *,\n        inputs,\n        splits,\n        base_model_path,\n        force,\n        method,\n    ):'''
+          if text.count(old_signature) != 1:
+              raise RuntimeError('unexpected canonical liveness fake signature')
+          text = text.replace(old_signature, new_signature, 1)
+          old_observed = '''                "base_model_path": base_model_path,\n                "force": force,\n            }'''
+          new_observed = '''                "base_model_path": base_model_path,\n                "force": force,\n                "method": method,\n            }'''
+          if text.count(old_observed) < 1:
+              raise RuntimeError('canonical liveness observed mapping not found')
+          anchor = text.index('def test_coldstart_liveness_cli_path_needs_no_scientific_grid_selector')
+          position = text.index(old_observed, anchor)
+          text = text[:position] + text[position:].replace(old_observed, new_observed, 1)
+          old_assert = '''    assert result == {"complete": True}\n    assert observed["inputs"] is fake_inputs["countdown"]\n'''
+          new_assert = '''    assert result == {"complete": True}\n    assert observed["inputs"] is fake_inputs["countdown"]\n    assert observed["method"] == exp_tuning.METHOD_EXPONENTIAL\n'''
+          if text.count(old_assert) != 1:
+              raise RuntimeError('canonical liveness assertion anchor not found')
+          path.write_text(text.replace(old_assert, new_assert, 1), encoding='utf-8')
+          PY
       - name: Static compile
         run: |
           python -m py_compile \
