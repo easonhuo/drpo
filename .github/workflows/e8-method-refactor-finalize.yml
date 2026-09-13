@@ -32,77 +32,36 @@ jobs:
 
           path = Path('.github/workflows/e8_method_refactor_lintfix.py')
           text = path.read_text(encoding='utf-8')
-
-          replacements = [
-              (
-                  '''text = replace_once(
-    text,
-    "        key=lambda item: spec.group_order(item[0]),\\n",
-    "        key=lambda item: e8_results.parameter_sort_key(item[0]),\\n",
-    label="generic grouped-curve ordering",
-)
-''',
-                  '''if "spec.group_order(item[0])" in text:
-    text = text.replace(
-        "spec.group_order(item[0])",
-        "e8_results.parameter_sort_key(item[0])",
-        1,
-    )
-''',
-                  'grouped-curve ordering',
+          patches = {
+              'generic grouped-curve ordering': (
+                  'if "spec.group_order(item[0])" in text:\n'
+                  '    text = text.replace("spec.group_order(item[0])", '
+                  '"e8_results.parameter_sort_key(item[0])", 1)\n'
               ),
-              (
-                  '''text = replace_once(
-    text,
-    "                **dict(spec.group_projection(parameters)),\\n",
-    "                **parameters,\\n",
-    label="generic grouped-curve projection",
-)
-''',
-                  '''if "spec.group_projection(parameters)" in text:
-    text = text.replace(
-        "**dict(spec.group_projection(parameters))",
-        "**parameters",
-        1,
-    )
-''',
-                  'grouped-curve projection',
+              'generic grouped-curve projection': (
+                  'if "spec.group_projection(parameters)" in text:\n'
+                  '    text = text.replace("**dict(spec.group_projection(parameters))", '
+                  '"**parameters", 1)\n'
               ),
-              (
-                  '''text = replace_once(
-    text,
-    "            projection = dict(spec.plot_projection(cells_by_key[cell_key]))\\n"
-    "            parameter_columns = {\\n"
-    "                column: projection.get(column)\\n"
-    "                for column in spec.plot_columns\\n"
-    "                if column != \\\"dpo_initialization\\\"\\n"
-    "            }\\n",
-    "            projection = dict(spec.parameters(cells_by_key[cell_key]))\\n"
-    "            parameter_columns = {\\n"
-    "                name: value\\n"
-    "                for name, value in projection.items()\\n"
-    "                if name != \\\"dpo_initialization\\\"\\n"
-    "            }\\n",
-    label="single-method plot parameters",
-)
-''',
-                  '''if "spec.plot_projection(cells_by_key[cell_key])" in text:
-    text = text.replace(
-        "spec.plot_projection(cells_by_key[cell_key])",
-        "spec.parameters(cells_by_key[cell_key])",
-        1,
-    )
-    text = text.replace("column: projection.get(column)", "name: value", 1)
-    text = text.replace("for column in spec.plot_columns", "for name, value in projection.items()", 1)
-    text = text.replace('if column != "dpo_initialization"', 'if name != "dpo_initialization"', 1)
-''',
-                  'single-method plot parameters',
+              'single-method plot parameters': (
+                  'if "spec.plot_projection(cells_by_key[cell_key])" in text:\n'
+                  '    text = text.replace("spec.plot_projection(cells_by_key[cell_key])", '
+                  '"spec.parameters(cells_by_key[cell_key])", 1)\n'
+                  '    text = text.replace("column: projection.get(column)", "name: value", 1)\n'
+                  '    text = text.replace("for column in spec.plot_columns", '
+                  '"for name, value in projection.items()", 1)\n'
+                  '    text = text.replace("if column != \\\"dpo_initialization\\\"", '
+                  '"if name != \\\"dpo_initialization\\\"", 1)\n'
               ),
-          ]
-          for old, new, label in replacements:
-              if old not in text:
-                  raise RuntimeError(f'cannot locate {label} transform')
-              text = text.replace(old, new, 1)
+          }
+          for label, replacement in patches.items():
+              marker = f'label="{label}"'
+              marker_pos = text.index(marker)
+              start = text.rfind('text = replace_once(', 0, marker_pos)
+              if start < 0:
+                  raise RuntimeError(f'cannot locate start of {label} transform')
+              end = text.index(')\n', marker_pos) + 2
+              text = text[:start] + replacement + text[end:]
           path.write_text(text, encoding='utf-8')
           PY
           python .github/workflows/e8_method_refactor_lintfix.py
