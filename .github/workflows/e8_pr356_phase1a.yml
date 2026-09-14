@@ -36,8 +36,16 @@ jobs:
           grep -q '^def write_canonical_cold_inputs' src/drpo/e8_multitask_exp_tuning.py
       - name: Python compile
         run: python -m py_compile src/drpo/e8_multitask_inputs.py src/drpo/e8_multitask_exp_tuning.py
-      - name: Focused E8 tests
-        run: python -m pytest -q tests/test_e8_multitask_p0.py
+      - name: Focused E8 tests excluding timing-sensitive scheduler probe
+        run: >-
+          python -m pytest -q tests/test_e8_multitask_p0.py
+          -k 'not test_exp_coldstart_scheduler_refills_without_nominal_batch_barriers'
+      - name: Scheduler refill timing probe repeated
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            python -m pytest -q tests/test_e8_multitask_p0.py::test_exp_coldstart_scheduler_refills_without_nominal_batch_barriers
+          done
       - name: Method integration contract
         run: bash tests/test_e8_method_integration_contract.sh
       - name: Handoff authority
@@ -46,8 +54,10 @@ jobs:
         run: python scripts/validate_governance_pipeline_stage_status.py --repo-root .
       - name: Ruff changed Python files
         run: python -m ruff check src/drpo/e8_multitask_inputs.py src/drpo/e8_multitask_exp_tuning.py
-      - name: Full pytest
-        run: python -m pytest -q
+      - name: Broad pytest excluding separately repeated timing probe
+        run: >-
+          python -m pytest -q
+          -k 'not test_exp_coldstart_scheduler_refills_without_nominal_batch_barriers'
       - name: Remove temporary validation workflow
         shell: bash
         run: |
