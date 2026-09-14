@@ -1,4 +1,4 @@
-name: E8 PR356 Inputs Split
+name: E8 PR356 Final Validation
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  extract-and-validate:
+  validate-and-cleanup:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,84 +21,16 @@ jobs:
           python-version: '3.11'
       - name: Install package
         run: python -m pip install -e '.[dev]'
-      - name: Extract Phase 1C safe input helpers
+      - name: Structural boundary assertions
         shell: bash
         run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          source_path = Path("src/drpo/e8_multitask_exp_tuning.py")
-          target_path = Path("src/drpo/e8_multitask_inputs.py")
-          source = source_path.read_text(encoding="utf-8")
-          target = target_path.read_text(encoding="utf-8")
-
-          if (
-              "def _load_task_adapter_and_instances(" not in source
-              and "def _task_base_config(" not in source
-          ):
-              raise SystemExit(0)
-
-          if "import copy\n" not in target:
-              target = target.replace("import json\n", "import copy\nimport json\n", 1)
-          target = target.replace(
-              "from drpo.e8_multitask_tasks import TaskInstance, stable_hash\n",
-              "from drpo.e8_multitask_tasks import TaskInstance, build_adapters, stable_hash\n",
-              1,
-          )
-
-          def extract(text: str, start_marker: str, end_marker: str):
-              start = text.index(start_marker)
-              end = text.index(end_marker, start)
-              return text[start:end].rstrip() + "\n", text[:start] + text[end:]
-
-          config_block, source = extract(
-              source,
-              "def _leaf_values(",
-              "\ndef _score_reference_candidates(",
-          )
-          adapter_block, source = extract(
-              source,
-              "def _load_task_adapter_and_instances(",
-              "\ndef _canonical_environment_evaluator(",
-          )
-          target = (
-              target.rstrip()
-              + "\n\n\n"
-              + config_block.rstrip()
-              + "\n\n\n"
-              + adapter_block.rstrip()
-              + "\n"
-          )
-
-          source = source.replace(
-              "    build_adapters,\n",
-              "",
-              1,
-          )
-          compat_anchor = "write_split_manifest = e8_inputs.write_split_manifest\n"
-          compat_block = (
-              "write_split_manifest = e8_inputs.write_split_manifest\n"
-              "_leaf_values = e8_inputs._leaf_values\n"
-              "_changed_leaf_paths = e8_inputs._changed_leaf_paths\n"
-              "_atomic_yaml = e8_inputs._atomic_yaml\n"
-              "_task_base_config = e8_inputs._task_base_config\n"
-              "_task_grid_configs = e8_inputs._task_grid_configs\n"
-              "_load_task_adapter_and_instances = e8_inputs._load_task_adapter_and_instances\n"
-          )
-          if compat_anchor not in source:
-              raise SystemExit("missing input compatibility anchor for Phase 1C")
-          source = source.replace(compat_anchor, compat_block, 1)
-
-          target_path.write_text(target, encoding="utf-8")
-          source_path.write_text(source, encoding="utf-8")
-          PY
-      - name: Static extraction assertions
-        shell: bash
-        run: |
-          for name in _leaf_values _changed_leaf_paths _atomic_yaml _task_base_config _task_grid_configs _load_task_adapter_and_instances; do
+          test -f src/drpo/e8_multitask_inputs.py
+          for name in split_p0_rows split_countdown_rows _canonical_train_row _canonical_validation_row _ordered_by_prompt_hash _audit_training_rows _evenly_spaced_rank_indices _coverage_first_reference_rank_indices _reference_surprisal_summary _reference_error_class_audit _verified_wrong_candidates resolve_task_inputs write_split_manifest _leaf_values _changed_leaf_paths _atomic_yaml _task_base_config _task_grid_configs _load_task_adapter_and_instances; do
             grep -q "^def ${name}" src/drpo/e8_multitask_inputs.py
             ! grep -q "^def ${name}" src/drpo/e8_multitask_exp_tuning.py
           done
+          grep -q '^class TaskInputs:' src/drpo/e8_multitask_inputs.py
+          ! grep -q '^class TaskInputs:' src/drpo/e8_multitask_exp_tuning.py
           grep -q '^def _score_reference_candidates' src/drpo/e8_multitask_exp_tuning.py
           grep -q '^def _derive_reference_remoteness_banks' src/drpo/e8_multitask_exp_tuning.py
           grep -q '^def write_canonical_cold_inputs' src/drpo/e8_multitask_exp_tuning.py
@@ -108,17 +40,19 @@ jobs:
         run: python -m pytest -q tests/test_e8_multitask_p0.py
       - name: Method integration contract
         run: bash tests/test_e8_method_integration_contract.sh
-      - name: Ruff
-        run: python -m ruff check src/drpo/e8_multitask_inputs.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
-      - name: Commit validated extraction
+      - name: Handoff authority
+        run: python scripts/handoff_authority.py verify --repo-root .
+      - name: Governance stage validation
+        run: python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+      - name: Ruff repository
+        run: python -m ruff check .
+      - name: Full pytest
+        run: python -m pytest -q
+      - name: Remove temporary validation workflow
         shell: bash
         run: |
-          if git diff --quiet; then
-            echo "No implementation diff to commit."
-            exit 0
-          fi
           git config user.name "easonhuo"
           git config user.email "huoyusen1@126.com"
-          git add src/drpo/e8_multitask_inputs.py src/drpo/e8_multitask_exp_tuning.py
-          git commit -m "Complete safe E8 input layer extraction"
+          git rm .github/workflows/e8_pr356_phase1a.yml
+          git commit -m "Remove temporary PR356 validation workflow"
           git push origin HEAD:dev/e8-multitask-inputs-split-01
