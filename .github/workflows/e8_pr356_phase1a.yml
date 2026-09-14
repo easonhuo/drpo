@@ -1,4 +1,4 @@
-name: E8 PR356 Phase 1A
+name: E8 PR356 Inputs Split
 
 on:
   push:
@@ -21,7 +21,7 @@ jobs:
           python-version: '3.11'
       - name: Install package
         run: python -m pip install -e '.[dev]'
-      - name: Extract Phase 1A input helpers
+      - name: Extract Phase 1A input helpers if needed
         shell: bash
         run: |
           python - <<'PY'
@@ -67,10 +67,7 @@ jobs:
               "from drpo import e8_multitask_inputs as e8_inputs\n"
               "from drpo import e8_multitask_orchestration as e8_orchestration\n"
           )
-          if source.count(orchestration_anchor) != 1:
-              raise SystemExit("unexpected e8_orchestration import anchor count")
           source = source.replace(orchestration_anchor, orchestration_block, 1)
-
           runtime_anchor = "from drpo import e8_multitask_runtime as e8_runtime\n"
           runtime_block = (
               "from drpo import e8_multitask_runtime as e8_runtime\n"
@@ -83,26 +80,127 @@ jobs:
               ")\n\n"
               "_audit_training_rows = e8_inputs._audit_training_rows\n"
           )
-          if source.count(runtime_anchor) != 1:
-              raise SystemExit("unexpected e8_runtime import anchor count")
           source = source.replace(runtime_anchor, runtime_block, 1)
+          source_path.write_text(source, encoding="utf-8")
+          PY
+      - name: Extract Phase 1B bank and remoteness data helpers
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source_path = Path("src/drpo/e8_multitask_exp_tuning.py")
+          target_path = Path("src/drpo/e8_multitask_inputs.py")
+          source = source_path.read_text(encoding="utf-8")
+          target = target_path.read_text(encoding="utf-8")
+
+          markers_present = any(
+              marker in source
+              for marker in (
+                  "class TaskInputs:",
+                  "def _evenly_spaced_rank_indices(",
+                  "def resolve_task_inputs(",
+              )
+          )
+          if not markers_present:
+              raise SystemExit(0)
+
+          old_imports = (
+              "from __future__ import annotations\n\n"
+              "from collections.abc import Mapping, Sequence\n"
+              "from typing import Any\n\n"
+              "from drpo import e8_experiment_config as experiment_config\n"
+              "from drpo.e8_multitask_tasks import stable_hash\n"
+          )
+          new_imports = (
+              "from __future__ import annotations\n\n"
+              "import json\n"
+              "import random\n"
+              "from collections.abc import Mapping, Sequence\n"
+              "from dataclasses import dataclass\n"
+              "from pathlib import Path\n"
+              "from typing import Any\n\n"
+              "import numpy as np\n"
+              "import yaml\n\n"
+              "from drpo import e8_experiment_config as experiment_config\n"
+              "from drpo.e8_multitask_p0 import (\n"
+              "    atomic_json,\n"
+              "    atomic_jsonl,\n"
+              "    bank_path,\n"
+              "    model_identity,\n"
+              "    read_jsonl,\n"
+              "    sha256_file,\n"
+              "    stable_config_hash,\n"
+              "    with_smoke_overrides,\n"
+              ")\n"
+              "from drpo.e8_multitask_tasks import TaskInstance, stable_hash\n\n"
+              "P0_EXPERIMENT_ID = experiment_config.P0_EXPERIMENT_ID\n"
+              "experiment_id = experiment_config.experiment_id\n"
+          )
+          if old_imports not in target:
+              raise SystemExit("unexpected input-module import header before Phase 1B")
+          target = target.replace(old_imports, new_imports, 1)
+
+          def extract(text: str, start_marker: str, end_marker: str):
+              start = text.index(start_marker)
+              end = text.index(end_marker, start)
+              return text[start:end].rstrip() + "\n", text[:start] + text[end:]
+
+          task_block, source = extract(
+              source,
+              "@dataclass(frozen=True)\nclass TaskInputs:",
+              "\n\nclass RowDataset",
+          )
+          helper_block, source = extract(
+              source,
+              "def _evenly_spaced_rank_indices(",
+              "\ndef _score_reference_candidates(",
+          )
+          resolve_block, source = extract(
+              source,
+              "def resolve_task_inputs(",
+              "\ndef cmd_prepare(",
+          )
+          target = (
+              target.rstrip()
+              + "\n\n\n"
+              + task_block.rstrip()
+              + "\n\n\n"
+              + helper_block.rstrip()
+              + "\n\n\n"
+              + resolve_block.rstrip()
+              + "\n"
+          )
+
+          compat_anchor = "_audit_training_rows = e8_inputs._audit_training_rows\n"
+          compat_block = (
+              "_audit_training_rows = e8_inputs._audit_training_rows\n"
+              "TaskInputs = e8_inputs.TaskInputs\n"
+              "_evenly_spaced_rank_indices = e8_inputs._evenly_spaced_rank_indices\n"
+              "_reference_surprisal_summary = e8_inputs._reference_surprisal_summary\n"
+              "_coverage_first_reference_rank_indices = (\n"
+              "    e8_inputs._coverage_first_reference_rank_indices\n"
+              ")\n"
+              "_reference_error_class_audit = e8_inputs._reference_error_class_audit\n"
+              "_verified_wrong_candidates = e8_inputs._verified_wrong_candidates\n"
+              "resolve_task_inputs = e8_inputs.resolve_task_inputs\n"
+              "write_split_manifest = e8_inputs.write_split_manifest\n"
+          )
+          if compat_anchor not in source:
+              raise SystemExit("missing Phase 1A compatibility anchor")
+          source = source.replace(compat_anchor, compat_block, 1)
+          target_path.write_text(target, encoding="utf-8")
           source_path.write_text(source, encoding="utf-8")
           PY
       - name: Static extraction assertions
         shell: bash
         run: |
-          grep -q '^def split_p0_rows' src/drpo/e8_multitask_inputs.py
-          grep -q '^def split_countdown_rows' src/drpo/e8_multitask_inputs.py
-          grep -q '^def _canonical_train_row' src/drpo/e8_multitask_inputs.py
-          grep -q '^def _canonical_validation_row' src/drpo/e8_multitask_inputs.py
-          grep -q '^def _ordered_by_prompt_hash' src/drpo/e8_multitask_inputs.py
-          grep -q '^def _audit_training_rows' src/drpo/e8_multitask_inputs.py
-          ! grep -q '^def split_p0_rows' src/drpo/e8_multitask_exp_tuning.py
-          ! grep -q '^def split_countdown_rows' src/drpo/e8_multitask_exp_tuning.py
-          ! grep -q '^def _canonical_train_row' src/drpo/e8_multitask_exp_tuning.py
-          ! grep -q '^def _canonical_validation_row' src/drpo/e8_multitask_exp_tuning.py
-          ! grep -q '^def _ordered_by_prompt_hash' src/drpo/e8_multitask_exp_tuning.py
-          ! grep -q '^def _audit_training_rows' src/drpo/e8_multitask_exp_tuning.py
+          for name in split_p0_rows split_countdown_rows _canonical_train_row _canonical_validation_row _ordered_by_prompt_hash _audit_training_rows _evenly_spaced_rank_indices _coverage_first_reference_rank_indices _reference_surprisal_summary _reference_error_class_audit _verified_wrong_candidates resolve_task_inputs write_split_manifest; do
+            grep -q "^def ${name}" src/drpo/e8_multitask_inputs.py
+            ! grep -q "^def ${name}" src/drpo/e8_multitask_exp_tuning.py
+          done
+          grep -q '^class TaskInputs:' src/drpo/e8_multitask_inputs.py
+          ! grep -q '^class TaskInputs:' src/drpo/e8_multitask_exp_tuning.py
       - name: Python compile
         run: python -m py_compile src/drpo/e8_multitask_inputs.py src/drpo/e8_multitask_exp_tuning.py
       - name: Focused E8 tests
@@ -121,5 +219,5 @@ jobs:
           git config user.name "easonhuo"
           git config user.email "huoyusen1@126.com"
           git add src/drpo/e8_multitask_inputs.py src/drpo/e8_multitask_exp_tuning.py
-          git commit -m "Extract E8 prepared-row input layer"
+          git commit -m "Extend E8 input layer extraction"
           git push origin HEAD:dev/e8-multitask-inputs-split-01
