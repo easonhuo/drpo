@@ -27,21 +27,49 @@ COLDSTART_METHOD_EXPONENTIAL = "exponential"
 COLDSTART_METHOD_ASYMRE = "asymre"
 COLDSTART_METHOD_TOPR = "joint_fitted_reference_topr"
 COLDSTART_METHOD_DPO = "canonical_dpo"
+COLDSTART_METHOD_RECIPROCAL_LINEAR = "reciprocal_linear"
+COLDSTART_METHOD_RECIPROCAL_QUADRATIC = "reciprocal_quadratic"
 COLDSTART_METHOD_BASELINE_MATRIX = "baseline_matrix"
+COLDSTART_METHOD_RECIPROCAL_MATRIX = "reciprocal_matrix"
 ASYMRE_PARAMETERIZATION = "asymre_delta_v"
 TOPR_PARAMETERIZATION = "joint_fitted_reference_beta_topr"
 DPO_PARAMETERIZATION = "canonical_dpo_beta"
+RECIPROCAL_LINEAR_PARAMETERIZATION = "reciprocal_linear_lambda"
+RECIPROCAL_QUADRATIC_PARAMETERIZATION = "reciprocal_quadratic_lambda"
 BASELINE_MATRIX_PARAMETERIZATION = "baseline_family_matrix_v1"
+RECIPROCAL_MATRIX_PARAMETERIZATION = "reciprocal_shape_matrix_v1"
 BASELINE_MATRIX_METHODS = (
     COLDSTART_METHOD_ASYMRE,
     COLDSTART_METHOD_TOPR,
     COLDSTART_METHOD_DPO,
 )
+RECIPROCAL_MATRIX_METHODS = (
+    COLDSTART_METHOD_RECIPROCAL_LINEAR,
+    COLDSTART_METHOD_RECIPROCAL_QUADRATIC,
+)
+_METHOD_MATRIX_SPECS = {
+    COLDSTART_METHOD_BASELINE_MATRIX: (
+        BASELINE_MATRIX_PARAMETERIZATION, BASELINE_MATRIX_METHODS
+    ),
+    COLDSTART_METHOD_RECIPROCAL_MATRIX: (
+        RECIPROCAL_MATRIX_PARAMETERIZATION, RECIPROCAL_MATRIX_METHODS
+    ),
+}
 
 _COLDSTART_SWEEP_SPECS = {
     COLDSTART_METHOD_EXPONENTIAL: (
         ("paper_coefficient_c", "paper_lambda_c1"), "task_lambda",
         "Unsupported exponential cold-start parameterization", "Cold-start task_lambda must contain the exact nine tasks",
+    ),
+    COLDSTART_METHOD_RECIPROCAL_LINEAR: (
+        (RECIPROCAL_LINEAR_PARAMETERIZATION,), "task_lambda",
+        "Reciprocal-linear requires reciprocal_linear_lambda parameterization",
+        "Reciprocal-linear task_lambda must contain the exact nine tasks",
+    ),
+    COLDSTART_METHOD_RECIPROCAL_QUADRATIC: (
+        (RECIPROCAL_QUADRATIC_PARAMETERIZATION,), "task_lambda",
+        "Reciprocal-quadratic requires reciprocal_quadratic_lambda parameterization",
+        "Reciprocal-quadratic task_lambda must contain the exact nine tasks",
     ),
     COLDSTART_METHOD_ASYMRE: (
         (ASYMRE_PARAMETERIZATION,), "task_delta_v",
@@ -207,22 +235,50 @@ def coldstart_method(config: Mapping[str, Any]) -> str:
     return str(_mapping(config.get("sweep"), "sweep").get("method", ""))
 
 
+def coldstart_remoteness_metadata(config: Mapping[str, Any]) -> dict[str, Any]:
+    reciprocal = coldstart_method(config) in RECIPROCAL_MATRIX_METHODS + (
+        COLDSTART_METHOD_RECIPROCAL_MATRIX,
+    )
+    return {
+        "enabled": False,
+        "mode": (
+            "paper_reciprocal_excess_remoteness_tau_0p125"
+            if reciprocal
+            else "paper_linear_surprisal_no_calibration"
+        ),
+        "coordinate": (
+            "relu(current_sequence_surprisal/2-0.125)"
+            if reciprocal
+            else "current_sequence_surprisal/2"
+        ),
+        **({"tau_code": 0.125} if reciprocal else {}),
+        "detached": True,
+        "extra_square": False,
+        "gradient_rms_matching": False,
+    }
+
+
 def coldstart_methods(config: Mapping[str, Any]) -> tuple[str, ...]:
     method = coldstart_method(config)
-    if method != COLDSTART_METHOD_BASELINE_MATRIX:
+    matrix_spec = _METHOD_MATRIX_SPECS.get(method)
+    if matrix_spec is None:
         return (method,)
+    _, expected_methods = matrix_spec
     methods = _mapping(config["sweep"].get("methods"), "sweep.methods")
     configured = {str(value) for value in methods}
-    if configured != set(BASELINE_MATRIX_METHODS):
-        raise ValueError("Baseline matrix must contain exactly AsymRE, TOPR, and canonical DPO")
-    return BASELINE_MATRIX_METHODS
+    if configured != set(expected_methods):
+        raise ValueError(
+            f"{method} must contain exactly {', '.join(expected_methods)}"
+        )
+    return expected_methods
 
 
 def _method_sweep(config: Mapping[str, Any], method: str) -> Mapping[str, Any]:
-    if coldstart_method(config) == COLDSTART_METHOD_BASELINE_MATRIX:
+    matrix_spec = _METHOD_MATRIX_SPECS.get(coldstart_method(config))
+    if matrix_spec is not None:
         methods = _mapping(config["sweep"].get("methods"), "sweep.methods")
         if method not in methods:
-            raise ValueError(f"Baseline matrix is missing method specification: {method}")
+            raise ValueError(f"Method matrix is missing method specification: {method}")
         return _mapping(methods[method], f"sweep.methods.{method}")
     if method != coldstart_method(config):
         raise ValueError(f"Cold-start config does not contain method: {method}")
@@ -621,7 +677,7 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
 
     if method == COLDSTART_METHOD_DPO:
         validate_dpo(bind_global_initialization=True)
-    elif method == COLDSTART_METHOD_BASELINE_MATRIX:
+    elif method in _METHOD_MATRIX_SPECS:
         validate_fresh_lora_common()
         if COLDSTART_METHOD_DPO in methods:
             validate_dpo(bind_global_initialization=False)
@@ -682,13 +738,15 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
         raise ValueError("Reference-remoteness bank mode is not implemented")
 
     calibration = config["remoteness_calibration"]
-    if (
-        calibration.get("enabled") is not False
-        or calibration.get("mode") != "paper_linear_surprisal_no_calibration"
-        or calibration.get("coordinate") != "current_sequence_surprisal_div_2"
-        or calibration.get("detached") is not True
-        or calibration.get("extra_square") is not False
-        or calibration.get("gradient_rms_matching") is not False
+    expected = coldstart_remoteness_metadata(config)
+    expected["coordinate"] = expected["coordinate"].replace(
+        "relu(current_sequence_surprisal/2-0.125)",
+        "relu_current_sequence_surprisal_div_2_minus_0p125",
+    ).replace("current_sequence_surprisal/2", "current_sequence_surprisal_div_2")
+    tau_code = expected.pop("tau_code", None)
+    if any(calibration.get(key) != value for key, value in expected.items()) or (
+        tau_code is not None
+        and float(calibration.get("tau_code", -1.0)) != float(tau_code)
     ):
         raise ValueError("Cold-start remoteness-calibration mode is not implemented")
 
@@ -907,10 +965,11 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
             "the liveness anchor is explicit"
         )
 
-    if method == COLDSTART_METHOD_BASELINE_MATRIX:
-        if sweep.get("parameterization") != BASELINE_MATRIX_PARAMETERIZATION:
+    if method in _METHOD_MATRIX_SPECS:
+        expected_parameterization, _ = _METHOD_MATRIX_SPECS[method]
+        if sweep.get("parameterization") != expected_parameterization:
             raise ValueError(
-                "Baseline matrix requires baseline_family_matrix_v1 parameterization"
+                f"{method} requires {expected_parameterization} parameterization"
             )
         methods = coldstart_methods(config)
         if countdown_seeds or countdown_positive or include_global or positive_seeds:
@@ -936,19 +995,20 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
             for task in transfer_tasks:
                 if not str(provenance[task]).strip():
                     raise ValueError(f"{task} {selected} task-grid provenance must be non-empty")
-        dpo = _mapping(config.get("dpo"), "dpo")
-        liveness_task = str(dpo["liveness_task"])
-        liveness_beta = float(dpo["liveness_beta"])
-        liveness_values = task_method_values(
-            config, liveness_task, method=COLDSTART_METHOD_DPO
-        )
-        if not any(
-            math.isclose(liveness_beta, value, rel_tol=0.0, abs_tol=1.0e-12)
-            for value in liveness_values
-        ):
-            raise ValueError(
-                "DPO liveness_beta must be one configured beta point for dpo.liveness_task"
+        if COLDSTART_METHOD_DPO in methods:
+            dpo = _mapping(config.get("dpo"), "dpo")
+            liveness_task = str(dpo["liveness_task"])
+            liveness_beta = float(dpo["liveness_beta"])
+            liveness_values = task_method_values(
+                config, liveness_task, method=COLDSTART_METHOD_DPO
             )
+            if not any(
+                math.isclose(liveness_beta, value, rel_tol=0.0, abs_tol=1.0e-12)
+                for value in liveness_values
+            ):
+                raise ValueError(
+                    "DPO liveness_beta must be one configured beta point for dpo.liveness_task"
+                )
         expanded = sum(
             len(task_method_values(config, task, method=selected)) * len(method_seeds)
             for selected in methods
@@ -1020,11 +1080,17 @@ def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
         expected_formula = "canonical_sigmoid_dpo_frozen_initial_reference"
         expected_countdown_entry = "disabled_no_countdown_dpo_cells"
         expected_transfer_entry = "e8_multitask_exp_tuning._train_canonical_dpo_transfer_cell"
-    elif method == COLDSTART_METHOD_BASELINE_MATRIX:
-        expected_kernel = "per_cell_canonical_baseline_dispatch"
-        expected_initialization = "per_method_initial_policy_and_reference_contract"
-        expected_formula = "per_cell_asymre_topr_or_dpo"
-        expected_countdown_entry = "disabled_no_baseline_matrix_countdown_cells"
+    elif method in _METHOD_MATRIX_SPECS:
+        if method == COLDSTART_METHOD_RECIPROCAL_MATRIX:
+            expected_kernel = "per_cell_canonical_reciprocal_shape_dispatch"
+            expected_initialization = "qwen_pretrained_base_plus_fresh_lora"
+            expected_formula = "per_cell_reciprocal_linear_or_quadratic"
+            expected_countdown_entry = "disabled_reuse_historical_countdown_reciprocal_results"
+        else:
+            expected_kernel = "per_cell_canonical_baseline_dispatch"
+            expected_initialization = "per_method_initial_policy_and_reference_contract"
+            expected_formula = "per_cell_asymre_topr_or_dpo"
+            expected_countdown_entry = "disabled_no_baseline_matrix_countdown_cells"
         expected_transfer_entry = "e8_multitask_exp_tuning.train_cell"
     else:
         expected_kernel = "import_only_no_loss_reimplementation"
@@ -1032,6 +1098,8 @@ def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
         expected_formula = {
             COLDSTART_METHOD_ASYMRE: "A_equals_R_minus_delta_v",
             COLDSTART_METHOD_TOPR: "joint_fitted_reference_beta_ratio_taper",
+            COLDSTART_METHOD_RECIPROCAL_LINEAR: "reciprocal_linear_on_excess_remoteness",
+            COLDSTART_METHOD_RECIPROCAL_QUADRATIC: "reciprocal_quadratic_on_excess_remoteness",
         }.get(method, "alpha_times_exp_minus_c_times_current_sequence_surprisal_div_2")
         expected_countdown_entry = "countdown_e8_alpha1_highc_scan_runtime.worker"
         expected_transfer_entry = "countdown_e8_alpha1_c_scan_trainer.train_cell"
@@ -1058,7 +1126,7 @@ def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
             config["sweep"].get("expected_cells"), "sweep.expected_cells"
         )
         required_waves = math.ceil(configured_cells / capacity)
-        if method == COLDSTART_METHOD_BASELINE_MATRIX and execution.get("seed_batch_barriers") is True:
+        if method in _METHOD_MATRIX_SPECS and execution.get("seed_batch_barriers") is True:
             seeds = task_transfer_seeds(config)
             if configured_cells % len(seeds) != 0:
                 raise ValueError("Baseline matrix cells must divide evenly across transfer seeds")
@@ -1090,7 +1158,7 @@ def _validate_canonical_and_execution(config: Mapping[str, Any]) -> None:
             raise ValueError(f"execution.{field} violates the recovery safety contract")
     if execution.get("oom_policy") != "fail_cell_no_automatic_scientific_parameter_mutation":
         raise ValueError("Cold-start OOM policy may not mutate scientific parameters")
-    if method == COLDSTART_METHOD_BASELINE_MATRIX:
+    if method in _METHOD_MATRIX_SPECS:
         if _boolean(execution.get("seed_batch_barriers"), "execution.seed_batch_barriers") is not True:
             raise ValueError("Baseline matrix requires the frozen transfer-seed batch barrier")
         order = tuple(_integer(v, "execution.seed_batch_order entry") for v in _sequence(execution.get("seed_batch_order"), "execution.seed_batch_order"))

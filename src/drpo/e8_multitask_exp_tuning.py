@@ -96,12 +96,18 @@ CANONICAL_ASYMRE_GRID = Path(
 CANONICAL_TOPR_GRID = Path(
     "configs/countdown_e8_oracle_offline_v2_joint_fitted_reference_beta_topr_dense_0p5b.yaml"
 )
+CANONICAL_RECIPROCAL_GRID = Path(
+    "configs/countdown_e8_oracle_offline_v2_reciprocal_shape_screen_0p5b.yaml"
+)
 METHOD_POSITIVE_ONLY = "positive_only"
 METHOD_EXPONENTIAL = experiment_config.COLDSTART_METHOD_EXPONENTIAL
 METHOD_ASYMRE = experiment_config.COLDSTART_METHOD_ASYMRE
 METHOD_TOPR = experiment_config.COLDSTART_METHOD_TOPR
 METHOD_DPO = experiment_config.COLDSTART_METHOD_DPO
+METHOD_RECIPROCAL_LINEAR = experiment_config.COLDSTART_METHOD_RECIPROCAL_LINEAR
+METHOD_RECIPROCAL_QUADRATIC = experiment_config.COLDSTART_METHOD_RECIPROCAL_QUADRATIC
 METHOD_BASELINE_MATRIX = experiment_config.COLDSTART_METHOD_BASELINE_MATRIX
+METHOD_RECIPROCAL_MATRIX = experiment_config.COLDSTART_METHOD_RECIPROCAL_MATRIX
 METHOD_GLOBAL = "global"
 TRANSFER_SYSTEM_PROMPT = "Answer with only the requested final output and no explanation."
 SWEEP_PROFILE_RHO = experiment_config.SWEEP_PROFILE_RHO
@@ -300,6 +306,13 @@ def _exp_key(cell: Cell) -> str:
     return f"{cell.task}__exp_rho{tag}__seed{cell.seed}"
 
 
+def _reciprocal_key(cell: Cell) -> str:
+    if cell.lambda_value is None:
+        raise AssertionError("Reciprocal cell requires lambda")
+    tag = f"{cell.lambda_value:.12g}".replace(".", "p")
+    return f"{cell.task}__{cell.method}_lambda{tag}__seed{cell.seed}"
+
+
 def _asymre_key(cell: Cell) -> str:
     if cell.delta_v is None:
         raise AssertionError("AsymRE cell requires delta_v")
@@ -345,6 +358,14 @@ def _build_exponential_cell(
     del dpo_initialization
     rho = None if lambda_only else math.exp(-value)
     return Cell(task, method, rho, seed, stage, value)
+
+
+def _build_reciprocal_cell(
+    *, task: str, method: str, seed: int, stage: str, value: float,
+    lambda_only: bool, dpo_initialization: str | None,
+) -> Cell:
+    del lambda_only, dpo_initialization
+    return Cell(task, method, None, seed, stage, value)
 
 
 def _build_asymre_cell(
@@ -467,6 +488,14 @@ def _paper_grid_paths_exponential(
         )
     )
     return Path(str(record[grid_name])), _canonical_paths(config)[grid_name]
+
+
+def _paper_params_reciprocal(cell: Cell) -> tuple[str, float, float]:
+    if cell.method not in {METHOD_RECIPROCAL_LINEAR, METHOD_RECIPROCAL_QUADRATIC}:
+        raise AssertionError(f"Unsupported reciprocal family: {cell.method}")
+    if cell.lambda_value is None:
+        raise AssertionError("Reciprocal cell has no lambda")
+    return cell.method, 1.0, float(cell.lambda_value)
 
 
 def _paper_params_exponential(cell: Cell) -> tuple[str, float, float]:
@@ -601,6 +630,39 @@ def _register_builtin_method_specs() -> None:
                 ),
                 scientific_kernel="canonical_old_coldstart_imports",
                 paper_runtime=exponential_paper_runtime,
+            )
+        )
+
+    reciprocal_formulas = {
+        METHOD_RECIPROCAL_LINEAR: (
+            "1/(1+lambda*sqrt(relu(current_sequence_surprisal/2-0.125)))"
+        ),
+        METHOD_RECIPROCAL_QUADRATIC: (
+            "1/(1+lambda*relu(current_sequence_surprisal/2-0.125))"
+        ),
+    }
+    for method, formula in reciprocal_formulas.items():
+        _register_method_spec(
+            MethodSpec(
+                name=method,
+                build_cell=_build_reciprocal_cell,
+                cell_key=_reciprocal_key,
+                parameters=lambda cell: {"lambda": _cell_lambda(cell)},
+                cell_initialization=lambda config: None,
+                initialization_identity=_default_initialization_identity,
+                train_cold=_cold_train_paper,
+                liveness_task=lambda config: "countdown",
+                liveness_runner=lambda _method=method, **kwargs: (
+                    _run_canonical_method_liveness(_method, **kwargs)
+                ),
+                scientific_kernel="canonical_old_coldstart_imports",
+                paper_runtime=PaperRuntimeSpec(
+                    liveness_grid=lambda config, record: _canonical_reciprocal_grid_path(),
+                    liveness_parameter="representative_c",
+                    grid_paths=lambda config, record, cell: (_canonical_reciprocal_grid_path(),) * 2,
+                    cell_parameters=_paper_params_reciprocal,
+                    formula=formula,
+                ),
             )
         )
 
@@ -790,6 +852,12 @@ def _coldstart_methods(config: Mapping[str, Any]) -> tuple[str, ...]:
 
 def _is_baseline_matrix(config: Mapping[str, Any]) -> bool:
     return _is_coldstart(config) and _coldstart_method(config) == METHOD_BASELINE_MATRIX
+
+
+def _is_method_matrix(config: Mapping[str, Any]) -> bool:
+    return _is_coldstart(config) and _coldstart_method(config) in {
+        METHOD_BASELINE_MATRIX, METHOD_RECIPROCAL_MATRIX
+    }
 
 
 def _task_rhos(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
@@ -1133,7 +1201,7 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
         cells: list[Cell] = []
         methods = _coldstart_methods(config)
         method_seeds = experiment_config.task_transfer_seeds(config)
-        if _is_baseline_matrix(config):
+        if _is_method_matrix(config):
             for method_seed in method_seeds:
                 for task in tasks:
                     if task == "countdown":
@@ -1263,7 +1331,7 @@ def build_waves(config: Mapping[str, Any]) -> tuple[tuple[Cell, ...], ...]:
             raise AssertionError("Dense wave geometry must be seven task-local 16-cell waves")
         return waves
     if _is_coldstart(config):
-        seed_barrier = _is_baseline_matrix(config) and bool(
+        seed_barrier = _is_method_matrix(config) and bool(
             config["execution"].get("seed_batch_barriers")
         )
         seed_order = (
@@ -1277,9 +1345,9 @@ def build_waves(config: Mapping[str, Any]) -> tuple[tuple[Cell, ...], ...]:
             seed_barrier=seed_barrier,
             seed_order=seed_order,
         )
-        if seed_barrier and tuple(len(wave) for wave in waves) != (
-            16, 16, 16, 16, 16, 8,
-        ) * 2:
+        if _is_baseline_matrix(config) and seed_barrier and tuple(
+            len(wave) for wave in waves
+        ) != (16, 16, 16, 16, 16, 8) * 2:
             raise AssertionError("Baseline matrix must form two 88-cell seed-local batches")
         if not waves or any(len(wave) != capacity for wave in waves[:-1]) and not seed_barrier:
             raise AssertionError(
@@ -1593,6 +1661,13 @@ def _canonical_topr_grid_path() -> Path:
     path = (_repo_root() / CANONICAL_TOPR_GRID).resolve()
     if not path.is_file():
         raise FileNotFoundError(f"Canonical TOPR grid is missing: {path}")
+    return path
+
+
+def _canonical_reciprocal_grid_path() -> Path:
+    path = (_repo_root() / CANONICAL_RECIPROCAL_GRID).resolve()
+    if not path.is_file():
+        raise FileNotFoundError(f"Canonical reciprocal grid is missing: {path}")
     return path
 
 def _leaf_values(value: Any, prefix: str = "") -> dict[str, Any]:
@@ -3602,12 +3677,7 @@ def calibrate_canonical_cold_task(
         raise RuntimeError(f"Existing canonical calibration identity mismatch for {task}")
     result = {
         **identity,
-        "enabled": False,
-        "mode": "paper_linear_surprisal_no_calibration",
-        "coordinate": "current_sequence_surprisal/2",
-        "detached": True,
-        "extra_square": False,
-        "gradient_rms_matching": False,
+        **experiment_config.coldstart_remoteness_metadata(config),
         "canonical_train_sha256": record["train_sha256"],
         "task_metrics_used": False,
         "test_data_used": False,
@@ -6184,6 +6254,23 @@ def _canonical_liveness_base_config(config: Mapping[str, Any], output_root: Path
     return path
 
 
+def _method_liveness_grid(
+    grid_path: Path, method: str, output_root: Path
+) -> Path:
+    if method not in {METHOD_RECIPROCAL_LINEAR, METHOD_RECIPROCAL_QUADRATIC}:
+        return grid_path
+    value = yaml.safe_load(grid_path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise TypeError("Canonical reciprocal grid root must be a mapping")
+    value["execution"]["liveness"]["representative_family"] = method
+    path = output_root / "liveness" / f"canonical_liveness_grid_{method}.yaml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".yaml.tmp")
+    temporary.write_text(yaml.safe_dump(value, sort_keys=False), encoding="utf-8")
+    temporary.replace(path)
+    return path
+
+
 def _canonical_cold_liveness_cell(grid_path: Path) -> Cell:
     """Derive one paper-runtime liveness cell through the method contract."""
 
@@ -6230,11 +6317,12 @@ def _cmd_canonical_cold_liveness(
     if paper_runtime is None:
         raise RuntimeError(f"{method} does not use canonical paper-runtime liveness")
     grid_path = paper_runtime.liveness_grid(config, record)
+    grid_path = _method_liveness_grid(grid_path, method, output_root)
     modules = _activate_paper_grid_modules(modules, grid_path)
     runtime = modules["paper_runtime"]
     cell = _canonical_cold_liveness_cell(grid_path)
     smoke_name = (
-        f"paper_runtime_smoke_{method}" if _is_baseline_matrix(config) else "paper_runtime_smoke"
+        f"paper_runtime_smoke_{method}" if _is_method_matrix(config) else "paper_runtime_smoke"
     )
     smoke_root = output_root / "liveness" / smoke_name
     if force and smoke_root.exists():
@@ -6342,7 +6430,7 @@ def cmd_liveness(
             config,
             base_model_path=base_model_path,
         )
-        if _is_baseline_matrix(config):
+        if _is_method_matrix(config):
             if task != "countdown":
                 raise RuntimeError(
                     "Baseline-matrix liveness is launched once from the Countdown anchor"
@@ -7248,11 +7336,13 @@ def _require_calibration_gate(
             "complete"
         ):
             raise RuntimeError(f"Calibration gate identity mismatch for {task}")
-        if _is_coldstart(config) and (
-            result.get("enabled") is not False
-            or result.get("mode") != "paper_linear_surprisal_no_calibration"
-        ):
-            raise RuntimeError(f"Paper calibration must remain disabled for {task}")
+        if _is_coldstart(config):
+            expected_remoteness = experiment_config.coldstart_remoteness_metadata(config)
+            if (
+                result.get("enabled") is not False
+                or result.get("mode") != expected_remoteness["mode"]
+            ):
+                raise RuntimeError(f"Paper calibration identity mismatch for {task}")
 
 
 def _require_liveness_gate(
@@ -7449,7 +7539,7 @@ def cmd_run_dynamic(
     cells = build_cells(config)
     gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
     slots_per_gpu = int(config["execution"]["slots_per_gpu"])
-    seed_barrier = _is_baseline_matrix(config) and bool(
+    seed_barrier = _is_method_matrix(config) and bool(
         config["execution"].get("seed_batch_barriers")
     )
     seed_order = (
@@ -8398,7 +8488,7 @@ def _aggregate_coldstart_matrix_unranked(
         "source_commit": source_commit,
         "cell_count": len(rows),
         "plot_curve_point_count": len(plot_rows),
-        "method": METHOD_BASELINE_MATRIX,
+        "method": _coldstart_method(config),
         "methods": list(methods),
         "execution_class": _execution_class(config),
         "method_metadata": method_metadata,
@@ -8434,7 +8524,7 @@ def _aggregate_coldstart(
     output_root: Path,
     rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    if _is_baseline_matrix(config):
+    if _is_method_matrix(config):
         return _aggregate_coldstart_matrix_unranked(config, output_root, rows)
     if _coldstart_method(config) != METHOD_EXPONENTIAL:
         return _aggregate_coldstart_unranked(config, output_root, rows)
@@ -8804,7 +8894,7 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             and reproduction_gate_status == expected_protocol_status
         )
     seed_batch_protocol_complete: bool | None = None
-    if _is_baseline_matrix(config):
+    if _is_method_matrix(config):
         sp = output_root / "scheduler" / "dynamic_run.json"
         scheduler = json.loads(sp.read_text(encoding="utf-8")) if sp.is_file() else {}
         order = [int(v) for v in config["execution"]["seed_batch_order"]]
@@ -9248,8 +9338,7 @@ def _write_engineering_gates(
         )
         result = {
             **identity,
-            "enabled": False,
-            "mode": "paper_linear_surprisal_no_calibration",
+            **experiment_config.coldstart_remoteness_metadata(config),
             "complete": True,
             "scientific_status": "not_run",
             "engineering_placeholder_backend": True,
