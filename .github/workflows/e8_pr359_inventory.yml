@@ -18,7 +18,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Inventory result and aggregation functions
+      - name: Inventory result region
         shell: bash
         run: |
           python - <<'PY'
@@ -28,14 +28,10 @@ jobs:
           path = Path('src/drpo/e8_multitask_exp_tuning.py')
           source = path.read_text(encoding='utf-8')
           tree = ast.parse(source)
-          keywords = (
-              'aggregate', 'result', 'summary', 'analysis_ready',
-              'task_result', 'write_csv', 'materialize', 'group',
-          )
           for node in tree.body:
               if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                   continue
-              if not any(key in node.name for key in keywords):
+              if not (6800 <= node.lineno <= 8100):
                   continue
               globals_used = sorted({
                   child.id
