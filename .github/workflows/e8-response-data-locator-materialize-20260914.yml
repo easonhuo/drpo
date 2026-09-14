@@ -1,0 +1,262 @@
+name: E8 response data locator materialization 20260914
+
+on:
+  push:
+    branches:
+      - automation/e8-response-data-locator-materialize-20260914
+
+permissions:
+  contents: write
+
+jobs:
+  materialize-and-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-result-locator-20260914
+          fetch-depth: 0
+          path: target
+          persist-credentials: true
+
+      - name: Checkout trusted current main
+        uses: actions/checkout@v4
+        with:
+          ref: 9ae5e1dc80def7ff758bc80f2ccacbc0b4c1431c
+          fetch-depth: 0
+          path: trusted
+          persist-credentials: false
+
+      - name: Checkout exact historical-data carrier
+        uses: actions/checkout@v4
+        with:
+          ref: f845d28a8e2e76dacc4bfcdf8c87e6ecb7163077
+          fetch-depth: 1
+          path: payload
+          persist-credentials: false
+
+      - name: Verify locked refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=9ae5e1dc80def7ff758bc80f2ccacbc0b4c1431c
+          test "$(git -C target rev-parse HEAD)" = "$BASE"
+          test "$(git -C trusted rev-parse HEAD)" = "$BASE"
+          test "$(git -C payload rev-parse HEAD)" = "f845d28a8e2e76dacc4bfcdf8c87e6ecb7163077"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: target/pyproject.toml
+
+      - name: Install repository test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e './target[dev]'
+
+      - name: Restore exact numeric payload and author schema-v3 delta
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=9ae5e1dc80def7ff758bc80f2ccacbc0b4c1431c
+          UPDATE_ID=EXT-C-E8-MULTITASK-EXP-RESPONSE-DATA-LOCATOR-2026-09-14
+
+          mkdir -p docs/results experiments/results
+          cp ../payload/docs/results/E8_MULTITASK_EXP_LAMBDA_COMPLETION_JOINT_RESULT_2026-09-02.md docs/results/
+          cp -a ../payload/experiments/results/e8_multitask_exp_lambda_completion_20260827_01 experiments/results/
+          cp -a ../payload/experiments/results/e8_multitask_exp_lambda_curve_completion_02 experiments/results/
+          cp -a ../payload/experiments/results/e8_multitask_exp_lambda_joint_20260902 experiments/results/
+          cp -a ../payload/experiments/results/e8_multitask_exp_response_20260914 experiments/results/
+
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import sys
+          import yaml
+
+          BASE = '9ae5e1dc80def7ff758bc80f2ccacbc0b4c1431c'
+          UPDATE_ID = 'EXT-C-E8-MULTITASK-EXP-RESPONSE-DATA-LOCATOR-2026-09-14'
+          BLOCK_ID = 'e8-multitask-exp-response-data-locator-2026-09-14'
+
+          sys.path.insert(0, str(Path('../trusted/scripts').resolve()))
+          import handoff_delta_shadow as shadow
+
+          base_handoff = subprocess.check_output(
+              ['git', 'show', f'{BASE}:docs/handoff.md'], text=True
+          )
+          base_registry = subprocess.check_output(
+              ['git', 'show', f'{BASE}:experiments/registry.yaml'], text=True
+          )
+
+          content = '''> **E8 multitask EXP response-data canonical locator（2026-09-14）：**后续新 session 若需要重画、审计或继续分析 `EXT-C-E8-MULTITASK-EXP-COLDSTART-01`、`EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01`、`EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02` 与 `EXT-C-E8-MULTITASK-EXP-LAMBDA-WIDE-RIGHTTAIL-03` 的响应曲线，必须首先读取 `experiments/results/e8_multitask_exp_response_20260914/RESULT_LOCATOR.json`，不得再从历史聊天、图片或损坏 archive 反推数值。完整记录口径为 `647 = 208 cold-start + 199 Completion-01 + 140 Completion-02 + 100 Wide-RightTail-03`；标准 EXP + Positive-only 九宫格使用其中 `645` 条记录，仅排除 cold-start 的 2 条 Countdown Global 行。前三轮的 `547` 条 joint numeric projection 已以历史 PR #342 原始字节落入 `experiments/results/e8_multitask_exp_lambda_joint_20260902/`，其 `CURVE_MANIFEST.json` 固定九个任务 CSV 的 row count 与 SHA256；Wide-RightTail-03 的 `100` 条 authoritative compact numeric rows 位于 `easonhuo/drpo-results@aea817b94acd9f87a9251cfd46c362bfed14c44b:e8/EXT-C-E8-MULTITASK-EXP-LAMBDA-WIDE-RIGHTTAIL-03_pilot/CURVE_POINTS_COMPACT.csv`，同目录 `RESULT_MANIFEST.json` 保存终态与 provenance。绘图主指标继续为 `late_window_pass8_mean`，横轴 `lambda` 用 log scale，Positive-only 基线只使用真实 Positive-only rows；禁止 digitize figure、补点、插值或伪造科学数据。上述四轮都仍只构成 **pilot response-shape / curve-boundary evidence**，不得升级为 convergence、steady state、significance 或正式方法排名。'''
+
+          operations = [{
+              'operation_id': 'append-e8-multitask-exp-response-data-locator-2026-09-14',
+              'op': 'append_to_section',
+              'heading_path': [
+                  '0. 研究与执行原则（每次新会话首先阅读）',
+                  '0.1 当前执行门禁',
+              ],
+              'block_id': BLOCK_ID,
+              'content': content,
+          }]
+
+          rendered = shadow.render(base_handoff, operations)
+          shadow.verify_history_preservation(base_handoff, rendered.text, operations)
+
+          delta = {
+              'schema_version': 3,
+              'update_id': UPDATE_ID,
+              'mode': 'authoritative',
+              'base': {
+                  'commit': BASE,
+                  'handoff_sha256': shadow.sha256_text(base_handoff),
+                  'registry_sha256': shadow.sha256_text(base_registry),
+              },
+              'renderer_version': 1,
+              'operations': operations,
+              'registry': {
+                  'mode': 'unchanged',
+                  'changes': [],
+              },
+              'expected': {
+                  'exact_base_candidate_sha256': shadow.sha256_text(rendered.text),
+              },
+          }
+
+          delta_dir = Path('docs/handoff_deltas') / UPDATE_ID
+          delta_dir.mkdir(parents=True, exist_ok=False)
+          (delta_dir / 'HANDOFF_DELTA.yaml').write_text(
+              yaml.safe_dump(delta, sort_keys=False, allow_unicode=True),
+              encoding='utf-8',
+          )
+          print('handoff_sha256=' + delta['base']['handoff_sha256'])
+          print('registry_sha256=' + delta['base']['registry_sha256'])
+          print('candidate_sha256=' + delta['expected']['exact_base_candidate_sha256'])
+          PY
+
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/results experiments/results docs/handoff_deltas/$UPDATE_ID/HANDOFF_DELTA.yaml
+          git diff --cached --check
+          git commit -m 'E8: prepare canonical response-data locator closure'
+          echo "SOURCE_PATCH_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Validate schema-v3 exact-base intent
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          python ../trusted/scripts/handoff_authority.py validate-delta \
+            --repo-root . \
+            --delta docs/handoff_deltas/EXT-C-E8-MULTITASK-EXP-RESPONSE-DATA-LOCATOR-2026-09-14/HANDOFF_DELTA.yaml \
+            --source-patch-commit "$SOURCE_PATCH_COMMIT" \
+            --json
+
+      - name: Trusted Stage-5 normalization
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=9ae5e1dc80def7ff758bc80f2ccacbc0b4c1431c
+          python ../trusted/scripts/handoff_authority.py normalize \
+            --repo-root . \
+            --trusted-repo-root ../trusted \
+            --current-before "$BASE" \
+            --source-base "$BASE" \
+            --source-patch-commit "$SOURCE_PATCH_COMMIT" \
+            --json
+
+      - name: Enforce normalization write boundary
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess
+          report = 'docs/handoff_deltas/EXT-C-E8-MULTITASK-EXP-RESPONSE-DATA-LOCATOR-2026-09-14/MATERIALIZATION_REPORT.json'
+          allowed_exact = {'docs/handoff.md', report}
+          allowed_prefix = 'docs/handoff_shadow/stage4/minimal/generated/'
+          out = subprocess.check_output(['git', 'status', '--porcelain'], text=True)
+          paths = []
+          for line in out.splitlines():
+              if not line.strip():
+                  continue
+              path = line[3:]
+              if ' -> ' in path:
+                  path = path.split(' -> ', 1)[1]
+              paths.append(path)
+          bad = sorted(p for p in paths if p not in allowed_exact and not p.startswith(allowed_prefix))
+          if bad:
+              raise SystemExit('Unexpected normalization paths: ' + ', '.join(bad))
+          if 'docs/handoff.md' not in paths:
+              raise SystemExit('Normalizer did not materialize docs/handoff.md')
+          if report not in paths:
+              raise SystemExit('Normalizer did not create MATERIALIZATION_REPORT.json')
+          print('\n'.join(paths))
+          PY
+          git diff --check
+
+      - name: Create immutable same-add closure commit
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=9ae5e1dc80def7ff758bc80f2ccacbc0b4c1431c
+          DELTA=docs/handoff_deltas/EXT-C-E8-MULTITASK-EXP-RESPONSE-DATA-LOCATOR-2026-09-14/HANDOFF_DELTA.yaml
+          REPORT=docs/handoff_deltas/EXT-C-E8-MULTITASK-EXP-RESPONSE-DATA-LOCATOR-2026-09-14/MATERIALIZATION_REPORT.json
+
+          git reset --soft "$BASE"
+          git add -A
+          git diff --cached --check
+          git commit -m 'E8: land canonical response-data locator'
+          FINAL_HEAD=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^1)" = "$BASE"
+          test "$(git log --diff-filter=A --format=%H -- "$DELTA")" = "$FINAL_HEAD"
+          test "$(git log --diff-filter=A --format=%H -- "$REPORT")" = "$FINAL_HEAD"
+          echo "FINAL_HEAD=$FINAL_HEAD" >> "$GITHUB_ENV"
+
+      - name: Required authority and governance gates
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=9ae5e1dc80def7ff758bc80f2ccacbc0b4c1431c
+          python scripts/handoff_authority.py verify --repo-root . --json
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          python scripts/validate_governance_rule_inventory.py --repo-root .
+          python scripts/validate_formal_execution_channel.py --repo-root .
+          git diff --check "$BASE"..HEAD
+
+      - name: Canonical test selection and execution
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=9ae5e1dc80def7ff758bc80f2ccacbc0b4c1431c
+          python scripts/select_update_tests.py --repo . --base "$BASE" --head HEAD --mode auto --json | tee "$RUNNER_TEMP/canonical-test-plan.json"
+          python scripts/select_update_tests.py --repo . --base "$BASE" --head HEAD --mode auto --execute --json 2>&1 | tee "$RUNNER_TEMP/canonical-tests.log"
+
+      - name: Confirm clean validated worktree
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          test "$(git rev-parse HEAD)" = "$FINAL_HEAD"
+
+      - name: Push validated materialized closure to target branch
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:refs/heads/dev/e8-multitask-result-locator-20260914
+          echo "PUSHED_VALIDATED_HEAD=$(git rev-parse HEAD)"
