@@ -1,0 +1,49 @@
+name: E8 PR359 Results Inventory
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-results-split-01
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-results-split-01
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Inventory result and aggregation functions
+        shell: bash
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+
+          path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          source = path.read_text(encoding='utf-8')
+          tree = ast.parse(source)
+          keywords = (
+              'aggregate', 'result', 'summary', 'analysis_ready',
+              'task_result', 'write_csv', 'materialize', 'group',
+          )
+          for node in tree.body:
+              if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                  continue
+              if not any(key in node.name for key in keywords):
+                  continue
+              globals_used = sorted({
+                  child.id
+                  for child in ast.walk(node)
+                  if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load)
+              })
+              print(f'FUNCTION {node.name} lines={node.lineno}-{node.end_lineno} size={node.end_lineno-node.lineno+1}')
+              print('GLOBALS ' + ' '.join(globals_used))
+          PY
+      - name: Main file line count
+        run: wc -l src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_results.py
