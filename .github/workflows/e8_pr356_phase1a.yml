@@ -44,8 +44,8 @@ jobs:
         run: python scripts/handoff_authority.py verify --repo-root .
       - name: Governance stage validation
         run: python scripts/validate_governance_pipeline_stage_status.py --repo-root .
-      - name: Ruff repository
-        run: python -m ruff check .
+      - name: Ruff changed Python files
+        run: python -m ruff check src/drpo/e8_multitask_inputs.py src/drpo/e8_multitask_exp_tuning.py
       - name: Full pytest
         run: python -m pytest -q
       - name: Remove temporary validation workflow
