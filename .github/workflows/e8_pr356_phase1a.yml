@@ -75,10 +75,10 @@ jobs:
               "    _canonical_train_row,\n"
               "    _canonical_validation_row,\n"
               "    _ordered_by_prompt_hash,\n"
-              "    split_countdown_rows,\n"
-              "    split_p0_rows,\n"
               ")\n\n"
               "_audit_training_rows = e8_inputs._audit_training_rows\n"
+              "split_countdown_rows = e8_inputs.split_countdown_rows\n"
+              "split_p0_rows = e8_inputs.split_p0_rows\n"
           )
           source = source.replace(runtime_anchor, runtime_block, 1)
           source_path.write_text(source, encoding="utf-8")
