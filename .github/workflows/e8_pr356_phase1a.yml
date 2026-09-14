@@ -172,9 +172,30 @@ jobs:
               + "\n"
           )
 
+          old_source_imports = (
+              "from drpo.e8_multitask_inputs import (\n"
+              "    _canonical_train_row,\n"
+              "    _canonical_validation_row,\n"
+              "    _ordered_by_prompt_hash,\n"
+              "    split_countdown_rows,\n"
+              "    split_p0_rows,\n"
+              ")\n"
+          )
+          new_source_imports = (
+              "from drpo.e8_multitask_inputs import (\n"
+              "    _canonical_train_row,\n"
+              "    _canonical_validation_row,\n"
+              "    _ordered_by_prompt_hash,\n"
+              ")\n"
+          )
+          if old_source_imports in source:
+              source = source.replace(old_source_imports, new_source_imports, 1)
+
           compat_anchor = "_audit_training_rows = e8_inputs._audit_training_rows\n"
           compat_block = (
               "_audit_training_rows = e8_inputs._audit_training_rows\n"
+              "split_countdown_rows = e8_inputs.split_countdown_rows\n"
+              "split_p0_rows = e8_inputs.split_p0_rows\n"
               "TaskInputs = e8_inputs.TaskInputs\n"
               "_evenly_spaced_rank_indices = e8_inputs._evenly_spaced_rank_indices\n"
               "_reference_surprisal_summary = e8_inputs._reference_surprisal_summary\n"
