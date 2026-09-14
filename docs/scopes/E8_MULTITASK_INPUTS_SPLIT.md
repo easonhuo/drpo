@@ -133,3 +133,15 @@ Run focused E8 tests, the method-integration contract, full pytest when practica
 Implementation stays on `dev/e8-multitask-inputs-split-01`. If the extraction cannot preserve existing scientific semantics or requires a new gate, frozen-variable change, or additional Python module, stop and report the conflict instead of expanding scope.
 
 No merge to `main` is authorized until explicit repository-owner approval after diff/test review.
+
+## Implementation outcome — Checkpoint C
+
+The safe input boundary is now implemented on the development branch. The new module owns the mechanically separable input/data responsibilities: P0 and Countdown normalization and deterministic splitting, row/partition audits, canonical row conversion, `TaskInputs`, input resolution and split-manifest materialization, deterministic verified-wrong reconstruction, reference-remoteness rank selection and data-only diagnostics, task-interface config/grid materialization helpers, and task-adapter/instance reconstruction. The historical entry module retains compatibility bindings so existing callers do not need a broad import migration.
+
+The following functions deliberately remain in `e8_multitask_exp_tuning.py` because moving them would cross the clean input/runtime boundary rather than improve it:
+
+- `_score_reference_candidates` — executes model forward/scoring with Torch and the canonical arena;
+- `_derive_reference_remoteness_banks` — owns model/tokenizer loading, runtime bridging, CUDA lifecycle, and orchestration around the extracted data transformations;
+- `write_canonical_cold_inputs` — still composes canonical-source provenance audit, canonical path authority, prepared-input materialization, and runtime-facing records.
+
+This is an intentional boundary, not an incomplete line-count target. No new abstraction or dependency-injection layer was introduced merely to move these model/provenance-coupled functions. At the completed Checkpoint C implementation, `e8_multitask_exp_tuning.py` has removed 762 lines relative to the base while `e8_multitask_inputs.py` contains the extracted implementation. Checkpoint D validation remains required before merge consideration.
