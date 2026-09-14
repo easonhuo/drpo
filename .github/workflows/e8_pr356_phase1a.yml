@@ -66,7 +66,7 @@ jobs:
           import_block = (
               "from drpo import e8_multitask_runtime as e8_runtime\n"
               "from drpo.e8_multitask_inputs import (\n"
-              "    _audit_training_rows,\n"
+              "    _audit_training_rows as _audit_training_rows,\n"
               "    _canonical_train_row,\n"
               "    _canonical_validation_row,\n"
               "    _ordered_by_prompt_hash,\n"
