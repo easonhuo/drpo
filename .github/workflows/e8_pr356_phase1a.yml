@@ -1,0 +1,113 @@
+name: E8 PR356 Phase 1A
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-inputs-split-01
+
+permissions:
+  contents: write
+
+jobs:
+  extract-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-multitask-inputs-split-01
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install package
+        run: python -m pip install -e '.[dev]'
+      - name: Extract Phase 1A input helpers
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source_path = Path("src/drpo/e8_multitask_exp_tuning.py")
+          target_path = Path("src/drpo/e8_multitask_inputs.py")
+          source = source_path.read_text(encoding="utf-8")
+          start_marker = "def _ordered_by_prompt_hash("
+          end_marker = "\ndef _paper_grid_name("
+
+          if target_path.exists():
+              if start_marker in source:
+                  raise SystemExit("target exists while Phase 1A definitions remain in source")
+              raise SystemExit(0)
+
+          start = source.index(start_marker)
+          end = source.index(end_marker, start)
+          block = source[start:end].rstrip() + "\n"
+          source = source[:start] + source[end + 1:]
+
+          header = (
+              '"""Prepared-row normalization and deterministic split helpers for E8 multitask runs.\n\n'
+              'This module is a physical extraction from ``e8_multitask_exp_tuning``. It owns\n'
+              'input/data transformations only; scientific method kernels, optimizer behavior,\n'
+              'and scheduling remain outside this module.\n'
+              '"""\n\n'
+              'from __future__ import annotations\n\n'
+              'from collections.abc import Mapping, Sequence\n'
+              'from typing import Any\n\n'
+              'from drpo import e8_experiment_config as experiment_config\n'
+              'from drpo.e8_multitask_tasks import stable_hash\n\n\n'
+              'def _is_coldstart(config: Mapping[str, Any]) -> bool:\n'
+              '    return (\n'
+              '        experiment_config.sweep_profile(config)\n'
+              '        == experiment_config.SWEEP_PROFILE_COLDSTART\n'
+              '    )\n\n\n'
+          )
+          target_path.write_text(header + block, encoding="utf-8")
+
+          import_anchor = "from drpo import e8_multitask_runtime as e8_runtime\n"
+          import_block = (
+              "from drpo import e8_multitask_runtime as e8_runtime\n"
+              "from drpo.e8_multitask_inputs import (\n"
+              "    _canonical_train_row,\n"
+              "    _canonical_validation_row,\n"
+              "    _ordered_by_prompt_hash,\n"
+              "    split_countdown_rows,\n"
+              "    split_p0_rows,\n"
+              ")\n"
+          )
+          if source.count(import_anchor) != 1:
+              raise SystemExit("unexpected e8_runtime import anchor count")
+          source = source.replace(import_anchor, import_block, 1)
+          source_path.write_text(source, encoding="utf-8")
+          PY
+      - name: Static extraction assertions
+        shell: bash
+        run: |
+          grep -q '^def split_p0_rows' src/drpo/e8_multitask_inputs.py
+          grep -q '^def split_countdown_rows' src/drpo/e8_multitask_inputs.py
+          grep -q '^def _canonical_train_row' src/drpo/e8_multitask_inputs.py
+          grep -q '^def _canonical_validation_row' src/drpo/e8_multitask_inputs.py
+          grep -q '^def _ordered_by_prompt_hash' src/drpo/e8_multitask_inputs.py
+          ! grep -q '^def split_p0_rows' src/drpo/e8_multitask_exp_tuning.py
+          ! grep -q '^def split_countdown_rows' src/drpo/e8_multitask_exp_tuning.py
+          ! grep -q '^def _canonical_train_row' src/drpo/e8_multitask_exp_tuning.py
+          ! grep -q '^def _canonical_validation_row' src/drpo/e8_multitask_exp_tuning.py
+          ! grep -q '^def _ordered_by_prompt_hash' src/drpo/e8_multitask_exp_tuning.py
+      - name: Python compile
+        run: python -m py_compile src/drpo/e8_multitask_inputs.py src/drpo/e8_multitask_exp_tuning.py
+      - name: Focused E8 tests
+        run: python -m pytest -q tests/test_e8_multitask_p0.py
+      - name: Method integration contract
+        run: bash tests/test_e8_method_integration_contract.sh
+      - name: Ruff
+        run: python -m ruff check src/drpo/e8_multitask_inputs.py src/drpo/e8_multitask_exp_tuning.py tests/test_e8_multitask_p0.py
+      - name: Commit validated extraction
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No implementation diff to commit."
+            exit 0
+          fi
+          git config user.name "easonhuo"
+          git config user.email "huoyusen1@126.com"
+          git add src/drpo/e8_multitask_inputs.py src/drpo/e8_multitask_exp_tuning.py
+          git commit -m "Extract E8 prepared-row input layer"
+          git push origin HEAD:dev/e8-multitask-inputs-split-01
