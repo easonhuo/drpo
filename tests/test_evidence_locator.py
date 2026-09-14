@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 from datetime import date
 from pathlib import Path
 
@@ -41,6 +42,76 @@ def delivered(locator_value: object | None = None) -> dict[str, object]:
     if locator_value is not None:
         value["evidence_locator"] = locator_value
     return value
+
+
+def run_git(repo: Path, *args: str) -> str:
+    proc = subprocess.run(
+        ["git", "-C", str(repo), *args],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    return proc.stdout.strip()
+
+
+def materialization_repo(tmp_path: Path) -> tuple[Path, str]:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    run_git(repo, "config", "user.name", "DRPO Test")
+    run_git(repo, "config", "user.email", "drpo-test@example.com")
+    (repo / "docs").mkdir()
+    (repo / "experiments").mkdir()
+    (repo / "docs" / "handoff.md").write_text(
+        "# Master v1\n\n## 0. Status\n\nBase state.\n",
+        encoding="utf-8",
+    )
+    (repo / "experiments" / "registry.yaml").write_text(
+        "schema_version: 2\nexperiments: []\n",
+        encoding="utf-8",
+    )
+    run_git(repo, "add", ".")
+    run_git(repo, "commit", "-q", "-m", "base")
+    return repo, run_git(repo, "rev-parse", "HEAD")
+
+
+def add_authoritative_delta(repo: Path, *, report: bool, materialized: bool) -> str:
+    update_id = "TEST-RESULT-CLOSURE-01"
+    block_id = "test-result-closure"
+    delta_dir = repo / "docs" / "handoff_deltas" / update_id
+    delta_dir.mkdir(parents=True)
+    (delta_dir / "HANDOFF_DELTA.yaml").write_text(
+        "schema_version: 3\n"
+        f"update_id: {update_id}\n"
+        "mode: authoritative\n"
+        "operations:\n"
+        "- operation_id: append-result\n"
+        "  op: append_to_section\n"
+        "  heading_path: [Master v1, 0. Status]\n"
+        f"  block_id: {block_id}\n"
+        "  content: result closure\n"
+        "registry:\n"
+        "  mode: unchanged\n"
+        "  changes: []\n",
+        encoding="utf-8",
+    )
+    if report:
+        (delta_dir / "MATERIALIZATION_REPORT.json").write_text("{}\n", encoding="utf-8")
+    if materialized:
+        (repo / "docs" / "handoff.md").write_text(
+            "# Master v1\n\n"
+            "## 0. Status\n\n"
+            "Base state.\n\n"
+            f"<!-- HANDOFF-DELTA-BLOCK:section_end:{block_id}:START -->\n"
+            "result closure\n"
+            f"<!-- HANDOFF-DELTA-BLOCK:section_end:{block_id}:END -->\n",
+            encoding="utf-8",
+        )
+    run_git(repo, "add", ".")
+    run_git(repo, "commit", "-q", "-m", "closure")
+    return run_git(repo, "rev-parse", "HEAD")
 
 
 def test_valid_results_repo_locator() -> None:
@@ -125,3 +196,39 @@ def test_new_record_must_append_and_can_become_primary() -> None:
 def test_current_mode_grandfathers_untouched_legacy_delivery() -> None:
     result = module.validate_current({"EXT-C-E8-TEST-01": delivered()})
     assert result["grandfathered_missing_ids"] == ["EXT-C-E8-TEST-01"]
+
+
+def test_authoritative_delta_without_report_fails_closed(tmp_path: Path) -> None:
+    repo, base = materialization_repo(tmp_path)
+    head = add_authoritative_delta(repo, report=False, materialized=False)
+    with pytest.raises(module.EvidenceLocatorError) as error:
+        module.validate_handoff_materialization_transition(repo, base, head)
+    assert error.value.code == "HANDOFF_MATERIALIZATION_MISSING"
+    assert "MATERIALIZATION_REPORT.json" in error.value.message
+
+
+def test_authoritative_delta_with_unmodified_handoff_fails_closed(tmp_path: Path) -> None:
+    repo, base = materialization_repo(tmp_path)
+    head = add_authoritative_delta(repo, report=True, materialized=False)
+    with pytest.raises(module.EvidenceLocatorError) as error:
+        module.validate_handoff_materialization_transition(repo, base, head)
+    assert error.value.code == "HANDOFF_MATERIALIZATION_MISSING"
+    assert "docs/handoff.md is unchanged" in error.value.message
+
+
+def test_authoritative_delta_with_materialized_block_passes(tmp_path: Path) -> None:
+    repo, base = materialization_repo(tmp_path)
+    head = add_authoritative_delta(repo, report=True, materialized=True)
+    result = module.validate_handoff_materialization_transition(repo, base, head)
+    assert result["checked_handoff_materialization_count"] == 1
+    assert result["checked_handoff_materialization_ids"] == ["TEST-RESULT-CLOSURE-01"]
+
+
+def test_transition_without_authoritative_delta_is_unaffected(tmp_path: Path) -> None:
+    repo, base = materialization_repo(tmp_path)
+    (repo / "README.md").write_text("code-only\n", encoding="utf-8")
+    run_git(repo, "add", ".")
+    run_git(repo, "commit", "-q", "-m", "code only")
+    head = run_git(repo, "rev-parse", "HEAD")
+    result = module.validate_handoff_materialization_transition(repo, base, head)
+    assert result["checked_handoff_materialization_count"] == 0
