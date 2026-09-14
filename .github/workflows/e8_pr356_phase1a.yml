@@ -66,6 +66,7 @@ jobs:
           import_block = (
               "from drpo import e8_multitask_runtime as e8_runtime\n"
               "from drpo.e8_multitask_inputs import (\n"
+              "    _audit_training_rows,\n"
               "    _canonical_train_row,\n"
               "    _canonical_validation_row,\n"
               "    _ordered_by_prompt_hash,\n"
@@ -86,11 +87,13 @@ jobs:
           grep -q '^def _canonical_train_row' src/drpo/e8_multitask_inputs.py
           grep -q '^def _canonical_validation_row' src/drpo/e8_multitask_inputs.py
           grep -q '^def _ordered_by_prompt_hash' src/drpo/e8_multitask_inputs.py
+          grep -q '^def _audit_training_rows' src/drpo/e8_multitask_inputs.py
           ! grep -q '^def split_p0_rows' src/drpo/e8_multitask_exp_tuning.py
           ! grep -q '^def split_countdown_rows' src/drpo/e8_multitask_exp_tuning.py
           ! grep -q '^def _canonical_train_row' src/drpo/e8_multitask_exp_tuning.py
           ! grep -q '^def _canonical_validation_row' src/drpo/e8_multitask_exp_tuning.py
           ! grep -q '^def _ordered_by_prompt_hash' src/drpo/e8_multitask_exp_tuning.py
+          ! grep -q '^def _audit_training_rows' src/drpo/e8_multitask_exp_tuning.py
       - name: Python compile
         run: python -m py_compile src/drpo/e8_multitask_inputs.py src/drpo/e8_multitask_exp_tuning.py
       - name: Focused E8 tests
