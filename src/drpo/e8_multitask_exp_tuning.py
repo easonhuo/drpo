@@ -61,6 +61,12 @@ _reference_error_class_audit = e8_inputs._reference_error_class_audit
 _verified_wrong_candidates = e8_inputs._verified_wrong_candidates
 resolve_task_inputs = e8_inputs.resolve_task_inputs
 write_split_manifest = e8_inputs.write_split_manifest
+_leaf_values = e8_inputs._leaf_values
+_changed_leaf_paths = e8_inputs._changed_leaf_paths
+_atomic_yaml = e8_inputs._atomic_yaml
+_task_base_config = e8_inputs._task_base_config
+_task_grid_configs = e8_inputs._task_grid_configs
+_load_task_adapter_and_instances = e8_inputs._load_task_adapter_and_instances
 
 try:
     import torch
@@ -92,7 +98,6 @@ from drpo.e8_multitask_p0 import (
 from drpo.e8_multitask_tasks import (
     TASK_NAMES,
     TaskInstance,
-    build_adapters,
     stable_hash,
 )
 
@@ -1445,136 +1450,6 @@ def _canonical_reciprocal_grid_path() -> Path:
     if not path.is_file():
         raise FileNotFoundError(f"Canonical reciprocal grid is missing: {path}")
     return path
-
-def _leaf_values(value: Any, prefix: str = "") -> dict[str, Any]:
-    if not isinstance(value, Mapping):
-        return {prefix: value}
-    result: dict[str, Any] = {}
-    for key, item in value.items():
-        child = f"{prefix}.{key}" if prefix else str(key)
-        result.update(_leaf_values(item, child))
-    return result
-
-
-def _changed_leaf_paths(original: Mapping[str, Any], derived: Mapping[str, Any]) -> list[str]:
-    left = _leaf_values(original)
-    right = _leaf_values(derived)
-    return sorted(key for key in set(left) | set(right) if left.get(key) != right.get(key))
-
-
-def _atomic_yaml(path: Path, value: Mapping[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(yaml.safe_dump(dict(value), sort_keys=False), encoding="utf-8")
-    temporary.replace(path)
-
-
-def _task_base_config(
-    config: Mapping[str, Any],
-    *,
-    task: str,
-    canonical_paths: Mapping[str, Path],
-    task_root: Path,
-) -> tuple[Path, list[str]]:
-    """Materialize effective base runtime without editing the canonical source."""
-
-    base_path = canonical_paths["base_config"]
-    original = yaml.safe_load(base_path.read_text(encoding="utf-8"))
-    if not isinstance(original, dict):
-        raise TypeError("Paper base config root must be a mapping")
-    historical = experiment_config.is_historical_coldstart_config(config)
-    if historical and task == "countdown":
-        return base_path, []
-
-    derived = copy.deepcopy(original)
-    effective = experiment_config.effective_coldstart_runtime(config, task)
-    runtime = config["task_runtime"][task]
-    if historical:
-        # Preserve the exact wrapper behavior of the three closed historical IDs.
-        derived["model"]["max_length"] = int(runtime["max_length"])
-        derived["model"]["max_new_tokens"] = int(runtime["max_new_tokens"])
-        derived["evaluation"]["batch_size"] = int(runtime["evaluation_batch_size"])
-        derived["evaluation"]["pass_ks"] = [8] + [
-            int(value) for value in runtime["auxiliary_pass_ks"]
-        ]
-    else:
-        model = effective["model"]
-        training = effective["training"]
-        evaluation = effective["evaluation"]
-        derived["model"].update(
-            {
-                "max_length": int(model["max_length"]),
-                "max_new_tokens": int(model["max_new_tokens"]),
-                "dtype": str(model["dtype"]),
-                "lora_rank": int(model["lora_rank"]),
-                "lora_alpha": int(model["lora_alpha"]),
-                "lora_dropout": float(model["lora_dropout"]),
-                "gradient_checkpointing": bool(model["gradient_checkpointing"]),
-            }
-        )
-        derived["offline_training"].update(
-            {
-                "seed": int(effective["initialization_seed"]),
-                "steps": int(training["optimizer_updates"]),
-                "micro_batch": int(training["micro_batch"]),
-                "gradient_accumulation": int(training["gradient_accumulation"]),
-                "learning_rate": float(training["learning_rate"]),
-                "weight_decay": float(training["weight_decay"]),
-                "warmup_ratio": float(training["warmup_ratio"]),
-                "maximum_gradient_norm": float(training["max_grad_norm"]),
-                "eval_every": int(training["evaluation_every_updates"]),
-            }
-        )
-        derived["evaluation"].update(
-            {
-                "examples": int(evaluation["examples"]),
-                "batch_size": int(evaluation["batch_size"]),
-                "pass_ks": [int(value) for value in evaluation["pass_ks"]],
-                "seed": int(evaluation["generation_seed"]),
-                "sampling_temperature": float(evaluation["sampling_temperature"]),
-                "top_p": float(evaluation["top_p"]),
-                "greedy_prompt_rows": int(evaluation["greedy_prompt_rows"]),
-                "passk_prompt_rows": int(evaluation["passk_prompt_rows"]),
-            }
-        )
-    path = task_root / "paper_base_task_interface.yaml"
-    _atomic_yaml(path, derived)
-    return path, _changed_leaf_paths(original, derived)
-
-
-def _task_grid_configs(
-    config: Mapping[str, Any],
-    *,
-    canonical_paths: Mapping[str, Path],
-    task_root: Path,
-) -> dict[str, dict[str, Any]]:
-    """Return historical grids unchanged or generic derived runtime-grid copies."""
-
-    result: dict[str, dict[str, Any]] = {}
-    historical = experiment_config.is_historical_coldstart_config(config)
-    training = config["training"]
-    for name in ("round1_grid", "extension_grid"):
-        source = canonical_paths[name]
-        original = yaml.safe_load(source.read_text(encoding="utf-8"))
-        if not isinstance(original, dict):
-            raise TypeError(f"Paper grid root must be a mapping: {source}")
-        if historical:
-            runtime_path = source
-            changed: list[str] = []
-        else:
-            derived = copy.deepcopy(original)
-            derived["training"]["steps"] = int(training["optimizer_updates"])
-            derived["training"]["eval_every"] = int(training["evaluation_every_updates"])
-            runtime_path = task_root / f"paper_{name}_runtime.yaml"
-            _atomic_yaml(runtime_path, derived)
-            changed = _changed_leaf_paths(original, derived)
-        result[name] = {
-            "path": runtime_path,
-            "source": source,
-            "changed_fields": changed,
-        }
-    return result
-
 
 
 def _score_reference_candidates(
@@ -3392,48 +3267,6 @@ def cmd_calibrate_task(
         force=force,
     )
 
-
-def _load_task_adapter_and_instances(
-    task: str,
-    *,
-    inputs: TaskInputs,
-    validation_rows: Sequence[Mapping[str, Any]],
-) -> tuple[Any, dict[str, TaskInstance]]:
-    p0_config = yaml.safe_load(inputs.p0_config.read_text(encoding="utf-8"))
-    if not isinstance(p0_config, dict):
-        raise TypeError("P0 config root is not a mapping")
-    adapter_config = copy.deepcopy(p0_config)
-    adapter_config["tasks"]["names"] = [task]
-    adapter = build_adapters(adapter_config, inputs.sources_root)[task]
-    if task == "countdown":
-        instances = {
-            str(row["prompt_id"]): TaskInstance(
-                task="countdown",
-                prompt_id=str(row["prompt_id"]),
-                prompt=str(row["prompt"]),
-                oracle_completion=str(row["oracle_completion"]),
-                metadata=dict(row["metadata"]),
-                source_entry={},
-            )
-            for row in validation_rows
-        }
-        return adapter, instances
-
-    seeds = {int(row["generation_seed"]) for row in validation_rows}
-    if len(seeds) != 1:
-        raise RuntimeError(f"{task} validation rows do not share one generation seed")
-    required_ids = {str(row["prompt_id"]) for row in validation_rows}
-    candidate_count = int(p0_config["bank"]["candidate_rows_per_task"])
-    instances: dict[str, TaskInstance] = {}
-    for instance in adapter.generate_instances(candidate_count, seeds.pop()):
-        if instance.prompt_id in required_ids:
-            instances[instance.prompt_id] = instance
-            if len(instances) == len(required_ids):
-                break
-    missing = sorted(required_ids - set(instances))
-    if missing:
-        raise RuntimeError(f"Could not reconstruct {task} validation instances: {missing[:5]}")
-    return adapter, instances
 
 
 def _canonical_environment_evaluator(
