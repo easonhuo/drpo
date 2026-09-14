@@ -62,21 +62,30 @@ jobs:
           )
           target_path.write_text(header + block, encoding="utf-8")
 
-          import_anchor = "from drpo import e8_multitask_runtime as e8_runtime\n"
-          import_block = (
+          orchestration_anchor = "from drpo import e8_multitask_orchestration as e8_orchestration\n"
+          orchestration_block = (
+              "from drpo import e8_multitask_inputs as e8_inputs\n"
+              "from drpo import e8_multitask_orchestration as e8_orchestration\n"
+          )
+          if source.count(orchestration_anchor) != 1:
+              raise SystemExit("unexpected e8_orchestration import anchor count")
+          source = source.replace(orchestration_anchor, orchestration_block, 1)
+
+          runtime_anchor = "from drpo import e8_multitask_runtime as e8_runtime\n"
+          runtime_block = (
               "from drpo import e8_multitask_runtime as e8_runtime\n"
               "from drpo.e8_multitask_inputs import (\n"
-              "    _audit_training_rows as _audit_training_rows,\n"
               "    _canonical_train_row,\n"
               "    _canonical_validation_row,\n"
               "    _ordered_by_prompt_hash,\n"
               "    split_countdown_rows,\n"
               "    split_p0_rows,\n"
-              ")\n"
+              ")\n\n"
+              "_audit_training_rows = e8_inputs._audit_training_rows\n"
           )
-          if source.count(import_anchor) != 1:
+          if source.count(runtime_anchor) != 1:
               raise SystemExit("unexpected e8_runtime import anchor count")
-          source = source.replace(import_anchor, import_block, 1)
+          source = source.replace(runtime_anchor, runtime_block, 1)
           source_path.write_text(source, encoding="utf-8")
           PY
       - name: Static extraction assertions
