@@ -28,6 +28,20 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -e '.[dev]'
 
+      - name: PR362 engineering self-test regression
+        run: python -m pytest -q tests/test_e8_multitask_p0.py::test_coldstart_engineering_self_test_exercises_208_cell_recovery_and_dynamic_refill
+
+      - name: PR362 scheduler timing probe repeated
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            python -m pytest -q tests/test_e8_multitask_p0.py::test_exp_coldstart_scheduler_refills_without_nominal_batch_barriers
+          done
+
+      - name: PR362 method integration contract
+        run: bash tests/test_e8_method_integration_contract.sh
+
       - name: Tiered test plan (shadow only)
         continue-on-error: true
         env:
