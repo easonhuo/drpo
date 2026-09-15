@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SOURCE="$ROOT/paper/overleaf/main_replacement.tex"
 OUT_DIR="${1:-$ROOT/paper/iclr2027/build}"
-EXPECTED_BLOB="e2e592caa780f0ba4c5edc31986f6ea4106ef000"
+EXPECTED_BLOB="4af4d989ba37bf5d55c501dc77ab421b2bc96243"
 
 mkdir -p "$OUT_DIR"
 
@@ -72,6 +72,7 @@ preamble = rf'''\documentclass{{article}}
 \usepackage{{mathtools}}
 \usepackage{{amsthm}}
 \usepackage[capitalize,noabbrev]{{cleveref}}
+\providecommand{{\Description}}[1]{{}}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % THEOREMS -- unchanged numbering contract from the active manuscript wrapper
