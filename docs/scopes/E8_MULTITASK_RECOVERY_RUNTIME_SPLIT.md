@@ -2,7 +2,7 @@
 
 ## Scope
 
-This is a code-only architecture refactor based on `main@9d41a784e05dbc8cff1a67379cc3227a926984d8` after the validated input/data, result/aggregation, and artifact/package extractions.
+This is a code-only architecture refactor originally branched from `main@9d41a784e05dbc8cff1a67379cc3227a926984d8` after the validated input/data, result/aggregation, and artifact/package extractions. Before final validation the branch was synchronized non-destructively with current `main@3c36b48637c7ea83314c235af172fa11b4c883f0`.
 
 The goal is to move method-agnostic recovery/runtime lifecycle responsibilities out of `src/drpo/e8_multitask_exp_tuning.py` into the already-existing `src/drpo/e8_multitask_runtime.py` module.
 
@@ -78,3 +78,11 @@ The task is complete only if:
 - no new gate is added;
 - the formal experiment remains `not_run`;
 - the PR remains unmerged until explicit repository-owner approval.
+
+## Pre-merge cleanup outcome
+
+The post-refactor correctness/redundancy review found one latent schema-authority defect: `recovery_checkpoint_snapshot()` had hard-coded the recovery snapshot schema as `1` after relocation. The runtime helper now receives the caller's `RECOVERY_SNAPSHOT_SCHEMA_VERSION` explicitly, and a regression test verifies that a non-default caller-supplied schema value is preserved in `RECOVERY_SNAPSHOT.json`. The separate checkpoint `run_manifest.json` schema remains unchanged because it is a distinct manifest schema.
+
+Redundancy cleanup removed callback/wrapper round trips that did not provide an abstraction boundary: runtime JSON readers no longer receive a main-runner wrapper that delegates back to runtime; recovery-stage planning receives already-materialized reusable/rejected mappings instead of calling a main wrapper that delegates back to runtime; and one-line hardlink/path-prefix wrappers were removed in favor of direct runtime calls. Compatibility/composition wrappers that existing callers/tests use were retained.
+
+The targeted cleanup validation on the synchronized branch passed Python compile, `git diff --check`, Ruff, and the focused E8 regression suite with `113 passed`. Temporary transformation workflow files were removed by the validated cleanup commit. Full ordinary PR-gate validation is still required on the final human-authored head before merge.
