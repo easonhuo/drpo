@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import math
+import zipfile
 from collections.abc import Callable, Mapping, Sequence
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Protocol
 
 import numpy as np
@@ -963,4 +965,320 @@ def _aggregate_coldstart_exponential(
     }
     write_json(output_root / "aggregate" / "aggregate_summary.json", summary)
     return summary
+
+# Artifact/package ownership
+PACKAGE_REQUIRED_MEMBERS = {
+    "RUN_COMPLETE.json",
+    "run_manifest.json",
+    "scientific_run_manifest.json",
+    "source_provenance.json",
+    "terminal_audit.json",
+    "scheduler/dynamic_run.json",
+    "aggregate/plot_curve_points.csv",
+    "package_contents_manifest.json",
+    "SHA256SUMS.txt",
+}
+
+
+def _write_completion_manifests(
+    output_root: Path,
+    audit: Mapping[str, Any],
+    *,
+    experiment_id_value: str,
+    config_hash: str,
+    expected_cells: int,
+    engineering_self_test: bool,
+    execution_class: str,
+    write_json: Callable[[Path, Any], None],
+    sha256_fn: Callable[[Path], str],
+) -> None:
+    provenance_path = output_root / "source_provenance.json"
+    scheduler_path = output_root / "scheduler" / "dynamic_run.json"
+    aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
+    if (
+        not provenance_path.is_file()
+        or not scheduler_path.is_file()
+        or not aggregate_path.is_file()
+    ):
+        raise RuntimeError("Source provenance, scheduler result, and aggregate are required")
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    scheduler = json.loads(scheduler_path.read_text(encoding="utf-8"))
+    aggregate = json.loads(aggregate_path.read_text(encoding="utf-8"))
+    source_commit = str(provenance.get("source_commit", ""))
+    if len(source_commit) != 40 or any(
+        char not in "0123456789abcdef" for char in source_commit
+    ):
+        raise RuntimeError("source_provenance.json must contain one full lowercase Git SHA")
+    if (
+        scheduler.get("experiment_id") != experiment_id_value
+        or not scheduler.get("complete")
+        or int(scheduler.get("expected_cells", 0)) != expected_cells
+        or int(scheduler.get("completed_cells", 0)) != expected_cells
+        or int(aggregate.get("cell_count", 0)) != expected_cells
+    ):
+        raise RuntimeError("Scheduler or aggregate is not terminal-complete")
+    run_manifest = {
+        "schema_version": 1,
+        "experiment_id": experiment_id_value,
+        "base_commit": source_commit,
+        "run_id": str(provenance.get("run_id", output_root.name)),
+        "source_commit": source_commit,
+        "config_hash": config_hash,
+        "expected_cells": expected_cells,
+        "completed_cells": expected_cells,
+        "scheduler": "dynamic_slot_queue",
+        "scheduler_run_id": scheduler["scheduler_run_id"],
+        "test_partition_accessed": False,
+        "engineering_placeholder_backend": engineering_self_test,
+        "execution_class": execution_class,
+        "scientific_status": str(audit["scientific_status"]),
+        "artifact_state": (
+            "engineering_self_test_complete" if engineering_self_test else "raw_complete"
+        ),
+    }
+    write_json(output_root / "run_manifest.json", run_manifest)
+    write_json(output_root / "scientific_run_manifest.json", run_manifest)
+    write_json(
+        output_root / "RUN_COMPLETE.json",
+        {
+            **run_manifest,
+            "all_training_and_evaluation_complete": bool(
+                audit["all_training_and_evaluation_complete"]
+            ),
+            "terminal_audit_sha256": sha256_fn(output_root / "terminal_audit.json"),
+            "aggregate_sha256": sha256_fn(aggregate_path),
+            "complete": True,
+        },
+    )
+
+
+def _result_payload_paths(output_root: Path, excluded_parts: set[str]) -> list[Path]:
+    paths: list[Path] = []
+    for path in sorted(output_root.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(output_root)
+        if path.is_symlink():
+            raise RuntimeError(f"Result package refuses symlink payload: {relative}")
+        if "packages" in relative.parts or relative.as_posix() in {
+            "package_contents_manifest.json",
+            "SHA256SUMS.txt",
+        }:
+            continue
+        if any(part in excluded_parts for part in relative.parts) or path.suffix in {
+            ".bin",
+            ".safetensors",
+        }:
+            continue
+        paths.append(path)
+    return paths
+
+
+def verify_result_package(
+    package_manifest_path: Path,
+    *,
+    sha256_fn: Callable[[Path], str],
+    zip_override: Path | None = None,
+) -> dict[str, Any]:
+    """Reopen a result ZIP and verify paths, inventory, hashes, and required members."""
+
+    manifest = json.loads(package_manifest_path.read_text(encoding="utf-8"))
+    zip_path = (zip_override or Path(str(manifest["full_results_zip"]))).resolve()
+    if not zip_path.is_file():
+        raise FileNotFoundError(f"Result ZIP is missing: {zip_path}")
+    observed_zip_sha = sha256_fn(zip_path)
+    if observed_zip_sha != manifest["full_results_zip_sha256"]:
+        raise RuntimeError("Result ZIP SHA-256 does not match package_manifest.json")
+    with zipfile.ZipFile(zip_path) as archive:
+        names = archive.namelist()
+        if len(names) != len(set(names)):
+            raise RuntimeError("Result ZIP contains duplicate members")
+        for name in names:
+            member = PurePosixPath(name)
+            if member.is_absolute() or ".." in member.parts or not member.parts:
+                raise RuntimeError(f"Unsafe result ZIP member: {name}")
+        missing = sorted(PACKAGE_REQUIRED_MEMBERS - set(names))
+        if missing:
+            raise RuntimeError(f"Result ZIP is missing required members: {missing}")
+        contents = json.loads(archive.read("package_contents_manifest.json"))
+        inventory = {
+            str(item["path"]): str(item["sha256"])
+            for item in contents.get("files", ())
+        }
+        expected_names = set(inventory) | {
+            "package_contents_manifest.json",
+            "SHA256SUMS.txt",
+        }
+        if set(names) != expected_names:
+            raise RuntimeError(
+                "Result ZIP members do not match package_contents_manifest.json"
+            )
+        for name, expected_sha in inventory.items():
+            observed = hashlib.sha256(archive.read(name)).hexdigest()
+            if observed != expected_sha:
+                raise RuntimeError(f"Result ZIP payload hash mismatch: {name}")
+        checksum_rows: dict[str, str] = {}
+        for line in archive.read("SHA256SUMS.txt").decode("utf-8").splitlines():
+            digest, separator, name = line.partition("  ")
+            if not separator or name in checksum_rows:
+                raise RuntimeError("Malformed or duplicate SHA256SUMS.txt entry")
+            checksum_rows[name] = digest
+        if checksum_rows != inventory:
+            raise RuntimeError("SHA256SUMS.txt does not match the package inventory")
+        if not any(name.startswith("logs/") for name in names):
+            raise RuntimeError("Result ZIP contains no execution logs")
+    return {
+        "verified": True,
+        "zip": str(zip_path),
+        "zip_sha256": observed_zip_sha,
+        "member_count": len(names),
+        "required_members_present": True,
+    }
+
+
+def cmd_package(
+    output_root: Path,
+    *,
+    experiment_id_value: str,
+    execution_class: str,
+    config_hash: str,
+    expected_cells: int,
+    engineering_self_test: bool,
+    write_json: Callable[[Path, Any], None],
+    sha256_fn: Callable[[Path], str],
+) -> dict[str, Any]:
+    """Create and independently reopen a portable text-first result ZIP."""
+
+    audit_path = output_root / "terminal_audit.json"
+    plot_path = output_root / "aggregate" / "plot_curve_points.csv"
+    if not audit_path.is_file() or not plot_path.is_file():
+        raise RuntimeError("Run aggregate and audit before packaging")
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    if not audit.get("all_training_and_evaluation_complete"):
+        raise RuntimeError("Refusing to package a non-terminal run")
+    _write_completion_manifests(
+        output_root,
+        audit,
+        experiment_id_value=experiment_id_value,
+        config_hash=config_hash,
+        expected_cells=expected_cells,
+        engineering_self_test=engineering_self_test,
+        execution_class=execution_class,
+        write_json=write_json,
+        sha256_fn=sha256_fn,
+    )
+    package_root = output_root / "packages"
+    package_root.mkdir(parents=True, exist_ok=True)
+    zip_path = package_root / f"{output_root.name}_full_results.zip"
+    excluded_parts = {
+        "best_adapter",
+        "terminal_adapter",
+        "last_finite_adapter",
+        "supplementary_best_adapter",
+        "initial_adapter",
+    }
+    payload_paths = _result_payload_paths(output_root, excluded_parts)
+    inventory = [
+        {
+            "path": path.relative_to(output_root).as_posix(),
+            "size": path.stat().st_size,
+            "sha256": sha256_fn(path),
+        }
+        for path in payload_paths
+    ]
+    write_json(
+        output_root / "package_contents_manifest.json",
+        {
+            "schema_version": 1,
+            "experiment_id": experiment_id_value,
+            "engineering_placeholder_backend": engineering_self_test,
+            "files": inventory,
+        },
+    )
+    (output_root / "SHA256SUMS.txt").write_text(
+        "".join(f"{item['sha256']}  {item['path']}\n" for item in inventory),
+        encoding="utf-8",
+    )
+    payload_paths.extend(
+        [
+            output_root / "package_contents_manifest.json",
+            output_root / "SHA256SUMS.txt",
+        ]
+    )
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for path in payload_paths:
+            archive.write(path, arcname=path.relative_to(output_root).as_posix())
+    result = {
+        "schema_version": 1,
+        "experiment_id": experiment_id_value,
+        "execution_class": execution_class,
+        "scientific_status": str(audit["scientific_status"]),
+        "artifact_kind": (
+            "engineering_self_test"
+            if engineering_self_test
+            else ("formal_results" if execution_class == "formal" else "pilot_results")
+        ),
+        "full_results_zip": str(zip_path.resolve()),
+        "full_results_zip_sha256": sha256_fn(zip_path),
+        "full_results_zip_bytes": zip_path.stat().st_size,
+        "plot_curve_points_csv": str(plot_path.resolve()),
+        "plot_curve_points_csv_sha256": sha256_fn(plot_path),
+        "included_file_count": len(payload_paths),
+        "excluded_model_weights": sorted(excluded_parts),
+        "complete": True,
+    }
+    manifest_path = package_root / "package_manifest.json"
+    write_json(manifest_path, result)
+    verification = verify_result_package(
+        manifest_path,
+        sha256_fn=sha256_fn,
+    )
+    result["reopen_verification"] = verification
+    write_json(manifest_path, result)
+    return result
+
+
+def cmd_finalize(
+    output_root: Path,
+    *,
+    experiment_id_value: str,
+    execution_class: str,
+    config_hash: str,
+    expected_cells: int,
+    engineering_self_test: bool,
+    write_json: Callable[[Path, Any], None],
+    sha256_fn: Callable[[Path], str],
+) -> dict[str, Any]:
+    """Finalize result markers while leaving archive ownership to the hardened guard."""
+
+    audit_path = output_root / "terminal_audit.json"
+    plot_path = output_root / "aggregate" / "plot_curve_points.csv"
+    if not audit_path.is_file() or not plot_path.is_file():
+        raise RuntimeError("Run aggregate and audit before finalizing")
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    if not audit.get("all_training_and_evaluation_complete"):
+        raise RuntimeError("Refusing to finalize a non-terminal run")
+    _write_completion_manifests(
+        output_root,
+        audit,
+        experiment_id_value=experiment_id_value,
+        config_hash=config_hash,
+        expected_cells=expected_cells,
+        engineering_self_test=engineering_self_test,
+        execution_class=execution_class,
+        write_json=write_json,
+        sha256_fn=sha256_fn,
+    )
+    return {
+        "schema_version": 1,
+        "experiment_id": experiment_id_value,
+        "base_commit": audit["base_commit"],
+        "artifact_state": "raw_complete",
+        "execution_class": execution_class,
+        "scientific_status": str(audit["scientific_status"]),
+        "canonical_archive_owner": "scripts/run_experiment_guard_hardened.py",
+        "plot_curve_points_csv": str(plot_path.resolve()),
+        "plot_curve_points_csv_sha256": sha256_fn(plot_path),
+        "complete": True,
+    }
 
