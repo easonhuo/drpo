@@ -16,12 +16,12 @@ jobs:
         with:
           fetch-depth: 1
           ref: dev/manuscript-iclr2027-v10-clean-01
-      - name: Repair bibliography and damaged PDF containers
+      - name: Repair bibliography and regenerate structured-gradient PDF
         shell: bash
         run: |
           set -Eeuo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends qpdf
+          sudo apt-get install -y --no-install-recommends qpdf python3-numpy python3-matplotlib
 
           BIB='paper/overleaf/missing_references.bib'
           if ! grep -q '^@.*{stojanovski2025reasoninggym,' "$BIB"; then
@@ -54,26 +54,21 @@ jobs:
               '}' >> "$BIB"
           fi
 
-          candidates=(
-            'paper/overleaf/figures/fig_app_d4rl9_gradient_panels.pdf'
-            'paper/overleaf/figures/fig_app_structured9_gradient_panels.pdf'
-          )
-          for f in "${candidates[@]}"; do
-            echo "=== qpdf precheck: $f ==="
-            set +e
-            qpdf --check "$f"
-            rc=$?
-            set -e
-            if [[ $rc -ne 0 ]]; then
-              tmp="${f%.pdf}.normalized.pdf"
-              echo "Normalizing damaged PDF container: $f"
-              qpdf --warning-exit-0 --stream-data=preserve --object-streams=preserve "$f" "$tmp"
-              mv "$tmp" "$f"
-            fi
-            echo "=== qpdf postcheck: $f ==="
-            qpdf --check "$f"
-          done
+          echo '=== D4RL gradient PDF check ==='
+          qpdf --check paper/overleaf/figures/fig_app_d4rl9_gradient_panels.pdf
 
+          echo '=== regenerate structured-gradient figure from canonical main plotting source ==='
+          git fetch --depth=1 origin main:refs/remotes/origin/main
+          git worktree add --detach /tmp/drpo-main origin/main
+          python3 /tmp/drpo-main/scripts/figures/plot_e8_multitask_countdown_nine_panel.py \
+            --output-png /tmp/structured9.png \
+            --output-pdf /tmp/structured9.pdf \
+            --output-svg /tmp/structured9.svg
+          qpdf --check /tmp/structured9.pdf
+          cp /tmp/structured9.pdf paper/overleaf/figures/fig_app_structured9_gradient_panels.pdf
+          qpdf --check paper/overleaf/figures/fig_app_structured9_gradient_panels.pdf
+
+          echo '=== coefficient placeholder PDF check ==='
           qpdf --check paper/overleaf/figures/fig_app_structured9_drpo_coefficient_response.pdf
           git diff --check
           echo '--- diff stat before commit ---'
@@ -87,8 +82,7 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git rm .github/workflows/tmp-repair-iclr-v10-assets.yml
           git add paper/overleaf/missing_references.bib \
-                  paper/overleaf/figures/fig_app_d4rl9_gradient_panels.pdf \
                   paper/overleaf/figures/fig_app_structured9_gradient_panels.pdf
           git diff --cached --check
-          git commit -m 'paper: repair ICLR bibliography and gradient PDF containers'
+          git commit -m 'paper: repair ICLR bibliography and structured gradient figure'
           git push origin HEAD:dev/manuscript-iclr2027-v10-clean-01
