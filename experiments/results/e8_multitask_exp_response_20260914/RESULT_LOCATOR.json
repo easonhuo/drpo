@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "purpose": "Canonical locator for the historical E8 9-task EXP response data. This file points to authoritative numeric sources and does not duplicate them.",
+  "experiment_family": "E8 multitask EXP response curves",
+  "evidence_label": "pilot_response_shape_only",
+  "standard_plot": {
+    "rows": 645,
+    "composition": {
+      "coldstart_exp_positive_only": 206,
+      "lambda_completion_01": 199,
+      "lambda_curve_completion_02": 140,
+      "wide_righttail_03": 100
+    },
+    "exclusion_note": "The cold-start experiment has 208 historical cells; the standard EXP + Positive-only plot excludes the 2 Countdown Global rows."
+  },
+  "historical_cells": 647,
+  "sources": {
+    "coldstart": {
+      "experiment_id": "EXT-C-E8-MULTITASK-EXP-COLDSTART-01",
+      "repo": "easonhuo/drpo",
+      "path": "experiments/results/e8_multitask_exp_coldstart_20260820_02/CURVE_ANCHOR.csv",
+      "cells": 208
+    },
+    "joint_coldstart_completion01_completion02": {
+      "repo": "easonhuo/drpo",
+      "commit": "2a19fa1cd23e25dcd3c319e58d286e47a4e10dac",
+      "manifest": "experiments/results/e8_multitask_exp_lambda_joint_20260902/CURVE_MANIFEST.json",
+      "curve_points_dir": "experiments/results/e8_multitask_exp_lambda_joint_20260902/CURVE_POINTS/",
+      "cells": 547,
+      "composition": {
+        "coldstart": 208,
+        "lambda_completion_01": 199,
+        "lambda_curve_completion_02": 140
+      }
+    },
+    "wide_righttail_03": {
+      "experiment_id": "EXT-C-E8-MULTITASK-EXP-LAMBDA-WIDE-RIGHTTAIL-03",
+      "repo": "easonhuo/drpo-results",
+      "commit": "aea817b94acd9f87a9251cfd46c362bfed14c44b",
+      "manifest": "e8/EXT-C-E8-MULTITASK-EXP-LAMBDA-WIDE-RIGHTTAIL-03_pilot/RESULT_MANIFEST.json",
+      "curve_points": "e8/EXT-C-E8-MULTITASK-EXP-LAMBDA-WIDE-RIGHTTAIL-03_pilot/CURVE_POINTS_COMPACT.csv",
+      "cells": 100
+    }
+  },
+  "usage": [
+    "For the standard 9-task EXP + Positive-only response plot, use the 547-row joint source, exclude the 2 Countdown Global rows, then append the 100 RightTail rows.",
+    "Do not reconstruct numeric values from figures.",
+    "Do not interpolate or fabricate missing observations."
+  ]
+}
