@@ -4,6 +4,10 @@
 **Scientific status:** `pilot`
 **Repository closure base:** `e35573be30a5df53dd6201f112fb57fedabd8d15`
 
+## Current complete E8 response-data entry point
+
+For the historical 9-task EXP response curves across Cold-start, Lambda Completion-01, Lambda Curve Completion-02, and Wide RightTail-03, use `experiments/results/e8_multitask_exp_response_20260914/RESULT_LOCATOR.json` as the single locator. It points to the pinned authoritative numeric sources rather than duplicating them. The historical total is 647 cells; the standard EXP + Positive-only plotting projection is 645 rows because it excludes the 2 Countdown `Global, λ=0` cold-start rows. Do not reconstruct numeric values from figures or interpolate/fabricate observations. This remains pilot response-shape evidence only.
+
 ## Closure summary
 
 The frozen cold-start sweep completed all `208/208` scheduled cells. The terminal audit reports zero missing cells, zero incomplete cells, zero NaN/Inf numerical failures, Countdown protocol diagnostic `PASS`, and no access to the test partition. The run used a fixed 1200-update horizon; this is **not** evidence of convergence or steady state.
