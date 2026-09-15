@@ -79,3 +79,13 @@ The task is complete only if:
 - no new gate is added;
 - the formal experiment remains `not_run`;
 - the PR remains unmerged until explicit repository-owner approval.
+
+## Implementation outcome
+
+The artifact/package boundary is implemented on the development branch. `PACKAGE_REQUIRED_MEMBERS`, completion-manifest materialization, result-payload discovery/filtering, ZIP reopen/inventory/hash verification, package construction, and final result-marker materialization now have their implementation authority in `e8_multitask_results.py`. `e8_multitask_exp_tuning.py` preserves the historical entry points as thin composition wrappers and passes experiment-specific values/callbacks explicitly; the results module does not import the main runner.
+
+A direct diff audit against the stacked base `e7d982666c01ed242d61750f7f79b0f87b5d8cf3` found the moved package/finalize logic to be a mechanical relocation with dependency parameterization only: required members, excluded model-weight directories, SHA-256 inventory semantics, ZIP path-safety checks, duplicate-member rejection, package inventory equality, `SHA256SUMS.txt` equality, execution-log requirement, reopen verification, completion-marker fields, and canonical archive ownership remain unchanged. Terminal-audit adjudication, scheduler/recovery policy, engineering-self-test orchestration, and scientific kernels remain outside this extraction.
+
+The validated transformed tree reduced `e8_multitask_exp_tuning.py` to 8,423 lines and increased `e8_multitask_results.py` to 1,284 lines. Validation run `34923521081` passed Python compile; the engineering self-test; 111 focused E8 tests with the timing-sensitive scheduler probe separated; that scheduler probe three consecutive times; the method-integration contract; Ruff; handoff authority; governance-stage validation; and broad pytest with 1,363 passed, 27 skipped, and the three previously characterized exclusions deselected. The temporary transformation workflow/files were then removed before the final branch tree.
+
+The final clean PR head must still receive the ordinary repository PR-gate workflows before merge consideration. No merge is authorized by this document.
