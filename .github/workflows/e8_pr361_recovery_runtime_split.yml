@@ -30,7 +30,9 @@ jobs:
         run: python -m pip install -e '.[dev]'
 
       - name: Run recovery/runtime transformation
-        run: python .github/e8_pr361_transform.py
+        run: |
+          python .github/e8_pr361_transform.py
+          python .github/e8_pr361_test_transform.py
 
       - name: Structural checks
         run: |
@@ -69,13 +71,13 @@ jobs:
           PY
 
       - name: Python compile
-        run: python -m compileall -q src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_runtime.py
+        run: python -m compileall -q src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_runtime.py tests/test_e8_multitask_p0.py
 
       - name: Focused E8 regression
         run: python -m pytest -q tests/test_e8_multitask_p0.py
 
       - name: Ruff changed Python files
-        run: ruff check src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_runtime.py
+        run: ruff check src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_runtime.py tests/test_e8_multitask_p0.py
 
       - name: Handoff authority
         run: python scripts/handoff_authority.py verify --repo-root .
@@ -91,7 +93,7 @@ jobs:
 
       - name: Commit successful split and remove temporary files
         run: |
-          rm -f .github/e8_pr361_transform.py .github/workflows/e8_pr361_recovery_runtime_split.yml
+          rm -f .github/e8_pr361_transform.py .github/e8_pr361_test_transform.py .github/workflows/e8_pr361_recovery_runtime_split.yml
           git config user.name 'easonhuo'
           git config user.email 'huoyusen1@126.com'
           git add -A
