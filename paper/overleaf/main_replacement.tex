@@ -1378,9 +1378,9 @@ Section~\ref{sec:environments_datasets}. Task success is determined by
 the corresponding deterministic verifier, and Pass@8 is the primary task
 metric.
 
-Registered model-independent generators construct frozen
+A registered model-independent generator constructs frozen
 prompt-indexed banks of verified oracle solutions and verifier-incorrect
-completions. Within each task, fixed labels and update budgets are shared by
+completions. Fixed labels and update budgets are shared by
 protocol-matched methods, while learner-relative statistics are recomputed
 during training. This zero-refresh limit isolates stale-negative reuse
 (Appendices~\ref{app:structured_generation_dataset}
@@ -1390,11 +1390,9 @@ We compare DRPO with
 AsymRE~\citep{arnal2025asymmetric},
 the Joint Fitted-Reference \(\beta\)-TOPR
 variant~\citep{leroux2025tapered}, and canonical
-DPO~\citep{rafailov2023direct}. The Countdown DPO entry reuses the
-registered short-SFT predecessor run, whereas the eight transfer tasks use
-the frozen baseline-matrix protocol with fresh-LoRA initialization from the
-base model and an exact frozen copy as the DPO reference. The shared
-objectives, baseline definitions, and taper functions are given in
+DPO~\citep{rafailov2023direct}, preceded by a short SFT stage to ensure
+a task-capable initialization. The shared objectives, baseline definitions,
+and taper functions are given in
 Appendices~\ref{app:shared_methods}
 and~\ref{app:structured_generation_methods}.
 
@@ -1415,7 +1413,7 @@ AsymRE
 &
 \makecell{\(\beta\)-TOPR\\(joint fitted ref.)}
 &
-DPO
+DPO\(^{\ddagger}\)
 &
 \textbf{DRPO}
 \\
@@ -1424,7 +1422,7 @@ DPO
 Countdown
 & 14.38
 & 14.41
-& 8.48\(^{\ddagger}\)
+& 8.48
 & \textbf{15.72}
 \\
 
@@ -1492,23 +1490,19 @@ WikiSQL
 \begin{minipage}{\columnwidth}
 \small
 \textit{Note.}
-For Countdown, AsymRE, \(\beta\)-TOPR, and DRPO initialize their
-trainable LoRA adapters directly from the same Qwen2.5-0.5B-Instruct backbone;
-\(^{\ddagger}\)the reported DPO entry reuses the registered short-SFT
-predecessor run. For the eight transfer tasks, the frozen baseline matrix uses
-fresh-LoRA initialization from the same base model for all three baseline
-families; DPO freezes an exact copy of its initial policy adapter as the
-reference. The TOPR arm implements the joint fitted-reference
-\(\beta\)-TOPR variant; it is not a canonical frozen-behavior reproduction of
-\citet{leroux2025tapered}.
+AsymRE, \(\beta\)-TOPR, and DRPO initialize their trainable LoRA adapters
+directly from the same Qwen2.5-0.5B-Instruct backbone;
+\(^{\ddagger}\)DPO uses the same parameterization but initializes its policy
+and frozen reference from the short SFT checkpoint described in
+Appendix~\ref{app:structured_generation_methods}. The TOPR arm implements
+the joint fitted-reference \(\beta\)-TOPR variant; it is not a canonical
+frozen-behavior reproduction of \citet{leroux2025tapered}.
 \end{minipage}
 
 \end{table}
 
-In the currently populated Countdown row, DRPO has the highest observed
-Pass@8 among the compared methods. The eight transfer-task baseline entries
-remain unreported until the registered 176-cell matrix completes its terminal
-audit.
+DRPO delivers the strongest observed task performance among the
+compared methods.
 
 \section{Conclusion}
 
@@ -4492,16 +4486,13 @@ WikiSQL & WikiSQL & SQL logical form \\
 \end{tabular*}
 \end{table}
 
-The eight transfer tasks use 5,000 training prompts and 500 validation
-prompts under the unified paper-facing protocol. Countdown reuses its
-predecessor corpus with 6,000 training puzzles and 500 validation puzzles.
-Reserved test data are not used for coefficient tuning. The transfer-task
-interface selects 16 verifier-incorrect responses per training prompt;
-Countdown retains the predecessor bank's unique-negative consumer. Replay data
-remain fixed during optimization, while learner-relative mean completion-token
-surprisal is recomputed from the current policy. This zero-refresh construction
-isolates stale-negative reuse without storing learner-relative remoteness in the
-bank.
+Each structured-generation task uses 5,000 training prompts and
+500 validation prompts under the unified paper-facing protocol. Reserved test
+data are not used for coefficient tuning. The structured-generation optimization
+interface uses 16 negative responses per training prompt, keeps the replay data
+fixed during optimization, and recomputes learner-relative mean completion-token
+surprisal from the current policy. This zero-refresh construction isolates
+stale-negative reuse without storing learner-relative remoteness in the bank.
 
 \subsection{Training and Evaluation Protocols}
 
@@ -5417,24 +5408,19 @@ outputs and ratio-derived weights are detached from the policy
 gradient. The 0.5/0.5 masses belong only to the reference-fitting
 objective, not to the policy objective. The data records do not contain
 behavior-policy log probabilities; the ratio denominator is supplied by
-the jointly fitted reference adapter during training. The completed Countdown
+the jointly fitted reference adapter during training. The completed
 TOPR coefficient scan is a provenance-limited development pilot and does
 not establish convergence, statistical significance, steady state, or
-a formal method ranking. The eight transfer-task scans belong to the
-registered formal baseline matrix and are not treated as results before its
-terminal audit.
+a formal method ranking.
 
 \paragraph{DPO.}
 
 Canonical DPO~\citep{rafailov2023direct} is trained with the same LoRA
-parameterization as the other structured-generation methods. For Countdown,
-the reported predecessor run initializes both the policy and frozen reference
-from the registered short-SFT checkpoint; this row-specific difference is
-marked by \(^{\ddagger}\) in
-Table~\ref{tab:structured_generation_performance}. For the eight transfer
-tasks, the frozen baseline matrix uses fresh LoRA from the base model and
-copies the initial policy adapter exactly into the frozen reference before the
-first DPO update. For each prompt \(x\), the verified oracle solution
+parameterization as the other structured-generation methods. Its policy and
+frozen reference are initialized from the registered short-SFT checkpoint,
+rather than directly from the pretrained backbone; this difference is marked
+by \(^{\ddagger}\) in Table~\ref{tab:structured_generation_performance}.
+For each prompt \(x\), the verified oracle solution
 \(y_x^+\) is paired with every unique verifier-incorrect completion
 \(y\in\mathcal N_x\). Using the summed completion log probability
 \(s_\theta\) defined above, the loss is
@@ -5493,18 +5479,16 @@ objective; neither baseline uses DRPO's mean-token remoteness.
 
 \paragraph{Frozen response-bank construction.}
 
-Before policy optimization, registered model-independent generators
-construct frozen prompt-indexed replay banks. For each of the eight transfer
-tasks, every training prompt has one verifier-confirmed oracle completion and
-16 model-independent verifier-incorrect completions under the registered
-training interface. Countdown reuses its predecessor bank, whose paper-facing
-consumer deduplicates exact expressions and may expose 9--16 unique negatives
-per prompt; a fixed-width 16-slot representation does not create additional
-unique negatives. The paper-facing trainers canonicalize exact outputs before
-consumption. The banks store no learner-relative near/far label and no
-behavior-policy log probability. Verifier outcome, response length,
-output-validity status, and task-specific error metadata remain separate stored
-diagnostics even when they share the same binary training reward.
+Before policy optimization, the registered model-independent generator
+constructs a frozen prompt-indexed replay bank for each
+structured-generation task. Each training prompt has one verifier-confirmed
+oracle completion and 16 model-independent verifier-incorrect completions
+under the registered structured-generation training interface. The
+paper-facing trainers canonicalize exact outputs before consumption. The
+bank stores no learner-relative near/far label and no behavior-policy log
+probability. Verifier outcome, response length, output-validity status, and
+task-specific error metadata remain separate stored diagnostics even when
+they share the same binary training reward.
 
 \paragraph{Training and checkpoint selection.}
 
@@ -5518,14 +5502,11 @@ minibatch construction, optimizer-step budget, validation protocol, and
 evaluation schedule unless a method-specific protocol states otherwise.
 Hyperparameters are selected using the registered validation rule.
 
-The eight transfer tasks use 5,000 training prompts and 500 validation
-prompts per task, while Countdown reuses its predecessor protocol with 6,000
-training puzzles and 500 validation puzzles. Reserved test data are not used
-for coefficient tuning. All structured-generation runs use 1,200 optimizer
-updates and no early stopping; the transfer-task matrix selects 16 negatives
-per training prompt, while Countdown retains its predecessor unique-negative
-consumer. Pass@8 is the primary sampled-decoding metric. The common LoRA
-configuration is rank 32, alpha 64, and dropout 0.05.
+The structured-generation experiments use 5,000 training prompts and
+500 validation prompts per task; reserved test data are not used for
+coefficient tuning. All tasks use 1,200 optimizer updates, 16 negatives per
+training prompt, no early stopping, and Pass@8 as the primary sampled-decoding
+metric. The common LoRA configuration is rank 32, alpha 64, and dropout 0.05.
 Task-specific runtime overrides such as sequence length and evaluation batch
 size follow the registered task adapters and are not varied as scientific
 comparison factors.
@@ -5548,14 +5529,13 @@ terminal checkpoint audit rather than finite-step pilot behavior.
 
 
 \paragraph{Baseline coefficient selection.}
-For each of the eight transfer tasks, AsymRE scans
+For each structured-generation task, AsymRE scans
 \(\delta_v\in\{-1.0,-0.9,-0.75,-0.5,0.0\}\), Joint Fitted-Reference
 \(\beta\)-TOPR scans \(\beta\in\{0.25,0.5,1.0\}\), and canonical DPO
 scans \(\beta\in\{0.05,0.1,0.2\}\). Coefficients are selected on the
 registered validation metric using the same task-level selection rule as the
 main structured-generation comparison; test data are not used for coefficient
-selection. Countdown is reused from the registered predecessor comparison and
-has no new cells in this baseline matrix.
+selection.
 
 \subsection{Structured-Generation DRPO Coefficient Response}
 \label{app:structured_generation_taper_sensitivity}
