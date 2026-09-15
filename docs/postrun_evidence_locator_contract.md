@@ -47,13 +47,32 @@ The `primary_run_id` must name the last record. A later rerun appends a new reco
 4. Audit the delivered files and terminal state before assigning a scientific status.
 5. Add the exact `evidence_locator` block to the reviewer-authored registry after-image.
 6. In the handoff delta, summarize the result and name the experiment ID plus `primary_run_id`; do not duplicate raw tables in the handoff.
-7. The PR gate compares the base and head registries and rejects a changed delivered experiment without a valid locator.
+7. Trusted normalization must materialize the handoff delta into `docs/handoff.md` and create the sibling `MATERIALIZATION_REPORT.json` in the same integration image.
+8. The PR gate compares the base and head registries and rejects a changed delivered experiment without a valid locator. It also rejects a newly added authoritative schema-v3 handoff delta whose materialization report or declared handoff after-image is missing.
+9. For project handoff purposes, a result closure remains pending integration until that materialized integration commit is merged to authoritative `main`; a result document, delta-only branch, open PR, local READY state, or CI pass on an unmerged branch is not itself authoritative closure.
+
+### Result-closure materialization hard gate
+
+`GOV-RESULT-CLOSURE-MATERIALIZATION-GATE-01` closes the historical half-closure failure mode in which a valid result closure and `HANDOFF_DELTA.yaml` existed on a branch but never reached the unique research master.
+
+For each authoritative schema-v3 delta newly added by a pull request, the blocking transition validator requires:
+
+- sibling `MATERIALIZATION_REPORT.json` in the PR head;
+- a changed `docs/handoff.md` when the delta contains handoff operations;
+- the declared replacement heading for every `replace_heading` operation;
+- canonical `HANDOFF-DELTA-BLOCK` start/end markers for every `insert_after_heading` or `append_to_section` operation.
+
+Failure is reported as `HANDOFF_MATERIALIZATION_MISSING`. Code-only changes that add no authoritative schema-v3 delta are unaffected. Registry-only authoritative deltas still require the materialization report but do not require a handoff-byte change when they contain no handoff operations.
+
+This gate does not change scientific workload-completion semantics, experiment status, terminal-audit semantics, or Stage-5 write authority. It only makes repository result-closure integration fail closed when the authoritative handoff after-image is absent.
 
 ## Historical compatibility
 
 Existing untouched historical entries are grandfathered and reported by current-tree validation; they are not silently rewritten. When a delivered historical experiment is next changed, it must receive a valid locator. No historical conclusion, package record, or provenance field may be deleted during backfill.
 
 The first version covers canonical RunSpec delivery to `easonhuo/drpo-results`. Legacy ZIP-only evidence and persistent-local sidecars remain explicit historical provenance but do not masquerade as a results-repository locator.
+
+The materialization hard gate is transition-aware and therefore does not destructively rewrite or retroactively reject already-landed historical handoff state. It applies when a pull request newly adds an authoritative schema-v3 delta.
 
 ## Commands
 
@@ -63,7 +82,7 @@ Current-tree audit, including grandfathered entries:
 python scripts/validate_evidence_locator.py --repo-root . --json
 ```
 
-Pull-request transition gate:
+Pull-request transition gate, including result-closure materialization completeness:
 
 ```bash
 python scripts/validate_evidence_locator.py \
@@ -75,4 +94,4 @@ python scripts/validate_evidence_locator.py \
 
 ## Rollback
 
-Remove the dedicated workflow and stop invoking the validator. Do not remove any locator already registered: locator records are provenance and remain append-only even if enforcement is rolled back.
+Remove the materialization check from the transition validator if this gate is explicitly rolled back. Do not remove any locator, handoff delta, materialization report, or result evidence already registered: those records are provenance and remain append-only. The Stage-5 authority remains unchanged.
