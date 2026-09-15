@@ -5,6 +5,9 @@ The validator is transition-aware when --base/--head are supplied. Existing hist
 experiments without a locator are grandfathered until their registry entry is changed.
 Any changed or newly added delivered experiment must carry a complete locator, and an
 existing locator may only be extended by appending immutable records.
+
+The same pull-request transition also fails closed when a newly added authoritative
+schema-v3 handoff delta has not been fully materialized into the PR head.
 """
 from __future__ import annotations
 
@@ -18,6 +21,10 @@ from typing import Any
 import yaml
 
 REGISTRY_PATH = "experiments/registry.yaml"
+HANDOFF_PATH = "docs/handoff.md"
+HANDOFF_DELTA_ROOT = "docs/handoff_deltas"
+HANDOFF_DELTA_NAME = "HANDOFF_DELTA.yaml"
+MATERIALIZATION_REPORT_NAME = "MATERIALIZATION_REPORT.json"
 SCHEMA_VERSION = 1
 CANONICAL_RESULTS_REPOSITORY = "easonhuo/drpo-results"
 CANONICAL_EXPORT_PROFILE = "manifest_text_v1"
@@ -40,7 +47,7 @@ LOCATOR_KEYS = {"schema_version", "primary_run_id", "records"}
 
 
 class EvidenceLocatorError(ValueError):
-    """Raised when an evidence-locator contract is violated."""
+    """Raised when an evidence-locator or closure-materialization contract is violated."""
 
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
@@ -242,6 +249,175 @@ def _git_show(repo: Path, ref: str, path: str) -> bytes:
     return proc.stdout
 
 
+def _git_object_exists(repo: Path, ref: str, path: str) -> bool:
+    proc = subprocess.run(
+        ["git", "-C", str(repo), "cat-file", "-e", f"{ref}:{path}"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    return proc.returncode == 0
+
+
+def _added_handoff_delta_paths(repo: Path, base: str, head: str) -> list[str]:
+    proc = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "diff",
+            "--name-only",
+            "--diff-filter=A",
+            base,
+            head,
+            "--",
+            HANDOFF_DELTA_ROOT,
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if proc.returncode != 0:
+        detail = proc.stderr.decode("utf-8", errors="replace").strip()
+        _fail(
+            "HANDOFF_MATERIALIZATION_UNAVAILABLE",
+            f"cannot inspect added handoff deltas between {base} and {head}: {detail}",
+        )
+    paths: list[str] = []
+    for raw in proc.stdout.decode("utf-8", errors="strict").splitlines():
+        path = PurePosixPath(raw)
+        if (
+            len(path.parts) == 4
+            and path.parts[0] == "docs"
+            and path.parts[1] == "handoff_deltas"
+            and path.parts[-1] == HANDOFF_DELTA_NAME
+        ):
+            paths.append(path.as_posix())
+    return sorted(paths)
+
+
+def _load_handoff_delta(data: bytes, label: str) -> dict[str, Any]:
+    try:
+        payload = yaml.safe_load(data.decode("utf-8"))
+    except (UnicodeError, yaml.YAMLError) as exc:
+        _fail("HANDOFF_MATERIALIZATION_INVALID", f"cannot parse {label}: {exc}")
+    if not isinstance(payload, dict):
+        _fail("HANDOFF_MATERIALIZATION_INVALID", f"{label} must be a mapping")
+    return payload
+
+
+def _validate_materialized_operations(
+    update_id: str,
+    operations: list[Any],
+    handoff_text: str,
+) -> None:
+    for index, raw in enumerate(operations):
+        label = f"{update_id}.operations[{index}]"
+        if not isinstance(raw, dict):
+            _fail("HANDOFF_MATERIALIZATION_INVALID", f"{label} must be a mapping")
+        op = raw.get("op")
+        if not isinstance(op, str):
+            _fail("HANDOFF_MATERIALIZATION_INVALID", f"{label}.op must be a string")
+        if op == "replace_heading":
+            new_heading = raw.get("new_heading")
+            if not isinstance(new_heading, str) or not new_heading.strip():
+                _fail(
+                    "HANDOFF_MATERIALIZATION_INVALID",
+                    f"{label}.new_heading must be a non-empty string",
+                )
+            heading_pattern = re.compile(
+                rf"^#{{1,6}}\s+{re.escape(new_heading.strip())}\s*$",
+                re.MULTILINE,
+            )
+            if not heading_pattern.search(handoff_text):
+                _fail(
+                    "HANDOFF_MATERIALIZATION_MISSING",
+                    f"{update_id} replacement heading is absent from {HANDOFF_PATH}: {new_heading}",
+                )
+            continue
+        if op in {"insert_after_heading", "append_to_section"}:
+            block_id = raw.get("block_id")
+            if not isinstance(block_id, str) or not block_id.strip():
+                _fail(
+                    "HANDOFF_MATERIALIZATION_INVALID",
+                    f"{label}.block_id must be a non-empty string",
+                )
+            location = "after_heading" if op == "insert_after_heading" else "section_end"
+            start = f"<!-- HANDOFF-DELTA-BLOCK:{location}:{block_id}:START -->"
+            end = f"<!-- HANDOFF-DELTA-BLOCK:{location}:{block_id}:END -->"
+            if start not in handoff_text or end not in handoff_text:
+                _fail(
+                    "HANDOFF_MATERIALIZATION_MISSING",
+                    f"{update_id} block {block_id} is absent from materialized {HANDOFF_PATH}",
+                )
+            continue
+        _fail(
+            "HANDOFF_MATERIALIZATION_INVALID",
+            f"{label}.op is unsupported: {op!r}",
+        )
+
+
+def validate_handoff_materialization_transition(
+    repo: Path,
+    base: str,
+    head: str,
+) -> dict[str, Any]:
+    checked: list[str] = []
+    for delta_path in _added_handoff_delta_paths(repo, base, head):
+        delta = _load_handoff_delta(
+            _git_show(repo, head, delta_path),
+            f"{delta_path} at {head}",
+        )
+        if delta.get("schema_version") != 3 or delta.get("mode") != "authoritative":
+            continue
+        update_id = delta.get("update_id")
+        if not isinstance(update_id, str) or not update_id.strip():
+            _fail(
+                "HANDOFF_MATERIALIZATION_INVALID",
+                f"{delta_path}.update_id must be a non-empty string",
+            )
+        expected_parent = PurePosixPath(HANDOFF_DELTA_ROOT) / update_id
+        if PurePosixPath(delta_path).parent != expected_parent:
+            _fail(
+                "HANDOFF_MATERIALIZATION_INVALID",
+                f"{delta_path} directory does not match update_id {update_id}",
+            )
+        report_path = (expected_parent / MATERIALIZATION_REPORT_NAME).as_posix()
+        if not _git_object_exists(repo, head, report_path):
+            _fail(
+                "HANDOFF_MATERIALIZATION_MISSING",
+                f"{update_id} has no sibling {MATERIALIZATION_REPORT_NAME} in the PR head",
+            )
+        operations = delta.get("operations")
+        if not isinstance(operations, list):
+            _fail(
+                "HANDOFF_MATERIALIZATION_INVALID",
+                f"{update_id}.operations must be a list",
+            )
+        if operations:
+            base_handoff = _git_show(repo, base, HANDOFF_PATH)
+            head_handoff = _git_show(repo, head, HANDOFF_PATH)
+            if base_handoff == head_handoff:
+                _fail(
+                    "HANDOFF_MATERIALIZATION_MISSING",
+                    f"{update_id} declares handoff operations but {HANDOFF_PATH} is unchanged",
+                )
+            try:
+                handoff_text = head_handoff.decode("utf-8")
+            except UnicodeError as exc:
+                _fail(
+                    "HANDOFF_MATERIALIZATION_INVALID",
+                    f"cannot decode materialized {HANDOFF_PATH}: {exc}",
+                )
+            _validate_materialized_operations(update_id, operations, handoff_text)
+        checked.append(update_id)
+    return {
+        "handoff_materialization_policy_id": "GOV-RESULT-CLOSURE-MATERIALIZATION-GATE-01",
+        "checked_handoff_materialization_count": len(checked),
+        "checked_handoff_materialization_ids": checked,
+    }
+
+
 def validate_current(registry: dict[str, dict[str, Any]]) -> dict[str, Any]:
     locator_count = 0
     grandfathered: list[str] = []
@@ -332,7 +508,10 @@ def main() -> int:
         if args.base:
             before = _load_registry_bytes(_git_show(repo, args.base, REGISTRY_PATH), "base registry")
             after = _load_registry_bytes(_git_show(repo, args.head, REGISTRY_PATH), "head registry")
-            details = validate_transition(before, after)
+            details = {
+                **validate_transition(before, after),
+                **validate_handoff_materialization_transition(repo, args.base, args.head),
+            }
         else:
             details = validate_current(
                 _load_registry_bytes((repo / REGISTRY_PATH).read_bytes(), "current registry")
