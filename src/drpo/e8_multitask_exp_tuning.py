@@ -5848,7 +5848,6 @@ def _successful_attempt_matches_current_identity(
         experiment_id_value=experiment_id(config),
         config_hash=stable_config_hash(config),
         artifact_path=artifact_path,
-        read_json_fn=_read_json_object,
     )
 
 
@@ -5875,7 +5874,6 @@ def _reusable_cell_manifests(
         config_hash=stable_config_hash(config),
         engineering_self_test=_is_engineering_self_test(config),
         sha256_fn=sha256_file,
-        read_json_fn=_read_json_object,
     )
 
 
@@ -5886,6 +5884,7 @@ def _recovery_stage_plan(
     base_model_path: str,
 ) -> dict[str, Any]:
     effective = _effective_recovery_config(config, output_root)
+    reusable, rejected = _reusable_cell_manifests(effective, output_root)
     return e8_runtime.recovery_stage_plan(
         effective,
         output_root,
@@ -5894,11 +5893,11 @@ def _recovery_stage_plan(
         experiment_id_value=experiment_id(effective),
         config_hash=stable_config_hash(effective),
         expected_cells=len(build_cells(effective)),
+        reusable=reusable,
+        rejected=rejected,
         load_prepared_fn=_load_prepared,
         require_calibration_fn=_require_calibration_gate,
         require_liveness_fn=_require_liveness_gate,
-        reusable_cell_manifests_fn=_reusable_cell_manifests,
-        read_json_fn=_read_json_object,
     )
 
 
@@ -5911,14 +5910,6 @@ def cmd_recovery_plan(
     plan = _recovery_stage_plan(config, output_root, base_model_path=base_model_path)
     atomic_json(output_root / "recovery" / "RECOVERY_PLAN.json", plan)
     return plan
-
-
-def _hardlink_file(source: Path, destination: Path) -> None:
-    e8_runtime.hardlink_file(source, destination)
-
-
-def _replace_path_prefix(value: Any, source: str, destination: str) -> Any:
-    return e8_runtime.replace_path_prefix(value, source, destination)
 
 
 def cmd_import_recovery(
@@ -5993,7 +5984,7 @@ def cmd_import_recovery(
             if relative is None:
                 continue
             destination = output_root / relative
-            _hardlink_file(source, destination)
+            e8_runtime.hardlink_file(source, destination)
             linked_files += 1
             linked_bytes += source.stat().st_size
         path_manifest_targets = (
@@ -6008,13 +5999,13 @@ def cmd_import_recovery(
                 value = _read_json_object(path)
             except (OSError, ValueError, TypeError, json.JSONDecodeError):
                 continue
-            updated = _replace_path_prefix(value, source_text, destination_text)
+            updated = e8_runtime.replace_path_prefix(value, source_text, destination_text)
             if updated != value:
                 atomic_json(path, updated)
         for key, source_hash in sorted(source_cell_hashes.items()):
             manifest_path = output_root / "cells" / key / "cell_manifest.json"
             value = _read_json_object(manifest_path)
-            value = _replace_path_prefix(value, source_text, destination_text)
+            value = e8_runtime.replace_path_prefix(value, source_text, destination_text)
             value["recovery_provenance"] = {
                 "source_output_root": source_text,
                 "source_manifest_sha256": source_hash,
@@ -6064,6 +6055,7 @@ def _recovery_checkpoint_snapshot(
         output_root,
         snapshot_root,
         source_commit=source_commit,
+        schema_version=RECOVERY_SNAPSHOT_SCHEMA_VERSION,
         reusable=reusable,
         rejected=rejected,
         experiment_id_value=experiment_id(config),

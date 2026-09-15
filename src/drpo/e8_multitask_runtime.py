@@ -102,13 +102,12 @@ def successful_attempt_matches_current_identity(
     experiment_id_value: str,
     config_hash: str,
     artifact_path: Path | None,
-    read_json_fn: Callable[[Path], dict[str, Any]] = read_json_object,
 ) -> bool:
     """Return whether live and packaged completed evidence matches this invocation."""
 
     try:
-        provenance = read_json_fn(workload_root / "source_provenance.json")
-        prepare = read_json_fn(workload_root / "prepare_manifest.json")
+        provenance = read_json_object(workload_root / "source_provenance.json")
+        prepare = read_json_object(workload_root / "prepare_manifest.json")
         if not (
             provenance.get("source_commit") == source_commit
             and prepare.get("experiment_id") == experiment_id_value
@@ -184,7 +183,6 @@ def reusable_cell_manifests(
     config_hash: str,
     engineering_self_test: bool,
     sha256_fn: Callable[[Path], str],
-    read_json_fn: Callable[[Path], dict[str, Any]] = read_json_object,
 ) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
     reusable: dict[str, dict[str, Any]] = {}
     rejected: dict[str, str] = {}
@@ -194,7 +192,7 @@ def reusable_cell_manifests(
             rejected[cell.key] = "missing_cell_manifest"
             continue
         try:
-            value = read_json_fn(manifest_path)
+            value = read_json_object(manifest_path)
             if (
                 value.get("experiment_id") != experiment_id_value
                 or value.get("config_hash") != config_hash
@@ -243,14 +241,11 @@ def recovery_stage_plan(
     experiment_id_value: str,
     config_hash: str,
     expected_cells: int,
+    reusable: Mapping[str, Mapping[str, Any]],
+    rejected: Mapping[str, str],
     load_prepared_fn: Callable[[Path, Mapping[str, Any]], Any],
     require_calibration_fn: Callable[..., None],
     require_liveness_fn: Callable[..., None],
-    reusable_cell_manifests_fn: Callable[
-        [Mapping[str, Any], Path],
-        tuple[dict[str, dict[str, Any]], dict[str, str]],
-    ],
-    read_json_fn: Callable[[Path], dict[str, Any]] = read_json_object,
 ) -> dict[str, Any]:
     prepare_error: str | None = None
     calibration_error: str | None = None
@@ -281,13 +276,12 @@ def recovery_stage_plan(
     else:
         liveness_complete = False
         liveness_error = "calibration_incomplete"
-    reusable, rejected = reusable_cell_manifests_fn(config, output_root)
     cells_complete = len(reusable) == expected_cells
     aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
     aggregate_complete = False
     if aggregate_path.is_file():
         try:
-            aggregate_complete = int(read_json_fn(aggregate_path).get("cell_count", 0)) == (
+            aggregate_complete = int(read_json_object(aggregate_path).get("cell_count", 0)) == (
                 expected_cells
             )
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
@@ -297,7 +291,7 @@ def recovery_stage_plan(
     if audit_path.is_file():
         try:
             audit_complete = bool(
-                read_json_fn(audit_path).get("all_training_and_evaluation_complete")
+                read_json_object(audit_path).get("all_training_and_evaluation_complete")
             )
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             audit_complete = False
@@ -305,7 +299,7 @@ def recovery_stage_plan(
     complete_path = output_root / "RUN_COMPLETE.json"
     if complete_path.is_file():
         try:
-            finalized = bool(read_json_fn(complete_path).get("complete")) and audit_complete
+            finalized = bool(read_json_object(complete_path).get("complete")) and audit_complete
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             finalized = False
     if not prepare_complete:
@@ -378,6 +372,7 @@ def recovery_checkpoint_snapshot(
     snapshot_root: Path,
     *,
     source_commit: str,
+    schema_version: int,
     reusable: Mapping[str, Mapping[str, Any]],
     rejected: Mapping[str, str],
     experiment_id_value: str,
@@ -409,7 +404,7 @@ def recovery_checkpoint_snapshot(
             }
         )
     payload = {
-        "schema_version": 1,
+        "schema_version": schema_version,
         "experiment_id": experiment_id_value,
         "base_commit": source_commit,
         "config_hash": config_hash,

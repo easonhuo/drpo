@@ -4226,3 +4226,38 @@ def test_formal_terminal_status_requires_full_terminal_contract(tmp_path: Path) 
     value=json.loads(path.read_text()); value["terminal_step"]=1199; p0.atomic_json(path,value)
     failed=exp_tuning.cmd_audit(config,tmp_path)
     assert failed["scientific_status"] == "pilot" and victim.key in failed["terminal_contract_failures"]
+
+
+def test_recovery_checkpoint_snapshot_uses_caller_schema_version(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+    from drpo import e8_multitask_runtime as runtime
+
+    output_root = tmp_path / "run"
+    cell_root = output_root / "cells" / "cell-a"
+    cell_root.mkdir(parents=True)
+    exp_tuning.atomic_json(cell_root / "cell_manifest.json", {"complete": True})
+    snapshot_root = tmp_path / "snapshot"
+
+    payload = runtime.recovery_checkpoint_snapshot(
+        output_root,
+        snapshot_root,
+        source_commit="a" * 40,
+        schema_version=7,
+        reusable={
+            "cell-a": {
+                "canonical_output": str(cell_root / "summary.json"),
+                "terminal_adapter": str(cell_root / "terminal_adapter"),
+            }
+        },
+        rejected={},
+        experiment_id_value="DEV-SCHEMA-AUTHORITY",
+        config_hash="b" * 64,
+        expected_cells=1,
+        scientific_status="pilot",
+        sha256_fn=exp_tuning.sha256_file,
+        write_json=exp_tuning.atomic_json,
+    )
+
+    assert payload["schema_version"] == 7
+    stored = exp_tuning._read_json_object(snapshot_root / "RECOVERY_SNAPSHOT.json")
+    assert stored["schema_version"] == 7
