@@ -47,6 +47,15 @@ jobs:
           Path('/tmp/e8_pr360_transform.py').write_text('\n'.join(output) + '\n', encoding='utf-8')
           PY
           python /tmp/e8_pr360_transform.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          text = path.read_text(encoding='utf-8')
+          old = 'from pathlib import Path, PurePosixPath\n'
+          if old not in text:
+              raise SystemExit('expected stale PurePosixPath import was not found')
+          path.write_text(text.replace(old, 'from pathlib import Path\n', 1), encoding='utf-8')
+          PY
       - name: Structural checks
         shell: bash
         run: |
