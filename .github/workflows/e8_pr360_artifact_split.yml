@@ -32,8 +32,19 @@ jobs:
           start = source.index(start_marker) + len(start_marker)
           end = source.index(end_marker, start)
           raw = source[start:end]
-          lines = [line[10:] if line.startswith('          ') else line for line in raw.splitlines()]
-          Path('/tmp/e8_pr360_transform.py').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          output = []
+          in_artifact_literal = False
+          for line in raw.splitlines():
+              if in_artifact_literal:
+                  output.append(line)
+                  if line == "'''":
+                      in_artifact_literal = False
+                  continue
+              clean = line[10:] if line.startswith('          ') else line
+              output.append(clean)
+              if clean == "artifact_block = r'''":
+                  in_artifact_literal = True
+          Path('/tmp/e8_pr360_transform.py').write_text('\n'.join(output) + '\n', encoding='utf-8')
           PY
           python /tmp/e8_pr360_transform.py
       - name: Structural checks
