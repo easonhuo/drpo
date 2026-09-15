@@ -3657,7 +3657,9 @@ def test_dpo_emits_recovery_summary_and_audited_pr268_diagnostics() -> None:
     for fragment in required:
         assert fragment in source
 
-    reusable = inspect.getsource(exp_tuning._reusable_cell_manifests)
+    from drpo import e8_multitask_runtime as runtime
+
+    reusable = inspect.getsource(runtime.reusable_cell_manifests)
     assert 'value.get("canonical_summary"' in reusable
     assert 'value.get("canonical_summary_sha256"' in reusable
 
