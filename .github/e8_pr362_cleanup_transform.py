@@ -156,5 +156,40 @@ marker = "def test_recovery_checkpoint_snapshot_uses_caller_schema_version"
 if marker in tests:
     raise RuntimeError("Schema-version regression test already exists")
 
-tests += r'''\n\ndef test_recovery_checkpoint_snapshot_uses_caller_schema_version(tmp_path: Path) -> None:\n    from drpo import e8_multitask_exp_tuning as exp_tuning\n    from drpo import e8_multitask_runtime as runtime\n\n    output_root = tmp_path / "run"\n    cell_root = output_root / "cells" / "cell-a"\n    cell_root.mkdir(parents=True)\n    exp_tuning.atomic_json(cell_root / "cell_manifest.json", {"complete": True})\n    snapshot_root = tmp_path / "snapshot"\n\n    payload = runtime.recovery_checkpoint_snapshot(\n        output_root,\n        snapshot_root,\n        source_commit="a" * 40,\n        schema_version=7,\n        reusable={\n            "cell-a": {\n                "canonical_output": str(cell_root / "summary.json"),\n                "terminal_adapter": str(cell_root / "terminal_adapter"),\n            }\n        },\n        rejected={},\n        experiment_id_value="DEV-SCHEMA-AUTHORITY",\n        config_hash="b" * 64,\n        expected_cells=1,\n        scientific_status="pilot",\n        sha256_fn=exp_tuning.sha256_file,\n        write_json=exp_tuning.atomic_json,\n    )\n\n    assert payload["schema_version"] == 7\n    stored = exp_tuning._read_json_object(snapshot_root / "RECOVERY_SNAPSHOT.json")\n    assert stored["schema_version"] == 7\n'''
+tests += '''
+
+def test_recovery_checkpoint_snapshot_uses_caller_schema_version(tmp_path: Path) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+    from drpo import e8_multitask_runtime as runtime
+
+    output_root = tmp_path / "run"
+    cell_root = output_root / "cells" / "cell-a"
+    cell_root.mkdir(parents=True)
+    exp_tuning.atomic_json(cell_root / "cell_manifest.json", {"complete": True})
+    snapshot_root = tmp_path / "snapshot"
+
+    payload = runtime.recovery_checkpoint_snapshot(
+        output_root,
+        snapshot_root,
+        source_commit="a" * 40,
+        schema_version=7,
+        reusable={
+            "cell-a": {
+                "canonical_output": str(cell_root / "summary.json"),
+                "terminal_adapter": str(cell_root / "terminal_adapter"),
+            }
+        },
+        rejected={},
+        experiment_id_value="DEV-SCHEMA-AUTHORITY",
+        config_hash="b" * 64,
+        expected_cells=1,
+        scientific_status="pilot",
+        sha256_fn=exp_tuning.sha256_file,
+        write_json=exp_tuning.atomic_json,
+    )
+
+    assert payload["schema_version"] == 7
+    stored = exp_tuning._read_json_object(snapshot_root / "RECOVERY_SNAPSHOT.json")
+    assert stored["schema_version"] == 7
+'''
 TESTS.write_text(tests, encoding="utf-8")
