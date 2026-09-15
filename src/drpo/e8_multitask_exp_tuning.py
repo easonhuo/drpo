@@ -31,7 +31,7 @@ from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -7582,17 +7582,8 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
     return audit
 
 
-PACKAGE_REQUIRED_MEMBERS = {
-    "RUN_COMPLETE.json",
-    "run_manifest.json",
-    "scientific_run_manifest.json",
-    "source_provenance.json",
-    "terminal_audit.json",
-    "scheduler/dynamic_run.json",
-    "aggregate/plot_curve_points.csv",
-    "package_contents_manifest.json",
-    "SHA256SUMS.txt",
-}
+PACKAGE_REQUIRED_MEMBERS = e8_results.PACKAGE_REQUIRED_MEMBERS
+
 
 
 def _write_completion_manifests(
@@ -7600,84 +7591,23 @@ def _write_completion_manifests(
     output_root: Path,
     audit: Mapping[str, Any],
 ) -> None:
-    provenance_path = output_root / "source_provenance.json"
-    scheduler_path = output_root / "scheduler" / "dynamic_run.json"
-    aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
-    if (
-        not provenance_path.is_file()
-        or not scheduler_path.is_file()
-        or not aggregate_path.is_file()
-    ):
-        raise RuntimeError("Source provenance, scheduler result, and aggregate are required")
-    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
-    scheduler = json.loads(scheduler_path.read_text(encoding="utf-8"))
-    aggregate = json.loads(aggregate_path.read_text(encoding="utf-8"))
-    source_commit = str(provenance.get("source_commit", ""))
-    if len(source_commit) != 40 or any(char not in "0123456789abcdef" for char in source_commit):
-        raise RuntimeError("source_provenance.json must contain one full lowercase Git SHA")
-    expected_cells = len(build_cells(config))
-    if (
-        scheduler.get("experiment_id") != experiment_id(config)
-        or not scheduler.get("complete")
-        or int(scheduler.get("expected_cells", 0)) != expected_cells
-        or int(scheduler.get("completed_cells", 0)) != expected_cells
-        or int(aggregate.get("cell_count", 0)) != expected_cells
-    ):
-        raise RuntimeError("Scheduler or aggregate is not terminal-complete")
-    self_test = _is_engineering_self_test(config)
-    run_manifest = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "base_commit": source_commit,
-        "run_id": str(provenance.get("run_id", output_root.name)),
-        "source_commit": source_commit,
-        "config_hash": stable_config_hash(config),
-        "expected_cells": expected_cells,
-        "completed_cells": expected_cells,
-        "scheduler": "dynamic_slot_queue",
-        "scheduler_run_id": scheduler["scheduler_run_id"],
-        "test_partition_accessed": False,
-        "engineering_placeholder_backend": self_test,
-        "execution_class": _execution_class(config),
-        "scientific_status": str(audit["scientific_status"]),
-        "artifact_state": "engineering_self_test_complete" if self_test else "raw_complete",
-    }
-    atomic_json(output_root / "run_manifest.json", run_manifest)
-    atomic_json(output_root / "scientific_run_manifest.json", run_manifest)
-    atomic_json(
-        output_root / "RUN_COMPLETE.json",
-        {
-            **run_manifest,
-            "all_training_and_evaluation_complete": bool(
-                audit["all_training_and_evaluation_complete"]
-            ),
-            "terminal_audit_sha256": sha256_file(output_root / "terminal_audit.json"),
-            "aggregate_sha256": sha256_file(aggregate_path),
-            "complete": True,
-        },
+    e8_results._write_completion_manifests(
+        output_root,
+        audit,
+        experiment_id_value=experiment_id(config),
+        config_hash=stable_config_hash(config),
+        expected_cells=len(build_cells(config)),
+        engineering_self_test=_is_engineering_self_test(config),
+        execution_class=_execution_class(config),
+        write_json=atomic_json,
+        sha256_fn=sha256_file,
     )
 
 
+
 def _result_payload_paths(output_root: Path, excluded_parts: set[str]) -> list[Path]:
-    paths: list[Path] = []
-    for path in sorted(output_root.rglob("*")):
-        if not path.is_file():
-            continue
-        relative = path.relative_to(output_root)
-        if path.is_symlink():
-            raise RuntimeError(f"Result package refuses symlink payload: {relative}")
-        if "packages" in relative.parts or relative.as_posix() in {
-            "package_contents_manifest.json",
-            "SHA256SUMS.txt",
-        }:
-            continue
-        if any(part in excluded_parts for part in relative.parts) or path.suffix in {
-            ".bin",
-            ".safetensors",
-        }:
-            continue
-        paths.append(path)
-    return paths
+    return e8_results._result_payload_paths(output_root, excluded_parts)
+
 
 
 def verify_result_package(
@@ -7685,150 +7615,40 @@ def verify_result_package(
     *,
     zip_override: Path | None = None,
 ) -> dict[str, Any]:
-    """Reopen a result ZIP and verify paths, inventory, hashes, and required members."""
+    return e8_results.verify_result_package(
+        package_manifest_path,
+        zip_override=zip_override,
+        sha256_fn=sha256_file,
+    )
 
-    manifest = json.loads(package_manifest_path.read_text(encoding="utf-8"))
-    zip_path = (zip_override or Path(str(manifest["full_results_zip"]))).resolve()
-    if not zip_path.is_file():
-        raise FileNotFoundError(f"Result ZIP is missing: {zip_path}")
-    observed_zip_sha = sha256_file(zip_path)
-    if observed_zip_sha != manifest["full_results_zip_sha256"]:
-        raise RuntimeError("Result ZIP SHA-256 does not match package_manifest.json")
-    with zipfile.ZipFile(zip_path) as archive:
-        names = archive.namelist()
-        if len(names) != len(set(names)):
-            raise RuntimeError("Result ZIP contains duplicate members")
-        for name in names:
-            member = PurePosixPath(name)
-            if member.is_absolute() or ".." in member.parts or not member.parts:
-                raise RuntimeError(f"Unsafe result ZIP member: {name}")
-        missing = sorted(PACKAGE_REQUIRED_MEMBERS - set(names))
-        if missing:
-            raise RuntimeError(f"Result ZIP is missing required members: {missing}")
-        contents = json.loads(archive.read("package_contents_manifest.json"))
-        inventory = {str(item["path"]): str(item["sha256"]) for item in contents.get("files", ())}
-        expected_names = set(inventory) | {"package_contents_manifest.json", "SHA256SUMS.txt"}
-        if set(names) != expected_names:
-            raise RuntimeError("Result ZIP members do not match package_contents_manifest.json")
-        for name, expected_sha in inventory.items():
-            observed = hashlib.sha256(archive.read(name)).hexdigest()
-            if observed != expected_sha:
-                raise RuntimeError(f"Result ZIP payload hash mismatch: {name}")
-        checksum_rows: dict[str, str] = {}
-        for line in archive.read("SHA256SUMS.txt").decode("utf-8").splitlines():
-            digest, separator, name = line.partition("  ")
-            if not separator or name in checksum_rows:
-                raise RuntimeError("Malformed or duplicate SHA256SUMS.txt entry")
-            checksum_rows[name] = digest
-        if checksum_rows != inventory:
-            raise RuntimeError("SHA256SUMS.txt does not match the package inventory")
-        if not any(name.startswith("logs/") for name in names):
-            raise RuntimeError("Result ZIP contains no execution logs")
-    return {
-        "verified": True,
-        "zip": str(zip_path),
-        "zip_sha256": observed_zip_sha,
-        "member_count": len(names),
-        "required_members_present": True,
-    }
 
 
 def cmd_package(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
-    """Create and independently reopen a portable text-first result ZIP."""
+    return e8_results.cmd_package(
+        output_root,
+        experiment_id_value=experiment_id(config),
+        execution_class=_execution_class(config),
+        config_hash=stable_config_hash(config),
+        expected_cells=len(build_cells(config)),
+        engineering_self_test=_is_engineering_self_test(config),
+        write_json=atomic_json,
+        sha256_fn=sha256_file,
+    )
 
-    audit_path = output_root / "terminal_audit.json"
-    plot_path = output_root / "aggregate" / "plot_curve_points.csv"
-    if not audit_path.is_file() or not plot_path.is_file():
-        raise RuntimeError("Run aggregate and audit before packaging")
-    audit = json.loads(audit_path.read_text(encoding="utf-8"))
-    if not audit.get("all_training_and_evaluation_complete"):
-        raise RuntimeError("Refusing to package a non-terminal run")
-    _write_completion_manifests(config, output_root, audit)
-    package_root = output_root / "packages"
-    package_root.mkdir(parents=True, exist_ok=True)
-    zip_path = package_root / f"{output_root.name}_full_results.zip"
-    excluded_parts = {
-        "best_adapter",
-        "terminal_adapter",
-        "last_finite_adapter",
-        "supplementary_best_adapter",
-        "initial_adapter",
-    }
-    payload_paths = _result_payload_paths(output_root, excluded_parts)
-    inventory = [
-        {
-            "path": path.relative_to(output_root).as_posix(),
-            "size": path.stat().st_size,
-            "sha256": sha256_file(path),
-        }
-        for path in payload_paths
-    ]
-    atomic_json(
-        output_root / "package_contents_manifest.json",
-        {
-            "schema_version": 1,
-            "experiment_id": experiment_id(config),
-            "engineering_placeholder_backend": _is_engineering_self_test(config),
-            "files": inventory,
-        },
-    )
-    (output_root / "SHA256SUMS.txt").write_text(
-        "".join(f"{item['sha256']}  {item['path']}\n" for item in inventory),
-        encoding="utf-8",
-    )
-    payload_paths.extend(
-        [output_root / "package_contents_manifest.json", output_root / "SHA256SUMS.txt"]
-    )
-    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-        for path in payload_paths:
-            archive.write(path, arcname=path.relative_to(output_root).as_posix())
-    execution_class = _execution_class(config)
-    result = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "execution_class": execution_class,
-        "scientific_status": str(audit["scientific_status"]),
-        "artifact_kind": ("engineering_self_test" if _is_engineering_self_test(config) else ("formal_results" if execution_class == "formal" else "pilot_results")),
-        "full_results_zip": str(zip_path.resolve()),
-        "full_results_zip_sha256": sha256_file(zip_path),
-        "full_results_zip_bytes": zip_path.stat().st_size,
-        "plot_curve_points_csv": str(plot_path.resolve()),
-        "plot_curve_points_csv_sha256": sha256_file(plot_path),
-        "included_file_count": len(payload_paths),
-        "excluded_model_weights": sorted(excluded_parts),
-        "complete": True,
-    }
-    manifest_path = package_root / "package_manifest.json"
-    atomic_json(manifest_path, result)
-    verification = verify_result_package(manifest_path)
-    result["reopen_verification"] = verification
-    atomic_json(manifest_path, result)
-    return result
 
 
 def cmd_finalize(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
-    """Finalize result markers while leaving archive ownership to the hardened guard."""
+    return e8_results.cmd_finalize(
+        output_root,
+        experiment_id_value=experiment_id(config),
+        execution_class=_execution_class(config),
+        config_hash=stable_config_hash(config),
+        expected_cells=len(build_cells(config)),
+        engineering_self_test=_is_engineering_self_test(config),
+        write_json=atomic_json,
+        sha256_fn=sha256_file,
+    )
 
-    audit_path = output_root / "terminal_audit.json"
-    plot_path = output_root / "aggregate" / "plot_curve_points.csv"
-    if not audit_path.is_file() or not plot_path.is_file():
-        raise RuntimeError("Run aggregate and audit before finalizing")
-    audit = json.loads(audit_path.read_text(encoding="utf-8"))
-    if not audit.get("all_training_and_evaluation_complete"):
-        raise RuntimeError("Refusing to finalize a non-terminal run")
-    _write_completion_manifests(config, output_root, audit)
-    return {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "base_commit": audit["base_commit"],
-        "artifact_state": "raw_complete",
-        "execution_class": _execution_class(config),
-        "scientific_status": str(audit["scientific_status"]),
-        "canonical_archive_owner": "scripts/run_experiment_guard_hardened.py",
-        "plot_curve_points_csv": str(plot_path.resolve()),
-        "plot_curve_points_csv_sha256": sha256_file(plot_path),
-        "complete": True,
-    }
 
 
 def _engineering_self_test_config(config: Mapping[str, Any]) -> dict[str, Any]:
