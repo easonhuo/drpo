@@ -25,35 +25,33 @@ jobs:
 
           BIB='paper/overleaf/missing_references.bib'
           if ! grep -q '^@.*{stojanovski2025reasoninggym,' "$BIB"; then
-            cat >> "$BIB" <<'EOF'
-
-@inproceedings{stojanovski2025reasoninggym,
-  author    = {Zafir Stojanovski and Oliver Stanley and Joe Sharratt and
-               Richard Jones and Abdulhakeem Adefioye and Jean Kaddour and
-               Andreas K{\"o}pf},
-  title     = {{REASONING GYM}: Reasoning Environments for Reinforcement
-               Learning with Verifiable Rewards},
-  booktitle = {Advances in Neural Information Processing Systems},
-  volume    = {38},
-  year      = {2025},
-  note      = {Datasets and Benchmarks Track},
-  doi       = {10.52202/085713-1913}
-}
-EOF
+            printf '%s\n' \
+              '' \
+              '@inproceedings{stojanovski2025reasoninggym,' \
+              '  author    = {Zafir Stojanovski and Oliver Stanley and Joe Sharratt and' \
+              '               Richard Jones and Abdulhakeem Adefioye and Jean Kaddour and' \
+              '               Andreas K{\"o}pf},' \
+              '  title     = {{REASONING GYM}: Reasoning Environments for Reinforcement' \
+              '               Learning with Verifiable Rewards},' \
+              '  booktitle = {Advances in Neural Information Processing Systems},' \
+              '  volume    = {38},' \
+              '  year      = {2025},' \
+              '  note      = {Datasets and Benchmarks Track},' \
+              '  doi       = {10.52202/085713-1913}' \
+              '}' >> "$BIB"
           fi
 
           if ! grep -q '^@.*{zhong2017seq2sql,' "$BIB"; then
-            cat >> "$BIB" <<'EOF'
-
-@article{zhong2017seq2sql,
-  author  = {Victor Zhong and Caiming Xiong and Richard Socher},
-  title   = {{Seq2SQL}: Generating Structured Queries from Natural Language
-             using Reinforcement Learning},
-  journal = {CoRR},
-  volume  = {abs/1709.00103},
-  year    = {2017}
-}
-EOF
+            printf '%s\n' \
+              '' \
+              '@article{zhong2017seq2sql,' \
+              '  author  = {Victor Zhong and Caiming Xiong and Richard Socher},' \
+              '  title   = {{Seq2SQL}: Generating Structured Queries from Natural Language' \
+              '             using Reinforcement Learning},' \
+              '  journal = {CoRR},' \
+              '  volume  = {abs/1709.00103},' \
+              '  year    = {2017}' \
+              '}' >> "$BIB"
           fi
 
           candidates=(
