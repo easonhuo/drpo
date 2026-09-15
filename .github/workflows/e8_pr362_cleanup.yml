@@ -1,0 +1,52 @@
+name: E8 PR362 cleanup transform
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-recovery-runtime-split-01
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.event.head_commit.message != 'Refine E8 recovery runtime split'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: dev/e8-multitask-recovery-runtime-split-01
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Apply targeted cleanup
+        run: python .github/e8_pr362_cleanup_transform.py
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Python compile
+        run: python -m compileall -q src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_runtime.py tests/test_e8_multitask_p0.py
+
+      - name: Focused E8 regression
+        run: python -m pytest tests/test_e8_multitask_p0.py -q
+
+      - name: Ruff changed files
+        run: ruff check src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_runtime.py tests/test_e8_multitask_p0.py
+
+      - name: Commit cleanup and remove temporary tooling
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/e8_pr362_cleanup_transform.py .github/workflows/e8_pr362_cleanup.yml
+          git add src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_runtime.py tests/test_e8_multitask_p0.py
+          git commit -m "Refine E8 recovery runtime split"
+          git push origin HEAD:dev/e8-multitask-recovery-runtime-split-01
