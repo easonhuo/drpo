@@ -58,6 +58,7 @@ cmd_run_dynamic: Any = None
 _run_subprocess_cell: Any = None
 
 _BOUND_HOST: Any | None = None
+_INTENTIONAL_FAILURE_RETURNCODE = 73
 
 
 def bind_host(host: Any) -> None:
@@ -359,7 +360,9 @@ def _audit_engineering_queue(
     if not replacement_keys:
         raise RuntimeError("Engineering queue requires replacement cells to audit dynamic refill")
     if min(starts[key] for key in replacement_keys) >= max(finishes[key] for key in initial_keys):
-        raise RuntimeError("Engineering queue did not refill before the initial 16 cells finished")
+        raise RuntimeError(
+            f"Engineering queue did not refill before the initial {slot_count} cells finished"
+        )
     return {
         "all_cells_observed": True,
         "maximum_active_by_gpu": maximum_by_gpu,
@@ -368,6 +371,42 @@ def _audit_engineering_queue(
         "nominal_batch_count": len(build_waves(config)),
         "slots_per_gpu": slots_per_gpu,
     }
+
+
+def _intentional_failure_evidence(
+    scheduler: Mapping[str, Any],
+    *,
+    expected_cell_key: str,
+) -> dict[str, Any]:
+    failed_cells = [str(value) for value in scheduler.get("failed_cells", ())]
+    if failed_cells != [expected_cell_key]:
+        raise RuntimeError(
+            "Engineering failure injection hit unexpected cells: "
+            f"expected={[expected_cell_key]} actual={failed_cells}"
+        )
+    results = scheduler.get("results")
+    if not isinstance(results, list):
+        raise RuntimeError("Engineering failure scheduler results are missing")
+    matching = [
+        row
+        for row in results
+        if isinstance(row, Mapping) and str(row.get("cell_key")) == expected_cell_key
+    ]
+    if len(matching) != 1:
+        raise RuntimeError(
+            "Engineering failure injection did not produce exactly one result for "
+            f"{expected_cell_key}"
+        )
+    try:
+        returncode = int(matching[0]["returncode"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RuntimeError("Engineering failure injection return code is invalid") from exc
+    if returncode != _INTENTIONAL_FAILURE_RETURNCODE:
+        raise RuntimeError(
+            "Engineering failure injection returned unexpected code: "
+            f"expected={_INTENTIONAL_FAILURE_RETURNCODE} actual={returncode}"
+        )
+    return {"cell_key": expected_cell_key, "returncode": returncode}
 
 
 def cmd_engineering_self_test(
@@ -449,6 +488,7 @@ def cmd_engineering_self_test(
     cell_index = {cell.key: index for index, cell in enumerate(cells)}
     failed_once = False
     failure_lock = threading.Lock()
+    failure_evidence: dict[str, Any] | None = None
 
     def placeholder_cell_runner(
         *,
@@ -504,7 +544,7 @@ def cmd_engineering_self_test(
             return {
                 "cell_key": cell.key,
                 "gpu_id": gpu_id,
-                "returncode": 73,
+                "returncode": _INTENTIONAL_FAILURE_RETURNCODE,
                 "log": str(log_path.resolve()),
                 "started_unix": started_at,
                 "finished_unix": time.time(),
@@ -568,10 +608,12 @@ def cmd_engineering_self_test(
                 )
             else:
                 raise RuntimeError("Engineering failure injection did not fail closed")
-            if not first_failure["failed_cells"] or not first_failure["unscheduled_cells"]:
-                raise RuntimeError(
-                    "Engineering failure did not preserve failed and unscheduled work"
-                )
+            failure_evidence = _intentional_failure_evidence(
+                first_failure,
+                expected_cell_key=cells[0].key,
+            )
+            if not first_failure["unscheduled_cells"]:
+                raise RuntimeError("Engineering failure did not preserve unscheduled work")
             resumed = cmd_run_dynamic(
                 self_test_config,
                 config_path,
@@ -646,8 +688,14 @@ def cmd_engineering_self_test(
         "engineering_placeholder_backend": True,
         "prepare_complete": True,
         "canonical_source_lock_passed": True,
-        "intentional_failure_returncode": 73,
-        "failure_preserved_unscheduled_work": True,
+        "intentional_failure_cell_key": (
+            failure_evidence["cell_key"] if failure_evidence is not None else None
+        ),
+        "intentional_failure_returncode": (
+            failure_evidence["returncode"] if failure_evidence is not None else None
+        ),
+        "intentional_failure_observed_this_attempt": failure_evidence is not None,
+        "failure_preserved_unscheduled_work": True if failure_evidence is not None else None,
         "recovered_from_previous_attempt": not fresh_run,
         "resume_completed_cells": resumed["completed_cells"],
         "repeat_run_preserved_cell_hashes": True,
