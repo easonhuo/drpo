@@ -1,0 +1,241 @@
+name: Temporary sync structured-9 manuscript results
+
+on:
+  push:
+    branches:
+      - dev/manuscript-structured9-results-01
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: dev/manuscript-structured9-results-01
+
+      - name: Apply approved manuscript edits
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('paper/overleaf/main_replacement.tex')
+          text = p.read_text(encoding='utf-8')
+
+          old_table = r'''Countdown
+          & 14.38
+          & 14.41
+          & 8.48
+          & \textbf{15.72}
+          \\
+
+          Word Sorting
+          &
+          &
+          &
+          &
+          \\
+
+          Spiral Matrix
+          &
+          &
+          &
+          &
+          \\
+
+          Mini Sudoku
+          &
+          &
+          &
+          &
+          \\
+
+          Maze
+          &
+          &
+          &
+          &
+          \\
+
+          Word Ladder
+          &
+          &
+          &
+          &
+          \\
+
+          Knights \& Knaves
+          &
+          &
+          &
+          &
+          \\
+
+          Graph Coloring
+          &
+          &
+          &
+          &
+          \\
+
+          WikiSQL
+          &
+          &
+          &
+          &
+          \\
+          '''
+
+          new_table = r'''Countdown
+          & 14.38
+          & 14.41
+          &
+          & \textbf{15.72}
+          \\
+
+          Word Sorting
+          & 61.72
+          & 59.61
+          &
+          & \textbf{63.38}
+          \\
+
+          Spiral Matrix
+          & 99.92
+          & \textbf{100.00}
+          &
+          & 99.94
+          \\
+
+          Mini Sudoku
+          & \textbf{97.58}
+          & 96.88
+          &
+          & 97.06
+          \\
+
+          Maze
+          & \textbf{77.81}
+          & 75.86
+          &
+          & 77.66
+          \\
+
+          Word Ladder
+          & 12.50
+          & 11.41
+          &
+          & \textbf{13.38}
+          \\
+
+          Knights \& Knaves
+          & \textbf{70.16}
+          & 68.59
+          &
+          & 69.53
+          \\
+
+          Graph Coloring
+          & 98.91
+          & 99.37
+          &
+          & \textbf{99.88}
+          \\
+
+          WikiSQL
+          & 85.78
+          & 82.89
+          &
+          & \textbf{86.69}
+          \\
+
+          \midrule
+
+          \textit{Structured-9 total}
+          & \textit{618.76}
+          & \textit{609.02}
+          &
+          & \textbf{\textit{623.24}}
+          \\
+          '''
+
+          old_note = r'''frozen-behavior reproduction of \citet{leroux2025tapered}.'''
+          new_note = r'''frozen-behavior reproduction of \citet{leroux2025tapered}. For DRPO, the reported transfer-task scores are the maximum means over
+          contiguous five-point windows of the registered \(\lambda\)-response curves.'''
+
+          old_summary = r'''DRPO delivers the strongest observed task performance among the
+          compared methods.'''
+          new_summary = r'''Across the eight transfer tasks, the reported DRPO score exceeds the
+          reported AsymRE score on five tasks and the Joint Fitted-Reference
+          \(\beta\)-TOPR score on seven tasks.'''
+
+          old_budget = r'''validation protocol only. Test-task performance is not used for
+          hyperparameter selection. All protocol-matched methods share the same
+          candidate budgets and checkpoint-selection rule.'''
+          new_budget = r'''validation protocol only. Test-task performance is not used for
+          hyperparameter selection.'''
+
+          for name, old, new in [
+              ('table', old_table, new_table),
+              ('note', old_note, new_note),
+              ('summary', old_summary, new_summary),
+              ('candidate-budget sentence', old_budget, new_budget),
+          ]:
+              n = text.count(old)
+              if n != 1:
+                  raise SystemExit(f'{name}: expected exactly one old block, found {n}')
+              text = text.replace(old, new)
+
+          p.write_text(text, encoding='utf-8')
+          PY
+
+          SOURCE_BLOB="$(git hash-object paper/overleaf/main_replacement.tex)"
+          test "$SOURCE_BLOB" = 'e0a0fd47e130ac1e1e87a7130f87354b08a52f11'
+
+          python3 - "$SOURCE_BLOB" <<'PY'
+          from pathlib import Path
+          import sys
+          p = Path('paper/iclr2027/generate_iclr.sh')
+          text = p.read_text(encoding='utf-8')
+          old = 'EXPECTED_BLOB="4af4d989ba37bf5d55c501dc77ab421b2bc96243"'
+          new = f'EXPECTED_BLOB="{sys.argv[1]}"'
+          if text.count(old) != 1:
+              raise SystemExit(f'generator lock: expected one old lock, found {text.count(old)}')
+          p.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+
+          test "$(git hash-object paper/iclr2027/generate_iclr.sh)" = 'da112274abea1bc7430c6c780a1d7cf70115ab4d'
+
+      - name: Commit approved files and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/_tmp_sync_structured9_results.yml
+          git add paper/overleaf/main_replacement.tex paper/iclr2027/generate_iclr.sh
+          git commit -m 'Paper: fill Structured-9 transfer results'
+
+      - name: Verify generated ICLR main.tex is the approved version
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/drpo-iclr-structured9-check
+          bash paper/iclr2027/generate_iclr.sh /tmp/drpo-iclr-structured9-check
+          echo '6f40f4250f57265aa41c20572902bcf6397a0cb061df2b801d272ab4cc3d8813  /tmp/drpo-iclr-structured9-check/main.tex' | sha256sum --check --strict
+          grep -F '& \textbf{15.72}' /tmp/drpo-iclr-structured9-check/main.tex
+          grep -F '\textit{Structured-9 total}' /tmp/drpo-iclr-structured9-check/main.tex
+          grep -F '& \textbf{\textit{623.24}}' /tmp/drpo-iclr-structured9-check/main.tex
+          ! grep -F 'candidate budgets and checkpoint-selection rule' /tmp/drpo-iclr-structured9-check/main.tex
+
+      - name: Push synchronized manuscript source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:dev/manuscript-structured9-results-01
