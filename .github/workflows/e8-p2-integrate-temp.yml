@@ -1,0 +1,200 @@
+name: E8 P2 Integration (temporary)
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-training-splits-01
+    paths:
+      - .github/workflows/e8-p2-integrate-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Route historical trainer through extracted module
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          text = path.read_text(encoding='utf-8')
+
+          def once(old: str, new: str, label: str) -> None:
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly one match, found {count}')
+              text = text.replace(old, new, 1)
+
+          once(
+              'from drpo import e8_multitask_selftest as e8_selftest\n',
+              'from drpo import e8_multitask_selftest as e8_selftest\n'
+              'from drpo import e8_multitask_warmstart_training as e8_warmstart\n',
+              'warmstart import',
+          )
+          once(
+              '    _canonical_train_row,\n    _canonical_validation_row,\n    _ordered_by_prompt_hash,\n',
+              '    _canonical_train_row,\n    _canonical_validation_row,\n',
+              'ordered prompt import',
+          )
+          once(
+              '    from torch.utils.data import DataLoader, Dataset\n',
+              '    from torch.utils.data import DataLoader\n',
+              'torch dataset import',
+          )
+          once(
+              '    Dataset = object  # type: ignore[assignment,misc]\n',
+              '',
+              'torch dataset fallback',
+          )
+          for name in (
+              '    collate_encoded_completions,\n',
+              '    encode_prompt_completion,\n',
+              '    format_chat_prompt,\n',
+          ):
+              once(name, '', f'remove moved import {name.strip()}')
+
+          row_start = text.index('class RowDataset(Dataset):')
+          row_end = text.index('\n\ndef load_config(', row_start)
+          text = (
+              text[:row_start]
+              + 'RowDataset = e8_warmstart.RowDataset\n'
+              + text[row_end:]
+          )
+
+          distance_start = text.index('def normalized_distance(')
+          distance_end = text.index('\n\ndef _coldstart_method_cell(', distance_start)
+          text = (
+              text[:distance_start]
+              + 'normalized_distance = e8_warmstart.normalized_distance\n'
+              + 'taper_weight = e8_warmstart.taper_weight\n'
+              + text[distance_end:]
+          )
+
+          helper_start = text.index('def _move_batch(')
+          helper_end = text.index('\n\ndef _canonical_task_record(', helper_start)
+          helper_aliases = '''_move_batch = e8_warmstart._move_batch
+          _stack_encoded = e8_warmstart._stack_encoded
+          completion_stats_batch = e8_warmstart.completion_stats_batch
+          _select_current_extremes = e8_warmstart._select_current_extremes
+          _load_reference_model = e8_warmstart._load_reference_model
+          _trainable_state_sha256 = e8_warmstart._trainable_state_sha256
+          _raw_gradient_norm = e8_warmstart._raw_gradient_norm
+          _calibration_rows = e8_warmstart._calibration_rows
+          _calibration_identity = e8_warmstart._calibration_identity
+          '''
+          text = text[:helper_start] + helper_aliases + text[helper_end:]
+
+          calibration_start = text.index('def calibrate_task(')
+          calibration_end = text.index('\n\ndef cmd_calibrate(', calibration_start)
+          text = (
+              text[:calibration_start]
+              + 'calibrate_task = e8_warmstart.calibrate_task\n'
+              + text[calibration_end:]
+          )
+
+          generation_start = text.index('def _generate_completions(')
+          generation_end = text.index('\n\ndef _cell_identity(', generation_start)
+          text = (
+              text[:generation_start]
+              + '_generate_completions = e8_warmstart._generate_completions\n'
+              + 'evaluate_model = e8_warmstart.evaluate_model\n'
+              + text[generation_end:]
+          )
+
+          splits_start = text.index('def _load_cell_splits(')
+          splits_end = text.index('\n\ndef _runtime_bridge_contract(', splits_start)
+          text = (
+              text[:splits_start]
+              + '_load_cell_splits = e8_warmstart._load_cell_splits\n'
+              + text[splits_end:]
+          )
+
+          trainer_start = text.index('def _train_cell_impl(')
+          trainer_end = text.index('\n\ndef train_cell(', trainer_start)
+          trainer_wrapper = '''def _train_cell_impl(
+              cell: Cell,
+              *,
+              inputs: TaskInputs,
+              split_manifest: Mapping[str, Any],
+              base_model_path: str,
+              config: Mapping[str, Any],
+              output_root: Path,
+              force: bool,
+              updates_override: int | None = None,
+              engineering_liveness: bool = False,
+          ) -> dict[str, Any]:
+              return e8_warmstart.train_cell_impl(
+                  cell,
+                  inputs=inputs,
+                  split_manifest=split_manifest,
+                  base_model_path=base_model_path,
+                  config=config,
+                  output_root=output_root,
+                  force=force,
+                  bindings=e8_warmstart.WarmstartTrainingBindings(
+                      cell_identity=_cell_identity,
+                      prepare_cell_output=_prepare_cell_output,
+                      summarize_evaluations=_summarize_evaluations,
+                      method_exponential=METHOD_EXPONENTIAL,
+                  ),
+                  updates_override=updates_override,
+                  engineering_liveness=engineering_liveness,
+              )
+          '''
+          text = text[:trainer_start] + trainer_wrapper + text[trainer_end:]
+          path.write_text(text, encoding='utf-8')
+
+          warm = Path('src/drpo/e8_multitask_warmstart_training.py')
+          warm_text = warm.read_text(encoding='utf-8')
+          for snippet in (
+              '    if torch is None:\n        raise RuntimeError("Torch is required")\n',
+          ):
+              # Match the old implementation for the moved distance/extreme helpers;
+              # only the first two simple helpers and selector carried new guards.
+              pass
+          warm_text = warm_text.replace(
+              'def normalized_distance(\n    sequence_log_probability: Any,\n    *,\n    tau: float,\n    scale: float,\n) -> Any:\n    if torch is None:\n        raise RuntimeError("Torch is required")\n',
+              'def normalized_distance(\n    sequence_log_probability: Any,\n    *,\n    tau: float,\n    scale: float,\n) -> Any:\n',
+              1,
+          )
+          warm_text = warm_text.replace(
+              'def taper_weight(distance: Any, rho: float) -> Any:\n    if torch is None:\n        raise RuntimeError("Torch is required")\n',
+              'def taper_weight(distance: Any, rho: float) -> Any:\n',
+              1,
+          )
+          warm_text = warm_text.replace(
+              ') -> tuple[dict[str, Any], dict[str, Any], list[float], list[float]]:\n    if torch is None:\n        raise RuntimeError("Torch is required")\n    device = next(model.parameters()).device\n',
+              ') -> tuple[dict[str, Any], dict[str, Any], list[float], list[float]]:\n    device = next(model.parameters()).device\n',
+              1,
+          )
+          warm_text = warm_text.replace(
+              'def _raw_gradient_norm(grads: Sequence[Any | None]) -> float:\n    if torch is None:\n        raise RuntimeError("Torch is required")\n',
+              'def _raw_gradient_norm(grads: Sequence[Any | None]) -> float:\n',
+              1,
+          )
+          warm.write_text(warm_text, encoding='utf-8')
+          PY
+          python -m py_compile \
+            src/drpo/e8_multitask_exp_tuning.py \
+            src/drpo/e8_multitask_warmstart_training.py
+          git diff --check
+          git diff --stat
+      - name: Commit integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'drpo-p2-bot'
+          git config user.email 'drpo-p2-bot@users.noreply.github.com'
+          git add src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_warmstart_training.py
+          git diff --cached --quiet && { echo 'No integration diff produced'; exit 1; }
+          git commit -m 'refactor: route historical E8 trainer through split module'
+          git push origin HEAD:dev/e8-multitask-training-splits-01
