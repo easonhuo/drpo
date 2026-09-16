@@ -53,6 +53,12 @@ Move the non-scientific engineering harness out of the production composition ro
 
 P1 must preserve the exact engineering semantics, including intentional failure, recovery, dynamic refill, repeat-run idempotence, aggregate/audit/finalize/package execution, tamper rejection, and `scientific_status=not_run`.
 
+### P1 validated extraction outcome
+
+The mechanical extraction was validated before publication and then pushed as source commit `a7398ec3da1f15a188b88fb9d3d771cabde331c4`. `e8_multitask_exp_tuning.py` decreased from about 8,073 lines to 7,535 lines; the new `e8_multitask_selftest.py` contains 674 lines. The main module keeps compatibility entry points while the extracted module owns the self-test implementation and does not import the main module back.
+
+The exact transformed tree passed Python compilation, `tests/test_e8_multitask_p0.py` with `113 passed`, `bash tests/test_e8_method_integration_contract.sh`, Ruff on the changed Python/test surface, and `git diff --check`. The transformation workflow restored the repository's ordinary PR Gate workflow before committing the source tree. Ordinary PR Gate and Evidence Locator are still required on the final human-authored PR head before P1 is considered fully closed.
+
 ## P2 — historical warm-start/rho/dense training extraction
 
 Only after P1 validation, move the native historical multitask trainer that is explicitly forbidden for formal cold-start execution. The extracted module may own the warm-start/rho/dense model loader, batch/sequence helpers, current-extreme selection, native training loop, native evaluator helpers, and related historical adapter/reload support.
