@@ -91,15 +91,15 @@ jobs:
 
           import yaml
 
+          from drpo.e8_multitask_p0 import bank_path, with_smoke_overrides
+
           # Explicitly bound by bind_host() before any public entry point executes.
           # Declarations keep the dependency surface visible to static analysis without
           # introducing a reverse import to the composition root.
           validate_config: Any
           _repo_root: Any
-          bank_path: Any
           P0_EXPERIMENT_ID: Any
           stable_config_hash: Any
-          with_smoke_overrides: Any
           atomic_jsonl: Any
           atomic_json: Any
           _load_ready_inputs: Any
@@ -143,10 +143,8 @@ jobs:
               direct_names = (
                   "validate_config",
                   "_repo_root",
-                  "bank_path",
                   "P0_EXPERIMENT_ID",
                   "stable_config_hash",
-                  "with_smoke_overrides",
                   "atomic_jsonl",
                   "atomic_json",
                   "_load_ready_inputs",
