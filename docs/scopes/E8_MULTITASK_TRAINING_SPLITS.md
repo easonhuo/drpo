@@ -67,9 +67,40 @@ The same review removed the remaining hard-coded `16` from the dynamic-refill di
 
 ## P2 — historical warm-start/rho/dense training extraction
 
-Only after P1 validation, move the native historical multitask trainer that is explicitly forbidden for formal cold-start execution. The extracted module may own the warm-start/rho/dense model loader, batch/sequence helpers, current-extreme selection, native training loop, native evaluator helpers, and related historical adapter/reload support.
+Only after P1 validation, move the native historical multitask trainer that is explicitly forbidden for formal cold-start execution. Formal cold-start must continue to dispatch exclusively through the canonical old-code path.
 
-Formal cold-start must continue to dispatch exclusively through the canonical old-code path.
+### P2 reviewed ownership boundary
+
+The current-call-site inventory fixes the P2 boundary before source movement.
+
+The extracted `e8_multitask_warmstart_training.py` owns the historical-only implementation for:
+
+- the warm-start reference-model loader used by historical calibration/training;
+- historical prompt/completion encoding, batch movement, completion-log-probability, and current near/far extreme selection helpers;
+- historical trainable-state hashing and gradient-budget calibration helpers;
+- historical non-cold calibration execution;
+- the historical native generation/evaluation helpers;
+- the historical row dataset and split loader;
+- the native rho/dense `_train_cell_impl` training loop, including the pre-existing Positive-only/EXP loss path, optimizer/scheduler behavior, logging, evaluation, and adapter saves.
+
+The composition root intentionally retains shared functions that are also used by canonical cold-start, DPO, recovery, or common orchestration. In particular, P2 does **not** move `_seed_everything`, `_cell_identity`, `_prepare_cell_output`, `_summarize_evaluations`, `cmd_reload_adapter`, `_verify_fresh_process_adapter_reload`, `_adapter_weight_file`, the `train_cell` dispatcher, or any canonical/DPO trainer. Reference-manifest construction/validation and `_load_ready_inputs` also remain in the composition root because they participate in preparation/inheritance and are not the native trainer itself.
+
+`normalized_distance`, `taper_weight`, `_load_reference_model`, `completion_stats_batch`, `_select_current_extremes`, historical `calibrate_task`, and `evaluate_model` remain available through thin compatibility facades/aliases in `e8_multitask_exp_tuning.py` where existing callers/tests depend on that symbol surface; implementation authority lives in the extracted module.
+
+The extracted module must not import `e8_multitask_exp_tuning.py` back. Shared composition-root behavior is supplied explicitly at delegation time rather than through a process-global `bind_host()` state. This keeps P2 independent from the transitional P1 self-test binding and avoids adding another mutable host bridge.
+
+P2 is a relocation only. It must preserve the exact historical formulas and behavior, including the existing cold-start rejection in the historical model loader/native trainer. It must not make the deprecated historical native path reachable from formal cold-start.
+
+### P2 validation plan
+
+Before P2 is considered closed, the exact source head must demonstrate:
+
+- import/Python compilation for the composition root and extracted module;
+- the existing focused multitask tests, including the canonical-cold rejection of `_load_reference_model` and the historical distance/taper contract;
+- method-integration contract coverage if the dispatcher/import surface is touched;
+- Ruff on the changed Python surface;
+- broad pytest and ordinary PR Gate/Evidence Locator on the final P2 head;
+- no formal scientific run and no change from `scientific_status=not_run` for the baseline-matrix experiment.
 
 ## P3 — canonical cold-start compatibility bridge extraction
 
