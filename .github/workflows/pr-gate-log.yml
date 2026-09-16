@@ -93,42 +93,42 @@ jobs:
 
           from drpo.e8_multitask_p0 import bank_path, with_smoke_overrides
 
-          # Explicitly bound by bind_host() before any public entry point executes.
-          # Declarations keep the dependency surface visible to static analysis without
-          # introducing a reverse import to the composition root.
-          validate_config: Any
-          _repo_root: Any
-          P0_EXPERIMENT_ID: Any
-          stable_config_hash: Any
-          atomic_jsonl: Any
-          atomic_json: Any
-          _load_ready_inputs: Any
-          _canonical_calibration_identity: Any
-          experiment_config: Any
-          experiment_id: Any
-          model_identity: Any
-          _coldstart_methods: Any
-          _is_coldstart: Any
-          _coldstart_method: Any
-          METHOD_DPO: Any
-          build_cells: Any
-          build_waves: Any
-          validate_work_dir: Any
-          load_config: Any
-          cmd_prepare: Any
-          _read_json_object: Any
-          _load_prepared: Any
-          _require_calibration_gate: Any
-          _require_liveness_gate: Any
-          sha256_file: Any
-          cmd_aggregate: Any
-          cmd_audit: Any
-          cmd_finalize: Any
-          cmd_package: Any
-          verify_result_package: Any
-          Cell: Any
-          cmd_run_dynamic: Any
-          _run_subprocess_cell: Any
+          # bind_host() overwrites these placeholders before any public entry point runs.
+          # Explicit values keep the dynamic dependency surface visible to Ruff/Python
+          # without introducing a reverse import to the composition root.
+          validate_config: Any = None
+          _repo_root: Any = None
+          P0_EXPERIMENT_ID: Any = None
+          stable_config_hash: Any = None
+          atomic_jsonl: Any = None
+          atomic_json: Any = None
+          _load_ready_inputs: Any = None
+          _canonical_calibration_identity: Any = None
+          experiment_config: Any = None
+          experiment_id: Any = None
+          model_identity: Any = None
+          _coldstart_methods: Any = None
+          _is_coldstart: Any = None
+          _coldstart_method: Any = None
+          METHOD_DPO: Any = None
+          build_cells: Any = None
+          build_waves: Any = None
+          validate_work_dir: Any = None
+          load_config: Any = None
+          cmd_prepare: Any = None
+          _read_json_object: Any = None
+          _load_prepared: Any = None
+          _require_calibration_gate: Any = None
+          _require_liveness_gate: Any = None
+          sha256_file: Any = None
+          cmd_aggregate: Any = None
+          cmd_audit: Any = None
+          cmd_finalize: Any = None
+          cmd_package: Any = None
+          verify_result_package: Any = None
+          Cell: Any = None
+          cmd_run_dynamic: Any = None
+          _run_subprocess_cell: Any = None
 
           _BOUND_HOST: Any | None = None
 
