@@ -59,6 +59,12 @@ The mechanical extraction was validated before publication and then pushed as so
 
 The exact transformed tree passed Python compilation, `tests/test_e8_multitask_p0.py` with `113 passed`, `bash tests/test_e8_method_integration_contract.sh`, Ruff on the changed Python/test surface, and `git diff --check`. The transformation workflow restored the repository's ordinary PR Gate workflow before committing the source tree. Ordinary PR Gate and Evidence Locator are still required on the final human-authored PR head before P1 is considered fully closed.
 
+### P1 post-extraction review hardening
+
+A follow-up correctness/redundancy review found one evidence-chain weakness in the engineering-only failure injection: the harness injected return code `73`, but the final report previously repeated that value as a constant without first proving that the scheduler-recorded failed cell and recorded return code were the intended injected failure. The P1 implementation now validates the scheduler's actual `failed_cells` and `results` against the intended first cell and return code `73` before recovery proceeds, and the report uses the validated evidence rather than treating the constant itself as proof. The existing end-to-end engineering self-test traverses this assertion, so a wrong failed cell or return code now fails the regression path closed.
+
+The same review removed the remaining hard-coded `16` from the dynamic-refill diagnostic text and instead reports the configured `max_concurrent_cells`. The `bind_host()` compatibility bridge remains intentionally unchanged for P1: it is transitional composition glue, and redesigning that dependency surface before P2/P3 would expand this stage into a scheduler/composition refactor. No scientific or formal-execution semantics are changed by this hardening.
+
 ## P2 — historical warm-start/rho/dense training extraction
 
 Only after P1 validation, move the native historical multitask trainer that is explicitly forbidden for formal cold-start execution. The extracted module may own the warm-start/rho/dense model loader, batch/sequence helpers, current-extreme selection, native training loop, native evaluator helpers, and related historical adapter/reload support.
