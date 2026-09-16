@@ -120,8 +120,6 @@ def normalized_distance(
     tau: float,
     scale: float,
 ) -> Any:
-    if torch is None:
-        raise RuntimeError("Torch is required")
     if not math.isfinite(tau) or tau < 0.0:
         raise ValueError("tau must be finite and non-negative")
     if not math.isfinite(scale) or scale <= 0.0:
@@ -130,8 +128,6 @@ def normalized_distance(
 
 
 def taper_weight(distance: Any, rho: float) -> Any:
-    if torch is None:
-        raise RuntimeError("Torch is required")
     return torch.exp(-_coefficient_from_rho(rho) * distance)
 
 
@@ -183,8 +179,6 @@ def _select_current_extremes(
     *,
     max_length: int,
 ) -> tuple[dict[str, Any], dict[str, Any], list[float], list[float]]:
-    if torch is None:
-        raise RuntimeError("Torch is required")
     device = next(model.parameters()).device
     prompts: list[str] = []
     all_encoded = []
@@ -321,8 +315,6 @@ def _trainable_state_sha256(model: Any) -> str:
 
 
 def _raw_gradient_norm(grads: Sequence[Any | None]) -> float:
-    if torch is None:
-        raise RuntimeError("Torch is required")
     total = torch.zeros((), dtype=torch.float64)
     for gradient in grads:
         if gradient is not None:
