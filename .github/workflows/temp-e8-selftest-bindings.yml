@@ -4,13 +4,14 @@ on:
   push:
     branches:
       - dev/e8-multitask-training-splits-01
+    paths:
+      - .github/workflows/temp-e8-selftest-bindings.yml
 
 permissions:
   contents: write
 
 jobs:
   refactor:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -19,13 +20,23 @@ jobs:
           fetch-depth: 0
           ref: dev/e8-multitask-training-splits-01
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -e '.[dev]'
+
       - name: Configure git
         run: |
           git config user.name "drpo-selftest-bindings-bot"
           git config user.email "drpo-selftest-bindings-bot@users.noreply.github.com"
 
       - name: Document P4 scope before implementation
+        shell: bash
         run: |
+          set -euo pipefail
           python - <<'PY'
           from pathlib import Path
 
@@ -55,7 +66,9 @@ P4 does not alter scheduler semantics, scientific method code, frozen variables,
           git push origin HEAD:dev/e8-multitask-training-splits-01
 
       - name: Refactor self-test to call-scoped bindings
+        shell: bash
         run: |
+          set -euo pipefail
           python - <<'PY'
           from pathlib import Path
 
@@ -65,7 +78,7 @@ P4 does not alter scheduler semantics, scientific method code, frozen variables,
                   raise SystemExit(f"{label}: expected one match, found {count}")
               return text.replace(old, new, 1)
 
-          def section(text: str, start: str, end: str) -> tuple[str, str, str]:
+          def split_section(text: str, start: str, end: str) -> tuple[str, str, str]:
               i = text.index(start)
               j = text.index(end, i)
               return text[:i], text[i:j], text[j:]
@@ -89,9 +102,18 @@ P4 does not alter scheduler semantics, scientific method code, frozen variables,
               "def _engineering_self_test_config(\n    config: Mapping[str, Any],\n    *,\n    bindings: SelfTestBindings,\n) -> dict[str, Any]:\n    host = bindings.host\n",
               "self-test config signature",
           )
-          text = replace_once(text, "    validate_config(updated)\n", "    host.validate_config(updated)\n", "validate config binding")
+          text = replace_once(
+              text,
+              "    validate_config(updated)\n",
+              "    host.validate_config(updated)\n",
+              "validate config binding",
+          )
 
-          pre, body, post = section(text, "def _write_engineering_input_fixtures(", "def _write_engineering_gates(")
+          pre, body, post = split_section(
+              text,
+              "def _write_engineering_input_fixtures(",
+              "def _write_engineering_gates(",
+          )
           body = replace_once(
               body,
               "    output_root: Path,\n) -> tuple[Path, Path, Path, Path]:\n",
@@ -108,7 +130,11 @@ P4 does not alter scheduler semantics, scientific method code, frozen variables,
               body = body.replace(old, new)
           text = pre + body + post
 
-          pre, body, post = section(text, "def _write_engineering_gates(", "def _audit_engineering_queue(")
+          pre, body, post = split_section(
+              text,
+              "def _write_engineering_gates(",
+              "def _audit_engineering_queue(",
+          )
           body = replace_once(
               body,
               "    base_model_path: str,\n) -> None:\n    splits, _ = _load_ready_inputs",
@@ -130,7 +156,11 @@ P4 does not alter scheduler semantics, scientific method code, frozen variables,
               body = body.replace(old, new)
           text = pre + body + post
 
-          pre, body, post = section(text, "def _audit_engineering_queue(", "def _intentional_failure_evidence(")
+          pre, body, post = split_section(
+              text,
+              "def _audit_engineering_queue(",
+              "def _intentional_failure_evidence(",
+          )
           body = replace_once(
               body,
               "    scheduler: Mapping[str, Any],\n) -> dict[str, Any]:\n    cells = build_cells(config)\n",
@@ -140,8 +170,6 @@ P4 does not alter scheduler semantics, scientific method code, frozen variables,
           body = body.replace("build_waves(config)", "host.build_waves(config)")
           text = pre + body + post
 
-          pre, body, post = section(text, "def cmd_engineering_self_test(", "\n", ) if False else (None, None, None)
-          # cmd_engineering_self_test is the final function in this module.
           cmd_start = text.index("def cmd_engineering_self_test(")
           head, body = text[:cmd_start], text[cmd_start:]
           body = replace_once(
@@ -158,7 +186,10 @@ P4 does not alter scheduler semantics, scientific method code, frozen variables,
           )
           body = body.replace("_is_coldstart(config)", "host._is_coldstart(config)")
           body = body.replace("validate_work_dir(output_root)", "host.validate_work_dir(output_root)")
-          body = body.replace("_engineering_self_test_config(config)", "_engineering_self_test_config(config, bindings=bindings)")
+          body = body.replace(
+              "_engineering_self_test_config(config)",
+              "_engineering_self_test_config(config, bindings=bindings)",
+          )
           body = body.replace(
               "_write_engineering_input_fixtures(self_test_config, output_root)",
               "_write_engineering_input_fixtures(self_test_config, output_root, bindings=bindings)",
@@ -166,7 +197,9 @@ P4 does not alter scheduler semantics, scientific method code, frozen variables,
           gate_call = '''        _write_engineering_gates(\n            self_test_config,\n            output_root,\n            base_model_path=str(base_model),\n        )'''
           gate_call_bound = '''        _write_engineering_gates(\n            self_test_config,\n            output_root,\n            base_model_path=str(base_model),\n            bindings=bindings,\n        )'''
           if body.count(gate_call) != 2:
-              raise SystemExit(f"engineering gate call: expected two matches, found {body.count(gate_call)}")
+              raise SystemExit(
+                  f"engineering gate call: expected two matches, found {body.count(gate_call)}"
+              )
           body = body.replace(gate_call, gate_call_bound)
           for old, new in (
               ("cmd_prepare(", "host.cmd_prepare("),
@@ -196,15 +229,16 @@ P4 does not alter scheduler semantics, scientific method code, frozen variables,
           )
           text = head + body
 
-          forbidden = (
+          for fragment in (
               "def bind_host(",
               "_BOUND_HOST",
               'globals()["_run_subprocess_cell"]',
               "validate_config: Any = None",
-          )
-          for fragment in forbidden:
+          ):
               if fragment in text:
-                  raise SystemExit(f"self-test still contains forbidden process-global binding fragment: {fragment}")
+                  raise SystemExit(
+                      f"self-test still contains forbidden process-global binding fragment: {fragment}"
+                  )
           if text.count("class SelfTestBindings") != 1:
               raise SystemExit("SelfTestBindings was not created exactly once")
           selftest_path.write_text(text, encoding="utf-8")
@@ -216,13 +250,16 @@ P4 does not alter scheduler semantics, scientific method code, frozen variables,
               raise SystemExit("canonical bridge anchor did not match exactly once")
           root = root.replace(
               canonical,
-              canonical + '''\ndef _selftest_bindings() -> e8_selftest.SelfTestBindings:\n    return e8_selftest.SelfTestBindings(host=sys.modules[__name__])\n\n''',
+              canonical
+              + '''\ndef _selftest_bindings() -> e8_selftest.SelfTestBindings:\n    return e8_selftest.SelfTestBindings(host=sys.modules[__name__])\n\n''',
               1,
           )
           old_wrapper = '''def _engineering_self_test_config(config: Mapping[str, Any]) -> dict[str, Any]:\n    e8_selftest.bind_host(sys.modules[__name__])\n    return e8_selftest._engineering_self_test_config(config)\n\n\ndef cmd_engineering_self_test(\n    config: Mapping[str, Any],\n    output_root: Path,\n    *,\n    source_commit: str,\n) -> dict[str, Any]:\n    e8_selftest.bind_host(sys.modules[__name__])\n    return e8_selftest.cmd_engineering_self_test(\n        config,\n        output_root,\n        source_commit=source_commit,\n    )\n'''
           new_wrapper = '''def _engineering_self_test_config(config: Mapping[str, Any]) -> dict[str, Any]:\n    return e8_selftest._engineering_self_test_config(\n        config,\n        bindings=_selftest_bindings(),\n    )\n\n\ndef cmd_engineering_self_test(\n    config: Mapping[str, Any],\n    output_root: Path,\n    *,\n    source_commit: str,\n) -> dict[str, Any]:\n    return e8_selftest.cmd_engineering_self_test(\n        config,\n        output_root,\n        source_commit=source_commit,\n        bindings=_selftest_bindings(),\n    )\n'''
           if root.count(old_wrapper) != 1:
-              raise SystemExit(f"composition wrapper expected once, found {root.count(old_wrapper)}")
+              raise SystemExit(
+                  f"composition wrapper expected once, found {root.count(old_wrapper)}"
+              )
           root = root.replace(old_wrapper, new_wrapper, 1)
           if "e8_selftest.bind_host" in root:
               raise SystemExit("composition root still calls e8_selftest.bind_host")
@@ -254,12 +291,10 @@ P4 does not alter scheduler semantics, scientific method code, frozen variables,
             tests/test_e8_multitask_p0.py
 
       - name: Focused regression
-        run: |
-          pytest -q tests/test_e8_multitask_p0.py
+        run: pytest -q tests/test_e8_multitask_p0.py
 
       - name: Method integration contract
-        run: |
-          bash tests/test_e8_method_integration_contract.sh
+        run: bash tests/test_e8_method_integration_contract.sh
 
       - name: Ruff
         run: |
@@ -275,8 +310,7 @@ P4 does not alter scheduler semantics, scientific method code, frozen variables,
           git diff --check
 
       - name: Broad pytest
-        run: |
-          pytest -q
+        run: pytest -q
 
       - name: Commit validated P4 source
         run: |
