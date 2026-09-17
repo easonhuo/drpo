@@ -76,10 +76,40 @@ jobs:
               path.chmod(0o755)
               print(path)
           PY
-          for script in /tmp/e8_p3_steps/*.sh; do
-            echo "=== running $script ==="
-            bash "$script"
-          done
+
+          echo '=== running extraction ==='
+          bash /tmp/e8_p3_steps/1.sh
+          echo '=== running safe lint cleanup ==='
+          bash /tmp/e8_p3_steps/2.sh
+
+          # TaskInstance is used only in a postponed annotation in the extracted bridge.
+          # Ruff correctly removes its now-unused import from the composition root, so it
+          # must not be rebound dynamically from the host. This does not alter runtime logic.
+          python - <<'PY'
+          import importlib
+          import re
+          from pathlib import Path
+
+          bridge_path = Path('src/drpo/e8_multitask_canonical_bridge.py')
+          text = bridge_path.read_text(encoding='utf-8')
+          needle = '    TaskInstance = host.TaskInstance\n'
+          if text.count(needle) != 1:
+              raise SystemExit('expected exactly one annotation-only TaskInstance host binding')
+          text = text.replace(needle, '', 1)
+          bridge_path.write_text(text, encoding='utf-8')
+
+          host = importlib.import_module('drpo.e8_multitask_exp_tuning')
+          bindings = re.findall(r'^    ([A-Za-z_]\w*) = host\.\1$', text, flags=re.MULTILINE)
+          missing = sorted(name for name in bindings if not hasattr(host, name))
+          if missing:
+              raise SystemExit(f'bridge host bindings missing after lint cleanup: {missing}')
+          print(f'validated_host_bindings={len(bindings)}')
+          PY
+
+          echo '=== running compile and focused regression ==='
+          bash /tmp/e8_p3_steps/3.sh
+          echo '=== running broad regression ==='
+          bash /tmp/e8_p3_steps/4.sh
 
       - name: Commit validated P3 extraction and remove temporary workflows
         shell: bash
