@@ -89,8 +89,7 @@ jobs:
 
           # These aliases were transitional P2 surface only and have no repository
           # consumers. Keep the compatibility symbols explicitly retained by the
-          # P2 scope (distance/taper, reference loader, calibration identity/task,
-          # completion stats/current extremes/evaluator, and split loader).
+          # P2 scope, and keep torch.nn.functional because the DPO path uses it.
           for line, label in (
               ('RowDataset = e8_warmstart.RowDataset\n', 'RowDataset alias'),
               ('_move_batch = e8_warmstart._move_batch\n', '_move_batch alias'),
@@ -99,8 +98,6 @@ jobs:
               ('_raw_gradient_norm = e8_warmstart._raw_gradient_norm\n', '_raw_gradient_norm alias'),
               ('_calibration_rows = e8_warmstart._calibration_rows\n', '_calibration_rows alias'),
               ('_generate_completions = e8_warmstart._generate_completions\n', '_generate_completions alias'),
-              ('    import torch.nn.functional as F\n', 'stale torch.nn.functional import'),
-              ('    F = None  # type: ignore[assignment]\n', 'stale torch.nn.functional fallback'),
           ):
               remove_once(line, label)
 
