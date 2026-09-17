@@ -772,7 +772,6 @@ _register_builtin_method_specs()
 
 
 
-RowDataset = e8_warmstart.RowDataset
 
 
 def load_config(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
@@ -2651,14 +2650,9 @@ def _seed_everything(seed: int) -> None:
             torch.cuda.manual_seed_all(seed)
 
 
-_move_batch = e8_warmstart._move_batch
-_stack_encoded = e8_warmstart._stack_encoded
 completion_stats_batch = e8_warmstart.completion_stats_batch
 _select_current_extremes = e8_warmstart._select_current_extremes
 _load_reference_model = e8_warmstart._load_reference_model
-_trainable_state_sha256 = e8_warmstart._trainable_state_sha256
-_raw_gradient_norm = e8_warmstart._raw_gradient_norm
-_calibration_rows = e8_warmstart._calibration_rows
 _calibration_identity = e8_warmstart._calibration_identity
 
 
@@ -3029,7 +3023,6 @@ def _canonical_generic_posthoc(
     return result
 
 
-_generate_completions = e8_warmstart._generate_completions
 evaluate_model = e8_warmstart.evaluate_model
 
 
