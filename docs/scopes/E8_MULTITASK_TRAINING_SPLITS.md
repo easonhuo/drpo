@@ -12,6 +12,8 @@ The repository owner explicitly approved the following exact new Python paths in
 - `src/drpo/e8_multitask_warmstart_training.py`
 - `src/drpo/e8_multitask_canonical_bridge.py`
 
+The durable structured record for these already-granted approvals is PR #370 issue comment `5713282231`.
+
 The work proceeds in independently validated stages. Stage P1 moves only the engineering self-test harness. P2 isolates the historical warm-start/rho/dense native trainer as deprecated legacy reproduction code. P3 then isolates the canonical cold-start compatibility bridge. No stage may silently redesign scientific logic.
 
 ## Scientific boundary
