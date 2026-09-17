@@ -13,7 +13,9 @@ Smoothing is intentionally simple and uniform across all nine tasks:
 
 The defaults reproduce the approved presentation style used for the 9-task
 response plot. The PDF default is the exact manuscript asset referenced by the
-current ICLR source; PNG/SVG defaults remain paper-working previews.
+current ICLR source; PNG/SVG defaults remain paper-working previews. Figure-level
+title/subtitle text is intentionally omitted because the manuscript caption
+already provides that context.
 """
 from __future__ import annotations
 
@@ -163,7 +165,7 @@ def render(
     output_pdf: Path,
     output_svg: Path | None,
 ) -> None:
-    figure, axes = plt.subplots(3, 3, figsize=(15, 11))
+    figure, axes = plt.subplots(3, 3, figsize=(15, 10.4))
     axes = axes.flatten()
     legend_handles = None
     legend_labels = None
@@ -211,19 +213,11 @@ def render(
         ymax = max(float(np.max(smooth_mean + smooth_band)), baseline)
         padding = max((ymax - ymin) * 0.08, 0.8)
         axis.set_ylim(ymin - padding, ymax + padding)
-        axis.set_title(DISPLAY[task], fontsize=15)
-        axis.set_xlabel(r"$\lambda$", fontsize=12)
-        axis.set_ylabel("Late-window Pass@8 (%)", fontsize=11)
+        axis.set_title(DISPLAY[task], fontsize=14)
+        axis.set_xlabel(r"$\lambda$", fontsize=11)
+        axis.set_ylabel("Late-window Pass@8 (%)", fontsize=10)
         axis.grid(True, alpha=0.35)
         axis.tick_params(axis="both", labelsize=9)
-
-        if task == "countdown":
-            axis.text(
-                x.min() * 1.05,
-                ymin + 0.2,
-                "Approved 22-point curve",
-                fontsize=7,
-            )
 
         if legend_handles is None:
             legend_handles = [line, band, baseline_line]
@@ -233,14 +227,6 @@ def render(
                 "Positive-only baseline",
             ]
 
-    figure.suptitle("E8 Multitask EXP Response Curves — 9 Tasks", fontsize=20, y=0.985)
-    figure.text(
-        0.5,
-        0.958,
-        "Uniform Gaussian smoothing on log(λ) grid across all 9 tasks.",
-        ha="center",
-        fontsize=10,
-    )
     figure.legend(
         legend_handles,
         legend_labels,
@@ -248,15 +234,15 @@ def render(
         ncol=3,
         frameon=False,
         fontsize=10,
-        bbox_to_anchor=(0.5, 0.94),
+        bbox_to_anchor=(0.5, 0.985),
     )
     figure.subplots_adjust(
-        top=0.855,
+        top=0.91,
         left=0.06,
         right=0.99,
         bottom=0.065,
-        wspace=0.22,
-        hspace=0.32,
+        wspace=0.23,
+        hspace=0.34,
     )
 
     output_png.parent.mkdir(parents=True, exist_ok=True)
