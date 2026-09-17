@@ -1403,11 +1403,13 @@ and~\ref{app:structured_generation_methods}.
 
 \small
 \renewcommand{\arraystretch}{1.08}
-\setlength{\tabcolsep}{3.5pt}
+\setlength{\tabcolsep}{2.2pt}
 
-\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lcccc}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lccccc}
 \toprule
 Task
+&
+\makecell{Positive-\\only}
 &
 AsymRE
 &
@@ -1420,6 +1422,7 @@ DPO\(^{\ddagger}\)
 \midrule
 
 Countdown
+& 13.98
 & 14.38
 & 14.41
 &
@@ -1427,6 +1430,7 @@ Countdown
 \\
 
 Word Sorting
+& 62.06
 & 61.72
 & 59.61
 &
@@ -1434,6 +1438,7 @@ Word Sorting
 \\
 
 Spiral Matrix
+& \textbf{100.00}
 & 99.92
 & \textbf{100.00}
 &
@@ -1441,6 +1446,7 @@ Spiral Matrix
 \\
 
 Mini Sudoku
+& 95.91
 & \textbf{97.58}
 & 96.88
 &
@@ -1448,6 +1454,7 @@ Mini Sudoku
 \\
 
 Maze
+& 76.74
 & \textbf{77.81}
 & 75.86
 &
@@ -1455,6 +1462,7 @@ Maze
 \\
 
 Word Ladder
+& 10.68
 & 12.50
 & 11.41
 &
@@ -1462,6 +1470,7 @@ Word Ladder
 \\
 
 Knights \& Knaves
+& 67.53
 & \textbf{70.16}
 & 68.59
 &
@@ -1469,6 +1478,7 @@ Knights \& Knaves
 \\
 
 Graph Coloring
+& 98.67
 & 98.91
 & 99.37
 &
@@ -1476,6 +1486,7 @@ Graph Coloring
 \\
 
 WikiSQL
+& 85.65
 & 85.78
 & 82.89
 &
@@ -1484,11 +1495,12 @@ WikiSQL
 
 \midrule
 
-\textit{Structured-9 total}
-& \textit{618.76}
-& \textit{609.02}
+\textit{Macro Avg.}
+& \textit{67.91}
+& \textit{68.75}
+& \textit{67.67}
 &
-& \textbf{\textit{623.24}}
+& \textbf{\textit{69.25}}
 \\
 
 \bottomrule
@@ -1507,6 +1519,7 @@ Appendix~\ref{app:structured_generation_methods}. The TOPR arm implements
 the joint fitted-reference \(\beta\)-TOPR variant; it is not a canonical
 frozen-behavior reproduction of \citet{leroux2025tapered}. For DRPO, the reported transfer-task scores are the maximum means over
 contiguous five-point windows of the registered \(\lambda\)-response curves.
+Macro Avg. is the unweighted mean of the nine task-level Pass@8 percentages.
 \end{minipage}
 
 \end{table}
