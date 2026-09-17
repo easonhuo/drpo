@@ -386,7 +386,7 @@ def _intentional_failure_evidence(
         )
     results = scheduler.get("results")
     if not isinstance(results, list):
-        raise RuntimeError("Engineering failure scheduler results are missing")
+        raise TypeError("Engineering failure scheduler results are missing")
     matching = [
         row
         for row in results
