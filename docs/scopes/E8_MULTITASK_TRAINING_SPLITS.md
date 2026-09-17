@@ -163,6 +163,17 @@ The ordinary PR Gate and Evidence Locator Gate passed on the final human-authore
 
 No scientific training was launched. `EXT-C-E8-MULTITASK-BASELINE-MATRIX-01` remains `not_run`, and PR #370 remains Draft and unmerged pending the independent reviewer/owner merge decision.
 
+
+## P4 — call-scoped self-test bindings
+
+After P2/P3 have established explicit call-scoped binding objects for the historical trainer and canonical bridge, P4 removes the transitional process-global `bind_host()` dependency surface from `e8_multitask_selftest.py`. This is a code-only composition cleanup; it does not add a new Python path and does not change the engineering self-test's evidence semantics.
+
+P4 must preserve the stable `e8_multitask_exp_tuning.py` compatibility entry points and all existing self-test behavior: placeholder-only execution, intentional return-code-73 failure, preserved unscheduled work, recovery, dynamic refill, repeated-run idempotence, aggregate/audit/finalize/package execution, package reopen verification, tamper rejection, and `scientific_status=not_run`.
+
+The self-test module receives composition-root dependencies through an explicit per-call `SelfTestBindings` object. The temporary `_run_subprocess_cell` substitution required by the engineering scheduler exercise remains exception-safe and is scoped to one self-test invocation; P4 must not introduce another process-global host binding or reverse import to `e8_multitask_exp_tuning.py`.
+
+P4 does not alter scheduler semantics, scientific method code, frozen variables, experiment status, launch authorization, or any formal-result gate. No scientific training run is part of P4.
+
 ## Validation
 
 Each stage must be independently reviewable and must run at least:
