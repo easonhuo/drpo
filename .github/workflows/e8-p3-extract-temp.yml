@@ -92,12 +92,14 @@ jobs:
           def globals_for(name: str, source: str) -> list[str]:
               table = symtable.symtable(source, f'<{name}>', 'exec')
               globals_used: set[str] = set()
+
               def walk(scope: symtable.SymbolTable) -> None:
                   for symbol in scope.get_symbols():
                       if symbol.is_referenced() and symbol.is_global():
                           globals_used.add(symbol.get_name())
                   for child in scope.get_children():
                       walk(child)
+
               walk(table)
               globals_used -= builtin_names
               globals_used -= candidate_set
@@ -111,8 +113,9 @@ jobs:
               'e8_multitask_exp_tuning back and keeps no process-global host binding.\n'
               '"""\n\n',
               'from __future__ import annotations\n\n',
+              'from collections.abc import Callable\n',
               'from dataclasses import dataclass\n',
-              'from typing import Any, Callable\n\n\n',
+              'from typing import Any\n\n\n',
               '@dataclass(frozen=True)\n',
               'class CanonicalBridgeBindings:\n',
               '    host: Any\n\n\n',
@@ -132,7 +135,7 @@ jobs:
               candidate_sources[name] = src
               all_deps.update(globals_for(name, src))
           for dep in sorted(all_deps):
-              if dep in {'__name__', '__file__'}:
+              if dep in {'__name__', '__file__', 'Any'}:
                   continue
               bridge_parts.append(f'    {dep} = host.{dep}\n')
           bridge_parts.append('\n')
@@ -156,7 +159,7 @@ jobs:
               start, end = source_range(nodes[name])
               wrapper = (
                   f'def {name}(*args: Any, **kwargs: Any) -> Any:\n'
-                  f'    return getattr(_canonical_bridge(), "{name}")(*args, **kwargs)\n'
+                  f'    return _canonical_bridge().{name}(*args, **kwargs)\n'
               )
               replacements.append((start, end, wrapper))
           for start, end, wrapper in sorted(replacements, reverse=True):
@@ -184,8 +187,8 @@ jobs:
           updated = updated.replace(helper_anchor, helper, 1)
           main_path.write_text(updated, encoding='utf-8')
 
-          # Source-structure tests continue checking the exact same implementation fragments;
-          # only their source owner changes from the composition facade to the bridge callable.
+          # Source-structure tests continue checking the same implementation fragments;
+          # only their source owner changes from the facade to the bridge callable.
           test_text = test_path.read_text(encoding='utf-8')
           replacements_made = 0
           for name in candidate_names:
@@ -218,8 +221,17 @@ jobs:
           print(f'main_lines={len(updated.splitlines())}')
           print(f'candidate_functions={len(candidate_names)}')
           print(f'source_test_retargets={replacements_made}')
-          print('bound_dependencies=', ','.join(sorted(all_deps)))
+          print('bound_dependencies=', ','.join(sorted(all_deps - {'Any'})))
           PY
+
+      - name: Apply safe lint cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruff check --fix \
+            src/drpo/e8_multitask_exp_tuning.py \
+            src/drpo/e8_multitask_canonical_bridge.py \
+            tests/test_e8_multitask_p0.py
 
       - name: Compile and focused regression
         shell: bash
