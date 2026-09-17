@@ -31,25 +31,44 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          candidates=(
-            RowDataset
-            _move_batch
-            _stack_encoded
-            _trainable_state_sha256
-            _raw_gradient_norm
-            _calibration_rows
-            _generate_completions
-          )
-          for symbol in "${candidates[@]}"; do
-            hits="$(git grep -n -F "$symbol" -- '*.py' \
-              ':!src/drpo/e8_multitask_exp_tuning.py' \
-              ':!src/drpo/e8_multitask_warmstart_training.py' || true)"
-            if [[ -n "$hits" ]]; then
-              echo "Refusing to remove $symbol; repository consumers remain:"
-              echo "$hits"
-              exit 1
-            fi
-          done
+          python - <<'PY'
+          import io
+          import token
+          import tokenize
+          from pathlib import Path
+
+          candidates = {
+              "RowDataset",
+              "_move_batch",
+              "_stack_encoded",
+              "_trainable_state_sha256",
+              "_raw_gradient_norm",
+              "_calibration_rows",
+              "_generate_completions",
+          }
+          excluded = {
+              Path("src/drpo/e8_multitask_exp_tuning.py"),
+              Path("src/drpo/e8_multitask_warmstart_training.py"),
+          }
+          hits = {name: [] for name in candidates}
+          for path in Path(".").rglob("*.py"):
+              if path in excluded or ".git" in path.parts:
+                  continue
+              try:
+                  source = path.read_text(encoding="utf-8")
+                  for tok in tokenize.generate_tokens(io.StringIO(source).readline):
+                      if tok.type == token.NAME and tok.string in candidates:
+                          hits[tok.string].append(f"{path}:{tok.start[0]}")
+              except (SyntaxError, tokenize.TokenError, UnicodeDecodeError) as exc:
+                  raise SystemExit(f"Failed to scan {path}: {exc}") from exc
+          remaining = {name: refs for name, refs in hits.items() if refs}
+          if remaining:
+              for name, refs in sorted(remaining.items()):
+                  print(f"Refusing to remove {name}; repository consumers remain:")
+                  for ref in refs:
+                      print(ref)
+              raise SystemExit(1)
+          PY
 
       - name: Remove stale P2 compatibility debris
         shell: bash
