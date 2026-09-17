@@ -7,11 +7,13 @@ on:
     paths:
       - 'paper/iclr2027/**'
       - 'paper/overleaf/**'
+      - 'scripts/figures/**'
       - '.github/workflows/build-iclr2027-port.yml'
   pull_request:
     paths:
       - 'paper/iclr2027/**'
       - 'paper/overleaf/**'
+      - 'scripts/figures/**'
       - '.github/workflows/build-iclr2027-port.yml'
 
 permissions:
@@ -38,6 +40,9 @@ jobs:
             latexmk \
             poppler-utils \
             curl unzip zip
+
+      - name: Install figure-generation dependencies
+        run: python3 -m pip install -r scripts/figures/requirements.txt
 
       - name: Build content-locked ICLR port
         run: bash paper/iclr2027/build.sh

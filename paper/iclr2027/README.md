@@ -61,3 +61,15 @@ The repository keeps the paper-facing PDF figure asset under `paper/iclr2027/fig
 For a provenance audit against an extracted copy of the private E8 run, pass `--raw-e8-root PATH`; the script will recompute the frozen bootstrap and fail unless both the original aggregate evidence and the checked-in per-task plot data match exactly.
 
 Validation record: `paper/iclr2027/figures/data/e8_multitask_per_task_gradient_ci95.validation.json`.
+
+## Structured-9 DRPO coefficient-response appendix figure
+
+The current manuscript already references appendix label `fig:app_structured_generation_coefficient_response` at `figures/fig_app_structured9_drpo_coefficient_response.pdf`. The corresponding repository asset path is `paper/overleaf/figures/fig_app_structured9_drpo_coefficient_response.pdf`.
+
+Re-render it from the repository root with:
+
+```bash
+python3 scripts/figures/plot_e8_multitask_exp_response_curves.py
+```
+
+The renderer reads the checked-in plot-ready observations under `paper/iclr2027/figures/data/e8_multitask_exp_response/`, including the approved 22-point Countdown Exp./DRPO curve, and applies the same uniform Gaussian visualization smoothing to all nine tasks. The ICLR build invokes this renderer before copying manuscript assets, so the release project contains the regenerated nine-panel PDF at the exact path already used by the manuscript. No TeX figure path, caption, label, or scientific evidence status is changed. The response-curve evidence remains `pilot_response_shape_only`.
