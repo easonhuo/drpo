@@ -1,6 +1,6 @@
 # DRPO figure-generation scripts
 
-This directory contains the reproducible plotting entry points for the current paper Figure 1--4 staging assets.
+This directory contains the reproducible plotting entry points for the current paper Figure 1--4 staging assets and registered paper-facing diagnostic figures.
 
 ## Figure index
 
@@ -11,6 +11,7 @@ This directory contains the reproducible plotting entry points for the current p
 | Figure 2b causal rescue | `scripts/figures/plot_figure2_controlled_rescue_plot.py` | `results/FIGURE2_CONTROLLED_SOURCE_TRANSMISSION/` | `paper/figures/fig_6_3_2_rescue_plot` | controlled real-data-backed mechanism summary |
 | Figure 3 phase transition | `scripts/figures/plot_figure3_phase_transition.py` | `results/FIGURE3_PHASE_TRANSITION/` | `paper/figures/fig_6_4_1_phase_transition` | template/layout; formal phase-scan aggregates pending |
 | Figure 4 taper/control transfer | `scripts/figures/plot_figure4_taper_left_panel.py` | `results/FIGURE4_TAPER_CONTROL_TRANSFER/` | `paper/figures/fig_6_4_2_leftfig_bigtext_legend_protocol` | template/layout; formal 6.4.2/6.4.3 aggregates pending |
+| E8 9-task EXP response curves | `scripts/figures/plot_e8_multitask_exp_response_curves.py` | `paper/iclr2027/figures/data/e8_multitask_exp_response/` | `paper/iclr2027/figures/fig_e8_multitask_exp_response_nine_panel` | historical real-data-backed `pilot_response_shape_only`; uniform visualization smoothing |
 
 ## Optional plotting dependencies
 
@@ -45,7 +46,14 @@ python3 scripts/figures/plot_figure3_phase_transition.py \
 python3 scripts/figures/plot_figure4_taper_left_panel.py \
   --input results/FIGURE4_TAPER_CONTROL_TRANSFER/fig_6_4_2_leftfig_template.csv \
   --out paper/figures/fig_6_4_2_leftfig_bigtext_legend_protocol
+
+python3 scripts/figures/plot_e8_multitask_exp_response_curves.py
 ```
+
+The E8 response renderer uses one fixed presentation rule for every task:
+`320` uniform points in `log10(lambda)` space, Gaussian mean sigma `12`,
+Gaussian band sigma `12`, and band scale `1.45`. These are visualization
+parameters only; they do not alter stored observations or scientific status.
 
 ## Storage policy
 
