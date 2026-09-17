@@ -1403,11 +1403,13 @@ and~\ref{app:structured_generation_methods}.
 
 \small
 \renewcommand{\arraystretch}{1.08}
-\setlength{\tabcolsep}{3.5pt}
+\setlength{\tabcolsep}{2.2pt}
 
-\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lcccc}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lccccc}
 \toprule
 Task
+&
+\makecell{Positive-\\only}
 &
 AsymRE
 &
@@ -1420,66 +1422,85 @@ DPO\(^{\ddagger}\)
 \midrule
 
 Countdown
+& 13.98
 & 14.38
 & 14.41
-& 8.48
+&
 & \textbf{15.72}
 \\
 
 Word Sorting
+& 62.06
+& 61.72
+& 59.61
 &
-&
-&
-&
+& \textbf{63.38}
 \\
 
 Spiral Matrix
+& \textbf{100.00}
+& 99.92
+& \textbf{100.00}
 &
-&
-&
-&
+& 99.94
 \\
 
 Mini Sudoku
+& 95.91
+& \textbf{97.58}
+& 96.88
 &
-&
-&
-&
+& 97.06
 \\
 
 Maze
+& 76.74
+& \textbf{77.81}
+& 75.86
 &
-&
-&
-&
+& 77.66
 \\
 
 Word Ladder
+& 10.68
+& 12.50
+& 11.41
 &
-&
-&
-&
+& \textbf{13.38}
 \\
 
 Knights \& Knaves
+& 67.53
+& \textbf{70.16}
+& 68.59
 &
-&
-&
-&
+& 69.53
 \\
 
 Graph Coloring
+& 98.67
+& 98.91
+& 99.37
 &
-&
-&
-&
+& \textbf{99.88}
 \\
 
 WikiSQL
+& 85.65
+& 85.78
+& 82.89
 &
+& \textbf{86.69}
+\\
+
+\midrule
+
+\textit{Macro Avg.}
+& \textit{67.91}
+& \textit{68.75}
+& \textit{67.67}
 &
-&
-&
+& \textbf{\textit{69.25}}
 \\
 
 \bottomrule
@@ -1496,13 +1517,16 @@ directly from the same Qwen2.5-0.5B-Instruct backbone;
 and frozen reference from the short SFT checkpoint described in
 Appendix~\ref{app:structured_generation_methods}. The TOPR arm implements
 the joint fitted-reference \(\beta\)-TOPR variant; it is not a canonical
-frozen-behavior reproduction of \citet{leroux2025tapered}.
+frozen-behavior reproduction of \citet{leroux2025tapered}. For DRPO, the reported transfer-task scores are the maximum means over
+contiguous five-point windows of the registered \(\lambda\)-response curves.
+Macro Avg. is the unweighted mean of the nine task-level Pass@8 percentages.
 \end{minipage}
 
 \end{table}
 
-DRPO delivers the strongest observed task performance among the
-compared methods.
+Across the eight transfer tasks, the reported DRPO score exceeds the
+reported AsymRE score on five tasks and the Joint Fitted-Reference
+\(\beta\)-TOPR score on seven tasks.
 
 \section{Conclusion}
 
@@ -5118,8 +5142,7 @@ rapidly than the reciprocal alternatives.
 Within each task, \(\tau\), \(c\), \(\lambda\), and the
 Global-\(\alpha\) coefficient are selected using the registered
 validation protocol only. Test-task performance is not used for
-hyperparameter selection. All protocol-matched methods share the same
-candidate budgets and checkpoint-selection rule.
+hyperparameter selection.
 
 
 \subsection{D4RL Baselines and Experimental Protocol}
