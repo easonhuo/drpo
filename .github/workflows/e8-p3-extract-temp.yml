@@ -40,14 +40,17 @@ jobs:
           from pathlib import Path
 
           main_path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          test_path = Path('tests/test_e8_multitask_p0.py')
           bridge_path = Path('src/drpo/e8_multitask_canonical_bridge.py')
           text = main_path.read_text(encoding='utf-8')
           lines = text.splitlines(keepends=True)
           tree = ast.parse(text)
 
+          # Keep four tiny composition dispatchers in the facade. Existing callers/tests
+          # monkeypatch their downstream facade symbols, and those patch points are part of
+          # the stable composition surface rather than implementation authority.
           candidate_names = [
-              '_cold_train_paper', '_cold_train_dpo', '_run_canonical_method_liveness',
-              '_run_dpo_method_liveness', '_paper_grid_paths_exponential',
+              '_paper_grid_paths_exponential',
               '_paper_params_reciprocal', '_paper_params_exponential',
               '_paper_params_asymre', '_paper_params_topr',
               '_canonical_cold_modules', '_activate_paper_grid_modules',
@@ -181,15 +184,40 @@ jobs:
           updated = updated.replace(helper_anchor, helper, 1)
           main_path.write_text(updated, encoding='utf-8')
 
-          # The implementation must exist only in the bridge; main keeps thin delegates.
+          # Source-structure tests continue checking the exact same implementation fragments;
+          # only their source owner changes from the composition facade to the bridge callable.
+          test_text = test_path.read_text(encoding='utf-8')
+          replacements_made = 0
+          for name in candidate_names:
+              old = f'inspect.getsource(exp_tuning.{name})'
+              new = f'inspect.getsource(exp_tuning._canonical_bridge().{name})'
+              count = test_text.count(old)
+              if count:
+                  test_text = test_text.replace(old, new)
+                  replacements_made += count
+          test_path.write_text(test_text, encoding='utf-8')
+
           reparsed = ast.parse(updated)
           for node in reparsed.body:
               if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in candidate_set:
                   if len(node.body) != 1 or not isinstance(node.body[0], ast.Return):
                       raise SystemExit(f'{node.name} is not a thin P3 delegate')
+          for retained in (
+              '_cold_train_paper', '_cold_train_dpo',
+              '_run_canonical_method_liveness', '_run_dpo_method_liveness',
+          ):
+              node = next(
+                  n for n in reparsed.body
+                  if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == retained
+              )
+              if len(node.body) == 1 and isinstance(node.body[0], ast.Return):
+                  source = ast.get_source_segment(updated, node) or ''
+                  if '_canonical_bridge()' in source:
+                      raise SystemExit(f'{retained} must remain facade-owned for patchability')
           print(f'bridge_lines={len(bridge_path.read_text().splitlines())}')
           print(f'main_lines={len(updated.splitlines())}')
           print(f'candidate_functions={len(candidate_names)}')
+          print(f'source_test_retargets={replacements_made}')
           print('bound_dependencies=', ','.join(sorted(all_deps)))
           PY
 
@@ -201,14 +229,16 @@ jobs:
             src/drpo/e8_multitask_exp_tuning.py \
             src/drpo/e8_multitask_selftest.py \
             src/drpo/e8_multitask_warmstart_training.py \
-            src/drpo/e8_multitask_canonical_bridge.py
+            src/drpo/e8_multitask_canonical_bridge.py \
+            tests/test_e8_multitask_p0.py
           python -m pytest tests/test_e8_multitask_p0.py -q
           bash tests/test_e8_method_integration_contract.sh
           ruff check \
             src/drpo/e8_multitask_exp_tuning.py \
             src/drpo/e8_multitask_selftest.py \
             src/drpo/e8_multitask_warmstart_training.py \
-            src/drpo/e8_multitask_canonical_bridge.py
+            src/drpo/e8_multitask_canonical_bridge.py \
+            tests/test_e8_multitask_p0.py
           git diff --check
 
       - name: Broad regression excluding only base-proven failures
@@ -224,7 +254,10 @@ jobs:
         run: |
           set -euo pipefail
           git rm .github/workflows/e8-p3-extract-temp.yml
-          git add src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_canonical_bridge.py
+          git add \
+            src/drpo/e8_multitask_exp_tuning.py \
+            src/drpo/e8_multitask_canonical_bridge.py \
+            tests/test_e8_multitask_p0.py
           git config user.name 'drpo-p3-extraction-bot'
           git config user.email 'drpo-p3-extraction-bot@users.noreply.github.com'
           git commit -m 'refactor: extract E8 canonical cold-start bridge'
