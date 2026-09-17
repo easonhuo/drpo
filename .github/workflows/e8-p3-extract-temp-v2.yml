@@ -1,0 +1,96 @@
+name: E8 P3 Extract v2 (temporary)
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-training-splits-01
+    paths:
+      - .github/workflows/e8-p3-extract-temp-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  extract-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Reuse validated extraction steps
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          workflow = Path('.github/workflows/e8-p3-extract-temp.yml').read_text(encoding='utf-8').splitlines()
+          wanted = [
+              'Extract canonical bridge mechanically',
+              'Apply safe lint cleanup',
+              'Compile and focused regression',
+              'Broad regression excluding only base-proven failures',
+          ]
+
+          def extract(name: str) -> str:
+              marker = f'      - name: {name}'
+              try:
+                  i = workflow.index(marker)
+              except ValueError as exc:
+                  raise SystemExit(f'missing step: {name}') from exc
+              run_idx = None
+              for j in range(i + 1, len(workflow)):
+                  if workflow[j].startswith('      - name: '):
+                      break
+                  if workflow[j] == '        run: |':
+                      run_idx = j
+                      break
+              if run_idx is None:
+                  raise SystemExit(f'missing run block for: {name}')
+              body = []
+              for j in range(run_idx + 1, len(workflow)):
+                  line = workflow[j]
+                  if line.startswith('      - name: '):
+                      break
+                  if line.startswith('        '):
+                      body.append(line[8:])
+                  else:
+                      body.append(line)
+              return '\n'.join(body).rstrip() + '\n'
+
+          out = Path('/tmp/e8_p3_steps')
+          out.mkdir(parents=True, exist_ok=True)
+          for idx, name in enumerate(wanted, 1):
+              path = out / f'{idx}.sh'
+              path.write_text(extract(name), encoding='utf-8')
+              path.chmod(0o755)
+              print(path)
+          PY
+          for script in /tmp/e8_p3_steps/*.sh; do
+            echo "=== running $script ==="
+            bash "$script"
+          done
+
+      - name: Commit validated P3 extraction and remove temporary workflows
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/e8-p3-extract-temp.yml .github/workflows/e8-p3-extract-temp-v2.yml
+          git add \
+            src/drpo/e8_multitask_exp_tuning.py \
+            src/drpo/e8_multitask_canonical_bridge.py \
+            tests/test_e8_multitask_p0.py
+          git config user.name 'drpo-p3-extraction-bot'
+          git config user.email 'drpo-p3-extraction-bot@users.noreply.github.com'
+          git commit -m 'refactor: extract E8 canonical cold-start bridge'
+          git push origin HEAD:dev/e8-multitask-training-splits-01
