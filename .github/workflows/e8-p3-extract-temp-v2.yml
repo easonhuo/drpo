@@ -62,8 +62,8 @@ jobs:
                   line = workflow[j]
                   if line.startswith('      - name: '):
                       break
-                  if line.startswith('        '):
-                      body.append(line[8:])
+                  if line.startswith('          '):
+                      body.append(line[10:])
                   else:
                       body.append(line)
               return '\n'.join(body).rstrip() + '\n'
