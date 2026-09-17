@@ -139,6 +139,28 @@ Before P3 is considered closed, the exact source head must demonstrate:
 - ordinary PR/Evidence checks on the final human-authored P3 head;
 - no formal scientific run and no change from `EXT-C-E8-MULTITASK-BASELINE-MATRIX-01 = not_run`.
 
+### P3 validation outcome
+
+P3 source extraction is committed at `7ec8146215ef208d8cdc3d42a75e7537345509dc` as a relocation-only canonical compatibility split. Relative to the P2 closing commit `697a9b62e3ca2e9a48e8f1996c39bdbea5bdd8e2`, `e8_multitask_exp_tuning.py` changed by `+63/-1652` (net `-1589` lines), while the new `e8_multitask_canonical_bridge.py` contains 1,823 lines. The composition root is about 5,174 lines after the extraction.
+
+The bridge owns 28 canonical/DPO adaptation functions and is built per call through `CanonicalBridgeBindings`; it does not import `e8_multitask_exp_tuning.py` back and does not install a process-global host binding. Standard-library dependencies and `TaskInstance` are imported from their owning modules rather than being smuggled through the host surface. Existing compatibility entry points in `e8_multitask_exp_tuning.py` are thin delegates only; the full canonical/DPO implementations are not duplicated there.
+
+The correctness/redundancy review confirmed that the legacy arena/paper bridges retain `finally` restoration for all temporary patched runtime symbols, that canonical/DPO dispatch still flows through the existing method-spec/cold-start facade, and that the 16 source-structure regression checks were retargeted to inspect the extracted implementation rather than weakened or removed. The remaining facade wrappers and four small composition dispatchers are intentionally retained as stable compatibility/monkey-patch surfaces rather than duplicate implementation authority.
+
+The exact extracted source tree was validated without running a scientific experiment:
+
+- Python compilation passed for the composition root, self-test module, deprecated warm-start module, canonical bridge, and focused test module;
+- `tests/test_e8_multitask_p0.py`: `113 passed`;
+- `bash tests/test_e8_method_integration_contract.sh`: passed across the existing method/runtime/recovery integration checks;
+- Ruff passed on the changed Python/test surface;
+- `git diff --check` passed;
+- broad pytest excluding only the two failures already proven on stacked base `79009c487be6d64ef7f1d54b3f5dfa33808cc4c2`: `1365 passed, 27 skipped, 2 deselected`;
+- both temporary P3 extraction workflows removed themselves before the final source commit.
+
+The ordinary PR Gate and Evidence Locator Gate passed on the final human-authored P3 source head immediately preceding the workflow-authored extraction commit. The workflow-authored source commit itself reports `action_required` for those pull-request workflows because GitHub does not launch the ordinary PR jobs from that bot-authored commit; this is not a code-test failure. The repository-owner approval for all three exact new Python paths is also recorded durably in PR #370 so the existing code-change-budget approval check can validate the already-granted authorization rather than requiring a new decision.
+
+No scientific training was launched. `EXT-C-E8-MULTITASK-BASELINE-MATRIX-01` remains `not_run`, and PR #370 remains Draft and unmerged pending the independent reviewer/owner merge decision.
+
 ## Validation
 
 Each stage must be independently reviewable and must run at least:
