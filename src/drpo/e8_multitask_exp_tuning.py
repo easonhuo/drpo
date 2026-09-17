@@ -70,6 +70,10 @@ def _canonical_bridge() -> e8_canonical_bridge.CanonicalBridge:
         e8_canonical_bridge.CanonicalBridgeBindings(host=sys.modules[__name__])
     )
 
+
+def _selftest_bindings() -> e8_selftest.SelfTestBindings:
+    return e8_selftest.SelfTestBindings(host=sys.modules[__name__])
+
 try:
     import torch
     import torch.nn.functional as F
@@ -4935,8 +4939,10 @@ def cmd_finalize(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]
 
 
 def _engineering_self_test_config(config: Mapping[str, Any]) -> dict[str, Any]:
-    e8_selftest.bind_host(sys.modules[__name__])
-    return e8_selftest._engineering_self_test_config(config)
+    return e8_selftest._engineering_self_test_config(
+        config,
+        bindings=_selftest_bindings(),
+    )
 
 
 def cmd_engineering_self_test(
@@ -4945,11 +4951,11 @@ def cmd_engineering_self_test(
     *,
     source_commit: str,
 ) -> dict[str, Any]:
-    e8_selftest.bind_host(sys.modules[__name__])
     return e8_selftest.cmd_engineering_self_test(
         config,
         output_root,
         source_commit=source_commit,
+        bindings=_selftest_bindings(),
     )
 
 

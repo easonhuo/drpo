@@ -13,6 +13,7 @@ import shutil
 import threading
 import time
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -20,104 +21,23 @@ import yaml
 
 from drpo.e8_multitask_p0 import bank_path, with_smoke_overrides
 
-# bind_host() overwrites these placeholders before any public entry point runs.
-# Explicit values keep the dynamic dependency surface visible to Ruff/Python
-# without introducing a reverse import to the composition root.
-validate_config: Any = None
-_repo_root: Any = None
-P0_EXPERIMENT_ID: Any = None
-stable_config_hash: Any = None
-atomic_jsonl: Any = None
-atomic_json: Any = None
-_load_ready_inputs: Any = None
-_canonical_calibration_identity: Any = None
-experiment_config: Any = None
-experiment_id: Any = None
-model_identity: Any = None
-_coldstart_methods: Any = None
-_is_coldstart: Any = None
-_coldstart_method: Any = None
-METHOD_DPO: Any = None
-build_cells: Any = None
-build_waves: Any = None
-validate_work_dir: Any = None
-load_config: Any = None
-cmd_prepare: Any = None
-_read_json_object: Any = None
-_load_prepared: Any = None
-_require_calibration_gate: Any = None
-_require_liveness_gate: Any = None
-sha256_file: Any = None
-cmd_aggregate: Any = None
-cmd_audit: Any = None
-cmd_finalize: Any = None
-cmd_package: Any = None
-verify_result_package: Any = None
-Cell: Any = None
-cmd_run_dynamic: Any = None
-_run_subprocess_cell: Any = None
 
-_BOUND_HOST: Any | None = None
+@dataclass(frozen=True)
+class SelfTestBindings:
+    """Call-scoped dependencies supplied by the E8 composition root."""
+
+    host: Any
+
+
 _INTENTIONAL_FAILURE_RETURNCODE = 73
 
 
-def bind_host(host: Any) -> None:
-    """Bind the already-initialized composition root as explicit runtime hooks."""
-
-    global _BOUND_HOST
-    if _BOUND_HOST is not None and _BOUND_HOST is not host:
-        raise RuntimeError("E8 engineering self-test host changed within one process")
-    _BOUND_HOST = host
-    direct_names = (
-        "validate_config",
-        "_repo_root",
-        "P0_EXPERIMENT_ID",
-        "stable_config_hash",
-        "atomic_jsonl",
-        "atomic_json",
-        "_load_ready_inputs",
-        "_canonical_calibration_identity",
-        "experiment_config",
-        "experiment_id",
-        "model_identity",
-        "_coldstart_methods",
-        "_is_coldstart",
-        "_coldstart_method",
-        "METHOD_DPO",
-        "build_cells",
-        "build_waves",
-        "validate_work_dir",
-        "load_config",
-        "cmd_prepare",
-        "_read_json_object",
-        "_load_prepared",
-        "_require_calibration_gate",
-        "_require_liveness_gate",
-        "sha256_file",
-        "cmd_aggregate",
-        "cmd_audit",
-        "cmd_finalize",
-        "cmd_package",
-        "verify_result_package",
-        "Cell",
-    )
-    namespace = globals()
-    for name in direct_names:
-        namespace[name] = getattr(host, name)
-    namespace["_run_subprocess_cell"] = host._run_subprocess_cell
-
-    def run_dynamic_proxy(*args: Any, **kwargs: Any) -> Any:
-        original = host._run_subprocess_cell
-        host._run_subprocess_cell = namespace["_run_subprocess_cell"]
-        try:
-            return host.cmd_run_dynamic(*args, **kwargs)
-        finally:
-            host._run_subprocess_cell = original
-
-    namespace["cmd_run_dynamic"] = run_dynamic_proxy
-
-
-def _engineering_self_test_config(config: Mapping[str, Any]) -> dict[str, Any]:
+def _engineering_self_test_config(
+    config: Mapping[str, Any],
+    *,
+    bindings: SelfTestBindings,
+) -> dict[str, Any]:
+    host = bindings.host
     updated = copy.deepcopy(dict(config))
     updated["split"].update(
         {
@@ -133,19 +53,22 @@ def _engineering_self_test_config(config: Mapping[str, Any]) -> dict[str, Any]:
         "scientific_evidence_allowed": False,
         "purpose": "non_gpu_end_to_end_delivery_acceptance",
     }
-    validate_config(updated)
+    host.validate_config(updated)
     return updated
 
 
 def _write_engineering_input_fixtures(
     config: Mapping[str, Any],
     output_root: Path,
+    *,
+    bindings: SelfTestBindings,
 ) -> tuple[Path, Path, Path, Path]:
+    host = bindings.host
     fixture_root = output_root / "engineering_fixtures"
     p0_work_dir = fixture_root / "p0"
     sources_root = p0_work_dir / "sources"
     sources_root.mkdir(parents=True, exist_ok=True)
-    p0_config_path = _repo_root() / "configs" / "e8_multitask_p0.yaml"
+    p0_config_path = host._repo_root() / "configs" / "e8_multitask_p0.yaml"
     p0_config = yaml.safe_load(p0_config_path.read_text(encoding="utf-8"))
     if not isinstance(p0_config, dict):
         raise TypeError("P0 configuration root must be a mapping")
@@ -180,12 +103,12 @@ def _write_engineering_input_fixtures(
                     ],
                 }
             )
-        atomic_jsonl(bank_path(p0_work_dir, task), rows)
+        host.atomic_jsonl(bank_path(p0_work_dir, task), rows)
         task_qualification[task] = {"passed": True, "engineering_placeholder": True}
     qualification = {
         "schema_version": 1,
-        "experiment_id": P0_EXPERIMENT_ID,
-        "config_hash": stable_config_hash(
+        "experiment_id": host.P0_EXPERIMENT_ID,
+        "config_hash": host.stable_config_hash(
             with_smoke_overrides(p0_config, rows=None, negatives=None)
         ),
         "tasks": task_qualification,
@@ -193,7 +116,7 @@ def _write_engineering_input_fixtures(
         "scientific_status": "not_run",
         "engineering_placeholder_backend": True,
     }
-    atomic_json(p0_work_dir / "qualification_audit.json", qualification)
+    host.atomic_json(p0_work_dir / "qualification_audit.json", qualification)
 
     countdown_bank = fixture_root / "countdown" / "offline_bank_v2.jsonl"
     countdown_rows = []
@@ -217,9 +140,9 @@ def _write_engineering_input_fixtures(
                 ],
             }
         )
-    atomic_jsonl(countdown_bank, countdown_rows)
+    host.atomic_jsonl(countdown_bank, countdown_rows)
     countdown_validation = fixture_root / "countdown" / "val.jsonl"
-    atomic_jsonl(
+    host.atomic_jsonl(
         countdown_validation,
         [
             {
@@ -239,12 +162,14 @@ def _write_engineering_gates(
     output_root: Path,
     *,
     base_model_path: str,
+    bindings: SelfTestBindings,
 ) -> None:
-    splits, _ = _load_ready_inputs(output_root, config, base_model_path=base_model_path)
+    host = bindings.host
+    splits, _ = host._load_ready_inputs(output_root, config, base_model_path=base_model_path)
     calibration_tasks: dict[str, Any] = {}
     for task_value in config["suite"]["tasks"]:
         task = str(task_value)
-        identity = _canonical_calibration_identity(
+        identity = host._canonical_calibration_identity(
             task,
             split_manifest=splits,
             base_model_path=base_model_path,
@@ -252,22 +177,22 @@ def _write_engineering_gates(
         )
         result = {
             **identity,
-            **experiment_config.coldstart_remoteness_metadata(config),
+            **host.experiment_config.coldstart_remoteness_metadata(config),
             "complete": True,
             "scientific_status": "not_run",
             "engineering_placeholder_backend": True,
         }
-        atomic_json(output_root / "calibration" / f"{task}.json", result)
+        host.atomic_json(output_root / "calibration" / f"{task}.json", result)
         calibration_tasks[task] = result
         log_path = output_root / "logs" / "calibration" / f"{task}.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
         log_path.write_text("engineering placeholder calibration complete\n", encoding="utf-8")
-    atomic_json(
+    host.atomic_json(
         output_root / "calibration" / "calibration_manifest.json",
         {
             "schema_version": 1,
-            "experiment_id": experiment_id(config),
-            "config_hash": stable_config_hash(config),
+            "experiment_id": host.experiment_id(config),
+            "config_hash": host.stable_config_hash(config),
             "requested_tasks": list(config["suite"]["tasks"]),
             "tasks": calibration_tasks,
             "complete": True,
@@ -275,19 +200,19 @@ def _write_engineering_gates(
             "engineering_placeholder_backend": True,
         },
     )
-    base_identity = model_identity(base_model_path, None)["model"]
-    methods = _coldstart_methods(config) if _is_coldstart(config) else (_coldstart_method(config),)
+    base_identity = host.model_identity(base_model_path, None)["model"]
+    methods = host._coldstart_methods(config) if host._is_coldstart(config) else (host._coldstart_method(config),)
     for method in methods:
         task = (
             str(config["dpo"]["liveness_task"])
-            if method == METHOD_DPO
+            if method == host.METHOD_DPO
             else "countdown"
         )
         liveness_key = f"{task}__{method}__engineering_placeholder_liveness"
         liveness = {
             "schema_version": 1,
-            "experiment_id": experiment_id(config),
-            "config_hash": stable_config_hash(config),
+            "experiment_id": host.experiment_id(config),
+            "config_hash": host.stable_config_hash(config),
             "base_model_identity": base_identity,
             "engineering_liveness": True,
             "engineering_placeholder_backend": True,
@@ -310,7 +235,7 @@ def _write_engineering_gates(
             },
             "scientific_status": "not_run",
         }
-        atomic_json(output_root / "liveness" / liveness_key / "cell_manifest.json", liveness)
+        host.atomic_json(output_root / "liveness" / liveness_key / "cell_manifest.json", liveness)
     (output_root / "logs" / "liveness.log").write_text(
         "engineering placeholder liveness complete\n",
         encoding="utf-8",
@@ -321,8 +246,11 @@ def _audit_engineering_queue(
     config: Mapping[str, Any],
     output_root: Path,
     scheduler: Mapping[str, Any],
+    *,
+    bindings: SelfTestBindings,
 ) -> dict[str, Any]:
-    cells = build_cells(config)
+    host = bindings.host
+    cells = host.build_cells(config)
     events = [
         json.loads(line)
         for line in (output_root / "scheduler" / "queue_events.jsonl")
@@ -368,7 +296,7 @@ def _audit_engineering_queue(
         "maximum_active_by_gpu": maximum_by_gpu,
         "dynamic_refill_observed": True,
         "nominal_batch_barrier_absent": True,
-        "nominal_batch_count": len(build_waves(config)),
+        "nominal_batch_count": len(host.build_waves(config)),
         "slots_per_gpu": slots_per_gpu,
     }
 
@@ -414,24 +342,26 @@ def cmd_engineering_self_test(
     output_root: Path,
     *,
     source_commit: str,
+    bindings: SelfTestBindings,
 ) -> dict[str, Any]:
     """Exercise the delivery pipeline with an isolated, non-scientific backend."""
 
-    if not _is_coldstart(config):
+    host = bindings.host
+    if not host._is_coldstart(config):
         raise RuntimeError("Engineering self-test is available only for the cold-start profile")
     if len(source_commit) != 40 or any(char not in "0123456789abcdef" for char in source_commit):
         raise ValueError("Engineering self-test requires one full lowercase source commit")
-    output_root = validate_work_dir(output_root)
+    output_root = host.validate_work_dir(output_root)
     fresh_run = not (output_root / "prepare_manifest.json").is_file()
-    self_test_config = _engineering_self_test_config(config)
+    self_test_config = _engineering_self_test_config(config, bindings=bindings)
     config_path = output_root / "engineering_self_test_config.yaml"
     base_model = output_root / "engineering_fixtures" / "placeholder_model"
     if fresh_run:
         config_path.write_text(yaml.safe_dump(self_test_config, sort_keys=False), encoding="utf-8")
         p0_work_dir, p0_config_path, countdown_bank, countdown_validation = (
-            _write_engineering_input_fixtures(self_test_config, output_root)
+            _write_engineering_input_fixtures(self_test_config, output_root, bindings=bindings)
         )
-        cmd_prepare(
+        host.cmd_prepare(
             self_test_config,
             output_root,
             p0_work_dir=p0_work_dir,
@@ -441,8 +371,8 @@ def cmd_engineering_self_test(
             countdown_adapter=None,
         )
         base_model.mkdir(parents=True, exist_ok=True)
-        atomic_json(base_model / "config.json", {"engineering_placeholder_backend": True})
-        atomic_json(
+        host.atomic_json(base_model / "config.json", {"engineering_placeholder_backend": True})
+        host.atomic_json(
             output_root / "source_provenance.json",
             {
                 "schema_version": 1,
@@ -459,32 +389,34 @@ def cmd_engineering_self_test(
             self_test_config,
             output_root,
             base_model_path=str(base_model),
+            bindings=bindings,
         )
     else:
-        recovered_config = load_config(config_path)
+        recovered_config = host.load_config(config_path)
         if recovered_config != self_test_config:
             raise RuntimeError("Engineering recovery config differs from the reviewed config")
-        provenance = _read_json_object(output_root / "source_provenance.json")
+        provenance = host._read_json_object(output_root / "source_provenance.json")
         if provenance.get("source_commit") != source_commit:
             raise RuntimeError("Engineering recovery source commit mismatch")
-        _load_prepared(output_root, self_test_config)
+        host._load_prepared(output_root, self_test_config)
         _write_engineering_gates(
             self_test_config,
             output_root,
             base_model_path=str(base_model),
+            bindings=bindings,
         )
-        _require_calibration_gate(
+        host._require_calibration_gate(
             self_test_config,
             output_root,
             base_model_path=str(base_model),
         )
-        _require_liveness_gate(
+        host._require_liveness_gate(
             self_test_config,
             output_root,
             base_model_path=str(base_model),
         )
 
-    cells = build_cells(self_test_config)
+    cells = host.build_cells(self_test_config)
     cell_index = {cell.key: index for index, cell in enumerate(cells)}
     failed_once = False
     failure_lock = threading.Lock()
@@ -495,7 +427,7 @@ def cmd_engineering_self_test(
         config_path: Path,
         output_root: Path,
         base_model_path: str,
-        cell: Cell,
+        cell: Any,
         gpu_id: int,
         force: bool,
     ) -> dict[str, Any]:
@@ -509,7 +441,7 @@ def cmd_engineering_self_test(
         if manifest_path.is_file():
             existing = json.loads(manifest_path.read_text(encoding="utf-8"))
             if (
-                existing.get("config_hash") != stable_config_hash(self_test_config)
+                existing.get("config_hash") != host.stable_config_hash(self_test_config)
                 or existing.get("engineering_placeholder_backend") is not True
                 or existing.get("complete") is not True
             ):
@@ -532,10 +464,10 @@ def cmd_engineering_self_test(
         if should_fail:
             cell_root.mkdir(parents=True, exist_ok=True)
             log_path.write_text("intentional engineering failure\n", encoding="utf-8")
-            atomic_json(
+            host.atomic_json(
                 cell_root / "failure.json",
                 {
-                    "experiment_id": experiment_id(self_test_config),
+                    "experiment_id": host.experiment_id(self_test_config),
                     "cell_key": cell.key,
                     "engineering_placeholder_backend": True,
                     "complete": False,
@@ -557,8 +489,8 @@ def cmd_engineering_self_test(
         score = round(0.1 + (index % 20) * 0.01, 6)
         manifest = {
             "schema_version": 1,
-            "experiment_id": experiment_id(self_test_config),
-            "config_hash": stable_config_hash(self_test_config),
+            "experiment_id": host.experiment_id(self_test_config),
+            "config_hash": host.stable_config_hash(self_test_config),
             "source_commit": source_commit,
             "cell_key": cell.key,
             "validation_best_pass8": score,
@@ -576,7 +508,7 @@ def cmd_engineering_self_test(
             "scientific_status": "not_run",
             "engineering_placeholder_backend": True,
         }
-        atomic_json(manifest_path, manifest)
+        host.atomic_json(manifest_path, manifest)
         log_path.write_text("engineering placeholder cell complete\n", encoding="utf-8")
         return {
             "cell_key": cell.key,
@@ -588,13 +520,13 @@ def cmd_engineering_self_test(
             "reused_complete": False,
         }
 
-    original_runner = globals()["_run_subprocess_cell"]
-    globals()["_run_subprocess_cell"] = placeholder_cell_runner
+    original_runner = host._run_subprocess_cell
+    host._run_subprocess_cell = placeholder_cell_runner
     try:
         if fresh_run:
             first_failure: dict[str, Any]
             try:
-                cmd_run_dynamic(
+                host.cmd_run_dynamic(
                     self_test_config,
                     config_path,
                     output_root,
@@ -614,7 +546,7 @@ def cmd_engineering_self_test(
             )
             if not first_failure["unscheduled_cells"]:
                 raise RuntimeError("Engineering failure did not preserve unscheduled work")
-            resumed = cmd_run_dynamic(
+            resumed = host.cmd_run_dynamic(
                 self_test_config,
                 config_path,
                 output_root,
@@ -623,7 +555,7 @@ def cmd_engineering_self_test(
                 retry_incomplete=True,
             )
         else:
-            resumed = cmd_run_dynamic(
+            resumed = host.cmd_run_dynamic(
                 self_test_config,
                 config_path,
                 output_root,
@@ -631,12 +563,12 @@ def cmd_engineering_self_test(
                 force=False,
                 retry_incomplete=True,
             )
-        queue_audit = _audit_engineering_queue(self_test_config, output_root, resumed)
+        queue_audit = _audit_engineering_queue(self_test_config, output_root, resumed, bindings=bindings)
         before = {
-            cell.key: sha256_file(output_root / "cells" / cell.key / "cell_manifest.json")
+            cell.key: host.sha256_file(output_root / "cells" / cell.key / "cell_manifest.json")
             for cell in cells
         }
-        repeated = cmd_run_dynamic(
+        repeated = host.cmd_run_dynamic(
             self_test_config,
             config_path,
             output_root,
@@ -645,27 +577,27 @@ def cmd_engineering_self_test(
             retry_incomplete=True,
         )
         after = {
-            cell.key: sha256_file(output_root / "cells" / cell.key / "cell_manifest.json")
+            cell.key: host.sha256_file(output_root / "cells" / cell.key / "cell_manifest.json")
             for cell in cells
         }
         if before != after or not repeated["complete"]:
             raise RuntimeError("Engineering repeat run changed a completed cell")
     finally:
-        globals()["_run_subprocess_cell"] = original_runner
+        host._run_subprocess_cell = original_runner
 
     failure_stage = os.environ.get("E8_COLDSTART_ENGINEERING_FAIL_STAGE", "").strip()
     if failure_stage == "after_queue":
         raise RuntimeError("Intentional engineering failure after all cells completed")
-    aggregate = cmd_aggregate(self_test_config, output_root)
+    aggregate = host.cmd_aggregate(self_test_config, output_root)
     if failure_stage == "after_aggregate":
         raise RuntimeError("Intentional engineering failure after aggregate")
-    audit = cmd_audit(self_test_config, output_root)
+    audit = host.cmd_audit(self_test_config, output_root)
     if failure_stage == "after_audit":
         raise RuntimeError("Intentional engineering failure after audit")
-    finalized = cmd_finalize(self_test_config, output_root)
+    finalized = host.cmd_finalize(self_test_config, output_root)
     if failure_stage == "after_finalize":
         raise RuntimeError("Intentional engineering failure after finalize")
-    preliminary_package = cmd_package(self_test_config, output_root)
+    preliminary_package = host.cmd_package(self_test_config, output_root)
     package_manifest_path = output_root / "packages" / "package_manifest.json"
     tampered = output_root / "packages" / "tampered_self_test.zip"
     shutil.copyfile(preliminary_package["full_results_zip"], tampered)
@@ -673,7 +605,7 @@ def cmd_engineering_self_test(
         handle.write(b"tamper")
     tamper_rejected = False
     try:
-        verify_result_package(package_manifest_path, zip_override=tampered)
+        host.verify_result_package(package_manifest_path, zip_override=tampered)
     except RuntimeError:
         tamper_rejected = True
     finally:
@@ -682,7 +614,7 @@ def cmd_engineering_self_test(
         raise RuntimeError("Result-package verification accepted a tampered ZIP")
     report = {
         "schema_version": 1,
-        "experiment_id": experiment_id(self_test_config),
+        "experiment_id": host.experiment_id(self_test_config),
         "source_commit": source_commit,
         "scientific_status": "not_run",
         "engineering_placeholder_backend": True,
@@ -710,8 +642,8 @@ def cmd_engineering_self_test(
         "complete": True,
         "note": "No model, GPU, optimizer, or scientific metric was executed.",
     }
-    atomic_json(output_root / "ENGINEERING_SELF_TEST_REPORT.json", report)
-    final_package = cmd_package(self_test_config, output_root)
+    host.atomic_json(output_root / "ENGINEERING_SELF_TEST_REPORT.json", report)
+    final_package = host.cmd_package(self_test_config, output_root)
     return {
         **report,
         "output_root": str(output_root.resolve()),
