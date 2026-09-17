@@ -12,7 +12,7 @@ The repository owner explicitly approved the following exact new Python paths in
 - `src/drpo/e8_multitask_warmstart_training.py`
 - `src/drpo/e8_multitask_canonical_bridge.py`
 
-The work proceeds in independently validated stages. Stage P1 moves only the engineering self-test harness. P2 may then move the historical warm-start/rho/dense native trainer. P3 may then move the canonical cold-start compatibility bridge. No stage may silently redesign scientific logic.
+The work proceeds in independently validated stages. Stage P1 moves only the engineering self-test harness. P2 isolates the historical warm-start/rho/dense native trainer as deprecated legacy reproduction code. P3 may then move the canonical cold-start compatibility bridge. No stage may silently redesign scientific logic.
 
 ## Scientific boundary
 
@@ -57,7 +57,7 @@ P1 must preserve the exact engineering semantics, including intentional failure,
 
 The mechanical extraction was validated before publication and then pushed as source commit `a7398ec3da1f15a188b88fb9d3d771cabde331c4`. `e8_multitask_exp_tuning.py` decreased from about 8,073 lines to 7,535 lines; the new `e8_multitask_selftest.py` contains 674 lines. The main module keeps compatibility entry points while the extracted module owns the self-test implementation and does not import the main module back.
 
-The exact transformed tree passed Python compilation, `tests/test_e8_multitask_p0.py` with `113 passed`, `bash tests/test_e8_method_integration_contract.sh`, Ruff on the changed Python/test surface, and `git diff --check`. The transformation workflow restored the repository's ordinary PR Gate workflow before committing the source tree. Ordinary PR Gate and Evidence Locator are still required on the final human-authored PR head before P1 is considered fully closed.
+The exact transformed tree passed Python compilation, `tests/test_e8_multitask_p0.py` with `113 passed`, `bash tests/test_e8_method_integration_contract.sh`, Ruff on the changed Python/test surface, and `git diff --check`. The transformation workflow restored the repository's ordinary PR Gate workflow before committing the source tree.
 
 ### P1 post-extraction review hardening
 
@@ -65,13 +65,11 @@ A follow-up correctness/redundancy review found one evidence-chain weakness in t
 
 The same review removed the remaining hard-coded `16` from the dynamic-refill diagnostic text and instead reports the configured `max_concurrent_cells`. The `bind_host()` compatibility bridge remains intentionally unchanged for P1: it is transitional composition glue, and redesigning that dependency surface before P2/P3 would expand this stage into a scheduler/composition refactor. No scientific or formal-execution semantics are changed by this hardening.
 
-## P2 — historical warm-start/rho/dense training extraction
+## P2 — deprecated historical warm-start/rho/dense trainer isolation
 
-Only after P1 validation, move the native historical multitask trainer that is explicitly forbidden for formal cold-start execution. Formal cold-start must continue to dispatch exclusively through the canonical old-code path.
+P2 isolates the native historical multitask trainer that is explicitly forbidden for formal cold-start execution. The extracted module is **deprecated legacy reproduction/compatibility code**, not a current first-class training path. Formal cold-start continues to dispatch exclusively through the canonical old-code path.
 
 ### P2 reviewed ownership boundary
-
-The current-call-site inventory fixes the P2 boundary before source movement.
 
 The extracted `e8_multitask_warmstart_training.py` owns the historical-only implementation for:
 
@@ -85,22 +83,27 @@ The extracted `e8_multitask_warmstart_training.py` owns the historical-only impl
 
 The composition root intentionally retains shared functions that are also used by canonical cold-start, DPO, recovery, or common orchestration. In particular, P2 does **not** move `_seed_everything`, `_cell_identity`, `_prepare_cell_output`, `_summarize_evaluations`, `cmd_reload_adapter`, `_verify_fresh_process_adapter_reload`, `_adapter_weight_file`, the `train_cell` dispatcher, or any canonical/DPO trainer. Reference-manifest construction/validation and `_load_ready_inputs` also remain in the composition root because they participate in preparation/inheritance and are not the native trainer itself.
 
-`normalized_distance`, `taper_weight`, `_load_reference_model`, `completion_stats_batch`, `_select_current_extremes`, historical `calibrate_task`, and `evaluate_model` remain available through thin compatibility facades/aliases in `e8_multitask_exp_tuning.py` where existing callers/tests depend on that symbol surface; implementation authority lives in the extracted module.
+Compatibility symbols remain in `e8_multitask_exp_tuning.py` only where current callers/tests still require that surface. A post-extraction redundancy cleanup removed seven aliases with no remaining repository consumer: `RowDataset`, `_move_batch`, `_stack_encoded`, `_trainable_state_sha256`, `_raw_gradient_norm`, `_calibration_rows`, and `_generate_completions`. The compatibility facades that still have consumers remain deliberately in place.
 
-The extracted module must not import `e8_multitask_exp_tuning.py` back. Shared composition-root behavior is supplied explicitly at delegation time rather than through a process-global `bind_host()` state. This keeps P2 independent from the transitional P1 self-test binding and avoids adding another mutable host bridge.
+The extracted module does not import `e8_multitask_exp_tuning.py` back. Shared composition-root behavior is supplied explicitly at delegation time through `WarmstartTrainingBindings`, avoiding another process-global host-binding layer.
 
-P2 is a relocation only. It must preserve the exact historical formulas and behavior, including the existing cold-start rejection in the historical model loader/native trainer. It must not make the deprecated historical native path reachable from formal cold-start.
+P2 is a relocation/isolation only. It preserves the historical formulas and behavior, including the existing cold-start rejection in the historical model loader/native trainer. It does not make the deprecated historical native path reachable from formal cold-start.
 
-### P2 validation plan
+### P2 validation outcome
 
-Before P2 is considered closed, the exact source head must demonstrate:
+P2 source and cleanup were validated without running a scientific experiment:
 
-- import/Python compilation for the composition root and extracted module;
-- the existing focused multitask tests, including the canonical-cold rejection of `_load_reference_model` and the historical distance/taper contract;
-- method-integration contract coverage if the dispatcher/import surface is touched;
-- Ruff on the changed Python surface;
-- broad pytest and ordinary PR Gate/Evidence Locator on the final P2 head;
-- no formal scientific run and no change from `scientific_status=not_run` for the baseline-matrix experiment.
+- Python compilation passed for `e8_multitask_exp_tuning.py`, `e8_multitask_selftest.py`, and `e8_multitask_warmstart_training.py`;
+- `tests/test_e8_multitask_p0.py`: `113 passed`;
+- `bash tests/test_e8_method_integration_contract.sh`: passed;
+- broad pytest excluding two failures proven independently on the stacked PR base: `1365 passed, 27 skipped, 2 deselected`;
+- the two deselected tests were rerun on base commit `79009c487be6d64ef7f1d54b3f5dfa33808cc4c2` and failed there identically, establishing that they predate P2;
+- Ruff passed after correcting one P1 engineering-self-test exception type (`RuntimeError` to `TypeError`) with no scientific behavior change;
+- the temporary validation workflow removed itself after the successful run.
+
+The two pre-existing base failures are unrelated to P2: one is exact floating-point equality in the historical AsymRE boundary-dense test, and the other is a stale expected wording string in a Countdown result-delivery documentation test. P2 does not repair either unrelated baseline issue.
+
+The formal experiment `EXT-C-E8-MULTITASK-BASELINE-MATRIX-01` remains `not_run`.
 
 ## P3 — canonical cold-start compatibility bridge extraction
 
