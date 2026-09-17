@@ -1,0 +1,66 @@
+name: E8 P3 Extract (temporary)
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-training-splits-01
+    paths:
+      - .github/workflows/e8-p3-extract-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Inventory canonical bridge candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+
+          path = Path('src/drpo/e8_multitask_exp_tuning.py')
+          text = path.read_text()
+          tree = ast.parse(text)
+          wanted = {
+              '_cold_train_paper', '_cold_train_dpo', '_run_canonical_method_liveness',
+              '_run_dpo_method_liveness', '_paper_grid_paths_exponential',
+              '_paper_params_reciprocal', '_paper_params_exponential',
+              '_paper_params_asymre', '_paper_params_topr',
+              '_runtime_bridge_contract', '_legacy_arena_runtime_bridge',
+              '_validated_runtime_grid', '_legacy_paper_runtime_bridge',
+              '_canonical_baseline_grid_identity', '_normalized_adapter_config_sequence',
+              '_dpo_shared_sft_adapter_identity', '_dpo_shared_sft_adapter',
+              '_parameter_sequence_sha256', '_dpo_prompt_balanced_mean', '_dpo_quantile',
+              '_is_nan_inf_numerical_failure', '_load_verified_canonical_calibration',
+              '_train_canonical_dpo_transfer_cell', '_cmd_dpo_liveness',
+              '_train_canonical_cold_cell', '_cmd_canonical_cold_liveness',
+              '_canonical_cold_modules', '_activate_paper_grid_modules',
+              '_canonical_task_record', '_canonical_environment_evaluator',
+              '_canonical_generic_posthoc', '_paper_grid_for_cell',
+          }
+          for node in tree.body:
+              if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name in wanted:
+                  print(f'{node.name}\t{node.lineno}\t{node.end_lineno}\t{node.end_lineno-node.lineno+1}')
+          PY
+          echo '--- direct symbol counts in composition root ---'
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('src/drpo/e8_multitask_exp_tuning.py').read_text()
+          names = [
+              '_runtime_bridge_contract','_legacy_arena_runtime_bridge','_legacy_paper_runtime_bridge',
+              '_canonical_baseline_grid_identity','_dpo_shared_sft_adapter_identity',
+              '_train_canonical_dpo_transfer_cell','_cmd_dpo_liveness',
+              '_train_canonical_cold_cell','_cmd_canonical_cold_liveness',
+              '_canonical_cold_modules','_activate_paper_grid_modules','_canonical_task_record',
+              '_canonical_environment_evaluator','_canonical_generic_posthoc','_paper_grid_for_cell',
+          ]
+          for name in names:
+              print(name, text.count(name))
+          PY
