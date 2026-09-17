@@ -9,12 +9,22 @@ RELEASE_DIR="$ICLR_DIR/release"
 OFFICIAL_URL="https://media.iclr.cc/Conferences/ICLR2027/iclr-2027-style-files.zip"
 
 rm -rf "$BUILD_DIR" "$RELEASE_DIR"
-mkdir -p "$BUILD_DIR/template_extract" "$RELEASE_DIR"
+mkdir -p "$BUILD_DIR/template_extract" "$BUILD_DIR/figure_preview" "$RELEASE_DIR"
 
 command -v curl >/dev/null
 command -v unzip >/dev/null
 command -v latexmk >/dev/null
 command -v pdfinfo >/dev/null
+command -v python3 >/dev/null
+
+# Materialize the registered Structured-9 coefficient-response figure at the
+# exact asset path already referenced by the current manuscript. The plotting
+# script reads only checked-in plot-ready E8 observations and uses the fixed,
+# uniform presentation parameters recorded in scripts/figures/README.md.
+python3 "$ROOT/scripts/figures/plot_e8_multitask_exp_response_curves.py" \
+  --output-pdf "$SOURCE_DIR/figures/fig_app_structured9_drpo_coefficient_response.pdf" \
+  --output-png "$BUILD_DIR/figure_preview/fig_app_structured9_drpo_coefficient_response.png" \
+  --output-svg "$BUILD_DIR/figure_preview/fig_app_structured9_drpo_coefficient_response.svg"
 
 printf 'Downloading official ICLR 2027 style archive:\n  %s\n' "$OFFICIAL_URL"
 curl -fL --retry 4 --retry-delay 2 --connect-timeout 20 \
@@ -34,7 +44,7 @@ cp "$BST_SRC" "$BUILD_DIR/iclr2027_conference.bst"
 
 bash "$ICLR_DIR/generate_iclr.sh" "$BUILD_DIR"
 
-# Copy manuscript assets byte-for-byte. No figure or bibliography content is edited.
+# Copy the materialized manuscript assets byte-for-byte into the ICLR build.
 cp "$SOURCE_DIR/example_paper.bib" "$BUILD_DIR/example_paper.bib"
 cp "$SOURCE_DIR/missing_references.bib" "$BUILD_DIR/missing_references.bib"
 cp -a "$SOURCE_DIR/figures" "$BUILD_DIR/figures"
