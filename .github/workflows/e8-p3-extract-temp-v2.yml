@@ -82,9 +82,9 @@ jobs:
           echo '=== running safe lint cleanup ==='
           bash /tmp/e8_p3_steps/2.sh
 
-          # TaskInstance is used only in a postponed annotation in the extracted bridge.
-          # Ruff correctly removes its now-unused import from the composition root, so it
-          # must not be rebound dynamically from the host. This does not alter runtime logic.
+          # Standard-library dependencies belong to the bridge module itself, not to
+          # the composition-root host binding surface. TaskInstance is annotation-only
+          # under postponed annotations and needs no runtime binding.
           python - <<'PY'
           import importlib
           import re
@@ -92,10 +92,29 @@ jobs:
 
           bridge_path = Path('src/drpo/e8_multitask_canonical_bridge.py')
           text = bridge_path.read_text(encoding='utf-8')
-          needle = '    TaskInstance = host.TaskInstance\n'
-          if text.count(needle) != 1:
-              raise SystemExit('expected exactly one annotation-only TaskInstance host binding')
-          text = text.replace(needle, '', 1)
+
+          host_only_removals = (
+              '    TaskInstance = host.TaskInstance\n',
+              '    contextmanager = host.contextmanager\n',
+              '    csv = host.csv\n',
+              '    hashlib = host.hashlib\n',
+              '    importlib = host.importlib\n',
+          )
+          for needle in host_only_removals:
+              if text.count(needle) != 1:
+                  raise SystemExit(f'expected exactly one generated host binding: {needle.strip()}')
+              text = text.replace(needle, '', 1)
+
+          import_anchor = 'from __future__ import annotations\n\n'
+          direct_imports = (
+              'import csv\n'
+              'import hashlib\n'
+              'import importlib\n'
+              'from contextlib import contextmanager\n\n'
+          )
+          if text.count(import_anchor) != 1:
+              raise SystemExit('canonical bridge future-import anchor missing')
+          text = text.replace(import_anchor, import_anchor + direct_imports, 1)
           bridge_path.write_text(text, encoding='utf-8')
 
           host = importlib.import_module('drpo.e8_multitask_exp_tuning')
