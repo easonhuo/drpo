@@ -12,7 +12,7 @@ The repository owner explicitly approved the following exact new Python paths in
 - `src/drpo/e8_multitask_warmstart_training.py`
 - `src/drpo/e8_multitask_canonical_bridge.py`
 
-The work proceeds in independently validated stages. Stage P1 moves only the engineering self-test harness. P2 isolates the historical warm-start/rho/dense native trainer as deprecated legacy reproduction code. P3 may then move the canonical cold-start compatibility bridge. No stage may silently redesign scientific logic.
+The work proceeds in independently validated stages. Stage P1 moves only the engineering self-test harness. P2 isolates the historical warm-start/rho/dense native trainer as deprecated legacy reproduction code. P3 then isolates the canonical cold-start compatibility bridge. No stage may silently redesign scientific logic.
 
 ## Scientific boundary
 
@@ -107,9 +107,37 @@ The formal experiment `EXT-C-E8-MULTITASK-BASELINE-MATRIX-01` remains `not_run`.
 
 ## P3 — canonical cold-start compatibility bridge extraction
 
-Only after P2 validation, move the compatibility layer that adapts the unified E8 interface to the frozen canonical Countdown/paper implementations. This may include legacy arena/paper runtime bridges, canonical grid/runtime adaptation, canonical cold cell execution/liveness, method-to-paper parameter conversion, DPO frozen-reference execution/identity, and shared-SFT contract enforcement.
+P3 isolates the compatibility layer that adapts the unified E8 interface to the frozen canonical Countdown/paper implementations. The bridge owns adaptation and dispatch only; scientific kernels remain the existing canonical modules.
 
-This module is a bridge, not a reimplementation of the scientific algorithms.
+### P3 reviewed ownership boundary
+
+The pre-extraction call-site review assigns the following responsibilities to `e8_multitask_canonical_bridge.py`:
+
+- method-to-paper parameter conversion for Positive-only, Global, EXP, Reciprocal-Linear, Reciprocal-Quadratic, AsymRE, and TOPR;
+- canonical grid selection and runtime-grid validation/adaptation;
+- the temporary legacy arena/paper runtime bridges, including exact patch/restore behavior for LoRA runtime parameters, generation sampling parameters, optimizer weight decay, scheduler warmup, and canonical validators;
+- canonical baseline-grid identity metadata used by AsymRE/TOPR reporting;
+- canonical cold cell execution and canonical method liveness, including transfer-task evaluator adaptation while keeping Countdown on the exact canonical task interface;
+- DPO cold execution and liveness, including frozen-reference initialization/copy semantics, shared-SFT adapter contract/provenance verification, prompt-balanced DPO aggregation helpers, and DPO-specific numerical diagnostics;
+- canonical no-calibration record verification needed by the canonical/DPO execution paths.
+
+The composition root retains generic/shared orchestration that is not itself the canonical compatibility bridge: `Cell`/`MethodSpec` registration, cell construction/keying, `train_cell` failure capture/dispatch, `_cell_identity`, `_prepare_cell_output`, `_summarize_evaluations`, generic adapter reload subprocess support, split/input preparation, scheduler/recovery, aggregation/audit/finalization, and CLI handling.
+
+The extracted bridge must not import `e8_multitask_exp_tuning.py` back. Generic composition-root behavior required by the bridge must be passed explicitly through a binding object, following the P2 direction rather than introducing another process-global `bind_host()` layer.
+
+P3 must preserve every existing temporary monkey-patch restore path under exceptions. It must not reimplement or alter canonical loss math, DPO math, parameter grids, seeds, horizons, task-runtime budgets, or initialization semantics. The existing DPO implementation remains the audited PR #268 semantics port because no canonical DPO runtime is merged on the current stack.
+
+### P3 validation plan
+
+Before P3 is considered closed, the exact source head must demonstrate:
+
+- Python compilation for the composition root and new bridge;
+- focused multitask regression, including canonical runtime-bridge restoration and DPO initialization/provenance contracts;
+- method-integration contract coverage;
+- Ruff on the changed Python surface;
+- broad pytest with any unrelated base-preexisting failures separately demonstrated rather than silently repaired in P3;
+- ordinary PR/Evidence checks on the final human-authored P3 head;
+- no formal scientific run and no change from `EXT-C-E8-MULTITASK-BASELINE-MATRIX-01 = not_run`.
 
 ## Validation
 
