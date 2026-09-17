@@ -83,8 +83,8 @@ jobs:
           bash /tmp/e8_p3_steps/2.sh
 
           # Standard-library dependencies belong to the bridge module itself, not to
-          # the composition-root host binding surface. TaskInstance is annotation-only
-          # under postponed annotations and needs no runtime binding.
+          # the composition-root host binding surface. TaskInstance is a real type
+          # dependency of the bridge and is imported from its owning task module.
           python - <<'PY'
           import importlib
           import re
@@ -111,6 +111,7 @@ jobs:
               'import hashlib\n'
               'import importlib\n'
               'from contextlib import contextmanager\n\n'
+              'from drpo.e8_multitask_tasks import TaskInstance\n\n'
           )
           if text.count(import_anchor) != 1:
               raise SystemExit('canonical bridge future-import anchor missing')
@@ -124,6 +125,9 @@ jobs:
               raise SystemExit(f'bridge host bindings missing after lint cleanup: {missing}')
           print(f'validated_host_bindings={len(bindings)}')
           PY
+
+          # Re-sort only the bridge imports after replacing generated host bindings.
+          python -m ruff check --fix src/drpo/e8_multitask_canonical_bridge.py
 
           echo '=== running compile and focused regression ==='
           bash /tmp/e8_p3_steps/3.sh
