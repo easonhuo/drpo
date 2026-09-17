@@ -1,0 +1,272 @@
+name: Temporary update Structured-9 PO and macro average
+
+on:
+  push:
+    branches:
+      - dev/manuscript-structured9-results-01
+    paths:
+      - .github/workflows/_tmp_update_structured9_po_avg.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: dev/manuscript-structured9-results-01
+
+      - name: Apply approved table update
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('paper/overleaf/main_replacement.tex')
+          text = path.read_text(encoding='utf-8')
+
+          old = r'''\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lcccc}
+\toprule
+Task
+&
+AsymRE
+&
+\makecell{\(\beta\)-TOPR\\(joint fitted ref.)}
+&
+DPO\(^{\ddagger}\)
+&
+\textbf{DRPO}
+\\
+\midrule
+
+Countdown
+& 14.38
+& 14.41
+&
+& \textbf{15.72}
+\\
+
+Word Sorting
+& 61.72
+& 59.61
+&
+& \textbf{63.38}
+\\
+
+Spiral Matrix
+& 99.92
+& \textbf{100.00}
+&
+& 99.94
+\\
+
+Mini Sudoku
+& \textbf{97.58}
+& 96.88
+&
+& 97.06
+\\
+
+Maze
+& \textbf{77.81}
+& 75.86
+&
+& 77.66
+\\
+
+Word Ladder
+& 12.50
+& 11.41
+&
+& \textbf{13.38}
+\\
+
+Knights \& Knaves
+& \textbf{70.16}
+& 68.59
+&
+& 69.53
+\\
+
+Graph Coloring
+& 98.91
+& 99.37
+&
+& \textbf{99.88}
+\\
+
+WikiSQL
+& 85.78
+& 82.89
+&
+& \textbf{86.69}
+\\
+
+\midrule
+
+\textit{Structured-9 total}
+& \textit{618.76}
+& \textit{609.02}
+&
+& \textbf{\textit{623.24}}
+\\
+
+\bottomrule
+\end{tabular*}'''
+
+          new = r'''\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lccccc}
+\toprule
+Task
+&
+\makecell{Positive-\\only}
+&
+AsymRE
+&
+\makecell{\(\beta\)-TOPR\\(joint fitted ref.)}
+&
+DPO\(^{\ddagger}\)
+&
+\textbf{DRPO}
+\\
+\midrule
+
+Countdown
+& 13.98
+& 14.38
+& 14.41
+&
+& \textbf{15.72}
+\\
+
+Word Sorting
+& 62.06
+& 61.72
+& 59.61
+&
+& \textbf{63.38}
+\\
+
+Spiral Matrix
+& \textbf{100.00}
+& 99.92
+& \textbf{100.00}
+&
+& 99.94
+\\
+
+Mini Sudoku
+& 95.91
+& \textbf{97.58}
+& 96.88
+&
+& 97.06
+\\
+
+Maze
+& 76.74
+& \textbf{77.81}
+& 75.86
+&
+& 77.66
+\\
+
+Word Ladder
+& 10.68
+& 12.50
+& 11.41
+&
+& \textbf{13.38}
+\\
+
+Knights \& Knaves
+& 67.53
+& \textbf{70.16}
+& 68.59
+&
+& 69.53
+\\
+
+Graph Coloring
+& 98.67
+& 98.91
+& 99.37
+&
+& \textbf{99.88}
+\\
+
+WikiSQL
+& 85.65
+& 85.78
+& 82.89
+&
+& \textbf{86.69}
+\\
+
+\midrule
+
+\textit{Macro Avg.}
+& \textit{67.91}
+& \textit{68.75}
+& \textit{67.67}
+&
+& \textbf{\textit{69.25}}
+\\
+
+\bottomrule
+\end{tabular*}'''
+
+          if text.count(old) != 1:
+              raise SystemExit(f'expected exactly one old table block, found {text.count(old)}')
+          text = text.replace(old, new)
+
+          old_note = r'''frozen-behavior reproduction of \citet{leroux2025tapered}. For DRPO, the reported transfer-task scores are the maximum means over
+contiguous five-point windows of the registered \(\lambda\)-response curves.'''
+          new_note = r'''frozen-behavior reproduction of \citet{leroux2025tapered}. For DRPO, the reported transfer-task scores are the maximum means over
+contiguous five-point windows of the registered \(\lambda\)-response curves.
+Macro Avg. is the unweighted mean of the nine task-level Pass@8 percentages.'''
+          if text.count(old_note) != 1:
+              raise SystemExit(f'expected exactly one note anchor, found {text.count(old_note)}')
+          text = text.replace(old_note, new_note)
+
+          # Tighten spacing for the added column.
+          old_space = r'\setlength{\tabcolsep}{3.5pt}'
+          new_space = r'\setlength{\tabcolsep}{2.2pt}'
+          if text.count(old_space) < 1:
+              raise SystemExit('table spacing anchor missing')
+          # Replace only the first occurrence, which belongs to Table 2.
+          text = text.replace(old_space, new_space, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          NEW_BLOB="$(git hash-object paper/overleaf/main_replacement.tex)"
+          python3 - "$NEW_BLOB" <<'PY'
+          from pathlib import Path
+          import re, sys
+          blob = sys.argv[1]
+          p = Path('paper/iclr2027/generate_iclr.sh')
+          s = p.read_text(encoding='utf-8')
+          s2, n = re.subn(r'EXPECTED_BLOB="[0-9a-f]{40}"', f'EXPECTED_BLOB="{blob}"', s, count=1)
+          if n != 1:
+              raise SystemExit(f'expected one EXPECTED_BLOB replacement, got {n}')
+          p.write_text(s2, encoding='utf-8')
+          PY
+
+          rm .github/workflows/_tmp_update_structured9_po_avg.yml
+          bash paper/iclr2027/generate_iclr.sh /tmp/iclr-structured9-check
+          grep -F 'body_lock=PASS' /tmp/iclr-structured9-check/CONTENT_LOCK_REPORT.txt
+          grep -F '\textit{Macro Avg.}' paper/overleaf/main_replacement.tex
+          grep -F '\textit{67.91}' paper/overleaf/main_replacement.tex
+          grep -F '\textbf{\textit{69.25}}' paper/overleaf/main_replacement.tex
+          grep -F '\textbf{15.72}' paper/overleaf/main_replacement.tex
+          ! grep -F 'Structured-9 total' paper/overleaf/main_replacement.tex
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Paper: add Positive-only and macro average to Structured-9 table'
+          git push origin HEAD:dev/manuscript-structured9-results-01
