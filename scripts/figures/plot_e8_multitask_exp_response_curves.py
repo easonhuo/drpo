@@ -12,7 +12,8 @@ Smoothing is intentionally simple and uniform across all nine tasks:
 3. use the same smoothing rule for the uncertainty band.
 
 The defaults reproduce the approved presentation style used for the 9-task
-response plot. Override paths only when intentionally regenerating elsewhere.
+response plot. The PDF default is the exact manuscript asset referenced by the
+current ICLR source; PNG/SVG defaults remain paper-working previews.
 """
 from __future__ import annotations
 
@@ -121,7 +122,6 @@ def load_plot_ready(path: Path) -> dict[str, pd.DataFrame]:
         frame = pd.concat([pd.read_csv(csv_path) for csv_path in csv_paths], ignore_index=True)
     else:
         frame = pd.read_csv(path)
-
     missing = REQUIRED_COLUMNS - set(frame.columns)
     if missing:
         raise RuntimeError(f"Missing columns in {path}: {sorted(missing)}")
@@ -275,7 +275,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--data",
         type=Path,
-        default=repo_root / "paper/iclr2027/figures/data/e8_multitask_exp_response",
+        default=repo_root
+        / "paper/iclr2027/figures/data/e8_multitask_exp_response",
     )
     parser.add_argument(
         "--output-png",
@@ -287,7 +288,7 @@ def parse_args() -> argparse.Namespace:
         "--output-pdf",
         type=Path,
         default=repo_root
-        / "paper/iclr2027/figures/fig_e8_multitask_exp_response_nine_panel.pdf",
+        / "paper/overleaf/figures/fig_app_structured9_drpo_coefficient_response.pdf",
     )
     parser.add_argument(
         "--output-svg",
