@@ -1,0 +1,242 @@
+name: TEMP E8 P4 apply and validate
+
+on:
+  push:
+    branches:
+      - dev/e8-multitask-training-splits-01
+    paths:
+      - .github/workflows/temp-e8-p4-apply.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: dev/e8-multitask-training-splits-01
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Configure git
+        run: |
+          git config user.name "drpo-p4-bindings-bot"
+          git config user.email "drpo-p4-bindings-bot@users.noreply.github.com"
+      - name: Assert docs-first P4 scope
+        run: |
+          grep -F "## P4 — call-scoped self-test bindings" docs/scopes/E8_MULTITASK_TRAINING_SPLITS.md
+          grep -F 'SelfTestBindings' docs/scopes/E8_MULTITASK_TRAINING_SPLITS.md
+      - name: Apply P4 call-scoped binding refactor
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected one match, found {count}")
+              return text.replace(old, new, 1)
+
+          def split_section(text: str, start: str, end: str) -> tuple[str, str, str]:
+              i = text.index(start)
+              j = text.index(end, i)
+              return text[:i], text[i:j], text[j:]
+
+          selftest_path = Path("src/drpo/e8_multitask_selftest.py")
+          text = selftest_path.read_text(encoding="utf-8")
+          text = replace_once(
+              text,
+              "from collections.abc import Mapping\nfrom pathlib import Path\n",
+              "from collections.abc import Mapping\nfrom dataclasses import dataclass\nfrom pathlib import Path\n",
+              "selftest dataclass import",
+          )
+          start = text.index("# bind_host() overwrites these placeholders")
+          end = text.index("def _engineering_self_test_config", start)
+          text = text[:start] + '''@dataclass(frozen=True)\nclass SelfTestBindings:\n    """Call-scoped dependencies supplied by the E8 composition root."""\n\n    host: Any\n\n\n_INTENTIONAL_FAILURE_RETURNCODE = 73\n\n\n''' + text[end:]
+          text = replace_once(
+              text,
+              "def _engineering_self_test_config(config: Mapping[str, Any]) -> dict[str, Any]:\n",
+              "def _engineering_self_test_config(\n    config: Mapping[str, Any],\n    *,\n    bindings: SelfTestBindings,\n) -> dict[str, Any]:\n    host = bindings.host\n",
+              "self-test config signature",
+          )
+          text = replace_once(text, "    validate_config(updated)\n", "    host.validate_config(updated)\n", "validate config")
+
+          pre, body, post = split_section(text, "def _write_engineering_input_fixtures(", "def _write_engineering_gates(")
+          body = replace_once(
+              body,
+              "    output_root: Path,\n) -> tuple[Path, Path, Path, Path]:\n",
+              "    output_root: Path,\n    *,\n    bindings: SelfTestBindings,\n) -> tuple[Path, Path, Path, Path]:\n    host = bindings.host\n",
+              "input fixture signature",
+          )
+          for old, new in (
+              ("_repo_root()", "host._repo_root()"),
+              ("atomic_jsonl(", "host.atomic_jsonl("),
+              ("P0_EXPERIMENT_ID", "host.P0_EXPERIMENT_ID"),
+              ("stable_config_hash(", "host.stable_config_hash("),
+              ("atomic_json(", "host.atomic_json("),
+          ):
+              body = body.replace(old, new)
+          text = pre + body + post
+
+          pre, body, post = split_section(text, "def _write_engineering_gates(", "def _audit_engineering_queue(")
+          body = replace_once(
+              body,
+              "    base_model_path: str,\n) -> None:\n    splits, _ = _load_ready_inputs",
+              "    base_model_path: str,\n    bindings: SelfTestBindings,\n) -> None:\n    host = bindings.host\n    splits, _ = host._load_ready_inputs",
+              "gate signature",
+          )
+          for old, new in (
+              ("_canonical_calibration_identity(", "host._canonical_calibration_identity("),
+              ("experiment_config.", "host.experiment_config."),
+              ("atomic_json(", "host.atomic_json("),
+              ("experiment_id(", "host.experiment_id("),
+              ("stable_config_hash(", "host.stable_config_hash("),
+              ("model_identity(", "host.model_identity("),
+              ("_coldstart_methods(", "host._coldstart_methods("),
+              ("_is_coldstart(", "host._is_coldstart("),
+              ("_coldstart_method(", "host._coldstart_method("),
+              ("METHOD_DPO", "host.METHOD_DPO"),
+          ):
+              body = body.replace(old, new)
+          text = pre + body + post
+
+          pre, body, post = split_section(text, "def _audit_engineering_queue(", "def _intentional_failure_evidence(")
+          body = replace_once(
+              body,
+              "    scheduler: Mapping[str, Any],\n) -> dict[str, Any]:\n    cells = build_cells(config)\n",
+              "    scheduler: Mapping[str, Any],\n    *,\n    bindings: SelfTestBindings,\n) -> dict[str, Any]:\n    host = bindings.host\n    cells = host.build_cells(config)\n",
+              "queue audit signature",
+          )
+          body = body.replace("build_waves(config)", "host.build_waves(config)")
+          text = pre + body + post
+
+          cmd_start = text.index("def cmd_engineering_self_test(")
+          head, body = text[:cmd_start], text[cmd_start:]
+          body = replace_once(
+              body,
+              "    source_commit: str,\n) -> dict[str, Any]:\n",
+              "    source_commit: str,\n    bindings: SelfTestBindings,\n) -> dict[str, Any]:\n",
+              "selftest command signature",
+          )
+          body = replace_once(
+              body,
+              "    \"\"\"Exercise the delivery pipeline with an isolated, non-scientific backend.\"\"\"\n\n",
+              "    \"\"\"Exercise the delivery pipeline with an isolated, non-scientific backend.\"\"\"\n\n    host = bindings.host\n",
+              "selftest command host",
+          )
+          body = body.replace("_is_coldstart(config)", "host._is_coldstart(config)")
+          body = body.replace("validate_work_dir(output_root)", "host.validate_work_dir(output_root)")
+          body = body.replace("_engineering_self_test_config(config)", "_engineering_self_test_config(config, bindings=bindings)")
+          body = body.replace(
+              "_write_engineering_input_fixtures(self_test_config, output_root)",
+              "_write_engineering_input_fixtures(self_test_config, output_root, bindings=bindings)",
+          )
+          old_gate = '''        _write_engineering_gates(\n            self_test_config,\n            output_root,\n            base_model_path=str(base_model),\n        )'''
+          new_gate = '''        _write_engineering_gates(\n            self_test_config,\n            output_root,\n            base_model_path=str(base_model),\n            bindings=bindings,\n        )'''
+          if body.count(old_gate) != 2:
+              raise SystemExit(f"expected two engineering gate calls, found {body.count(old_gate)}")
+          body = body.replace(old_gate, new_gate)
+          for old, new in (
+              ("cmd_prepare(", "host.cmd_prepare("),
+              ("load_config(", "host.load_config("),
+              ("_read_json_object(", "host._read_json_object("),
+              ("_load_prepared(", "host._load_prepared("),
+              ("_require_calibration_gate(", "host._require_calibration_gate("),
+              ("_require_liveness_gate(", "host._require_liveness_gate("),
+              ("build_cells(", "host.build_cells("),
+              ("stable_config_hash(", "host.stable_config_hash("),
+              ("experiment_id(", "host.experiment_id("),
+              ("atomic_json(", "host.atomic_json("),
+              ("sha256_file(", "host.sha256_file("),
+              ("cmd_run_dynamic(", "host.cmd_run_dynamic("),
+              ("cmd_aggregate(", "host.cmd_aggregate("),
+              ("cmd_audit(", "host.cmd_audit("),
+              ("cmd_finalize(", "host.cmd_finalize("),
+              ("cmd_package(", "host.cmd_package("),
+              ("verify_result_package(", "host.verify_result_package("),
+              ('globals()["_run_subprocess_cell"]', "host._run_subprocess_cell"),
+              ("cell: Cell,", "cell: Any,"),
+          ):
+              body = body.replace(old, new)
+          body = body.replace(
+              "_audit_engineering_queue(self_test_config, output_root, resumed)",
+              "_audit_engineering_queue(self_test_config, output_root, resumed, bindings=bindings)",
+          )
+          text = head + body
+          for fragment in ("def bind_host(", "_BOUND_HOST", 'globals()["_run_subprocess_cell"]', "validate_config: Any = None"):
+              if fragment in text:
+                  raise SystemExit(f"forbidden selftest global binding remains: {fragment}")
+          selftest_path.write_text(text, encoding="utf-8")
+
+          root_path = Path("src/drpo/e8_multitask_exp_tuning.py")
+          root = root_path.read_text(encoding="utf-8")
+          canonical = '''def _canonical_bridge() -> e8_canonical_bridge.CanonicalBridge:\n    return e8_canonical_bridge.build_bridge(\n        e8_canonical_bridge.CanonicalBridgeBindings(host=sys.modules[__name__])\n    )\n\n'''
+          if root.count(canonical) != 1:
+              raise SystemExit("canonical bridge anchor mismatch")
+          root = root.replace(
+              canonical,
+              canonical + '''\ndef _selftest_bindings() -> e8_selftest.SelfTestBindings:\n    return e8_selftest.SelfTestBindings(host=sys.modules[__name__])\n\n''',
+              1,
+          )
+          old_wrapper = '''def _engineering_self_test_config(config: Mapping[str, Any]) -> dict[str, Any]:\n    e8_selftest.bind_host(sys.modules[__name__])\n    return e8_selftest._engineering_self_test_config(config)\n\n\ndef cmd_engineering_self_test(\n    config: Mapping[str, Any],\n    output_root: Path,\n    *,\n    source_commit: str,\n) -> dict[str, Any]:\n    e8_selftest.bind_host(sys.modules[__name__])\n    return e8_selftest.cmd_engineering_self_test(\n        config,\n        output_root,\n        source_commit=source_commit,\n    )\n'''
+          new_wrapper = '''def _engineering_self_test_config(config: Mapping[str, Any]) -> dict[str, Any]:\n    return e8_selftest._engineering_self_test_config(\n        config,\n        bindings=_selftest_bindings(),\n    )\n\n\ndef cmd_engineering_self_test(\n    config: Mapping[str, Any],\n    output_root: Path,\n    *,\n    source_commit: str,\n) -> dict[str, Any]:\n    return e8_selftest.cmd_engineering_self_test(\n        config,\n        output_root,\n        source_commit=source_commit,\n        bindings=_selftest_bindings(),\n    )\n'''
+          if root.count(old_wrapper) != 1:
+              raise SystemExit(f"composition wrapper mismatch: {root.count(old_wrapper)}")
+          root = root.replace(old_wrapper, new_wrapper, 1)
+          root_path.write_text(root, encoding="utf-8")
+          PY
+      - name: Static architecture assertions
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s = Path('src/drpo/e8_multitask_selftest.py').read_text(encoding='utf-8')
+          r = Path('src/drpo/e8_multitask_exp_tuning.py').read_text(encoding='utf-8')
+          assert s.count('class SelfTestBindings') == 1
+          assert 'def bind_host(' not in s
+          assert '_BOUND_HOST' not in s
+          assert 'validate_config: Any = None' not in s
+          assert 'host._run_subprocess_cell = placeholder_cell_runner' in s
+          assert 'finally:\n        host._run_subprocess_cell = original_runner' in s
+          assert 'def _selftest_bindings()' in r
+          assert 'e8_selftest.bind_host' not in r
+          PY
+      - name: Compile
+        run: python -m compileall -q src scripts tools tests
+      - name: Focused E8 regression
+        run: python -m pytest -q tests/test_e8_multitask_p0.py
+      - name: Method integration contract
+        run: bash tests/test_e8_method_integration_contract.sh
+      - name: Ruff changed surface
+        run: ruff check src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_selftest.py tests/test_e8_multitask_p0.py
+      - name: Governance checks
+        run: |
+          python scripts/handoff_authority.py verify --repo-root .
+          python scripts/validate_governance_rule_inventory.py --repo-root .
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          git diff --check
+      - name: Full pytest
+        run: python -m pytest -q
+      - name: Full Ruff
+        run: ruff check .
+      - name: Commit validated P4 source
+        run: |
+          git add src/drpo/e8_multitask_exp_tuning.py src/drpo/e8_multitask_selftest.py
+          git diff --cached --check
+          git commit -m "refactor: make E8 self-test bindings call-scoped [skip ci]"
+          git push origin HEAD:dev/e8-multitask-training-splits-01
+      - name: Remove temporary workflow
+        if: always()
+        run: |
+          git reset --hard HEAD
+          git rm .github/workflows/temp-e8-p4-apply.yml
+          git commit -m "chore: remove temporary P4 apply workflow [skip ci]"
+          git push origin HEAD:dev/e8-multitask-training-splits-01
