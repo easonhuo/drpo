@@ -3773,6 +3773,7 @@ def _require_liveness_gate(
         raise RuntimeError(f"Missing method-specific cold-start liveness gates: {missing}")
 
 
+
 def cmd_run_wave(
     config: Mapping[str, Any],
     config_path: Path,
@@ -3783,7 +3784,9 @@ def cmd_run_wave(
     force: bool,
 ) -> dict[str, Any]:
     if _is_coldstart(config):
-        raise RuntimeError("Cold-start has no wave barriers; use run-all dynamic scheduling")
+        raise RuntimeError(
+            "Cold-start has no wave barriers; use run-all dynamic scheduling"
+        )
     _require_calibration_gate(
         config,
         output_root,
@@ -3797,43 +3800,26 @@ def cmd_run_wave(
     waves = build_waves(config)
     if not 1 <= wave_index <= len(waves):
         raise ValueError(f"wave must be in [1,{len(waves)}]")
-    wave = waves[wave_index - 1]
-    gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
-    slots_per_gpu = int(config["execution"]["slots_per_gpu"])
-    if len(wave) > len(gpu_ids) * slots_per_gpu:
-        raise RuntimeError("Wave exceeds declared GPU slot capacity")
-    results: list[dict[str, Any]] = []
-    with ThreadPoolExecutor(max_workers=len(wave)) as executor:
-        futures = {
-            executor.submit(
-                _run_subprocess_cell,
-                config_path=config_path.resolve(),
-                output_root=output_root.resolve(),
-                base_model_path=base_model_path,
-                cell=cell,
-                gpu_id=gpu_ids[index % len(gpu_ids)],
-                force=force,
-            ): cell
-            for index, cell in enumerate(wave)
-        }
-        for future in as_completed(futures):
-            results.append(future.result())
-    results.sort(key=lambda row: str(row["cell_key"]))
-    failures = [row for row in results if int(row["returncode"]) != 0]
-    manifest = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "wave": wave_index,
-        "expected_cells": len(wave),
-        "results": results,
-        "failed_cells": [row["cell_key"] for row in failures],
-        "complete": not failures and len(results) == len(wave),
-        "scientific_status": "pilot",
-    }
-    atomic_json(output_root / "waves" / f"wave_{wave_index:02d}.json", manifest)
-    if failures:
-        raise RuntimeError(f"Wave {wave_index} failed cells: {manifest['failed_cells']}")
-    return manifest
+    gpu_ids = tuple(
+        int(value) for value in config["execution"]["gpu_ids"]
+    )
+    return e8_orchestration.run_wave(
+        waves[wave_index - 1],
+        wave_index=wave_index,
+        gpu_ids=gpu_ids,
+        slots_per_gpu=int(config["execution"]["slots_per_gpu"]),
+        experiment_id_value=experiment_id(config),
+        run_cell=lambda cell, gpu_id: _run_subprocess_cell(
+            config_path=config_path.resolve(),
+            output_root=output_root.resolve(),
+            base_model_path=base_model_path,
+            cell=cell,
+            gpu_id=gpu_id,
+            force=force,
+        ),
+        write_json=atomic_json,
+        manifest_path=output_root / "waves" / f"wave_{wave_index:02d}.json",
+    )
 
 
 def _countdown_protocol_diagnostic(
@@ -3948,6 +3934,7 @@ def cmd_run_dynamic(
 
 
 
+
 def cmd_run_all(
     config: Mapping[str, Any],
     config_path: Path,
@@ -3966,27 +3953,20 @@ def cmd_run_all(
             force=force,
             retry_incomplete=retry_incomplete,
         )
-    results = []
-    for wave_index in range(1, int(config["execution"]["expected_waves"]) + 1):
-        results.append(
-            cmd_run_wave(
-                config,
-                config_path,
-                output_root,
-                wave_index=wave_index,
-                base_model_path=base_model_path,
-                force=force,
-            )
-        )
-    manifest = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "waves": results,
-        "complete": all(result["complete"] for result in results),
-        "scientific_status": "pilot",
-    }
-    atomic_json(output_root / "waves" / "all_waves.json", manifest)
-    return manifest
+    return e8_orchestration.run_all_waves(
+        wave_count=int(config["execution"]["expected_waves"]),
+        experiment_id_value=experiment_id(config),
+        run_wave_fn=lambda wave_index: cmd_run_wave(
+            config,
+            config_path,
+            output_root,
+            wave_index=wave_index,
+            base_model_path=base_model_path,
+            force=force,
+        ),
+        write_json=atomic_json,
+        manifest_path=output_root / "waves" / "all_waves.json",
+    )
 
 
 def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
