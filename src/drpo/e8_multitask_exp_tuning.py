@@ -3936,25 +3936,6 @@ def cmd_run_all(
     )
 
 
-def _coldstart_result_row(
-    config: Mapping[str, Any],
-    cell: Cell,
-    value: Mapping[str, Any],
-    *,
-    source: str,
-) -> dict[str, Any]:
-    return e8_results._coldstart_result_row(
-        cell,
-        value,
-        source=source,
-        method_columns=_method_output_columns(cell),
-        require_late_window_metrics=not _is_engineering_self_test(config),
-    )
-
-
-
-
-
 def _coldstart_completed_task_rows(
     config: Mapping[str, Any],
     output_root: Path,
@@ -3973,37 +3954,14 @@ def _coldstart_completed_task_rows(
         expected_cells=expected,
         experiment_id_value=experiment_id(config),
         config_hash=stable_config_hash(config),
-        result_row_fn=lambda cell, value: _coldstart_result_row(
-            config,
+        result_row_fn=lambda cell, value: e8_results._coldstart_result_row(
             cell,
             value,
             source="current",
+            method_columns=_method_output_columns(cell),
+            require_late_window_metrics=not _is_engineering_self_test(config),
         ),
     )
-
-
-def _write_coldstart_task_result(
-    config: Mapping[str, Any],
-    output_root: Path,
-    task: str,
-    rows: list[dict[str, Any]],
-) -> dict[str, Any]:
-    configured_cells = build_cells(config)
-    return e8_results._write_coldstart_task_result(
-        config,
-        output_root,
-        task,
-        rows,
-        configured_cells=configured_cells,
-        method_specs={cell.method: _method_spec(cell.method) for cell in configured_cells},
-        experiment_id_value=experiment_id(config),
-        config_hash=stable_config_hash(config),
-        engineering_self_test=_is_engineering_self_test(config),
-        write_json=atomic_json,
-        sha256_fn=sha256_file,
-    )
-
-
 
 
 def _materialize_completed_coldstart_task_results(
@@ -4022,35 +3980,23 @@ def _materialize_completed_coldstart_task_results(
         completed_rows_fn=lambda task: _coldstart_completed_task_rows(
             config, output_root, task
         ),
-        write_task_result_fn=lambda task, rows: _write_coldstart_task_result(
-            config, output_root, task, rows
+        write_task_result_fn=lambda task, rows: e8_results._write_coldstart_task_result(
+            config,
+            output_root,
+            task,
+            rows,
+            configured_cells=build_cells(config),
+            method_specs={
+                cell.method: _method_spec(cell.method)
+                for cell in build_cells(config)
+            },
+            experiment_id_value=experiment_id(config),
+            config_hash=stable_config_hash(config),
+            engineering_self_test=_is_engineering_self_test(config),
+            write_json=atomic_json,
+            sha256_fn=sha256_file,
         ),
     )
-
-
-def _aggregate_dense(
-    config: Mapping[str, Any],
-    output_root: Path,
-    rows: list[dict[str, Any]],
-) -> dict[str, Any]:
-    return e8_results._aggregate_dense(
-        config,
-        output_root,
-        rows,
-        experiment_id_value=experiment_id(config),
-        config_hash=stable_config_hash(config),
-        task_lambdas_fn=_task_lambdas,
-        positive_only_method=METHOD_POSITIVE_ONLY,
-        exponential_method=METHOD_EXPONENTIAL,
-        write_json=atomic_json,
-    )
-
-
-
-
-
-
-
 
 
 def _coldstart_method_grouped_curve(
@@ -4068,32 +4014,6 @@ def _coldstart_method_grouped_curve(
         parameter_fn=_method_spec(method).parameters,
     )
 
-
-
-def _aggregate_coldstart_unranked(
-    config: Mapping[str, Any],
-    output_root: Path,
-    rows: list[dict[str, Any]],
-) -> dict[str, Any]:
-    method = _coldstart_method(config)
-    protocol_diagnostic = _countdown_protocol_diagnostic(
-        config,
-        output_root,
-        destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
-    )
-    return e8_results._aggregate_coldstart_unranked(
-        config,
-        output_root,
-        rows,
-        spec=_method_spec(method),
-        configured_cells=build_cells(config),
-        experiment_id_value=experiment_id(config),
-        protocol_diagnostic=protocol_diagnostic,
-        engineering_self_test=_is_engineering_self_test(config),
-        positive_only_method=METHOD_POSITIVE_ONLY,
-        global_method=METHOD_GLOBAL,
-        write_json=atomic_json,
-    )
 
 
 def _aggregate_coldstart_matrix_unranked(
@@ -4140,8 +4060,26 @@ def _aggregate_coldstart(
         matrix_fn=lambda values: _aggregate_coldstart_matrix_unranked(
             config, output_root, values
         ),
-        unranked_fn=lambda values: _aggregate_coldstart_unranked(
-            config, output_root, values
+        unranked_fn=lambda values: e8_results._aggregate_coldstart_unranked(
+            config,
+            output_root,
+            values,
+            spec=_method_spec(method),
+            configured_cells=build_cells(config),
+            experiment_id_value=experiment_id(config),
+            protocol_diagnostic=_countdown_protocol_diagnostic(
+                config,
+                output_root,
+                destination=(
+                    output_root
+                    / "aggregate"
+                    / "countdown_protocol_diagnostic.json"
+                ),
+            ),
+            engineering_self_test=_is_engineering_self_test(config),
+            positive_only_method=METHOD_POSITIVE_ONLY,
+            global_method=METHOD_GLOBAL,
+            write_json=atomic_json,
         ),
         exponential_fn=lambda values: e8_results._aggregate_coldstart_exponential(
             config,
@@ -4177,17 +4115,28 @@ def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any
         dense_profile=_is_dense(config),
         coldstart_profile=_is_coldstart(config),
         method_columns_fn=_method_output_columns,
-        coldstart_result_row_fn=lambda cell, value, source: _coldstart_result_row(
-            config,
-            cell,
-            value,
-            source=source,
+        coldstart_result_row_fn=lambda cell, value, source: (
+            e8_results._coldstart_result_row(
+                cell,
+                value,
+                source=source,
+                method_columns=_method_output_columns(cell),
+                require_late_window_metrics=not _is_engineering_self_test(config),
+            )
         ),
         coldstart_aggregate_fn=lambda rows: _aggregate_coldstart(
             config, output_root, rows
         ),
-        dense_aggregate_fn=lambda rows: _aggregate_dense(
-            config, output_root, rows
+        dense_aggregate_fn=lambda rows: e8_results._aggregate_dense(
+            config,
+            output_root,
+            rows,
+            experiment_id_value=experiment_id(config),
+            config_hash=stable_config_hash(config),
+            task_lambdas_fn=_task_lambdas,
+            positive_only_method=METHOD_POSITIVE_ONLY,
+            exponential_method=METHOD_EXPONENTIAL,
+            write_json=atomic_json,
         ),
         positive_only_method=METHOD_POSITIVE_ONLY,
         exponential_method=METHOD_EXPONENTIAL,
