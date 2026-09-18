@@ -4153,10 +4153,13 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
     ) -> e8_runtime.MethodAuditResult:
         return _method_spec(cell.method).audit_record(cell, value)
 
-    transfer_exp_single_seed_response_shape_localization = (
+    coldstart_single_seed_shape_discovery = (
         _is_coldstart(config)
-        and _coldstart_method(config) == METHOD_EXPONENTIAL
         and len(experiment_config.task_transfer_seeds(config)) == 1
+    )
+    transfer_exp_single_seed_response_shape_localization = (
+        coldstart_single_seed_shape_discovery
+        and _coldstart_method(config) == METHOD_EXPONENTIAL
     )
     return e8_runtime.terminal_audit(
         output_root,
@@ -4178,9 +4181,10 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             if _is_method_matrix(config)
             else ()
         ),
-        coldstart_single_seed_response_shape=(
+        transfer_exp_single_seed_response_shape_localization=(
             transfer_exp_single_seed_response_shape_localization
         ),
+        coldstart_single_seed_shape_discovery=coldstart_single_seed_shape_discovery,
         compatibility_failure_buckets=("dpo_reference_identity_failures",),
         method_audit_fn=method_audit,
         audited_status_fn=lambda all_complete: _audited_scientific_status(
