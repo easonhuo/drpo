@@ -3906,9 +3906,19 @@ def cmd_run_dynamic(
     """Run the cold-start plan through method-agnostic slot scheduling."""
 
     if not _is_coldstart(config):
-        raise RuntimeError("Dynamic scheduling is frozen for the cold-start profile only")
-    _require_calibration_gate(config, output_root, base_model_path=base_model_path)
-    _require_liveness_gate(config, output_root, base_model_path=base_model_path)
+        raise RuntimeError(
+            "Dynamic scheduling is frozen for the cold-start profile only"
+        )
+    _require_calibration_gate(
+        config,
+        output_root,
+        base_model_path=base_model_path,
+    )
+    _require_liveness_gate(
+        config,
+        output_root,
+        base_model_path=base_model_path,
+    )
     cells = build_cells(config)
     gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
     slots_per_gpu = int(config["execution"]["slots_per_gpu"])
@@ -3916,7 +3926,10 @@ def cmd_run_dynamic(
         config["execution"].get("seed_batch_barriers")
     )
     seed_order = (
-        tuple(int(value) for value in config["execution"].get("seed_batch_order", ()))
+        tuple(
+            int(value)
+            for value in config["execution"].get("seed_batch_order", ())
+        )
         if seed_barrier
         else None
     )
@@ -3924,12 +3937,16 @@ def cmd_run_dynamic(
         cells,
         gpu_ids=gpu_ids,
         slots_per_gpu=slots_per_gpu,
-        max_concurrent_cells=int(config["execution"]["max_concurrent_cells"]),
+        max_concurrent_cells=int(
+            config["execution"]["max_concurrent_cells"]
+        ),
         seed_barrier=seed_barrier,
         seed_order=seed_order,
     )
     if geometry.slot_count != 16:
-        raise RuntimeError("Declared 16-slot capacity is internally inconsistent")
+        raise RuntimeError(
+            "Declared 16-slot capacity is internally inconsistent"
+        )
 
     nominal_batch = {
         cell.key: index
@@ -3939,24 +3956,22 @@ def cmd_run_dynamic(
     event_path = output_root / "scheduler" / "queue_events.jsonl"
     event_path.parent.mkdir(parents=True, exist_ok=True)
     scheduler_run_id = f"queue-{int(time.time())}-{os.getpid()}"
-    task_result_lock = threading.Lock()
-    checkpoint_lock = threading.Lock()
-    task_results: dict[str, dict[str, Any]] = {}
     recovery_package_value = os.environ.get(
         "E8_COLDSTART_RECOVERY_PACKAGE", ""
     ).strip()
     recovery_package = (
-        Path(recovery_package_value).resolve() if recovery_package_value else None
+        Path(recovery_package_value).resolve()
+        if recovery_package_value
+        else None
     )
     recovery_interval = int(
         os.environ.get("E8_COLDSTART_RECOVERY_INTERVAL_CELLS", "5")
     )
     if recovery_interval <= 0:
-        raise ValueError("E8_COLDSTART_RECOVERY_INTERVAL_CELLS must be positive")
+        raise ValueError(
+            "E8_COLDSTART_RECOVERY_INTERVAL_CELLS must be positive"
+        )
     initially_reusable, _ = _reusable_cell_manifests(config, output_root)
-    last_checkpoint_count = (
-        len(initially_reusable) // recovery_interval
-    ) * recovery_interval
 
     def record(event: Mapping[str, Any]) -> None:
         append_jsonl(
@@ -3968,36 +3983,27 @@ def cmd_run_dynamic(
             },
         )
 
-    def publish_completed_task(task: str) -> None:
-        with task_result_lock:
-            if task in task_results:
-                return
-            ready = _materialize_completed_coldstart_task_results(
-                config,
-                output_root,
-                tasks=(task,),
-            )
-            if task in ready:
-                task_results[task] = ready[task]
-
-    def run_cell(cell: Cell, slot: int, gpu_id: int) -> Mapping[str, Any]:
-        del slot
-        cell_root = output_root / "cells" / cell.key
-        manifest_path = cell_root / "cell_manifest.json"
-        reusable_complete = False
-        if manifest_path.is_file():
-            try:
-                reusable_complete = bool(
-                    json.loads(manifest_path.read_text(encoding="utf-8")).get(
-                        "complete"
-                    )
-                )
-            except (OSError, json.JSONDecodeError):
-                reusable_complete = False
-        child_force = force or (
-            retry_incomplete and cell_root.exists() and not reusable_complete
+    def is_reusable_complete(cell: Cell) -> bool:
+        manifest_path = (
+            output_root / "cells" / cell.key / "cell_manifest.json"
         )
-        result = _run_subprocess_cell(
+        if not manifest_path.is_file():
+            return False
+        try:
+            return bool(
+                json.loads(
+                    manifest_path.read_text(encoding="utf-8")
+                ).get("complete")
+            )
+        except (OSError, json.JSONDecodeError):
+            return False
+
+    def execute_cell(
+        cell: Cell,
+        gpu_id: int,
+        child_force: bool,
+    ) -> Mapping[str, Any]:
+        return _run_subprocess_cell(
             config_path=config_path.resolve(),
             output_root=output_root.resolve(),
             base_model_path=base_model_path,
@@ -4005,97 +4011,59 @@ def cmd_run_dynamic(
             gpu_id=gpu_id,
             force=child_force,
         )
-        if int(result["returncode"]) == 0:
-            try:
-                completed_manifest = _read_json_object(manifest_path)
-                if (
-                    completed_manifest.get("complete") is not True
-                    or completed_manifest.get("evaluation_status") != "complete"
-                    or completed_manifest.get("nan_inf_failure") is not False
-                ):
-                    raise RuntimeError(
-                        "child returned zero without a complete finite cell"
-                    )
-            except (
-                OSError,
-                ValueError,
-                TypeError,
-                RuntimeError,
-                json.JSONDecodeError,
-            ) as exc:
-                result["returncode"] = 75
-                result["cell_completion_error"] = (
-                    f"{type(exc).__name__}: {exc}"
-                )
-        result["nominal_batch"] = nominal_batch[cell.key]
-        return result
 
-    def after_success(cell: Cell, row: Mapping[str, Any]) -> None:
-        nonlocal last_checkpoint_count
-        mutable = row if isinstance(row, dict) else dict(row)
-        if recovery_package is not None:
-            try:
-                with checkpoint_lock:
-                    current_reusable, _ = _reusable_cell_manifests(
-                        config, output_root
-                    )
-                    completed_count = len(current_reusable)
-                    if completed_count >= last_checkpoint_count + recovery_interval:
-                        checkpoint = _publish_recovery_checkpoint(
-                            config,
-                            output_root,
-                            package_output=recovery_package,
-                        )
-                        last_checkpoint_count = int(
-                            checkpoint["completed_cells"]
-                        )
-                        mutable["recovery_checkpoint"] = checkpoint["package"]
-                        mutable["recovery_checkpoint_completed_cells"] = (
-                            last_checkpoint_count
-                        )
-            except Exception:
-                mutable["returncode"] = 74
-                raise
-        publish_completed_task(cell.task)
-
-    results = list(
-        e8_orchestration.run_dynamic_queue(
-            cells,
-            gpu_ids=gpu_ids,
-            slots_per_gpu=slots_per_gpu,
-            max_concurrent_cells=geometry.slot_count,
-            seed_barrier=seed_barrier,
-            seed_order=seed_order,
-            callbacks=e8_orchestration.SchedulerCallbacks(
-                run_cell=run_cell,
-                record_event=record,
-                after_success=after_success,
-            ),
+    def completed_cell_error(cell: Cell) -> str | None:
+        manifest_path = (
+            output_root / "cells" / cell.key / "cell_manifest.json"
         )
-    )
-    results.sort(key=lambda row: str(row["cell_key"]))
-    failures = [row for row in results if int(row["returncode"]) != 0]
-    returned_keys = {str(row["cell_key"]) for row in results}
-    completed_keys = {
-        str(row["cell_key"])
-        for row in results
-        if int(row["returncode"]) == 0
-    }
-    unscheduled = [cell.key for cell in cells if cell.key not in returned_keys]
-    seed_expected = dict(geometry.expected_cells_by_seed) if seed_barrier else {}
-    seed_completed = (
-        {
-            seed: sum(
-                int(row["returncode"]) == 0 and int(row["seed"]) == seed
-                for row in results
+        try:
+            completed_manifest = _read_json_object(manifest_path)
+            if (
+                completed_manifest.get("complete") is not True
+                or completed_manifest.get("evaluation_status") != "complete"
+                or completed_manifest.get("nan_inf_failure") is not False
+            ):
+                raise RuntimeError(
+                    "child returned zero without a complete finite cell"
+                )
+        except (
+            OSError,
+            ValueError,
+            TypeError,
+            RuntimeError,
+            json.JSONDecodeError,
+        ) as exc:
+            return f"{type(exc).__name__}: {exc}"
+        return None
+
+    def publish_task(task: str) -> Mapping[str, Any] | None:
+        ready = _materialize_completed_coldstart_task_results(
+            config,
+            output_root,
+            tasks=(task,),
+        )
+        return ready.get(task)
+
+    def reusable_cell_count() -> int:
+        current_reusable, _ = _reusable_cell_manifests(
+            config,
+            output_root,
+        )
+        return len(current_reusable)
+
+    def publish_checkpoint() -> Mapping[str, Any]:
+        if recovery_package is None:
+            raise RuntimeError(
+                "Recovery checkpoint callback requires a configured package"
             )
-            for seed in geometry.seed_order
-        }
-        if seed_barrier
-        else {}
-    )
-    protocol_diagnostic = (
-        _countdown_protocol_diagnostic(
+        return _publish_recovery_checkpoint(
+            config,
+            output_root,
+            package_output=recovery_package,
+        )
+
+    def protocol_diagnostic() -> Mapping[str, Any]:
+        return _countdown_protocol_diagnostic(
             config,
             output_root,
             destination=(
@@ -4104,64 +4072,59 @@ def cmd_run_dynamic(
                 / "countdown_protocol_diagnostic.json"
             ),
         )
-        if not failures and not unscheduled
-        else {
-            "status": "PENDING",
-            "result_gate": False,
-            "controls_task_transfer_release": False,
-        }
-    )
-    manifest = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "scheduler": "dynamic_slot_queue",
-        "scheduler_run_id": scheduler_run_id,
-        "wave_barriers": False,
-        "wave_count": len(build_waves(config)),
-        "wave_count_role": (
+
+    manifest = e8_orchestration.run_dynamic_execution(
+        cells,
+        gpu_ids=gpu_ids,
+        slots_per_gpu=slots_per_gpu,
+        max_concurrent_cells=geometry.slot_count,
+        seed_barrier=seed_barrier,
+        seed_order=seed_order,
+        nominal_batch=nominal_batch,
+        force=force,
+        retry_incomplete=retry_incomplete,
+        recovery_interval=recovery_interval,
+        initial_reusable_count=len(initially_reusable),
+        scheduler_run_id=scheduler_run_id,
+        wave_count=len(build_waves(config)),
+        wave_count_role=(
             "seed_local_nominal_capacity_audit_only"
             if seed_barrier
             else "nominal_audit_geometry_only_not_scheduling_barrier"
         ),
-        "seed_batch_barriers": seed_barrier,
-        "seed_batch_order": list(geometry.seed_order) if seed_barrier else [],
-        "seed_batch_expected_cells": {
-            str(key): value for key, value in seed_expected.items()
-        },
-        "seed_batch_completed_cells": {
-            str(key): value for key, value in seed_completed.items()
-        },
-        "execution_class": _execution_class(config),
-        "slot_count": geometry.slot_count,
-        "gpu_ids": list(gpu_ids),
-        "slots_per_gpu": slots_per_gpu,
-        "countdown_protocol_diagnostic": protocol_diagnostic,
-        "countdown_result_controls_transfer_release": False,
-        "expected_cells": len(cells),
-        "completed_cells": len(completed_keys),
-        "results": results,
-        "failed_cells": [row["cell_key"] for row in failures],
-        "unscheduled_cells": unscheduled,
-        "queue_events": str(event_path.resolve()),
-        "analysis_ready_tasks": sorted(task_results),
-        "task_results": task_results,
-        "complete": (
-            not failures
-            and not unscheduled
-            and len(completed_keys) == len(cells)
+        experiment_id_value=experiment_id(config),
+        execution_class=_execution_class(config),
+        queue_events_path=str(event_path.resolve()),
+        scientific_status=(
+            "not_run"
+            if _is_engineering_self_test(config)
+            else "pilot"
         ),
-        "scientific_status": (
-            "not_run" if _is_engineering_self_test(config) else "pilot"
+        engineering_placeholder_backend=_is_engineering_self_test(config),
+        hooks=e8_orchestration.DynamicExecutionHooks(
+            execute_cell=execute_cell,
+            is_reusable_complete=is_reusable_complete,
+            completed_cell_error=completed_cell_error,
+            publish_task=publish_task,
+            reusable_cell_count=reusable_cell_count,
+            publish_checkpoint=(
+                publish_checkpoint
+                if recovery_package is not None
+                else None
+            ),
+            record_event=record,
+            protocol_diagnostic=protocol_diagnostic,
         ),
-        "engineering_placeholder_backend": _is_engineering_self_test(config),
-    }
+    )
     atomic_json(output_root / "scheduler" / "dynamic_run.json", manifest)
-    if failures or unscheduled:
+    if manifest["failed_cells"] or manifest["unscheduled_cells"]:
         raise RuntimeError(
             "Cold-start scheduling stopped fail-closed; "
-            f"failed={manifest['failed_cells']} unscheduled={len(unscheduled)}"
+            f"failed={manifest['failed_cells']} "
+            f"unscheduled={len(manifest['unscheduled_cells'])}"
         )
     return manifest
+
 
 
 def cmd_run_all(
