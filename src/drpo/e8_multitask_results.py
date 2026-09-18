@@ -1100,27 +1100,28 @@ def cmd_aggregate(
                 dict(coldstart_result_row_fn(cell, value, source))
             )
             continue
-        rows.append(
-            common_result_row(
-                cell,
-                source=source,
-                method_columns=method_columns_fn(cell),
-                metrics={
-                    "nan_inf_failure": bool(value["nan_inf_failure"]),
-                    "late_window_pass8_mean": value[
-                        "validation_late_window_pass8_mean"
-                    ],
-                    "terminal_pass8": value["validation_terminal_pass8"],
-                    "late_window_greedy_mean": value[
-                        "validation_late_window_greedy_mean"
-                    ],
-                    "terminal_greedy": value["validation_terminal_greedy"],
-                    "terminal_greedy_valid_rate": value[
-                        "validation_terminal_greedy_valid_rate"
-                    ],
-                },
-            )
-        )
+        row = {
+            "source": source,
+            "task": cell.task,
+            "method": cell.method,
+            **dict(method_columns_fn(cell)),
+            "seed": int(cell.seed),
+            "stage": cell.stage,
+            "cell_key": cell.key,
+            "nan_inf_failure": bool(value["nan_inf_failure"]),
+            "late_window_pass8_mean": value[
+                "validation_late_window_pass8_mean"
+            ],
+            "terminal_pass8": value["validation_terminal_pass8"],
+            "late_window_greedy_mean": value[
+                "validation_late_window_greedy_mean"
+            ],
+            "terminal_greedy": value["validation_terminal_greedy"],
+            "terminal_greedy_valid_rate": value[
+                "validation_terminal_greedy_valid_rate"
+            ],
+        }
+        rows.append(row)
 
     if missing:
         raise RuntimeError(
