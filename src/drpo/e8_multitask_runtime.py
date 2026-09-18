@@ -453,6 +453,7 @@ def import_recovery(
     source_output_root: Path,
     base_model_path: str,
     source_commit: str,
+    schema_version: int,
     transient_top_level: set[str],
     transient_files: set[str],
     effective_config_fn: Callable[[Mapping[str, Any], Path], dict[str, Any]],
@@ -586,7 +587,7 @@ def import_recovery(
         for key in sorted(reusable)
     ]
     import_manifest = {
-        "schema_version": 1,
+        "schema_version": int(schema_version),
         "experiment_id": experiment_id_fn(effective),
         "source_commit": source_commit,
         "source_output_root": source_text,
