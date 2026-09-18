@@ -1047,11 +1047,15 @@ structured-generation tasks.}
 \subsubsection{Remoteness as an Independent Source of Update Magnitude}
 \label{sec:controlled_source}
 
-\begin{figure}[t]
+\begin{figure*}[t]
+\centering
+
+\begin{minipage}[t]{0.49\textwidth}
     \centering
+    \vspace{0pt}
 
     \includegraphics[
-        width=0.92\columnwidth,
+        width=0.92\linewidth,
         trim={0pt 2pt 0pt 2pt},
         clip
     ]{figures/fig_6_3_1_source_heatmap.pdf}
@@ -1059,7 +1063,7 @@ structured-generation tasks.}
     \vspace{0.35em}
 
     \includegraphics[
-        width=0.92\columnwidth,
+        width=0.92\linewidth,
         trim={0pt 2pt 0pt 2pt},
         clip
     ]{figures/fig_6_3_2_rescue_plot.pdf}
@@ -1076,7 +1080,29 @@ structured-generation tasks.}
     collapse counts.
 }
     \label{fig:controlled_6_3}
-\end{figure}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.49\textwidth}
+    \centering
+    \vspace{0pt}
+
+    \includegraphics[
+        width=0.86\linewidth
+    ]{figures/fig_6_4_1_phase_transition.pdf}
+
+    \vspace{-0.35em}
+\caption{
+    \textbf{Stable extrapolation from controlled negative feedback.}
+    Increasing \(q/p\) first lifts held-out-context reward above the
+    positive-only ceiling, then causes over-extrapolation and task-performance
+    collapse; policy shift measures displacement from the positive-only target.
+    The strip reports task collapse, boundary events, and NaN/Inf failures
+    separately.
+}
+    \label{fig:phase_transition_6_4_1}
+\end{minipage}
+
+\end{figure*}
 
 We first isolate whether remoteness changes update magnitude independently of
 sample quality. In C-U1, negative actions are
@@ -1133,23 +1159,7 @@ dominance and permits controlled comparisons of taper shape.
 \subsubsection{Stable Extrapolation from Controlled Negative Feedback}
 \label{sec:controlled_negative_strength}
 
-\begin{figure}[t]
-    \centering
-    \includegraphics[
-        width=0.95\columnwidth
-    ]{figures/fig_6_4_1_phase_transition.pdf}
 
-    \vspace{-0.35em}
-\caption{
-    \textbf{Stable extrapolation from controlled negative feedback.}
-    Increasing \(q/p\) first lifts held-out-context reward above the
-    positive-only ceiling, then causes over-extrapolation and task-performance
-    collapse; policy shift measures displacement from the positive-only target.
-    The strip reports task collapse, boundary events, and NaN/Inf failures
-    separately.
-}
-    \label{fig:phase_transition_6_4_1}
-\end{figure}
 
 We sweep the effective negative strength relative to positive attraction,
 denoted by $q/p$, under the matched-control invariants above; protocol and
