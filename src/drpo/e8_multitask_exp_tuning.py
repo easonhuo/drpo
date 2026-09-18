@@ -3985,36 +3985,32 @@ def _coldstart_result_row(
 
 
 
+
 def _coldstart_completed_task_rows(
     config: Mapping[str, Any],
     output_root: Path,
     task: str,
 ) -> list[dict[str, Any]] | None:
-    """Return task-local response rows once every frozen cell for the task is complete."""
-
     if not _is_coldstart(config):
-        raise RuntimeError("Per-task early result materialization is cold-start only")
-    expected = [cell for cell in build_cells(config) if cell.task == task]
-    if not expected:
-        return None
-    expected_hash = stable_config_hash(config)
-    rows: list[dict[str, Any]] = []
-    for cell in expected:
-        path = output_root / "cells" / cell.key / "cell_manifest.json"
-        if not path.is_file():
-            return None
-        value = json.loads(path.read_text(encoding="utf-8"))
-        if value.get("complete") is not True or value.get("evaluation_status") != "complete":
-            return None
-        if (
-            value.get("experiment_id") != experiment_id(config)
-            or value.get("config_hash") != expected_hash
-        ):
-            raise RuntimeError(f"{cell.key} per-task result identity mismatch")
-        rows.append(
-            _coldstart_result_row(config, cell, value, source="current")
+        raise RuntimeError(
+            "Per-task early result materialization is cold-start only"
         )
-    return rows
+    expected = [
+        cell for cell in build_cells(config) if cell.task == task
+    ]
+    return e8_results.coldstart_completed_task_rows(
+        output_root,
+        task=task,
+        expected_cells=expected,
+        experiment_id_value=experiment_id(config),
+        config_hash=stable_config_hash(config),
+        result_row_fn=lambda cell, value: _coldstart_result_row(
+            config,
+            cell,
+            value,
+            source="current",
+        ),
+    )
 
 
 def _write_coldstart_task_result(
@@ -4040,23 +4036,27 @@ def _write_coldstart_task_result(
 
 
 
+
 def _materialize_completed_coldstart_task_results(
     config: Mapping[str, Any],
     output_root: Path,
     *,
     tasks: Sequence[str] | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """Publish fully complete tasks independently of nominal-batch boundaries."""
-
-    ready: dict[str, dict[str, Any]] = {}
-    task_values = config["suite"]["tasks"] if tasks is None else tasks
-    for task_value in task_values:
-        task = str(task_value)
-        rows = _coldstart_completed_task_rows(config, output_root, task)
-        if rows is None:
-            continue
-        ready[task] = _write_coldstart_task_result(config, output_root, task, rows)
-    return ready
+    task_values = (
+        tuple(str(value) for value in config["suite"]["tasks"])
+        if tasks is None
+        else tuple(str(value) for value in tasks)
+    )
+    return e8_results.materialize_completed_task_results(
+        task_values,
+        completed_rows_fn=lambda task: _coldstart_completed_task_rows(
+            config, output_root, task
+        ),
+        write_task_result_fn=lambda task, rows: _write_coldstart_task_result(
+            config, output_root, task, rows
+        ),
+    )
 
 
 def _aggregate_dense(
@@ -4156,35 +4156,46 @@ def _aggregate_coldstart_matrix_unranked(
 
 
 
+
 def _aggregate_coldstart(
     config: Mapping[str, Any],
     output_root: Path,
     rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    if _is_method_matrix(config):
-        return _aggregate_coldstart_matrix_unranked(config, output_root, rows)
-    if _coldstart_method(config) != METHOD_EXPONENTIAL:
-        return _aggregate_coldstart_unranked(config, output_root, rows)
-    protocol_diagnostic = _countdown_protocol_diagnostic(
-        config,
-        output_root,
-        destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
-    )
-    return e8_results._aggregate_coldstart_exponential(
-        config,
-        output_root,
+    method = _coldstart_method(config)
+    return e8_results.aggregate_coldstart_dispatch(
         rows,
-        configured_cells=build_cells(config),
-        experiment_id_value=experiment_id(config),
-        protocol_diagnostic_value=protocol_diagnostic,
-        engineering_self_test=_is_engineering_self_test(config),
-        positive_only_method=METHOD_POSITIVE_ONLY,
-        global_method=METHOD_GLOBAL,
+        method_matrix=_is_method_matrix(config),
+        method=method,
         exponential_method=METHOD_EXPONENTIAL,
-        write_json=atomic_json,
+        matrix_fn=lambda values: _aggregate_coldstart_matrix_unranked(
+            config, output_root, values
+        ),
+        unranked_fn=lambda values: _aggregate_coldstart_unranked(
+            config, output_root, values
+        ),
+        exponential_fn=lambda values: e8_results._aggregate_coldstart_exponential(
+            config,
+            output_root,
+            values,
+            configured_cells=build_cells(config),
+            experiment_id_value=experiment_id(config),
+            protocol_diagnostic_value=_countdown_protocol_diagnostic(
+                config,
+                output_root,
+                destination=(
+                    output_root
+                    / "aggregate"
+                    / "countdown_protocol_diagnostic.json"
+                ),
+            ),
+            engineering_self_test=_is_engineering_self_test(config),
+            positive_only_method=METHOD_POSITIVE_ONLY,
+            global_method=METHOD_GLOBAL,
+            exponential_method=METHOD_EXPONENTIAL,
+            write_json=atomic_json,
+        ),
     )
-
-
 
 
 def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
