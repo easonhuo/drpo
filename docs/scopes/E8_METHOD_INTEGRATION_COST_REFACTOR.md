@@ -208,3 +208,36 @@ Implementation stays on the single branch `dev/e8-method-integration-cost-refact
 Each phase should leave the branch in a reviewable state. If compatibility cannot be maintained without changing scientific semantics, stop the refactor and report the conflict instead of weakening the frozen experiment contract.
 
 No merge to `main` is authorized until explicit owner approval after diff/test review.
+
+## Follow-up cleanup — extraction residue closure (2026-09-18)
+
+Base commit: `0a85204ccdd759ffe89ea8af9cb868d4503448aa`.
+
+This is a post-merge, code-only cleanup of the already-approved E8 architecture split. The repository owner authorized continuing the cleanup after reviewing the 5,176-line composition root. The scientific experiment remains `EXT-C-E8-MULTITASK-BASELINE-MATRIX-01 = not_run`; no model training or scientific result is part of this follow-up.
+
+### Scope
+
+The follow-up may only:
+
+- remove functions proven to have no repository consumer;
+- collapse duplicate result-materialization paths into one implementation path;
+- move command-level recovery/runtime, aggregation/result, audit, and dynamic-execution lifecycle assembly into the already-approved `e8_multitask_runtime.py`, `e8_multitask_results.py`, and `e8_multitask_orchestration.py` responsibilities;
+- retain thin compatibility facades only where current tests, CLI callers, monkey-patching, or historical API compatibility demonstrably require them;
+- delete redundant forwarding aliases when no repository caller depends on them.
+
+It must not alter method mathematics, frozen configs, cell identities, seeds, 1,200-step horizon, seed barriers, recovery identity, audit meaning, package schema, experiment status, or any scientific acceptance condition. It must not add a gate or create another Python module.
+
+### Initial audit findings
+
+At the base commit:
+
+- `_canonical_liveness_base_config` has no repository caller and is eligible for deletion.
+- `_materialize_completed_coldstart_task_results` is test-called while `cmd_run_dynamic` separately implements the same task-completion publication path; these should converge to one production path.
+- result/recovery functions already delegated into sibling modules still leave substantial composition-root forwarding/assembly residue.
+- `cmd_run_dynamic` should remain scientifically opaque and preserve exact queue, seed-barrier, recovery-checkpoint, task-publication, and failure semantics while lifecycle mechanics move behind the existing orchestration boundary.
+- historical rho/dense behavior remains compatibility code and is not authorized for destructive deletion.
+
+### Validation
+
+Before merge, run the existing focused E8 pytest suite, method-integration contract, Python compilation, Ruff on the changed surface, governance/handoff verification, and broad pytest. Any GPU/model-dependent test not actually executed must be reported as unexecuted. The final diff must be reviewed for scientific-semantic drift, and `EXT-C-E8-MULTITASK-BASELINE-MATRIX-01` must remain `not_run`.
+

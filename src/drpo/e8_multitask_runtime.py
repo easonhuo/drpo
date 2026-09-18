@@ -6,6 +6,8 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
+import sys
 import tarfile
 import time
 import zipfile
@@ -440,6 +442,438 @@ def recovery_checkpoint_snapshot(
         shutil.rmtree(snapshot_root)
     os.replace(temporary, snapshot_root)
     return payload
+
+
+
+
+def import_recovery(
+    config: Mapping[str, Any],
+    output_root: Path,
+    *,
+    source_output_root: Path,
+    base_model_path: str,
+    source_commit: str,
+    schema_version: int,
+    transient_top_level: set[str],
+    transient_files: set[str],
+    effective_config_fn: Callable[[Mapping[str, Any], Path], dict[str, Any]],
+    recovery_stage_plan_fn: Callable[..., Mapping[str, Any]],
+    experiment_id_fn: Callable[[Mapping[str, Any]], str],
+    sha256_fn: Callable[[Path], str],
+    write_json: Callable[[Path, Any], None],
+) -> dict[str, Any]:
+    """Import identity-checked reusable cells from a prior output tree."""
+
+    source_output_root = source_output_root.resolve()
+    output_root = output_root.resolve()
+    if source_output_root == output_root:
+        raise ValueError("Recovery source and destination must differ")
+    if not source_output_root.is_dir():
+        raise FileNotFoundError(f"Recovery source does not exist: {source_output_root}")
+    if output_root.exists() and any(output_root.iterdir()):
+        raise RuntimeError("Recovery destination must be new and empty")
+    if len(source_commit) != 40 or any(
+        character not in "0123456789abcdef" for character in source_commit
+    ):
+        raise ValueError("Recovery import requires one full lowercase source commit")
+
+    provenance = read_json_object(source_output_root / "source_provenance.json")
+    if provenance.get("source_commit") != source_commit:
+        raise RuntimeError(
+            "Recovery source commit does not match the reviewed execution commit"
+        )
+    output_root.mkdir(parents=True, exist_ok=True)
+    effective = effective_config_fn(config, source_output_root)
+    source_plan = recovery_stage_plan_fn(
+        effective,
+        source_output_root,
+        base_model_path=base_model_path,
+    )
+    reusable = (
+        set(source_plan["reusable_cell_keys"])
+        if source_plan["prepare_complete"]
+        else set()
+    )
+    source_text = str(source_output_root)
+    destination_text = str(output_root)
+    linked_files = 0
+    linked_bytes = 0
+    source_cell_hashes = {
+        key: sha256_fn(source_output_root / "cells" / key / "cell_manifest.json")
+        for key in reusable
+    }
+
+    if source_plan["prepare_complete"]:
+        recovery_label = source_output_root.parent.name
+
+        def mapped_relative(relative: Path) -> Path | None:
+            if relative.parts[0] in transient_top_level:
+                return None
+            if len(relative.parts) == 1 and relative.name in transient_files:
+                return None
+            if relative.parts[0] == "cells" and (
+                len(relative.parts) < 2 or relative.parts[1] not in reusable
+            ):
+                return None
+            if (
+                relative.parts[0] == "liveness"
+                and not source_plan["liveness_complete"]
+            ):
+                return None
+            if relative.parts[0] == "logs":
+                return (
+                    Path("logs")
+                    / f"recovered_{recovery_label}"
+                    / Path(*relative.parts[1:])
+                )
+            return relative
+
+        for source in sorted(
+            path for path in source_output_root.rglob("*") if path.is_dir()
+        ):
+            if source.is_symlink():
+                raise RuntimeError(f"Recovery refuses symbolic links: {source}")
+            relative = mapped_relative(source.relative_to(source_output_root))
+            if relative is not None:
+                (output_root / relative).mkdir(parents=True, exist_ok=True)
+        for source in sorted(source_output_root.rglob("*")):
+            if source.is_symlink():
+                raise RuntimeError(f"Recovery refuses symbolic links: {source}")
+            if not source.is_file():
+                continue
+            relative = mapped_relative(source.relative_to(source_output_root))
+            if relative is None:
+                continue
+            destination = output_root / relative
+            hardlink_file(source, destination)
+            linked_files += 1
+            linked_bytes += source.stat().st_size
+
+        for path in (
+            output_root / "prepare_manifest.json",
+            output_root / "split_manifest.json",
+            output_root / "source_provenance.json",
+        ):
+            if not path.is_file():
+                continue
+            try:
+                value = read_json_object(path)
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                continue
+            updated = replace_path_prefix(value, source_text, destination_text)
+            if updated != value:
+                write_json(path, updated)
+
+        for key, source_hash in sorted(source_cell_hashes.items()):
+            manifest_path = output_root / "cells" / key / "cell_manifest.json"
+            value = read_json_object(manifest_path)
+            value = replace_path_prefix(value, source_text, destination_text)
+            value["recovery_provenance"] = {
+                "source_output_root": source_text,
+                "source_manifest_sha256": source_hash,
+                "import_mode": "identity_checked_hardlink",
+                "scientific_variables_changed": False,
+            }
+            write_json(manifest_path, value)
+
+    imported_cell_manifests = [
+        {
+            "cell_key": key,
+            "source_manifest_sha256": source_cell_hashes[key],
+            "imported_manifest_sha256": sha256_fn(
+                output_root / "cells" / key / "cell_manifest.json"
+            ),
+        }
+        for key in sorted(reusable)
+    ]
+    import_manifest = {
+        "schema_version": int(schema_version),
+        "experiment_id": experiment_id_fn(effective),
+        "source_commit": source_commit,
+        "source_output_root": source_text,
+        "destination_output_root": destination_text,
+        "source_plan": source_plan,
+        "imported_reusable_cells": sorted(reusable),
+        "imported_cell_manifests": imported_cell_manifests,
+        "linked_files": linked_files,
+        "linked_bytes": linked_bytes,
+        "copy_mode": "hardlink_read_only_then_copy_on_atomic_json_rewrite",
+        "incomplete_cells_imported": False,
+        "scientific_variables_changed": False,
+        "complete": True,
+    }
+    write_json(output_root / "recovery" / "IMPORT_MANIFEST.json", import_manifest)
+    return import_manifest
+
+
+def publish_recovery_checkpoint(
+    *,
+    payload: Mapping[str, Any],
+    snapshot_root: Path,
+    package_output: Path,
+    repo_root: Path,
+    experiment_id_value: str,
+    source_commit: str,
+    require_origin_main_match: bool,
+    mirror_value: str,
+    sha256_fn: Callable[[Path], str],
+    write_json: Callable[[Path, Any], None],
+) -> dict[str, Any]:
+    """Package and optionally mirror an already-materialized recovery snapshot."""
+
+    command = [
+        sys.executable,
+        str(repo_root / "scripts" / "package_experiment_hardened.py"),
+        "--repo-root",
+        str(repo_root),
+        "--experiment-id",
+        experiment_id_value,
+        "--package-kind",
+        "experiment-checkpoint",
+        "--result-dir",
+        str(snapshot_root),
+        "--output",
+        str(package_output),
+        "--base-commit",
+        source_commit,
+        "--no-repository-changes",
+        "--large-file-persistence",
+        "persistent_local",
+        "--source-file",
+        "scripts/run_e8_multitask_exp_coldstart.sh",
+        "--source-file",
+        "src/drpo/e8_multitask_exp_tuning.py",
+    ]
+    if require_origin_main_match:
+        command.append("--require-origin-main-match")
+    completed = subprocess.run(
+        command,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(
+            "Recovery checkpoint packaging failed: "
+            + (completed.stderr.strip() or completed.stdout.strip())
+        )
+
+    mirror_value = mirror_value.strip()
+    mirror_path: Path | None = None
+    if mirror_value:
+        mirror_root = Path(mirror_value).resolve()
+        mirror_root.mkdir(parents=True, exist_ok=True)
+        mirror_path = mirror_root / package_output.name
+        temporary = mirror_path.with_name(f".{mirror_path.name}.tmp-{os.getpid()}")
+        shutil.copy2(package_output, temporary)
+        if sha256_fn(temporary) != sha256_fn(package_output):
+            temporary.unlink(missing_ok=True)
+            raise RuntimeError("Recovery mirror copy failed checksum verification")
+        os.replace(temporary, mirror_path)
+
+    status = {
+        **dict(payload),
+        "package": str(package_output.resolve()),
+        "package_sha256": sha256_fn(package_output),
+        "mirror": str(mirror_path) if mirror_path else None,
+        "mirror_configured": mirror_path is not None,
+        "complete": True,
+    }
+    write_json(package_output.parent / "RECOVERY_CHECKPOINT_STATUS.json", status)
+    return status
+
+
+def terminal_audit(
+    output_root: Path,
+    *,
+    cells: Sequence[CellLike],
+    experiment_id_value: str,
+    expected_terminal_step: int,
+    engineering_self_test: bool,
+    dense_profile: bool,
+    coldstart_profile: bool,
+    method_matrix: bool,
+    execution_class: str,
+    excluded_tasks: Mapping[str, Any],
+    seed_batch_order: Sequence[int],
+    transfer_exp_single_seed_response_shape_localization: bool,
+    coldstart_single_seed_shape_discovery: bool,
+    compatibility_failure_buckets: Sequence[str],
+    method_audit_fn: Callable[
+        [CellLike, Mapping[str, Any]], MethodAuditResult
+    ],
+    audited_status_fn: Callable[[bool], str],
+    write_json: Callable[[Path, Any], None],
+) -> dict[str, Any]:
+    """Run method-agnostic terminal checks with method evidence supplied by a hook."""
+
+    provenance_path = output_root / "source_provenance.json"
+    if not provenance_path.is_file():
+        raise RuntimeError(
+            "source_provenance.json is required before terminal audit"
+        )
+    provenance = read_json_object(provenance_path)
+    base_commit = str(provenance.get("source_commit", ""))
+    if len(base_commit) != 40 or any(
+        char not in "0123456789abcdef" for char in base_commit
+    ):
+        raise RuntimeError(
+            "source_provenance.json must contain one full lowercase Git SHA"
+        )
+
+    missing: list[str] = []
+    incomplete: list[str] = []
+    nan_inf: list[str] = []
+    terminal_contract_failures: list[str] = []
+    method_failure_buckets = {
+        str(bucket): [] for bucket in compatibility_failure_buckets
+    }
+    for cell in cells:
+        cell_root = output_root / "cells" / cell.key
+        path = cell_root / "cell_manifest.json"
+        if not path.is_file():
+            failure_path = cell_root / "failure.json"
+            if failure_path.is_file():
+                failure = read_json_object(failure_path)
+                incomplete.append(cell.key)
+                if failure.get("nan_inf_failure"):
+                    nan_inf.append(cell.key)
+            else:
+                missing.append(cell.key)
+            continue
+
+        value = read_json_object(path)
+        if not value.get("complete") or value.get("evaluation_status") != "complete":
+            incomplete.append(cell.key)
+        if value.get("nan_inf_failure"):
+            nan_inf.append(cell.key)
+        if not engineering_self_test:
+            if (
+                int(value.get("terminal_step", -1)) != expected_terminal_step
+                or value.get("stop_reason") != "max_steps"
+                or value.get("test_partition_accessed") is not False
+            ):
+                terminal_contract_failures.append(cell.key)
+            method_audit = method_audit_fn(cell, value)
+            if not method_audit.passed:
+                bucket = str(method_audit.failure_bucket)
+                if bucket in method_failure_buckets:
+                    method_failure_buckets[bucket].append(cell.key)
+                else:
+                    terminal_contract_failures.append(cell.key)
+
+    inherited_complete = True
+    aggregate_complete = True
+    reproduction_gate_status: str | None = None
+    if dense_profile:
+        snapshot_path = output_root / "inherited" / "parent_snapshot.json"
+        aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
+        inherited_complete = snapshot_path.is_file() and bool(
+            read_json_object(snapshot_path).get("complete")
+        )
+        aggregate_complete = aggregate_path.is_file() and int(
+            read_json_object(aggregate_path).get("cell_count", 0)
+        ) == len(cells)
+    elif coldstart_profile:
+        aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
+        protocol_path = (
+            output_root / "aggregate" / "countdown_protocol_diagnostic.json"
+        )
+        if protocol_path.is_file():
+            reproduction_gate_status = str(
+                read_json_object(protocol_path).get("status")
+            )
+        expected_protocol_status = (
+            "NOT_RUN_ENGINEERING"
+            if engineering_self_test
+            else (
+                "NOT_RUN"
+                if not any(cell.task == "countdown" for cell in cells)
+                else "PASS"
+            )
+        )
+        aggregate_complete = (
+            aggregate_path.is_file()
+            and int(read_json_object(aggregate_path).get("cell_count", 0))
+            == len(cells)
+            and reproduction_gate_status == expected_protocol_status
+        )
+
+    seed_batch_protocol_complete: bool | None = None
+    if method_matrix:
+        scheduler_path = output_root / "scheduler" / "dynamic_run.json"
+        scheduler = (
+            read_json_object(scheduler_path)
+            if scheduler_path.is_file()
+            else {}
+        )
+        order = [int(value) for value in seed_batch_order]
+        expected = {
+            str(seed): sum(cell.seed == seed for cell in cells)
+            for seed in order
+        }
+        seed_batch_protocol_complete = (
+            scheduler.get("seed_batch_barriers") is True
+            and scheduler.get("seed_batch_order") == order
+            and scheduler.get("seed_batch_expected_cells") == expected
+            and scheduler.get("seed_batch_completed_cells") == expected
+            and scheduler.get("complete") is True
+        )
+
+    all_complete = (
+        not missing
+        and not incomplete
+        and not nan_inf
+        and not terminal_contract_failures
+        and not any(method_failure_buckets.values())
+        and inherited_complete
+        and aggregate_complete
+        and seed_batch_protocol_complete is not False
+    )
+    audit = {
+        "schema_version": 1,
+        "experiment_id": experiment_id_value,
+        "base_commit": base_commit,
+        "expected_cells": len(cells),
+        "missing_cells": sorted(set(missing)),
+        "incomplete_cells": sorted(set(incomplete)),
+        "nan_inf_cells": sorted(set(nan_inf)),
+        "terminal_contract_failures": sorted(
+            set(terminal_contract_failures)
+        ),
+        **{
+            bucket: sorted(set(values))
+            for bucket, values in method_failure_buckets.items()
+        },
+        "seed_batch_protocol_complete": seed_batch_protocol_complete,
+        "all_training_and_evaluation_complete": all_complete,
+        "execution_class": execution_class,
+        "test_partition_accessed": False,
+        "task_performance_event": (
+            "not_adjudicated_without_registered_collapse_threshold"
+        ),
+        "structure_event": "greedy_and_sampled_valid_rate_diagnostic_only",
+        "nan_inf_event_count": len(set(nan_inf)),
+        "inherited_parent_inputs_complete": inherited_complete,
+        "aggregate_complete": aggregate_complete,
+        "countdown_protocol_diagnostic_status": reproduction_gate_status,
+        "countdown_result_gate": False if coldstart_profile else None,
+        "transfer_exp_single_seed_response_shape_localization": (
+            transfer_exp_single_seed_response_shape_localization
+        ),
+        "excluded_tasks": dict(excluded_tasks),
+        "single_seed_shape_discovery": (
+            dense_profile or coldstart_single_seed_shape_discovery
+        ),
+        "fresh_seed_confirmation_required": (
+            dense_profile or coldstart_single_seed_shape_discovery
+        ),
+        "fixed_horizon_is_convergence": False,
+        "scientific_status": audited_status_fn(all_complete),
+        "engineering_placeholder_backend": engineering_self_test,
+    }
+    write_json(output_root / "terminal_audit.json", audit)
+    return audit
 
 
 def compact_logs(

@@ -19,11 +19,9 @@ import random
 import shutil
 import subprocess
 import sys
-import threading
 import time
 import traceback
 from collections.abc import Callable, Mapping, Sequence
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -2812,13 +2810,6 @@ def _canonical_environment_evaluator(*args: Any, **kwargs: Any) -> Any:
     return _canonical_bridge()._canonical_environment_evaluator(*args, **kwargs)
 
 
-def _canonical_generic_posthoc(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._canonical_generic_posthoc(*args, **kwargs)
-
-
-evaluate_model = e8_warmstart.evaluate_model
-
-
 def _cell_identity(
     cell: Cell,
     *,
@@ -2906,16 +2897,8 @@ def _summarize_evaluations(
 _load_cell_splits = e8_warmstart._load_cell_splits
 
 
-def _runtime_bridge_contract(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._runtime_bridge_contract(*args, **kwargs)
-
-
 def _legacy_arena_runtime_bridge(*args: Any, **kwargs: Any) -> Any:
     return _canonical_bridge()._legacy_arena_runtime_bridge(*args, **kwargs)
-
-
-def _validated_runtime_grid(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._validated_runtime_grid(*args, **kwargs)
 
 
 def _legacy_paper_runtime_bridge(*args: Any, **kwargs: Any) -> Any:
@@ -2928,10 +2911,6 @@ def _canonical_baseline_grid_identity(*args: Any, **kwargs: Any) -> Any:
     return _canonical_bridge()._canonical_baseline_grid_identity(*args, **kwargs)
 
 
-def _normalized_adapter_config_sequence(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._normalized_adapter_config_sequence(*args, **kwargs)
-
-
 def _dpo_shared_sft_adapter_identity(*args: Any, **kwargs: Any) -> Any:
     return _canonical_bridge()._dpo_shared_sft_adapter_identity(*args, **kwargs)
 
@@ -2940,24 +2919,12 @@ def _dpo_shared_sft_adapter(*args: Any, **kwargs: Any) -> Any:
     return _canonical_bridge()._dpo_shared_sft_adapter(*args, **kwargs)
 
 
-def _parameter_sequence_sha256(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._parameter_sequence_sha256(*args, **kwargs)
-
-
 def _dpo_prompt_balanced_mean(*args: Any, **kwargs: Any) -> Any:
     return _canonical_bridge()._dpo_prompt_balanced_mean(*args, **kwargs)
 
 
-def _dpo_quantile(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._dpo_quantile(*args, **kwargs)
-
-
 def _is_nan_inf_numerical_failure(*args: Any, **kwargs: Any) -> Any:
     return _canonical_bridge()._is_nan_inf_numerical_failure(*args, **kwargs)
-
-
-def _load_verified_canonical_calibration(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._load_verified_canonical_calibration(*args, **kwargs)
 
 
 def _prepare_cell_output(
@@ -3223,43 +3190,6 @@ def _adapter_weight_file(adapter_root: Path) -> Path:
         if candidate.is_file():
             return candidate
     raise FileNotFoundError(f"Adapter weight file is missing: {adapter_root}")
-
-
-def _canonical_liveness_base_config(config: Mapping[str, Any], output_root: Path) -> Path:
-    base_path = _canonical_paths(config)["base_config"]
-    value = yaml.safe_load(base_path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        raise TypeError("Canonical base config root must be a mapping")
-    value["offline_training"].update(
-        {
-            "steps": 2,
-            "min_steps": 2,
-            "early_stop_patience": 10,
-            # Preserve the step-0 adapter so it can be compared bytewise with
-            # the terminal adapter after the canonical optimizer updates.
-            "early_stop_delta": 1.0e9,
-            "eval_every": 2,
-            "log_every": 1,
-            "diagnostic_examples": 2,
-            "diagnostic_gradient_examples": 1,
-            "diagnostic_batch": 1,
-            "num_workers": 0,
-        }
-    )
-    value["evaluation"].update(
-        {
-            "examples": 2,
-            "test_examples": 0,
-            "batch_size": 1,
-            "pass_ks": [8],
-        }
-    )
-    path = output_root / "liveness" / "canonical_liveness_base_config.yaml"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".yaml.tmp")
-    temporary.write_text(yaml.safe_dump(value, sort_keys=False), encoding="utf-8")
-    temporary.replace(path)
-    return path
 
 
 def _method_liveness_grid(
@@ -3549,6 +3479,7 @@ def cmd_recovery_plan(
     return plan
 
 
+
 def cmd_import_recovery(
     config: Mapping[str, Any],
     output_root: Path,
@@ -3557,127 +3488,21 @@ def cmd_import_recovery(
     base_model_path: str,
     source_commit: str,
 ) -> dict[str, Any]:
-    source_output_root = source_output_root.resolve()
-    output_root = output_root.resolve()
-    if source_output_root == output_root:
-        raise ValueError("Recovery source and destination must differ")
-    if not source_output_root.is_dir():
-        raise FileNotFoundError(f"Recovery source does not exist: {source_output_root}")
-    if output_root.exists() and any(output_root.iterdir()):
-        raise RuntimeError("Recovery destination must be new and empty")
-    if len(source_commit) != 40 or any(
-        character not in "0123456789abcdef" for character in source_commit
-    ):
-        raise ValueError("Recovery import requires one full lowercase source commit")
-    provenance = _read_json_object(source_output_root / "source_provenance.json")
-    if provenance.get("source_commit") != source_commit:
-        raise RuntimeError("Recovery source commit does not match the reviewed execution commit")
-    output_root.mkdir(parents=True, exist_ok=True)
-    effective = _effective_recovery_config(config, source_output_root)
-    source_plan = _recovery_stage_plan(
-        effective,
-        source_output_root,
+    return e8_runtime.import_recovery(
+        config,
+        output_root,
+        source_output_root=source_output_root,
         base_model_path=base_model_path,
+        source_commit=source_commit,
+        schema_version=RECOVERY_SNAPSHOT_SCHEMA_VERSION,
+        transient_top_level=RECOVERY_TRANSIENT_TOP_LEVEL,
+        transient_files=RECOVERY_TRANSIENT_FILES,
+        effective_config_fn=_effective_recovery_config,
+        recovery_stage_plan_fn=_recovery_stage_plan,
+        experiment_id_fn=experiment_id,
+        sha256_fn=sha256_file,
+        write_json=atomic_json,
     )
-    reusable = set(source_plan["reusable_cell_keys"]) if source_plan["prepare_complete"] else set()
-    source_text = str(source_output_root)
-    destination_text = str(output_root)
-    linked_files = 0
-    linked_bytes = 0
-    source_cell_hashes = {
-        key: sha256_file(source_output_root / "cells" / key / "cell_manifest.json")
-        for key in reusable
-    }
-    if source_plan["prepare_complete"]:
-        recovery_label = source_output_root.parent.name
-
-        def mapped_relative(relative: Path) -> Path | None:
-            if relative.parts[0] in RECOVERY_TRANSIENT_TOP_LEVEL:
-                return None
-            if len(relative.parts) == 1 and relative.name in RECOVERY_TRANSIENT_FILES:
-                return None
-            if relative.parts[0] == "cells" and (
-                len(relative.parts) < 2 or relative.parts[1] not in reusable
-            ):
-                return None
-            if relative.parts[0] == "liveness" and not source_plan["liveness_complete"]:
-                return None
-            if relative.parts[0] == "logs":
-                return Path("logs") / f"recovered_{recovery_label}" / Path(*relative.parts[1:])
-            return relative
-
-        for source in sorted(path for path in source_output_root.rglob("*") if path.is_dir()):
-            if source.is_symlink():
-                raise RuntimeError(f"Recovery refuses symbolic links: {source}")
-            relative = mapped_relative(source.relative_to(source_output_root))
-            if relative is not None:
-                (output_root / relative).mkdir(parents=True, exist_ok=True)
-        for source in sorted(source_output_root.rglob("*")):
-            if source.is_symlink():
-                raise RuntimeError(f"Recovery refuses symbolic links: {source}")
-            if not source.is_file():
-                continue
-            relative = mapped_relative(source.relative_to(source_output_root))
-            if relative is None:
-                continue
-            destination = output_root / relative
-            e8_runtime.hardlink_file(source, destination)
-            linked_files += 1
-            linked_bytes += source.stat().st_size
-        path_manifest_targets = (
-            output_root / "prepare_manifest.json",
-            output_root / "split_manifest.json",
-            output_root / "source_provenance.json",
-        )
-        for path in path_manifest_targets:
-            if not path.is_file():
-                continue
-            try:
-                value = _read_json_object(path)
-            except (OSError, ValueError, TypeError, json.JSONDecodeError):
-                continue
-            updated = e8_runtime.replace_path_prefix(value, source_text, destination_text)
-            if updated != value:
-                atomic_json(path, updated)
-        for key, source_hash in sorted(source_cell_hashes.items()):
-            manifest_path = output_root / "cells" / key / "cell_manifest.json"
-            value = _read_json_object(manifest_path)
-            value = e8_runtime.replace_path_prefix(value, source_text, destination_text)
-            value["recovery_provenance"] = {
-                "source_output_root": source_text,
-                "source_manifest_sha256": source_hash,
-                "import_mode": "identity_checked_hardlink",
-                "scientific_variables_changed": False,
-            }
-            atomic_json(manifest_path, value)
-    imported_cell_manifests = [
-        {
-            "cell_key": key,
-            "source_manifest_sha256": source_cell_hashes[key],
-            "imported_manifest_sha256": sha256_file(
-                output_root / "cells" / key / "cell_manifest.json"
-            ),
-        }
-        for key in sorted(reusable)
-    ]
-    import_manifest = {
-        "schema_version": RECOVERY_SNAPSHOT_SCHEMA_VERSION,
-        "experiment_id": experiment_id(effective),
-        "source_commit": source_commit,
-        "source_output_root": source_text,
-        "destination_output_root": destination_text,
-        "source_plan": source_plan,
-        "imported_reusable_cells": sorted(reusable),
-        "imported_cell_manifests": imported_cell_manifests,
-        "linked_files": linked_files,
-        "linked_bytes": linked_bytes,
-        "copy_mode": "hardlink_read_only_then_copy_on_atomic_json_rewrite",
-        "incomplete_cells_imported": False,
-        "scientific_variables_changed": False,
-        "complete": True,
-    }
-    atomic_json(output_root / "recovery" / "IMPORT_MANIFEST.json", import_manifest)
-    return import_manifest
 
 
 def _recovery_checkpoint_snapshot(
@@ -3704,6 +3529,7 @@ def _recovery_checkpoint_snapshot(
     )
 
 
+
 def _publish_recovery_checkpoint(
     config: Mapping[str, Any],
     output_root: Path,
@@ -3712,7 +3538,9 @@ def _publish_recovery_checkpoint(
 ) -> dict[str, Any]:
     provenance = _read_json_object(output_root / "source_provenance.json")
     source_commit = str(provenance.get("source_commit", ""))
-    if len(source_commit) != 40 or any(char not in "0123456789abcdef" for char in source_commit):
+    if len(source_commit) != 40 or any(
+        char not in "0123456789abcdef" for char in source_commit
+    ):
         raise RuntimeError("Recovery checkpoint requires a full source commit")
     snapshot_root = package_output.parent / "snapshot"
     payload = _recovery_checkpoint_snapshot(
@@ -3721,59 +3549,20 @@ def _publish_recovery_checkpoint(
         snapshot_root,
         source_commit=source_commit,
     )
-    command = [
-        sys.executable,
-        str(_repo_root() / "scripts" / "package_experiment_hardened.py"),
-        "--repo-root",
-        str(_repo_root()),
-        "--experiment-id",
-        experiment_id(config),
-        "--package-kind",
-        "experiment-checkpoint",
-        "--result-dir",
-        str(snapshot_root),
-        "--output",
-        str(package_output),
-        "--base-commit",
-        source_commit,
-        "--no-repository-changes",
-        "--large-file-persistence",
-        "persistent_local",
-        "--source-file",
-        "scripts/run_e8_multitask_exp_coldstart.sh",
-        "--source-file",
-        "src/drpo/e8_multitask_exp_tuning.py",
-    ]
-    if os.environ.get("E8_COLDSTART_RECOVERY_REQUIRE_ORIGIN_MAIN") == "1":
-        command.append("--require-origin-main-match")
-    completed = subprocess.run(command, text=True, capture_output=True, check=False)
-    if completed.returncode != 0:
-        raise RuntimeError(
-            "Recovery checkpoint packaging failed: "
-            + (completed.stderr.strip() or completed.stdout.strip())
-        )
-    mirror_value = os.environ.get("E8_COLDSTART_RECOVERY_MIRROR", "").strip()
-    mirror_path: Path | None = None
-    if mirror_value:
-        mirror_root = Path(mirror_value).resolve()
-        mirror_root.mkdir(parents=True, exist_ok=True)
-        mirror_path = mirror_root / package_output.name
-        temporary = mirror_path.with_name(f".{mirror_path.name}.tmp-{os.getpid()}")
-        shutil.copy2(package_output, temporary)
-        if sha256_file(temporary) != sha256_file(package_output):
-            temporary.unlink(missing_ok=True)
-            raise RuntimeError("Recovery mirror copy failed checksum verification")
-        os.replace(temporary, mirror_path)
-    status = {
-        **payload,
-        "package": str(package_output.resolve()),
-        "package_sha256": sha256_file(package_output),
-        "mirror": str(mirror_path) if mirror_path else None,
-        "mirror_configured": mirror_path is not None,
-        "complete": True,
-    }
-    atomic_json(package_output.parent / "RECOVERY_CHECKPOINT_STATUS.json", status)
-    return status
+    return e8_runtime.publish_recovery_checkpoint(
+        payload=payload,
+        snapshot_root=snapshot_root,
+        package_output=package_output,
+        repo_root=_repo_root(),
+        experiment_id_value=experiment_id(config),
+        source_commit=source_commit,
+        require_origin_main_match=(
+            os.environ.get("E8_COLDSTART_RECOVERY_REQUIRE_ORIGIN_MAIN") == "1"
+        ),
+        mirror_value=os.environ.get("E8_COLDSTART_RECOVERY_MIRROR", ""),
+        sha256_fn=sha256_file,
+        write_json=atomic_json,
+    )
 
 
 def cmd_compact_logs(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
@@ -3951,6 +3740,7 @@ def _require_liveness_gate(
         raise RuntimeError(f"Missing method-specific cold-start liveness gates: {missing}")
 
 
+
 def cmd_run_wave(
     config: Mapping[str, Any],
     config_path: Path,
@@ -3961,7 +3751,9 @@ def cmd_run_wave(
     force: bool,
 ) -> dict[str, Any]:
     if _is_coldstart(config):
-        raise RuntimeError("Cold-start has no wave barriers; use run-all dynamic scheduling")
+        raise RuntimeError(
+            "Cold-start has no wave barriers; use run-all dynamic scheduling"
+        )
     _require_calibration_gate(
         config,
         output_root,
@@ -3975,43 +3767,26 @@ def cmd_run_wave(
     waves = build_waves(config)
     if not 1 <= wave_index <= len(waves):
         raise ValueError(f"wave must be in [1,{len(waves)}]")
-    wave = waves[wave_index - 1]
-    gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
-    slots_per_gpu = int(config["execution"]["slots_per_gpu"])
-    if len(wave) > len(gpu_ids) * slots_per_gpu:
-        raise RuntimeError("Wave exceeds declared GPU slot capacity")
-    results: list[dict[str, Any]] = []
-    with ThreadPoolExecutor(max_workers=len(wave)) as executor:
-        futures = {
-            executor.submit(
-                _run_subprocess_cell,
-                config_path=config_path.resolve(),
-                output_root=output_root.resolve(),
-                base_model_path=base_model_path,
-                cell=cell,
-                gpu_id=gpu_ids[index % len(gpu_ids)],
-                force=force,
-            ): cell
-            for index, cell in enumerate(wave)
-        }
-        for future in as_completed(futures):
-            results.append(future.result())
-    results.sort(key=lambda row: str(row["cell_key"]))
-    failures = [row for row in results if int(row["returncode"]) != 0]
-    manifest = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "wave": wave_index,
-        "expected_cells": len(wave),
-        "results": results,
-        "failed_cells": [row["cell_key"] for row in failures],
-        "complete": not failures and len(results) == len(wave),
-        "scientific_status": "pilot",
-    }
-    atomic_json(output_root / "waves" / f"wave_{wave_index:02d}.json", manifest)
-    if failures:
-        raise RuntimeError(f"Wave {wave_index} failed cells: {manifest['failed_cells']}")
-    return manifest
+    gpu_ids = tuple(
+        int(value) for value in config["execution"]["gpu_ids"]
+    )
+    return e8_orchestration.run_wave(
+        waves[wave_index - 1],
+        wave_index=wave_index,
+        gpu_ids=gpu_ids,
+        slots_per_gpu=int(config["execution"]["slots_per_gpu"]),
+        experiment_id_value=experiment_id(config),
+        run_cell=lambda cell, gpu_id: _run_subprocess_cell(
+            config_path=config_path.resolve(),
+            output_root=output_root.resolve(),
+            base_model_path=base_model_path,
+            cell=cell,
+            gpu_id=gpu_id,
+            force=force,
+        ),
+        write_json=atomic_json,
+        manifest_path=output_root / "waves" / f"wave_{wave_index:02d}.json",
+    )
 
 
 def _countdown_protocol_diagnostic(
@@ -4084,260 +3859,47 @@ def cmd_run_dynamic(
     """Run the cold-start plan through method-agnostic slot scheduling."""
 
     if not _is_coldstart(config):
-        raise RuntimeError("Dynamic scheduling is frozen for the cold-start profile only")
-    _require_calibration_gate(config, output_root, base_model_path=base_model_path)
-    _require_liveness_gate(config, output_root, base_model_path=base_model_path)
-    cells = build_cells(config)
-    gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
-    slots_per_gpu = int(config["execution"]["slots_per_gpu"])
-    seed_barrier = _is_method_matrix(config) and bool(
-        config["execution"].get("seed_batch_barriers")
-    )
-    seed_order = (
-        tuple(int(value) for value in config["execution"].get("seed_batch_order", ()))
-        if seed_barrier
-        else None
-    )
-    geometry = e8_orchestration.execution_geometry(
-        cells,
-        gpu_ids=gpu_ids,
-        slots_per_gpu=slots_per_gpu,
-        max_concurrent_cells=int(config["execution"]["max_concurrent_cells"]),
-        seed_barrier=seed_barrier,
-        seed_order=seed_order,
-    )
-    if geometry.slot_count != 16:
-        raise RuntimeError("Declared 16-slot capacity is internally inconsistent")
-
-    nominal_batch = {
-        cell.key: index
-        for index, wave in enumerate(build_waves(config), 1)
-        for cell in wave
-    }
-    event_path = output_root / "scheduler" / "queue_events.jsonl"
-    event_path.parent.mkdir(parents=True, exist_ok=True)
-    scheduler_run_id = f"queue-{int(time.time())}-{os.getpid()}"
-    task_result_lock = threading.Lock()
-    checkpoint_lock = threading.Lock()
-    task_results: dict[str, dict[str, Any]] = {}
-    recovery_package_value = os.environ.get(
-        "E8_COLDSTART_RECOVERY_PACKAGE", ""
-    ).strip()
-    recovery_package = (
-        Path(recovery_package_value).resolve() if recovery_package_value else None
-    )
-    recovery_interval = int(
-        os.environ.get("E8_COLDSTART_RECOVERY_INTERVAL_CELLS", "5")
-    )
-    if recovery_interval <= 0:
-        raise ValueError("E8_COLDSTART_RECOVERY_INTERVAL_CELLS must be positive")
-    initially_reusable, _ = _reusable_cell_manifests(config, output_root)
-    last_checkpoint_count = (
-        len(initially_reusable) // recovery_interval
-    ) * recovery_interval
-
-    def record(event: Mapping[str, Any]) -> None:
-        append_jsonl(
-            event_path,
-            {
-                "scheduler_run_id": scheduler_run_id,
-                **dict(event),
-                "unix_time": time.time(),
-            },
-        )
-
-    def publish_completed_task(task: str) -> None:
-        with task_result_lock:
-            if task in task_results:
-                return
-            rows = _coldstart_completed_task_rows(config, output_root, task)
-            if rows is not None:
-                task_results[task] = _write_coldstart_task_result(
-                    config, output_root, task, rows
-                )
-
-    def run_cell(cell: Cell, slot: int, gpu_id: int) -> Mapping[str, Any]:
-        del slot
-        cell_root = output_root / "cells" / cell.key
-        manifest_path = cell_root / "cell_manifest.json"
-        reusable_complete = False
-        if manifest_path.is_file():
-            try:
-                reusable_complete = bool(
-                    json.loads(manifest_path.read_text(encoding="utf-8")).get(
-                        "complete"
-                    )
-                )
-            except (OSError, json.JSONDecodeError):
-                reusable_complete = False
-        child_force = force or (
-            retry_incomplete and cell_root.exists() and not reusable_complete
-        )
-        result = _run_subprocess_cell(
-            config_path=config_path.resolve(),
-            output_root=output_root.resolve(),
-            base_model_path=base_model_path,
-            cell=cell,
-            gpu_id=gpu_id,
-            force=child_force,
-        )
-        if int(result["returncode"]) == 0:
-            try:
-                completed_manifest = _read_json_object(manifest_path)
-                if (
-                    completed_manifest.get("complete") is not True
-                    or completed_manifest.get("evaluation_status") != "complete"
-                    or completed_manifest.get("nan_inf_failure") is not False
-                ):
-                    raise RuntimeError(
-                        "child returned zero without a complete finite cell"
-                    )
-            except (
-                OSError,
-                ValueError,
-                TypeError,
-                RuntimeError,
-                json.JSONDecodeError,
-            ) as exc:
-                result["returncode"] = 75
-                result["cell_completion_error"] = (
-                    f"{type(exc).__name__}: {exc}"
-                )
-        result["nominal_batch"] = nominal_batch[cell.key]
-        return result
-
-    def after_success(cell: Cell, row: Mapping[str, Any]) -> None:
-        nonlocal last_checkpoint_count
-        mutable = row if isinstance(row, dict) else dict(row)
-        if recovery_package is not None:
-            try:
-                with checkpoint_lock:
-                    current_reusable, _ = _reusable_cell_manifests(
-                        config, output_root
-                    )
-                    completed_count = len(current_reusable)
-                    if completed_count >= last_checkpoint_count + recovery_interval:
-                        checkpoint = _publish_recovery_checkpoint(
-                            config,
-                            output_root,
-                            package_output=recovery_package,
-                        )
-                        last_checkpoint_count = int(
-                            checkpoint["completed_cells"]
-                        )
-                        mutable["recovery_checkpoint"] = checkpoint["package"]
-                        mutable["recovery_checkpoint_completed_cells"] = (
-                            last_checkpoint_count
-                        )
-            except Exception:
-                mutable["returncode"] = 74
-                raise
-        publish_completed_task(cell.task)
-
-    results = list(
-        e8_orchestration.run_dynamic_queue(
-            cells,
-            gpu_ids=gpu_ids,
-            slots_per_gpu=slots_per_gpu,
-            max_concurrent_cells=geometry.slot_count,
-            seed_barrier=seed_barrier,
-            seed_order=seed_order,
-            callbacks=e8_orchestration.SchedulerCallbacks(
-                run_cell=run_cell,
-                record_event=record,
-                after_success=after_success,
-            ),
-        )
-    )
-    results.sort(key=lambda row: str(row["cell_key"]))
-    failures = [row for row in results if int(row["returncode"]) != 0]
-    returned_keys = {str(row["cell_key"]) for row in results}
-    completed_keys = {
-        str(row["cell_key"])
-        for row in results
-        if int(row["returncode"]) == 0
-    }
-    unscheduled = [cell.key for cell in cells if cell.key not in returned_keys]
-    seed_expected = dict(geometry.expected_cells_by_seed) if seed_barrier else {}
-    seed_completed = (
-        {
-            seed: sum(
-                int(row["returncode"]) == 0 and int(row["seed"]) == seed
-                for row in results
-            )
-            for seed in geometry.seed_order
-        }
-        if seed_barrier
-        else {}
-    )
-    protocol_diagnostic = (
-        _countdown_protocol_diagnostic(
-            config,
-            output_root,
-            destination=(
-                output_root
-                / "scheduler"
-                / "countdown_protocol_diagnostic.json"
-            ),
-        )
-        if not failures and not unscheduled
-        else {
-            "status": "PENDING",
-            "result_gate": False,
-            "controls_task_transfer_release": False,
-        }
-    )
-    manifest = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "scheduler": "dynamic_slot_queue",
-        "scheduler_run_id": scheduler_run_id,
-        "wave_barriers": False,
-        "wave_count": len(build_waves(config)),
-        "wave_count_role": (
-            "seed_local_nominal_capacity_audit_only"
-            if seed_barrier
-            else "nominal_audit_geometry_only_not_scheduling_barrier"
-        ),
-        "seed_batch_barriers": seed_barrier,
-        "seed_batch_order": list(geometry.seed_order) if seed_barrier else [],
-        "seed_batch_expected_cells": {
-            str(key): value for key, value in seed_expected.items()
-        },
-        "seed_batch_completed_cells": {
-            str(key): value for key, value in seed_completed.items()
-        },
-        "execution_class": _execution_class(config),
-        "slot_count": geometry.slot_count,
-        "gpu_ids": list(gpu_ids),
-        "slots_per_gpu": slots_per_gpu,
-        "countdown_protocol_diagnostic": protocol_diagnostic,
-        "countdown_result_controls_transfer_release": False,
-        "expected_cells": len(cells),
-        "completed_cells": len(completed_keys),
-        "results": results,
-        "failed_cells": [row["cell_key"] for row in failures],
-        "unscheduled_cells": unscheduled,
-        "queue_events": str(event_path.resolve()),
-        "analysis_ready_tasks": sorted(task_results),
-        "task_results": task_results,
-        "complete": (
-            not failures
-            and not unscheduled
-            and len(completed_keys) == len(cells)
-        ),
-        "scientific_status": (
-            "not_run" if _is_engineering_self_test(config) else "pilot"
-        ),
-        "engineering_placeholder_backend": _is_engineering_self_test(config),
-    }
-    atomic_json(output_root / "scheduler" / "dynamic_run.json", manifest)
-    if failures or unscheduled:
         raise RuntimeError(
-            "Cold-start scheduling stopped fail-closed; "
-            f"failed={manifest['failed_cells']} unscheduled={len(unscheduled)}"
+            "Dynamic scheduling is frozen for the cold-start profile only"
         )
-    return manifest
+    _require_calibration_gate(
+        config,
+        output_root,
+        base_model_path=base_model_path,
+    )
+    _require_liveness_gate(
+        config,
+        output_root,
+        base_model_path=base_model_path,
+    )
+    return e8_orchestration.cmd_run_dynamic(
+        config,
+        config_path,
+        output_root,
+        base_model_path=base_model_path,
+        force=force,
+        retry_incomplete=retry_incomplete,
+        bindings=e8_orchestration.DynamicCommandBindings(
+            build_cells=build_cells,
+            build_waves=build_waves,
+            experiment_id=experiment_id,
+            execution_class=_execution_class,
+            engineering_self_test=_is_engineering_self_test,
+            method_matrix=_is_method_matrix,
+            reusable_cell_manifests=_reusable_cell_manifests,
+            run_subprocess_cell=_run_subprocess_cell,
+            read_json_object=_read_json_object,
+            materialize_task_results=(
+                _materialize_completed_coldstart_task_results
+            ),
+            publish_recovery_checkpoint=_publish_recovery_checkpoint,
+            protocol_diagnostic=_countdown_protocol_diagnostic,
+            append_jsonl=append_jsonl,
+            write_json=atomic_json,
+        ),
+    )
+
+
 
 
 def cmd_run_all(
@@ -4358,49 +3920,20 @@ def cmd_run_all(
             force=force,
             retry_incomplete=retry_incomplete,
         )
-    results = []
-    for wave_index in range(1, int(config["execution"]["expected_waves"]) + 1):
-        results.append(
-            cmd_run_wave(
-                config,
-                config_path,
-                output_root,
-                wave_index=wave_index,
-                base_model_path=base_model_path,
-                force=force,
-            )
-        )
-    manifest = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "waves": results,
-        "complete": all(result["complete"] for result in results),
-        "scientific_status": "pilot",
-    }
-    atomic_json(output_root / "waves" / "all_waves.json", manifest)
-    return manifest
-
-
-def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
-    e8_results.write_csv(path, rows)
-
-
-def _coldstart_result_row(
-    config: Mapping[str, Any],
-    cell: Cell,
-    value: Mapping[str, Any],
-    *,
-    source: str,
-) -> dict[str, Any]:
-    return e8_results._coldstart_result_row(
-        cell,
-        value,
-        source=source,
-        method_columns=_method_output_columns(cell),
-        require_late_window_metrics=not _is_engineering_self_test(config),
+    return e8_orchestration.run_all_waves(
+        wave_count=int(config["execution"]["expected_waves"]),
+        experiment_id_value=experiment_id(config),
+        run_wave_fn=lambda wave_index: cmd_run_wave(
+            config,
+            config_path,
+            output_root,
+            wave_index=wave_index,
+            base_model_path=base_model_path,
+            force=force,
+        ),
+        write_json=atomic_json,
+        manifest_path=output_root / "waves" / "all_waves.json",
     )
-
-
 
 
 def _coldstart_completed_task_rows(
@@ -4408,101 +3941,61 @@ def _coldstart_completed_task_rows(
     output_root: Path,
     task: str,
 ) -> list[dict[str, Any]] | None:
-    """Return task-local response rows once every frozen cell for the task is complete."""
-
     if not _is_coldstart(config):
-        raise RuntimeError("Per-task early result materialization is cold-start only")
-    expected = [cell for cell in build_cells(config) if cell.task == task]
-    if not expected:
-        return None
-    expected_hash = stable_config_hash(config)
-    rows: list[dict[str, Any]] = []
-    for cell in expected:
-        path = output_root / "cells" / cell.key / "cell_manifest.json"
-        if not path.is_file():
-            return None
-        value = json.loads(path.read_text(encoding="utf-8"))
-        if value.get("complete") is not True or value.get("evaluation_status") != "complete":
-            return None
-        if (
-            value.get("experiment_id") != experiment_id(config)
-            or value.get("config_hash") != expected_hash
-        ):
-            raise RuntimeError(f"{cell.key} per-task result identity mismatch")
-        rows.append(
-            _coldstart_result_row(config, cell, value, source="current")
+        raise RuntimeError(
+            "Per-task early result materialization is cold-start only"
         )
-    return rows
-
-
-def _write_coldstart_task_result(
-    config: Mapping[str, Any],
-    output_root: Path,
-    task: str,
-    rows: list[dict[str, Any]],
-) -> dict[str, Any]:
-    configured_cells = build_cells(config)
-    return e8_results._write_coldstart_task_result(
-        config,
+    expected = [
+        cell for cell in build_cells(config) if cell.task == task
+    ]
+    return e8_results.coldstart_completed_task_rows(
         output_root,
-        task,
-        rows,
-        configured_cells=configured_cells,
-        method_specs={cell.method: _method_spec(cell.method) for cell in configured_cells},
+        expected_cells=expected,
         experiment_id_value=experiment_id(config),
         config_hash=stable_config_hash(config),
-        engineering_self_test=_is_engineering_self_test(config),
-        write_json=atomic_json,
-        sha256_fn=sha256_file,
+        result_row_fn=lambda cell, value: e8_results._coldstart_result_row(
+            cell,
+            value,
+            source="current",
+            method_columns=_method_output_columns(cell),
+            require_late_window_metrics=not _is_engineering_self_test(config),
+        ),
     )
-
 
 
 def _materialize_completed_coldstart_task_results(
     config: Mapping[str, Any],
     output_root: Path,
+    *,
+    tasks: Sequence[str] | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """Publish every fully complete task independently of nominal-batch boundaries."""
-
-    ready: dict[str, dict[str, Any]] = {}
-    for task_value in config["suite"]["tasks"]:
-        task = str(task_value)
-        rows = _coldstart_completed_task_rows(config, output_root, task)
-        if rows is None:
-            continue
-        ready[task] = _write_coldstart_task_result(config, output_root, task, rows)
-    return ready
-
-
-def _aggregate_dense(
-    config: Mapping[str, Any],
-    output_root: Path,
-    rows: list[dict[str, Any]],
-) -> dict[str, Any]:
-    return e8_results._aggregate_dense(
-        config,
-        output_root,
-        rows,
-        experiment_id_value=experiment_id(config),
-        config_hash=stable_config_hash(config),
-        task_lambdas_fn=_task_lambdas,
-        positive_only_method=METHOD_POSITIVE_ONLY,
-        exponential_method=METHOD_EXPONENTIAL,
-        write_json=atomic_json,
+    task_values = (
+        tuple(str(value) for value in config["suite"]["tasks"])
+        if tasks is None
+        else tuple(str(value) for value in tasks)
     )
-
-
-
-_coldstart_plot_metrics = e8_results._coldstart_plot_metrics
-
-
-
-_coldstart_group_metrics = e8_results._coldstart_group_metrics
-
-
-
-_coldstart_run_provenance = e8_results._coldstart_run_provenance
-
+    return e8_results.materialize_completed_task_results(
+        task_values,
+        completed_rows_fn=lambda task: _coldstart_completed_task_rows(
+            config, output_root, task
+        ),
+        write_task_result_fn=lambda task, rows: e8_results._write_coldstart_task_result(
+            config,
+            output_root,
+            task,
+            rows,
+            configured_cells=build_cells(config),
+            method_specs={
+                cell.method: _method_spec(cell.method)
+                for cell in build_cells(config)
+            },
+            experiment_id_value=experiment_id(config),
+            config_hash=stable_config_hash(config),
+            engineering_self_test=_is_engineering_self_test(config),
+            write_json=atomic_json,
+            sha256_fn=sha256_file,
+        ),
+    )
 
 
 def _coldstart_method_grouped_curve(
@@ -4520,32 +4013,6 @@ def _coldstart_method_grouped_curve(
         parameter_fn=_method_spec(method).parameters,
     )
 
-
-
-def _aggregate_coldstart_unranked(
-    config: Mapping[str, Any],
-    output_root: Path,
-    rows: list[dict[str, Any]],
-) -> dict[str, Any]:
-    method = _coldstart_method(config)
-    protocol_diagnostic = _countdown_protocol_diagnostic(
-        config,
-        output_root,
-        destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
-    )
-    return e8_results._aggregate_coldstart_unranked(
-        config,
-        output_root,
-        rows,
-        spec=_method_spec(method),
-        configured_cells=build_cells(config),
-        experiment_id_value=experiment_id(config),
-        protocol_diagnostic=protocol_diagnostic,
-        engineering_self_test=_is_engineering_self_test(config),
-        positive_only_method=METHOD_POSITIVE_ONLY,
-        global_method=METHOD_GLOBAL,
-        write_json=atomic_json,
-    )
 
 
 def _aggregate_coldstart_matrix_unranked(
@@ -4577,20 +4044,40 @@ def _aggregate_coldstart_matrix_unranked(
 
 
 
+
 def _aggregate_coldstart(
     config: Mapping[str, Any],
     output_root: Path,
     rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    method = _coldstart_method(config)
     if _is_method_matrix(config):
-        return _aggregate_coldstart_matrix_unranked(config, output_root, rows)
-    if _coldstart_method(config) != METHOD_EXPONENTIAL:
-        return _aggregate_coldstart_unranked(config, output_root, rows)
+        return _aggregate_coldstart_matrix_unranked(
+            config, output_root, rows
+        )
     protocol_diagnostic = _countdown_protocol_diagnostic(
         config,
         output_root,
-        destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
+        destination=(
+            output_root
+            / "aggregate"
+            / "countdown_protocol_diagnostic.json"
+        ),
     )
+    if method != METHOD_EXPONENTIAL:
+        return e8_results._aggregate_coldstart_unranked(
+            config,
+            output_root,
+            rows,
+            spec=_method_spec(method),
+            configured_cells=build_cells(config),
+            experiment_id_value=experiment_id(config),
+            protocol_diagnostic=protocol_diagnostic,
+            engineering_self_test=_is_engineering_self_test(config),
+            positive_only_method=METHOD_POSITIVE_ONLY,
+            global_method=METHOD_GLOBAL,
+            write_json=atomic_json,
+        )
     return e8_results._aggregate_coldstart_exponential(
         config,
         output_root,
@@ -4606,295 +4093,93 @@ def _aggregate_coldstart(
     )
 
 
-
 def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
     cells = build_cells(config)
-    rows: list[dict[str, Any]] = []
-    missing: list[str] = []
-    for cell in cells:
-        path = output_root / "cells" / cell.key / "cell_manifest.json"
-        if not path.is_file():
-            missing.append(cell.key)
-            continue
-        value = json.loads(path.read_text(encoding="utf-8"))
-        if not value.get("complete") or value.get("evaluation_status") != "complete":
-            missing.append(cell.key)
-            continue
-        source = "dense" if _is_dense(config) else "current"
-        if _is_coldstart(config):
-            rows.append(_coldstart_result_row(config, cell, value, source=source))
-            continue
-        common = {
-            "source": source,
-            "task": cell.task,
-            "method": cell.method,
-            "delta_v": cell.delta_v,
-            "beta": cell.beta,
-            "dpo_initialization": cell.dpo_initialization,
-            "rho": cell.rho,
-            "lambda": (
-                cell.lambda_value
-                if cell.lambda_value is not None
-                else (None if cell.rho is None else coefficient_from_rho(cell.rho))
-            ),
-            "seed": cell.seed,
-            "stage": cell.stage,
-            "cell_key": cell.key,
-            "nan_inf_failure": bool(value["nan_inf_failure"]),
-            "late_window_pass8_mean": value["validation_late_window_pass8_mean"],
-            "terminal_pass8": value["validation_terminal_pass8"],
-            "late_window_greedy_mean": value["validation_late_window_greedy_mean"],
-            "terminal_greedy": value["validation_terminal_greedy"],
-            "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
-        }
-        rows.append(common)
-    if missing:
-        raise RuntimeError(f"Cannot aggregate; missing/incomplete cells: {missing}")
-    _write_csv(output_root / "aggregate" / "all_cells.csv", rows)
-    if _is_coldstart(config):
-        return _aggregate_coldstart(config, output_root, rows)
-    if _is_dense(config):
-        return _aggregate_dense(config, output_root, rows)
-
-    task_summaries: dict[str, Any] = {}
-    selected_rows: list[dict[str, Any]] = []
-    minimum_valid = float(config["selection"]["terminal_valid_rate_minimum"])
-    boundary_rho = float(config["selection"]["boundary_rho"])
-    for task_value in config["suite"]["tasks"]:
-        task = str(task_value)
-        task_rows = [row for row in rows if row["task"] == task]
-        positive_rows = [row for row in task_rows if row["method"] == METHOD_POSITIVE_ONLY]
-        exp_rows = [row for row in task_rows if row["method"] == METHOD_EXPONENTIAL]
-        if len(positive_rows) != 1 or len(exp_rows) != 7:
-            raise RuntimeError(f"{task} does not contain one Positive-only and seven Exp cells")
-        eligible = [
-            row
-            for row in exp_rows
-            if not row["nan_inf_failure"]
-            and float(row["terminal_greedy_valid_rate"]) >= minimum_valid
-        ]
-        selected = (
-            max(
-                eligible,
-                key=lambda row: (
-                    float(row["late_window_pass8_mean"]),
-                    float(row["terminal_pass8"]),
-                    float(row["late_window_greedy_mean"]),
-                    float(row["terminal_greedy"]),
-                    float(row["rho"]),
-                ),
+    return e8_results.cmd_aggregate(
+        config,
+        output_root,
+        cells=cells,
+        experiment_id_value=experiment_id(config),
+        dense_profile=_is_dense(config),
+        coldstart_profile=_is_coldstart(config),
+        method_columns_fn=_method_output_columns,
+        coldstart_result_row_fn=lambda cell, value, source: (
+            e8_results._coldstart_result_row(
+                cell,
+                value,
+                source=source,
+                method_columns=_method_output_columns(cell),
+                require_late_window_metrics=not _is_engineering_self_test(config),
             )
-            if eligible
-            else None
-        )
-        positive = positive_rows[0]
-        best_observed = max(exp_rows, key=lambda row: float(row["late_window_pass8_mean"]))
-        summary = {
-            "task": task,
-            "positive_only": positive,
-            "eligible_exp_count": len(eligible),
-            "selected_exp": selected,
-            "all_exp_below_positive_only": float(best_observed["late_window_pass8_mean"])
-            < float(positive["late_window_pass8_mean"]),
-            "strong_taper_boundary_unclosed": bool(
-                selected is not None and math.isclose(float(selected["rho"]), boundary_rho)
-            ),
-            "selection_metric": config["selection"]["primary_metric"],
-        }
-        task_summaries[task] = summary
-        selected_rows.append(
-            {
-                "task": task,
-                "selected_rho": None if selected is None else selected["rho"],
-                "selected_late_window_pass8_mean": (
-                    None if selected is None else selected["late_window_pass8_mean"]
-                ),
-                "positive_only_late_window_pass8_mean": positive["late_window_pass8_mean"],
-                "all_exp_below_positive_only": summary["all_exp_below_positive_only"],
-                "strong_taper_boundary_unclosed": summary["strong_taper_boundary_unclosed"],
-            }
-        )
-    _write_csv(output_root / "aggregate" / "selected_exp_by_task.csv", selected_rows)
-    summary = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "cell_count": len(rows),
-        "tasks": task_summaries,
-        "test_partition_accessed": False,
-        "task_performance_reported_separately": True,
-        "structure_diagnostic_reported_separately": True,
-        "nan_inf_reported_separately": True,
-        "fixed_horizon_is_convergence": False,
-        "scientific_status": "pilot",
-        "claim_boundary": (
-            "Development hyperparameter response only; no significance, convergence, "
-            "cross-task method ranking, or categorical causal-identification claim."
         ),
-    }
-    atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
-    return summary
+        coldstart_aggregate_fn=lambda rows: _aggregate_coldstart(
+            config, output_root, rows
+        ),
+        dense_aggregate_fn=lambda rows: e8_results._aggregate_dense(
+            config,
+            output_root,
+            rows,
+            experiment_id_value=experiment_id(config),
+            config_hash=stable_config_hash(config),
+            task_lambdas_fn=_task_lambdas,
+            positive_only_method=METHOD_POSITIVE_ONLY,
+            exponential_method=METHOD_EXPONENTIAL,
+            write_json=atomic_json,
+        ),
+        positive_only_method=METHOD_POSITIVE_ONLY,
+        exponential_method=METHOD_EXPONENTIAL,
+        write_json=atomic_json,
+    )
 
 
 def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
-    provenance_path = output_root / "source_provenance.json"
-    if not provenance_path.is_file():
-        raise RuntimeError("source_provenance.json is required before terminal audit")
-    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
-    base_commit = str(provenance.get("source_commit", ""))
-    if len(base_commit) != 40 or any(char not in "0123456789abcdef" for char in base_commit):
-        raise RuntimeError("source_provenance.json must contain one full lowercase Git SHA")
     cells = build_cells(config)
-    missing: list[str] = []
-    incomplete: list[str] = []
-    nan_inf: list[str] = []
-    terminal_contract_failures: list[str] = []
-    dpo_reference_identity_failures: list[str] = []
-    expected_terminal_step = int(config["training"]["optimizer_updates"])
-    for cell in cells:
-        cell_root = output_root / "cells" / cell.key
-        path = cell_root / "cell_manifest.json"
-        if not path.is_file():
-            failure_path = cell_root / "failure.json"
-            if failure_path.is_file():
-                failure = json.loads(failure_path.read_text(encoding="utf-8"))
-                incomplete.append(cell.key)
-                if failure.get("nan_inf_failure"):
-                    nan_inf.append(cell.key)
-            else:
-                missing.append(cell.key)
-            continue
-        value = json.loads(path.read_text(encoding="utf-8"))
-        if not value.get("complete") or value.get("evaluation_status") != "complete":
-            incomplete.append(cell.key)
-        if value.get("nan_inf_failure"):
-            nan_inf.append(cell.key)
-        if not _is_engineering_self_test(config):
-            if int(value.get("terminal_step", -1)) != expected_terminal_step or value.get("stop_reason") != "max_steps" or value.get("test_partition_accessed") is not False:
-                terminal_contract_failures.append(cell.key)
-            method_audit = _method_spec(cell.method).audit_record(cell, value)
-            if not method_audit.passed:
-                bucket = method_audit.failure_bucket
-                if bucket == "dpo_reference_identity_failures":
-                    dpo_reference_identity_failures.append(cell.key)
-                else:
-                    terminal_contract_failures.append(cell.key)
-    inherited_complete = True
-    aggregate_complete = True
-    reproduction_gate_status: str | None = None
-    if _is_dense(config):
-        snapshot_path = output_root / "inherited" / "parent_snapshot.json"
-        aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
-        inherited_complete = snapshot_path.is_file() and bool(
-            json.loads(snapshot_path.read_text(encoding="utf-8")).get("complete")
-        )
-        aggregate_complete = aggregate_path.is_file() and int(
-            json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0)
-        ) == len(cells)
-    elif _is_coldstart(config):
-        aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
-        protocol_path = output_root / "aggregate" / "countdown_protocol_diagnostic.json"
-        if protocol_path.is_file():
-            reproduction_gate_status = str(
-                json.loads(protocol_path.read_text(encoding="utf-8")).get("status")
-            )
-        expected_protocol_status = (
-            "NOT_RUN_ENGINEERING"
-            if _is_engineering_self_test(config)
-            else ("NOT_RUN" if not any(cell.task == "countdown" for cell in cells) else "PASS")
-        )
-        aggregate_complete = (
-            aggregate_path.is_file()
-            and int(json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0))
-            == len(cells)
-            and reproduction_gate_status == expected_protocol_status
-        )
-    seed_batch_protocol_complete: bool | None = None
-    if _is_method_matrix(config):
-        sp = output_root / "scheduler" / "dynamic_run.json"
-        scheduler = json.loads(sp.read_text(encoding="utf-8")) if sp.is_file() else {}
-        order = [int(v) for v in config["execution"]["seed_batch_order"]]
-        expected = {str(seed): sum(cell.seed == seed for cell in cells) for seed in order}
-        seed_batch_protocol_complete = scheduler.get("seed_batch_barriers") is True and scheduler.get("seed_batch_order") == order and scheduler.get("seed_batch_expected_cells") == expected and scheduler.get("seed_batch_completed_cells") == expected and scheduler.get("complete") is True
-    all_complete = not missing and not incomplete and not nan_inf and not terminal_contract_failures and not dpo_reference_identity_failures and inherited_complete and aggregate_complete and seed_batch_protocol_complete is not False
-    audit = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "base_commit": base_commit,
-        "expected_cells": len(cells),
-        "missing_cells": sorted(set(missing)),
-        "incomplete_cells": sorted(set(incomplete)),
-        "nan_inf_cells": sorted(set(nan_inf)),
-        "terminal_contract_failures": sorted(set(terminal_contract_failures)),
-        "dpo_reference_identity_failures": sorted(set(dpo_reference_identity_failures)),
-        "seed_batch_protocol_complete": seed_batch_protocol_complete,
-        "all_training_and_evaluation_complete": all_complete,
-        "execution_class": _execution_class(config),
-        "test_partition_accessed": False,
-        "task_performance_event": "not_adjudicated_without_registered_collapse_threshold",
-        "structure_event": "greedy_and_sampled_valid_rate_diagnostic_only",
-        "nan_inf_event_count": len(set(nan_inf)),
-        "inherited_parent_inputs_complete": inherited_complete,
-        "aggregate_complete": aggregate_complete,
-        "countdown_protocol_diagnostic_status": reproduction_gate_status,
-        "countdown_result_gate": False if _is_coldstart(config) else None,
-        "transfer_exp_single_seed_response_shape_localization": (
-            _is_coldstart(config)
-            and _coldstart_method(config) == METHOD_EXPONENTIAL
-            and len(experiment_config.task_transfer_seeds(config)) == 1
-        ),
-        "excluded_tasks": (
+
+    def method_audit(
+        cell: Cell,
+        value: Mapping[str, Any],
+    ) -> e8_runtime.MethodAuditResult:
+        return _method_spec(cell.method).audit_record(cell, value)
+
+    coldstart_single_seed_shape_discovery = (
+        _is_coldstart(config)
+        and len(experiment_config.task_transfer_seeds(config)) == 1
+    )
+    transfer_exp_single_seed_response_shape_localization = (
+        coldstart_single_seed_shape_discovery
+        and _coldstart_method(config) == METHOD_EXPONENTIAL
+    )
+    return e8_runtime.terminal_audit(
+        output_root,
+        cells=cells,
+        experiment_id_value=experiment_id(config),
+        expected_terminal_step=int(config["training"]["optimizer_updates"]),
+        engineering_self_test=_is_engineering_self_test(config),
+        dense_profile=_is_dense(config),
+        coldstart_profile=_is_coldstart(config),
+        method_matrix=_is_method_matrix(config),
+        execution_class=_execution_class(config),
+        excluded_tasks=(
             dict(config["suite"]["excluded_tasks"])
             if (_is_dense(config) or _is_coldstart(config))
             else {}
         ),
-        "single_seed_shape_discovery": (
-            _is_dense(config)
-            or (
-                _is_coldstart(config)
-                and len(experiment_config.task_transfer_seeds(config)) == 1
-            )
+        seed_batch_order=(
+            tuple(int(v) for v in config["execution"]["seed_batch_order"])
+            if _is_method_matrix(config)
+            else ()
         ),
-        "fresh_seed_confirmation_required": (
-            _is_dense(config)
-            or (
-                _is_coldstart(config)
-                and len(experiment_config.task_transfer_seeds(config)) == 1
-            )
+        transfer_exp_single_seed_response_shape_localization=(
+            transfer_exp_single_seed_response_shape_localization
         ),
-        "fixed_horizon_is_convergence": False,
-        "scientific_status": _audited_scientific_status(config, all_complete),
-        "engineering_placeholder_backend": _is_engineering_self_test(config),
-    }
-    atomic_json(output_root / "terminal_audit.json", audit)
-    return audit
-
-
-PACKAGE_REQUIRED_MEMBERS = e8_results.PACKAGE_REQUIRED_MEMBERS
-
-
-
-def _write_completion_manifests(
-    config: Mapping[str, Any],
-    output_root: Path,
-    audit: Mapping[str, Any],
-) -> None:
-    e8_results._write_completion_manifests(
-        output_root,
-        audit,
-        experiment_id_value=experiment_id(config),
-        config_hash=stable_config_hash(config),
-        expected_cells=len(build_cells(config)),
-        engineering_self_test=_is_engineering_self_test(config),
-        execution_class=_execution_class(config),
+        coldstart_single_seed_shape_discovery=coldstart_single_seed_shape_discovery,
+        compatibility_failure_buckets=("dpo_reference_identity_failures",),
+        method_audit_fn=method_audit,
+        audited_status_fn=lambda all_complete: _audited_scientific_status(
+            config, all_complete
+        ),
         write_json=atomic_json,
-        sha256_fn=sha256_file,
     )
-
-
-
-def _result_payload_paths(output_root: Path, excluded_parts: set[str]) -> list[Path]:
-    return e8_results._result_payload_paths(output_root, excluded_parts)
-
 
 
 def verify_result_package(
