@@ -3983,20 +3983,20 @@ def cmd_run_dynamic(
             },
         )
 
-    def is_reusable_complete(cell: Cell) -> bool:
-        manifest_path = (
-            output_root / "cells" / cell.key / "cell_manifest.json"
-        )
-        if not manifest_path.is_file():
-            return False
-        try:
-            return bool(
-                json.loads(
-                    manifest_path.read_text(encoding="utf-8")
-                ).get("complete")
-            )
-        except (OSError, json.JSONDecodeError):
-            return False
+    def should_force_retry(cell: Cell) -> bool:
+        cell_root = output_root / "cells" / cell.key
+        manifest_path = cell_root / "cell_manifest.json"
+        reusable_complete = False
+        if manifest_path.is_file():
+            try:
+                reusable_complete = bool(
+                    json.loads(
+                        manifest_path.read_text(encoding="utf-8")
+                    ).get("complete")
+                )
+            except (OSError, json.JSONDecodeError):
+                reusable_complete = False
+        return cell_root.exists() and not reusable_complete
 
     def execute_cell(
         cell: Cell,
@@ -4103,7 +4103,7 @@ def cmd_run_dynamic(
         engineering_placeholder_backend=_is_engineering_self_test(config),
         hooks=e8_orchestration.DynamicExecutionHooks(
             execute_cell=execute_cell,
-            is_reusable_complete=is_reusable_complete,
+            should_force_retry=should_force_retry,
             completed_cell_error=completed_cell_error,
             publish_task=publish_task,
             reusable_cell_count=reusable_cell_count,
