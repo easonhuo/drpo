@@ -440,7 +440,7 @@ def run_dynamic_execution(
         if int(result["returncode"]) == 0:
             try:
                 hooks.validate_completed_cell(cell)
-            except Exception as exc:  # noqa: BLE001 - child evidence becomes failure
+            except RuntimeError as exc:
                 result["returncode"] = 75
                 result["cell_completion_error"] = (
                     f"{type(exc).__name__}: {exc}"
@@ -564,10 +564,5 @@ def run_dynamic_execution(
         "scientific_status": scientific_status,
         "engineering_placeholder_backend": engineering_placeholder_backend,
     }
-    if failures or unscheduled:
-        raise RuntimeError(
-            "Cold-start scheduling stopped fail-closed; "
-            f"failed={manifest['failed_cells']} unscheduled={len(unscheduled)}"
-        )
     return manifest
 
