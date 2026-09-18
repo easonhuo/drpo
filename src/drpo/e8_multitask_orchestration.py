@@ -371,7 +371,7 @@ class DynamicExecutionHooks:
 
     execute_cell: Callable[[CellLike, int, bool], Mapping[str, Any]]
     is_reusable_complete: Callable[[CellLike], bool]
-    validate_completed_cell: Callable[[CellLike], None]
+    completed_cell_error: Callable[[CellLike], str | None]
     publish_task: Callable[[str], Mapping[str, Any] | None]
     reusable_cell_count: Callable[[], int]
     publish_checkpoint: Callable[[], Mapping[str, Any]] | None
@@ -438,13 +438,10 @@ def run_dynamic_execution(
         )
         result = dict(hooks.execute_cell(cell, gpu_id, child_force))
         if int(result["returncode"]) == 0:
-            try:
-                hooks.validate_completed_cell(cell)
-            except RuntimeError as exc:
+            completion_error = hooks.completed_cell_error(cell)
+            if completion_error is not None:
                 result["returncode"] = 75
-                result["cell_completion_error"] = (
-                    f"{type(exc).__name__}: {exc}"
-                )
+                result["cell_completion_error"] = completion_error
         result["nominal_batch"] = nominal_batch[cell.key]
         return result
 
