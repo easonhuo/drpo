@@ -696,7 +696,8 @@ def terminal_audit(
     execution_class: str,
     excluded_tasks: Mapping[str, Any],
     seed_batch_order: Sequence[int],
-    coldstart_single_seed_response_shape: bool,
+    transfer_exp_single_seed_response_shape_localization: bool,
+    coldstart_single_seed_shape_discovery: bool,
     compatibility_failure_buckets: Sequence[str],
     method_audit_fn: Callable[
         [CellLike, Mapping[str, Any]], MethodAuditResult
@@ -858,14 +859,14 @@ def terminal_audit(
         "countdown_protocol_diagnostic_status": reproduction_gate_status,
         "countdown_result_gate": False if coldstart_profile else None,
         "transfer_exp_single_seed_response_shape_localization": (
-            coldstart_single_seed_response_shape
+            transfer_exp_single_seed_response_shape_localization
         ),
         "excluded_tasks": dict(excluded_tasks),
         "single_seed_shape_discovery": (
-            dense_profile or coldstart_single_seed_response_shape
+            dense_profile or coldstart_single_seed_shape_discovery
         ),
         "fresh_seed_confirmation_required": (
-            dense_profile or coldstart_single_seed_response_shape
+            dense_profile or coldstart_single_seed_shape_discovery
         ),
         "fixed_horizon_is_convergence": False,
         "scientific_status": audited_status_fn(all_complete),
