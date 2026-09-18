@@ -576,6 +576,7 @@ class DynamicCommandBindings:
     experiment_id: Callable[[Mapping[str, Any]], str]
     execution_class: Callable[[Mapping[str, Any]], str]
     engineering_self_test: Callable[[Mapping[str, Any]], bool]
+    method_matrix: Callable[[Mapping[str, Any]], bool]
     reusable_cell_manifests: Callable[
         [Mapping[str, Any], Path],
         tuple[Mapping[str, Mapping[str, Any]], Mapping[str, str]],
@@ -604,7 +605,7 @@ def cmd_run_dynamic(
     cells = tuple(bindings.build_cells(config))
     gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
     slots_per_gpu = int(config["execution"]["slots_per_gpu"])
-    seed_barrier = bool(
+    seed_barrier = bindings.method_matrix(config) and bool(
         config["execution"].get("seed_batch_barriers")
     )
     seed_order = (
