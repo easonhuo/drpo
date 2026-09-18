@@ -658,8 +658,9 @@ def publish_recovery_checkpoint(
             + (completed.stderr.strip() or completed.stdout.strip())
         )
 
+    mirror_value = mirror_value.strip()
     mirror_path: Path | None = None
-    if mirror_value.strip():
+    if mirror_value:
         mirror_root = Path(mirror_value).resolve()
         mirror_root.mkdir(parents=True, exist_ok=True)
         mirror_path = mirror_root / package_output.name
