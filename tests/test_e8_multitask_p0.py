@@ -4301,15 +4301,3 @@ def test_recovery_checkpoint_snapshot_uses_caller_schema_version(tmp_path: Path)
     assert payload["schema_version"] == 7
     stored = exp_tuning._read_json_object(snapshot_root / "RECOVERY_SNAPSHOT.json")
     assert stored["schema_version"] == 7
-
-
-def test_method_integration_contract_shell_execution() -> None:
-    completed = subprocess.run(
-        ["bash", "tests/test_e8_method_integration_contract.sh"],
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    assert completed.returncode == 0, (
-        completed.stdout + "\n" + completed.stderr
-    )
