@@ -814,3 +814,77 @@ def cmd_run_dynamic(
         )
     return manifest
 
+
+def run_wave(
+    wave: Sequence[TCell],
+    *,
+    wave_index: int,
+    gpu_ids: Sequence[int],
+    slots_per_gpu: int,
+    experiment_id_value: str,
+    run_cell: Callable[[TCell, int], Mapping[str, Any]],
+    write_json: Callable[[Path, Any], None],
+    manifest_path: Path,
+) -> dict[str, Any]:
+    """Execute one legacy wave without interpreting method parameters."""
+
+    if len(wave) > len(gpu_ids) * slots_per_gpu:
+        raise RuntimeError("Wave exceeds declared GPU slot capacity")
+    results: list[dict[str, Any]] = []
+    with ThreadPoolExecutor(max_workers=len(wave)) as executor:
+        futures = {
+            executor.submit(
+                run_cell,
+                cell,
+                int(gpu_ids[index % len(gpu_ids)]),
+            ): cell
+            for index, cell in enumerate(wave)
+        }
+        for future in as_completed(futures):
+            results.append(dict(future.result()))
+    results.sort(key=lambda row: str(row["cell_key"]))
+    failures = [
+        row for row in results if int(row["returncode"]) != 0
+    ]
+    manifest = {
+        "schema_version": 1,
+        "experiment_id": experiment_id_value,
+        "wave": wave_index,
+        "expected_cells": len(wave),
+        "results": results,
+        "failed_cells": [row["cell_key"] for row in failures],
+        "complete": not failures and len(results) == len(wave),
+        "scientific_status": "pilot",
+    }
+    write_json(manifest_path, manifest)
+    if failures:
+        raise RuntimeError(
+            f"Wave {wave_index} failed cells: {manifest['failed_cells']}"
+        )
+    return manifest
+
+
+def run_all_waves(
+    *,
+    wave_count: int,
+    experiment_id_value: str,
+    run_wave_fn: Callable[[int], Mapping[str, Any]],
+    write_json: Callable[[Path, Any], None],
+    manifest_path: Path,
+) -> dict[str, Any]:
+    """Execute legacy wave-barrier orchestration through a caller-supplied wave."""
+
+    results = [
+        dict(run_wave_fn(wave_index))
+        for wave_index in range(1, wave_count + 1)
+    ]
+    manifest = {
+        "schema_version": 1,
+        "experiment_id": experiment_id_value,
+        "waves": results,
+        "complete": all(result["complete"] for result in results),
+        "scientific_status": "pilot",
+    }
+    write_json(manifest_path, manifest)
+    return manifest
+
