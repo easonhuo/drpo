@@ -1180,73 +1180,12 @@ intermediate regime; remoteness-aware control should preserve local repulsion
 while suppressing the far-field tail.
 
 
-\begin{figure}[t]
-\centering
-
-\begin{minipage}[t]{0.68\columnwidth}
-    \centering
-    \vspace{0pt}
-    \textbf{(a) Controlled taper comparison}\\[0.05em]
-    \includegraphics[
-        width=\linewidth
-    ]{figures/fig_6_4_2_leftfig_bigtext_legend_protocol.pdf}
-\end{minipage}
-\hfill
-\begin{minipage}[t]{0.28\columnwidth}
-    \centering
-    \vspace{0pt}
-    \textbf{(b) Transfer}\\[0.20em]
-    \scriptsize
-    \setlength{\tabcolsep}{2.2pt}
-    \renewcommand{\arraystretch}{0.92}
-    \resizebox{\linewidth}{!}{
-    \begin{tabular}{lcc}
-    \toprule
-    Method & D4RL& Cnt. \\
-    \midrule
-    Pos.        & 70.1& 14.0 \\
-    G-$\alpha$  & 72.9& 14.2\\
-    Rec.-L      & 74.3& 13.6 \\
-    Rec.-Q      & 72.1& 14.5 \\
-    DRPO        & \textbf{77.7}& \textbf{15.7} \\
-    \bottomrule
-    \end{tabular}
-    }
-
-\end{minipage}
-
-\vspace{-0.35em}
-\caption{
-\textbf{Controlled taper comparison and external transfer.}
-\textbf{(a)} Matched operating points (left: near-field-retention matched;
-right: matched for \(B(\omega)\), the weighted sum of per-sample
-output-coordinate update magnitudes). Bars split \(B(\omega)\) into near-
-and far-field contributions; dashed traces show held-out-context reward.
-\textbf{(b)} Countdown-0.5B fixed-budget transfer reports the best observed
-two-seed late-window Pass@8 from each registered development sweep.
-}
-\label{fig:taper_control_and_transfer}
-\end{figure}
-
-\subsubsection{Controlled Comparison of Taper Shapes}
-\label{sec:controlled_tapers}
-
-We compare positive-only learning, global negative scaling,
-reciprocal-linear tapering, reciprocal-quadratic tapering, and
-exponential tapering while changing only the negative weighting rule. Two
-matched comparisons are used. Near-field-retention matching preserves
-comparable local negative-update magnitude and isolates differences in far-field
-decay, whereas aggregate-budget matching tests whether a selective taper
-outperforms a global reduction with the same total negative-update
-budget.
-
-Under both matched comparisons, exponential tapering retains near-field
-repulsion while suppressing the far-field tail more rapidly than polynomial
-tapers. Positive-only removes both components, whereas global scaling reduces
-them indiscriminately. In the fixed-budget Countdown transfer summary, the
-best observed point in the two-seed development sweep is DRPO's 15.7\%
-late-window Pass@8, followed by Reciprocal-Quadratic (14.5\%), Positive-only
-(14.0\%), Reciprocal-Linear (13.6\%), and Global-\(\alpha\) (14.2\%).
+Matched controls confirm the intended selectivity: remoteness-aware tapering can
+preserve near-field repulsion while suppressing far-field influence, whereas
+global scaling reduces both indiscriminately. Detailed comparisons of
+Positive-only, Global-\(\alpha\), Reciprocal-Linear, Reciprocal-Quadratic, and
+exponential tapering under near-field-retention and \(B(\omega)\)-matched
+controls are reported in Appendix~\ref{app:controlled_taper_protocol}.
 
 \subsubsection{External Validation of Remoteness Tapering}
 \label{sec:external_tapers}
@@ -1255,8 +1194,31 @@ The same principle is tested externally: DRPO weights D4RL locomotion transition
 standardized remoteness from the current Gaussian policy and Countdown
 responses by mean-token surprisal, with protocol-matched methods sharing
 data, labels, initialization, optimizer, and budget. Because external tasks
-lack counterfactual near/far geometry, Figure~\ref{fig:taper_control_and_transfer}b
+lack counterfactual near/far geometry, Table~\ref{tab:taper_transfer_summary}
 provides transfer evidence rather than a closed cross-task ranking.
+
+\begin{table}[t]
+\centering
+\caption{\textbf{Protocol-matched external transfer summary.}
+The D4RL and Countdown values are unchanged from the current composite panel;
+Countdown-0.5B reports the best observed two-seed late-window Pass@8 from each
+registered development sweep.}
+\label{tab:taper_transfer_summary}
+\scriptsize
+\setlength{\tabcolsep}{2.2pt}
+\renewcommand{\arraystretch}{0.92}
+\begin{tabular}{lcc}
+\toprule
+Method & D4RL & Cnt. \\
+\midrule
+Pos.        & 70.1 & 14.0 \\
+G-$\alpha$  & 72.9 & 14.2 \\
+Rec.-L      & 74.3 & 13.6 \\
+Rec.-Q      & 72.1 & 14.5 \\
+DRPO        & \textbf{77.7} & \textbf{15.7} \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection{Overall Task Performance}
 \label{sec:overall_performance}
@@ -4815,6 +4777,34 @@ from the hidden optimum, policy displacement, entropy or variance,
 effective support, near-field retention, aggregate negative-update
 budget, and all three terminal-event categories. Method comparisons use
 the same seeds and paired statistics.
+
+\begin{figure}[t]
+\centering
+\includegraphics[
+    width=\columnwidth
+]{figures/fig_6_4_2_leftfig_bigtext_legend_protocol.pdf}
+\caption{
+\textbf{Controlled taper-shape comparison.}
+Matched operating points (left: near-field-retention matched; right: matched
+for \(B(\omega)\), the weighted sum of per-sample output-coordinate update
+magnitudes). Bars split \(B(\omega)\) into near- and far-field contributions;
+dashed traces show held-out-context reward.
+}
+\end{figure}
+
+We compare positive-only learning, global negative scaling,
+reciprocal-linear tapering, reciprocal-quadratic tapering, and
+exponential tapering while changing only the negative weighting rule. Two
+matched comparisons are used. Near-field-retention matching preserves
+comparable local negative-update magnitude and isolates differences in far-field
+decay, whereas aggregate-budget matching tests whether a selective taper
+outperforms a global reduction with the same total negative-update
+budget.
+
+Under both matched comparisons, exponential tapering retains near-field
+repulsion while suppressing the far-field tail more rapidly than polynomial
+tapers. Positive-only removes both components, whereas global scaling reduces
+them indiscriminately.
 
 
 
