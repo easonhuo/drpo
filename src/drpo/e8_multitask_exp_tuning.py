@@ -36,11 +36,11 @@ from drpo import e8_multitask_results as e8_results
 from drpo import e8_multitask_runtime as e8_runtime
 from drpo import e8_multitask_selftest as e8_selftest
 from drpo import e8_multitask_warmstart_training as e8_warmstart
-from drpo.seeding import seed_everything as _seed_everything
 from drpo.e8_multitask_inputs import (
     _canonical_train_row,
     _canonical_validation_row,
 )
+from drpo.seeding import seed_everything as _seed_everything
 
 _audit_training_rows = e8_inputs._audit_training_rows
 split_countdown_rows = e8_inputs.split_countdown_rows
