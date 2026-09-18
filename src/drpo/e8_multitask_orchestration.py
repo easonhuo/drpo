@@ -370,7 +370,7 @@ class DynamicExecutionHooks:
     """Composition callbacks for one dynamic execution lifecycle."""
 
     execute_cell: Callable[[CellLike, int, bool], Mapping[str, Any]]
-    is_reusable_complete: Callable[[CellLike], bool]
+    should_force_retry: Callable[[CellLike], bool]
     completed_cell_error: Callable[[CellLike], str | None]
     publish_task: Callable[[str], Mapping[str, Any] | None]
     reusable_cell_count: Callable[[], int]
@@ -432,9 +432,8 @@ def run_dynamic_execution(
 
     def run_cell(cell: TCell, slot: int, gpu_id: int) -> Mapping[str, Any]:
         del slot
-        reusable_complete = hooks.is_reusable_complete(cell)
         child_force = force or (
-            retry_incomplete and not reusable_complete
+            retry_incomplete and hooks.should_force_retry(cell)
         )
         result = dict(hooks.execute_cell(cell, gpu_id, child_force))
         if int(result["returncode"]) == 0:
