@@ -2810,13 +2810,6 @@ def _canonical_environment_evaluator(*args: Any, **kwargs: Any) -> Any:
     return _canonical_bridge()._canonical_environment_evaluator(*args, **kwargs)
 
 
-def _canonical_generic_posthoc(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._canonical_generic_posthoc(*args, **kwargs)
-
-
-evaluate_model = e8_warmstart.evaluate_model
-
-
 def _cell_identity(
     cell: Cell,
     *,
@@ -2904,16 +2897,8 @@ def _summarize_evaluations(
 _load_cell_splits = e8_warmstart._load_cell_splits
 
 
-def _runtime_bridge_contract(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._runtime_bridge_contract(*args, **kwargs)
-
-
 def _legacy_arena_runtime_bridge(*args: Any, **kwargs: Any) -> Any:
     return _canonical_bridge()._legacy_arena_runtime_bridge(*args, **kwargs)
-
-
-def _validated_runtime_grid(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._validated_runtime_grid(*args, **kwargs)
 
 
 def _legacy_paper_runtime_bridge(*args: Any, **kwargs: Any) -> Any:
@@ -2926,10 +2911,6 @@ def _canonical_baseline_grid_identity(*args: Any, **kwargs: Any) -> Any:
     return _canonical_bridge()._canonical_baseline_grid_identity(*args, **kwargs)
 
 
-def _normalized_adapter_config_sequence(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._normalized_adapter_config_sequence(*args, **kwargs)
-
-
 def _dpo_shared_sft_adapter_identity(*args: Any, **kwargs: Any) -> Any:
     return _canonical_bridge()._dpo_shared_sft_adapter_identity(*args, **kwargs)
 
@@ -2938,24 +2919,12 @@ def _dpo_shared_sft_adapter(*args: Any, **kwargs: Any) -> Any:
     return _canonical_bridge()._dpo_shared_sft_adapter(*args, **kwargs)
 
 
-def _parameter_sequence_sha256(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._parameter_sequence_sha256(*args, **kwargs)
-
-
 def _dpo_prompt_balanced_mean(*args: Any, **kwargs: Any) -> Any:
     return _canonical_bridge()._dpo_prompt_balanced_mean(*args, **kwargs)
 
 
-def _dpo_quantile(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._dpo_quantile(*args, **kwargs)
-
-
 def _is_nan_inf_numerical_failure(*args: Any, **kwargs: Any) -> Any:
     return _canonical_bridge()._is_nan_inf_numerical_failure(*args, **kwargs)
-
-
-def _load_verified_canonical_calibration(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._load_verified_canonical_calibration(*args, **kwargs)
 
 
 def _prepare_cell_output(
