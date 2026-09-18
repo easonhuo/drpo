@@ -19,11 +19,9 @@ import random
 import shutil
 import subprocess
 import sys
-import threading
 import time
 import traceback
 from collections.abc import Callable, Mapping, Sequence
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -3969,10 +3967,6 @@ def cmd_run_all(
     )
 
 
-def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
-    e8_results.write_csv(path, rows)
-
-
 def _coldstart_result_row(
     config: Mapping[str, Any],
     cell: Cell,
@@ -4263,30 +4257,6 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         ),
         write_json=atomic_json,
     )
-
-
-def _write_completion_manifests(
-    config: Mapping[str, Any],
-    output_root: Path,
-    audit: Mapping[str, Any],
-) -> None:
-    e8_results._write_completion_manifests(
-        output_root,
-        audit,
-        experiment_id_value=experiment_id(config),
-        config_hash=stable_config_hash(config),
-        expected_cells=len(build_cells(config)),
-        engineering_self_test=_is_engineering_self_test(config),
-        execution_class=_execution_class(config),
-        write_json=atomic_json,
-        sha256_fn=sha256_file,
-    )
-
-
-
-def _result_payload_paths(output_root: Path, excluded_parts: set[str]) -> list[Path]:
-    return e8_results._result_payload_paths(output_root, excluded_parts)
-
 
 
 def verify_result_package(
