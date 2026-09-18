@@ -3950,7 +3950,6 @@ def _coldstart_completed_task_rows(
     ]
     return e8_results.coldstart_completed_task_rows(
         output_root,
-        task=task,
         expected_cells=expected,
         experiment_id_value=experiment_id(config),
         config_hash=stable_config_hash(config),
@@ -4052,56 +4051,45 @@ def _aggregate_coldstart(
     rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
     method = _coldstart_method(config)
-    return e8_results.aggregate_coldstart_dispatch(
-        rows,
-        method_matrix=_is_method_matrix(config),
-        method=method,
-        exponential_method=METHOD_EXPONENTIAL,
-        matrix_fn=lambda values: _aggregate_coldstart_matrix_unranked(
-            config, output_root, values
+    if _is_method_matrix(config):
+        return _aggregate_coldstart_matrix_unranked(
+            config, output_root, rows
+        )
+    protocol_diagnostic = _countdown_protocol_diagnostic(
+        config,
+        output_root,
+        destination=(
+            output_root
+            / "aggregate"
+            / "countdown_protocol_diagnostic.json"
         ),
-        unranked_fn=lambda values: e8_results._aggregate_coldstart_unranked(
+    )
+    if method != METHOD_EXPONENTIAL:
+        return e8_results._aggregate_coldstart_unranked(
             config,
             output_root,
-            values,
+            rows,
             spec=_method_spec(method),
             configured_cells=build_cells(config),
             experiment_id_value=experiment_id(config),
-            protocol_diagnostic=_countdown_protocol_diagnostic(
-                config,
-                output_root,
-                destination=(
-                    output_root
-                    / "aggregate"
-                    / "countdown_protocol_diagnostic.json"
-                ),
-            ),
+            protocol_diagnostic=protocol_diagnostic,
             engineering_self_test=_is_engineering_self_test(config),
             positive_only_method=METHOD_POSITIVE_ONLY,
             global_method=METHOD_GLOBAL,
             write_json=atomic_json,
-        ),
-        exponential_fn=lambda values: e8_results._aggregate_coldstart_exponential(
-            config,
-            output_root,
-            values,
-            configured_cells=build_cells(config),
-            experiment_id_value=experiment_id(config),
-            protocol_diagnostic_value=_countdown_protocol_diagnostic(
-                config,
-                output_root,
-                destination=(
-                    output_root
-                    / "aggregate"
-                    / "countdown_protocol_diagnostic.json"
-                ),
-            ),
-            engineering_self_test=_is_engineering_self_test(config),
-            positive_only_method=METHOD_POSITIVE_ONLY,
-            global_method=METHOD_GLOBAL,
-            exponential_method=METHOD_EXPONENTIAL,
-            write_json=atomic_json,
-        ),
+        )
+    return e8_results._aggregate_coldstart_exponential(
+        config,
+        output_root,
+        rows,
+        configured_cells=build_cells(config),
+        experiment_id_value=experiment_id(config),
+        protocol_diagnostic_value=protocol_diagnostic,
+        engineering_self_test=_is_engineering_self_test(config),
+        positive_only_method=METHOD_POSITIVE_ONLY,
+        global_method=METHOD_GLOBAL,
+        exponential_method=METHOD_EXPONENTIAL,
+        write_json=atomic_json,
     )
 
 
