@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SOURCE="$ROOT/paper/overleaf/main_replacement.tex"
 OUT_DIR="${1:-$ROOT/paper/iclr2027/build}"
-EXPECTED_BLOB="c7177b27c23992f7c26e3dd29093c2671a8ba135"
+EXPECTED_BLOB="e10e0d0e697a33c0b69cdf41f252f5db5e5eaaa6"
 
 mkdir -p "$OUT_DIR"
 
@@ -66,6 +66,7 @@ preamble = rf'''\documentclass{{article}}
 \usepackage{{graphicx}}
 \usepackage{{booktabs}}
 \usepackage{{makecell}}
+\usepackage{{wrapfig}}
 \usepackage{{hyperref}}
 \usepackage{{amsmath}}
 \usepackage{{amssymb}}
