@@ -980,6 +980,188 @@ PACKAGE_REQUIRED_MEMBERS = {
 }
 
 
+
+
+def cmd_aggregate(
+    config: Mapping[str, Any],
+    output_root: Path,
+    *,
+    cells: Sequence[CellLike],
+    experiment_id_value: str,
+    dense_profile: bool,
+    coldstart_profile: bool,
+    method_columns_fn: Callable[[CellLike], Mapping[str, Any]],
+    coldstart_result_row_fn: Callable[
+        [CellLike, Mapping[str, Any], str], Mapping[str, Any]
+    ],
+    coldstart_aggregate_fn: Callable[
+        [list[dict[str, Any]]], dict[str, Any]
+    ],
+    dense_aggregate_fn: Callable[[list[dict[str, Any]]], dict[str, Any]],
+    positive_only_method: str,
+    exponential_method: str,
+    write_json: Callable[[Path, Any], None],
+) -> dict[str, Any]:
+    """Materialize result rows and dispatch to the profile-specific aggregate."""
+
+    rows: list[dict[str, Any]] = []
+    missing: list[str] = []
+    for cell in cells:
+        path = output_root / "cells" / cell.key / "cell_manifest.json"
+        if not path.is_file():
+            missing.append(cell.key)
+            continue
+        value = json.loads(path.read_text(encoding="utf-8"))
+        if not value.get("complete") or value.get("evaluation_status") != "complete":
+            missing.append(cell.key)
+            continue
+        source = "dense" if dense_profile else "current"
+        if coldstart_profile:
+            rows.append(
+                dict(coldstart_result_row_fn(cell, value, source))
+            )
+            continue
+        rows.append(
+            common_result_row(
+                cell,
+                source=source,
+                method_columns=method_columns_fn(cell),
+                metrics={
+                    "nan_inf_failure": bool(value["nan_inf_failure"]),
+                    "late_window_pass8_mean": value[
+                        "validation_late_window_pass8_mean"
+                    ],
+                    "terminal_pass8": value["validation_terminal_pass8"],
+                    "late_window_greedy_mean": value[
+                        "validation_late_window_greedy_mean"
+                    ],
+                    "terminal_greedy": value["validation_terminal_greedy"],
+                    "terminal_greedy_valid_rate": value[
+                        "validation_terminal_greedy_valid_rate"
+                    ],
+                },
+            )
+        )
+
+    if missing:
+        raise RuntimeError(
+            f"Cannot aggregate; missing/incomplete cells: {missing}"
+        )
+    write_csv(output_root / "aggregate" / "all_cells.csv", rows)
+    if coldstart_profile:
+        return coldstart_aggregate_fn(rows)
+    if dense_profile:
+        return dense_aggregate_fn(rows)
+
+    task_summaries: dict[str, Any] = {}
+    selected_rows: list[dict[str, Any]] = []
+    minimum_valid = float(
+        config["selection"]["terminal_valid_rate_minimum"]
+    )
+    boundary_rho = float(config["selection"]["boundary_rho"])
+    for task_value in config["suite"]["tasks"]:
+        task = str(task_value)
+        task_rows = [row for row in rows if row["task"] == task]
+        positive_rows = [
+            row for row in task_rows
+            if row["method"] == positive_only_method
+        ]
+        exp_rows = [
+            row for row in task_rows
+            if row["method"] == exponential_method
+        ]
+        if len(positive_rows) != 1 or len(exp_rows) != 7:
+            raise RuntimeError(
+                f"{task} does not contain one Positive-only and seven Exp cells"
+            )
+        eligible = [
+            row
+            for row in exp_rows
+            if not row["nan_inf_failure"]
+            and float(row["terminal_greedy_valid_rate"]) >= minimum_valid
+        ]
+        selected = (
+            max(
+                eligible,
+                key=lambda row: (
+                    float(row["late_window_pass8_mean"]),
+                    float(row["terminal_pass8"]),
+                    float(row["late_window_greedy_mean"]),
+                    float(row["terminal_greedy"]),
+                    float(row["rho"]),
+                ),
+            )
+            if eligible
+            else None
+        )
+        positive = positive_rows[0]
+        best_observed = max(
+            exp_rows,
+            key=lambda row: float(row["late_window_pass8_mean"]),
+        )
+        summary = {
+            "task": task,
+            "positive_only": positive,
+            "eligible_exp_count": len(eligible),
+            "selected_exp": selected,
+            "all_exp_below_positive_only": (
+                float(best_observed["late_window_pass8_mean"])
+                < float(positive["late_window_pass8_mean"])
+            ),
+            "strong_taper_boundary_unclosed": bool(
+                selected is not None
+                and math.isclose(float(selected["rho"]), boundary_rho)
+            ),
+            "selection_metric": config["selection"]["primary_metric"],
+        }
+        task_summaries[task] = summary
+        selected_rows.append(
+            {
+                "task": task,
+                "selected_rho": (
+                    None if selected is None else selected["rho"]
+                ),
+                "selected_late_window_pass8_mean": (
+                    None
+                    if selected is None
+                    else selected["late_window_pass8_mean"]
+                ),
+                "positive_only_late_window_pass8_mean": positive[
+                    "late_window_pass8_mean"
+                ],
+                "all_exp_below_positive_only": summary[
+                    "all_exp_below_positive_only"
+                ],
+                "strong_taper_boundary_unclosed": summary[
+                    "strong_taper_boundary_unclosed"
+                ],
+            }
+        )
+    write_csv(
+        output_root / "aggregate" / "selected_exp_by_task.csv",
+        selected_rows,
+    )
+    summary = {
+        "schema_version": 1,
+        "experiment_id": experiment_id_value,
+        "cell_count": len(rows),
+        "tasks": task_summaries,
+        "test_partition_accessed": False,
+        "task_performance_reported_separately": True,
+        "structure_diagnostic_reported_separately": True,
+        "nan_inf_reported_separately": True,
+        "fixed_horizon_is_convergence": False,
+        "scientific_status": "pilot",
+        "claim_boundary": (
+            "Development hyperparameter response only; no significance, "
+            "convergence, cross-task method ranking, or categorical "
+            "causal-identification claim."
+        ),
+    }
+    write_json(output_root / "aggregate" / "aggregate_summary.json", summary)
+    return summary
+
+
 def _write_completion_manifests(
     output_root: Path,
     audit: Mapping[str, Any],
