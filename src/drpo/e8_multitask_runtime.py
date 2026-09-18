@@ -683,7 +683,6 @@ def publish_recovery_checkpoint(
 
 
 def terminal_audit(
-    config: Mapping[str, Any],
     output_root: Path,
     *,
     cells: Sequence[CellLike],
@@ -697,6 +696,7 @@ def terminal_audit(
     excluded_tasks: Mapping[str, Any],
     seed_batch_order: Sequence[int],
     coldstart_single_seed_response_shape: bool,
+    compatibility_failure_buckets: Sequence[str],
     method_audit_fn: Callable[
         [CellLike, Mapping[str, Any]], MethodAuditResult
     ],
@@ -723,7 +723,9 @@ def terminal_audit(
     incomplete: list[str] = []
     nan_inf: list[str] = []
     terminal_contract_failures: list[str] = []
-    dpo_reference_identity_failures: list[str] = []
+    method_failure_buckets = {
+        str(bucket): [] for bucket in compatibility_failure_buckets
+    }
     for cell in cells:
         cell_root = output_root / "cells" / cell.key
         path = cell_root / "cell_manifest.json"
@@ -752,11 +754,9 @@ def terminal_audit(
                 terminal_contract_failures.append(cell.key)
             method_audit = method_audit_fn(cell, value)
             if not method_audit.passed:
-                if (
-                    method_audit.failure_bucket
-                    == "dpo_reference_identity_failures"
-                ):
-                    dpo_reference_identity_failures.append(cell.key)
+                bucket = str(method_audit.failure_bucket)
+                if bucket in method_failure_buckets:
+                    method_failure_buckets[bucket].append(cell.key)
                 else:
                     terminal_contract_failures.append(cell.key)
 
@@ -823,7 +823,7 @@ def terminal_audit(
         and not incomplete
         and not nan_inf
         and not terminal_contract_failures
-        and not dpo_reference_identity_failures
+        and not any(method_failure_buckets.values())
         and inherited_complete
         and aggregate_complete
         and seed_batch_protocol_complete is not False
@@ -839,9 +839,10 @@ def terminal_audit(
         "terminal_contract_failures": sorted(
             set(terminal_contract_failures)
         ),
-        "dpo_reference_identity_failures": sorted(
-            set(dpo_reference_identity_failures)
-        ),
+        **{
+            bucket: sorted(set(values))
+            for bucket, values in method_failure_buckets.items()
+        },
         "seed_batch_protocol_complete": seed_batch_protocol_complete,
         "all_training_and_evaluation_complete": all_complete,
         "execution_class": execution_class,
