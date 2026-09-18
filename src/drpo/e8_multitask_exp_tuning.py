@@ -15,7 +15,6 @@ import gc
 import json
 import math
 import os
-import random
 import shutil
 import subprocess
 import sys
@@ -37,6 +36,7 @@ from drpo import e8_multitask_results as e8_results
 from drpo import e8_multitask_runtime as e8_runtime
 from drpo import e8_multitask_selftest as e8_selftest
 from drpo import e8_multitask_warmstart_training as e8_warmstart
+from drpo.seeding import seed_everything as _seed_everything
 from drpo.e8_multitask_inputs import (
     _canonical_train_row,
     _canonical_validation_row,
@@ -2583,15 +2583,6 @@ def _load_ready_inputs(
         inputs,
         base_model_path=base_model_path,
     )
-
-
-def _seed_everything(seed: int) -> None:
-    random.seed(seed)
-    np.random.seed(seed % (2**32))
-    if torch is not None:
-        torch.manual_seed(seed)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(seed)
 
 
 completion_stats_batch = e8_warmstart.completion_stats_batch
