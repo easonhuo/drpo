@@ -3816,6 +3816,46 @@ def test_fifth_review_terminal_audit_does_not_mislabel_non_exp_methods() -> None
     assert "_coldstart_method(config) == METHOD_EXPONENTIAL" in source
 
 
+def test_single_seed_non_exp_audit_preserves_discovery_without_exp_localization(
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _asymre_capability_test_config()
+    cells = exp_tuning.build_cells(config)
+    p0.atomic_json(
+        tmp_path / "source_provenance.json",
+        {"source_commit": "a" * 40},
+    )
+    for cell in cells:
+        p0.atomic_json(
+            tmp_path / "cells" / cell.key / "cell_manifest.json",
+            {
+                "complete": True,
+                "evaluation_status": "complete",
+                "nan_inf_failure": False,
+                "terminal_step": 1200,
+                "stop_reason": "max_steps",
+                "test_partition_accessed": False,
+            },
+        )
+    p0.atomic_json(
+        tmp_path / "aggregate" / "aggregate_summary.json",
+        {"cell_count": len(cells)},
+    )
+    p0.atomic_json(
+        tmp_path / "aggregate" / "countdown_protocol_diagnostic.json",
+        {"status": "NOT_RUN"},
+    )
+
+    audit = exp_tuning.cmd_audit(config, tmp_path)
+
+    assert audit["all_training_and_evaluation_complete"] is True
+    assert audit["transfer_exp_single_seed_response_shape_localization"] is False
+    assert audit["single_seed_shape_discovery"] is True
+    assert audit["fresh_seed_confirmation_required"] is True
+
+
 def _baseline_matrix_capability_test_config(*, shared_sft: bool = False) -> dict:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
