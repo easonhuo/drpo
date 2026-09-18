@@ -1,0 +1,146 @@
+{
+  "current_before_commit": "4166db1fc1e0af8d5023362e57d7b309be7b35ec",
+  "current_handoff_before_sha256": "7cc7780a408ff89cceb7742af17b6151d1cb4134a8fec5b9531ec3b1dddecdb3",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e8-baseline-matrix-formal",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "configs/e8_multitask_baseline_matrix_formal.yaml",
+            "sha256": "e864e07a17ca330ce2485124580c07033fe8b2c41268e216abbd6be079fd3dc1"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "130dc304fa8bac8d1ab06c38944cb3dd8f8a965d5dff6b7b0574adac01747076"
+          },
+          {
+            "path": "scripts/run_e8_multitask_exp_coldstart.sh",
+            "sha256": "397ad90fddf48e7be14f7dd2fa58ad37b83bc69429a86e6c33f45b6d566cd0c1"
+          },
+          {
+            "path": "scripts/bootstrap_e8_multitask_exp_coldstart.sh",
+            "sha256": "738cf809103dc813503b46333d077f1298e5ea8a26584ef6a242ec6114f46ee8"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "743f791af3426a6ee6b58de4568c82b52d53db97bea2a89e85a1742b6f6493f5"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "328b78cf25c1f434d9a752540a12c392622c906a171f821961430dda1f4d7aa5"
+          },
+          {
+            "path": "tests/test_formal_execution_channel.py",
+            "sha256": "6303d09f2efb8a941bb6ac51ae0f4dcc54a40f472ea67e37012d825608f1db95"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "9ac050afa9d499251709ab3709b670a15394e15dbbfb67e7d42b36d6df8bf70c",
+  "exact_base_candidate_sha256": "dccf3a5e786bcb35bdf3d57c3ef12a4380fa57fc1938a9d7d030aae4d56490b4",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e8-baseline-matrix-formal",
+        "entity_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01",
+        "evidence": [
+          {
+            "path": "configs/e8_multitask_baseline_matrix_formal.yaml",
+            "sha256": "e864e07a17ca330ce2485124580c07033fe8b2c41268e216abbd6be079fd3dc1"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "130dc304fa8bac8d1ab06c38944cb3dd8f8a965d5dff6b7b0574adac01747076"
+          },
+          {
+            "path": "scripts/run_e8_multitask_exp_coldstart.sh",
+            "sha256": "397ad90fddf48e7be14f7dd2fa58ad37b83bc69429a86e6c33f45b6d566cd0c1"
+          },
+          {
+            "path": "scripts/bootstrap_e8_multitask_exp_coldstart.sh",
+            "sha256": "738cf809103dc813503b46333d077f1298e5ea8a26584ef6a242ec6114f46ee8"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "743f791af3426a6ee6b58de4568c82b52d53db97bea2a89e85a1742b6f6493f5"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "328b78cf25c1f434d9a752540a12c392622c906a171f821961430dda1f4d7aa5"
+          },
+          {
+            "path": "tests/test_formal_execution_channel.py",
+            "sha256": "6303d09f2efb8a941bb6ac51ae0f4dcc54a40f472ea67e37012d825608f1db95"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "dccf3a5e786bcb35bdf3d57c3ef12a4380fa57fc1938a9d7d030aae4d56490b4",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "130dc304fa8bac8d1ab06c38944cb3dd8f8a965d5dff6b7b0574adac01747076",
+  "registry_before_sha256": "aa97eadd8bd348d8fe337ab4232f44feca1cd6d9c02dacaed8968726162c132f",
+  "report_schema_version": 1,
+  "source_base_commit": "4166db1fc1e0af8d5023362e57d7b309be7b35ec",
+  "source_patch_commit": "96f63cb8c67afd77409ece6997eb6ac39456f051",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "2c86cc5b19df5d64cc3febf8b3317a0405b82ba5a0cdc9f2b38f60693161b4cc",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-C-E8-MULTITASK-BASELINE-MATRIX-01-PROTOCOL-CLOSURE-2026-09-18"
+}

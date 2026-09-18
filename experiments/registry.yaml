@@ -7812,6 +7812,108 @@ experiments:
     state: p1_p2_development_curves_closed
     successor_registered: false
     successor_launched: false
+- id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+  environment: EXT-C
+  name: e8_multitask_baseline_matrix_176cell_formal
+  status: not_run
+  result_status: not_run
+  parent_experiment: EXT-C-E8-MULTITASK-P0-01
+  registration_base_commit: 4166db1fc1e0af8d5023362e57d7b309be7b35ec
+  claim: >-
+    On the exact eight P0 transfer tasks and frozen model-independent banks, compare
+    AsymRE, Joint Fitted-Reference beta-TOPR, and canonical PR-268-semantics DPO under
+    matched training/evaluation budgets using two paired development seeds. This is
+    finite-horizon external-validity evidence; Countdown is reused rather than rerun,
+    and convergence or universal method-ranking claims are excluded.
+  role: external_validity_baseline_matrix_finite_horizon
+  execution_class: formal
+  implementation_state: implemented
+  code_entrypoint: src/drpo/e8_multitask_exp_tuning.py
+  one_click_entrypoint: scripts/run_e8_multitask_exp_coldstart.sh
+  bootstrap_entrypoint: scripts/bootstrap_e8_multitask_exp_coldstart.sh
+  config_path: configs/e8_multitask_baseline_matrix_formal.yaml
+  execution_gate:
+    state: ready
+    blocked_by: []
+  formal_execution:
+    channel_ref: hardened-v1
+    activation_state: active
+    entrypoint_status: implemented
+    entrypoint: src/drpo/e8_multitask_exp_tuning.py
+    launch_mode: canonical_guard
+    artifact_owner: canonical_channel
+    guard_entrypoint: scripts/run_experiment_guard_hardened.py
+    package_entrypoint: scripts/package_experiment_hardened.py
+    verify_entrypoint: scripts/verify_experiment_package_hardened.py
+    hardened_core: scripts/artifact_protocol_hardened.py
+    artifact_protocol: docs/formal_experiment_artifact_protocol.md
+    inherit_default_artifact_budget: true
+    runner_archive_policy:
+      mode: forbid
+  formal_launch_template: >-
+    E8_COLDSTART_CONFIG=configs/e8_multitask_baseline_matrix_formal.yaml
+    E8_COLDSTART_EXPERIMENT_ID=EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    E8_COLDSTART_EXPECTED_COMMIT="$(git rev-parse HEAD)"
+    E8_COLDSTART_REQUIRE_ORIGIN_MAIN=1
+    bash scripts/run_e8_multitask_exp_coldstart.sh full
+    # wrapper delegates to scripts/run_experiment_guard_hardened.py --experiment-id EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+  protocol:
+    tasks:
+    - word_sorting
+    - spiral_matrix
+    - mini_sudoku
+    - maze
+    - word_ladder
+    - knights_knaves
+    - graph_color
+    - wikisql
+    external_task_reused_without_new_cells: countdown
+    paired_development_seeds: [4000, 5000]
+    expected_cells: 176
+    optimizer_updates: 1200
+    seed_batch_barriers: true
+    seed_batch_order: [4000, 5000]
+    max_concurrent_cells: 16
+    gpu_ids: [0, 1, 2, 3, 4, 5, 6, 7]
+    slots_per_gpu: 2
+    methods:
+      asymre:
+        parameterization: asymre_delta_v
+        values: [-1.0, -0.9, -0.75, -0.5, 0.0]
+      joint_fitted_reference_topr:
+        parameterization: joint_fitted_reference_beta_topr
+        values: [0.25, 0.5, 1.0]
+      canonical_dpo:
+        parameterization: canonical_dpo_beta
+        values: [0.05, 0.1, 0.2]
+        initialization_mode: base_model_fresh_lora
+        reference_role: exact_frozen_initial_policy
+    test_partition_access_allowed: false
+  reporting:
+    fixed_horizon_only: true
+    convergence_claim_allowed: false
+    significance_claim_allowed: false
+    method_ranking_allowed_before_terminal_audit: false
+    terminal_status_after_complete_contract: finite_step_validated
+    separate_events:
+    - task_performance
+    - valid_or_structure_diagnostic
+    - nan_inf_numerical_failure
+  engineering_merge_provenance:
+    recovery_runtime_pr: 362
+    recovery_runtime_merge_commit: 3beb6500f447ef5424983f247bee2526d737e7d7
+    training_splits_pr: 370
+    training_splits_merge_commit: 4166db1fc1e0af8d5023362e57d7b309be7b35ec
+    scientific_protocol_changed_by_refactors: false
+  evidence:
+    formal_config_present: true
+    implementation_merged_to_main: true
+    formal_run_started: false
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    scientific_status: not_run
+
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1

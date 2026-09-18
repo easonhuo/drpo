@@ -1,0 +1,41 @@
+schema_version: 3
+update_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01-PROTOCOL-CLOSURE-2026-09-18
+mode: authoritative
+base:
+  commit: 4166db1fc1e0af8d5023362e57d7b309be7b35ec
+  handoff_sha256: 7cc7780a408ff89cceb7742af17b6151d1cb4134a8fec5b9531ec3b1dddecdb3
+  registry_sha256: aa97eadd8bd348d8fe337ab4232f44feca1cd6d9c02dacaed8968726162c132f
+renderer_version: 1
+operations:
+- operation_id: append-e8-baseline-matrix-formal-closure
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-multitask-baseline-matrix-formal-closure-2026-09-18
+  content: '- **E8 176-cell baseline-matrix formal protocol authority alignment (`EXT-C-E8-MULTITASK-BASELINE-MATRIX-01`)：**
+    现有 `configs/e8_multitask_baseline_matrix_formal.yaml` 的冻结协议已通过 schema-v3 authority 登记到 registry / handoff；科学状态仍为 **not_run**，本闭环没有启动训练。正式矩阵只新增八个
+    P0 transfer tasks 的 cells，Countdown 只复用 predecessor evidence、不重跑；八任务 × paired seeds `4000/5000` × 每 task-seed 的 AsymRE
+    5 点、Joint Fitted-Reference beta-TOPR 3 点、canonical DPO 3 点，共 `176` cells。训练 horizon 固定 `1200` updates，保留 seed-4000 → seed-5000
+    barrier；DPO 使用 `base_model_fresh_lora` 与 exact frozen initial reference。该实验职责仅为 finite-horizon external-validity baseline
+    comparison，不支持 convergence、significance 或 universal method ranking；方法比较必须经过 terminal audit，task performance、valid/structure
+    diagnostic 与 NaN/Inf numerical failure 继续分开报告。工程重构 PR #362 / #370 已分别以 `3beb6500f447ef5424983f247bee2526d737e7d7` / `4166db1fc1e0af8d5023362e57d7b309be7b35ec`
+    合入 main，未改变上述科学协议；对应 scope 文档中 Draft/unmerged 文字保留为 pre-merge 历史快照，不做破坏性改写。registry 的 ready/active bookkeeping 只记录当前 implemented
+    canonical execution route，不构成科学运行已经开始或完成的声明，也不替代 exact-commit、provenance、recovery、terminal-audit 与 artifact 要求。'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: 130dc304fa8bac8d1ab06c38944cb3dd8f8a965d5dff6b7b0574adac01747076
+  changes:
+  - change_id: add-e8-baseline-matrix-formal
+    kind: add_entity
+    entity_id: EXT-C-E8-MULTITASK-BASELINE-MATRIX-01
+    evidence:
+    - configs/e8_multitask_baseline_matrix_formal.yaml
+    - experiments/registry.yaml
+    - scripts/run_e8_multitask_exp_coldstart.sh
+    - scripts/bootstrap_e8_multitask_exp_coldstart.sh
+    - src/drpo/e8_multitask_exp_tuning.py
+    - tests/test_e8_multitask_p0.py
+    - tests/test_formal_execution_channel.py
+expected:
+  exact_base_candidate_sha256: dccf3a5e786bcb35bdf3d57c3ef12a4380fa57fc1938a9d7d030aae4d56490b4
