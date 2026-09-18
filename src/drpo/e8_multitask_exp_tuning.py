@@ -3972,11 +3972,13 @@ def cmd_run_dynamic(
         with task_result_lock:
             if task in task_results:
                 return
-            rows = _coldstart_completed_task_rows(config, output_root, task)
-            if rows is not None:
-                task_results[task] = _write_coldstart_task_result(
-                    config, output_root, task, rows
-                )
+            ready = _materialize_completed_coldstart_task_results(
+                config,
+                output_root,
+                tasks=(task,),
+            )
+            if task in ready:
+                task_results[task] = ready[task]
 
     def run_cell(cell: Cell, slot: int, gpu_id: int) -> Mapping[str, Any]:
         del slot
@@ -4283,11 +4285,14 @@ def _write_coldstart_task_result(
 def _materialize_completed_coldstart_task_results(
     config: Mapping[str, Any],
     output_root: Path,
+    *,
+    tasks: Sequence[str] | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """Publish every fully complete task independently of nominal-batch boundaries."""
+    """Publish fully complete tasks independently of nominal-batch boundaries."""
 
     ready: dict[str, dict[str, Any]] = {}
-    for task_value in config["suite"]["tasks"]:
+    task_values = config["suite"]["tasks"] if tasks is None else tasks
+    for task_value in task_values:
         task = str(task_value)
         rows = _coldstart_completed_task_rows(config, output_root, task)
         if rows is None:
