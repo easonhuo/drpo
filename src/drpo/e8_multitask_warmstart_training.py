@@ -39,7 +39,6 @@ from drpo.e8_multitask_p0 import (
     stable_config_hash,
 )
 from drpo.e8_multitask_tasks import TaskInstance, stable_hash
-from drpo.seeding import seed_everything as _seed_everything
 
 TaskInputs = e8_inputs.TaskInputs
 _load_task_adapter_and_instances = e8_inputs._load_task_adapter_and_instances
@@ -83,6 +82,17 @@ def _is_coldstart(config: Mapping[str, Any]) -> bool:
         experiment_config.sweep_profile(config)
         == experiment_config.SWEEP_PROFILE_COLDSTART
     )
+
+
+def _seed_everything(seed: int) -> None:
+    import random
+
+    random.seed(seed)
+    np.random.seed(seed % (2**32))
+    if torch is not None:
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
 
 
 def _task_rhos(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
