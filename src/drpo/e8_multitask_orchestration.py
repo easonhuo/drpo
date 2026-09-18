@@ -9,11 +9,15 @@ belong here.
 
 from __future__ import annotations
 
+import json
+import os
 import queue
 import threading
+import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Protocol, TypeVar
 
 
@@ -560,5 +564,252 @@ def run_dynamic_execution(
         "scientific_status": scientific_status,
         "engineering_placeholder_backend": engineering_placeholder_backend,
     }
+    return manifest
+
+
+@dataclass(frozen=True)
+class DynamicCommandBindings:
+    """Explicit E8 composition callbacks for the dynamic command."""
+
+    build_cells: Callable[[Mapping[str, Any]], Sequence[CellLike]]
+    build_waves: Callable[[Mapping[str, Any]], Sequence[Sequence[CellLike]]]
+    experiment_id: Callable[[Mapping[str, Any]], str]
+    execution_class: Callable[[Mapping[str, Any]], str]
+    engineering_self_test: Callable[[Mapping[str, Any]], bool]
+    reusable_cell_manifests: Callable[
+        [Mapping[str, Any], Path],
+        tuple[Mapping[str, Mapping[str, Any]], Mapping[str, str]],
+    ]
+    run_subprocess_cell: Callable[..., Mapping[str, Any]]
+    read_json_object: Callable[[Path], Mapping[str, Any]]
+    materialize_task_results: Callable[..., Mapping[str, Mapping[str, Any]]]
+    publish_recovery_checkpoint: Callable[..., Mapping[str, Any]]
+    protocol_diagnostic: Callable[..., Mapping[str, Any]]
+    append_jsonl: Callable[[Path, Mapping[str, Any]], None]
+    write_json: Callable[[Path, Any], None]
+
+
+def cmd_run_dynamic(
+    config: Mapping[str, Any],
+    config_path: Path,
+    output_root: Path,
+    *,
+    base_model_path: str,
+    force: bool,
+    retry_incomplete: bool,
+    bindings: DynamicCommandBindings,
+) -> dict[str, Any]:
+    """Compose the E8 dynamic execution lifecycle without method semantics."""
+
+    cells = tuple(bindings.build_cells(config))
+    gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
+    slots_per_gpu = int(config["execution"]["slots_per_gpu"])
+    seed_barrier = bool(
+        config["execution"].get("seed_batch_barriers")
+    )
+    seed_order = (
+        tuple(
+            int(value)
+            for value in config["execution"].get("seed_batch_order", ())
+        )
+        if seed_barrier
+        else None
+    )
+    geometry = execution_geometry(
+        cells,
+        gpu_ids=gpu_ids,
+        slots_per_gpu=slots_per_gpu,
+        max_concurrent_cells=int(
+            config["execution"]["max_concurrent_cells"]
+        ),
+        seed_barrier=seed_barrier,
+        seed_order=seed_order,
+    )
+    if geometry.slot_count != 16:
+        raise RuntimeError(
+            "Declared 16-slot capacity is internally inconsistent"
+        )
+
+    waves = tuple(bindings.build_waves(config))
+    nominal_batch = {
+        cell.key: index
+        for index, wave in enumerate(waves, 1)
+        for cell in wave
+    }
+    event_path = output_root / "scheduler" / "queue_events.jsonl"
+    event_path.parent.mkdir(parents=True, exist_ok=True)
+    scheduler_run_id = f"queue-{int(time.time())}-{os.getpid()}"
+
+    recovery_package_value = os.environ.get(
+        "E8_COLDSTART_RECOVERY_PACKAGE", ""
+    ).strip()
+    recovery_package = (
+        Path(recovery_package_value).resolve()
+        if recovery_package_value
+        else None
+    )
+    recovery_interval = int(
+        os.environ.get("E8_COLDSTART_RECOVERY_INTERVAL_CELLS", "5")
+    )
+    if recovery_interval <= 0:
+        raise ValueError(
+            "E8_COLDSTART_RECOVERY_INTERVAL_CELLS must be positive"
+        )
+    initially_reusable, _ = bindings.reusable_cell_manifests(
+        config, output_root
+    )
+
+    def record(event: Mapping[str, Any]) -> None:
+        bindings.append_jsonl(
+            event_path,
+            {
+                "scheduler_run_id": scheduler_run_id,
+                **dict(event),
+                "unix_time": time.time(),
+            },
+        )
+
+    def should_force_retry(cell: CellLike) -> bool:
+        cell_root = output_root / "cells" / cell.key
+        manifest_path = cell_root / "cell_manifest.json"
+        reusable_complete = False
+        if manifest_path.is_file():
+            try:
+                reusable_complete = bool(
+                    json.loads(
+                        manifest_path.read_text(encoding="utf-8")
+                    ).get("complete")
+                )
+            except (OSError, json.JSONDecodeError):
+                reusable_complete = False
+        return cell_root.exists() and not reusable_complete
+
+    def execute_cell(
+        cell: CellLike,
+        gpu_id: int,
+        child_force: bool,
+    ) -> Mapping[str, Any]:
+        return bindings.run_subprocess_cell(
+            config_path=config_path.resolve(),
+            output_root=output_root.resolve(),
+            base_model_path=base_model_path,
+            cell=cell,
+            gpu_id=gpu_id,
+            force=child_force,
+        )
+
+    def completed_cell_error(cell: CellLike) -> str | None:
+        manifest_path = (
+            output_root / "cells" / cell.key / "cell_manifest.json"
+        )
+        try:
+            completed_manifest = bindings.read_json_object(manifest_path)
+            if (
+                completed_manifest.get("complete") is not True
+                or completed_manifest.get("evaluation_status") != "complete"
+                or completed_manifest.get("nan_inf_failure") is not False
+            ):
+                raise RuntimeError(
+                    "child returned zero without a complete finite cell"
+                )
+        except (
+            OSError,
+            ValueError,
+            TypeError,
+            RuntimeError,
+            json.JSONDecodeError,
+        ) as exc:
+            return f"{type(exc).__name__}: {exc}"
+        return None
+
+    def publish_task(task: str) -> Mapping[str, Any] | None:
+        ready = bindings.materialize_task_results(
+            config,
+            output_root,
+            tasks=(task,),
+        )
+        return ready.get(task)
+
+    def reusable_cell_count() -> int:
+        current_reusable, _ = bindings.reusable_cell_manifests(
+            config,
+            output_root,
+        )
+        return len(current_reusable)
+
+    def publish_checkpoint() -> Mapping[str, Any]:
+        if recovery_package is None:
+            raise RuntimeError(
+                "Recovery checkpoint callback requires a configured package"
+            )
+        return bindings.publish_recovery_checkpoint(
+            config,
+            output_root,
+            package_output=recovery_package,
+        )
+
+    def protocol_diagnostic() -> Mapping[str, Any]:
+        return bindings.protocol_diagnostic(
+            config,
+            output_root,
+            destination=(
+                output_root
+                / "scheduler"
+                / "countdown_protocol_diagnostic.json"
+            ),
+        )
+
+    engineering_self_test = bindings.engineering_self_test(config)
+    manifest = run_dynamic_execution(
+        cells,
+        gpu_ids=gpu_ids,
+        slots_per_gpu=slots_per_gpu,
+        max_concurrent_cells=geometry.slot_count,
+        seed_barrier=seed_barrier,
+        seed_order=seed_order,
+        nominal_batch=nominal_batch,
+        force=force,
+        retry_incomplete=retry_incomplete,
+        recovery_interval=recovery_interval,
+        initial_reusable_count=len(initially_reusable),
+        scheduler_run_id=scheduler_run_id,
+        wave_count=len(waves),
+        wave_count_role=(
+            "seed_local_nominal_capacity_audit_only"
+            if seed_barrier
+            else "nominal_audit_geometry_only_not_scheduling_barrier"
+        ),
+        experiment_id_value=bindings.experiment_id(config),
+        execution_class=bindings.execution_class(config),
+        queue_events_path=str(event_path.resolve()),
+        scientific_status=(
+            "not_run" if engineering_self_test else "pilot"
+        ),
+        engineering_placeholder_backend=engineering_self_test,
+        hooks=DynamicExecutionHooks(
+            execute_cell=execute_cell,
+            should_force_retry=should_force_retry,
+            completed_cell_error=completed_cell_error,
+            publish_task=publish_task,
+            reusable_cell_count=reusable_cell_count,
+            publish_checkpoint=(
+                publish_checkpoint
+                if recovery_package is not None
+                else None
+            ),
+            record_event=record,
+            protocol_diagnostic=protocol_diagnostic,
+        ),
+    )
+    bindings.write_json(
+        output_root / "scheduler" / "dynamic_run.json",
+        manifest,
+    )
+    if manifest["failed_cells"] or manifest["unscheduled_cells"]:
+        raise RuntimeError(
+            "Cold-start scheduling stopped fail-closed; "
+            f"failed={manifest['failed_cells']} "
+            f"unscheduled={len(manifest['unscheduled_cells'])}"
+        )
     return manifest
 
