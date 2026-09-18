@@ -363,3 +363,211 @@ def run_dynamic_queue(
 
     by_key = {str(row["cell_key"]): row for row in results}
     return tuple(dict(by_key[cell.key]) for cell in cells if cell.key in by_key)
+
+
+@dataclass(frozen=True)
+class DynamicExecutionHooks:
+    """Composition callbacks for one dynamic execution lifecycle."""
+
+    execute_cell: Callable[[CellLike, int, bool], Mapping[str, Any]]
+    is_reusable_complete: Callable[[CellLike], bool]
+    validate_completed_cell: Callable[[CellLike], None]
+    publish_task: Callable[[str], Mapping[str, Any] | None]
+    reusable_cell_count: Callable[[], int]
+    publish_checkpoint: Callable[[], Mapping[str, Any]] | None
+    record_event: Callable[[Mapping[str, Any]], None]
+    protocol_diagnostic: Callable[[], Mapping[str, Any]]
+
+
+def run_dynamic_execution(
+    cells: Sequence[TCell],
+    *,
+    gpu_ids: Sequence[int],
+    slots_per_gpu: int,
+    max_concurrent_cells: int,
+    seed_barrier: bool,
+    seed_order: Sequence[int] | None,
+    nominal_batch: Mapping[str, int],
+    force: bool,
+    retry_incomplete: bool,
+    recovery_interval: int,
+    initial_reusable_count: int,
+    scheduler_run_id: str,
+    wave_count: int,
+    wave_count_role: str,
+    experiment_id_value: str,
+    execution_class: str,
+    queue_events_path: str,
+    scientific_status: str,
+    engineering_placeholder_backend: bool,
+    hooks: DynamicExecutionHooks,
+) -> dict[str, Any]:
+    """Run the complete method-agnostic dynamic scheduling lifecycle."""
+
+    geometry = execution_geometry(
+        cells,
+        gpu_ids=gpu_ids,
+        slots_per_gpu=slots_per_gpu,
+        max_concurrent_cells=max_concurrent_cells,
+        seed_barrier=seed_barrier,
+        seed_order=seed_order,
+    )
+    if recovery_interval <= 0:
+        raise ValueError("recovery_interval must be positive")
+
+    task_result_lock = threading.Lock()
+    checkpoint_lock = threading.Lock()
+    task_results: dict[str, dict[str, Any]] = {}
+    last_checkpoint_count = (
+        initial_reusable_count // recovery_interval
+    ) * recovery_interval
+
+    def publish_completed_task(task: str) -> None:
+        with task_result_lock:
+            if task in task_results:
+                return
+            value = hooks.publish_task(task)
+            if value is not None:
+                task_results[task] = dict(value)
+
+    def run_cell(cell: TCell, slot: int, gpu_id: int) -> Mapping[str, Any]:
+        del slot
+        reusable_complete = hooks.is_reusable_complete(cell)
+        child_force = force or (
+            retry_incomplete and not reusable_complete
+        )
+        result = dict(hooks.execute_cell(cell, gpu_id, child_force))
+        if int(result["returncode"]) == 0:
+            try:
+                hooks.validate_completed_cell(cell)
+            except Exception as exc:  # noqa: BLE001 - child evidence becomes failure
+                result["returncode"] = 75
+                result["cell_completion_error"] = (
+                    f"{type(exc).__name__}: {exc}"
+                )
+        result["nominal_batch"] = nominal_batch[cell.key]
+        return result
+
+    def after_success(cell: TCell, row: Mapping[str, Any]) -> None:
+        nonlocal last_checkpoint_count
+        mutable = row if isinstance(row, dict) else dict(row)
+        if hooks.publish_checkpoint is not None:
+            try:
+                with checkpoint_lock:
+                    completed_count = hooks.reusable_cell_count()
+                    if (
+                        completed_count
+                        >= last_checkpoint_count + recovery_interval
+                    ):
+                        checkpoint = hooks.publish_checkpoint()
+                        last_checkpoint_count = int(
+                            checkpoint["completed_cells"]
+                        )
+                        mutable["recovery_checkpoint"] = checkpoint["package"]
+                        mutable[
+                            "recovery_checkpoint_completed_cells"
+                        ] = last_checkpoint_count
+            except Exception:
+                mutable["returncode"] = 74
+                raise
+        publish_completed_task(cell.task)
+
+    results = list(
+        run_dynamic_queue(
+            cells,
+            gpu_ids=gpu_ids,
+            slots_per_gpu=slots_per_gpu,
+            max_concurrent_cells=geometry.slot_count,
+            seed_barrier=seed_barrier,
+            seed_order=seed_order,
+            callbacks=SchedulerCallbacks(
+                run_cell=run_cell,
+                record_event=hooks.record_event,
+                after_success=after_success,
+            ),
+        )
+    )
+    results.sort(key=lambda row: str(row["cell_key"]))
+    failures = [
+        row for row in results if int(row["returncode"]) != 0
+    ]
+    returned_keys = {str(row["cell_key"]) for row in results}
+    completed_keys = {
+        str(row["cell_key"])
+        for row in results
+        if int(row["returncode"]) == 0
+    }
+    unscheduled = [
+        cell.key for cell in cells if cell.key not in returned_keys
+    ]
+    seed_expected = (
+        dict(geometry.expected_cells_by_seed) if seed_barrier else {}
+    )
+    seed_completed = (
+        {
+            seed: sum(
+                int(row["returncode"]) == 0
+                and int(row["seed"]) == seed
+                for row in results
+            )
+            for seed in geometry.seed_order
+        }
+        if seed_barrier
+        else {}
+    )
+    protocol_diagnostic = (
+        dict(hooks.protocol_diagnostic())
+        if not failures and not unscheduled
+        else {
+            "status": "PENDING",
+            "result_gate": False,
+            "controls_task_transfer_release": False,
+        }
+    )
+    manifest = {
+        "schema_version": 1,
+        "experiment_id": experiment_id_value,
+        "scheduler": "dynamic_slot_queue",
+        "scheduler_run_id": scheduler_run_id,
+        "wave_barriers": False,
+        "wave_count": wave_count,
+        "wave_count_role": wave_count_role,
+        "seed_batch_barriers": seed_barrier,
+        "seed_batch_order": (
+            list(geometry.seed_order) if seed_barrier else []
+        ),
+        "seed_batch_expected_cells": {
+            str(key): value for key, value in seed_expected.items()
+        },
+        "seed_batch_completed_cells": {
+            str(key): value for key, value in seed_completed.items()
+        },
+        "execution_class": execution_class,
+        "slot_count": geometry.slot_count,
+        "gpu_ids": list(gpu_ids),
+        "slots_per_gpu": slots_per_gpu,
+        "countdown_protocol_diagnostic": protocol_diagnostic,
+        "countdown_result_controls_transfer_release": False,
+        "expected_cells": len(cells),
+        "completed_cells": len(completed_keys),
+        "results": results,
+        "failed_cells": [row["cell_key"] for row in failures],
+        "unscheduled_cells": unscheduled,
+        "queue_events": queue_events_path,
+        "analysis_ready_tasks": sorted(task_results),
+        "task_results": task_results,
+        "complete": (
+            not failures
+            and not unscheduled
+            and len(completed_keys) == len(cells)
+        ),
+        "scientific_status": scientific_status,
+        "engineering_placeholder_backend": engineering_placeholder_backend,
+    }
+    if failures or unscheduled:
+        raise RuntimeError(
+            "Cold-start scheduling stopped fail-closed; "
+            f"failed={manifest['failed_cells']} unscheduled={len(unscheduled)}"
+        )
+    return manifest
+
