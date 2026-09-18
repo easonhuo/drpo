@@ -25,7 +25,6 @@ from typing import Any
 import numpy as np
 
 from drpo import e8_experiment_config as experiment_config
-from drpo.seeding import seed_everything as _seed_everything
 from drpo import e8_multitask_inputs as e8_inputs
 from drpo.e8_multitask_inputs import _ordered_by_prompt_hash
 from drpo.e8_multitask_p0 import (
@@ -40,6 +39,7 @@ from drpo.e8_multitask_p0 import (
     stable_config_hash,
 )
 from drpo.e8_multitask_tasks import TaskInstance, stable_hash
+from drpo.seeding import seed_everything as _seed_everything
 
 TaskInputs = e8_inputs.TaskInputs
 _load_task_adapter_and_instances = e8_inputs._load_task_adapter_and_instances
