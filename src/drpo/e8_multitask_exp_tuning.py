@@ -4315,15 +4315,9 @@ def _aggregate_dense(
 
 
 
-_coldstart_plot_metrics = e8_results._coldstart_plot_metrics
 
 
 
-_coldstart_group_metrics = e8_results._coldstart_group_metrics
-
-
-
-_coldstart_run_provenance = e8_results._coldstart_run_provenance
 
 
 
@@ -4429,133 +4423,33 @@ def _aggregate_coldstart(
 
 
 
+
 def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
     cells = build_cells(config)
-    rows: list[dict[str, Any]] = []
-    missing: list[str] = []
-    for cell in cells:
-        path = output_root / "cells" / cell.key / "cell_manifest.json"
-        if not path.is_file():
-            missing.append(cell.key)
-            continue
-        value = json.loads(path.read_text(encoding="utf-8"))
-        if not value.get("complete") or value.get("evaluation_status") != "complete":
-            missing.append(cell.key)
-            continue
-        source = "dense" if _is_dense(config) else "current"
-        if _is_coldstart(config):
-            rows.append(_coldstart_result_row(config, cell, value, source=source))
-            continue
-        common = {
-            "source": source,
-            "task": cell.task,
-            "method": cell.method,
-            "delta_v": cell.delta_v,
-            "beta": cell.beta,
-            "dpo_initialization": cell.dpo_initialization,
-            "rho": cell.rho,
-            "lambda": (
-                cell.lambda_value
-                if cell.lambda_value is not None
-                else (None if cell.rho is None else coefficient_from_rho(cell.rho))
-            ),
-            "seed": cell.seed,
-            "stage": cell.stage,
-            "cell_key": cell.key,
-            "nan_inf_failure": bool(value["nan_inf_failure"]),
-            "late_window_pass8_mean": value["validation_late_window_pass8_mean"],
-            "terminal_pass8": value["validation_terminal_pass8"],
-            "late_window_greedy_mean": value["validation_late_window_greedy_mean"],
-            "terminal_greedy": value["validation_terminal_greedy"],
-            "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
-        }
-        rows.append(common)
-    if missing:
-        raise RuntimeError(f"Cannot aggregate; missing/incomplete cells: {missing}")
-    _write_csv(output_root / "aggregate" / "all_cells.csv", rows)
-    if _is_coldstart(config):
-        return _aggregate_coldstart(config, output_root, rows)
-    if _is_dense(config):
-        return _aggregate_dense(config, output_root, rows)
-
-    task_summaries: dict[str, Any] = {}
-    selected_rows: list[dict[str, Any]] = []
-    minimum_valid = float(config["selection"]["terminal_valid_rate_minimum"])
-    boundary_rho = float(config["selection"]["boundary_rho"])
-    for task_value in config["suite"]["tasks"]:
-        task = str(task_value)
-        task_rows = [row for row in rows if row["task"] == task]
-        positive_rows = [row for row in task_rows if row["method"] == METHOD_POSITIVE_ONLY]
-        exp_rows = [row for row in task_rows if row["method"] == METHOD_EXPONENTIAL]
-        if len(positive_rows) != 1 or len(exp_rows) != 7:
-            raise RuntimeError(f"{task} does not contain one Positive-only and seven Exp cells")
-        eligible = [
-            row
-            for row in exp_rows
-            if not row["nan_inf_failure"]
-            and float(row["terminal_greedy_valid_rate"]) >= minimum_valid
-        ]
-        selected = (
-            max(
-                eligible,
-                key=lambda row: (
-                    float(row["late_window_pass8_mean"]),
-                    float(row["terminal_pass8"]),
-                    float(row["late_window_greedy_mean"]),
-                    float(row["terminal_greedy"]),
-                    float(row["rho"]),
-                ),
-            )
-            if eligible
-            else None
-        )
-        positive = positive_rows[0]
-        best_observed = max(exp_rows, key=lambda row: float(row["late_window_pass8_mean"]))
-        summary = {
-            "task": task,
-            "positive_only": positive,
-            "eligible_exp_count": len(eligible),
-            "selected_exp": selected,
-            "all_exp_below_positive_only": float(best_observed["late_window_pass8_mean"])
-            < float(positive["late_window_pass8_mean"]),
-            "strong_taper_boundary_unclosed": bool(
-                selected is not None and math.isclose(float(selected["rho"]), boundary_rho)
-            ),
-            "selection_metric": config["selection"]["primary_metric"],
-        }
-        task_summaries[task] = summary
-        selected_rows.append(
-            {
-                "task": task,
-                "selected_rho": None if selected is None else selected["rho"],
-                "selected_late_window_pass8_mean": (
-                    None if selected is None else selected["late_window_pass8_mean"]
-                ),
-                "positive_only_late_window_pass8_mean": positive["late_window_pass8_mean"],
-                "all_exp_below_positive_only": summary["all_exp_below_positive_only"],
-                "strong_taper_boundary_unclosed": summary["strong_taper_boundary_unclosed"],
-            }
-        )
-    _write_csv(output_root / "aggregate" / "selected_exp_by_task.csv", selected_rows)
-    summary = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "cell_count": len(rows),
-        "tasks": task_summaries,
-        "test_partition_accessed": False,
-        "task_performance_reported_separately": True,
-        "structure_diagnostic_reported_separately": True,
-        "nan_inf_reported_separately": True,
-        "fixed_horizon_is_convergence": False,
-        "scientific_status": "pilot",
-        "claim_boundary": (
-            "Development hyperparameter response only; no significance, convergence, "
-            "cross-task method ranking, or categorical causal-identification claim."
+    return e8_results.cmd_aggregate(
+        config,
+        output_root,
+        cells=cells,
+        experiment_id_value=experiment_id(config),
+        dense_profile=_is_dense(config),
+        coldstart_profile=_is_coldstart(config),
+        method_columns_fn=_method_output_columns,
+        coldstart_result_row_fn=lambda cell, value, source: _coldstart_result_row(
+            config,
+            cell,
+            value,
+            source=source,
         ),
-    }
-    atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
-    return summary
-
+        coldstart_aggregate_fn=lambda rows: _aggregate_coldstart(
+            config, output_root, rows
+        ),
+        dense_aggregate_fn=lambda rows: _aggregate_dense(
+            config, output_root, rows
+        ),
+        positive_only_method=METHOD_POSITIVE_ONLY,
+        exponential_method=METHOD_EXPONENTIAL,
+        write_json=atomic_json,
+    )
 
 
 def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
