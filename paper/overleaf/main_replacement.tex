@@ -1047,11 +1047,15 @@ structured-generation tasks.}
 \subsubsection{Remoteness as an Independent Source of Update Magnitude}
 \label{sec:controlled_source}
 
-\begin{figure}[t]
+\begin{figure*}[t]
+\centering
+
+\begin{minipage}[t]{0.49\textwidth}
     \centering
+    \vspace{0pt}
 
     \includegraphics[
-        width=0.92\columnwidth,
+        width=0.92\linewidth,
         trim={0pt 2pt 0pt 2pt},
         clip
     ]{figures/fig_6_3_1_source_heatmap.pdf}
@@ -1059,7 +1063,7 @@ structured-generation tasks.}
     \vspace{0.35em}
 
     \includegraphics[
-        width=0.92\columnwidth,
+        width=0.92\linewidth,
         trim={0pt 2pt 0pt 2pt},
         clip
     ]{figures/fig_6_3_2_rescue_plot.pdf}
@@ -1076,7 +1080,29 @@ structured-generation tasks.}
     collapse counts.
 }
     \label{fig:controlled_6_3}
-\end{figure}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.49\textwidth}
+    \centering
+    \vspace{0pt}
+
+    \includegraphics[
+        width=0.86\linewidth
+    ]{figures/fig_6_4_1_phase_transition.pdf}
+
+    \vspace{-0.35em}
+\caption{
+    \textbf{Stable extrapolation from controlled negative feedback.}
+    Increasing \(q/p\) first lifts held-out-context reward above the
+    positive-only ceiling, then causes over-extrapolation and task-performance
+    collapse; policy shift measures displacement from the positive-only target.
+    The strip reports task collapse, boundary events, and NaN/Inf failures
+    separately.
+}
+    \label{fig:phase_transition_6_4_1}
+\end{minipage}
+
+\end{figure*}
 
 We first isolate whether remoteness changes update magnitude independently of
 sample quality. In C-U1, negative actions are
@@ -1133,23 +1159,7 @@ dominance and permits controlled comparisons of taper shape.
 \subsubsection{Stable Extrapolation from Controlled Negative Feedback}
 \label{sec:controlled_negative_strength}
 
-\begin{figure}[t]
-    \centering
-    \includegraphics[
-        width=0.95\columnwidth
-    ]{figures/fig_6_4_1_phase_transition.pdf}
 
-    \vspace{-0.35em}
-\caption{
-    \textbf{Stable extrapolation from controlled negative feedback.}
-    Increasing \(q/p\) first lifts held-out-context reward above the
-    positive-only ceiling, then causes over-extrapolation and task-performance
-    collapse; policy shift measures displacement from the positive-only target.
-    The strip reports task collapse, boundary events, and NaN/Inf failures
-    separately.
-}
-    \label{fig:phase_transition_6_4_1}
-\end{figure}
 
 We sweep the effective negative strength relative to positive attraction,
 denoted by $q/p$, under the matched-control invariants above; protocol and
@@ -1291,83 +1301,7 @@ consistent with the far-field source-control route of
 Section~\ref{sec:selective_tapering_bridge}, but should be read as
 task-level transfer rather than a causal test of the mechanism.
 
-\begin{table}[t]
-\centering
-\caption{Normalized returns on the D4RL-9 Gym locomotion benchmark.}
-\label{tab:d4rl_performance}
 
-\small
-\setlength{\tabcolsep}{3.9pt}
-\renewcommand{\arraystretch}{1.07}
-
-\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lcccc}
-\toprule
-Dataset
-&
-CQL$^\dagger$
-&
-TD3+BC$^\dagger$
-&
-IQL$^\dagger$
-&
-\textbf{DRPO}
-\\
-\midrule
-
-halfcheetah-medium
-& 44.0 & \textbf{48.3} & \underline{47.4} & 47.3 \\
-
-hopper-medium
-& 58.5 & \underline{59.3} & \textbf{66.3} & 57.3 \\
-
-walker2d-medium
-& 72.5 & \underline{83.7} & 78.3 & \textbf{85.5} \\
-
-\midrule
-
-halfcheetah-replay
-& \textbf{45.5} & \underline{44.6} & 44.2 & 43.3 \\
-
-hopper-replay
-& \textbf{95.0} & 60.9 & \underline{94.7} & 87.8 \\
-
-walker2d-replay
-& 77.2 & \textbf{81.8} & 73.9 & \underline{78.1} \\
-
-\midrule
-
-halfcheetah-expert
-& \textbf{91.6} & 90.7 & 86.7 & \underline{91.1} \\
-
-hopper-expert
-& \textbf{105.4} & \underline{98.0} & 91.5 & \underline{98.0} \\
-
-walker2d-expert
-& 108.8 & \underline{110.1} & 109.6 & \textbf{110.4} \\
-
-\midrule
-
-\textit{D4RL-9 total}
-& \textit{\underline{698.5}}
-& \textit{677.4}
-& \textit{692.4}
-& \textbf{\textit{698.8}}
-\\
-
-\bottomrule
-\end{tabular*}
-
-\vspace{2pt}
-
-\begin{minipage}{\columnwidth}
-\small
-\textit{Note.} ``replay'' and ``expert'' abbreviate ``medium-replay'' and
-``medium-expert'', respectively. $\dagger$: published results rather than
-protocol-matched reruns. Bold/underline: best/second-best among the methods
-shown. DRPO reports the mean over 10 runs.
-\end{minipage}
-
-\end{table}
 
 \subsubsection{Structured Generation}
 \label{sec:structured_generation_performance}
@@ -1394,115 +1328,96 @@ DPO~\citep{rafailov2023direct}, preceded by a short SFT stage to ensure
 a task-capable initialization. The shared objectives, baseline definitions,
 and taper functions are given in
 Appendices~\ref{app:shared_methods}
-and~\ref{app:structured_generation_methods}.
+and~\ref{app:structured_generation_methods}; the relation to canonical
+TOPR is detailed in Appendix~\ref{app:topr_relation}.
 
-\begin{table}[t]
+\begin{table*}[t]
 \centering
-\caption{Pass@8 on structured-generation tasks.}
+\caption{Normalized returns on the D4RL-9 Gym locomotion benchmark in (a)
+and Pass@8 on structured-generation tasks in (b).}
+\label{tab:external_task_performance}
+\label{tab:d4rl_performance}
 \label{tab:structured_generation_performance}
+\vspace{-2pt}
 
-\small
-\renewcommand{\arraystretch}{1.08}
-\setlength{\tabcolsep}{3.5pt}
-
-\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lcccc}
+\begin{minipage}[t]{0.465\textwidth}
+\centering
+\textbf{(a) D4RL-9 normalized return}\par\vspace{2pt}
+{\scriptsize
+\setlength{\tabcolsep}{2.05pt}
+\renewcommand{\arraystretch}{1.04}
+\begin{tabular}{@{}lrrrr@{}}
 \toprule
-Task
-&
-AsymRE
-&
-\makecell{\(\beta\)-TOPR\\(joint fitted ref.)}
-&
-DPO\(^{\ddagger}\)
-&
-\textbf{DRPO}
-\\
+Dataset & CQL$^\dagger$ & TD3+BC$^\dagger$ & IQL$^\dagger$ & \textbf{DRPO} \\
 \midrule
-
-Countdown
-& 14.38
-& 14.41
-& 8.48
-& \textbf{15.72}
-\\
-
-Word Sorting
-&
-&
-&
-&
-\\
-
-Spiral Matrix
-&
-&
-&
-&
-\\
-
-Mini Sudoku
-&
-&
-&
-&
-\\
-
-Maze
-&
-&
-&
-&
-\\
-
-Word Ladder
-&
-&
-&
-&
-\\
-
-Knights \& Knaves
-&
-&
-&
-&
-\\
-
-Graph Coloring
-&
-&
-&
-&
-\\
-
-WikiSQL
-&
-&
-&
-&
-\\
-
+halfcheetah-medium & 44.0 & \textbf{48.3} & \underline{47.4} & 47.3 \\
+hopper-medium & 58.5 & \underline{59.3} & \textbf{66.3} & 57.3 \\
+walker2d-medium & 72.5 & \underline{83.7} & 78.3 & \textbf{85.5} \\
+halfcheetah-replay & \textbf{45.5} & \underline{44.6} & 44.2 & 43.3 \\
+hopper-replay & \textbf{95.0} & 60.9 & \underline{94.7} & 87.8 \\
+walker2d-replay & 77.2 & \textbf{81.8} & 73.9 & \underline{78.1} \\
+halfcheetah-expert & \textbf{91.6} & 90.7 & 86.7 & \underline{91.1} \\
+hopper-expert & \textbf{105.4} & \underline{98.0} & 91.5 & \underline{98.0} \\
+walker2d-expert & 108.8 & \underline{110.1} & 109.6 & \textbf{110.4} \\
+\midrule
+\textit{D4RL-9 total} & \textit{\underline{698.5}} & \textit{677.4} &
+\textit{692.4} & \textbf{\textit{698.8}} \\
 \bottomrule
-\end{tabular*}
-
-\vspace{2pt}
-
-\begin{minipage}{\columnwidth}
-\small
-\textit{Note.}
-AsymRE, \(\beta\)-TOPR, and DRPO initialize their trainable LoRA adapters
-directly from the same Qwen2.5-0.5B-Instruct backbone;
-\(^{\ddagger}\)DPO uses the same parameterization but initializes its policy
-and frozen reference from the short SFT checkpoint described in
-Appendix~\ref{app:structured_generation_methods}. The TOPR arm implements
-the joint fitted-reference \(\beta\)-TOPR variant; it is not a canonical
-frozen-behavior reproduction of \citet{leroux2025tapered}.
+\end{tabular}
+}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.515\textwidth}
+\centering
+\textbf{(b) Structured generation Pass@8}\par\vspace{2pt}
+{\scriptsize
+\setlength{\tabcolsep}{2.1pt}
+\renewcommand{\arraystretch}{1.04}
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+Task & PO & AsymRE & $\beta$-TOPR & DPO$^\ddagger$ & \textbf{DRPO} \\
+\midrule
+Countdown & 13.98 & 14.38 & 14.41 & & \textbf{15.72} \\
+Word Sorting & 62.06 & 61.72 & 59.61 & & \textbf{63.38} \\
+Spiral Matrix & \textbf{100.00} & 99.92 & \textbf{100.00} & & 99.94 \\
+Mini Sudoku & 95.91 & \textbf{97.58} & 96.88 & & 97.06 \\
+Maze & 76.74 & \textbf{77.81} & 75.86 & & 77.66 \\
+Word Ladder & 10.68 & 12.50 & 11.41 & & \textbf{13.38} \\
+Knights \& Knaves & 67.53 & \textbf{70.16} & 68.59 & & 69.53 \\
+Graph Coloring & 98.67 & 98.91 & 99.37 & & \textbf{99.88} \\
+WikiSQL & 85.65 & 85.78 & 82.89 & & \textbf{86.69} \\
+\midrule
+\textit{Macro Avg.} & \textit{67.91} & \textit{68.75} & \textit{67.67} &
+& \textbf{\textit{69.25}} \\
+\bottomrule
+\end{tabular}
+}
 \end{minipage}
 
-\end{table}
+\vspace{3pt}
+\begin{minipage}{0.985\textwidth}
+\scriptsize
+\textit{Note.} PO = Positive-only.
+\textbf{(a)} ``replay'' and ``expert'' abbreviate ``medium-replay'' and
+``medium-expert'', respectively. $\dagger$: published results rather than
+protocol-matched reruns. Bold/underline: best/second-best among the methods
+shown. DRPO reports the mean over 10 runs.
+\textbf{(b)} AsymRE, $\beta$-TOPR, and DRPO initialize their trainable LoRA
+adapters directly from the same Qwen2.5-0.5B-Instruct backbone;
+$^{\ddagger}$DPO uses the same parameterization but initializes its policy and
+frozen reference from the short SFT checkpoint described in
+Appendix~\ref{app:structured_generation_methods}.
+$\beta$-TOPR denotes the joint fitted-reference variant of TOPR
+\citep{leroux2025tapered}.
+For DRPO, the reported transfer-task scores are the maximum means over
+contiguous five-point windows of the registered $\lambda$-response curves.
+Macro Avg. is the unweighted mean of the nine task-level Pass@8 percentages.
+\end{minipage}
+\end{table*}
 
-DRPO delivers the strongest observed task performance among the
-compared methods.
+Across the eight transfer tasks, the reported DRPO score exceeds the
+reported AsymRE score on five tasks and the Joint Fitted-Reference
+\(\beta\)-TOPR score on seven tasks.
 
 \section{Conclusion}
 
@@ -5118,8 +5033,7 @@ rapidly than the reciprocal alternatives.
 Within each task, \(\tau\), \(c\), \(\lambda\), and the
 Global-\(\alpha\) coefficient are selected using the registered
 validation protocol only. Test-task performance is not used for
-hyperparameter selection. All protocol-matched methods share the same
-candidate budgets and checkpoint-selection rule.
+hyperparameter selection.
 
 
 \subsection{D4RL Baselines and Experimental Protocol}
