@@ -4241,7 +4241,6 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
         and len(experiment_config.task_transfer_seeds(config)) == 1
     )
     return e8_runtime.terminal_audit(
-        config,
         output_root,
         cells=cells,
         experiment_id_value=experiment_id(config),
@@ -4262,6 +4261,7 @@ def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
             else ()
         ),
         coldstart_single_seed_response_shape=coldstart_single_seed_response_shape,
+        compatibility_failure_buckets=("dpo_reference_identity_failures",),
         method_audit_fn=method_audit,
         audited_status_fn=lambda all_complete: _audited_scientific_status(
             config, all_complete
