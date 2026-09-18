@@ -2442,7 +2442,7 @@ def test_runtime_activation_uses_canonical_grid_before_generic_bridge() -> None:
 
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+    source = inspect.getsource(exp_tuning._canonical_bridge()._train_canonical_cold_cell)
     assert "_activate_paper_grid_modules(modules, grid_source_path)" in source
     assert "_activate_paper_grid_modules(modules, grid_path)" not in source
 
@@ -3005,7 +3005,7 @@ def test_postreview_sampled_validity_is_not_greedy_alias() -> None:
     summary = exp_tuning._summarize_evaluations(evaluations, config)
     assert summary["validation_terminal_sampled_valid_rate"] == pytest.approx(0.25)
 
-    source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+    source = inspect.getsource(exp_tuning._canonical_bridge()._train_canonical_cold_cell)
     assert 'row["val_sampled_valid_rate"] = float(sampled_valid_rate)' in source
     assert 'row.get("val_sampled_valid_rate") in (None, "")' in source
 
@@ -3033,7 +3033,7 @@ def test_coldstart_liveness_identity_is_derived_from_canonical_smoke_grid() -> N
     assert cell.stage == "liveness"
     assert not math.isclose(expected_c, 0.916290732, rel_tol=0.0, abs_tol=1.0e-12)
 
-    source = inspect.getsource(exp_tuning._cmd_canonical_cold_liveness)
+    source = inspect.getsource(exp_tuning._canonical_bridge()._cmd_canonical_cold_liveness)
     assert "cell = _canonical_cold_liveness_cell(grid_path)" in source
 
 
@@ -3207,7 +3207,7 @@ def test_asymre_capability_dispatches_existing_kernel_without_loss_copy() -> Non
     )
     assert spec.paper_runtime.formula == "delegated_to_existing_canonical_asymre"
     assert spec.scientific_kernel == "canonical_old_coldstart_imports"
-    source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+    source = inspect.getsource(exp_tuning._canonical_bridge()._train_canonical_cold_cell)
     assert "paper_runtime.cell_parameters(cell)" in source
     assert "family=paper_family" in source
     assert "positive_coefficient" not in source
@@ -3287,7 +3287,7 @@ def test_topr_capability_dispatches_existing_joint_reference_kernel() -> None:
         spec.paper_runtime.formula
         == "delegated_to_existing_joint_fitted_reference_beta_topr"
     )
-    source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+    source = inspect.getsource(exp_tuning._canonical_bridge()._train_canonical_cold_cell)
     assert "paper_runtime.cell_parameters(cell)" in source
     assert "family=paper_family" in source
     assert "joint_topr_negative_weights" not in source
@@ -3421,7 +3421,7 @@ def test_dpo_scientific_kernel_matches_reviewed_pr268_structure() -> None:
 
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    source = inspect.getsource(exp_tuning._train_canonical_dpo_transfer_cell)
+    source = inspect.getsource(exp_tuning._canonical_bridge()._train_canonical_dpo_transfer_cell)
     required = (
         "full_sequence_log_probability",
         "policy_chosen[row_index]",
@@ -3436,7 +3436,7 @@ def test_dpo_scientific_kernel_matches_reviewed_pr268_structure() -> None:
     )
     for fragment in required:
         assert fragment in source
-    helper_source = inspect.getsource(exp_tuning._dpo_prompt_balanced_mean)
+    helper_source = inspect.getsource(exp_tuning._canonical_bridge()._dpo_prompt_balanced_mean)
     assert "mean_unique_negative_term" in helper_source
     assert "value_network" not in source
     assert "early_stop" not in source
@@ -3454,7 +3454,7 @@ def test_dpo_train_cell_dispatch_supports_two_update_liveness() -> None:
     assert "_method_spec(cell.method).train_cold" in source
     helper = inspect.getsource(exp_tuning._cold_train_dpo)
     assert "_train_canonical_dpo_transfer_cell" in helper
-    liveness = inspect.getsource(exp_tuning._cmd_dpo_liveness)
+    liveness = inspect.getsource(exp_tuning._canonical_bridge()._cmd_dpo_liveness)
     assert "updates_override=2" in liveness
     assert "fresh_process_reload_passed" in liveness
     assert "optimizer_update_norm" in liveness
@@ -3498,7 +3498,7 @@ def test_dpo_uses_same_reference_remoteness_bank_derivation_as_other_coldstart_m
     assert "_derive_reference_remoteness_banks" in calibrate_task
     assert "_coldstart_method(config) != METHOD_DPO" not in calibrate
     assert "_coldstart_method(config) != METHOD_DPO" not in calibrate_task
-    dpo = inspect.getsource(exp_tuning._train_canonical_dpo_transfer_cell)
+    dpo = inspect.getsource(exp_tuning._canonical_bridge()._train_canonical_dpo_transfer_cell)
     assert '"reference_remoteness_bank_identity_hash"' in dpo
     assert '"canonical_train_sha256"' in dpo
 
@@ -3513,7 +3513,7 @@ def test_topr_dispatch_records_topr_formula_identity_not_exp_formula() -> None:
         spec.paper_runtime.formula
         == "delegated_to_existing_joint_fitted_reference_beta_topr"
     )
-    source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+    source = inspect.getsource(exp_tuning._canonical_bridge()._train_canonical_cold_cell)
     assert "paper_runtime.formula" in source
     assert "_paper_grid_for_cell(config, record, cell)" in source
 
@@ -3523,7 +3523,7 @@ def test_dpo_failure_path_preserves_last_finite_without_extra_policy_change_gate
 
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    source = inspect.getsource(exp_tuning._train_canonical_dpo_transfer_cell)
+    source = inspect.getsource(exp_tuning._canonical_bridge()._train_canonical_dpo_transfer_cell)
     assert 'last_finite_dir = cell_root / "last_finite_adapter"' in source
     assert 'numerical_failure = "initial_policy_reference_pair_margin_mismatch"' in source
     assert 'numerical_failure = f"nonfinite_loss_at_step_{update}"' in source
@@ -3533,7 +3533,7 @@ def test_dpo_failure_path_preserves_last_finite_without_extra_policy_change_gate
     assert '"nan_inf_failure"' in source
     assert '"complete": numerical_failure is None' in source
     assert "DPO policy parameters did not change" not in source
-    liveness = inspect.getsource(exp_tuning._cmd_dpo_liveness)
+    liveness = inspect.getsource(exp_tuning._canonical_bridge()._cmd_dpo_liveness)
     assert "optimizer_update_norm" in liveness
     assert "<= 0.0" in liveness
 
@@ -3543,7 +3543,7 @@ def test_dpo_transfer_consumes_effective_task_runtime_and_preserves_liveness_ide
 
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    source = inspect.getsource(exp_tuning._train_canonical_dpo_transfer_cell)
+    source = inspect.getsource(exp_tuning._canonical_bridge()._train_canonical_dpo_transfer_cell)
     assert 'model_cfg["max_length"] = int(effective["model"]["max_length"])' in source
     assert 'model_cfg["max_new_tokens"] = int(effective["model"]["max_new_tokens"])' in source
     assert 'eval_cfg["batch_size"] = int(effective["evaluation"]["batch_size"])' in source
@@ -3554,7 +3554,7 @@ def test_dpo_transfer_consumes_effective_task_runtime_and_preserves_liveness_ide
     assert 'str(final_adapter_dir.resolve())' in source
     assert '"finite_old_core_updates": numerical_failure is None' in source
 
-    liveness = inspect.getsource(exp_tuning._cmd_dpo_liveness)
+    liveness = inspect.getsource(exp_tuning._canonical_bridge()._cmd_dpo_liveness)
     assert 'result["identity_hash"] = stable_hash(result)' not in liveness
 
 
@@ -3622,7 +3622,7 @@ def test_canonical_failed_cell_preserves_manifest_without_late_window_summary() 
 
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    source = inspect.getsource(exp_tuning._train_canonical_cold_cell)
+    source = inspect.getsource(exp_tuning._canonical_bridge()._train_canonical_cold_cell)
     assert 'numerical_failure = canonical_summary.get("numerical_failure")' in source
     assert 'if numerical_failure is None' in source
     assert 'else {}' in source
@@ -3636,7 +3636,7 @@ def test_dpo_emits_recovery_summary_and_audited_pr268_diagnostics() -> None:
 
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    source = inspect.getsource(exp_tuning._train_canonical_dpo_transfer_cell)
+    source = inspect.getsource(exp_tuning._canonical_bridge()._train_canonical_dpo_transfer_cell)
     required = (
         'summary_path = cell_root / "summary.json"',
         'result["canonical_summary_sha256"] = sha256_file(summary_path)',
