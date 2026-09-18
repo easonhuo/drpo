@@ -173,7 +173,6 @@ def _coldstart_result_row(
 def coldstart_completed_task_rows(
     output_root: Path,
     *,
-    task: str,
     expected_cells: Sequence[CellLike],
     experiment_id_value: str,
     config_hash: str,
@@ -1040,25 +1039,6 @@ PACKAGE_REQUIRED_MEMBERS = {
 
 
 
-
-
-def aggregate_coldstart_dispatch(
-    rows: list[dict[str, Any]],
-    *,
-    method_matrix: bool,
-    method: str,
-    exponential_method: str,
-    matrix_fn: Callable[[list[dict[str, Any]]], dict[str, Any]],
-    unranked_fn: Callable[[list[dict[str, Any]]], dict[str, Any]],
-    exponential_fn: Callable[[list[dict[str, Any]]], dict[str, Any]],
-) -> dict[str, Any]:
-    """Dispatch cold-start aggregation without owning method semantics."""
-
-    if method_matrix:
-        return matrix_fn(rows)
-    if method != exponential_method:
-        return unranked_fn(rows)
-    return exponential_fn(rows)
 
 
 def cmd_aggregate(
