@@ -168,6 +168,64 @@ def _coldstart_result_row(
 
 
 
+
+
+def coldstart_completed_task_rows(
+    output_root: Path,
+    *,
+    task: str,
+    expected_cells: Sequence[CellLike],
+    experiment_id_value: str,
+    config_hash: str,
+    result_row_fn: Callable[
+        [CellLike, Mapping[str, Any]], Mapping[str, Any]
+    ],
+) -> list[dict[str, Any]] | None:
+    """Return task-local response rows only after every expected cell completes."""
+
+    if not expected_cells:
+        return None
+    rows: list[dict[str, Any]] = []
+    for cell in expected_cells:
+        path = output_root / "cells" / cell.key / "cell_manifest.json"
+        if not path.is_file():
+            return None
+        value = json.loads(path.read_text(encoding="utf-8"))
+        if (
+            value.get("complete") is not True
+            or value.get("evaluation_status") != "complete"
+        ):
+            return None
+        if (
+            value.get("experiment_id") != experiment_id_value
+            or value.get("config_hash") != config_hash
+        ):
+            raise RuntimeError(
+                f"{cell.key} per-task result identity mismatch"
+            )
+        rows.append(dict(result_row_fn(cell, value)))
+    return rows
+
+
+def materialize_completed_task_results(
+    tasks: Sequence[str],
+    *,
+    completed_rows_fn: Callable[[str], list[dict[str, Any]] | None],
+    write_task_result_fn: Callable[
+        [str, list[dict[str, Any]]], dict[str, Any]
+    ],
+) -> dict[str, dict[str, Any]]:
+    """Publish each fully complete task through one result path."""
+
+    ready: dict[str, dict[str, Any]] = {}
+    for task_value in tasks:
+        task = str(task_value)
+        rows = completed_rows_fn(task)
+        if rows is not None:
+            ready[task] = write_task_result_fn(task, rows)
+    return ready
+
+
 def _write_coldstart_task_result(
     config: Mapping[str, Any],
     output_root: Path,
@@ -980,6 +1038,27 @@ PACKAGE_REQUIRED_MEMBERS = {
 }
 
 
+
+
+
+
+def aggregate_coldstart_dispatch(
+    rows: list[dict[str, Any]],
+    *,
+    method_matrix: bool,
+    method: str,
+    exponential_method: str,
+    matrix_fn: Callable[[list[dict[str, Any]]], dict[str, Any]],
+    unranked_fn: Callable[[list[dict[str, Any]]], dict[str, Any]],
+    exponential_fn: Callable[[list[dict[str, Any]]], dict[str, Any]],
+) -> dict[str, Any]:
+    """Dispatch cold-start aggregation without owning method semantics."""
+
+    if method_matrix:
+        return matrix_fn(rows)
+    if method != exponential_method:
+        return unranked_fn(rows)
+    return exponential_fn(rows)
 
 
 def cmd_aggregate(
