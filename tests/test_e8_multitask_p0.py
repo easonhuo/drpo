@@ -798,8 +798,8 @@ def test_exp_tuning_partial_calibration_preserves_prior_task_results(
         p0.atomic_json(tmp_path / "calibration" / f"{task}.json", result)
         return result
 
-    monkeypatch.setattr(exp_tuning, "_calibration_identity", fake_identity)
-    monkeypatch.setattr(exp_tuning, "calibrate_task", fake_calibrate)
+    monkeypatch.setattr(e8_warmstart, "_calibration_identity", fake_identity)
+    monkeypatch.setattr(e8_warmstart, "calibrate_task", fake_calibrate)
     first = exp_tuning.cmd_calibrate(
         config,
         tmp_path,
@@ -860,7 +860,7 @@ def test_exp_tuning_wave_requires_calibration_and_liveness_gates(
         ),
     )
     monkeypatch.setattr(
-        exp_tuning,
+        e8_warmstart,
         "_calibration_identity",
         lambda task, **kwargs: {"identity_hash": f"calibration-{task}"},
     )
