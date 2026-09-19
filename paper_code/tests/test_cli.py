@@ -41,6 +41,7 @@ def test_cli_dispatches_cu1_stage(
     assert observed["seeds"] == (10, 11)
     assert observed["stage"] == "source"
 
+
 def test_cli_dispatches_d4rl_public_runner(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -81,6 +82,7 @@ def test_cli_dispatches_d4rl_public_runner(
     assert observed["seeds"] == (7, 8)
     assert observed["steps"] == 100
 
+
 def test_cli_dispatches_countdown_public_runner(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -96,6 +98,7 @@ def test_cli_dispatches_countdown_public_runner(
     output = tmp_path / "countdown-output"
     assert cli.main(["countdown", "--config", str(config), "--output", str(output)]) == 0
     assert observed == {"config_path": config, "output_root": output}
+
 
 def test_evaluate_d4rl_agent(
     monkeypatch: pytest.MonkeyPatch,
@@ -148,6 +151,7 @@ def test_evaluate_d4rl_agent(
     )
     assert result["raw_returns"] == [2.0, 2.0]
     assert result["raw_return_mean"] == pytest.approx(2.0)
+
 
 def test_d4rl_runner_aggregates_scores(
     monkeypatch: pytest.MonkeyPatch,

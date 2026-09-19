@@ -23,6 +23,7 @@ from .gaussian import GaussianActor
 EPS = 1.0e-12
 GradientTuple = tuple[torch.Tensor | None, ...]
 
+
 @dataclass(frozen=True)
 class CU1PositiveProtocol:
     """C-U1 positive-training settings."""
@@ -42,6 +43,7 @@ class CU1PositiveProtocol:
     adam_eps: float = 1e-8
     absolute_residual_threshold_alpha_zero: float = 1e-3
 
+
 @dataclass
 class PositiveRun:
     """In-memory result of one positive-only C-U1 run."""
@@ -50,11 +52,13 @@ class PositiveRun:
     environment: Environment
     initialization_state: dict[str, torch.Tensor]
 
+
 def gradient_norm(gradients: Sequence[torch.Tensor | None]) -> torch.Tensor:
     present = [gradient.reshape(-1) for gradient in gradients if gradient is not None]
     if not present:
         return torch.zeros(())
     return torch.linalg.vector_norm(torch.cat(present))
+
 
 def gradients(
     loss: torch.Tensor,
@@ -70,6 +74,7 @@ def gradients(
             allow_unused=True,
         )
     )
+
 
 def add_gradients(
     *groups: Sequence[torch.Tensor | None],
@@ -88,11 +93,13 @@ def add_gradients(
         result.append(value)
     return tuple(result)
 
+
 def scale_gradients(
     gradients: Sequence[torch.Tensor | None],
     scale: float | torch.Tensor,
 ) -> GradientTuple:
     return tuple(None if gradient is None else gradient * scale for gradient in gradients)
+
 
 def set_parameter_gradients(
     parameters: Sequence[nn.Parameter],
@@ -101,8 +108,10 @@ def set_parameter_gradients(
     for parameter, gradient in zip(parameters, gradients):
         parameter.grad = None if gradient is None else gradient.detach().clone()
 
+
 def finite_model(model: nn.Module) -> bool:
     return all(bool(torch.isfinite(parameter).all()) for parameter in model.parameters())
+
 
 def initialized_actor(
     protocol: CU1Protocol,
@@ -116,12 +125,14 @@ def initialized_actor(
     actor.load_state_dict(copy.deepcopy(state))
     return actor
 
+
 def sample_ids(generator: torch.Generator, split, batch_size: int) -> torch.Tensor:
     return torch.randint(
         len(split.s),
         (batch_size,),
         generator=generator,
     ).to(split.s.device)
+
 
 def make_adam(
     parameters: Sequence[nn.Parameter],
@@ -135,6 +146,7 @@ def make_adam(
         betas=(training.adam_beta1, training.adam_beta2),
         eps=training.adam_eps,
     )
+
 
 def field_diagnostics(
     positive: torch.Tensor,
@@ -166,6 +178,7 @@ def field_diagnostics(
         "normalized_field_residual": residual,
         "stationarity_residual": residual,
     }
+
 
 def train_positive(
     *,

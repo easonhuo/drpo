@@ -58,6 +58,7 @@ def test_cu1_point_retention_formulas_match_legacy_definitions() -> None:
         torch.testing.assert_close(actual, legacy, rtol=0.0, atol=1.0e-12)
         assert actual[2].item() == pytest.approx(rho, abs=1.0e-12)
 
+
 def test_du1_v4_distance_coordinate_matches_legacy_formulas() -> None:
     normalized_excess = torch.tensor([0.0, 0.25, 1.0, 4.0], dtype=torch.float64)
     distance = torch.sqrt(normalized_excess)
@@ -75,6 +76,7 @@ def test_du1_v4_distance_coordinate_matches_legacy_formulas() -> None:
         torch.testing.assert_close(actual, legacy, rtol=0.0, atol=1.0e-12)
         assert actual[2].item() == pytest.approx(rho, abs=1.0e-12)
 
+
 def test_countdown_paper_aligned_weight_is_linear_in_normalized_excess() -> None:
     log_probability = torch.tensor([-1.0, -3.0, -5.0], dtype=torch.float64)
     normalized = normalized_excess_surprisal(log_probability, threshold=1.0, scale=2.0)
@@ -87,6 +89,7 @@ def test_countdown_paper_aligned_weight_is_linear_in_normalized_excess() -> None
     )
     torch.testing.assert_close(actual, torch.exp(-coefficient * normalized))
 
+
 def test_remoteness_weights_are_detached_by_default() -> None:
     log_probability = torch.tensor([-1.0, -3.0], requires_grad=True)
     distance = surprisal_distance(log_probability, threshold=0.5, scale=2.0)
@@ -98,6 +101,7 @@ def test_remoteness_weights_are_detached_by_default() -> None:
     assert not distance.requires_grad
     assert not weight.requires_grad
 
+
 def test_hard_masks_are_complementary_and_boundary_is_near() -> None:
     distance = torch.tensor([0.0, 4.999, 5.0, 5.001, 10.0])
     near = near_mask(distance, threshold=5.0)
@@ -105,6 +109,7 @@ def test_hard_masks_are_complementary_and_boundary_is_near() -> None:
     assert near.tolist() == [True, True, True, False, False]
     assert far.tolist() == [False, False, False, True, True]
     assert torch.equal(~near, far)
+
 
 def test_raw_gradient_norm_and_budget_scale() -> None:
     target = [torch.tensor([3.0, 4.0]), None]
@@ -116,9 +121,11 @@ def test_raw_gradient_norm_and_budget_scale() -> None:
     scaled = [source[0] * scale]
     assert gradient_l2_norm(scaled).item() == pytest.approx(5.0)
 
+
 def test_budget_scale_fails_closed_for_nonzero_target_and_zero_source() -> None:
     with pytest.raises(ZeroDivisionError):
         scale_to_match_norm([torch.tensor([1.0])], [torch.tensor([0.0])])
+
 
 def test_invalid_coordinates_fail_closed() -> None:
     with pytest.raises(ValueError):
@@ -127,6 +134,7 @@ def test_invalid_coordinates_fail_closed() -> None:
         normalized_excess_surprisal(torch.tensor([-1.0]), threshold=0.0, scale=0.0)
     with pytest.raises(ValueError):
         near_mask(torch.tensor([float("nan")]), threshold=1.0)
+
 
 def test_d4rl_reviewer_method_catalog_is_explicit_and_nonfinal() -> None:
     assert D4RL_METHODS == (
@@ -138,6 +146,7 @@ def test_d4rl_reviewer_method_catalog_is_explicit_and_nonfinal() -> None:
         "reciprocal_quadratic",
         "exponential",
     )
+
 
 def test_d4rl_legacy_control_factors_match_registered_pilot_formulas() -> None:
     negative_advantages = torch.tensor(
@@ -202,6 +211,7 @@ def test_d4rl_legacy_control_factors_match_registered_pilot_formulas() -> None:
         torch.testing.assert_close(actual, expected_factor)
         assert actual.requires_grad is False
 
+
 def test_d4rl_standardized_distance_is_detached() -> None:
     mean = torch.tensor([[0.0, 0.0], [1.0, -1.0]], requires_grad=True)
     log_std = torch.zeros_like(mean, requires_grad=True)
@@ -209,6 +219,7 @@ def test_d4rl_standardized_distance_is_detached() -> None:
     distance = canonical_standardized_action_distance(mean, log_std, actions)
     assert distance.tolist() == pytest.approx([math.sqrt(12.5), math.sqrt(2.0)])
     assert distance.requires_grad is False
+
 
 def test_countdown_active_tail_method_catalog_and_formulas() -> None:
     assert COUNTDOWN_ACTIVE_TAIL_METHODS == (
@@ -239,6 +250,7 @@ def test_countdown_active_tail_method_catalog_and_formulas() -> None:
     quartic_wrong = torch.exp(-coefficient * distance.pow(4)).detach()
     assert not torch.allclose(squared, quartic_wrong)
 
+
 def test_countdown_active_tail_remoteness_is_detached_and_exact() -> None:
     sequence_log_probability = torch.tensor(
         [-1.0, -2.0, -5.0], dtype=torch.float64, requires_grad=True
@@ -253,6 +265,7 @@ def test_countdown_active_tail_remoteness_is_detached_and_exact() -> None:
     torch.testing.assert_close(distance, torch.sqrt(expected))
     assert normalized.requires_grad is False
     assert distance.requires_grad is False
+
 
 def test_countdown_calibration_scale_and_tau_match_numpy_median_semantics() -> None:
     values = [8.0, 1.0, 6.0, 3.0, 2.0, 7.0, 4.0, 5.0]
@@ -269,6 +282,7 @@ def test_countdown_calibration_scale_and_tau_match_numpy_median_semantics() -> N
     fixed, fixed_rule = resolve_active_tail_tau(1.25, diagnostics)
     assert fixed == 1.25
     assert fixed_rule == "fixed_numeric_surprisal_threshold"
+
 
 def test_countdown_active_distance_diagnostics_and_guard() -> None:
     diagnostics = active_distance_diagnostics([1.0, 2.0, 3.0, 5.0], tau=2.0, surprisal_scale=2.0)
@@ -305,6 +319,7 @@ def test_countdown_active_distance_diagnostics_and_guard() -> None:
             minimum_taper_lambda=1.0e-6,
         )
 
+
 def test_countdown_prompt_balanced_sampler_matches_legacy_rng_order() -> None:
     rows = [
         {"negatives": ["a", "b"]},
@@ -326,6 +341,7 @@ def test_countdown_prompt_balanced_sampler_matches_legacy_rng_order() -> None:
     for item in actual:
         counts[item["prompt_index"]] += 1
     assert max(counts.values()) - min(counts.values()) <= 1
+
 
 def test_countdown_calibrate_coefficient_finds_exponential_target() -> None:
     coefficient, matched, relative_error = calibrate_monotone_coefficient(
