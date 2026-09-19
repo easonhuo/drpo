@@ -12,7 +12,7 @@ import torch
 from drpo_reference.common import atomic_json
 
 from .cu1 import CU1Protocol
-from .cu1_control import CU1ControlProtocol, run_far_pressure_control
+from .cu1_control import run_far_pressure_control
 from .cu1_mechanism import (
     CU1CausalProtocol,
     CU1SourceProtocol,
@@ -33,7 +33,6 @@ class CU1Protocols:
     source: CU1SourceProtocol = field(default_factory=CU1SourceProtocol)
     causal: CU1CausalProtocol = field(default_factory=CU1CausalProtocol)
     phase: CU1PhaseProtocol = field(default_factory=CU1PhaseProtocol)
-    control: CU1ControlProtocol = field(default_factory=CU1ControlProtocol)
     taper: CU1TaperProtocol = field(default_factory=CU1TaperProtocol)
 
 
@@ -155,7 +154,7 @@ def _phase_rows(
                 environment=positive.environment,
                 protocol=protocols.core,
                 positive_training=protocols.positive,
-                control=protocols.control,
+                phase=protocols.phase,
                 method=method,
             )
             controls.append(dict(run))

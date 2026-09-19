@@ -225,6 +225,51 @@ def solve_near_scale_for_budget(
     return max(non_negative) if non_negative else 0.0
 
 
+def controlled_negative_gradients(
+    near_gradient: GradientTuple,
+    far_gradient: GradientTuple,
+    *,
+    near_scale: float,
+    far_scale: float,
+    cap_ratio: float,
+    method: str,
+) -> GradientTuple:
+    weighted_near = scale_gradients(near_gradient, near_scale)
+    weighted_far = scale_gradients(far_gradient, far_scale)
+    raw = add_gradients(weighted_near, weighted_far)
+    near_norm = gradient_norm(weighted_near).item()
+    far_norm = gradient_norm(weighted_far).item()
+    raw_norm = gradient_norm(raw).item()
+    far_cap = min(1.0, cap_ratio * near_norm / (far_norm + EPS))
+    capped_far = scale_gradients(weighted_far, far_cap)
+    capped = add_gradients(weighted_near, capped_far)
+
+    if method in {"baseline", "uncontrolled_all"}:
+        return raw
+    if method == "near_zero":
+        return weighted_far
+    if method == "far_zero":
+        return weighted_near
+    if method == "far_cap":
+        return capped
+    if method in {"global_scale", "budget_matched_global"}:
+        return scale_gradients(
+            raw,
+            gradient_norm(capped).item() / (raw_norm + EPS),
+        )
+    if method == "far_to_near":
+        near_multiplier = solve_near_scale_for_budget(
+            weighted_near,
+            capped_far,
+            raw_norm,
+        )
+        return add_gradients(
+            scale_gradients(weighted_near, near_multiplier),
+            capped_far,
+        )
+    raise ValueError(f"unknown negative-control method: {method}")
+
+
 def intervention_gradients(
     actor: GaussianActor,
     split: Split,
@@ -250,44 +295,14 @@ def intervention_gradients(
     positive_gradient = gradients(positive, parameters, retain_graph=True)
     near_gradient = gradients(near, parameters, retain_graph=True)
     far_gradient = gradients(far, parameters)
-    weighted_near = scale_gradients(near_gradient, alpha)
-    weighted_far = scale_gradients(far_gradient, alpha)
-    raw_negative = add_gradients(weighted_near, weighted_far)
-
-    near_norm = gradient_norm(weighted_near).item()
-    far_norm = gradient_norm(weighted_far).item()
-    raw_norm = gradient_norm(raw_negative).item()
-    far_scale = min(1.0, cap_ratio * near_norm / (far_norm + EPS))
-    capped_far = scale_gradients(weighted_far, far_scale)
-    capped_negative = add_gradients(weighted_near, capped_far)
-    capped_norm = gradient_norm(capped_negative).item()
-
-    if method == "baseline":
-        controlled_negative = raw_negative
-    elif method == "near_zero":
-        controlled_negative = weighted_far
-    elif method == "far_zero":
-        controlled_negative = weighted_near
-    elif method == "far_cap":
-        controlled_negative = capped_negative
-    elif method == "global_scale":
-        controlled_negative = scale_gradients(
-            raw_negative,
-            capped_norm / (raw_norm + EPS),
-        )
-    elif method == "far_to_near":
-        near_scale = solve_near_scale_for_budget(
-            weighted_near,
-            capped_far,
-            raw_norm,
-        )
-        controlled_negative = add_gradients(
-            scale_gradients(weighted_near, near_scale),
-            capped_far,
-        )
-    else:
-        raise ValueError(f"unknown E3 intervention method: {method}")
-
+    controlled_negative = controlled_negative_gradients(
+        near_gradient,
+        far_gradient,
+        near_scale=alpha,
+        far_scale=alpha,
+        cap_ratio=cap_ratio,
+        method=method,
+    )
     return add_gradients(positive_gradient, controlled_negative)
 
 

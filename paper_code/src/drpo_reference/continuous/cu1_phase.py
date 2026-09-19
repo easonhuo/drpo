@@ -59,6 +59,11 @@ class CU1PhaseProtocol:
     runaway_steps: int = 4000
     normalized_residual_threshold: float = 2e-3
     absolute_residual_threshold_alpha_zero: float = 1e-3
+    control_alpha_local: float = 1.0
+    control_lambda_far: float = 1.0
+    control_far_cap_ratio: float = 0.05
+    control_learning_rate: float = 5e-4
+    control_steps: int = 4000
     seeds: tuple[int, ...] = tuple(range(50, 70))
 
 
