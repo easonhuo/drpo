@@ -78,11 +78,6 @@ from drpo.e8_multitask_tasks import (
 # experiment IDs and sweep-profile names.
 EXPERIMENT_ID = experiment_config.RHO_EXPERIMENT_ID
 DENSE_EXPERIMENT_ID = experiment_config.DENSE_EXPERIMENT_ID
-COLDSTART_EXPERIMENT_ID = experiment_config.COLDSTART_EXPERIMENT_ID
-LAMBDA_COMPLETION_EXPERIMENT_ID = experiment_config.LAMBDA_COMPLETION_EXPERIMENT_ID
-LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID = (
-    experiment_config.LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID
-)
 P0_EXPERIMENT_ID = experiment_config.P0_EXPERIMENT_ID
 # Backward-compatible name used by predecessor tests and downstream callers.
 PARENT_EXPERIMENT_ID = P0_EXPERIMENT_ID
@@ -167,9 +162,6 @@ PAPER_EXTENSION_COEFFICIENTS = (
     6.907755279,
     9.210340372,
 )
-TASK_TRANSFER_COEFFICIENTS = PAPER_ROUND1_COEFFICIENTS + PAPER_EXTENSION_COEFFICIENTS[3:]
-PAPER_SEED_OFFSETS = (4000, 5000)
-
 
 @dataclass(frozen=True)
 class Cell:
@@ -494,7 +486,7 @@ def _dpo_method_audit(
 
 def _asymre_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
     del config
-    identity = _canonical_baseline_grid_identity(METHOD_ASYMRE)
+    identity = _canonical_bridge()._canonical_baseline_grid_identity(METHOD_ASYMRE)
     return {
         "canonical_asymre_grid": identity["canonical_grid"],
         "canonical_asymre_grid_sha256": identity["canonical_grid_sha256"],
@@ -507,7 +499,7 @@ def _asymre_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
 
 def _topr_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
     del config
-    identity = _canonical_baseline_grid_identity(METHOD_TOPR)
+    identity = _canonical_bridge()._canonical_baseline_grid_identity(METHOD_TOPR)
     return {
         "canonical_topr_grid": identity["canonical_grid"],
         "canonical_topr_grid_sha256": identity["canonical_grid_sha256"],
@@ -647,7 +639,7 @@ def _register_builtin_method_specs() -> None:
             ),
             single_aggregate_metadata=_asymre_single_metadata,
             matrix_aggregate_metadata=lambda config: (
-                _canonical_baseline_grid_identity(METHOD_ASYMRE)
+                _canonical_bridge()._canonical_baseline_grid_identity(METHOD_ASYMRE)
             ),
         )
     )
@@ -679,7 +671,7 @@ def _register_builtin_method_specs() -> None:
             ),
             single_aggregate_metadata=_topr_single_metadata,
             matrix_aggregate_metadata=lambda config: (
-                _canonical_baseline_grid_identity(METHOD_TOPR)
+                _canonical_bridge()._canonical_baseline_grid_identity(METHOD_TOPR)
             ),
         )
     )
@@ -1020,18 +1012,6 @@ def audit_canonical_coldstart_sources(config: Mapping[str, Any]) -> dict[str, An
         "git_blob_shas": observed,
         "verified": True,
     }
-
-
-def _canonical_cold_modules(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._canonical_cold_modules(*args, **kwargs)
-
-
-def _activate_paper_grid_modules(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._activate_paper_grid_modules(*args, **kwargs)
-
-
-normalized_distance = e8_warmstart.normalized_distance
-taper_weight = e8_warmstart.taper_weight
 
 
 def _coldstart_method_cell(
@@ -1400,7 +1380,7 @@ def _derive_reference_remoteness_banks(
         pending.append(task)
 
     if pending:
-        modules = _canonical_cold_modules(config)
+        modules = _canonical_bridge()._canonical_cold_modules(config)
         arena = modules["arena"]
         _seed_everything(int(config["initialization"]["seed"]))
         tokenizer = arena.load_tokenizer(str(Path(base_model_path).resolve()))
@@ -1412,7 +1392,7 @@ def _derive_reference_remoteness_banks(
         reference_effective = experiment_config.effective_coldstart_runtime(
             config, pending[0]
         )
-        with _legacy_arena_runtime_bridge(arena, reference_effective):
+        with _canonical_bridge()._legacy_arena_runtime_bridge(arena, reference_effective):
             model = arena.load_model(
                 str(Path(base_model_path).resolve()),
                 adapter_path=None,
@@ -1677,11 +1657,6 @@ def _seed_everything(seed: int) -> None:
             torch.cuda.manual_seed_all(seed)
 
 
-completion_stats_batch = e8_warmstart.completion_stats_batch
-_select_current_extremes = e8_warmstart._select_current_extremes
-_load_reference_model = e8_warmstart._load_reference_model
-_calibration_identity = e8_warmstart._calibration_identity
-
 
 def _canonical_calibration_identity(
     task: str,
@@ -1711,10 +1686,6 @@ def _canonical_calibration_identity(
     }
     value["identity_hash"] = stable_hash(value)
     return value
-
-
-def _paper_grid_for_cell(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._paper_grid_for_cell(*args, **kwargs)
 
 
 def calibrate_canonical_cold_task(
@@ -1751,8 +1722,6 @@ def calibrate_canonical_cold_task(
     atomic_json(result_path, result)
     return result
 
-
-calibrate_task = e8_warmstart.calibrate_task
 
 
 def cmd_calibrate(
@@ -1794,7 +1763,7 @@ def cmd_calibrate(
         }
     else:
         requested_results = {
-            task: calibrate_task(
+            task: e8_warmstart.calibrate_task(
                 task,
                 inputs=inputs[task],
                 split_manifest=splits,
@@ -1819,7 +1788,7 @@ def cmd_calibrate(
                 config=config,
             )
             if _is_coldstart(config)
-            else _calibration_identity(
+            else e8_warmstart._calibration_identity(
                 task,
                 inputs=inputs[task],
                 split_manifest=splits,
@@ -1883,10 +1852,6 @@ def cmd_calibrate_task(
         force=force,
     )
 
-
-
-def _canonical_environment_evaluator(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._canonical_environment_evaluator(*args, **kwargs)
 
 
 def _cell_identity(
@@ -1971,39 +1936,6 @@ def _summarize_evaluations(
         "supplementary_best_pass8": float(best["pass8"]),
         "supplementary_best_greedy": float(best["greedy_success"]),
     }
-
-
-_load_cell_splits = e8_warmstart._load_cell_splits
-
-
-def _legacy_arena_runtime_bridge(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._legacy_arena_runtime_bridge(*args, **kwargs)
-
-
-def _legacy_paper_runtime_bridge(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._legacy_paper_runtime_bridge(*args, **kwargs)
-
-
-
-
-def _canonical_baseline_grid_identity(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._canonical_baseline_grid_identity(*args, **kwargs)
-
-
-def _dpo_shared_sft_adapter_identity(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._dpo_shared_sft_adapter_identity(*args, **kwargs)
-
-
-def _dpo_shared_sft_adapter(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._dpo_shared_sft_adapter(*args, **kwargs)
-
-
-def _dpo_prompt_balanced_mean(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._dpo_prompt_balanced_mean(*args, **kwargs)
-
-
-def _is_nan_inf_numerical_failure(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._is_nan_inf_numerical_failure(*args, **kwargs)
 
 
 def _prepare_cell_output(
@@ -2743,7 +2675,7 @@ def _require_calibration_gate(
                 config=config,
             )
             if _is_coldstart(config)
-            else _calibration_identity(
+            else e8_warmstart._calibration_identity(
                 task,
                 inputs=inputs[task],
                 split_manifest=splits,
