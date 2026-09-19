@@ -2,7 +2,7 @@
 
 One actor/critic/optimizer lifecycle serves all nine locomotion tasks. ExpRank is
 the default method; optional negative-side controls share the same training
-lifecycle. Hopper E7-Q2 remains a separate mechanism experiment.
+lifecycle. The historical Hopper E7-Q2 mechanism runner is not duplicated here.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from pathlib import Path
 import h5py
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 D4RL_METHODS = (
     "exprank",

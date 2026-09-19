@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from drpo_reference.common import cpu_generator, seed_all
 
@@ -157,12 +157,13 @@ def train_positive(
     *,
     seed: int,
     protocol: CU1Protocol,
-    training: CU1PositiveProtocol = CU1PositiveProtocol(),
+    training: CU1PositiveProtocol | None = None,
     device: torch.device | str = "cpu",
     dtype: torch.dtype = torch.float32,
 ) -> PositiveRun:
     """Run positive-only training and preserve the E3/E4 initialization state."""
 
+    training = CU1PositiveProtocol() if training is None else training
     target = torch.device(device)
     environment = make_environment(seed, protocol, target, dtype)
     seed_all(seed)
