@@ -1938,6 +1938,9 @@ def cmd_reference(
         base_model_path=base_model_path,
         tasks=tasks,
         force=force,
+        load_prepared_fn=_load_prepared,
+        model_identity_fn=model_identity,
+        train_warmstart_fn=train_task_positive_warmstart,
     )
 
 
@@ -1962,6 +1965,7 @@ def _attach_references(
         splits,
         inputs,
         base_model_path=base_model_path,
+        model_identity_fn=model_identity,
     )
 
 
@@ -1975,6 +1979,7 @@ def _load_ready_inputs(
         output_root,
         config,
         base_model_path=base_model_path,
+        model_identity_fn=model_identity,
     )
 
 
