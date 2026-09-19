@@ -18,6 +18,7 @@ from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
+from itertools import pairwise
 from statistics import median
 from typing import Any
 
@@ -79,8 +80,8 @@ class CountdownTrainingItem:
 def clean_expression(text: str) -> str:
     """Extract the arithmetic expression using the canonical Countdown rules."""
 
-    cleaned = re.sub(r"<think>.*?</think>", "", str(text), flags=re.S | re.I)
-    answer_match = re.search(r"<answer>(.*?)</answer>", cleaned, flags=re.S | re.I)
+    cleaned = re.sub(r"<think>.*?</think>", "", str(text), flags=re.DOTALL | re.IGNORECASE)
+    answer_match = re.search(r"<answer>(.*?)</answer>", cleaned, flags=re.DOTALL | re.IGNORECASE)
     if answer_match:
         cleaned = answer_match.group(1)
     cleaned = cleaned.replace("```python", "").replace("```", "").strip()
@@ -90,7 +91,7 @@ def clean_expression(text: str) -> str:
         r"^(answer|expression)\s*[:=]\s*",
         "",
         cleaned,
-        flags=re.I,
+        flags=re.IGNORECASE,
     )
     cleaned = cleaned.rstrip(". \t")
     if "=" in cleaned:
@@ -132,7 +133,7 @@ class ExpressionVerifier(ast.NodeVisitor):
         raise ValueError("unsupported operator")
 
     def generic_visit(self, node: ast.AST) -> Any:
-        raise ValueError(f"unsupported syntax: {type(node).__name__}")
+        raise TypeError(f"unsupported syntax: {type(node).__name__}")
 
 
 def verify_expression(
@@ -161,8 +162,8 @@ def verify_expression(
         )
         result["value"] = float(value)
         result["correct"] = bool(result["uses_numbers"] and value == Fraction(int(target), 1))
-    except Exception:
-        pass
+    except (SyntaxError, TypeError, ValueError, ZeroDivisionError):
+        return result
     return result
 
 
@@ -285,7 +286,7 @@ def encode_countdown_training_row(
     negatives = unique_negative_expressions(row)
     raw_bank = row.get("negative_bank", [])
     if not isinstance(raw_bank, Sequence) or isinstance(raw_bank, (str, bytes)):
-        raise ValueError("negative_bank must be a sequence")
+        raise TypeError("negative_bank must be a sequence")
     return CountdownTrainingItem(
         positive=encode_prompt_completion(tokenizer, prompt, positive, max_length),
         bank=tuple(
@@ -627,7 +628,7 @@ def make_prompt_balanced_sampler_plan(
     for row in rows:
         candidates = row.get("negatives", row.get("negative_bank", []))
         if not isinstance(candidates, Sequence) or isinstance(candidates, (str, bytes)):
-            raise ValueError("every replay row must expose a candidate sequence")
+            raise TypeError("every replay row must expose a candidate sequence")
         if len(candidates) < 1:
             raise ValueError("every replay row must have at least one negative")
         candidate_counts.append(len(candidates))
@@ -681,7 +682,7 @@ def calibrate_monotone_coefficient(
 
     candidates = list(observations)
     brackets: list[tuple[float, float, float, float]] = []
-    for (left, left_norm), (right, right_norm) in zip(observations, observations[1:]):
+    for (left, left_norm), (right, right_norm) in pairwise(observations):
         left_delta = left_norm - target
         right_delta = right_norm - target
         if left_delta == 0.0:
@@ -883,9 +884,9 @@ def _require_tensor_mapping(
 ) -> Mapping[str, torch.Tensor]:
     value = packed.get(name)
     if not isinstance(value, Mapping):
-        raise ValueError(f"packed Countdown batch has no {name} tensor mapping")
+        raise TypeError(f"packed Countdown batch has no {name} tensor mapping")
     if not all(isinstance(tensor, torch.Tensor) for tensor in value.values()):
-        raise ValueError(f"packed Countdown {name} mapping contains a non-tensor")
+        raise TypeError(f"packed Countdown {name} mapping contains a non-tensor")
     return value
 
 
@@ -895,7 +896,7 @@ def _require_packed_bank_indices(
     row_index = packed.get("bank_row_index")
     unique_counts = packed.get("unique_counts")
     if not isinstance(row_index, torch.Tensor) or not isinstance(unique_counts, torch.Tensor):
-        raise ValueError("packed Countdown batch has invalid bank indices")
+        raise TypeError("packed Countdown batch has invalid bank indices")
     return row_index, unique_counts
 
 
@@ -1044,7 +1045,7 @@ def deterministic_active_tail_weights_from_model(
     try:
         with torch.no_grad():
             stats = completion_stats(model, negative_batch)
-            normalized, distance = normalized_active_tail_remoteness(
+            _, distance = normalized_active_tail_remoteness(
                 stats["seq_lp"],
                 tau=tau,
                 surprisal_scale=surprisal_scale,
@@ -1231,13 +1232,13 @@ def calibrate_active_tail_model(
     )
     active_fraction = float((weight_stats["normalized_excess"] > 0).float().mean().item())
 
-    common = dict(
-        model=model,
-        packed=packed,
-        parameters=parameters,
-        tau=tau,
-        surprisal_scale=surprisal_scale,
-    )
+    common = {
+        "model": model,
+        "packed": packed,
+        "parameters": parameters,
+        "tau": tau,
+        "surprisal_scale": surprisal_scale,
+    }
     positive_norm = active_tail_objective_gradient_l2(
         objective="positive",
         method="positive_only",
@@ -1396,9 +1397,9 @@ def evaluate_response_batches(
         numbers = row.get("numbers")
         target = row.get("target")
         if not isinstance(numbers, Sequence) or isinstance(numbers, (str, bytes)):
-            raise ValueError("each Countdown row must contain a number sequence")
+            raise TypeError("each Countdown row must contain a number sequence")
         if not isinstance(target, int):
-            raise ValueError("each Countdown row must contain an integer target")
+            raise TypeError("each Countdown row must contain an integer target")
         sample_list = list(samples)
         if not sample_list:
             raise ValueError("each Countdown row must have at least one sampled output")
@@ -1428,14 +1429,6 @@ def evaluate_response_batches(
 
 
 __all__ = [
-    "COUNTDOWN_ACTIVE_TAIL_METHODS",
-    "COUNTDOWN_ACTIVE_TAIL_TAU_RULE",
-    "COUNTDOWN_CORE_VERSION",
-    "COUNTDOWN_REFERENCE_DISTANCE",
-    "CountdownTrainingItem",
-    "EncodedCompletion",
-    "ExpressionVerifier",
-    "SYSTEM_PROMPT",
     "active_distance_diagnostics",
     "active_tail_objective_from_model",
     "active_tail_objective_from_precomputed_weights",
@@ -1450,13 +1443,20 @@ __all__ = [
     "collate_countdown_training_items",
     "completion_statistics_from_logits",
     "completion_stats",
+    "COUNTDOWN_ACTIVE_TAIL_METHODS",
+    "COUNTDOWN_ACTIVE_TAIL_TAU_RULE",
+    "COUNTDOWN_CORE_VERSION",
     "countdown_objective_from_model",
+    "COUNTDOWN_REFERENCE_DISTANCE",
     "countdown_training_objective",
     "countdown_weight_diagnostics",
+    "CountdownTrainingItem",
     "deterministic_active_tail_weights_from_model",
     "encode_countdown_training_row",
     "encode_prompt_completion",
+    "EncodedCompletion",
     "evaluate_response_batches",
+    "ExpressionVerifier",
     "gradient_l2_from_loss",
     "make_prompt_balanced_sampler_plan",
     "mean_unique_negative_term",
@@ -1467,6 +1467,7 @@ __all__ = [
     "paper_aligned_linear_weights",
     "parameter_update_norm",
     "resolve_active_tail_tau",
+    "SYSTEM_PROMPT",
     "unique_negative_expressions",
     "validate_active_tail_calibration",
     "verifier_category",
