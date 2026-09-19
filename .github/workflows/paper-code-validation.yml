@@ -80,7 +80,6 @@ jobs:
           python -m drpo_reference --help
           python -m drpo_reference cu1 --help
           python -m drpo_reference du1 --help
-          python -m drpo_reference hopper --help
           python -m drpo_reference d4rl --help
           python -m drpo_reference countdown --help
           output="$RUNNER_TEMP/du1-smoke"
@@ -160,14 +159,7 @@ jobs:
           shutil.copy2(source / "pyproject.toml", root / "pyproject.toml")
           shutil.copytree(source / "configs", root / "configs")
           shutil.copytree(source / "src", root / "src")
-          tests = (
-              "test_aggregate.py", "test_cli.py", "test_common.py",
-              "test_controls.py", "test_countdown_release.py",
-              "test_cu1_suite.py", "test_du1_cli.py",
-              "test_du1_public.py", "test_events.py",
-          )
-          for name in tests:
-              shutil.copy2(source / "tests" / name, root / "tests" / name)
+          shutil.copytree(source / "tests", root / "tests", dirs_exist_ok=True)
           (root / "SOURCE_COMMIT.txt").write_text(
               os.environ["SOURCE_COMMIT"] + "\n", encoding="utf-8"
           )
