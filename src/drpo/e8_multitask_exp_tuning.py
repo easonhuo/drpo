@@ -474,32 +474,6 @@ def _run_dpo_method_liveness(
     )
 
 
-def _paper_grid_paths_exponential(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._paper_grid_paths_exponential(*args, **kwargs)
-
-
-def _paper_params_reciprocal(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._paper_params_reciprocal(*args, **kwargs)
-
-
-def _paper_params_exponential(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._paper_params_exponential(*args, **kwargs)
-
-
-def _paper_params_asymre(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._paper_params_asymre(*args, **kwargs)
-
-
-def _paper_params_topr(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._paper_params_topr(*args, **kwargs)
-
-
-
-
-
-
-
-
 def _dpo_method_audit(
     cell: Cell, record: Mapping[str, Any]
 ) -> e8_runtime.MethodAuditResult:
@@ -570,8 +544,12 @@ def _register_builtin_method_specs() -> None:
     exponential_paper_runtime = PaperRuntimeSpec(
         liveness_grid=lambda config, record: Path(str(record["round1_grid"])),
         liveness_parameter="representative_c",
-        grid_paths=_paper_grid_paths_exponential,
-        cell_parameters=_paper_params_exponential,
+        grid_paths=lambda *args, **kwargs: (
+            _canonical_bridge()._paper_grid_paths_exponential(*args, **kwargs)
+        ),
+        cell_parameters=lambda *args, **kwargs: (
+            _canonical_bridge()._paper_params_exponential(*args, **kwargs)
+        ),
         formula="alpha*exp(-c*(current_sequence_surprisal/2))",
     )
     for method, build_cell, cell_key, parameters in (
@@ -634,7 +612,9 @@ def _register_builtin_method_specs() -> None:
                     liveness_grid=lambda config, record: _canonical_reciprocal_grid_path(),
                     liveness_parameter="representative_c",
                     grid_paths=lambda config, record, cell: (_canonical_reciprocal_grid_path(),) * 2,
-                    cell_parameters=_paper_params_reciprocal,
+                    cell_parameters=lambda *args, **kwargs: (
+                _canonical_bridge()._paper_params_reciprocal(*args, **kwargs)
+            ),
                     formula=formula,
                 ),
             )
@@ -661,7 +641,9 @@ def _register_builtin_method_specs() -> None:
                     _canonical_asymre_grid_path(),
                     _canonical_asymre_grid_path(),
                 ),
-                cell_parameters=_paper_params_asymre,
+                cell_parameters=lambda *args, **kwargs: (
+                _canonical_bridge()._paper_params_asymre(*args, **kwargs)
+            ),
                 formula="delegated_to_existing_canonical_asymre",
             ),
             single_aggregate_metadata=_asymre_single_metadata,
@@ -691,7 +673,9 @@ def _register_builtin_method_specs() -> None:
                     _canonical_topr_grid_path(),
                     _canonical_topr_grid_path(),
                 ),
-                cell_parameters=_paper_params_topr,
+                cell_parameters=lambda *args, **kwargs: (
+                _canonical_bridge()._paper_params_topr(*args, **kwargs)
+            ),
                 formula="delegated_to_existing_joint_fitted_reference_beta_topr",
             ),
             single_aggregate_metadata=_topr_single_metadata,
