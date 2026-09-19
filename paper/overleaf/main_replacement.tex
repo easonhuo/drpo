@@ -971,27 +971,23 @@ structured-generation tasks.
 \subsection{Environments and Datasets}
 \label{sec:environments_datasets}
 
-We use two controlled environments and two external diagnostic domains.
-C-U1 is a contextual bandit with a Gaussian policy over continuous actions,
-while D-U1 uses unordered categorical actions with shared representations.
-They provide known ground truth for source isolation, policy dynamics, and
-held-out-context generalization. The nine D4RL locomotion dataset cells
-\citep{fu2020d4rl} and structured-generation tasks provide continuous-action
-and discrete autoregressive diagnostics, respectively. The
-structured-generation tasks comprise
-Countdown~\citep{hutton2002countdown,pan2025tinyzero},
-seven Reasoning Gym tasks~\citep{stojanovski2025reasoninggym}, and
-WikiSQL~\citep{zhong2017seq2sql}. Full configurations are in
+We use C-U1 (a Gaussian continuous-action contextual bandit) and D-U1
+(unordered categorical actions with shared representations) as controlled
+environments with known ground truth for source isolation, policy dynamics,
+and held-out-context generalization. External diagnostics use nine D4RL
+locomotion cells~\citep{fu2020d4rl} and nine structured-generation tasks---
+Countdown~\citep{hutton2002countdown,pan2025tinyzero}, seven Reasoning Gym
+tasks~\citep{stojanovski2025reasoninggym}, and
+WikiSQL~\citep{zhong2017seq2sql}---covering continuous-action and discrete
+autoregressive policies; full configurations are in
 Appendix~\ref{app:experimental_details}.
 
 \paragraph{Conventions.}
-Controlled source-isolation experiments report policy-score response,
-whereas neural probes use implemented actor-gradient magnitude only to
-test whether the same pattern appears in trainable updates.
-Task-performance collapse, policy-support or variance-boundary events,
-and NaN/Inf failures are reported as distinct outcome classes;
-protocol-specific definitions are in
-Appendix~\ref{app:controlled_protocols}.
+Controlled source-isolation reports policy-score response, whereas neural
+probes report implemented actor-gradient magnitude to test whether the
+near-to-far pattern persists in trainable updates. Task-performance collapse,
+support/variance-boundary events, and NaN/Inf failures remain separate
+outcomes (Appendix~\ref{app:controlled_protocols}).
 
 \subsection{External Diagnostic of Far-Field Repulsion}
 \label{sec:external_far_field}
@@ -1017,12 +1013,17 @@ drive instability.
 \subsection{Controlled Identification of the Causal Mechanism}
 \label{sec:controlled_identification}
 
-The external diagnostics still entangle sample quality, remoteness, critic or
-verifier coefficients, data coverage, and subsequent dynamics. Controlled
-environments vary coefficient magnitude and remoteness independently and
-intervene directly on near- and far-field negative updates. Full constructions
-and protocols are provided in
-Appendix~\ref{app:controlled_protocols}.
+Because external diagnostics entangle sample quality, remoteness,
+critic/verifier coefficients, coverage, and downstream dynamics, the controlled
+experiments vary coefficient magnitude and remoteness independently and
+intervene on near- versus far-field negative updates
+(Appendix~\ref{app:controlled_protocols}). In C-U1, negative actions share a
+reward contour and fixed advantage but differ in standardized distance; the
+categorical direct-softmax reference fixes the negative coefficient while
+varying current-policy surprisal. For the causal intervention, all C-U1
+branches share data, fixed labels, initialization, optimizer, and horizon and
+differ only in near/far negative-update treatment
+(Appendix~\ref{app:controlled_shared}).
 
 \begin{figure}[t]
     \centering
@@ -1105,14 +1106,6 @@ structured-generation tasks.}
 
 \end{figure*}
 
-We first isolate whether remoteness changes update magnitude independently of
-sample quality. In C-U1, negative actions are
-placed on the same reward contour, giving them identical fixed
-advantages but different standardized distances from the current
-Gaussian policy. The categorical direct-softmax reference applies the
-same factorization by fixing the negative coefficient while varying
-current-policy surprisal.
-
 The top panel of Figure~\ref{fig:controlled_6_3} separates the
 coefficient term from the policy-score term. The coefficient magnitude
 remains flat across remoteness bins, whereas the score response increases
@@ -1127,12 +1120,6 @@ collapse.
 
 \subsubsection{Causal Transmission into Drift and Collapse}
 \label{sec:controlled_transmission}
-
-In the C-U1 intervention protocol, all branches share the
-same data, fixed labels, initialization, optimizer, and training horizon,
-and differ only in how near- and far-field negative updates are retained,
-removed, capped, or globally rescaled. These matched-control invariants are
-formalized in Appendix~\ref{app:controlled_shared}.
 
 The bottom panel of Figure~\ref{fig:controlled_6_3} shows a clear rescue
 pattern. Removing near-field negative updates leaves performance collapse
@@ -1223,17 +1210,12 @@ provides transfer evidence rather than a closed cross-task ranking.
 \subsection{Overall Task Performance}
 \label{sec:overall_performance}
 
-Having established the controlled mechanism, we evaluate DRPO as
-a complete policy-optimization method on D4RL locomotion and
-structured-generation tasks.
-We compare it with published domain-specific baselines and
-protocol-matched controls spanning positive-only learning, global
-negative scaling, and alternative remoteness tapers. All
-protocol-matched methods use the same data and compute budgets. We
-report normalized return for D4RL and verifier success for
-structured-generation tasks,
-while task-performance failures, support or variance-boundary events,
-and NaN/Inf numerical failures remain separate outcomes.
+We evaluate task-level transfer on D4RL locomotion and structured generation,
+reporting normalized return and verifier success, respectively.
+Both evaluations train from fixed data, while learner-relative remoteness is
+recomputed under the current policy during optimization. Protocol-matched
+controls share data and compute budgets; task-performance collapse,
+support/variance-boundary events, and NaN/Inf failures remain separate outcomes.
 
 % Required packages:
 % \usepackage{booktabs}
@@ -1242,56 +1224,30 @@ and NaN/Inf numerical failures remain separate outcomes.
 \subsubsection{D4RL Locomotion}
 \label{sec:d4rl_performance}
 
-We evaluate the nine D4RL Gym locomotion dataset cells formed by HalfCheetah,
-Hopper, and Walker2d under the medium, medium-replay, and medium-expert
-datasets. These datasets vary in behavior quality and coverage, with
-medium-replay containing the broadest mixture of historical policies.
-Table~\ref{tab:d4rl_performance} compares DRPO with published offline-RL
-baselines---CQL \citep{kumar2020conservative}, TD3+BC
-\citep{fujimoto2021minimalist}, and IQL \citep{kostrikov2021offline}---%
-under the D4RL evaluation protocol \citep{fu2020d4rl,todorov2012mujoco}. The shared objectives and
-taper functions are defined in Appendix~\ref{app:shared_methods};
-D4RL-specific score provenance, remoteness
-construction, and implementation details are provided in
-Appendix~\ref{app:d4rl_methods}.
-
-Without adding an explicit behavior-policy constraint or a conservative
-value penalty on top of the shared advantage-weighted actor form, DRPO
-remains competitive on the D4RL-9 total; its only method-specific
-component is a detached remoteness taper on the negative branch. This is
-consistent with the far-field source-control route of
-Section~\ref{sec:selective_tapering_bridge}, but should be read as
-task-level transfer rather than a causal test of the mechanism.
-
-
+For continuous control, we evaluate DRPO on D4RL
+\citep{fu2020d4rl}, a widely used offline-RL benchmark suite.
+Table~\ref{tab:d4rl_performance} compares DRPO with published
+CQL~\citep{kumar2020conservative}, TD3+BC~\citep{fujimoto2021minimalist},
+and IQL~\citep{kostrikov2021offline} reference results; protocol and
+implementation details are provided in Appendix~\ref{app:d4rl_methods}.
 
 \subsubsection{Structured Generation}
 \label{sec:structured_generation_performance}
 
-We evaluate Qwen2.5-0.5B-Instruct~\citep{qwen2024qwen25} on the
-structured-generation tasks listed in
-Section~\ref{sec:environments_datasets}. Task success is determined by
-the corresponding deterministic verifier, and Pass@8 is the primary task
-metric.
-
-A registered model-independent generator constructs frozen
-prompt-indexed banks of verified oracle solutions and verifier-incorrect
-completions. Fixed labels and update budgets are shared by
-protocol-matched methods, while learner-relative statistics are recomputed
-during training. This zero-refresh limit isolates stale-negative reuse
+For structured generation, we evaluate Qwen2.5-0.5B-Instruct
+\citep{qwen2024qwen25} on the nine tasks in
+Section~\ref{sec:environments_datasets}, using deterministic verifiers
+and Pass@8. For each prompt, we construct a fixed bank of verified correct
+and incorrect completions and reuse it throughout training, yielding a
+zero-refresh stale-negative-reuse setting
 (Appendices~\ref{app:structured_generation_dataset}
 and~\ref{app:structured_generation_methods}).
 
-We compare DRPO with
-AsymRE~\citep{arnal2025asymmetric},
-the Joint Fitted-Reference \(\beta\)-TOPR
-variant~\citep{leroux2025tapered}, and canonical
-DPO~\citep{rafailov2023direct}, preceded by a short SFT stage to ensure
-a task-capable initialization. The shared objectives, baseline definitions,
-and taper functions are given in
-Appendices~\ref{app:shared_methods}
-and~\ref{app:structured_generation_methods}; the relation to canonical
-TOPR is detailed in Appendix~\ref{app:topr_relation}.
+We compare DRPO with AsymRE~\citep{arnal2025asymmetric}, joint
+fitted-reference \(\beta\)-TOPR~\citep{leroux2025tapered}, and canonical
+DPO~\citep{rafailov2023direct}; method-specific initialization is reported
+in Table~\ref{tab:structured_generation_performance} and
+Appendix~\ref{app:structured_generation_methods}.
 
 \begin{table*}[t]
 \centering
@@ -1364,11 +1320,10 @@ WikiSQL & 85.65 & 85.78 & 82.89 & & \textbf{86.69} \\
 ``medium-expert'', respectively. $\dagger$: published results rather than
 protocol-matched reruns. Bold/underline: best/second-best among the methods
 shown. DRPO reports the mean over 10 runs.
-\textbf{(b)} AsymRE, $\beta$-TOPR, and DRPO initialize their trainable LoRA
-adapters directly from the same Qwen2.5-0.5B-Instruct backbone;
-$^{\ddagger}$DPO uses the same parameterization but initializes its policy and
-frozen reference from the short SFT checkpoint described in
-Appendix~\ref{app:structured_generation_methods}.
+\textbf{(b)} AsymRE, $\beta$-TOPR, and DRPO initialize LoRA directly from
+Qwen2.5-0.5B-Instruct; $^{\ddagger}$DPO uses the same LoRA parameterization
+but starts its policy and frozen reference from the short SFT checkpoint
+(Appendix~\ref{app:structured_generation_methods}).
 $\beta$-TOPR denotes the joint fitted-reference variant of TOPR
 \citep{leroux2025tapered}.
 For DRPO, the reported transfer-task scores are the maximum means over
