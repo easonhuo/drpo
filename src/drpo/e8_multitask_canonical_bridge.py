@@ -8,13 +8,24 @@ e8_multitask_exp_tuning back and keeps no process-global host binding.
 
 from __future__ import annotations
 
+import argparse
+import copy
 import csv
+import gc
 import hashlib
 import importlib
-from collections.abc import Callable
+import json
+import math
+import os
+import shutil
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
+
+import numpy as np
+import yaml
 
 from drpo.e8_multitask_tasks import TaskInstance
 
@@ -71,9 +82,6 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
     METHOD_RECIPROCAL_LINEAR = host.METHOD_RECIPROCAL_LINEAR
     METHOD_RECIPROCAL_QUADRATIC = host.METHOD_RECIPROCAL_QUADRATIC
     METHOD_TOPR = host.METHOD_TOPR
-    Mapping = host.Mapping
-    Path = host.Path
-    Sequence = host.Sequence
     TRANSFER_SYSTEM_PROMPT = host.TRANSFER_SYSTEM_PROMPT
     TaskInputs = host.TaskInputs
     _adapter_weight_file = host._adapter_weight_file
@@ -97,24 +105,15 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
     _summarize_evaluations = host._summarize_evaluations
     _verify_fresh_process_adapter_reload = host._verify_fresh_process_adapter_reload
     append_jsonl = host.append_jsonl
-    argparse = host.argparse
     atomic_json = host.atomic_json
     audit_canonical_coldstart_sources = host.audit_canonical_coldstart_sources
-    copy = host.copy
     experiment_config = host.experiment_config
-    gc = host.gc
-    json = host.json
-    math = host.math
     model_identity = host.model_identity
-    np = host.np
-    os = host.os
     read_jsonl = host.read_jsonl
     sha256_file = host.sha256_file
-    shutil = host.shutil
     stable_hash = host.stable_hash
     torch = host.torch
     train_cell = host.train_cell
-    yaml = host.yaml
 
     def _paper_grid_paths_exponential(
         config: Mapping[str, Any],
