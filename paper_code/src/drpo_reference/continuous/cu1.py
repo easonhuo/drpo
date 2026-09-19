@@ -16,6 +16,7 @@ from drpo_reference.controls import near_mask
 
 from .gaussian import GaussianActor, gaussian_log_prob, standardized_distance
 
+
 @dataclass(frozen=True)
 class CU1Protocol:
     """C-U1 state, action, contour, and policy settings."""

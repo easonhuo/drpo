@@ -10,6 +10,7 @@ import drpo_reference.experiments as public_experiments
 from drpo_reference import cli
 from drpo_reference.experiments.d4rl import resolve_d4rl_task
 
+
 def test_cli_dispatches_cu1_stage(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

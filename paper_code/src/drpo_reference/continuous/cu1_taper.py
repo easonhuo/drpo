@@ -39,6 +39,7 @@ from .cu1_training import (
 )
 from .gaussian import GaussianActor, standardized_distance
 
+
 @dataclass(frozen=True)
 class CU1TaperProtocol:
     """C-U1 taper settings."""

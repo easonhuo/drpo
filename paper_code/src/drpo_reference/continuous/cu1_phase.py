@@ -24,6 +24,7 @@ from .cu1_training import (
     sample_ids,
 )
 
+
 @dataclass(frozen=True)
 class CU1PhaseProtocol:
     """C-U1 strength-scan settings."""

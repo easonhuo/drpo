@@ -39,6 +39,7 @@ from drpo_reference.experiments.d4rl import (
     canonical_standardized_action_distance,
 )
 
+
 def test_cu1_point_retention_formulas_match_legacy_definitions() -> None:
     distance = torch.tensor([0.0, 2.5, 5.0, 7.5], dtype=torch.float64)
     rho = 0.25
