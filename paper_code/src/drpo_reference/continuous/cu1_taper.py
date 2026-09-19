@@ -58,7 +58,6 @@ class CU1TaperProtocol:
     normalized_slope_threshold: float = 1e-4
     normalized_field_residual_threshold: float = 2e-3
     positive_absolute_gradient_threshold: float = 1e-3
-    task_failure_retention: float = 0.45
 
 
 
@@ -114,36 +113,6 @@ def weighted_negative_loss(
     return -(advantages * weight * log_probability).mean()
 
 
-def full_field_diagnostics(
-    actor: GaussianActor,
-    split: Split,
-    protocol: CU1Protocol,
-    taper: CU1TaperProtocol,
-    *,
-    family: str,
-    retention: float,
-) -> dict[str, Any]:
-    negative = (
-        None
-        if family == "positive_only"
-        else weighted_negative_loss(
-            actor,
-            split,
-            protocol,
-            taper,
-            None,
-            family=family,
-            retention=retention,
-        )
-    )
-    return field_diagnostics(
-        positive_loss(actor, split, protocol),
-        negative,
-        actor.all_parameters(),
-        alpha=taper.negative_alpha,
-    )
-
-
 def max_normalized_slope(
     rows: deque[tuple[float, float, float, float]],
 ) -> float:
@@ -166,13 +135,24 @@ def evaluate_taper_state(
     initial_reward: float,
 ) -> dict[str, Any]:
     task = evaluation(actor, environment.test, protocol)
-    field = full_field_diagnostics(
-        actor,
-        environment.train,
-        protocol,
-        taper,
-        family=family,
-        retention=retention,
+    negative = (
+        None
+        if family == "positive_only"
+        else weighted_negative_loss(
+            actor,
+            environment.train,
+            protocol,
+            taper,
+            None,
+            family=family,
+            retention=retention,
+        )
+    )
+    field = field_diagnostics(
+        positive_loss(actor, environment.train, protocol),
+        negative,
+        actor.all_parameters(),
+        alpha=taper.negative_alpha,
     )
     finite_parameters = finite_model(actor)
     support = evaluation(actor, environment.train, protocol)
@@ -184,7 +164,7 @@ def evaluate_taper_state(
     boundary = bool(
         support["support_contraction_boundary"] or support["unexpected_support_expansion_boundary"]
     )
-    task_failure = bool(float(task["reward"]) < taper.task_failure_retention * initial_reward)
+    task_failure = bool(float(task["reward"]) < protocol.task_failure_retention * initial_reward)
     return {
         **task,
         **field,
