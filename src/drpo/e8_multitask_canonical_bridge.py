@@ -159,7 +159,7 @@ class _CanonicalBridgeImpl:
         self,
         config: Mapping[str, Any],
         record: Mapping[str, Any],
-        cell: Cell,
+        cell: Any,
     ) -> tuple[Path, Path]:
         grid_name = (
             "round1_grid"
@@ -170,14 +170,14 @@ class _CanonicalBridgeImpl:
         )
         return Path(str(record[grid_name])), self._canonical_paths(config)[grid_name]
 
-    def _paper_params_reciprocal(self, cell: Cell) -> tuple[str, float, float]:
+    def _paper_params_reciprocal(self, cell: Any) -> tuple[str, float, float]:
         if cell.method not in {self.METHOD_RECIPROCAL_LINEAR, self.METHOD_RECIPROCAL_QUADRATIC}:
             raise AssertionError(f"Unsupported reciprocal family: {cell.method}")
         if cell.lambda_value is None:
             raise AssertionError("Reciprocal cell has no lambda")
         return cell.method, 1.0, float(cell.lambda_value)
 
-    def _paper_params_exponential(self, cell: Cell) -> tuple[str, float, float]:
+    def _paper_params_exponential(self, cell: Any) -> tuple[str, float, float]:
         alpha = 0.0 if cell.method == self.METHOD_POSITIVE_ONLY else 1.0
         coefficient = (
             0.0
@@ -186,12 +186,12 @@ class _CanonicalBridgeImpl:
         )
         return "exponential", alpha, coefficient
 
-    def _paper_params_asymre(self, cell: Cell) -> tuple[str, float, float]:
+    def _paper_params_asymre(self, cell: Any) -> tuple[str, float, float]:
         if cell.delta_v is None:
             raise AssertionError("AsymRE cell has no delta_v")
         return self.METHOD_ASYMRE, 1.0 + float(cell.delta_v), 0.0
 
-    def _paper_params_topr(self, cell: Cell) -> tuple[str, float, float]:
+    def _paper_params_topr(self, cell: Any) -> tuple[str, float, float]:
         if cell.beta is None:
             raise AssertionError("Joint Fitted-Reference TOPR cell has no beta")
         return self.METHOD_TOPR, 1.0, float(cell.beta)
@@ -247,7 +247,7 @@ class _CanonicalBridgeImpl:
         self,
         config: Mapping[str, Any],
         record: Mapping[str, Any],
-        cell: Cell,
+        cell: Any,
     ) -> tuple[Path, Path]:
         paper_runtime = self._method_spec(cell.method).paper_runtime
         if paper_runtime is None:
@@ -781,7 +781,7 @@ class _CanonicalBridgeImpl:
 
     def _train_canonical_dpo_transfer_cell(
         self,
-        cell: Cell,
+        cell: Any,
         *,
         inputs: TaskInputs,
         split_manifest: Mapping[str, Any],
@@ -1428,7 +1428,7 @@ class _CanonicalBridgeImpl:
 
     def _train_canonical_cold_cell(
         self,
-        cell: Cell,
+        cell: Any,
         *,
         inputs: TaskInputs,
         split_manifest: Mapping[str, Any],
