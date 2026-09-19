@@ -2155,9 +2155,9 @@ r\,\operatorname{Var}_{A\sim\pi_z}(v_A)
 \]
 Hence \(\mathcal L\) is strictly convex on \(\mathcal H_0\), has at most
 one finite stationary point, and any such point is repelling: the
-continuous Jacobian is \(H\succ0\), while the discrete Jacobian
-\(I+\alpha H\) has eigenvalues strictly larger than one for every
-\(\alpha>0\).
+continuous Jacobian restricted to \(\mathcal H_0\) is positive
+definite, while the discrete Jacobian restricted to \(\mathcal H_0\)
+has eigenvalues strictly larger than one for every \(\alpha>0\).
 
 It remains to prove escape for every nonstationary initialization. Since
 \(g(z)=b+r\pi_z\) is bounded, the continuous flow
@@ -2355,9 +2355,10 @@ Define
 =
 J\bigl(\theta+\rho v(D)\bigr)-J(\theta),
 \qquad
-0\le\rho\le\rho_0,
+0\le\rho\le\rho_0.
 \]
-and let
+Continuity of \(J\) implies that \(\mathcal V_D\) attains a maximum
+on the compact interval \([0,\rho_0]\); let
 \[
 \rho_{\mathcal U}^\star(D)
 \in
@@ -2484,8 +2485,8 @@ e^{-(\lambda/c)D}(1+D)^m
 \]
 because exponential decay dominates every finite-order polynomial.
 
-For a raw negative-update vector \(g(D)\) satisfying
-\(\|g(D)\|_2=I(D)\), define
+For a corresponding negative sample \(z\), write its raw update as
+\(g(D)=g_\theta^-(z)\) with \(\|g(D)\|_2=I(D)\), and define
 \[
 \Delta\theta_{\mathrm{Exp}}(D)
 :=
