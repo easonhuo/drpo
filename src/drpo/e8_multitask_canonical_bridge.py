@@ -22,7 +22,7 @@ from collections.abc import Callable, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 import numpy as np
 import yaml
@@ -43,9 +43,45 @@ from drpo.e8_multitask_p0 import (
 from drpo.e8_multitask_tasks import TaskInstance, stable_hash
 
 
+class CanonicalBridgeHost(Protocol):
+    CANONICAL_COLD_MODULES: Any
+    Cell: Any
+    DataLoader: Any
+    F: Any
+    METHOD_ASYMRE: Any
+    METHOD_DPO: Any
+    METHOD_GLOBAL: Any
+    METHOD_POSITIVE_ONLY: Any
+    METHOD_RECIPROCAL_LINEAR: Any
+    METHOD_RECIPROCAL_QUADRATIC: Any
+    METHOD_TOPR: Any
+    TRANSFER_SYSTEM_PROMPT: Any
+    _adapter_weight_file: Any
+    _canonical_asymre_grid_path: Any
+    _canonical_calibration_identity: Any
+    _canonical_cold_liveness_cell: Any
+    _canonical_paths: Any
+    _canonical_topr_grid_path: Any
+    _cell_identity: Any
+    _coldstart_method: Any
+    _coldstart_method_cell: Any
+    _is_coldstart: Any
+    _is_method_matrix: Any
+    _method_liveness_grid: Any
+    _method_spec: Any
+    _paper_grid_name: Any
+    _prepare_cell_output: Any
+    _repo_root: Any
+    _summarize_evaluations: Any
+    _verify_fresh_process_adapter_reload: Any
+    audit_canonical_coldstart_sources: Any
+    torch: Any
+    train_cell: Any
+
+
 @dataclass(frozen=True)
 class CanonicalBridgeBindings:
-    host: Any
+    host: CanonicalBridgeHost
 
 
 @dataclass(frozen=True)
@@ -80,45 +116,47 @@ class CanonicalBridge:
     _cmd_canonical_cold_liveness: Callable[..., Any]
 
 
-def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
-    """Build one call-scoped bridge with explicit host dependencies."""
-    host = bindings.host
+class _CanonicalBridgeImpl:
+    """Call-scoped canonical bridge implementation with explicit host dependencies."""
 
-    CANONICAL_COLD_MODULES = host.CANONICAL_COLD_MODULES
-    Cell = host.Cell
-    DataLoader = host.DataLoader
-    F = host.F
-    METHOD_ASYMRE = host.METHOD_ASYMRE
-    METHOD_DPO = host.METHOD_DPO
-    METHOD_GLOBAL = host.METHOD_GLOBAL
-    METHOD_POSITIVE_ONLY = host.METHOD_POSITIVE_ONLY
-    METHOD_RECIPROCAL_LINEAR = host.METHOD_RECIPROCAL_LINEAR
-    METHOD_RECIPROCAL_QUADRATIC = host.METHOD_RECIPROCAL_QUADRATIC
-    METHOD_TOPR = host.METHOD_TOPR
-    TRANSFER_SYSTEM_PROMPT = host.TRANSFER_SYSTEM_PROMPT
-    _adapter_weight_file = host._adapter_weight_file
-    _canonical_asymre_grid_path = host._canonical_asymre_grid_path
-    _canonical_calibration_identity = host._canonical_calibration_identity
-    _canonical_cold_liveness_cell = host._canonical_cold_liveness_cell
-    _canonical_paths = host._canonical_paths
-    _canonical_topr_grid_path = host._canonical_topr_grid_path
-    _cell_identity = host._cell_identity
-    _coldstart_method = host._coldstart_method
-    _coldstart_method_cell = host._coldstart_method_cell
-    _is_coldstart = host._is_coldstart
-    _is_method_matrix = host._is_method_matrix
-    _method_liveness_grid = host._method_liveness_grid
-    _method_spec = host._method_spec
-    _paper_grid_name = host._paper_grid_name
-    _prepare_cell_output = host._prepare_cell_output
-    _repo_root = host._repo_root
-    _summarize_evaluations = host._summarize_evaluations
-    _verify_fresh_process_adapter_reload = host._verify_fresh_process_adapter_reload
-    audit_canonical_coldstart_sources = host.audit_canonical_coldstart_sources
-    torch = host.torch
-    train_cell = host.train_cell
+    def __init__(self, bindings: CanonicalBridgeBindings) -> None:
+        host = bindings.host
+        self.CANONICAL_COLD_MODULES = host.CANONICAL_COLD_MODULES
+        self.Cell = host.Cell
+        self.DataLoader = host.DataLoader
+        self.F = host.F
+        self.METHOD_ASYMRE = host.METHOD_ASYMRE
+        self.METHOD_DPO = host.METHOD_DPO
+        self.METHOD_GLOBAL = host.METHOD_GLOBAL
+        self.METHOD_POSITIVE_ONLY = host.METHOD_POSITIVE_ONLY
+        self.METHOD_RECIPROCAL_LINEAR = host.METHOD_RECIPROCAL_LINEAR
+        self.METHOD_RECIPROCAL_QUADRATIC = host.METHOD_RECIPROCAL_QUADRATIC
+        self.METHOD_TOPR = host.METHOD_TOPR
+        self.TRANSFER_SYSTEM_PROMPT = host.TRANSFER_SYSTEM_PROMPT
+        self._adapter_weight_file = host._adapter_weight_file
+        self._canonical_asymre_grid_path = host._canonical_asymre_grid_path
+        self._canonical_calibration_identity = host._canonical_calibration_identity
+        self._canonical_cold_liveness_cell = host._canonical_cold_liveness_cell
+        self._canonical_paths = host._canonical_paths
+        self._canonical_topr_grid_path = host._canonical_topr_grid_path
+        self._cell_identity = host._cell_identity
+        self._coldstart_method = host._coldstart_method
+        self._coldstart_method_cell = host._coldstart_method_cell
+        self._is_coldstart = host._is_coldstart
+        self._is_method_matrix = host._is_method_matrix
+        self._method_liveness_grid = host._method_liveness_grid
+        self._method_spec = host._method_spec
+        self._paper_grid_name = host._paper_grid_name
+        self._prepare_cell_output = host._prepare_cell_output
+        self._repo_root = host._repo_root
+        self._summarize_evaluations = host._summarize_evaluations
+        self._verify_fresh_process_adapter_reload = host._verify_fresh_process_adapter_reload
+        self.audit_canonical_coldstart_sources = host.audit_canonical_coldstart_sources
+        self.torch = host.torch
+        self.train_cell = host.train_cell
 
     def _paper_grid_paths_exponential(
+        self,
         config: Mapping[str, Any],
         record: Mapping[str, Any],
         cell: Cell,
@@ -126,43 +164,43 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         grid_name = (
             "round1_grid"
             if cell.task != "countdown"
-            else _paper_grid_name(
+            else self._paper_grid_name(
                 0.0 if cell.lambda_value is None else float(cell.lambda_value)
             )
         )
-        return Path(str(record[grid_name])), _canonical_paths(config)[grid_name]
+        return Path(str(record[grid_name])), self._canonical_paths(config)[grid_name]
 
-    def _paper_params_reciprocal(cell: Cell) -> tuple[str, float, float]:
-        if cell.method not in {METHOD_RECIPROCAL_LINEAR, METHOD_RECIPROCAL_QUADRATIC}:
+    def _paper_params_reciprocal(self, cell: Cell) -> tuple[str, float, float]:
+        if cell.method not in {self.METHOD_RECIPROCAL_LINEAR, self.METHOD_RECIPROCAL_QUADRATIC}:
             raise AssertionError(f"Unsupported reciprocal family: {cell.method}")
         if cell.lambda_value is None:
             raise AssertionError("Reciprocal cell has no lambda")
         return cell.method, 1.0, float(cell.lambda_value)
 
-    def _paper_params_exponential(cell: Cell) -> tuple[str, float, float]:
-        alpha = 0.0 if cell.method == METHOD_POSITIVE_ONLY else 1.0
+    def _paper_params_exponential(self, cell: Cell) -> tuple[str, float, float]:
+        alpha = 0.0 if cell.method == self.METHOD_POSITIVE_ONLY else 1.0
         coefficient = (
             0.0
-            if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL}
+            if cell.method in {self.METHOD_POSITIVE_ONLY, self.METHOD_GLOBAL}
             else float(cell.lambda_value)
         )
         return "exponential", alpha, coefficient
 
-    def _paper_params_asymre(cell: Cell) -> tuple[str, float, float]:
+    def _paper_params_asymre(self, cell: Cell) -> tuple[str, float, float]:
         if cell.delta_v is None:
             raise AssertionError("AsymRE cell has no delta_v")
-        return METHOD_ASYMRE, 1.0 + float(cell.delta_v), 0.0
+        return self.METHOD_ASYMRE, 1.0 + float(cell.delta_v), 0.0
 
-    def _paper_params_topr(cell: Cell) -> tuple[str, float, float]:
+    def _paper_params_topr(self, cell: Cell) -> tuple[str, float, float]:
         if cell.beta is None:
             raise AssertionError("Joint Fitted-Reference TOPR cell has no beta")
-        return METHOD_TOPR, 1.0, float(cell.beta)
+        return self.METHOD_TOPR, 1.0, float(cell.beta)
 
-    def _canonical_cold_modules(config: Mapping[str, Any]) -> dict[str, Any]:
-        audit_canonical_coldstart_sources(config)
+    def _canonical_cold_modules(self, config: Mapping[str, Any]) -> dict[str, Any]:
+        self.audit_canonical_coldstart_sources(config)
         modules = {
             name: importlib.import_module(module_name)
-            for name, module_name in CANONICAL_COLD_MODULES.items()
+            for name, module_name in self.CANONICAL_COLD_MODULES.items()
         }
         scan_common = modules["scan_common"]
         scan_runtime = modules["scan_runtime"]
@@ -181,7 +219,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
             raise RuntimeError("Paper cold-start modules do not share one locked implementation graph")
         return modules
 
-    def _activate_paper_grid_modules(modules: dict[str, Any], grid_path: Path) -> dict[str, Any]:
+    def _activate_paper_grid_modules(self, modules: dict[str, Any], grid_path: Path) -> dict[str, Any]:
         """Bind base trainer imports to the selected paper profile in this cell process."""
 
         paper_common = modules["paper_common"]
@@ -199,18 +237,19 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
             raise RuntimeError("Paper grid activation did not bind the selected trainer profile")
         return modules
 
-    def _canonical_task_record(split_manifest: Mapping[str, Any], task: str) -> Mapping[str, Any]:
+    def _canonical_task_record(self, split_manifest: Mapping[str, Any], task: str) -> Mapping[str, Any]:
         value = split_manifest["tasks"][task].get("canonical_coldstart")
         if not isinstance(value, Mapping):
             raise TypeError(f"Missing canonical cold-start task record for {task}")
         return value
 
     def _paper_grid_for_cell(
+        self,
         config: Mapping[str, Any],
         record: Mapping[str, Any],
         cell: Cell,
     ) -> tuple[Path, Path]:
-        paper_runtime = _method_spec(cell.method).paper_runtime
+        paper_runtime = self._method_spec(cell.method).paper_runtime
         if paper_runtime is None:
             raise RuntimeError(
                 f"{cell.method} does not use the canonical paper grid runtime"
@@ -218,6 +257,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         return paper_runtime.grid_paths(config, record, cell)
 
     def _canonical_environment_evaluator(
+        self,
         *,
         arena: Any,
         task_adapter: Any,
@@ -316,6 +356,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         return evaluate_rows
 
     def _canonical_generic_posthoc(
+        self,
         *,
         arena: Any,
         evaluator: Any,
@@ -360,11 +401,11 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
             result[f"validation_pass_at_{pass_k}"] = float(metrics["pass_at_k"])
         del model
         gc.collect()
-        if torch is not None and torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        if self.torch is not None and self.torch.cuda.is_available():
+            self.torch.cuda.empty_cache()
         return result
 
-    def _runtime_bridge_contract(effective: Mapping[str, Any]) -> dict[str, Any]:
+    def _runtime_bridge_contract(self, effective: Mapping[str, Any]) -> dict[str, Any]:
         return {
             "fresh_lora": {
                 "rank": int(effective["model"]["lora_rank"]),
@@ -378,14 +419,14 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         }
 
     @contextmanager
-    def _legacy_arena_runtime_bridge(arena: Any, effective: Mapping[str, Any]) -> Any:
+    def _legacy_arena_runtime_bridge(self, arena: Any, effective: Mapping[str, Any]) -> Any:
         """Temporarily parameterize legacy arena interface literals; never touch loss math."""
 
         original_lora_config = arena.LoraConfig
         original_load_model = arena.load_model
         original_generate_outputs = arena.generate_outputs
         original_scheduler = getattr(arena, "get_cosine_schedule_with_warmup", None)
-        contract = _runtime_bridge_contract(effective)
+        contract = self._runtime_bridge_contract(effective)
 
         def configured_lora_config(*args: Any, **kwargs: Any) -> Any:
             kwargs["r"] = int(contract["fresh_lora"]["rank"])
@@ -453,6 +494,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
                 arena.get_cosine_schedule_with_warmup = original_scheduler
 
     def _validated_runtime_grid(
+        self,
         candidate: Mapping[str, Any],
         *,
         canonical_grid: Mapping[str, Any],
@@ -478,6 +520,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
 
     @contextmanager
     def _legacy_paper_runtime_bridge(
+        self,
         modules: Mapping[str, Any],
         effective: Mapping[str, Any],
         *,
@@ -509,7 +552,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         strict_validator = paper_common.validate_grid_config
 
         def configured_validator(value: Mapping[str, Any]) -> None:
-            _validated_runtime_grid(
+            self._validated_runtime_grid(
                 value,
                 canonical_grid=canonical_grid,
                 effective=effective,
@@ -523,7 +566,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
             kwargs["weight_decay"] = float(effective["training"]["weight_decay"])
             return original_adamw(*args, **kwargs)
 
-        with _legacy_arena_runtime_bridge(modules["arena"], effective) as contract:
+        with self._legacy_arena_runtime_bridge(modules["arena"], effective) as contract:
             optimizer_holder.AdamW = configured_adamw
             for module, name, _ in validator_targets:
                 setattr(module, name, configured_validator)
@@ -535,13 +578,13 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
                 for module, name, original in validator_targets:
                     setattr(module, name, original)
 
-    def _canonical_baseline_grid_identity(method: str) -> dict[str, Any]:
+    def _canonical_baseline_grid_identity(self, method: str) -> dict[str, Any]:
         """Record actual canonical-grid bytes without introducing a new expected-blob gate."""
 
-        if method == METHOD_ASYMRE:
-            path = _canonical_asymre_grid_path()
-        elif method == METHOD_TOPR:
-            path = _canonical_topr_grid_path()
+        if method == self.METHOD_ASYMRE:
+            path = self._canonical_asymre_grid_path()
+        elif method == self.METHOD_TOPR:
+            path = self._canonical_topr_grid_path()
         else:
             raise ValueError(f"No extra canonical grid identity for method: {method}")
         return {
@@ -551,7 +594,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
             "expected_git_blob_gate": False,
         }
 
-    def _normalized_adapter_config_sequence(value: Any, *, field: str) -> tuple[str, ...]:
+    def _normalized_adapter_config_sequence(self, value: Any, *, field: str) -> tuple[str, ...]:
         if value is None:
             return ()
         if isinstance(value, str):
@@ -565,7 +608,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
             raise ValueError(f"Shared-SFT DPO adapter {field} contains invalid names")
         return normalized
 
-    def _dpo_shared_sft_adapter_identity(config: Mapping[str, Any]) -> dict[str, Any] | None:
+    def _dpo_shared_sft_adapter_identity(self, config: Mapping[str, Any]) -> dict[str, Any] | None:
         dpo = config["dpo"]
         mode = str(dpo["initialization_mode"])
         if mode == "base_model_fresh_lora":
@@ -608,10 +651,10 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         if not isinstance(adapter_config, dict):
             raise TypeError("Shared-SFT DPO adapter_config.json must contain a mapping")
         model_config = config["model"]
-        target_modules = _normalized_adapter_config_sequence(
+        target_modules = self._normalized_adapter_config_sequence(
             adapter_config.get("target_modules"), field="target_modules"
         )
-        modules_to_save = _normalized_adapter_config_sequence(
+        modules_to_save = self._normalized_adapter_config_sequence(
             adapter_config.get("modules_to_save"), field="modules_to_save"
         )
         expected_target_modules = tuple(sorted(str(value) for value in contract["target_modules"]))
@@ -669,12 +712,12 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         identity["identity_hash"] = stable_hash(identity)
         return {"path": str(path), **identity}
 
-    def _dpo_shared_sft_adapter(config: Mapping[str, Any]) -> Path | None:
-        identity = _dpo_shared_sft_adapter_identity(config)
+    def _dpo_shared_sft_adapter(self, config: Mapping[str, Any]) -> Path | None:
+        identity = self._dpo_shared_sft_adapter_identity(config)
         return None if identity is None else Path(str(identity["path"]))
 
-    def _parameter_sequence_sha256(parameters: Sequence[Any]) -> str:
-        if torch is None:
+    def _parameter_sequence_sha256(self, parameters: Sequence[Any]) -> str:
+        if self.torch is None:
             raise RuntimeError("Torch is required")
         digest = hashlib.sha256()
         if not parameters:
@@ -684,10 +727,11 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
             digest.update(str(index).encode("ascii"))
             digest.update(str(tuple(value.shape)).encode("ascii"))
             digest.update(str(value.dtype).encode("ascii"))
-            digest.update(value.view(torch.uint8).numpy().tobytes())
+            digest.update(value.view(self.torch.uint8).numpy().tobytes())
         return digest.hexdigest()
 
     def _dpo_prompt_balanced_mean(
+        self,
         values: Any,
         row_index: Any,
         unique_counts: Any,
@@ -696,18 +740,19 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
     ) -> Any:
         return paper_common.mean_unique_negative_term(
             values,
-            torch.ones_like(values),
+            self.torch.ones_like(values),
             row_index,
             unique_counts,
         )
 
-    def _dpo_quantile(values: Any, q: float) -> float:
-        return float(torch.quantile(values.detach().float().cpu(), q).item())
+    def _dpo_quantile(self, values: Any, q: float) -> float:
+        return float(self.torch.quantile(values.detach().float().cpu(), q).item())
 
-    def _is_nan_inf_numerical_failure(value: Any) -> bool:
+    def _is_nan_inf_numerical_failure(self, value: Any) -> bool:
         return isinstance(value, str) and value.startswith("nonfinite_")
 
     def _load_verified_canonical_calibration(
+        self,
         task: str,
         *,
         split_manifest: Mapping[str, Any],
@@ -720,7 +765,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         if not path.is_file():
             raise RuntimeError(f"Run the no-calibration identity gate before {task}")
         calibration = json.loads(path.read_text(encoding="utf-8"))
-        expected = _canonical_calibration_identity(
+        expected = self._canonical_calibration_identity(
             task,
             split_manifest=split_manifest,
             base_model_path=base_model_path,
@@ -735,6 +780,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         return calibration
 
     def _train_canonical_dpo_transfer_cell(
+        self,
         cell: Cell,
         *,
         inputs: TaskInputs,
@@ -748,21 +794,21 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
     ) -> dict[str, Any]:
         """Port the reviewed PR #268 DPO semantics onto the frozen multitask task interface."""
 
-        if torch is None or F is None or DataLoader is None:
+        if self.torch is None or self.F is None or self.DataLoader is None:
             raise RuntimeError("Canonical DPO training requires Torch")
-        if cell.method != METHOD_DPO or cell.beta is None:
+        if cell.method != self.METHOD_DPO or cell.beta is None:
             raise ValueError("Canonical DPO transfer trainer received a non-DPO cell")
         configured_initialization = str(config["dpo"]["initialization_mode"])
         if cell.dpo_initialization != configured_initialization:
             raise RuntimeError("DPO cell/config initialization identity mismatch")
         if cell.task == "countdown":
             raise ValueError("Current multitask DPO capability does not execute Countdown cells")
-        modules = _canonical_cold_modules(config)
+        modules = self._canonical_cold_modules(config)
         arena = modules["arena"]
         paper_common = modules["paper_common"]
         scan_trainer = modules["scan_trainer"]
-        record = _canonical_task_record(split_manifest, cell.task)
-        calibration = _load_verified_canonical_calibration(
+        record = self._canonical_task_record(split_manifest, cell.task)
+        calibration = self._load_verified_canonical_calibration(
             cell.task,
             split_manifest=split_manifest,
             base_model_path=base_model_path,
@@ -772,11 +818,11 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         )
 
         root_name = "liveness" if engineering_liveness else "cells"
-        shared_adapter_record = _dpo_shared_sft_adapter_identity(config)
+        shared_adapter_record = self._dpo_shared_sft_adapter_identity(config)
         shared_adapter = (
             None if shared_adapter_record is None else Path(str(shared_adapter_record["path"]))
         )
-        identity = _cell_identity(
+        identity = self._cell_identity(
             cell,
             inputs=inputs,
             split_manifest=split_manifest,
@@ -815,7 +861,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
             }
         )
         identity["identity_hash"] = stable_hash(identity)
-        cell_root, manifest_path, reusable = _prepare_cell_output(
+        cell_root, manifest_path, reusable = self._prepare_cell_output(
             output_root,
             root_name=root_name,
             cell=cell,
@@ -859,7 +905,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
                 inputs=inputs,
                 validation_rows=validation_rows,
             )
-            evaluator = _canonical_environment_evaluator(
+            evaluator = self._canonical_environment_evaluator(
                 arena=arena,
                 task_adapter=task_adapter,
                 instances=instances,
@@ -874,7 +920,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         original_evaluate_rows = arena.evaluate_rows
         try:
             arena.clean_expression = lambda value: str(value)
-            arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
+            arena.SYSTEM_PROMPT = self.TRANSFER_SYSTEM_PROMPT
             if evaluator is not None:
                 arena.evaluate_rows = evaluator
 
@@ -885,8 +931,8 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
                 tokenizer,
                 int(effective["model"]["max_length"]),
             )
-            generator = torch.Generator().manual_seed(seed)
-            loader = DataLoader(
+            generator = self.torch.Generator().manual_seed(seed)
+            loader = self.DataLoader(
                 dataset,
                 batch_size=int(effective["training"]["micro_batch"]),
                 shuffle=True,
@@ -897,7 +943,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
                 num_workers=int(train_cfg["num_workers"]),
             )
             iterator = iter(loader)
-            with _legacy_arena_runtime_bridge(arena, effective):
+            with self._legacy_arena_runtime_bridge(arena, effective):
                 model = arena.load_model(
                     str(Path(base_model_path).resolve()),
                     adapter_path=None if shared_adapter is None else str(shared_adapter),
@@ -936,11 +982,11 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
                     parameter.requires_grad_(False)
 
             activate_policy()
-            policy_initial_sha256 = _parameter_sequence_sha256(policy_parameters)
-            reference_initial_sha256 = _parameter_sequence_sha256(reference_parameters)
+            policy_initial_sha256 = self._parameter_sequence_sha256(policy_parameters)
+            reference_initial_sha256 = self._parameter_sequence_sha256(reference_parameters)
             if policy_initial_sha256 != reference_initial_sha256:
                 raise RuntimeError("DPO policy/reference exact initialization copy failed")
-            optimizer = torch.optim.AdamW(
+            optimizer = self.torch.optim.AdamW(
                 policy_parameters,
                 lr=float(effective["training"]["learning_rate"]),
                 weight_decay=float(effective["training"]["weight_decay"]),
@@ -1042,7 +1088,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
 
                     activate_reference()
                     model.eval()
-                    with torch.no_grad():
+                    with self.torch.no_grad():
                         reference_positive_stats = arena.completion_stats(model, positive_batch)
                         reference_bank_stats = arena.completion_stats(model, bank_batch)
                         reference_chosen = paper_common.full_sequence_log_probability(
@@ -1076,27 +1122,27 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
                             abort_update = True
                             break
                     logits = beta * pair_margin
-                    pair_losses = F.softplus(-logits)
-                    loss = _dpo_prompt_balanced_mean(
+                    pair_losses = self.F.softplus(-logits)
+                    loss = self._dpo_prompt_balanced_mean(
                         pair_losses,
                         row_index,
                         unique_counts,
                         paper_common=paper_common,
                     )
-                    if not bool(torch.isfinite(loss)):
+                    if not bool(self.torch.isfinite(loss)):
                         numerical_failure = f"nonfinite_loss_at_step_{update}"
                         stop_reason = numerical_failure
                         abort_update = True
                         break
                     (loss / accumulation).backward()
                     loss_total += float(loss.detach().cpu())
-                    policy_rejected_mean = _dpo_prompt_balanced_mean(
+                    policy_rejected_mean = self._dpo_prompt_balanced_mean(
                         policy_rejected.detach(),
                         row_index,
                         unique_counts,
                         paper_common=paper_common,
                     )
-                    reference_rejected_mean = _dpo_prompt_balanced_mean(
+                    reference_rejected_mean = self._dpo_prompt_balanced_mean(
                         reference_rejected,
                         row_index,
                         unique_counts,
@@ -1108,9 +1154,9 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
                         "reference_chosen_sum_lp": float(reference_chosen.mean().cpu()),
                         "reference_rejected_sum_lp": float(reference_rejected_mean.cpu()),
                         "pair_margin_mean": float(pair_margin.detach().mean().cpu()),
-                        "pair_margin_p10": _dpo_quantile(pair_margin, 0.10),
-                        "pair_margin_p50": _dpo_quantile(pair_margin, 0.50),
-                        "pair_margin_p90": _dpo_quantile(pair_margin, 0.90),
+                        "pair_margin_p10": self._dpo_quantile(pair_margin, 0.10),
+                        "pair_margin_p50": self._dpo_quantile(pair_margin, 0.50),
+                        "pair_margin_p90": self._dpo_quantile(pair_margin, 0.90),
                         "preference_accuracy": float(
                             (pair_margin.detach() > 0.0).float().mean().cpu()
                         ),
@@ -1136,11 +1182,11 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
                 if abort_update:
                     break
 
-                gradient_norm = torch.nn.utils.clip_grad_norm_(
+                gradient_norm = self.torch.nn.utils.clip_grad_norm_(
                     policy_parameters,
                     float(effective["training"]["max_grad_norm"]),
                 )
-                if not bool(torch.isfinite(gradient_norm)):
+                if not bool(self.torch.isfinite(gradient_norm)):
                     numerical_failure = f"nonfinite_gradient_at_step_{update}"
                     stop_reason = numerical_failure
                     break
@@ -1188,8 +1234,8 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
                     evaluate(update)
 
             activate_policy()
-            terminal_policy_sha256 = _parameter_sequence_sha256(policy_parameters)
-            reference_terminal_sha256 = _parameter_sequence_sha256(reference_parameters)
+            terminal_policy_sha256 = self._parameter_sequence_sha256(policy_parameters)
+            reference_terminal_sha256 = self._parameter_sequence_sha256(reference_parameters)
             if reference_terminal_sha256 != reference_initial_sha256:
                 raise RuntimeError("Frozen DPO reference changed during policy optimization")
             policy_parameters_changed = terminal_policy_sha256 != policy_initial_sha256
@@ -1218,7 +1264,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
             else:
                 evaluations = read_jsonl(evaluation_path)
                 summary = (
-                    _summarize_evaluations(evaluations, config)
+                    self._summarize_evaluations(evaluations, config)
                     if numerical_failure is None
                     else {}
                 )
@@ -1272,7 +1318,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
                 "last_finite_step": last_finite_step,
                 "numerical_failure": numerical_failure,
                 "stop_reason": stop_reason,
-                "nan_inf_failure": _is_nan_inf_numerical_failure(numerical_failure),
+                "nan_inf_failure": self._is_nan_inf_numerical_failure(numerical_failure),
                 "evaluation_status": (
                     "complete" if numerical_failure is None else "incomplete"
                 ),
@@ -1312,10 +1358,11 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
             if "model" in locals():
                 del model
             gc.collect()
-            if torch is not None and torch.cuda.is_available():
-                torch.cuda.empty_cache()
+            if self.torch is not None and self.torch.cuda.is_available():
+                self.torch.cuda.empty_cache()
 
     def _cmd_dpo_liveness(
+        self,
         config: Mapping[str, Any],
         config_path: Path,
         output_root: Path,
@@ -1329,19 +1376,19 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         if task != str(config["dpo"]["liveness_task"]):
             raise RuntimeError("DPO liveness must use the configured transfer-task anchor")
         beta = float(config["dpo"]["liveness_beta"])
-        values = experiment_config.task_method_values(config, task, method=METHOD_DPO)
+        values = experiment_config.task_method_values(config, task, method=self.METHOD_DPO)
         if beta not in values:
             raise RuntimeError("DPO liveness_beta must be one configured beta point")
-        cell = _coldstart_method_cell(
+        cell = self._coldstart_method_cell(
             task,
-            METHOD_DPO,
+            self.METHOD_DPO,
             experiment_config.task_transfer_seeds(config)[0],
             "liveness",
             beta,
             lambda_only=False,
             dpo_initialization=str(config["dpo"]["initialization_mode"]),
         )
-        result = train_cell(
+        result = self.train_cell(
             cell,
             inputs=inputs[task],
             split_manifest=splits,
@@ -1352,7 +1399,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
             updates_override=2,
             engineering_liveness=True,
         )
-        reload_result = _verify_fresh_process_adapter_reload(
+        reload_result = self._verify_fresh_process_adapter_reload(
             config_path,
             output_root,
             base_model_path=base_model_path,
@@ -1372,7 +1419,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
                 "fresh_process_reload_passed": True,
                 "liveness_parent_process_id": os.getpid(),
                 "reload_process_id": int(reload_result["process_id"]),
-                "terminal_adapter_weight_sha256": sha256_file(_adapter_weight_file(Path(result["terminal_adapter"]))),
+                "terminal_adapter_weight_sha256": sha256_file(self._adapter_weight_file(Path(result["terminal_adapter"]))),
                 "evaluation_status": "complete",
             }
         )
@@ -1380,6 +1427,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         return result
 
     def _train_canonical_cold_cell(
+        self,
         cell: Cell,
         *,
         inputs: TaskInputs,
@@ -1393,12 +1441,12 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
     ) -> dict[str, Any]:
         """Dispatch one cell to the exact paper runtime; this owns no loss math."""
 
-        if not _is_coldstart(config):
+        if not self._is_coldstart(config):
             raise RuntimeError("Canonical cold dispatch is cold-profile only")
-        modules = _canonical_cold_modules(config)
+        modules = self._canonical_cold_modules(config)
         arena = modules["arena"]
-        record = _canonical_task_record(split_manifest, cell.task)
-        calibration = _load_verified_canonical_calibration(
+        record = self._canonical_task_record(split_manifest, cell.task)
+        calibration = self._load_verified_canonical_calibration(
             cell.task,
             split_manifest=split_manifest,
             base_model_path=base_model_path,
@@ -1410,21 +1458,21 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         bank = Path(str(record["train"]))
         validation = Path(str(record["validation"]))
         base_config_path = base_config_override or Path(str(record["base_config"]))
-        method_spec = _method_spec(cell.method)
+        method_spec = self._method_spec(cell.method)
         paper_runtime = method_spec.paper_runtime
         if paper_runtime is None:
             raise RuntimeError(
                 f"{cell.method} does not use canonical paper cell parameters"
             )
-        grid_path, grid_source_path = _paper_grid_for_cell(config, record, cell)
-        modules = _activate_paper_grid_modules(modules, grid_source_path)
+        grid_path, grid_source_path = self._paper_grid_for_cell(config, record, cell)
+        modules = self._activate_paper_grid_modules(modules, grid_source_path)
         arena = modules["arena"]
         runtime = modules["paper_runtime"]
         effective_runtime = experiment_config.effective_coldstart_runtime(config, cell.task)
         base_config = yaml.safe_load(base_config_path.read_text(encoding="utf-8"))
         if not isinstance(base_config, dict):
             raise TypeError("Paper base config root must be a mapping")
-        identity = _cell_identity(
+        identity = self._cell_identity(
             cell,
             inputs=inputs,
             split_manifest=split_manifest,
@@ -1457,10 +1505,10 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         )
         if not experiment_config.is_historical_coldstart_config(config):
             identity["effective_runtime"] = effective_runtime
-            identity["legacy_runtime_bridge"] = _runtime_bridge_contract(effective_runtime)
+            identity["legacy_runtime_bridge"] = self._runtime_bridge_contract(effective_runtime)
         identity["identity_hash"] = stable_hash(identity)
 
-        cell_root, manifest_path, reusable = _prepare_cell_output(
+        cell_root, manifest_path, reusable = self._prepare_cell_output(
             output_root,
             root_name=root_name,
             cell=cell,
@@ -1482,7 +1530,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
                 inputs=inputs,
                 validation_rows=validation_rows,
             )
-            evaluator = _canonical_environment_evaluator(
+            evaluator = self._canonical_environment_evaluator(
                 arena=arena,
                 task_adapter=task_adapter,
                 instances=instances,
@@ -1515,7 +1563,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
                     scan_trainer._evaluate_validation = configured_evaluate
                 if evaluator is not None:
                     arena.evaluate_rows = evaluator
-                    arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
+                    arena.SYSTEM_PROMPT = self.TRANSFER_SYSTEM_PROMPT
                     arena.completion_stats = lambda model, batch: {
                         "seq_lp": -arena.sequence_surprisal_only(model, batch),
                         "lengths": (batch["labels"] != -100).sum(dim=1),
@@ -1551,7 +1599,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
 
         paper_family, alpha, coefficient = paper_runtime.cell_parameters(cell)
         with (
-            _legacy_paper_runtime_bridge(
+            self._legacy_paper_runtime_bridge(
                 modules,
                 effective_runtime,
                 grid_path=grid_path,
@@ -1591,7 +1639,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
                     base_config_path=base_config_path,
                     grid_config_path=grid_path,
                     output_dir=canonical_output,
-                    repo=_repo_root(),
+                    repo=self._repo_root(),
                     smoke=False,
                 )
 
@@ -1616,7 +1664,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         ]
         numerical_failure = canonical_summary.get("numerical_failure")
         metrics_summary = (
-            _summarize_evaluations(evaluations, config)
+            self._summarize_evaluations(evaluations, config)
             if numerical_failure is None
             else {}
         )
@@ -1670,7 +1718,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
             ),
             "optimizer_updates": int(canonical_summary.get("terminal_step") or 0),
             "numerical_failure": numerical_failure,
-            "nan_inf_failure": _is_nan_inf_numerical_failure(numerical_failure),
+            "nan_inf_failure": self._is_nan_inf_numerical_failure(numerical_failure),
             "evaluation_status": (
                 "complete" if evaluations and numerical_failure is None else "incomplete"
             ),
@@ -1682,6 +1730,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         return result
 
     def _cmd_canonical_cold_liveness(
+        self,
         config: Mapping[str, Any],
         config_path: Path,
         output_root: Path,
@@ -1692,19 +1741,19 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         force: bool,
         method: str | None = None,
     ) -> dict[str, Any]:
-        modules = _canonical_cold_modules(config)
-        record = _canonical_task_record(splits, "countdown")
-        method = method or _coldstart_method(config)
-        paper_runtime = _method_spec(method).paper_runtime
+        modules = self._canonical_cold_modules(config)
+        record = self._canonical_task_record(splits, "countdown")
+        method = method or self._coldstart_method(config)
+        paper_runtime = self._method_spec(method).paper_runtime
         if paper_runtime is None:
             raise RuntimeError(f"{method} does not use canonical paper-runtime liveness")
         grid_path = paper_runtime.liveness_grid(config, record)
-        grid_path = _method_liveness_grid(grid_path, method, output_root)
-        modules = _activate_paper_grid_modules(modules, grid_path)
+        grid_path = self._method_liveness_grid(grid_path, method, output_root)
+        modules = self._activate_paper_grid_modules(modules, grid_path)
         runtime = modules["paper_runtime"]
-        cell = _canonical_cold_liveness_cell(grid_path)
+        cell = self._canonical_cold_liveness_cell(grid_path)
         smoke_name = (
-            f"paper_runtime_smoke_{method}" if _is_method_matrix(config) else "paper_runtime_smoke"
+            f"paper_runtime_smoke_{method}" if self._is_method_matrix(config) else "paper_runtime_smoke"
         )
         smoke_root = output_root / "liveness" / smoke_name
         if force and smoke_root.exists():
@@ -1740,9 +1789,9 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
             raise RuntimeError("Paper-runtime liveness did not perform two finite optimizer updates")
         canonical_output = summary_path.parent
         terminal_adapter = canonical_output / "terminal_adapter"
-        terminal_hash = sha256_file(_adapter_weight_file(terminal_adapter))
+        terminal_hash = sha256_file(self._adapter_weight_file(terminal_adapter))
 
-        reload_result = _verify_fresh_process_adapter_reload(
+        reload_result = self._verify_fresh_process_adapter_reload(
             config_path,
             output_root,
             base_model_path=base_model_path,
@@ -1755,7 +1804,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
             (output_root / "calibration" / "countdown.json").read_text(encoding="utf-8")
         )
         result = {
-            **_cell_identity(
+            **self._cell_identity(
                 cell,
                 inputs=inputs,
                 split_manifest=splits,
@@ -1793,33 +1842,37 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         )
         return result
 
+
+def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
+    """Build one call-scoped bridge from the explicit implementation object."""
+    impl = _CanonicalBridgeImpl(bindings)
     return CanonicalBridge(
-        _paper_grid_paths_exponential=_paper_grid_paths_exponential,
-        _paper_params_reciprocal=_paper_params_reciprocal,
-        _paper_params_exponential=_paper_params_exponential,
-        _paper_params_asymre=_paper_params_asymre,
-        _paper_params_topr=_paper_params_topr,
-        _canonical_cold_modules=_canonical_cold_modules,
-        _activate_paper_grid_modules=_activate_paper_grid_modules,
-        _canonical_task_record=_canonical_task_record,
-        _paper_grid_for_cell=_paper_grid_for_cell,
-        _canonical_environment_evaluator=_canonical_environment_evaluator,
-        _canonical_generic_posthoc=_canonical_generic_posthoc,
-        _runtime_bridge_contract=_runtime_bridge_contract,
-        _legacy_arena_runtime_bridge=_legacy_arena_runtime_bridge,
-        _validated_runtime_grid=_validated_runtime_grid,
-        _legacy_paper_runtime_bridge=_legacy_paper_runtime_bridge,
-        _canonical_baseline_grid_identity=_canonical_baseline_grid_identity,
-        _normalized_adapter_config_sequence=_normalized_adapter_config_sequence,
-        _dpo_shared_sft_adapter_identity=_dpo_shared_sft_adapter_identity,
-        _dpo_shared_sft_adapter=_dpo_shared_sft_adapter,
-        _parameter_sequence_sha256=_parameter_sequence_sha256,
-        _dpo_prompt_balanced_mean=_dpo_prompt_balanced_mean,
-        _dpo_quantile=_dpo_quantile,
-        _is_nan_inf_numerical_failure=_is_nan_inf_numerical_failure,
-        _load_verified_canonical_calibration=_load_verified_canonical_calibration,
-        _train_canonical_dpo_transfer_cell=_train_canonical_dpo_transfer_cell,
-        _cmd_dpo_liveness=_cmd_dpo_liveness,
-        _train_canonical_cold_cell=_train_canonical_cold_cell,
-        _cmd_canonical_cold_liveness=_cmd_canonical_cold_liveness,
+        _paper_grid_paths_exponential=impl._paper_grid_paths_exponential,
+        _paper_params_reciprocal=impl._paper_params_reciprocal,
+        _paper_params_exponential=impl._paper_params_exponential,
+        _paper_params_asymre=impl._paper_params_asymre,
+        _paper_params_topr=impl._paper_params_topr,
+        _canonical_cold_modules=impl._canonical_cold_modules,
+        _activate_paper_grid_modules=impl._activate_paper_grid_modules,
+        _canonical_task_record=impl._canonical_task_record,
+        _paper_grid_for_cell=impl._paper_grid_for_cell,
+        _canonical_environment_evaluator=impl._canonical_environment_evaluator,
+        _canonical_generic_posthoc=impl._canonical_generic_posthoc,
+        _runtime_bridge_contract=impl._runtime_bridge_contract,
+        _legacy_arena_runtime_bridge=impl._legacy_arena_runtime_bridge,
+        _validated_runtime_grid=impl._validated_runtime_grid,
+        _legacy_paper_runtime_bridge=impl._legacy_paper_runtime_bridge,
+        _canonical_baseline_grid_identity=impl._canonical_baseline_grid_identity,
+        _normalized_adapter_config_sequence=impl._normalized_adapter_config_sequence,
+        _dpo_shared_sft_adapter_identity=impl._dpo_shared_sft_adapter_identity,
+        _dpo_shared_sft_adapter=impl._dpo_shared_sft_adapter,
+        _parameter_sequence_sha256=impl._parameter_sequence_sha256,
+        _dpo_prompt_balanced_mean=impl._dpo_prompt_balanced_mean,
+        _dpo_quantile=impl._dpo_quantile,
+        _is_nan_inf_numerical_failure=impl._is_nan_inf_numerical_failure,
+        _load_verified_canonical_calibration=impl._load_verified_canonical_calibration,
+        _train_canonical_dpo_transfer_cell=impl._train_canonical_dpo_transfer_cell,
+        _cmd_dpo_liveness=impl._cmd_dpo_liveness,
+        _train_canonical_cold_cell=impl._train_canonical_cold_cell,
+        _cmd_canonical_cold_liveness=impl._cmd_canonical_cold_liveness,
     )
