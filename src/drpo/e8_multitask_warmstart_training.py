@@ -304,8 +304,14 @@ def prepare_references(
     base_model_path: str,
     tasks: Sequence[str] | None,
     force: bool,
+    load_prepared_fn: Callable[
+        [Path, Mapping[str, Any]],
+        tuple[dict[str, Any], dict[str, TaskInputs]],
+    ],
+    model_identity_fn: Callable[[str, str | None], Mapping[str, Any]],
+    train_warmstart_fn: Callable[..., dict[str, Any]],
 ) -> dict[str, Any]:
-    splits, inputs = e8_inputs.load_prepared_inputs(output_root, config)
+    splits, inputs = load_prepared_fn(output_root, config)
     p0_tasks = tuple(str(task) for task in config["suite"]["p0_tasks"])
     requested = tuple(str(task) for task in (tasks or p0_tasks))
     if not requested or len(set(requested)) != len(requested):
@@ -320,7 +326,7 @@ def prepare_references(
     if any(inputs[task].p0_config != p0_config_path for task in requested):
         raise RuntimeError("P0 tasks do not share one frozen config path")
     warmstart_config = reference_warmstart_config(config, p0_config_path)
-    base_identity = model_identity(base_model_path, None)["model"]
+    base_identity = model_identity_fn(base_model_path, None)["model"]
     task_seeds = {
         task: reference_seed(config, warmstart_config, task) for task in p0_tasks
     }
@@ -394,7 +400,7 @@ def prepare_references(
             shutil.rmtree(task_root)
         task_root.mkdir(parents=True, exist_ok=False)
         train_rows = read_jsonl(train_path)
-        result = train_task_positive_warmstart(
+        result = train_warmstart_fn(
             task=task,
             rows=train_rows,
             model_path=base_model_path,
@@ -438,12 +444,13 @@ def attach_references(
     inputs: Mapping[str, TaskInputs],
     *,
     base_model_path: str,
+    model_identity_fn: Callable[[str, str | None], Mapping[str, Any]],
 ) -> dict[str, TaskInputs]:
     path = reference_manifest_path(output_root)
     if not path.is_file():
         raise RuntimeError("Run train-only reference preparation before calibration")
     manifest = json.loads(path.read_text(encoding="utf-8"))
-    base_identity = model_identity(base_model_path, None)["model"]
+    base_identity = model_identity_fn(base_model_path, None)["model"]
     validate_reference_manifest_header(
         manifest,
         config=config,
@@ -488,7 +495,7 @@ def attach_references(
             expected_identity=expected_identity,
             expected_train_rows=int(config["split"]["p0_train_rows"]),
         )
-        if task_manifest.get("adapter_identity") != model_identity(
+        if task_manifest.get("adapter_identity") != model_identity_fn(
             base_model_path,
             str(adapter),
         )["adapter"]:
@@ -511,6 +518,7 @@ def load_ready_inputs(
     config: Mapping[str, Any],
     *,
     base_model_path: str,
+    model_identity_fn: Callable[[str, str | None], Mapping[str, Any]],
 ) -> tuple[dict[str, Any], dict[str, TaskInputs]]:
     splits, inputs = e8_inputs.load_prepared_inputs(output_root, config)
     if _is_coldstart(config):
@@ -525,6 +533,7 @@ def load_ready_inputs(
         splits,
         inputs,
         base_model_path=base_model_path,
+        model_identity_fn=model_identity_fn,
     )
 
 def normalized_distance(
