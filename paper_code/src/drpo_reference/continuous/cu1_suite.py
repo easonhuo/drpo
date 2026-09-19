@@ -42,159 +42,6 @@ CONTROL_METHODS = (
 )
 
 
-def _positive_run(seed: int, protocols: CU1Protocols, device: torch.device):
-    return train_positive(
-        seed=seed,
-        protocol=protocols.core,
-        training=protocols.positive,
-        device=device,
-    )
-
-
-def _source_rows(
-    seeds: Sequence[int],
-    protocols: CU1Protocols,
-    device: torch.device,
-) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for seed in seeds:
-        positive = _positive_run(seed, protocols, device)
-        rows.append(
-            dict(
-                source_diagnostic(
-                    seed=seed,
-                    actor=positive.actor,
-                    environment=positive.environment,
-                    protocol=protocols.core,
-                    source=protocols.source,
-                )
-            )
-        )
-    return rows
-
-
-def _causal_rows(
-    seeds: Sequence[int],
-    protocols: CU1Protocols,
-    device: torch.device,
-) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    methods = protocols.causal.primary_methods + protocols.causal.appendix_methods
-    branches = (
-        (
-            "fixed_variance",
-            analytic_positive_sigma(protocols.core),
-            protocols.causal.fixed_alpha,
-            protocols.causal.fixed_learning_rate,
-            protocols.causal.fixed_steps,
-        ),
-        (
-            "learnable_variance",
-            None,
-            protocols.causal.learnable_alpha,
-            protocols.causal.learnable_learning_rate,
-            protocols.causal.learnable_steps,
-        ),
-    )
-    for seed in seeds:
-        positive = _positive_run(seed, protocols, device)
-        for branch, sigma, alpha, learning_rate, steps in branches:
-            for method in methods:
-                run = run_causal_intervention(
-                    seed=seed,
-                    initialization_state=positive.initialization_state,
-                    environment=positive.environment,
-                    protocol=protocols.core,
-                    positive_training=protocols.positive,
-                    method=method,
-                    fixed_sigma=sigma,
-                    alpha=alpha,
-                    learning_rate=learning_rate,
-                    steps=steps,
-                    branch=branch,
-                    causal=protocols.causal,
-                )
-                rows.append(dict(run))
-    return rows
-
-
-def _phase_rows(
-    seeds: Sequence[int],
-    protocols: CU1Protocols,
-    device: torch.device,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    rows: list[dict[str, Any]] = []
-    controls: list[dict[str, Any]] = []
-    sigma = analytic_positive_sigma(protocols.core)
-    for seed in seeds:
-        positive = _positive_run(seed, protocols, device)
-        for branch, fixed_sigma, alphas in (
-            ("fixed_variance", sigma, protocols.phase.fixed_alphas),
-            ("learnable_variance", None, protocols.phase.learnable_alphas),
-        ):
-            for alpha in alphas:
-                run = run_phase_scan(
-                    seed=seed,
-                    initialization_state=positive.initialization_state,
-                    environment=positive.environment,
-                    protocol=protocols.core,
-                    positive_training=protocols.positive,
-                    phase=protocols.phase,
-                    alpha=alpha,
-                    fixed_sigma=fixed_sigma,
-                    branch=branch,
-                )
-                rows.append(dict(run))
-
-        for method in CONTROL_METHODS:
-            run = run_causal_intervention(
-                seed=seed,
-                initialization_state=positive.initialization_state,
-                environment=positive.environment,
-                protocol=protocols.core,
-                positive_training=protocols.positive,
-                causal=protocols.causal,
-                method=method,
-                fixed_sigma=sigma,
-                alpha=1.0,
-                learning_rate=protocols.phase.control_learning_rate,
-                steps=protocols.phase.control_steps,
-                branch="far_pressure_control",
-                partition="contour",
-                component_scales=(
-                    protocols.phase.control_alpha_local,
-                    protocols.phase.control_lambda_far,
-                ),
-                cap_ratio=protocols.phase.control_far_cap_ratio,
-                generator_offset=500009,
-            )
-            controls.append(dict(run))
-    return rows, controls
-
-
-def _taper_rows(
-    seeds: Sequence[int],
-    protocols: CU1Protocols,
-    device: torch.device,
-) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for seed in seeds:
-        positive = _positive_run(seed, protocols, device)
-        for family, retention in method_configs(protocols.taper):
-            run = run_taper_method(
-                seed=seed,
-                initialization_state=positive.initialization_state,
-                environment=positive.environment,
-                protocol=protocols.core,
-                positive_training=protocols.positive,
-                taper=protocols.taper,
-                family=family,
-                retention=retention,
-            )
-            rows.append(dict(run))
-    return rows
-
-
 def run_cu1_stage(
     *,
     stage: str,
@@ -213,31 +60,115 @@ def run_cu1_stage(
         else "cpu" if device == "auto"
         else device
     )
+    rows: list[dict[str, Any]] = []
+    controls: list[dict[str, Any]] = []
+    sigma = analytic_positive_sigma(protocols.core)
+    causal_methods = protocols.causal.primary_methods + protocols.causal.appendix_methods
+    causal_branches = (
+        (
+            "fixed_variance",
+            sigma,
+            protocols.causal.fixed_alpha,
+            protocols.causal.fixed_learning_rate,
+            protocols.causal.fixed_steps,
+        ),
+        (
+            "learnable_variance",
+            None,
+            protocols.causal.learnable_alpha,
+            protocols.causal.learnable_learning_rate,
+            protocols.causal.learnable_steps,
+        ),
+    )
 
-    if stage == "source":
-        result: dict[str, Any] = {
-            "stage": stage,
-            "rows": _source_rows(selected, protocols, target),
+    for seed in selected:
+        positive = train_positive(
+            seed=seed,
+            protocol=protocols.core,
+            training=protocols.positive,
+            device=target,
+        )
+        common = {
+            "seed": seed,
+            "initialization_state": positive.initialization_state,
+            "environment": positive.environment,
+            "protocol": protocols.core,
+            "positive_training": protocols.positive,
         }
-    elif stage == "causal":
-        result = {
-            "stage": stage,
-            "rows": _causal_rows(selected, protocols, target),
-        }
-    elif stage == "phase":
-        rows, controls = _phase_rows(selected, protocols, target)
-        result = {
-            "stage": stage,
-            "rows": rows,
-            "controls": controls,
-        }
-    else:
-        result = {
-            "stage": stage,
-            "rows": _taper_rows(selected, protocols, target),
-        }
+        if stage == "source":
+            rows.append(
+                source_diagnostic(
+                    seed=seed,
+                    actor=positive.actor,
+                    environment=positive.environment,
+                    protocol=protocols.core,
+                    source=protocols.source,
+                )
+            )
+        elif stage == "causal":
+            for branch, fixed_sigma, alpha, learning_rate, steps in causal_branches:
+                for method in causal_methods:
+                    rows.append(
+                        run_causal_intervention(
+                            **common,
+                            causal=protocols.causal,
+                            method=method,
+                            fixed_sigma=fixed_sigma,
+                            alpha=alpha,
+                            learning_rate=learning_rate,
+                            steps=steps,
+                            branch=branch,
+                        )
+                    )
+        elif stage == "phase":
+            for branch, fixed_sigma, alphas in (
+                ("fixed_variance", sigma, protocols.phase.fixed_alphas),
+                ("learnable_variance", None, protocols.phase.learnable_alphas),
+            ):
+                for alpha in alphas:
+                    rows.append(
+                        run_phase_scan(
+                            **common,
+                            phase=protocols.phase,
+                            alpha=alpha,
+                            fixed_sigma=fixed_sigma,
+                            branch=branch,
+                        )
+                    )
+            for method in CONTROL_METHODS:
+                controls.append(
+                    run_causal_intervention(
+                        **common,
+                        causal=protocols.causal,
+                        method=method,
+                        fixed_sigma=sigma,
+                        alpha=1.0,
+                        learning_rate=protocols.phase.control_learning_rate,
+                        steps=protocols.phase.control_steps,
+                        branch="far_pressure_control",
+                        partition="contour",
+                        component_scales=(
+                            protocols.phase.control_alpha_local,
+                            protocols.phase.control_lambda_far,
+                        ),
+                        cap_ratio=protocols.phase.control_far_cap_ratio,
+                        generator_offset=500009,
+                    )
+                )
+        else:
+            for family, retention in method_configs(protocols.taper):
+                rows.append(
+                    run_taper_method(
+                        **common,
+                        taper=protocols.taper,
+                        family=family,
+                        retention=retention,
+                    )
+                )
 
-    result["seeds"] = list(selected)
+    result: dict[str, Any] = {"stage": stage, "rows": rows, "seeds": list(selected)}
+    if stage == "phase":
+        result["controls"] = controls
     root = Path(output_root)
     root.mkdir(parents=True, exist_ok=True)
     atomic_json(root / f"{stage}.json", result)
