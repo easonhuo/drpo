@@ -227,65 +227,46 @@ def train_positive(
     environment = make_environment(seed, protocol, target, dtype)
     seed_all(seed)
     actor = make_actor(protocol).to(device=target, dtype=dtype)
-    optimizer = make_adam(
-        actor.all_parameters(),
-        learning_rate=training.positive_adam_lr,
-        training=training,
-    )
     generator = cpu_generator(seed + 100003)
 
-    for _ in range(training.positive_steps):
-        ids = sample_ids(generator, environment.train, training.positive_batch_states)
-        loss = positive_loss(actor, environment.train, protocol, ids)
-        optimizer.zero_grad(set_to_none=True)
-        loss.backward()
-        optimizer.step()
+    def minibatch_adam(learning_rate: float, steps: int) -> None:
+        optimizer = make_adam(
+            actor.all_parameters(),
+            learning_rate=learning_rate,
+            training=training,
+        )
+        for _ in range(steps):
+            ids = sample_ids(generator, environment.train, training.positive_batch_states)
+            loss = positive_loss(actor, environment.train, protocol, ids)
+            optimizer.zero_grad(set_to_none=True)
+            loss.backward()
+            optimizer.step()
 
+    def lbfgs_refine() -> None:
+        optimizer = torch.optim.LBFGS(
+            actor.parameters(),
+            lr=training.lbfgs_lr,
+            max_iter=training.lbfgs_max_iter,
+            history_size=50,
+            line_search_fn="strong_wolfe",
+        )
+
+        def closure() -> torch.Tensor:
+            optimizer.zero_grad(set_to_none=True)
+            loss = positive_loss(actor, environment.train, protocol)
+            loss.backward()
+            return loss
+
+        optimizer.step(closure)
+
+    minibatch_adam(training.positive_adam_lr, training.positive_steps)
     initialization_state = copy.deepcopy(actor.state_dict())
-
-    lbfgs = torch.optim.LBFGS(
-        actor.parameters(),
-        lr=training.lbfgs_lr,
-        max_iter=training.lbfgs_max_iter,
-        history_size=50,
-        line_search_fn="strong_wolfe",
+    lbfgs_refine()
+    minibatch_adam(
+        training.positive_adam_lr * 0.25,
+        training.positive_continuation_steps,
     )
-
-    def closure() -> torch.Tensor:
-        lbfgs.zero_grad(set_to_none=True)
-        loss = positive_loss(actor, environment.train, protocol)
-        loss.backward()
-        return loss
-
-    lbfgs.step(closure)
-
-    continuation = make_adam(
-        actor.all_parameters(),
-        learning_rate=training.positive_adam_lr * 0.25,
-        training=training,
-    )
-    for _ in range(training.positive_continuation_steps):
-        ids = sample_ids(generator, environment.train, training.positive_batch_states)
-        loss = positive_loss(actor, environment.train, protocol, ids)
-        continuation.zero_grad(set_to_none=True)
-        loss.backward()
-        continuation.step()
-
-    final_lbfgs = torch.optim.LBFGS(
-        actor.parameters(),
-        lr=training.lbfgs_lr,
-        max_iter=training.lbfgs_max_iter,
-        history_size=50,
-        line_search_fn="strong_wolfe",
-    )
-
-    def final_closure() -> torch.Tensor:
-        final_lbfgs.zero_grad(set_to_none=True)
-        loss = positive_loss(actor, environment.train, protocol)
-        loss.backward()
-        return loss
-
-    final_lbfgs.step(final_closure)
+    lbfgs_refine()
 
     polish = make_adam(
         actor.all_parameters(),
