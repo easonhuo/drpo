@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import copy
 from dataclasses import dataclass
 from typing import Any
 
@@ -12,10 +11,9 @@ from .cu1 import (
     CU1Protocol,
     Environment,
     Split,
-    actor_log_prob,
     evaluation,
     local_negative_loss,
-    make_actor,
+    negative_loss,
     positive_loss,
 )
 from .cu1_phase import analytic_positive_sigma
@@ -24,8 +22,11 @@ from .cu1_training import (
     CU1PositiveProtocol,
     add_gradients,
     finite_model,
+    gradients,
+    initialized_actor,
     gradient_norm,
     make_adam,
+    sample_ids,
     scale_gradients,
     set_parameter_gradients,
 )
@@ -62,34 +63,10 @@ def control_gradients(
     parameters = actor.mean_parameters()
     positive = positive_loss(actor, split, protocol, ids, fixed_sigma)
     local = local_negative_loss(actor, split, protocol, ids, fixed_sigma)
-    states = split.s[ids]
-    actions = split.negative_actions[ids, 1:]
-    advantages = split.negative_advantages[ids, 1:]
-    far_log_probability, _, _ = actor_log_prob(
-        actor,
-        states,
-        actions,
-        protocol,
-        fixed_sigma,
-    )
-    far = -(advantages * far_log_probability).mean()
-    positive_gradient = torch.autograd.grad(
-        positive,
-        parameters,
-        retain_graph=True,
-        allow_unused=True,
-    )
-    local_gradient = torch.autograd.grad(
-        local,
-        parameters,
-        retain_graph=True,
-        allow_unused=True,
-    )
-    far_gradient = torch.autograd.grad(
-        far,
-        parameters,
-        allow_unused=True,
-    )
+    far = negative_loss(actor, split, protocol, ids, fixed_sigma, slice(1, None))
+    positive_gradient = gradients(positive, parameters, retain_graph=True)
+    local_gradient = gradients(local, parameters, retain_graph=True)
+    far_gradient = gradients(far, parameters)
     weighted_local = scale_gradients(
         local_gradient,
         control.alpha_local,
@@ -139,11 +116,7 @@ def run_far_pressure_control(
 
     positive_training = CU1PositiveProtocol() if positive_training is None else positive_training
     control = CU1ControlProtocol() if control is None else control
-    actor = make_actor(protocol).to(
-        environment.train.s.device,
-        dtype=environment.train.s.dtype,
-    )
-    actor.load_state_dict(copy.deepcopy(initialization_state))
+    actor = initialized_actor(protocol, environment, initialization_state)
     parameters = actor.mean_parameters()
     optimizer = make_adam(
         parameters,
@@ -153,12 +126,11 @@ def run_far_pressure_control(
     generator = torch.Generator(device="cpu").manual_seed(seed + 500009)
     fixed_sigma = analytic_positive_sigma(protocol)
     for step in range(1, control.steps + 1):
-        ids = torch.randint(
-            0,
-            protocol.n_train_states,
-            (positive_training.positive_batch_states,),
-            generator=generator,
-        ).to(environment.train.s.device)
+        ids = sample_ids(
+            generator,
+            environment.train,
+            positive_training.positive_batch_states,
+        )
         gradients = control_gradients(
             actor,
             environment.train,

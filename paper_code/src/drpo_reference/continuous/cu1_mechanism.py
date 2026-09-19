@@ -8,7 +8,6 @@ separate.
 
 from __future__ import annotations
 
-import copy
 import math
 from collections import deque
 from collections.abc import Sequence
@@ -23,7 +22,6 @@ from .cu1 import (
     Split,
     actor_log_prob,
     evaluation,
-    make_actor,
     near_far_losses,
     positive_loss,
     support_diagnostics,
@@ -33,8 +31,11 @@ from .cu1_training import (
     EPS,
     add_gradients,
     finite_model,
+    gradients,
+    initialized_actor,
     gradient_norm,
     make_adam,
+    sample_ids,
     scale_gradients,
     set_parameter_gradients,
 )
@@ -97,12 +98,7 @@ def per_sample_negative_gradient(
         protocol,
     )
     objective = advantage * log_probability.squeeze()
-    gradients = torch.autograd.grad(
-        objective,
-        actor.all_parameters(),
-        allow_unused=True,
-    )
-    return _flatten_present(gradients)
+    return _flatten_present(gradients(objective, actor.all_parameters()))
 
 
 def source_diagnostic(
@@ -160,16 +156,14 @@ def source_diagnostic(
     )
     near_advantage = environment.train.negative_advantages[ids, 0:1]
     far_advantage = environment.train.negative_advantages[ids, 4:5]
-    aggregate_near = torch.autograd.grad(
+    aggregate_near = gradients(
         (near_advantage * near_log_probability).mean(),
         parameters,
         retain_graph=True,
-        allow_unused=True,
     )
-    aggregate_far = torch.autograd.grad(
+    aggregate_far = gradients(
         (far_advantage * far_log_probability).mean(),
         parameters,
-        allow_unused=True,
     )
 
     with torch.no_grad():
@@ -253,23 +247,9 @@ def intervention_gradients(
         ids,
         fixed_sigma,
     )
-    positive_gradient = torch.autograd.grad(
-        positive,
-        parameters,
-        retain_graph=True,
-        allow_unused=True,
-    )
-    near_gradient = torch.autograd.grad(
-        near,
-        parameters,
-        retain_graph=True,
-        allow_unused=True,
-    )
-    far_gradient = torch.autograd.grad(
-        far,
-        parameters,
-        allow_unused=True,
-    )
+    positive_gradient = gradients(positive, parameters, retain_graph=True)
+    near_gradient = gradients(near, parameters, retain_graph=True)
+    far_gradient = gradients(far, parameters)
     weighted_near = scale_gradients(near_gradient, alpha)
     weighted_far = scale_gradients(far_gradient, alpha)
     raw_negative = add_gradients(weighted_near, weighted_far)
@@ -342,11 +322,7 @@ def run_causal_intervention(
 
     positive_training = CU1PositiveProtocol() if positive_training is None else positive_training
     causal = CU1CausalProtocol() if causal is None else causal
-    actor = make_actor(protocol).to(
-        environment.train.s.device,
-        dtype=environment.train.s.dtype,
-    )
-    actor.load_state_dict(copy.deepcopy(initialization_state))
+    actor = initialized_actor(protocol, environment, initialization_state)
     parameters = actor.mean_parameters() if fixed_sigma is not None else actor.all_parameters()
     optimizer = make_adam(
         parameters,
@@ -364,12 +340,11 @@ def run_causal_intervention(
     stop_reason = "max_steps"
 
     for step in range(1, steps + 1):
-        ids = torch.randint(
-            0,
-            protocol.n_train_states,
-            (positive_training.positive_batch_states,),
-            generator=generator,
-        ).to(environment.train.s.device)
+        ids = sample_ids(
+            generator,
+            environment.train,
+            positive_training.positive_batch_states,
+        )
         gradients = intervention_gradients(
             actor,
             environment.train,

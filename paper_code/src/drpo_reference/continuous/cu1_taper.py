@@ -7,7 +7,6 @@ detached negative-sample weight applied to standardized action distance.
 
 from __future__ import annotations
 
-import copy
 from dataclasses import dataclass
 from typing import Any
 
@@ -27,7 +26,6 @@ from .cu1 import (
     Split,
     actor_log_prob,
     evaluation,
-    make_actor,
     positive_loss,
     support_diagnostics,
 )
@@ -36,12 +34,13 @@ from .cu1_training import (
     CU1PositiveProtocol,
     add_gradients,
     finite_model,
+    gradients,
+    initialized_actor,
     gradient_norm,
     make_adam,
+    sample_ids,
 )
 from .gaussian import GaussianActor, standardized_distance
-
-GradientTuple = tuple[torch.Tensor | None, ...]
 
 
 @dataclass(frozen=True)
@@ -149,22 +148,6 @@ def weighted_negative_loss(
     return -(advantages * weight * log_probability).mean()
 
 
-def _gradient_tuple(
-    loss: torch.Tensor,
-    actor: GaussianActor,
-    *,
-    retain_graph: bool,
-) -> GradientTuple:
-    return tuple(
-        torch.autograd.grad(
-            loss,
-            actor.all_parameters(),
-            retain_graph=retain_graph,
-            allow_unused=True,
-        )
-    )
-
-
 def full_field_diagnostics(
     actor: GaussianActor,
     split: Split,
@@ -175,9 +158,9 @@ def full_field_diagnostics(
     retention: float,
 ) -> dict[str, Any]:
     positive = positive_loss(actor, split, protocol)
-    positive_gradient = _gradient_tuple(
+    positive_gradient = gradients(
         positive,
-        actor,
+        actor.all_parameters(),
         retain_graph=family != "positive_only",
     )
     positive_norm = float(gradient_norm(positive_gradient).item())
@@ -199,7 +182,7 @@ def full_field_diagnostics(
         family=family,
         retention=retention,
     )
-    negative_gradient = _gradient_tuple(negative, actor, retain_graph=False)
+    negative_gradient = gradients(negative, actor.all_parameters())
     total_gradient = add_gradients(
         positive_gradient,
         negative_gradient,
@@ -289,11 +272,7 @@ def run_taper_method(
     positive_training = CU1PositiveProtocol() if positive_training is None else positive_training
     taper = CU1TaperProtocol() if taper is None else taper
     seed_all(seed + 900_000)
-    actor = make_actor(protocol).to(
-        environment.train.s.device,
-        dtype=environment.train.s.dtype,
-    )
-    actor.load_state_dict(copy.deepcopy(initialization_state))
+    actor = initialized_actor(protocol, environment, initialization_state)
     optimizer = make_adam(
         actor.all_parameters(),
         learning_rate=taper.learning_rate,
@@ -308,12 +287,7 @@ def run_taper_method(
     stop_reason = "maximum_steps"
 
     for step in range(1, taper.maximum_steps + 1):
-        ids = torch.randint(
-            0,
-            protocol.n_train_states,
-            (taper.batch_states,),
-            generator=index_generator,
-        ).to(environment.train.s.device)
+        ids = sample_ids(index_generator, environment.train, taper.batch_states)
         positive = positive_loss(actor, environment.train, protocol, ids)
         if family == "positive_only":
             loss = positive

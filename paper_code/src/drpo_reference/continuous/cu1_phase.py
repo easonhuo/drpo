@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import copy
 import math
 from dataclasses import dataclass
 from typing import Any
@@ -15,7 +14,6 @@ from .cu1 import (
     Split,
     evaluation,
     local_negative_loss,
-    make_actor,
     positive_loss,
     support_diagnostics,
 )
@@ -23,7 +21,9 @@ from .cu1_mechanism import _support_event_type as support_event_type
 from .cu1_training import (
     CU1PositiveProtocol,
     finite_model,
+    initialized_actor,
     make_adam,
+    sample_ids,
     normalized_field_residual,
 )
 from .gaussian import GaussianActor
@@ -157,11 +157,7 @@ def run_phase_scan(
 
     positive_training = CU1PositiveProtocol() if positive_training is None else positive_training
     phase = CU1PhaseProtocol() if phase is None else phase
-    actor = make_actor(protocol).to(
-        environment.train.s.device,
-        dtype=environment.train.s.dtype,
-    )
-    actor.load_state_dict(copy.deepcopy(initialization_state))
+    actor = initialized_actor(protocol, environment, initialization_state)
     parameters = actor.mean_parameters() if fixed_sigma is not None else actor.all_parameters()
     optimizer = make_adam(
         parameters,
@@ -183,12 +179,11 @@ def run_phase_scan(
         completed = 0
         for offset in range(1, number_of_steps + 1):
             step = start_step + offset
-            ids = torch.randint(
-                0,
-                protocol.n_train_states,
-                (positive_training.positive_batch_states,),
-                generator=generator,
-            ).to(environment.train.s.device)
+            ids = sample_ids(
+                generator,
+                environment.train,
+                positive_training.positive_batch_states,
+            )
             loss = local_objective(
                 actor,
                 environment.train,
