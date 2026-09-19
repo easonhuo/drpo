@@ -2,13 +2,14 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-SOURCE="$ROOT/paper/overleaf/main_replacement.tex"
+SOURCE_REL="paper/iclr2027/manuscript_source.tex"
+SOURCE="$ROOT/$SOURCE_REL"
 OUT_DIR="${1:-$ROOT/paper/iclr2027/build}"
-EXPECTED_BLOB="e4dfe3268449b9957033b19bcb5c3070d94de468"
+EXPECTED_BLOB="299adcb04bc6d5dfd237527ac60aa2671ea79536"
 
 mkdir -p "$OUT_DIR"
 
-ACTUAL_BLOB="$(git -C "$ROOT" rev-parse "HEAD:paper/overleaf/main_replacement.tex")"
+ACTUAL_BLOB="$(git -C "$ROOT" rev-parse "HEAD:$SOURCE_REL")"
 if [[ "$ACTUAL_BLOB" != "$EXPECTED_BLOB" ]]; then
   echo "CONTENT LOCK FAILURE: source blob drifted" >&2
   echo "expected=$EXPECTED_BLOB" >&2
