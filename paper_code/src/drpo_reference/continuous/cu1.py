@@ -224,26 +224,6 @@ def actor_log_prob(
     )
 
 
-def _selected(
-    split: Split,
-    ids: torch.Tensor | None,
-    *,
-    negative: bool,
-    local_only: bool = False,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    states = split.s if ids is None else split.s[ids]
-    if negative:
-        actions = split.negative_actions if ids is None else split.negative_actions[ids]
-        advantages = split.negative_advantages if ids is None else split.negative_advantages[ids]
-        if local_only:
-            actions = actions[:, :1]
-            advantages = advantages[:, :1]
-    else:
-        actions = split.positive_actions if ids is None else split.positive_actions[ids]
-        advantages = split.positive_advantages if ids is None else split.positive_advantages[ids]
-    return states, actions, advantages
-
-
 def positive_loss(
     actor: GaussianActor,
     split: Split,
@@ -251,15 +231,32 @@ def positive_loss(
     ids: torch.Tensor | None = None,
     fixed_sigma: float | None = None,
 ) -> torch.Tensor:
-    states, actions, advantages = _selected(split, ids, negative=False)
+    states = split.s if ids is None else split.s[ids]
+    actions = split.positive_actions if ids is None else split.positive_actions[ids]
+    advantages = split.positive_advantages if ids is None else split.positive_advantages[ids]
+    log_probability, _, _ = actor_log_prob(actor, states, actions, protocol, fixed_sigma)
+    return -(advantages * log_probability).mean()
+
+
+def negative_loss(
+    actor: GaussianActor,
+    split: Split,
+    protocol: CU1Protocol,
+    ids: torch.Tensor | None = None,
+    fixed_sigma: float | None = None,
+    columns: slice = slice(None),
+) -> torch.Tensor:
+    states = split.s if ids is None else split.s[ids]
+    actions = split.negative_actions if ids is None else split.negative_actions[ids]
+    advantages = split.negative_advantages if ids is None else split.negative_advantages[ids]
     log_probability, _, _ = actor_log_prob(
         actor,
         states,
-        actions,
+        actions[:, columns],
         protocol,
         fixed_sigma,
     )
-    return -(advantages * log_probability).mean()
+    return -(advantages[:, columns] * log_probability).mean()
 
 
 def local_negative_loss(
@@ -269,20 +266,14 @@ def local_negative_loss(
     ids: torch.Tensor | None = None,
     fixed_sigma: float | None = None,
 ) -> torch.Tensor:
-    states, actions, advantages = _selected(
-        split,
-        ids,
-        negative=True,
-        local_only=True,
-    )
-    log_probability, _, _ = actor_log_prob(
+    return negative_loss(
         actor,
-        states,
-        actions,
+        split,
         protocol,
+        ids,
         fixed_sigma,
+        slice(0, 1),
     )
-    return -(advantages * log_probability).mean()
 
 
 def near_far_losses(
@@ -292,7 +283,9 @@ def near_far_losses(
     ids: torch.Tensor,
     fixed_sigma: float | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    states, actions, advantages = _selected(split, ids, negative=True)
+    states = split.s[ids]
+    actions = split.negative_actions[ids]
+    advantages = split.negative_advantages[ids]
     log_probability, mu, log_std = actor_log_prob(
         actor,
         states,

@@ -62,6 +62,22 @@ def gradient_norm(gradients: Sequence[torch.Tensor | None]) -> torch.Tensor:
     return torch.linalg.vector_norm(torch.cat(present))
 
 
+def gradients(
+    loss: torch.Tensor,
+    parameters: Sequence[nn.Parameter],
+    *,
+    retain_graph: bool = False,
+) -> GradientTuple:
+    return tuple(
+        torch.autograd.grad(
+            loss,
+            parameters,
+            retain_graph=retain_graph,
+            allow_unused=True,
+        )
+    )
+
+
 def add_gradients(
     *groups: Sequence[torch.Tensor | None],
     scales: Sequence[float] | None = None,
@@ -99,6 +115,32 @@ def finite_model(model: nn.Module) -> bool:
     return all(bool(torch.isfinite(parameter).all()) for parameter in model.parameters())
 
 
+def initialized_actor(
+    protocol: CU1Protocol,
+    environment: Environment,
+    state: dict[str, torch.Tensor],
+) -> GaussianActor:
+    actor = make_actor(protocol).to(
+        environment.train.s.device,
+        dtype=environment.train.s.dtype,
+    )
+    actor.load_state_dict(copy.deepcopy(state))
+    return actor
+
+
+def sample_ids(
+    generator: torch.Generator,
+    split: Split,
+    batch_size: int,
+) -> torch.Tensor:
+    return torch.randint(
+        0,
+        len(split.s),
+        (batch_size,),
+        generator=generator,
+    ).to(split.s.device)
+
+
 def make_adam(
     parameters: Sequence[nn.Parameter],
     *,
@@ -126,17 +168,8 @@ def normalized_field_residual(
     parameters = actor.mean_parameters() if fixed_sigma is not None else actor.all_parameters()
     positive = positive_loss(actor, split, protocol, fixed_sigma=fixed_sigma)
     negative = local_negative_loss(actor, split, protocol, fixed_sigma=fixed_sigma)
-    positive_gradient = torch.autograd.grad(
-        positive,
-        parameters,
-        retain_graph=True,
-        allow_unused=True,
-    )
-    negative_gradient = torch.autograd.grad(
-        negative,
-        parameters,
-        allow_unused=True,
-    )
+    positive_gradient = gradients(positive, parameters, retain_graph=True)
+    negative_gradient = gradients(negative, parameters)
     total_gradient = add_gradients(
         positive_gradient,
         negative_gradient,
@@ -176,12 +209,7 @@ def train_positive(
     generator = cpu_generator(seed + 100003)
 
     for _ in range(training.positive_steps):
-        ids = torch.randint(
-            0,
-            protocol.n_train_states,
-            (training.positive_batch_states,),
-            generator=generator,
-        ).to(target)
+        ids = sample_ids(generator, environment.train, training.positive_batch_states)
         loss = positive_loss(actor, environment.train, protocol, ids)
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
@@ -211,12 +239,7 @@ def train_positive(
         training=training,
     )
     for _ in range(training.positive_continuation_steps):
-        ids = torch.randint(
-            0,
-            protocol.n_train_states,
-            (training.positive_batch_states,),
-            generator=generator,
-        ).to(target)
+        ids = sample_ids(generator, environment.train, training.positive_batch_states)
         loss = positive_loss(actor, environment.train, protocol, ids)
         continuation.zero_grad(set_to_none=True)
         loss.backward()
