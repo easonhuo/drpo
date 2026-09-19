@@ -40,7 +40,6 @@ from .cu1_training import (
 )
 from .gaussian import (
     GaussianActor,
-    gaussian_output_components,
     standardized_distance,
 )
 
@@ -66,7 +65,6 @@ class CU1TaperProtocol:
     normalized_field_residual_threshold: float = 2e-3
     positive_absolute_gradient_threshold: float = 1e-3
     task_failure_retention: float = 0.45
-    probe_states: int = 64
 
 
 
@@ -277,92 +275,6 @@ def evaluate_taper_state(
     }
 
 
-def gradient_diagnostic(
-    *,
-    actor: GaussianActor,
-    environment: Environment,
-    protocol: CU1Protocol,
-    taper: CU1TaperProtocol,
-    family: str,
-    retention: float,
-) -> dict[str, float]:
-    """Aggregate far/near gradient ratios without materializing probe rows."""
-
-    actor.eval()
-    count = min(taper.probe_states, len(environment.train.s))
-    samples: dict[str, list[tuple[int, float, float]]] = {
-        "full": [],
-        "output": [],
-    }
-    for state_index in range(count):
-        state = environment.train.s[state_index : state_index + 1]
-        actions = environment.train.negative_actions[state_index]
-        advantages = environment.train.negative_advantages[state_index]
-        mu, log_std = actor(state)
-        for contour_index in range(actions.shape[0]):
-            action = actions[contour_index : contour_index + 1]
-            log_probability, _, _ = actor_log_prob(
-                actor,
-                state,
-                action[None, :, :],
-                protocol,
-            )
-            objective = advantages[contour_index] * log_probability.squeeze()
-            gradients = torch.autograd.grad(
-                objective,
-                actor.all_parameters(),
-                allow_unused=True,
-            )
-            components = gaussian_output_components(
-                mu,
-                log_std,
-                action[None, :, :],
-                protocol.action_dim,
-            )
-            distance = float(components["standardized_distance"].item())
-            weight = float(
-                retention_weight(
-                    torch.tensor(distance),
-                    family=family,
-                    retention=retention,
-                    protocol=taper,
-                ).item()
-            )
-            advantage_abs = abs(float(advantages[contour_index].item()))
-            samples["full"].append(
-                (contour_index, distance, weight * float(gradient_norm(gradients).item()))
-            )
-            samples["output"].append(
-                (
-                    contour_index,
-                    distance,
-                    weight * advantage_abs * float(components["joint_score"].item()),
-                )
-            )
-
-    def summarize(values: list[tuple[int, float, float]]) -> tuple[float, float]:
-        near = [value for contour, _, value in values if contour == 0]
-        far = [value for contour, _, value in values if contour == 4]
-        ratio = float(np.mean(far) / (np.mean(near) + EPS))
-        region = [
-            (distance, value)
-            for _, distance, value in values
-            if distance >= taper.reference_distance and value > 0.0
-        ]
-        if len(region) < 2:
-            return ratio, float("nan")
-        x = np.log(np.asarray([distance for distance, _ in region], dtype=float))
-        y = np.log(np.asarray([value for _, value in region], dtype=float))
-        return ratio, float(np.polyfit(x, y, 1)[0])
-
-    full_ratio, full_slope = summarize(samples["full"])
-    output_ratio, output_slope = summarize(samples["output"])
-    return {
-        "far_near_weighted_gradient_ratio": full_ratio,
-        "far_loglog_slope": full_slope,
-        "far_near_weighted_output_joint_ratio": output_ratio,
-        "far_loglog_weighted_output_joint_slope": output_slope,
-    }
 def run_taper_method(
     *,
     seed: int,
@@ -391,14 +303,6 @@ def run_taper_method(
     )
     index_generator = torch.Generator(device="cpu").manual_seed(seed + 700_003)
     initial_reward = float(evaluation(actor, environment.test, protocol)["reward"])
-    initial_diagnostic = gradient_diagnostic(
-        actor=actor,
-        environment=environment,
-        protocol=protocol,
-        taper=taper,
-        family=family,
-        retention=retention,
-    )
     trajectory: list[dict[str, Any]] = []
     stable_candidate_step: int | None = None
     audit_target_step: int | None = None
@@ -517,14 +421,6 @@ def run_taper_method(
         retention=retention,
         initial_reward=initial_reward,
     )
-    terminal_diagnostic = gradient_diagnostic(
-        actor=actor,
-        environment=environment,
-        protocol=protocol,
-        taper=taper,
-        family=family,
-        retention=retention,
-    )
     completed_steps = int(trajectory[-1]["step"]) if trajectory else 0
     summary: dict[str, Any] = {
         "seed": seed,
@@ -536,25 +432,5 @@ def run_taper_method(
         "audit_target_step": audit_target_step,
         "initial_reward": initial_reward,
         **final_state,
-        "initial_far_near_weighted_gradient_ratio": initial_diagnostic[
-            "far_near_weighted_gradient_ratio"
-        ],
-        "terminal_far_near_weighted_gradient_ratio": terminal_diagnostic[
-            "far_near_weighted_gradient_ratio"
-        ],
-        "initial_far_loglog_slope": initial_diagnostic["far_loglog_slope"],
-        "terminal_far_loglog_slope": terminal_diagnostic["far_loglog_slope"],
-        "initial_far_near_weighted_output_joint_ratio": initial_diagnostic[
-            "far_near_weighted_output_joint_ratio"
-        ],
-        "terminal_far_near_weighted_output_joint_ratio": terminal_diagnostic[
-            "far_near_weighted_output_joint_ratio"
-        ],
-        "initial_far_loglog_weighted_output_joint_slope": initial_diagnostic[
-            "far_loglog_weighted_output_joint_slope"
-        ],
-        "terminal_far_loglog_weighted_output_joint_slope": terminal_diagnostic[
-            "far_loglog_weighted_output_joint_slope"
-        ],
     }
     return summary

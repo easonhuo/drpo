@@ -7,7 +7,6 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
-import numpy as np
 import torch
 
 from .cu1 import (
@@ -57,7 +56,6 @@ class CU1PhaseProtocol:
     warm_steps: int = 200
     continuation_steps: int = 200
     runaway_steps: int = 4000
-    evaluation_interval: int = 100
     normalized_residual_threshold: float = 2e-3
     absolute_residual_threshold_alpha_zero: float = 1e-3
     seeds: tuple[int, ...] = tuple(range(50, 70))
@@ -215,7 +213,6 @@ def run_phase_scan(
         fixed_sigma is not None or bool(analytic.get("finite_variance_fixed_point", False))
     )
     first_phase_steps = phase.warm_steps if finite_internal else phase.runaway_steps
-    dynamic_rows: list[dict[str, float]] = []
     support_onset: int | None = None
     first_support_event_type: str | None = None
     stop_reason = "completed"
@@ -257,22 +254,6 @@ def run_phase_scan(
                 stop_reason = "non_finite_parameter"
             elif event_type is not None:
                 stop_reason = f"{event_type}_boundary_event"
-            if (
-                offset % phase.evaluation_interval == 0
-                or offset == number_of_steps
-                or event_type is not None
-                or not finite
-            ):
-                metrics = evaluation(actor, environment.test, protocol, fixed_sigma)
-                dynamic_rows.append(
-                    {
-                        "step": float(step),
-                        "normalized_extrapolation_displacement": float(
-                            metrics["normalized_extrapolation_displacement"]
-                        ),
-                        "sigma_mean": float(metrics["sigma_mean"]),
-                    }
-                )
             if not finite or event_type is not None:
                 break
         return completed
@@ -355,36 +336,6 @@ def run_phase_scan(
     else:
         state = "finite_continuing_drift_or_runaway"
 
-    displacement_slope = float("nan")
-    log_sigma_slope = float("nan")
-    by_step = {int(row["step"]): row for row in dynamic_rows}
-    ordered = [by_step[step] for step in sorted(by_step)]
-    if len(ordered) >= 3:
-        tail = ordered[-min(5, len(ordered)) :]
-        steps_array = np.asarray([float(row["step"]) for row in tail])
-        if np.ptp(steps_array) > 0.0:
-            displacement_slope = float(
-                np.polyfit(
-                    steps_array,
-                    np.asarray(
-                        [float(row["normalized_extrapolation_displacement"]) for row in tail]
-                    ),
-                    1,
-                )[0]
-            )
-            log_sigma_slope = float(
-                np.polyfit(
-                    steps_array,
-                    np.log(
-                        np.maximum(
-                            np.asarray([float(row["sigma_mean"]) for row in tail]),
-                            1e-30,
-                        )
-                    ),
-                    1,
-                )[0]
-            )
-
     summary: dict[str, Any] = {
         "seed": seed,
         "alpha": alpha,
@@ -405,7 +356,5 @@ def run_phase_scan(
             first_support_event_type == "unexpected_support_expansion"
         ),
         "stop_reason": stop_reason,
-        "normalized_extrapolation_displacement_window_slope": (displacement_slope),
-        "log_sigma_window_slope": log_sigma_slope,
     }
     return summary
