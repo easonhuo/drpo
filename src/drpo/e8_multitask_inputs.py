@@ -10,7 +10,7 @@ from __future__ import annotations
 import copy
 import json
 import random
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -806,3 +806,448 @@ def _load_task_adapter_and_instances(
     if missing:
         raise RuntimeError(f"Could not reconstruct {task} validation instances: {missing[:5]}")
     return adapter, instances
+
+def materialize_reference_remoteness_task(
+    config: Mapping[str, Any],
+    output_root: Path,
+    *,
+    task: str,
+    record: Mapping[str, Any],
+    inputs: TaskInputs,
+    identity_hash: str,
+    score_candidates: Callable[
+        [str, Sequence[Mapping[str, Any]], int, int],
+        Sequence[float],
+    ],
+) -> dict[str, Any]:
+    """Materialize one fixed reference-remoteness training bank.
+
+    Model/runtime ownership stays with the caller. This helper owns only the
+    deterministic candidate selection, audit, and input-artifact materialization.
+    """
+
+    train_rows = read_jsonl(Path(record["paths"]["train"]))
+    adapter, instances = _load_task_adapter_and_instances(
+        task,
+        inputs=inputs,
+        validation_rows=train_rows,
+    )
+    derived_rows: list[dict[str, Any]] = []
+    audit_rows: list[dict[str, Any]] = []
+    runtime = config["task_runtime"][task]
+    for source_row in train_rows:
+        prompt_id = str(source_row["prompt_id"])
+        candidates = _verified_wrong_candidates(
+            adapter,
+            instances[prompt_id],
+            source_row,
+        )
+        scores = list(
+            score_candidates(
+                str(source_row["prompt"]),
+                candidates,
+                int(runtime["max_length"]),
+                int(runtime["evaluation_batch_size"]),
+            )
+        )
+        scored = [
+            {**candidate, "reference_surprisal": float(score)}
+            for candidate, score in zip(candidates, scores, strict=True)
+        ]
+        scored.sort(
+            key=lambda item: (
+                float(item["reference_surprisal"]),
+                stable_hash(
+                    {
+                        "task": task,
+                        "prompt_id": prompt_id,
+                        "canonical_completion": item["canonical_completion"],
+                    }
+                ),
+            )
+        )
+        selected_indices = _coverage_first_reference_rank_indices(
+            scored, source_row["negatives"], 16
+        )
+        selected: list[dict[str, Any]] = []
+        for slot, rank in enumerate(selected_indices):
+            item = dict(scored[rank])
+            item.update(
+                {
+                    "negative_id": f"{prompt_id}_refrem_{slot:03d}",
+                    "reference_rank": int(rank),
+                    "reference_candidate_count": len(scored),
+                    "reference_rank_role": "provenance_and_diagnostic_only",
+                }
+            )
+            selected.append(item)
+        coverage_audit = _reference_error_class_audit(
+            scored, selected, list(source_row["negatives"])
+        )
+        derived = dict(source_row)
+        derived["negatives"] = selected
+        derived["reference_remoteness_selection"] = {
+            "identity_hash": identity_hash,
+            "reference_policy": "zero_update_base_plus_fresh_lora",
+            "coordinate": "mean_completion_token_surprisal",
+            "candidate_count": len(scored),
+            "selected_ranks": list(selected_indices),
+            "training_weight_uses_reference_rank": False,
+            "current_policy_surprisal_recomputed_each_update": True,
+        }
+        derived_rows.append(derived)
+        audit_rows.append(
+            {
+                "task": task,
+                "prompt_id": prompt_id,
+                "candidate_count": len(scored),
+                "selected_ranks": list(selected_indices),
+                "candidate_reference_surprisal": _reference_surprisal_summary(
+                    [float(item["reference_surprisal"]) for item in scored]
+                ),
+                "selected_reference_surprisal": _reference_surprisal_summary(
+                    [float(item["reference_surprisal"]) for item in selected]
+                ),
+                **coverage_audit,
+                "coverage_threshold": None,
+                "coverage_gate": False,
+            }
+        )
+
+    root = output_root / "reference_remoteness" / task
+    bank_path_value = root / "train.jsonl"
+    audit_path = root / "prompt_audit.jsonl"
+    atomic_jsonl(bank_path_value, derived_rows)
+    atomic_jsonl(audit_path, audit_rows)
+    ranges = [
+        float(row["selected_reference_surprisal"]["range"])
+        for row in audit_rows
+    ]
+    class_rows = [
+        value
+        for row in audit_rows
+        for value in row["error_class_reference_surprisal"].values()
+    ]
+    selected_class_rows = [
+        value for value in class_rows if int(value["selected_count"]) > 0
+    ]
+    endpoint_total = sum(
+        int(row["multi_slot_selected_error_class_count"]) for row in audit_rows
+    )
+    endpoint_covered = sum(
+        int(row["multi_slot_endpoint_coverage_count"]) for row in audit_rows
+    )
+    summary = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "config_hash": stable_config_hash(config),
+        "task": task,
+        "identity_hash": identity_hash,
+        "source_train": record["paths"]["train"],
+        "source_train_sha256": sha256_file(Path(record["paths"]["train"])),
+        "source_p0_bank_preserved": True,
+        "path": str(bank_path_value.resolve()),
+        "sha256": sha256_file(bank_path_value),
+        "rows": len(derived_rows),
+        "selected_negatives_per_prompt": 16,
+        "selection": "source_p0_error_class_sequence_then_within_class_reference_rank_spread",
+        "candidate_pool": "all_deterministic_verified_wrong_mutations",
+        "reference_rank_enters_training_weight": False,
+        "current_policy_surprisal_recomputed_each_update": True,
+        "coverage_threshold": None,
+        "coverage_sequence_matches_all_prompts": all(
+            bool(row["coverage_sequence_matches_source_p0"]) for row in audit_rows
+        ),
+        "error_class_coverage_fraction": _reference_surprisal_summary(
+            [float(row["error_class_coverage_fraction"]) for row in audit_rows]
+        ),
+        "singleton_selected_error_class_instances": sum(
+            int(row["singleton_selected_error_class_count"]) for row in audit_rows
+        ),
+        "multi_slot_selected_error_class_instances": endpoint_total,
+        "multi_slot_endpoint_coverage_count": endpoint_covered,
+        "multi_slot_endpoint_coverage_fraction": (
+            endpoint_covered / endpoint_total if endpoint_total else None
+        ),
+        "global_reference_rank_span_fraction": _reference_surprisal_summary(
+            [float(row["global_reference_rank_span_fraction"]) for row in audit_rows]
+        ),
+        "candidate_within_class_range": _reference_surprisal_summary(
+            [float(row["candidate_reference_surprisal"]["range"]) for row in class_rows]
+        ),
+        "candidate_within_class_iqr": _reference_surprisal_summary(
+            [float(row["candidate_reference_surprisal"]["iqr"]) for row in class_rows]
+        ),
+        "selected_within_class_range": _reference_surprisal_summary(
+            [
+                float(row["selected_reference_surprisal"]["range"])
+                for row in selected_class_rows
+            ]
+        ),
+        "selected_within_class_iqr": _reference_surprisal_summary(
+            [
+                float(row["selected_reference_surprisal"]["iqr"])
+                for row in selected_class_rows
+            ]
+        ),
+        "selected_range_median": float(np.median(np.asarray(ranges, dtype=float))),
+        "prompt_audit": str(audit_path.resolve()),
+        "prompt_audit_sha256": sha256_file(audit_path),
+        "complete": len(derived_rows) == int(config["split"]["p0_train_rows"]),
+        "scientific_status": "not_run",
+    }
+    if not summary["complete"]:
+        raise RuntimeError(f"Reference-remoteness bank is incomplete for {task}")
+    atomic_json(root / "summary.json", summary)
+    return summary
+
+
+def write_canonical_cold_inputs(
+    config: Mapping[str, Any],
+    output_root: Path,
+    split_manifest: dict[str, Any],
+    *,
+    audit_canonical_sources: Callable[[Mapping[str, Any]], Mapping[str, Any]],
+    canonical_paths_for_config: Callable[[Mapping[str, Any]], Mapping[str, Path]],
+) -> dict[str, Any]:
+    """Write canonical cold-start input adapters without owning trainer logic."""
+
+    if not _is_coldstart(config):
+        raise RuntimeError("Canonical input conversion is cold-profile only")
+    source_audit = dict(audit_canonical_sources(config))
+    canonical_paths = canonical_paths_for_config(config)
+    records: dict[str, Any] = {}
+    for task_value in config["suite"]["tasks"]:
+        task = str(task_value)
+        record = split_manifest["tasks"][task]
+        source_paths = record["paths"]
+        task_root = output_root / "canonical_inputs" / task
+        task_root.mkdir(parents=True, exist_ok=True)
+        if task == "countdown":
+            train_path = Path(str(record["bank"])).resolve()
+            validation_path = Path(str(record["countdown_validation_source"])).resolve()
+            train_rows = read_jsonl(train_path)
+            validation_rows = read_jsonl(validation_path)
+            exact_countdown_sources = True
+            reference_selection_applied = False
+            reference_selection_identity = None
+        else:
+            reference_record = record.get("reference_remoteness_bank")
+            if isinstance(reference_record, Mapping):
+                reference_path = Path(str(reference_record.get("path", "")))
+                if (
+                    not reference_path.is_file()
+                    or sha256_file(reference_path) != reference_record.get("sha256")
+                    or not reference_record.get("complete")
+                ):
+                    raise RuntimeError(
+                        f"Derived reference-remoteness bank identity failed for {task}"
+                    )
+                train_source = reference_path
+                reference_selection_applied = True
+                reference_selection_identity = str(reference_record["identity_hash"])
+            else:
+                train_source = Path(source_paths["train"])
+                reference_selection_applied = False
+                reference_selection_identity = None
+            train_rows = [
+                _canonical_train_row(row) for row in read_jsonl(train_source)
+            ]
+            validation_rows = [
+                _canonical_validation_row(row)
+                for row in read_jsonl(Path(source_paths["validation"]))
+            ]
+            train_path = task_root / "train.jsonl"
+            validation_path = task_root / "validation.jsonl"
+            atomic_jsonl(train_path, train_rows)
+            atomic_jsonl(validation_path, validation_rows)
+            exact_countdown_sources = False
+        sealed_test_path = task_root / "SEALED_TEST_NOT_ACCESSED.jsonl"
+        sealed_test_path.parent.mkdir(parents=True, exist_ok=True)
+        sealed_test_path.write_text("", encoding="utf-8")
+        task_base_config, changed_fields = _task_base_config(
+            config,
+            task=task,
+            canonical_paths=canonical_paths,
+            task_root=task_root,
+        )
+        runtime_grids = _task_grid_configs(
+            config,
+            canonical_paths=canonical_paths,
+            task_root=task_root,
+        )
+        canonical_record = {
+            "train": str(train_path.resolve()),
+            "validation": str(validation_path.resolve()),
+            "sealed_test": str(sealed_test_path.resolve()),
+            "base_config": str(task_base_config.resolve()),
+            "base_config_sha256": sha256_file(task_base_config),
+            "round1_grid": str(runtime_grids["round1_grid"]["path"].resolve()),
+            "round1_grid_sha256": sha256_file(runtime_grids["round1_grid"]["path"]),
+            "extension_grid": str(runtime_grids["extension_grid"]["path"].resolve()),
+            "extension_grid_sha256": sha256_file(runtime_grids["extension_grid"]["path"]),
+            "task_interface_changed_fields": changed_fields,
+            "countdown_exact_source_files": exact_countdown_sources,
+            "reference_remoteness_bank_applied": reference_selection_applied,
+            "reference_remoteness_bank_identity_hash": reference_selection_identity,
+            "negative_consumer": "all_unique_negatives_per_prompt",
+            "calibration": "forbidden",
+            "train_sha256": sha256_file(train_path),
+            "validation_sha256": sha256_file(validation_path),
+            "sealed_test_sha256": sha256_file(sealed_test_path),
+            "train_rows": len(train_rows),
+            "validation_rows": len(validation_rows),
+            "test_rows": 0,
+        }
+        if not experiment_config.is_historical_coldstart_config(config):
+            canonical_record["effective_runtime"] = (
+                experiment_config.effective_coldstart_runtime(config, task)
+            )
+            canonical_record["runtime_grid_sources"] = {
+                name: {
+                    "source": str(runtime_grids[name]["source"].resolve()),
+                    "source_sha256": sha256_file(runtime_grids[name]["source"]),
+                    "changed_fields": list(runtime_grids[name]["changed_fields"]),
+                }
+                for name in ("round1_grid", "extension_grid")
+            }
+        record["canonical_coldstart"] = canonical_record
+        records[task] = canonical_record
+
+    split_manifest["canonical_source_audit"] = source_audit
+    split_manifest["canonical_coldstart_complete"] = True
+    atomic_json(output_root / "split_manifest.json", split_manifest)
+    manifest = {
+        "schema_version": 1,
+        "experiment_id": experiment_id(config),
+        "config_hash": stable_config_hash(config),
+        "source_audit": source_audit,
+        "tasks": records,
+        "test_partition_accessed": False,
+        "complete": set(records) == set(config["suite"]["tasks"]),
+    }
+    atomic_json(output_root / "canonical_inputs" / "manifest.json", manifest)
+    return manifest
+
+def load_prepared_inputs(
+    output_root: Path,
+    config: Mapping[str, Any],
+) -> tuple[dict[str, Any], dict[str, TaskInputs]]:
+    """Load and identity-check prepared task inputs."""
+
+    prepare_path = output_root / "prepare_manifest.json"
+    split_path = output_root / "split_manifest.json"
+    if not prepare_path.is_file() or not split_path.is_file():
+        raise RuntimeError("Run prepare before calibration or training")
+    prepare = json.loads(prepare_path.read_text(encoding="utf-8"))
+    splits = json.loads(split_path.read_text(encoding="utf-8"))
+    expected_hash = stable_config_hash(config)
+    if (
+        prepare.get("experiment_id") != experiment_id(config)
+        or splits.get("experiment_id") != experiment_id(config)
+        or prepare.get("config_hash") != expected_hash
+        or splits.get("config_hash") != expected_hash
+        or not prepare.get("complete")
+        or not splits.get("complete")
+    ):
+        raise RuntimeError("Prepared input identity mismatch")
+    expected_tasks = set(config["suite"]["tasks"])
+    if set(prepare.get("inputs", {})) != expected_tasks or set(
+        splits.get("tasks", {})
+    ) != expected_tasks:
+        raise RuntimeError("Prepared input task set mismatch")
+    inputs = {
+        task: TaskInputs(
+            task=task,
+            bank=Path(value["bank"]),
+            reference_adapter=(
+                Path(value["reference_adapter"])
+                if value.get("reference_adapter")
+                else None
+            ),
+            sources_root=Path(value["sources_root"]),
+            p0_config=Path(value["p0_config"]),
+            countdown_validation=(
+                Path(value["countdown_validation"])
+                if value.get("countdown_validation")
+                else None
+            ),
+        )
+        for task, value in prepare["inputs"].items()
+    }
+    for task, inputs_for_task in inputs.items():
+        split_record = splits["tasks"][task]
+        if not inputs_for_task.bank.is_file() or sha256_file(
+            inputs_for_task.bank
+        ) != split_record.get("bank_sha256"):
+            raise RuntimeError(f"Prepared bank identity mismatch for {task}")
+        if not inputs_for_task.p0_config.is_file() or sha256_file(
+            inputs_for_task.p0_config
+        ) != split_record.get("p0_config_sha256"):
+            raise RuntimeError(f"Prepared P0 config identity mismatch for {task}")
+        if not inputs_for_task.sources_root.is_dir():
+            raise FileNotFoundError(f"Prepared sources root is missing for {task}")
+        if inputs_for_task.countdown_validation is not None and (
+            not inputs_for_task.countdown_validation.is_file()
+            or sha256_file(inputs_for_task.countdown_validation)
+            != split_record.get("countdown_validation_sha256")
+        ):
+            raise RuntimeError("Prepared Countdown validation identity mismatch")
+        if inputs_for_task.reference_adapter is not None:
+            if not (
+                inputs_for_task.reference_adapter / "adapter_config.json"
+            ).is_file():
+                raise FileNotFoundError(
+                    f"Prepared reference adapter is missing for {task}"
+                )
+            current_identity = model_identity(
+                "unresolved_backbone",
+                str(inputs_for_task.reference_adapter),
+            )["adapter"]
+            if current_identity != split_record.get("reference_adapter_identity"):
+                raise RuntimeError(
+                    f"Prepared reference adapter identity mismatch for {task}"
+                )
+        if _is_coldstart(config):
+            canonical = split_record.get("canonical_coldstart")
+            if not isinstance(canonical, Mapping):
+                raise RuntimeError(
+                    f"Missing canonical cold-start inputs for {task}"
+                )
+            identity_fields = (
+                ("train", "train_sha256"),
+                ("validation", "validation_sha256"),
+                ("sealed_test", "sealed_test_sha256"),
+            )
+            for path_key, sha_key in identity_fields:
+                path = Path(str(canonical[path_key]))
+                if not path.is_file() or sha256_file(path) != canonical[sha_key]:
+                    raise RuntimeError(
+                        f"Canonical cold-start {path_key} identity mismatch for {task}"
+                    )
+            if int(canonical.get("test_rows", -1)) != 0:
+                raise RuntimeError(
+                    "Canonical tuning input must keep the test partition sealed"
+                )
+            for grid_key in ("round1_grid", "extension_grid", "base_config"):
+                grid_path = Path(str(canonical[grid_key]))
+                if (
+                    not grid_path.is_file()
+                    or sha256_file(grid_path) != canonical[f"{grid_key}_sha256"]
+                ):
+                    raise RuntimeError(
+                        f"Canonical paper input {grid_key} is missing for {task}"
+                    )
+            if canonical.get("negative_consumer") != "all_unique_negatives_per_prompt":
+                raise RuntimeError(
+                    f"Canonical negative consumer drifted for {task}"
+                )
+            if (
+                task == "countdown"
+                and canonical.get("countdown_exact_source_files") is not True
+            ):
+                raise RuntimeError(
+                    "Countdown must dispatch the exact generated bank/validation files"
+                )
+    return splits, inputs
+

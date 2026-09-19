@@ -10,7 +10,6 @@ fields.
 from __future__ import annotations
 
 import argparse
-import copy
 import gc
 import json
 import math
@@ -37,30 +36,7 @@ from drpo import e8_multitask_results as e8_results
 from drpo import e8_multitask_runtime as e8_runtime
 from drpo import e8_multitask_selftest as e8_selftest
 from drpo import e8_multitask_warmstart_training as e8_warmstart
-from drpo.e8_multitask_inputs import (
-    _canonical_train_row,
-    _canonical_validation_row,
-)
-
-_audit_training_rows = e8_inputs._audit_training_rows
-split_countdown_rows = e8_inputs.split_countdown_rows
-split_p0_rows = e8_inputs.split_p0_rows
-TaskInputs = e8_inputs.TaskInputs
-_evenly_spaced_rank_indices = e8_inputs._evenly_spaced_rank_indices
-_reference_surprisal_summary = e8_inputs._reference_surprisal_summary
-_coverage_first_reference_rank_indices = (
-    e8_inputs._coverage_first_reference_rank_indices
-)
-_reference_error_class_audit = e8_inputs._reference_error_class_audit
-_verified_wrong_candidates = e8_inputs._verified_wrong_candidates
-resolve_task_inputs = e8_inputs.resolve_task_inputs
-write_split_manifest = e8_inputs.write_split_manifest
-_leaf_values = e8_inputs._leaf_values
-_changed_leaf_paths = e8_inputs._changed_leaf_paths
-_atomic_yaml = e8_inputs._atomic_yaml
-_task_base_config = e8_inputs._task_base_config
-_task_grid_configs = e8_inputs._task_grid_configs
-_load_task_adapter_and_instances = e8_inputs._load_task_adapter_and_instances
+from drpo.e8_multitask_inputs import TaskInputs
 
 
 def _canonical_bridge() -> e8_canonical_bridge.CanonicalBridge:
@@ -497,32 +473,6 @@ def _run_dpo_method_liveness(
     )
 
 
-def _paper_grid_paths_exponential(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._paper_grid_paths_exponential(*args, **kwargs)
-
-
-def _paper_params_reciprocal(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._paper_params_reciprocal(*args, **kwargs)
-
-
-def _paper_params_exponential(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._paper_params_exponential(*args, **kwargs)
-
-
-def _paper_params_asymre(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._paper_params_asymre(*args, **kwargs)
-
-
-def _paper_params_topr(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._paper_params_topr(*args, **kwargs)
-
-
-
-
-
-
-
-
 def _dpo_method_audit(
     cell: Cell, record: Mapping[str, Any]
 ) -> e8_runtime.MethodAuditResult:
@@ -593,8 +543,12 @@ def _register_builtin_method_specs() -> None:
     exponential_paper_runtime = PaperRuntimeSpec(
         liveness_grid=lambda config, record: Path(str(record["round1_grid"])),
         liveness_parameter="representative_c",
-        grid_paths=_paper_grid_paths_exponential,
-        cell_parameters=_paper_params_exponential,
+        grid_paths=lambda *args, **kwargs: (
+            _canonical_bridge()._paper_grid_paths_exponential(*args, **kwargs)
+        ),
+        cell_parameters=lambda *args, **kwargs: (
+            _canonical_bridge()._paper_params_exponential(*args, **kwargs)
+        ),
         formula="alpha*exp(-c*(current_sequence_surprisal/2))",
     )
     for method, build_cell, cell_key, parameters in (
@@ -657,7 +611,9 @@ def _register_builtin_method_specs() -> None:
                     liveness_grid=lambda config, record: _canonical_reciprocal_grid_path(),
                     liveness_parameter="representative_c",
                     grid_paths=lambda config, record, cell: (_canonical_reciprocal_grid_path(),) * 2,
-                    cell_parameters=_paper_params_reciprocal,
+                    cell_parameters=lambda *args, **kwargs: (
+                _canonical_bridge()._paper_params_reciprocal(*args, **kwargs)
+            ),
                     formula=formula,
                 ),
             )
@@ -684,7 +640,9 @@ def _register_builtin_method_specs() -> None:
                     _canonical_asymre_grid_path(),
                     _canonical_asymre_grid_path(),
                 ),
-                cell_parameters=_paper_params_asymre,
+                cell_parameters=lambda *args, **kwargs: (
+                _canonical_bridge()._paper_params_asymre(*args, **kwargs)
+            ),
                 formula="delegated_to_existing_canonical_asymre",
             ),
             single_aggregate_metadata=_asymre_single_metadata,
@@ -714,7 +672,9 @@ def _register_builtin_method_specs() -> None:
                     _canonical_topr_grid_path(),
                     _canonical_topr_grid_path(),
                 ),
-                cell_parameters=_paper_params_topr,
+                cell_parameters=lambda *args, **kwargs: (
+                _canonical_bridge()._paper_params_topr(*args, **kwargs)
+            ),
                 formula="delegated_to_existing_joint_fitted_reference_beta_topr",
             ),
             single_aggregate_metadata=_topr_single_metadata,
@@ -844,20 +804,6 @@ def _task_rhos(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
     if _uses_task_lambdas(config):
         return tuple(math.exp(-value) for value in _task_lambdas(config, task))
     return _tuple_floats(config["sweep"]["all_rho"])
-
-
-def _reference_seed(
-    config: Mapping[str, Any],
-    warmstart_config: Mapping[str, Any],
-    task: str,
-) -> int:
-    configured = config.get("reference", {}).get("task_seeds")
-    if isinstance(configured, Mapping):
-        if task not in configured:
-            raise ValueError(f"reference.task_seeds is missing {task}")
-        return int(configured[task])
-    p0_tasks = tuple(str(value) for value in config["suite"]["p0_tasks"])
-    return int(warmstart_config["seed"]) + p0_tasks.index(task) * 100_003
 
 
 def validate_config(config: Mapping[str, Any]) -> None:
@@ -1433,7 +1379,10 @@ def _derive_reference_remoteness_banks(
                 "task_runtime": dict(config["task_runtime"][task]),
                 "model_facing_text": "raw_completion_generic_prompt_v1",
                 "selector": selector,
-                "selector_implementation": "source_p0_error_class_sequence_then_within_class_reference_rank_spread_v1",
+                "selector_implementation": (
+                    "source_p0_error_class_sequence_then_"
+                    "within_class_reference_rank_spread_v1"
+                ),
             }
         )
         identities[task] = identity
@@ -1444,7 +1393,8 @@ def _derive_reference_remoteness_banks(
                 existing.get("identity_hash") == identity
                 and path.is_file()
                 and sha256_file(path) == existing.get("sha256")
-                and int(existing.get("rows", -1)) == int(config["split"]["p0_train_rows"])
+                and int(existing.get("rows", -1))
+                == int(config["split"]["p0_train_rows"])
             ):
                 continue
         pending.append(task)
@@ -1459,7 +1409,9 @@ def _derive_reference_remoteness_banks(
         )
         if not isinstance(base_config, Mapping):
             raise TypeError("Canonical base config is not a mapping")
-        reference_effective = experiment_config.effective_coldstart_runtime(config, pending[0])
+        reference_effective = experiment_config.effective_coldstart_runtime(
+            config, pending[0]
+        )
         with _legacy_arena_runtime_bridge(arena, reference_effective):
             model = arena.load_model(
                 str(Path(base_model_path).resolve()),
@@ -1476,177 +1428,34 @@ def _derive_reference_remoteness_banks(
         try:
             arena.clean_expression = lambda value: str(value)
             arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
+
+            def score_candidates(
+                prompt: str,
+                candidates: Sequence[Mapping[str, Any]],
+                max_length: int,
+                batch_size: int,
+            ) -> Sequence[float]:
+                return _score_reference_candidates(
+                    arena=arena,
+                    model=model,
+                    tokenizer=tokenizer,
+                    prompt=prompt,
+                    candidates=candidates,
+                    max_length=max_length,
+                    batch_size=batch_size,
+                )
+
             for task in pending:
                 record = splits["tasks"][task]
-                train_rows = read_jsonl(Path(record["paths"]["train"]))
-                adapter, instances = _load_task_adapter_and_instances(
-                    task,
+                summary = e8_inputs.materialize_reference_remoteness_task(
+                    config,
+                    output_root,
+                    task=task,
+                    record=record,
                     inputs=inputs[task],
-                    validation_rows=train_rows,
+                    identity_hash=identities[task],
+                    score_candidates=score_candidates,
                 )
-                derived_rows: list[dict[str, Any]] = []
-                audit_rows: list[dict[str, Any]] = []
-                runtime = config["task_runtime"][task]
-                for source_row in train_rows:
-                    prompt_id = str(source_row["prompt_id"])
-                    candidates = _verified_wrong_candidates(
-                        adapter,
-                        instances[prompt_id],
-                        source_row,
-                    )
-                    scores = _score_reference_candidates(
-                        arena=arena,
-                        model=model,
-                        tokenizer=tokenizer,
-                        prompt=str(source_row["prompt"]),
-                        candidates=candidates,
-                        max_length=int(runtime["max_length"]),
-                        batch_size=int(runtime["evaluation_batch_size"]),
-                    )
-                    scored = []
-                    for candidate, score in zip(candidates, scores, strict=True):
-                        scored.append({**candidate, "reference_surprisal": float(score)})
-                    scored.sort(
-                        key=lambda item: (
-                            float(item["reference_surprisal"]),
-                            stable_hash(
-                                {
-                                    "task": task,
-                                    "prompt_id": prompt_id,
-                                    "canonical_completion": item["canonical_completion"],
-                                }
-                            ),
-                        )
-                    )
-                    selected_indices = _coverage_first_reference_rank_indices(
-                        scored, source_row["negatives"], 16
-                    )
-                    selected: list[dict[str, Any]] = []
-                    for slot, rank in enumerate(selected_indices):
-                        item = dict(scored[rank])
-                        item.update(
-                            {
-                                "negative_id": f"{prompt_id}_refrem_{slot:03d}",
-                                "reference_rank": int(rank),
-                                "reference_candidate_count": len(scored),
-                                "reference_rank_role": "provenance_and_diagnostic_only",
-                            }
-                        )
-                        selected.append(item)
-                    coverage_audit = _reference_error_class_audit(
-                        scored, selected, list(source_row["negatives"])
-                    )
-                    derived = dict(source_row)
-                    derived["negatives"] = selected
-                    derived["reference_remoteness_selection"] = {
-                        "identity_hash": identities[task],
-                        "reference_policy": "zero_update_base_plus_fresh_lora",
-                        "coordinate": "mean_completion_token_surprisal",
-                        "candidate_count": len(scored),
-                        "selected_ranks": list(selected_indices),
-                        "training_weight_uses_reference_rank": False,
-                        "current_policy_surprisal_recomputed_each_update": True,
-                    }
-                    derived_rows.append(derived)
-                    audit_rows.append(
-                        {
-                            "task": task,
-                            "prompt_id": prompt_id,
-                            "candidate_count": len(scored),
-                            "selected_ranks": list(selected_indices),
-                            "candidate_reference_surprisal": _reference_surprisal_summary(
-                                [float(item["reference_surprisal"]) for item in scored]
-                            ),
-                            "selected_reference_surprisal": _reference_surprisal_summary(
-                                [float(item["reference_surprisal"]) for item in selected]
-                            ),
-                            **coverage_audit,
-                            "coverage_threshold": None,
-                            "coverage_gate": False,
-                        }
-                    )
-                root = output_root / "reference_remoteness" / task
-                bank_path_value = root / "train.jsonl"
-                audit_path = root / "prompt_audit.jsonl"
-                atomic_jsonl(bank_path_value, derived_rows)
-                atomic_jsonl(audit_path, audit_rows)
-                ranges = [float(row["selected_reference_surprisal"]["range"]) for row in audit_rows]
-                class_rows = [
-                    value
-                    for row in audit_rows
-                    for value in row["error_class_reference_surprisal"].values()
-                ]
-                selected_class_rows = [
-                    value for value in class_rows if int(value["selected_count"]) > 0
-                ]
-                endpoint_total = sum(
-                    int(row["multi_slot_selected_error_class_count"]) for row in audit_rows
-                )
-                endpoint_covered = sum(
-                    int(row["multi_slot_endpoint_coverage_count"]) for row in audit_rows
-                )
-                summary = {
-                    "schema_version": 1,
-                    "experiment_id": experiment_id(config),
-                    "config_hash": stable_config_hash(config),
-                    "task": task,
-                    "identity_hash": identities[task],
-                    "source_train": record["paths"]["train"],
-                    "source_train_sha256": sha256_file(Path(record["paths"]["train"])),
-                    "source_p0_bank_preserved": True,
-                    "path": str(bank_path_value.resolve()),
-                    "sha256": sha256_file(bank_path_value),
-                    "rows": len(derived_rows),
-                    "selected_negatives_per_prompt": 16,
-                    "selection": "source_p0_error_class_sequence_then_within_class_reference_rank_spread",
-                    "candidate_pool": "all_deterministic_verified_wrong_mutations",
-                    "reference_rank_enters_training_weight": False,
-                    "current_policy_surprisal_recomputed_each_update": True,
-                    "coverage_threshold": None,
-                    "coverage_sequence_matches_all_prompts": all(
-                        bool(row["coverage_sequence_matches_source_p0"]) for row in audit_rows
-                    ),
-                    "error_class_coverage_fraction": _reference_surprisal_summary(
-                        [float(row["error_class_coverage_fraction"]) for row in audit_rows]
-                    ),
-                    "singleton_selected_error_class_instances": sum(
-                        int(row["singleton_selected_error_class_count"]) for row in audit_rows
-                    ),
-                    "multi_slot_selected_error_class_instances": endpoint_total,
-                    "multi_slot_endpoint_coverage_count": endpoint_covered,
-                    "multi_slot_endpoint_coverage_fraction": (
-                        endpoint_covered / endpoint_total if endpoint_total else None
-                    ),
-                    "global_reference_rank_span_fraction": _reference_surprisal_summary(
-                        [float(row["global_reference_rank_span_fraction"]) for row in audit_rows]
-                    ),
-                    "candidate_within_class_range": _reference_surprisal_summary(
-                        [float(row["candidate_reference_surprisal"]["range"]) for row in class_rows]
-                    ),
-                    "candidate_within_class_iqr": _reference_surprisal_summary(
-                        [float(row["candidate_reference_surprisal"]["iqr"]) for row in class_rows]
-                    ),
-                    "selected_within_class_range": _reference_surprisal_summary(
-                        [
-                            float(row["selected_reference_surprisal"]["range"])
-                            for row in selected_class_rows
-                        ]
-                    ),
-                    "selected_within_class_iqr": _reference_surprisal_summary(
-                        [
-                            float(row["selected_reference_surprisal"]["iqr"])
-                            for row in selected_class_rows
-                        ]
-                    ),
-                    "selected_range_median": float(np.median(np.asarray(ranges, dtype=float))),
-                    "prompt_audit": str(audit_path.resolve()),
-                    "prompt_audit_sha256": sha256_file(audit_path),
-                    "complete": len(derived_rows) == int(config["split"]["p0_train_rows"]),
-                    "scientific_status": "not_run",
-                }
-                if not summary["complete"]:
-                    raise RuntimeError(f"Reference-remoteness bank is incomplete for {task}")
-                atomic_json(root / "summary.json", summary)
                 record["reference_remoteness_bank"] = summary
                 atomic_json(output_root / "split_manifest.json", splits)
         finally:
@@ -1709,7 +1518,9 @@ def _derive_reference_remoteness_banks(
         bool(manifest["tasks"][str(task)].get("reference_remoteness_bank_applied"))
         for task in config["suite"]["p0_tasks"]
     ):
-        raise RuntimeError("Canonical transfer inputs did not bind every derived reference bank")
+        raise RuntimeError(
+            "Canonical transfer inputs did not bind every derived reference bank"
+        )
     return manifest
 
 
@@ -1718,125 +1529,15 @@ def write_canonical_cold_inputs(
     output_root: Path,
     split_manifest: dict[str, Any],
 ) -> dict[str, Any]:
-    """Write schema adapters and valid old-core configs; never implement training math."""
+    """Compatibility entry point for canonical input materialization."""
 
-    if not _is_coldstart(config):
-        raise RuntimeError("Canonical input conversion is cold-profile only")
-    source_audit = audit_canonical_coldstart_sources(config)
-    canonical_paths = _canonical_paths(config)
-    records: dict[str, Any] = {}
-    for task_value in config["suite"]["tasks"]:
-        task = str(task_value)
-        record = split_manifest["tasks"][task]
-        source_paths = record["paths"]
-        task_root = output_root / "canonical_inputs" / task
-        task_root.mkdir(parents=True, exist_ok=True)
-        if task == "countdown":
-            train_path = Path(str(record["bank"])).resolve()
-            validation_path = Path(str(record["countdown_validation_source"])).resolve()
-            train_rows = read_jsonl(train_path)
-            validation_rows = read_jsonl(validation_path)
-            exact_countdown_sources = True
-            reference_selection_applied = False
-            reference_selection_identity = None
-        else:
-            reference_record = record.get("reference_remoteness_bank")
-            if isinstance(reference_record, Mapping):
-                reference_path = Path(str(reference_record.get("path", "")))
-                if (
-                    not reference_path.is_file()
-                    or sha256_file(reference_path) != reference_record.get("sha256")
-                    or not reference_record.get("complete")
-                ):
-                    raise RuntimeError(
-                        f"Derived reference-remoteness bank identity failed for {task}"
-                    )
-                train_source = reference_path
-                reference_selection_applied = True
-                reference_selection_identity = str(reference_record["identity_hash"])
-            else:
-                # Initial prepare deliberately preserves P0 semantics. Formal calibration
-                # replaces this with the derived training-only bank before any cell can run.
-                train_source = Path(source_paths["train"])
-                reference_selection_applied = False
-                reference_selection_identity = None
-            train_rows = [_canonical_train_row(row) for row in read_jsonl(train_source)]
-            validation_rows = [
-                _canonical_validation_row(row)
-                for row in read_jsonl(Path(source_paths["validation"]))
-            ]
-            train_path = task_root / "train.jsonl"
-            validation_path = task_root / "validation.jsonl"
-            atomic_jsonl(train_path, train_rows)
-            atomic_jsonl(validation_path, validation_rows)
-            exact_countdown_sources = False
-        sealed_test_path = task_root / "SEALED_TEST_NOT_ACCESSED.jsonl"
-        sealed_test_path.parent.mkdir(parents=True, exist_ok=True)
-        sealed_test_path.write_text("", encoding="utf-8")
-        task_base_config, changed_fields = _task_base_config(
-            config,
-            task=task,
-            canonical_paths=canonical_paths,
-            task_root=task_root,
-        )
-        runtime_grids = _task_grid_configs(
-            config,
-            canonical_paths=canonical_paths,
-            task_root=task_root,
-        )
-        canonical_record = {
-            "train": str(train_path.resolve()),
-            "validation": str(validation_path.resolve()),
-            "sealed_test": str(sealed_test_path.resolve()),
-            "base_config": str(task_base_config.resolve()),
-            "base_config_sha256": sha256_file(task_base_config),
-            "round1_grid": str(runtime_grids["round1_grid"]["path"].resolve()),
-            "round1_grid_sha256": sha256_file(runtime_grids["round1_grid"]["path"]),
-            "extension_grid": str(runtime_grids["extension_grid"]["path"].resolve()),
-            "extension_grid_sha256": sha256_file(runtime_grids["extension_grid"]["path"]),
-            "task_interface_changed_fields": changed_fields,
-            "countdown_exact_source_files": exact_countdown_sources,
-            "reference_remoteness_bank_applied": reference_selection_applied,
-            "reference_remoteness_bank_identity_hash": reference_selection_identity,
-            "negative_consumer": "all_unique_negatives_per_prompt",
-            "calibration": "forbidden",
-            "train_sha256": sha256_file(train_path),
-            "validation_sha256": sha256_file(validation_path),
-            "sealed_test_sha256": sha256_file(sealed_test_path),
-            "train_rows": len(train_rows),
-            "validation_rows": len(validation_rows),
-            "test_rows": 0,
-        }
-        if not experiment_config.is_historical_coldstart_config(config):
-            canonical_record["effective_runtime"] = experiment_config.effective_coldstart_runtime(
-                config, task
-            )
-            canonical_record["runtime_grid_sources"] = {
-                name: {
-                    "source": str(runtime_grids[name]["source"].resolve()),
-                    "source_sha256": sha256_file(runtime_grids[name]["source"]),
-                    "changed_fields": list(runtime_grids[name]["changed_fields"]),
-                }
-                for name in ("round1_grid", "extension_grid")
-            }
-        record["canonical_coldstart"] = canonical_record
-        records[task] = canonical_record
-
-    split_manifest["canonical_source_audit"] = source_audit
-    split_manifest["canonical_coldstart_complete"] = True
-    atomic_json(output_root / "split_manifest.json", split_manifest)
-    manifest = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": stable_config_hash(config),
-        "source_audit": source_audit,
-        "tasks": records,
-        "test_partition_accessed": False,
-        "complete": set(records) == set(config["suite"]["tasks"]),
-    }
-    atomic_json(output_root / "canonical_inputs" / "manifest.json", manifest)
-    return manifest
-
+    return e8_inputs.write_canonical_cold_inputs(
+        config,
+        output_root,
+        split_manifest,
+        audit_canonical_sources=audit_canonical_coldstart_sources,
+        canonical_paths_for_config=_canonical_paths,
+    )
 
 
 def cmd_prepare(
@@ -1851,7 +1552,7 @@ def cmd_prepare(
 ) -> dict[str, Any]:
     if _is_dense(config):
         raise RuntimeError("Dense refinement must use inherit, not prepare")
-    inputs = resolve_task_inputs(
+    inputs = e8_inputs.resolve_task_inputs(
         config,
         p0_work_dir=p0_work_dir,
         p0_config=p0_config,
@@ -1860,7 +1561,7 @@ def cmd_prepare(
         countdown_adapter=countdown_adapter,
     )
     plan = write_plan(config, output_root)
-    splits = write_split_manifest(inputs, config, output_root)
+    splits = e8_inputs.write_split_manifest(inputs, config, output_root)
     canonical_inputs = (
         write_canonical_cold_inputs(config, output_root, splits) if _is_coldstart(config) else None
     )
@@ -1900,51 +1601,6 @@ def cmd_prepare(
     return manifest
 
 
-def _parent_response_rows(
-    parent_config: Mapping[str, Any],
-    parent_output_root: Path,
-    tasks: set[str],
-) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    expected_hash = stable_config_hash(parent_config)
-    for cell in build_cells(parent_config):
-        if cell.task not in tasks:
-            continue
-        path = parent_output_root / "cells" / cell.key / "cell_manifest.json"
-        if not path.is_file():
-            raise FileNotFoundError(f"Missing predecessor cell manifest: {path}")
-        value = json.loads(path.read_text(encoding="utf-8"))
-        if (
-            value.get("experiment_id") != experiment_id(parent_config)
-            or value.get("config_hash") != expected_hash
-            or not value.get("complete")
-            or value.get("evaluation_status") != "complete"
-            or value.get("nan_inf_failure") is not False
-        ):
-            raise RuntimeError(f"Predecessor cell is not reusable: {cell.key}")
-        rows.append(
-            {
-                "source": "predecessor",
-                "task": cell.task,
-                "method": cell.method,
-                "rho": cell.rho,
-                "lambda": None if cell.rho is None else coefficient_from_rho(cell.rho),
-                "seed": cell.seed,
-                "cell_key": cell.key,
-                "late_window_pass8_mean": value["validation_late_window_pass8_mean"],
-                "terminal_pass8": value["validation_terminal_pass8"],
-                "late_window_greedy_mean": value["validation_late_window_greedy_mean"],
-                "terminal_greedy": value["validation_terminal_greedy"],
-                "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
-                "nan_inf_failure": False,
-            }
-        )
-    expected = len(tasks) * 8
-    if len(rows) != expected:
-        raise RuntimeError(f"Expected {expected} predecessor response rows, found {len(rows)}")
-    return rows
-
-
 def cmd_inherit(
     config: Mapping[str, Any],
     output_root: Path,
@@ -1953,324 +1609,22 @@ def cmd_inherit(
     parent_config_path: Path,
     base_model_path: str,
 ) -> dict[str, Any]:
-    if not _is_dense(config):
-        raise RuntimeError("inherit is only valid for the dense refinement profile")
-    parent_config = load_config(parent_config_path)
-    parent_contract = config["parent"]
-    if (
-        experiment_id(parent_config) != EXPERIMENT_ID
-        or stable_config_hash(parent_config) != parent_contract["config_hash"]
-        or int(parent_config["sweep"]["expected_cells"]) != int(parent_contract["expected_cells"])
-    ):
-        raise RuntimeError("Predecessor config identity mismatch")
-
-    parent_artifacts = {
-        "plan": parent_output_root / "plan.json",
-        "split_manifest": parent_output_root / "split_manifest.json",
-        "reference_manifest": reference_manifest_path(parent_output_root),
-        "aggregate_summary": parent_output_root / "aggregate" / "aggregate_summary.json",
-    }
-    for name, path in parent_artifacts.items():
-        if not path.is_file():
-            raise FileNotFoundError(f"Missing predecessor {name}: {path}")
-        expected_sha = str(parent_contract["artifact_sha256"][name])
-        if sha256_file(path) != expected_sha:
-            raise RuntimeError(f"Predecessor {name} does not match the delivered result")
-
-    parent_plan = json.loads(parent_artifacts["plan"].read_text(encoding="utf-8"))
-    parent_aggregate = json.loads(parent_artifacts["aggregate_summary"].read_text(encoding="utf-8"))
-    if (
-        parent_plan.get("experiment_id") != EXPERIMENT_ID
-        or parent_plan.get("config_hash") != parent_contract["config_hash"]
-        or int(parent_plan.get("cell_count", 0)) != int(parent_contract["expected_cells"])
-        or parent_aggregate.get("experiment_id") != EXPERIMENT_ID
-        or parent_aggregate.get("test_partition_accessed") is not False
-        or int(parent_aggregate.get("cell_count", 0)) != int(parent_contract["expected_cells"])
-    ):
-        raise RuntimeError("Predecessor plan or aggregate contract mismatch")
-
-    parent_splits, parent_inputs = _load_ready_inputs(
-        parent_output_root,
-        parent_config,
+    return e8_warmstart.inherit_dense_run(
+        config,
+        output_root,
+        parent_output_root=parent_output_root,
+        parent_config_path=parent_config_path,
         base_model_path=base_model_path,
+        parent_experiment_id=EXPERIMENT_ID,
+        is_dense_fn=_is_dense,
+        load_config_fn=load_config,
+        load_ready_inputs_fn=_load_ready_inputs,
+        write_plan_fn=write_plan,
+        build_cells_fn=build_cells,
+        experiment_id_fn=experiment_id,
+        coefficient_from_rho_fn=coefficient_from_rho,
+        model_identity_fn=model_identity,
     )
-    tasks = tuple(str(task) for task in config["suite"]["tasks"])
-    child_config_hash = stable_config_hash(config)
-    child_split_tasks = {task: copy.deepcopy(parent_splits["tasks"][task]) for task in tasks}
-    child_splits = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": child_config_hash,
-        "test_access_allowed": False,
-        "tasks": child_split_tasks,
-        "complete": True,
-        "scientific_status": "not_run",
-        "inherited_from": {
-            "experiment_id": EXPERIMENT_ID,
-            "run_id": parent_contract["run_id"],
-            "result_commit": parent_contract["result_commit"],
-            "split_manifest_sha256": parent_contract["artifact_sha256"]["split_manifest"],
-        },
-    }
-    atomic_json(output_root / "split_manifest.json", child_splits)
-
-    plan = write_plan(config, output_root)
-    serialized_inputs = {
-        task: {
-            "bank": str(parent_inputs[task].bank),
-            "reference_adapter": None,
-            "sources_root": str(parent_inputs[task].sources_root),
-            "p0_config": str(parent_inputs[task].p0_config),
-            "countdown_validation": None,
-        }
-        for task in tasks
-    }
-    prepare = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": child_config_hash,
-        "plan": str((output_root / "plan.json").resolve()),
-        "split_manifest": str((output_root / "split_manifest.json").resolve()),
-        "inputs": serialized_inputs,
-        "complete": plan["cell_count"] == int(config["sweep"]["expected_cells"]),
-        "scientific_status": "not_run",
-        "inherited_from": {
-            "experiment_id": EXPERIMENT_ID,
-            "run_id": parent_contract["run_id"],
-            "result_commit": parent_contract["result_commit"],
-        },
-    }
-    atomic_json(output_root / "prepare_manifest.json", prepare)
-
-    base_identity = model_identity(base_model_path, None)["model"]
-    warmstart = _reference_warmstart_config(config, parent_inputs[tasks[0]].p0_config)
-    parent_reference = json.loads(
-        parent_artifacts["reference_manifest"].read_text(encoding="utf-8")
-    )
-    inherited_reference_tasks: dict[str, Any] = {}
-    for task in tasks:
-        parent_task = copy.deepcopy(parent_reference["tasks"][task])
-        expected_identity = _reference_identity(
-            task=task,
-            config=config,
-            split_manifest=child_splits,
-            warmstart_config=warmstart,
-            base_model_identity=base_identity,
-            seed=_reference_seed(config, warmstart, task),
-        )
-        parent_task.update(expected_identity)
-        parent_task["inherited_from"] = {
-            "experiment_id": EXPERIMENT_ID,
-            "run_id": parent_contract["run_id"],
-            "parent_identity_hash": parent_reference["tasks"][task]["identity_hash"],
-            "parent_task_manifest_sha256": sha256_file(
-                parent_output_root / "references" / task / "task_manifest.json"
-            ),
-        }
-        inherited_reference_tasks[task] = parent_task
-        atomic_json(output_root / "references" / task / "task_manifest.json", parent_task)
-    child_reference = _reference_manifest_payload(
-        config=config,
-        base_model_identity=base_identity,
-        tasks=inherited_reference_tasks,
-    )
-    child_reference["inherited_from"] = {
-        "experiment_id": EXPERIMENT_ID,
-        "run_id": parent_contract["run_id"],
-        "result_commit": parent_contract["result_commit"],
-        "reference_manifest_sha256": parent_contract["artifact_sha256"]["reference_manifest"],
-    }
-    atomic_json(reference_manifest_path(output_root), child_reference)
-
-    response_rows = _parent_response_rows(parent_config, parent_output_root, set(tasks))
-    parent_response = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": child_config_hash,
-        "parent_experiment_id": EXPERIMENT_ID,
-        "parent_run_id": parent_contract["run_id"],
-        "parent_result_commit": parent_contract["result_commit"],
-        "rows": response_rows,
-        "complete": True,
-    }
-    atomic_json(output_root / "inherited" / "parent_response.json", parent_response)
-    snapshot = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": child_config_hash,
-        "parent_run_id": parent_contract["run_id"],
-        "parent_result_repository": parent_contract["result_repository"],
-        "parent_result_commit": parent_contract["result_commit"],
-        "parent_source_commit": parent_contract["source_commit"],
-        "parent_config_hash": parent_contract["config_hash"],
-        "parent_artifact_sha256": dict(parent_contract["artifact_sha256"]),
-        "tasks": list(tasks),
-        "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
-        "inherited_split": True,
-        "inherited_train_only_references": True,
-        "inherited_positive_only_anchor": True,
-        "calibration_must_be_rerun": True,
-        "test_partition_accessed": False,
-        "complete": True,
-        "scientific_status": "not_run",
-    }
-    atomic_json(output_root / "inherited" / "parent_snapshot.json", snapshot)
-    _load_ready_inputs(output_root, config, base_model_path=base_model_path)
-    return snapshot
-
-
-def reference_manifest_path(output_root: Path) -> Path:
-    return output_root / "references" / "reference_manifest.json"
-
-
-def _reference_warmstart_config(
-    config: Mapping[str, Any],
-    p0_config_path: Path,
-) -> dict[str, Any]:
-    p0_config = yaml.safe_load(p0_config_path.read_text(encoding="utf-8"))
-    if not isinstance(p0_config, dict) or p0_config.get("experiment_id") != P0_EXPERIMENT_ID:
-        raise RuntimeError("P0 config identity mismatch during reference preparation")
-    inherited = copy.deepcopy(p0_config.get("positive_warmstart"))
-    if not isinstance(inherited, dict):
-        raise TypeError("P0 positive-warm-start contract is missing")
-    if inherited.get("checkpoint_kind") != "task_positive_warmstart_100":
-        raise RuntimeError("Unexpected inherited P0 checkpoint kind")
-    if str(inherited.get("parameterization")) != "lora":
-        raise RuntimeError("P0 reference preparation must inherit LoRA parameterization")
-    if int(inherited.get("optimizer_updates", 0)) != int(config["reference"]["optimizer_updates"]):
-        raise RuntimeError("Inherited P0 reference optimizer-update contract mismatch")
-    if (
-        int(inherited.get("micro_batch", 0)) != 2
-        or int(inherited.get("gradient_accumulation", 0)) != 32
-    ):
-        raise RuntimeError("Inherited reference warm start must remain 2 x 32")
-
-    model_contract = {
-        "lora_rank": int(config["model"]["lora_rank"]),
-        "lora_alpha": int(config["model"]["lora_alpha"]),
-        "lora_dropout": float(config["model"]["lora_dropout"]),
-        "max_length": int(config["model"]["max_length"]),
-        "gradient_checkpointing": bool(config["model"]["gradient_checkpointing"]),
-        "dtype": str(config["model"]["dtype"]),
-    }
-    inherited_contract = {
-        "lora_rank": int(inherited["lora_rank"]),
-        "lora_alpha": int(inherited["lora_alpha"]),
-        "lora_dropout": float(inherited["lora_dropout"]),
-        "max_length": int(inherited["max_length"]),
-        "gradient_checkpointing": bool(inherited["gradient_checkpointing"]),
-        "dtype": str(inherited["dtype"]),
-    }
-    if inherited_contract != model_contract:
-        raise RuntimeError("Inherited P0 LoRA/model contract does not match tuning config")
-
-    inherited["checkpoint_kind"] = str(config["reference"]["checkpoint_kind"])
-    return inherited
-
-
-def _reference_identity(
-    *,
-    task: str,
-    config: Mapping[str, Any],
-    split_manifest: Mapping[str, Any],
-    warmstart_config: Mapping[str, Any],
-    base_model_identity: Mapping[str, Any],
-    seed: int,
-) -> dict[str, Any]:
-    train_path = Path(split_manifest["tasks"][task]["paths"]["train"])
-    identity = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "task": task,
-        "config_hash": stable_config_hash(config),
-        "p0_config_sha256": split_manifest["tasks"][task]["p0_config_sha256"],
-        "train_prompt_hash": split_manifest["tasks"][task]["prompt_id_hashes"]["train"],
-        "train_rows_sha256": sha256_file(train_path),
-        "base_model_identity": base_model_identity,
-        "reference_config": dict(warmstart_config),
-        "seed": seed,
-    }
-    identity["identity_hash"] = stable_hash(identity)
-    return identity
-
-
-def _reference_manifest_payload(
-    *,
-    config: Mapping[str, Any],
-    base_model_identity: Mapping[str, Any],
-    tasks: Mapping[str, Mapping[str, Any]],
-) -> dict[str, Any]:
-    expected_tasks = tuple(str(task) for task in config["suite"]["p0_tasks"])
-    complete = set(tasks) == set(expected_tasks) and all(
-        bool(tasks[task].get("complete"))
-        and bool(tasks[task].get("train_only_reference"))
-        and int(tasks[task].get("validation_rows_seen", -1)) == 0
-        and int(tasks[task].get("test_rows_seen", -1)) == 0
-        for task in expected_tasks
-    )
-    return {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": stable_config_hash(config),
-        "base_model_identity": base_model_identity,
-        "checkpoint_kind": str(config["reference"]["checkpoint_kind"]),
-        "tasks": dict(tasks),
-        "complete": complete,
-        "validation_rows_seen": 0,
-        "test_rows_seen": 0,
-        "scientific_status": "not_run",
-    }
-
-
-def _validate_reference_manifest_header(
-    manifest: Mapping[str, Any],
-    *,
-    config: Mapping[str, Any],
-    base_model_identity: Mapping[str, Any],
-) -> None:
-    if (
-        manifest.get("experiment_id") != experiment_id(config)
-        or manifest.get("config_hash") != stable_config_hash(config)
-        or manifest.get("checkpoint_kind") != config["reference"]["checkpoint_kind"]
-        or manifest.get("base_model_identity") != base_model_identity
-        or int(manifest.get("validation_rows_seen", -1)) != 0
-        or int(manifest.get("test_rows_seen", -1)) != 0
-    ):
-        raise RuntimeError("Train-only reference manifest identity or leakage audit mismatch")
-    recorded_tasks = manifest.get("tasks")
-    if not isinstance(recorded_tasks, dict):
-        raise TypeError("Train-only reference manifest tasks are malformed")
-    unknown = set(recorded_tasks) - set(config["suite"]["p0_tasks"])
-    if unknown:
-        raise RuntimeError(f"Train-only reference manifest has unknown tasks: {sorted(unknown)}")
-
-
-def _validate_reference_task_manifest(
-    task_manifest: Mapping[str, Any],
-    *,
-    expected_identity: Mapping[str, Any],
-    expected_train_rows: int,
-) -> Path:
-    if (
-        task_manifest.get("identity_hash") != expected_identity["identity_hash"]
-        or task_manifest.get("checkpoint_kind")
-        != expected_identity["reference_config"]["checkpoint_kind"]
-        or not task_manifest.get("complete")
-        or not task_manifest.get("train_only_reference")
-        or int(task_manifest.get("train_rows_seen", -1)) != expected_train_rows
-        or int(task_manifest.get("validation_rows_seen", -1)) != 0
-        or int(task_manifest.get("test_rows_seen", -1)) != 0
-    ):
-        raise RuntimeError(
-            f"Train-only reference identity or leakage audit mismatch for "
-            f"{expected_identity['task']}"
-        )
-    adapter = Path(str(task_manifest.get("adapter_path", "")))
-    if not (adapter / "adapter_config.json").is_file():
-        raise FileNotFoundError(
-            f"Missing train-only adapter for {expected_identity['task']}: {adapter}"
-        )
-    return adapter
 
 
 def cmd_reference(
@@ -2281,288 +1635,23 @@ def cmd_reference(
     tasks: Sequence[str] | None,
     force: bool,
 ) -> dict[str, Any]:
-    splits, inputs = _load_prepared(output_root, config)
-    p0_tasks = tuple(str(task) for task in config["suite"]["p0_tasks"])
-    requested = tuple(str(task) for task in (tasks or p0_tasks))
-    if not requested or len(set(requested)) != len(requested):
-        raise ValueError("Reference tasks must be a non-empty unique list")
-    unknown = sorted(set(requested) - set(p0_tasks))
-    if unknown:
-        raise ValueError(f"Only configured P0 tasks require train-only references: {unknown}")
-
-    p0_config_path = inputs[requested[0]].p0_config
-    if any(inputs[task].p0_config != p0_config_path for task in requested):
-        raise RuntimeError("P0 tasks do not share one frozen config path")
-    warmstart_config = _reference_warmstart_config(config, p0_config_path)
-    base_identity = model_identity(base_model_path, None)["model"]
-    task_seeds = {task: _reference_seed(config, warmstart_config, task) for task in p0_tasks}
-
-    root = output_root / "references"
-    root.mkdir(parents=True, exist_ok=True)
-    manifest_path = reference_manifest_path(output_root)
-    completed: dict[str, Any] = {}
-    if manifest_path.is_file():
-        existing_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        _validate_reference_manifest_header(
-            existing_manifest,
-            config=config,
-            base_model_identity=base_identity,
-        )
-        for task, recorded in existing_manifest["tasks"].items():
-            task_manifest_path = root / task / "task_manifest.json"
-            if not task_manifest_path.is_file():
-                raise FileNotFoundError(
-                    f"Reference manifest points to a missing task manifest: {task}"
-                )
-            task_manifest = json.loads(task_manifest_path.read_text(encoding="utf-8"))
-            if task_manifest != recorded:
-                raise RuntimeError(f"Reference task/top-level manifest mismatch for {task}")
-            expected = _reference_identity(
-                task=task,
-                config=config,
-                split_manifest=splits,
-                warmstart_config=warmstart_config,
-                base_model_identity=base_identity,
-                seed=task_seeds[task],
-            )
-            try:
-                _validate_reference_task_manifest(
-                    task_manifest,
-                    expected_identity=expected,
-                    expected_train_rows=int(config["split"]["p0_train_rows"]),
-                )
-            except (FileNotFoundError, RuntimeError):
-                if not force or task not in requested:
-                    raise
-                continue
-            completed[task] = task_manifest
-
-    for task in requested:
-        task_root = root / task
-        train_path = Path(splits["tasks"][task]["paths"]["train"])
-        identity = _reference_identity(
-            task=task,
-            config=config,
-            split_manifest=splits,
-            warmstart_config=warmstart_config,
-            base_model_identity=base_identity,
-            seed=task_seeds[task],
-        )
-        if task in completed and not force:
-            continue
-        if task_root.exists():
-            if not force:
-                raise RuntimeError(f"Reference directory exists without reusable identity: {task}")
-            if root.resolve() not in task_root.resolve().parents:
-                raise RuntimeError(f"Refusing unsafe reference removal: {task_root}")
-            shutil.rmtree(task_root)
-        task_root.mkdir(parents=True, exist_ok=False)
-        train_rows = read_jsonl(train_path)
-        result = train_task_positive_warmstart(
-            task=task,
-            rows=train_rows,
-            model_path=base_model_path,
-            output_dir=task_root,
-            warmstart_config=warmstart_config,
-            seed=task_seeds[task],
-        )
-        result.update(identity)
-        result.update(
-            {
-                "train_only_reference": True,
-                "train_rows_seen": len(train_rows),
-                "validation_rows_seen": 0,
-                "test_rows_seen": 0,
-            }
-        )
-        atomic_json(task_root / "task_manifest.json", result)
-        completed[task] = result
-        atomic_json(
-            manifest_path,
-            _reference_manifest_payload(
-                config=config,
-                base_model_identity=base_identity,
-                tasks=completed,
-            ),
-        )
-
-    manifest = _reference_manifest_payload(
-        config=config,
-        base_model_identity=base_identity,
-        tasks=completed,
+    return e8_warmstart.prepare_references(
+        config,
+        output_root,
+        base_model_path=base_model_path,
+        tasks=tasks,
+        force=force,
+        load_prepared_fn=_load_prepared,
+        model_identity_fn=model_identity,
+        train_warmstart_fn=train_task_positive_warmstart,
     )
-    atomic_json(manifest_path, manifest)
-    return manifest
 
 
 def _load_prepared(
     output_root: Path,
     config: Mapping[str, Any],
 ) -> tuple[dict[str, Any], dict[str, TaskInputs]]:
-    prepare_path = output_root / "prepare_manifest.json"
-    split_path = output_root / "split_manifest.json"
-    if not prepare_path.is_file() or not split_path.is_file():
-        raise RuntimeError("Run prepare before calibration or training")
-    prepare = json.loads(prepare_path.read_text(encoding="utf-8"))
-    splits = json.loads(split_path.read_text(encoding="utf-8"))
-    expected_hash = stable_config_hash(config)
-    if (
-        prepare.get("experiment_id") != experiment_id(config)
-        or splits.get("experiment_id") != experiment_id(config)
-        or prepare.get("config_hash") != expected_hash
-        or splits.get("config_hash") != expected_hash
-        or not prepare.get("complete")
-        or not splits.get("complete")
-    ):
-        raise RuntimeError("Prepared input identity mismatch")
-    expected_tasks = set(config["suite"]["tasks"])
-    if set(prepare.get("inputs", {})) != expected_tasks or set(splits.get("tasks", {})) != (
-        expected_tasks
-    ):
-        raise RuntimeError("Prepared input task set mismatch")
-    inputs = {
-        task: TaskInputs(
-            task=task,
-            bank=Path(value["bank"]),
-            reference_adapter=(
-                Path(value["reference_adapter"]) if value.get("reference_adapter") else None
-            ),
-            sources_root=Path(value["sources_root"]),
-            p0_config=Path(value["p0_config"]),
-            countdown_validation=(
-                Path(value["countdown_validation"]) if value.get("countdown_validation") else None
-            ),
-        )
-        for task, value in prepare["inputs"].items()
-    }
-    for task, inputs_for_task in inputs.items():
-        split_record = splits["tasks"][task]
-        if not inputs_for_task.bank.is_file() or sha256_file(inputs_for_task.bank) != (
-            split_record.get("bank_sha256")
-        ):
-            raise RuntimeError(f"Prepared bank identity mismatch for {task}")
-        if not inputs_for_task.p0_config.is_file() or sha256_file(
-            inputs_for_task.p0_config
-        ) != split_record.get("p0_config_sha256"):
-            raise RuntimeError(f"Prepared P0 config identity mismatch for {task}")
-        if not inputs_for_task.sources_root.is_dir():
-            raise FileNotFoundError(f"Prepared sources root is missing for {task}")
-        if inputs_for_task.countdown_validation is not None and (
-            not inputs_for_task.countdown_validation.is_file()
-            or sha256_file(inputs_for_task.countdown_validation)
-            != split_record.get("countdown_validation_sha256")
-        ):
-            raise RuntimeError("Prepared Countdown validation identity mismatch")
-        if inputs_for_task.reference_adapter is not None:
-            if not (inputs_for_task.reference_adapter / "adapter_config.json").is_file():
-                raise FileNotFoundError(f"Prepared reference adapter is missing for {task}")
-            current_identity = model_identity(
-                "unresolved_backbone",
-                str(inputs_for_task.reference_adapter),
-            )["adapter"]
-            if current_identity != split_record.get("reference_adapter_identity"):
-                raise RuntimeError(f"Prepared reference adapter identity mismatch for {task}")
-        if _is_coldstart(config):
-            canonical = split_record.get("canonical_coldstart")
-            if not isinstance(canonical, Mapping):
-                raise RuntimeError(f"Missing canonical cold-start inputs for {task}")
-            identity_fields = (
-                ("train", "train_sha256"),
-                ("validation", "validation_sha256"),
-                ("sealed_test", "sealed_test_sha256"),
-            )
-            for path_key, sha_key in identity_fields:
-                path = Path(str(canonical[path_key]))
-                if not path.is_file() or sha256_file(path) != canonical[sha_key]:
-                    raise RuntimeError(
-                        f"Canonical cold-start {path_key} identity mismatch for {task}"
-                    )
-            if int(canonical.get("test_rows", -1)) != 0:
-                raise RuntimeError("Canonical tuning input must keep the test partition sealed")
-            for grid_key in ("round1_grid", "extension_grid", "base_config"):
-                grid_path = Path(str(canonical[grid_key]))
-                if (
-                    not grid_path.is_file()
-                    or sha256_file(grid_path) != canonical[f"{grid_key}_sha256"]
-                ):
-                    raise RuntimeError(f"Canonical paper input {grid_key} is missing for {task}")
-            if canonical.get("negative_consumer") != "all_unique_negatives_per_prompt":
-                raise RuntimeError(f"Canonical negative consumer drifted for {task}")
-            if task == "countdown" and canonical.get("countdown_exact_source_files") is not True:
-                raise RuntimeError(
-                    "Countdown must dispatch the exact generated bank/validation files"
-                )
-    return splits, inputs
-
-
-def _attach_references(
-    output_root: Path,
-    config: Mapping[str, Any],
-    splits: Mapping[str, Any],
-    inputs: Mapping[str, TaskInputs],
-    *,
-    base_model_path: str,
-) -> dict[str, TaskInputs]:
-    path = reference_manifest_path(output_root)
-    if not path.is_file():
-        raise RuntimeError("Run train-only reference preparation before calibration")
-    manifest = json.loads(path.read_text(encoding="utf-8"))
-    base_identity = model_identity(base_model_path, None)["model"]
-    _validate_reference_manifest_header(
-        manifest,
-        config=config,
-        base_model_identity=base_identity,
-    )
-    p0_tasks = tuple(str(task) for task in config["suite"]["p0_tasks"])
-    if not manifest.get("complete") or set(manifest["tasks"]) != set(p0_tasks):
-        raise RuntimeError("Train-only reference manifest is incomplete")
-
-    p0_config_path = inputs[p0_tasks[0]].p0_config
-    warmstart_config = _reference_warmstart_config(config, p0_config_path)
-    attached: dict[str, TaskInputs] = {}
-    for task, value in inputs.items():
-        if task == "countdown":
-            if value.reference_adapter is None:
-                raise RuntimeError("Countdown supplied reference adapter is missing")
-            attached[task] = value
-            continue
-
-        task_manifest_path = output_root / "references" / task / "task_manifest.json"
-        if not task_manifest_path.is_file():
-            raise FileNotFoundError(f"Missing train-only task manifest for {task}")
-        task_manifest = json.loads(task_manifest_path.read_text(encoding="utf-8"))
-        if task_manifest != manifest["tasks"].get(task):
-            raise RuntimeError(f"Reference task/top-level manifest mismatch for {task}")
-        expected_identity = _reference_identity(
-            task=task,
-            config=config,
-            split_manifest=splits,
-            warmstart_config=warmstart_config,
-            base_model_identity=base_identity,
-            seed=_reference_seed(config, warmstart_config, task),
-        )
-        adapter = _validate_reference_task_manifest(
-            task_manifest,
-            expected_identity=expected_identity,
-            expected_train_rows=int(config["split"]["p0_train_rows"]),
-        )
-        if (
-            task_manifest.get("adapter_identity")
-            != model_identity(
-                base_model_path,
-                str(adapter),
-            )["adapter"]
-        ):
-            raise RuntimeError(f"Train-only adapter content identity mismatch for {task}")
-        attached[task] = TaskInputs(
-            task=value.task,
-            bank=value.bank,
-            reference_adapter=adapter,
-            sources_root=value.sources_root,
-            p0_config=value.p0_config,
-            countdown_validation=value.countdown_validation,
-        )
-    return attached
+    return e8_inputs.load_prepared_inputs(output_root, config)
 
 
 def _load_ready_inputs(
@@ -2571,17 +1660,11 @@ def _load_ready_inputs(
     *,
     base_model_path: str,
 ) -> tuple[dict[str, Any], dict[str, TaskInputs]]:
-    splits, inputs = _load_prepared(output_root, config)
-    if _is_coldstart(config):
-        if any(value.reference_adapter is not None for value in inputs.values()):
-            raise RuntimeError("Cold-start prepared inputs must not contain external adapters")
-        return splits, inputs
-    return splits, _attach_references(
+    return e8_warmstart.load_ready_inputs(
         output_root,
         config,
-        splits,
-        inputs,
         base_model_path=base_model_path,
+        model_identity_fn=model_identity,
     )
 
 
@@ -2600,10 +1683,6 @@ _load_reference_model = e8_warmstart._load_reference_model
 _calibration_identity = e8_warmstart._calibration_identity
 
 
-def _canonical_task_record(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._canonical_task_record(*args, **kwargs)
-
-
 def _canonical_calibration_identity(
     task: str,
     *,
@@ -2611,7 +1690,7 @@ def _canonical_calibration_identity(
     base_model_path: str,
     config: Mapping[str, Any],
 ) -> dict[str, Any]:
-    record = _canonical_task_record(split_manifest, task)
+    record = _canonical_bridge()._canonical_task_record(split_manifest, task)
     value = {
         "schema_version": 1,
         "experiment_id": experiment_id(config),
@@ -2647,7 +1726,7 @@ def calibrate_canonical_cold_task(
     output_root: Path,
     force: bool,
 ) -> dict[str, Any]:
-    record = _canonical_task_record(split_manifest, task)
+    record = _canonical_bridge()._canonical_task_record(split_manifest, task)
     identity = _canonical_calibration_identity(
         task,
         split_manifest=split_manifest,

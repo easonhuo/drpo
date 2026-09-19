@@ -11,6 +11,7 @@ module never imports the composition root back.
 
 from __future__ import annotations
 
+import copy
 import gc
 import hashlib
 import json
@@ -23,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import yaml
 
 from drpo import e8_experiment_config as experiment_config
 from drpo import e8_multitask_inputs as e8_inputs
@@ -36,11 +38,13 @@ from drpo.e8_multitask_p0 import (
     model_identity,
     read_jsonl,
     resolve_torch_dtype,
+    sha256_file,
     stable_config_hash,
 )
 from drpo.e8_multitask_tasks import TaskInstance, stable_hash
 
 TaskInputs = e8_inputs.TaskInputs
+P0_EXPERIMENT_ID = experiment_config.P0_EXPERIMENT_ID
 _load_task_adapter_and_instances = e8_inputs._load_task_adapter_and_instances
 
 try:
@@ -113,6 +117,713 @@ def _coefficient_from_rho(rho: float) -> float:
         raise ValueError("rho must be finite and strictly between zero and one")
     return -math.log(rho)
 
+
+
+def reference_seed(
+    config: Mapping[str, Any],
+    warmstart_config: Mapping[str, Any],
+    task: str,
+) -> int:
+    configured = config.get("reference", {}).get("task_seeds")
+    if isinstance(configured, Mapping):
+        if task not in configured:
+            raise ValueError(f"reference.task_seeds is missing {task}")
+        return int(configured[task])
+    p0_tasks = tuple(str(value) for value in config["suite"]["p0_tasks"])
+    return int(warmstart_config["seed"]) + p0_tasks.index(task) * 100_003
+
+
+def reference_manifest_path(output_root: Path) -> Path:
+    return output_root / "references" / "reference_manifest.json"
+
+
+def reference_warmstart_config(
+    config: Mapping[str, Any],
+    p0_config_path: Path,
+) -> dict[str, Any]:
+    p0_config = yaml.safe_load(p0_config_path.read_text(encoding="utf-8"))
+    if (
+        not isinstance(p0_config, dict)
+        or p0_config.get("experiment_id") != P0_EXPERIMENT_ID
+    ):
+        raise RuntimeError("P0 config identity mismatch during reference preparation")
+    inherited = copy.deepcopy(p0_config.get("positive_warmstart"))
+    if not isinstance(inherited, dict):
+        raise TypeError("P0 positive-warm-start contract is missing")
+    if inherited.get("checkpoint_kind") != "task_positive_warmstart_100":
+        raise RuntimeError("Unexpected inherited P0 checkpoint kind")
+    if str(inherited.get("parameterization")) != "lora":
+        raise RuntimeError("P0 reference preparation must inherit LoRA parameterization")
+    if int(inherited.get("optimizer_updates", 0)) != int(
+        config["reference"]["optimizer_updates"]
+    ):
+        raise RuntimeError("Inherited P0 reference optimizer-update contract mismatch")
+    if (
+        int(inherited.get("micro_batch", 0)) != 2
+        or int(inherited.get("gradient_accumulation", 0)) != 32
+    ):
+        raise RuntimeError("Inherited reference warm start must remain 2 x 32")
+
+    model_contract = {
+        "lora_rank": int(config["model"]["lora_rank"]),
+        "lora_alpha": int(config["model"]["lora_alpha"]),
+        "lora_dropout": float(config["model"]["lora_dropout"]),
+        "max_length": int(config["model"]["max_length"]),
+        "gradient_checkpointing": bool(config["model"]["gradient_checkpointing"]),
+        "dtype": str(config["model"]["dtype"]),
+    }
+    inherited_contract = {
+        "lora_rank": int(inherited["lora_rank"]),
+        "lora_alpha": int(inherited["lora_alpha"]),
+        "lora_dropout": float(inherited["lora_dropout"]),
+        "max_length": int(inherited["max_length"]),
+        "gradient_checkpointing": bool(inherited["gradient_checkpointing"]),
+        "dtype": str(inherited["dtype"]),
+    }
+    if inherited_contract != model_contract:
+        raise RuntimeError("Inherited P0 LoRA/model contract does not match tuning config")
+
+    inherited["checkpoint_kind"] = str(config["reference"]["checkpoint_kind"])
+    return inherited
+
+
+def reference_identity(
+    *,
+    task: str,
+    config: Mapping[str, Any],
+    split_manifest: Mapping[str, Any],
+    warmstart_config: Mapping[str, Any],
+    base_model_identity: Mapping[str, Any],
+    seed: int,
+) -> dict[str, Any]:
+    train_path = Path(split_manifest["tasks"][task]["paths"]["train"])
+    identity = {
+        "schema_version": 1,
+        "experiment_id": experiment_config.experiment_id(config),
+        "task": task,
+        "config_hash": stable_config_hash(config),
+        "p0_config_sha256": split_manifest["tasks"][task]["p0_config_sha256"],
+        "train_prompt_hash": split_manifest["tasks"][task]["prompt_id_hashes"]["train"],
+        "train_rows_sha256": sha256_file(train_path),
+        "base_model_identity": base_model_identity,
+        "reference_config": dict(warmstart_config),
+        "seed": seed,
+    }
+    identity["identity_hash"] = stable_hash(identity)
+    return identity
+
+
+def reference_manifest_payload(
+    *,
+    config: Mapping[str, Any],
+    base_model_identity: Mapping[str, Any],
+    tasks: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any]:
+    expected_tasks = tuple(str(task) for task in config["suite"]["p0_tasks"])
+    complete = set(tasks) == set(expected_tasks) and all(
+        bool(tasks[task].get("complete"))
+        and bool(tasks[task].get("train_only_reference"))
+        and int(tasks[task].get("validation_rows_seen", -1)) == 0
+        and int(tasks[task].get("test_rows_seen", -1)) == 0
+        for task in expected_tasks
+    )
+    return {
+        "schema_version": 1,
+        "experiment_id": experiment_config.experiment_id(config),
+        "config_hash": stable_config_hash(config),
+        "base_model_identity": base_model_identity,
+        "checkpoint_kind": str(config["reference"]["checkpoint_kind"]),
+        "tasks": dict(tasks),
+        "complete": complete,
+        "validation_rows_seen": 0,
+        "test_rows_seen": 0,
+        "scientific_status": "not_run",
+    }
+
+
+def validate_reference_manifest_header(
+    manifest: Mapping[str, Any],
+    *,
+    config: Mapping[str, Any],
+    base_model_identity: Mapping[str, Any],
+) -> None:
+    if (
+        manifest.get("experiment_id") != experiment_config.experiment_id(config)
+        or manifest.get("config_hash") != stable_config_hash(config)
+        or manifest.get("checkpoint_kind") != config["reference"]["checkpoint_kind"]
+        or manifest.get("base_model_identity") != base_model_identity
+        or int(manifest.get("validation_rows_seen", -1)) != 0
+        or int(manifest.get("test_rows_seen", -1)) != 0
+    ):
+        raise RuntimeError(
+            "Train-only reference manifest identity or leakage audit mismatch"
+        )
+    recorded_tasks = manifest.get("tasks")
+    if not isinstance(recorded_tasks, dict):
+        raise TypeError("Train-only reference manifest tasks are malformed")
+    unknown = set(recorded_tasks) - set(config["suite"]["p0_tasks"])
+    if unknown:
+        raise RuntimeError(
+            f"Train-only reference manifest has unknown tasks: {sorted(unknown)}"
+        )
+
+
+def validate_reference_task_manifest(
+    task_manifest: Mapping[str, Any],
+    *,
+    expected_identity: Mapping[str, Any],
+    expected_train_rows: int,
+) -> Path:
+    if (
+        task_manifest.get("identity_hash") != expected_identity["identity_hash"]
+        or task_manifest.get("checkpoint_kind")
+        != expected_identity["reference_config"]["checkpoint_kind"]
+        or not task_manifest.get("complete")
+        or not task_manifest.get("train_only_reference")
+        or int(task_manifest.get("train_rows_seen", -1)) != expected_train_rows
+        or int(task_manifest.get("validation_rows_seen", -1)) != 0
+        or int(task_manifest.get("test_rows_seen", -1)) != 0
+    ):
+        raise RuntimeError(
+            f"Train-only reference identity or leakage audit mismatch for "
+            f"{expected_identity['task']}"
+        )
+    adapter = Path(str(task_manifest.get("adapter_path", "")))
+    if not (adapter / "adapter_config.json").is_file():
+        raise FileNotFoundError(
+            f"Missing train-only adapter for {expected_identity['task']}: {adapter}"
+        )
+    return adapter
+
+
+def prepare_references(
+    config: Mapping[str, Any],
+    output_root: Path,
+    *,
+    base_model_path: str,
+    tasks: Sequence[str] | None,
+    force: bool,
+    load_prepared_fn: Callable[
+        [Path, Mapping[str, Any]],
+        tuple[dict[str, Any], dict[str, TaskInputs]],
+    ],
+    model_identity_fn: Callable[[str, str | None], Mapping[str, Any]],
+    train_warmstart_fn: Callable[..., dict[str, Any]],
+) -> dict[str, Any]:
+    splits, inputs = load_prepared_fn(output_root, config)
+    p0_tasks = tuple(str(task) for task in config["suite"]["p0_tasks"])
+    requested = tuple(str(task) for task in (tasks or p0_tasks))
+    if not requested or len(set(requested)) != len(requested):
+        raise ValueError("Reference tasks must be a non-empty unique list")
+    unknown = sorted(set(requested) - set(p0_tasks))
+    if unknown:
+        raise ValueError(
+            f"Only configured P0 tasks require train-only references: {unknown}"
+        )
+
+    p0_config_path = inputs[requested[0]].p0_config
+    if any(inputs[task].p0_config != p0_config_path for task in requested):
+        raise RuntimeError("P0 tasks do not share one frozen config path")
+    warmstart_config = reference_warmstart_config(config, p0_config_path)
+    base_identity = model_identity_fn(base_model_path, None)["model"]
+    task_seeds = {
+        task: reference_seed(config, warmstart_config, task) for task in p0_tasks
+    }
+
+    root = output_root / "references"
+    root.mkdir(parents=True, exist_ok=True)
+    manifest_path = reference_manifest_path(output_root)
+    completed: dict[str, Any] = {}
+    if manifest_path.is_file():
+        existing_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        validate_reference_manifest_header(
+            existing_manifest,
+            config=config,
+            base_model_identity=base_identity,
+        )
+        for task, recorded in existing_manifest["tasks"].items():
+            task_manifest_path = root / task / "task_manifest.json"
+            if not task_manifest_path.is_file():
+                raise FileNotFoundError(
+                    f"Reference manifest points to a missing task manifest: {task}"
+                )
+            task_manifest = json.loads(
+                task_manifest_path.read_text(encoding="utf-8")
+            )
+            if task_manifest != recorded:
+                raise RuntimeError(
+                    f"Reference task/top-level manifest mismatch for {task}"
+                )
+            expected = reference_identity(
+                task=task,
+                config=config,
+                split_manifest=splits,
+                warmstart_config=warmstart_config,
+                base_model_identity=base_identity,
+                seed=task_seeds[task],
+            )
+            try:
+                validate_reference_task_manifest(
+                    task_manifest,
+                    expected_identity=expected,
+                    expected_train_rows=int(config["split"]["p0_train_rows"]),
+                )
+            except (FileNotFoundError, RuntimeError):
+                if not force or task not in requested:
+                    raise
+                continue
+            completed[task] = task_manifest
+
+    for task in requested:
+        task_root = root / task
+        train_path = Path(splits["tasks"][task]["paths"]["train"])
+        identity = reference_identity(
+            task=task,
+            config=config,
+            split_manifest=splits,
+            warmstart_config=warmstart_config,
+            base_model_identity=base_identity,
+            seed=task_seeds[task],
+        )
+        if task in completed and not force:
+            continue
+        if task_root.exists():
+            if not force:
+                raise RuntimeError(
+                    f"Reference directory exists without reusable identity: {task}"
+                )
+            if root.resolve() not in task_root.resolve().parents:
+                raise RuntimeError(
+                    f"Refusing unsafe reference removal: {task_root}"
+                )
+            shutil.rmtree(task_root)
+        task_root.mkdir(parents=True, exist_ok=False)
+        train_rows = read_jsonl(train_path)
+        result = train_warmstart_fn(
+            task=task,
+            rows=train_rows,
+            model_path=base_model_path,
+            output_dir=task_root,
+            warmstart_config=warmstart_config,
+            seed=task_seeds[task],
+        )
+        result.update(identity)
+        result.update(
+            {
+                "train_only_reference": True,
+                "train_rows_seen": len(train_rows),
+                "validation_rows_seen": 0,
+                "test_rows_seen": 0,
+            }
+        )
+        atomic_json(task_root / "task_manifest.json", result)
+        completed[task] = result
+        atomic_json(
+            manifest_path,
+            reference_manifest_payload(
+                config=config,
+                base_model_identity=base_identity,
+                tasks=completed,
+            ),
+        )
+
+    manifest = reference_manifest_payload(
+        config=config,
+        base_model_identity=base_identity,
+        tasks=completed,
+    )
+    atomic_json(manifest_path, manifest)
+    return manifest
+
+
+def attach_references(
+    output_root: Path,
+    config: Mapping[str, Any],
+    splits: Mapping[str, Any],
+    inputs: Mapping[str, TaskInputs],
+    *,
+    base_model_path: str,
+    model_identity_fn: Callable[[str, str | None], Mapping[str, Any]],
+) -> dict[str, TaskInputs]:
+    path = reference_manifest_path(output_root)
+    if not path.is_file():
+        raise RuntimeError("Run train-only reference preparation before calibration")
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    base_identity = model_identity_fn(base_model_path, None)["model"]
+    validate_reference_manifest_header(
+        manifest,
+        config=config,
+        base_model_identity=base_identity,
+    )
+    p0_tasks = tuple(str(task) for task in config["suite"]["p0_tasks"])
+    if not manifest.get("complete") or set(manifest["tasks"]) != set(p0_tasks):
+        raise RuntimeError("Train-only reference manifest is incomplete")
+
+    p0_config_path = inputs[p0_tasks[0]].p0_config
+    warmstart_config = reference_warmstart_config(config, p0_config_path)
+    attached: dict[str, TaskInputs] = {}
+    for task, value in inputs.items():
+        if task == "countdown":
+            if value.reference_adapter is None:
+                raise RuntimeError("Countdown supplied reference adapter is missing")
+            attached[task] = value
+            continue
+
+        task_manifest_path = output_root / "references" / task / "task_manifest.json"
+        if not task_manifest_path.is_file():
+            raise FileNotFoundError(
+                f"Missing train-only task manifest for {task}"
+            )
+        task_manifest = json.loads(
+            task_manifest_path.read_text(encoding="utf-8")
+        )
+        if task_manifest != manifest["tasks"].get(task):
+            raise RuntimeError(
+                f"Reference task/top-level manifest mismatch for {task}"
+            )
+        expected_identity = reference_identity(
+            task=task,
+            config=config,
+            split_manifest=splits,
+            warmstart_config=warmstart_config,
+            base_model_identity=base_identity,
+            seed=reference_seed(config, warmstart_config, task),
+        )
+        adapter = validate_reference_task_manifest(
+            task_manifest,
+            expected_identity=expected_identity,
+            expected_train_rows=int(config["split"]["p0_train_rows"]),
+        )
+        if task_manifest.get("adapter_identity") != model_identity_fn(
+            base_model_path,
+            str(adapter),
+        )["adapter"]:
+            raise RuntimeError(
+                f"Train-only adapter content identity mismatch for {task}"
+            )
+        attached[task] = TaskInputs(
+            task=value.task,
+            bank=value.bank,
+            reference_adapter=adapter,
+            sources_root=value.sources_root,
+            p0_config=value.p0_config,
+            countdown_validation=value.countdown_validation,
+        )
+    return attached
+
+
+def load_ready_inputs(
+    output_root: Path,
+    config: Mapping[str, Any],
+    *,
+    base_model_path: str,
+    model_identity_fn: Callable[[str, str | None], Mapping[str, Any]],
+) -> tuple[dict[str, Any], dict[str, TaskInputs]]:
+    splits, inputs = e8_inputs.load_prepared_inputs(output_root, config)
+    if _is_coldstart(config):
+        if any(value.reference_adapter is not None for value in inputs.values()):
+            raise RuntimeError(
+                "Cold-start prepared inputs must not contain external adapters"
+            )
+        return splits, inputs
+    return splits, attach_references(
+        output_root,
+        config,
+        splits,
+        inputs,
+        base_model_path=base_model_path,
+        model_identity_fn=model_identity_fn,
+    )
+
+
+def _parent_response_rows(
+    parent_config: Mapping[str, Any],
+    parent_output_root: Path,
+    tasks: set[str],
+    *,
+    build_cells_fn: Callable[[Mapping[str, Any]], Sequence[Any]],
+    experiment_id_fn: Callable[[Mapping[str, Any]], str],
+    coefficient_from_rho_fn: Callable[[float], float],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    expected_hash = stable_config_hash(parent_config)
+    for cell in build_cells_fn(parent_config):
+        if cell.task not in tasks:
+            continue
+        path = parent_output_root / "cells" / cell.key / "cell_manifest.json"
+        if not path.is_file():
+            raise FileNotFoundError(f"Missing predecessor cell manifest: {path}")
+        value = json.loads(path.read_text(encoding="utf-8"))
+        if (
+            value.get("experiment_id") != experiment_id_fn(parent_config)
+            or value.get("config_hash") != expected_hash
+            or not value.get("complete")
+            or value.get("evaluation_status") != "complete"
+            or value.get("nan_inf_failure") is not False
+        ):
+            raise RuntimeError(f"Predecessor cell is not reusable: {cell.key}")
+        rows.append(
+            {
+                "source": "predecessor",
+                "task": cell.task,
+                "method": cell.method,
+                "rho": cell.rho,
+                "lambda": (
+                    None
+                    if cell.rho is None
+                    else coefficient_from_rho_fn(cell.rho)
+                ),
+                "seed": cell.seed,
+                "cell_key": cell.key,
+                "late_window_pass8_mean": value[
+                    "validation_late_window_pass8_mean"
+                ],
+                "terminal_pass8": value["validation_terminal_pass8"],
+                "late_window_greedy_mean": value[
+                    "validation_late_window_greedy_mean"
+                ],
+                "terminal_greedy": value["validation_terminal_greedy"],
+                "terminal_greedy_valid_rate": value[
+                    "validation_terminal_greedy_valid_rate"
+                ],
+                "nan_inf_failure": False,
+            }
+        )
+    expected = len(tasks) * 8
+    if len(rows) != expected:
+        raise RuntimeError(
+            f"Expected {expected} predecessor response rows, found {len(rows)}"
+        )
+    return rows
+
+
+def inherit_dense_run(
+    config: Mapping[str, Any],
+    output_root: Path,
+    *,
+    parent_output_root: Path,
+    parent_config_path: Path,
+    base_model_path: str,
+    parent_experiment_id: str,
+    is_dense_fn: Callable[[Mapping[str, Any]], bool],
+    load_config_fn: Callable[[Path], Mapping[str, Any]],
+    load_ready_inputs_fn: Callable[..., tuple[dict[str, Any], dict[str, TaskInputs]]],
+    write_plan_fn: Callable[[Mapping[str, Any], Path], Mapping[str, Any]],
+    build_cells_fn: Callable[[Mapping[str, Any]], Sequence[Any]],
+    experiment_id_fn: Callable[[Mapping[str, Any]], str],
+    coefficient_from_rho_fn: Callable[[float], float],
+    model_identity_fn: Callable[[str, str | None], Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Materialize the historical dense-refinement inheritance snapshot."""
+
+    if not is_dense_fn(config):
+        raise RuntimeError("inherit is only valid for the dense refinement profile")
+    parent_config = load_config_fn(parent_config_path)
+    parent_contract = config["parent"]
+    if (
+        experiment_id_fn(parent_config) != parent_experiment_id
+        or stable_config_hash(parent_config) != parent_contract["config_hash"]
+        or int(parent_config["sweep"]["expected_cells"])
+        != int(parent_contract["expected_cells"])
+    ):
+        raise RuntimeError("Predecessor config identity mismatch")
+
+    parent_artifacts = {
+        "plan": parent_output_root / "plan.json",
+        "split_manifest": parent_output_root / "split_manifest.json",
+        "reference_manifest": reference_manifest_path(parent_output_root),
+        "aggregate_summary": (
+            parent_output_root / "aggregate" / "aggregate_summary.json"
+        ),
+    }
+    for name, path in parent_artifacts.items():
+        if not path.is_file():
+            raise FileNotFoundError(f"Missing predecessor {name}: {path}")
+        expected_sha = str(parent_contract["artifact_sha256"][name])
+        if sha256_file(path) != expected_sha:
+            raise RuntimeError(
+                f"Predecessor {name} does not match the delivered result"
+            )
+
+    parent_plan = json.loads(
+        parent_artifacts["plan"].read_text(encoding="utf-8")
+    )
+    parent_aggregate = json.loads(
+        parent_artifacts["aggregate_summary"].read_text(encoding="utf-8")
+    )
+    if (
+        parent_plan.get("experiment_id") != parent_experiment_id
+        or parent_plan.get("config_hash") != parent_contract["config_hash"]
+        or int(parent_plan.get("cell_count", 0))
+        != int(parent_contract["expected_cells"])
+        or parent_aggregate.get("experiment_id") != parent_experiment_id
+        or parent_aggregate.get("test_partition_accessed") is not False
+        or int(parent_aggregate.get("cell_count", 0))
+        != int(parent_contract["expected_cells"])
+    ):
+        raise RuntimeError("Predecessor plan or aggregate contract mismatch")
+
+    parent_splits, parent_inputs = load_ready_inputs_fn(
+        parent_output_root,
+        parent_config,
+        base_model_path=base_model_path,
+    )
+    tasks = tuple(str(task) for task in config["suite"]["tasks"])
+    child_config_hash = stable_config_hash(config)
+    child_split_tasks = {
+        task: copy.deepcopy(parent_splits["tasks"][task]) for task in tasks
+    }
+    child_splits = {
+        "schema_version": 1,
+        "experiment_id": experiment_id_fn(config),
+        "config_hash": child_config_hash,
+        "test_access_allowed": False,
+        "tasks": child_split_tasks,
+        "complete": True,
+        "scientific_status": "not_run",
+        "inherited_from": {
+            "experiment_id": parent_experiment_id,
+            "run_id": parent_contract["run_id"],
+            "result_commit": parent_contract["result_commit"],
+            "split_manifest_sha256": parent_contract["artifact_sha256"][
+                "split_manifest"
+            ],
+        },
+    }
+    atomic_json(output_root / "split_manifest.json", child_splits)
+
+    plan = write_plan_fn(config, output_root)
+    serialized_inputs = {
+        task: {
+            "bank": str(parent_inputs[task].bank),
+            "reference_adapter": None,
+            "sources_root": str(parent_inputs[task].sources_root),
+            "p0_config": str(parent_inputs[task].p0_config),
+            "countdown_validation": None,
+        }
+        for task in tasks
+    }
+    prepare = {
+        "schema_version": 1,
+        "experiment_id": experiment_id_fn(config),
+        "config_hash": child_config_hash,
+        "plan": str((output_root / "plan.json").resolve()),
+        "split_manifest": str((output_root / "split_manifest.json").resolve()),
+        "inputs": serialized_inputs,
+        "complete": plan["cell_count"] == int(config["sweep"]["expected_cells"]),
+        "scientific_status": "not_run",
+        "inherited_from": {
+            "experiment_id": parent_experiment_id,
+            "run_id": parent_contract["run_id"],
+            "result_commit": parent_contract["result_commit"],
+        },
+    }
+    atomic_json(output_root / "prepare_manifest.json", prepare)
+
+    base_identity = model_identity_fn(base_model_path, None)["model"]
+    warmstart = reference_warmstart_config(
+        config, parent_inputs[tasks[0]].p0_config
+    )
+    parent_reference = json.loads(
+        parent_artifacts["reference_manifest"].read_text(encoding="utf-8")
+    )
+    inherited_reference_tasks: dict[str, Any] = {}
+    for task in tasks:
+        parent_task = copy.deepcopy(parent_reference["tasks"][task])
+        expected_identity = reference_identity(
+            task=task,
+            config=config,
+            split_manifest=child_splits,
+            warmstart_config=warmstart,
+            base_model_identity=base_identity,
+            seed=reference_seed(config, warmstart, task),
+        )
+        parent_task.update(expected_identity)
+        parent_task["inherited_from"] = {
+            "experiment_id": parent_experiment_id,
+            "run_id": parent_contract["run_id"],
+            "parent_identity_hash": parent_reference["tasks"][task][
+                "identity_hash"
+            ],
+            "parent_task_manifest_sha256": sha256_file(
+                parent_output_root
+                / "references"
+                / task
+                / "task_manifest.json"
+            ),
+        }
+        inherited_reference_tasks[task] = parent_task
+        atomic_json(
+            output_root / "references" / task / "task_manifest.json",
+            parent_task,
+        )
+    child_reference = reference_manifest_payload(
+        config=config,
+        base_model_identity=base_identity,
+        tasks=inherited_reference_tasks,
+    )
+    child_reference["inherited_from"] = {
+        "experiment_id": parent_experiment_id,
+        "run_id": parent_contract["run_id"],
+        "result_commit": parent_contract["result_commit"],
+        "reference_manifest_sha256": parent_contract["artifact_sha256"][
+            "reference_manifest"
+        ],
+    }
+    atomic_json(reference_manifest_path(output_root), child_reference)
+
+    response_rows = _parent_response_rows(
+        parent_config,
+        parent_output_root,
+        set(tasks),
+        build_cells_fn=build_cells_fn,
+        experiment_id_fn=experiment_id_fn,
+        coefficient_from_rho_fn=coefficient_from_rho_fn,
+    )
+    parent_response = {
+        "schema_version": 1,
+        "experiment_id": experiment_id_fn(config),
+        "config_hash": child_config_hash,
+        "parent_experiment_id": parent_experiment_id,
+        "parent_run_id": parent_contract["run_id"],
+        "parent_result_commit": parent_contract["result_commit"],
+        "rows": response_rows,
+        "complete": True,
+    }
+    atomic_json(
+        output_root / "inherited" / "parent_response.json",
+        parent_response,
+    )
+    snapshot = {
+        "schema_version": 1,
+        "experiment_id": experiment_id_fn(config),
+        "config_hash": child_config_hash,
+        "parent_run_id": parent_contract["run_id"],
+        "parent_result_repository": parent_contract["result_repository"],
+        "parent_result_commit": parent_contract["result_commit"],
+        "parent_source_commit": parent_contract["source_commit"],
+        "parent_config_hash": parent_contract["config_hash"],
+        "parent_artifact_sha256": dict(parent_contract["artifact_sha256"]),
+        "tasks": list(tasks),
+        "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
+        "inherited_split": True,
+        "inherited_train_only_references": True,
+        "inherited_positive_only_anchor": True,
+        "calibration_must_be_rerun": True,
+        "test_partition_accessed": False,
+        "complete": True,
+        "scientific_status": "not_run",
+    }
+    atomic_json(
+        output_root / "inherited" / "parent_snapshot.json",
+        snapshot,
+    )
+    load_ready_inputs_fn(
+        output_root,
+        config,
+        base_model_path=base_model_path,
+    )
+    return snapshot
 
 def normalized_distance(
     sequence_log_probability: Any,
