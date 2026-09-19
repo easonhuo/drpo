@@ -19,6 +19,7 @@ try:
 except ImportError:
     torch = None
 
+from drpo import e8_multitask_inputs as e8_inputs
 from drpo import e8_multitask_p0 as p0
 from drpo.e8_multitask_tasks import (
     REASONING_GYM_COMMIT,
@@ -600,7 +601,7 @@ def test_exp_tuning_rejects_qualification_from_another_p0_config(tmp_path: Path)
         },
     )
     with pytest.raises(RuntimeError, match="qualification identity"):
-        exp_tuning.resolve_task_inputs(
+        e8_inputs.resolve_task_inputs(
             config,
             p0_work_dir=tmp_path,
             p0_config=Path("configs/e8_multitask_p0.yaml").resolve(),
@@ -1002,8 +1003,8 @@ def test_exp_tuning_p0_split_is_deterministic_and_disjoint() -> None:
         for index in range(8)
     ]
 
-    first = exp_tuning.split_p0_rows(rows, task="word_sorting", config=config)
-    second = exp_tuning.split_p0_rows(rows, task="word_sorting", config=config)
+    first = e8_inputs.split_p0_rows(rows, task="word_sorting", config=config)
+    second = e8_inputs.split_p0_rows(rows, task="word_sorting", config=config)
     assert first == second
     assert {name: len(values) for name, values in first.items()} == {
         "train": 5,
@@ -1018,7 +1019,7 @@ def test_exp_tuning_p0_split_is_deterministic_and_disjoint() -> None:
     duplicate_rows = json.loads(json.dumps(rows))
     duplicate_rows[-1]["prompt_id"] = duplicate_rows[0]["prompt_id"]
     with pytest.raises(RuntimeError, match="duplicate prompt IDs|overlaps"):
-        exp_tuning.split_p0_rows(
+        e8_inputs.split_p0_rows(
             duplicate_rows,
             task="word_sorting",
             config=config,
@@ -1059,7 +1060,7 @@ def test_exp_tuning_countdown_normalization_preserves_frozen_split() -> None:
             "target": 3,
         }
     ]
-    partitions = exp_tuning.split_countdown_rows(
+    partitions = e8_inputs.split_countdown_rows(
         train_rows,
         validation_rows,
         config=config,
@@ -1085,9 +1086,9 @@ def test_exp_tuning_duplicate_negative_allowance_is_countdown_only() -> None:
         for index in range(16)
     ]
     row = {"prompt_id": "prompt-0", "negatives": negatives}
-    exp_tuning._audit_training_rows("countdown", [row], 1)
+    e8_inputs._audit_training_rows("countdown", [row], 1)
     with pytest.raises(RuntimeError, match="duplicate negative completions"):
-        exp_tuning._audit_training_rows("word_sorting", [row], 1)
+        e8_inputs._audit_training_rows("word_sorting", [row], 1)
 
 
 def test_exp_tuning_liveness_does_not_open_validation_split(tmp_path: Path) -> None:
@@ -1492,8 +1493,8 @@ def test_exp_coldstart_reference_remoteness_contract_is_static_selection_dynamic
     assert contract["static_reference_rank_enters_training_weight"] is False
     assert contract["current_policy_surprisal_recomputed_each_update"] is True
     assert contract["original_p0_bank_preserved"] is True
-    assert exp_tuning._evenly_spaced_rank_indices(16) == tuple(range(16))
-    indices = exp_tuning._evenly_spaced_rank_indices(41)
+    assert e8_inputs._evenly_spaced_rank_indices(16) == tuple(range(16))
+    indices = e8_inputs._evenly_spaced_rank_indices(41)
     assert len(indices) == 16
     assert len(set(indices)) == 16
     assert indices[0] == 0 and indices[-1] == 40
@@ -1537,8 +1538,8 @@ def test_verified_wrong_candidate_reconstruction_uses_full_deterministic_univers
             for value in range(16)
         ],
     }
-    first = exp_tuning._verified_wrong_candidates(FakeAdapter(), instance, source_row)
-    second = exp_tuning._verified_wrong_candidates(FakeAdapter(), instance, source_row)
+    first = e8_inputs._verified_wrong_candidates(FakeAdapter(), instance, source_row)
+    second = e8_inputs._verified_wrong_candidates(FakeAdapter(), instance, source_row)
     assert first == second
     assert len(first) == 25
     assert len({row["canonical_completion"] for row in first}) == 25
@@ -1585,7 +1586,7 @@ def test_task_base_config_transfer_has_batch16_and_pass8_only(tmp_path: Path) ->
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_coldstart.yaml"))
     task_root = tmp_path / "graph_color"
     task_root.mkdir()
-    path, changed = exp_tuning._task_base_config(
+    path, changed = e8_inputs._task_base_config(
         config,
         task="graph_color",
         canonical_paths=exp_tuning._canonical_paths(config),
@@ -2149,7 +2150,7 @@ def test_new_coldstart_config_controls_materialized_runtime_without_core_edits(
     canonical_paths = exp_tuning._canonical_paths(config)
     task_root = tmp_path / "word_sorting"
     task_root.mkdir()
-    base_path, changed = exp_tuning._task_base_config(
+    base_path, changed = e8_inputs._task_base_config(
         config,
         task="word_sorting",
         canonical_paths=canonical_paths,
@@ -2172,7 +2173,7 @@ def test_new_coldstart_config_controls_materialized_runtime_without_core_edits(
     assert base["evaluation"]["top_p"] == pytest.approx(0.9)
     assert "offline_training.learning_rate" in changed
 
-    grids = exp_tuning._task_grid_configs(
+    grids = e8_inputs._task_grid_configs(
         config,
         canonical_paths=canonical_paths,
         task_root=task_root,
@@ -2207,7 +2208,7 @@ def test_legacy_runtime_bridge_forwards_configured_interface_values(tmp_path: Pa
     canonical_paths = exp_tuning._canonical_paths(config)
     task_root = tmp_path / "word_sorting"
     task_root.mkdir()
-    grids = exp_tuning._task_grid_configs(
+    grids = e8_inputs._task_grid_configs(
         config,
         canonical_paths=canonical_paths,
         task_root=task_root,
@@ -2496,7 +2497,7 @@ def test_zero_warmup_reaches_legacy_scheduler(tmp_path: Path) -> None:
     effective = experiment_config.effective_coldstart_runtime(config, "word_sorting")
     task_root = tmp_path / "word_sorting"
     task_root.mkdir()
-    grids = exp_tuning._task_grid_configs(
+    grids = e8_inputs._task_grid_configs(
         config,
         canonical_paths=exp_tuning._canonical_paths(config),
         task_root=task_root,
