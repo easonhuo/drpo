@@ -154,23 +154,20 @@ def evaluate_taper_state(
         actor.all_parameters(),
         alpha=taper.negative_alpha,
     )
-    finite_parameters = finite_model(actor)
     support = evaluation(actor, environment.train, protocol)
-    numerical = bool(
-        not finite_parameters
-        or not support["log_sigma_output_finite"]
-        or not support["sigma_output_finite"]
-    )
-    boundary = bool(
-        support["support_contraction_boundary"] or support["unexpected_support_expansion_boundary"]
-    )
-    task_failure = bool(float(task["reward"]) < protocol.task_failure_retention * initial_reward)
     return {
         **task,
         **field,
-        "task_performance_collapse_event": task_failure,
-        "support_or_variance_boundary_event": boundary,
-        "nan_inf_numerical_event": numerical,
+        "task_performance_collapse_event": (
+            float(task["reward"]) < protocol.task_failure_retention * initial_reward
+        ),
+        "support_or_variance_boundary_event": bool(
+            support["support_or_variance_boundary_event"]
+        ),
+        "nan_inf_numerical_event": bool(
+            not finite_model(actor) or support["nan_inf_numerical_event"]
+        ),
+        "support_event_type": support["support_event_type"],
     }
 
 

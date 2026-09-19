@@ -291,7 +291,7 @@ def evaluation(
     split: Split,
     protocol: CU1Protocol,
     fixed_sigma: float | None = None,
-) -> dict[str, float | bool]:
+) -> dict[str, float | bool | str | None]:
     actor.eval()
     with torch.no_grad():
         mu, predicted = actor(split.s)
@@ -323,13 +323,9 @@ def evaluation(
             "reward": reward.mean().item(),
             "normalized_extrapolation_displacement": normalized.mean().item(),
             "sigma_mean": sigma.mean().item(),
-            "log_sigma_min": log_min,
-            "log_sigma_max": log_max,
-            "log_sigma_output_finite": finite_log_sigma,
-            "sigma_output_finite": finite_sigma,
-            "support_contraction_boundary": contraction,
-            "unexpected_support_expansion_boundary": expansion,
-            "event_type": event_type,
+            "support_or_variance_boundary_event": contraction or expansion,
+            "nan_inf_numerical_event": not finite_log_sigma or not finite_sigma,
+            "support_event_type": event_type,
         }
 
 

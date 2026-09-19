@@ -307,7 +307,7 @@ def run_causal_intervention(
         post_support = (
             evaluation(actor, environment.train, protocol) if fixed_sigma is None else {}
         )
-        support_type = post_support["event_type"] if fixed_sigma is None else None
+        support_type = post_support["support_event_type"] if fixed_sigma is None else None
         if support_type is not None and support_onset is None:
             support_onset = step
             first_support_event_type = support_type
@@ -362,22 +362,12 @@ def run_causal_intervention(
         "finite_parameters": finite_parameters,
         "steps_completed": step,
         "task_performance_collapse": task_onset is not None,
-        "support_or_probability_boundary": bool(
-            final_support
-            and (
-                final_support["support_contraction_boundary"]
-                or final_support["unexpected_support_expansion_boundary"]
-            )
+        "support_or_variance_boundary_event": bool(
+            final_support and final_support["support_or_variance_boundary_event"]
         ),
-        "nan_inf_numerical_failure": bool(
+        "nan_inf_numerical_event": bool(
             not finite_parameters
-            or (
-                final_support
-                and (
-                    not final_support["log_sigma_output_finite"]
-                    or not final_support["sigma_output_finite"]
-                )
-            )
+            or (final_support and final_support["nan_inf_numerical_event"])
         ),
     }
     return summary

@@ -169,7 +169,7 @@ def run_phase_scan(
                 if fixed_sigma is None
                 else {}
             )
-            event_type = post_support["event_type"] if fixed_sigma is None else None
+            event_type = post_support["support_event_type"] if fixed_sigma is None else None
             if event_type is not None and support_onset is None:
                 support_onset = step
                 first_support_event_type = event_type
