@@ -42,20 +42,12 @@ split_countdown_rows = e8_inputs.split_countdown_rows
 split_p0_rows = e8_inputs.split_p0_rows
 TaskInputs = e8_inputs.TaskInputs
 _evenly_spaced_rank_indices = e8_inputs._evenly_spaced_rank_indices
-_reference_surprisal_summary = e8_inputs._reference_surprisal_summary
-_coverage_first_reference_rank_indices = (
-    e8_inputs._coverage_first_reference_rank_indices
-)
-_reference_error_class_audit = e8_inputs._reference_error_class_audit
 _verified_wrong_candidates = e8_inputs._verified_wrong_candidates
 resolve_task_inputs = e8_inputs.resolve_task_inputs
 write_split_manifest = e8_inputs.write_split_manifest
 _leaf_values = e8_inputs._leaf_values
-_changed_leaf_paths = e8_inputs._changed_leaf_paths
-_atomic_yaml = e8_inputs._atomic_yaml
 _task_base_config = e8_inputs._task_base_config
 _task_grid_configs = e8_inputs._task_grid_configs
-_load_task_adapter_and_instances = e8_inputs._load_task_adapter_and_instances
 
 
 def _canonical_bridge() -> e8_canonical_bridge.CanonicalBridge:
