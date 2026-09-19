@@ -28,13 +28,13 @@ from .cu1 import (
     positive_loss,
 )
 from .cu1_training import (
-    CU1PositiveProtocol,
     EPS,
+    CU1PositiveProtocol,
     add_gradients,
     finite_model,
+    gradient_norm,
     gradients,
     initialized_actor,
-    gradient_norm,
     make_adam,
     sample_ids,
     scale_gradients,

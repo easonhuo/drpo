@@ -8,11 +8,11 @@ from collections.abc import Mapping, Sequence
 import torch
 from torch import nn
 
+from drpo_reference.controls import TaperFamily
 from drpo_reference.controls import (
     normalized_excess_surprisal as shared_normalized_excess,
-    TaperFamily,
-    taper_weight as shared_taper_weight,
 )
+from drpo_reference.controls import taper_weight as shared_taper_weight
 
 from .du1_environment import CartesianSemanticEnvironment
 from .du1_policy import (

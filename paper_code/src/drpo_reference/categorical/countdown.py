@@ -1173,7 +1173,7 @@ def active_tail_objective_gradient_l2(
             bank_batch = _require_tensor_mapping(packed, "bank")
             row_index, unique_counts = _require_packed_bank_indices(packed)
             stats = completion_stats(model, bank_batch)
-            normalized, distance = normalized_active_tail_remoteness(
+            _, distance = normalized_active_tail_remoteness(
                 stats["seq_lp"],
                 tau=tau,
                 surprisal_scale=surprisal_scale,
@@ -1429,6 +1429,14 @@ def evaluate_response_batches(
 
 
 __all__ = [
+    "COUNTDOWN_ACTIVE_TAIL_METHODS",
+    "COUNTDOWN_ACTIVE_TAIL_TAU_RULE",
+    "COUNTDOWN_CORE_VERSION",
+    "COUNTDOWN_REFERENCE_DISTANCE",
+    "CountdownTrainingItem",
+    "EncodedCompletion",
+    "ExpressionVerifier",
+    "SYSTEM_PROMPT",
     "active_distance_diagnostics",
     "active_tail_objective_from_model",
     "active_tail_objective_from_precomputed_weights",
@@ -1443,20 +1451,13 @@ __all__ = [
     "collate_countdown_training_items",
     "completion_statistics_from_logits",
     "completion_stats",
-    "COUNTDOWN_ACTIVE_TAIL_METHODS",
-    "COUNTDOWN_ACTIVE_TAIL_TAU_RULE",
-    "COUNTDOWN_CORE_VERSION",
     "countdown_objective_from_model",
-    "COUNTDOWN_REFERENCE_DISTANCE",
     "countdown_training_objective",
     "countdown_weight_diagnostics",
-    "CountdownTrainingItem",
     "deterministic_active_tail_weights_from_model",
     "encode_countdown_training_row",
     "encode_prompt_completion",
-    "EncodedCompletion",
     "evaluate_response_batches",
-    "ExpressionVerifier",
     "gradient_l2_from_loss",
     "make_prompt_balanced_sampler_plan",
     "mean_unique_negative_term",
@@ -1467,7 +1468,6 @@ __all__ = [
     "paper_aligned_linear_weights",
     "parameter_update_norm",
     "resolve_active_tail_tau",
-    "SYSTEM_PROMPT",
     "unique_negative_expressions",
     "validate_active_tail_calibration",
     "verifier_category",

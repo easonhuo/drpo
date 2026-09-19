@@ -17,11 +17,11 @@ from .cu1 import (
 )
 from .cu1_training import (
     CU1PositiveProtocol,
+    field_diagnostics,
     finite_model,
     initialized_actor,
     make_adam,
     sample_ids,
-    field_diagnostics,
 )
 
 

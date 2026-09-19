@@ -15,8 +15,8 @@ from drpo_reference.common.io import atomic_json
 from .d4rl import (
     D4RL9_TASKS,
     D4RL_METHODS,
-    D4RLTaskSpec,
     CanonicalExpRankTrainingConfig,
+    D4RLTaskSpec,
     SNA2CIQLVExpRankAgent,
     load_d4rl_hdf5,
     prepare_canonical_locomotion_dataset,
