@@ -1392,183 +1392,329 @@ respectively.
 \label{app:distance_strength}
 
 \begin{proof}
-Let \(\delta=a-\mu\) and \(x=\Sigma^{-1/2}\delta\). For a fixed-covariance
-Gaussian policy,
+Let \(\delta=a-\mu\). For a Gaussian policy with fixed covariance
+\(\Sigma\), the negative log-likelihood expands as
 \[
-D_\mu(a)-C_\Sigma
-=
-\frac12\|x\|_2^2,
-\qquad
-\nabla_\mu\log\pi_\mu(a)
-=
-\Sigma^{-1}\delta,
-\qquad
-R_\mu(a)
-=
-x^\top\Sigma^{-1}x.
+    D_\mu(a)
+    =
+    C_\Sigma
+    +
+    \frac{1}{2}
+    \delta^\top\Sigma^{-1}\delta,
 \]
-The Rayleigh quotient therefore gives
-\[
-2\lambda_{\min}(\Sigma^{-1})
-\bigl(D_\mu(a)-C_\Sigma\bigr)
-\le
-R_\mu(a)
-\le
-2\lambda_{\max}(\Sigma^{-1})
-\bigl(D_\mu(a)-C_\Sigma\bigr).
-\]
-Hence the Gaussian mean-score response is linearly comparable to
-\(D_\mu(a)-C_\Sigma\) and grows without bound with standardized distance.
-If \(\Sigma=\sigma^2I\), the bounds collapse to
-\[
-R_\mu(a)
-=
-\frac{2}{\sigma^2}
-\bigl(D_\mu(a)-C_\Sigma\bigr).
-\]
+where
+\(C_\Sigma=\frac{d}{2}\log(2\pi)+\frac{1}{2}\log|\Sigma|\)
+is independent of \(a\) and \(\mu\). This proves
+Equation~\eqref{eq:gaussian_remoteness_mahalanobis}.
 
-For a categorical policy, the \(K=1\) case is degenerate:
-\(\pi_z(a)=1\), \(D_z(a)=0\), and the score is identically zero.
-Assume \(K\ge2\) below and let
-\(p_a=\pi_z(a)=e^{-D_z(a)}\). Since
+The mean score function is
+\begin{equation}
+    \mathbf{s}_\mu(a)
+    =
+    \nabla_\mu\log\pi_\mu(a)
+    =
+    \Sigma^{-1}\delta,
+\end{equation}
+and hence
+\begin{equation}
+    R_\mu(a)
+    =
+    \left\|\mathbf{s}_\mu(a)\right\|_2^2
+    =
+    \delta^\top\Sigma^{-2}\delta.
+    \label{eq:proof_gaussian_score_norm}
+\end{equation}
+Let \(x=\Sigma^{-1/2}\delta\). Then
+\begin{equation}
+    D_\mu(a)-C_\Sigma
+    =
+    \frac{1}{2}\|x\|_2^2,
+    \qquad
+    R_\mu(a)
+    =
+    x^\top\Sigma^{-1}x.
+\end{equation}
+Applying the Rayleigh quotient bounds gives
+\begin{equation}
+\begin{aligned}
+    R_\mu(a)
+    &\geq
+    2\lambda_{\min}(\Sigma^{-1})
+    \bigl(D_\mu(a)-C_\Sigma\bigr), \\
+    R_\mu(a)
+    &\leq
+    2\lambda_{\max}(\Sigma^{-1})
+    \bigl(D_\mu(a)-C_\Sigma\bigr).
+\end{aligned}
+\label{eq:proof_gaussian_score_remoteness_bounds}
+\end{equation}
+Thus, \(R_\mu(a)\) is linearly comparable to
+\(D_\mu(a)-C_\Sigma\), with constants determined only by \(\Sigma\).
+Since \(D_\mu(a)-C_\Sigma=\frac12 d_{\mathrm{Mah}}^2(a,\mu)\),
+the Gaussian mean-score response grows without bound as the standardized
+distance grows.
+
+When \(\Sigma=\sigma^2I\), Equation~\eqref{eq:proof_gaussian_score_norm}
+gives
 \[
-\nabla_z\log\pi_z(a)=e_a-\pi_z,
+    R_\mu(a)
+    =
+    \frac{1}{\sigma^4}\|\delta\|_2^2,
+    \qquad
+    D_\mu(a)-C_\Sigma
+    =
+    \frac{1}{2\sigma^2}\|\delta\|_2^2.
 \]
-the selected-logit response is
+Therefore,
 \[
-\left|
-\frac{\partial}{\partial z_a}\log\pi_z(a)
-\right|
-=
-1-p_a
-=
-1-e^{-D_z(a)},
+    R_\mu(a)
+    =
+    \frac{2}{\sigma^2}
+    \bigl(D_\mu(a)-C_\Sigma\bigr),
 \]
-which increases with surprisal and saturates at one. Moreover,
-\[
-R_z(a)
-=
-(1-p_a)^2+\sum_{j\ne a}\pi_z(j)^2.
-\]
-The non-selected probabilities are nonnegative and sum to \(1-p_a\), so
-\[
-\frac{(1-p_a)^2}{K-1}
-\le
-\sum_{j\ne a}\pi_z(j)^2
-\le
-(1-p_a)^2.
-\]
-Therefore
-\[
-\frac{K}{K-1}(1-p_a)^2
-\le
-R_z(a)
-\le
-2(1-p_a)^2
-\le
-2,
-\]
-which proves the claimed bounded categorical score behavior.
+which proves the isotropic exact relation stated in the proposition.
+
+For the categorical policy, let
+\begin{equation}
+    p
+    =
+    \pi_z(a)
+    =
+    e^{-D_z(a)}.
+\end{equation}
+The score function with respect to the logits is
+\begin{equation}
+    \mathbf{s}_z(a)
+    =
+    \nabla_z\log\pi_z(a)
+    =
+    e_a-\pi_z.
+\end{equation}
+Its selected-action component is therefore
+\begin{equation}
+    \left|
+        \frac{\partial}{\partial z_a}
+        \log\pi_z(a)
+    \right|
+    =
+    1-p
+    =
+    1-e^{-D_z(a)},
+\end{equation}
+which proves Equation~\eqref{eq:categorical_selected_score}. Since
+\(1-e^{-D}\) is strictly increasing for \(D\geq0\) and converges to
+\(1\) as \(D\rightarrow\infty\), the selected-logit response increases
+with surprisal but remains bounded.
+
+For completeness, the squared norm of the full categorical score function is
+\begin{equation}
+\begin{aligned}
+    R_z(a)
+    &=
+    \left\|
+        e_a-\pi_z
+    \right\|_2^2 \\
+    &=
+    (1-p)^2
+    +
+    \sum_{j\neq a}\pi_z(j)^2.
+\end{aligned}
+\end{equation}
+Because the non-selected probabilities sum to \(1-p\), the
+Cauchy--Schwarz inequality gives
+\begin{equation}
+    \sum_{j\neq a}\pi_z(j)^2
+    \geq
+    \frac{(1-p)^2}{K-1}.
+\end{equation}
+The same sum is at most \((1-p)^2\). Hence,
+\begin{equation}
+\begin{aligned}
+    \frac{K}{K-1}(1-p)^2
+    &\leq
+    R_z(a) \\
+    &\leq
+    2(1-p)^2.
+\end{aligned}
+\end{equation}
+Substituting \(p=e^{-D_z(a)}\) shows that the full categorical logit-score
+norm is bounded, completing the proof.
 \end{proof}
+
 
 \subsection{Proof of Theorem~\ref{thm:reuse_dynamics}}
 \label{app:reuse_dynamics}
 
-For fixed-covariance Gaussian means,
+Before proving the generic reuse result, we verify the convexity condition
+for the two policy-output coordinates used in the main text. For
+fixed-covariance Gaussian means,
 \[
-D_\mu(a)
-=
-C_\Sigma+\frac12(a-\mu)^\top\Sigma^{-1}(a-\mu),
+D_\mu(a)=C_\Sigma+\frac12(a-\mu)^\top\Sigma^{-1}(a-\mu),
 \qquad
 \nabla_\mu^2D_\mu(a)=\Sigma^{-1}\succeq0.
 \]
-For categorical logits \(z\), with \(\pi=\operatorname{softmax}(z)\),
+For categorical logits \(z\), with \(p=\mathrm{softmax}(z)\),
 \[
-D_z(a)
-=
-\log\sum_j e^{z_j}-z_a,
+D_z(a)=\log\sum_j e^{z_j}-z_a,
 \qquad
-\nabla_z^2D_z(a)
-=
-\operatorname{diag}(\pi)-\pi\pi^\top\succeq0,
+\nabla_z^2D_z(a)=\operatorname{diag}(p)-pp^\top\succeq0,
 \]
 because
-\(v^\top(\operatorname{diag}(\pi)-\pi\pi^\top)v
-=\operatorname{Var}_{i\sim\pi}(v_i)\ge0\).
-Thus both policy-output coordinates satisfy the theorem's convexity
-assumption.
+\[
+v^\top(\operatorname{diag}(p)-pp^\top)v
+=
+\operatorname{Var}_{i\sim p}(v_i)\ge0.
+\]
 
 \begin{proof}
-Write
+Let
 \[
-f=D,
-\qquad
-g_t=\nabla f(u_t),
-\qquad
-R_t=\|g_t\|_2^2.
+    f(u)=D(u),
+    \qquad
+    g_t=\nabla f(u_t),
+    \qquad
+    R_t=\|g_t\|_2^2.
 \]
 
-If \(\widehat A=-c<0\), let \(\alpha=\eta c\). Then
-\(u_{t+1}=u_t+\alpha g_t\), and convexity gives
+We first consider a negative coefficient
+$\widehat{A}=-c$ with $c>0$. Defining
+$\alpha=\eta c$, the update becomes
 \[
-D_{t+1}
-\ge
-D_t+g_t^\top(u_{t+1}-u_t)
-=
-D_t+\alpha R_t.
+    u_{t+1}
+    =
+    u_t+\alpha g_t.
 \]
-Gradient monotonicity gives
+By convexity of $f$,
+\begin{align}
+    f(u_{t+1})
+    &\geq
+    f(u_t)
+    +
+    g_t^\top(u_{t+1}-u_t) \\
+    &=
+    f(u_t)+\alpha\|g_t\|_2^2.
+\end{align}
+Hence,
 \[
-(g_{t+1}-g_t)^\top(u_{t+1}-u_t)\ge0.
+    D_{t+1}
+    \geq
+    D_t+\eta|\widehat{A}|R_t.
 \]
-Since \(u_{t+1}-u_t=\alpha g_t\),
-\(g_{t+1}^\top g_t\ge\|g_t\|_2^2\); Cauchy--Schwarz then yields
-\(\|g_{t+1}\|_2\ge\|g_t\|_2\), with the zero-gradient case immediate.
-Hence
+
+The gradient of a differentiable convex function is monotone, so
 \[
-D_{t+1}
-\ge
-D_t+\eta|\widehat A|R_t,
-\qquad
-R_{t+1}\ge R_t.
+    \bigl(g_{t+1}-g_t\bigr)^\top
+    \bigl(u_{t+1}-u_t\bigr)
+    \geq0.
 \]
-The second inequality is strict whenever the gradient changes
+Using $u_{t+1}-u_t=\alpha g_t$ gives
+\[
+    g_{t+1}^\top g_t
+    \geq
+    \|g_t\|_2^2.
+\]
+By the Cauchy--Schwarz inequality,
+\[
+    \|g_{t+1}\|_2\|g_t\|_2
+    \geq
+    g_{t+1}^\top g_t
+    \geq
+    \|g_t\|_2^2.
+\]
+Whenever $\|g_t\|_2>0$, division by $\|g_t\|_2$ yields
+\[
+    \|g_{t+1}\|_2
+    \geq
+    \|g_t\|_2,
+\]
+and therefore $R_{t+1}\geq R_t$. The same result is immediate when
+$R_t=0$. The inequality is strict whenever the gradient changes
 nontrivially along a direction of positive curvature.
 
-If \(\widehat A=c>0\), again let \(\alpha=\eta c\), so
-\(u_{t+1}=u_t-\alpha g_t\). The descent lemma gives
+We next consider a positive coefficient
+$\widehat{A}=c$ with $c>0$. Let
+$\alpha=\eta c$, so that
 \[
-D_{t+1}
-\le
-D_t-\alpha\left(1-\frac{\alpha L}{2}\right)R_t
-\le
-D_t-\frac{\alpha}{2}R_t
+    u_{t+1}
+    =
+    u_t-\alpha g_t.
 \]
-whenever \(0<\alpha\le1/L\). For a convex \(L\)-smooth function,
-cocoercivity gives
+Because $f$ has an $L$-Lipschitz gradient, the descent lemma gives
+\begin{align}
+    f(u_{t+1})
+    &\leq
+    f(u_t)
+    -
+    \alpha\|g_t\|_2^2
+    +
+    \frac{L\alpha^2}{2}\|g_t\|_2^2 \\
+    &=
+    f(u_t)
+    -
+    \alpha
+    \left(
+        1-\frac{L\alpha}{2}
+    \right)
+    \|g_t\|_2^2.
+\end{align}
+If $\alpha\leq1/L$, then
 \[
-(g_t-g_{t+1})^\top(u_t-u_{t+1})
-\ge
-\frac1L\|g_t-g_{t+1}\|_2^2.
+    D_{t+1}
+    \leq
+    D_t-\frac{\alpha}{2}R_t
+    =
+    D_t-\frac{\eta\widehat{A}}{2}R_t.
 \]
-Let \(d=g_{t+1}-g_t\). Since \(u_t-u_{t+1}=\alpha g_t\),
+
+It remains to show that the score-function norm does not increase.
+For a convex function with an $L$-Lipschitz gradient, the gradient is
+$1/L$-cocoercive:
 \[
-d^\top g_t
-\le
--\frac{\|d\|_2^2}{\alpha L},
+    \bigl(g_t-g_{t+1}\bigr)^\top
+    \bigl(u_t-u_{t+1}\bigr)
+    \geq
+    \frac{1}{L}
+    \|g_t-g_{t+1}\|_2^2.
 \]
-and therefore
+Let $d=g_{t+1}-g_t$. Since
+$u_t-u_{t+1}=\alpha g_t$, this implies
 \[
-R_{t+1}
-=
-\|g_t+d\|_2^2
-\le
-R_t+
-\left(1-\frac{2}{\alpha L}\right)\|d\|_2^2
-\le
-R_t.
+    d^\top g_t
+    \leq
+    -
+    \frac{1}{\alpha L}
+    \|d\|_2^2.
 \]
-Substituting \(\alpha=\eta\widehat A\) proves the positive-reuse claim.
+Consequently,
+\begin{align}
+    \|g_{t+1}\|_2^2
+    &=
+    \|g_t+d\|_2^2 \\
+    &=
+    \|g_t\|_2^2
+    +
+    2d^\top g_t
+    +
+    \|d\|_2^2 \\
+    &\leq
+    \|g_t\|_2^2
+    +
+    \left(
+        1-\frac{2}{\alpha L}
+    \right)
+    \|d\|_2^2.
+\end{align}
+Because $\alpha L\leq1$, the final coefficient is nonpositive, and hence
+\[
+    R_{t+1}
+    =
+    \|g_{t+1}\|_2^2
+    \leq
+    \|g_t\|_2^2
+    =
+    R_t.
+\]
+This proves both claims.
 \end{proof}
 
 \subsection{Quantitative Gaussian Reuse Rates}
@@ -1770,427 +1916,1012 @@ satisfies \(D_{\mu_n}(a_i)\to\infty\), hence
 Theorem~\ref{thm:aggregate_equilibria}}
 \label{app:aggregate_equilibrium}
 
-At a fixed context, use a regular minimal exponential-family
-representation
-\[
-\pi_\xi(a)
-=
-h(a)\exp\{\xi^\top T(a)-\psi(\xi)\},
-\qquad
-\xi\in\mathcal H,
-\]
-and let
-\[
-\mathcal M
-=
-\{\nabla\psi(\xi):\xi\in\mathcal H\}
-\]
-be the attainable mean-parameter space. For a fixed-covariance Gaussian,
+We use a regular minimal exponential-family representation to cover the
+continuous-action Gaussian and discrete-action categorical policies in a
+common set of output coordinates. At a fixed context, write
+\begin{equation}
+    \pi_\xi(a)
+    =
+    h(a)
+    \exp\left\{
+        \xi^\top T(a)-\psi(\xi)
+    \right\},
+    \qquad
+    \xi\in\mathcal H,
+    \label{eq:app_exponential_family_policy}
+\end{equation}
+where \(\xi\) is the natural parameter, \(T(a)\) is the sufficient
+statistic, and \(\psi\) is the log-partition function. Let
+\begin{equation}
+    \mathcal M
+    =
+    \left\{
+        \nabla\psi(\xi):
+        \xi\in\mathcal H
+    \right\}
+    \label{eq:app_mean_parameter_space}
+\end{equation}
+denote the attainable mean-parameter space.
+
+For a fixed-covariance Gaussian mean policy,
 \(\xi=\Sigma^{-1}\mu\), \(T(a)=a\), and
-\(\nabla\psi(\xi)=\mu\). For a categorical policy, a reference-logit
-gauge gives the corresponding minimal \((K-1)\)-dimensional
-representation. Regularity and minimality imply
-\(\nabla^2\psi(\xi)\succ0\) on \(\mathcal H\) and make
-\(\nabla\psi:\mathcal H\to\mathcal M\) one-to-one.
+\(\nabla\psi(\xi)=\mu\). For a categorical policy, fixing a
+reference-logit gauge gives a minimal \((K-1)\)-dimensional
+representation in which \(T(a)\) is the corresponding reduced action
+indicator and \(\nabla\psi(\xi)\) is the reduced probability vector.
+Thus, the two cases differ in their sufficient statistics and attainable
+mean spaces, but share the derivation below.
 
 Write
 \[
-\widehat A=\widehat A^+-\widehat A^-,
-\qquad
-p=\mathbb E_\nu[\widehat A^+],
-\qquad
-q=\mathbb E_\nu[\widehat A^-],
+    \widehat A
+    =
+    \widehat A^+
+    -
+    \widehat A^-,
+    \qquad
+    \widehat A^+
+    =
+    \max\{\widehat A,0\},
+    \qquad
+    \widehat A^-
+    =
+    \max\{-\widehat A,0\}.
 \]
-and define the unnormalized moments
-\[
-\bar{\mathbf m}_+
-=
-\mathbb E_\nu[\widehat A^+T(a)],
-\qquad
-\bar{\mathbf m}_-
-=
-\mathbb E_\nu[\widehat A^-T(a)].
-\]
-Because \(p>0\), let
-\(\mathbf m_+=\bar{\mathbf m}_+/p\); when \(q>0\), let
-\(\mathbf m_-=\bar{\mathbf m}_-/q\). If \(q=0\), use only
-\(\bar{\mathbf m}_-=\mathbf0\).
+Define the aggregate positive and negative update masses and their
+unnormalized moments:
+\begin{equation}
+\begin{aligned}
+    p
+    &=
+    \mathbb E_\nu[\widehat A^+(a)],
+    \qquad
+    q
+    =
+    \mathbb E_\nu[\widehat A^-(a)],
+    \\
+    \bar{\mathbf m}_+
+    &=
+    \mathbb E_\nu
+    \left[
+        \widehat A^+(a)T(a)
+    \right],
+    \\
+    \bar{\mathbf m}_-
+    &=
+    \mathbb E_\nu
+    \left[
+        \widehat A^-(a)T(a)
+    \right].
+\end{aligned}
+\label{eq:app_aggregate_statistics}
+\end{equation}
+When \(p>0\), define
+\begin{equation}
+    \mathbf m_+
+    =
+    \frac{\bar{\mathbf m}_+}{p}.
+    \label{eq:app_positive_moment}
+\end{equation}
+This is the positive-only target used in the main text: it is the
+mean-parameter point selected by positive feedback alone, provided that
+it lies in \(\mathcal M\). When \(q>0\), define
+\begin{equation}
+    \mathbf m_-
+    =
+    \frac{\bar{\mathbf m}_-}{q}.
+    \label{eq:app_negative_moment}
+\end{equation}
+This is the negative-feedback moment, namely the advantage-weighted
+center of the negative feedback. It is not an attraction target; the
+negative actor contribution repels the learner from this moment. The
+unnormalized quantities
+\(\bar{\mathbf m}_+\) and \(\bar{\mathbf m}_-\) remain well defined in
+the boundary cases \(p=0\) or \(q=0\).
 
-Set
+The signed population objective is
+\begin{equation}
+    \mathcal L(\xi)
+    =
+    \mathbb E_\nu
+    \left[
+        \widehat A(a)
+        \log\pi_\xi(a)
+    \right].
+    \label{eq:app_signed_population_objective}
+\end{equation}
+Using Equation~\eqref{eq:app_exponential_family_policy} and
+\(\widehat A=\widehat A^+-\widehat A^-\), we obtain
+\begin{equation}
+    \mathcal L(\xi)
+    =
+    \left(
+        \bar{\mathbf m}_+
+        -
+        \bar{\mathbf m}_-
+    \right)^\top\xi
+    -
+    (p-q)\psi(\xi)
+    +
+    C,
+    \label{eq:app_signed_objective}
+\end{equation}
+where
 \[
-b
-=
-\bar{\mathbf m}_+-\bar{\mathbf m}_-.
+    C
+    =
+    \mathbb E_\nu
+    \left[
+        \widehat A(a)\log h(a)
+    \right]
 \]
-Up to a constant independent of \(\xi\), the signed objective, field,
-and Hessian are
-\[
-\mathcal L(\xi)
-=
-b^\top\xi-(p-q)\psi(\xi)+C,
-\qquad
-\mathbf F(\xi)
-=
-b-(p-q)\nabla\psi(\xi),
-\]
-\[
-J_{\mathbf F}(\xi)
-=
-\nabla^2\mathcal L(\xi)
-=
--(p-q)\nabla^2\psi(\xi).
-\]
-We consider
-\[
-\dot\xi=\mathbf F(\xi),
-\qquad
-\xi_{t+1}=\xi_t+\alpha\mathbf F(\xi_t),
-\qquad
-\alpha>0.
-\]
-
-\begin{proof}
-\textbf{Positive-dominant regime, including positive-only
-\((p>q\ge0)\).}
-Define
-\[
-\mathbf m^\star
-=
-\frac{b}{p-q}.
-\]
-A finite equilibrium is equivalent to
-\[
-\nabla\psi(\xi^\star)=\mathbf m^\star.
-\]
-Thus, if \(\mathbf m^\star\in\mathcal M\), existence and uniqueness
-follow from the bijectivity of
-\(\nabla\psi:\mathcal H\to\mathcal M\); if
-\(\mathbf m^\star\notin\mathcal M\), no finite equilibrium exists.
-Because \(p-q>0\),
-\[
-\nabla^2\mathcal L(\xi)
-=
--(p-q)\nabla^2\psi(\xi)
-\prec0,
-\]
-so any finite equilibrium is the unique finite maximizer of
-\(\mathcal L\). Its continuous-time Jacobian is negative definite, hence
-it is locally asymptotically stable. The discrete local Jacobian is
-\[
-J_{\mathrm{disc}}(\xi^\star)
-=
-I-\alpha(p-q)\nabla^2\psi(\xi^\star),
-\]
-whose eigenvalues lie strictly inside the unit disk whenever
-\[
-0
-<
-\alpha
-<
-\frac{2}{
-(p-q)\lambda_{\max}(\nabla^2\psi(\xi^\star))
-}.
-\]
-
-When \(q=0\),
-\(\bar{\mathbf m}_-=\mathbf0\) and
-\(\mathbf m^\star=\mathbf m_+\), recovering the positive-only case.
-When \(q>0\), with \(\rho=q/p\),
-\[
-\mathbf m^\star
-=
-\frac{p\mathbf m_+-q\mathbf m_-}{p-q}
-=
-\mathbf m_+
-+
-\frac{\rho}{1-\rho}
-(\mathbf m_+-\mathbf m_-),
-\]
-so
-\[
-\mathbf m^\star-\mathbf m_+
-=
-\frac{\rho}{1-\rho}
-(\mathbf m_+-\mathbf m_-).
-\]
-For fixed unequal \(\mathbf m_+\) and \(\mathbf m_-\), this algebraic
-signed-target displacement grows without bound as \(\rho\to1^-\); a
-finite equilibrium exists only while the target remains in
+is independent of \(\xi\). Therefore, the aggregate actor field is
+\begin{equation}
+    \mathbf F(\xi)
+    =
+    \nabla\mathcal L(\xi)
+    =
+    \bar{\mathbf m}_+
+    -
+    \bar{\mathbf m}_-
+    -
+    (p-q)\nabla\psi(\xi),
+    \label{eq:app_aggregate_field}
+\end{equation}
+and
+\begin{equation}
+    \nabla^2\mathcal L(\xi)
+    =
+    -(p-q)\nabla^2\psi(\xi).
+    \label{eq:app_signed_hessian}
+\end{equation}
+Regularity and minimality imply that
+\(\nabla^2\psi(\xi)\succ0\) throughout \(\mathcal H\), and that
+\(\nabla\psi\) is one-to-one from \(\mathcal H\) onto
 \(\mathcal M\).
 
-If a sequence of reachable targets
-\(\mathbf m_n^\star\in\mathcal M\) leaves every compact subset of
-\(\mathcal M\), then the associated
-\(\xi_n^\star=(\nabla\psi)^{-1}(\mathbf m_n^\star)\) leaves every compact
-subset of \(\mathcal H\). Otherwise some compact
-\(K\subset\mathcal H\) would contain a subsequence of
-\(\xi_n^\star\), while its continuous image \(\nabla\psi(K)\) would be
-compact in \(\mathcal M\) and contain the corresponding targets, a
-contradiction.
+We analyze the continuous dynamics and discrete update
+\begin{equation}
+    \dot\xi
+    =
+    \mathbf F(\xi),
+    \qquad
+    \xi_{t+1}
+    =
+    \xi_t
+    +
+    \alpha\mathbf F(\xi_t),
+    \qquad
+    \alpha>0.
+    \label{eq:app_aggregate_dynamics}
+\end{equation}
+
+\begin{proof}
 
 \medskip
-\noindent\textbf{Critical regime \((p=q>0)\).}
-Here
-\[
-\mathbf F(\xi)
-=
-\bar{\mathbf m}_+-\bar{\mathbf m}_-
-=
-p(\mathbf m_+-\mathbf m_-)
-\]
-is constant. If \(\mathbf m_+\ne\mathbf m_-\),
-\[
-\xi(t)
-=
-\xi(0)+tp(\mathbf m_+-\mathbf m_-),
-\qquad
-\xi_t
-=
-\xi_0+t\alpha p(\mathbf m_+-\mathbf m_-),
-\]
-so both dynamics exhibit linear drift and have no finite equilibrium;
-the drift persists for all forward time when \(\mathcal H\) is full or
-forward invariant along this direction. If
-\(\mathbf m_+=\mathbf m_-\), the field vanishes identically. Every point
-is stationary, but no point is an isolated locally asymptotically stable
-equilibrium.
+\noindent\textbf{Positive-only case.}
+Suppose \(p>0\) and \(q=0\). Then
+\(\bar{\mathbf m}_-=\mathbf 0\), and
+Equation~\eqref{eq:app_aggregate_field} becomes
+\begin{equation}
+    \mathbf F(\xi)
+    =
+    p
+    \left(
+        \mathbf m_+
+        -
+        \nabla\psi(\xi)
+    \right).
+    \label{eq:app_positive_only_field}
+\end{equation}
+A finite equilibrium must therefore satisfy
+\begin{equation}
+    \nabla\psi(\xi^\star)
+    =
+    \mathbf m_+.
+    \label{eq:app_positive_only_equilibrium}
+\end{equation}
+If \(\mathbf m_+\in\mathcal M\), existence follows because
+\(\nabla\psi\) maps \(\mathcal H\) onto \(\mathcal M\), and uniqueness
+follows because this map is one-to-one.
+
+The continuous field Jacobian is
+\begin{equation}
+    J_{\mathbf F}(\xi^\star)
+    =
+    -p\nabla^2\psi(\xi^\star)
+    \prec0,
+    \label{eq:app_positive_only_continuous_jacobian}
+\end{equation}
+so the equilibrium is locally asymptotically stable. For the discrete
+update, the local Jacobian is
+\begin{equation}
+    J_{\mathrm{disc}}(\xi^\star)
+    =
+    I
+    -
+    \alpha p\nabla^2\psi(\xi^\star).
+    \label{eq:app_positive_only_discrete_jacobian}
+\end{equation}
+Its eigenvalues have magnitude smaller than one whenever
+\begin{equation}
+    0
+    <
+    \alpha
+    <
+    \frac{
+        2
+    }{
+        p\lambda_{\max}
+        \left(
+            \nabla^2\psi(\xi^\star)
+        \right)
+    }.
+    \label{eq:app_positive_only_stepsize}
+\end{equation}
+Hence, the positive-only equilibrium is locally stable under
+sufficiently small discrete steps. If
+\(\mathbf m_+\notin\mathcal M\), no finite equilibrium exists.
 
 \medskip
-\noindent\textbf{Negative-dominant regime \((p<q)\).}
-Now
+\noindent\textbf{Positive-dominant regime.}
+Suppose \(p>q>0\). Since both normalized moments are defined, a finite
+equilibrium must satisfy
+\begin{equation}
+    \mathbf F(\xi^\star)
+    =
+    \mathbf 0,
+\end{equation}
+or equivalently
+\begin{equation}
+\begin{aligned}
+    \nabla\psi(\xi^\star)
+    &=
+    \frac{
+        \bar{\mathbf m}_+
+        -
+        \bar{\mathbf m}_-
+    }{
+        p-q
+    }
+    \\
+    &=
+    \frac{
+        p\mathbf m_+
+        -
+        q\mathbf m_-
+    }{
+        p-q
+    }
+    =
+    \mathbf m^\star.
+\end{aligned}
+\label{eq:app_equilibrium_condition}
+\end{equation}
+If \(\mathbf m^\star\in\mathcal M\), existence and uniqueness again
+follow from the bijectivity of
+\(\nabla\psi:\mathcal H\rightarrow\mathcal M\).
+
+Since \(p-q>0\), Equation~\eqref{eq:app_signed_hessian} gives
+\begin{equation}
+    \nabla^2\mathcal L(\xi)
+    \prec0.
+\end{equation}
+Thus, \(\mathcal L\) is strictly concave, and
+\(\xi^\star\) is its unique finite maximizer.
+
+For the continuous dynamics, the field Jacobian at the equilibrium is
+\begin{equation}
+    J_{\mathbf F}(\xi^\star)
+    =
+    -(p-q)
+    \nabla^2\psi(\xi^\star)
+    \prec0.
+    \label{eq:app_continuous_jacobian}
+\end{equation}
+All eigenvalues are strictly negative, so
+\(\xi^\star\) is locally asymptotically stable.
+
+For the discrete update, the local Jacobian is
+\begin{equation}
+    J_{\mathrm{disc}}(\xi^\star)
+    =
+    I
+    -
+    \alpha(p-q)
+    \nabla^2\psi(\xi^\star).
+    \label{eq:app_discrete_jacobian}
+\end{equation}
+Let \(\lambda_i>0\) denote the eigenvalues of
+\(\nabla^2\psi(\xi^\star)\). The corresponding eigenvalues of
+\(J_{\mathrm{disc}}(\xi^\star)\) are
+\(1-\alpha(p-q)\lambda_i\). Their magnitudes are strictly smaller than
+one whenever
+\begin{equation}
+    0
+    <
+    \alpha
+    <
+    \frac{
+        2
+    }{
+        (p-q)
+        \lambda_{\max}
+        \left(
+            \nabla^2\psi(\xi^\star)
+        \right)
+    }.
+    \label{eq:app_discrete_stepsize}
+\end{equation}
+This proves local discrete-time stability for sufficiently small
+\(\alpha\).
+
+Define \(\rho=q/p\). Algebraically,
+\begin{equation}
+\begin{aligned}
+    \mathbf m^\star
+    &=
+    \frac{
+        p\mathbf m_+
+        -
+        q\mathbf m_-
+    }{
+        p-q
+    }
+    \\
+    &=
+    \mathbf m_+
+    +
+    \frac{q}{p-q}
+    \left(
+        \mathbf m_+
+        -
+        \mathbf m_-
+    \right)
+    \\
+    &=
+    \mathbf m_+
+    +
+    \frac{\rho}{1-\rho}
+    \left(
+        \mathbf m_+
+        -
+        \mathbf m_-
+    \right).
+\end{aligned}
+\label{eq:app_stable_extrapolation_identity}
+\end{equation}
+This proves Equation~\eqref{eq:signed_target_ratio}. In particular,
+holding \(\mathbf m_+\) and \(\mathbf m_-\) fixed, the displacement from
+the positive-only target is
+\begin{equation}
+    \mathbf m^\star-\mathbf m_+
+    =
+    \frac{\rho}{1-\rho}
+    \left(
+        \mathbf m_+
+        -
+        \mathbf m_-
+    \right),
+    \label{eq:app_equilibrium_displacement}
+\end{equation}
+whose magnitude increases with \(\rho\in(0,1)\) whenever
+\(\mathbf m_+\neq\mathbf m_-\).
+
+If \(\mathbf m^\star\notin\mathcal M\), no finite
+\(\xi^\star\in\mathcal H\) can satisfy
+Equation~\eqref{eq:app_equilibrium_condition}, and hence no finite
+equilibrium exists.
+
+More generally, consider any sequence
+\(\mathbf m^\star_n\in\mathcal M\) that leaves every compact subset of
+\(\mathcal M\), either by approaching its boundary or by becoming
+unbounded, and define
+\begin{equation}
+    \xi^\star_n
+    =
+    (\nabla\psi)^{-1}
+    \left(
+        \mathbf m^\star_n
+    \right).
+\end{equation}
+Suppose, for contradiction, that
+\(\{\xi^\star_n\}\) remains in a compact subset
+\(K\subset\mathcal H\). By continuity,
+\(\nabla\psi(K)\) is a compact subset of \(\mathcal M\), but
+\(\mathbf m^\star_n=\nabla\psi(\xi^\star_n)\) would then remain inside
+that compact set. This contradicts the assumed behavior of
+\(\mathbf m^\star_n\). Hence, the corresponding natural parameters must
+leave every compact subset of \(\mathcal H\).
+
+\medskip
+\noindent\textbf{Critical regime.}
+Suppose \(p=q>0\). Equation~\eqref{eq:app_aggregate_field} reduces to
+\begin{equation}
+\begin{aligned}
+    \mathbf F(\xi)
+    &=
+    \bar{\mathbf m}_+
+    -
+    \bar{\mathbf m}_-
+    \\
+    &=
+    p
+    \left(
+        \mathbf m_+
+        -
+        \mathbf m_-
+    \right),
+\end{aligned}
+\label{eq:app_critical_field}
+\end{equation}
+which is independent of \(\xi\).
+
+If \(\mathbf m_+\neq\mathbf m_-\), the continuous trajectory is
+\begin{equation}
+    \xi(t)
+    =
+    \xi(0)
+    +
+    tp
+    \left(
+        \mathbf m_+
+        -
+        \mathbf m_-
+    \right),
+    \label{eq:app_critical_continuous}
+\end{equation}
+and the discrete trajectory is
+\begin{equation}
+    \xi_t
+    =
+    \xi_0
+    +
+    t\alpha p
+    \left(
+        \mathbf m_+
+        -
+        \mathbf m_-
+    \right).
+    \label{eq:app_critical_discrete}
+\end{equation}
+Both exhibit linear drift and admit no finite equilibrium; the drift persists
+for all forward time whenever the natural-parameter domain is full or forward
+invariant along the drift direction.
+
+If \(\mathbf m_+=\mathbf m_-\), then
+\(\mathbf F(\xi)=\mathbf 0\) for every \(\xi\). Every point is
+stationary, but a perturbed trajectory remains at the perturbed point
+rather than returning to the original one. Hence, no point is an
+isolated locally asymptotically stable equilibrium.
+
+\medskip
+\noindent\textbf{Negative-dominant regime.}
+Suppose \(p<q\). Equation~\eqref{eq:app_signed_hessian} gives
+\begin{equation}
+    \nabla^2\mathcal L(\xi)
+    =
+    (q-p)
+    \nabla^2\psi(\xi)
+    \succ0.
+\end{equation}
+Thus, \(\mathcal L\) is strictly convex.
+
+If a finite stationary point \(\xi^\star\) exists, the continuous field
+Jacobian is
+\begin{equation}
+    J_{\mathbf F}(\xi^\star)
+    =
+    (q-p)
+    \nabla^2\psi(\xi^\star)
+    \succ0.
+    \label{eq:app_negative_continuous_jacobian}
+\end{equation}
+All eigenvalues are positive, so the stationary point is repelling and
+therefore unstable.
+
+For the discrete update, the local Jacobian is
+\begin{equation}
+    J_{\mathrm{disc}}(\xi^\star)
+    =
+    I
+    +
+    \alpha(q-p)
+    \nabla^2\psi(\xi^\star).
+    \label{eq:app_negative_discrete_jacobian}
+\end{equation}
+Its eigenvalues are
 \[
-\nabla^2\mathcal L(\xi)
-=
-(q-p)\nabla^2\psi(\xi)
-\succ0.
+    1+\alpha(q-p)\lambda_i
+    >
+    1
 \]
-Thus \(\mathcal L\) is strictly convex. If a finite stationary point
-\(\xi^\star\) exists, its continuous field Jacobian is positive
-definite, so it is repelling. The discrete local Jacobian is
-\[
-I+\alpha(q-p)\nabla^2\psi(\xi^\star),
-\]
-whose eigenvalues are
-\(1+\alpha(q-p)\lambda_i>1\) for every \(\alpha>0\).
-Hence every finite stationary point is unstable in both time forms; if
-no stationary point exists, there is no finite stable equilibrium.
+for every \(\alpha>0\) and every \(\lambda_i>0\). Therefore, every finite
+stationary point is unstable under the discrete dynamics as well. If no
+stationary point exists, there is trivially no finite stable equilibrium.
+
+The four cases establish
+Theorem~\ref{thm:aggregate_equilibria}.
 \end{proof}
+
 
 \subsection{Proof of
 Theorem~\ref{thm:policy_family_manifestations}}
 \label{app:policy_family_manifestations}
 
 \begin{proof}
-Let \(r=q-p>0\).
+Let
+\begin{equation}
+    r
+    =
+    q-p
+    >
+    0.
+\end{equation}
 
 \medskip
 \noindent\textbf{Gaussian policy.}
-Define the unnormalized signed moments
-\[
-\bar\mu_+
-=
-\mathbb E_\nu[\widehat A^+(a)a],
-\qquad
-\bar\mu_-
-=
-\mathbb E_\nu[\widehat A^-(a)a].
-\]
-For a fixed-covariance Gaussian,
-\[
-\nabla_\mu\log\pi_\mu(a)
-=
-\Sigma^{-1}(a-\mu),
-\]
-so
-\[
-\mathbf F_\mu(\mu)
-=
-\Sigma^{-1}
-\bigl[\bar\mu_+-\bar\mu_--(p-q)\mu\bigr].
-\]
-Define
-\[
-\mu^\dagger
-=
-\frac{\bar\mu_--\bar\mu_+}{r}.
-\]
+For a Gaussian policy with fixed covariance,
+\begin{equation}
+    \nabla_{\mu}
+    \log\pi_{\mu}(a)
+    =
+    \Sigma^{-1}(a-\mu).
+    \label{eq:app_gaussian_mean_score}
+\end{equation}
+The aggregate mean field is therefore
+\begin{equation}
+\begin{aligned}
+    \mathbf{F}_{\mu}(\mu)
+    &=
+    \mathbb{E}_{\nu}
+    \left[
+        \widehat{A}(a)
+        \Sigma^{-1}(a-\mu)
+    \right] \\
+    &=
+    \Sigma^{-1}
+    \left[
+        p\mu_{+}
+        -
+        q\mu_{-}
+        -
+        (p-q)\mu
+    \right].
+\end{aligned}
+\label{eq:app_gaussian_aggregate_field}
+\end{equation}
+Because $p-q=-r$ and
+\begin{equation}
+    \mu^{\dagger}
+    =
+    \frac{
+        q\mu_{-}
+        -
+        p\mu_{+}
+    }{
+        r
+    },
+\end{equation}
+Equation~\eqref{eq:app_gaussian_aggregate_field} becomes
+\begin{equation}
+    \mathbf{F}_{\mu}(\mu)
+    =
+    r\Sigma^{-1}
+    \left(
+        \mu-\mu^{\dagger}
+    \right).
+\end{equation}
+
+For the continuous dynamics, define
+\begin{equation}
+    \delta(t)
+    =
+    \mu(t)-\mu^{\dagger}.
+\end{equation}
 Then
-\[
-\mathbf F_\mu(\mu)
-=
-r\Sigma^{-1}(\mu-\mu^\dagger).
-\]
-Writing \(\delta=\mu-\mu^\dagger\), the continuous and discrete
-solutions are
-\[
-\delta(t)
-=
-e^{r\Sigma^{-1}t}\delta(0),
-\qquad
-\delta_t
-=
-\left(I+\alpha r\Sigma^{-1}\right)^t\delta_0.
-\]
-Since \(\Sigma^{-1}\succ0\),
-\[
-\|\delta(t)\|_2
-\ge
-e^{r\lambda_{\min}(\Sigma^{-1})t}\|\delta(0)\|_2,
-\]
-and
-\[
-\|\delta_t\|_2
-\ge
-\left[
-1+\alpha r\lambda_{\min}(\Sigma^{-1})
-\right]^t
-\|\delta_0\|_2.
-\]
-Thus \(\mu^\dagger\) is repelling and every trajectory not initialized
-exactly there diverges. For any fixed historical action \(a\),
-\[
-\|\nabla_\mu\log\pi_\mu(a)\|_2
-=
-\|\Sigma^{-1}(a-\mu)\|_2
-\ge
-\lambda_{\min}(\Sigma^{-1})\|a-\mu\|_2
-\longrightarrow\infty.
-\]
+\begin{equation}
+    \dot{\delta}(t)
+    =
+    r\Sigma^{-1}\delta(t),
+\end{equation}
+and hence
+\begin{equation}
+    \delta(t)
+    =
+    \exp
+    \left(
+        r\Sigma^{-1}t
+    \right)
+    \delta(0).
+    \label{eq:app_gaussian_continuous_solution}
+\end{equation}
+Since $\Sigma^{-1}\succ0$,
+\begin{equation}
+    \left\|
+        \delta(t)
+    \right\|_2
+    \geq
+    \exp
+    \left(
+        r\lambda_{\min}
+        \left(
+            \Sigma^{-1}
+        \right)t
+    \right)
+    \left\|
+        \delta(0)
+    \right\|_2.
+    \label{eq:app_gaussian_continuous_growth}
+\end{equation}
+Therefore, unless
+$\delta(0)=0$, the distance from the stationary point grows
+exponentially and
+$\|\mu(t)\|_2\rightarrow\infty$.
+
+For the discrete update,
+\begin{equation}
+    \mu_{t+1}
+    =
+    \mu_t
+    +
+    \alpha
+    \mathbf{F}_{\mu}(\mu_t),
+\end{equation}
+so
+\begin{equation}
+    \delta_{t+1}
+    =
+    \left(
+        I
+        +
+        \alpha r\Sigma^{-1}
+    \right)
+    \delta_t.
+\end{equation}
+Iterating gives
+\begin{equation}
+    \delta_t
+    =
+    \left(
+        I
+        +
+        \alpha r\Sigma^{-1}
+    \right)^t
+    \delta_0.
+    \label{eq:app_gaussian_discrete_solution}
+\end{equation}
+All eigenvalues of the update matrix are strictly larger than one.
+Consequently,
+\begin{equation}
+    \left\|
+        \delta_t
+    \right\|_2
+    \geq
+    \left[
+        1
+        +
+        \alpha r
+        \lambda_{\min}
+        \left(
+            \Sigma^{-1}
+        \right)
+    \right]^t
+    \left\|
+        \delta_0
+    \right\|_2.
+    \label{eq:app_gaussian_discrete_growth}
+\end{equation}
+Thus, every nonstationary discrete trajectory also diverges.
+
+For any fixed historical action $a$,
+\begin{equation}
+\begin{aligned}
+    \left\|
+        \nabla_{\mu}
+        \log\pi_{\mu}(a)
+    \right\|_2
+    &=
+    \left\|
+        \Sigma^{-1}(a-\mu)
+    \right\|_2 \\
+    &\geq
+    \lambda_{\min}
+    \left(
+        \Sigma^{-1}
+    \right)
+    \left\|
+        a-\mu
+    \right\|_2.
+\end{aligned}
+\label{eq:app_gaussian_score_lower_bound}
+\end{equation}
+Since $\|\mu\|_2\rightarrow\infty$ while $a$ is fixed,
+$\|a-\mu\|_2\rightarrow\infty$.
+Equation~\eqref{eq:app_gaussian_score_lower_bound} therefore proves
+Equation~\eqref{eq:gaussian_unbounded_score}.
 
 \medskip
 \noindent\textbf{Categorical policy.}
-Work on the zero-sum gauge
-\[
-\mathcal H_0
-=
-\{z\in\mathbb R^K:\mathbf1^\top z=0\}.
-\]
-Let the fixed signed action-mass vector be
-\[
-b
-=
-\mathbb E_\nu[\widehat A(a)e_a]
-=
-\mathbb E_\nu[\widehat A^+(a)e_a]
--
-\mathbb E_\nu[\widehat A^-(a)e_a].
-\]
-Then
-\[
-\mathcal L(z)
-=
-b^\top z
-+
-r\log\sum_{j=1}^K e^{z_j}
-+
-C,
-\]
-with gradient and Hessian
-\[
-g(z)
-=
-\nabla\mathcal L(z)
-=
-b+r\pi_z,
-\qquad
-H(z)
-=
-r\bigl(\operatorname{Diag}(\pi_z)-\pi_z\pi_z^\top\bigr).
-\]
-Here \(g\) is the aggregate objective gradient, not the single-action
-score whose norm is bounded in Proposition~\ref{prop:distance_strength}.
-Because
-\(\mathbf1^\top b=p-q=-r\),
-\(\mathbf1^\top g(z)=0\), so both continuous and discrete dynamics remain
-in \(\mathcal H_0\). For every nonzero \(v\in\mathcal H_0\),
-\[
-v^\top H(z)v
-=
-r\,\operatorname{Var}_{A\sim\pi_z}(v_A)
->
-0.
-\]
-Hence \(\mathcal L\) is strictly convex on \(\mathcal H_0\), has at most
-one finite stationary point, and any such point is repelling: the
-continuous Jacobian restricted to \(\mathcal H_0\) is positive
-definite, while the discrete Jacobian restricted to \(\mathcal H_0\)
-has eigenvalues strictly larger than one for every \(\alpha>0\).
+Let there be $K\geq2$ actions and write
+\begin{equation}
+    \pi_z
+    =
+    \operatorname{softmax}(z).
+\end{equation}
+Because adding a constant to every logit does not change the policy, we
+work on the gauge-fixed subspace
+\begin{equation}
+    \mathcal{H}_0
+    =
+    \left\{
+        z\in\mathbb{R}^{K}
+        :
+        \mathbf{1}^{\top}z=0
+    \right\}.
+    \label{eq:app_categorical_gauge}
+\end{equation}
 
-It remains to prove escape for every nonstationary initialization. If
-\(g(z_0)=0\), both the continuous and discrete dynamics remain at the
-stationary point. Otherwise, since \(g(z)=b+r\pi_z\) is bounded, the
-continuous flow \(\dot z=g(z)\) exists for all forward time, and
-\[
-c_0=\|g(z_0)\|_2^2>0.
-\]
-Along the flow,
-\[
-\frac{d}{dt}\|g(z(t))\|_2^2
-=
-2g(z(t))^\top H(z(t))g(z(t))
-\ge0,
-\]
-so \(\|g(z(t))\|_2^2\ge c_0\), and therefore
-\[
-\frac{d}{dt}\mathcal L(z(t))
-=
-\|g(z(t))\|_2^2
-\ge c_0.
-\]
-Thus \(\mathcal L(z(t))\ge\mathcal L(z_0)+c_0t\).
+Let $\rho_{+}$ and $\rho_{-}$ denote the normalized positive and negative
+weighted action distributions, and define
+\begin{equation}
+    b
+    =
+    p\rho_{+}
+    -
+    q\rho_{-}.
+\end{equation}
+The signed categorical objective can be written as
+\begin{equation}
+    \mathcal{L}(z)
+    =
+    b^{\top}z
+    +
+    r
+    \log
+    \left(
+        \sum_{j=1}^{K}
+        e^{z_j}
+    \right)
+    +
+    C,
+    \label{eq:app_categorical_objective}
+\end{equation}
+because $p-q=-r$. Its gradient and Hessian are
+\begin{equation}
+    \nabla\mathcal{L}(z)
+    =
+    b+r\pi_z
+\end{equation}
+and
+\begin{equation}
+    \nabla^2\mathcal{L}(z)
+    =
+    r
+    \left[
+        \operatorname{Diag}(\pi_z)
+        -
+        \pi_z\pi_z^{\top}
+    \right].
+    \label{eq:app_categorical_hessian}
+\end{equation}
+For every nonzero
+$v\in\mathcal{H}_0$,
+\begin{equation}
+\begin{aligned}
+    v^{\top}
+    \nabla^2\mathcal{L}(z)
+    v
+    &=
+    r
+    \operatorname{Var}_{A\sim\pi_z}
+    \left[
+        v_A
+    \right] \\
+    &>
+    0,
+\end{aligned}
+\end{equation}
+because every softmax probability is positive and a nonzero vector in
+$\mathcal{H}_0$ cannot be constant. Hence,
+$\mathcal{L}$ is strictly convex on $\mathcal{H}_0$ and has at most one
+finite stationary point.
+
+Consider first the continuous gradient flow
+\begin{equation}
+    \dot{z}
+    =
+    \nabla\mathcal{L}(z).
+\end{equation}
+Along every trajectory,
+\begin{equation}
+    \frac{d}{dt}
+    \mathcal{L}(z(t))
+    =
+    \left\|
+        \nabla\mathcal{L}(z(t))
+    \right\|_2^2
+    \geq
+    0.
+    \label{eq:app_categorical_objective_growth}
+\end{equation}
+Suppose a nonstationary trajectory were bounded. Its closure would be
+compact, so $\mathcal{L}$ would remain bounded above. Integrating
+Equation~\eqref{eq:app_categorical_objective_growth} would then give
+\begin{equation}
+    \int_0^\infty
+    \left\|
+        \nabla\mathcal{L}(z(t))
+    \right\|_2^2
+    dt
+    <
+    \infty.
+\end{equation}
+Since the gradient is Lipschitz on the compact trajectory closure, the
+standard gradient-flow argument implies
+\begin{equation}
+    \nabla\mathcal{L}(z(t))
+    \longrightarrow
+    0.
+\end{equation}
+Any accumulation point would therefore be a stationary point.
+
+If no finite stationary point exists, this is an immediate
+contradiction. If a stationary point $z^{\dagger}$ exists, strict
+convexity gives, for every $z\neq z^{\dagger}$,
+\begin{equation}
+    (z-z^{\dagger})^{\top}
+    \left[
+        \nabla\mathcal{L}(z)
+        -
+        \nabla\mathcal{L}(z^{\dagger})
+    \right]
+    >
+    0.
+\end{equation}
+Since
+$\nabla\mathcal{L}(z^{\dagger})=0$,
+\begin{equation}
+    \frac{d}{dt}
+    \frac{1}{2}
+    \left\|
+        z(t)-z^{\dagger}
+    \right\|_2^2
+    >
+    0
+\end{equation}
+along every nonstationary trajectory. Such a trajectory cannot have a
+subsequence converging to $z^{\dagger}$. Hence, the only bounded
+continuous trajectory is the stationary one itself.
 
 For the discrete update
-\[
-z_{t+1}=z_t+\alpha g_t,
-\qquad
-g_t=g(z_t),
-\]
-gradient monotonicity gives
-\[
-(g_{t+1}-g_t)^\top(z_{t+1}-z_t)\ge0.
-\]
-Since \(z_{t+1}-z_t=\alpha g_t\),
-\(g_{t+1}^\top g_t\ge\|g_t\|_2^2\), hence
-\(\|g_{t+1}\|_2\ge\|g_t\|_2\ge\sqrt{c_0}\). Convexity then gives
-\[
-\mathcal L(z_{t+1})-\mathcal L(z_t)
-\ge
-g_t^\top(z_{t+1}-z_t)
-=
-\alpha\|g_t\|_2^2
-\ge
-\alpha c_0.
-\]
-Thus the discrete objective also grows at least linearly.
+\begin{equation}
+    z_{t+1}
+    =
+    z_t
+    +
+    \alpha
+    \nabla\mathcal{L}(z_t),
+    \qquad
+    \alpha>0,
+\end{equation}
+convexity gives
+\begin{equation}
+\begin{aligned}
+    \mathcal{L}(z_{t+1})
+    &\geq
+    \mathcal{L}(z_t)
+    +
+    \nabla\mathcal{L}(z_t)^{\top}
+    (z_{t+1}-z_t) \\
+    &=
+    \mathcal{L}(z_t)
+    +
+    \alpha
+    \left\|
+        \nabla\mathcal{L}(z_t)
+    \right\|_2^2.
+\end{aligned}
+\label{eq:app_categorical_discrete_growth}
+\end{equation}
+If the trajectory were bounded,
+Equation~\eqref{eq:app_categorical_discrete_growth} would imply
+\begin{equation}
+    \nabla\mathcal{L}(z_t)
+    \longrightarrow
+    0.
+\end{equation}
+A convergent subsequence would therefore approach a finite stationary
+point. If no such point exists, this is impossible. If the unique
+stationary point $z^{\dagger}$ exists, then for
+$z_t\neq z^{\dagger}$,
+\begin{equation}
+\begin{aligned}
+    \left\|
+        z_{t+1}-z^{\dagger}
+    \right\|_2^2
+    &=
+    \left\|
+        z_t-z^{\dagger}
+    \right\|_2^2 \\
+    &\quad
+    +
+    2\alpha
+    (z_t-z^{\dagger})^{\top}
+    \nabla\mathcal{L}(z_t) \\
+    &\quad
+    +
+    \alpha^2
+    \left\|
+        \nabla\mathcal{L}(z_t)
+    \right\|_2^2 \\
+    &>
+    \left\|
+        z_t-z^{\dagger}
+    \right\|_2^2.
+\end{aligned}
+\end{equation}
+The trajectory therefore cannot have a subsequence converging to
+$z^{\dagger}$. Thus, every nonstationary discrete trajectory leaves
+every compact subset of $\mathcal{H}_0$.
 
-A continuous function is bounded above on every compact subset of
-\(\mathcal H_0\). The preceding linear-growth bounds therefore imply
-that every nonstationary continuous or discrete trajectory eventually
-leaves every compact subset of \(\mathcal H_0\).
-
-Finally, on \(\mathcal H_0\),
-\[
-z_i
-=
-\log\pi_z(i)
--
-\frac1K\sum_{j=1}^K\log\pi_z(j).
-\]
-If the probability vectors stayed in a compact subset of the simplex
+To relate logit divergence to the probability boundary, note that on
+$\mathcal{H}_0$ the inverse softmax representation is
+\begin{equation}
+    z_i
+    =
+    \log\pi_z(i)
+    -
+    \frac{1}{K}
+    \sum_{j=1}^{K}
+    \log\pi_z(j).
+    \label{eq:app_inverse_softmax}
+\end{equation}
+If the probabilities remained in a compact subset of the simplex
 interior, all coordinates would be bounded below by some
-\(\varepsilon>0\), and the inverse-softmax formula would keep the logits
-bounded. Escape in \(\mathcal H_0\) therefore implies a subsequence along
-which at least one action probability approaches zero. Nevertheless,
-for every action \(a\),
-\[
-\|\nabla_z\log\pi_z(a)\|_2^2
-=
-(1-\pi_z(a))^2+\sum_{j\ne a}\pi_z(j)^2
-\le
-2(1-\pi_z(a))^2
-\le2,
-\]
-as established in Proposition~\ref{prop:distance_strength}.
+$\varepsilon>0$, and
+Equation~\eqref{eq:app_inverse_softmax} would imply bounded logits.
+Therefore, an unbounded gauge-fixed logit trajectory must contain a
+subsequence along which at least one action probability approaches zero.
+
+Finally, for every action $a$,
+\begin{equation}
+    \nabla_z\log\pi_z(a)
+    =
+    e_a-\pi_z.
+\end{equation}
+Its squared norm satisfies
+\begin{equation}
+\begin{aligned}
+    \left\|
+        e_a-\pi_z
+    \right\|_2^2
+    &=
+    \left(
+        1-\pi_z(a)
+    \right)^2
+    +
+    \sum_{j\neq a}
+    \pi_z(j)^2 \\
+    &\leq
+    \left(
+        1-\pi_z(a)
+    \right)^2
+    +
+    \left(
+        \sum_{j\neq a}
+        \pi_z(j)
+    \right)^2 \\
+    &=
+    2
+    \left(
+        1-\pi_z(a)
+    \right)^2 \\
+    &\leq
+    2.
+\end{aligned}
+\end{equation}
+This proves the categorical score bound and completes the proof.
 \end{proof}
 
 \subsection{Proof of Minimum-Order Control}
@@ -2198,290 +2929,426 @@ as established in Proposition~\ref{prop:distance_strength}.
 
 For fixed-covariance Gaussian mean coordinates,
 Proposition~\ref{prop:distance_strength} gives
-\(R(D)=\Theta(D-C_\Sigma)\). Since \(C_\Sigma\) is fixed,
-\(D-C_\Sigma=\Theta(D)\) as \(D\to\infty\). Hence there are
-constants \(0<c_1\le c_2<\infty\) and \(D_0\) such that, for all
+\(R(D)=\Theta(D-C_\Sigma)=\Theta(D)\) in the far field. Thus there are
+constants \(0<c_1\le c_2<\infty\) and \(D_0\) such that, for
 \(D\ge D_0\),
 \[
-c_1D
-\le
-R(D)
-\le
-c_2D.
+    c_1 D
+    \le
+    R(D)
+    \le
+    c_2 D .
 \]
-For the nonnegative weight \(\omega(D)\),
+If \(\omega(D)R(D)\) is bounded, then for some \(M<\infty\),
 \[
-c_1D\,\omega(D)
-\le
-\omega(D)R(D)
-\le
-c_2D\,\omega(D).
+    \omega(D)R(D)\le M
+    \qquad
+    \text{for all sufficiently large } D .
 \]
-Thus \(\omega(D)R(D)\) is bounded if and only if
-\(\omega(D)=O(D^{-1})\), and it vanishes if and only if
-\(\omega(D)=o(D^{-1})\). Since
-\(D-C_\Sigma=r^2/2\), the matching order is equivalently
-\(O(r^{-2})\) in standardized distance. This statement concerns the
-squared-score reuse loop gain \(R\); the parameter-force scale is
-\(\sqrt R\), as distinguished in the main text.
+Using the lower bound gives
+\[
+    \omega(D)
+    \le
+    \frac{M}{c_1D}
+    =
+    O(D^{-1}).
+\]
+Conversely, \(\omega(D)\le CD^{-1}\) and the upper bound imply
+\[
+    \omega(D)R(D)
+    \le
+    CD^{-1}c_2D
+    =
+    O(1).
+\]
+The same comparison with little-\(o\) proves that the weighted loop gain
+vanishes exactly when \(\omega(D)=o(D^{-1})\). Finally,
+\(D-C_\Sigma=r^2/2\) converts \(D^{-1}\) to the equivalent
+reciprocal-quadratic order \(r^{-2}\).
+
 
 \subsection{Empirical Negative-Update Utility}
 \label{app:negative_update_utility}
 
-Let \(\widehat J_{\mathcal B}(\theta)\) be an empirical task-performance
-estimate on evaluation batch \(\mathcal B\). For a negative sample
-\(z=(s,a)\), define
-\[
-g_\theta^-(z)
-=
--\widehat A^-(z)\nabla_\theta\log\pi_\theta(a\mid s),
-\qquad
-\Delta\theta(z;w)
-=
-\eta w g_\theta^-(z),
-\qquad
-0\le w\le1.
-\]
-Its empirical and population utilities are
-\[
-\widehat{\mathcal U}_{\mathcal B}(z;w\mid\theta)
-=
-\widehat J_{\mathcal B}\bigl(\theta+\Delta\theta(z;w)\bigr)
--
-\widehat J_{\mathcal B}(\theta),
-\]
-\[
-\mathcal U_\theta(z;w)
-=
-J\bigl(\theta+\eta w g_\theta^-(z)\bigr)-J(\theta).
-\]
-The empirical utility-optimal weight is
-\[
-\widehat w_{\mathcal U}^\star(z\mid\theta)
-\in
-\arg\max_{w\in[0,1]}
-\widehat{\mathcal U}_{\mathcal B}(z;w\mid\theta).
-\]
-If \(\widehat J_{\mathcal B}\) is unbiased for \(J\), then for fixed
-\(\theta,z,w\),
-\[
-\mathbb E_{\mathcal B}
-\left[
-\widehat{\mathcal U}_{\mathcal B}(z;w\mid\theta)
-\right]
-=
-\mathcal U_\theta(z;w).
-\]
-Thus empirical utility is evaluation-batch dependent rather than an
-intrinsic deterministic sample label.
+To operationalize the utility view used in
+Section~\ref{subsec:distance_dependent_utility}, let
+\(\widehat J_{\mathcal B}(\theta)\) denote an empirical estimate of task
+performance on an evaluation batch \(\mathcal B\). For a negative sample
+\(z=(s,a)\), define its raw repulsive update as
+\begin{equation}
+    g_\theta^-(z)
+    =
+    -\widehat A^-(z)
+    \nabla_\theta \log \pi_\theta(a\mid s).
+    \label{eq:raw_negative_update}
+\end{equation}
+Assigning it a weight \(w\in[0,1]\) produces the parameter step
+\begin{equation}
+    \Delta\theta(z;w)
+    =
+    \eta w g_\theta^-(z).
+    \label{eq:weighted_negative_step}
+\end{equation}
+We define the empirical utility of this weighted negative update as
+\begin{equation}
+    \widehat{\mathcal U}_{\mathcal B}
+    (z;w\mid\theta)
+    =
+    \widehat J_{\mathcal B}
+    \!\left(
+        \theta+\Delta\theta(z;w)
+    \right)
+    -
+    \widehat J_{\mathcal B}(\theta).
+    \label{eq:app_empirical_negative_update_utility}
+\end{equation}
+The corresponding utility-optimal weight is
+\begin{equation}
+    \widehat w_{\mathcal U}^{\star}(z\mid\theta)
+    \in
+    \arg\max_{w\in[0,1]}
+    \widehat{\mathcal U}_{\mathcal B}(z;w\mid\theta).
+    \label{eq:empirical_utility_optimal_weight}
+\end{equation}
+
+We distinguish this empirical utility from its population counterpart:
+\begin{equation}
+    \mathcal U_\theta(z;w)
+    =
+    J\!\left(
+        \theta+\eta w g_\theta^-(z)
+    \right)
+    -
+    J(\theta).
+    \label{eq:population_negative_update_utility}
+\end{equation}
+If \(\widehat J_{\mathcal B}\) is an unbiased estimator of \(J\), then
+\begin{equation}
+    \mathbb E_{\mathcal B}
+    \left[
+        \widehat{\mathcal U}_{\mathcal B}(z;w\mid\theta)
+    \right]
+    =
+    \mathcal U_\theta(z;w).
+    \label{eq:empirical_utility_unbiased}
+\end{equation}
+Thus, empirical utility is a noisy, evaluation-dependent estimate rather
+than an intrinsic deterministic label attached to the sample.
+
+The following result gives sufficient conditions under which the
+utility-optimal effective step vanishes in the far field.
 
 \begin{lemma}[Far-field shrinkage of the utility-optimal step]
 \label{lem:far_field_utility}
-Let \(D\) index learner-relative remoteness and let \(g(D)\ne0\) be the
-corresponding negative-update direction. Define
-\[
-I(D)=\|g(D)\|_2,
-\qquad
-v(D)=\frac{g(D)}{I(D)}.
-\]
-Suppose the local update space admits an
-orthogonal decomposition
-\[
-\mathcal T
-=
-\mathcal T_{\mathrm{task}}
-\oplus
-\mathcal T_{\mathrm{far}},
-\]
-with projection \(P_{\mathrm{task}}\), and suppose that:
+Let \(D\) index learner-relative remoteness, and let \(g(D)\neq0\)
+denote the corresponding negative-update direction. Write
+\begin{equation}
+    I(D)
+    =
+    \|g(D)\|_2,
+    \qquad
+    v(D)
+    =
+    \frac{g(D)}{I(D)}.
+    \label{eq:far_field_direction}
+\end{equation}
+Assume that the local update space admits an orthogonal decomposition
+\begin{equation}
+    \mathcal T
+    =
+    \mathcal T_{\mathrm{task}}
+    \oplus
+    \mathcal T_{\mathrm{far}},
+    \label{eq:task_far_decomposition}
+\end{equation}
+and let \(P_{\mathrm{task}}\) denote the orthogonal projection onto
+\(\mathcal T_{\mathrm{task}}\). Suppose that:
 \begin{enumerate}
     \item \(\nabla J(\theta)\in\mathcal T_{\mathrm{task}}\);
 
-    \item \(\|P_{\mathrm{task}}v(D)\|_2\to0\) as \(D\to\infty\);
+    \item the normalized far-field update becomes asymptotically
+    task-orthogonal,
+    \begin{equation}
+        \left\|
+            P_{\mathrm{task}}v(D)
+        \right\|_2
+        \longrightarrow 0;
+        \label{eq:task_projection_vanishes}
+    \end{equation}
 
     \item there exist \(\rho_0>0\), \(\kappa>0\), and \(D_0\) such that,
-    for every \(D\ge D_0\) and every \(\rho\in[0,\rho_0]\),
-    \[
-    v(D)^\top
-    \nabla^2J\bigl(\theta+\rho v(D)\bigr)
-    v(D)
-    \le
-    -\kappa.
-    \]
+    for every \(D\geq D_0\) and every \(\rho\in[0,\rho_0]\),
+    \begin{equation}
+        v(D)^\top
+        \nabla^2J
+        \!\left(
+            \theta+\rho v(D)
+        \right)
+        v(D)
+        \leq
+        -\kappa.
+        \label{eq:far_field_negative_curvature}
+    \end{equation}
 \end{enumerate}
-Define
-\[
-\mathcal V_D(\rho)
-=
-J\bigl(\theta+\rho v(D)\bigr)-J(\theta),
-\qquad
-0\le\rho\le\rho_0.
-\]
-Continuity of \(J\) implies that \(\mathcal V_D\) attains a maximum
-on the compact interval \([0,\rho_0]\); let
-\[
-\rho_{\mathcal U}^\star(D)
-\in
-\arg\max_{\rho\in[0,\rho_0]}
-\mathcal V_D(\rho).
-\]
+
+Define the population utility of an effective step of length \(\rho\) by
+\begin{equation}
+    \mathcal V_D(\rho)
+    =
+    J\!\left(
+        \theta+\rho v(D)
+    \right)
+    -
+    J(\theta),
+    \qquad
+    0\leq\rho\leq\rho_0,
+    \label{eq:effective_step_utility}
+\end{equation}
+and let
+\begin{equation}
+    \rho_{\mathcal U}^{\star}(D)
+    \in
+    \arg\max_{\rho\in[0,\rho_0]}
+    \mathcal V_D(\rho).
+    \label{eq:utility_optimal_effective_step}
+\end{equation}
 Then
+\begin{equation}
+    \rho_{\mathcal U}^{\star}(D)
+    \longrightarrow 0
+    \qquad
+    \text{as }
+    D\longrightarrow\infty.
+    \label{eq:optimal_step_vanishes}
+\end{equation}
+Moreover, if
 \[
-\rho_{\mathcal U}^\star(D)\to0
-\qquad
-\text{as }D\to\infty.
+    \langle\nabla J(\theta),v(D)\rangle<0,
 \]
-Moreover, for \(D\ge D_0\), if
-\(\langle\nabla J(\theta),v(D)\rangle<0\), then
-\[
-\mathcal V_D(\rho)<0
-\qquad
-\text{for every }\rho\in(0,\rho_0].
-\]
+then every nonzero local step has negative utility:
+\begin{equation}
+    \mathcal V_D(\rho)<0
+    \qquad
+    \text{for all }
+    \rho\in(0,\rho_0].
+    \label{eq:negative_far_field_utility}
+\end{equation}
 \end{lemma}
 
 \begin{proof}
-Let
-\[
-a(D)
-=
-\langle\nabla J(\theta),v(D)\rangle.
-\]
+Define the first-order task alignment
+\begin{equation}
+    a(D)
+    =
+    \left\langle
+        \nabla J(\theta),
+        v(D)
+    \right\rangle.
+    \label{eq:far_field_alignment}
+\end{equation}
 Because
-\(\nabla J(\theta)\in\mathcal T_{\mathrm{task}}\),
-\[
-|a(D)|
-=
-\left|
-\left\langle
-\nabla J(\theta),
-P_{\mathrm{task}}v(D)
-\right\rangle
-\right|
-\le
-\|\nabla J(\theta)\|_2
-\|P_{\mathrm{task}}v(D)\|_2
-\longrightarrow0.
-\]
-For \(D\ge D_0\) and \(\rho\in(0,\rho_0]\), Taylor's theorem gives some
-\(\xi\in(0,\rho)\), and the curvature assumption yields
-\[
-\mathcal V_D(\rho)
-\le
-\rho a(D)-\frac{\kappa}{2}\rho^2.
-\]
-The same bound is trivial at \(\rho=0\). Since
-\(\mathcal V_D(0)=0\), a maximizing step must have nonnegative utility.
-The right-hand side is strictly negative whenever
-\[
-\rho
->
-\frac{2[a(D)]_+}{\kappa},
-\]
-so
-\[
-0
-\le
-\rho_{\mathcal U}^\star(D)
-\le
-\frac{2[a(D)]_+}{\kappa}
-\longrightarrow0.
-\]
-If \(a(D)<0\), the same upper bound is strictly negative for every
-\(\rho>0\), proving the second claim.
+\(\nabla J(\theta)\in\mathcal T_{\mathrm{task}}\), orthogonality gives
+\begin{equation}
+\begin{aligned}
+    |a(D)|
+    &=
+    \left|
+        \left\langle
+            \nabla J(\theta),
+            P_{\mathrm{task}}v(D)
+        \right\rangle
+    \right| \\
+    &\leq
+    \left\|
+        \nabla J(\theta)
+    \right\|_2
+    \left\|
+        P_{\mathrm{task}}v(D)
+    \right\|_2.
+\end{aligned}
+\end{equation}
+Equation~\eqref{eq:task_projection_vanishes} therefore implies
+\begin{equation}
+    a(D)\longrightarrow0.
+    \label{eq:alignment_vanishes}
+\end{equation}
+
+For any \(\rho\in[0,\rho_0]\), Taylor's theorem gives some
+\(\xi\in(0,\rho)\) such that
+\begin{equation}
+\begin{aligned}
+    \mathcal V_D(\rho)
+    &=
+    \rho a(D) \\
+    &\quad+
+    \frac{\rho^2}{2}
+    v(D)^\top
+    \nabla^2J
+    \!\left(
+        \theta+\xi v(D)
+    \right)
+    v(D).
+\end{aligned}
+\end{equation}
+Using Equation~\eqref{eq:far_field_negative_curvature},
+\begin{equation}
+    \mathcal V_D(\rho)
+    \leq
+    \rho a(D)
+    -
+    \frac{\kappa}{2}\rho^2.
+    \label{eq:utility_quadratic_upper_bound}
+\end{equation}
+
+Since \(\mathcal V_D(0)=0\), any utility-maximizing step must attain
+nonnegative utility. However, whenever
+\begin{equation}
+    \rho
+    >
+    \frac{
+        2[a(D)]_+
+    }{
+        \kappa
+    },
+\end{equation}
+the right-hand side of
+Equation~\eqref{eq:utility_quadratic_upper_bound}
+is strictly negative. Hence,
+\begin{equation}
+    0
+    \leq
+    \rho_{\mathcal U}^{\star}(D)
+    \leq
+    \frac{
+        2[a(D)]_+
+    }{
+        \kappa
+    }.
+    \label{eq:optimal_step_upper_bound}
+\end{equation}
+Together with Equation~\eqref{eq:alignment_vanishes}, this proves
+Equation~\eqref{eq:optimal_step_vanishes}.
+
+If \(a(D)<0\), then for every \(\rho>0\),
+\begin{equation}
+    \rho a(D)
+    -
+    \frac{\kappa}{2}\rho^2
+    <
+    0.
+\end{equation}
+Equation~\eqref{eq:utility_quadratic_upper_bound} therefore implies
+\(\mathcal V_D(\rho)<0\) for every nonzero local step, proving
+Equation~\eqref{eq:negative_far_field_utility}.
 \end{proof}
 
-This is a sufficient local mechanism, not a universal monotonicity law.
-It applies when far-field negative updates become asymptotically
-misaligned with the task-improving direction and the evaluated objective
-is locally harmed along those directions. The curvature condition can
-represent local losses caused by parameter drift or policy-support
+The lemma is a sufficient mechanism rather than a universal monotonicity
+claim. It applies when far-field negative updates become increasingly
+misaligned with the task-improving direction and the task objective is
+locally harmed along that far-field direction. The curvature condition
+can represent local losses caused by parameter drift or policy-support
 contraction, provided those effects reduce the evaluated objective
-\(J\). If far-field growth remains aligned with \(\nabla J(\theta)\),
-the conclusion need not hold.
+\(J\). If far-field growth remains aligned with \(\nabla J(\theta)\), the
+conclusion need not hold.
 
-A sample weight \(w\) produces effective step length
-\[
-\rho(D;w)
-=
-\eta w I(D).
-\]
-Because the lemma is local to \([0,\rho_0]\), define
+Finally, the effective step generated by a sample weight \(w\) is
+\begin{equation}
+    \rho(D;w)
+    =
+    \eta w I(D).
+    \label{eq:weight_effective_step}
+\end{equation}
+Because Lemma~\ref{lem:far_field_utility} is local to
+\(\rho\in[0,\rho_0]\), let
 \[
 w_{\mathcal U,\mathrm{loc}}^\star(D)
 \in
-\arg\max_{\substack{0\le w\le1\\ \eta wI(D)\le\rho_0}}
-\mathcal V_D\bigl(\eta wI(D)\bigr).
+\arg\max_{\substack{0\le w\le1\\ \eta w I(D)\le\rho_0}}
+\mathcal V_D\!\left(\eta w I(D)\right).
 \]
-The same quadratic bound and feasibility of the zero step yield
-\[
-0
-\le
-\eta I(D)w_{\mathcal U,\mathrm{loc}}^\star(D)
-\le
-\frac{2[a(D)]_+}{\kappa}
+By the lemma's quadratic bound and feasibility of zero,
+\begin{equation}
+0\le \eta I(D)w_{\mathcal U,\mathrm{loc}}^\star(D)
+\le \frac{2[a(D)]_+}{\kappa}
 \longrightarrow0.
-\]
-For fixed \(\eta>0\), if
-\(\liminf_{D\to\infty}I(D)>0\), then
-\(w_{\mathcal U,\mathrm{loc}}^\star(D)\to0\) as well.
+\label{eq:oracle_weighted_influence_vanishes}
+\end{equation}
+For fixed \(\eta>0\), the weight also vanishes if
+\(\liminf_{D\to\infty}I(D)>0\). Thus, when the raw far-field response
+remains nonvanishing or grows, the utility-optimal local sample weight itself
+must shrink so that the weighted response vanishes.
 
 \subsection{Proof of Proposition~\ref{prop:exp_vanishing_influence}}
 \label{app:exp_vanishing_influence}
 
 \begin{proof}
-For \(D>\tau\),
-\[
-\omega_{\mathrm{Exp}}(D)
-=
-\exp\left[-\frac{\lambda}{c}(D-\tau)\right].
-\]
-Under the finite-order response assumption,
-\[
-0
-\le
-\omega_{\mathrm{Exp}}(D)I(D)
-\le
-C e^{(\lambda/c)\tau}
-e^{-(\lambda/c)D}(1+D)^m
-\longrightarrow0,
-\]
+For $D>\tau$,
+\begin{equation}
+    \omega_{\mathrm{Exp}}(D)
+    =
+    \exp
+    \left[
+        -\frac{\lambda}{c}(D-\tau)
+    \right].
+\end{equation}
+Hence,
+\begin{equation}
+\begin{aligned}
+    \omega_{\mathrm{Exp}}(D) I(D)
+    &\leq
+    C
+    \exp
+    \left[
+        -\frac{\lambda}{c}(D-\tau)
+    \right]
+    (1+D)^m \\
+    &\longrightarrow
+    0,
+\end{aligned}
+\end{equation}
 because exponential decay dominates every finite-order polynomial.
 
-When the response scale is instantiated by a raw negative-update
-vector, let \(z_D\) denote a corresponding sample and write
-\[
-I(D)=\|g_\theta^-(z_D)\|_2.
-\]
-Define
-\[
-\Delta\theta_{\mathrm{Exp}}(D)
-:=
-\eta\omega_{\mathrm{Exp}}(D)g_\theta^-(z_D).
-\]
-Then
-\[
-\|\Delta\theta_{\mathrm{Exp}}(D)\|_2
-=
-\eta\omega_{\mathrm{Exp}}(D)I(D)
-\longrightarrow0.
-\]
-If \(\widehat J_{\mathcal B}\) is locally
-\(L_{\mathcal B}\)-Lipschitz around \(\theta\), then for all sufficiently
-large \(D\),
-\[
-\left|
-\widehat{\mathcal U}_{\mathcal B}
-\bigl(z_D;\omega_{\mathrm{Exp}}(D)\mid\theta\bigr)
-\right|
-\le
-L_{\mathcal B}
-\|\Delta\theta_{\mathrm{Exp}}(D)\|_2
-\longrightarrow0.
-\]
-This proves the proposition together with the parameter-step and
-conditional empirical-utility consequences.
+The corresponding weighted parameter step is
+\begin{equation}
+    \Delta\theta_{\mathrm{Exp}}(D)
+    =
+    \eta
+    \omega_{\mathrm{Exp}}(D)
+    g_\theta^-(D),
+\end{equation}
+and therefore
+\begin{equation}
+    \left\|
+        \Delta\theta_{\mathrm{Exp}}(D)
+    \right\|_2
+    =
+    \eta
+    \omega_{\mathrm{Exp}}(D)
+    I(D)
+    \longrightarrow
+    0.
+\end{equation}
+
+If $\widehat J_{\mathcal B}$ is locally $L_{\mathcal B}$-Lipschitz around
+$\theta$, then for all sufficiently large $D$,
+\begin{equation}
+\begin{aligned}
+    \left|
+        \widehat{\mathcal U}_{\theta,\mathcal B}
+        \bigl(z;\omega_{\mathrm{Exp}}(D)\bigr)
+    \right|
+    &\leq
+    L_{\mathcal B}
+    \left\|
+        \Delta\theta_{\mathrm{Exp}}(D)
+    \right\|_2 \\
+    &\longrightarrow
+    0.
+\end{aligned}
+\end{equation}
+This proves both claims.
 \end{proof}
+
 
 \subsection{Categorical One-vs-Rest Dynamics}
 \label{app:categorical_self_limiting}
