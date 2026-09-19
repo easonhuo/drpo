@@ -2448,13 +2448,16 @@ e^{-(\lambda/c)D}(1+D)^m
 \]
 because exponential decay dominates every finite-order polynomial.
 
-For each \(D\), let \(z_D\) denote a corresponding negative sample and
-write its raw update as
-\(g(D)=g_\theta^-(z_D)\) with \(\|g(D)\|_2=I(D)\). Define
+When the response scale is instantiated by a raw negative-update
+vector, let \(z_D\) denote a corresponding sample and write
+\[
+I(D)=\|g_\theta^-(z_D)\|_2.
+\]
+Define
 \[
 \Delta\theta_{\mathrm{Exp}}(D)
 :=
-\eta\omega_{\mathrm{Exp}}(D)g(D).
+\eta\omega_{\mathrm{Exp}}(D)g_\theta^-(z_D).
 \]
 Then
 \[
