@@ -1075,8 +1075,6 @@ def test_exp_tuning_countdown_normalization_preserves_frozen_split() -> None:
 
 
 def test_exp_tuning_duplicate_negative_allowance_is_countdown_only() -> None:
-    from drpo import e8_multitask_exp_tuning as exp_tuning
-
     negatives = [
         {
             "negative_id": f"negative-{index}",
@@ -1502,8 +1500,6 @@ def test_exp_coldstart_reference_remoteness_contract_is_static_selection_dynamic
 
 
 def test_verified_wrong_candidate_reconstruction_uses_full_deterministic_universe() -> None:
-    from drpo import e8_multitask_exp_tuning as exp_tuning
-
     class FakeResult:
         def __init__(self, value: str) -> None:
             self.score = 0.0
