@@ -182,23 +182,7 @@ def run_far_pressure_control(
         if not finite_model(actor):
             break
 
-    if finite_model(actor):
-        final = evaluation(actor, environment.test, protocol, fixed_sigma)
-    else:
-        final = {
-            key: float("nan")
-            for key in (
-                "reward",
-                "normalized_extrapolation_displacement",
-                "distance_to_a_plus",
-                "distance_to_a_star",
-                "sigma_mean",
-                "sigma_min",
-                "sigma_max",
-                "log_sigma_min",
-                "log_sigma_max",
-            )
-        }
+    final = evaluation(actor, environment.test, protocol, fixed_sigma)
     summary: dict[str, Any] = {
         "seed": seed,
         "method": method,

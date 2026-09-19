@@ -192,7 +192,6 @@ def train_positive(
 
     initialization_state = _copy_state(actor)
 
-    snapshot = _copy_state(actor)
     lbfgs = torch.optim.LBFGS(
         actor.parameters(),
         lr=training.lbfgs_lr,
@@ -207,12 +206,7 @@ def train_positive(
         loss.backward()
         return loss
 
-    try:
-        lbfgs.step(closure)
-        if not finite_model(actor):
-            raise FloatingPointError("non-finite LBFGS state")
-    except Exception:
-        actor.load_state_dict(snapshot)
+    lbfgs.step(closure)
 
     continuation = make_adam(
         actor.all_parameters(),
@@ -231,7 +225,6 @@ def train_positive(
         loss.backward()
         continuation.step()
 
-    post_continuation = _copy_state(actor)
     final_lbfgs = torch.optim.LBFGS(
         actor.parameters(),
         lr=training.lbfgs_lr,
@@ -246,12 +239,7 @@ def train_positive(
         loss.backward()
         return loss
 
-    try:
-        final_lbfgs.step(final_closure)
-        if not finite_model(actor):
-            raise FloatingPointError("non-finite final LBFGS state")
-    except Exception:
-        actor.load_state_dict(post_continuation)
+    final_lbfgs.step(final_closure)
 
     polish = make_adam(
         actor.all_parameters(),

@@ -20,10 +20,6 @@ class GaussianActor(nn.Module):
         initial_sigma: float,
     ) -> None:
         super().__init__()
-        if state_dim <= 0 or action_dim <= 0 or hidden_dim <= 0:
-            raise ValueError("network dimensions must be positive")
-        if not math.isfinite(initial_sigma) or initial_sigma <= 0.0:
-            raise ValueError("initial_sigma must be finite and positive")
         self.fc1 = nn.Linear(state_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
         self.mu_head = nn.Linear(hidden_dim, action_dim)
@@ -57,16 +53,6 @@ def gaussian_log_prob(
 ) -> torch.Tensor:
     """Return log density for ``mu=[B,D]``, ``log_std=[B]``, actions ``[B,K,D]``."""
 
-    if mu.ndim != 2 or log_std.ndim != 1 or actions.ndim != 3:
-        raise ValueError("expected mu=[B,D], log_std=[B], actions=[B,K,D]")
-    if (
-        mu.shape[0] != log_std.shape[0]
-        or mu.shape[0] != actions.shape[0]
-        or mu.shape[1] != actions.shape[2]
-    ):
-        raise ValueError("Gaussian tensor shape mismatch")
-    if int(mu.shape[1]) != int(action_dim):
-        raise ValueError("action_dim does not match tensor width")
     inverse_std = torch.exp(-log_std)[:, None, None]
     standardized = (actions - mu[:, None, :]) * inverse_std
     return (
@@ -93,12 +79,6 @@ def gaussian_output_components(
 ) -> dict[str, torch.Tensor]:
     """Return exact isotropic-Gaussian output-score components."""
 
-    if mu.ndim != 2 or actions.ndim != 3:
-        raise ValueError("expected mu=[B,D] and actions=[B,K,D]")
-    if mu.shape[0] != actions.shape[0] or mu.shape[1] != actions.shape[2]:
-        raise ValueError("mu/actions shape mismatch")
-    if int(mu.shape[1]) != int(action_dim):
-        raise ValueError("action_dim does not match tensor width")
     log_std_flat = log_std.reshape(mu.shape[0])
     sigma = torch.exp(log_std_flat)
     sigma2 = sigma.square()[:, None]
