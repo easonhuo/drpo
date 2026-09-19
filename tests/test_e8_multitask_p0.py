@@ -481,6 +481,7 @@ def test_wikisql_official_logical_form_verifier_and_mutations(tmp_path: Path) ->
 
 def test_exp_tuning_matrix_has_one_positive_and_seven_exp_per_task() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
+    from drpo import e8_multitask_warmstart_training as e8_warmstart
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_tuning.yaml"))
     cells = exp_tuning.build_cells(config)
@@ -572,7 +573,7 @@ def test_exp_tuning_config_rejects_matrix_or_budget_drift() -> None:
 
     assert config["training"]["micro_batch"] == 1
     assert config["training"]["gradient_accumulation"] == 8
-    reference_config = exp_tuning._reference_warmstart_config(
+    reference_config = e8_warmstart.reference_warmstart_config(
         config,
         Path("configs/e8_multitask_p0.yaml"),
     )
@@ -614,6 +615,7 @@ def test_exp_tuning_builds_only_train_split_references_and_rejects_leakage(
     tmp_path: Path,
 ) -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
+    from drpo import e8_multitask_warmstart_training as e8_warmstart
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_tuning.yaml"))
     config = json.loads(json.dumps(config))
@@ -731,12 +733,13 @@ def test_exp_tuning_builds_only_train_split_references_and_rejects_leakage(
         assert manifest["tasks"][task]["validation_rows_seen"] == 0
         assert manifest["tasks"][task]["test_rows_seen"] == 0
 
-    attached = exp_tuning._attach_references(
+    attached = e8_warmstart.attach_references(
         tmp_path,
         config,
         splits,
         inputs,
         base_model_path="base-model",
+        model_identity_fn=exp_tuning.model_identity,
     )
     assert attached["countdown"].reference_adapter == countdown_adapter
     assert all(attached[task].reference_adapter is not None for task in p0_tasks)
@@ -746,7 +749,7 @@ def test_exp_tuning_builds_only_train_split_references_and_rejects_leakage(
     victim_manifest = json.loads(victim_manifest_path.read_text(encoding="utf-8"))
     victim_manifest["validation_rows_seen"] = 1
     p0.atomic_json(victim_manifest_path, victim_manifest)
-    top_manifest_path = exp_tuning.reference_manifest_path(tmp_path)
+    top_manifest_path = e8_warmstart.reference_manifest_path(tmp_path)
     top_manifest = json.loads(top_manifest_path.read_text(encoding="utf-8"))
     top_manifest["tasks"][victim] = victim_manifest
     p0.atomic_json(top_manifest_path, top_manifest)
