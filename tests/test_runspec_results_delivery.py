@@ -308,5 +308,6 @@ def test_countdown_temporarily_uses_held_out_evaluation_in_place_of_test() -> No
 
     for path in (E8_COMPLETED_CLOSURE, E8_RECIPROCAL_CLOSURE):
         text = path.read_text(encoding="utf-8")
-        assert "temporarily substitutes for the separately materialized `test.jsonl`" in text
+        assert "separate `test.jsonl`" in text
+        assert "structurally disjoint held-out" in text
         assert "does not mean that held-out evaluation was absent" in text
