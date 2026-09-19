@@ -27,7 +27,20 @@ from typing import Any
 import numpy as np
 import yaml
 
-from drpo.e8_multitask_tasks import TaskInstance
+from drpo import e8_experiment_config as experiment_config
+from drpo.e8_multitask_inputs import (
+    TaskInputs,
+    _changed_leaf_paths,
+    _load_task_adapter_and_instances,
+)
+from drpo.e8_multitask_p0 import (
+    append_jsonl,
+    atomic_json,
+    model_identity,
+    read_jsonl,
+    sha256_file,
+)
+from drpo.e8_multitask_tasks import TaskInstance, stable_hash
 
 
 @dataclass(frozen=True)
@@ -83,7 +96,6 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
     METHOD_RECIPROCAL_QUADRATIC = host.METHOD_RECIPROCAL_QUADRATIC
     METHOD_TOPR = host.METHOD_TOPR
     TRANSFER_SYSTEM_PROMPT = host.TRANSFER_SYSTEM_PROMPT
-    TaskInputs = host.TaskInputs
     _adapter_weight_file = host._adapter_weight_file
     _canonical_asymre_grid_path = host._canonical_asymre_grid_path
     _canonical_calibration_identity = host._canonical_calibration_identity
@@ -91,12 +103,10 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
     _canonical_paths = host._canonical_paths
     _canonical_topr_grid_path = host._canonical_topr_grid_path
     _cell_identity = host._cell_identity
-    _changed_leaf_paths = host._changed_leaf_paths
     _coldstart_method = host._coldstart_method
     _coldstart_method_cell = host._coldstart_method_cell
     _is_coldstart = host._is_coldstart
     _is_method_matrix = host._is_method_matrix
-    _load_task_adapter_and_instances = host._load_task_adapter_and_instances
     _method_liveness_grid = host._method_liveness_grid
     _method_spec = host._method_spec
     _paper_grid_name = host._paper_grid_name
@@ -104,14 +114,7 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
     _repo_root = host._repo_root
     _summarize_evaluations = host._summarize_evaluations
     _verify_fresh_process_adapter_reload = host._verify_fresh_process_adapter_reload
-    append_jsonl = host.append_jsonl
-    atomic_json = host.atomic_json
     audit_canonical_coldstart_sources = host.audit_canonical_coldstart_sources
-    experiment_config = host.experiment_config
-    model_identity = host.model_identity
-    read_jsonl = host.read_jsonl
-    sha256_file = host.sha256_file
-    stable_hash = host.stable_hash
     torch = host.torch
     train_cell = host.train_cell
 
