@@ -864,97 +864,28 @@ Thus, the exponential taper eliminates any finite-order far-field tail
 rather than merely bounding it.
 \end{proposition}
 
-(Proof: Appendix~\ref{app:exp_vanishing_influence}; the exponential form is
-a convenient envelope, not the unique choice.)
+The exponential is a convenient, non-unique envelope (proof:
+Appendix~\ref{app:exp_vanishing_influence}).
 
-The control conditions form a guarantee hierarchy. L0,
-\(\omega(D)\to0\), gives eventual inward Gaussian radial drift for each
-fixed finite \(\rho\); L1, \(\omega(D)\sqrt D\to0\), removes the
-absolute negative far-field force; L2, \(\omega(D)D=O(1)\), bounds the
-Gaussian reuse loop gain; and L3,
-\(D^k\omega(D)\to0\) for every finite \(k\), removes all finite-order
-tails. Global scaling fails L0, reciprocal-quadratic tapering is critical at
-L2, and exponential tapering satisfies L0--L3. 
+The hierarchy strengthens from L0 (eventual inward Gaussian drift), through
+L1 (vanishing far-field force) and L2 (bounded Gaussian loop gain), to L3
+(vanishing finite-order tails). Global scaling fails L0, reciprocal-quadratic
+is critical at L2, and exponential satisfies L0--L3; definitions and the
+experimental-control mapping are in Appendix~\ref{app:exp_vanishing_influence}.
+It ranks guarantees, not task performance.
 
-This hierarchy also organizes the experimental controls. Positive-only and
-global scaling ignore remoteness; reciprocal tapers have polynomial tails, and the quadratic member meets the matching
-order; DRPO uses the exponential member that satisfies
-L0--L3. These controls share the actor form in
-Equation~\eqref{eq:drpo_actor_field} and differ only in their negative-branch
-coefficient \citep{peng2019advantage,nair2020awac,kostrikov2021offline,
-grigsby2021closer,arnal2025asymmetric,leroux2025tapered}.
-
-\subsection{Output-Coordinate Closed-Loop Guarantees}
-
-We now record the output-coordinate consequences of the DRPO update once
-positive attraction is included.
-
-\begin{theorem}[Gaussian DRPO boundedness]
-\label{thm:gaussian_drpo_boundedness}
-Let \(p>0\), \(\Sigma\succ0\), and
-\[
-F_\omega(\mu)=p\Sigma^{-1}(m_+-\mu)
-+\sum_iq_i\omega_i(D_\mu(a_i))\Sigma^{-1}(\mu-a_i).
-\]
-For finitely many negative atoms with exponential tapers, define
-\begin{equation}
-\begin{aligned}
-B_\omega&=\sup_\mu\left\|\sum_iq_i\omega_i(D_i)
-\Sigma^{-1}(\mu-a_i)\right\|_2,\\
-R^*&=\frac{B_\omega}{p\lambda_{\min}(\Sigma^{-1})}.
-\end{aligned}
-\label{eq:gaussian_bound_radius}
-\end{equation}
-Every continuous trajectory satisfies
-\(\limsup_{t\to\infty}\|\mu(t)-m_+\|_2\le R^*\), and the field has at
-least one finite equilibrium. If an uncontrolled stable equilibrium
-places every negative atom strictly below its threshold, the controlled
-and original fields have the same local linearization in a neighborhood of
-that equilibrium.
-\end{theorem}
-
-Appendix~\ref{app:gaussian_drpo_boundedness} gives an explicit
-branch-wise bound, including the case where the shifted threshold is
-negative and tapering is active from radius zero. Along every escaping
-sequence,
-\[
-\rho_{\mathrm{eff}}(\mu)
-=
-p^{-1}\sum_i q_i\omega_i(D_i)
-\longrightarrow 0;
-\]
-this explains how the remote negative source disappears, but it is a
-diagnostic consequence rather than the boundedness argument.
-
-\begin{theorem}[Categorical self-limiting suppression]
-\label{thm:categorical_self_limiting}
-For a repeatedly suppressed action \(i\), define
-\(y_i=z_i-\log\sum_{j\ne i}e^{z_j}\), so \(\pi_i=\sigma(y_i)\).
-Under an uncontrolled negative atom of mass \(q>0\),
-\[
-\dot y_i=-q(1-\pi_i)c_K(t),
-\qquad \frac K{K-1}\le c_K(t)\le2.
-\]
-Hence \(y_i\) eventually decreases linearly and \(\pi_i\) exponentially.
-With \(\omega_i=\min\{1,(e^{\tau_i}\pi_i)^\beta\}\),
-\(\beta=\lambda/c\), the far branch instead satisfies
-\[
-y_i(t)=-\beta^{-1}\log t+O(1),
-\qquad \pi_i(t)=\Theta(t^{-1/\beta}).
-\]
-Thus tapering changes persistent suppression from exponential to
-polynomial probability decay; it does not freeze the action probability.
-\end{theorem}
-
-The output-coordinate proof and finite-crossing conditions are given in
-Appendices~\ref{app:categorical_self_limiting}
-and~\ref{app:categorical_restoring_balance}.
-
-DRPO's exponential taper also arises as the optimizer of a
-generalized-I-divergence-constrained reweighting of the finite
-negative-update measure; unlike standard DRO over normalized distributions,
-this construction may reduce total negative-update mass
-(Appendix~\ref{app:finite_measure_variational}).
+Closed-loop consequences are consistent with the same control principle. For the
+fixed-covariance Gaussian mean field with positive attraction and finitely many
+exponentially tapered negative atoms, trajectories are ultimately bounded and
+the field has at least one finite equilibrium; if an uncontrolled stable
+equilibrium lies entirely inside the untapered region, the controlled and
+original fields have the same local linearization. For a repeatedly suppressed
+categorical action, tapering changes far-tail probability decay from exponential
+to polynomial rather than imposing a nonzero probability floor. Full theorem
+statements, branch conditions, and proofs are given in
+Appendices~\ref{app:gaussian_drpo_boundedness},
+\ref{app:categorical_self_limiting}, and
+\ref{app:categorical_restoring_balance}.
 
 \section{Experiments}
 \label{sec:experiments}
@@ -1850,6 +1781,43 @@ interchangeable with the KL-geometry coefficient above.
 
 \subsection{Gaussian Closed-Loop Boundedness}
 \label{app:gaussian_drpo_boundedness}
+
+\begin{theorem}[Gaussian DRPO boundedness]
+\label{thm:gaussian_drpo_boundedness}
+Let \(p>0\), \(\Sigma\succ0\), and
+\[
+F_\omega(\mu)=p\Sigma^{-1}(m_+-\mu)
++\sum_iq_i\omega_i(D_\mu(a_i))\Sigma^{-1}(\mu-a_i).
+\]
+For finitely many negative atoms with exponential tapers, define
+\begin{equation}
+\begin{aligned}
+B_\omega&=\sup_\mu\left\|\sum_iq_i\omega_i(D_i)
+\Sigma^{-1}(\mu-a_i)\right\|_2,\\
+R^*&=\frac{B_\omega}{p\lambda_{\min}(\Sigma^{-1})}.
+\end{aligned}
+\label{eq:gaussian_bound_radius}
+\end{equation}
+Every continuous trajectory satisfies
+\(\limsup_{t\to\infty}\|\mu(t)-m_+\|_2\le R^*\), and the field has at
+least one finite equilibrium. If an uncontrolled stable equilibrium
+places every negative atom strictly below its threshold, the controlled
+and original fields have the same local linearization in a neighborhood of
+that equilibrium.
+\end{theorem}
+
+The proof below gives an explicit
+branch-wise bound, including the case where the shifted threshold is
+negative and tapering is active from radius zero. Along every escaping
+sequence,
+\[
+\rho_{\mathrm{eff}}(\mu)
+=
+p^{-1}\sum_i q_i\omega_i(D_i)
+\longrightarrow 0;
+\]
+this explains how the remote negative source disappears, but it is a
+diagnostic consequence rather than the boundedness argument.
 
 \begin{proof}[Proof of Theorem~\ref{thm:gaussian_drpo_boundedness}]
 Let \(e=\mu-m_+\) and
@@ -3349,9 +3317,47 @@ $\theta$, then for all sufficiently large $D$,
 This proves both claims.
 \end{proof}
 
+The control conditions form a guarantee hierarchy. L0,
+\(\omega(D)\to0\), gives eventual inward Gaussian radial drift for each
+fixed finite \(\rho\); L1, \(\omega(D)\sqrt D\to0\), removes the
+absolute negative far-field force; L2, \(\omega(D)D=O(1)\), bounds the
+Gaussian reuse loop gain; and L3,
+\(D^k\omega(D)\to0\) for every finite \(k\), removes all finite-order
+tails. Global scaling fails L0, reciprocal-quadratic tapering is critical at
+L2, and exponential tapering satisfies L0--L3. 
+
+This hierarchy also organizes the experimental controls. Positive-only and
+global scaling ignore remoteness; reciprocal tapers have polynomial tails, and the quadratic member meets the matching
+order; DRPO uses the exponential member that satisfies
+L0--L3. These controls share the actor form in
+Equation~\eqref{eq:drpo_actor_field} and differ only in their negative-branch
+coefficient \citep{peng2019advantage,nair2020awac,kostrikov2021offline,
+grigsby2021closer,arnal2025asymmetric,leroux2025tapered}.
+
+
 
 \subsection{Categorical One-vs-Rest Dynamics}
 \label{app:categorical_self_limiting}
+
+\begin{theorem}[Categorical self-limiting suppression]
+\label{thm:categorical_self_limiting}
+For a repeatedly suppressed action \(i\), define
+\(y_i=z_i-\log\sum_{j\ne i}e^{z_j}\), so \(\pi_i=\sigma(y_i)\).
+Under an uncontrolled negative atom of mass \(q>0\),
+\[
+\dot y_i=-q(1-\pi_i)c_K(t),
+\qquad \frac K{K-1}\le c_K(t)\le2.
+\]
+Hence \(y_i\) eventually decreases linearly and \(\pi_i\) exponentially.
+With \(\omega_i=\min\{1,(e^{\tau_i}\pi_i)^\beta\}\),
+\(\beta=\lambda/c\), the far branch instead satisfies
+\[
+y_i(t)=-\beta^{-1}\log t+O(1),
+\qquad \pi_i(t)=\Theta(t^{-1/\beta}).
+\]
+Thus tapering changes persistent suppression from exponential to
+polynomial probability decay; it does not freeze the action probability.
+\end{theorem}
 
 \begin{proof}[Proof of Theorem~\ref{thm:categorical_self_limiting}]
 For a single negative atom \(i\), the direct-logit field is
