@@ -21,7 +21,7 @@ from .cu1_training import (
     initialized_actor,
     make_adam,
     sample_ids,
-    normalized_field_residual,
+    field_diagnostics,
 )
 
 
@@ -193,16 +193,16 @@ def run_phase_scan(
         else phase.normalized_residual_threshold
     )
 
-    def stationary_residual() -> float:
-        return float(
-            normalized_field_residual(
-                actor,
-                environment.train,
-                protocol,
-                alpha=alpha,
-                fixed_sigma=fixed_sigma,
-            )[residual_key]
+    def current_field() -> dict[str, float]:
+        return field_diagnostics(
+            positive_loss(actor, environment.train, protocol, fixed_sigma=fixed_sigma),
+            local_negative_loss(actor, environment.train, protocol, fixed_sigma=fixed_sigma),
+            parameters,
+            alpha=alpha,
         )
+
+    def stationary_residual() -> float:
+        return float(current_field()[residual_key])
     if finite_internal and finite_model(actor) and support_onset is None:
         audit_1_residual = stationary_residual()
         audit_1_ok = audit_1_residual < threshold
@@ -215,13 +215,7 @@ def run_phase_scan(
             audit_2_ok = audit_2_residual < threshold
 
     final = evaluation(actor, environment.test, protocol, fixed_sigma)
-    field = normalized_field_residual(
-        actor,
-        environment.train,
-        protocol,
-        alpha=alpha,
-        fixed_sigma=fixed_sigma,
-    )
+    field = current_field()
     stable = (
         finite_internal
         and finite_model(actor)

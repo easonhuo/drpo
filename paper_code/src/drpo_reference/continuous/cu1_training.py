@@ -14,7 +14,6 @@ from drpo_reference.common import cpu_generator, seed_all
 from .cu1 import (
     CU1Protocol,
     Environment,
-    Split,
     make_actor,
     make_environment,
     positive_loss,
@@ -128,13 +127,8 @@ def initialized_actor(
     return actor
 
 
-def sample_ids(
-    generator: torch.Generator,
-    split: Split,
-    batch_size: int,
-) -> torch.Tensor:
+def sample_ids(generator: torch.Generator, split, batch_size: int) -> torch.Tensor:
     return torch.randint(
-        0,
         len(split.s),
         (batch_size,),
         generator=generator,
@@ -185,25 +179,6 @@ def field_diagnostics(
         "normalized_field_residual": residual,
         "stationarity_residual": residual,
     }
-
-
-def normalized_field_residual(
-    actor: GaussianActor,
-    split: Split,
-    protocol: CU1Protocol,
-    *,
-    alpha: float,
-    fixed_sigma: float | None,
-) -> dict[str, float | str]:
-    from .cu1 import local_negative_loss
-
-    parameters = actor.mean_parameters() if fixed_sigma is not None else actor.all_parameters()
-    return field_diagnostics(
-        positive_loss(actor, split, protocol, fixed_sigma=fixed_sigma),
-        local_negative_loss(actor, split, protocol, fixed_sigma=fixed_sigma),
-        parameters,
-        alpha=alpha,
-    )
 
 
 def train_positive(
@@ -277,12 +252,10 @@ def train_positive(
             or polish_step == training.positive_polish_max_steps
         )
         if should_check:
-            field = normalized_field_residual(
-                actor,
-                environment.train,
-                protocol,
-                alpha=0.0,
-                fixed_sigma=None,
+            field = field_diagnostics(
+                positive_loss(actor, environment.train, protocol),
+                None,
+                actor.all_parameters(),
             )
             if field["total_gradient_norm"] < training.absolute_residual_threshold_alpha_zero:
                 break
