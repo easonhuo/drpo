@@ -37,17 +37,7 @@ from drpo import e8_multitask_results as e8_results
 from drpo import e8_multitask_runtime as e8_runtime
 from drpo import e8_multitask_selftest as e8_selftest
 from drpo import e8_multitask_warmstart_training as e8_warmstart
-_audit_training_rows = e8_inputs._audit_training_rows
-split_countdown_rows = e8_inputs.split_countdown_rows
-split_p0_rows = e8_inputs.split_p0_rows
-TaskInputs = e8_inputs.TaskInputs
-_evenly_spaced_rank_indices = e8_inputs._evenly_spaced_rank_indices
-_verified_wrong_candidates = e8_inputs._verified_wrong_candidates
-resolve_task_inputs = e8_inputs.resolve_task_inputs
-write_split_manifest = e8_inputs.write_split_manifest
-_leaf_values = e8_inputs._leaf_values
-_task_base_config = e8_inputs._task_base_config
-_task_grid_configs = e8_inputs._task_grid_configs
+from drpo.e8_multitask_inputs import TaskInputs
 
 
 def _canonical_bridge() -> e8_canonical_bridge.CanonicalBridge:
@@ -1579,7 +1569,7 @@ def cmd_prepare(
 ) -> dict[str, Any]:
     if _is_dense(config):
         raise RuntimeError("Dense refinement must use inherit, not prepare")
-    inputs = resolve_task_inputs(
+    inputs = e8_inputs.resolve_task_inputs(
         config,
         p0_work_dir=p0_work_dir,
         p0_config=p0_config,
@@ -1588,7 +1578,7 @@ def cmd_prepare(
         countdown_adapter=countdown_adapter,
     )
     plan = write_plan(config, output_root)
-    splits = write_split_manifest(inputs, config, output_root)
+    splits = e8_inputs.write_split_manifest(inputs, config, output_root)
     canonical_inputs = (
         write_canonical_cold_inputs(config, output_root, splits) if _is_coldstart(config) else None
     )
