@@ -95,7 +95,6 @@ class CanonicalBridge:
     _canonical_task_record: Callable[..., Any]
     _paper_grid_for_cell: Callable[..., Any]
     _canonical_environment_evaluator: Callable[..., Any]
-    _canonical_generic_posthoc: Callable[..., Any]
     _runtime_bridge_contract: Callable[..., Any]
     _legacy_arena_runtime_bridge: Callable[..., Any]
     _validated_runtime_grid: Callable[..., Any]
@@ -103,7 +102,6 @@ class CanonicalBridge:
     _canonical_baseline_grid_identity: Callable[..., Any]
     _normalized_adapter_config_sequence: Callable[..., Any]
     _dpo_shared_sft_adapter_identity: Callable[..., Any]
-    _dpo_shared_sft_adapter: Callable[..., Any]
     _parameter_sequence_sha256: Callable[..., Any]
     _dpo_prompt_balanced_mean: Callable[..., Any]
     _dpo_quantile: Callable[..., Any]
@@ -352,56 +350,6 @@ class _CanonicalBridgeImpl:
             return metrics
 
         return evaluate_rows
-
-    def _canonical_generic_posthoc(
-        self,
-        *,
-        arena: Any,
-        evaluator: Any,
-        model_path: Path,
-        checkpoint: Path,
-        validation_path: Path,
-        base_config: Mapping[str, Any],
-        seed_offset: int,
-    ) -> dict[str, Any]:
-        tokenizer = arena.load_tokenizer(str(model_path))
-        model_cfg = base_config["model"]
-        model = arena.load_model(
-            str(model_path),
-            str(checkpoint),
-            trainable_adapter=False,
-            load_in_4bit=bool(model_cfg.get("load_in_4bit", False)),
-            dtype=str(model_cfg.get("dtype", "auto")),
-            gradient_checkpointing=False,
-            parameterization="lora",
-        )
-        rows = arena.read_jsonl(validation_path)
-        eval_cfg = base_config["evaluation"]
-        result: dict[str, Any] = {}
-        for pass_k_value in eval_cfg["pass_ks"]:
-            pass_k = int(pass_k_value)
-            metrics = evaluator(
-                model,
-                tokenizer,
-                rows[: int(eval_cfg["examples"])],
-                int(eval_cfg["batch_size"]),
-                int(model_cfg["max_new_tokens"]),
-                pass_k,
-                int(eval_cfg["seed"]) + int(seed_offset) + pass_k,
-            )
-            if pass_k == int(eval_cfg["pass_ks"][0]):
-                result["validation_greedy_success"] = float(metrics["greedy_success"])
-                result["validation_valid_rate"] = float(metrics["valid_rate"])
-                result["validation_sampled_valid_rate"] = float(
-                    metrics.get("sampled_valid_rate", metrics["valid_rate"])
-                )
-                result["validation_n_eval"] = float(metrics["n_eval"])
-            result[f"validation_pass_at_{pass_k}"] = float(metrics["pass_at_k"])
-        del model
-        gc.collect()
-        if self.torch is not None and self.torch.cuda.is_available():
-            self.torch.cuda.empty_cache()
-        return result
 
     def _runtime_bridge_contract(self, effective: Mapping[str, Any]) -> dict[str, Any]:
         return {
@@ -709,10 +657,6 @@ class _CanonicalBridgeImpl:
         }
         identity["identity_hash"] = stable_hash(identity)
         return {"path": str(path), **identity}
-
-    def _dpo_shared_sft_adapter(self, config: Mapping[str, Any]) -> Path | None:
-        identity = self._dpo_shared_sft_adapter_identity(config)
-        return None if identity is None else Path(str(identity["path"]))
 
     def _parameter_sequence_sha256(self, parameters: Sequence[Any]) -> str:
         if self.torch is None:
@@ -1855,7 +1799,6 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         _canonical_task_record=impl._canonical_task_record,
         _paper_grid_for_cell=impl._paper_grid_for_cell,
         _canonical_environment_evaluator=impl._canonical_environment_evaluator,
-        _canonical_generic_posthoc=impl._canonical_generic_posthoc,
         _runtime_bridge_contract=impl._runtime_bridge_contract,
         _legacy_arena_runtime_bridge=impl._legacy_arena_runtime_bridge,
         _validated_runtime_grid=impl._validated_runtime_grid,
@@ -1863,7 +1806,6 @@ def build_bridge(bindings: CanonicalBridgeBindings) -> CanonicalBridge:
         _canonical_baseline_grid_identity=impl._canonical_baseline_grid_identity,
         _normalized_adapter_config_sequence=impl._normalized_adapter_config_sequence,
         _dpo_shared_sft_adapter_identity=impl._dpo_shared_sft_adapter_identity,
-        _dpo_shared_sft_adapter=impl._dpo_shared_sft_adapter,
         _parameter_sequence_sha256=impl._parameter_sequence_sha256,
         _dpo_prompt_balanced_mean=impl._dpo_prompt_balanced_mean,
         _dpo_quantile=impl._dpo_quantile,
