@@ -1468,7 +1468,8 @@ R_\mu(a)
 
 For a categorical policy, the \(K=1\) case is degenerate:
 \(\pi_z(a)=1\), \(D_z(a)=0\), and the score is identically zero.
-Assume \(K\ge2\) below and let \(p=\pi_z(a)=e^{-D_z(a)}\). Since
+Assume \(K\ge2\) below and let
+\(p_a=\pi_z(a)=e^{-D_z(a)}\). Since
 \[
 \nabla_z\log\pi_z(a)=e_a-\pi_z,
 \]
@@ -1478,7 +1479,7 @@ the selected-logit response is
 \frac{\partial}{\partial z_a}\log\pi_z(a)
 \right|
 =
-1-p
+1-p_a
 =
 1-e^{-D_z(a)},
 \]
@@ -1486,23 +1487,23 @@ which increases with surprisal and saturates at one. Moreover,
 \[
 R_z(a)
 =
-(1-p)^2+\sum_{j\ne a}\pi_z(j)^2.
+(1-p_a)^2+\sum_{j\ne a}\pi_z(j)^2.
 \]
-The non-selected probabilities are nonnegative and sum to \(1-p\), so
+The non-selected probabilities are nonnegative and sum to \(1-p_a\), so
 \[
-\frac{(1-p)^2}{K-1}
+\frac{(1-p_a)^2}{K-1}
 \le
 \sum_{j\ne a}\pi_z(j)^2
 \le
-(1-p)^2.
+(1-p_a)^2.
 \]
 Therefore
 \[
-\frac{K}{K-1}(1-p)^2
+\frac{K}{K-1}(1-p_a)^2
 \le
 R_z(a)
 \le
-2(1-p)^2
+2(1-p_a)^2
 \le
 2,
 \]
@@ -2432,8 +2433,11 @@ If \(a(D)<0\), the same upper bound is strictly negative for every
 This is a sufficient local mechanism, not a universal monotonicity law.
 It applies when far-field negative updates become asymptotically
 misaligned with the task-improving direction and the evaluated objective
-is locally harmed along those directions. If far-field growth remains
-aligned with \(\nabla J(\theta)\), the conclusion need not hold.
+is locally harmed along those directions. The curvature condition can
+represent local losses caused by parameter drift or policy-support
+contraction, provided those effects reduce the evaluated objective
+\(J\). If far-field growth remains aligned with \(\nabla J(\theta)\),
+the conclusion need not hold.
 
 A sample weight \(w\) produces effective step length
 \[
