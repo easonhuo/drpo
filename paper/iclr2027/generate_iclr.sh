@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SOURCE="$ROOT/paper/overleaf/main_replacement.tex"
 OUT_DIR="${1:-$ROOT/paper/iclr2027/build}"
-EXPECTED_BLOB="f260b842cf140d24dd005476aeec71dbecb0744c"
+EXPECTED_BLOB="f419a6de19022592cb57a406c80b49f38599f6aa"
 
 mkdir -p "$OUT_DIR"
 
