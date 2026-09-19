@@ -542,10 +542,11 @@ equilibrium exists only while the signed target remains in the attainable
 mean-parameter space.
 
 \textbf{Critical regime \((\rho=1)\).}
-If \(\mathbf m_+\neq\mathbf m_-\), the policy-output coordinate exhibits
-persistent drift and admits no finite equilibrium. If
-\(\mathbf m_+=\mathbf m_-\), every point is stationary, but no point is
-an isolated asymptotically stable equilibrium.
+If \(\mathbf m_+\neq\mathbf m_-\), the policy-output coordinate has a
+constant nonzero drift and admits no finite equilibrium. For the Gaussian
+and categorical coordinates considered here, this drift persists for all
+forward time. If \(\mathbf m_+=\mathbf m_-\), every point is stationary,
+but no point is an isolated asymptotically stable equilibrium.
 
 \textit{Negative-dominant regime (\(\rho>1\)).}
 Every finite stationary point, if one exists, is unstable in continuous
@@ -602,10 +603,11 @@ Consequently, for every fixed historical action \(a\),
 Consider a categorical policy
 \(\pi_z=\operatorname{softmax}(z)\) with at least two actions and the
 zero-sum gauge \(\mathbf 1^\top z=0\). Any finite stationary point, when
-one exists, is unique and repelling. Unless initialized exactly at that
-point, the continuous dynamics and every discrete trajectory with fixed
-step size \(\alpha>0\) eventually leave every compact subset of the
-logit space. Along some subsequence, the corresponding probability
+one exists, is unique and repelling. Every nonstationary initialization
+(and every initialization if no finite stationary point exists) yields
+continuous dynamics and discrete trajectories with fixed step size
+\(\alpha>0\) that eventually leave every compact subset of the logit
+space. Along some subsequence, the corresponding probability
 vector approaches the boundary of the simplex. Nevertheless, for every
 action \(a\) and every finite \(z\),
 \begin{equation}
@@ -1522,7 +1524,7 @@ C_\Sigma+\frac12(a-\mu)^\top\Sigma^{-1}(a-\mu),
 \qquad
 \nabla_\mu^2D_\mu(a)=\Sigma^{-1}\succeq0.
 \]
-For categorical logits \(z\), with \(p=\operatorname{softmax}(z)\),
+For categorical logits \(z\), with \(\pi=\operatorname{softmax}(z)\),
 \[
 D_z(a)
 =
@@ -1530,11 +1532,11 @@ D_z(a)
 \qquad
 \nabla_z^2D_z(a)
 =
-\operatorname{diag}(p)-pp^\top\succeq0,
+\operatorname{diag}(\pi)-\pi\pi^\top\succeq0,
 \]
 because
-\(v^\top(\operatorname{diag}(p)-pp^\top)v
-=\operatorname{Var}_{i\sim p}(v_i)\ge0\).
+\(v^\top(\operatorname{diag}(\pi)-\pi\pi^\top)v
+=\operatorname{Var}_{i\sim\pi}(v_i)\ge0\).
 Thus both policy-output coordinates satisfy the theorem's convexity
 assumption.
 
@@ -1988,9 +1990,11 @@ is constant. If \(\mathbf m_+\ne\mathbf m_-\),
 =
 \xi_0+t\alpha p(\mathbf m_+-\mathbf m_-),
 \]
-so both dynamics exhibit linear drift and have no finite equilibrium;
-the drift persists for all forward time when \(\mathcal H\) is full or
-forward invariant along this direction. If
+so both dynamics exhibit linear drift and have no finite equilibrium.
+For the Gaussian and reference-logit categorical coordinates considered
+here, \(\mathcal H\) is the full coordinate space, so the drift persists
+for all forward time. More generally, the same formula holds for as long
+as the trajectory remains in \(\mathcal H\). If
 \(\mathbf m_+=\mathbf m_-\), the field vanishes identically. Every point
 is stationary, but no point is an isolated locally asymptotically stable
 equilibrium.
@@ -2239,8 +2243,11 @@ as established in Proposition~\ref{prop:distance_strength}.
 \label{app:min_order_control}
 
 For fixed-covariance Gaussian mean coordinates,
-Proposition~\ref{prop:distance_strength} gives constants
-\(0<c_1\le c_2<\infty\) and \(D_0\) such that, for all \(D\ge D_0\),
+Proposition~\ref{prop:distance_strength} gives
+\(R(D)=\Theta(D-C_\Sigma)\). Since \(C_\Sigma\) is fixed,
+\(D-C_\Sigma=\Theta(D)\) as \(D\to\infty\). Hence there are
+constants \(0<c_1\le c_2<\infty\) and \(D_0\) such that, for all
+\(D\ge D_0\),
 \[
 c_1D
 \le
@@ -2485,8 +2492,9 @@ e^{-(\lambda/c)D}(1+D)^m
 \]
 because exponential decay dominates every finite-order polynomial.
 
-For a corresponding negative sample \(z\), write its raw update as
-\(g(D)=g_\theta^-(z)\) with \(\|g(D)\|_2=I(D)\), and define
+For each \(D\), let \(z_D\) denote a corresponding negative sample and
+write its raw update as
+\(g(D)=g_\theta^-(z_D)\) with \(\|g(D)\|_2=I(D)\). Define
 \[
 \Delta\theta_{\mathrm{Exp}}(D)
 :=
@@ -2500,12 +2508,12 @@ Then
 \longrightarrow0.
 \]
 If \(\widehat J_{\mathcal B}\) is locally
-\(L_{\mathcal B}\)-Lipschitz around \(\theta\), then for the corresponding
-negative sample \(z\) and all sufficiently large \(D\),
+\(L_{\mathcal B}\)-Lipschitz around \(\theta\), then for all sufficiently
+large \(D\),
 \[
 \left|
 \widehat{\mathcal U}_{\mathcal B}
-\bigl(z;\omega_{\mathrm{Exp}}(D)\mid\theta\bigr)
+\bigl(z_D;\omega_{\mathrm{Exp}}(D)\mid\theta\bigr)
 \right|
 \le
 L_{\mathcal B}
