@@ -13,7 +13,7 @@ from typing import Any
 
 import torch
 
-from drpo_reference.controls import far_mask, near_mask
+from drpo_reference.controls import near_mask
 
 from .gaussian import GaussianActor, gaussian_log_prob, standardized_distance
 
@@ -60,28 +60,33 @@ class Environment:
     test: Split
 
 
-def base_from_state(states: torch.Tensor) -> torch.Tensor:
-    first = 0.70 * torch.tanh(
-        0.85 * states[:, 0]
-        - 0.30 * states[:, 1] * states[:, 2]
-        + 0.20 * torch.sin(1.6 * states[:, 3])
+def state_geometry(
+    states: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    plus = torch.stack(
+        [
+            0.70
+            * torch.tanh(
+                0.85 * states[:, 0]
+                - 0.30 * states[:, 1] * states[:, 2]
+                + 0.20 * torch.sin(1.6 * states[:, 3])
+            ),
+            0.65
+            * torch.tanh(
+                -0.50 * states[:, 1]
+                + 0.35 * torch.cos(1.1 * states[:, 4])
+                + 0.22 * states[:, 0] * states[:, 5]
+            ),
+        ],
+        dim=1,
     )
-    second = 0.65 * torch.tanh(
-        -0.50 * states[:, 1]
-        + 0.35 * torch.cos(1.1 * states[:, 4])
-        + 0.22 * states[:, 0] * states[:, 5]
+    angle = (
+        1.15 * torch.tanh(0.75 * states[:, 0] + 0.50 * states[:, 2] - 0.30 * states[:, 5])
+        + 0.30 * torch.sin(1.35 * states[:, 1])
     )
-    return torch.stack([first, second], dim=1)
-
-
-def task_direction_from_state(states: torch.Tensor) -> torch.Tensor:
-    angle = 1.15 * torch.tanh(0.75 * states[:, 0] + 0.50 * states[:, 2] - 0.30 * states[:, 5])
-    angle = angle + 0.30 * torch.sin(1.35 * states[:, 1])
-    return torch.stack([torch.cos(angle), torch.sin(angle)], dim=1)
-
-
-def orthogonal(direction: torch.Tensor) -> torch.Tensor:
-    return torch.stack([-direction[:, 1], direction[:, 0]], dim=1)
+    direction = torch.stack([torch.cos(angle), torch.sin(angle)], dim=1)
+    perpendicular = torch.stack([-direction[:, 1], direction[:, 0]], dim=1)
+    return plus, direction, perpendicular
 
 
 def reward_from_optimum(
@@ -93,71 +98,55 @@ def reward_from_optimum(
     return torch.exp(-0.5 * (distance / reward_width).square())
 
 
-def positive_angles(protocol: CU1Protocol, dtype: torch.dtype) -> torch.Tensor:
+def contour_angles(
+    protocol: CU1Protocol,
+    dtype: torch.dtype,
+    device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor]:
     theta_1 = protocol.positive_angle_1
-    cos_theta_2 = (
-        2.0 * protocol.gap_to_unseen_optimum / protocol.positive_contour_radius - math.cos(theta_1)
+    theta_2 = math.acos(
+        2.0 * protocol.gap_to_unseen_optimum / protocol.positive_contour_radius
+        - math.cos(theta_1)
     )
-    theta_2 = math.acos(cos_theta_2)
-    return torch.tensor(
-        [
-            math.pi - theta_1,
-            math.pi + theta_1,
-            math.pi - theta_2,
-            math.pi + theta_2,
-        ],
-        dtype=dtype,
+    positive = (math.pi - theta_1, math.pi + theta_1, math.pi - theta_2, math.pi + theta_2)
+    negative = (
+        math.pi,
+        3.0 * math.pi / 4.0,
+        math.pi / 2.0,
+        math.pi / 4.0,
+        0.0,
+        -math.pi / 4.0,
+        -math.pi / 2.0,
+        -3.0 * math.pi / 4.0,
     )
-
-
-def negative_angles(dtype: torch.dtype) -> torch.Tensor:
-    return torch.tensor(
-        [
-            math.pi,
-            3.0 * math.pi / 4.0,
-            math.pi / 2.0,
-            math.pi / 4.0,
-            0.0,
-            -math.pi / 4.0,
-            -math.pi / 2.0,
-            -3.0 * math.pi / 4.0,
-        ],
-        dtype=dtype,
+    return (
+        torch.tensor(positive, dtype=dtype, device=device),
+        torch.tensor(negative, dtype=dtype, device=device),
     )
 
 
 def make_split(states: torch.Tensor, protocol: CU1Protocol) -> Split:
-    plus = base_from_state(states)
-    direction = task_direction_from_state(states)
-    perpendicular = orthogonal(direction)
+    plus, direction, perpendicular = state_geometry(states)
     star = plus + protocol.gap_to_unseen_optimum * direction
+    positive_theta, negative_theta = contour_angles(protocol, states.dtype, states.device)
 
-    positive_theta = positive_angles(protocol, states.dtype).to(states.device)
-    positive_direction = (
-        torch.cos(positive_theta)[None, :, None] * direction[:, None, :]
-        + torch.sin(positive_theta)[None, :, None] * perpendicular[:, None, :]
-    )
-    positive_actions = star[:, None, :] + protocol.positive_contour_radius * positive_direction
-    positive_rewards = reward_from_optimum(
-        positive_actions,
-        star[:, None, :],
-        protocol.reward_width,
-    )
-    positive_advantages = positive_rewards - protocol.baseline
+    def contour_actions(theta: torch.Tensor, radius: float) -> torch.Tensor:
+        contour_direction = (
+            torch.cos(theta)[None, :, None] * direction[:, None, :]
+            + torch.sin(theta)[None, :, None] * perpendicular[:, None, :]
+        )
+        return star[:, None, :] + radius * contour_direction
 
-    negative_theta = negative_angles(states.dtype).to(states.device)
-    negative_direction = (
-        torch.cos(negative_theta)[None, :, None] * direction[:, None, :]
-        + torch.sin(negative_theta)[None, :, None] * perpendicular[:, None, :]
+    positive_actions = contour_actions(positive_theta, protocol.positive_contour_radius)
+    negative_actions = contour_actions(negative_theta, protocol.negative_contour_radius)
+    positive_advantages = (
+        reward_from_optimum(positive_actions, star[:, None, :], protocol.reward_width)
+        - protocol.baseline
     )
-    negative_actions = star[:, None, :] + protocol.negative_contour_radius * negative_direction
-    negative_rewards = reward_from_optimum(
-        negative_actions,
-        star[:, None, :],
-        protocol.reward_width,
+    negative_advantages = (
+        reward_from_optimum(negative_actions, star[:, None, :], protocol.reward_width)
+        - protocol.baseline
     )
-    negative_advantages = negative_rewards - protocol.baseline
-
     return Split(
         s=states,
         a_plus=plus,
@@ -213,10 +202,11 @@ def actor_log_prob(
     fixed_sigma: float | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     mu, predicted_log_std = actor(states)
-    if fixed_sigma is None:
-        log_std = predicted_log_std
-    else:
-        log_std = torch.full_like(predicted_log_std, math.log(fixed_sigma))
+    log_std = (
+        predicted_log_std
+        if fixed_sigma is None
+        else torch.full_like(predicted_log_std, math.log(fixed_sigma))
+    )
     return (
         gaussian_log_prob(mu, log_std, actions, protocol.action_dim),
         mu,
@@ -266,14 +256,7 @@ def local_negative_loss(
     ids: torch.Tensor | None = None,
     fixed_sigma: float | None = None,
 ) -> torch.Tensor:
-    return negative_loss(
-        actor,
-        split,
-        protocol,
-        ids,
-        fixed_sigma,
-        slice(0, 1),
-    )
+    return negative_loss(actor, split, protocol, ids, fixed_sigma, slice(0, 1))
 
 
 def near_far_losses(
@@ -298,10 +281,7 @@ def near_far_losses(
         standardized,
         threshold=protocol.near_far_standardized_threshold,
     ).to(log_probability.dtype)
-    far = far_mask(
-        standardized,
-        threshold=protocol.near_far_standardized_threshold,
-    ).to(log_probability.dtype)
+    far = (~near.bool()).to(log_probability.dtype)
     denominator = float(log_probability.numel())
     near_loss = -(advantages * log_probability * near).sum() / denominator
     far_loss = -(advantages * log_probability * far).sum() / denominator
@@ -354,13 +334,11 @@ def support_diagnostics(
     split: Split,
     protocol: CU1Protocol,
 ) -> dict[str, Any]:
-    with torch.no_grad():
-        _, log_sigma = actor(split.s)
-        sigma = torch.exp(log_sigma)
-    finite_log_sigma = bool(torch.isfinite(log_sigma).all().item())
-    finite_sigma = bool(torch.isfinite(sigma).all().item())
-    log_min = float(log_sigma.min().item()) if finite_log_sigma else float("nan")
-    log_max = float(log_sigma.max().item()) if finite_log_sigma else float("nan")
+    metrics = evaluation(actor, split, protocol)
+    finite_log_sigma = bool(metrics["log_sigma_output_finite"])
+    finite_sigma = bool(metrics["sigma_output_finite"])
+    log_min = float(metrics["log_sigma_min"]) if finite_log_sigma else float("nan")
+    log_max = float(metrics["log_sigma_max"]) if finite_log_sigma else float("nan")
     contraction = finite_log_sigma and log_min < -protocol.log_sigma_event_boundary
     expansion = finite_log_sigma and log_max > protocol.log_sigma_event_boundary
     event_type = (
