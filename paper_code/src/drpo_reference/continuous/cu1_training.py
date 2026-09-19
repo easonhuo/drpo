@@ -76,20 +76,13 @@ def gradients(
     )
 
 
-def add_gradients(
-    *groups: Sequence[torch.Tensor | None],
-    scales: Sequence[float] | None = None,
-) -> GradientTuple:
-    if not groups:
-        return ()
-    if scales is None:
-        scales = [1.0] * len(groups)
+def add_gradients(*groups: Sequence[torch.Tensor | None]) -> GradientTuple:
     result: list[torch.Tensor | None] = []
     for components in zip(*groups):
         value: torch.Tensor | None = None
-        for gradient, scale in zip(components, scales):
+        for gradient in components:
             if gradient is not None:
-                value = gradient * scale if value is None else value + gradient * scale
+                value = gradient if value is None else value + gradient
         result.append(value)
     return tuple(result)
 
@@ -99,14 +92,6 @@ def scale_gradients(
     scale: float | torch.Tensor,
 ) -> GradientTuple:
     return tuple(None if gradient is None else gradient * scale for gradient in gradients)
-
-
-def set_parameter_gradients(
-    parameters: Sequence[nn.Parameter],
-    gradients: Sequence[torch.Tensor | None],
-) -> None:
-    for parameter, gradient in zip(parameters, gradients):
-        parameter.grad = None if gradient is None else gradient.detach().clone()
 
 
 def finite_model(model: nn.Module) -> bool:

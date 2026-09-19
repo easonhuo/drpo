@@ -38,7 +38,6 @@ from .cu1_training import (
     make_adam,
     sample_ids,
     scale_gradients,
-    set_parameter_gradients,
 )
 from .gaussian import GaussianActor
 
@@ -82,25 +81,6 @@ def _flatten_present(gradients: Sequence[torch.Tensor | None]) -> torch.Tensor:
     return torch.cat(present)
 
 
-def per_sample_negative_gradient(
-    actor,
-    state: torch.Tensor,
-    action: torch.Tensor,
-    advantage: torch.Tensor,
-    protocol: CU1Protocol,
-) -> torch.Tensor:
-    """Return the full-parameter gradient of ``A log pi(a|s)`` for one sample."""
-
-    log_probability, _, _ = actor_log_prob(
-        actor,
-        state[None, :],
-        action[None, None, :],
-        protocol,
-    )
-    objective = advantage * log_probability.squeeze()
-    return _flatten_present(gradients(objective, actor.all_parameters()))
-
-
 def source_diagnostic(
     *,
     seed: int,
@@ -116,18 +96,17 @@ def source_diagnostic(
     count = min(source.probe_states, len(split.s))
 
     def sample_gradients(action_index: int) -> torch.Tensor:
-        return torch.stack(
-            [
-                per_sample_negative_gradient(
-                    actor,
-                    split.s[index],
-                    split.negative_actions[index, action_index],
-                    split.negative_advantages[index, 0],
-                    protocol,
-                )
-                for index in range(count)
-            ]
-        )
+        rows = []
+        for index in range(count):
+            log_probability, _, _ = actor_log_prob(
+                actor,
+                split.s[index : index + 1],
+                split.negative_actions[index : index + 1, action_index : action_index + 1],
+                protocol,
+            )
+            objective = split.negative_advantages[index, 0] * log_probability.squeeze()
+            rows.append(_flatten_present(gradients(objective, actor.all_parameters())))
+        return torch.stack(rows)
 
     with torch.enable_grad():
         near, far = (sample_gradients(index) for index in (0, 4))
@@ -297,7 +276,8 @@ def run_causal_intervention(
             component_scales=component_scales,
         )
         optimizer.zero_grad(set_to_none=True)
-        set_parameter_gradients(parameters, gradients)
+        for parameter, gradient in zip(parameters, gradients):
+            parameter.grad = None if gradient is None else gradient.detach().clone()
         optimizer.step()
 
         finite = finite_model(actor)
@@ -339,7 +319,7 @@ def run_causal_intervention(
             break
 
     final = evaluation(actor, environment.test, protocol, fixed_sigma)
-    final_support = evaluation(actor, environment.train, protocol) if fixed_sigma is None else None
+    final_support = post_support if fixed_sigma is None else None
     finite_parameters = finite_model(actor)
     summary: dict[str, Any] = {
         "seed": seed,
