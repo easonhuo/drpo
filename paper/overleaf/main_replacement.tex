@@ -535,18 +535,16 @@ If \(\mathbf m^\star(\rho)\) lies in the interior of the attainable
 mean-parameter space, there is a unique finite equilibrium whose mean
 parameter is \(\mathbf m^\star(\rho)\). It is locally asymptotically
 stable in continuous time and for sufficiently small discrete step
-sizes. Holding \(\mathbf m_+\) and \(\mathbf m_-\) fixed, the algebraic
-signed-target displacement from \(\mathbf m_+\) grows without bound as
-\(\rho\to1^-\), unless \(\mathbf m_+=\mathbf m_-\). A finite
-equilibrium exists only while the signed target remains in the attainable
-mean-parameter space.
+sizes. Holding \(\mathbf m_+\) and \(\mathbf m_-\) fixed, its displacement
+from \(\mathbf m_+\) grows without bound as \(\rho\to1^-\), unless
+\(\mathbf m_+=\mathbf m_-\). If the signed target leaves the attainable
+mean-parameter space, no finite equilibrium exists.
 
 \textbf{Critical regime \((\rho=1)\).}
-If \(\mathbf m_+\neq\mathbf m_-\), the policy-output coordinate has a
-constant nonzero drift and admits no finite equilibrium. For the Gaussian
-and categorical coordinates considered here, this drift persists for all
-forward time. If \(\mathbf m_+=\mathbf m_-\), every point is stationary,
-but no point is an isolated asymptotically stable equilibrium.
+If \(\mathbf m_+\neq\mathbf m_-\), the policy-output coordinate exhibits
+persistent drift and admits no finite equilibrium. If
+\(\mathbf m_+=\mathbf m_-\), every point is stationary, but no point is
+an isolated asymptotically stable equilibrium.
 
 \textit{Negative-dominant regime (\(\rho>1\)).}
 Every finite stationary point, if one exists, is unstable in continuous
@@ -575,8 +573,7 @@ analyze Gaussian and categorical policies separately.
 
 \begin{theorem}[Policy-family score behavior under negative dominance]
 \label{thm:policy_family_manifestations}
-Assume \(0<p<q\), so that both positive and negative aggregate
-feedback masses are nonzero, with negative feedback dominant.
+Assume \(p<q\).
 
 \textbf{Gaussian policy.}
 Consider a Gaussian policy
@@ -603,11 +600,10 @@ Consequently, for every fixed historical action \(a\),
 Consider a categorical policy
 \(\pi_z=\operatorname{softmax}(z)\) with at least two actions and the
 zero-sum gauge \(\mathbf 1^\top z=0\). Any finite stationary point, when
-one exists, is unique and repelling. Every nonstationary initialization
-(and every initialization if no finite stationary point exists) yields
-continuous dynamics and discrete trajectories with fixed step size
-\(\alpha>0\) that eventually leave every compact subset of the logit
-space. Along some subsequence, the corresponding probability
+one exists, is unique and repelling. Unless initialized exactly at that
+point, the continuous dynamics and every discrete trajectory with fixed
+step size \(\alpha>0\) eventually leave every compact subset of the
+logit space. Along some subsequence, the corresponding probability
 vector approaches the boundary of the simplex. Nevertheless, for every
 action \(a\) and every finite \(z\),
 \begin{equation}
@@ -1990,11 +1986,9 @@ is constant. If \(\mathbf m_+\ne\mathbf m_-\),
 =
 \xi_0+t\alpha p(\mathbf m_+-\mathbf m_-),
 \]
-so both dynamics exhibit linear drift and have no finite equilibrium.
-For the Gaussian and reference-logit categorical coordinates considered
-here, \(\mathcal H\) is the full coordinate space, so the drift persists
-for all forward time. More generally, the same formula holds for as long
-as the trajectory remains in \(\mathcal H\). If
+so both dynamics exhibit linear drift and have no finite equilibrium;
+the drift persists for all forward time when \(\mathcal H\) is full or
+forward invariant along this direction. If
 \(\mathbf m_+=\mathbf m_-\), the field vanishes identically. Every point
 is stationary, but no point is an isolated locally asymptotically stable
 equilibrium.
@@ -2025,20 +2019,19 @@ Theorem~\ref{thm:policy_family_manifestations}}
 \label{app:policy_family_manifestations}
 
 \begin{proof}
-Let \(r=q-p>0\). Because \(0<p<q\), the normalized positive and
-negative moments used below are well defined.
+Let \(r=q-p>0\).
 
 \medskip
 \noindent\textbf{Gaussian policy.}
-Define
+Define the unnormalized signed moments
 \[
-\mu_+
+\bar\mu_+
 =
-\frac{\mathbb E_\nu[\widehat A^+(a)a]}{p},
+\mathbb E_\nu[\widehat A^+(a)a],
 \qquad
-\mu_-
+\bar\mu_-
 =
-\frac{\mathbb E_\nu[\widehat A^-(a)a]}{q}.
+\mathbb E_\nu[\widehat A^-(a)a].
 \]
 For a fixed-covariance Gaussian,
 \[
@@ -2051,13 +2044,13 @@ so
 \mathbf F_\mu(\mu)
 =
 \Sigma^{-1}
-\bigl[p\mu_+-q\mu_--(p-q)\mu\bigr].
+\bigl[\bar\mu_+-\bar\mu_--(p-q)\mu\bigr].
 \]
 Define
 \[
 \mu^\dagger
 =
-\frac{q\mu_--p\mu_+}{r}.
+\frac{\bar\mu_--\bar\mu_+}{r}.
 \]
 Then
 \[
@@ -2110,19 +2103,15 @@ Work on the zero-sum gauge
 =
 \{z\in\mathbb R^K:\mathbf1^\top z=0\}.
 \]
-Let
+Let the fixed signed action-mass vector be
 \[
-\rho_+
-=
-\frac{\mathbb E_\nu[\widehat A^+(a)e_a]}{p},
-\qquad
-\rho_-
-=
-\frac{\mathbb E_\nu[\widehat A^-(a)e_a]}{q},
-\qquad
 b
 =
-p\rho_+-q\rho_-.
+\mathbb E_\nu[\widehat A(a)e_a]
+=
+\mathbb E_\nu[\widehat A^+(a)e_a]
+-
+\mathbb E_\nu[\widehat A^-(a)e_a].
 \]
 Then
 \[
@@ -2332,8 +2321,7 @@ I(D)=\|g(D)\|_2,
 \qquad
 v(D)=\frac{g(D)}{I(D)}.
 \]
-Assume \(J\) is twice continuously differentiable on the local update
-segments considered below. Suppose the local update space admits an
+Suppose the local update space admits an
 orthogonal decomposition
 \[
 \mathcal T
