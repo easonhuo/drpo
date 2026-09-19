@@ -2441,8 +2441,8 @@ def test_runtime_activation_uses_canonical_grid_before_generic_bridge() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
     source = inspect.getsource(exp_tuning._canonical_bridge()._train_canonical_cold_cell)
-    assert "_activate_paper_grid_modules(modules, grid_source_path)" in source
-    assert "_activate_paper_grid_modules(modules, grid_path)" not in source
+    assert "self._activate_paper_grid_modules(modules, grid_source_path)" in source
+    assert "self._activate_paper_grid_modules(modules, grid_path)" not in source
 
 
 def test_coldstart_validation_has_single_config_authority_exit() -> None:
@@ -3032,7 +3032,7 @@ def test_coldstart_liveness_identity_is_derived_from_canonical_smoke_grid() -> N
     assert not math.isclose(expected_c, 0.916290732, rel_tol=0.0, abs_tol=1.0e-12)
 
     source = inspect.getsource(exp_tuning._canonical_bridge()._cmd_canonical_cold_liveness)
-    assert "cell = _canonical_cold_liveness_cell(grid_path)" in source
+    assert "cell = self._canonical_cold_liveness_cell(grid_path)" in source
 
 
 def test_coldstart_liveness_cli_path_needs_no_scientific_grid_selector(
@@ -3513,7 +3513,7 @@ def test_topr_dispatch_records_topr_formula_identity_not_exp_formula() -> None:
     )
     source = inspect.getsource(exp_tuning._canonical_bridge()._train_canonical_cold_cell)
     assert "paper_runtime.formula" in source
-    assert "_paper_grid_for_cell(config, record, cell)" in source
+    assert "self._paper_grid_for_cell(config, record, cell)" in source
 
 
 def test_dpo_failure_path_preserves_last_finite_without_extra_policy_change_gate() -> None:
@@ -3546,7 +3546,7 @@ def test_dpo_transfer_consumes_effective_task_runtime_and_preserves_liveness_ide
     assert 'model_cfg["max_new_tokens"] = int(effective["model"]["max_new_tokens"])' in source
     assert 'eval_cfg["batch_size"] = int(effective["evaluation"]["batch_size"])' in source
     assert 'eval_cfg["pass_ks"] = list(effective["evaluation"]["pass_ks"])' in source
-    assert 'with _legacy_arena_runtime_bridge(arena, effective):' in source
+    assert 'with self._legacy_arena_runtime_bridge(arena, effective):' in source
     assert 'warmup_steps = 0 if warmup_ratio == 0.0' in source
     assert 'cell.dpo_initialization != configured_initialization' in source
     assert 'str(final_adapter_dir.resolve())' in source
@@ -3622,7 +3622,7 @@ def test_canonical_failed_cell_preserves_manifest_without_late_window_summary() 
     assert 'numerical_failure = canonical_summary.get("numerical_failure")' in source
     assert 'if numerical_failure is None' in source
     assert 'else {}' in source
-    assert '"nan_inf_failure": _is_nan_inf_numerical_failure(numerical_failure)' in source
+    assert '"nan_inf_failure": self._is_nan_inf_numerical_failure(numerical_failure)' in source
     assert '"evaluation_status": (' in source
     assert 'metrics_summary.get("supplementary_best_step")' in source
 
