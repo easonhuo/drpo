@@ -49,21 +49,6 @@ def run_du1(
             trajectories.extend(method_trajectory)
             summaries.append(summary)
 
-    order = {method: index for index, method in enumerate(METHODS)}
-    trajectories.sort(
-        key=lambda row: (
-            int(row["seed"]),
-            order[str(row["method"])],
-            int(row["step"]),
-        )
-    )
-    summaries.sort(
-        key=lambda row: (
-            int(row["seed"]),
-            order[str(row["method"])],
-        )
-    )
-
     positive_only = {
         int(row["seed"]): float(row["final_expected_semantic_reward"])
         for row in summaries

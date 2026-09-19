@@ -37,20 +37,6 @@ class CU1Protocols:
     taper: CU1TaperProtocol = field(default_factory=CU1TaperProtocol)
 
 
-def _select_seeds(
-    stage: str,
-    protocols: CU1Protocols,
-    requested: tuple[int, ...] | None,
-) -> tuple[int, ...]:
-    return requested if requested is not None else tuple(getattr(protocols, stage).seeds)
-
-
-def _device(value: str) -> torch.device:
-    if value == "auto":
-        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    return torch.device(value)
-
-
 CONTROL_METHODS = (
     "uncontrolled_all",
     "far_cap",
@@ -207,12 +193,16 @@ def run_cu1_stage(
     device: str = "cpu",
 ) -> dict[str, Any]:
     protocols = CU1Protocols()
-    selected = _select_seeds(
-        stage,
-        protocols,
-        None if seeds is None else tuple(int(seed) for seed in seeds),
+    selected = (
+        tuple(getattr(protocols, stage).seeds)
+        if seeds is None
+        else tuple(int(seed) for seed in seeds)
     )
-    target = _device(device)
+    target = torch.device(
+        "cuda" if device == "auto" and torch.cuda.is_available()
+        else "cpu" if device == "auto"
+        else device
+    )
 
     if stage == "source":
         result: dict[str, Any] = {
