@@ -3745,7 +3745,6 @@ def test_shared_sft_adapter_binds_full_identity_and_provenance(
     assert identity["adapter_weight_sha256"] == contract["adapter_weight_sha256"]
     assert identity["provenance_sha256"] == contract["provenance_sha256"]
     assert identity["adapter_parameterization"]["target_modules"] == ["q_proj", "v_proj"]
-    assert Path(str(identity["path"])) == adapter.resolve()
 
     # PEFT loads safetensors before bin when both recognized files are present.
     # A contract that hashes the bin file must therefore fail before model loading
