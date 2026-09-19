@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-from collections import deque
 from dataclasses import dataclass
 from typing import Any
 
@@ -43,7 +42,6 @@ class CU1ControlProtocol:
     far_cap_ratio: float = 0.05
     learning_rate: float = 5e-4
     steps: int = 4000
-    evaluation_interval: int = 100
     seeds: tuple[int, ...] = tuple(range(50, 70))
 
 
@@ -162,14 +160,6 @@ def run_far_pressure_control(
     )
     generator = torch.Generator(device="cpu").manual_seed(seed + 500009)
     fixed_sigma = analytic_positive_sigma(protocol)
-    last_recorded_step = 0
-    task_threshold = protocol.task_failure_retention * float(
-        evaluation(actor, environment.test, protocol, fixed_sigma)["reward"]
-    )
-    below_threshold: deque[int] = deque(maxlen=protocol.task_failure_consecutive_evals)
-    task_onset: int | None = None
-    nonfinite_onset: int | None = None
-
     for step in range(1, control.steps + 1):
         ids = torch.randint(
             0,
@@ -190,25 +180,7 @@ def run_far_pressure_control(
         set_parameter_gradients(parameters, gradients)
         optimizer.step()
         if not finite_model(actor):
-            nonfinite_onset = step
             break
-        if step % control.evaluation_interval == 0 or step == 1 or step == control.steps:
-            metrics = evaluation(
-                actor,
-                environment.test,
-                protocol,
-                fixed_sigma,
-            )
-            if float(metrics["reward"]) < task_threshold:
-                below_threshold.append(step)
-            else:
-                below_threshold.clear()
-            if (
-                len(below_threshold) == protocol.task_failure_consecutive_evals
-                and task_onset is None
-            ):
-                task_onset = below_threshold[0]
-            last_recorded_step = step
 
     if finite_model(actor):
         final = evaluation(actor, environment.test, protocol, fixed_sigma)
@@ -231,10 +203,7 @@ def run_far_pressure_control(
         "seed": seed,
         "method": method,
         **final,
-        "task_failure_threshold": task_threshold,
-        "task_failure_onset": task_onset,
-        "nonfinite_onset": nonfinite_onset,
         "finite_parameters": finite_model(actor),
-        "steps_completed": last_recorded_step,
+        "steps_completed": step,
     }
     return summary
