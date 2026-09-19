@@ -850,10 +850,6 @@ def materialize_reference_remoteness_task(
                 int(runtime["evaluation_batch_size"]),
             )
         )
-        if len(scores) != len(candidates):
-            raise RuntimeError(
-                f"Reference-policy candidate scoring count mismatch for {task}/{prompt_id}"
-            )
         scored = [
             {**candidate, "reference_surprisal": float(score)}
             for candidate, score in zip(candidates, scores, strict=True)
