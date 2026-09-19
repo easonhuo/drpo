@@ -576,16 +576,11 @@ def test_asymre_boundary_dense_has_eight_points_and_sixteen_paired_cells() -> No
     assert {cell.family for cell in cells} == {"asymre"}
     assert {cell.coefficient for cell in cells} == {0.0}
     assert {cell.delta_v for cell in cells} == set(points)
-    assert {cell.alpha for cell in cells} == {
-        0.0,
-        0.05,
-        0.1,
-        0.15,
-        0.2,
-        0.3,
-        0.4,
-        0.5,
-    }
+    assert sorted({cell.alpha for cell in cells}) == pytest.approx(
+        [0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5],
+        rel=0.0,
+        abs=1.0e-12,
+    )
     assert config["sweep"]["cells"] == 16
     assert config["execution"]["expected_full_waves"] == 1
     assert config["predecessor"]["rerun_boundary_points_as_internal_anchors"] is True
