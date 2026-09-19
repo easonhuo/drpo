@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from drpo_reference.categorical.du1_public import run_du1
 from drpo_reference.continuous.cu1_suite import (

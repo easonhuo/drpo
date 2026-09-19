@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 import torch
 
@@ -52,6 +53,8 @@ def build_shared_start(
         {name: value.detach().clone() for name, value in model.state_dict().items()},
         coordinate_calibration(model, environment, protocol),
     )
+
+
 def run_method(
     *,
     protocol: DU1Protocol,

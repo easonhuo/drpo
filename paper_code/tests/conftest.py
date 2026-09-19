@@ -6,7 +6,6 @@ from pathlib import Path
 
 import torch
 
-
 ROOT = Path(__file__).resolve().parents[2]
 for source in (ROOT / "paper_code" / "src", ROOT / "src"):
     location = str(source)
