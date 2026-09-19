@@ -482,7 +482,6 @@ def test_wikisql_official_logical_form_verifier_and_mutations(tmp_path: Path) ->
 
 def test_exp_tuning_matrix_has_one_positive_and_seven_exp_per_task() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
-    from drpo import e8_multitask_warmstart_training as e8_warmstart
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_tuning.yaml"))
     cells = exp_tuning.build_cells(config)
@@ -555,6 +554,7 @@ def test_exp_dense_config_rejects_task_grid_or_bridge_drift() -> None:
 
 def test_exp_tuning_config_rejects_matrix_or_budget_drift() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
+    from drpo import e8_multitask_warmstart_training as e8_warmstart
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_tuning.yaml"))
     changed = json.loads(json.dumps(config))
