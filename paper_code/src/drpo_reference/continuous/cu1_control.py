@@ -131,12 +131,14 @@ def run_far_pressure_control(
     initialization_state: dict[str, torch.Tensor],
     environment: Environment,
     protocol: CU1Protocol,
-    positive_training: CU1PositiveProtocol = CU1PositiveProtocol(),
-    control: CU1ControlProtocol = CU1ControlProtocol(),
+    positive_training: CU1PositiveProtocol | None = None,
+    control: CU1ControlProtocol | None = None,
     method: str,
 ) -> dict[str, Any]:
     """Run one E4 far-pressure control branch."""
 
+    positive_training = CU1PositiveProtocol() if positive_training is None else positive_training
+    control = CU1ControlProtocol() if control is None else control
     actor = make_actor(protocol).to(
         environment.train.s.device,
         dtype=environment.train.s.dtype,

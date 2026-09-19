@@ -39,6 +39,8 @@ from .cu1_training import (
     set_parameter_gradients,
 )
 
+from .gaussian import GaussianActor
+
 GradientTuple = tuple[torch.Tensor | None, ...]
 
 
@@ -110,10 +112,11 @@ def source_diagnostic(
     actor: GaussianActor,
     environment: Environment,
     protocol: CU1Protocol,
-    source: CU1SourceProtocol = CU1SourceProtocol(),
+    source: CU1SourceProtocol | None = None,
 ) -> dict[str, float | int]:
     """Measure the equal-advantage near/far amplification ratios."""
 
+    source = CU1SourceProtocol() if source is None else source
     count = min(source.probe_states, len(environment.train.s))
     near_gradients: list[torch.Tensor] = []
     far_gradients: list[torch.Tensor] = []
@@ -327,17 +330,19 @@ def run_causal_intervention(
     initialization_state: dict[str, torch.Tensor],
     environment: Environment,
     protocol: CU1Protocol,
-    positive_training: CU1PositiveProtocol = CU1PositiveProtocol(),
+    positive_training: CU1PositiveProtocol | None = None,
     method: str,
     fixed_sigma: float | None,
     alpha: float,
     learning_rate: float,
     steps: int,
     branch: str,
-    causal: CU1CausalProtocol = CU1CausalProtocol(),
+    causal: CU1CausalProtocol | None = None,
 ) -> dict[str, Any]:
     """Run one C-U1 causal branch from the shared positive-only initialization."""
 
+    positive_training = CU1PositiveProtocol() if positive_training is None else positive_training
+    causal = CU1CausalProtocol() if causal is None else causal
     actor = make_actor(protocol).to(
         environment.train.s.device,
         dtype=environment.train.s.dtype,
