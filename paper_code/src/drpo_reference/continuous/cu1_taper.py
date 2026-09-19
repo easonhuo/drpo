@@ -39,7 +39,7 @@ from .cu1_training import (
     gradient_norm,
     make_adam,
 )
-from .gaussian import standardized_distance
+from .gaussian import GaussianActor, standardized_distance
 
 GradientTuple = tuple[torch.Tensor | None, ...]
 
@@ -279,13 +279,15 @@ def run_taper_method(
     initialization_state: dict[str, torch.Tensor],
     environment: Environment,
     protocol: CU1Protocol,
-    positive_training: CU1PositiveProtocol = CU1PositiveProtocol(),
-    taper: CU1TaperProtocol = CU1TaperProtocol(),
+    positive_training: CU1PositiveProtocol | None = None,
+    taper: CU1TaperProtocol | None = None,
     family: str,
     retention: float,
 ) -> dict[str, Any]:
     """Run one taper branch from the exact positive-only Adam checkpoint."""
 
+    positive_training = CU1PositiveProtocol() if positive_training is None else positive_training
+    taper = CU1TaperProtocol() if taper is None else taper
     seed_all(seed + 900_000)
     actor = make_actor(protocol).to(
         environment.train.s.device,

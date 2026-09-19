@@ -178,14 +178,16 @@ def run_phase_scan(
     initialization_state: dict[str, torch.Tensor],
     environment: Environment,
     protocol: CU1Protocol,
-    positive_training: CU1PositiveProtocol = CU1PositiveProtocol(),
-    phase: CU1PhaseProtocol = CU1PhaseProtocol(),
+    positive_training: CU1PositiveProtocol | None = None,
+    phase: CU1PhaseProtocol | None = None,
     alpha: float,
     fixed_sigma: float | None,
     branch: str,
 ) -> dict[str, Any]:
     """Run one C-U1 local-strength branch and both stationary checks."""
 
+    positive_training = CU1PositiveProtocol() if positive_training is None else positive_training
+    phase = CU1PhaseProtocol() if phase is None else phase
     actor = make_actor(protocol).to(
         environment.train.s.device,
         dtype=environment.train.s.dtype,
@@ -272,7 +274,7 @@ def run_phase_scan(
             else phase.normalized_residual_threshold
         )
         audit_1_ok = audit_1_residual < threshold
-        completed_second = adam_phase(
+        adam_phase(
             phase.continuation_steps,
             completed_first,
         )

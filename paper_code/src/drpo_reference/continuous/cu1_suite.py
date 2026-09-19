@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Sequence
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 import torch
 
@@ -27,13 +28,13 @@ STAGES = ("source", "causal", "phase", "taper")
 
 @dataclass(frozen=True)
 class CU1Protocols:
-    core: CU1Protocol = CU1Protocol()
-    positive: CU1PositiveProtocol = CU1PositiveProtocol()
-    source: CU1SourceProtocol = CU1SourceProtocol()
-    causal: CU1CausalProtocol = CU1CausalProtocol()
-    phase: CU1PhaseProtocol = CU1PhaseProtocol()
-    control: CU1ControlProtocol = CU1ControlProtocol()
-    taper: CU1TaperProtocol = CU1TaperProtocol()
+    core: CU1Protocol = field(default_factory=CU1Protocol)
+    positive: CU1PositiveProtocol = field(default_factory=CU1PositiveProtocol)
+    source: CU1SourceProtocol = field(default_factory=CU1SourceProtocol)
+    causal: CU1CausalProtocol = field(default_factory=CU1CausalProtocol)
+    phase: CU1PhaseProtocol = field(default_factory=CU1PhaseProtocol)
+    control: CU1ControlProtocol = field(default_factory=CU1ControlProtocol)
+    taper: CU1TaperProtocol = field(default_factory=CU1TaperProtocol)
 
 
 def _select_seeds(
