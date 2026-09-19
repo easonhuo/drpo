@@ -1877,10 +1877,6 @@ _load_reference_model = e8_warmstart._load_reference_model
 _calibration_identity = e8_warmstart._calibration_identity
 
 
-def _canonical_task_record(*args: Any, **kwargs: Any) -> Any:
-    return _canonical_bridge()._canonical_task_record(*args, **kwargs)
-
-
 def _canonical_calibration_identity(
     task: str,
     *,
@@ -1888,7 +1884,7 @@ def _canonical_calibration_identity(
     base_model_path: str,
     config: Mapping[str, Any],
 ) -> dict[str, Any]:
-    record = _canonical_task_record(split_manifest, task)
+    record = _canonical_bridge()._canonical_task_record(split_manifest, task)
     value = {
         "schema_version": 1,
         "experiment_id": experiment_id(config),
@@ -1924,7 +1920,7 @@ def calibrate_canonical_cold_task(
     output_root: Path,
     force: bool,
 ) -> dict[str, Any]:
-    record = _canonical_task_record(split_manifest, task)
+    record = _canonical_bridge()._canonical_task_record(split_manifest, task)
     identity = _canonical_calibration_identity(
         task,
         split_manifest=split_manifest,
