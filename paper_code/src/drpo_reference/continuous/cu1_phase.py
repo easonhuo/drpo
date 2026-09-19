@@ -14,7 +14,6 @@ from .cu1 import (
     evaluation,
     local_negative_loss,
     positive_loss,
-    support_diagnostics,
 )
 from .cu1_training import (
     CU1PositiveProtocol,
@@ -166,7 +165,7 @@ def run_phase_scan(
             completed = offset
             finite = finite_model(actor)
             post_support = (
-                support_diagnostics(actor, environment.train, protocol)
+                evaluation(actor, environment.train, protocol)
                 if fixed_sigma is None
                 else {}
             )

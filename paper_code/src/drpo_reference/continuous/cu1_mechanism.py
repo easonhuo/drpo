@@ -26,7 +26,6 @@ from .cu1 import (
     near_far_losses,
     negative_loss,
     positive_loss,
-    support_diagnostics,
 )
 from .cu1_training import (
     CU1PositiveProtocol,
@@ -306,7 +305,7 @@ def run_causal_intervention(
 
         finite = finite_model(actor)
         post_support = (
-            support_diagnostics(actor, environment.train, protocol) if fixed_sigma is None else {}
+            evaluation(actor, environment.train, protocol) if fixed_sigma is None else {}
         )
         support_type = post_support["event_type"] if fixed_sigma is None else None
         if support_type is not None and support_onset is None:
@@ -346,7 +345,7 @@ def run_causal_intervention(
 
     final = evaluation(actor, environment.test, protocol, fixed_sigma)
     final_support = (
-        support_diagnostics(actor, environment.train, protocol)
+        evaluation(actor, environment.train, protocol)
         if fixed_sigma is None
         else None
     )
@@ -375,8 +374,8 @@ def run_causal_intervention(
             or (
                 final_support
                 and (
-                    not final_support["log_sigma_output_finite_all_states"]
-                    or not final_support["sigma_output_finite_all_states"]
+                    not final_support["log_sigma_output_finite"]
+                    or not final_support["sigma_output_finite"]
                 )
             )
         ),

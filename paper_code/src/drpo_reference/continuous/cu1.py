@@ -9,8 +9,6 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Any
-
 import torch
 
 from drpo_reference.controls import near_mask
@@ -304,46 +302,34 @@ def evaluation(
         axis = ((mu - split.a_plus) * split.direction).sum(-1)
         normalized = axis / protocol.gap_to_unseen_optimum
         sigma = torch.exp(log_std)
+        finite_log_sigma = bool(torch.isfinite(log_std).all().item())
+        finite_sigma = bool(torch.isfinite(sigma).all().item())
+        log_min = float(log_std.min().item()) if finite_log_sigma else float("nan")
+        log_max = float(log_std.max().item()) if finite_log_sigma else float("nan")
+        contraction = finite_log_sigma and log_min < -protocol.log_sigma_event_boundary
+        expansion = finite_log_sigma and log_max > protocol.log_sigma_event_boundary
+        event_type = (
+            "nonfinite_log_sigma_output"
+            if not finite_log_sigma
+            else "nonfinite_sigma_output"
+            if not finite_sigma
+            else "support_contraction"
+            if contraction
+            else "unexpected_support_expansion"
+            if expansion
+            else None
+        )
         return {
             "reward": reward.mean().item(),
             "normalized_extrapolation_displacement": normalized.mean().item(),
             "sigma_mean": sigma.mean().item(),
-            "log_sigma_min": log_std.min().item(),
-            "log_sigma_max": log_std.max().item(),
-            "log_sigma_output_finite": bool(torch.isfinite(log_std).all().item()),
-            "sigma_output_finite": bool(torch.isfinite(sigma).all().item()),
+            "log_sigma_min": log_min,
+            "log_sigma_max": log_max,
+            "log_sigma_output_finite": finite_log_sigma,
+            "sigma_output_finite": finite_sigma,
+            "support_contraction_boundary": contraction,
+            "unexpected_support_expansion_boundary": expansion,
+            "event_type": event_type,
         }
 
 
-def support_diagnostics(
-    actor: GaussianActor,
-    split: Split,
-    protocol: CU1Protocol,
-) -> dict[str, Any]:
-    metrics = evaluation(actor, split, protocol)
-    finite_log_sigma = bool(metrics["log_sigma_output_finite"])
-    finite_sigma = bool(metrics["sigma_output_finite"])
-    log_min = float(metrics["log_sigma_min"]) if finite_log_sigma else float("nan")
-    log_max = float(metrics["log_sigma_max"]) if finite_log_sigma else float("nan")
-    contraction = finite_log_sigma and log_min < -protocol.log_sigma_event_boundary
-    expansion = finite_log_sigma and log_max > protocol.log_sigma_event_boundary
-    event_type = (
-        "nonfinite_log_sigma_output"
-        if not finite_log_sigma
-        else "nonfinite_sigma_output"
-        if not finite_sigma
-        else "support_contraction"
-        if contraction
-        else "unexpected_support_expansion"
-        if expansion
-        else None
-    )
-    return {
-        "log_sigma_min_all_states": log_min,
-        "log_sigma_max_all_states": log_max,
-        "sigma_output_finite_all_states": finite_sigma,
-        "log_sigma_output_finite_all_states": finite_log_sigma,
-        "support_contraction_boundary": contraction,
-        "unexpected_support_expansion_boundary": expansion,
-        "event_type": event_type,
-    }

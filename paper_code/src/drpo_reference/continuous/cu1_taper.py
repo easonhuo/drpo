@@ -28,7 +28,6 @@ from .cu1 import (
     actor_log_prob,
     evaluation,
     positive_loss,
-    support_diagnostics,
 )
 from .cu1_training import (
     CU1PositiveProtocol,
@@ -176,11 +175,11 @@ def evaluate_taper_state(
         retention=retention,
     )
     finite_parameters = finite_model(actor)
-    support = support_diagnostics(actor, environment.train, protocol)
+    support = evaluation(actor, environment.train, protocol)
     numerical = bool(
         not finite_parameters
-        or not support["log_sigma_output_finite_all_states"]
-        or not support["sigma_output_finite_all_states"]
+        or not support["log_sigma_output_finite"]
+        or not support["sigma_output_finite"]
     )
     boundary = bool(
         support["support_contraction_boundary"] or support["unexpected_support_expansion_boundary"]
