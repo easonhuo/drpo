@@ -1091,8 +1091,6 @@ def test_exp_tuning_duplicate_negative_allowance_is_countdown_only() -> None:
 
 
 def test_exp_tuning_liveness_does_not_open_validation_split(tmp_path: Path) -> None:
-    from drpo import e8_multitask_exp_tuning as exp_tuning
-
     train_path = tmp_path / "train.jsonl"
     p0.atomic_jsonl(
         train_path,
@@ -1126,8 +1124,6 @@ def test_exp_tuning_liveness_does_not_open_validation_split(tmp_path: Path) -> N
 
 @pytest.mark.skipif(torch is None, reason="Torch is unavailable in the test runtime")
 def test_exp_tuning_distance_and_rho_parameterization() -> None:
-    from drpo import e8_multitask_exp_tuning as exp_tuning
-
     sequence_lp = torch.tensor([-1.0, -2.0, -5.0], requires_grad=True)
     distance = e8_warmstart.normalized_distance(sequence_lp, tau=1.0, scale=4.0)
     assert distance.tolist() == pytest.approx([0.0, 0.5, 1.0])
@@ -3608,15 +3604,13 @@ def test_transfer_evaluator_honors_configured_sampling_values() -> None:
 def test_nan_inf_failure_classifier_separates_identity_mismatch() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
-    assert exp_tuning._canonical_bridge()._is_nan_inf_numerical_failure(None) is False
-    assert (
-        exp_tuning._canonical_bridge()._is_nan_inf_numerical_failure(
-  "initial_policy_reference_ratio_mismatch"
-        )
-        is False
-    )
-    assert exp_tuning._canonical_bridge()._is_nan_inf_numerical_failure("nonfinite_loss_at_step_1") is True
-    assert exp_tuning._canonical_bridge()._is_nan_inf_numerical_failure("nonfinite_parameters_at_step_9") is True
+    bridge = exp_tuning._canonical_bridge()
+    assert bridge._is_nan_inf_numerical_failure(None) is False
+    assert bridge._is_nan_inf_numerical_failure(
+        "initial_policy_reference_ratio_mismatch"
+    ) is False
+    assert bridge._is_nan_inf_numerical_failure("nonfinite_loss_at_step_1") is True
+    assert bridge._is_nan_inf_numerical_failure("nonfinite_parameters_at_step_9") is True
 
 
 def test_canonical_failed_cell_preserves_manifest_without_late_window_summary() -> None:
@@ -3714,6 +3708,7 @@ def test_shared_sft_adapter_binds_full_identity_and_provenance(
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
     config = _dpo_capability_test_config(shared_sft=True)
+    bridge = exp_tuning._canonical_bridge()
     adapter = tmp_path / "shared"
     adapter.mkdir()
     adapter_config = {
@@ -3743,14 +3738,14 @@ def test_shared_sft_adapter_binds_full_identity_and_provenance(
     exp_tuning.validate_config(config)
     monkeypatch.setenv("E8_DPO_SHARED_SFT_ADAPTER", str(adapter))
 
-    identity = exp_tuning._canonical_bridge()._dpo_shared_sft_adapter_identity(config)
+    identity = bridge._dpo_shared_sft_adapter_identity(config)
     assert identity is not None
     assert identity["path"] == str(adapter.resolve())
     assert identity["adapter_config_sha256"] == contract["adapter_config_sha256"]
     assert identity["adapter_weight_sha256"] == contract["adapter_weight_sha256"]
     assert identity["provenance_sha256"] == contract["provenance_sha256"]
     assert identity["adapter_parameterization"]["target_modules"] == ["q_proj", "v_proj"]
-    assert exp_tuning._canonical_bridge()._dpo_shared_sft_adapter(config) == adapter.resolve()
+    assert bridge._dpo_shared_sft_adapter(config) == adapter.resolve()
 
     # PEFT loads safetensors before bin when both recognized files are present.
     # A contract that hashes the bin file must therefore fail before model loading
@@ -3761,17 +3756,17 @@ def test_shared_sft_adapter_binds_full_identity_and_provenance(
     contract["adapter_weight_file"] = "adapter_model.bin"
     contract["adapter_weight_sha256"] = exp_tuning.sha256_file(alternate_weight_path)
     with pytest.raises(ValueError, match="exactly the contracted recognized weight file"):
-        exp_tuning._canonical_bridge()._dpo_shared_sft_adapter_identity(config)
+        bridge._dpo_shared_sft_adapter_identity(config)
 
     # Either recognized filename remains supported when it is the directory's
     # unique recognized adapter-weight artifact.
     weight_path.unlink()
-    bin_identity = exp_tuning._canonical_bridge()._dpo_shared_sft_adapter_identity(config)
+    bin_identity = bridge._dpo_shared_sft_adapter_identity(config)
     assert bin_identity is not None
     assert bin_identity["adapter_weight_file"] == "adapter_model.bin"
     weight_path.write_bytes(b"identity-only-test")
     with pytest.raises(ValueError, match="exactly the contracted recognized weight file"):
-        exp_tuning._canonical_bridge()._dpo_shared_sft_adapter_identity(config)
+        bridge._dpo_shared_sft_adapter_identity(config)
 
     alternate_weight_path.unlink()
     contract["adapter_weight_file"] = "adapter_model.safetensors"
@@ -3781,14 +3776,14 @@ def test_shared_sft_adapter_binds_full_identity_and_provenance(
     adapter_config_path.write_text(json.dumps(adapter_config, sort_keys=True), encoding="utf-8")
     contract["adapter_config_sha256"] = exp_tuning.sha256_file(adapter_config_path)
     with pytest.raises(ValueError, match="parameterization does not match"):
-        exp_tuning._canonical_bridge()._dpo_shared_sft_adapter_identity(config)
+        bridge._dpo_shared_sft_adapter_identity(config)
 
     adapter_config["target_modules"] = ["v_proj", "q_proj"]
     adapter_config_path.write_text(json.dumps(adapter_config, sort_keys=True), encoding="utf-8")
     contract["adapter_config_sha256"] = exp_tuning.sha256_file(adapter_config_path)
     weight_path.write_bytes(b"wrong-adapter-bytes")
     with pytest.raises(ValueError, match="identity hash mismatch"):
-        exp_tuning._canonical_bridge()._dpo_shared_sft_adapter_identity(config)
+        bridge._dpo_shared_sft_adapter_identity(config)
     weight_path.write_bytes(b"identity-only-test")
     contract["adapter_weight_sha256"] = exp_tuning.sha256_file(weight_path)
 
@@ -3796,7 +3791,7 @@ def test_shared_sft_adapter_binds_full_identity_and_provenance(
     provenance_path.write_text(json.dumps(provenance, sort_keys=True), encoding="utf-8")
     contract["provenance_sha256"] = exp_tuning.sha256_file(provenance_path)
     with pytest.raises(ValueError, match="provenance does not match"):
-        exp_tuning._canonical_bridge()._dpo_shared_sft_adapter_identity(config)
+        bridge._dpo_shared_sft_adapter_identity(config)
 
 
 def test_shared_sft_mode_requires_config_defined_identity_contract() -> None:
@@ -4035,15 +4030,16 @@ def test_method_vocabulary_aliases_config_authority() -> None:
 def test_canonical_baseline_grid_identity_is_actual_sha_non_gating() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
+    bridge = exp_tuning._canonical_bridge()
     for method in (exp_tuning.METHOD_ASYMRE, exp_tuning.METHOD_TOPR):
-        identity = exp_tuning._canonical_bridge()._canonical_baseline_grid_identity(method)
+        identity = bridge._canonical_baseline_grid_identity(method)
         path = Path(identity["canonical_grid"])
         assert path.is_file()
         assert identity["canonical_grid_sha256"] == exp_tuning.sha256_file(path)
         assert identity["identity_policy"] == "runtime_actual_sha256_recorded_non_gating"
         assert identity["expected_git_blob_gate"] is False
     with pytest.raises(ValueError, match="No extra canonical grid identity"):
-        exp_tuning._canonical_bridge()._canonical_baseline_grid_identity(exp_tuning.METHOD_DPO)
+        bridge._canonical_baseline_grid_identity(exp_tuning.METHOD_DPO)
 
 
 def test_baseline_matrix_liveness_dispatches_all_three_methods(
