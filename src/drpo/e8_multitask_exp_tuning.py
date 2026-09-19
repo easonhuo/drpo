@@ -1602,51 +1602,6 @@ def cmd_prepare(
     return manifest
 
 
-def _parent_response_rows(
-    parent_config: Mapping[str, Any],
-    parent_output_root: Path,
-    tasks: set[str],
-) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    expected_hash = stable_config_hash(parent_config)
-    for cell in build_cells(parent_config):
-        if cell.task not in tasks:
-            continue
-        path = parent_output_root / "cells" / cell.key / "cell_manifest.json"
-        if not path.is_file():
-            raise FileNotFoundError(f"Missing predecessor cell manifest: {path}")
-        value = json.loads(path.read_text(encoding="utf-8"))
-        if (
-            value.get("experiment_id") != experiment_id(parent_config)
-            or value.get("config_hash") != expected_hash
-            or not value.get("complete")
-            or value.get("evaluation_status") != "complete"
-            or value.get("nan_inf_failure") is not False
-        ):
-            raise RuntimeError(f"Predecessor cell is not reusable: {cell.key}")
-        rows.append(
-            {
-                "source": "predecessor",
-                "task": cell.task,
-                "method": cell.method,
-                "rho": cell.rho,
-                "lambda": None if cell.rho is None else coefficient_from_rho(cell.rho),
-                "seed": cell.seed,
-                "cell_key": cell.key,
-                "late_window_pass8_mean": value["validation_late_window_pass8_mean"],
-                "terminal_pass8": value["validation_terminal_pass8"],
-                "late_window_greedy_mean": value["validation_late_window_greedy_mean"],
-                "terminal_greedy": value["validation_terminal_greedy"],
-                "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
-                "nan_inf_failure": False,
-            }
-        )
-    expected = len(tasks) * 8
-    if len(rows) != expected:
-        raise RuntimeError(f"Expected {expected} predecessor response rows, found {len(rows)}")
-    return rows
-
-
 def cmd_inherit(
     config: Mapping[str, Any],
     output_root: Path,
@@ -1655,170 +1610,22 @@ def cmd_inherit(
     parent_config_path: Path,
     base_model_path: str,
 ) -> dict[str, Any]:
-    if not _is_dense(config):
-        raise RuntimeError("inherit is only valid for the dense refinement profile")
-    parent_config = load_config(parent_config_path)
-    parent_contract = config["parent"]
-    if (
-        experiment_id(parent_config) != EXPERIMENT_ID
-        or stable_config_hash(parent_config) != parent_contract["config_hash"]
-        or int(parent_config["sweep"]["expected_cells"]) != int(parent_contract["expected_cells"])
-    ):
-        raise RuntimeError("Predecessor config identity mismatch")
-
-    parent_artifacts = {
-        "plan": parent_output_root / "plan.json",
-        "split_manifest": parent_output_root / "split_manifest.json",
-        "reference_manifest": e8_warmstart.reference_manifest_path(parent_output_root),
-        "aggregate_summary": parent_output_root / "aggregate" / "aggregate_summary.json",
-    }
-    for name, path in parent_artifacts.items():
-        if not path.is_file():
-            raise FileNotFoundError(f"Missing predecessor {name}: {path}")
-        expected_sha = str(parent_contract["artifact_sha256"][name])
-        if sha256_file(path) != expected_sha:
-            raise RuntimeError(f"Predecessor {name} does not match the delivered result")
-
-    parent_plan = json.loads(parent_artifacts["plan"].read_text(encoding="utf-8"))
-    parent_aggregate = json.loads(parent_artifacts["aggregate_summary"].read_text(encoding="utf-8"))
-    if (
-        parent_plan.get("experiment_id") != EXPERIMENT_ID
-        or parent_plan.get("config_hash") != parent_contract["config_hash"]
-        or int(parent_plan.get("cell_count", 0)) != int(parent_contract["expected_cells"])
-        or parent_aggregate.get("experiment_id") != EXPERIMENT_ID
-        or parent_aggregate.get("test_partition_accessed") is not False
-        or int(parent_aggregate.get("cell_count", 0)) != int(parent_contract["expected_cells"])
-    ):
-        raise RuntimeError("Predecessor plan or aggregate contract mismatch")
-
-    parent_splits, parent_inputs = _load_ready_inputs(
-        parent_output_root,
-        parent_config,
+    return e8_warmstart.inherit_dense_run(
+        config,
+        output_root,
+        parent_output_root=parent_output_root,
+        parent_config_path=parent_config_path,
         base_model_path=base_model_path,
+        parent_experiment_id=EXPERIMENT_ID,
+        is_dense_fn=_is_dense,
+        load_config_fn=load_config,
+        load_ready_inputs_fn=_load_ready_inputs,
+        write_plan_fn=write_plan,
+        build_cells_fn=build_cells,
+        experiment_id_fn=experiment_id,
+        coefficient_from_rho_fn=coefficient_from_rho,
+        model_identity_fn=model_identity,
     )
-    tasks = tuple(str(task) for task in config["suite"]["tasks"])
-    child_config_hash = stable_config_hash(config)
-    child_split_tasks = {task: copy.deepcopy(parent_splits["tasks"][task]) for task in tasks}
-    child_splits = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": child_config_hash,
-        "test_access_allowed": False,
-        "tasks": child_split_tasks,
-        "complete": True,
-        "scientific_status": "not_run",
-        "inherited_from": {
-            "experiment_id": EXPERIMENT_ID,
-            "run_id": parent_contract["run_id"],
-            "result_commit": parent_contract["result_commit"],
-            "split_manifest_sha256": parent_contract["artifact_sha256"]["split_manifest"],
-        },
-    }
-    atomic_json(output_root / "split_manifest.json", child_splits)
-
-    plan = write_plan(config, output_root)
-    serialized_inputs = {
-        task: {
-            "bank": str(parent_inputs[task].bank),
-            "reference_adapter": None,
-            "sources_root": str(parent_inputs[task].sources_root),
-            "p0_config": str(parent_inputs[task].p0_config),
-            "countdown_validation": None,
-        }
-        for task in tasks
-    }
-    prepare = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": child_config_hash,
-        "plan": str((output_root / "plan.json").resolve()),
-        "split_manifest": str((output_root / "split_manifest.json").resolve()),
-        "inputs": serialized_inputs,
-        "complete": plan["cell_count"] == int(config["sweep"]["expected_cells"]),
-        "scientific_status": "not_run",
-        "inherited_from": {
-            "experiment_id": EXPERIMENT_ID,
-            "run_id": parent_contract["run_id"],
-            "result_commit": parent_contract["result_commit"],
-        },
-    }
-    atomic_json(output_root / "prepare_manifest.json", prepare)
-
-    base_identity = model_identity(base_model_path, None)["model"]
-    warmstart = e8_warmstart.reference_warmstart_config(config, parent_inputs[tasks[0]].p0_config)
-    parent_reference = json.loads(
-        parent_artifacts["reference_manifest"].read_text(encoding="utf-8")
-    )
-    inherited_reference_tasks: dict[str, Any] = {}
-    for task in tasks:
-        parent_task = copy.deepcopy(parent_reference["tasks"][task])
-        expected_identity = e8_warmstart.reference_identity(
-            task=task,
-            config=config,
-            split_manifest=child_splits,
-            warmstart_config=warmstart,
-            base_model_identity=base_identity,
-            seed=e8_warmstart.reference_seed(config, warmstart, task),
-        )
-        parent_task.update(expected_identity)
-        parent_task["inherited_from"] = {
-            "experiment_id": EXPERIMENT_ID,
-            "run_id": parent_contract["run_id"],
-            "parent_identity_hash": parent_reference["tasks"][task]["identity_hash"],
-            "parent_task_manifest_sha256": sha256_file(
-                parent_output_root / "references" / task / "task_manifest.json"
-            ),
-        }
-        inherited_reference_tasks[task] = parent_task
-        atomic_json(output_root / "references" / task / "task_manifest.json", parent_task)
-    child_reference = e8_warmstart.reference_manifest_payload(
-        config=config,
-        base_model_identity=base_identity,
-        tasks=inherited_reference_tasks,
-    )
-    child_reference["inherited_from"] = {
-        "experiment_id": EXPERIMENT_ID,
-        "run_id": parent_contract["run_id"],
-        "result_commit": parent_contract["result_commit"],
-        "reference_manifest_sha256": parent_contract["artifact_sha256"]["reference_manifest"],
-    }
-    atomic_json(e8_warmstart.reference_manifest_path(output_root), child_reference)
-
-    response_rows = _parent_response_rows(parent_config, parent_output_root, set(tasks))
-    parent_response = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": child_config_hash,
-        "parent_experiment_id": EXPERIMENT_ID,
-        "parent_run_id": parent_contract["run_id"],
-        "parent_result_commit": parent_contract["result_commit"],
-        "rows": response_rows,
-        "complete": True,
-    }
-    atomic_json(output_root / "inherited" / "parent_response.json", parent_response)
-    snapshot = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": child_config_hash,
-        "parent_run_id": parent_contract["run_id"],
-        "parent_result_repository": parent_contract["result_repository"],
-        "parent_result_commit": parent_contract["result_commit"],
-        "parent_source_commit": parent_contract["source_commit"],
-        "parent_config_hash": parent_contract["config_hash"],
-        "parent_artifact_sha256": dict(parent_contract["artifact_sha256"]),
-        "tasks": list(tasks),
-        "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
-        "inherited_split": True,
-        "inherited_train_only_references": True,
-        "inherited_positive_only_anchor": True,
-        "calibration_must_be_rerun": True,
-        "test_partition_accessed": False,
-        "complete": True,
-        "scientific_status": "not_run",
-    }
-    atomic_json(output_root / "inherited" / "parent_snapshot.json", snapshot)
-    _load_ready_inputs(output_root, config, base_model_path=base_model_path)
-    return snapshot
 
 
 def cmd_reference(
