@@ -10,7 +10,6 @@ fields.
 from __future__ import annotations
 
 import argparse
-import copy
 import gc
 import json
 import math
