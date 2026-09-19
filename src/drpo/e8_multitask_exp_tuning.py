@@ -838,13 +838,7 @@ def _reference_seed(
     warmstart_config: Mapping[str, Any],
     task: str,
 ) -> int:
-    configured = config.get("reference", {}).get("task_seeds")
-    if isinstance(configured, Mapping):
-        if task not in configured:
-            raise ValueError(f"reference.task_seeds is missing {task}")
-        return int(configured[task])
-    p0_tasks = tuple(str(value) for value in config["suite"]["p0_tasks"])
-    return int(warmstart_config["seed"]) + p0_tasks.index(task) * 100_003
+    return e8_warmstart.reference_seed(config, warmstart_config, task)
 
 
 def validate_config(config: Mapping[str, Any]) -> None:
@@ -1862,52 +1856,14 @@ def cmd_inherit(
 
 
 def reference_manifest_path(output_root: Path) -> Path:
-    return output_root / "references" / "reference_manifest.json"
+    return e8_warmstart.reference_manifest_path(output_root)
 
 
 def _reference_warmstart_config(
     config: Mapping[str, Any],
     p0_config_path: Path,
 ) -> dict[str, Any]:
-    p0_config = yaml.safe_load(p0_config_path.read_text(encoding="utf-8"))
-    if not isinstance(p0_config, dict) or p0_config.get("experiment_id") != P0_EXPERIMENT_ID:
-        raise RuntimeError("P0 config identity mismatch during reference preparation")
-    inherited = copy.deepcopy(p0_config.get("positive_warmstart"))
-    if not isinstance(inherited, dict):
-        raise TypeError("P0 positive-warm-start contract is missing")
-    if inherited.get("checkpoint_kind") != "task_positive_warmstart_100":
-        raise RuntimeError("Unexpected inherited P0 checkpoint kind")
-    if str(inherited.get("parameterization")) != "lora":
-        raise RuntimeError("P0 reference preparation must inherit LoRA parameterization")
-    if int(inherited.get("optimizer_updates", 0)) != int(config["reference"]["optimizer_updates"]):
-        raise RuntimeError("Inherited P0 reference optimizer-update contract mismatch")
-    if (
-        int(inherited.get("micro_batch", 0)) != 2
-        or int(inherited.get("gradient_accumulation", 0)) != 32
-    ):
-        raise RuntimeError("Inherited reference warm start must remain 2 x 32")
-
-    model_contract = {
-        "lora_rank": int(config["model"]["lora_rank"]),
-        "lora_alpha": int(config["model"]["lora_alpha"]),
-        "lora_dropout": float(config["model"]["lora_dropout"]),
-        "max_length": int(config["model"]["max_length"]),
-        "gradient_checkpointing": bool(config["model"]["gradient_checkpointing"]),
-        "dtype": str(config["model"]["dtype"]),
-    }
-    inherited_contract = {
-        "lora_rank": int(inherited["lora_rank"]),
-        "lora_alpha": int(inherited["lora_alpha"]),
-        "lora_dropout": float(inherited["lora_dropout"]),
-        "max_length": int(inherited["max_length"]),
-        "gradient_checkpointing": bool(inherited["gradient_checkpointing"]),
-        "dtype": str(inherited["dtype"]),
-    }
-    if inherited_contract != model_contract:
-        raise RuntimeError("Inherited P0 LoRA/model contract does not match tuning config")
-
-    inherited["checkpoint_kind"] = str(config["reference"]["checkpoint_kind"])
-    return inherited
+    return e8_warmstart.reference_warmstart_config(config, p0_config_path)
 
 
 def _reference_identity(
@@ -1919,21 +1875,14 @@ def _reference_identity(
     base_model_identity: Mapping[str, Any],
     seed: int,
 ) -> dict[str, Any]:
-    train_path = Path(split_manifest["tasks"][task]["paths"]["train"])
-    identity = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "task": task,
-        "config_hash": stable_config_hash(config),
-        "p0_config_sha256": split_manifest["tasks"][task]["p0_config_sha256"],
-        "train_prompt_hash": split_manifest["tasks"][task]["prompt_id_hashes"]["train"],
-        "train_rows_sha256": sha256_file(train_path),
-        "base_model_identity": base_model_identity,
-        "reference_config": dict(warmstart_config),
-        "seed": seed,
-    }
-    identity["identity_hash"] = stable_hash(identity)
-    return identity
+    return e8_warmstart.reference_identity(
+        task=task,
+        config=config,
+        split_manifest=split_manifest,
+        warmstart_config=warmstart_config,
+        base_model_identity=base_model_identity,
+        seed=seed,
+    )
 
 
 def _reference_manifest_payload(
@@ -1942,26 +1891,11 @@ def _reference_manifest_payload(
     base_model_identity: Mapping[str, Any],
     tasks: Mapping[str, Mapping[str, Any]],
 ) -> dict[str, Any]:
-    expected_tasks = tuple(str(task) for task in config["suite"]["p0_tasks"])
-    complete = set(tasks) == set(expected_tasks) and all(
-        bool(tasks[task].get("complete"))
-        and bool(tasks[task].get("train_only_reference"))
-        and int(tasks[task].get("validation_rows_seen", -1)) == 0
-        and int(tasks[task].get("test_rows_seen", -1)) == 0
-        for task in expected_tasks
+    return e8_warmstart.reference_manifest_payload(
+        config=config,
+        base_model_identity=base_model_identity,
+        tasks=tasks,
     )
-    return {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": stable_config_hash(config),
-        "base_model_identity": base_model_identity,
-        "checkpoint_kind": str(config["reference"]["checkpoint_kind"]),
-        "tasks": dict(tasks),
-        "complete": complete,
-        "validation_rows_seen": 0,
-        "test_rows_seen": 0,
-        "scientific_status": "not_run",
-    }
 
 
 def _validate_reference_manifest_header(
@@ -1970,21 +1904,11 @@ def _validate_reference_manifest_header(
     config: Mapping[str, Any],
     base_model_identity: Mapping[str, Any],
 ) -> None:
-    if (
-        manifest.get("experiment_id") != experiment_id(config)
-        or manifest.get("config_hash") != stable_config_hash(config)
-        or manifest.get("checkpoint_kind") != config["reference"]["checkpoint_kind"]
-        or manifest.get("base_model_identity") != base_model_identity
-        or int(manifest.get("validation_rows_seen", -1)) != 0
-        or int(manifest.get("test_rows_seen", -1)) != 0
-    ):
-        raise RuntimeError("Train-only reference manifest identity or leakage audit mismatch")
-    recorded_tasks = manifest.get("tasks")
-    if not isinstance(recorded_tasks, dict):
-        raise TypeError("Train-only reference manifest tasks are malformed")
-    unknown = set(recorded_tasks) - set(config["suite"]["p0_tasks"])
-    if unknown:
-        raise RuntimeError(f"Train-only reference manifest has unknown tasks: {sorted(unknown)}")
+    e8_warmstart.validate_reference_manifest_header(
+        manifest,
+        config=config,
+        base_model_identity=base_model_identity,
+    )
 
 
 def _validate_reference_task_manifest(
@@ -1993,26 +1917,11 @@ def _validate_reference_task_manifest(
     expected_identity: Mapping[str, Any],
     expected_train_rows: int,
 ) -> Path:
-    if (
-        task_manifest.get("identity_hash") != expected_identity["identity_hash"]
-        or task_manifest.get("checkpoint_kind")
-        != expected_identity["reference_config"]["checkpoint_kind"]
-        or not task_manifest.get("complete")
-        or not task_manifest.get("train_only_reference")
-        or int(task_manifest.get("train_rows_seen", -1)) != expected_train_rows
-        or int(task_manifest.get("validation_rows_seen", -1)) != 0
-        or int(task_manifest.get("test_rows_seen", -1)) != 0
-    ):
-        raise RuntimeError(
-            f"Train-only reference identity or leakage audit mismatch for "
-            f"{expected_identity['task']}"
-        )
-    adapter = Path(str(task_manifest.get("adapter_path", "")))
-    if not (adapter / "adapter_config.json").is_file():
-        raise FileNotFoundError(
-            f"Missing train-only adapter for {expected_identity['task']}: {adapter}"
-        )
-    return adapter
+    return e8_warmstart.validate_reference_task_manifest(
+        task_manifest,
+        expected_identity=expected_identity,
+        expected_train_rows=expected_train_rows,
+    )
 
 
 def cmd_reference(
@@ -2023,118 +1932,13 @@ def cmd_reference(
     tasks: Sequence[str] | None,
     force: bool,
 ) -> dict[str, Any]:
-    splits, inputs = _load_prepared(output_root, config)
-    p0_tasks = tuple(str(task) for task in config["suite"]["p0_tasks"])
-    requested = tuple(str(task) for task in (tasks or p0_tasks))
-    if not requested or len(set(requested)) != len(requested):
-        raise ValueError("Reference tasks must be a non-empty unique list")
-    unknown = sorted(set(requested) - set(p0_tasks))
-    if unknown:
-        raise ValueError(f"Only configured P0 tasks require train-only references: {unknown}")
-
-    p0_config_path = inputs[requested[0]].p0_config
-    if any(inputs[task].p0_config != p0_config_path for task in requested):
-        raise RuntimeError("P0 tasks do not share one frozen config path")
-    warmstart_config = _reference_warmstart_config(config, p0_config_path)
-    base_identity = model_identity(base_model_path, None)["model"]
-    task_seeds = {task: _reference_seed(config, warmstart_config, task) for task in p0_tasks}
-
-    root = output_root / "references"
-    root.mkdir(parents=True, exist_ok=True)
-    manifest_path = reference_manifest_path(output_root)
-    completed: dict[str, Any] = {}
-    if manifest_path.is_file():
-        existing_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        _validate_reference_manifest_header(
-            existing_manifest,
-            config=config,
-            base_model_identity=base_identity,
-        )
-        for task, recorded in existing_manifest["tasks"].items():
-            task_manifest_path = root / task / "task_manifest.json"
-            if not task_manifest_path.is_file():
-                raise FileNotFoundError(
-                    f"Reference manifest points to a missing task manifest: {task}"
-                )
-            task_manifest = json.loads(task_manifest_path.read_text(encoding="utf-8"))
-            if task_manifest != recorded:
-                raise RuntimeError(f"Reference task/top-level manifest mismatch for {task}")
-            expected = _reference_identity(
-                task=task,
-                config=config,
-                split_manifest=splits,
-                warmstart_config=warmstart_config,
-                base_model_identity=base_identity,
-                seed=task_seeds[task],
-            )
-            try:
-                _validate_reference_task_manifest(
-                    task_manifest,
-                    expected_identity=expected,
-                    expected_train_rows=int(config["split"]["p0_train_rows"]),
-                )
-            except (FileNotFoundError, RuntimeError):
-                if not force or task not in requested:
-                    raise
-                continue
-            completed[task] = task_manifest
-
-    for task in requested:
-        task_root = root / task
-        train_path = Path(splits["tasks"][task]["paths"]["train"])
-        identity = _reference_identity(
-            task=task,
-            config=config,
-            split_manifest=splits,
-            warmstart_config=warmstart_config,
-            base_model_identity=base_identity,
-            seed=task_seeds[task],
-        )
-        if task in completed and not force:
-            continue
-        if task_root.exists():
-            if not force:
-                raise RuntimeError(f"Reference directory exists without reusable identity: {task}")
-            if root.resolve() not in task_root.resolve().parents:
-                raise RuntimeError(f"Refusing unsafe reference removal: {task_root}")
-            shutil.rmtree(task_root)
-        task_root.mkdir(parents=True, exist_ok=False)
-        train_rows = read_jsonl(train_path)
-        result = train_task_positive_warmstart(
-            task=task,
-            rows=train_rows,
-            model_path=base_model_path,
-            output_dir=task_root,
-            warmstart_config=warmstart_config,
-            seed=task_seeds[task],
-        )
-        result.update(identity)
-        result.update(
-            {
-                "train_only_reference": True,
-                "train_rows_seen": len(train_rows),
-                "validation_rows_seen": 0,
-                "test_rows_seen": 0,
-            }
-        )
-        atomic_json(task_root / "task_manifest.json", result)
-        completed[task] = result
-        atomic_json(
-            manifest_path,
-            _reference_manifest_payload(
-                config=config,
-                base_model_identity=base_identity,
-                tasks=completed,
-            ),
-        )
-
-    manifest = _reference_manifest_payload(
-        config=config,
-        base_model_identity=base_identity,
-        tasks=completed,
+    return e8_warmstart.prepare_references(
+        config,
+        output_root,
+        base_model_path=base_model_path,
+        tasks=tasks,
+        force=force,
     )
-    atomic_json(manifest_path, manifest)
-    return manifest
 
 
 def _load_prepared(
