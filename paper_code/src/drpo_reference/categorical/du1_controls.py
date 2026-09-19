@@ -25,16 +25,6 @@ from .du1_protocol import CELL_NAMES, DU1Protocol, MethodSpec
 EPS = 1.0e-12
 
 
-def taper_coefficients(retention: float) -> dict[str, float]:
-    """Calibrate every active taper to the same rare reference retention."""
-
-    return {
-        "reciprocal_linear_distance": 1.0 / retention - 1.0,
-        "reciprocal_quadratic_distance": 1.0 / retention - 1.0,
-        "exponential_quadratic_distance": -math.log(retention),
-    }
-
-
 def normalized_excess_surprisal(
     log_probability: torch.Tensor,
     calibration: Mapping[str, float],
@@ -170,7 +160,12 @@ def negative_loss(
     protocol: DU1Protocol,
     model: CartesianPolicy,
 ) -> torch.Tensor:
-    coefficients = taper_coefficients(protocol.reference_rare_retention)
+    retention = protocol.reference_rare_retention
+    coefficients = {
+        "reciprocal_linear_distance": 1.0 / retention - 1.0,
+        "reciprocal_quadratic_distance": 1.0 / retention - 1.0,
+        "exponential_quadratic_distance": -math.log(retention),
+    }
     if spec.taper_family == "global":
         raw_spec = MethodSpec("all_negative", CELL_NAMES)
         target_spec = MethodSpec(
