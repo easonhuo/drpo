@@ -7,6 +7,7 @@ detached negative-sample weight applied to standardized action distance.
 
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass
 from typing import Any
 
@@ -30,13 +31,10 @@ from .cu1 import (
     support_diagnostics,
 )
 from .cu1_training import (
-    EPS,
     CU1PositiveProtocol,
-    add_gradients,
+    field_diagnostics,
     finite_model,
-    gradients,
     initialized_actor,
-    gradient_norm,
     make_adam,
     sample_ids,
 )
@@ -65,62 +63,27 @@ class CU1TaperProtocol:
 
 
 
+_TAPER_FAMILIES = {
+    "positive_only": TaperFamily.POSITIVE_ONLY,
+    "unweighted": TaperFamily.UNCONTROLLED,
+    "reciprocal_linear": TaperFamily.RECIPROCAL_LINEAR,
+    "reciprocal_quadratic": TaperFamily.RECIPROCAL_QUADRATIC,
+    "exponential": TaperFamily.EXPONENTIAL_LINEAR,
+}
+
+
 def method_configs(protocol: CU1TaperProtocol) -> list[tuple[str, float]]:
-    configs = [
+    families = ("reciprocal_linear", "reciprocal_quadratic", "exponential")
+    retentions = (protocol.primary_retention, *protocol.sensitivity_retentions)
+    return [
         ("positive_only", 1.0),
         ("unweighted", 1.0),
-        ("reciprocal_linear", protocol.primary_retention),
-        ("reciprocal_quadratic", protocol.primary_retention),
-        ("exponential", protocol.primary_retention),
+        *((family, retention) for retention in retentions for family in families),
     ]
-    for retention in protocol.sensitivity_retentions:
-        for family in (
-            "reciprocal_linear",
-            "reciprocal_quadratic",
-            "exponential",
-        ):
-            configs.append((family, retention))
-    return configs
-
-
-def _canonical_family(family: str) -> TaperFamily:
-    mapping = {
-        "positive_only": TaperFamily.POSITIVE_ONLY,
-        "unweighted": TaperFamily.UNCONTROLLED,
-        "reciprocal_linear": TaperFamily.RECIPROCAL_LINEAR,
-        "reciprocal_quadratic": TaperFamily.RECIPROCAL_QUADRATIC,
-        "exponential": TaperFamily.EXPONENTIAL_LINEAR,
-    }
-    return mapping[family]
-
-
-def retention_weight(
-    distance: torch.Tensor,
-    *,
-    family: str,
-    retention: float,
-    protocol: CU1TaperProtocol,
-) -> torch.Tensor:
-    """Return the detached weight with ``w(reference_distance)=retention``."""
-
-    canonical = _canonical_family(family)
-    if canonical in {TaperFamily.POSITIVE_ONLY, TaperFamily.UNCONTROLLED}:
-        return taper_weight(distance, family=canonical, detach_distance=True)
-    coefficient = point_retention_coefficient(
-        canonical,
-        retention=retention,
-        reference_distance=protocol.reference_distance,
-    )
-    return taper_weight(
-        distance,
-        family=canonical,
-        coefficient=coefficient,
-        detach_distance=True,
-    )
 
 
 def weighted_negative_loss(
-    actor,
+    actor: GaussianActor,
     split: Split,
     protocol: CU1Protocol,
     taper: CU1TaperProtocol,
@@ -132,19 +95,23 @@ def weighted_negative_loss(
     states = split.s if ids is None else split.s[ids]
     actions = split.negative_actions if ids is None else split.negative_actions[ids]
     advantages = split.negative_advantages if ids is None else split.negative_advantages[ids]
-    log_probability, mu, log_std = actor_log_prob(
-        actor,
-        states,
-        actions,
-        protocol,
-    )
+    log_probability, mu, log_std = actor_log_prob(actor, states, actions, protocol)
     distance = standardized_distance(mu, log_std, actions)
-    weight = retention_weight(
-        distance,
-        family=family,
-        retention=retention,
-        protocol=taper,
-    )
+    canonical = _TAPER_FAMILIES[family]
+    if canonical in {TaperFamily.POSITIVE_ONLY, TaperFamily.UNCONTROLLED}:
+        weight = taper_weight(distance, family=canonical, detach_distance=True)
+    else:
+        coefficient = point_retention_coefficient(
+            canonical,
+            retention=retention,
+            reference_distance=taper.reference_distance,
+        )
+        weight = taper_weight(
+            distance,
+            family=canonical,
+            coefficient=coefficient,
+            detach_distance=True,
+        )
     return -(advantages * weight * log_probability).mean()
 
 
@@ -157,63 +124,36 @@ def full_field_diagnostics(
     family: str,
     retention: float,
 ) -> dict[str, Any]:
-    positive = positive_loss(actor, split, protocol)
-    positive_gradient = gradients(
-        positive,
+    negative = (
+        None
+        if family == "positive_only"
+        else weighted_negative_loss(
+            actor,
+            split,
+            protocol,
+            taper,
+            None,
+            family=family,
+            retention=retention,
+        )
+    )
+    return field_diagnostics(
+        positive_loss(actor, split, protocol),
+        negative,
         actor.all_parameters(),
-        retain_graph=family != "positive_only",
+        alpha=taper.negative_alpha,
     )
-    positive_norm = float(gradient_norm(positive_gradient).item())
-    if family == "positive_only":
-        return {
-            "positive_gradient_norm": positive_norm,
-            "negative_gradient_norm": 0.0,
-            "total_gradient_norm": positive_norm,
-            "normalized_field_residual": float("nan"),
-            "stationarity_residual": positive_norm,
-            "stationarity_residual_kind": "absolute_positive_gradient_norm",
-        }
-    negative = weighted_negative_loss(
-        actor,
-        split,
-        protocol,
-        taper,
-        None,
-        family=family,
-        retention=retention,
-    )
-    negative_gradient = gradients(negative, actor.all_parameters())
-    total_gradient = add_gradients(
-        positive_gradient,
-        negative_gradient,
-        scales=(1.0, taper.negative_alpha),
-    )
-    negative_norm = float(gradient_norm(negative_gradient).item())
-    total_norm = float(gradient_norm(total_gradient).item())
-    residual = total_norm / (positive_norm + taper.negative_alpha * negative_norm + EPS)
-    return {
-        "positive_gradient_norm": positive_norm,
-        "negative_gradient_norm": negative_norm,
-        "total_gradient_norm": total_norm,
-        "normalized_field_residual": residual,
-        "stationarity_residual": residual,
-        "stationarity_residual_kind": "normalized_signed_field_residual",
-    }
 
 
-def two_times_audit_target(candidate_step: int, maximum_steps: int) -> int | None:
-    target = 2 * candidate_step
-    return target if target <= maximum_steps else None
-
-
-def normalized_slope(rows: list[dict[str, Any]], field: str) -> float:
-    steps = np.asarray([float(row["step"]) for row in rows], dtype=float)
-    values = np.asarray([float(row[field]) for row in rows], dtype=float)
+def max_normalized_slope(
+    rows: deque[tuple[float, float, float, float]],
+) -> float:
+    values = np.asarray(rows, dtype=float)
     if len(values) < 2 or not np.isfinite(values).all():
         return float("inf")
-    slope = float(np.polyfit(steps, values, 1)[0])
-    scale = max(float(np.mean(np.abs(values))), 1e-8)
-    return abs(slope) / scale
+    slopes = np.polyfit(values[:, 0], values[:, 1:], 1)[0]
+    scales = np.maximum(np.mean(np.abs(values[:, 1:]), axis=0), 1e-8)
+    return float(np.max(np.abs(slopes) / scales))
 
 
 def evaluate_taper_state(
@@ -252,7 +192,6 @@ def evaluate_taper_state(
         "task_performance_collapse_event": task_failure,
         "support_or_variance_boundary_event": boundary,
         "nan_inf_numerical_event": numerical,
-        "environment_invalid_event": False,
     }
 
 
@@ -280,7 +219,8 @@ def run_taper_method(
     )
     index_generator = torch.Generator(device="cpu").manual_seed(seed + 700_003)
     initial_reward = float(evaluation(actor, environment.test, protocol)["reward"])
-    trajectory: list[dict[str, Any]] = []
+    window: deque[tuple[float, float, float, float]] = deque(maxlen=taper.stable_windows)
+    completed_steps = 0
     stable_candidate_step: int | None = None
     audit_target_step: int | None = None
     candidate_classification: tuple[bool, bool, bool] | None = None
@@ -323,15 +263,14 @@ def run_taper_method(
             retention=retention,
             initial_reward=initial_reward,
         )
-        trajectory.append(
-            {
-                "seed": seed,
-                "step": step,
-                "family": family,
-                "rho": retention,
-                "loss": float(loss.detach().item()),
-                **state,
-            }
+        completed_steps = step
+        window.append(
+            (
+                float(step),
+                float(state["reward"]),
+                float(state["normalized_extrapolation_displacement"]),
+                float(state["sigma_mean"]),
+            )
         )
         if state["nan_inf_numerical_event"]:
             stop_reason = "nan_inf_numerical_event"
@@ -342,17 +281,9 @@ def run_taper_method(
         if (
             stable_candidate_step is None
             and step >= taper.minimum_steps
-            and len(trajectory) >= taper.stable_windows
+            and len(window) >= taper.stable_windows
         ):
-            window = trajectory[-taper.stable_windows :]
-            max_slope = max(
-                normalized_slope(window, field)
-                for field in (
-                    "reward",
-                    "normalized_extrapolation_displacement",
-                    "sigma_mean",
-                )
-            )
+            max_slope = max_normalized_slope(window)
             residual = float(state["stationarity_residual"])
             residual_threshold = (
                 taper.positive_absolute_gradient_threshold
@@ -361,10 +292,8 @@ def run_taper_method(
             )
             if max_slope < taper.normalized_slope_threshold and residual < residual_threshold:
                 stable_candidate_step = step
-                audit_target_step = two_times_audit_target(
-                    step,
-                    taper.maximum_steps,
-                )
+                target = 2 * step
+                audit_target_step = target if target <= taper.maximum_steps else None
                 if audit_target_step is not None:
                     candidate_classification = (
                         bool(state["task_performance_collapse_event"]),
@@ -393,7 +322,6 @@ def run_taper_method(
         retention=retention,
         initial_reward=initial_reward,
     )
-    completed_steps = int(trajectory[-1]["step"]) if trajectory else 0
     summary: dict[str, Any] = {
         "seed": seed,
         "family": family,
