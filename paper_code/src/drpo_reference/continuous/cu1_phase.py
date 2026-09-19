@@ -11,7 +11,6 @@ import torch
 from .cu1 import (
     CU1Protocol,
     Environment,
-    Split,
     evaluation,
     local_negative_loss,
     positive_loss,
@@ -26,7 +25,6 @@ from .cu1_training import (
     sample_ids,
     normalized_field_residual,
 )
-from .gaussian import GaussianActor
 
 
 @dataclass(frozen=True)
@@ -68,20 +66,6 @@ class CU1PhaseProtocol:
 
 
 
-def positive_advantage_value(protocol: CU1Protocol) -> float:
-    return (
-        math.exp(-0.5 * (protocol.positive_contour_radius / protocol.reward_width) ** 2)
-        - protocol.baseline
-    )
-
-
-def negative_advantage_value(protocol: CU1Protocol) -> float:
-    return (
-        math.exp(-0.5 * (protocol.negative_contour_radius / protocol.reward_width) ** 2)
-        - protocol.baseline
-    )
-
-
 def analytic_positive_sigma(protocol: CU1Protocol) -> float:
     residual_second_moment = protocol.positive_contour_radius**2 - protocol.gap_to_unseen_optimum**2
     return math.sqrt(residual_second_moment / protocol.action_dim)
@@ -91,8 +75,14 @@ def analytic_local_solution(
     protocol: CU1Protocol,
     alpha: float,
 ) -> dict[str, float | bool]:
-    positive = positive_advantage_value(protocol)
-    negative = alpha * abs(negative_advantage_value(protocol))
+    positive = (
+        math.exp(-0.5 * (protocol.positive_contour_radius / protocol.reward_width) ** 2)
+        - protocol.baseline
+    )
+    negative = alpha * abs(
+        math.exp(-0.5 * (protocol.negative_contour_radius / protocol.reward_width) ** 2)
+        - protocol.baseline
+    )
     if negative >= positive:
         return {"finite_mean_fixed_point": False}
     displacement = negative * protocol.negative_offset_from_positive / (positive - negative)
@@ -113,37 +103,6 @@ def analytic_local_solution(
         "analytic_sigma": (math.sqrt(sigma_squared) if sigma_squared > 0.0 else float("nan")),
         "finite_variance_fixed_point": sigma_squared > 0.0,
     }
-
-
-def evaluation_from_geometry(
-    distance_to_star: float,
-    protocol: CU1Protocol,
-) -> float:
-    return math.exp(-0.5 * (distance_to_star / protocol.reward_width) ** 2)
-
-
-def local_objective(
-    actor: GaussianActor,
-    split: Split,
-    protocol: CU1Protocol,
-    ids: torch.Tensor | None,
-    *,
-    alpha: float,
-    fixed_sigma: float | None,
-) -> torch.Tensor:
-    return positive_loss(
-        actor,
-        split,
-        protocol,
-        ids,
-        fixed_sigma,
-    ) + alpha * local_negative_loss(
-        actor,
-        split,
-        protocol,
-        ids,
-        fixed_sigma,
-    )
 
 
 def run_phase_scan(
@@ -189,13 +148,18 @@ def run_phase_scan(
                 environment.train,
                 positive_training.positive_batch_states,
             )
-            loss = local_objective(
+            loss = positive_loss(
                 actor,
                 environment.train,
                 protocol,
                 ids,
-                alpha=alpha,
-                fixed_sigma=fixed_sigma,
+                fixed_sigma,
+            ) + alpha * local_negative_loss(
+                actor,
+                environment.train,
+                protocol,
+                ids,
+                fixed_sigma,
             )
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
@@ -224,42 +188,32 @@ def run_phase_scan(
     audit_2_ok = False
     audit_1_residual = float("nan")
     audit_2_residual = float("nan")
+    residual_key = "total_gradient_norm" if alpha == 0.0 else "normalized_field_residual"
+    threshold = (
+        phase.absolute_residual_threshold_alpha_zero
+        if alpha == 0.0
+        else phase.normalized_residual_threshold
+    )
+
+    def stationary_residual() -> float:
+        return float(
+            normalized_field_residual(
+                actor,
+                environment.train,
+                protocol,
+                alpha=alpha,
+                fixed_sigma=fixed_sigma,
+            )[residual_key]
+        )
     if finite_internal and finite_model(actor) and support_onset is None:
-        first_field = normalized_field_residual(
-            actor,
-            environment.train,
-            protocol,
-            alpha=alpha,
-            fixed_sigma=fixed_sigma,
-        )
-        audit_1_residual = (
-            first_field["total_gradient_norm"]
-            if alpha == 0.0
-            else first_field["normalized_field_residual"]
-        )
-        threshold = (
-            phase.absolute_residual_threshold_alpha_zero
-            if alpha == 0.0
-            else phase.normalized_residual_threshold
-        )
+        audit_1_residual = stationary_residual()
         audit_1_ok = audit_1_residual < threshold
         adam_phase(
             phase.continuation_steps,
             completed_first,
         )
         if finite_model(actor) and support_onset is None:
-            second_field = normalized_field_residual(
-                actor,
-                environment.train,
-                protocol,
-                alpha=alpha,
-                fixed_sigma=fixed_sigma,
-            )
-            audit_2_residual = (
-                second_field["total_gradient_norm"]
-                if alpha == 0.0
-                else second_field["normalized_field_residual"]
-            )
+            audit_2_residual = stationary_residual()
             audit_2_ok = audit_2_residual < threshold
 
     final = evaluation(actor, environment.test, protocol, fixed_sigma)
@@ -277,9 +231,8 @@ def run_phase_scan(
         and audit_2_ok
         and support_onset is None
     )
-    positive_ceiling_reward = evaluation_from_geometry(
-        protocol.gap_to_unseen_optimum,
-        protocol,
+    positive_ceiling_reward = math.exp(
+        -0.5 * (protocol.gap_to_unseen_optimum / protocol.reward_width) ** 2
     )
     if stable:
         displacement = float(final["normalized_extrapolation_displacement"])
