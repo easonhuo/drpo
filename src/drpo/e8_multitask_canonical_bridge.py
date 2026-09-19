@@ -45,7 +45,6 @@ from drpo.e8_multitask_tasks import TaskInstance, stable_hash
 
 class CanonicalBridgeHost(Protocol):
     CANONICAL_COLD_MODULES: Any
-    Cell: Any
     DataLoader: Any
     F: Any
     METHOD_ASYMRE: Any
@@ -122,7 +121,6 @@ class _CanonicalBridgeImpl:
     def __init__(self, bindings: CanonicalBridgeBindings) -> None:
         host = bindings.host
         self.CANONICAL_COLD_MODULES = host.CANONICAL_COLD_MODULES
-        self.Cell = host.Cell
         self.DataLoader = host.DataLoader
         self.F = host.F
         self.METHOD_ASYMRE = host.METHOD_ASYMRE
