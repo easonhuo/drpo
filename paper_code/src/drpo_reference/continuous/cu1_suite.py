@@ -24,7 +24,6 @@ from .cu1_training import CU1PositiveProtocol, train_positive
 
 STAGES = ("source", "causal", "phase", "taper")
 
-
 @dataclass(frozen=True)
 class CU1Protocols:
     core: CU1Protocol = field(default_factory=CU1Protocol)
@@ -34,13 +33,11 @@ class CU1Protocols:
     phase: CU1PhaseProtocol = field(default_factory=CU1PhaseProtocol)
     taper: CU1TaperProtocol = field(default_factory=CU1TaperProtocol)
 
-
 CONTROL_METHODS = (
     "uncontrolled_all",
     "far_cap",
     "budget_matched_global",
 )
-
 
 def run_cu1_stage(
     *,
@@ -56,8 +53,10 @@ def run_cu1_stage(
         else tuple(int(seed) for seed in seeds)
     )
     target = torch.device(
-        "cuda" if device == "auto" and torch.cuda.is_available()
-        else "cpu" if device == "auto"
+        "cuda"
+        if device == "auto" and torch.cuda.is_available()
+        else "cpu"
+        if device == "auto"
         else device
     )
     rows: list[dict[str, Any]] = []

@@ -24,7 +24,6 @@ from .cu1_training import (
     sample_ids,
 )
 
-
 @dataclass(frozen=True)
 class CU1PhaseProtocol:
     """C-U1 strength-scan settings."""
@@ -62,12 +61,9 @@ class CU1PhaseProtocol:
     control_steps: int = 4000
     seeds: tuple[int, ...] = tuple(range(50, 70))
 
-
-
 def analytic_positive_sigma(protocol: CU1Protocol) -> float:
     residual_second_moment = protocol.positive_contour_radius**2 - protocol.gap_to_unseen_optimum**2
     return math.sqrt(residual_second_moment / protocol.action_dim)
-
 
 def analytic_local_solution(
     protocol: CU1Protocol,
@@ -101,7 +97,6 @@ def analytic_local_solution(
         "analytic_sigma": (math.sqrt(sigma_squared) if sigma_squared > 0.0 else float("nan")),
         "finite_variance_fixed_point": sigma_squared > 0.0,
     }
-
 
 def run_phase_scan(
     *,
@@ -165,9 +160,7 @@ def run_phase_scan(
             completed = offset
             finite = finite_model(actor)
             post_support = (
-                evaluation(actor, environment.train, protocol)
-                if fixed_sigma is None
-                else {}
+                evaluation(actor, environment.train, protocol) if fixed_sigma is None else {}
             )
             event_type = post_support["support_event_type"] if fixed_sigma is None else None
             if event_type is not None and support_onset is None:
@@ -203,6 +196,7 @@ def run_phase_scan(
 
     def stationary_residual() -> float:
         return float(current_field()[residual_key])
+
     if finite_internal and finite_model(actor) and support_onset is None:
         audit_1_residual = stationary_residual()
         audit_1_ok = audit_1_residual < threshold
