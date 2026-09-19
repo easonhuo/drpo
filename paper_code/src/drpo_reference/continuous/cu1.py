@@ -47,14 +47,10 @@ class Split:
     s: torch.Tensor
     a_plus: torch.Tensor
     a_star: torch.Tensor
-    a_minus: torch.Tensor
     direction: torch.Tensor
-    orthogonal: torch.Tensor
     positive_actions: torch.Tensor
-    positive_rewards: torch.Tensor
     positive_advantages: torch.Tensor
     negative_actions: torch.Tensor
-    negative_rewards: torch.Tensor
     negative_advantages: torch.Tensor
 
 
@@ -135,7 +131,6 @@ def make_split(states: torch.Tensor, protocol: CU1Protocol) -> Split:
     direction = task_direction_from_state(states)
     perpendicular = orthogonal(direction)
     star = plus + protocol.gap_to_unseen_optimum * direction
-    minus = plus - protocol.negative_offset_from_positive * direction
 
     positive_theta = positive_angles(protocol, states.dtype).to(states.device)
     positive_direction = (
@@ -167,14 +162,10 @@ def make_split(states: torch.Tensor, protocol: CU1Protocol) -> Split:
         s=states,
         a_plus=plus,
         a_star=star,
-        a_minus=minus,
         direction=direction,
-        orthogonal=perpendicular,
         positive_actions=positive_actions,
-        positive_rewards=positive_rewards,
         positive_advantages=positive_advantages,
         negative_actions=negative_actions,
-        negative_rewards=negative_rewards,
         negative_advantages=negative_advantages,
     )
 
@@ -284,24 +275,6 @@ def local_negative_loss(
         negative=True,
         local_only=True,
     )
-    log_probability, _, _ = actor_log_prob(
-        actor,
-        states,
-        actions,
-        protocol,
-        fixed_sigma,
-    )
-    return -(advantages * log_probability).mean()
-
-
-def all_negative_loss(
-    actor: GaussianActor,
-    split: Split,
-    protocol: CU1Protocol,
-    ids: torch.Tensor | None = None,
-    fixed_sigma: float | None = None,
-) -> torch.Tensor:
-    states, actions, advantages = _selected(split, ids, negative=True)
     log_probability, _, _ = actor_log_prob(
         actor,
         states,

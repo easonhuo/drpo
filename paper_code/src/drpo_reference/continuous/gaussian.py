@@ -69,36 +69,3 @@ def standardized_distance(
 ) -> torch.Tensor:
     raw = torch.linalg.vector_norm(actions - mu[:, None, :], dim=-1)
     return raw / torch.exp(log_std)[:, None]
-
-
-def gaussian_output_components(
-    mu: torch.Tensor,
-    log_std: torch.Tensor,
-    actions: torch.Tensor,
-    action_dim: int,
-) -> dict[str, torch.Tensor]:
-    """Return exact isotropic-Gaussian output-score components."""
-
-    log_std_flat = log_std.reshape(mu.shape[0])
-    sigma = torch.exp(log_std_flat)
-    sigma2 = sigma.square()[:, None]
-    delta = actions - mu[:, None, :]
-    raw_distance = torch.linalg.vector_norm(delta, dim=-1)
-    standardized2 = raw_distance.square() / sigma2
-    mean_score = raw_distance / sigma2
-    log_scale_score = standardized2 - action_dim
-    corrected_log_scale = log_scale_score + action_dim
-    joint_score = torch.sqrt(mean_score.square() + log_scale_score.square())
-    return {
-        "sigma": sigma,
-        "sigma2": sigma2,
-        "raw_distance": raw_distance,
-        "standardized_distance": torch.sqrt(standardized2),
-        "standardized2": standardized2,
-        "mean_score": mean_score,
-        "log_scale_score": log_scale_score,
-        "corrected_log_scale": corrected_log_scale,
-        "joint_score": joint_score,
-        "normalized_mean": mean_score * sigma2,
-        "normalized_quadratic": corrected_log_scale * sigma2,
-    }

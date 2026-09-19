@@ -82,37 +82,6 @@ def analytic_positive_sigma(protocol: CU1Protocol) -> float:
     return math.sqrt(residual_second_moment / protocol.action_dim)
 
 
-def analytic_mean_critical_alpha(protocol: CU1Protocol) -> float:
-    return positive_advantage_value(protocol) / abs(negative_advantage_value(protocol))
-
-
-def analytic_variance_boundary_alpha(protocol: CU1Protocol) -> float:
-    positive = positive_advantage_value(protocol)
-    negative = abs(negative_advantage_value(protocol))
-    residual = protocol.positive_contour_radius**2 - protocol.gap_to_unseen_optimum**2
-
-    def field(alpha: float) -> float:
-        weighted_negative = alpha * negative
-        displacement = (
-            weighted_negative
-            * protocol.negative_offset_from_positive
-            / (positive - weighted_negative)
-        )
-        positive_moment = residual + displacement**2
-        negative_moment = (protocol.negative_offset_from_positive + displacement) ** 2
-        return positive * positive_moment - weighted_negative * negative_moment
-
-    lower = 0.0
-    upper = min(analytic_mean_critical_alpha(protocol) - 1e-8, 1.0)
-    for _ in range(100):
-        middle = 0.5 * (lower + upper)
-        if field(middle) > 0.0:
-            lower = middle
-        else:
-            upper = middle
-    return 0.5 * (lower + upper)
-
-
 def analytic_local_solution(
     protocol: CU1Protocol,
     alpha: float,
