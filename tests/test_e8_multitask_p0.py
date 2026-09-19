@@ -1247,6 +1247,7 @@ def test_exp_dense_inherit_pins_parent_and_rebinds_train_only_references(
     tmp_path: Path,
 ) -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
+    from drpo import e8_multitask_warmstart_training as e8_warmstart
 
     config = exp_tuning.load_config(Path("configs/e8_multitask_exp_lambda_dense.yaml"))
     config = json.loads(json.dumps(config))
@@ -1325,7 +1326,7 @@ def test_exp_dense_inherit_pins_parent_and_rebinds_train_only_references(
         },
     )
     p0.atomic_json(
-        exp_tuning.reference_manifest_path(parent_root),
+        e8_warmstart.reference_manifest_path(parent_root),
         {
             "experiment_id": exp_tuning.EXPERIMENT_ID,
             "config_hash": parent_hash,
@@ -1359,7 +1360,7 @@ def test_exp_dense_inherit_pins_parent_and_rebinds_train_only_references(
     artifact_paths = {
         "plan": parent_root / "plan.json",
         "split_manifest": parent_root / "split_manifest.json",
-        "reference_manifest": exp_tuning.reference_manifest_path(parent_root),
+        "reference_manifest": e8_warmstart.reference_manifest_path(parent_root),
         "aggregate_summary": parent_root / "aggregate" / "aggregate_summary.json",
     }
     p0.atomic_json(parent_root / "split_manifest.json", parent_splits)
@@ -1392,8 +1393,8 @@ def test_exp_dense_inherit_pins_parent_and_rebinds_train_only_references(
         },
     )
     monkeypatch.setattr(
-        exp_tuning,
-        "_reference_warmstart_config",
+        e8_warmstart,
+        "reference_warmstart_config",
         lambda *args, **kwargs: {
             "checkpoint_kind": config["reference"]["checkpoint_kind"],
             "micro_batch": 2,
@@ -1413,7 +1414,7 @@ def test_exp_dense_inherit_pins_parent_and_rebinds_train_only_references(
     assert json.loads((child_root / "plan.json").read_text())["cell_count"] == 112
     parent_response = json.loads((child_root / "inherited" / "parent_response.json").read_text())
     assert len(parent_response["rows"]) == 56
-    child_reference = json.loads(exp_tuning.reference_manifest_path(child_root).read_text())
+    child_reference = json.loads(e8_warmstart.reference_manifest_path(child_root).read_text())
     for task in tasks:
         assert (
             child_reference["tasks"][task]["adapter_path"] == reference_tasks[task]["adapter_path"]
