@@ -39,7 +39,6 @@ from .cu1_training import (
 )
 from .gaussian import GaussianActor, standardized_distance
 
-
 @dataclass(frozen=True)
 class CU1TaperProtocol:
     """C-U1 taper settings."""
@@ -59,8 +58,6 @@ class CU1TaperProtocol:
     normalized_field_residual_threshold: float = 2e-3
     positive_absolute_gradient_threshold: float = 1e-3
 
-
-
 _TAPER_FAMILIES = {
     "positive_only": TaperFamily.POSITIVE_ONLY,
     "unweighted": TaperFamily.UNCONTROLLED,
@@ -68,7 +65,6 @@ _TAPER_FAMILIES = {
     "reciprocal_quadratic": TaperFamily.RECIPROCAL_QUADRATIC,
     "exponential": TaperFamily.EXPONENTIAL_LINEAR,
 }
-
 
 def method_configs(protocol: CU1TaperProtocol) -> list[tuple[str, float]]:
     families = ("reciprocal_linear", "reciprocal_quadratic", "exponential")
@@ -78,7 +74,6 @@ def method_configs(protocol: CU1TaperProtocol) -> list[tuple[str, float]]:
         ("unweighted", 1.0),
         *((family, retention) for retention in retentions for family in families),
     ]
-
 
 def weighted_negative_loss(
     actor: GaussianActor,
@@ -112,7 +107,6 @@ def weighted_negative_loss(
         )
     return -(advantages * weight * log_probability).mean()
 
-
 def max_normalized_slope(
     rows: deque[tuple[float, float, float, float]],
 ) -> float:
@@ -122,7 +116,6 @@ def max_normalized_slope(
     slopes = np.polyfit(values[:, 0], values[:, 1:], 1)[0]
     scales = np.maximum(np.mean(np.abs(values[:, 1:]), axis=0), 1e-8)
     return float(np.max(np.abs(slopes) / scales))
-
 
 def evaluate_taper_state(
     actor: GaussianActor,
@@ -161,15 +154,12 @@ def evaluate_taper_state(
         "task_performance_collapse_event": (
             float(task["reward"]) < protocol.task_failure_retention * initial_reward
         ),
-        "support_or_variance_boundary_event": bool(
-            support["support_or_variance_boundary_event"]
-        ),
+        "support_or_variance_boundary_event": bool(support["support_or_variance_boundary_event"]),
         "nan_inf_numerical_event": bool(
             not finite_model(actor) or support["nan_inf_numerical_event"]
         ),
         "support_event_type": support["support_event_type"],
     }
-
 
 def run_taper_method(
     *,

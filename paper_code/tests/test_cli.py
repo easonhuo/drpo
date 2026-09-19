@@ -10,7 +10,6 @@ import drpo_reference.experiments as public_experiments
 from drpo_reference import cli
 from drpo_reference.experiments.d4rl import resolve_d4rl_task
 
-
 def test_cli_dispatches_cu1_stage(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -22,22 +21,24 @@ def test_cli_dispatches_cu1_stage(
         return {}
 
     monkeypatch.setattr(cli, "run_cu1_stage", fake_run)
-    assert cli.main(
-        [
-            "cu1",
-            "--stage",
-            "source",
-            "--output",
-            str(tmp_path),
-            "--seeds",
-            "10,11",
-            "--device",
-            "cpu",
-        ]
-    ) == 0
+    assert (
+        cli.main(
+            [
+                "cu1",
+                "--stage",
+                "source",
+                "--output",
+                str(tmp_path),
+                "--seeds",
+                "10,11",
+                "--device",
+                "cpu",
+            ]
+        )
+        == 0
+    )
     assert observed["seeds"] == (10, 11)
     assert observed["stage"] == "source"
-
 
 def test_cli_dispatches_d4rl_public_runner(
     monkeypatch: pytest.MonkeyPatch,
@@ -50,32 +51,34 @@ def test_cli_dispatches_d4rl_public_runner(
         return {}
 
     monkeypatch.setattr(cli, "run_d4rl", fake_run)
-    assert cli.main(
-        [
-            "d4rl",
-            "--dataset-root",
-            str(tmp_path / "datasets"),
-            "--output",
-            str(tmp_path / "output"),
-            "--tasks",
-            "halfcheetah-medium-v2,walker2d-medium-v2",
-            "--seeds",
-            "7,8",
-            "--steps",
-            "100",
-            "--batch-size",
-            "32",
-            "--device",
-            "cpu",
-        ]
-    ) == 0
+    assert (
+        cli.main(
+            [
+                "d4rl",
+                "--dataset-root",
+                str(tmp_path / "datasets"),
+                "--output",
+                str(tmp_path / "output"),
+                "--tasks",
+                "halfcheetah-medium-v2,walker2d-medium-v2",
+                "--seeds",
+                "7,8",
+                "--steps",
+                "100",
+                "--batch-size",
+                "32",
+                "--device",
+                "cpu",
+            ]
+        )
+        == 0
+    )
     assert observed["task_ids"] == (
         "halfcheetah-medium-v2",
         "walker2d-medium-v2",
     )
     assert observed["seeds"] == (7, 8)
     assert observed["steps"] == 100
-
 
 def test_cli_dispatches_countdown_public_runner(
     monkeypatch: pytest.MonkeyPatch,
@@ -90,11 +93,8 @@ def test_cli_dispatches_countdown_public_runner(
     monkeypatch.setattr(cli, "run_countdown", fake_run)
     config = tmp_path / "countdown.json"
     output = tmp_path / "countdown-output"
-    assert cli.main(
-        ["countdown", "--config", str(config), "--output", str(output)]
-    ) == 0
+    assert cli.main(["countdown", "--config", str(config), "--output", str(output)]) == 0
     assert observed == {"config_path": config, "output_root": output}
-
 
 def test_evaluate_d4rl_agent(
     monkeypatch: pytest.MonkeyPatch,
@@ -147,7 +147,6 @@ def test_evaluate_d4rl_agent(
     )
     assert result["raw_returns"] == [2.0, 2.0]
     assert result["raw_return_mean"] == pytest.approx(2.0)
-
 
 def test_d4rl_runner_aggregates_scores(
     monkeypatch: pytest.MonkeyPatch,
