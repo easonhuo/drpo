@@ -111,165 +111,66 @@ def source_diagnostic(
     protocol: CU1Protocol,
     source: CU1SourceProtocol | None = None,
 ) -> dict[str, float | int]:
-    """Measure the equal-advantage near/far amplification ratios."""
+    """Measure equal-advantage near/far gradient amplification."""
 
     source = CU1SourceProtocol() if source is None else source
-    count = min(source.probe_states, len(environment.train.s))
-    near_gradients: list[torch.Tensor] = []
-    far_gradients: list[torch.Tensor] = []
+    split = environment.train
+    count = min(source.probe_states, len(split.s))
+
+    def sample_gradients(action_index: int) -> torch.Tensor:
+        return torch.stack(
+            [
+                per_sample_negative_gradient(
+                    actor,
+                    split.s[index],
+                    split.negative_actions[index, action_index],
+                    split.negative_advantages[index, 0],
+                    protocol,
+                )
+                for index in range(count)
+            ]
+        )
+
     with torch.enable_grad():
-        for index in range(count):
-            advantage = environment.train.negative_advantages[index, 0]
-            near_gradients.append(
-                per_sample_negative_gradient(
-                    actor,
-                    environment.train.s[index],
-                    environment.train.negative_actions[index, 0],
-                    advantage,
-                    protocol,
-                )
-            )
-            far_gradients.append(
-                per_sample_negative_gradient(
-                    actor,
-                    environment.train.s[index],
-                    environment.train.negative_actions[index, 4],
-                    advantage,
-                    protocol,
-                )
-            )
-    near = torch.stack(near_gradients)
-    far = torch.stack(far_gradients)
+        near, far = (sample_gradients(index) for index in (0, 4))
     per_sample_ratio = far.norm(dim=1) / (near.norm(dim=1) + EPS)
 
-    ids = torch.arange(count, device=environment.train.s.device)
+    ids = torch.arange(count, device=split.s.device)
+    actions = split.negative_actions[ids][:, [0, 4]]
+    advantages = split.negative_advantages[ids][:, [0, 4]]
+    log_probability, mu, log_std = actor_log_prob(actor, split.s[ids], actions, protocol)
     parameters = actor.all_parameters()
-    near_log_probability, mu, log_std = actor_log_prob(
-        actor,
-        environment.train.s[ids],
-        environment.train.negative_actions[ids, 0:1],
-        protocol,
-    )
-    far_log_probability, _, _ = actor_log_prob(
-        actor,
-        environment.train.s[ids],
-        environment.train.negative_actions[ids, 4:5],
-        protocol,
-    )
-    near_advantage = environment.train.negative_advantages[ids, 0:1]
-    far_advantage = environment.train.negative_advantages[ids, 4:5]
     aggregate_near = gradients(
-        (near_advantage * near_log_probability).mean(),
+        (advantages[:, 0] * log_probability[:, 0]).mean(),
         parameters,
         retain_graph=True,
     )
     aggregate_far = gradients(
-        (far_advantage * far_log_probability).mean(),
+        (advantages[:, 1] * log_probability[:, 1]).mean(),
         parameters,
     )
 
     with torch.no_grad():
-        sigma = torch.exp(log_std)
-        near_distance = torch.linalg.vector_norm(
-            environment.train.negative_actions[ids, 0] - mu,
-            dim=-1,
+        sigma = torch.exp(log_std)[:, None]
+        distance = torch.linalg.vector_norm(actions - mu[:, None, :], dim=-1)
+        score = torch.sqrt(
+            (distance / sigma.square()).square()
+            + ((distance / sigma).square() - protocol.action_dim).square()
         )
-        far_distance = torch.linalg.vector_norm(
-            environment.train.negative_actions[ids, 4] - mu,
-            dim=-1,
-        )
-        near_score = torch.sqrt(
-            (near_distance / sigma.square()).square()
-            + ((near_distance / sigma).square() - protocol.action_dim).square()
-        )
-        far_score = torch.sqrt(
-            (far_distance / sigma.square()).square()
-            + ((far_distance / sigma).square() - protocol.action_dim).square()
-        )
-        advantage_ratio = (far_advantage.abs().mean() / near_advantage.abs().mean()).item()
+        advantage_ratio = (
+            advantages[:, 1].abs().mean() / advantages[:, 0].abs().mean()
+        ).item()
 
     return {
         "seed": seed,
         "advantage_far_near_ratio": advantage_ratio,
-        "output_score_far_near_ratio": (far_score / near_score).mean().item(),
+        "output_score_far_near_ratio": (score[:, 1] / score[:, 0]).mean().item(),
         "full_parameter_single_sample_far_near_ratio": per_sample_ratio.mean().item(),
-        "full_parameter_single_sample_far_near_median_ratio": (per_sample_ratio.median().item()),
+        "full_parameter_single_sample_far_near_median_ratio": per_sample_ratio.median().item(),
         "aggregate_far_near_ratio": (
             gradient_norm(aggregate_far) / (gradient_norm(aggregate_near) + EPS)
         ).item(),
     }
-
-
-def solve_near_scale_for_budget(
-    near: Sequence[torch.Tensor | None],
-    far_capped: Sequence[torch.Tensor | None],
-    target_norm: float,
-) -> float:
-    """Solve ``||c * near + far_capped||_2 = target_norm`` exactly."""
-
-    near_flat = _flatten_present(near)
-    far_flat = _flatten_present(far_capped)
-    coefficient_a = torch.dot(near_flat, near_flat).item()
-    coefficient_b = 2.0 * torch.dot(near_flat, far_flat).item()
-    coefficient_c = torch.dot(far_flat, far_flat).item() - target_norm**2
-    if coefficient_a < EPS:
-        return 1.0
-    discriminant = max(
-        0.0,
-        coefficient_b**2 - 4.0 * coefficient_a * coefficient_c,
-    )
-    root = math.sqrt(discriminant)
-    candidates = (
-        (-coefficient_b + root) / (2.0 * coefficient_a),
-        (-coefficient_b - root) / (2.0 * coefficient_a),
-    )
-    non_negative = [value for value in candidates if value >= 0.0]
-    return max(non_negative) if non_negative else 0.0
-
-
-def controlled_negative_gradients(
-    near_gradient: GradientTuple,
-    far_gradient: GradientTuple,
-    *,
-    near_scale: float,
-    far_scale: float,
-    cap_ratio: float,
-    method: str,
-) -> GradientTuple:
-    weighted_near = scale_gradients(near_gradient, near_scale)
-    weighted_far = scale_gradients(far_gradient, far_scale)
-    raw = add_gradients(weighted_near, weighted_far)
-    near_norm = gradient_norm(weighted_near).item()
-    far_norm = gradient_norm(weighted_far).item()
-    raw_norm = gradient_norm(raw).item()
-    far_cap = min(1.0, cap_ratio * near_norm / (far_norm + EPS))
-    capped_far = scale_gradients(weighted_far, far_cap)
-    capped = add_gradients(weighted_near, capped_far)
-
-    if method in {"baseline", "uncontrolled_all"}:
-        return raw
-    if method == "near_zero":
-        return weighted_far
-    if method == "far_zero":
-        return weighted_near
-    if method == "far_cap":
-        return capped
-    if method in {"global_scale", "budget_matched_global"}:
-        return scale_gradients(
-            raw,
-            gradient_norm(capped).item() / (raw_norm + EPS),
-        )
-    if method == "far_to_near":
-        near_multiplier = solve_near_scale_for_budget(
-            weighted_near,
-            capped_far,
-            raw_norm,
-        )
-        return add_gradients(
-            scale_gradients(weighted_near, near_multiplier),
-            capped_far,
-        )
-    raise ValueError(f"unknown negative-control method: {method}")
 
 
 def intervention_gradients(
@@ -285,7 +186,7 @@ def intervention_gradients(
     partition: str = "dynamic",
     component_scales: tuple[float, float] | None = None,
 ) -> GradientTuple:
-    """Return the E3 controlled gradient."""
+    """Return the controlled positive + near/far gradient."""
 
     parameters = actor.mean_parameters() if fixed_sigma is not None else actor.all_parameters()
     positive = positive_loss(actor, split, protocol, ids, fixed_sigma)
@@ -296,31 +197,50 @@ def intervention_gradients(
         far = negative_loss(actor, split, protocol, ids, fixed_sigma, slice(1, None))
     else:
         raise ValueError(f"unknown negative partition: {partition}")
+
     positive_gradient = gradients(positive, parameters, retain_graph=True)
     near_gradient = gradients(near, parameters, retain_graph=True)
     far_gradient = gradients(far, parameters)
     near_scale, far_scale = component_scales or (alpha, alpha)
-    controlled_negative = controlled_negative_gradients(
-        near_gradient,
-        far_gradient,
-        near_scale=near_scale,
-        far_scale=far_scale,
-        cap_ratio=cap_ratio,
-        method=method,
-    )
-    return add_gradients(positive_gradient, controlled_negative)
+    weighted_near = scale_gradients(near_gradient, near_scale)
+    weighted_far = scale_gradients(far_gradient, far_scale)
+    raw = add_gradients(weighted_near, weighted_far)
+    near_norm = gradient_norm(weighted_near).item()
+    far_norm = gradient_norm(weighted_far).item()
+    raw_norm = gradient_norm(raw).item()
+    far_cap = min(1.0, cap_ratio * near_norm / (far_norm + EPS))
+    capped_far = scale_gradients(weighted_far, far_cap)
+    capped = add_gradients(weighted_near, capped_far)
 
-
-def _support_event_type(support: dict[str, Any]) -> str | None:
-    if not support["log_sigma_output_finite_all_states"]:
-        return "nonfinite_log_sigma_output"
-    if not support["sigma_output_finite_all_states"]:
-        return "nonfinite_sigma_output"
-    if support["support_contraction_boundary"]:
-        return "support_contraction"
-    if support["unexpected_support_expansion_boundary"]:
-        return "unexpected_support_expansion"
-    return None
+    if method in {"baseline", "uncontrolled_all"}:
+        controlled = raw
+    elif method == "near_zero":
+        controlled = weighted_far
+    elif method == "far_zero":
+        controlled = weighted_near
+    elif method == "far_cap":
+        controlled = capped
+    elif method in {"global_scale", "budget_matched_global"}:
+        controlled = scale_gradients(raw, gradient_norm(capped).item() / (raw_norm + EPS))
+    elif method == "far_to_near":
+        near_flat = _flatten_present(weighted_near)
+        far_flat = _flatten_present(capped_far)
+        a = torch.dot(near_flat, near_flat).item()
+        b = 2.0 * torch.dot(near_flat, far_flat).item()
+        c = torch.dot(far_flat, far_flat).item() - raw_norm**2
+        if a < EPS:
+            multiplier = 1.0
+        else:
+            root = math.sqrt(max(0.0, b**2 - 4.0 * a * c))
+            candidates = ((-b + root) / (2.0 * a), (-b - root) / (2.0 * a))
+            multiplier = max((value for value in candidates if value >= 0.0), default=0.0)
+        controlled = add_gradients(
+            scale_gradients(weighted_near, multiplier),
+            capped_far,
+        )
+    else:
+        raise ValueError(f"unknown negative-control method: {method}")
+    return add_gradients(positive_gradient, controlled)
 
 
 def run_causal_intervention(
@@ -354,7 +274,6 @@ def run_causal_intervention(
         training=positive_training,
     )
     generator = torch.Generator(device="cpu").manual_seed(seed + generator_offset)
-    last_recorded_step = 0
     positive_reference = float(evaluation(actor, environment.test, protocol, fixed_sigma)["reward"])
     task_threshold = protocol.task_failure_retention * positive_reference
     below_threshold: deque[int] = deque(maxlen=protocol.task_failure_consecutive_evals)
@@ -389,7 +308,7 @@ def run_causal_intervention(
         post_support = (
             support_diagnostics(actor, environment.train, protocol) if fixed_sigma is None else {}
         )
-        support_type = _support_event_type(post_support) if fixed_sigma is None else None
+        support_type = post_support["event_type"] if fixed_sigma is None else None
         if support_type is not None and support_onset is None:
             support_onset = step
             first_support_event_type = support_type
@@ -422,7 +341,6 @@ def run_causal_intervention(
                 and task_onset is None
             ):
                 task_onset = below_threshold[0]
-            last_recorded_step = step
         if not finite or support_type is not None:
             break
 
@@ -430,13 +348,9 @@ def run_causal_intervention(
     final_support = (
         support_diagnostics(actor, environment.train, protocol)
         if fixed_sigma is None
-        else {
-            "log_sigma_output_finite_all_states": True,
-            "sigma_output_finite_all_states": True,
-            "support_contraction_boundary": False,
-            "unexpected_support_expansion_boundary": False,
-        }
+        else None
     )
+    finite_parameters = finite_model(actor)
     summary: dict[str, Any] = {
         "seed": seed,
         "method": method,
@@ -450,17 +364,25 @@ def run_causal_intervention(
             first_support_event_type == "unexpected_support_expansion"
         ),
         "stop_reason": stop_reason,
-        "finite_parameters": finite_model(actor),
-        "steps_completed": last_recorded_step,
+        "finite_parameters": finite_parameters,
+        "steps_completed": step,
         "task_performance_collapse": task_onset is not None,
         "support_or_probability_boundary": bool(
-            final_support["support_contraction_boundary"]
-            or final_support["unexpected_support_expansion_boundary"]
+            final_support
+            and (
+                final_support["support_contraction_boundary"]
+                or final_support["unexpected_support_expansion_boundary"]
+            )
         ),
         "nan_inf_numerical_failure": bool(
-            not finite_model(actor)
-            or not final_support["log_sigma_output_finite_all_states"]
-            or not final_support["sigma_output_finite_all_states"]
+            not finite_parameters
+            or (
+                final_support
+                and (
+                    not final_support["log_sigma_output_finite_all_states"]
+                    or not final_support["sigma_output_finite_all_states"]
+                )
+            )
         ),
     }
     return summary

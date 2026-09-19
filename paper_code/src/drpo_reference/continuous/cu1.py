@@ -361,15 +361,25 @@ def support_diagnostics(
     finite_sigma = bool(torch.isfinite(sigma).all().item())
     log_min = float(log_sigma.min().item()) if finite_log_sigma else float("nan")
     log_max = float(log_sigma.max().item()) if finite_log_sigma else float("nan")
+    contraction = finite_log_sigma and log_min < -protocol.log_sigma_event_boundary
+    expansion = finite_log_sigma and log_max > protocol.log_sigma_event_boundary
+    event_type = (
+        "nonfinite_log_sigma_output"
+        if not finite_log_sigma
+        else "nonfinite_sigma_output"
+        if not finite_sigma
+        else "support_contraction"
+        if contraction
+        else "unexpected_support_expansion"
+        if expansion
+        else None
+    )
     return {
         "log_sigma_min_all_states": log_min,
         "log_sigma_max_all_states": log_max,
         "sigma_output_finite_all_states": finite_sigma,
         "log_sigma_output_finite_all_states": finite_log_sigma,
-        "support_contraction_boundary": (
-            finite_log_sigma and log_min < -protocol.log_sigma_event_boundary
-        ),
-        "unexpected_support_expansion_boundary": (
-            finite_log_sigma and log_max > protocol.log_sigma_event_boundary
-        ),
+        "support_contraction_boundary": contraction,
+        "unexpected_support_expansion_boundary": expansion,
+        "event_type": event_type,
     }

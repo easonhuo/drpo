@@ -16,7 +16,6 @@ from .cu1 import (
     positive_loss,
     support_diagnostics,
 )
-from .cu1_mechanism import _support_event_type as support_event_type
 from .cu1_training import (
     CU1PositiveProtocol,
     finite_model,
@@ -171,7 +170,7 @@ def run_phase_scan(
                 if fixed_sigma is None
                 else {}
             )
-            event_type = support_event_type(post_support) if fixed_sigma is None else None
+            event_type = post_support["event_type"] if fixed_sigma is None else None
             if event_type is not None and support_onset is None:
                 support_onset = step
                 first_support_event_type = event_type
