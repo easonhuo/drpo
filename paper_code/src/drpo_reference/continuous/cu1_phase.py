@@ -62,9 +62,11 @@ class CU1PhaseProtocol:
     control_steps: int = 4000
     seeds: tuple[int, ...] = tuple(range(50, 70))
 
+
 def analytic_positive_sigma(protocol: CU1Protocol) -> float:
     residual_second_moment = protocol.positive_contour_radius**2 - protocol.gap_to_unseen_optimum**2
     return math.sqrt(residual_second_moment / protocol.action_dim)
+
 
 def analytic_local_solution(
     protocol: CU1Protocol,
@@ -98,6 +100,7 @@ def analytic_local_solution(
         "analytic_sigma": (math.sqrt(sigma_squared) if sigma_squared > 0.0 else float("nan")),
         "finite_variance_fixed_point": sigma_squared > 0.0,
     }
+
 
 def run_phase_scan(
     *,

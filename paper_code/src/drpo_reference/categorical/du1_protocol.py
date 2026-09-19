@@ -24,6 +24,7 @@ METHODS = (
     "exponential_quadratic_distance",
 )
 
+
 @dataclass(frozen=True)
 class DU1Protocol:
     """D-U1 revision-4 experiment settings."""
@@ -72,11 +73,13 @@ class DU1Protocol:
 
     seeds: tuple[int, ...] = tuple(range(200, 220))
 
+
 @dataclass(frozen=True)
 class MethodSpec:
     method: str
     active_cells: tuple[str, ...]
     taper_family: str | None = None
+
 
 def method_specs(method_names: tuple[str, ...] | None = None) -> list[MethodSpec]:
     specs = {

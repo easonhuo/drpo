@@ -39,6 +39,7 @@ class CU1Protocol:
     task_failure_consecutive_evals: int = 3
     log_sigma_event_boundary: float = 12.0
 
+
 @dataclass
 class Split:
     s: torch.Tensor
@@ -50,10 +51,12 @@ class Split:
     negative_actions: torch.Tensor
     negative_advantages: torch.Tensor
 
+
 @dataclass
 class Environment:
     train: Split
     test: Split
+
 
 def state_geometry(
     states: torch.Tensor,
@@ -82,6 +85,7 @@ def state_geometry(
     perpendicular = torch.stack([-direction[:, 1], direction[:, 0]], dim=1)
     return plus, direction, perpendicular
 
+
 def reward_from_optimum(
     action: torch.Tensor,
     optimum: torch.Tensor,
@@ -89,6 +93,7 @@ def reward_from_optimum(
 ) -> torch.Tensor:
     distance = torch.linalg.vector_norm(action - optimum, dim=-1)
     return torch.exp(-0.5 * (distance / reward_width).square())
+
 
 def contour_angles(
     protocol: CU1Protocol,
@@ -114,6 +119,7 @@ def contour_angles(
         torch.tensor(positive, dtype=dtype, device=device),
         torch.tensor(negative, dtype=dtype, device=device),
     )
+
 
 def make_split(states: torch.Tensor, protocol: CU1Protocol) -> Split:
     plus, direction, perpendicular = state_geometry(states)
@@ -148,6 +154,7 @@ def make_split(states: torch.Tensor, protocol: CU1Protocol) -> Split:
         negative_advantages=negative_advantages,
     )
 
+
 def make_environment(
     seed: int,
     protocol: CU1Protocol,
@@ -173,6 +180,7 @@ def make_environment(
         test=make_split(test_states, protocol),
     )
 
+
 def make_actor(protocol: CU1Protocol) -> GaussianActor:
     return GaussianActor(
         state_dim=protocol.state_dim,
@@ -180,6 +188,7 @@ def make_actor(protocol: CU1Protocol) -> GaussianActor:
         hidden_dim=protocol.hidden_dim,
         initial_sigma=protocol.initial_sigma,
     )
+
 
 def actor_log_prob(
     actor: GaussianActor,
@@ -200,6 +209,7 @@ def actor_log_prob(
         log_std,
     )
 
+
 def positive_loss(
     actor: GaussianActor,
     split: Split,
@@ -212,6 +222,7 @@ def positive_loss(
     advantages = split.positive_advantages if ids is None else split.positive_advantages[ids]
     log_probability, _, _ = actor_log_prob(actor, states, actions, protocol, fixed_sigma)
     return -(advantages * log_probability).mean()
+
 
 def negative_loss(
     actor: GaussianActor,
@@ -233,6 +244,7 @@ def negative_loss(
     )
     return -(advantages[:, columns] * log_probability).mean()
 
+
 def local_negative_loss(
     actor: GaussianActor,
     split: Split,
@@ -241,6 +253,7 @@ def local_negative_loss(
     fixed_sigma: float | None = None,
 ) -> torch.Tensor:
     return negative_loss(actor, split, protocol, ids, fixed_sigma, slice(0, 1))
+
 
 def near_far_losses(
     actor: GaussianActor,
@@ -269,6 +282,7 @@ def near_far_losses(
     near_loss = -(advantages * log_probability * near).sum() / denominator
     far_loss = -(advantages * log_probability * far).sum() / denominator
     return near_loss, far_loss
+
 
 def evaluation(
     actor: GaussianActor,
@@ -311,4 +325,3 @@ def evaluation(
             "nan_inf_numerical_event": not finite_log_sigma or not finite_sigma,
             "support_event_type": event_type,
         }
-

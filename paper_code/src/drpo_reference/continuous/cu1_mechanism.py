@@ -44,12 +44,14 @@ from .gaussian import GaussianActor
 
 GradientTuple = tuple[torch.Tensor | None, ...]
 
+
 @dataclass(frozen=True)
 class CU1SourceProtocol:
     """C-U1 source-isolation probe settings."""
 
     probe_states: int = 128
     seeds: tuple[int, ...] = tuple(range(10, 30))
+
 
 @dataclass(frozen=True)
 class CU1CausalProtocol:
@@ -72,11 +74,13 @@ class CU1CausalProtocol:
     )
     appendix_methods: tuple[str, ...] = ("global_scale", "far_to_near")
 
+
 def _flatten_present(gradients: Sequence[torch.Tensor | None]) -> torch.Tensor:
     present = [gradient.reshape(-1) for gradient in gradients if gradient is not None]
     if not present:
         return torch.empty(0)
     return torch.cat(present)
+
 
 def per_sample_negative_gradient(
     actor,
@@ -95,6 +99,7 @@ def per_sample_negative_gradient(
     )
     objective = advantage * log_probability.squeeze()
     return _flatten_present(gradients(objective, actor.all_parameters()))
+
 
 def source_diagnostic(
     *,
@@ -162,6 +167,7 @@ def source_diagnostic(
             gradient_norm(aggregate_far) / (gradient_norm(aggregate_near) + EPS)
         ).item(),
     }
+
 
 def intervention_gradients(
     actor: GaussianActor,
@@ -231,6 +237,7 @@ def intervention_gradients(
     else:
         raise ValueError(f"unknown negative-control method: {method}")
     return add_gradients(positive_gradient, controlled)
+
 
 def run_causal_intervention(
     *,

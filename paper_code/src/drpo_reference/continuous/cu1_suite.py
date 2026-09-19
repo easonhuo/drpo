@@ -24,6 +24,7 @@ from .cu1_training import CU1PositiveProtocol, train_positive
 
 STAGES = ("source", "causal", "phase", "taper")
 
+
 @dataclass(frozen=True)
 class CU1Protocols:
     core: CU1Protocol = field(default_factory=CU1Protocol)
@@ -33,11 +34,13 @@ class CU1Protocols:
     phase: CU1PhaseProtocol = field(default_factory=CU1PhaseProtocol)
     taper: CU1TaperProtocol = field(default_factory=CU1TaperProtocol)
 
+
 CONTROL_METHODS = (
     "uncontrolled_all",
     "far_cap",
     "budget_matched_global",
 )
+
 
 def run_cu1_stage(
     *,
