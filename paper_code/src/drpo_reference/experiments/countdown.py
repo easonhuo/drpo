@@ -23,11 +23,11 @@ def _release_model(model: Any) -> None:
     if callable(move):
         try:
             move("cpu")
-        except Exception:
+        except Exception:  # noqa: BLE001
             # Some quantized model wrappers do not implement ``to('cpu')``.
             # Clearing the completed top-level module registries below still
             # drops their tensor graph before the next model is loaded.
-            pass
+            pass  # noqa: S110
     for attribute in ("_parameters", "_buffers", "_modules"):
         registry = getattr(model, attribute, None)
         clear = getattr(registry, "clear", None)

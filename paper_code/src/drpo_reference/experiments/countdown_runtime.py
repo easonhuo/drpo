@@ -204,14 +204,14 @@ class CountdownReviewerConfig:
         value: Mapping[str, Any],
         *,
         base_dir: Path,
-    ) -> "CountdownReviewerConfig":
+    ) -> CountdownReviewerConfig:
         schema_version = _int_value(value.get("schema_version"), "schema_version")
         if schema_version not in _CONFIG_SCHEMA_VERSIONS:
             raise ValueError("Countdown config schema_version must be 1 or 2")
         protocol_id = str(value.get("protocol_id") or "custom-reviewer-coordinate")
         protocol_contract_value = value.get("protocol_contract") or {}
         if not isinstance(protocol_contract_value, Mapping):
-            raise ValueError("protocol_contract must be a mapping")
+            raise TypeError("protocol_contract must be a mapping")
         protocol_contract = json.loads(json.dumps(protocol_contract_value))
         model = _mapping(value, "model")
         data = _mapping(value, "data")
@@ -221,7 +221,7 @@ class CountdownReviewerConfig:
         lora = _mapping(model, "lora")
         expected_rows_value = data.get("expected_rows") or {}
         if not isinstance(expected_rows_value, Mapping):
-            raise ValueError("data.expected_rows must be a mapping")
+            raise TypeError("data.expected_rows must be a mapping")
         methods = _unique_strings(value.get("methods"), "methods")
         unknown = sorted(set(methods) - set(COUNTDOWN_ACTIVE_TAIL_METHODS))
         if unknown:
@@ -588,25 +588,25 @@ class CountdownReviewerConfig:
 def _mapping(value: Mapping[str, Any], key: str) -> Mapping[str, Any]:
     result = value.get(key)
     if not isinstance(result, Mapping):
-        raise ValueError(f"{key} must be a mapping")
+        raise TypeError(f"{key} must be a mapping")
     return result
 
 
 def _strict_bool(value: Any, name: str) -> bool:
     if not isinstance(value, bool):
-        raise ValueError(f"{name} must be boolean")
+        raise TypeError(f"{name} must be boolean")
     return value
 
 
 def _nonempty_string(value: Any, name: str) -> str:
     if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"{name} must be a non-empty string")
+        raise TypeError(f"{name} must be a non-empty string")
     return value.strip()
 
 
 def _int_value(value: Any, name: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
-        raise ValueError(f"{name} must be an integer")
+        raise TypeError(f"{name} must be an integer")
     return int(value)
 
 
@@ -619,7 +619,7 @@ def _positive_int(value: Any, name: str) -> int:
 
 def _finite_float(value: Any, name: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"{name} must be numeric")
+        raise TypeError(f"{name} must be numeric")
     result = float(value)
     if not math.isfinite(result):
         raise ValueError(f"{name} must be finite")
@@ -659,7 +659,7 @@ def _probability(
 
 def _unique_strings(value: Any, name: str) -> tuple[str, ...]:
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-        raise ValueError(f"{name} must be a sequence")
+        raise TypeError(f"{name} must be a sequence")
     items = tuple(_nonempty_string(item, name) for item in value)
     if not items or len(set(items)) != len(items):
         raise ValueError(f"{name} must be non-empty and duplicate-free")
@@ -668,7 +668,7 @@ def _unique_strings(value: Any, name: str) -> tuple[str, ...]:
 
 def _unique_ints(value: Any, name: str) -> tuple[int, ...]:
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-        raise ValueError(f"{name} must be a sequence")
+        raise TypeError(f"{name} must be a sequence")
     items = tuple(_int_value(item, name) for item in value)
     if not items or len(set(items)) != len(items):
         raise ValueError(f"{name} must be non-empty and duplicate-free")
@@ -701,7 +701,7 @@ def load_countdown_config(path: str | Path) -> CountdownReviewerConfig:
     config_path = Path(path).expanduser().resolve()
     value = json.loads(config_path.read_text(encoding="utf-8"))
     if not isinstance(value, Mapping):
-        raise ValueError("Countdown reviewer config must be a JSON object")
+        raise TypeError("Countdown reviewer config must be a JSON object")
     return CountdownReviewerConfig.from_mapping(value, base_dir=config_path.parent)
 
 
@@ -941,7 +941,7 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
                 continue
             value = json.loads(line)
             if not isinstance(value, dict):
-                raise ValueError(f"{resolved}:{line_number} is not a JSON object")
+                raise TypeError(f"{resolved}:{line_number} is not a JSON object")
             rows.append(value)
     if not rows:
         raise ValueError(f"JSONL file is empty: {resolved}")
@@ -1019,13 +1019,13 @@ def _validate_evaluation_rows(rows: Sequence[Mapping[str, Any]], name: str) -> N
             raise ValueError(f"{name} contains duplicate prompt: {prompt}")
         prompts.add(prompt)
         if not isinstance(numbers, Sequence) or isinstance(numbers, (str, bytes)):
-            raise ValueError(f"{name}[{index}] has no number sequence")
+            raise TypeError(f"{name}[{index}] has no number sequence")
         if not numbers or any(
             isinstance(item, bool) or not isinstance(item, int) for item in numbers
         ):
             raise ValueError(f"{name}[{index}] numbers must be non-empty integers")
         if isinstance(target, bool) or not isinstance(target, int):
-            raise ValueError(f"{name}[{index}] target must be an integer")
+            raise TypeError(f"{name}[{index}] target must be an integer")
 
 
 def _validate_structure_evaluation_rows(
@@ -1050,7 +1050,7 @@ def _assert_prompt_disjoint(
 ) -> None:
     overlap = {str(row["prompt"]) for row in left} & {str(row["prompt"]) for row in right}
     if overlap:
-        example = sorted(overlap)[0]
+        example = min(overlap)
         raise ValueError(f"{left_name} and {right_name} prompt sets overlap: {example}")
 
 
@@ -1247,7 +1247,7 @@ class _PatternNode:
     def __init__(
         self,
         op: str,
-        children: list["_PatternNode"] | None = None,
+        children: list[_PatternNode] | None = None,
         sign: str = "+",
     ) -> None:
         self.op = op
@@ -1273,14 +1273,14 @@ def _pattern_tree_from_ast(
             if isinstance(current, ast.Constant) and (
                 isinstance(current.value, bool) or not isinstance(current.value, int)
             ):
-                raise ValueError("only integer leaves are supported")
+                raise TypeError("only integer leaves are supported")
             return _PatternNode(next(symbol_iter))
         if isinstance(current, ast.BinOp) and type(current.op) in _AST_OP:
             return _PatternNode(
                 _AST_OP[type(current.op)],
                 [convert(current.left), convert(current.right)],
             )
-        raise ValueError(f"unsupported structure node: {type(current).__name__}")
+        raise TypeError(f"unsupported structure node: {type(current).__name__}")
 
     return convert(node)
 
@@ -1411,8 +1411,8 @@ def _pattern_metrics(
                     observed_correct.add(pattern)
                     greedy_correct_structures.add(pattern)
                     greedy_success = greedy_presence
-            except Exception:
-                pass
+            except (SyntaxError, TypeError, ValueError):
+                greedy_presence = False
         greedy_unseen_presence.append(float(greedy_presence))
         greedy_unseen_success.append(float(greedy_success))
 
@@ -1424,7 +1424,9 @@ def _pattern_metrics(
                 continue
             try:
                 pattern = expression_structure(str(check["expression"]))
-            except Exception:
+            except (SyntaxError, TypeError, ValueError):
+                pattern = None
+            if pattern is None:
                 continue
             if pattern in heldout_targets:
                 record(sampled_counts, pattern, bool(check["correct"]))
@@ -2076,7 +2078,7 @@ def run_countdown(
                 calibration_rows,
                 seed=seed,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             calibration_failure = {
                 "experiment_id": COUNTDOWN_REVIEWER_EXPERIMENT_ID,
                 "runner_version": COUNTDOWN_REVIEWER_RUNNER_VERSION,
@@ -2117,7 +2119,7 @@ def run_countdown(
                     output=method_root,
                     stack=stack,
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 failure = {
                     "experiment_id": COUNTDOWN_REVIEWER_EXPERIMENT_ID,
                     "runner_version": COUNTDOWN_REVIEWER_RUNNER_VERSION,
@@ -2162,7 +2164,7 @@ def run_countdown(
                 "test",
             )
             input_identity["test_sha256"] = _sha256_file(config.test_path)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             test_rows = None
             test_input_failure = {
                 "event": "environment_invalid_or_evaluation_input_unavailable",
@@ -2199,7 +2201,7 @@ def run_countdown(
                     kind="terminal",
                     known_structures=known_structures,
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 run["training_status"] = "completed"
                 run["status"] = "failed"
                 run["event"] = "test_evaluation_failure"
