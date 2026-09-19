@@ -153,10 +153,6 @@ def normalized_field_residual(
     }
 
 
-def _copy_state(actor: GaussianActor) -> dict[str, torch.Tensor]:
-    return copy.deepcopy(actor.state_dict())
-
-
 def train_positive(
     *,
     seed: int,
@@ -190,7 +186,7 @@ def train_positive(
         loss.backward()
         optimizer.step()
 
-    initialization_state = _copy_state(actor)
+    initialization_state = copy.deepcopy(actor.state_dict())
 
     lbfgs = torch.optim.LBFGS(
         actor.parameters(),

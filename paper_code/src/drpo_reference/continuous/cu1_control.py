@@ -15,6 +15,7 @@ from .cu1 import (
     actor_log_prob,
     evaluation,
     local_negative_loss,
+    make_actor,
     positive_loss,
 )
 from .cu1_phase import analytic_positive_sigma
@@ -44,21 +45,6 @@ class CU1ControlProtocol:
     steps: int = 4000
     seeds: tuple[int, ...] = tuple(range(50, 70))
 
-
-
-def _new_actor(
-    protocol: CU1Protocol,
-    environment: Environment,
-    initialization_state: dict[str, torch.Tensor],
-) -> GaussianActor:
-    actor = GaussianActor(
-        state_dim=protocol.state_dim,
-        action_dim=protocol.action_dim,
-        hidden_dim=protocol.hidden_dim,
-        initial_sigma=protocol.initial_sigma,
-    ).to(environment.train.s.device, dtype=environment.train.s.dtype)
-    actor.load_state_dict(copy.deepcopy(initialization_state))
-    return actor
 
 
 def control_gradients(
@@ -151,7 +137,11 @@ def run_far_pressure_control(
 ) -> dict[str, Any]:
     """Run one E4 far-pressure control branch."""
 
-    actor = _new_actor(protocol, environment, initialization_state)
+    actor = make_actor(protocol).to(
+        environment.train.s.device,
+        dtype=environment.train.s.dtype,
+    )
+    actor.load_state_dict(copy.deepcopy(initialization_state))
     parameters = actor.mean_parameters()
     optimizer = make_adam(
         parameters,

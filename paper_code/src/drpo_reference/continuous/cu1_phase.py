@@ -15,6 +15,7 @@ from .cu1 import (
     Split,
     evaluation,
     local_negative_loss,
+    make_actor,
     positive_loss,
     support_diagnostics,
 )
@@ -171,21 +172,6 @@ def local_objective(
     )
 
 
-def _new_actor(
-    protocol: CU1Protocol,
-    environment: Environment,
-    initialization_state: dict[str, torch.Tensor],
-) -> GaussianActor:
-    actor = GaussianActor(
-        state_dim=protocol.state_dim,
-        action_dim=protocol.action_dim,
-        hidden_dim=protocol.hidden_dim,
-        initial_sigma=protocol.initial_sigma,
-    ).to(environment.train.s.device, dtype=environment.train.s.dtype)
-    actor.load_state_dict(copy.deepcopy(initialization_state))
-    return actor
-
-
 def run_phase_scan(
     *,
     seed: int,
@@ -200,7 +186,11 @@ def run_phase_scan(
 ) -> dict[str, Any]:
     """Run one C-U1 local-strength branch and both stationary checks."""
 
-    actor = _new_actor(protocol, environment, initialization_state)
+    actor = make_actor(protocol).to(
+        environment.train.s.device,
+        dtype=environment.train.s.dtype,
+    )
+    actor.load_state_dict(copy.deepcopy(initialization_state))
     parameters = actor.mean_parameters() if fixed_sigma is not None else actor.all_parameters()
     optimizer = make_adam(
         parameters,

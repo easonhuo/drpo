@@ -23,6 +23,7 @@ from .cu1 import (
     Split,
     actor_log_prob,
     evaluation,
+    make_actor,
     near_far_losses,
     positive_loss,
     support_diagnostics,
@@ -37,7 +38,6 @@ from .cu1_training import (
     scale_gradients,
     set_parameter_gradients,
 )
-from .gaussian import GaussianActor
 
 GradientTuple = tuple[torch.Tensor | None, ...]
 
@@ -81,7 +81,7 @@ def _flatten_present(gradients: Sequence[torch.Tensor | None]) -> torch.Tensor:
 
 
 def per_sample_negative_gradient(
-    actor: GaussianActor,
+    actor,
     state: torch.Tensor,
     action: torch.Tensor,
     advantage: torch.Tensor,
@@ -338,12 +338,10 @@ def run_causal_intervention(
 ) -> dict[str, Any]:
     """Run one C-U1 causal branch from the shared positive-only initialization."""
 
-    actor = GaussianActor(
-        state_dim=protocol.state_dim,
-        action_dim=protocol.action_dim,
-        hidden_dim=protocol.hidden_dim,
-        initial_sigma=protocol.initial_sigma,
-    ).to(environment.train.s.device, dtype=environment.train.s.dtype)
+    actor = make_actor(protocol).to(
+        environment.train.s.device,
+        dtype=environment.train.s.dtype,
+    )
     actor.load_state_dict(copy.deepcopy(initialization_state))
     parameters = actor.mean_parameters() if fixed_sigma is not None else actor.all_parameters()
     optimizer = make_adam(

@@ -27,6 +27,7 @@ from .cu1 import (
     Split,
     actor_log_prob,
     evaluation,
+    make_actor,
     positive_loss,
     support_diagnostics,
 )
@@ -38,10 +39,7 @@ from .cu1_training import (
     gradient_norm,
     make_adam,
 )
-from .gaussian import (
-    GaussianActor,
-    standardized_distance,
-)
+from .gaussian import standardized_distance
 
 GradientTuple = tuple[torch.Tensor | None, ...]
 
@@ -123,7 +121,7 @@ def retention_weight(
 
 
 def weighted_negative_loss(
-    actor: GaussianActor,
+    actor,
     split: Split,
     protocol: CU1Protocol,
     taper: CU1TaperProtocol,
@@ -289,12 +287,10 @@ def run_taper_method(
     """Run one taper branch from the exact positive-only Adam checkpoint."""
 
     seed_all(seed + 900_000)
-    actor = GaussianActor(
-        state_dim=protocol.state_dim,
-        action_dim=protocol.action_dim,
-        hidden_dim=protocol.hidden_dim,
-        initial_sigma=protocol.initial_sigma,
-    ).to(environment.train.s.device, dtype=environment.train.s.dtype)
+    actor = make_actor(protocol).to(
+        environment.train.s.device,
+        dtype=environment.train.s.dtype,
+    )
     actor.load_state_dict(copy.deepcopy(initialization_state))
     optimizer = make_adam(
         actor.all_parameters(),
