@@ -58,9 +58,16 @@ class Environment:
     test: Split
 
 
-def state_geometry(
-    states: torch.Tensor,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+def reward_from_optimum(
+    action: torch.Tensor,
+    optimum: torch.Tensor,
+    reward_width: float,
+) -> torch.Tensor:
+    distance = torch.linalg.vector_norm(action - optimum, dim=-1)
+    return torch.exp(-0.5 * (distance / reward_width).square())
+
+
+def make_split(states: torch.Tensor, protocol: CU1Protocol) -> Split:
     plus = torch.stack(
         [
             0.70
@@ -83,48 +90,31 @@ def state_geometry(
     ) + 0.30 * torch.sin(1.35 * states[:, 1])
     direction = torch.stack([torch.cos(angle), torch.sin(angle)], dim=1)
     perpendicular = torch.stack([-direction[:, 1], direction[:, 0]], dim=1)
-    return plus, direction, perpendicular
+    star = plus + protocol.gap_to_unseen_optimum * direction
 
-
-def reward_from_optimum(
-    action: torch.Tensor,
-    optimum: torch.Tensor,
-    reward_width: float,
-) -> torch.Tensor:
-    distance = torch.linalg.vector_norm(action - optimum, dim=-1)
-    return torch.exp(-0.5 * (distance / reward_width).square())
-
-
-def contour_angles(
-    protocol: CU1Protocol,
-    dtype: torch.dtype,
-    device: torch.device,
-) -> tuple[torch.Tensor, torch.Tensor]:
     theta_1 = protocol.positive_angle_1
     theta_2 = math.acos(
         2.0 * protocol.gap_to_unseen_optimum / protocol.positive_contour_radius - math.cos(theta_1)
     )
-    positive = (math.pi - theta_1, math.pi + theta_1, math.pi - theta_2, math.pi + theta_2)
-    negative = (
-        math.pi,
-        3.0 * math.pi / 4.0,
-        math.pi / 2.0,
-        math.pi / 4.0,
-        0.0,
-        -math.pi / 4.0,
-        -math.pi / 2.0,
-        -3.0 * math.pi / 4.0,
+    positive_theta = torch.tensor(
+        (math.pi - theta_1, math.pi + theta_1, math.pi - theta_2, math.pi + theta_2),
+        dtype=states.dtype,
+        device=states.device,
     )
-    return (
-        torch.tensor(positive, dtype=dtype, device=device),
-        torch.tensor(negative, dtype=dtype, device=device),
+    negative_theta = torch.tensor(
+        (
+            math.pi,
+            3.0 * math.pi / 4.0,
+            math.pi / 2.0,
+            math.pi / 4.0,
+            0.0,
+            -math.pi / 4.0,
+            -math.pi / 2.0,
+            -3.0 * math.pi / 4.0,
+        ),
+        dtype=states.dtype,
+        device=states.device,
     )
-
-
-def make_split(states: torch.Tensor, protocol: CU1Protocol) -> Split:
-    plus, direction, perpendicular = state_geometry(states)
-    star = plus + protocol.gap_to_unseen_optimum * direction
-    positive_theta, negative_theta = contour_angles(protocol, states.dtype, states.device)
 
     def contour_actions(theta: torch.Tensor, radius: float) -> torch.Tensor:
         contour_direction = (
