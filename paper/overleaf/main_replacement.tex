@@ -1231,6 +1231,14 @@ CQL~\citep{kumar2020conservative}, TD3+BC~\citep{fujimoto2021minimalist},
 and IQL~\citep{kostrikov2021offline} reference results; protocol and
 implementation details are provided in Appendix~\ref{app:d4rl_methods}.
 
+Without adding an explicit behavior-policy constraint or a conservative
+value penalty on top of the shared advantage-weighted actor form, DRPO
+remains competitive on the D4RL-9 total; its only method-specific
+component is a detached remoteness taper on the negative branch. This is
+consistent with the far-field source-control route of
+Section~\ref{sec:selective_tapering_bridge}, but should be read as
+task-level transfer rather than a causal test of the mechanism.
+
 \subsubsection{Structured Generation}
 \label{sec:structured_generation_performance}
 
