@@ -256,18 +256,12 @@ def run_phase_scan(
         **analytic,
         **final,
         **field,
-        "stationary_audit_attempted": finite_internal,
-        "stationary_audit_1_succeeded": audit_1_ok,
-        "stationary_audit_2_succeeded": audit_2_ok,
         "stationary_audit_succeeded": audit_1_ok and audit_2_ok,
         "stationary_audit_1_residual": audit_1_residual,
         "stationary_audit_2_residual": audit_2_residual,
         "state_class": state,
         "support_boundary_onset": support_onset,
         "support_event_type": first_support_event_type,
-        "unexpected_support_expansion": (
-            first_support_event_type == "unexpected_support_expansion"
-        ),
         "stop_reason": stop_reason,
     }
     return summary

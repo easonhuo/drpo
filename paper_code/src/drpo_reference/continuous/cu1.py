@@ -307,21 +307,7 @@ def evaluation(
         return {
             "reward": reward.mean().item(),
             "normalized_extrapolation_displacement": normalized.mean().item(),
-            "distance_to_a_plus": torch.linalg.vector_norm(
-                mu - split.a_plus,
-                dim=-1,
-            )
-            .mean()
-            .item(),
-            "distance_to_a_star": torch.linalg.vector_norm(
-                mu - split.a_star,
-                dim=-1,
-            )
-            .mean()
-            .item(),
             "sigma_mean": sigma.mean().item(),
-            "sigma_min": sigma.min().item(),
-            "sigma_max": sigma.max().item(),
             "log_sigma_min": log_std.min().item(),
             "log_sigma_max": log_std.max().item(),
             "log_sigma_output_finite": bool(torch.isfinite(log_std).all().item()),

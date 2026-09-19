@@ -161,7 +161,7 @@ def field_diagnostics(
     parameters: Sequence[nn.Parameter],
     *,
     alpha: float = 1.0,
-) -> dict[str, float | str]:
+) -> dict[str, float]:
     positive_gradient = gradients(
         positive,
         parameters,
@@ -170,12 +170,9 @@ def field_diagnostics(
     positive_norm = float(gradient_norm(positive_gradient).item())
     if negative is None:
         return {
-            "positive_gradient_norm": positive_norm,
-            "negative_gradient_norm": 0.0,
             "total_gradient_norm": positive_norm,
             "normalized_field_residual": float("nan"),
             "stationarity_residual": positive_norm,
-            "stationarity_residual_kind": "absolute_positive_gradient_norm",
         }
     negative_gradient = gradients(negative, parameters)
     weighted_negative = scale_gradients(negative_gradient, alpha)
@@ -184,12 +181,9 @@ def field_diagnostics(
     total_norm = float(gradient_norm(total_gradient).item())
     residual = total_norm / (positive_norm + negative_norm + EPS)
     return {
-        "positive_gradient_norm": positive_norm,
-        "negative_gradient_norm": negative_norm,
         "total_gradient_norm": total_norm,
         "normalized_field_residual": residual,
         "stationarity_residual": residual,
-        "stationarity_residual_kind": "normalized_signed_field_residual",
     }
 
 

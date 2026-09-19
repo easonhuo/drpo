@@ -356,13 +356,9 @@ def run_causal_intervention(
         "method": method,
         "branch": branch,
         **final,
-        "task_failure_threshold": task_threshold,
         "task_failure_onset": task_onset,
         "support_boundary_onset": support_onset,
         "support_event_type": first_support_event_type,
-        "unexpected_support_expansion": (
-            first_support_event_type == "unexpected_support_expansion"
-        ),
         "stop_reason": stop_reason,
         "finite_parameters": finite_parameters,
         "steps_completed": step,
