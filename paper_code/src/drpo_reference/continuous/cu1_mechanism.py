@@ -22,7 +22,9 @@ from .cu1 import (
     Split,
     actor_log_prob,
     evaluation,
+    local_negative_loss,
     near_far_losses,
+    negative_loss,
     positive_loss,
     support_diagnostics,
 )
@@ -280,26 +282,29 @@ def intervention_gradients(
     alpha: float,
     method: str,
     cap_ratio: float,
+    partition: str = "dynamic",
+    component_scales: tuple[float, float] | None = None,
 ) -> GradientTuple:
     """Return the E3 controlled gradient."""
 
     parameters = actor.mean_parameters() if fixed_sigma is not None else actor.all_parameters()
     positive = positive_loss(actor, split, protocol, ids, fixed_sigma)
-    near, far = near_far_losses(
-        actor,
-        split,
-        protocol,
-        ids,
-        fixed_sigma,
-    )
+    if partition == "dynamic":
+        near, far = near_far_losses(actor, split, protocol, ids, fixed_sigma)
+    elif partition == "contour":
+        near = local_negative_loss(actor, split, protocol, ids, fixed_sigma)
+        far = negative_loss(actor, split, protocol, ids, fixed_sigma, slice(1, None))
+    else:
+        raise ValueError(f"unknown negative partition: {partition}")
     positive_gradient = gradients(positive, parameters, retain_graph=True)
     near_gradient = gradients(near, parameters, retain_graph=True)
     far_gradient = gradients(far, parameters)
+    near_scale, far_scale = component_scales or (alpha, alpha)
     controlled_negative = controlled_negative_gradients(
         near_gradient,
         far_gradient,
-        near_scale=alpha,
-        far_scale=alpha,
+        near_scale=near_scale,
+        far_scale=far_scale,
         cap_ratio=cap_ratio,
         method=method,
     )
@@ -332,6 +337,10 @@ def run_causal_intervention(
     steps: int,
     branch: str,
     causal: CU1CausalProtocol | None = None,
+    partition: str = "dynamic",
+    component_scales: tuple[float, float] | None = None,
+    cap_ratio: float | None = None,
+    generator_offset: int = 300007,
 ) -> dict[str, Any]:
     """Run one C-U1 causal branch from the shared positive-only initialization."""
 
@@ -344,7 +353,7 @@ def run_causal_intervention(
         learning_rate=learning_rate,
         training=positive_training,
     )
-    generator = torch.Generator(device="cpu").manual_seed(seed + 300007)
+    generator = torch.Generator(device="cpu").manual_seed(seed + generator_offset)
     last_recorded_step = 0
     positive_reference = float(evaluation(actor, environment.test, protocol, fixed_sigma)["reward"])
     task_threshold = protocol.task_failure_retention * positive_reference
@@ -368,7 +377,9 @@ def run_causal_intervention(
             fixed_sigma=fixed_sigma,
             alpha=alpha,
             method=method,
-            cap_ratio=causal.far_cap_ratio,
+            cap_ratio=causal.far_cap_ratio if cap_ratio is None else cap_ratio,
+            partition=partition,
+            component_scales=component_scales,
         )
         optimizer.zero_grad(set_to_none=True)
         set_parameter_gradients(parameters, gradients)

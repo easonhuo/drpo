@@ -12,7 +12,6 @@ import torch
 from drpo_reference.common import atomic_json
 
 from .cu1 import CU1Protocol
-from .cu1_control import run_far_pressure_control
 from .cu1_mechanism import (
     CU1CausalProtocol,
     CU1SourceProtocol,
@@ -148,14 +147,26 @@ def _phase_rows(
                 rows.append(dict(run))
 
         for method in CONTROL_METHODS:
-            run = run_far_pressure_control(
+            run = run_causal_intervention(
                 seed=seed,
                 initialization_state=positive.initialization_state,
                 environment=positive.environment,
                 protocol=protocols.core,
                 positive_training=protocols.positive,
-                phase=protocols.phase,
+                causal=protocols.causal,
                 method=method,
+                fixed_sigma=sigma,
+                alpha=1.0,
+                learning_rate=protocols.phase.control_learning_rate,
+                steps=protocols.phase.control_steps,
+                branch="far_pressure_control",
+                partition="contour",
+                component_scales=(
+                    protocols.phase.control_alpha_local,
+                    protocols.phase.control_lambda_far,
+                ),
+                cap_ratio=protocols.phase.control_far_cap_ratio,
+                generator_offset=500009,
             )
             controls.append(dict(run))
     return rows, controls
