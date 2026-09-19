@@ -2154,9 +2154,10 @@ continuous Jacobian restricted to \(\mathcal H_0\) is positive
 definite, while the discrete Jacobian restricted to \(\mathcal H_0\)
 has eigenvalues strictly larger than one for every \(\alpha>0\).
 
-It remains to prove escape for every nonstationary initialization. Since
-\(g(z)=b+r\pi_z\) is bounded, the continuous flow
-\(\dot z=g(z)\) exists for all forward time. Let
+It remains to prove escape for every nonstationary initialization. If
+\(g(z_0)=0\), both the continuous and discrete dynamics remain at the
+stationary point. Otherwise, since \(g(z)=b+r\pi_z\) is bounded, the
+continuous flow \(\dot z=g(z)\) exists for all forward time, and
 \[
 c_0=\|g(z_0)\|_2^2>0.
 \]
@@ -2368,7 +2369,7 @@ Then
 \qquad
 \text{as }D\to\infty.
 \]
-Moreover, if
+Moreover, for \(D\ge D_0\), if
 \(\langle\nabla J(\theta),v(D)\rangle<0\), then
 \[
 \mathcal V_D(\rho)<0
