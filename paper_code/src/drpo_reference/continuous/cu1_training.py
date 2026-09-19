@@ -155,6 +155,44 @@ def make_adam(
     )
 
 
+def field_diagnostics(
+    positive: torch.Tensor,
+    negative: torch.Tensor | None,
+    parameters: Sequence[nn.Parameter],
+    *,
+    alpha: float = 1.0,
+) -> dict[str, float | str]:
+    positive_gradient = gradients(
+        positive,
+        parameters,
+        retain_graph=negative is not None,
+    )
+    positive_norm = float(gradient_norm(positive_gradient).item())
+    if negative is None:
+        return {
+            "positive_gradient_norm": positive_norm,
+            "negative_gradient_norm": 0.0,
+            "total_gradient_norm": positive_norm,
+            "normalized_field_residual": float("nan"),
+            "stationarity_residual": positive_norm,
+            "stationarity_residual_kind": "absolute_positive_gradient_norm",
+        }
+    negative_gradient = gradients(negative, parameters)
+    weighted_negative = scale_gradients(negative_gradient, alpha)
+    total_gradient = add_gradients(positive_gradient, weighted_negative)
+    negative_norm = float(gradient_norm(weighted_negative).item())
+    total_norm = float(gradient_norm(total_gradient).item())
+    residual = total_norm / (positive_norm + negative_norm + EPS)
+    return {
+        "positive_gradient_norm": positive_norm,
+        "negative_gradient_norm": negative_norm,
+        "total_gradient_norm": total_norm,
+        "normalized_field_residual": residual,
+        "stationarity_residual": residual,
+        "stationarity_residual_kind": "normalized_signed_field_residual",
+    }
+
+
 def normalized_field_residual(
     actor: GaussianActor,
     split: Split,
@@ -162,28 +200,16 @@ def normalized_field_residual(
     *,
     alpha: float,
     fixed_sigma: float | None,
-) -> dict[str, float]:
+) -> dict[str, float | str]:
     from .cu1 import local_negative_loss
 
     parameters = actor.mean_parameters() if fixed_sigma is not None else actor.all_parameters()
-    positive = positive_loss(actor, split, protocol, fixed_sigma=fixed_sigma)
-    negative = local_negative_loss(actor, split, protocol, fixed_sigma=fixed_sigma)
-    positive_gradient = gradients(positive, parameters, retain_graph=True)
-    negative_gradient = gradients(negative, parameters)
-    total_gradient = add_gradients(
-        positive_gradient,
-        negative_gradient,
-        scales=(1.0, alpha),
+    return field_diagnostics(
+        positive_loss(actor, split, protocol, fixed_sigma=fixed_sigma),
+        local_negative_loss(actor, split, protocol, fixed_sigma=fixed_sigma),
+        parameters,
+        alpha=alpha,
     )
-    positive_norm = gradient_norm(positive_gradient).item()
-    negative_norm = gradient_norm(scale_gradients(negative_gradient, alpha)).item()
-    total_norm = gradient_norm(total_gradient).item()
-    return {
-        "positive_gradient_norm": positive_norm,
-        "negative_gradient_norm": negative_norm,
-        "total_gradient_norm": total_norm,
-        "normalized_field_residual": total_norm / (positive_norm + negative_norm + EPS),
-    }
 
 
 def train_positive(
