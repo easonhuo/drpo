@@ -139,9 +139,9 @@ suppress actions estimated to be undesirable. Negative feedback can therefore en
 information that positive-only learning lacks
 \citep{zhu2025negative,song2025good}. Such information can displace the
 policy beyond the solution supported by positive feedback alone, although
-whether that displacement improves task utility is an empirical question. In off-policy settings, however,
-the same historical sample may be reused after earlier updates have already
-changed its probability under the current policy. This raises a single
+whether that displacement improves task utility is an empirical question. In off-policy settings, however, the same historical sample may be reused
+after earlier updates have already changed its probability under the current
+policy; we study the zero-refresh limit for controlled isolation. This raises a single
 question: when does repeated reuse turn useful negative feedback into
 excessive repulsion?
 
@@ -1346,18 +1346,16 @@ reported AsymRE score on five tasks and the Joint Fitted-Reference
 
 \section{Conclusion}
 
-Repeated off-policy reuse can transform useful negative feedback into a
-self-reinforcing geometric effect. Our analysis connects the per-sample reuse
-loop to aggregate regimes of stable displacement, drift, and instability.
-DRPO interrupts that loop with a detached remoteness taper, yielding Gaussian
-ultimate boundedness and polynomial rather than exponential categorical
-suppression. Matched diagnostics and controlled interventions isolate policy
-geometry as the source of the far-field update and show why selective control
-can outperform both removing and globally scaling negative feedback. The main
-open limitation is semantic: remoteness alone cannot distinguish obsolete
-negative samples from remote samples that remain aligned with task improvement.
-Combining geometric control with a reliable utility or alignment signal is a
-natural next step.
+Repeated off-policy reuse can turn useful negative feedback into a
+self-reinforcing far-field effect, linking per-sample repulsion to stable
+displacement, persistent drift, and instability. DRPO selectively attenuates
+remote negative updates while preserving local ones, and matched diagnostics
+and interventions support this mechanism across continuous and discrete
+policies. Our guarantees analyze the zero-refresh limit, which cleanly isolates
+these dynamics, while the same learner-relative weighting principle also
+applies when negative samples are already remote under the current policy,
+including replay and stale-policy settings. Thus, remoteness-aware control is
+not inherently restricted to static offline datasets.
 
 
 % Acknowledgements should only appear in the accepted version.
