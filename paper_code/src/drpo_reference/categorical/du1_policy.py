@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import copy
-from typing import Mapping
+from collections.abc import Mapping
 
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.nn.functional as F
 
 from .du1_environment import CartesianSemanticEnvironment, unit

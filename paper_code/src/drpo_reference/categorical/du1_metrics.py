@@ -2,19 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Mapping
+from collections.abc import Mapping
 
 import torch
 import torch.nn.functional as F
 
 from .du1_controls import normalized_excess_surprisal
 from .du1_environment import CartesianSemanticEnvironment
-from .du1_policy import (
-    CartesianPolicy,
-    cell_log_probs,
-    gather_log_probs,
-)
-from .du1_protocol import CELL_NAMES, DU1Protocol
+from .du1_policy import CartesianPolicy, gather_log_probs
 
 
 def evaluate(

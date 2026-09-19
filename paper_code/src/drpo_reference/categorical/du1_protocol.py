@@ -8,6 +8,7 @@ generalization claims, not OOD generalization claims.
 from __future__ import annotations
 
 from dataclasses import dataclass
+
 CELL_NAMES = (
     "useful_common",
     "useful_rare",
@@ -22,6 +23,7 @@ METHODS = (
     "reciprocal_quadratic_distance",
     "exponential_quadratic_distance",
 )
+
 
 @dataclass(frozen=True)
 class DU1Protocol:

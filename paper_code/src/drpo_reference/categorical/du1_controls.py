@@ -6,7 +6,7 @@ import math
 from collections.abc import Mapping, Sequence
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from drpo_reference.controls import (
     TaperFamily,
