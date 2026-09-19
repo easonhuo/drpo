@@ -4,17 +4,7 @@ import math
 
 import pytest
 import torch
-from drpo_reference.controls import (
-    TaperFamily,
-    far_mask,
-    gradient_l2_norm,
-    near_mask,
-    normalized_excess_surprisal,
-    point_retention_coefficient,
-    scale_to_match_norm,
-    surprisal_distance,
-    taper_weight,
-)
+
 from drpo_reference.categorical.countdown import (
     COUNTDOWN_ACTIVE_TAIL_METHODS,
     COUNTDOWN_ACTIVE_TAIL_TAU_RULE,
@@ -27,9 +17,20 @@ from drpo_reference.categorical.countdown import (
     resolve_active_tail_tau,
     validate_active_tail_calibration,
 )
+from drpo_reference.controls import (
+    TaperFamily,
+    far_mask,
+    gradient_l2_norm,
+    near_mask,
+    normalized_excess_surprisal,
+    point_retention_coefficient,
+    scale_to_match_norm,
+    surprisal_distance,
+    taper_weight,
+)
 from drpo_reference.experiments.d4rl import (
-    D4RL_METHODS,
     CANONICAL_ALPHA,
+    D4RL_METHODS,
     EXPONENTIAL_COEFFICIENT,
     RECIPROCAL_LINEAR_COEFFICIENT,
     RECIPROCAL_QUADRATIC_COEFFICIENT,
@@ -47,7 +48,7 @@ def test_cu1_point_retention_formulas_match_legacy_definitions() -> None:
     expected = {
         TaperFamily.RECIPROCAL_LINEAR: 1.0 / (1.0 + (1.0 / rho - 1.0) * normalized),
         TaperFamily.RECIPROCAL_QUADRATIC: 1.0 / (1.0 + (1.0 / rho - 1.0) * normalized.square()),
-        TaperFamily.EXPONENTIAL_LINEAR: torch.exp(-(-math.log(rho)) * normalized),
+        TaperFamily.EXPONENTIAL_LINEAR: torch.exp(math.log(rho) * normalized),
     }
     for family, legacy in expected.items():
         coefficient = point_retention_coefficient(
