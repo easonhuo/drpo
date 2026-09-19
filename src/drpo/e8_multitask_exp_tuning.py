@@ -1956,66 +1956,13 @@ def _attach_references(
     *,
     base_model_path: str,
 ) -> dict[str, TaskInputs]:
-    path = reference_manifest_path(output_root)
-    if not path.is_file():
-        raise RuntimeError("Run train-only reference preparation before calibration")
-    manifest = json.loads(path.read_text(encoding="utf-8"))
-    base_identity = model_identity(base_model_path, None)["model"]
-    _validate_reference_manifest_header(
-        manifest,
-        config=config,
-        base_model_identity=base_identity,
+    return e8_warmstart.attach_references(
+        output_root,
+        config,
+        splits,
+        inputs,
+        base_model_path=base_model_path,
     )
-    p0_tasks = tuple(str(task) for task in config["suite"]["p0_tasks"])
-    if not manifest.get("complete") or set(manifest["tasks"]) != set(p0_tasks):
-        raise RuntimeError("Train-only reference manifest is incomplete")
-
-    p0_config_path = inputs[p0_tasks[0]].p0_config
-    warmstart_config = _reference_warmstart_config(config, p0_config_path)
-    attached: dict[str, TaskInputs] = {}
-    for task, value in inputs.items():
-        if task == "countdown":
-            if value.reference_adapter is None:
-                raise RuntimeError("Countdown supplied reference adapter is missing")
-            attached[task] = value
-            continue
-
-        task_manifest_path = output_root / "references" / task / "task_manifest.json"
-        if not task_manifest_path.is_file():
-            raise FileNotFoundError(f"Missing train-only task manifest for {task}")
-        task_manifest = json.loads(task_manifest_path.read_text(encoding="utf-8"))
-        if task_manifest != manifest["tasks"].get(task):
-            raise RuntimeError(f"Reference task/top-level manifest mismatch for {task}")
-        expected_identity = _reference_identity(
-            task=task,
-            config=config,
-            split_manifest=splits,
-            warmstart_config=warmstart_config,
-            base_model_identity=base_identity,
-            seed=_reference_seed(config, warmstart_config, task),
-        )
-        adapter = _validate_reference_task_manifest(
-            task_manifest,
-            expected_identity=expected_identity,
-            expected_train_rows=int(config["split"]["p0_train_rows"]),
-        )
-        if (
-            task_manifest.get("adapter_identity")
-            != model_identity(
-                base_model_path,
-                str(adapter),
-            )["adapter"]
-        ):
-            raise RuntimeError(f"Train-only adapter content identity mismatch for {task}")
-        attached[task] = TaskInputs(
-            task=value.task,
-            bank=value.bank,
-            reference_adapter=adapter,
-            sources_root=value.sources_root,
-            p0_config=value.p0_config,
-            countdown_validation=value.countdown_validation,
-        )
-    return attached
 
 
 def _load_ready_inputs(
@@ -2024,16 +1971,9 @@ def _load_ready_inputs(
     *,
     base_model_path: str,
 ) -> tuple[dict[str, Any], dict[str, TaskInputs]]:
-    splits, inputs = _load_prepared(output_root, config)
-    if _is_coldstart(config):
-        if any(value.reference_adapter is not None for value in inputs.values()):
-            raise RuntimeError("Cold-start prepared inputs must not contain external adapters")
-        return splits, inputs
-    return splits, _attach_references(
+    return e8_warmstart.load_ready_inputs(
         output_root,
         config,
-        splits,
-        inputs,
         base_model_path=base_model_path,
     )
 
