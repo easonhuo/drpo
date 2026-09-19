@@ -833,14 +833,6 @@ def _task_rhos(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
     return _tuple_floats(config["sweep"]["all_rho"])
 
 
-def _reference_seed(
-    config: Mapping[str, Any],
-    warmstart_config: Mapping[str, Any],
-    task: str,
-) -> int:
-    return e8_warmstart.reference_seed(config, warmstart_config, task)
-
-
 def validate_config(config: Mapping[str, Any]) -> None:
     if config.get("schema_version") != 1:
         raise ValueError("Expected schema_version: 1")
@@ -1703,7 +1695,7 @@ def cmd_inherit(
     parent_artifacts = {
         "plan": parent_output_root / "plan.json",
         "split_manifest": parent_output_root / "split_manifest.json",
-        "reference_manifest": reference_manifest_path(parent_output_root),
+        "reference_manifest": e8_warmstart.reference_manifest_path(parent_output_root),
         "aggregate_summary": parent_output_root / "aggregate" / "aggregate_summary.json",
     }
     for name, path in parent_artifacts.items():
@@ -1779,20 +1771,20 @@ def cmd_inherit(
     atomic_json(output_root / "prepare_manifest.json", prepare)
 
     base_identity = model_identity(base_model_path, None)["model"]
-    warmstart = _reference_warmstart_config(config, parent_inputs[tasks[0]].p0_config)
+    warmstart = e8_warmstart.reference_warmstart_config(config, parent_inputs[tasks[0]].p0_config)
     parent_reference = json.loads(
         parent_artifacts["reference_manifest"].read_text(encoding="utf-8")
     )
     inherited_reference_tasks: dict[str, Any] = {}
     for task in tasks:
         parent_task = copy.deepcopy(parent_reference["tasks"][task])
-        expected_identity = _reference_identity(
+        expected_identity = e8_warmstart.reference_identity(
             task=task,
             config=config,
             split_manifest=child_splits,
             warmstart_config=warmstart,
             base_model_identity=base_identity,
-            seed=_reference_seed(config, warmstart, task),
+            seed=e8_warmstart.reference_seed(config, warmstart, task),
         )
         parent_task.update(expected_identity)
         parent_task["inherited_from"] = {
@@ -1805,7 +1797,7 @@ def cmd_inherit(
         }
         inherited_reference_tasks[task] = parent_task
         atomic_json(output_root / "references" / task / "task_manifest.json", parent_task)
-    child_reference = _reference_manifest_payload(
+    child_reference = e8_warmstart.reference_manifest_payload(
         config=config,
         base_model_identity=base_identity,
         tasks=inherited_reference_tasks,
@@ -1816,7 +1808,7 @@ def cmd_inherit(
         "result_commit": parent_contract["result_commit"],
         "reference_manifest_sha256": parent_contract["artifact_sha256"]["reference_manifest"],
     }
-    atomic_json(reference_manifest_path(output_root), child_reference)
+    atomic_json(e8_warmstart.reference_manifest_path(output_root), child_reference)
 
     response_rows = _parent_response_rows(parent_config, parent_output_root, set(tasks))
     parent_response = {
@@ -1855,75 +1847,6 @@ def cmd_inherit(
     return snapshot
 
 
-def reference_manifest_path(output_root: Path) -> Path:
-    return e8_warmstart.reference_manifest_path(output_root)
-
-
-def _reference_warmstart_config(
-    config: Mapping[str, Any],
-    p0_config_path: Path,
-) -> dict[str, Any]:
-    return e8_warmstart.reference_warmstart_config(config, p0_config_path)
-
-
-def _reference_identity(
-    *,
-    task: str,
-    config: Mapping[str, Any],
-    split_manifest: Mapping[str, Any],
-    warmstart_config: Mapping[str, Any],
-    base_model_identity: Mapping[str, Any],
-    seed: int,
-) -> dict[str, Any]:
-    return e8_warmstart.reference_identity(
-        task=task,
-        config=config,
-        split_manifest=split_manifest,
-        warmstart_config=warmstart_config,
-        base_model_identity=base_model_identity,
-        seed=seed,
-    )
-
-
-def _reference_manifest_payload(
-    *,
-    config: Mapping[str, Any],
-    base_model_identity: Mapping[str, Any],
-    tasks: Mapping[str, Mapping[str, Any]],
-) -> dict[str, Any]:
-    return e8_warmstart.reference_manifest_payload(
-        config=config,
-        base_model_identity=base_model_identity,
-        tasks=tasks,
-    )
-
-
-def _validate_reference_manifest_header(
-    manifest: Mapping[str, Any],
-    *,
-    config: Mapping[str, Any],
-    base_model_identity: Mapping[str, Any],
-) -> None:
-    e8_warmstart.validate_reference_manifest_header(
-        manifest,
-        config=config,
-        base_model_identity=base_model_identity,
-    )
-
-
-def _validate_reference_task_manifest(
-    task_manifest: Mapping[str, Any],
-    *,
-    expected_identity: Mapping[str, Any],
-    expected_train_rows: int,
-) -> Path:
-    return e8_warmstart.validate_reference_task_manifest(
-        task_manifest,
-        expected_identity=expected_identity,
-        expected_train_rows=expected_train_rows,
-    )
-
-
 def cmd_reference(
     config: Mapping[str, Any],
     output_root: Path,
@@ -1949,24 +1872,6 @@ def _load_prepared(
     config: Mapping[str, Any],
 ) -> tuple[dict[str, Any], dict[str, TaskInputs]]:
     return e8_inputs.load_prepared_inputs(output_root, config)
-
-
-def _attach_references(
-    output_root: Path,
-    config: Mapping[str, Any],
-    splits: Mapping[str, Any],
-    inputs: Mapping[str, TaskInputs],
-    *,
-    base_model_path: str,
-) -> dict[str, TaskInputs]:
-    return e8_warmstart.attach_references(
-        output_root,
-        config,
-        splits,
-        inputs,
-        base_model_path=base_model_path,
-        model_identity_fn=model_identity,
-    )
 
 
 def _load_ready_inputs(
