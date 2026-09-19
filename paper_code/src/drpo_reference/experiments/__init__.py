@@ -14,8 +14,8 @@ from drpo_reference.common.io import atomic_json
 
 from .d4rl import (
     D4RL9_TASKS,
-    D4RLTaskSpec,
     D4RL_METHODS,
+    D4RLTaskSpec,
     CanonicalExpRankTrainingConfig,
     SNA2CIQLVExpRankAgent,
     load_d4rl_hdf5,

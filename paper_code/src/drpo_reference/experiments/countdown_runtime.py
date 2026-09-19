@@ -42,8 +42,8 @@ from drpo_reference.categorical.countdown import (
     calibrate_active_tail_model,
     calibration_surprisal_scale,
     chat_prompt,
-    collate_countdown_training_items,
     clean_expression,
+    collate_countdown_training_items,
     completion_stats,
     encode_countdown_training_row,
     evaluate_response_batches,
@@ -1036,7 +1036,7 @@ def _validate_structure_evaluation_rows(
         oracle = row.get("oracle")
         oracle_structure = row.get("oracle_structure")
         if not isinstance(oracle, str) and not isinstance(oracle_structure, str):
-            raise ValueError(
+            raise TypeError(
                 f"{name}[{index}] requires oracle or oracle_structure for "
                 "canonical structure metrics"
             )
@@ -1181,9 +1181,9 @@ def _calibrate_for_seed(
     )
     coefficients = result.get("method_coefficients")
     if not isinstance(coefficients, Mapping):
-        raise RuntimeError("active-tail calibration returned no coefficient mapping")
+        raise TypeError("active-tail calibration returned no coefficient mapping")
     if not isinstance(result.get("shared_negative_scale"), (int, float)):
-        raise RuntimeError("active-tail calibration returned no shared_negative_scale")
+        raise TypeError("active-tail calibration returned no shared_negative_scale")
     return result
 
 

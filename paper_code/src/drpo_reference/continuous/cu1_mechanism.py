@@ -29,8 +29,8 @@ from .cu1 import (
     support_diagnostics,
 )
 from .cu1_training import (
-    EPS,
     CU1PositiveProtocol,
+    EPS,
     add_gradients,
     finite_model,
     gradient_norm,
@@ -38,7 +38,6 @@ from .cu1_training import (
     scale_gradients,
     set_parameter_gradients,
 )
-
 from .gaussian import GaussianActor
 
 GradientTuple = tuple[torch.Tensor | None, ...]

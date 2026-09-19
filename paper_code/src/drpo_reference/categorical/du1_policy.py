@@ -6,8 +6,8 @@ import copy
 from collections.abc import Mapping
 
 import torch
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
 
 from .du1_environment import CartesianSemanticEnvironment, unit
 from .du1_protocol import DU1Protocol

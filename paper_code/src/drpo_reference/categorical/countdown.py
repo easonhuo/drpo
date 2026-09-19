@@ -110,7 +110,7 @@ class ExpressionVerifier(ast.NodeVisitor):
 
     def visit_Constant(self, node: ast.Constant) -> Fraction:
         if isinstance(node.value, bool) or not isinstance(node.value, int):
-            raise ValueError("only integer literals are allowed")
+            raise TypeError("only integer literals are allowed")
         self.numbers.append(int(node.value))
         return Fraction(int(node.value), 1)
 
@@ -1045,7 +1045,7 @@ def deterministic_active_tail_weights_from_model(
     try:
         with torch.no_grad():
             stats = completion_stats(model, negative_batch)
-            normalized, distance = normalized_active_tail_remoteness(
+            _, distance = normalized_active_tail_remoteness(
                 stats["seq_lp"],
                 tau=tau,
                 surprisal_scale=surprisal_scale,
