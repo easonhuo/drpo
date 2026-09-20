@@ -11,9 +11,8 @@ generalization**, not OOD generalization.
 ## Reviewer-facing scope
 
 This package is a compact reference implementation of the paper algorithms.
-It keeps the numerical training logic and the parameters needed to reproduce the
-experiments, while avoiding repository-internal provenance, checkpoint,
-eligibility, and workflow machinery.
+It keeps the paper-facing update logic and experiment interfaces while avoiding
+repository-internal provenance, recovery, eligibility, and workflow machinery.
 
 Scores may vary across seeds, hardware, MuJoCo/Gymnasium versions, and numerical
 libraries. The intended invariant is the algorithmic update sequence and
@@ -36,14 +35,14 @@ evaluation is required:
 python -m pip install -e '.[test,rollout]'
 ```
 
-Install the optional Countdown Transformer runtime without changing the base
-CPU-oriented package:
+Install the optional Structured Generation Transformer runtime without changing
+the base CPU-oriented package:
 
 ```bash
-python -m pip install -e '.[test,countdown]'
+python -m pip install -e '.[test,structured-generation]'
 ```
 
-Use `countdown-4bit` instead of `countdown` only for an explicitly configured
+Use `structured-generation-4bit` only for an explicitly configured
 bitsandbytes/CUDA run.
 
 ## C-U1
@@ -119,41 +118,63 @@ The runner writes one `results.json`; checkpoints, SHA/provenance gates,
 completion manifests, and failure-state files are intentionally omitted from
 the reference implementation.
 
-## Countdown Transformer runtime
+## Structured Generation
 
-`drpo_reference.categorical.countdown` remains the dependency-light algorithm
-core. `drpo_reference.experiments.countdown` adds the approved reviewer-facing
-Transformers/PEFT lifecycle without moving those dependencies into the core.
+Structured Generation uses one common reviewer path for all nine tasks:
+Countdown, Word Sorting, Spiral Matrix, Mini Sudoku, Maze, Word Ladder,
+Knights & Knaves, Graph Coloring, and WikiSQL. A task adapter owns only source
+instance construction, output canonicalization, verification, and
+model-independent negative mutations. From bank construction onward, Countdown
+uses the same code path as the other eight tasks.
 
-The runtime implements explicit JSON configuration, model/tokenizer/LoRA loading,
-replay and independent calibration validation, prompt-balanced paired training,
-per-seed model-backed calibration, AdamW with cosine warmup, gradient
-accumulation and clipping, raw/update norms, non-finite guards, best/last-finite/
-terminal adapter checkpoints, delayed test access, Greedy/Pass@k generation,
-completion/failure records, and method/seed mean/std aggregation.
+The shared path is:
 
-Run it with:
-
-```bash
-drpo-reference countdown \
-  --config /ABS/PATH/countdown-reviewer.json \
-  --output outputs/countdown-reviewer
+```text
+task adapter
+  -> verified oracle + verifier-incorrect candidate generation
+  -> canonical deduplication and deterministic 16-negative selection
+  -> 5,000 train / 500 validation / 500 reserved test split
+  -> common completion-only likelihood computation
+  -> method objective
+  -> greedy verifier success / Pass@8 evaluation
 ```
 
-The JSON object must explicitly provide these sections and coordinates:
+The frozen replay rows do not store learner-relative surprisal, near/far labels,
+taper weights, or behavior-policy probabilities. DRPO recomputes mean
+completion-token surprisal from the current policy and detaches it before the
+thresholded exponential taper is applied.
 
-- `schema_version: 2` for the canonical v79 coordinate; schema 1 is retained only for custom reviewer runs;
-- `model`: path, optional initial adapter, device, dtype, 4-bit flag, gradient
-  checkpointing flag, and LoRA rank/alpha/dropout/target modules;
-- `data`: replay, calibration, validation, and optional test JSONL paths;
-- `methods` and `seeds`;
-- `training`: max length, steps, micro-batch, accumulation, learning rate, weight
-  decay, warmup ratio, clipping norm, evaluation cadence, checkpoint cadence;
-- `calibration`: prompt count/seed, minimum scale, inherited exponential
-  coefficient, search range/steps/tolerance, and nondegenerate gates;
-- `evaluation`: batch size, example count, generation length, Pass@k, seed,
-  selection metric, temperature, and top-p.
+The reviewer core exposes Positive-only, DRPO, AsymRE, Joint Fitted-Reference
+beta-TOPR, and canonical DPO. TOPR jointly updates a branch-balanced reference
+adapter once per policy step. DPO uses summed completion log-probability in the
+pairwise objective and an exact frozen copy of its configured short-SFT
+initialization.
 
-The command writes calibration, training, evaluation, and adapter outputs for
-each method/seed run. Countdown remains an external-validity task and is separate
-from the controlled D-U1 mechanism experiment.
+The bundled JSON runtime coordinate is
+`configs/countdown_e8_taper_0p5b.json`. It now describes the common nine-task
+path; the filename is retained only as an existing package path. Reasoning Gym
+and WikiSQL source checkouts are supplied under `DRPO_STRUCTURED_SOURCES_ROOT`
+as `reasoning-gym/` and `wikisql/`. The default example leaves DPO disabled
+until `DRPO_STRUCTURED_DPO_SFT_ADAPTER` points to the registered short-SFT
+adapter.
+
+Run all enabled methods on all nine tasks with:
+
+```bash
+drpo-reference structured-generation \
+  --config configs/countdown_e8_taper_0p5b.json \
+  --output outputs/structured-generation
+```
+
+Or select a task/method subset without changing the implementation:
+
+```bash
+drpo-reference structured-generation \
+  --config configs/countdown_e8_taper_0p5b.json \
+  --tasks countdown,wikisql \
+  --methods positive_only,drpo \
+  --output outputs/structured-generation
+```
+
+Structured Generation is external-validity evidence; C-U1 and D-U1 remain the
+controlled mechanism environments.
