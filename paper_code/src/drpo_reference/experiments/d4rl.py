@@ -1,8 +1,8 @@
-"""D4RL-9 paper-facing SNA2C-IQLV performance implementation.
+"""D4RL-9 SNA2C-IQLV training implementation.
 
 One actor/critic/optimizer lifecycle serves all nine locomotion tasks. ExpRank is
 the default method; optional negative-side controls share the same training
-lifecycle. The historical Hopper E7-Q2 mechanism runner is not duplicated here.
+lifecycle.
 """
 
 from __future__ import annotations
