@@ -950,7 +950,12 @@ def run_structured_generation(
         tasks or config["tasks"]["names"]
     )
     requested_methods = tuple(
-        methods or config["methods"].keys()
+        methods
+        or [
+            name
+            for name, spec in config["methods"].items()
+            if bool(spec.get("enabled", True))
+        ]
     )
     unknown_tasks = sorted(
         set(requested_tasks) - set(TASK_NAMES)
