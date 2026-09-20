@@ -20,8 +20,8 @@ from abc import ABC, abstractmethod
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
 from fractions import Fraction
+from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
@@ -129,12 +129,14 @@ def _random_expression(rng: np.random.Generator, numbers: list[int]) -> tuple[st
         op = str(rng.choice(OPS))
         if op == "/" and right[1] == 0:
             op = "+"
-        value = {
-            "+": lambda: left[1] + right[1],
-            "-": lambda: left[1] - right[1],
-            "*": lambda: left[1] * right[1],
-            "/": lambda: left[1] / right[1],
-        }[op]()
+        if op == "+":
+            value = left[1] + right[1]
+        elif op == "-":
+            value = left[1] - right[1]
+        elif op == "*":
+            value = left[1] * right[1]
+        else:
+            value = left[1] / right[1]
         pool.append((f"({left[0]} {op} {right[0]})", value))
     return pool[0]
 
@@ -212,6 +214,8 @@ def countdown_modules() -> tuple[Any, Any]:
         _random_expression_candidates=_random_expression_candidates,
     )
     return countdown, bank
+
+
 def stable_hash(value: Any) -> str:
     payload = json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -1490,38 +1494,38 @@ def evaluate_outputs(
 
 
 __all__ = [
-    "TASK_NAMES",
-    "REASONING_GYM_TASKS",
     "REASONING_GYM_COMMIT",
-    "WIKISQL_COMMIT",
+    "REASONING_GYM_TASKS",
     "STRUCTURED_GENERATION_METHODS",
     "STRUCTURED_GENERATION_SYSTEM_PROMPT",
+    "TASK_NAMES",
+    "WIKISQL_COMMIT",
+    "CountdownAdapter",
+    "EncodedCompletion",
+    "ReasoningGymAdapter",
+    "StructuredTrainingItem",
     "TaskAdapter",
     "TaskInstance",
     "VerificationResult",
-    "CountdownAdapter",
-    "ReasoningGymAdapter",
     "WikiSQLAdapter",
-    "EncodedCompletion",
-    "StructuredTrainingItem",
+    "asymre_objective",
     "build_adapters",
     "build_task_bank",
-    "split_bank",
-    "encode_prompt_completion",
-    "encode_training_row",
+    "clean_expression",
     "collate_training_items",
-    "move_tensor_batch_to_device",
     "completion_statistics_from_logits",
     "completion_stats",
-    "prompt_balanced_mean",
-    "drpo_weights",
-    "positive_only_objective",
+    "dpo_objective",
     "drpo_objective",
-    "asymre_objective",
+    "drpo_weights",
+    "encode_prompt_completion",
+    "encode_training_row",
+    "evaluate_outputs",
+    "move_tensor_batch_to_device",
+    "positive_only_objective",
+    "prompt_balanced_mean",
+    "split_bank",
     "topr_policy_objective",
     "topr_reference_objective",
-    "dpo_objective",
-    "evaluate_outputs",
-    "clean_expression",
     "verify_expression",
 ]
