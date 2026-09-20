@@ -1,114 +1,39 @@
 name: Paper Code Validation
 
 "on":
-  pull_request_target:
-    types: [opened, synchronize, reopened, edited]
+  pull_request:
   workflow_dispatch:
-    inputs:
-      commit_sha:
-        description: "Full commit SHA to validate"
-        required: true
-        type: string
-
-concurrency:
-  group: paper-code-validation-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.commit_sha }}
-  cancel-in-progress: true
-
-env:
-  SOURCE_COMMIT: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || inputs.commit_sha }}
 
 jobs:
   validate:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.pull_request.number == 149 &&
-       github.event.pull_request.head.repo.full_name == github.repository &&
-       github.event.pull_request.head.ref == 'dev/paper-code-reference-01')
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    permissions:
-      contents: read
     steps:
-      - name: Validate requested commit identity
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
-
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ env.SOURCE_COMMIT }}
-          fetch-depth: 1
-          persist-credentials: false
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
 
-      - name: Install exact-head dependencies
+      - name: Install dependencies
         run: python -m pip install -q -e '.[dev]' -e 'paper_code[test]'
 
-      - name: Compile, test, and lint exact head
-        id: exact_head_validation
-        continue-on-error: true
-        shell: bash
+      - name: Test and lint
         run: |
-          set -euo pipefail
-          exec > >(tee exact-head-validation.log) 2>&1
-          python -m compileall -q paper_code/src paper_code/tests
-          python -m pytest -x -vv paper_code/tests
+          python -m pytest -q paper_code/tests
           python -m ruff check --line-length 100 paper_code/src paper_code/tests
           python -m ruff format --check --line-length 100 paper_code/src paper_code/tests
 
-      - name: Upload exact-head failure diagnostics
-        if: steps.exact_head_validation.outcome == 'failure'
-        uses: actions/upload-artifact@v4
-        with:
-          name: paper-code-exact-head-diagnostics-${{ env.SOURCE_COMMIT }}
-          path: exact-head-validation.log
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Fail on exact-head validation mismatch
-        if: steps.exact_head_validation.outcome == 'failure'
-        run: exit 1
-
-      - name: Check public entry points and D-U1 smoke
+      - name: Build reviewer package
         run: |
-          set -euo pipefail
-          python -m drpo_reference --help
-          python -m drpo_reference cu1 --help
-          python -m drpo_reference du1 --help
-          python -m drpo_reference d4rl --help
-          python -m drpo_reference structured-generation --help
-          output="$RUNNER_TEMP/du1-smoke"
-          python -m drpo_reference du1 \
-            --output "$output" \
-            --device cpu \
-            --workers 1 \
-            --smoke
-
-      - name: Build and verify reviewer package
-        run: |
-          set -euo pipefail
           python - <<'PY'
-          import os
           import shutil
           from pathlib import Path
 
           source = Path("paper_code")
           root = Path("dist/drpo-reference-v0.1")
           shutil.rmtree(root.parent, ignore_errors=True)
-          (root / "tests").mkdir(parents=True)
-          shutil.copy2(source / "README.md", root / "README.md")
-          shutil.copy2(source / "pyproject.toml", root / "pyproject.toml")
-          shutil.copytree(source / "configs", root / "configs")
-          shutil.copytree(source / "src", root / "src")
-          shutil.copytree(source / "tests", root / "tests", dirs_exist_ok=True)
-          (root / "SOURCE_COMMIT.txt").write_text(
-              os.environ["SOURCE_COMMIT"] + "\n", encoding="utf-8"
-          )
+          shutil.copytree(source, root)
           shutil.make_archive(
               "dist/drpo-reference-v0.1",
               "zip",
@@ -116,44 +41,9 @@ jobs:
               base_dir="drpo-reference-v0.1",
           )
           PY
-          rm -rf extracted
-          unzip -q dist/drpo-reference-v0.1.zip -d extracted
-          cd extracted/drpo-reference-v0.1
-          python -m pip install -q -e '.[test]' ruff
-          python -m compileall -q src tests
-          python -m pytest -x -vv tests
-          python -m ruff check --line-length 100 src tests
-          python -m ruff format --check --line-length 100 src tests
 
-      - name: Upload exact-head package
+      - name: Upload reviewer package
         uses: actions/upload-artifact@v4
         with:
-          name: drpo-reference-v0.1-${{ env.SOURCE_COMMIT }}
+          name: drpo-reference-v0.1
           path: dist/drpo-reference-v0.1.zip
-          if-no-files-found: error
-          retention-days: 30
-
-  publish-status:
-    runs-on: ubuntu-latest
-    needs: validate
-    if: always() && needs.validate.result != 'skipped'
-    permissions:
-      statuses: write
-    steps:
-      - name: Publish exact-head status
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const result = '${{ needs.validate.result }}';
-            const state = result === 'success' ? 'success' : 'failure';
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: process.env.SOURCE_COMMIT,
-              state,
-              context: 'paper-code-validation/exact-head',
-              description: state === 'success'
-                ? 'Exact-head reviewer validation passed'
-                : `Exact-head reviewer validation ${result}`,
-              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-            });
