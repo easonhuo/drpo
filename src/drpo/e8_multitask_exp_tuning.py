@@ -10,11 +10,7 @@ fields.
 from __future__ import annotations
 
 import argparse
-import copy
-import csv
 import gc
-import hashlib
-import importlib
 import json
 import math
 import os
@@ -22,14 +18,9 @@ import random
 import shutil
 import subprocess
 import sys
-import tarfile
-import threading
 import time
 import traceback
-import zipfile
 from collections.abc import Callable, Mapping, Sequence
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -38,54 +29,38 @@ import numpy as np
 import yaml
 
 from drpo import e8_experiment_config as experiment_config
+from drpo import e8_multitask_canonical_bridge as e8_canonical_bridge
 from drpo import e8_multitask_inputs as e8_inputs
 from drpo import e8_multitask_orchestration as e8_orchestration
 from drpo import e8_multitask_results as e8_results
 from drpo import e8_multitask_runtime as e8_runtime
-from drpo.e8_multitask_inputs import (
-    _canonical_train_row,
-    _canonical_validation_row,
-    _ordered_by_prompt_hash,
-)
+from drpo import e8_multitask_selftest as e8_selftest
+from drpo import e8_multitask_warmstart_training as e8_warmstart
+from drpo.e8_multitask_inputs import TaskInputs
 
-_audit_training_rows = e8_inputs._audit_training_rows
-split_countdown_rows = e8_inputs.split_countdown_rows
-split_p0_rows = e8_inputs.split_p0_rows
-TaskInputs = e8_inputs.TaskInputs
-_evenly_spaced_rank_indices = e8_inputs._evenly_spaced_rank_indices
-_reference_surprisal_summary = e8_inputs._reference_surprisal_summary
-_coverage_first_reference_rank_indices = (
-    e8_inputs._coverage_first_reference_rank_indices
-)
-_reference_error_class_audit = e8_inputs._reference_error_class_audit
-_verified_wrong_candidates = e8_inputs._verified_wrong_candidates
-resolve_task_inputs = e8_inputs.resolve_task_inputs
-write_split_manifest = e8_inputs.write_split_manifest
-_leaf_values = e8_inputs._leaf_values
-_changed_leaf_paths = e8_inputs._changed_leaf_paths
-_atomic_yaml = e8_inputs._atomic_yaml
-_task_base_config = e8_inputs._task_base_config
-_task_grid_configs = e8_inputs._task_grid_configs
-_load_task_adapter_and_instances = e8_inputs._load_task_adapter_and_instances
+
+def _canonical_bridge() -> e8_canonical_bridge.CanonicalBridge:
+    return e8_canonical_bridge.build_bridge(
+        e8_canonical_bridge.CanonicalBridgeBindings(host=sys.modules[__name__])
+    )
+
+
+def _selftest_bindings() -> e8_selftest.SelfTestBindings:
+    return e8_selftest.SelfTestBindings(host=sys.modules[__name__])
 
 try:
     import torch
     import torch.nn.functional as F
-    from torch.utils.data import DataLoader, Dataset
+    from torch.utils.data import DataLoader
 except ImportError:  # Planning and split validation do not require Torch.
     torch = None  # type: ignore[assignment]
     F = None  # type: ignore[assignment]
     DataLoader = None  # type: ignore[assignment]
-    Dataset = object  # type: ignore[assignment,misc]
 
 from drpo.e8_multitask_p0 import (
     append_jsonl,
     atomic_json,
     atomic_jsonl,
-    bank_path,
-    collate_encoded_completions,
-    encode_prompt_completion,
-    format_chat_prompt,
     model_identity,
     read_jsonl,
     resolve_torch_dtype,
@@ -93,11 +68,9 @@ from drpo.e8_multitask_p0 import (
     stable_config_hash,
     train_task_positive_warmstart,
     validate_work_dir,
-    with_smoke_overrides,
 )
 from drpo.e8_multitask_tasks import (
     TASK_NAMES,
-    TaskInstance,
     stable_hash,
 )
 
@@ -105,11 +78,6 @@ from drpo.e8_multitask_tasks import (
 # experiment IDs and sweep-profile names.
 EXPERIMENT_ID = experiment_config.RHO_EXPERIMENT_ID
 DENSE_EXPERIMENT_ID = experiment_config.DENSE_EXPERIMENT_ID
-COLDSTART_EXPERIMENT_ID = experiment_config.COLDSTART_EXPERIMENT_ID
-LAMBDA_COMPLETION_EXPERIMENT_ID = experiment_config.LAMBDA_COMPLETION_EXPERIMENT_ID
-LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID = (
-    experiment_config.LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID
-)
 P0_EXPERIMENT_ID = experiment_config.P0_EXPERIMENT_ID
 # Backward-compatible name used by predecessor tests and downstream callers.
 PARENT_EXPERIMENT_ID = P0_EXPERIMENT_ID
@@ -194,9 +162,6 @@ PAPER_EXTENSION_COEFFICIENTS = (
     6.907755279,
     9.210340372,
 )
-TASK_TRANSFER_COEFFICIENTS = PAPER_ROUND1_COEFFICIENTS + PAPER_EXTENSION_COEFFICIENTS[3:]
-PAPER_SEED_OFFSETS = (4000, 5000)
-
 
 @dataclass(frozen=True)
 class Cell:
@@ -500,57 +465,6 @@ def _run_dpo_method_liveness(
     )
 
 
-def _paper_grid_paths_exponential(
-    config: Mapping[str, Any],
-    record: Mapping[str, Any],
-    cell: Cell,
-) -> tuple[Path, Path]:
-    grid_name = (
-        "round1_grid"
-        if cell.task != "countdown"
-        else _paper_grid_name(
-            0.0 if cell.lambda_value is None else float(cell.lambda_value)
-        )
-    )
-    return Path(str(record[grid_name])), _canonical_paths(config)[grid_name]
-
-
-def _paper_params_reciprocal(cell: Cell) -> tuple[str, float, float]:
-    if cell.method not in {METHOD_RECIPROCAL_LINEAR, METHOD_RECIPROCAL_QUADRATIC}:
-        raise AssertionError(f"Unsupported reciprocal family: {cell.method}")
-    if cell.lambda_value is None:
-        raise AssertionError("Reciprocal cell has no lambda")
-    return cell.method, 1.0, float(cell.lambda_value)
-
-
-def _paper_params_exponential(cell: Cell) -> tuple[str, float, float]:
-    alpha = 0.0 if cell.method == METHOD_POSITIVE_ONLY else 1.0
-    coefficient = (
-        0.0
-        if cell.method in {METHOD_POSITIVE_ONLY, METHOD_GLOBAL}
-        else float(cell.lambda_value)
-    )
-    return "exponential", alpha, coefficient
-
-
-def _paper_params_asymre(cell: Cell) -> tuple[str, float, float]:
-    if cell.delta_v is None:
-        raise AssertionError("AsymRE cell has no delta_v")
-    return METHOD_ASYMRE, 1.0 + float(cell.delta_v), 0.0
-
-
-def _paper_params_topr(cell: Cell) -> tuple[str, float, float]:
-    if cell.beta is None:
-        raise AssertionError("Joint Fitted-Reference TOPR cell has no beta")
-    return METHOD_TOPR, 1.0, float(cell.beta)
-
-
-
-
-
-
-
-
 def _dpo_method_audit(
     cell: Cell, record: Mapping[str, Any]
 ) -> e8_runtime.MethodAuditResult:
@@ -572,7 +486,7 @@ def _dpo_method_audit(
 
 def _asymre_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
     del config
-    identity = _canonical_baseline_grid_identity(METHOD_ASYMRE)
+    identity = _canonical_bridge()._canonical_baseline_grid_identity(METHOD_ASYMRE)
     return {
         "canonical_asymre_grid": identity["canonical_grid"],
         "canonical_asymre_grid_sha256": identity["canonical_grid_sha256"],
@@ -585,7 +499,7 @@ def _asymre_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
 
 def _topr_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
     del config
-    identity = _canonical_baseline_grid_identity(METHOD_TOPR)
+    identity = _canonical_bridge()._canonical_baseline_grid_identity(METHOD_TOPR)
     return {
         "canonical_topr_grid": identity["canonical_grid"],
         "canonical_topr_grid_sha256": identity["canonical_grid_sha256"],
@@ -621,8 +535,12 @@ def _register_builtin_method_specs() -> None:
     exponential_paper_runtime = PaperRuntimeSpec(
         liveness_grid=lambda config, record: Path(str(record["round1_grid"])),
         liveness_parameter="representative_c",
-        grid_paths=_paper_grid_paths_exponential,
-        cell_parameters=_paper_params_exponential,
+        grid_paths=lambda *args, **kwargs: (
+            _canonical_bridge()._paper_grid_paths_exponential(*args, **kwargs)
+        ),
+        cell_parameters=lambda *args, **kwargs: (
+            _canonical_bridge()._paper_params_exponential(*args, **kwargs)
+        ),
         formula="alpha*exp(-c*(current_sequence_surprisal/2))",
     )
     for method, build_cell, cell_key, parameters in (
@@ -685,7 +603,9 @@ def _register_builtin_method_specs() -> None:
                     liveness_grid=lambda config, record: _canonical_reciprocal_grid_path(),
                     liveness_parameter="representative_c",
                     grid_paths=lambda config, record, cell: (_canonical_reciprocal_grid_path(),) * 2,
-                    cell_parameters=_paper_params_reciprocal,
+                    cell_parameters=lambda *args, **kwargs: (
+                _canonical_bridge()._paper_params_reciprocal(*args, **kwargs)
+            ),
                     formula=formula,
                 ),
             )
@@ -712,12 +632,14 @@ def _register_builtin_method_specs() -> None:
                     _canonical_asymre_grid_path(),
                     _canonical_asymre_grid_path(),
                 ),
-                cell_parameters=_paper_params_asymre,
+                cell_parameters=lambda *args, **kwargs: (
+                _canonical_bridge()._paper_params_asymre(*args, **kwargs)
+            ),
                 formula="delegated_to_existing_canonical_asymre",
             ),
             single_aggregate_metadata=_asymre_single_metadata,
             matrix_aggregate_metadata=lambda config: (
-                _canonical_baseline_grid_identity(METHOD_ASYMRE)
+                _canonical_bridge()._canonical_baseline_grid_identity(METHOD_ASYMRE)
             ),
         )
     )
@@ -742,12 +664,14 @@ def _register_builtin_method_specs() -> None:
                     _canonical_topr_grid_path(),
                     _canonical_topr_grid_path(),
                 ),
-                cell_parameters=_paper_params_topr,
+                cell_parameters=lambda *args, **kwargs: (
+                _canonical_bridge()._paper_params_topr(*args, **kwargs)
+            ),
                 formula="delegated_to_existing_joint_fitted_reference_beta_topr",
             ),
             single_aggregate_metadata=_topr_single_metadata,
             matrix_aggregate_metadata=lambda config: (
-                _canonical_baseline_grid_identity(METHOD_TOPR)
+                _canonical_bridge()._canonical_baseline_grid_identity(METHOD_TOPR)
             ),
         )
     )
@@ -779,15 +703,6 @@ _register_builtin_method_specs()
 
 
 
-class RowDataset(Dataset):
-    def __init__(self, rows: Sequence[Mapping[str, Any]]) -> None:
-        self.rows = list(rows)
-
-    def __len__(self) -> int:
-        return len(self.rows)
-
-    def __getitem__(self, index: int) -> Mapping[str, Any]:
-        return self.rows[index]
 
 
 def load_config(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
@@ -881,20 +796,6 @@ def _task_rhos(config: Mapping[str, Any], task: str) -> tuple[float, ...]:
     if _uses_task_lambdas(config):
         return tuple(math.exp(-value) for value in _task_lambdas(config, task))
     return _tuple_floats(config["sweep"]["all_rho"])
-
-
-def _reference_seed(
-    config: Mapping[str, Any],
-    warmstart_config: Mapping[str, Any],
-    task: str,
-) -> int:
-    configured = config.get("reference", {}).get("task_seeds")
-    if isinstance(configured, Mapping):
-        if task not in configured:
-            raise ValueError(f"reference.task_seeds is missing {task}")
-        return int(configured[task])
-    p0_tasks = tuple(str(value) for value in config["suite"]["p0_tasks"])
-    return int(warmstart_config["seed"]) + p0_tasks.index(task) * 100_003
 
 
 def validate_config(config: Mapping[str, Any]) -> None:
@@ -1111,66 +1012,6 @@ def audit_canonical_coldstart_sources(config: Mapping[str, Any]) -> dict[str, An
         "git_blob_shas": observed,
         "verified": True,
     }
-
-
-def _canonical_cold_modules(config: Mapping[str, Any]) -> dict[str, Any]:
-    audit_canonical_coldstart_sources(config)
-    modules = {
-        name: importlib.import_module(module_name)
-        for name, module_name in CANONICAL_COLD_MODULES.items()
-    }
-    scan_common = modules["scan_common"]
-    scan_runtime = modules["scan_runtime"]
-    scan_trainer = modules["scan_trainer"]
-    paper_common = modules["paper_common"]
-    paper_runtime = modules["paper_runtime"]
-    arena = modules["arena"]
-    if (
-        scan_common.arena is not arena
-        or scan_trainer.arena is not arena
-        or scan_trainer.continuous_exp_weights is not scan_common.continuous_exp_weights
-        or paper_common._base is not scan_common
-        or paper_runtime.highc is not paper_common
-        or paper_runtime._base_runtime is not scan_runtime
-    ):
-        raise RuntimeError("Paper cold-start modules do not share one locked implementation graph")
-    return modules
-
-
-def _activate_paper_grid_modules(modules: dict[str, Any], grid_path: Path) -> dict[str, Any]:
-    """Bind base trainer imports to the selected paper profile in this cell process."""
-
-    paper_common = modules["paper_common"]
-    paper_common.activate_for_grid_config(grid_path)
-    modules["scan_trainer"] = importlib.reload(modules["scan_trainer"])
-    modules["scan_runtime"] = importlib.reload(modules["scan_runtime"])
-    # Reloading the paper adapter after the base modules recreates its wrappers
-    # around the just-reloaded, profile-correct trainer.
-    modules["paper_runtime"] = importlib.reload(modules["paper_runtime"])
-    if (
-        modules["scan_trainer"].continuous_exp_weights
-        is not modules["scan_common"].continuous_exp_weights
-        or modules["paper_runtime"]._base_runtime is not modules["scan_runtime"]
-    ):
-        raise RuntimeError("Paper grid activation did not bind the selected trainer profile")
-    return modules
-
-
-def normalized_distance(
-    sequence_log_probability: torch.Tensor,
-    *,
-    tau: float,
-    scale: float,
-) -> torch.Tensor:
-    if not math.isfinite(tau) or tau < 0.0:
-        raise ValueError("tau must be finite and non-negative")
-    if not math.isfinite(scale) or scale <= 0.0:
-        raise ValueError("scale must be finite and positive")
-    return torch.sqrt(torch.relu(-sequence_log_probability.detach() - tau) / scale)
-
-
-def taper_weight(distance: torch.Tensor, rho: float) -> torch.Tensor:
-    return torch.exp(-coefficient_from_rho(rho) * distance)
 
 
 def _coldstart_method_cell(
@@ -1518,7 +1359,10 @@ def _derive_reference_remoteness_banks(
                 "task_runtime": dict(config["task_runtime"][task]),
                 "model_facing_text": "raw_completion_generic_prompt_v1",
                 "selector": selector,
-                "selector_implementation": "source_p0_error_class_sequence_then_within_class_reference_rank_spread_v1",
+                "selector_implementation": (
+                    "source_p0_error_class_sequence_then_"
+                    "within_class_reference_rank_spread_v1"
+                ),
             }
         )
         identities[task] = identity
@@ -1529,13 +1373,14 @@ def _derive_reference_remoteness_banks(
                 existing.get("identity_hash") == identity
                 and path.is_file()
                 and sha256_file(path) == existing.get("sha256")
-                and int(existing.get("rows", -1)) == int(config["split"]["p0_train_rows"])
+                and int(existing.get("rows", -1))
+                == int(config["split"]["p0_train_rows"])
             ):
                 continue
         pending.append(task)
 
     if pending:
-        modules = _canonical_cold_modules(config)
+        modules = _canonical_bridge()._canonical_cold_modules(config)
         arena = modules["arena"]
         _seed_everything(int(config["initialization"]["seed"]))
         tokenizer = arena.load_tokenizer(str(Path(base_model_path).resolve()))
@@ -1544,8 +1389,10 @@ def _derive_reference_remoteness_banks(
         )
         if not isinstance(base_config, Mapping):
             raise TypeError("Canonical base config is not a mapping")
-        reference_effective = experiment_config.effective_coldstart_runtime(config, pending[0])
-        with _legacy_arena_runtime_bridge(arena, reference_effective):
+        reference_effective = experiment_config.effective_coldstart_runtime(
+            config, pending[0]
+        )
+        with _canonical_bridge()._legacy_arena_runtime_bridge(arena, reference_effective):
             model = arena.load_model(
                 str(Path(base_model_path).resolve()),
                 adapter_path=None,
@@ -1561,177 +1408,34 @@ def _derive_reference_remoteness_banks(
         try:
             arena.clean_expression = lambda value: str(value)
             arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
+
+            def score_candidates(
+                prompt: str,
+                candidates: Sequence[Mapping[str, Any]],
+                max_length: int,
+                batch_size: int,
+            ) -> Sequence[float]:
+                return _score_reference_candidates(
+                    arena=arena,
+                    model=model,
+                    tokenizer=tokenizer,
+                    prompt=prompt,
+                    candidates=candidates,
+                    max_length=max_length,
+                    batch_size=batch_size,
+                )
+
             for task in pending:
                 record = splits["tasks"][task]
-                train_rows = read_jsonl(Path(record["paths"]["train"]))
-                adapter, instances = _load_task_adapter_and_instances(
-                    task,
+                summary = e8_inputs.materialize_reference_remoteness_task(
+                    config,
+                    output_root,
+                    task=task,
+                    record=record,
                     inputs=inputs[task],
-                    validation_rows=train_rows,
+                    identity_hash=identities[task],
+                    score_candidates=score_candidates,
                 )
-                derived_rows: list[dict[str, Any]] = []
-                audit_rows: list[dict[str, Any]] = []
-                runtime = config["task_runtime"][task]
-                for source_row in train_rows:
-                    prompt_id = str(source_row["prompt_id"])
-                    candidates = _verified_wrong_candidates(
-                        adapter,
-                        instances[prompt_id],
-                        source_row,
-                    )
-                    scores = _score_reference_candidates(
-                        arena=arena,
-                        model=model,
-                        tokenizer=tokenizer,
-                        prompt=str(source_row["prompt"]),
-                        candidates=candidates,
-                        max_length=int(runtime["max_length"]),
-                        batch_size=int(runtime["evaluation_batch_size"]),
-                    )
-                    scored = []
-                    for candidate, score in zip(candidates, scores, strict=True):
-                        scored.append({**candidate, "reference_surprisal": float(score)})
-                    scored.sort(
-                        key=lambda item: (
-                            float(item["reference_surprisal"]),
-                            stable_hash(
-                                {
-                                    "task": task,
-                                    "prompt_id": prompt_id,
-                                    "canonical_completion": item["canonical_completion"],
-                                }
-                            ),
-                        )
-                    )
-                    selected_indices = _coverage_first_reference_rank_indices(
-                        scored, source_row["negatives"], 16
-                    )
-                    selected: list[dict[str, Any]] = []
-                    for slot, rank in enumerate(selected_indices):
-                        item = dict(scored[rank])
-                        item.update(
-                            {
-                                "negative_id": f"{prompt_id}_refrem_{slot:03d}",
-                                "reference_rank": int(rank),
-                                "reference_candidate_count": len(scored),
-                                "reference_rank_role": "provenance_and_diagnostic_only",
-                            }
-                        )
-                        selected.append(item)
-                    coverage_audit = _reference_error_class_audit(
-                        scored, selected, list(source_row["negatives"])
-                    )
-                    derived = dict(source_row)
-                    derived["negatives"] = selected
-                    derived["reference_remoteness_selection"] = {
-                        "identity_hash": identities[task],
-                        "reference_policy": "zero_update_base_plus_fresh_lora",
-                        "coordinate": "mean_completion_token_surprisal",
-                        "candidate_count": len(scored),
-                        "selected_ranks": list(selected_indices),
-                        "training_weight_uses_reference_rank": False,
-                        "current_policy_surprisal_recomputed_each_update": True,
-                    }
-                    derived_rows.append(derived)
-                    audit_rows.append(
-                        {
-                            "task": task,
-                            "prompt_id": prompt_id,
-                            "candidate_count": len(scored),
-                            "selected_ranks": list(selected_indices),
-                            "candidate_reference_surprisal": _reference_surprisal_summary(
-                                [float(item["reference_surprisal"]) for item in scored]
-                            ),
-                            "selected_reference_surprisal": _reference_surprisal_summary(
-                                [float(item["reference_surprisal"]) for item in selected]
-                            ),
-                            **coverage_audit,
-                            "coverage_threshold": None,
-                            "coverage_gate": False,
-                        }
-                    )
-                root = output_root / "reference_remoteness" / task
-                bank_path_value = root / "train.jsonl"
-                audit_path = root / "prompt_audit.jsonl"
-                atomic_jsonl(bank_path_value, derived_rows)
-                atomic_jsonl(audit_path, audit_rows)
-                ranges = [float(row["selected_reference_surprisal"]["range"]) for row in audit_rows]
-                class_rows = [
-                    value
-                    for row in audit_rows
-                    for value in row["error_class_reference_surprisal"].values()
-                ]
-                selected_class_rows = [
-                    value for value in class_rows if int(value["selected_count"]) > 0
-                ]
-                endpoint_total = sum(
-                    int(row["multi_slot_selected_error_class_count"]) for row in audit_rows
-                )
-                endpoint_covered = sum(
-                    int(row["multi_slot_endpoint_coverage_count"]) for row in audit_rows
-                )
-                summary = {
-                    "schema_version": 1,
-                    "experiment_id": experiment_id(config),
-                    "config_hash": stable_config_hash(config),
-                    "task": task,
-                    "identity_hash": identities[task],
-                    "source_train": record["paths"]["train"],
-                    "source_train_sha256": sha256_file(Path(record["paths"]["train"])),
-                    "source_p0_bank_preserved": True,
-                    "path": str(bank_path_value.resolve()),
-                    "sha256": sha256_file(bank_path_value),
-                    "rows": len(derived_rows),
-                    "selected_negatives_per_prompt": 16,
-                    "selection": "source_p0_error_class_sequence_then_within_class_reference_rank_spread",
-                    "candidate_pool": "all_deterministic_verified_wrong_mutations",
-                    "reference_rank_enters_training_weight": False,
-                    "current_policy_surprisal_recomputed_each_update": True,
-                    "coverage_threshold": None,
-                    "coverage_sequence_matches_all_prompts": all(
-                        bool(row["coverage_sequence_matches_source_p0"]) for row in audit_rows
-                    ),
-                    "error_class_coverage_fraction": _reference_surprisal_summary(
-                        [float(row["error_class_coverage_fraction"]) for row in audit_rows]
-                    ),
-                    "singleton_selected_error_class_instances": sum(
-                        int(row["singleton_selected_error_class_count"]) for row in audit_rows
-                    ),
-                    "multi_slot_selected_error_class_instances": endpoint_total,
-                    "multi_slot_endpoint_coverage_count": endpoint_covered,
-                    "multi_slot_endpoint_coverage_fraction": (
-                        endpoint_covered / endpoint_total if endpoint_total else None
-                    ),
-                    "global_reference_rank_span_fraction": _reference_surprisal_summary(
-                        [float(row["global_reference_rank_span_fraction"]) for row in audit_rows]
-                    ),
-                    "candidate_within_class_range": _reference_surprisal_summary(
-                        [float(row["candidate_reference_surprisal"]["range"]) for row in class_rows]
-                    ),
-                    "candidate_within_class_iqr": _reference_surprisal_summary(
-                        [float(row["candidate_reference_surprisal"]["iqr"]) for row in class_rows]
-                    ),
-                    "selected_within_class_range": _reference_surprisal_summary(
-                        [
-                            float(row["selected_reference_surprisal"]["range"])
-                            for row in selected_class_rows
-                        ]
-                    ),
-                    "selected_within_class_iqr": _reference_surprisal_summary(
-                        [
-                            float(row["selected_reference_surprisal"]["iqr"])
-                            for row in selected_class_rows
-                        ]
-                    ),
-                    "selected_range_median": float(np.median(np.asarray(ranges, dtype=float))),
-                    "prompt_audit": str(audit_path.resolve()),
-                    "prompt_audit_sha256": sha256_file(audit_path),
-                    "complete": len(derived_rows) == int(config["split"]["p0_train_rows"]),
-                    "scientific_status": "not_run",
-                }
-                if not summary["complete"]:
-                    raise RuntimeError(f"Reference-remoteness bank is incomplete for {task}")
-                atomic_json(root / "summary.json", summary)
                 record["reference_remoteness_bank"] = summary
                 atomic_json(output_root / "split_manifest.json", splits)
         finally:
@@ -1794,7 +1498,9 @@ def _derive_reference_remoteness_banks(
         bool(manifest["tasks"][str(task)].get("reference_remoteness_bank_applied"))
         for task in config["suite"]["p0_tasks"]
     ):
-        raise RuntimeError("Canonical transfer inputs did not bind every derived reference bank")
+        raise RuntimeError(
+            "Canonical transfer inputs did not bind every derived reference bank"
+        )
     return manifest
 
 
@@ -1803,125 +1509,15 @@ def write_canonical_cold_inputs(
     output_root: Path,
     split_manifest: dict[str, Any],
 ) -> dict[str, Any]:
-    """Write schema adapters and valid old-core configs; never implement training math."""
+    """Compatibility entry point for canonical input materialization."""
 
-    if not _is_coldstart(config):
-        raise RuntimeError("Canonical input conversion is cold-profile only")
-    source_audit = audit_canonical_coldstart_sources(config)
-    canonical_paths = _canonical_paths(config)
-    records: dict[str, Any] = {}
-    for task_value in config["suite"]["tasks"]:
-        task = str(task_value)
-        record = split_manifest["tasks"][task]
-        source_paths = record["paths"]
-        task_root = output_root / "canonical_inputs" / task
-        task_root.mkdir(parents=True, exist_ok=True)
-        if task == "countdown":
-            train_path = Path(str(record["bank"])).resolve()
-            validation_path = Path(str(record["countdown_validation_source"])).resolve()
-            train_rows = read_jsonl(train_path)
-            validation_rows = read_jsonl(validation_path)
-            exact_countdown_sources = True
-            reference_selection_applied = False
-            reference_selection_identity = None
-        else:
-            reference_record = record.get("reference_remoteness_bank")
-            if isinstance(reference_record, Mapping):
-                reference_path = Path(str(reference_record.get("path", "")))
-                if (
-                    not reference_path.is_file()
-                    or sha256_file(reference_path) != reference_record.get("sha256")
-                    or not reference_record.get("complete")
-                ):
-                    raise RuntimeError(
-                        f"Derived reference-remoteness bank identity failed for {task}"
-                    )
-                train_source = reference_path
-                reference_selection_applied = True
-                reference_selection_identity = str(reference_record["identity_hash"])
-            else:
-                # Initial prepare deliberately preserves P0 semantics. Formal calibration
-                # replaces this with the derived training-only bank before any cell can run.
-                train_source = Path(source_paths["train"])
-                reference_selection_applied = False
-                reference_selection_identity = None
-            train_rows = [_canonical_train_row(row) for row in read_jsonl(train_source)]
-            validation_rows = [
-                _canonical_validation_row(row)
-                for row in read_jsonl(Path(source_paths["validation"]))
-            ]
-            train_path = task_root / "train.jsonl"
-            validation_path = task_root / "validation.jsonl"
-            atomic_jsonl(train_path, train_rows)
-            atomic_jsonl(validation_path, validation_rows)
-            exact_countdown_sources = False
-        sealed_test_path = task_root / "SEALED_TEST_NOT_ACCESSED.jsonl"
-        sealed_test_path.parent.mkdir(parents=True, exist_ok=True)
-        sealed_test_path.write_text("", encoding="utf-8")
-        task_base_config, changed_fields = _task_base_config(
-            config,
-            task=task,
-            canonical_paths=canonical_paths,
-            task_root=task_root,
-        )
-        runtime_grids = _task_grid_configs(
-            config,
-            canonical_paths=canonical_paths,
-            task_root=task_root,
-        )
-        canonical_record = {
-            "train": str(train_path.resolve()),
-            "validation": str(validation_path.resolve()),
-            "sealed_test": str(sealed_test_path.resolve()),
-            "base_config": str(task_base_config.resolve()),
-            "base_config_sha256": sha256_file(task_base_config),
-            "round1_grid": str(runtime_grids["round1_grid"]["path"].resolve()),
-            "round1_grid_sha256": sha256_file(runtime_grids["round1_grid"]["path"]),
-            "extension_grid": str(runtime_grids["extension_grid"]["path"].resolve()),
-            "extension_grid_sha256": sha256_file(runtime_grids["extension_grid"]["path"]),
-            "task_interface_changed_fields": changed_fields,
-            "countdown_exact_source_files": exact_countdown_sources,
-            "reference_remoteness_bank_applied": reference_selection_applied,
-            "reference_remoteness_bank_identity_hash": reference_selection_identity,
-            "negative_consumer": "all_unique_negatives_per_prompt",
-            "calibration": "forbidden",
-            "train_sha256": sha256_file(train_path),
-            "validation_sha256": sha256_file(validation_path),
-            "sealed_test_sha256": sha256_file(sealed_test_path),
-            "train_rows": len(train_rows),
-            "validation_rows": len(validation_rows),
-            "test_rows": 0,
-        }
-        if not experiment_config.is_historical_coldstart_config(config):
-            canonical_record["effective_runtime"] = experiment_config.effective_coldstart_runtime(
-                config, task
-            )
-            canonical_record["runtime_grid_sources"] = {
-                name: {
-                    "source": str(runtime_grids[name]["source"].resolve()),
-                    "source_sha256": sha256_file(runtime_grids[name]["source"]),
-                    "changed_fields": list(runtime_grids[name]["changed_fields"]),
-                }
-                for name in ("round1_grid", "extension_grid")
-            }
-        record["canonical_coldstart"] = canonical_record
-        records[task] = canonical_record
-
-    split_manifest["canonical_source_audit"] = source_audit
-    split_manifest["canonical_coldstart_complete"] = True
-    atomic_json(output_root / "split_manifest.json", split_manifest)
-    manifest = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": stable_config_hash(config),
-        "source_audit": source_audit,
-        "tasks": records,
-        "test_partition_accessed": False,
-        "complete": set(records) == set(config["suite"]["tasks"]),
-    }
-    atomic_json(output_root / "canonical_inputs" / "manifest.json", manifest)
-    return manifest
-
+    return e8_inputs.write_canonical_cold_inputs(
+        config,
+        output_root,
+        split_manifest,
+        audit_canonical_sources=audit_canonical_coldstart_sources,
+        canonical_paths_for_config=_canonical_paths,
+    )
 
 
 def cmd_prepare(
@@ -1936,7 +1532,7 @@ def cmd_prepare(
 ) -> dict[str, Any]:
     if _is_dense(config):
         raise RuntimeError("Dense refinement must use inherit, not prepare")
-    inputs = resolve_task_inputs(
+    inputs = e8_inputs.resolve_task_inputs(
         config,
         p0_work_dir=p0_work_dir,
         p0_config=p0_config,
@@ -1945,7 +1541,7 @@ def cmd_prepare(
         countdown_adapter=countdown_adapter,
     )
     plan = write_plan(config, output_root)
-    splits = write_split_manifest(inputs, config, output_root)
+    splits = e8_inputs.write_split_manifest(inputs, config, output_root)
     canonical_inputs = (
         write_canonical_cold_inputs(config, output_root, splits) if _is_coldstart(config) else None
     )
@@ -1985,51 +1581,6 @@ def cmd_prepare(
     return manifest
 
 
-def _parent_response_rows(
-    parent_config: Mapping[str, Any],
-    parent_output_root: Path,
-    tasks: set[str],
-) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    expected_hash = stable_config_hash(parent_config)
-    for cell in build_cells(parent_config):
-        if cell.task not in tasks:
-            continue
-        path = parent_output_root / "cells" / cell.key / "cell_manifest.json"
-        if not path.is_file():
-            raise FileNotFoundError(f"Missing predecessor cell manifest: {path}")
-        value = json.loads(path.read_text(encoding="utf-8"))
-        if (
-            value.get("experiment_id") != experiment_id(parent_config)
-            or value.get("config_hash") != expected_hash
-            or not value.get("complete")
-            or value.get("evaluation_status") != "complete"
-            or value.get("nan_inf_failure") is not False
-        ):
-            raise RuntimeError(f"Predecessor cell is not reusable: {cell.key}")
-        rows.append(
-            {
-                "source": "predecessor",
-                "task": cell.task,
-                "method": cell.method,
-                "rho": cell.rho,
-                "lambda": None if cell.rho is None else coefficient_from_rho(cell.rho),
-                "seed": cell.seed,
-                "cell_key": cell.key,
-                "late_window_pass8_mean": value["validation_late_window_pass8_mean"],
-                "terminal_pass8": value["validation_terminal_pass8"],
-                "late_window_greedy_mean": value["validation_late_window_greedy_mean"],
-                "terminal_greedy": value["validation_terminal_greedy"],
-                "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
-                "nan_inf_failure": False,
-            }
-        )
-    expected = len(tasks) * 8
-    if len(rows) != expected:
-        raise RuntimeError(f"Expected {expected} predecessor response rows, found {len(rows)}")
-    return rows
-
-
 def cmd_inherit(
     config: Mapping[str, Any],
     output_root: Path,
@@ -2038,324 +1589,22 @@ def cmd_inherit(
     parent_config_path: Path,
     base_model_path: str,
 ) -> dict[str, Any]:
-    if not _is_dense(config):
-        raise RuntimeError("inherit is only valid for the dense refinement profile")
-    parent_config = load_config(parent_config_path)
-    parent_contract = config["parent"]
-    if (
-        experiment_id(parent_config) != EXPERIMENT_ID
-        or stable_config_hash(parent_config) != parent_contract["config_hash"]
-        or int(parent_config["sweep"]["expected_cells"]) != int(parent_contract["expected_cells"])
-    ):
-        raise RuntimeError("Predecessor config identity mismatch")
-
-    parent_artifacts = {
-        "plan": parent_output_root / "plan.json",
-        "split_manifest": parent_output_root / "split_manifest.json",
-        "reference_manifest": reference_manifest_path(parent_output_root),
-        "aggregate_summary": parent_output_root / "aggregate" / "aggregate_summary.json",
-    }
-    for name, path in parent_artifacts.items():
-        if not path.is_file():
-            raise FileNotFoundError(f"Missing predecessor {name}: {path}")
-        expected_sha = str(parent_contract["artifact_sha256"][name])
-        if sha256_file(path) != expected_sha:
-            raise RuntimeError(f"Predecessor {name} does not match the delivered result")
-
-    parent_plan = json.loads(parent_artifacts["plan"].read_text(encoding="utf-8"))
-    parent_aggregate = json.loads(parent_artifacts["aggregate_summary"].read_text(encoding="utf-8"))
-    if (
-        parent_plan.get("experiment_id") != EXPERIMENT_ID
-        or parent_plan.get("config_hash") != parent_contract["config_hash"]
-        or int(parent_plan.get("cell_count", 0)) != int(parent_contract["expected_cells"])
-        or parent_aggregate.get("experiment_id") != EXPERIMENT_ID
-        or parent_aggregate.get("test_partition_accessed") is not False
-        or int(parent_aggregate.get("cell_count", 0)) != int(parent_contract["expected_cells"])
-    ):
-        raise RuntimeError("Predecessor plan or aggregate contract mismatch")
-
-    parent_splits, parent_inputs = _load_ready_inputs(
-        parent_output_root,
-        parent_config,
+    return e8_warmstart.inherit_dense_run(
+        config,
+        output_root,
+        parent_output_root=parent_output_root,
+        parent_config_path=parent_config_path,
         base_model_path=base_model_path,
+        parent_experiment_id=EXPERIMENT_ID,
+        is_dense_fn=_is_dense,
+        load_config_fn=load_config,
+        load_ready_inputs_fn=_load_ready_inputs,
+        write_plan_fn=write_plan,
+        build_cells_fn=build_cells,
+        experiment_id_fn=experiment_id,
+        coefficient_from_rho_fn=coefficient_from_rho,
+        model_identity_fn=model_identity,
     )
-    tasks = tuple(str(task) for task in config["suite"]["tasks"])
-    child_config_hash = stable_config_hash(config)
-    child_split_tasks = {task: copy.deepcopy(parent_splits["tasks"][task]) for task in tasks}
-    child_splits = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": child_config_hash,
-        "test_access_allowed": False,
-        "tasks": child_split_tasks,
-        "complete": True,
-        "scientific_status": "not_run",
-        "inherited_from": {
-            "experiment_id": EXPERIMENT_ID,
-            "run_id": parent_contract["run_id"],
-            "result_commit": parent_contract["result_commit"],
-            "split_manifest_sha256": parent_contract["artifact_sha256"]["split_manifest"],
-        },
-    }
-    atomic_json(output_root / "split_manifest.json", child_splits)
-
-    plan = write_plan(config, output_root)
-    serialized_inputs = {
-        task: {
-            "bank": str(parent_inputs[task].bank),
-            "reference_adapter": None,
-            "sources_root": str(parent_inputs[task].sources_root),
-            "p0_config": str(parent_inputs[task].p0_config),
-            "countdown_validation": None,
-        }
-        for task in tasks
-    }
-    prepare = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": child_config_hash,
-        "plan": str((output_root / "plan.json").resolve()),
-        "split_manifest": str((output_root / "split_manifest.json").resolve()),
-        "inputs": serialized_inputs,
-        "complete": plan["cell_count"] == int(config["sweep"]["expected_cells"]),
-        "scientific_status": "not_run",
-        "inherited_from": {
-            "experiment_id": EXPERIMENT_ID,
-            "run_id": parent_contract["run_id"],
-            "result_commit": parent_contract["result_commit"],
-        },
-    }
-    atomic_json(output_root / "prepare_manifest.json", prepare)
-
-    base_identity = model_identity(base_model_path, None)["model"]
-    warmstart = _reference_warmstart_config(config, parent_inputs[tasks[0]].p0_config)
-    parent_reference = json.loads(
-        parent_artifacts["reference_manifest"].read_text(encoding="utf-8")
-    )
-    inherited_reference_tasks: dict[str, Any] = {}
-    for task in tasks:
-        parent_task = copy.deepcopy(parent_reference["tasks"][task])
-        expected_identity = _reference_identity(
-            task=task,
-            config=config,
-            split_manifest=child_splits,
-            warmstart_config=warmstart,
-            base_model_identity=base_identity,
-            seed=_reference_seed(config, warmstart, task),
-        )
-        parent_task.update(expected_identity)
-        parent_task["inherited_from"] = {
-            "experiment_id": EXPERIMENT_ID,
-            "run_id": parent_contract["run_id"],
-            "parent_identity_hash": parent_reference["tasks"][task]["identity_hash"],
-            "parent_task_manifest_sha256": sha256_file(
-                parent_output_root / "references" / task / "task_manifest.json"
-            ),
-        }
-        inherited_reference_tasks[task] = parent_task
-        atomic_json(output_root / "references" / task / "task_manifest.json", parent_task)
-    child_reference = _reference_manifest_payload(
-        config=config,
-        base_model_identity=base_identity,
-        tasks=inherited_reference_tasks,
-    )
-    child_reference["inherited_from"] = {
-        "experiment_id": EXPERIMENT_ID,
-        "run_id": parent_contract["run_id"],
-        "result_commit": parent_contract["result_commit"],
-        "reference_manifest_sha256": parent_contract["artifact_sha256"]["reference_manifest"],
-    }
-    atomic_json(reference_manifest_path(output_root), child_reference)
-
-    response_rows = _parent_response_rows(parent_config, parent_output_root, set(tasks))
-    parent_response = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": child_config_hash,
-        "parent_experiment_id": EXPERIMENT_ID,
-        "parent_run_id": parent_contract["run_id"],
-        "parent_result_commit": parent_contract["result_commit"],
-        "rows": response_rows,
-        "complete": True,
-    }
-    atomic_json(output_root / "inherited" / "parent_response.json", parent_response)
-    snapshot = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": child_config_hash,
-        "parent_run_id": parent_contract["run_id"],
-        "parent_result_repository": parent_contract["result_repository"],
-        "parent_result_commit": parent_contract["result_commit"],
-        "parent_source_commit": parent_contract["source_commit"],
-        "parent_config_hash": parent_contract["config_hash"],
-        "parent_artifact_sha256": dict(parent_contract["artifact_sha256"]),
-        "tasks": list(tasks),
-        "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
-        "inherited_split": True,
-        "inherited_train_only_references": True,
-        "inherited_positive_only_anchor": True,
-        "calibration_must_be_rerun": True,
-        "test_partition_accessed": False,
-        "complete": True,
-        "scientific_status": "not_run",
-    }
-    atomic_json(output_root / "inherited" / "parent_snapshot.json", snapshot)
-    _load_ready_inputs(output_root, config, base_model_path=base_model_path)
-    return snapshot
-
-
-def reference_manifest_path(output_root: Path) -> Path:
-    return output_root / "references" / "reference_manifest.json"
-
-
-def _reference_warmstart_config(
-    config: Mapping[str, Any],
-    p0_config_path: Path,
-) -> dict[str, Any]:
-    p0_config = yaml.safe_load(p0_config_path.read_text(encoding="utf-8"))
-    if not isinstance(p0_config, dict) or p0_config.get("experiment_id") != P0_EXPERIMENT_ID:
-        raise RuntimeError("P0 config identity mismatch during reference preparation")
-    inherited = copy.deepcopy(p0_config.get("positive_warmstart"))
-    if not isinstance(inherited, dict):
-        raise TypeError("P0 positive-warm-start contract is missing")
-    if inherited.get("checkpoint_kind") != "task_positive_warmstart_100":
-        raise RuntimeError("Unexpected inherited P0 checkpoint kind")
-    if str(inherited.get("parameterization")) != "lora":
-        raise RuntimeError("P0 reference preparation must inherit LoRA parameterization")
-    if int(inherited.get("optimizer_updates", 0)) != int(config["reference"]["optimizer_updates"]):
-        raise RuntimeError("Inherited P0 reference optimizer-update contract mismatch")
-    if (
-        int(inherited.get("micro_batch", 0)) != 2
-        or int(inherited.get("gradient_accumulation", 0)) != 32
-    ):
-        raise RuntimeError("Inherited reference warm start must remain 2 x 32")
-
-    model_contract = {
-        "lora_rank": int(config["model"]["lora_rank"]),
-        "lora_alpha": int(config["model"]["lora_alpha"]),
-        "lora_dropout": float(config["model"]["lora_dropout"]),
-        "max_length": int(config["model"]["max_length"]),
-        "gradient_checkpointing": bool(config["model"]["gradient_checkpointing"]),
-        "dtype": str(config["model"]["dtype"]),
-    }
-    inherited_contract = {
-        "lora_rank": int(inherited["lora_rank"]),
-        "lora_alpha": int(inherited["lora_alpha"]),
-        "lora_dropout": float(inherited["lora_dropout"]),
-        "max_length": int(inherited["max_length"]),
-        "gradient_checkpointing": bool(inherited["gradient_checkpointing"]),
-        "dtype": str(inherited["dtype"]),
-    }
-    if inherited_contract != model_contract:
-        raise RuntimeError("Inherited P0 LoRA/model contract does not match tuning config")
-
-    inherited["checkpoint_kind"] = str(config["reference"]["checkpoint_kind"])
-    return inherited
-
-
-def _reference_identity(
-    *,
-    task: str,
-    config: Mapping[str, Any],
-    split_manifest: Mapping[str, Any],
-    warmstart_config: Mapping[str, Any],
-    base_model_identity: Mapping[str, Any],
-    seed: int,
-) -> dict[str, Any]:
-    train_path = Path(split_manifest["tasks"][task]["paths"]["train"])
-    identity = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "task": task,
-        "config_hash": stable_config_hash(config),
-        "p0_config_sha256": split_manifest["tasks"][task]["p0_config_sha256"],
-        "train_prompt_hash": split_manifest["tasks"][task]["prompt_id_hashes"]["train"],
-        "train_rows_sha256": sha256_file(train_path),
-        "base_model_identity": base_model_identity,
-        "reference_config": dict(warmstart_config),
-        "seed": seed,
-    }
-    identity["identity_hash"] = stable_hash(identity)
-    return identity
-
-
-def _reference_manifest_payload(
-    *,
-    config: Mapping[str, Any],
-    base_model_identity: Mapping[str, Any],
-    tasks: Mapping[str, Mapping[str, Any]],
-) -> dict[str, Any]:
-    expected_tasks = tuple(str(task) for task in config["suite"]["p0_tasks"])
-    complete = set(tasks) == set(expected_tasks) and all(
-        bool(tasks[task].get("complete"))
-        and bool(tasks[task].get("train_only_reference"))
-        and int(tasks[task].get("validation_rows_seen", -1)) == 0
-        and int(tasks[task].get("test_rows_seen", -1)) == 0
-        for task in expected_tasks
-    )
-    return {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": stable_config_hash(config),
-        "base_model_identity": base_model_identity,
-        "checkpoint_kind": str(config["reference"]["checkpoint_kind"]),
-        "tasks": dict(tasks),
-        "complete": complete,
-        "validation_rows_seen": 0,
-        "test_rows_seen": 0,
-        "scientific_status": "not_run",
-    }
-
-
-def _validate_reference_manifest_header(
-    manifest: Mapping[str, Any],
-    *,
-    config: Mapping[str, Any],
-    base_model_identity: Mapping[str, Any],
-) -> None:
-    if (
-        manifest.get("experiment_id") != experiment_id(config)
-        or manifest.get("config_hash") != stable_config_hash(config)
-        or manifest.get("checkpoint_kind") != config["reference"]["checkpoint_kind"]
-        or manifest.get("base_model_identity") != base_model_identity
-        or int(manifest.get("validation_rows_seen", -1)) != 0
-        or int(manifest.get("test_rows_seen", -1)) != 0
-    ):
-        raise RuntimeError("Train-only reference manifest identity or leakage audit mismatch")
-    recorded_tasks = manifest.get("tasks")
-    if not isinstance(recorded_tasks, dict):
-        raise TypeError("Train-only reference manifest tasks are malformed")
-    unknown = set(recorded_tasks) - set(config["suite"]["p0_tasks"])
-    if unknown:
-        raise RuntimeError(f"Train-only reference manifest has unknown tasks: {sorted(unknown)}")
-
-
-def _validate_reference_task_manifest(
-    task_manifest: Mapping[str, Any],
-    *,
-    expected_identity: Mapping[str, Any],
-    expected_train_rows: int,
-) -> Path:
-    if (
-        task_manifest.get("identity_hash") != expected_identity["identity_hash"]
-        or task_manifest.get("checkpoint_kind")
-        != expected_identity["reference_config"]["checkpoint_kind"]
-        or not task_manifest.get("complete")
-        or not task_manifest.get("train_only_reference")
-        or int(task_manifest.get("train_rows_seen", -1)) != expected_train_rows
-        or int(task_manifest.get("validation_rows_seen", -1)) != 0
-        or int(task_manifest.get("test_rows_seen", -1)) != 0
-    ):
-        raise RuntimeError(
-            f"Train-only reference identity or leakage audit mismatch for "
-            f"{expected_identity['task']}"
-        )
-    adapter = Path(str(task_manifest.get("adapter_path", "")))
-    if not (adapter / "adapter_config.json").is_file():
-        raise FileNotFoundError(
-            f"Missing train-only adapter for {expected_identity['task']}: {adapter}"
-        )
-    return adapter
 
 
 def cmd_reference(
@@ -2366,288 +1615,23 @@ def cmd_reference(
     tasks: Sequence[str] | None,
     force: bool,
 ) -> dict[str, Any]:
-    splits, inputs = _load_prepared(output_root, config)
-    p0_tasks = tuple(str(task) for task in config["suite"]["p0_tasks"])
-    requested = tuple(str(task) for task in (tasks or p0_tasks))
-    if not requested or len(set(requested)) != len(requested):
-        raise ValueError("Reference tasks must be a non-empty unique list")
-    unknown = sorted(set(requested) - set(p0_tasks))
-    if unknown:
-        raise ValueError(f"Only configured P0 tasks require train-only references: {unknown}")
-
-    p0_config_path = inputs[requested[0]].p0_config
-    if any(inputs[task].p0_config != p0_config_path for task in requested):
-        raise RuntimeError("P0 tasks do not share one frozen config path")
-    warmstart_config = _reference_warmstart_config(config, p0_config_path)
-    base_identity = model_identity(base_model_path, None)["model"]
-    task_seeds = {task: _reference_seed(config, warmstart_config, task) for task in p0_tasks}
-
-    root = output_root / "references"
-    root.mkdir(parents=True, exist_ok=True)
-    manifest_path = reference_manifest_path(output_root)
-    completed: dict[str, Any] = {}
-    if manifest_path.is_file():
-        existing_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        _validate_reference_manifest_header(
-            existing_manifest,
-            config=config,
-            base_model_identity=base_identity,
-        )
-        for task, recorded in existing_manifest["tasks"].items():
-            task_manifest_path = root / task / "task_manifest.json"
-            if not task_manifest_path.is_file():
-                raise FileNotFoundError(
-                    f"Reference manifest points to a missing task manifest: {task}"
-                )
-            task_manifest = json.loads(task_manifest_path.read_text(encoding="utf-8"))
-            if task_manifest != recorded:
-                raise RuntimeError(f"Reference task/top-level manifest mismatch for {task}")
-            expected = _reference_identity(
-                task=task,
-                config=config,
-                split_manifest=splits,
-                warmstart_config=warmstart_config,
-                base_model_identity=base_identity,
-                seed=task_seeds[task],
-            )
-            try:
-                _validate_reference_task_manifest(
-                    task_manifest,
-                    expected_identity=expected,
-                    expected_train_rows=int(config["split"]["p0_train_rows"]),
-                )
-            except (FileNotFoundError, RuntimeError):
-                if not force or task not in requested:
-                    raise
-                continue
-            completed[task] = task_manifest
-
-    for task in requested:
-        task_root = root / task
-        train_path = Path(splits["tasks"][task]["paths"]["train"])
-        identity = _reference_identity(
-            task=task,
-            config=config,
-            split_manifest=splits,
-            warmstart_config=warmstart_config,
-            base_model_identity=base_identity,
-            seed=task_seeds[task],
-        )
-        if task in completed and not force:
-            continue
-        if task_root.exists():
-            if not force:
-                raise RuntimeError(f"Reference directory exists without reusable identity: {task}")
-            if root.resolve() not in task_root.resolve().parents:
-                raise RuntimeError(f"Refusing unsafe reference removal: {task_root}")
-            shutil.rmtree(task_root)
-        task_root.mkdir(parents=True, exist_ok=False)
-        train_rows = read_jsonl(train_path)
-        result = train_task_positive_warmstart(
-            task=task,
-            rows=train_rows,
-            model_path=base_model_path,
-            output_dir=task_root,
-            warmstart_config=warmstart_config,
-            seed=task_seeds[task],
-        )
-        result.update(identity)
-        result.update(
-            {
-                "train_only_reference": True,
-                "train_rows_seen": len(train_rows),
-                "validation_rows_seen": 0,
-                "test_rows_seen": 0,
-            }
-        )
-        atomic_json(task_root / "task_manifest.json", result)
-        completed[task] = result
-        atomic_json(
-            manifest_path,
-            _reference_manifest_payload(
-                config=config,
-                base_model_identity=base_identity,
-                tasks=completed,
-            ),
-        )
-
-    manifest = _reference_manifest_payload(
-        config=config,
-        base_model_identity=base_identity,
-        tasks=completed,
+    return e8_warmstart.prepare_references(
+        config,
+        output_root,
+        base_model_path=base_model_path,
+        tasks=tasks,
+        force=force,
+        load_prepared_fn=_load_prepared,
+        model_identity_fn=model_identity,
+        train_warmstart_fn=train_task_positive_warmstart,
     )
-    atomic_json(manifest_path, manifest)
-    return manifest
 
 
 def _load_prepared(
     output_root: Path,
     config: Mapping[str, Any],
 ) -> tuple[dict[str, Any], dict[str, TaskInputs]]:
-    prepare_path = output_root / "prepare_manifest.json"
-    split_path = output_root / "split_manifest.json"
-    if not prepare_path.is_file() or not split_path.is_file():
-        raise RuntimeError("Run prepare before calibration or training")
-    prepare = json.loads(prepare_path.read_text(encoding="utf-8"))
-    splits = json.loads(split_path.read_text(encoding="utf-8"))
-    expected_hash = stable_config_hash(config)
-    if (
-        prepare.get("experiment_id") != experiment_id(config)
-        or splits.get("experiment_id") != experiment_id(config)
-        or prepare.get("config_hash") != expected_hash
-        or splits.get("config_hash") != expected_hash
-        or not prepare.get("complete")
-        or not splits.get("complete")
-    ):
-        raise RuntimeError("Prepared input identity mismatch")
-    expected_tasks = set(config["suite"]["tasks"])
-    if set(prepare.get("inputs", {})) != expected_tasks or set(splits.get("tasks", {})) != (
-        expected_tasks
-    ):
-        raise RuntimeError("Prepared input task set mismatch")
-    inputs = {
-        task: TaskInputs(
-            task=task,
-            bank=Path(value["bank"]),
-            reference_adapter=(
-                Path(value["reference_adapter"]) if value.get("reference_adapter") else None
-            ),
-            sources_root=Path(value["sources_root"]),
-            p0_config=Path(value["p0_config"]),
-            countdown_validation=(
-                Path(value["countdown_validation"]) if value.get("countdown_validation") else None
-            ),
-        )
-        for task, value in prepare["inputs"].items()
-    }
-    for task, inputs_for_task in inputs.items():
-        split_record = splits["tasks"][task]
-        if not inputs_for_task.bank.is_file() or sha256_file(inputs_for_task.bank) != (
-            split_record.get("bank_sha256")
-        ):
-            raise RuntimeError(f"Prepared bank identity mismatch for {task}")
-        if not inputs_for_task.p0_config.is_file() or sha256_file(
-            inputs_for_task.p0_config
-        ) != split_record.get("p0_config_sha256"):
-            raise RuntimeError(f"Prepared P0 config identity mismatch for {task}")
-        if not inputs_for_task.sources_root.is_dir():
-            raise FileNotFoundError(f"Prepared sources root is missing for {task}")
-        if inputs_for_task.countdown_validation is not None and (
-            not inputs_for_task.countdown_validation.is_file()
-            or sha256_file(inputs_for_task.countdown_validation)
-            != split_record.get("countdown_validation_sha256")
-        ):
-            raise RuntimeError("Prepared Countdown validation identity mismatch")
-        if inputs_for_task.reference_adapter is not None:
-            if not (inputs_for_task.reference_adapter / "adapter_config.json").is_file():
-                raise FileNotFoundError(f"Prepared reference adapter is missing for {task}")
-            current_identity = model_identity(
-                "unresolved_backbone",
-                str(inputs_for_task.reference_adapter),
-            )["adapter"]
-            if current_identity != split_record.get("reference_adapter_identity"):
-                raise RuntimeError(f"Prepared reference adapter identity mismatch for {task}")
-        if _is_coldstart(config):
-            canonical = split_record.get("canonical_coldstart")
-            if not isinstance(canonical, Mapping):
-                raise RuntimeError(f"Missing canonical cold-start inputs for {task}")
-            identity_fields = (
-                ("train", "train_sha256"),
-                ("validation", "validation_sha256"),
-                ("sealed_test", "sealed_test_sha256"),
-            )
-            for path_key, sha_key in identity_fields:
-                path = Path(str(canonical[path_key]))
-                if not path.is_file() or sha256_file(path) != canonical[sha_key]:
-                    raise RuntimeError(
-                        f"Canonical cold-start {path_key} identity mismatch for {task}"
-                    )
-            if int(canonical.get("test_rows", -1)) != 0:
-                raise RuntimeError("Canonical tuning input must keep the test partition sealed")
-            for grid_key in ("round1_grid", "extension_grid", "base_config"):
-                grid_path = Path(str(canonical[grid_key]))
-                if (
-                    not grid_path.is_file()
-                    or sha256_file(grid_path) != canonical[f"{grid_key}_sha256"]
-                ):
-                    raise RuntimeError(f"Canonical paper input {grid_key} is missing for {task}")
-            if canonical.get("negative_consumer") != "all_unique_negatives_per_prompt":
-                raise RuntimeError(f"Canonical negative consumer drifted for {task}")
-            if task == "countdown" and canonical.get("countdown_exact_source_files") is not True:
-                raise RuntimeError(
-                    "Countdown must dispatch the exact generated bank/validation files"
-                )
-    return splits, inputs
-
-
-def _attach_references(
-    output_root: Path,
-    config: Mapping[str, Any],
-    splits: Mapping[str, Any],
-    inputs: Mapping[str, TaskInputs],
-    *,
-    base_model_path: str,
-) -> dict[str, TaskInputs]:
-    path = reference_manifest_path(output_root)
-    if not path.is_file():
-        raise RuntimeError("Run train-only reference preparation before calibration")
-    manifest = json.loads(path.read_text(encoding="utf-8"))
-    base_identity = model_identity(base_model_path, None)["model"]
-    _validate_reference_manifest_header(
-        manifest,
-        config=config,
-        base_model_identity=base_identity,
-    )
-    p0_tasks = tuple(str(task) for task in config["suite"]["p0_tasks"])
-    if not manifest.get("complete") or set(manifest["tasks"]) != set(p0_tasks):
-        raise RuntimeError("Train-only reference manifest is incomplete")
-
-    p0_config_path = inputs[p0_tasks[0]].p0_config
-    warmstart_config = _reference_warmstart_config(config, p0_config_path)
-    attached: dict[str, TaskInputs] = {}
-    for task, value in inputs.items():
-        if task == "countdown":
-            if value.reference_adapter is None:
-                raise RuntimeError("Countdown supplied reference adapter is missing")
-            attached[task] = value
-            continue
-
-        task_manifest_path = output_root / "references" / task / "task_manifest.json"
-        if not task_manifest_path.is_file():
-            raise FileNotFoundError(f"Missing train-only task manifest for {task}")
-        task_manifest = json.loads(task_manifest_path.read_text(encoding="utf-8"))
-        if task_manifest != manifest["tasks"].get(task):
-            raise RuntimeError(f"Reference task/top-level manifest mismatch for {task}")
-        expected_identity = _reference_identity(
-            task=task,
-            config=config,
-            split_manifest=splits,
-            warmstart_config=warmstart_config,
-            base_model_identity=base_identity,
-            seed=_reference_seed(config, warmstart_config, task),
-        )
-        adapter = _validate_reference_task_manifest(
-            task_manifest,
-            expected_identity=expected_identity,
-            expected_train_rows=int(config["split"]["p0_train_rows"]),
-        )
-        if (
-            task_manifest.get("adapter_identity")
-            != model_identity(
-                base_model_path,
-                str(adapter),
-            )["adapter"]
-        ):
-            raise RuntimeError(f"Train-only adapter content identity mismatch for {task}")
-        attached[task] = TaskInputs(
-            task=value.task,
-            bank=value.bank,
-            reference_adapter=adapter,
-            sources_root=value.sources_root,
-            p0_config=value.p0_config,
-            countdown_validation=value.countdown_validation,
-        )
-    return attached
+    return e8_inputs.load_prepared_inputs(output_root, config)
 
 
 def _load_ready_inputs(
@@ -2656,17 +1640,11 @@ def _load_ready_inputs(
     *,
     base_model_path: str,
 ) -> tuple[dict[str, Any], dict[str, TaskInputs]]:
-    splits, inputs = _load_prepared(output_root, config)
-    if _is_coldstart(config):
-        if any(value.reference_adapter is not None for value in inputs.values()):
-            raise RuntimeError("Cold-start prepared inputs must not contain external adapters")
-        return splits, inputs
-    return splits, _attach_references(
+    return e8_warmstart.load_ready_inputs(
         output_root,
         config,
-        splits,
-        inputs,
         base_model_path=base_model_path,
+        model_identity_fn=model_identity,
     )
 
 
@@ -2679,242 +1657,6 @@ def _seed_everything(seed: int) -> None:
             torch.cuda.manual_seed_all(seed)
 
 
-def _move_batch(batch: Mapping[str, Any], device: torch.device) -> dict[str, Any]:
-    return {
-        key: value.to(device) if hasattr(value, "to") else value for key, value in batch.items()
-    }
-
-
-def _stack_encoded(
-    tokenizer: Any,
-    prompts: Sequence[str],
-    completions: Sequence[str],
-    max_length: int,
-) -> dict[str, Any]:
-    encoded = [
-        encode_prompt_completion(tokenizer, prompt, completion, max_length)
-        for prompt, completion in zip(prompts, completions, strict=True)
-    ]
-    return collate_encoded_completions(encoded, pad_token_id=int(tokenizer.pad_token_id))
-
-
-def completion_stats_batch(model: Any, batch: Mapping[str, Any]) -> dict[str, Any]:
-    if torch is None or F is None:
-        raise RuntimeError("Torch is required")
-    output = model(
-        input_ids=batch["input_ids"],
-        attention_mask=batch["attention_mask"],
-        use_cache=False,
-    )
-    logits = output.logits[:, :-1, :].float()
-    shifted_labels = batch["labels"][:, 1:]
-    mask = shifted_labels.ne(-100)
-    safe_labels = shifted_labels.masked_fill(~mask, 0)
-    log_probs = F.log_softmax(logits, dim=-1)
-    token_log_probs = log_probs.gather(-1, safe_labels.unsqueeze(-1)).squeeze(-1)
-    lengths = mask.sum(-1).clamp_min(1)
-    sequence_log_probability = (token_log_probs * mask).sum(-1) / lengths
-    return {"seq_lp": sequence_log_probability, "lengths": lengths}
-
-
-def _select_current_extremes(
-    model: Any,
-    tokenizer: Any,
-    rows: Sequence[Mapping[str, Any]],
-    *,
-    max_length: int,
-) -> tuple[dict[str, Any], dict[str, Any], list[float], list[float]]:
-    device = next(model.parameters()).device
-    prompts: list[str] = []
-    all_encoded = []
-    row_sizes: list[int] = []
-    for row in rows:
-        prompt = str(row["prompt"])
-        negatives = list(row["negatives"])
-        if len(negatives) != 16:
-            raise RuntimeError(
-                f"{row['prompt_id']} must expose 16 negatives during dynamic selection"
-            )
-        prompts.append(prompt)
-        row_sizes.append(len(negatives))
-        all_encoded.extend(
-            encode_prompt_completion(
-                tokenizer,
-                prompt,
-                str(item["completion"]),
-                max_length,
-            )
-            for item in negatives
-        )
-    packed = collate_encoded_completions(
-        all_encoded,
-        pad_token_id=int(tokenizer.pad_token_id),
-    )
-    was_training = model.training
-    model.eval()
-    with torch.no_grad():
-        all_surprisals = -completion_stats_batch(
-            model,
-            _move_batch(packed, device),
-        )["seq_lp"]
-    if was_training:
-        model.train()
-
-    near_completions: list[str] = []
-    far_completions: list[str] = []
-    near_values: list[float] = []
-    far_values: list[float] = []
-    cursor = 0
-    for row, size in zip(rows, row_sizes, strict=True):
-        row_surprisal = all_surprisals[cursor : cursor + size]
-        near_index = int(torch.argmin(row_surprisal).item())
-        far_index = int(torch.argmax(row_surprisal).item())
-        negatives = list(row["negatives"])
-        near_completions.append(str(negatives[near_index]["completion"]))
-        far_completions.append(str(negatives[far_index]["completion"]))
-        near_values.append(float(row_surprisal[near_index].cpu()))
-        far_values.append(float(row_surprisal[far_index].cpu()))
-        cursor += size
-    return (
-        _stack_encoded(tokenizer, prompts, near_completions, max_length),
-        _stack_encoded(tokenizer, prompts, far_completions, max_length),
-        near_values,
-        far_values,
-    )
-
-
-def _load_reference_model(
-    base_model_path: str,
-    reference_adapter: Path | None,
-    config: Mapping[str, Any],
-    *,
-    train_mode: bool,
-) -> tuple[Any, Any, Any]:
-    if _is_coldstart(config):
-        raise RuntimeError(
-            "Cold-start may not use the multitask model loader; the old canonical "
-            "arena.load_model(adapter_path=None) owns initialization"
-        )
-    if reference_adapter is None:
-        raise RuntimeError("Warm-start profile requires a reference adapter")
-    if torch is None:
-        raise RuntimeError("Training requires Torch")
-    try:
-        from peft import PeftModel
-        from transformers import (
-            AutoModelForCausalLM,
-            AutoTokenizer,
-            get_cosine_schedule_with_warmup,
-        )
-    except ImportError as exc:
-        raise RuntimeError("Training requires transformers and peft") from exc
-    tokenizer = AutoTokenizer.from_pretrained(base_model_path, trust_remote_code=True)
-    if tokenizer.pad_token_id is None:
-        tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.padding_side = "right"
-    kwargs: dict[str, Any] = {
-        "trust_remote_code": True,
-        "torch_dtype": resolve_torch_dtype(str(config["model"]["dtype"])),
-    }
-    if torch.cuda.is_available():
-        kwargs["device_map"] = {"": int(os.environ.get("LOCAL_RANK", "0"))}
-    base = AutoModelForCausalLM.from_pretrained(base_model_path, **kwargs)
-    if not torch.cuda.is_available():
-        base.to(torch.device("cpu"))
-    model = PeftModel.from_pretrained(
-        base,
-        str(reference_adapter),
-        is_trainable=True,
-    )
-    if train_mode and bool(config["model"].get("gradient_checkpointing", True)):
-        model.gradient_checkpointing_enable()
-        if hasattr(model, "enable_input_require_grads"):
-            model.enable_input_require_grads()
-    model.config.use_cache = False
-    return model, tokenizer, get_cosine_schedule_with_warmup
-
-
-def _trainable_state_sha256(model: Any) -> str:
-    """Hash fresh/trainable state without serializing an adapter to disk."""
-
-    if torch is None:
-        raise RuntimeError("Torch is required")
-    digest = hashlib.sha256()
-    found = False
-    for name, parameter in sorted(model.named_parameters(), key=lambda item: item[0]):
-        if not parameter.requires_grad:
-            continue
-        found = True
-        value = parameter.detach().cpu().contiguous()
-        digest.update(name.encode("utf-8"))
-        digest.update(str(tuple(value.shape)).encode("ascii"))
-        digest.update(str(value.dtype).encode("ascii"))
-        digest.update(value.view(torch.uint8).numpy().tobytes())
-    if not found:
-        raise RuntimeError("No trainable parameters to hash")
-    return digest.hexdigest()
-
-
-def _raw_gradient_norm(grads: Sequence[torch.Tensor | None]) -> float:
-    total = torch.zeros((), dtype=torch.float64)
-    for gradient in grads:
-        if gradient is not None:
-            total += gradient.detach().double().cpu().square().sum()
-    return float(torch.sqrt(total))
-
-
-def _calibration_rows(
-    rows: Sequence[Mapping[str, Any]],
-    *,
-    task: str,
-    count: int,
-    seed: int,
-    role: str,
-) -> list[dict[str, Any]]:
-    selected = _ordered_by_prompt_hash(rows, task=task, seed=seed, role=role)[:count]
-    if len(selected) != count:
-        raise RuntimeError(f"{task} calibration requires {count} prompts")
-    return selected
-
-
-def _calibration_identity(
-    task: str,
-    *,
-    inputs: TaskInputs,
-    split_manifest: Mapping[str, Any],
-    base_model_path: str,
-    config: Mapping[str, Any],
-) -> dict[str, Any]:
-    identity = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "config_hash": stable_config_hash(config),
-        "task": task,
-        "bank_sha256": split_manifest["tasks"][task]["bank_sha256"],
-        "train_prompt_hash": split_manifest["tasks"][task]["prompt_id_hashes"]["train"],
-        "base_model_identity": model_identity(base_model_path, None)["model"],
-        "initialization": (
-            dict(config["initialization"])
-            if _is_coldstart(config)
-            else {
-                "source": "reference_adapter",
-                "reference_adapter_identity": model_identity(
-                    base_model_path,
-                    str(inputs.reference_adapter),
-                )["adapter"],
-            }
-        ),
-    }
-    identity["identity_hash"] = stable_hash(identity)
-    return identity
-
-
-def _canonical_task_record(split_manifest: Mapping[str, Any], task: str) -> Mapping[str, Any]:
-    value = split_manifest["tasks"][task].get("canonical_coldstart")
-    if not isinstance(value, Mapping):
-        raise TypeError(f"Missing canonical cold-start task record for {task}")
-    return value
-
 
 def _canonical_calibration_identity(
     task: str,
@@ -2923,7 +1665,7 @@ def _canonical_calibration_identity(
     base_model_path: str,
     config: Mapping[str, Any],
 ) -> dict[str, Any]:
-    record = _canonical_task_record(split_manifest, task)
+    record = _canonical_bridge()._canonical_task_record(split_manifest, task)
     value = {
         "schema_version": 1,
         "experiment_id": experiment_id(config),
@@ -2946,19 +1688,6 @@ def _canonical_calibration_identity(
     return value
 
 
-def _paper_grid_for_cell(
-    config: Mapping[str, Any],
-    record: Mapping[str, Any],
-    cell: Cell,
-) -> tuple[Path, Path]:
-    paper_runtime = _method_spec(cell.method).paper_runtime
-    if paper_runtime is None:
-        raise RuntimeError(
-            f"{cell.method} does not use the canonical paper grid runtime"
-        )
-    return paper_runtime.grid_paths(config, record, cell)
-
-
 def calibrate_canonical_cold_task(
     task: str,
     *,
@@ -2968,7 +1697,7 @@ def calibrate_canonical_cold_task(
     output_root: Path,
     force: bool,
 ) -> dict[str, Any]:
-    record = _canonical_task_record(split_manifest, task)
+    record = _canonical_bridge()._canonical_task_record(split_manifest, task)
     identity = _canonical_calibration_identity(
         task,
         split_manifest=split_manifest,
@@ -2993,150 +1722,6 @@ def calibrate_canonical_cold_task(
     atomic_json(result_path, result)
     return result
 
-
-def calibrate_task(
-    task: str,
-    *,
-    inputs: TaskInputs,
-    split_manifest: Mapping[str, Any],
-    base_model_path: str,
-    config: Mapping[str, Any],
-    output_root: Path,
-    force: bool,
-) -> dict[str, Any]:
-    if _is_coldstart(config):
-        raise RuntimeError("Cold-start calibration must call the canonical base/taper modules")
-    path = output_root / "calibration" / f"{task}.json"
-    identity = _calibration_identity(
-        task,
-        inputs=inputs,
-        split_manifest=split_manifest,
-        base_model_path=base_model_path,
-        config=config,
-    )
-    if path.is_file() and not force:
-        existing = json.loads(path.read_text(encoding="utf-8"))
-        if existing.get("identity_hash") == identity["identity_hash"] and existing.get("complete"):
-            return existing
-        raise RuntimeError(f"Existing calibration identity mismatch for {task}")
-
-    initialization_seed = (
-        int(config["initialization"]["seed"])
-        if _is_coldstart(config)
-        else int(config["remoteness_calibration"]["seed"])
-    )
-    _seed_everything(initialization_seed)
-    model, tokenizer, _ = _load_reference_model(
-        base_model_path,
-        inputs.reference_adapter,
-        config,
-        train_mode=False,
-    )
-    initialization_state_sha256 = _trainable_state_sha256(model)
-    model.eval()
-    train_rows = read_jsonl(Path(split_manifest["tasks"][task]["paths"]["train"]))
-    calibration = config["remoteness_calibration"]
-    seed = int(calibration["seed"])
-    remoteness_rows = _calibration_rows(
-        train_rows,
-        task=task,
-        count=int(calibration["prompt_rows"]),
-        seed=seed,
-        role="remoteness",
-    )
-    device = next(model.parameters()).device
-    max_length = int(config["model"]["max_length"])
-    near_values: list[float] = []
-    far_values: list[float] = []
-    for start_index in range(0, len(remoteness_rows), 8):
-        _, _, current_near, current_far = _select_current_extremes(
-            model,
-            tokenizer,
-            remoteness_rows[start_index : start_index + 8],
-            max_length=max_length,
-        )
-        near_values.extend(current_near)
-        far_values.extend(current_far)
-    tau = float(np.median(np.asarray(near_values, dtype=float)))
-    scale = float(np.median(np.asarray(far_values, dtype=float)) - tau)
-    minimum_scale = float(calibration["minimum_surprisal_scale"])
-    if not math.isfinite(tau) or not math.isfinite(scale) or scale < minimum_scale:
-        raise RuntimeError(f"{task} degenerate remoteness calibration: tau={tau}, scale={scale}")
-
-    gradient_rows = _calibration_rows(
-        train_rows,
-        task=task,
-        count=int(calibration["gradient_prompt_rows"]),
-        seed=seed,
-        role="gradient_budget",
-    )
-    prompts = [str(row["prompt"]) for row in gradient_rows]
-    positives = [str(row["oracle_completion"]) for row in gradient_rows]
-    positive_batch = _move_batch(
-        _stack_encoded(tokenizer, prompts, positives, max_length),
-        device,
-    )
-    trainable = [parameter for parameter in model.parameters() if parameter.requires_grad]
-    positive_lp = completion_stats_batch(model, positive_batch)["seq_lp"]
-    positive_grads = torch.autograd.grad(-positive_lp.mean(), trainable, allow_unused=True)
-    positive_norm = _raw_gradient_norm(positive_grads)
-    if not math.isfinite(positive_norm) or positive_norm <= 0.0:
-        raise RuntimeError(f"{task} positive calibration gradient is not finite and positive")
-
-    near_batch, far_batch, _, _ = _select_current_extremes(
-        model,
-        tokenizer,
-        gradient_rows,
-        max_length=max_length,
-    )
-    near_lp = completion_stats_batch(model, _move_batch(near_batch, device))["seq_lp"]
-    far_lp = completion_stats_batch(model, _move_batch(far_batch, device))["seq_lp"]
-    near_distance = normalized_distance(near_lp, tau=tau, scale=scale)
-    far_distance = normalized_distance(far_lp, tau=tau, scale=scale)
-    rhos = _task_rhos(config, task)
-    raw_negative_norms: dict[str, float] = {}
-    for index, rho in enumerate(rhos):
-        scalar = 0.5 * (taper_weight(near_distance, rho).detach() * near_lp).mean()
-        scalar = scalar + 0.5 * (taper_weight(far_distance, rho).detach() * far_lp).mean()
-        grads = torch.autograd.grad(
-            scalar,
-            trainable,
-            allow_unused=True,
-            retain_graph=index < len(rhos) - 1,
-        )
-        raw_negative_norms[f"{rho:.12g}"] = _raw_gradient_norm(grads)
-    target_ratio = float(calibration["target_negative_to_positive_gradient_ratio"])
-    target_negative_norm = positive_norm * target_ratio
-    negative_scales: dict[str, float] = {}
-    for key, raw_norm in raw_negative_norms.items():
-        if not math.isfinite(raw_norm) or raw_norm <= 0.0:
-            raise RuntimeError(f"{task} invalid raw negative gradient for rho={key}: {raw_norm}")
-        negative_scales[key] = target_negative_norm / raw_norm
-
-    result = {
-        **identity,
-        "tau": tau,
-        "scale": scale,
-        "near_median": tau,
-        "far_median": tau + scale,
-        "positive_gradient_norm": positive_norm,
-        "target_negative_to_positive_gradient_ratio": target_ratio,
-        "target_negative_gradient_norm": target_negative_norm,
-        "raw_negative_gradient_norms": raw_negative_norms,
-        "negative_scales": negative_scales,
-        "prompt_rows": int(calibration["prompt_rows"]),
-        "gradient_prompt_rows": int(calibration["gradient_prompt_rows"]),
-        "initialization_state_sha256": initialization_state_sha256,
-        "complete": True,
-        "scientific_status": "not_run",
-        "note": "Training-only initialization calibration; not scientific outcome evidence.",
-    }
-    atomic_json(path, result)
-    del model
-    gc.collect()
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-    return result
 
 
 def cmd_calibrate(
@@ -3178,7 +1763,7 @@ def cmd_calibrate(
         }
     else:
         requested_results = {
-            task: calibrate_task(
+            task: e8_warmstart.calibrate_task(
                 task,
                 inputs=inputs[task],
                 split_manifest=splits,
@@ -3203,7 +1788,7 @@ def cmd_calibrate(
                 config=config,
             )
             if _is_coldstart(config)
-            else _calibration_identity(
+            else e8_warmstart._calibration_identity(
                 task,
                 inputs=inputs[task],
                 split_manifest=splits,
@@ -3267,296 +1852,6 @@ def cmd_calibrate_task(
         force=force,
     )
 
-
-
-def _canonical_environment_evaluator(
-    *,
-    arena: Any,
-    task_adapter: Any,
-    instances: Mapping[str, TaskInstance],
-    greedy_prompt_rows: int,
-    passk_prompt_rows: int,
-    sampling_temperature: float = 0.8,
-    top_p: float = 0.95,
-) -> Any:
-    """Return the old evaluator signature backed only by the selected task verifier."""
-
-    def evaluate_rows(
-        model: Any,
-        tokenizer: Any,
-        rows: Sequence[Mapping[str, Any]],
-        batch_size: int,
-        max_new_tokens: int,
-        pass_k: int,
-        seed: int,
-        known_structures: set[str] | None = None,
-    ) -> dict[str, Any]:
-        del known_structures
-        if not rows:
-            raise RuntimeError("Task validation rows must be non-empty")
-        if len(rows) < int(greedy_prompt_rows) or len(rows) < int(passk_prompt_rows):
-            raise RuntimeError(
-                "Task validation input is smaller than the frozen Greedy/Pass@k budgets"
-            )
-        arena.seed_all(seed)
-        was_training = bool(model.training)
-        greedy_correct: list[float] = []
-        greedy_valid: list[float] = []
-        pass_success: list[float] = []
-        sampled_valid: list[float] = []
-        greedy_rows = list(rows[: int(greedy_prompt_rows)])
-        sampled_rows = list(rows[: int(passk_prompt_rows)])
-        for start in range(0, len(greedy_rows), int(batch_size)):
-            chunk = greedy_rows[start : start + int(batch_size)]
-            prompts = [str(row["prompt"]) for row in chunk]
-            greedy = arena.generate_outputs(
-                model,
-                tokenizer,
-                prompts,
-                int(max_new_tokens),
-                False,
-                1.0,
-                1.0,
-                1,
-            )
-            for row, greedy_outputs in zip(chunk, greedy, strict=True):
-                instance = instances[str(row["prompt_id"])]
-                greedy_result = task_adapter.verify(instance, greedy_outputs[0])
-                greedy_correct.append(float(greedy_result.correct))
-                greedy_valid.append(float(greedy_result.format_valid))
-        for start in range(0, len(sampled_rows), int(batch_size)):
-            chunk = sampled_rows[start : start + int(batch_size)]
-            prompts = [str(row["prompt"]) for row in chunk]
-            sampled = arena.generate_outputs(
-                model,
-                tokenizer,
-                prompts,
-                int(max_new_tokens),
-                int(pass_k) > 1,
-                float(sampling_temperature) if int(pass_k) > 1 else 1.0,
-                float(top_p) if int(pass_k) > 1 else 1.0,
-                int(pass_k),
-            )
-            for row, sampled_outputs in zip(chunk, sampled, strict=True):
-                instance = instances[str(row["prompt_id"])]
-                sample_results = [
-                    task_adapter.verify(instance, completion) for completion in sampled_outputs
-                ]
-                pass_success.append(float(any(result.correct for result in sample_results)))
-                sampled_valid.extend(float(result.format_valid) for result in sample_results)
-        metrics = {
-            "greedy_success": float(np.mean(greedy_correct)),
-            "pass_at_k": float(np.mean(pass_success)),
-            "valid_rate": float(np.mean(greedy_valid)),
-            "sampled_valid_rate": float(np.mean(sampled_valid)),
-            "n_eval": float(len(greedy_rows)),
-            "greedy_prompt_rows": float(len(greedy_rows)),
-            "passk_prompt_rows": float(len(sampled_rows)),
-            "task_verifier_interface": True,
-        }
-        numeric = [value for value in metrics.values() if isinstance(value, (int, float))]
-        if not all(math.isfinite(float(value)) for value in numeric):
-            raise RuntimeError("Task verifier evaluation produced a non-finite metric")
-        if int(pass_k) == 8:
-            evaluate_rows._last_primary_sampled_valid_rate = float(
-                metrics["sampled_valid_rate"]
-            )
-        if was_training:
-            model.train()
-        return metrics
-
-    return evaluate_rows
-
-
-def _canonical_generic_posthoc(
-    *,
-    arena: Any,
-    evaluator: Any,
-    model_path: Path,
-    checkpoint: Path,
-    validation_path: Path,
-    base_config: Mapping[str, Any],
-    seed_offset: int,
-) -> dict[str, Any]:
-    tokenizer = arena.load_tokenizer(str(model_path))
-    model_cfg = base_config["model"]
-    model = arena.load_model(
-        str(model_path),
-        str(checkpoint),
-        trainable_adapter=False,
-        load_in_4bit=bool(model_cfg.get("load_in_4bit", False)),
-        dtype=str(model_cfg.get("dtype", "auto")),
-        gradient_checkpointing=False,
-        parameterization="lora",
-    )
-    rows = arena.read_jsonl(validation_path)
-    eval_cfg = base_config["evaluation"]
-    result: dict[str, Any] = {}
-    for pass_k_value in eval_cfg["pass_ks"]:
-        pass_k = int(pass_k_value)
-        metrics = evaluator(
-            model,
-            tokenizer,
-            rows[: int(eval_cfg["examples"])],
-            int(eval_cfg["batch_size"]),
-            int(model_cfg["max_new_tokens"]),
-            pass_k,
-            int(eval_cfg["seed"]) + int(seed_offset) + pass_k,
-        )
-        if pass_k == int(eval_cfg["pass_ks"][0]):
-            result["validation_greedy_success"] = float(metrics["greedy_success"])
-            result["validation_valid_rate"] = float(metrics["valid_rate"])
-            result["validation_sampled_valid_rate"] = float(
-                metrics.get("sampled_valid_rate", metrics["valid_rate"])
-            )
-            result["validation_n_eval"] = float(metrics["n_eval"])
-        result[f"validation_pass_at_{pass_k}"] = float(metrics["pass_at_k"])
-    del model
-    gc.collect()
-    if torch is not None and torch.cuda.is_available():
-        torch.cuda.empty_cache()
-    return result
-
-
-def _generate_completions(
-    model: Any,
-    tokenizer: Any,
-    prompts: Sequence[str],
-    *,
-    num_return_sequences: int,
-    do_sample: bool,
-    seed: int,
-    config: Mapping[str, Any],
-) -> list[list[str]]:
-    evaluation = config["evaluation"]
-    device = next(model.parameters()).device
-    batch_size = int(evaluation["batch_size"])
-    previous_padding = tokenizer.padding_side
-    tokenizer.padding_side = "left"
-    outputs: list[list[str]] = []
-    _seed_everything(seed)
-    model.eval()
-    with torch.no_grad():
-        for start in range(0, len(prompts), batch_size):
-            current = list(prompts[start : start + batch_size])
-            formatted = [format_chat_prompt(tokenizer, prompt) for prompt in current]
-            tokenized = tokenizer(
-                formatted,
-                add_special_tokens=False,
-                return_tensors="pt",
-                padding=True,
-                truncation=True,
-                max_length=int(config["model"]["max_length"]),
-            )
-            tokenized = _move_batch(tokenized, device)
-            input_width = int(tokenized["input_ids"].shape[1])
-            generation_kwargs: dict[str, Any] = {
-                "max_new_tokens": int(evaluation["max_new_tokens"]),
-                "do_sample": do_sample,
-                "num_return_sequences": num_return_sequences,
-                "pad_token_id": int(tokenizer.pad_token_id),
-                "eos_token_id": int(tokenizer.eos_token_id),
-                "use_cache": True,
-            }
-            if do_sample:
-                generation_kwargs.update(
-                    {
-                        "temperature": float(evaluation["sampling_temperature"]),
-                        "top_p": float(evaluation["top_p"]),
-                    }
-                )
-            generated = model.generate(**tokenized, **generation_kwargs)
-            suffixes = generated[:, input_width:]
-            decoded = tokenizer.batch_decode(suffixes, skip_special_tokens=True)
-            for row_index in range(len(current)):
-                left = row_index * num_return_sequences
-                outputs.append(decoded[left : left + num_return_sequences])
-    tokenizer.padding_side = previous_padding
-    return outputs
-
-
-def evaluate_model(
-    model: Any,
-    tokenizer: Any,
-    *,
-    task: str,
-    validation_rows: Sequence[Mapping[str, Any]],
-    adapter: Any,
-    instances: Mapping[str, TaskInstance],
-    update: int,
-    cell_seed: int,
-    config: Mapping[str, Any],
-) -> dict[str, Any]:
-    evaluation = config["evaluation"]
-    seed = int(evaluation["generation_seed"]) + update * 1009 + cell_seed
-    ordered = _ordered_by_prompt_hash(
-        validation_rows,
-        task=task,
-        seed=int(evaluation["generation_seed"]),
-        role="validation_evaluation",
-    )
-    greedy_rows = ordered[: int(evaluation["greedy_prompt_rows"])]
-    passk_rows = ordered[: int(evaluation["passk_prompt_rows"])]
-    greedy_outputs = _generate_completions(
-        model,
-        tokenizer,
-        [str(row["prompt"]) for row in greedy_rows],
-        num_return_sequences=1,
-        do_sample=False,
-        seed=seed,
-        config=config,
-    )
-    greedy_results = [
-        adapter.verify(instances[str(row["prompt_id"])], completions[0])
-        for row, completions in zip(greedy_rows, greedy_outputs, strict=True)
-    ]
-    k = int(evaluation["pass_k"])
-    sampled_outputs = _generate_completions(
-        model,
-        tokenizer,
-        [str(row["prompt"]) for row in passk_rows],
-        num_return_sequences=k,
-        do_sample=True,
-        seed=seed + 1,
-        config=config,
-    )
-    pass_successes: list[bool] = []
-    sampled_valid: list[bool] = []
-    sampled_lengths: list[int] = []
-    for row, completions in zip(passk_rows, sampled_outputs, strict=True):
-        results = [
-            adapter.verify(instances[str(row["prompt_id"])], completion)
-            for completion in completions
-        ]
-        pass_successes.append(any(result.correct for result in results))
-        sampled_valid.extend(result.format_valid for result in results)
-        sampled_lengths.extend(len(completion) for completion in completions)
-    greedy_lengths = [len(completions[0]) for completions in greedy_outputs]
-    metrics = {
-        "update": update,
-        "greedy_prompt_rows": len(greedy_rows),
-        "passk_prompt_rows": len(passk_rows),
-        "pass_k": k,
-        "greedy_success": float(np.mean([result.correct for result in greedy_results])),
-        "greedy_valid_rate": float(np.mean([result.format_valid for result in greedy_results])),
-        "greedy_mean_response_characters": float(np.mean(greedy_lengths)),
-        "pass8": float(np.mean(pass_successes)),
-        "sampled_valid_rate": float(np.mean(sampled_valid)),
-        "sampled_mean_response_characters": float(np.mean(sampled_lengths)),
-        "generation_seed": seed,
-    }
-    integer_fields = {
-        "update",
-        "greedy_prompt_rows",
-        "passk_prompt_rows",
-        "pass_k",
-        "generation_seed",
-    }
-    if not all(
-        math.isfinite(float(value)) for key, value in metrics.items() if key not in integer_fields
-    ):
-        raise RuntimeError(f"{task} produced non-finite validation metrics at update {update}")
-    return metrics
 
 
 def _cell_identity(
@@ -3641,403 +1936,6 @@ def _summarize_evaluations(
         "supplementary_best_pass8": float(best["pass8"]),
         "supplementary_best_greedy": float(best["greedy_success"]),
     }
-
-
-def _load_cell_splits(
-    split_manifest: Mapping[str, Any],
-    task: str,
-    *,
-    engineering_liveness: bool,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    paths = split_manifest["tasks"][task]["paths"]
-    train_rows = read_jsonl(Path(paths["train"]))
-    validation_rows = [] if engineering_liveness else read_jsonl(Path(paths["validation"]))
-    return train_rows, validation_rows
-
-
-def _runtime_bridge_contract(effective: Mapping[str, Any]) -> dict[str, Any]:
-    return {
-        "fresh_lora": {
-            "rank": int(effective["model"]["lora_rank"]),
-            "alpha": int(effective["model"]["lora_alpha"]),
-            "dropout": float(effective["model"]["lora_dropout"]),
-        },
-        "gradient_checkpointing": bool(effective["model"]["gradient_checkpointing"]),
-        "optimizer_weight_decay": float(effective["training"]["weight_decay"]),
-        "sampling_temperature": float(effective["evaluation"]["sampling_temperature"]),
-        "top_p": float(effective["evaluation"]["top_p"]),
-    }
-
-
-@contextmanager
-def _legacy_arena_runtime_bridge(arena: Any, effective: Mapping[str, Any]) -> Any:
-    """Temporarily parameterize legacy arena interface literals; never touch loss math."""
-
-    original_lora_config = arena.LoraConfig
-    original_load_model = arena.load_model
-    original_generate_outputs = arena.generate_outputs
-    original_scheduler = getattr(arena, "get_cosine_schedule_with_warmup", None)
-    contract = _runtime_bridge_contract(effective)
-
-    def configured_lora_config(*args: Any, **kwargs: Any) -> Any:
-        kwargs["r"] = int(contract["fresh_lora"]["rank"])
-        kwargs["lora_alpha"] = int(contract["fresh_lora"]["alpha"])
-        kwargs["lora_dropout"] = float(contract["fresh_lora"]["dropout"])
-        return original_lora_config(*args, **kwargs)
-
-    def configured_load_model(*args: Any, **kwargs: Any) -> Any:
-        values = list(args)
-        if len(values) > 5:
-            values[5] = bool(contract["gradient_checkpointing"])
-        else:
-            kwargs["gradient_checkpointing"] = bool(contract["gradient_checkpointing"])
-        return original_load_model(*values, **kwargs)
-
-    def configured_generate_outputs(
-        model: Any,
-        tokenizer: Any,
-        prompts: list[str],
-        max_new_tokens: int,
-        do_sample: bool,
-        temperature: float,
-        top_p: float,
-        num_return_sequences: int = 1,
-    ) -> Any:
-        if do_sample:
-            temperature = float(contract["sampling_temperature"])
-            top_p = float(contract["top_p"])
-        return original_generate_outputs(
-            model,
-            tokenizer,
-            prompts,
-            max_new_tokens,
-            do_sample,
-            temperature,
-            top_p,
-            num_return_sequences,
-        )
-
-    def configured_scheduler(
-        optimizer: Any,
-        num_warmup_steps: int,
-        num_training_steps: int,
-        *args: Any,
-        **kwargs: Any,
-    ) -> Any:
-        if original_scheduler is None:
-            raise RuntimeError("Canonical arena scheduler is unavailable")
-        if float(effective["training"]["warmup_ratio"]) == 0.0:
-            num_warmup_steps = 0
-        return original_scheduler(optimizer, num_warmup_steps, num_training_steps, *args, **kwargs)
-
-    arena.LoraConfig = configured_lora_config
-    arena.load_model = configured_load_model
-    arena.generate_outputs = configured_generate_outputs
-    if original_scheduler is not None:
-        arena.get_cosine_schedule_with_warmup = configured_scheduler
-    try:
-        yield contract
-    finally:
-        arena.LoraConfig = original_lora_config
-        arena.load_model = original_load_model
-        arena.generate_outputs = original_generate_outputs
-        if original_scheduler is not None:
-            arena.get_cosine_schedule_with_warmup = original_scheduler
-
-
-def _validated_runtime_grid(
-    candidate: Mapping[str, Any],
-    *,
-    canonical_grid: Mapping[str, Any],
-    effective: Mapping[str, Any],
-    strict_validator: Any,
-) -> None:
-    allowed = {"training.steps", "training.eval_every"}
-    changed = set(_changed_leaf_paths(canonical_grid, candidate))
-    forbidden = sorted(changed - allowed)
-    if forbidden:
-        raise ValueError(f"Derived runtime grid changed non-runtime fields: {forbidden}")
-    training = candidate.get("training", {})
-    if int(training.get("steps", -1)) != int(effective["training"]["optimizer_updates"]):
-        raise ValueError("Derived runtime grid steps do not match effective runtime")
-    if int(training.get("eval_every", -1)) != int(
-        effective["training"]["evaluation_every_updates"]
-    ):
-        raise ValueError("Derived runtime grid eval_every does not match effective runtime")
-    strict = copy.deepcopy(dict(candidate))
-    strict["training"]["steps"] = canonical_grid["training"]["steps"]
-    strict["training"]["eval_every"] = canonical_grid["training"]["eval_every"]
-    strict_validator(strict)
-
-
-@contextmanager
-def _legacy_paper_runtime_bridge(
-    modules: Mapping[str, Any],
-    effective: Mapping[str, Any],
-    *,
-    grid_path: Path,
-    grid_source_path: Path,
-) -> Any:
-    """Bridge configured runtime scalars into byte-locked paper interfaces."""
-
-    scan_trainer = modules["scan_trainer"]
-    paper_common = modules["paper_common"]
-    canonical_grid = yaml.safe_load(grid_source_path.read_text(encoding="utf-8"))
-    if not isinstance(canonical_grid, dict):
-        raise TypeError("Canonical paper grid root must be a mapping")
-    candidate_grid = yaml.safe_load(grid_path.read_text(encoding="utf-8"))
-    if not isinstance(candidate_grid, dict):
-        raise TypeError("Derived paper grid root must be a mapping")
-
-    validator_targets: list[tuple[Any, str, Any]] = []
-    seen: set[tuple[int, str]] = set()
-    for module_name in ("paper_common", "scan_common", "scan_trainer", "scan_runtime"):
-        module = modules[module_name]
-        if not hasattr(module, "validate_grid_config"):
-            continue
-        key = (id(module), "validate_grid_config")
-        if key in seen:
-            continue
-        seen.add(key)
-        validator_targets.append((module, "validate_grid_config", module.validate_grid_config))
-    strict_validator = paper_common.validate_grid_config
-
-    def configured_validator(value: Mapping[str, Any]) -> None:
-        _validated_runtime_grid(
-            value,
-            canonical_grid=canonical_grid,
-            effective=effective,
-            strict_validator=strict_validator,
-        )
-
-    optimizer_holder = scan_trainer.torch.optim
-    original_adamw = optimizer_holder.AdamW
-
-    def configured_adamw(*args: Any, **kwargs: Any) -> Any:
-        kwargs["weight_decay"] = float(effective["training"]["weight_decay"])
-        return original_adamw(*args, **kwargs)
-
-    with _legacy_arena_runtime_bridge(modules["arena"], effective) as contract:
-        optimizer_holder.AdamW = configured_adamw
-        for module, name, _ in validator_targets:
-            setattr(module, name, configured_validator)
-        try:
-            configured_validator(candidate_grid)
-            yield contract
-        finally:
-            optimizer_holder.AdamW = original_adamw
-            for module, name, original in validator_targets:
-                setattr(module, name, original)
-
-
-
-
-def _canonical_baseline_grid_identity(method: str) -> dict[str, Any]:
-    """Record actual canonical-grid bytes without introducing a new expected-blob gate."""
-
-    if method == METHOD_ASYMRE:
-        path = _canonical_asymre_grid_path()
-    elif method == METHOD_TOPR:
-        path = _canonical_topr_grid_path()
-    else:
-        raise ValueError(f"No extra canonical grid identity for method: {method}")
-    return {
-        "canonical_grid": str(path),
-        "canonical_grid_sha256": sha256_file(path),
-        "identity_policy": "runtime_actual_sha256_recorded_non_gating",
-        "expected_git_blob_gate": False,
-    }
-
-
-def _normalized_adapter_config_sequence(value: Any, *, field: str) -> tuple[str, ...]:
-    if value is None:
-        return ()
-    if isinstance(value, str):
-        values = (value,)
-    elif isinstance(value, Sequence):
-        values = tuple(str(item) for item in value)
-    else:
-        raise TypeError(f"Shared-SFT DPO adapter {field} must be a string sequence or null")
-    normalized = tuple(sorted(item.strip() for item in values))
-    if any(not item for item in normalized) or len(set(normalized)) != len(normalized):
-        raise ValueError(f"Shared-SFT DPO adapter {field} contains invalid names")
-    return normalized
-
-
-def _dpo_shared_sft_adapter_identity(config: Mapping[str, Any]) -> dict[str, Any] | None:
-    dpo = config["dpo"]
-    mode = str(dpo["initialization_mode"])
-    if mode == "base_model_fresh_lora":
-        return None
-    contract = dpo["shared_sft_adapter_contract"]
-    env_name = str(dpo["shared_sft_adapter_env"])
-    value = os.environ.get(env_name)
-    if not value:
-        raise RuntimeError(f"Shared-SFT DPO requires environment variable {env_name}")
-    path = Path(value).resolve()
-    adapter_config_path = path / "adapter_config.json"
-    weight_name = str(contract["adapter_weight_file"])
-    recognized_weight_names = {"adapter_model.safetensors", "adapter_model.bin"}
-    present_weight_names = {
-        name for name in recognized_weight_names if (path / name).is_file()
-    }
-    if present_weight_names != {weight_name}:
-        raise ValueError(
-            "Shared-SFT DPO adapter directory must contain exactly the contracted "
-            f"recognized weight file: expected={weight_name}, "
-            f"present={sorted(present_weight_names)}"
-        )
-    weight_path = path / weight_name
-    provenance_relative = Path(str(contract["provenance_file"]))
-    provenance_path = (path / provenance_relative).resolve()
-    if path not in provenance_path.parents:
-        raise RuntimeError("Shared-SFT DPO provenance escaped the adapter root")
-    for required in (adapter_config_path, weight_path, provenance_path):
-        if not required.is_file():
-            raise FileNotFoundError(f"Shared-SFT DPO adapter is incomplete: {required}")
-    observed_hashes = {
-        "adapter_config_sha256": sha256_file(adapter_config_path),
-        "adapter_weight_sha256": sha256_file(weight_path),
-        "provenance_sha256": sha256_file(provenance_path),
-    }
-    if any(observed_hashes[field] != str(contract[field]) for field in observed_hashes):
-        raise ValueError("Shared-SFT DPO adapter identity hash mismatch")
-
-    adapter_config = json.loads(adapter_config_path.read_text(encoding="utf-8"))
-    if not isinstance(adapter_config, dict):
-        raise TypeError("Shared-SFT DPO adapter_config.json must contain a mapping")
-    model_config = config["model"]
-    target_modules = _normalized_adapter_config_sequence(
-        adapter_config.get("target_modules"), field="target_modules"
-    )
-    modules_to_save = _normalized_adapter_config_sequence(
-        adapter_config.get("modules_to_save"), field="modules_to_save"
-    )
-    expected_target_modules = tuple(sorted(str(value) for value in contract["target_modules"]))
-    expected_modules_to_save = tuple(sorted(str(value) for value in contract["modules_to_save"]))
-    compatible = (
-        str(adapter_config.get("peft_type", "")).upper() == "LORA"
-        and int(adapter_config.get("r", -1)) == int(model_config["lora_rank"])
-        and int(adapter_config.get("lora_alpha", -1)) == int(model_config["lora_alpha"])
-        and math.isclose(
-            float(adapter_config.get("lora_dropout", -1.0)),
-            float(model_config["lora_dropout"]),
-            rel_tol=0.0,
-            abs_tol=1.0e-12,
-        )
-        and str(adapter_config.get("base_model_name_or_path", ""))
-        == str(contract["adapter_base_model_name_or_path"])
-        and target_modules == expected_target_modules
-        and modules_to_save == expected_modules_to_save
-        and str(adapter_config.get("bias", "")) == str(contract["bias"])
-    )
-    if not compatible:
-        raise ValueError(
-            "Shared-SFT DPO adapter LoRA/base-model parameterization does not match reviewed contract"
-        )
-
-    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
-    if not isinstance(provenance, dict):
-        raise TypeError("Shared-SFT DPO provenance file must contain a mapping")
-    provenance_expected = dict(contract["provenance_expected"])
-    if any(provenance.get(key) != expected for key, expected in provenance_expected.items()):
-        raise ValueError("Shared-SFT DPO provenance does not match reviewed contract")
-    if (
-        provenance.get("base_model") != model_config["base_model"]
-        or provenance.get("base_model_revision") != model_config["revision"]
-    ):
-        raise ValueError("Shared-SFT DPO provenance base-model/revision mismatch")
-
-    identity = {
-        **observed_hashes,
-        "adapter_weight_file": weight_name,
-        "provenance_file": provenance_relative.as_posix(),
-        "adapter_parameterization": {
-            "peft_type": "LORA",
-            "r": int(adapter_config["r"]),
-            "lora_alpha": int(adapter_config["lora_alpha"]),
-            "lora_dropout": float(adapter_config["lora_dropout"]),
-            "base_model_name_or_path": str(adapter_config["base_model_name_or_path"]),
-            "target_modules": list(target_modules),
-            "modules_to_save": list(modules_to_save),
-            "bias": str(adapter_config["bias"]),
-        },
-        "provenance_expected": provenance_expected,
-        "contract_hash": stable_hash(contract),
-    }
-    identity["identity_hash"] = stable_hash(identity)
-    return {"path": str(path), **identity}
-
-
-def _dpo_shared_sft_adapter(config: Mapping[str, Any]) -> Path | None:
-    identity = _dpo_shared_sft_adapter_identity(config)
-    return None if identity is None else Path(str(identity["path"]))
-
-
-def _parameter_sequence_sha256(parameters: Sequence[Any]) -> str:
-    if torch is None:
-        raise RuntimeError("Torch is required")
-    digest = hashlib.sha256()
-    if not parameters:
-        raise RuntimeError("Cannot hash an empty parameter sequence")
-    for index, parameter in enumerate(parameters):
-        value = parameter.detach().cpu().contiguous()
-        digest.update(str(index).encode("ascii"))
-        digest.update(str(tuple(value.shape)).encode("ascii"))
-        digest.update(str(value.dtype).encode("ascii"))
-        digest.update(value.view(torch.uint8).numpy().tobytes())
-    return digest.hexdigest()
-
-
-def _dpo_prompt_balanced_mean(
-    values: Any,
-    row_index: Any,
-    unique_counts: Any,
-    *,
-    paper_common: Any,
-) -> Any:
-    return paper_common.mean_unique_negative_term(
-        values,
-        torch.ones_like(values),
-        row_index,
-        unique_counts,
-    )
-
-
-def _dpo_quantile(values: Any, q: float) -> float:
-    return float(torch.quantile(values.detach().float().cpu(), q).item())
-
-
-def _is_nan_inf_numerical_failure(value: Any) -> bool:
-    return isinstance(value, str) and value.startswith("nonfinite_")
-
-
-def _load_verified_canonical_calibration(
-    task: str,
-    *,
-    split_manifest: Mapping[str, Any],
-    base_model_path: str,
-    config: Mapping[str, Any],
-    output_root: Path,
-    error_prefix: str,
-) -> dict[str, Any]:
-    path = output_root / "calibration" / f"{task}.json"
-    if not path.is_file():
-        raise RuntimeError(f"Run the no-calibration identity gate before {task}")
-    calibration = json.loads(path.read_text(encoding="utf-8"))
-    expected = _canonical_calibration_identity(
-        task,
-        split_manifest=split_manifest,
-        base_model_path=base_model_path,
-        config=config,
-    )
-    if (
-        calibration.get("identity_hash") != expected["identity_hash"]
-        or calibration.get("enabled") is not False
-        or not calibration.get("complete")
-    ):
-        raise RuntimeError(f"{error_prefix} no-calibration identity mismatch for {task}")
-    return calibration
 
 
 def _prepare_cell_output(
@@ -4128,953 +2026,15 @@ def _verify_fresh_process_adapter_reload(
     return result
 
 
-def _train_canonical_dpo_transfer_cell(
-    cell: Cell,
-    *,
-    inputs: TaskInputs,
-    split_manifest: Mapping[str, Any],
-    base_model_path: str,
-    config: Mapping[str, Any],
-    output_root: Path,
-    force: bool,
-    updates_override: int | None = None,
-    engineering_liveness: bool = False,
-) -> dict[str, Any]:
-    """Port the reviewed PR #268 DPO semantics onto the frozen multitask task interface."""
-
-    if torch is None or F is None or DataLoader is None:
-        raise RuntimeError("Canonical DPO training requires Torch")
-    if cell.method != METHOD_DPO or cell.beta is None:
-        raise ValueError("Canonical DPO transfer trainer received a non-DPO cell")
-    configured_initialization = str(config["dpo"]["initialization_mode"])
-    if cell.dpo_initialization != configured_initialization:
-        raise RuntimeError("DPO cell/config initialization identity mismatch")
-    if cell.task == "countdown":
-        raise ValueError("Current multitask DPO capability does not execute Countdown cells")
-    modules = _canonical_cold_modules(config)
-    arena = modules["arena"]
-    paper_common = modules["paper_common"]
-    scan_trainer = modules["scan_trainer"]
-    record = _canonical_task_record(split_manifest, cell.task)
-    calibration = _load_verified_canonical_calibration(
-        cell.task,
-        split_manifest=split_manifest,
-        base_model_path=base_model_path,
-        config=config,
-        output_root=output_root,
-        error_prefix="DPO",
-    )
-
-    root_name = "liveness" if engineering_liveness else "cells"
-    shared_adapter_record = _dpo_shared_sft_adapter_identity(config)
-    shared_adapter = (
-        None if shared_adapter_record is None else Path(str(shared_adapter_record["path"]))
-    )
-    identity = _cell_identity(
-        cell,
-        inputs=inputs,
-        split_manifest=split_manifest,
-        base_model_path=base_model_path,
-        config=config,
-        calibration=calibration,
-    )
-    identity.update(
-        {
-            "canonical_source_git_blob_shas": dict(
-                config["canonical_coldstart"]["expected_git_blob_shas"]
-            ),
-            "canonical_dispatch": "e8_multitask_exp_tuning._train_canonical_dpo_transfer_cell",
-            "dpo_semantics_source": "historical_PR_268_protected_implementation_cc0ead2be00c89a3c35296b7adc1ddeae8d14759",
-            "dpo_initialization_mode": str(config["dpo"]["initialization_mode"]),
-            "reference_remoteness_bank_identity_hash": record.get(
-                "reference_remoteness_bank_identity_hash"
-            ),
-            "canonical_train_sha256": record["train_sha256"],
-            "shared_sft_adapter_identity": (
-                None
-                if shared_adapter is None
-                else model_identity(base_model_path, str(shared_adapter))["adapter"]
-            ),
-            "shared_sft_adapter_provenance": (
-                None
-                if shared_adapter_record is None
-                else {
-                    key: value
-                    for key, value in shared_adapter_record.items()
-                    if key != "path"
-                }
-            ),
-            "engineering_liveness": engineering_liveness,
-            "updates_override": updates_override,
-        }
-    )
-    identity["identity_hash"] = stable_hash(identity)
-    cell_root, manifest_path, reusable = _prepare_cell_output(
-        output_root,
-        root_name=root_name,
-        cell=cell,
-        identity=identity,
-        force=force,
-        mismatch_prefix="Existing DPO cell identity mismatch",
-        existing_prefix="DPO cell output exists without reusable identity",
-        unsafe_prefix="Refusing unsafe DPO cell removal",
-    )
-    if reusable is not None:
-        return reusable
-
-    bank = Path(str(record["train"]))
-    validation = Path(str(record["validation"]))
-    base_config_path = Path(str(record["base_config"]))
-    base_config = yaml.safe_load(base_config_path.read_text(encoding="utf-8"))
-    if not isinstance(base_config, dict):
-        raise TypeError("DPO paper base config root must be a mapping")
-    effective = experiment_config.effective_coldstart_runtime(config, cell.task)
-    model_cfg = copy.deepcopy(base_config["model"])
-    model_cfg["max_length"] = int(effective["model"]["max_length"])
-    model_cfg["max_new_tokens"] = int(effective["model"]["max_new_tokens"])
-    train_cfg = base_config["offline_training"]
-    eval_cfg = copy.deepcopy(base_config["evaluation"])
-    eval_cfg["examples"] = int(effective["evaluation"]["examples"])
-    eval_cfg["batch_size"] = int(effective["evaluation"]["batch_size"])
-    eval_cfg["pass_ks"] = list(effective["evaluation"]["pass_ks"])
-    eval_cfg["seed"] = int(effective["evaluation"]["generation_seed"])
-    updates = int(updates_override or effective["training"]["optimizer_updates"])
-    eval_every = int(effective["training"]["evaluation_every_updates"])
-    log_every = int(train_cfg["log_every"])
-    seed = int(train_cfg["seed"]) + int(cell.seed)
-    beta = float(cell.beta)
-    arena.seed_all(seed)
-
-    validation_rows = [] if engineering_liveness else read_jsonl(validation)
-    evaluator = None
-    if not engineering_liveness:
-        task_adapter, instances = _load_task_adapter_and_instances(
-            cell.task,
-            inputs=inputs,
-            validation_rows=validation_rows,
-        )
-        evaluator = _canonical_environment_evaluator(
-            arena=arena,
-            task_adapter=task_adapter,
-            instances=instances,
-            greedy_prompt_rows=int(config["task_runtime"][cell.task]["greedy_prompt_rows"]),
-            passk_prompt_rows=int(config["task_runtime"][cell.task]["passk_prompt_rows"]),
-            sampling_temperature=float(effective["evaluation"]["sampling_temperature"]),
-            top_p=float(effective["evaluation"]["top_p"]),
-        )
-
-    original_clean_expression = arena.clean_expression
-    original_system_prompt = arena.SYSTEM_PROMPT
-    original_evaluate_rows = arena.evaluate_rows
-    try:
-        arena.clean_expression = lambda value: str(value)
-        arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
-        if evaluator is not None:
-            arena.evaluate_rows = evaluator
-
-        tokenizer = arena.load_tokenizer(str(Path(base_model_path).resolve()))
-        train_rows = arena.read_jsonl(bank)
-        dataset = paper_common.ContinuousUniqueBankDataset(
-            train_rows,
-            tokenizer,
-            int(effective["model"]["max_length"]),
-        )
-        generator = torch.Generator().manual_seed(seed)
-        loader = DataLoader(
-            dataset,
-            batch_size=int(effective["training"]["micro_batch"]),
-            shuffle=True,
-            generator=generator,
-            collate_fn=paper_common.make_continuous_unique_bank_collator(
-                tokenizer.pad_token_id
-            ),
-            num_workers=int(train_cfg["num_workers"]),
-        )
-        iterator = iter(loader)
-        with _legacy_arena_runtime_bridge(arena, effective):
-            model = arena.load_model(
-                str(Path(base_model_path).resolve()),
-                adapter_path=None if shared_adapter is None else str(shared_adapter),
-                trainable_adapter=True,
-                load_in_4bit=bool(model_cfg.get("load_in_4bit", False)),
-                dtype=str(effective["model"]["dtype"]),
-                gradient_checkpointing=bool(effective["model"]["gradient_checkpointing"]),
-                parameterization="lora",
-            )
-        policy_adapter = str(config["dpo"]["policy_adapter"])
-        reference_adapter = str(config["dpo"]["reference_adapter"])
-        if not hasattr(model, "add_adapter") or not hasattr(model, "set_adapter"):
-            raise RuntimeError("Canonical DPO requires PEFT multi-adapter support")
-        if policy_adapter not in model.peft_config:
-            raise RuntimeError("DPO policy adapter is missing after model initialization")
-        if reference_adapter in model.peft_config:
-            raise RuntimeError("DPO reference adapter exists before exact initialization copy")
-        model.add_adapter(
-            reference_adapter,
-            copy.deepcopy(model.peft_config[policy_adapter]),
-        )
-        scan_trainer._copy_adapter_parameters(model, policy_adapter, reference_adapter)
-        policy_parameters = scan_trainer._adapter_parameters(model, policy_adapter)
-        reference_parameters = scan_trainer._adapter_parameters(model, reference_adapter)
-
-        def activate_reference() -> None:
-            model.set_adapter(reference_adapter)
-            for parameter in reference_parameters:
-                parameter.requires_grad_(False)
-
-        def activate_policy() -> None:
-            model.set_adapter(policy_adapter)
-            for parameter in policy_parameters:
-                parameter.requires_grad_(True)
-            for parameter in reference_parameters:
-                parameter.requires_grad_(False)
-
-        activate_policy()
-        policy_initial_sha256 = _parameter_sequence_sha256(policy_parameters)
-        reference_initial_sha256 = _parameter_sequence_sha256(reference_parameters)
-        if policy_initial_sha256 != reference_initial_sha256:
-            raise RuntimeError("DPO policy/reference exact initialization copy failed")
-        optimizer = torch.optim.AdamW(
-            policy_parameters,
-            lr=float(effective["training"]["learning_rate"]),
-            weight_decay=float(effective["training"]["weight_decay"]),
-        )
-        warmup_ratio = float(effective["training"]["warmup_ratio"])
-        warmup_steps = 0 if warmup_ratio == 0.0 else max(1, int(updates * warmup_ratio))
-        scheduler = arena.get_cosine_schedule_with_warmup(
-            optimizer,
-            warmup_steps,
-            updates,
-        )
-        device = next(model.parameters()).device
-        model.eval()
-        training_path = cell_root / "training_metrics.jsonl"
-        evaluation_path = cell_root / "evaluation_metrics.jsonl"
-        best_dir = cell_root / "supplementary_best_adapter"
-        terminal_dir = cell_root / "terminal_adapter"
-        last_finite_dir = cell_root / "last_finite_adapter"
-        best_pass8 = -math.inf
-        optimizer_update_norms: list[float] = []
-        initial_pair_margin_max_abs: float | None = None
-        tolerance = float(config["dpo"]["initial_pair_margin_max_abs_tolerance"])
-        numerical_failure: str | None = None
-        stop_reason = "max_steps"
-        terminal_step = 0
-        last_finite_step = 0
-
-        def evaluate(step: int) -> None:
-            nonlocal best_pass8
-            if evaluator is None:
-                return
-            activate_policy()
-            model.eval()
-            row = scan_trainer._evaluate_validation(
-                model=model,
-                tokenizer=tokenizer,
-                val_rows=validation_rows,
-                known_structures={f"{cell.task}:task_verifier"},
-                model_cfg=model_cfg,
-                eval_cfg=eval_cfg,
-                step=step,
-                pass64_every=200,
-                pass64_enabled=64
-                in {int(value) for value in effective["evaluation"]["auxiliary_pass_ks"]},
-            )
-            sampled_valid_rate = getattr(evaluator, "_last_primary_sampled_valid_rate", None)
-            if sampled_valid_rate is not None:
-                row["val_sampled_valid_rate"] = float(sampled_valid_rate)
-            append_jsonl(
-                evaluation_path,
-                {
-                    "update": int(row["step"]),
-                    "pass8": float(row["val_pass_at_8"]),
-                    "greedy_success": float(row["val_greedy"]),
-                    "greedy_valid_rate": float(row["val_valid_rate"]),
-                    "sampled_valid_rate": row.get("val_sampled_valid_rate"),
-                },
-            )
-            if float(row["val_pass_at_8"]) > best_pass8:
-                best_pass8 = float(row["val_pass_at_8"])
-                if best_dir.exists():
-                    shutil.rmtree(best_dir)
-                activate_policy()
-                model.save_pretrained(best_dir, safe_serialization=True)
-                tokenizer.save_pretrained(best_dir)
-
-        if not engineering_liveness:
-            evaluate(0)
-        optimizer.zero_grad(set_to_none=True)
-        accumulation = int(effective["training"]["gradient_accumulation"])
-        for update in range(1, updates + 1):
-            loss_total = 0.0
-            diagnostic_totals = {
-                "policy_chosen_sum_lp": 0.0,
-                "policy_rejected_sum_lp": 0.0,
-                "reference_chosen_sum_lp": 0.0,
-                "reference_rejected_sum_lp": 0.0,
-                "pair_margin_mean": 0.0,
-                "pair_margin_p10": 0.0,
-                "pair_margin_p50": 0.0,
-                "pair_margin_p90": 0.0,
-                "preference_accuracy": 0.0,
-                "logit_saturation_fraction": 0.0,
-                "unique_negative_count_mean": 0.0,
-                "raw_bank_count_mean": 0.0,
-                "duplicates_removed_mean": 0.0,
-            }
-            abort_update = False
-            for accumulation_index in range(accumulation):
-                try:
-                    packed = next(iterator)
-                except StopIteration:
-                    iterator = iter(loader)
-                    packed = next(iterator)
-                positive_batch = arena.move_to_device(packed["positive"], device)
-                bank_batch = arena.move_to_device(packed["bank"], device)
-                row_index = packed["bank_row_index"].to(device)
-                unique_counts = packed["unique_counts"].to(device)
-
-                activate_reference()
-                model.eval()
-                with torch.no_grad():
-                    reference_positive_stats = arena.completion_stats(model, positive_batch)
-                    reference_bank_stats = arena.completion_stats(model, bank_batch)
-                    reference_chosen = paper_common.full_sequence_log_probability(
-                        reference_positive_stats
-                    ).detach()
-                    reference_rejected = paper_common.full_sequence_log_probability(
-                        reference_bank_stats
-                    ).detach()
-
-                activate_policy()
-                model.eval()
-                policy_positive_stats = arena.completion_stats(model, positive_batch)
-                policy_bank_stats = arena.completion_stats(model, bank_batch)
-                policy_chosen = paper_common.full_sequence_log_probability(
-                    policy_positive_stats
-                )
-                policy_rejected = paper_common.full_sequence_log_probability(
-                    policy_bank_stats
-                )
-                pair_margin = (
-                    policy_chosen[row_index]
-                    - policy_rejected
-                    - reference_chosen[row_index]
-                    + reference_rejected
-                )
-                if update == 1 and accumulation_index == 0:
-                    initial_pair_margin_max_abs = float(pair_margin.detach().abs().max())
-                    if initial_pair_margin_max_abs > tolerance:
-                        numerical_failure = "initial_policy_reference_pair_margin_mismatch"
-                        stop_reason = numerical_failure
-                        abort_update = True
-                        break
-                logits = beta * pair_margin
-                pair_losses = F.softplus(-logits)
-                loss = _dpo_prompt_balanced_mean(
-                    pair_losses,
-                    row_index,
-                    unique_counts,
-                    paper_common=paper_common,
-                )
-                if not bool(torch.isfinite(loss)):
-                    numerical_failure = f"nonfinite_loss_at_step_{update}"
-                    stop_reason = numerical_failure
-                    abort_update = True
-                    break
-                (loss / accumulation).backward()
-                loss_total += float(loss.detach().cpu())
-                policy_rejected_mean = _dpo_prompt_balanced_mean(
-                    policy_rejected.detach(),
-                    row_index,
-                    unique_counts,
-                    paper_common=paper_common,
-                )
-                reference_rejected_mean = _dpo_prompt_balanced_mean(
-                    reference_rejected,
-                    row_index,
-                    unique_counts,
-                    paper_common=paper_common,
-                )
-                diagnostics = {
-                    "policy_chosen_sum_lp": float(policy_chosen.detach().mean().cpu()),
-                    "policy_rejected_sum_lp": float(policy_rejected_mean.detach().cpu()),
-                    "reference_chosen_sum_lp": float(reference_chosen.mean().cpu()),
-                    "reference_rejected_sum_lp": float(reference_rejected_mean.cpu()),
-                    "pair_margin_mean": float(pair_margin.detach().mean().cpu()),
-                    "pair_margin_p10": _dpo_quantile(pair_margin, 0.10),
-                    "pair_margin_p50": _dpo_quantile(pair_margin, 0.50),
-                    "pair_margin_p90": _dpo_quantile(pair_margin, 0.90),
-                    "preference_accuracy": float(
-                        (pair_margin.detach() > 0.0).float().mean().cpu()
-                    ),
-                    "logit_saturation_fraction": float(
-                        (logits.detach().abs() >= 10.0).float().mean().cpu()
-                    ),
-                    "unique_negative_count_mean": float(
-                        packed["unique_counts"].float().mean().cpu()
-                    ),
-                    "raw_bank_count_mean": float(
-                        packed["raw_bank_counts"].float().mean().cpu()
-                    ),
-                    "duplicates_removed_mean": float(
-                        (packed["raw_bank_counts"] - packed["unique_counts"])
-                        .float()
-                        .mean()
-                        .cpu()
-                    ),
-                }
-                for key, value in diagnostics.items():
-                    diagnostic_totals[key] += value
-
-            if abort_update:
-                break
-
-            gradient_norm = torch.nn.utils.clip_grad_norm_(
-                policy_parameters,
-                float(effective["training"]["max_grad_norm"]),
-            )
-            if not bool(torch.isfinite(gradient_norm)):
-                numerical_failure = f"nonfinite_gradient_at_step_{update}"
-                stop_reason = numerical_failure
-                break
-            sample_update_norm = update % log_every == 0 or update == updates
-            before = (
-                [parameter.detach().float().cpu().clone() for parameter in policy_parameters]
-                if sample_update_norm
-                else []
-            )
-            if not arena.optimizer_step_with_last_finite_guard(optimizer, policy_parameters):
-                numerical_failure = f"nonfinite_parameters_at_step_{update}"
-                stop_reason = numerical_failure
-                break
-            scheduler.step()
-            optimizer.zero_grad(set_to_none=True)
-            terminal_step = update
-            last_finite_step = update
-            update_norm = (
-                scan_trainer._parameter_update_norm(before, policy_parameters)
-                if sample_update_norm
-                else None
-            )
-            if update_norm is not None:
-                optimizer_update_norms.append(float(update_norm))
-            if update % log_every == 0 or update == updates:
-                append_jsonl(
-                    training_path,
-                    {
-                        "update": update,
-                        "dpo_beta": beta,
-                        "dpo_pair_loss": loss_total / accumulation,
-                        **{
-                            key: value / accumulation
-                            for key, value in diagnostic_totals.items()
-                        },
-                        "raw_gradient_norm_before_clip": float(gradient_norm.detach().cpu()),
-                        "optimizer_update_norm": update_norm,
-                        "initial_pair_margin_max_abs": initial_pair_margin_max_abs,
-                        "reference_role": "exact_frozen_initial_policy",
-                        "label_smoothing": 0.0,
-                        "test_data_used": False,
-                    },
-                )
-            if not engineering_liveness and (update % eval_every == 0 or update == updates):
-                evaluate(update)
-
-        activate_policy()
-        terminal_policy_sha256 = _parameter_sequence_sha256(policy_parameters)
-        reference_terminal_sha256 = _parameter_sequence_sha256(reference_parameters)
-        if reference_terminal_sha256 != reference_initial_sha256:
-            raise RuntimeError("Frozen DPO reference changed during policy optimization")
-        policy_parameters_changed = terminal_policy_sha256 != policy_initial_sha256
-        final_adapter_dir = last_finite_dir if numerical_failure else terminal_dir
-        model.save_pretrained(final_adapter_dir, safe_serialization=True)
-        tokenizer.save_pretrained(final_adapter_dir)
-        terminal_identity = model_identity(base_model_path, str(final_adapter_dir))["adapter"]
-        if numerical_failure is not None:
-            append_jsonl(
-                training_path,
-                {
-                    "update": terminal_step,
-                    "numerical_failure": numerical_failure,
-                    "stop_reason": stop_reason,
-                    "last_finite_step": last_finite_step,
-                    "reference_role": "exact_frozen_initial_policy",
-                    "test_data_used": False,
-                },
-            )
-
-        if engineering_liveness:
-            summary: dict[str, Any] = {
-                "engineering_liveness": True,
-            }
-            scientific_status = "not_run"
-        else:
-            evaluations = read_jsonl(evaluation_path)
-            summary = (
-                _summarize_evaluations(evaluations, config)
-                if numerical_failure is None
-                else {}
-            )
-            scientific_status = "pilot"
-        result = {
-            **identity,
-            **summary,
-            "beta": beta,
-            "dpo_beta": beta,
-            "objective_formula": (
-                "mean_prompt(mean_unique_negative(softplus(-beta*((logpi_chosen-logpi_rejected)-"
-                "(logref_chosen-logref_rejected)))))"
-            ),
-            "sequence_log_probability": "full_completion_summed_log_probability",
-            "chosen_completion": "oracle_completion",
-            "rejected_completions": "all_unique_verifier_wrong_completions",
-            "pair_aggregation": "mean_unique_negative_within_prompt_then_mean_prompts",
-            "label_smoothing": 0.0,
-            "reference_role": "exact_frozen_initial_policy",
-            "reference_trainable": False,
-            "initial_pair_margin_max_abs": initial_pair_margin_max_abs,
-            "initial_pair_margin_max_abs_tolerance": tolerance,
-            "policy_initial_state_sha256": policy_initial_sha256,
-            "reference_initial_state_sha256": reference_initial_sha256,
-            "reference_terminal_state_sha256": reference_terminal_sha256,
-            "terminal_trainable_state_sha256": terminal_policy_sha256,
-            "initialization_state_sha256": policy_initial_sha256,
-            "policy_parameters_changed": policy_parameters_changed,
-            "terminal_checkpoint_kind": (
-                "last_finite" if numerical_failure else "terminal"
-            ),
-            "terminal_adapter": str(final_adapter_dir.resolve()),
-            "terminal_adapter_identity": terminal_identity,
-            "best_adapter": (
-                str(best_dir.resolve()) if best_dir.is_dir() else str(final_adapter_dir.resolve())
-            ),
-            "training_metrics": str(training_path.resolve()),
-            "evaluation_metrics": (
-                str(evaluation_path.resolve()) if evaluation_path.is_file() else None
-            ),
-            "canonical_dispatch_verified": True,
-            "finite_old_core_updates": numerical_failure is None,
-            "optimizer_update_norm": (
-                min(value for value in optimizer_update_norms if math.isfinite(value))
-                if optimizer_update_norms
-                else 0.0
-            ),
-            "optimizer_updates": terminal_step,
-            "terminal_step": terminal_step,
-            "optimizer_updates_requested": updates,
-            "last_finite_step": last_finite_step,
-            "numerical_failure": numerical_failure,
-            "stop_reason": stop_reason,
-            "nan_inf_failure": _is_nan_inf_numerical_failure(numerical_failure),
-            "evaluation_status": (
-                "complete" if numerical_failure is None else "incomplete"
-            ),
-            "test_partition_accessed": False,
-            "complete": numerical_failure is None,
-            "scientific_status": scientific_status,
-        }
-        if not engineering_liveness and numerical_failure is None:
-            result.update(
-                {
-                    "best_step": summary["supplementary_best_step"],
-                    "terminal_step": terminal_step,
-                    "validation_best_pass8": summary["supplementary_best_pass8"],
-                    "validation_terminal_pass8": summary["validation_terminal_pass8"],
-                    "validation_best_greedy": summary["supplementary_best_greedy"],
-                    "validation_terminal_greedy": summary["validation_terminal_greedy"],
-                    "validation_best_greedy_valid_rate": max(
-                        float(row["greedy_valid_rate"]) for row in evaluations
-                    ),
-                    "validation_terminal_greedy_valid_rate": summary[
-                        "validation_terminal_greedy_valid_rate"
-                    ],
-                }
-            )
-        if not engineering_liveness:
-            summary_path = cell_root / "summary.json"
-            atomic_json(summary_path, result)
-            result["canonical_summary"] = str(summary_path.resolve())
-            result["canonical_summary_sha256"] = sha256_file(summary_path)
-            result["canonical_output"] = str(cell_root.resolve())
-        atomic_json(manifest_path, result)
-        return result
-    finally:
-        arena.clean_expression = original_clean_expression
-        arena.SYSTEM_PROMPT = original_system_prompt
-        arena.evaluate_rows = original_evaluate_rows
-        if "model" in locals():
-            del model
-        gc.collect()
-        if torch is not None and torch.cuda.is_available():
-            torch.cuda.empty_cache()
+def _train_canonical_dpo_transfer_cell(*args: Any, **kwargs: Any) -> Any:
+    return _canonical_bridge()._train_canonical_dpo_transfer_cell(*args, **kwargs)
 
 
-def _cmd_dpo_liveness(
-    config: Mapping[str, Any],
-    config_path: Path,
-    output_root: Path,
-    *,
-    inputs: Mapping[str, TaskInputs],
-    splits: Mapping[str, Any],
-    base_model_path: str,
-    task: str,
-    force: bool,
-) -> dict[str, Any]:
-    if task != str(config["dpo"]["liveness_task"]):
-        raise RuntimeError("DPO liveness must use the configured transfer-task anchor")
-    beta = float(config["dpo"]["liveness_beta"])
-    values = experiment_config.task_method_values(config, task, method=METHOD_DPO)
-    if beta not in values:
-        raise RuntimeError("DPO liveness_beta must be one configured beta point")
-    cell = _coldstart_method_cell(
-        task,
-        METHOD_DPO,
-        experiment_config.task_transfer_seeds(config)[0],
-        "liveness",
-        beta,
-        lambda_only=False,
-        dpo_initialization=str(config["dpo"]["initialization_mode"]),
-    )
-    result = train_cell(
-        cell,
-        inputs=inputs[task],
-        split_manifest=splits,
-        base_model_path=base_model_path,
-        config=config,
-        output_root=output_root,
-        force=force,
-        updates_override=2,
-        engineering_liveness=True,
-    )
-    reload_result = _verify_fresh_process_adapter_reload(
-        config_path,
-        output_root,
-        base_model_path=base_model_path,
-        adapter_path=Path(result["terminal_adapter"]),
-        expected_adapter_identity=result["terminal_adapter_identity"],
-        require_base_identity=False,
-        label="DPO",
-    )
-    if not math.isfinite(float(result.get("optimizer_update_norm", 0.0))) or float(
-        result.get("optimizer_update_norm", 0.0)
-    ) <= 0.0:
-        raise RuntimeError("DPO liveness did not perform a finite nonzero optimizer update")
-    result.update(
-        {
-            "reload_gate_passed": True,
-            "adapter_weight_changed": True,
-            "fresh_process_reload_passed": True,
-            "liveness_parent_process_id": os.getpid(),
-            "reload_process_id": int(reload_result["process_id"]),
-            "terminal_adapter_weight_sha256": sha256_file(_adapter_weight_file(Path(result["terminal_adapter"]))),
-            "evaluation_status": "complete",
-        }
-    )
-    atomic_json(output_root / "liveness" / cell.key / "cell_manifest.json", result)
-    return result
+def _cmd_dpo_liveness(*args: Any, **kwargs: Any) -> Any:
+    return _canonical_bridge()._cmd_dpo_liveness(*args, **kwargs)
 
-def _train_canonical_cold_cell(
-    cell: Cell,
-    *,
-    inputs: TaskInputs,
-    split_manifest: Mapping[str, Any],
-    base_model_path: str,
-    config: Mapping[str, Any],
-    output_root: Path,
-    force: bool,
-    root_name: str = "cells",
-    base_config_override: Path | None = None,
-) -> dict[str, Any]:
-    """Dispatch one cell to the exact paper runtime; this owns no loss math."""
-
-    if not _is_coldstart(config):
-        raise RuntimeError("Canonical cold dispatch is cold-profile only")
-    modules = _canonical_cold_modules(config)
-    arena = modules["arena"]
-    record = _canonical_task_record(split_manifest, cell.task)
-    calibration = _load_verified_canonical_calibration(
-        cell.task,
-        split_manifest=split_manifest,
-        base_model_path=base_model_path,
-        config=config,
-        output_root=output_root,
-        error_prefix="Paper",
-    )
-
-    bank = Path(str(record["train"]))
-    validation = Path(str(record["validation"]))
-    base_config_path = base_config_override or Path(str(record["base_config"]))
-    method_spec = _method_spec(cell.method)
-    paper_runtime = method_spec.paper_runtime
-    if paper_runtime is None:
-        raise RuntimeError(
-            f"{cell.method} does not use canonical paper cell parameters"
-        )
-    grid_path, grid_source_path = _paper_grid_for_cell(config, record, cell)
-    modules = _activate_paper_grid_modules(modules, grid_source_path)
-    arena = modules["arena"]
-    runtime = modules["paper_runtime"]
-    effective_runtime = experiment_config.effective_coldstart_runtime(config, cell.task)
-    base_config = yaml.safe_load(base_config_path.read_text(encoding="utf-8"))
-    if not isinstance(base_config, dict):
-        raise TypeError("Paper base config root must be a mapping")
-    identity = _cell_identity(
-        cell,
-        inputs=inputs,
-        split_manifest=split_manifest,
-        base_model_path=base_model_path,
-        config=config,
-        calibration=calibration,
-    )
-    identity.update(
-        {
-            "canonical_source_git_blob_shas": dict(
-                config["canonical_coldstart"]["expected_git_blob_shas"]
-            ),
-            "canonical_dispatch": (
-                "countdown_e8_alpha1_highc_scan_runtime.worker"
-                if cell.task == "countdown"
-                else "countdown_e8_alpha1_c_scan_trainer.train_cell"
-            ),
-            "paper_formula": paper_runtime.formula,
-            "paper_grid_config": str(grid_path.resolve()),
-            "paper_grid_config_sha256": sha256_file(grid_path),
-            "paper_grid_source": str(grid_source_path.resolve()),
-            "paper_grid_source_sha256": sha256_file(grid_source_path),
-            "paper_base_config": str(base_config_path.resolve()),
-            "paper_base_config_sha256": sha256_file(base_config_path),
-            "all_unique_negatives": True,
-            "near_far_selection": False,
-            "gradient_rms_matching": False,
-            "task_runtime_contract": dict(config["task_runtime"][cell.task]),
-        }
-    )
-    if not experiment_config.is_historical_coldstart_config(config):
-        identity["effective_runtime"] = effective_runtime
-        identity["legacy_runtime_bridge"] = _runtime_bridge_contract(effective_runtime)
-    identity["identity_hash"] = stable_hash(identity)
-
-    cell_root, manifest_path, reusable = _prepare_cell_output(
-        output_root,
-        root_name=root_name,
-        cell=cell,
-        identity=identity,
-        force=force,
-        mismatch_prefix="Existing paper cell identity mismatch",
-        existing_prefix="Cell output exists without a reusable manifest",
-        unsafe_prefix="Refusing unsafe paper cell removal",
-    )
-    if reusable is not None:
-        return reusable
-    canonical_output = cell_root / "canonical"
-
-    evaluator = None
-    if cell.task != "countdown":
-        validation_rows = read_jsonl(validation)
-        task_adapter, instances = _load_task_adapter_and_instances(
-            cell.task,
-            inputs=inputs,
-            validation_rows=validation_rows,
-        )
-        evaluator = _canonical_environment_evaluator(
-            arena=arena,
-            task_adapter=task_adapter,
-            instances=instances,
-            greedy_prompt_rows=int(config["task_runtime"][cell.task]["greedy_prompt_rows"]),
-            passk_prompt_rows=int(config["task_runtime"][cell.task]["passk_prompt_rows"]),
-            sampling_temperature=float(effective_runtime["evaluation"]["sampling_temperature"]),
-            top_p=float(effective_runtime["evaluation"]["top_p"]),
-        )
-
-    scan_trainer = modules["scan_trainer"]
-    paper_common = modules["paper_common"]
-
-    @contextmanager
-    def task_interface() -> Any:
-        original_evaluate_rows = arena.evaluate_rows
-        original_clean_expression = arena.clean_expression
-        original_system_prompt = arena.SYSTEM_PROMPT
-        original_completion_stats = arena.completion_stats
-        original_trainer_evaluate = scan_trainer._evaluate_validation
-        try:
-            if evaluator is None:
-
-                def configured_evaluate(**kwargs: Any) -> dict[str, Any]:
-                    kwargs["pass64_enabled"] = 64 in {
-                        int(value)
-                        for value in effective_runtime["evaluation"]["auxiliary_pass_ks"]
-                    }
-                    return original_trainer_evaluate(**kwargs)
-
-                scan_trainer._evaluate_validation = configured_evaluate
-            if evaluator is not None:
-                arena.evaluate_rows = evaluator
-                arena.SYSTEM_PROMPT = TRANSFER_SYSTEM_PROMPT
-                arena.completion_stats = lambda model, batch: {
-                    "seq_lp": -arena.sequence_surprisal_only(model, batch),
-                    "lengths": (batch["labels"] != -100).sum(dim=1),
-                }
-                # Non-arithmetic task outputs are already canonicalized by the P0
-                # verifier. Arithmetic-only cleanup would corrupt structured outputs.
-                arena.clean_expression = lambda value: str(value)
-
-                def configured_evaluate(**kwargs: Any) -> dict[str, Any]:
-                    kwargs["pass64_enabled"] = 64 in {
-                        int(value)
-                        for value in effective_runtime["evaluation"]["auxiliary_pass_ks"]
-                    }
-                    row = original_trainer_evaluate(**kwargs)
-                    sampled_valid_rate = getattr(
-                        evaluator, "_last_primary_sampled_valid_rate", None
-                    )
-                    if sampled_valid_rate is None:
-                        raise RuntimeError(
-                            "Transfer evaluator did not report primary sampled validity"
-                        )
-                    row["val_sampled_valid_rate"] = float(sampled_valid_rate)
-                    return row
-
-                scan_trainer._evaluate_validation = configured_evaluate
-            yield
-        finally:
-            arena.evaluate_rows = original_evaluate_rows
-            arena.clean_expression = original_clean_expression
-            arena.SYSTEM_PROMPT = original_system_prompt
-            arena.completion_stats = original_completion_stats
-            scan_trainer._evaluate_validation = original_trainer_evaluate
-
-    paper_family, alpha, coefficient = paper_runtime.cell_parameters(cell)
-    with (
-        _legacy_paper_runtime_bridge(
-            modules,
-            effective_runtime,
-            grid_path=grid_path,
-            grid_source_path=grid_source_path,
-        ),
-        task_interface(),
-    ):
-        if cell.task == "countdown":
-            returncode = runtime.worker(
-                argparse.Namespace(
-                    family=paper_family,
-                    alpha=alpha,
-                    c=coefficient,
-                    seed_offset=int(cell.seed),
-                    output_dir=str(canonical_output),
-                    model_path=str(Path(base_model_path).resolve()),
-                    bank=str(bank),
-                    val=str(validation),
-                    base_config=str(base_config_path),
-                    grid_config=str(grid_path),
-                )
-            )
-            if int(returncode) != 0:
-                raise RuntimeError(f"Paper runtime failed for {cell.key}")
-        else:
-            paper_cell = paper_common.Cell(
-                alpha=alpha,
-                coefficient=coefficient,
-                seed_offset=int(cell.seed),
-                family=paper_family,
-            )
-            scan_trainer.train_cell(
-                cell=paper_cell,
-                model_path=Path(base_model_path).resolve(),
-                bank=bank,
-                val=validation,
-                base_config_path=base_config_path,
-                grid_config_path=grid_path,
-                output_dir=canonical_output,
-                repo=_repo_root(),
-                smoke=False,
-            )
-
-    canonical_summary_path = canonical_output / "summary.json"
-    canonical_summary = json.loads(canonical_summary_path.read_text(encoding="utf-8"))
-    metrics_path = canonical_output / "metrics.csv"
-    with metrics_path.open(encoding="utf-8", newline="") as handle:
-        metric_rows = list(csv.DictReader(handle))
-    evaluations = [
-        {
-            "update": int(row["step"]),
-            "pass8": float(row["val_pass_at_8"]),
-            "greedy_success": float(row["val_greedy"]),
-            "greedy_valid_rate": float(row["val_valid_rate"]),
-            "sampled_valid_rate": (
-                None
-                if row.get("val_sampled_valid_rate") in (None, "")
-                else float(row["val_sampled_valid_rate"])
-            ),
-        }
-        for row in metric_rows
-    ]
-    numerical_failure = canonical_summary.get("numerical_failure")
-    metrics_summary = (
-        _summarize_evaluations(evaluations, config)
-        if numerical_failure is None
-        else {}
-    )
-    best_adapter = canonical_output / "best_pass8_adapter"
-    terminal_adapter = canonical_output / (
-        "last_finite_adapter" if numerical_failure else "terminal_adapter"
-    )
-    result = {
-        **identity,
-        **metrics_summary,
-        "delta_v": cell.delta_v,
-        "beta": cell.beta,
-        "canonical_summary": str(canonical_summary_path.resolve()),
-        "canonical_summary_sha256": sha256_file(canonical_summary_path),
-        "canonical_output": str(canonical_output.resolve()),
-        "canonical_training_metrics": str(metrics_path.resolve()),
-        "training_metrics": str(metrics_path.resolve()),
-        "best_adapter": str(best_adapter.resolve()),
-        "terminal_adapter": str(terminal_adapter.resolve()),
-        "terminal_adapter_identity": model_identity(base_model_path, str(terminal_adapter))[
-            "adapter"
-        ],
-        "canonical_dispatch_verified": True,
-        "countdown_protocol_exact": cell.task == "countdown",
-        "task_interface_adapter_only": cell.task != "countdown",
-        "reference_remoteness_bank_identity_hash": record.get(
-            "reference_remoteness_bank_identity_hash"
-        ),
-        "static_reference_rank_enters_training_weight": False,
-        "current_policy_surprisal_recomputed_each_update": True,
-        "adapter_path_argument": None,
-        "sft_adapter_path_argument": None,
-        "initialization_optimizer_updates": 0,
-        "best_step": metrics_summary.get("supplementary_best_step"),
-        "terminal_step": canonical_summary.get("terminal_step"),
-        "stop_reason": canonical_summary.get("stop_reason"),
-        "validation_best_pass8": metrics_summary.get("supplementary_best_pass8"),
-        "validation_terminal_pass8": metrics_summary.get("validation_terminal_pass8"),
-        "validation_best_greedy": metrics_summary.get("supplementary_best_greedy"),
-        "validation_terminal_greedy": metrics_summary.get("validation_terminal_greedy"),
-        "validation_best_greedy_valid_rate": (
-            max(float(row["greedy_valid_rate"]) for row in evaluations)
-            if numerical_failure is None and evaluations
-            else None
-        ),
-        "validation_terminal_greedy_valid_rate": metrics_summary.get(
-            "validation_terminal_greedy_valid_rate"
-        ),
-        "validation_terminal_sampled_valid_rate": metrics_summary.get(
-            "validation_terminal_sampled_valid_rate"
-        ),
-        "optimizer_updates": int(canonical_summary.get("terminal_step") or 0),
-        "numerical_failure": numerical_failure,
-        "nan_inf_failure": _is_nan_inf_numerical_failure(numerical_failure),
-        "evaluation_status": (
-            "complete" if evaluations and numerical_failure is None else "incomplete"
-        ),
-        "test_partition_accessed": False,
-        "complete": bool(evaluations and numerical_failure is None),
-        "scientific_status": "pilot",
-    }
-    atomic_json(manifest_path, result)
-    return result
+def _train_canonical_cold_cell(*args: Any, **kwargs: Any) -> Any:
+    return _canonical_bridge()._train_canonical_cold_cell(*args, **kwargs)
 
 
 def _train_cell_impl(
@@ -5089,261 +2049,23 @@ def _train_cell_impl(
     updates_override: int | None = None,
     engineering_liveness: bool = False,
 ) -> dict[str, Any]:
-    if _is_coldstart(config):
-        raise RuntimeError(
-            "The custom multitask training implementation is forbidden for cold-start; "
-            "dispatch through the canonical old code"
-        )
-    if torch is None or DataLoader is None:
-        raise RuntimeError("Training requires Torch")
-    calibration_path = output_root / "calibration" / f"{cell.task}.json"
-    if not calibration_path.is_file():
-        raise RuntimeError(f"Run calibration before training {cell.task}")
-    calibration = json.loads(calibration_path.read_text(encoding="utf-8"))
-    if not calibration.get("complete"):
-        raise RuntimeError(f"Incomplete calibration for {cell.task}")
-
-    root_name = "liveness" if engineering_liveness else "cells"
-    identity = _cell_identity(
+    return e8_warmstart.train_cell_impl(
         cell,
         inputs=inputs,
         split_manifest=split_manifest,
         base_model_path=base_model_path,
         config=config,
-        calibration=calibration,
-    )
-    identity["engineering_liveness"] = engineering_liveness
-    identity["updates_override"] = updates_override
-    identity["identity_hash"] = stable_hash(identity)
-    cell_root, manifest_path, reusable = _prepare_cell_output(
-        output_root,
-        root_name=root_name,
-        cell=cell,
-        identity=identity,
+        output_root=output_root,
         force=force,
-    )
-    if reusable is not None:
-        return reusable
-
-    initialization_seed = (
-        int(config["initialization"]["seed"]) if _is_coldstart(config) else cell.seed
-    )
-    _seed_everything(initialization_seed)
-    model, tokenizer, scheduler_factory = _load_reference_model(
-        base_model_path,
-        inputs.reference_adapter,
-        config,
-        train_mode=True,
-    )
-    initialization_state_sha256 = _trainable_state_sha256(model)
-    if _is_coldstart(config) and initialization_state_sha256 != calibration.get(
-        "initialization_state_sha256"
-    ):
-        raise RuntimeError(
-            f"Fresh LoRA initialization identity mismatch for {cell.task}; "
-            "refusing a non-comparable cell"
-        )
-    _seed_everything(cell.seed)
-    training = config["training"]
-    train_rows, validation_rows = _load_cell_splits(
-        split_manifest,
-        cell.task,
+        bindings=e8_warmstart.WarmstartTrainingBindings(
+            cell_identity=_cell_identity,
+            prepare_cell_output=_prepare_cell_output,
+            summarize_evaluations=_summarize_evaluations,
+            method_exponential=METHOD_EXPONENTIAL,
+        ),
+        updates_override=updates_override,
         engineering_liveness=engineering_liveness,
     )
-    adapter = None
-    validation_instances: dict[str, TaskInstance] = {}
-    if not engineering_liveness:
-        adapter, validation_instances = _load_task_adapter_and_instances(
-            cell.task,
-            inputs=inputs,
-            validation_rows=validation_rows,
-        )
-    dataset = RowDataset(train_rows)
-    generator = torch.Generator()
-    generator.manual_seed(cell.seed)
-    loader = DataLoader(
-        dataset,
-        batch_size=int(training["micro_batch"]),
-        shuffle=True,
-        generator=generator,
-        num_workers=0,
-        collate_fn=lambda items: list(items),
-        drop_last=True,
-    )
-    iterator = iter(loader)
-    trainable = [parameter for parameter in model.parameters() if parameter.requires_grad]
-    if not trainable:
-        raise RuntimeError("No trainable LoRA parameters")
-    optimizer = torch.optim.AdamW(
-        trainable,
-        lr=float(training["learning_rate"]),
-        weight_decay=float(training["weight_decay"]),
-    )
-    updates = int(updates_override or training["optimizer_updates"])
-    accumulation = int(training["gradient_accumulation"])
-    scheduler = scheduler_factory(
-        optimizer,
-        num_warmup_steps=max(1, int(updates * float(training["warmup_ratio"]))),
-        num_training_steps=updates,
-    )
-    device = next(model.parameters()).device
-    max_length = int(config["model"]["max_length"])
-    evaluation_path = cell_root / "evaluation_metrics.jsonl"
-    training_path = cell_root / "training_metrics.jsonl"
-    best_pass8 = -math.inf
-    optimizer.zero_grad(set_to_none=True)
-    model.train()
-    for update in range(1, updates + 1):
-        positive_loss_total = 0.0
-        negative_scalar_total = 0.0
-        near_weight_total = 0.0
-        far_weight_total = 0.0
-        for _ in range(accumulation):
-            try:
-                rows = next(iterator)
-            except StopIteration:
-                iterator = iter(loader)
-                rows = next(iterator)
-            prompts = [str(row["prompt"]) for row in rows]
-            positives = [str(row["oracle_completion"]) for row in rows]
-            positive_batch = _move_batch(
-                _stack_encoded(tokenizer, prompts, positives, max_length),
-                device,
-            )
-            positive_lp = completion_stats_batch(model, positive_batch)["seq_lp"]
-            positive_loss = -positive_lp.mean()
-            loss = positive_loss
-            positive_loss_total += float(positive_loss.detach().cpu())
-            if cell.method == METHOD_EXPONENTIAL:
-                if cell.rho is None:
-                    raise AssertionError("Exponential cell has no rho")
-                near_batch, far_batch, _, _ = _select_current_extremes(
-                    model,
-                    tokenizer,
-                    rows,
-                    max_length=max_length,
-                )
-                near_lp = completion_stats_batch(model, _move_batch(near_batch, device))["seq_lp"]
-                far_lp = completion_stats_batch(model, _move_batch(far_batch, device))["seq_lp"]
-                near_distance = normalized_distance(
-                    near_lp,
-                    tau=float(calibration["tau"]),
-                    scale=float(calibration["scale"]),
-                )
-                far_distance = normalized_distance(
-                    far_lp,
-                    tau=float(calibration["tau"]),
-                    scale=float(calibration["scale"]),
-                )
-                near_weight = taper_weight(near_distance, cell.rho).detach()
-                far_weight = taper_weight(far_distance, cell.rho).detach()
-                negative_scale = float(calibration["negative_scales"][f"{cell.rho:.12g}"])
-                negative_scalar = negative_scale * (
-                    0.5 * (near_weight * near_lp).mean() + 0.5 * (far_weight * far_lp).mean()
-                )
-                loss = loss + negative_scalar
-                negative_scalar_total += float(negative_scalar.detach().cpu())
-                near_weight_total += float(near_weight.mean().cpu())
-                far_weight_total += float(far_weight.mean().cpu())
-            if not bool(torch.isfinite(loss)):
-                raise RuntimeError(f"{cell.key} non-finite loss at update {update}")
-            (loss / accumulation).backward()
-        gradient_norm = torch.nn.utils.clip_grad_norm_(
-            trainable,
-            float(training["max_grad_norm"]),
-        )
-        if not bool(torch.isfinite(gradient_norm)):
-            raise RuntimeError(f"{cell.key} non-finite gradient at update {update}")
-        optimizer.step()
-        scheduler.step()
-        optimizer.zero_grad(set_to_none=True)
-        if not all(bool(torch.isfinite(parameter).all()) for parameter in trainable):
-            raise RuntimeError(f"{cell.key} non-finite trainable parameter at update {update}")
-        if update % 10 == 0 or update == updates:
-            append_jsonl(
-                training_path,
-                {
-                    "update": update,
-                    "positive_loss": positive_loss_total / accumulation,
-                    "negative_scalar": negative_scalar_total / accumulation,
-                    "mean_near_weight": near_weight_total / accumulation,
-                    "mean_far_weight": far_weight_total / accumulation,
-                    "raw_gradient_norm_before_clip": float(gradient_norm.detach().cpu()),
-                    "learning_rate": float(scheduler.get_last_lr()[0]),
-                },
-            )
-        should_evaluate = not engineering_liveness and (
-            update % int(training["evaluation_every_updates"]) == 0 or update == updates
-        )
-        if should_evaluate:
-            if adapter is None:
-                raise AssertionError("Validation adapter is unavailable outside liveness")
-            metrics = evaluate_model(
-                model,
-                tokenizer,
-                task=cell.task,
-                validation_rows=validation_rows,
-                adapter=adapter,
-                instances=validation_instances,
-                update=update,
-                cell_seed=cell.seed,
-                config=config,
-            )
-            append_jsonl(evaluation_path, metrics)
-            if float(metrics["pass8"]) > best_pass8:
-                best_pass8 = float(metrics["pass8"])
-                best_dir = cell_root / "supplementary_best_adapter"
-                if best_dir.exists():
-                    shutil.rmtree(best_dir)
-                model.save_pretrained(best_dir, safe_serialization=True)
-                tokenizer.save_pretrained(best_dir)
-            model.train()
-
-    terminal_state_sha256 = _trainable_state_sha256(model)
-    terminal_adapter = cell_root / "terminal_adapter"
-    model.save_pretrained(terminal_adapter, safe_serialization=True)
-    tokenizer.save_pretrained(terminal_adapter)
-    if engineering_liveness:
-        summary: dict[str, Any] = {
-            "engineering_liveness": True,
-            "optimizer_updates": updates,
-            "finite_parameters": True,
-            "reload_gate_pending": True,
-        }
-        scientific_status = "not_run"
-        evaluation_status = "not_applicable"
-    else:
-        evaluations = read_jsonl(evaluation_path)
-        summary = _summarize_evaluations(evaluations, config)
-        scientific_status = "pilot"
-        evaluation_status = "complete"
-    result = {
-        **identity,
-        **summary,
-        "optimizer_updates": updates,
-        "effective_prompt_batch": int(training["micro_batch"])
-        * int(training["gradient_accumulation"]),
-        "terminal_adapter": str(terminal_adapter.resolve()),
-        "terminal_adapter_identity": model_identity(base_model_path, str(terminal_adapter))[
-            "adapter"
-        ],
-        "initialization_state_sha256": initialization_state_sha256,
-        "terminal_trainable_state_sha256": terminal_state_sha256,
-        "training_metrics": str(training_path.resolve()),
-        "evaluation_metrics": (
-            str(evaluation_path.resolve()) if evaluation_path.is_file() else None
-        ),
-        "nan_inf_failure": False,
-        "complete": True,
-        "evaluation_status": evaluation_status,
-        "scientific_status": scientific_status,
-    }
-    atomic_json(manifest_path, result)
-    del model
-    gc.collect()
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-    return result
 
 
 def train_cell(
@@ -5481,43 +2203,6 @@ def _adapter_weight_file(adapter_root: Path) -> Path:
     raise FileNotFoundError(f"Adapter weight file is missing: {adapter_root}")
 
 
-def _canonical_liveness_base_config(config: Mapping[str, Any], output_root: Path) -> Path:
-    base_path = _canonical_paths(config)["base_config"]
-    value = yaml.safe_load(base_path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        raise TypeError("Canonical base config root must be a mapping")
-    value["offline_training"].update(
-        {
-            "steps": 2,
-            "min_steps": 2,
-            "early_stop_patience": 10,
-            # Preserve the step-0 adapter so it can be compared bytewise with
-            # the terminal adapter after the canonical optimizer updates.
-            "early_stop_delta": 1.0e9,
-            "eval_every": 2,
-            "log_every": 1,
-            "diagnostic_examples": 2,
-            "diagnostic_gradient_examples": 1,
-            "diagnostic_batch": 1,
-            "num_workers": 0,
-        }
-    )
-    value["evaluation"].update(
-        {
-            "examples": 2,
-            "test_examples": 0,
-            "batch_size": 1,
-            "pass_ks": [8],
-        }
-    )
-    path = output_root / "liveness" / "canonical_liveness_base_config.yaml"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".yaml.tmp")
-    temporary.write_text(yaml.safe_dump(value, sort_keys=False), encoding="utf-8")
-    temporary.replace(path)
-    return path
-
-
 def _method_liveness_grid(
     grid_path: Path, method: str, output_root: Path
 ) -> Path:
@@ -5563,117 +2248,8 @@ def _canonical_cold_liveness_cell(grid_path: Path) -> Cell:
     )
 
 
-def _cmd_canonical_cold_liveness(
-    config: Mapping[str, Any],
-    config_path: Path,
-    output_root: Path,
-    *,
-    inputs: TaskInputs,
-    splits: Mapping[str, Any],
-    base_model_path: str,
-    force: bool,
-    method: str | None = None,
-) -> dict[str, Any]:
-    modules = _canonical_cold_modules(config)
-    record = _canonical_task_record(splits, "countdown")
-    method = method or _coldstart_method(config)
-    paper_runtime = _method_spec(method).paper_runtime
-    if paper_runtime is None:
-        raise RuntimeError(f"{method} does not use canonical paper-runtime liveness")
-    grid_path = paper_runtime.liveness_grid(config, record)
-    grid_path = _method_liveness_grid(grid_path, method, output_root)
-    modules = _activate_paper_grid_modules(modules, grid_path)
-    runtime = modules["paper_runtime"]
-    cell = _canonical_cold_liveness_cell(grid_path)
-    smoke_name = (
-        f"paper_runtime_smoke_{method}" if _is_method_matrix(config) else "paper_runtime_smoke"
-    )
-    smoke_root = output_root / "liveness" / smoke_name
-    if force and smoke_root.exists():
-        shutil.rmtree(smoke_root)
-    returncode = runtime.smoke(
-        argparse.Namespace(
-            model_path=str(Path(base_model_path).resolve()),
-            bank=str(Path(str(record["train"])).resolve()),
-            val=str(Path(str(record["validation"])).resolve()),
-            base_config=str(Path(str(record["base_config"])).resolve()),
-            grid_config=str(grid_path.resolve()),
-            work_dir=str(smoke_root.resolve()),
-        )
-    )
-    gate = json.loads((smoke_root / "SMOKE_GATE.json").read_text(encoding="utf-8"))
-    if int(returncode) != 0 or gate.get("status") != "PASS":
-        raise RuntimeError("Paper-runtime two-update smoke gate failed")
-    summary_path = Path(str(gate["summary"]))
-    summary = json.loads(summary_path.read_text(encoding="utf-8"))
-    diagnostics_path = Path(str(summary["diagnostic_files"]["training"]))
-    diagnostics = read_jsonl(diagnostics_path)
-    optimizer_update_norms = [
-        float(row["optimizer_update_norm"])
-        for row in diagnostics
-        if row.get("optimizer_update_norm") is not None
-    ]
-    if (
-        int(summary.get("terminal_step") or -1) != 2
-        or summary.get("numerical_failure") is not None
-        or not optimizer_update_norms
-        or not all(math.isfinite(value) and value > 0.0 for value in optimizer_update_norms)
-    ):
-        raise RuntimeError("Paper-runtime liveness did not perform two finite optimizer updates")
-    canonical_output = summary_path.parent
-    terminal_adapter = canonical_output / "terminal_adapter"
-    terminal_hash = sha256_file(_adapter_weight_file(terminal_adapter))
-
-    reload_result = _verify_fresh_process_adapter_reload(
-        config_path,
-        output_root,
-        base_model_path=base_model_path,
-        adapter_path=terminal_adapter,
-        expected_adapter_identity=model_identity(base_model_path, str(terminal_adapter))["adapter"],
-        require_base_identity=False,
-        label="canonical",
-    )
-    calibration = json.loads(
-        (output_root / "calibration" / "countdown.json").read_text(encoding="utf-8")
-    )
-    result = {
-        **_cell_identity(
-            cell,
-            inputs=inputs,
-            split_manifest=splits,
-            base_model_path=base_model_path,
-            config=config,
-            calibration=calibration,
-        ),
-        "canonical_dispatch": "countdown_e8_alpha1_highc_scan_runtime.smoke",
-        "canonical_dispatch_verified": True,
-        "canonical_summary": str(summary_path.resolve()),
-        "canonical_summary_sha256": sha256_file(summary_path),
-        "terminal_adapter": str(terminal_adapter.resolve()),
-        "terminal_adapter_identity": model_identity(base_model_path, str(terminal_adapter))[
-            "adapter"
-        ],
-        "engineering_liveness": True,
-        "optimizer_updates": 2,
-        "optimizer_update_norm": min(optimizer_update_norms),
-        "terminal_adapter_weight_sha256": terminal_hash,
-        "adapter_weight_changed": True,
-        "finite_old_core_updates": True,
-        "reload_gate_passed": True,
-        "fresh_process_reload_passed": True,
-        "liveness_parent_process_id": os.getpid(),
-        "reload_process_id": int(reload_result["process_id"]),
-        "nan_inf_failure": False,
-        "evaluation_status": "complete",
-        "complete": True,
-        "scientific_status": "not_run",
-    }
-    result["identity_hash"] = stable_hash(result)
-    atomic_json(
-        output_root / "liveness" / cell.key / "cell_manifest.json",
-        result,
-    )
-    return result
+def _cmd_canonical_cold_liveness(*args: Any, **kwargs: Any) -> Any:
+    return _canonical_bridge()._cmd_canonical_cold_liveness(*args, **kwargs)
 
 
 def cmd_liveness(
@@ -5834,10 +2410,7 @@ def cmd_liveness(
 
 
 def _read_json_object(path: Path) -> dict[str, Any]:
-    value = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        raise TypeError(f"Expected one JSON object: {path}")
-    return value
+    return e8_runtime.read_json_object(path)
 
 
 def _successful_attempt_matches_current_identity(
@@ -5847,61 +2420,12 @@ def _successful_attempt_matches_current_identity(
     source_commit: str,
     artifact_path: Path | None = None,
 ) -> bool:
-    """Return whether live and packaged completed evidence matches this invocation."""
-
-    expected_id = experiment_id(config)
-    expected_hash = stable_config_hash(config)
-    try:
-        provenance = _read_json_object(workload_root / "source_provenance.json")
-        prepare = _read_json_object(workload_root / "prepare_manifest.json")
-        if not (
-            provenance.get("source_commit") == source_commit
-            and prepare.get("experiment_id") == expected_id
-            and prepare.get("config_hash") == expected_hash
-        ):
-            return False
-        if artifact_path is None:
-            return True
-        prefix = f"results/{expected_id}"
-        with zipfile.ZipFile(artifact_path) as archive:
-            artifact_manifest = json.loads(archive.read("ARTIFACT_MANIFEST.json"))
-            base_commit = archive.read("BASE_COMMIT.txt").decode("utf-8").strip()
-            run_manifest = json.loads(archive.read(f"{prefix}/run_manifest.json"))
-            packaged_provenance = json.loads(
-                archive.read(f"{prefix}/workload/source_provenance.json")
-            )
-            packaged_prepare = json.loads(
-                archive.read(f"{prefix}/workload/prepare_manifest.json")
-            )
-    except (
-        OSError,
-        ValueError,
-        TypeError,
-        KeyError,
-        UnicodeDecodeError,
-        zipfile.BadZipFile,
-    ):
-        return False
-    if not all(
-        isinstance(value, dict)
-        for value in (
-            artifact_manifest,
-            run_manifest,
-            packaged_provenance,
-            packaged_prepare,
-        )
-    ):
-        return False
-    return (
-        artifact_manifest.get("package_kind") == "experiment-raw-complete"
-        and artifact_manifest.get("experiment_id") == expected_id
-        and artifact_manifest.get("base_commit") == source_commit
-        and base_commit == source_commit
-        and run_manifest.get("experiment_id") == expected_id
-        and run_manifest.get("base_commit") == source_commit
-        and packaged_provenance.get("source_commit") == source_commit
-        and packaged_prepare.get("experiment_id") == expected_id
-        and packaged_prepare.get("config_hash") == expected_hash
+    return e8_runtime.successful_attempt_matches_current_identity(
+        workload_root,
+        source_commit=source_commit,
+        experiment_id_value=experiment_id(config),
+        config_hash=stable_config_hash(config),
+        artifact_path=artifact_path,
     )
 
 
@@ -5909,67 +2433,26 @@ def _effective_recovery_config(
     config: Mapping[str, Any],
     output_root: Path,
 ) -> dict[str, Any]:
-    engineering_config = output_root / "engineering_self_test_config.yaml"
-    if engineering_config.is_file():
-        recovered = load_config(engineering_config)
-        if not _is_engineering_self_test(recovered):
-            raise RuntimeError("Recovery engineering config is not a placeholder config")
-        return recovered
-    return dict(config)
+    return e8_runtime.effective_recovery_config(
+        config,
+        output_root,
+        load_config_fn=load_config,
+        is_engineering_self_test_fn=_is_engineering_self_test,
+    )
 
 
 def _reusable_cell_manifests(
     config: Mapping[str, Any],
     output_root: Path,
 ) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
-    reusable: dict[str, dict[str, Any]] = {}
-    rejected: dict[str, str] = {}
-    expected_hash = stable_config_hash(config)
-    expected_id = experiment_id(config)
-    for cell in build_cells(config):
-        manifest_path = output_root / "cells" / cell.key / "cell_manifest.json"
-        if not manifest_path.is_file():
-            rejected[cell.key] = "missing_cell_manifest"
-            continue
-        try:
-            value = _read_json_object(manifest_path)
-            if (
-                value.get("experiment_id") != expected_id
-                or value.get("config_hash") != expected_hash
-                or value.get("complete") is not True
-                or value.get("evaluation_status") != "complete"
-                or value.get("nan_inf_failure") is not False
-            ):
-                raise RuntimeError("identity_or_completion_fields_mismatch")
-            if _is_engineering_self_test(config):
-                if value.get("engineering_placeholder_backend") is not True:
-                    raise RuntimeError("placeholder_backend_marker_missing")
-            else:
-                if (
-                    not isinstance(value.get("identity_hash"), str)
-                    or len(str(value["identity_hash"])) != 64
-                    or value.get("canonical_dispatch_verified") is not True
-                ):
-                    raise RuntimeError("canonical_identity_or_dispatch_marker_missing")
-                summary = Path(str(value.get("canonical_summary", "")))
-                expected_summary_hash = str(value.get("canonical_summary_sha256", ""))
-                if (
-                    not summary.is_file()
-                    or len(expected_summary_hash) != 64
-                    or sha256_file(summary) != expected_summary_hash
-                ):
-                    raise RuntimeError("canonical_summary_missing_or_corrupt")
-                for field in ("best_adapter", "terminal_adapter"):
-                    adapter = Path(str(value.get(field, "")))
-                    if not (adapter / "adapter_config.json").is_file() or not any(
-                        (adapter / name).is_file()
-                        for name in ("adapter_model.safetensors", "adapter_model.bin")
-                    ):
-                        raise RuntimeError(f"{field}_missing_or_incomplete")
-            reusable[cell.key] = value
-        except (OSError, ValueError, TypeError, RuntimeError, json.JSONDecodeError) as exc:
-            rejected[cell.key] = f"{type(exc).__name__}: {exc}"
-    return reusable, rejected
+    return e8_runtime.reusable_cell_manifests(
+        output_root,
+        cells=build_cells(config),
+        experiment_id_value=experiment_id(config),
+        config_hash=stable_config_hash(config),
+        engineering_self_test=_is_engineering_self_test(config),
+        sha256_fn=sha256_file,
+    )
 
 
 def _recovery_stage_plan(
@@ -5978,106 +2461,22 @@ def _recovery_stage_plan(
     *,
     base_model_path: str,
 ) -> dict[str, Any]:
-    config = _effective_recovery_config(config, output_root)
-    prepare_error: str | None = None
-    calibration_error: str | None = None
-    liveness_error: str | None = None
-    try:
-        _load_prepared(output_root, config)
-        prepare_complete = True
-    except Exception as exc:  # noqa: BLE001 - fail-closed reason capture
-        prepare_complete = False
-        prepare_error = f"{type(exc).__name__}: {exc}"
-    if prepare_complete:
-        try:
-            _require_calibration_gate(config, output_root, base_model_path=base_model_path)
-            calibration_complete = True
-        except Exception as exc:  # noqa: BLE001 - fail-closed reason capture
-            calibration_complete = False
-            calibration_error = f"{type(exc).__name__}: {exc}"
-    else:
-        calibration_complete = False
-        calibration_error = "prepare_incomplete"
-    if calibration_complete:
-        try:
-            _require_liveness_gate(config, output_root, base_model_path=base_model_path)
-            liveness_complete = True
-        except Exception as exc:  # noqa: BLE001 - fail-closed reason capture
-            liveness_complete = False
-            liveness_error = f"{type(exc).__name__}: {exc}"
-    else:
-        liveness_complete = False
-        liveness_error = "calibration_incomplete"
-    reusable, rejected = _reusable_cell_manifests(config, output_root)
-    expected_cells = len(build_cells(config))
-    cells_complete = len(reusable) == expected_cells
-    aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
-    aggregate_complete = False
-    if aggregate_path.is_file():
-        try:
-            aggregate_complete = int(_read_json_object(aggregate_path).get("cell_count", 0)) == (
-                expected_cells
-            )
-        except (OSError, ValueError, TypeError, json.JSONDecodeError):
-            aggregate_complete = False
-    audit_path = output_root / "terminal_audit.json"
-    audit_complete = False
-    if audit_path.is_file():
-        try:
-            audit_complete = bool(
-                _read_json_object(audit_path).get("all_training_and_evaluation_complete")
-            )
-        except (OSError, ValueError, TypeError, json.JSONDecodeError):
-            audit_complete = False
-    finalized = False
-    complete_path = output_root / "RUN_COMPLETE.json"
-    if complete_path.is_file():
-        try:
-            finalized = bool(_read_json_object(complete_path).get("complete")) and audit_complete
-        except (OSError, ValueError, TypeError, json.JSONDecodeError):
-            finalized = False
-    if not prepare_complete:
-        next_stage = "prepare"
-    elif not calibration_complete:
-        next_stage = "calibrate"
-    elif not liveness_complete:
-        next_stage = "liveness"
-    elif not cells_complete:
-        next_stage = "run_queue"
-    elif not aggregate_complete:
-        next_stage = "aggregate"
-    elif not audit_complete:
-        next_stage = "audit"
-    elif not finalized:
-        next_stage = "finalize"
-    else:
-        next_stage = "delivery_preflight"
-    return {
-        "schema_version": RECOVERY_SNAPSHOT_SCHEMA_VERSION,
-        "experiment_id": experiment_id(config),
-        "config_hash": stable_config_hash(config),
-        "output_root": str(output_root.resolve()),
-        "prepare_complete": prepare_complete,
-        "prepare_error": prepare_error,
-        "calibration_complete": calibration_complete,
-        "calibration_error": calibration_error,
-        "liveness_complete": liveness_complete,
-        "liveness_error": liveness_error,
-        "expected_cells": expected_cells,
-        "reusable_completed_cells": len(reusable),
-        "reusable_cell_keys": sorted(reusable),
-        "rejected_cells": rejected,
-        "cells_complete": cells_complete,
-        "aggregate_complete": aggregate_complete,
-        "audit_complete": audit_complete,
-        "finalized": finalized,
-        "next_stage": next_stage,
-        "intra_cell_resume_supported": False,
-        "intra_cell_resume_reason": (
-            "locked canonical kernels do not persist complete optimizer, scheduler, RNG, "
-            "and dataloader state"
-        ),
-    }
+    effective = _effective_recovery_config(config, output_root)
+    reusable, rejected = _reusable_cell_manifests(effective, output_root)
+    return e8_runtime.recovery_stage_plan(
+        effective,
+        output_root,
+        base_model_path=base_model_path,
+        schema_version=RECOVERY_SNAPSHOT_SCHEMA_VERSION,
+        experiment_id_value=experiment_id(effective),
+        config_hash=stable_config_hash(effective),
+        expected_cells=len(build_cells(effective)),
+        reusable=reusable,
+        rejected=rejected,
+        load_prepared_fn=_load_prepared,
+        require_calibration_fn=_require_calibration_gate,
+        require_liveness_fn=_require_liveness_gate,
+    )
 
 
 def cmd_recovery_plan(
@@ -6091,26 +2490,6 @@ def cmd_recovery_plan(
     return plan
 
 
-def _hardlink_file(source: Path, destination: Path) -> None:
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        os.link(source, destination)
-    except OSError as exc:
-        raise RuntimeError(
-            "Recovery requires source and destination on one hard-link-capable persistent "
-            f"filesystem; could not link {source} -> {destination}: {exc}"
-        ) from exc
-
-
-def _replace_path_prefix(value: Any, source: str, destination: str) -> Any:
-    if isinstance(value, str) and (value == source or value.startswith(source + os.sep)):
-        return destination + value[len(source) :]
-    if isinstance(value, list):
-        return [_replace_path_prefix(item, source, destination) for item in value]
-    if isinstance(value, dict):
-        return {key: _replace_path_prefix(item, source, destination) for key, item in value.items()}
-    return value
-
 
 def cmd_import_recovery(
     config: Mapping[str, Any],
@@ -6120,127 +2499,21 @@ def cmd_import_recovery(
     base_model_path: str,
     source_commit: str,
 ) -> dict[str, Any]:
-    source_output_root = source_output_root.resolve()
-    output_root = output_root.resolve()
-    if source_output_root == output_root:
-        raise ValueError("Recovery source and destination must differ")
-    if not source_output_root.is_dir():
-        raise FileNotFoundError(f"Recovery source does not exist: {source_output_root}")
-    if output_root.exists() and any(output_root.iterdir()):
-        raise RuntimeError("Recovery destination must be new and empty")
-    if len(source_commit) != 40 or any(
-        character not in "0123456789abcdef" for character in source_commit
-    ):
-        raise ValueError("Recovery import requires one full lowercase source commit")
-    provenance = _read_json_object(source_output_root / "source_provenance.json")
-    if provenance.get("source_commit") != source_commit:
-        raise RuntimeError("Recovery source commit does not match the reviewed execution commit")
-    output_root.mkdir(parents=True, exist_ok=True)
-    effective = _effective_recovery_config(config, source_output_root)
-    source_plan = _recovery_stage_plan(
-        effective,
-        source_output_root,
+    return e8_runtime.import_recovery(
+        config,
+        output_root,
+        source_output_root=source_output_root,
         base_model_path=base_model_path,
+        source_commit=source_commit,
+        schema_version=RECOVERY_SNAPSHOT_SCHEMA_VERSION,
+        transient_top_level=RECOVERY_TRANSIENT_TOP_LEVEL,
+        transient_files=RECOVERY_TRANSIENT_FILES,
+        effective_config_fn=_effective_recovery_config,
+        recovery_stage_plan_fn=_recovery_stage_plan,
+        experiment_id_fn=experiment_id,
+        sha256_fn=sha256_file,
+        write_json=atomic_json,
     )
-    reusable = set(source_plan["reusable_cell_keys"]) if source_plan["prepare_complete"] else set()
-    source_text = str(source_output_root)
-    destination_text = str(output_root)
-    linked_files = 0
-    linked_bytes = 0
-    source_cell_hashes = {
-        key: sha256_file(source_output_root / "cells" / key / "cell_manifest.json")
-        for key in reusable
-    }
-    if source_plan["prepare_complete"]:
-        recovery_label = source_output_root.parent.name
-
-        def mapped_relative(relative: Path) -> Path | None:
-            if relative.parts[0] in RECOVERY_TRANSIENT_TOP_LEVEL:
-                return None
-            if len(relative.parts) == 1 and relative.name in RECOVERY_TRANSIENT_FILES:
-                return None
-            if relative.parts[0] == "cells" and (
-                len(relative.parts) < 2 or relative.parts[1] not in reusable
-            ):
-                return None
-            if relative.parts[0] == "liveness" and not source_plan["liveness_complete"]:
-                return None
-            if relative.parts[0] == "logs":
-                return Path("logs") / f"recovered_{recovery_label}" / Path(*relative.parts[1:])
-            return relative
-
-        for source in sorted(path for path in source_output_root.rglob("*") if path.is_dir()):
-            if source.is_symlink():
-                raise RuntimeError(f"Recovery refuses symbolic links: {source}")
-            relative = mapped_relative(source.relative_to(source_output_root))
-            if relative is not None:
-                (output_root / relative).mkdir(parents=True, exist_ok=True)
-        for source in sorted(source_output_root.rglob("*")):
-            if source.is_symlink():
-                raise RuntimeError(f"Recovery refuses symbolic links: {source}")
-            if not source.is_file():
-                continue
-            relative = mapped_relative(source.relative_to(source_output_root))
-            if relative is None:
-                continue
-            destination = output_root / relative
-            _hardlink_file(source, destination)
-            linked_files += 1
-            linked_bytes += source.stat().st_size
-        path_manifest_targets = (
-            output_root / "prepare_manifest.json",
-            output_root / "split_manifest.json",
-            output_root / "source_provenance.json",
-        )
-        for path in path_manifest_targets:
-            if not path.is_file():
-                continue
-            try:
-                value = _read_json_object(path)
-            except (OSError, ValueError, TypeError, json.JSONDecodeError):
-                continue
-            updated = _replace_path_prefix(value, source_text, destination_text)
-            if updated != value:
-                atomic_json(path, updated)
-        for key, source_hash in sorted(source_cell_hashes.items()):
-            manifest_path = output_root / "cells" / key / "cell_manifest.json"
-            value = _read_json_object(manifest_path)
-            value = _replace_path_prefix(value, source_text, destination_text)
-            value["recovery_provenance"] = {
-                "source_output_root": source_text,
-                "source_manifest_sha256": source_hash,
-                "import_mode": "identity_checked_hardlink",
-                "scientific_variables_changed": False,
-            }
-            atomic_json(manifest_path, value)
-    imported_cell_manifests = [
-        {
-            "cell_key": key,
-            "source_manifest_sha256": source_cell_hashes[key],
-            "imported_manifest_sha256": sha256_file(
-                output_root / "cells" / key / "cell_manifest.json"
-            ),
-        }
-        for key in sorted(reusable)
-    ]
-    import_manifest = {
-        "schema_version": RECOVERY_SNAPSHOT_SCHEMA_VERSION,
-        "experiment_id": experiment_id(effective),
-        "source_commit": source_commit,
-        "source_output_root": source_text,
-        "destination_output_root": destination_text,
-        "source_plan": source_plan,
-        "imported_reusable_cells": sorted(reusable),
-        "imported_cell_manifests": imported_cell_manifests,
-        "linked_files": linked_files,
-        "linked_bytes": linked_bytes,
-        "copy_mode": "hardlink_read_only_then_copy_on_atomic_json_rewrite",
-        "incomplete_cells_imported": False,
-        "scientific_variables_changed": False,
-        "complete": True,
-    }
-    atomic_json(output_root / "recovery" / "IMPORT_MANIFEST.json", import_manifest)
-    return import_manifest
 
 
 def _recovery_checkpoint_snapshot(
@@ -6251,62 +2524,21 @@ def _recovery_checkpoint_snapshot(
     source_commit: str,
 ) -> dict[str, Any]:
     reusable, rejected = _reusable_cell_manifests(config, output_root)
-    temporary = snapshot_root.with_name(f".{snapshot_root.name}.tmp-{os.getpid()}-{time.time_ns()}")
-    if temporary.exists():
-        shutil.rmtree(temporary)
-    (temporary / "logs").mkdir(parents=True)
-    (temporary / "cell_manifests").mkdir(parents=True)
-    cells: list[dict[str, Any]] = []
-    for key, manifest in sorted(reusable.items()):
-        source = output_root / "cells" / key / "cell_manifest.json"
-        destination = temporary / "cell_manifests" / f"{key}.json"
-        shutil.copy2(source, destination)
-        cells.append(
-            {
-                "cell_key": key,
-                "manifest_sha256": sha256_file(source),
-                "manifest_path": str(source.resolve()),
-                "canonical_output": manifest.get("canonical_output"),
-                "terminal_adapter": manifest.get("terminal_adapter"),
-            }
-        )
-    payload = {
-        "schema_version": RECOVERY_SNAPSHOT_SCHEMA_VERSION,
-        "experiment_id": experiment_id(config),
-        "base_commit": source_commit,
-        "config_hash": stable_config_hash(config),
-        "output_root": str(output_root.resolve()),
-        "expected_cells": len(build_cells(config)),
-        "completed_cells": len(cells),
-        "cells": cells,
-        "rejected_cells": rejected,
-        "recovery_semantics": "reuse complete identity-checked cells; rerun incomplete cells",
-        "intra_cell_resume_supported": False,
-        "scientific_status": "not_run" if _is_engineering_self_test(config) else "pilot",
-    }
-    atomic_json(temporary / "RECOVERY_SNAPSHOT.json", payload)
-    atomic_json(
-        temporary / "run_manifest.json",
-        {
-            "schema_version": 1,
-            "experiment_id": experiment_id(config),
-            "base_commit": source_commit,
-            "run_id": output_root.parent.name,
-            "execution_state": "checkpoint",
-            "artifact_state": "checkpoint",
-            "completed_cells": len(cells),
-            "expected_cells": len(build_cells(config)),
-            "scientific_status": payload["scientific_status"],
-        },
+    return e8_runtime.recovery_checkpoint_snapshot(
+        output_root,
+        snapshot_root,
+        source_commit=source_commit,
+        schema_version=RECOVERY_SNAPSHOT_SCHEMA_VERSION,
+        reusable=reusable,
+        rejected=rejected,
+        experiment_id_value=experiment_id(config),
+        config_hash=stable_config_hash(config),
+        expected_cells=len(build_cells(config)),
+        scientific_status=("not_run" if _is_engineering_self_test(config) else "pilot"),
+        sha256_fn=sha256_file,
+        write_json=atomic_json,
     )
-    (temporary / "logs" / "recovery_checkpoint.log").write_text(
-        f"completed_cells={len(cells)} expected_cells={len(build_cells(config))}\n",
-        encoding="utf-8",
-    )
-    if snapshot_root.exists():
-        shutil.rmtree(snapshot_root)
-    os.replace(temporary, snapshot_root)
-    return payload
+
 
 
 def _publish_recovery_checkpoint(
@@ -6317,7 +2549,9 @@ def _publish_recovery_checkpoint(
 ) -> dict[str, Any]:
     provenance = _read_json_object(output_root / "source_provenance.json")
     source_commit = str(provenance.get("source_commit", ""))
-    if len(source_commit) != 40 or any(char not in "0123456789abcdef" for char in source_commit):
+    if len(source_commit) != 40 or any(
+        char not in "0123456789abcdef" for char in source_commit
+    ):
         raise RuntimeError("Recovery checkpoint requires a full source commit")
     snapshot_root = package_output.parent / "snapshot"
     payload = _recovery_checkpoint_snapshot(
@@ -6326,176 +2560,29 @@ def _publish_recovery_checkpoint(
         snapshot_root,
         source_commit=source_commit,
     )
-    command = [
-        sys.executable,
-        str(_repo_root() / "scripts" / "package_experiment_hardened.py"),
-        "--repo-root",
-        str(_repo_root()),
-        "--experiment-id",
-        experiment_id(config),
-        "--package-kind",
-        "experiment-checkpoint",
-        "--result-dir",
-        str(snapshot_root),
-        "--output",
-        str(package_output),
-        "--base-commit",
-        source_commit,
-        "--no-repository-changes",
-        "--large-file-persistence",
-        "persistent_local",
-        "--source-file",
-        "scripts/run_e8_multitask_exp_coldstart.sh",
-        "--source-file",
-        "src/drpo/e8_multitask_exp_tuning.py",
-    ]
-    if os.environ.get("E8_COLDSTART_RECOVERY_REQUIRE_ORIGIN_MAIN") == "1":
-        command.append("--require-origin-main-match")
-    completed = subprocess.run(command, text=True, capture_output=True, check=False)
-    if completed.returncode != 0:
-        raise RuntimeError(
-            "Recovery checkpoint packaging failed: "
-            + (completed.stderr.strip() or completed.stdout.strip())
-        )
-    mirror_value = os.environ.get("E8_COLDSTART_RECOVERY_MIRROR", "").strip()
-    mirror_path: Path | None = None
-    if mirror_value:
-        mirror_root = Path(mirror_value).resolve()
-        mirror_root.mkdir(parents=True, exist_ok=True)
-        mirror_path = mirror_root / package_output.name
-        temporary = mirror_path.with_name(f".{mirror_path.name}.tmp-{os.getpid()}")
-        shutil.copy2(package_output, temporary)
-        if sha256_file(temporary) != sha256_file(package_output):
-            temporary.unlink(missing_ok=True)
-            raise RuntimeError("Recovery mirror copy failed checksum verification")
-        os.replace(temporary, mirror_path)
-    status = {
-        **payload,
-        "package": str(package_output.resolve()),
-        "package_sha256": sha256_file(package_output),
-        "mirror": str(mirror_path) if mirror_path else None,
-        "mirror_configured": mirror_path is not None,
-        "complete": True,
-    }
-    atomic_json(package_output.parent / "RECOVERY_CHECKPOINT_STATUS.json", status)
-    return status
+    return e8_runtime.publish_recovery_checkpoint(
+        payload=payload,
+        snapshot_root=snapshot_root,
+        package_output=package_output,
+        repo_root=_repo_root(),
+        experiment_id_value=experiment_id(config),
+        source_commit=source_commit,
+        require_origin_main_match=(
+            os.environ.get("E8_COLDSTART_RECOVERY_REQUIRE_ORIGIN_MAIN") == "1"
+        ),
+        mirror_value=os.environ.get("E8_COLDSTART_RECOVERY_MIRROR", ""),
+        sha256_fn=sha256_file,
+        write_json=atomic_json,
+    )
 
 
 def cmd_compact_logs(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
-    logs_root = output_root / "logs"
-    archive_root = output_root / "persistent_raw_archives"
-    archive = archive_root / "cell_and_stage_logs.tar.gz"
-    index_path = logs_root / "LOG_ARCHIVE_INDEX.json"
-    prepared_path = logs_root / "LOG_ARCHIVE_PREPARED.json"
-    if index_path.is_file() and archive.is_file():
-        value = _read_json_object(index_path)
-        if value.get("archive_sha256") == sha256_file(archive) and value.get("complete"):
-            return value
-    if prepared_path.is_file():
-        prepared = _read_json_object(prepared_path)
-        if (
-            not archive.is_file()
-            or prepared.get("archive_sha256") != sha256_file(archive)
-            or prepared.get("prepared") is not True
-        ):
-            raise RuntimeError("Prepared log archive transaction is missing or corrupt")
-        rows = list(prepared.get("members", ()))
-        if not rows or not all(isinstance(row, dict) for row in rows):
-            raise RuntimeError("Prepared log archive inventory is empty or invalid")
-    else:
-        log_files = [
-            path
-            for path in sorted(logs_root.rglob("*"))
-            if path.is_file()
-            and path not in {index_path, prepared_path}
-            and "tails" not in path.relative_to(logs_root).parts
-            and not path.is_symlink()
-        ]
-        if not log_files:
-            raise RuntimeError("No logs are available for transactional compaction")
-        archive_root.mkdir(parents=True, exist_ok=True)
-        temporary = archive.with_name(f".{archive.name}.tmp-{os.getpid()}")
-        rows = []
-        with tarfile.open(temporary, "w:gz") as handle:
-            for path in log_files:
-                relative = path.relative_to(logs_root)
-                rows.append(
-                    {
-                        "path": relative.as_posix(),
-                        "size_bytes": path.stat().st_size,
-                        "sha256": sha256_file(path),
-                    }
-                )
-                handle.add(path, arcname=relative.as_posix(), recursive=False)
-        os.replace(temporary, archive)
-        with tarfile.open(archive, "r:gz") as handle:
-            members = {member.name: member for member in handle.getmembers()}
-            for row in rows:
-                name = str(row["path"])
-                member = members.get(name)
-                extracted = handle.extractfile(member) if member is not None else None
-                if member is None or not member.isfile() or extracted is None:
-                    raise RuntimeError(f"Log archive member is missing or invalid: {name}")
-                digest = hashlib.sha256()
-                size = 0
-                while chunk := extracted.read(1024 * 1024):
-                    digest.update(chunk)
-                    size += len(chunk)
-                if size != row["size_bytes"] or digest.hexdigest() != row["sha256"]:
-                    raise RuntimeError(f"Log archive member verification failed: {name}")
-        tails_root = logs_root / "tails"
-        for path in log_files:
-            relative = path.relative_to(logs_root)
-            tail = tails_root / relative
-            tail.parent.mkdir(parents=True, exist_ok=True)
-            with path.open("rb") as source:
-                size = path.stat().st_size
-                if size > 65536:
-                    source.seek(-65536, os.SEEK_END)
-                tail.write_bytes(source.read())
-        prepared = {
-            "schema_version": 1,
-            "experiment_id": experiment_id(config),
-            "archive": str(archive.resolve()),
-            "archive_sha256": sha256_file(archive),
-            "members": rows,
-            "prepared": True,
-        }
-        atomic_json(prepared_path, prepared)
-    for row in rows:
-        relative = Path(str(row.get("path", "")))
-        if (
-            not relative.parts
-            or relative.is_absolute()
-            or ".." in relative.parts
-            or "tails" in relative.parts
-        ):
-            raise RuntimeError(f"Unsafe prepared log path: {relative}")
-        path = logs_root / relative
-        tail = logs_root / "tails" / relative
-        if not tail.is_file():
-            raise RuntimeError(f"Prepared log tail is missing: {tail}")
-        if path.is_file():
-            if path.stat().st_size != int(row.get("size_bytes", -1)) or sha256_file(
-                path
-            ) != row.get("sha256"):
-                raise RuntimeError(f"Log changed during compaction transaction: {path}")
-            path.unlink()
-    value = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "archive": str(archive.resolve()),
-        "archive_size_bytes": archive.stat().st_size,
-        "archive_sha256": sha256_file(archive),
-        "members": rows,
-        "tail_bytes_per_log": 65536,
-        "raw_logs_persist_locally": True,
-        "transactionally_resumable": True,
-        "complete": True,
-    }
-    atomic_json(index_path, value)
-    prepared_path.unlink(missing_ok=True)
-    return value
+    return e8_runtime.compact_logs(
+        output_root,
+        experiment_id_value=experiment_id(config),
+        sha256_fn=sha256_file,
+        write_json=atomic_json,
+    )
 
 
 def _run_subprocess_cell(
@@ -6588,7 +2675,7 @@ def _require_calibration_gate(
                 config=config,
             )
             if _is_coldstart(config)
-            else _calibration_identity(
+            else e8_warmstart._calibration_identity(
                 task,
                 inputs=inputs[task],
                 split_manifest=splits,
@@ -6664,6 +2751,7 @@ def _require_liveness_gate(
         raise RuntimeError(f"Missing method-specific cold-start liveness gates: {missing}")
 
 
+
 def cmd_run_wave(
     config: Mapping[str, Any],
     config_path: Path,
@@ -6674,7 +2762,9 @@ def cmd_run_wave(
     force: bool,
 ) -> dict[str, Any]:
     if _is_coldstart(config):
-        raise RuntimeError("Cold-start has no wave barriers; use run-all dynamic scheduling")
+        raise RuntimeError(
+            "Cold-start has no wave barriers; use run-all dynamic scheduling"
+        )
     _require_calibration_gate(
         config,
         output_root,
@@ -6688,43 +2778,26 @@ def cmd_run_wave(
     waves = build_waves(config)
     if not 1 <= wave_index <= len(waves):
         raise ValueError(f"wave must be in [1,{len(waves)}]")
-    wave = waves[wave_index - 1]
-    gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
-    slots_per_gpu = int(config["execution"]["slots_per_gpu"])
-    if len(wave) > len(gpu_ids) * slots_per_gpu:
-        raise RuntimeError("Wave exceeds declared GPU slot capacity")
-    results: list[dict[str, Any]] = []
-    with ThreadPoolExecutor(max_workers=len(wave)) as executor:
-        futures = {
-            executor.submit(
-                _run_subprocess_cell,
-                config_path=config_path.resolve(),
-                output_root=output_root.resolve(),
-                base_model_path=base_model_path,
-                cell=cell,
-                gpu_id=gpu_ids[index % len(gpu_ids)],
-                force=force,
-            ): cell
-            for index, cell in enumerate(wave)
-        }
-        for future in as_completed(futures):
-            results.append(future.result())
-    results.sort(key=lambda row: str(row["cell_key"]))
-    failures = [row for row in results if int(row["returncode"]) != 0]
-    manifest = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "wave": wave_index,
-        "expected_cells": len(wave),
-        "results": results,
-        "failed_cells": [row["cell_key"] for row in failures],
-        "complete": not failures and len(results) == len(wave),
-        "scientific_status": "pilot",
-    }
-    atomic_json(output_root / "waves" / f"wave_{wave_index:02d}.json", manifest)
-    if failures:
-        raise RuntimeError(f"Wave {wave_index} failed cells: {manifest['failed_cells']}")
-    return manifest
+    gpu_ids = tuple(
+        int(value) for value in config["execution"]["gpu_ids"]
+    )
+    return e8_orchestration.run_wave(
+        waves[wave_index - 1],
+        wave_index=wave_index,
+        gpu_ids=gpu_ids,
+        slots_per_gpu=int(config["execution"]["slots_per_gpu"]),
+        experiment_id_value=experiment_id(config),
+        run_cell=lambda cell, gpu_id: _run_subprocess_cell(
+            config_path=config_path.resolve(),
+            output_root=output_root.resolve(),
+            base_model_path=base_model_path,
+            cell=cell,
+            gpu_id=gpu_id,
+            force=force,
+        ),
+        write_json=atomic_json,
+        manifest_path=output_root / "waves" / f"wave_{wave_index:02d}.json",
+    )
 
 
 def _countdown_protocol_diagnostic(
@@ -6797,260 +2870,47 @@ def cmd_run_dynamic(
     """Run the cold-start plan through method-agnostic slot scheduling."""
 
     if not _is_coldstart(config):
-        raise RuntimeError("Dynamic scheduling is frozen for the cold-start profile only")
-    _require_calibration_gate(config, output_root, base_model_path=base_model_path)
-    _require_liveness_gate(config, output_root, base_model_path=base_model_path)
-    cells = build_cells(config)
-    gpu_ids = tuple(int(value) for value in config["execution"]["gpu_ids"])
-    slots_per_gpu = int(config["execution"]["slots_per_gpu"])
-    seed_barrier = _is_method_matrix(config) and bool(
-        config["execution"].get("seed_batch_barriers")
-    )
-    seed_order = (
-        tuple(int(value) for value in config["execution"].get("seed_batch_order", ()))
-        if seed_barrier
-        else None
-    )
-    geometry = e8_orchestration.execution_geometry(
-        cells,
-        gpu_ids=gpu_ids,
-        slots_per_gpu=slots_per_gpu,
-        max_concurrent_cells=int(config["execution"]["max_concurrent_cells"]),
-        seed_barrier=seed_barrier,
-        seed_order=seed_order,
-    )
-    if geometry.slot_count != 16:
-        raise RuntimeError("Declared 16-slot capacity is internally inconsistent")
-
-    nominal_batch = {
-        cell.key: index
-        for index, wave in enumerate(build_waves(config), 1)
-        for cell in wave
-    }
-    event_path = output_root / "scheduler" / "queue_events.jsonl"
-    event_path.parent.mkdir(parents=True, exist_ok=True)
-    scheduler_run_id = f"queue-{int(time.time())}-{os.getpid()}"
-    task_result_lock = threading.Lock()
-    checkpoint_lock = threading.Lock()
-    task_results: dict[str, dict[str, Any]] = {}
-    recovery_package_value = os.environ.get(
-        "E8_COLDSTART_RECOVERY_PACKAGE", ""
-    ).strip()
-    recovery_package = (
-        Path(recovery_package_value).resolve() if recovery_package_value else None
-    )
-    recovery_interval = int(
-        os.environ.get("E8_COLDSTART_RECOVERY_INTERVAL_CELLS", "5")
-    )
-    if recovery_interval <= 0:
-        raise ValueError("E8_COLDSTART_RECOVERY_INTERVAL_CELLS must be positive")
-    initially_reusable, _ = _reusable_cell_manifests(config, output_root)
-    last_checkpoint_count = (
-        len(initially_reusable) // recovery_interval
-    ) * recovery_interval
-
-    def record(event: Mapping[str, Any]) -> None:
-        append_jsonl(
-            event_path,
-            {
-                "scheduler_run_id": scheduler_run_id,
-                **dict(event),
-                "unix_time": time.time(),
-            },
-        )
-
-    def publish_completed_task(task: str) -> None:
-        with task_result_lock:
-            if task in task_results:
-                return
-            rows = _coldstart_completed_task_rows(config, output_root, task)
-            if rows is not None:
-                task_results[task] = _write_coldstart_task_result(
-                    config, output_root, task, rows
-                )
-
-    def run_cell(cell: Cell, slot: int, gpu_id: int) -> Mapping[str, Any]:
-        del slot
-        cell_root = output_root / "cells" / cell.key
-        manifest_path = cell_root / "cell_manifest.json"
-        reusable_complete = False
-        if manifest_path.is_file():
-            try:
-                reusable_complete = bool(
-                    json.loads(manifest_path.read_text(encoding="utf-8")).get(
-                        "complete"
-                    )
-                )
-            except (OSError, json.JSONDecodeError):
-                reusable_complete = False
-        child_force = force or (
-            retry_incomplete and cell_root.exists() and not reusable_complete
-        )
-        result = _run_subprocess_cell(
-            config_path=config_path.resolve(),
-            output_root=output_root.resolve(),
-            base_model_path=base_model_path,
-            cell=cell,
-            gpu_id=gpu_id,
-            force=child_force,
-        )
-        if int(result["returncode"]) == 0:
-            try:
-                completed_manifest = _read_json_object(manifest_path)
-                if (
-                    completed_manifest.get("complete") is not True
-                    or completed_manifest.get("evaluation_status") != "complete"
-                    or completed_manifest.get("nan_inf_failure") is not False
-                ):
-                    raise RuntimeError(
-                        "child returned zero without a complete finite cell"
-                    )
-            except (
-                OSError,
-                ValueError,
-                TypeError,
-                RuntimeError,
-                json.JSONDecodeError,
-            ) as exc:
-                result["returncode"] = 75
-                result["cell_completion_error"] = (
-                    f"{type(exc).__name__}: {exc}"
-                )
-        result["nominal_batch"] = nominal_batch[cell.key]
-        return result
-
-    def after_success(cell: Cell, row: Mapping[str, Any]) -> None:
-        nonlocal last_checkpoint_count
-        mutable = row if isinstance(row, dict) else dict(row)
-        if recovery_package is not None:
-            try:
-                with checkpoint_lock:
-                    current_reusable, _ = _reusable_cell_manifests(
-                        config, output_root
-                    )
-                    completed_count = len(current_reusable)
-                    if completed_count >= last_checkpoint_count + recovery_interval:
-                        checkpoint = _publish_recovery_checkpoint(
-                            config,
-                            output_root,
-                            package_output=recovery_package,
-                        )
-                        last_checkpoint_count = int(
-                            checkpoint["completed_cells"]
-                        )
-                        mutable["recovery_checkpoint"] = checkpoint["package"]
-                        mutable["recovery_checkpoint_completed_cells"] = (
-                            last_checkpoint_count
-                        )
-            except Exception:
-                mutable["returncode"] = 74
-                raise
-        publish_completed_task(cell.task)
-
-    results = list(
-        e8_orchestration.run_dynamic_queue(
-            cells,
-            gpu_ids=gpu_ids,
-            slots_per_gpu=slots_per_gpu,
-            max_concurrent_cells=geometry.slot_count,
-            seed_barrier=seed_barrier,
-            seed_order=seed_order,
-            callbacks=e8_orchestration.SchedulerCallbacks(
-                run_cell=run_cell,
-                record_event=record,
-                after_success=after_success,
-            ),
-        )
-    )
-    results.sort(key=lambda row: str(row["cell_key"]))
-    failures = [row for row in results if int(row["returncode"]) != 0]
-    returned_keys = {str(row["cell_key"]) for row in results}
-    completed_keys = {
-        str(row["cell_key"])
-        for row in results
-        if int(row["returncode"]) == 0
-    }
-    unscheduled = [cell.key for cell in cells if cell.key not in returned_keys]
-    seed_expected = dict(geometry.expected_cells_by_seed) if seed_barrier else {}
-    seed_completed = (
-        {
-            seed: sum(
-                int(row["returncode"]) == 0 and int(row["seed"]) == seed
-                for row in results
-            )
-            for seed in geometry.seed_order
-        }
-        if seed_barrier
-        else {}
-    )
-    protocol_diagnostic = (
-        _countdown_protocol_diagnostic(
-            config,
-            output_root,
-            destination=(
-                output_root
-                / "scheduler"
-                / "countdown_protocol_diagnostic.json"
-            ),
-        )
-        if not failures and not unscheduled
-        else {
-            "status": "PENDING",
-            "result_gate": False,
-            "controls_task_transfer_release": False,
-        }
-    )
-    manifest = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "scheduler": "dynamic_slot_queue",
-        "scheduler_run_id": scheduler_run_id,
-        "wave_barriers": False,
-        "wave_count": len(build_waves(config)),
-        "wave_count_role": (
-            "seed_local_nominal_capacity_audit_only"
-            if seed_barrier
-            else "nominal_audit_geometry_only_not_scheduling_barrier"
-        ),
-        "seed_batch_barriers": seed_barrier,
-        "seed_batch_order": list(geometry.seed_order) if seed_barrier else [],
-        "seed_batch_expected_cells": {
-            str(key): value for key, value in seed_expected.items()
-        },
-        "seed_batch_completed_cells": {
-            str(key): value for key, value in seed_completed.items()
-        },
-        "execution_class": _execution_class(config),
-        "slot_count": geometry.slot_count,
-        "gpu_ids": list(gpu_ids),
-        "slots_per_gpu": slots_per_gpu,
-        "countdown_protocol_diagnostic": protocol_diagnostic,
-        "countdown_result_controls_transfer_release": False,
-        "expected_cells": len(cells),
-        "completed_cells": len(completed_keys),
-        "results": results,
-        "failed_cells": [row["cell_key"] for row in failures],
-        "unscheduled_cells": unscheduled,
-        "queue_events": str(event_path.resolve()),
-        "analysis_ready_tasks": sorted(task_results),
-        "task_results": task_results,
-        "complete": (
-            not failures
-            and not unscheduled
-            and len(completed_keys) == len(cells)
-        ),
-        "scientific_status": (
-            "not_run" if _is_engineering_self_test(config) else "pilot"
-        ),
-        "engineering_placeholder_backend": _is_engineering_self_test(config),
-    }
-    atomic_json(output_root / "scheduler" / "dynamic_run.json", manifest)
-    if failures or unscheduled:
         raise RuntimeError(
-            "Cold-start scheduling stopped fail-closed; "
-            f"failed={manifest['failed_cells']} unscheduled={len(unscheduled)}"
+            "Dynamic scheduling is frozen for the cold-start profile only"
         )
-    return manifest
+    _require_calibration_gate(
+        config,
+        output_root,
+        base_model_path=base_model_path,
+    )
+    _require_liveness_gate(
+        config,
+        output_root,
+        base_model_path=base_model_path,
+    )
+    return e8_orchestration.cmd_run_dynamic(
+        config,
+        config_path,
+        output_root,
+        base_model_path=base_model_path,
+        force=force,
+        retry_incomplete=retry_incomplete,
+        bindings=e8_orchestration.DynamicCommandBindings(
+            build_cells=build_cells,
+            build_waves=build_waves,
+            experiment_id=experiment_id,
+            execution_class=_execution_class,
+            engineering_self_test=_is_engineering_self_test,
+            method_matrix=_is_method_matrix,
+            reusable_cell_manifests=_reusable_cell_manifests,
+            run_subprocess_cell=_run_subprocess_cell,
+            read_json_object=_read_json_object,
+            materialize_task_results=(
+                _materialize_completed_coldstart_task_results
+            ),
+            publish_recovery_checkpoint=_publish_recovery_checkpoint,
+            protocol_diagnostic=_countdown_protocol_diagnostic,
+            append_jsonl=append_jsonl,
+            write_json=atomic_json,
+        ),
+    )
+
+
 
 
 def cmd_run_all(
@@ -7071,49 +2931,20 @@ def cmd_run_all(
             force=force,
             retry_incomplete=retry_incomplete,
         )
-    results = []
-    for wave_index in range(1, int(config["execution"]["expected_waves"]) + 1):
-        results.append(
-            cmd_run_wave(
-                config,
-                config_path,
-                output_root,
-                wave_index=wave_index,
-                base_model_path=base_model_path,
-                force=force,
-            )
-        )
-    manifest = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "waves": results,
-        "complete": all(result["complete"] for result in results),
-        "scientific_status": "pilot",
-    }
-    atomic_json(output_root / "waves" / "all_waves.json", manifest)
-    return manifest
-
-
-def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
-    e8_results.write_csv(path, rows)
-
-
-def _coldstart_result_row(
-    config: Mapping[str, Any],
-    cell: Cell,
-    value: Mapping[str, Any],
-    *,
-    source: str,
-) -> dict[str, Any]:
-    return e8_results._coldstart_result_row(
-        cell,
-        value,
-        source=source,
-        method_columns=_method_output_columns(cell),
-        require_late_window_metrics=not _is_engineering_self_test(config),
+    return e8_orchestration.run_all_waves(
+        wave_count=int(config["execution"]["expected_waves"]),
+        experiment_id_value=experiment_id(config),
+        run_wave_fn=lambda wave_index: cmd_run_wave(
+            config,
+            config_path,
+            output_root,
+            wave_index=wave_index,
+            base_model_path=base_model_path,
+            force=force,
+        ),
+        write_json=atomic_json,
+        manifest_path=output_root / "waves" / "all_waves.json",
     )
-
-
 
 
 def _coldstart_completed_task_rows(
@@ -7121,101 +2952,61 @@ def _coldstart_completed_task_rows(
     output_root: Path,
     task: str,
 ) -> list[dict[str, Any]] | None:
-    """Return task-local response rows once every frozen cell for the task is complete."""
-
     if not _is_coldstart(config):
-        raise RuntimeError("Per-task early result materialization is cold-start only")
-    expected = [cell for cell in build_cells(config) if cell.task == task]
-    if not expected:
-        return None
-    expected_hash = stable_config_hash(config)
-    rows: list[dict[str, Any]] = []
-    for cell in expected:
-        path = output_root / "cells" / cell.key / "cell_manifest.json"
-        if not path.is_file():
-            return None
-        value = json.loads(path.read_text(encoding="utf-8"))
-        if value.get("complete") is not True or value.get("evaluation_status") != "complete":
-            return None
-        if (
-            value.get("experiment_id") != experiment_id(config)
-            or value.get("config_hash") != expected_hash
-        ):
-            raise RuntimeError(f"{cell.key} per-task result identity mismatch")
-        rows.append(
-            _coldstart_result_row(config, cell, value, source="current")
+        raise RuntimeError(
+            "Per-task early result materialization is cold-start only"
         )
-    return rows
-
-
-def _write_coldstart_task_result(
-    config: Mapping[str, Any],
-    output_root: Path,
-    task: str,
-    rows: list[dict[str, Any]],
-) -> dict[str, Any]:
-    configured_cells = build_cells(config)
-    return e8_results._write_coldstart_task_result(
-        config,
+    expected = [
+        cell for cell in build_cells(config) if cell.task == task
+    ]
+    return e8_results.coldstart_completed_task_rows(
         output_root,
-        task,
-        rows,
-        configured_cells=configured_cells,
-        method_specs={cell.method: _method_spec(cell.method) for cell in configured_cells},
+        expected_cells=expected,
         experiment_id_value=experiment_id(config),
         config_hash=stable_config_hash(config),
-        engineering_self_test=_is_engineering_self_test(config),
-        write_json=atomic_json,
-        sha256_fn=sha256_file,
+        result_row_fn=lambda cell, value: e8_results._coldstart_result_row(
+            cell,
+            value,
+            source="current",
+            method_columns=_method_output_columns(cell),
+            require_late_window_metrics=not _is_engineering_self_test(config),
+        ),
     )
-
 
 
 def _materialize_completed_coldstart_task_results(
     config: Mapping[str, Any],
     output_root: Path,
+    *,
+    tasks: Sequence[str] | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """Publish every fully complete task independently of nominal-batch boundaries."""
-
-    ready: dict[str, dict[str, Any]] = {}
-    for task_value in config["suite"]["tasks"]:
-        task = str(task_value)
-        rows = _coldstart_completed_task_rows(config, output_root, task)
-        if rows is None:
-            continue
-        ready[task] = _write_coldstart_task_result(config, output_root, task, rows)
-    return ready
-
-
-def _aggregate_dense(
-    config: Mapping[str, Any],
-    output_root: Path,
-    rows: list[dict[str, Any]],
-) -> dict[str, Any]:
-    return e8_results._aggregate_dense(
-        config,
-        output_root,
-        rows,
-        experiment_id_value=experiment_id(config),
-        config_hash=stable_config_hash(config),
-        task_lambdas_fn=_task_lambdas,
-        positive_only_method=METHOD_POSITIVE_ONLY,
-        exponential_method=METHOD_EXPONENTIAL,
-        write_json=atomic_json,
+    task_values = (
+        tuple(str(value) for value in config["suite"]["tasks"])
+        if tasks is None
+        else tuple(str(value) for value in tasks)
     )
-
-
-
-_coldstart_plot_metrics = e8_results._coldstart_plot_metrics
-
-
-
-_coldstart_group_metrics = e8_results._coldstart_group_metrics
-
-
-
-_coldstart_run_provenance = e8_results._coldstart_run_provenance
-
+    return e8_results.materialize_completed_task_results(
+        task_values,
+        completed_rows_fn=lambda task: _coldstart_completed_task_rows(
+            config, output_root, task
+        ),
+        write_task_result_fn=lambda task, rows: e8_results._write_coldstart_task_result(
+            config,
+            output_root,
+            task,
+            rows,
+            configured_cells=build_cells(config),
+            method_specs={
+                cell.method: _method_spec(cell.method)
+                for cell in build_cells(config)
+            },
+            experiment_id_value=experiment_id(config),
+            config_hash=stable_config_hash(config),
+            engineering_self_test=_is_engineering_self_test(config),
+            write_json=atomic_json,
+            sha256_fn=sha256_file,
+        ),
+    )
 
 
 def _coldstart_method_grouped_curve(
@@ -7233,32 +3024,6 @@ def _coldstart_method_grouped_curve(
         parameter_fn=_method_spec(method).parameters,
     )
 
-
-
-def _aggregate_coldstart_unranked(
-    config: Mapping[str, Any],
-    output_root: Path,
-    rows: list[dict[str, Any]],
-) -> dict[str, Any]:
-    method = _coldstart_method(config)
-    protocol_diagnostic = _countdown_protocol_diagnostic(
-        config,
-        output_root,
-        destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
-    )
-    return e8_results._aggregate_coldstart_unranked(
-        config,
-        output_root,
-        rows,
-        spec=_method_spec(method),
-        configured_cells=build_cells(config),
-        experiment_id_value=experiment_id(config),
-        protocol_diagnostic=protocol_diagnostic,
-        engineering_self_test=_is_engineering_self_test(config),
-        positive_only_method=METHOD_POSITIVE_ONLY,
-        global_method=METHOD_GLOBAL,
-        write_json=atomic_json,
-    )
 
 
 def _aggregate_coldstart_matrix_unranked(
@@ -7290,20 +3055,40 @@ def _aggregate_coldstart_matrix_unranked(
 
 
 
+
 def _aggregate_coldstart(
     config: Mapping[str, Any],
     output_root: Path,
     rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    method = _coldstart_method(config)
     if _is_method_matrix(config):
-        return _aggregate_coldstart_matrix_unranked(config, output_root, rows)
-    if _coldstart_method(config) != METHOD_EXPONENTIAL:
-        return _aggregate_coldstart_unranked(config, output_root, rows)
+        return _aggregate_coldstart_matrix_unranked(
+            config, output_root, rows
+        )
     protocol_diagnostic = _countdown_protocol_diagnostic(
         config,
         output_root,
-        destination=output_root / "aggregate" / "countdown_protocol_diagnostic.json",
+        destination=(
+            output_root
+            / "aggregate"
+            / "countdown_protocol_diagnostic.json"
+        ),
     )
+    if method != METHOD_EXPONENTIAL:
+        return e8_results._aggregate_coldstart_unranked(
+            config,
+            output_root,
+            rows,
+            spec=_method_spec(method),
+            configured_cells=build_cells(config),
+            experiment_id_value=experiment_id(config),
+            protocol_diagnostic=protocol_diagnostic,
+            engineering_self_test=_is_engineering_self_test(config),
+            positive_only_method=METHOD_POSITIVE_ONLY,
+            global_method=METHOD_GLOBAL,
+            write_json=atomic_json,
+        )
     return e8_results._aggregate_coldstart_exponential(
         config,
         output_root,
@@ -7319,295 +3104,93 @@ def _aggregate_coldstart(
     )
 
 
-
 def cmd_aggregate(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
     cells = build_cells(config)
-    rows: list[dict[str, Any]] = []
-    missing: list[str] = []
-    for cell in cells:
-        path = output_root / "cells" / cell.key / "cell_manifest.json"
-        if not path.is_file():
-            missing.append(cell.key)
-            continue
-        value = json.loads(path.read_text(encoding="utf-8"))
-        if not value.get("complete") or value.get("evaluation_status") != "complete":
-            missing.append(cell.key)
-            continue
-        source = "dense" if _is_dense(config) else "current"
-        if _is_coldstart(config):
-            rows.append(_coldstart_result_row(config, cell, value, source=source))
-            continue
-        common = {
-            "source": source,
-            "task": cell.task,
-            "method": cell.method,
-            "delta_v": cell.delta_v,
-            "beta": cell.beta,
-            "dpo_initialization": cell.dpo_initialization,
-            "rho": cell.rho,
-            "lambda": (
-                cell.lambda_value
-                if cell.lambda_value is not None
-                else (None if cell.rho is None else coefficient_from_rho(cell.rho))
-            ),
-            "seed": cell.seed,
-            "stage": cell.stage,
-            "cell_key": cell.key,
-            "nan_inf_failure": bool(value["nan_inf_failure"]),
-            "late_window_pass8_mean": value["validation_late_window_pass8_mean"],
-            "terminal_pass8": value["validation_terminal_pass8"],
-            "late_window_greedy_mean": value["validation_late_window_greedy_mean"],
-            "terminal_greedy": value["validation_terminal_greedy"],
-            "terminal_greedy_valid_rate": value["validation_terminal_greedy_valid_rate"],
-        }
-        rows.append(common)
-    if missing:
-        raise RuntimeError(f"Cannot aggregate; missing/incomplete cells: {missing}")
-    _write_csv(output_root / "aggregate" / "all_cells.csv", rows)
-    if _is_coldstart(config):
-        return _aggregate_coldstart(config, output_root, rows)
-    if _is_dense(config):
-        return _aggregate_dense(config, output_root, rows)
-
-    task_summaries: dict[str, Any] = {}
-    selected_rows: list[dict[str, Any]] = []
-    minimum_valid = float(config["selection"]["terminal_valid_rate_minimum"])
-    boundary_rho = float(config["selection"]["boundary_rho"])
-    for task_value in config["suite"]["tasks"]:
-        task = str(task_value)
-        task_rows = [row for row in rows if row["task"] == task]
-        positive_rows = [row for row in task_rows if row["method"] == METHOD_POSITIVE_ONLY]
-        exp_rows = [row for row in task_rows if row["method"] == METHOD_EXPONENTIAL]
-        if len(positive_rows) != 1 or len(exp_rows) != 7:
-            raise RuntimeError(f"{task} does not contain one Positive-only and seven Exp cells")
-        eligible = [
-            row
-            for row in exp_rows
-            if not row["nan_inf_failure"]
-            and float(row["terminal_greedy_valid_rate"]) >= minimum_valid
-        ]
-        selected = (
-            max(
-                eligible,
-                key=lambda row: (
-                    float(row["late_window_pass8_mean"]),
-                    float(row["terminal_pass8"]),
-                    float(row["late_window_greedy_mean"]),
-                    float(row["terminal_greedy"]),
-                    float(row["rho"]),
-                ),
+    return e8_results.cmd_aggregate(
+        config,
+        output_root,
+        cells=cells,
+        experiment_id_value=experiment_id(config),
+        dense_profile=_is_dense(config),
+        coldstart_profile=_is_coldstart(config),
+        method_columns_fn=_method_output_columns,
+        coldstart_result_row_fn=lambda cell, value, source: (
+            e8_results._coldstart_result_row(
+                cell,
+                value,
+                source=source,
+                method_columns=_method_output_columns(cell),
+                require_late_window_metrics=not _is_engineering_self_test(config),
             )
-            if eligible
-            else None
-        )
-        positive = positive_rows[0]
-        best_observed = max(exp_rows, key=lambda row: float(row["late_window_pass8_mean"]))
-        summary = {
-            "task": task,
-            "positive_only": positive,
-            "eligible_exp_count": len(eligible),
-            "selected_exp": selected,
-            "all_exp_below_positive_only": float(best_observed["late_window_pass8_mean"])
-            < float(positive["late_window_pass8_mean"]),
-            "strong_taper_boundary_unclosed": bool(
-                selected is not None and math.isclose(float(selected["rho"]), boundary_rho)
-            ),
-            "selection_metric": config["selection"]["primary_metric"],
-        }
-        task_summaries[task] = summary
-        selected_rows.append(
-            {
-                "task": task,
-                "selected_rho": None if selected is None else selected["rho"],
-                "selected_late_window_pass8_mean": (
-                    None if selected is None else selected["late_window_pass8_mean"]
-                ),
-                "positive_only_late_window_pass8_mean": positive["late_window_pass8_mean"],
-                "all_exp_below_positive_only": summary["all_exp_below_positive_only"],
-                "strong_taper_boundary_unclosed": summary["strong_taper_boundary_unclosed"],
-            }
-        )
-    _write_csv(output_root / "aggregate" / "selected_exp_by_task.csv", selected_rows)
-    summary = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "cell_count": len(rows),
-        "tasks": task_summaries,
-        "test_partition_accessed": False,
-        "task_performance_reported_separately": True,
-        "structure_diagnostic_reported_separately": True,
-        "nan_inf_reported_separately": True,
-        "fixed_horizon_is_convergence": False,
-        "scientific_status": "pilot",
-        "claim_boundary": (
-            "Development hyperparameter response only; no significance, convergence, "
-            "cross-task method ranking, or categorical causal-identification claim."
         ),
-    }
-    atomic_json(output_root / "aggregate" / "aggregate_summary.json", summary)
-    return summary
+        coldstart_aggregate_fn=lambda rows: _aggregate_coldstart(
+            config, output_root, rows
+        ),
+        dense_aggregate_fn=lambda rows: e8_results._aggregate_dense(
+            config,
+            output_root,
+            rows,
+            experiment_id_value=experiment_id(config),
+            config_hash=stable_config_hash(config),
+            task_lambdas_fn=_task_lambdas,
+            positive_only_method=METHOD_POSITIVE_ONLY,
+            exponential_method=METHOD_EXPONENTIAL,
+            write_json=atomic_json,
+        ),
+        positive_only_method=METHOD_POSITIVE_ONLY,
+        exponential_method=METHOD_EXPONENTIAL,
+        write_json=atomic_json,
+    )
 
 
 def cmd_audit(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]:
-    provenance_path = output_root / "source_provenance.json"
-    if not provenance_path.is_file():
-        raise RuntimeError("source_provenance.json is required before terminal audit")
-    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
-    base_commit = str(provenance.get("source_commit", ""))
-    if len(base_commit) != 40 or any(char not in "0123456789abcdef" for char in base_commit):
-        raise RuntimeError("source_provenance.json must contain one full lowercase Git SHA")
     cells = build_cells(config)
-    missing: list[str] = []
-    incomplete: list[str] = []
-    nan_inf: list[str] = []
-    terminal_contract_failures: list[str] = []
-    dpo_reference_identity_failures: list[str] = []
-    expected_terminal_step = int(config["training"]["optimizer_updates"])
-    for cell in cells:
-        cell_root = output_root / "cells" / cell.key
-        path = cell_root / "cell_manifest.json"
-        if not path.is_file():
-            failure_path = cell_root / "failure.json"
-            if failure_path.is_file():
-                failure = json.loads(failure_path.read_text(encoding="utf-8"))
-                incomplete.append(cell.key)
-                if failure.get("nan_inf_failure"):
-                    nan_inf.append(cell.key)
-            else:
-                missing.append(cell.key)
-            continue
-        value = json.loads(path.read_text(encoding="utf-8"))
-        if not value.get("complete") or value.get("evaluation_status") != "complete":
-            incomplete.append(cell.key)
-        if value.get("nan_inf_failure"):
-            nan_inf.append(cell.key)
-        if not _is_engineering_self_test(config):
-            if int(value.get("terminal_step", -1)) != expected_terminal_step or value.get("stop_reason") != "max_steps" or value.get("test_partition_accessed") is not False:
-                terminal_contract_failures.append(cell.key)
-            method_audit = _method_spec(cell.method).audit_record(cell, value)
-            if not method_audit.passed:
-                bucket = method_audit.failure_bucket
-                if bucket == "dpo_reference_identity_failures":
-                    dpo_reference_identity_failures.append(cell.key)
-                else:
-                    terminal_contract_failures.append(cell.key)
-    inherited_complete = True
-    aggregate_complete = True
-    reproduction_gate_status: str | None = None
-    if _is_dense(config):
-        snapshot_path = output_root / "inherited" / "parent_snapshot.json"
-        aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
-        inherited_complete = snapshot_path.is_file() and bool(
-            json.loads(snapshot_path.read_text(encoding="utf-8")).get("complete")
-        )
-        aggregate_complete = aggregate_path.is_file() and int(
-            json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0)
-        ) == len(cells)
-    elif _is_coldstart(config):
-        aggregate_path = output_root / "aggregate" / "aggregate_summary.json"
-        protocol_path = output_root / "aggregate" / "countdown_protocol_diagnostic.json"
-        if protocol_path.is_file():
-            reproduction_gate_status = str(
-                json.loads(protocol_path.read_text(encoding="utf-8")).get("status")
-            )
-        expected_protocol_status = (
-            "NOT_RUN_ENGINEERING"
-            if _is_engineering_self_test(config)
-            else ("NOT_RUN" if not any(cell.task == "countdown" for cell in cells) else "PASS")
-        )
-        aggregate_complete = (
-            aggregate_path.is_file()
-            and int(json.loads(aggregate_path.read_text(encoding="utf-8")).get("cell_count", 0))
-            == len(cells)
-            and reproduction_gate_status == expected_protocol_status
-        )
-    seed_batch_protocol_complete: bool | None = None
-    if _is_method_matrix(config):
-        sp = output_root / "scheduler" / "dynamic_run.json"
-        scheduler = json.loads(sp.read_text(encoding="utf-8")) if sp.is_file() else {}
-        order = [int(v) for v in config["execution"]["seed_batch_order"]]
-        expected = {str(seed): sum(cell.seed == seed for cell in cells) for seed in order}
-        seed_batch_protocol_complete = scheduler.get("seed_batch_barriers") is True and scheduler.get("seed_batch_order") == order and scheduler.get("seed_batch_expected_cells") == expected and scheduler.get("seed_batch_completed_cells") == expected and scheduler.get("complete") is True
-    all_complete = not missing and not incomplete and not nan_inf and not terminal_contract_failures and not dpo_reference_identity_failures and inherited_complete and aggregate_complete and seed_batch_protocol_complete is not False
-    audit = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(config),
-        "base_commit": base_commit,
-        "expected_cells": len(cells),
-        "missing_cells": sorted(set(missing)),
-        "incomplete_cells": sorted(set(incomplete)),
-        "nan_inf_cells": sorted(set(nan_inf)),
-        "terminal_contract_failures": sorted(set(terminal_contract_failures)),
-        "dpo_reference_identity_failures": sorted(set(dpo_reference_identity_failures)),
-        "seed_batch_protocol_complete": seed_batch_protocol_complete,
-        "all_training_and_evaluation_complete": all_complete,
-        "execution_class": _execution_class(config),
-        "test_partition_accessed": False,
-        "task_performance_event": "not_adjudicated_without_registered_collapse_threshold",
-        "structure_event": "greedy_and_sampled_valid_rate_diagnostic_only",
-        "nan_inf_event_count": len(set(nan_inf)),
-        "inherited_parent_inputs_complete": inherited_complete,
-        "aggregate_complete": aggregate_complete,
-        "countdown_protocol_diagnostic_status": reproduction_gate_status,
-        "countdown_result_gate": False if _is_coldstart(config) else None,
-        "transfer_exp_single_seed_response_shape_localization": (
-            _is_coldstart(config)
-            and _coldstart_method(config) == METHOD_EXPONENTIAL
-            and len(experiment_config.task_transfer_seeds(config)) == 1
-        ),
-        "excluded_tasks": (
+
+    def method_audit(
+        cell: Cell,
+        value: Mapping[str, Any],
+    ) -> e8_runtime.MethodAuditResult:
+        return _method_spec(cell.method).audit_record(cell, value)
+
+    coldstart_single_seed_shape_discovery = (
+        _is_coldstart(config)
+        and len(experiment_config.task_transfer_seeds(config)) == 1
+    )
+    transfer_exp_single_seed_response_shape_localization = (
+        coldstart_single_seed_shape_discovery
+        and _coldstart_method(config) == METHOD_EXPONENTIAL
+    )
+    return e8_runtime.terminal_audit(
+        output_root,
+        cells=cells,
+        experiment_id_value=experiment_id(config),
+        expected_terminal_step=int(config["training"]["optimizer_updates"]),
+        engineering_self_test=_is_engineering_self_test(config),
+        dense_profile=_is_dense(config),
+        coldstart_profile=_is_coldstart(config),
+        method_matrix=_is_method_matrix(config),
+        execution_class=_execution_class(config),
+        excluded_tasks=(
             dict(config["suite"]["excluded_tasks"])
             if (_is_dense(config) or _is_coldstart(config))
             else {}
         ),
-        "single_seed_shape_discovery": (
-            _is_dense(config)
-            or (
-                _is_coldstart(config)
-                and len(experiment_config.task_transfer_seeds(config)) == 1
-            )
+        seed_batch_order=(
+            tuple(int(v) for v in config["execution"]["seed_batch_order"])
+            if _is_method_matrix(config)
+            else ()
         ),
-        "fresh_seed_confirmation_required": (
-            _is_dense(config)
-            or (
-                _is_coldstart(config)
-                and len(experiment_config.task_transfer_seeds(config)) == 1
-            )
+        transfer_exp_single_seed_response_shape_localization=(
+            transfer_exp_single_seed_response_shape_localization
         ),
-        "fixed_horizon_is_convergence": False,
-        "scientific_status": _audited_scientific_status(config, all_complete),
-        "engineering_placeholder_backend": _is_engineering_self_test(config),
-    }
-    atomic_json(output_root / "terminal_audit.json", audit)
-    return audit
-
-
-PACKAGE_REQUIRED_MEMBERS = e8_results.PACKAGE_REQUIRED_MEMBERS
-
-
-
-def _write_completion_manifests(
-    config: Mapping[str, Any],
-    output_root: Path,
-    audit: Mapping[str, Any],
-) -> None:
-    e8_results._write_completion_manifests(
-        output_root,
-        audit,
-        experiment_id_value=experiment_id(config),
-        config_hash=stable_config_hash(config),
-        expected_cells=len(build_cells(config)),
-        engineering_self_test=_is_engineering_self_test(config),
-        execution_class=_execution_class(config),
+        coldstart_single_seed_shape_discovery=coldstart_single_seed_shape_discovery,
+        compatibility_failure_buckets=("dpo_reference_identity_failures",),
+        method_audit_fn=method_audit,
+        audited_status_fn=lambda all_complete: _audited_scientific_status(
+            config, all_complete
+        ),
         write_json=atomic_json,
-        sha256_fn=sha256_file,
     )
-
-
-
-def _result_payload_paths(output_root: Path, excluded_parts: set[str]) -> list[Path]:
-    return e8_results._result_payload_paths(output_root, excluded_parts)
-
 
 
 def verify_result_package(
@@ -7652,257 +3235,10 @@ def cmd_finalize(config: Mapping[str, Any], output_root: Path) -> dict[str, Any]
 
 
 def _engineering_self_test_config(config: Mapping[str, Any]) -> dict[str, Any]:
-    updated = copy.deepcopy(dict(config))
-    updated["split"].update(
-        {
-            "p0_train_rows": 2,
-            "p0_validation_rows": 1,
-            "p0_test_rows": 1,
-            "countdown_train_rows": 2,
-            "countdown_validation_rows": 1,
-        }
+    return e8_selftest._engineering_self_test_config(
+        config,
+        bindings=_selftest_bindings(),
     )
-    updated["engineering_self_test"] = {
-        "placeholder_backend": True,
-        "scientific_evidence_allowed": False,
-        "purpose": "non_gpu_end_to_end_delivery_acceptance",
-    }
-    validate_config(updated)
-    return updated
-
-
-def _write_engineering_input_fixtures(
-    config: Mapping[str, Any],
-    output_root: Path,
-) -> tuple[Path, Path, Path, Path]:
-    fixture_root = output_root / "engineering_fixtures"
-    p0_work_dir = fixture_root / "p0"
-    sources_root = p0_work_dir / "sources"
-    sources_root.mkdir(parents=True, exist_ok=True)
-    p0_config_path = _repo_root() / "configs" / "e8_multitask_p0.yaml"
-    p0_config = yaml.safe_load(p0_config_path.read_text(encoding="utf-8"))
-    if not isinstance(p0_config, dict):
-        raise TypeError("P0 configuration root must be a mapping")
-    row_count = (
-        int(config["split"]["p0_train_rows"])
-        + int(config["split"]["p0_validation_rows"])
-        + int(config["split"]["p0_test_rows"])
-    )
-    task_qualification: dict[str, Any] = {}
-    for task_value in config["suite"]["p0_tasks"]:
-        task = str(task_value)
-        rows: list[dict[str, Any]] = []
-        for row_index in range(row_count):
-            rows.append(
-                {
-                    "schema_version": 1,
-                    "task": task,
-                    "prompt_id": f"{task}-placeholder-{row_index:03d}",
-                    "prompt": f"[{task}] engineering prompt {row_index}",
-                    "oracle_completion": f"{task}-oracle-{row_index}",
-                    "metadata": {"engineering_placeholder": True},
-                    "generation_seed": 2026080901,
-                    "negatives": [
-                        {
-                            "negative_id": f"{task}-{row_index:03d}-neg-{negative:02d}",
-                            "completion": f"{task}-wrong-{row_index}-{negative}",
-                            "format_valid": True,
-                            "binary_correct": False,
-                            "error_class": "engineering_placeholder_wrong",
-                        }
-                        for negative in range(16)
-                    ],
-                }
-            )
-        atomic_jsonl(bank_path(p0_work_dir, task), rows)
-        task_qualification[task] = {"passed": True, "engineering_placeholder": True}
-    qualification = {
-        "schema_version": 1,
-        "experiment_id": P0_EXPERIMENT_ID,
-        "config_hash": stable_config_hash(
-            with_smoke_overrides(p0_config, rows=None, negatives=None)
-        ),
-        "tasks": task_qualification,
-        "passed": True,
-        "scientific_status": "not_run",
-        "engineering_placeholder_backend": True,
-    }
-    atomic_json(p0_work_dir / "qualification_audit.json", qualification)
-
-    countdown_bank = fixture_root / "countdown" / "offline_bank_v2.jsonl"
-    countdown_rows = []
-    for row_index in range(int(config["split"]["countdown_train_rows"])):
-        countdown_rows.append(
-            {
-                "row_id": f"countdown-placeholder-train-{row_index:03d}",
-                "source_prompt_id": f"countdown-placeholder-source-{row_index:03d}",
-                "prompt": f"Use 1 and 2 to make {3 + row_index}",
-                "oracle_positive": "1 + 2",
-                "numbers": [1, 2],
-                "target": 3 + row_index,
-                "negative_bank": [
-                    {
-                        "expression": f"1 - 2 + {negative}",
-                        "valid_format": True,
-                        "correct": False,
-                        "source": "engineering_placeholder_wrong",
-                    }
-                    for negative in range(16)
-                ],
-            }
-        )
-    atomic_jsonl(countdown_bank, countdown_rows)
-    countdown_validation = fixture_root / "countdown" / "val.jsonl"
-    atomic_jsonl(
-        countdown_validation,
-        [
-            {
-                "id": "countdown-placeholder-validation-000",
-                "prompt": "Use 2 and 2 to make 4",
-                "oracle": "2 + 2",
-                "numbers": [2, 2],
-                "target": 4,
-            }
-        ],
-    )
-    return p0_work_dir, p0_config_path, countdown_bank, countdown_validation
-
-
-def _write_engineering_gates(
-    config: Mapping[str, Any],
-    output_root: Path,
-    *,
-    base_model_path: str,
-) -> None:
-    splits, _ = _load_ready_inputs(output_root, config, base_model_path=base_model_path)
-    calibration_tasks: dict[str, Any] = {}
-    for task_value in config["suite"]["tasks"]:
-        task = str(task_value)
-        identity = _canonical_calibration_identity(
-            task,
-            split_manifest=splits,
-            base_model_path=base_model_path,
-            config=config,
-        )
-        result = {
-            **identity,
-            **experiment_config.coldstart_remoteness_metadata(config),
-            "complete": True,
-            "scientific_status": "not_run",
-            "engineering_placeholder_backend": True,
-        }
-        atomic_json(output_root / "calibration" / f"{task}.json", result)
-        calibration_tasks[task] = result
-        log_path = output_root / "logs" / "calibration" / f"{task}.log"
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        log_path.write_text("engineering placeholder calibration complete\n", encoding="utf-8")
-    atomic_json(
-        output_root / "calibration" / "calibration_manifest.json",
-        {
-            "schema_version": 1,
-            "experiment_id": experiment_id(config),
-            "config_hash": stable_config_hash(config),
-            "requested_tasks": list(config["suite"]["tasks"]),
-            "tasks": calibration_tasks,
-            "complete": True,
-            "scientific_status": "not_run",
-            "engineering_placeholder_backend": True,
-        },
-    )
-    base_identity = model_identity(base_model_path, None)["model"]
-    methods = _coldstart_methods(config) if _is_coldstart(config) else (_coldstart_method(config),)
-    for method in methods:
-        task = (
-            str(config["dpo"]["liveness_task"])
-            if method == METHOD_DPO
-            else "countdown"
-        )
-        liveness_key = f"{task}__{method}__engineering_placeholder_liveness"
-        liveness = {
-            "schema_version": 1,
-            "experiment_id": experiment_id(config),
-            "config_hash": stable_config_hash(config),
-            "base_model_identity": base_identity,
-            "engineering_liveness": True,
-            "engineering_placeholder_backend": True,
-            "optimizer_updates": 2,
-            "complete": True,
-            "reload_gate_passed": True,
-            "adapter_weight_changed": True,
-            "fresh_process_reload_passed": True,
-            "liveness_parent_process_id": 1001,
-            "reload_process_id": 1002,
-            "nan_inf_failure": False,
-            "canonical_dispatch_verified": True,
-            "finite_old_core_updates": True,
-            "optimizer_update_norm": 1.0,
-            "initial_adapter_weight_sha256": "0" * 64,
-            "terminal_adapter_weight_sha256": "1" * 64,
-            "cell": {
-                "task": task,
-                "method": method,
-            },
-            "scientific_status": "not_run",
-        }
-        atomic_json(output_root / "liveness" / liveness_key / "cell_manifest.json", liveness)
-    (output_root / "logs" / "liveness.log").write_text(
-        "engineering placeholder liveness complete\n",
-        encoding="utf-8",
-    )
-
-
-def _audit_engineering_queue(
-    config: Mapping[str, Any],
-    output_root: Path,
-    scheduler: Mapping[str, Any],
-) -> dict[str, Any]:
-    cells = build_cells(config)
-    events = [
-        json.loads(line)
-        for line in (output_root / "scheduler" / "queue_events.jsonl")
-        .read_text(encoding="utf-8")
-        .splitlines()
-        if line.strip()
-    ]
-    events = [row for row in events if row["scheduler_run_id"] == scheduler["scheduler_run_id"]]
-    active_by_gpu = {int(gpu): 0 for gpu in config["execution"]["gpu_ids"]}
-    maximum_by_gpu = dict(active_by_gpu)
-    starts: dict[str, float] = {}
-    finishes: dict[str, float] = {}
-    for event in events:
-        gpu_id = int(event["gpu_id"])
-        cell_key = str(event["cell_key"])
-        if event["event"] == "start":
-            active_by_gpu[gpu_id] += 1
-            maximum_by_gpu[gpu_id] = max(maximum_by_gpu[gpu_id], active_by_gpu[gpu_id])
-            starts[cell_key] = float(event["unix_time"])
-        elif event["event"] == "finish":
-            active_by_gpu[gpu_id] -= 1
-            finishes[cell_key] = float(event["unix_time"])
-    expected_keys = {cell.key for cell in cells}
-    if set(starts) != expected_keys or set(finishes) != expected_keys:
-        raise RuntimeError(f"Engineering queue did not observe all {len(cells)} starts/finishes")
-    slots_per_gpu = int(config["execution"]["slots_per_gpu"])
-    if (
-        any(value != 0 for value in active_by_gpu.values())
-        or max(maximum_by_gpu.values()) > slots_per_gpu
-    ):
-        raise RuntimeError("Engineering queue exceeded the declared per-GPU capacity")
-    slot_count = int(config["execution"]["max_concurrent_cells"])
-    initial_keys = {cell.key for cell in cells[:slot_count]}
-    replacement_keys = {cell.key for cell in cells[slot_count:]}
-    if not replacement_keys:
-        raise RuntimeError("Engineering queue requires replacement cells to audit dynamic refill")
-    if min(starts[key] for key in replacement_keys) >= max(finishes[key] for key in initial_keys):
-        raise RuntimeError("Engineering queue did not refill before the initial 16 cells finished")
-    return {
-        "all_cells_observed": True,
-        "maximum_active_by_gpu": maximum_by_gpu,
-        "dynamic_refill_observed": True,
-        "nominal_batch_barrier_absent": True,
-        "nominal_batch_count": len(build_waves(config)),
-        "slots_per_gpu": slots_per_gpu,
-    }
 
 
 def cmd_engineering_self_test(
@@ -7911,302 +3247,14 @@ def cmd_engineering_self_test(
     *,
     source_commit: str,
 ) -> dict[str, Any]:
-    """Exercise the delivery pipeline with an isolated, non-scientific backend."""
+    return e8_selftest.cmd_engineering_self_test(
+        config,
+        output_root,
+        source_commit=source_commit,
+        bindings=_selftest_bindings(),
+    )
 
-    if not _is_coldstart(config):
-        raise RuntimeError("Engineering self-test is available only for the cold-start profile")
-    if len(source_commit) != 40 or any(char not in "0123456789abcdef" for char in source_commit):
-        raise ValueError("Engineering self-test requires one full lowercase source commit")
-    output_root = validate_work_dir(output_root)
-    fresh_run = not (output_root / "prepare_manifest.json").is_file()
-    self_test_config = _engineering_self_test_config(config)
-    config_path = output_root / "engineering_self_test_config.yaml"
-    base_model = output_root / "engineering_fixtures" / "placeholder_model"
-    if fresh_run:
-        config_path.write_text(yaml.safe_dump(self_test_config, sort_keys=False), encoding="utf-8")
-        p0_work_dir, p0_config_path, countdown_bank, countdown_validation = (
-            _write_engineering_input_fixtures(self_test_config, output_root)
-        )
-        cmd_prepare(
-            self_test_config,
-            output_root,
-            p0_work_dir=p0_work_dir,
-            p0_config=p0_config_path,
-            countdown_bank=countdown_bank,
-            countdown_validation=countdown_validation,
-            countdown_adapter=None,
-        )
-        base_model.mkdir(parents=True, exist_ok=True)
-        atomic_json(base_model / "config.json", {"engineering_placeholder_backend": True})
-        atomic_json(
-            output_root / "source_provenance.json",
-            {
-                "schema_version": 1,
-                "run_id": output_root.name,
-                "source_commit": source_commit,
-                "model_repo": "engineering-placeholder-no-model-loaded",
-                "model_revision": "not_applicable",
-                "model_path": str(base_model.resolve()),
-                "test_partition_accessed": False,
-                "engineering_placeholder_backend": True,
-            },
-        )
-        _write_engineering_gates(
-            self_test_config,
-            output_root,
-            base_model_path=str(base_model),
-        )
-    else:
-        recovered_config = load_config(config_path)
-        if recovered_config != self_test_config:
-            raise RuntimeError("Engineering recovery config differs from the reviewed config")
-        provenance = _read_json_object(output_root / "source_provenance.json")
-        if provenance.get("source_commit") != source_commit:
-            raise RuntimeError("Engineering recovery source commit mismatch")
-        _load_prepared(output_root, self_test_config)
-        _write_engineering_gates(
-            self_test_config,
-            output_root,
-            base_model_path=str(base_model),
-        )
-        _require_calibration_gate(
-            self_test_config,
-            output_root,
-            base_model_path=str(base_model),
-        )
-        _require_liveness_gate(
-            self_test_config,
-            output_root,
-            base_model_path=str(base_model),
-        )
 
-    cells = build_cells(self_test_config)
-    cell_index = {cell.key: index for index, cell in enumerate(cells)}
-    failed_once = False
-    failure_lock = threading.Lock()
-
-    def placeholder_cell_runner(
-        *,
-        config_path: Path,
-        output_root: Path,
-        base_model_path: str,
-        cell: Cell,
-        gpu_id: int,
-        force: bool,
-    ) -> dict[str, Any]:
-        del config_path, base_model_path, force
-        nonlocal failed_once
-        started_at = time.time()
-        cell_root = output_root / "cells" / cell.key
-        manifest_path = cell_root / "cell_manifest.json"
-        log_path = output_root / "logs" / f"{cell.key}.log"
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        if manifest_path.is_file():
-            existing = json.loads(manifest_path.read_text(encoding="utf-8"))
-            if (
-                existing.get("config_hash") != stable_config_hash(self_test_config)
-                or existing.get("engineering_placeholder_backend") is not True
-                or existing.get("complete") is not True
-            ):
-                raise RuntimeError(f"Placeholder resume identity mismatch: {cell.key}")
-            if cell.key == cells[0].key:
-                time.sleep(0.05)
-            return {
-                "cell_key": cell.key,
-                "gpu_id": gpu_id,
-                "returncode": 0,
-                "log": str(log_path.resolve()),
-                "started_unix": started_at,
-                "finished_unix": time.time(),
-                "reused_complete": True,
-            }
-        with failure_lock:
-            should_fail = fresh_run and cell.key == cells[0].key and not failed_once
-            if should_fail:
-                failed_once = True
-        if should_fail:
-            cell_root.mkdir(parents=True, exist_ok=True)
-            log_path.write_text("intentional engineering failure\n", encoding="utf-8")
-            atomic_json(
-                cell_root / "failure.json",
-                {
-                    "experiment_id": experiment_id(self_test_config),
-                    "cell_key": cell.key,
-                    "engineering_placeholder_backend": True,
-                    "complete": False,
-                },
-            )
-            return {
-                "cell_key": cell.key,
-                "gpu_id": gpu_id,
-                "returncode": 73,
-                "log": str(log_path.resolve()),
-                "started_unix": started_at,
-                "finished_unix": time.time(),
-            }
-        if cell.key == cells[0].key:
-            time.sleep(0.05)
-        else:
-            time.sleep(0.001)
-        index = cell_index[cell.key]
-        score = round(0.1 + (index % 20) * 0.01, 6)
-        manifest = {
-            "schema_version": 1,
-            "experiment_id": experiment_id(self_test_config),
-            "config_hash": stable_config_hash(self_test_config),
-            "source_commit": source_commit,
-            "cell_key": cell.key,
-            "validation_best_pass8": score,
-            "validation_terminal_pass8": max(0.0, score - 0.005),
-            "validation_best_greedy": max(0.0, score - 0.02),
-            "validation_terminal_greedy": max(0.0, score - 0.025),
-            "validation_best_greedy_valid_rate": 1.0,
-            "validation_terminal_greedy_valid_rate": 1.0,
-            "best_step": 2,
-            "terminal_step": 2,
-            "stop_reason": "engineering_placeholder_complete",
-            "nan_inf_failure": False,
-            "evaluation_status": "complete",
-            "complete": True,
-            "scientific_status": "not_run",
-            "engineering_placeholder_backend": True,
-        }
-        atomic_json(manifest_path, manifest)
-        log_path.write_text("engineering placeholder cell complete\n", encoding="utf-8")
-        return {
-            "cell_key": cell.key,
-            "gpu_id": gpu_id,
-            "returncode": 0,
-            "log": str(log_path.resolve()),
-            "started_unix": started_at,
-            "finished_unix": time.time(),
-            "reused_complete": False,
-        }
-
-    original_runner = globals()["_run_subprocess_cell"]
-    globals()["_run_subprocess_cell"] = placeholder_cell_runner
-    try:
-        if fresh_run:
-            first_failure: dict[str, Any]
-            try:
-                cmd_run_dynamic(
-                    self_test_config,
-                    config_path,
-                    output_root,
-                    base_model_path=str(base_model),
-                    force=False,
-                    retry_incomplete=True,
-                )
-            except RuntimeError:
-                first_failure = json.loads(
-                    (output_root / "scheduler" / "dynamic_run.json").read_text(encoding="utf-8")
-                )
-            else:
-                raise RuntimeError("Engineering failure injection did not fail closed")
-            if not first_failure["failed_cells"] or not first_failure["unscheduled_cells"]:
-                raise RuntimeError(
-                    "Engineering failure did not preserve failed and unscheduled work"
-                )
-            resumed = cmd_run_dynamic(
-                self_test_config,
-                config_path,
-                output_root,
-                base_model_path=str(base_model),
-                force=False,
-                retry_incomplete=True,
-            )
-        else:
-            resumed = cmd_run_dynamic(
-                self_test_config,
-                config_path,
-                output_root,
-                base_model_path=str(base_model),
-                force=False,
-                retry_incomplete=True,
-            )
-        queue_audit = _audit_engineering_queue(self_test_config, output_root, resumed)
-        before = {
-            cell.key: sha256_file(output_root / "cells" / cell.key / "cell_manifest.json")
-            for cell in cells
-        }
-        repeated = cmd_run_dynamic(
-            self_test_config,
-            config_path,
-            output_root,
-            base_model_path=str(base_model),
-            force=False,
-            retry_incomplete=True,
-        )
-        after = {
-            cell.key: sha256_file(output_root / "cells" / cell.key / "cell_manifest.json")
-            for cell in cells
-        }
-        if before != after or not repeated["complete"]:
-            raise RuntimeError("Engineering repeat run changed a completed cell")
-    finally:
-        globals()["_run_subprocess_cell"] = original_runner
-
-    failure_stage = os.environ.get("E8_COLDSTART_ENGINEERING_FAIL_STAGE", "").strip()
-    if failure_stage == "after_queue":
-        raise RuntimeError("Intentional engineering failure after all cells completed")
-    aggregate = cmd_aggregate(self_test_config, output_root)
-    if failure_stage == "after_aggregate":
-        raise RuntimeError("Intentional engineering failure after aggregate")
-    audit = cmd_audit(self_test_config, output_root)
-    if failure_stage == "after_audit":
-        raise RuntimeError("Intentional engineering failure after audit")
-    finalized = cmd_finalize(self_test_config, output_root)
-    if failure_stage == "after_finalize":
-        raise RuntimeError("Intentional engineering failure after finalize")
-    preliminary_package = cmd_package(self_test_config, output_root)
-    package_manifest_path = output_root / "packages" / "package_manifest.json"
-    tampered = output_root / "packages" / "tampered_self_test.zip"
-    shutil.copyfile(preliminary_package["full_results_zip"], tampered)
-    with tampered.open("ab") as handle:
-        handle.write(b"tamper")
-    tamper_rejected = False
-    try:
-        verify_result_package(package_manifest_path, zip_override=tampered)
-    except RuntimeError:
-        tamper_rejected = True
-    finally:
-        tampered.unlink(missing_ok=True)
-    if not tamper_rejected:
-        raise RuntimeError("Result-package verification accepted a tampered ZIP")
-    report = {
-        "schema_version": 1,
-        "experiment_id": experiment_id(self_test_config),
-        "source_commit": source_commit,
-        "scientific_status": "not_run",
-        "engineering_placeholder_backend": True,
-        "prepare_complete": True,
-        "canonical_source_lock_passed": True,
-        "intentional_failure_returncode": 73,
-        "failure_preserved_unscheduled_work": True,
-        "recovered_from_previous_attempt": not fresh_run,
-        "resume_completed_cells": resumed["completed_cells"],
-        "repeat_run_preserved_cell_hashes": True,
-        "analysis_ready_tasks": sorted(repeated.get("analysis_ready_tasks", ())),
-        "task_result_count": len(repeated.get("task_results", {})),
-        "queue_audit": queue_audit,
-        "aggregate_cell_count": aggregate["cell_count"],
-        "terminal_audit_complete": audit["all_training_and_evaluation_complete"],
-        "canonical_archive_owner": finalized["canonical_archive_owner"],
-        "package_reopen_verification_passed": True,
-        "tampered_package_rejected": True,
-        "complete": True,
-        "note": "No model, GPU, optimizer, or scientific metric was executed.",
-    }
-    atomic_json(output_root / "ENGINEERING_SELF_TEST_REPORT.json", report)
-    final_package = cmd_package(self_test_config, output_root)
-    return {
-        **report,
-        "output_root": str(output_root.resolve()),
-        "full_results_zip": final_package["full_results_zip"],
-        "full_results_zip_sha256": final_package["full_results_zip_sha256"],
-        "plot_curve_points_csv": final_package["plot_curve_points_csv"],
-        "plot_curve_points_csv_sha256": final_package["plot_curve_points_csv_sha256"],
-    }
 
 
 def make_parser() -> argparse.ArgumentParser:

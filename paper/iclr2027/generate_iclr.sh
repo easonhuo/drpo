@@ -2,13 +2,14 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-SOURCE="$ROOT/paper/overleaf/main_replacement.tex"
+SOURCE_REL="paper/iclr2027/manuscript_source.tex"
+SOURCE="$ROOT/$SOURCE_REL"
 OUT_DIR="${1:-$ROOT/paper/iclr2027/build}"
-EXPECTED_BLOB="1627a8583b0898e3d6b756ed602062e8296a2149"
+EXPECTED_BLOB="affe0e00c762a0ddec23e54cb04bd5d9eebfb3eb"
 
 mkdir -p "$OUT_DIR"
 
-ACTUAL_BLOB="$(git -C "$ROOT" rev-parse "HEAD:paper/overleaf/main_replacement.tex")"
+ACTUAL_BLOB="$(git -C "$ROOT" rev-parse "HEAD:$SOURCE_REL")"
 if [[ "$ACTUAL_BLOB" != "$EXPECTED_BLOB" ]]; then
   echo "CONTENT LOCK FAILURE: source blob drifted" >&2
   echo "expected=$EXPECTED_BLOB" >&2
@@ -66,6 +67,7 @@ preamble = rf'''\documentclass{{article}}
 \usepackage{{graphicx}}
 \usepackage{{booktabs}}
 \usepackage{{makecell}}
+\usepackage{{wrapfig}}
 \usepackage{{hyperref}}
 \usepackage{{amsmath}}
 \usepackage{{amssymb}}

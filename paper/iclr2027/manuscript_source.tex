@@ -279,21 +279,19 @@ To separate favorable and unfavorable feedback, write
 \(\widehat A^{+}=\max\{\widehat A,0\}\) and
 \(\widehat A^{-}=\max\{-\widehat A,0\}\), so the actor field decomposes as
 \begin{equation}
-\begin{aligned}
     \mathbf{F}(\theta)
-    ={}&
+    ={}
     \mathbb{E}_{\nu}
     \left[
         \widehat{A}^{+}(s,a)
         \nabla_\theta \log \pi_\theta(a \mid s)
-    \right] \\
-    &-
+    \right] 
+    -
     \mathbb{E}_{\nu}
     \left[
         \widehat{A}^{-}(s,a)
         \nabla_\theta \log \pi_\theta(a \mid s)
     \right].
-\end{aligned}
 \label{eq:signed_actor_decomposition}
 \end{equation}
 For a negative sample, the update magnitude factorizes as
@@ -337,12 +335,11 @@ aggregate regimes and policy-family manifestations.
 To isolate the action-side geometry, we fix a context $s$ and write
 $u$ for the policy-output coordinates at that context. For a historical
 action $a$, we define its learner-relative remoteness as
-\begin{equation}
+\(
     D_u(a)
     =
     -\log \pi_u(a).
-    \label{eq:learner_relative_remoteness}
-\end{equation}
+\)
 For a categorical policy, $D_u(a)$ is the surprisal of the selected
 action. For a Gaussian policy, it equals a scale-dependent constant plus
 one half of the squared Mahalanobis distance from the policy mean.
@@ -350,14 +347,13 @@ Thus, $D_u(a)$ measures how unlikely the historical action is under the
 current learner, rather than defining a metric in the action space.
 
 We measure the corresponding squared score norm by
-\begin{equation}
+\(
     R_u(a)
     =
     \left\|
         \nabla_u \log \pi_u(a)
     \right\|_2^2.
-    \label{eq:score_strength}
-\end{equation}
+\)
 A sample with advantage estimate $\widehat{A}(s,a)$ contributes an
 output-space update of magnitude
 $|\widehat{A}(s,a)|\sqrt{R_u(a)}$.
@@ -373,13 +369,12 @@ For a Gaussian policy with mean \(\mu\) and fixed covariance
 \(C_\Sigma=\frac{d}{2}\log(2\pi)+\frac12\log|\Sigma|\) denote the
 Gaussian normalization constant, which is independent of \(a\) and
 \(\mu\). Then learner-relative remoteness satisfies
-\begin{equation}
+\(
     D_\mu(a)-C_\Sigma
     =
     \frac12
     (a-\mu)^\top\Sigma^{-1}(a-\mu).
-    \label{eq:gaussian_remoteness_mahalanobis}
-\end{equation}
+\)
 Moreover, the squared mean-score norm
 \(R_\mu(a)=\|\nabla_\mu\log\pi_\mu(a)\|_2^2\) is bounded above and below
 by positive constants times \(D_\mu(a)-C_\Sigma\), with constants
@@ -391,15 +386,14 @@ remoteness and squared mean-score norm have the same global ordering.
 For a categorical policy with logits \(z\), learner-relative remoteness is
 the selected-action surprisal \(D_z(a)=-\log\pi_z(a)\). The selected-logit
 score response is
-\begin{equation}
+\(
     \left|
     \frac{\partial}{\partial z_a}
     \log \pi_z(a)
     \right|
     =
     1-e^{-D_z(a)}.
-    \label{eq:categorical_selected_score}
-\end{equation}
+\)
 Thus, categorical surprisal can diverge as the selected probability
 approaches zero, but the selected-logit response saturates at one. The
 full logit-score norm remains bounded as well.
@@ -416,11 +410,11 @@ diverge while the logit-score response remains bounded.
 The preceding result compares samples at a fixed policy. We now consider
 a fixed historical action that is repeatedly reused while the learner
 changes. Write
-\[
+\(
     D(u)=D_u(a),
     \qquad
     R(u)=\|\nabla_uD(u)\|_2^2,
-\]
+\)
 and consider the repeated single-sample update
 \begin{equation}
     u_{t+1}
@@ -441,33 +435,31 @@ held fixed over the reuse window.
 \label{thm:reuse_dynamics}
 Assume that \(D(u)\) is differentiable and convex on a convex
 neighborhood containing the update segments, and define
-\[
+\(
     D_t=D(u_t),
     \qquad
     R_t=R(u_t).
-\]
+\)
 If \(\widehat A<0\), then every reuse step satisfies
-\begin{equation}
+\(
     D_{t+1}
     \ge
     D_t+\eta|\widehat A|R_t,
     \qquad
     R_{t+1}\ge R_t.
-    \label{eq:negative_reuse_amplification}
-\end{equation}
+\)
 Thus, negative reuse makes the historical action increasingly remote
 while preventing its score-function norm from decreasing.
 
 If \(\widehat A>0\), and \(D\) additionally has an \(L\)-Lipschitz
 gradient on the same neighborhood with \(0<\eta\widehat A\le 1/L\), then
-\begin{equation}
+\(
     D_{t+1}
     \le
     D_t-\frac{\eta\widehat A}{2}R_t,
     \qquad
     R_{t+1}\le R_t.
-    \label{eq:positive_reuse_attenuation}
-\end{equation}
+\)
 Thus, positive reuse makes the historical action increasingly compatible
 with the learner while attenuating its subsequent score response.
 \end{theorem}
@@ -583,7 +575,7 @@ stationary point, which is repelling. Unless initialized exactly at that
 point, the distance from it diverges under both the continuous dynamics
 and every discrete trajectory with fixed step size \(\alpha>0\).
 Consequently, for every fixed historical action \(a\),
-\begin{equation}
+\(
     \left\|
         \nabla_\mu\log\pi_\mu(a)
     \right\|_2
@@ -593,8 +585,7 @@ Consequently, for every fixed historical action \(a\),
     \right\|_2
     \longrightarrow
     \infty.
-    \label{eq:gaussian_unbounded_score}
-\end{equation}
+\)
 
 \textbf{Categorical policy.}
 Consider a categorical policy
@@ -606,14 +597,13 @@ step size \(\alpha>0\) eventually leave every compact subset of the
 logit space. Along some subsequence, the corresponding probability
 vector approaches the boundary of the simplex. Nevertheless, for every
 action \(a\) and every finite \(z\),
-\begin{equation}
+\(
 \|\nabla_z\log\pi_z(a)\|_2^2
 =
 \|e_a-\pi_z\|_2^2
 \le 2(1-\pi_z(a))^2
 \le 2.
-\label{eq:categorical_bounded_score}
-\end{equation}
+\)
 \end{theorem}
 
 The proof is provided in
@@ -630,18 +620,16 @@ identifies the control property that reverses it.
 \begin{lemma}[Far-field radial balance]
 \label{lem:far_field_radial_balance}
 For a fixed-covariance Gaussian field with finite negative atoms,
-\[
-\begin{aligned}
-F(\mu)&=p\Sigma^{-1}(m_+-\mu)
- +\sum_iq_i\Sigma^{-1}(\mu-a_i),\\
-q&=\sum_iq_i,
-\end{aligned}
-\]
+\(
+F(\mu)=p\Sigma^{-1}(m_+-\mu)
+ +\sum_iq_i\Sigma^{-1}(\mu-a_i),
+q=\sum_iq_i,
+\)
 and \(\mu=m_++rv\), \(\|v\|_2=1\),
-\[
+\(
 \lim_{r\to\infty}\frac{\langle v,F(\mu)\rangle}{r}
 =(q-p)v^\top\Sigma^{-1}v.
-\]
+\)
 \end{lemma}
 
 \begin{corollary}[Selective tapering versus global scaling]
@@ -707,7 +695,7 @@ Using \(D_\theta(s,a)=-\log\pi_\theta(a\mid s)\), define
 \(\bar D_\theta(s,a)=\operatorname{sg}[D_\theta(s,a)]\), where
 \(\operatorname{sg}[\cdot]\) denotes stop-gradient. DRPO changes only the
 negative branch:
-\begin{equation}
+\(
     \widetilde A_{\theta}(s,a)
     =
     \widehat A^{+}(s,a)
@@ -715,8 +703,7 @@ negative branch:
     \omega_{\mathrm{Exp}}
     \!\left(\bar D_\theta(s,a)\right)
     \widehat A^{-}(s,a),
-    \label{eq:drpo_effective_advantage}
-\end{equation}
+\)
 with actor field
 \begin{equation}
     \mathbf F_{\mathrm{DRPO}}(\theta)
@@ -734,33 +721,32 @@ a differentiable distance regularizer.
 
 At each policy iterate, tapering preserves the aggregate field form
 after replacing the negative mass and moment by
-\[
+\(
 q_\omega=\mathbb E_\nu[\widehat A^-\omega],
 \qquad
 \mathbf M_{-,\omega}=\mathbb E_\nu[\widehat A^-\omega T(a)].
-\]
+\)
 For \(0\le q_\omega<p\), the controlled signed target is
-\[
+\(
 \mathbf m_\omega^\star
 =
 \frac{p\mathbf m_+-\mathbf M_{-,\omega}}{p-q_\omega},
-\]
+\)
 with \(\mathbf M_{-,\omega}=0\) when \(q_\omega=0\).
 
 \paragraph{Gaussian policies.}
 For a Gaussian policy with mean \(\mu_\theta(s)\) and fixed covariance
 \(\Sigma\), define
-\begin{equation}
+\(
     D_{\mathrm G,\theta}(s,a)
     =
     (a-\mu_\theta(s))^\top
     \Sigma^{-1}
     (a-\mu_\theta(s)).
-    \label{eq:gaussian_squared_distance}
-\end{equation}
+\)
 Since \(D_\theta-C_\Sigma=\frac12D_{\mathrm G,\theta}\), the additive
 constant and factor \(1/2\) can be absorbed into the threshold and scale:
-\begin{equation}
+\(
     \omega_{\mathrm G}(s,a)
     =
     \exp
@@ -771,13 +757,12 @@ constant and factor \(1/2\) can be absorbed into the threshold and scale:
                  {c_{\mathrm G}}
         \right]_{+}
     \right\}.
-    \label{eq:drpo_gaussian_weight}
-\end{equation}
+\)
 
 \paragraph{Categorical policies.}
 For a categorical policy, substituting selected-action surprisal into
 Equation~\eqref{eq:drpo_exp_weight} gives
-\begin{equation}
+\(
     \omega_{\mathrm C}(s,a)
     =
     \min
@@ -785,8 +770,7 @@ Equation~\eqref{eq:drpo_exp_weight} gives
         1,\,
         \left(e^{\tau}\pi_\theta(a\mid s)\right)^{\lambda/c}
     \right\}.
-    \label{eq:drpo_categorical_weight}
-\end{equation}
+\)
 \paragraph{Where existing off-policy controls intervene.}
 Existing controls intervene at different points without sharing a design
 goal. Importance weighting changes the influence of historical samples,
@@ -854,107 +838,38 @@ Let \(I(D)\) denote the raw far-field response scale. If, for some
 finite \(m\geq0\) and \(C>0\),
 \(I(D)\leq C(1+D)^m\) in the far field, then the taper in
 Equation~\eqref{eq:drpo_exp_weight} satisfies
-\[
+\(
     \omega_{\mathrm{Exp}}(D) I(D)
     \longrightarrow 0
     \qquad
     \text{as }D\to\infty .
-\]
+\)
 Thus, the exponential taper eliminates any finite-order far-field tail
 rather than merely bounding it.
 \end{proposition}
 
-(Proof: Appendix~\ref{app:exp_vanishing_influence}; the exponential form is
-a convenient envelope, not the unique choice.)
+The exponential is a convenient, non-unique envelope (proof:
+Appendix~\ref{app:exp_vanishing_influence}).
 
-The control conditions form a guarantee hierarchy. L0,
-\(\omega(D)\to0\), gives eventual inward Gaussian radial drift for each
-fixed finite \(\rho\); L1, \(\omega(D)\sqrt D\to0\), removes the
-absolute negative far-field force; L2, \(\omega(D)D=O(1)\), bounds the
-Gaussian reuse loop gain; and L3,
-\(D^k\omega(D)\to0\) for every finite \(k\), removes all finite-order
-tails. Global scaling fails L0, reciprocal-quadratic tapering is critical at
-L2, and exponential tapering satisfies L0--L3. 
+The hierarchy strengthens from L0 (eventual inward Gaussian drift), through
+L1 (vanishing far-field force) and L2 (bounded Gaussian loop gain), to L3
+(vanishing finite-order tails). Global scaling fails L0, reciprocal-quadratic
+is critical at L2, and exponential satisfies L0--L3; definitions and the
+experimental-control mapping are in Appendix~\ref{app:exp_vanishing_influence}.
+It ranks guarantees, not task performance.
 
-This hierarchy also organizes the experimental controls. Positive-only and
-global scaling ignore remoteness; reciprocal tapers have polynomial tails, and the quadratic member meets the matching
-order; DRPO uses the exponential member that satisfies
-L0--L3. These controls share the actor form in
-Equation~\eqref{eq:drpo_actor_field} and differ only in their negative-branch
-coefficient \citep{peng2019advantage,nair2020awac,kostrikov2021offline,
-grigsby2021closer,arnal2025asymmetric,leroux2025tapered}.
-
-\subsection{Output-Coordinate Closed-Loop Guarantees}
-
-We now record the output-coordinate consequences of the DRPO update once
-positive attraction is included.
-
-\begin{theorem}[Gaussian DRPO boundedness]
-\label{thm:gaussian_drpo_boundedness}
-Let \(p>0\), \(\Sigma\succ0\), and
-\[
-F_\omega(\mu)=p\Sigma^{-1}(m_+-\mu)
-+\sum_iq_i\omega_i(D_\mu(a_i))\Sigma^{-1}(\mu-a_i).
-\]
-For finitely many negative atoms with exponential tapers, define
-\begin{equation}
-\begin{aligned}
-B_\omega&=\sup_\mu\left\|\sum_iq_i\omega_i(D_i)
-\Sigma^{-1}(\mu-a_i)\right\|_2,\\
-R^*&=\frac{B_\omega}{p\lambda_{\min}(\Sigma^{-1})}.
-\end{aligned}
-\label{eq:gaussian_bound_radius}
-\end{equation}
-Every continuous trajectory satisfies
-\(\limsup_{t\to\infty}\|\mu(t)-m_+\|_2\le R^*\), and the field has at
-least one finite equilibrium. If an uncontrolled stable equilibrium
-places every negative atom strictly below its threshold, the controlled
-and original fields have the same local linearization in a neighborhood of
-that equilibrium.
-\end{theorem}
-
-Appendix~\ref{app:gaussian_drpo_boundedness} gives an explicit
-branch-wise bound, including the case where the shifted threshold is
-negative and tapering is active from radius zero. Along every escaping
-sequence,
-\[
-\rho_{\mathrm{eff}}(\mu)
-=
-p^{-1}\sum_i q_i\omega_i(D_i)
-\longrightarrow 0;
-\]
-this explains how the remote negative source disappears, but it is a
-diagnostic consequence rather than the boundedness argument.
-
-\begin{theorem}[Categorical self-limiting suppression]
-\label{thm:categorical_self_limiting}
-For a repeatedly suppressed action \(i\), define
-\(y_i=z_i-\log\sum_{j\ne i}e^{z_j}\), so \(\pi_i=\sigma(y_i)\).
-Under an uncontrolled negative atom of mass \(q>0\),
-\[
-\dot y_i=-q(1-\pi_i)c_K(t),
-\qquad \frac K{K-1}\le c_K(t)\le2.
-\]
-Hence \(y_i\) eventually decreases linearly and \(\pi_i\) exponentially.
-With \(\omega_i=\min\{1,(e^{\tau_i}\pi_i)^\beta\}\),
-\(\beta=\lambda/c\), the far branch instead satisfies
-\[
-y_i(t)=-\beta^{-1}\log t+O(1),
-\qquad \pi_i(t)=\Theta(t^{-1/\beta}).
-\]
-Thus tapering changes persistent suppression from exponential to
-polynomial probability decay; it does not freeze the action probability.
-\end{theorem}
-
-The output-coordinate proof and finite-crossing conditions are given in
-Appendices~\ref{app:categorical_self_limiting}
-and~\ref{app:categorical_restoring_balance}.
-
-DRPO's exponential taper also arises as the optimizer of a
-generalized-I-divergence-constrained reweighting of the finite
-negative-update measure; unlike standard DRO over normalized distributions,
-this construction may reduce total negative-update mass
-(Appendix~\ref{app:finite_measure_variational}).
+Closed-loop consequences are consistent with the same control principle. For the
+fixed-covariance Gaussian mean field with positive attraction and finitely many
+exponentially tapered negative atoms, trajectories are ultimately bounded and
+the field has at least one finite equilibrium; if an uncontrolled stable
+equilibrium lies entirely inside the untapered region, the controlled and
+original fields have the same local linearization. For a repeatedly suppressed
+categorical action, tapering changes far-tail probability decay from exponential
+to polynomial rather than imposing a nonzero probability floor. Full theorem
+statements, branch conditions, and proofs are given in
+Appendices~\ref{app:gaussian_drpo_boundedness},
+\ref{app:categorical_self_limiting}, and
+\ref{app:categorical_restoring_balance}.
 
 \section{Experiments}
 \label{sec:experiments}
@@ -1704,6 +1619,43 @@ interchangeable with the KL-geometry coefficient above.
 
 \subsection{Gaussian Closed-Loop Boundedness}
 \label{app:gaussian_drpo_boundedness}
+
+\begin{theorem}[Gaussian DRPO boundedness]
+\label{thm:gaussian_drpo_boundedness}
+Let \(p>0\), \(\Sigma\succ0\), and
+\[
+F_\omega(\mu)=p\Sigma^{-1}(m_+-\mu)
++\sum_iq_i\omega_i(D_\mu(a_i))\Sigma^{-1}(\mu-a_i).
+\]
+For finitely many negative atoms with exponential tapers, define
+\begin{equation}
+\begin{aligned}
+B_\omega&=\sup_\mu\left\|\sum_iq_i\omega_i(D_i)
+\Sigma^{-1}(\mu-a_i)\right\|_2,\\
+R^*&=\frac{B_\omega}{p\lambda_{\min}(\Sigma^{-1})}.
+\end{aligned}
+\label{eq:gaussian_bound_radius}
+\end{equation}
+Every continuous trajectory satisfies
+\(\limsup_{t\to\infty}\|\mu(t)-m_+\|_2\le R^*\), and the field has at
+least one finite equilibrium. If an uncontrolled stable equilibrium
+places every negative atom strictly below its threshold, the controlled
+and original fields have the same local linearization in a neighborhood of
+that equilibrium.
+\end{theorem}
+
+The proof below gives an explicit
+branch-wise bound, including the case where the shifted threshold is
+negative and tapering is active from radius zero. Along every escaping
+sequence,
+\[
+\rho_{\mathrm{eff}}(\mu)
+=
+p^{-1}\sum_i q_i\omega_i(D_i)
+\longrightarrow 0;
+\]
+this explains how the remote negative source disappears, but it is a
+diagnostic consequence rather than the boundedness argument.
 
 \begin{proof}[Proof of Theorem~\ref{thm:gaussian_drpo_boundedness}]
 Let \(e=\mu-m_+\) and
@@ -2483,8 +2435,47 @@ This proves the proposition together with the parameter-step and
 conditional empirical-utility consequences.
 \end{proof}
 
+The control conditions form a guarantee hierarchy. L0,
+\(\omega(D)\to0\), gives eventual inward Gaussian radial drift for each
+fixed finite \(\rho\); L1, \(\omega(D)\sqrt D\to0\), removes the
+absolute negative far-field force; L2, \(\omega(D)D=O(1)\), bounds the
+Gaussian reuse loop gain; and L3,
+\(D^k\omega(D)\to0\) for every finite \(k\), removes all finite-order
+tails. Global scaling fails L0, reciprocal-quadratic tapering is critical at
+L2, and exponential tapering satisfies L0--L3. 
+
+This hierarchy also organizes the experimental controls. Positive-only and
+global scaling ignore remoteness; reciprocal tapers have polynomial tails, and the quadratic member meets the matching
+order; DRPO uses the exponential member that satisfies
+L0--L3. These controls share the actor form in
+Equation~\eqref{eq:drpo_actor_field} and differ only in their negative-branch
+coefficient \citep{peng2019advantage,nair2020awac,kostrikov2021offline,
+grigsby2021closer,arnal2025asymmetric,leroux2025tapered}.
+
+
+
 \subsection{Categorical One-vs-Rest Dynamics}
 \label{app:categorical_self_limiting}
+
+\begin{theorem}[Categorical self-limiting suppression]
+\label{thm:categorical_self_limiting}
+For a repeatedly suppressed action \(i\), define
+\(y_i=z_i-\log\sum_{j\ne i}e^{z_j}\), so \(\pi_i=\sigma(y_i)\).
+Under an uncontrolled negative atom of mass \(q>0\),
+\[
+\dot y_i=-q(1-\pi_i)c_K(t),
+\qquad \frac K{K-1}\le c_K(t)\le2.
+\]
+Hence \(y_i\) eventually decreases linearly and \(\pi_i\) exponentially.
+With \(\omega_i=\min\{1,(e^{\tau_i}\pi_i)^\beta\}\),
+\(\beta=\lambda/c\), the far branch instead satisfies
+\[
+y_i(t)=-\beta^{-1}\log t+O(1),
+\qquad \pi_i(t)=\Theta(t^{-1/\beta}).
+\]
+Thus tapering changes persistent suppression from exponential to
+polynomial probability decay; it does not freeze the action probability.
+\end{theorem}
 
 \begin{proof}[Proof of Theorem~\ref{thm:categorical_self_limiting}]
 For a single negative atom \(i\), the direct-logit field is

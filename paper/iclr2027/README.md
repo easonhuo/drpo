@@ -4,15 +4,15 @@ This directory defines the **format-only ICLR 2027 port** of the active full DRP
 
 - Task / claim: `MANUSCRIPT-ICLR2027-PORT-01`
 - Base commit: `8b0616cf0f887f86ec04e398a7604c3d3940aa5d`
-- Scientific/content source: `paper/overleaf/main_replacement.tex`
-- Source blob at the base commit: `e2e592caa780f0ba4c5edc31986f6ea4106ef000`
+- Scientific/content source: `paper/iclr2027/manuscript_source.tex`
+- ICLR source is maintained independently from the frozen ICML source.
 - Official ICLR 2027 style archive: `https://media.iclr.cc/Conferences/ICLR2027/iclr-2027-style-files.zip`
 
 ## Hard content lock
 
 This first port is intentionally mechanical. The abstract, main text, section titles, equations, theorem/proposition text, captions, table text and values, citations, appendices, bibliography entries, and figure assets must remain unchanged. The only permitted transformations are template plumbing: replacing the ICML wrapper/title machinery with the ICLR 2027 wrapper, changing the bibliography *style selector* from `icml2026` to `iclr2027_conference`, and anonymous-review formatting supplied by the official ICLR style.
 
-`generate_iclr.sh` verifies a byte-for-byte canonical body lock from `\\begin{abstract}` through the end of the appendix after normalizing only the bibliography-style selector. It also verifies that the source Git blob is the expected blob before generating anything.
+`generate_iclr.sh` verifies a byte-for-byte canonical body lock from `\\begin{abstract}` through the end of the appendix after normalizing only the bibliography-style selector. It also verifies that the dedicated ICLR source Git blob is the expected blob before generating anything; the ICML manuscript source is not read or modified.
 
 ## Build
 
