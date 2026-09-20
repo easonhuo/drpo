@@ -8,12 +8,8 @@ from .countdown_runtime import (
     run_structured_generation,
 )
 
-# Backward-compatible Python alias only; both names execute the same nine-task path.
-run_countdown = run_structured_generation
-
 __all__ = [
     "evaluate_model",
     "load_structured_generation_config",
     "run_structured_generation",
-    "run_countdown",
 ]
