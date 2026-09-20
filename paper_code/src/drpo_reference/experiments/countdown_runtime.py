@@ -185,9 +185,7 @@ def _load_policy_model(
 
 def _adapter_parameters(model: Any, adapter_name: str) -> list[torch.nn.Parameter]:
     token = f".{adapter_name}."
-    parameters = [
-        parameter for name, parameter in model.named_parameters() if token in name
-    ]
+    parameters = [parameter for name, parameter in model.named_parameters() if token in name]
     if not parameters:
         raise RuntimeError(f"No parameters found for adapter {adapter_name!r}")
     return parameters
@@ -303,9 +301,7 @@ def _write_jsonl(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
         for row in rows:
-            handle.write(
-                json.dumps(dict(row), ensure_ascii=False, sort_keys=True) + "\n"
-            )
+            handle.write(json.dumps(dict(row), ensure_ascii=False, sort_keys=True) + "\n")
 
 
 def _batch_indices(size: int, batch_size: int, seed: int) -> Iterator[list[int]]:
@@ -324,9 +320,7 @@ def _packed_batch(
     max_length: int,
     device: torch.device,
 ) -> dict[str, Any]:
-    items = [
-        encode_training_row(rows[index], tokenizer, max_length) for index in indices
-    ]
+    items = [encode_training_row(rows[index], tokenizer, max_length) for index in indices]
     packed = collate_training_items(items, int(tokenizer.pad_token_id))
     return {
         "positive": move_tensor_batch_to_device(packed["positive"], device),
@@ -387,9 +381,7 @@ def _generate_batches(
             )
             for index in range(len(chunk)):
                 first = index * num_return_sequences
-                outputs.append(
-                    decoded[first : first + num_return_sequences]
-                )
+                outputs.append(decoded[first : first + num_return_sequences])
     finally:
         tokenizer.padding_side = previous_padding
     return outputs
@@ -412,9 +404,7 @@ def evaluate_model(
     prompts = [str(row["prompt"]) for row in selected]
     was_training = bool(model.training)
     cache = getattr(model.config, "use_cache", False)
-    checkpointing = bool(
-        getattr(model, "is_gradient_checkpointing", False)
-    )
+    checkpointing = bool(getattr(model, "is_gradient_checkpointing", False))
     model.eval()
     if checkpointing and hasattr(model, "gradient_checkpointing_disable"):
         model.gradient_checkpointing_disable()
@@ -477,11 +467,7 @@ def _method_optimizers(
     if method in {"joint_fitted_reference_topr", "dpo"}:
         policy, reference = _add_reference_adapter(model)
     else:
-        policy = [
-            parameter
-            for parameter in model.parameters()
-            if parameter.requires_grad
-        ]
+        policy = [parameter for parameter in model.parameters() if parameter.requires_grad]
         reference = []
     optimizer = torch.optim.AdamW(
         policy,
@@ -623,9 +609,7 @@ def _cell_loss(
     positive_stats = completion_stats(model, positive)
     if method == "positive_only":
         return (
-            positive_only_objective(
-                positive_stats["mean_logprob"]
-            ),
+            positive_only_objective(positive_stats["mean_logprob"]),
             None,
         )
     negative_stats = completion_stats(model, negative)
@@ -679,9 +663,7 @@ def _cell_loss(
             ),
             None,
         )
-    raise ValueError(
-        f"Unsupported Structured Generation method: {method}"
-    )
+    raise ValueError(f"Unsupported Structured Generation method: {method}")
 
 
 def _train_cell(
@@ -709,9 +691,7 @@ def _train_cell(
             task,
         )
         if not configured_adapter:
-            raise ValueError(
-                "DPO requires the registered short-SFT initial adapter"
-            )
+            raise ValueError("DPO requires the registered short-SFT initial adapter")
         initial_adapter = str(configured_adapter)
 
     _seed_all(int(config["initialization_seed"]))
@@ -779,13 +759,9 @@ def _train_cell(
                     accumulation=accumulation,
                 )
                 if not bool(torch.isfinite(loss)):
-                    raise FloatingPointError(
-                        "non-finite policy loss"
-                    )
+                    raise FloatingPointError("non-finite policy loss")
                 (loss / accumulation).backward()
-                loss_total += (
-                    float(loss.detach()) / accumulation
-                )
+                loss_total += float(loss.detach()) / accumulation
             except FloatingPointError as exc:
                 numerical_failure = str(exc)
                 break
@@ -800,12 +776,10 @@ def _train_cell(
                 error_if_nonfinite=True,
             )
             if reference_optimizer is not None:
-                reference_gradient = (
-                    torch.nn.utils.clip_grad_norm_(
-                        reference,
-                        float(training["max_grad_norm"]),
-                        error_if_nonfinite=True,
-                    )
+                reference_gradient = torch.nn.utils.clip_grad_norm_(
+                    reference,
+                    float(training["max_grad_norm"]),
+                    error_if_nonfinite=True,
                 )
             else:
                 reference_gradient = None
@@ -821,14 +795,7 @@ def _train_cell(
             numerical_failure = str(exc)
             break
 
-        should_evaluate = (
-            update
-            % int(
-                training["evaluation_every_updates"]
-            )
-            == 0
-            or update == steps
-        )
+        should_evaluate = update % int(training["evaluation_every_updates"]) == 0 or update == steps
         if should_evaluate:
             _activate_policy(
                 model,
@@ -843,23 +810,15 @@ def _train_cell(
                 rows=validation_rows,
                 config=config,
                 task=task,
-                seed=(
-                    int(config["evaluation"]["seed"])
-                    + update * 1009
-                    + seed
-                ),
+                seed=(int(config["evaluation"]["seed"]) + update * 1009 + seed),
             )
             trajectory.append(
                 {
                     "update": update,
                     "loss": loss_total,
-                    "policy_gradient_l2": float(
-                        policy_gradient
-                    ),
+                    "policy_gradient_l2": float(policy_gradient),
                     "reference_gradient_l2": (
-                        None
-                        if reference_gradient is None
-                        else float(reference_gradient)
+                        None if reference_gradient is None else float(reference_gradient)
                     ),
                     **metrics,
                 }
@@ -909,27 +868,17 @@ def _train_cell(
         "terminal_validation": terminal_validation,
         "terminal_test": terminal_test,
         "task_performance": (
-            None
-            if terminal_test is None
-            else {
-                "pass_at_k": terminal_test["pass_at_k"]
-            }
+            None if terminal_test is None else {"pass_at_k": terminal_test["pass_at_k"]}
         ),
         "valid_or_structure_diagnostic": (
             None
             if terminal_test is None
             else {
-                "greedy_valid_rate": (
-                    terminal_test["greedy_valid_rate"]
-                ),
-                "sampled_valid_rate": (
-                    terminal_test["sampled_valid_rate"]
-                ),
+                "greedy_valid_rate": (terminal_test["greedy_valid_rate"]),
+                "sampled_valid_rate": (terminal_test["sampled_valid_rate"]),
             }
         ),
-        "nan_inf_numerical_failure": (
-            numerical_failure is not None
-        ),
+        "nan_inf_numerical_failure": (numerical_failure is not None),
         "numerical_failure": numerical_failure,
         "fixed_horizon_is_convergence": False,
         "method_ranking_claim": False,
@@ -946,39 +895,21 @@ def run_structured_generation(
     methods: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     config = load_structured_generation_config(config_path)
-    requested_tasks = tuple(
-        tasks or config["tasks"]["names"]
-    )
+    requested_tasks = tuple(tasks or config["tasks"]["names"])
     requested_methods = tuple(
         methods
-        or [
-            name
-            for name, spec in config["methods"].items()
-            if bool(spec.get("enabled", True))
-        ]
+        or [name for name, spec in config["methods"].items() if bool(spec.get("enabled", True))]
     )
-    unknown_tasks = sorted(
-        set(requested_tasks) - set(TASK_NAMES)
-    )
-    unknown_methods = sorted(
-        set(requested_methods)
-        - set(STRUCTURED_GENERATION_METHODS)
-    )
+    unknown_tasks = sorted(set(requested_tasks) - set(TASK_NAMES))
+    unknown_methods = sorted(set(requested_methods) - set(STRUCTURED_GENERATION_METHODS))
     if unknown_tasks:
-        raise ValueError(
-            f"Unknown Structured Generation tasks: {unknown_tasks}"
-        )
+        raise ValueError(f"Unknown Structured Generation tasks: {unknown_tasks}")
     if unknown_methods:
-        raise ValueError(
-            "Unknown Structured Generation methods: "
-            f"{unknown_methods}"
-        )
+        raise ValueError(f"Unknown Structured Generation methods: {unknown_methods}")
 
     output = Path(output_root).expanduser().resolve()
     output.mkdir(parents=True, exist_ok=True)
-    source_root = Path(
-        str(config["sources_root"])
-    ).expanduser().resolve()
+    source_root = Path(str(config["sources_root"])).expanduser().resolve()
     adapter_config = copy.deepcopy(config)
     adapter_config["tasks"]["names"] = list(requested_tasks)
     adapters = build_adapters(
@@ -995,21 +926,14 @@ def run_structured_generation(
     all_runs: list[dict[str, Any]] = []
 
     for task in requested_tasks:
-        task_seed = (
-            int(data["generation_seed"])
-            + TASK_NAMES.index(task) * 100_003
-        )
+        task_seed = int(data["generation_seed"]) + TASK_NAMES.index(task) * 100_003
         rows, instances = build_task_bank(
             adapters[task],
             candidate_rows=int(data["candidate_rows"]),
             accepted_rows=(
-                int(data["train_rows"])
-                + int(data["validation_rows"])
-                + int(data["test_rows"])
+                int(data["train_rows"]) + int(data["validation_rows"]) + int(data["test_rows"])
             ),
-            negatives_per_prompt=int(
-                data["negatives_per_prompt"]
-            ),
+            negatives_per_prompt=int(data["negatives_per_prompt"]),
             seed=task_seed,
         )
         partitions = split_bank(
@@ -1021,10 +945,7 @@ def run_structured_generation(
         )
         for split, split_rows in partitions.items():
             _write_jsonl(
-                output
-                / "data"
-                / task
-                / f"{split}.jsonl",
+                output / "data" / task / f"{split}.jsonl",
                 split_rows,
             )
 
@@ -1045,18 +966,13 @@ def run_structured_generation(
                 seed=int(config["training_seed"]),
             )
             atomic_json(
-                output
-                / "results"
-                / task
-                / f"{method}.json",
+                output / "results" / task / f"{method}.json",
                 result,
             )
             all_runs.append(result)
 
     summary = {
-        "scope": (
-            "reviewer_facing_unified_structured_generation"
-        ),
+        "scope": ("reviewer_facing_unified_structured_generation"),
         "tasks": list(requested_tasks),
         "methods": list(requested_methods),
         "common_data_path": True,
