@@ -83,7 +83,7 @@ def test_cli_dispatches_d4rl_public_runner(
     assert observed["steps"] == 100
 
 
-def test_cli_dispatches_countdown_public_runner(
+def test_cli_dispatches_structured_generation_runner(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -93,11 +93,31 @@ def test_cli_dispatches_countdown_public_runner(
         observed.update(kwargs)
         return {}
 
-    monkeypatch.setattr(cli, "run_countdown", fake_run)
-    config = tmp_path / "countdown.json"
-    output = tmp_path / "countdown-output"
-    assert cli.main(["countdown", "--config", str(config), "--output", str(output)]) == 0
-    assert observed == {"config_path": config, "output_root": output}
+    monkeypatch.setattr(cli, "run_structured_generation", fake_run)
+    config = tmp_path / "structured.json"
+    output = tmp_path / "structured-output"
+    assert (
+        cli.main(
+            [
+                "structured-generation",
+                "--config",
+                str(config),
+                "--output",
+                str(output),
+                "--tasks",
+                "countdown,wikisql",
+                "--methods",
+                "positive_only,drpo",
+            ]
+        )
+        == 0
+    )
+    assert observed == {
+        "config_path": config,
+        "output_root": output,
+        "tasks": ("countdown", "wikisql"),
+        "methods": ("positive_only", "drpo"),
+    }
 
 
 def test_evaluate_d4rl_agent(
