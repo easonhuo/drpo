@@ -26,6 +26,7 @@ provenance:
     - scripts/v2_bank_convert.py
     - src/drpo/e8_experiment_config.py
     - src/drpo/e8_multitask_exp_tuning.py
+    - src/drpo/e8_multitask_canonical_bridge.py
     - src/drpo/e8_multitask_inputs.py
     - src/drpo/e8_multitask_orchestration.py
     - src/drpo/e8_multitask_results.py
