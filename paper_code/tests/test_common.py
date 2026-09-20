@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 import torch
 
-from drpo_reference.categorical.countdown import (
+from drpo_reference.categorical.structured_generation import (
     IGNORE_INDEX,
     clean_expression,
     completion_statistics_from_logits,
@@ -53,7 +53,7 @@ class _CharacterTokenizer:
         return {"input_ids": [ord(character) for character in text]}
 
 
-def test_seed_all_matches_legacy_seed_order() -> None:
+def test_seed_all_matches_reference_seed_order() -> None:
     seed_all(20260624)
     actual = (
         random.random(),
@@ -77,7 +77,7 @@ def test_cpu_generator_is_independent_and_repeatable() -> None:
     torch.testing.assert_close(first, second, rtol=0.0, atol=0.0)
 
 
-def test_atomic_json_matches_legacy_text_format(tmp_path: Path) -> None:
+def test_atomic_json_matches_reference_text_format(tmp_path: Path) -> None:
     path = tmp_path / "nested" / "payload.json"
     payload = {"ascii": 1, "中文": [True, None]}
     atomic_json(path, payload)
