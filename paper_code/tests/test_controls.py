@@ -5,7 +5,7 @@ import math
 import pytest
 import torch
 
-from drpo_reference.categorical.countdown import drpo_weights
+from drpo_reference.categorical.structured_generation import drpo_weights
 from drpo_reference.controls import (
     TaperFamily,
     far_mask,
@@ -29,7 +29,7 @@ from drpo_reference.experiments.d4rl import (
 )
 
 
-def test_cu1_point_retention_formulas_match_legacy_definitions() -> None:
+def test_cu1_point_retention_formulas_match_reference_definitions() -> None:
     distance = torch.tensor([0.0, 2.5, 5.0, 7.5], dtype=torch.float64)
     rho = 0.25
     reference = 5.0
@@ -39,16 +39,16 @@ def test_cu1_point_retention_formulas_match_legacy_definitions() -> None:
         TaperFamily.RECIPROCAL_QUADRATIC: 1.0 / (1.0 + (1.0 / rho - 1.0) * normalized.square()),
         TaperFamily.EXPONENTIAL_LINEAR: torch.exp(math.log(rho) * normalized),
     }
-    for family, legacy in expected.items():
+    for family, reference_value in expected.items():
         coefficient = point_retention_coefficient(
             family, retention=rho, reference_distance=reference
         )
         actual = taper_weight(distance, family=family, coefficient=coefficient)
-        torch.testing.assert_close(actual, legacy, rtol=0.0, atol=1.0e-12)
+        torch.testing.assert_close(actual, reference_value, rtol=0.0, atol=1.0e-12)
         assert actual[2].item() == pytest.approx(rho, abs=1.0e-12)
 
 
-def test_du1_v4_distance_coordinate_matches_legacy_formulas() -> None:
+def test_du1_v4_distance_coordinate_matches_reference_formulas() -> None:
     normalized_excess = torch.tensor([0.0, 0.25, 1.0, 4.0], dtype=torch.float64)
     distance = torch.sqrt(normalized_excess)
     rho = 0.25
@@ -59,10 +59,10 @@ def test_du1_v4_distance_coordinate_matches_legacy_formulas() -> None:
         TaperFamily.RECIPROCAL_QUADRATIC: 1.0 / (1.0 + reciprocal * normalized_excess),
         TaperFamily.EXPONENTIAL_QUADRATIC: torch.exp(-exponential * normalized_excess),
     }
-    for family, legacy in expected.items():
+    for family, reference_value in expected.items():
         coefficient = point_retention_coefficient(family, retention=rho)
         actual = taper_weight(distance, family=family, coefficient=coefficient)
-        torch.testing.assert_close(actual, legacy, rtol=0.0, atol=1.0e-12)
+        torch.testing.assert_close(actual, reference_value, rtol=0.0, atol=1.0e-12)
         assert actual[2].item() == pytest.approx(rho, abs=1.0e-12)
 
 
@@ -111,12 +111,12 @@ def test_raw_gradient_norm_and_budget_scale() -> None:
     assert gradient_l2_norm(scaled).item() == pytest.approx(5.0)
 
 
-def test_budget_scale_fails_closed_for_nonzero_target_and_zero_source() -> None:
+def test_budget_scale_rejects_nonzero_target_with_zero_source() -> None:
     with pytest.raises(ZeroDivisionError):
         scale_to_match_norm([torch.tensor([1.0])], [torch.tensor([0.0])])
 
 
-def test_invalid_coordinates_fail_closed() -> None:
+def test_invalid_coordinates_raise() -> None:
     with pytest.raises(ValueError):
         taper_weight(torch.tensor([-1.0]), family="reciprocal_linear", coefficient=1.0)
     with pytest.raises(ValueError):
@@ -125,7 +125,7 @@ def test_invalid_coordinates_fail_closed() -> None:
         near_mask(torch.tensor([float("nan")]), threshold=1.0)
 
 
-def test_d4rl_reviewer_method_catalog_is_explicit_and_nonfinal() -> None:
+def test_d4rl_method_catalog_is_explicit() -> None:
     assert D4RL_METHODS == (
         "exprank",
         "positive_only",
@@ -137,7 +137,7 @@ def test_d4rl_reviewer_method_catalog_is_explicit_and_nonfinal() -> None:
     )
 
 
-def test_d4rl_legacy_control_factors_match_registered_pilot_formulas() -> None:
+def test_d4rl_control_factors_match_reference_formulas() -> None:
     negative_advantages = torch.tensor(
         [-4.0, -1.0, -3.0, -2.0],
         dtype=torch.float64,
