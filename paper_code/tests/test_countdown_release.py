@@ -47,11 +47,7 @@ def test_countdown_uses_common_bank_and_split_path() -> None:
         "validation": 2,
         "test": 1,
     }
-    prompt_ids = [
-        row["prompt_id"]
-        for values in split.values()
-        for row in values
-    ]
+    prompt_ids = [row["prompt_id"] for values in split.values() for row in values]
     assert len(set(prompt_ids)) == 6
 
 
@@ -82,9 +78,7 @@ def test_asymre_branch_balanced_signed_reward_objective() -> None:
     )
     positive_mean = -2.0
     negative_prompt_mean = ((-2.0 - 4.0) / 2 + (-6.0 - 8.0) / 2) / 2
-    expected_objective = 0.5 * (
-        1.5 * positive_mean + (-0.5) * negative_prompt_mean
-    )
+    expected_objective = 0.5 * (1.5 * positive_mean + (-0.5) * negative_prompt_mean)
     assert float(loss) == pytest.approx(-expected_objective)
 
 
@@ -134,7 +128,5 @@ def test_dpo_is_prompt_balanced_over_unique_rejections() -> None:
         + reference_negative
     )
     pair_losses = -torch.nn.functional.logsigmoid(beta * margin)
-    expected = torch.stack(
-        [pair_losses[:2].mean(), pair_losses[2:].mean()]
-    ).mean()
+    expected = torch.stack([pair_losses[:2].mean(), pair_losses[2:].mean()]).mean()
     assert float(loss) == pytest.approx(float(expected))
