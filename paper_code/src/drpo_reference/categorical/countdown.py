@@ -1360,9 +1360,7 @@ def topr_policy_objective(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     log_ratio = negative_sum_logprob - reference_negative_sum_logprob
     weights = torch.exp(float(beta) * torch.clamp(log_ratio, max=0.0)).detach()
-    negative = prompt_balanced_mean(
-        weights * negative_mean_logprob, row_index, counts
-    )
+    negative = prompt_balanced_mean(weights * negative_mean_logprob, row_index, counts)
     return -(positive_mean_logprob.mean() - negative), weights
 
 
