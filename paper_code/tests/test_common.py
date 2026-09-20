@@ -136,12 +136,7 @@ def test_structured_encoding_masks_prompt_and_padding() -> None:
     padded = pad_encoded((encoded, second), pad_id=0)
     assert padded["input_ids"].shape == padded["labels"].shape
     assert padded["attention_mask"].shape == padded["labels"].shape
-    assert bool(
-        (
-            padded["labels"][padded["attention_mask"] == 0]
-            == IGNORE_INDEX
-        ).all()
-    )
+    assert bool((padded["labels"][padded["attention_mask"] == 0] == IGNORE_INDEX).all())
 
 
 def test_completion_statistics_use_completion_tokens_only() -> None:
@@ -152,12 +147,8 @@ def test_completion_statistics_use_completion_tokens_only() -> None:
 
     assert stats["token_mask"].tolist() == [[False, True, True]]
     assert stats["lengths"].tolist() == [2]
-    assert stats["mean_logprob"].item() == pytest.approx(
-        expected_token_log_probability
-    )
-    assert stats["sum_logprob"].item() == pytest.approx(
-        2.0 * expected_token_log_probability
-    )
+    assert stats["mean_logprob"].item() == pytest.approx(expected_token_log_probability)
+    assert stats["sum_logprob"].item() == pytest.approx(2.0 * expected_token_log_probability)
 
 
 def test_prompt_balanced_mean_is_not_response_count_weighted() -> None:
