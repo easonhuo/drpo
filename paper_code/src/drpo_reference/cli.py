@@ -1,4 +1,4 @@
-"""Command-line entry point for the paper-facing DRPO reference code."""
+"""Command-line entry point for the DRPO reference code."""
 
 from __future__ import annotations
 
@@ -6,11 +6,11 @@ import argparse
 from collections.abc import Sequence
 from pathlib import Path
 
+from drpo_reference.categorical.du1_public import run_du1
 from drpo_reference.categorical.structured_generation import (
     STRUCTURED_GENERATION_METHODS,
     TASK_NAMES,
 )
-from drpo_reference.categorical.du1_public import run_du1
 from drpo_reference.continuous.cu1_suite import (
     STAGES,
     run_cu1_stage,
