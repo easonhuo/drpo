@@ -37,7 +37,7 @@ def _method_list(value: str) -> tuple[str, ...]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="drpo-reference",
-        description="Reproduce the paper-facing DRPO experiments.",
+        description="Run the DRPO reference experiments.",
     )
     experiments = parser.add_subparsers(
         dest="experiment",
