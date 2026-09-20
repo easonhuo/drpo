@@ -1,0 +1,180 @@
+version: 1
+run_id: E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01
+lane: e8
+priority: 180
+experiment_id: EXT-C-E8-MULTITASK-RECIPROCAL-LINEAR-GRAPHCOLOR-CLOSURE-01
+repo_commit: d61c52c72c94225af3b79c481efe6480bb9b4f9b
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - docs/experiments/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_01_PROTOCOL.md
+    - configs/e8_multitask_reciprocal_linear_graphcolor_closure_60.yaml
+    - configs/e8_multitask_p0.yaml
+    - requirements/e8_multitask_exp_coldstart.txt
+    - scripts/bootstrap_e8_multitask_exp_coldstart.sh
+    - scripts/run_e8_multitask_exp_coldstart.sh
+    - scripts/preflight_e8_multitask_config.py
+    - scripts/run_experiment_guard_hardened.py
+    - scripts/package_experiment_hardened.py
+    - scripts/verify_experiment_package_hardened.py
+    - scripts/run_e8_multitask_p0.sh
+    - scripts/v2_bank_convert.py
+    - src/drpo/e8_experiment_config.py
+    - src/drpo/e8_multitask_exp_tuning.py
+    - src/drpo/e8_multitask_inputs.py
+    - src/drpo/e8_multitask_orchestration.py
+    - src/drpo/e8_multitask_results.py
+    - src/drpo/e8_multitask_runtime.py
+    - src/drpo/e8_multitask_p0.py
+    - src/drpo/e8_multitask_tasks.py
+    - src/drpo/countdown_qwen_arena_onefile.py
+    - src/drpo/countdown_e8_alpha1_c_scan_common.py
+    - src/drpo/countdown_e8_alpha1_c_scan_runtime.py
+    - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_common.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+    - src/drpo/countdown_e8_oracle_bank_v2.py
+
+purpose: >-
+  Execute the reviewed 60-cell E8 reciprocal follow-up exactly as frozen in
+  configs/e8_multitask_reciprocal_linear_graphcolor_closure_60.yaml. The sweep
+  extends only the still-open Reciprocal-Linear right tails for Word Sorting,
+  Spiral Matrix, Mini Sudoku, and Word Ladder, and densifies only the low-strength
+  Graph Color region for both Reciprocal-Linear and Reciprocal-Quadratic. The two
+  paired seeds remain 4000 and 5000 with the hard seed barrier, every cell remains
+  fixed at 1200 optimizer updates from fresh zero-update LoRA, no previously
+  completed scientific cell is rerun, and the test partition remains unopened.
+  This RunSpec is an optional immutable execution snapshot and delivery convenience;
+  it does not authorize convergence, significance, steady-state, asymptotic, or
+  universal method-ranking claims.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    E8_COLDSTART_EXISTING_REPO=.
+    E8_COLDSTART_BOOTSTRAP_ROOT=/root/drpo-e8-reciprocal-linear-graphcolor-closure-runspec-20260920-01
+    E8_COLDSTART_TARGET_REF=refs/heads/main
+    E8_COLDSTART_EXPERIMENT_ID=EXT-C-E8-MULTITASK-RECIPROCAL-LINEAR-GRAPHCOLOR-CLOSURE-01
+    E8_COLDSTART_CONFIG=configs/e8_multitask_reciprocal_linear_graphcolor_closure_60.yaml
+    E8_COLDSTART_RUN_ID=E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01
+    E8_COLDSTART_RUN_CLASS=formal
+    E8_COLDSTART_REQUIRE_ORIGIN_MAIN=1
+    E8_COLDSTART_GUARD_ROOT=outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/guard
+    E8_COLDSTART_RECOVERY_ROOT=outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/recovery
+    bash scripts/bootstrap_e8_multitask_exp_coldstart.sh full
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: >-
+    E8_COLDSTART_EXISTING_REPO=.
+    E8_COLDSTART_BOOTSTRAP_ROOT=/root/drpo-e8-reciprocal-linear-graphcolor-closure-runspec-20260920-01
+    E8_COLDSTART_TARGET_REF=refs/heads/main
+    E8_COLDSTART_EXPERIMENT_ID=EXT-C-E8-MULTITASK-RECIPROCAL-LINEAR-GRAPHCOLOR-CLOSURE-01
+    E8_COLDSTART_CONFIG=configs/e8_multitask_reciprocal_linear_graphcolor_closure_60.yaml
+    E8_COLDSTART_RUN_ID=E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01
+    E8_COLDSTART_RUN_CLASS=formal
+    E8_COLDSTART_REQUIRE_ORIGIN_MAIN=1
+    E8_COLDSTART_GUARD_ROOT=outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/guard
+    E8_COLDSTART_RECOVERY_ROOT=outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/recovery
+    bash scripts/bootstrap_e8_multitask_exp_coldstart.sh full
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/recovery/ATTEMPT_STATE.env
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/recovery/CONFIG_PREFLIGHT.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/recovery/SETUP_COMPLETE.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/guard/attempt-*/workload/scheduler/dynamic_run.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/guard/attempt-*/workload/aggregate/plot_curve_points.csv
+  backoff_seconds: 60
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  fixed_profile_only: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  formal_evidence_allowed: true
+
+outputs:
+  run_dir: outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01
+
+success_criteria:
+  - execution resolves refs/heads/main through the canonical easonhuo/drpo origin and uses a clean isolated checkout
+  - protected scientific paths remain unchanged from repo_commit d61c52c72c94225af3b79c481efe6480bb9b4f9b
+  - experiment identity is EXT-C-E8-MULTITASK-RECIPROCAL-LINEAR-GRAPHCOLOR-CLOSURE-01 and execution class is formal
+  - tracked config expands to exactly 60 unique scientific cells
+  - Reciprocal-Linear uses lambdas 601, 901, 1351, 2025, 3037 on word_sorting, mini_sudoku, and word_ladder only
+  - Reciprocal-Linear uses lambdas 181, 271, 401, 601, 901 on spiral_matrix only
+  - Reciprocal-Linear uses lambdas 2, 4, 5, 10, 14 on graph_color only
+  - Reciprocal-Quadratic uses lambdas 4, 16, 25, 100, 196 on graph_color only
+  - Graph Color densification preserves lambda_quadratic equal to lambda_linear squared at every newly added paired point
+  - maze, knights_knaves, wikisql, and countdown launch zero new scientific cells
+  - no Reciprocal-Quadratic cells are launched outside Graph Color
+  - paired transfer seeds remain exactly 4000 and 5000 with the seed batch barrier preserved
+  - every cell preserves the frozen 1200-update training, evaluation, optimizer, fresh-LoRA, data-bank, and negative-consumer contracts
+  - no previously completed Reciprocal cell, Positive-only cell, or Global endpoint cell is rerun
+  - test_data_used remains false and the test partition remains unopened
+  - the hardened E8 runner returns zero only after required workload completion, terminal audit, source/config provenance, and guarded-package checks
+  - task performance, valid or structure diagnostics, and NaN or Inf numerical failure remain separate report dimensions
+  - fixed 1200 updates are not described as convergence or steady state
+  - Graph Color endpoint shape is not attributed to faster convergence without trajectory evidence
+  - no significance, asymptotic, universal superiority, or method-ranking claim is inferred without the registered terminal audit
+  - completed text-first evidence is delivered to drpo-results ingest/e8
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/recovery/*.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/recovery/*.env
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/recovery/*.log
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/guard/attempt-*/*.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/guard/attempt-*/logs/*.log
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/guard/attempt-*/workload/*.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/guard/attempt-*/workload/aggregate/*.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/guard/attempt-*/workload/aggregate/*.csv
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/guard/attempt-*/workload/calibration/*.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/guard/attempt-*/workload/cells/*/cell_manifest.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/guard/attempt-*/workload/cells/*/canonical/manifest.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/guard/attempt-*/workload/cells/*/canonical/metrics.csv
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/guard/attempt-*/workload/cells/*/canonical/summary.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/guard/attempt-*/workload/scheduler/*.json
+    - .runspec_state/logs/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/**/*.json
+    - .runspec_state/logs/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/**/*.log
+    - .runspec_state/logs/E8_MULTITASK_RECIPROCAL_LINEAR_GRAPHCOLOR_CLOSURE_20260920_01/**/*.txt
+  exclude:
+    - "**/*.pt"
+    - "**/*.pth"
+    - "**/*.ckpt"
+    - "**/*.safetensors"
+    - "**/*.bin"
+    - "**/adapter/**"
+    - "**/best_pass8_adapter/**"
+    - "**/terminal_adapter/**"
+    - "**/checkpoint*"
+    - "**/checkpoints/**"
+    - "**/optimizer*"
+    - "**/wandb/**"
+    - "**/training_diagnostics.jsonl"
+    - "**/validation_diagnostics.jsonl"
+  max_package_size_mb: 100
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e8
+  export_profile: manifest_text_v1
+  max_total_size_mb: 30
+  max_file_size_mb: 10
+
+publish:
+  enabled: false
+  auto: false
