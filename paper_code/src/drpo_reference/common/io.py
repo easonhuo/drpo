@@ -1,4 +1,4 @@
-"""Small deterministic JSON and CSV helpers for reviewer-facing artifacts."""
+"""Small deterministic JSON and CSV helpers."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ def atomic_json(path: Path, value: Any) -> None:
 
 
 def write_csv(path: Path, rows: Iterable[Mapping[str, Any]]) -> None:
-    """Write rows using first-seen field order, matching the legacy runners."""
+    """Write rows using first-seen field order."""
 
     materialized = [dict(row) for row in rows]
     path.parent.mkdir(parents=True, exist_ok=True)
