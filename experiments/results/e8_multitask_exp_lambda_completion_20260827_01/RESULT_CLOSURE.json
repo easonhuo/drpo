@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "experiment_id": "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01",
+  "run_id": "E8_MULTITASK_EXP_LAMBDA_COMPLETION_20260827_01",
+  "scientific_status": "pilot",
+  "authoritative_formal_result": false,
+  "cells": {"expected": 199, "completed": 199},
+  "terminal_audit": "PASS",
+  "test_partition_accessed": false,
+  "nan_inf_numerical_failures": 0,
+  "task_performance_event": "not_adjudicated_without_registered_collapse_threshold",
+  "structure_event": "greedy_and_sampled_valid_rate_diagnostic_only",
+  "fixed_horizon_is_convergence": false,
+  "method_ranking_allowed": false,
+  "significance_claim_allowed": false,
+  "fresh_seed_confirmation_required": true,
+  "source_commit": "831b3ab5b24bf42464e79abfaf7e1077b03addf0",
+  "source_commit_resolvable_on_github_at_closure": false,
+  "origin_main_at_run": "7b2f7cb82000b09136d57cf5c08f7617d2c00840",
+  "origin_matches_local": false,
+  "provenance_compromised": false,
+  "uploaded_guarded_archive_sha256": "1d9dc48e2016205f7f74615f57a67bc89f885c6c51de0977bd9e1d16af68d467",
+  "archive_manifest_package_kind": "experiment-raw-complete",
+  "durable_delivery_before_this_closure": false,
+  "repository_closure_date": "2026-09-02",
+  "execution_evidence_state": "raw_complete_terminal_audited",
+  "scientific_role": "external_validity_response_shape_and_lambda_localization",
+  "raw_artifact_bindings": {
+    "raw_plot_curve_points_sha256": "24f5b684240cffe1ecf7c12a2b30d44b7cc34d2e225e84822bc23d1470f41a82",
+    "raw_aggregate_summary_sha256": "99002716880c631639d59308c3cf1a036d32bd8207d5106f62afab26308a2484",
+    "raw_terminal_audit_sha256": "b65a84ede20199a3f5252761393706f960a6808b4db62046186b218fa8fbd19f"
+  }
+}
