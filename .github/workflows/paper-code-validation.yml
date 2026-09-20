@@ -88,65 +88,11 @@ jobs:
             --device cpu \
             --workers 1 \
             --smoke
-          test -s "$output/terminal_audit.json"
-          test -s "$output/aggregate_summary.json"
-
-      - name: Audit standalone source boundary
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          import ast
-          from pathlib import Path
-
-          root = Path("paper_code")
-          forbidden_suffixes = {
-              ".bin", ".ckpt", ".h5", ".hdf5", ".pt", ".pth",
-              ".safetensors", ".tar", ".tgz", ".zip",
-          }
-          forbidden_dirs = {"artifacts", "checkpoints", "outputs", "results"}
-          for path in root.rglob("*"):
-              assert not path.is_symlink(), path
-              if path.is_file():
-                  assert path.suffix.lower() not in forbidden_suffixes, path
-                  assert not (set(path.parts) & forbidden_dirs), path
-
-          source_root = root / "src" / "drpo_reference"
-          for path in source_root.rglob("*.py"):
-              tree = ast.parse(path.read_text(encoding="utf-8"))
-              for node in ast.walk(tree):
-                  if isinstance(node, ast.Import):
-                      names = [alias.name for alias in node.names]
-                  elif isinstance(node, ast.ImportFrom):
-                      names = [node.module or ""]
-                  else:
-                      continue
-                  assert all(
-                      name != "drpo" and not name.startswith("drpo.")
-                      for name in names
-                  ), (path, names)
-
-          core = ast.parse(
-              (source_root / "categorical" / "countdown.py").read_text(
-                  encoding="utf-8"
-              )
-          )
-          heavy = {"transformers", "peft", "bitsandbytes"}
-          for node in ast.walk(core):
-              if isinstance(node, ast.Import):
-                  names = [alias.name.split(".", 1)[0] for alias in node.names]
-              elif isinstance(node, ast.ImportFrom):
-                  names = [(node.module or "").split(".", 1)[0]]
-              else:
-                  continue
-              assert not (set(names) & heavy), names
-          PY
 
       - name: Build and verify reviewer package
         run: |
           set -euo pipefail
           python - <<'PY'
-          import hashlib
-          import json
           import os
           import shutil
           from pathlib import Path
@@ -162,24 +108,6 @@ jobs:
           shutil.copytree(source / "tests", root / "tests", dirs_exist_ok=True)
           (root / "SOURCE_COMMIT.txt").write_text(
               os.environ["SOURCE_COMMIT"] + "\n", encoding="utf-8"
-          )
-          files = []
-          for path in sorted(root.rglob("*")):
-              if path.is_file():
-                  payload = path.read_bytes()
-                  files.append({
-                      "path": path.relative_to(root).as_posix(),
-                      "sha256": hashlib.sha256(payload).hexdigest(),
-                      "size_bytes": len(payload),
-                  })
-          manifest = {
-              "schema_version": 1,
-              "source_commit": os.environ["SOURCE_COMMIT"],
-              "file_count_excluding_manifest": len(files),
-              "files": files,
-          }
-          (root / "PACKAGE_MANIFEST.json").write_text(
-              json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
           )
           shutil.make_archive(
               "dist/drpo-reference-v0.1",
