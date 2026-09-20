@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import ast
 import hashlib
-import math
 import importlib.util
 import json
 import random
@@ -429,7 +428,7 @@ class TaskAdapter(ABC):
 class CountdownAdapter(TaskAdapter):
     name = "countdown"
     source_kind = "drpo_countdown_generator"
-    source_revision = "countdown_qwen_arena_onefile"
+    source_revision = "reviewer_unified_countdown_generator"
     output_structure = "arithmetic_expression"
 
     def generate_instances(self, count: int, seed: int) -> Iterable[TaskInstance]:
@@ -1211,11 +1210,18 @@ def encode_training_row(
     max_length: int,
 ) -> StructuredTrainingItem:
     prompt = str(row["prompt"])
-    positive = encode_prompt_completion(
-        tokenizer, prompt, str(row["oracle_completion"]), max_length
+    oracle_verification = row.get("oracle_verification", {})
+    positive_text = str(
+        oracle_verification.get("canonical_completion", row["oracle_completion"])
     )
+    positive = encode_prompt_completion(tokenizer, prompt, positive_text, max_length)
     negatives = tuple(
-        encode_prompt_completion(tokenizer, prompt, str(item["completion"]), max_length)
+        encode_prompt_completion(
+            tokenizer,
+            prompt,
+            str(item.get("canonical_completion", item["completion"])),
+            max_length,
+        )
         for item in row["negatives"]
     )
     return StructuredTrainingItem(positive=positive, negatives=negatives)
