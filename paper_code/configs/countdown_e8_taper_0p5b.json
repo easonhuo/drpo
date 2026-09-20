@@ -1,134 +1,145 @@
 {
-  "schema_version": 2,
-  "protocol_id": "EXT-C-E8-TAPER-0.5B-01-v79",
-  "reviewer_code_migration_status": "closed",
-  "scientific_status": "pilot_not_run",
+  "schema_version": 3,
+  "scope": "reviewer_facing_unified_structured_generation",
   "formal_result_claim": false,
-  "protocol_contract": {
-    "dataset_generation": {
-      "seed": 1234,
-      "train_rows": 6000,
-      "validation_rows": 500,
-      "test_rows": 1000,
-      "numbers_per_problem": 4,
-      "split_protocol": "park_inspired_pattern_first_family_holdout_capacity_audited"
-    },
-    "reference": {
-      "base_greedy_success_gate": 0.15,
-      "base_valid_rate_gate": 0.8,
-      "pilot_greedy_success_gate": 0.08,
-      "pilot_valid_rate_gate": 0.95,
-      "formal_greedy_success_gate": 0.15,
-      "formal_valid_rate_gate": 0.95,
-      "sft_epochs": 6,
-      "sft_min_epochs": 3,
-      "sft_early_stop_patience": 2,
-      "sft_micro_batch": 1,
-      "sft_gradient_accumulation": 32,
-      "sft_learning_rate": 0.0002,
-      "sft_warmup_ratio": 0.03,
-      "sft_max_gradient_norm": 1.0,
-      "validation_seed": 5000
-    },
-    "replay_collection": {
-      "train_prompt_rows": 900,
-      "calibration_prompt_rows": 16,
-      "train_candidate_prompt_rows": 1800,
-      "calibration_candidate_prompt_rows": 32,
-      "rollouts_per_prompt_per_round": 12,
-      "resample_rounds": 3,
-      "generation_batch_size": 4,
-      "score_batch_size": 16,
-      "temperature": 0.8,
-      "top_p": 0.95,
-      "synthetic_negative_fallback": false,
-      "fixed_negative_count_per_prompt": false,
-      "enforce_training_structure_support": true,
-      "prompt_balanced_sampling": true
-    },
-    "test_access": "after_all_method_training_only",
-    "checkpoint_policy": "best_plus_terminal_or_last_finite"
-  },
+  "sources_root": "${DRPO_STRUCTURED_SOURCES_ROOT}",
+  "initialization_seed": 2026070803,
+  "training_seed": 4000,
   "model": {
-    "path": "${COUNTDOWN_MODEL_PATH}",
-    "identity": "Qwen2.5-0.5B-Instruct",
-    "initial_adapter": "${COUNTDOWN_REFERENCE_ADAPTER}",
-    "device": "cuda",
-    "dtype": "bf16",
+    "path": "Qwen/Qwen2.5-0.5B-Instruct",
+    "device": "auto",
+    "dtype": "bfloat16",
     "load_in_4bit": false,
     "gradient_checkpointing": true,
-    "lora": {
-      "r": 32,
-      "alpha": 64,
-      "dropout": 0.05,
-      "target_modules": [
-        "q_proj",
-        "k_proj",
-        "v_proj",
-        "o_proj",
-        "gate_proj",
-        "up_proj",
-        "down_proj"
-      ]
+    "lora_rank": 32,
+    "lora_alpha": 64,
+    "lora_dropout": 0.05,
+    "lora_target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ]
+  },
+  "tasks": {
+    "names": [
+      "countdown",
+      "word_sorting",
+      "spiral_matrix",
+      "mini_sudoku",
+      "maze",
+      "word_ladder",
+      "knights_knaves",
+      "graph_color",
+      "wikisql"
+    ],
+    "reasoning_gym": {
+      "word_sorting": {
+        "min_words": 6,
+        "max_words": 10,
+        "min_word_length": 3,
+        "max_word_length": 10
+      },
+      "spiral_matrix": {
+        "min_n": 4,
+        "max_n": 6
+      },
+      "mini_sudoku": {
+        "min_empty": 8,
+        "max_empty": 10
+      },
+      "maze": {
+        "min_dist": 5,
+        "max_dist": 12,
+        "min_grid_size": 6,
+        "max_grid_size": 10
+      },
+      "word_ladder": {
+        "min_word_length": 4,
+        "max_word_length": 4,
+        "min_chain_length": -1,
+        "max_chain_length": -1
+      },
+      "knights_knaves": {
+        "n_people": 4,
+        "depth_constraint": 2,
+        "width_constraint": 2
+      },
+      "graph_color": {
+        "num_colors": 3,
+        "min_num_vertices": 8,
+        "max_num_vertices": 10,
+        "edge_probability": 0.25
+      }
+    },
+    "wikisql": {
+      "split": "train"
     }
   },
   "data": {
-    "replay": "${COUNTDOWN_PREPARED_ROOT}/replay_train.jsonl",
-    "calibration": "${COUNTDOWN_PREPARED_ROOT}/replay_calibration.jsonl",
-    "validation": "${COUNTDOWN_PREPARED_ROOT}/validation.jsonl",
-    "test": "${COUNTDOWN_PREPARED_ROOT}/test.jsonl",
-    "structure_reference": "${COUNTDOWN_PREPARED_ROOT}/train.jsonl",
-    "expected_rows": {
-      "replay": 900,
-      "calibration": 16,
-      "validation": 500,
-      "test": 1000,
-      "structure_reference": 6000
-    }
+    "candidate_rows": 7500,
+    "train_rows": 5000,
+    "validation_rows": 500,
+    "test_rows": 500,
+    "negatives_per_prompt": 16,
+    "generation_seed": 271828,
+    "split_seed": 2026072901
   },
-  "methods": [
-    "positive_only",
-    "uncontrolled_negative",
-    "global_matched",
-    "reciprocal_linear",
-    "exponential",
-    "squared_distance_exponential"
-  ],
-  "seeds": [9234, 10234, 11234],
   "training": {
-    "max_length": 256,
-    "steps": 1200,
+    "optimizer_updates": 1200,
     "micro_batch": 1,
-    "grad_accum": 8,
+    "gradient_accumulation": 8,
     "learning_rate": 0.00005,
     "weight_decay": 0.01,
     "warmup_ratio": 0.03,
-    "max_grad_norm": 1.0,
-    "eval_every": 100,
-    "checkpoint_every": 100
-  },
-  "calibration": {
-    "prompts": 16,
-    "seed": 9134,
-    "minimum_surprisal_scale": 0.000001,
-    "inherited_exponential_coefficient": 0.7,
-    "maximum_coefficient": 64.0,
-    "bisection_steps": 24,
-    "relative_l2_tolerance": 0.01,
-    "minimum_active_distance_fraction": 0.25,
-    "nondegenerate_target_max_ratio": 0.995,
-    "minimum_taper_lambda": 0.000001
+    "max_grad_norm": 1,
+    "evaluation_every_updates": 100
   },
   "evaluation": {
-    "batch_size": 8,
     "examples": 500,
-    "max_new_tokens": 80,
     "pass_k": 8,
-    "seed_offset": 700000,
-    "selection_metric": "greedy_success",
-    "selection_delta": 0.002,
-    "sample_temperature": 0.8,
-    "sample_top_p": 0.95,
-    "require_structure_metrics": true
+    "temperature": 0.8,
+    "top_p": 0.95,
+    "seed": 2026070801
+  },
+  "task_runtime": {
+    "default": {
+      "max_length": 512,
+      "max_new_tokens": 128,
+      "evaluation_batch_size": 16
+    },
+    "countdown": {
+      "max_length": 256,
+      "max_new_tokens": 80,
+      "evaluation_batch_size": 8
+    }
+  },
+  "methods": {
+    "positive_only": {
+      "enabled": true
+    },
+    "drpo": {
+      "enabled": true,
+      "threshold": 0,
+      "scale": 1,
+      "coefficient": 1
+    },
+    "asymre": {
+      "enabled": true,
+      "delta_v": -0.5
+    },
+    "joint_fitted_reference_topr": {
+      "enabled": true,
+      "beta": 0.5,
+      "reference_learning_rate_multiplier": 1
+    },
+    "dpo": {
+      "enabled": false,
+      "beta": 0.1,
+      "initial_adapter": "${DRPO_STRUCTURED_DPO_SFT_ADAPTER}"
+    }
   }
 }
