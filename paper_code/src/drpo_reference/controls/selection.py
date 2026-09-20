@@ -19,7 +19,7 @@ def _validated(distance: torch.Tensor, threshold: float) -> torch.Tensor:
 
 
 def near_mask(distance: torch.Tensor, *, threshold: float) -> torch.Tensor:
-    """Return the legacy-compatible near mask ``distance <= threshold``."""
+    """Return the near mask ``distance <= threshold``."""
 
     return _validated(distance, threshold) <= float(threshold)
 
