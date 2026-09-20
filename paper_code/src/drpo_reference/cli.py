@@ -6,7 +6,7 @@ import argparse
 from collections.abc import Sequence
 from pathlib import Path
 
-from drpo_reference.categorical.countdown import (
+from drpo_reference.categorical.structured_generation import (
     STRUCTURED_GENERATION_METHODS,
     TASK_NAMES,
 )
@@ -19,7 +19,7 @@ from drpo_reference.experiments import (
     D4RL_METHODS,
     run_d4rl,
 )
-from drpo_reference.experiments.countdown import run_structured_generation
+from drpo_reference.experiments.structured_generation import run_structured_generation
 
 
 def _seed_list(value: str) -> tuple[int, ...]:
@@ -81,7 +81,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     d4rl = experiments.add_parser(
         "d4rl",
-        help="paper-facing D4RL-9 training and rollout runner",
+        help="D4RL-9 training and rollout runner",
     )
     d4rl.add_argument(
         "--dataset-root",
@@ -107,7 +107,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--seeds",
         type=_seed_list,
         required=True,
-        help="comma-separated reviewer-run seeds",
+        help="comma-separated seeds",
     )
     d4rl.add_argument(
         "--steps",
