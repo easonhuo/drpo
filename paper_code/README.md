@@ -1,18 +1,16 @@
 # DRPO paper reference code
 
-This directory contains the compact paper-facing DRPO reference implementation.
-It is intentionally separate from the repository's historical experiment
-drivers and research-governance machinery.
+This directory contains a compact reference implementation of the DRPO
+experiments and comparison methods used in the paper.
 
 C-U1 and D-U1 both use independent train and held-out contexts drawn from the
 same distribution. Their result is **same-distribution held-out-context
 generalization**, not OOD generalization.
 
-## Reviewer-facing scope
+## Scope
 
-This package is a compact reference implementation of the paper algorithms.
-It keeps the paper-facing update logic and experiment interfaces while avoiding
-repository-internal provenance, recovery, eligibility, and workflow machinery.
+The package focuses on the experiment definitions, model updates, task adapters,
+and evaluation code needed to understand and run the paper experiments.
 
 Scores may vary across seeds, hardware, MuJoCo/Gymnasium versions, and numerical
 libraries. The intended invariant is the algorithmic update sequence and
@@ -62,8 +60,8 @@ python -m drpo_reference cu1 --stage phase --output outputs/cu1_phase
 python -m drpo_reference cu1 --stage taper --output outputs/cu1_taper
 ```
 
-Each command runs the original numerical experiment and writes one compact JSON
-result instead of checkpoints, manifests, and terminal-gate artifacts.
+Each command runs the corresponding numerical experiment and writes one compact
+JSON result.
 
 ## D-U1 revision 4
 
@@ -100,7 +98,7 @@ drpo-reference d4rl \
   --output outputs/d4rl_hopper_medium_replay
 ```
 
-The same loop can expose the historical control methods directly:
+The same loop can expose the comparison controls directly:
 
 ```bash
 drpo-reference d4rl \
@@ -114,13 +112,11 @@ drpo-reference d4rl \
 ```
 
 Omit `--tasks` to run all nine tasks. `--eval-episodes 0` runs training only.
-The runner writes one `results.json`; checkpoints, SHA/provenance gates,
-completion manifests, and failure-state files are intentionally omitted from
-the reference implementation.
+The runner writes one `results.json`.
 
 ## Structured Generation
 
-Structured Generation uses one common reviewer path for all nine tasks:
+Structured Generation uses one common path for all nine tasks:
 Countdown, Word Sorting, Spiral Matrix, Mini Sudoku, Maze, Word Ladder,
 Knights & Knaves, Graph Coloring, and WikiSQL. A task adapter owns only source
 instance construction, output canonicalization, verification, and
@@ -144,25 +140,24 @@ taper weights, or behavior-policy probabilities. DRPO recomputes mean
 completion-token surprisal from the current policy and detaches it before the
 thresholded exponential taper is applied.
 
-The reviewer core exposes Positive-only, DRPO, AsymRE, Joint Fitted-Reference
+The implementation exposes Positive-only, DRPO, AsymRE, Joint Fitted-Reference
 beta-TOPR, and canonical DPO. TOPR jointly updates a branch-balanced reference
 adapter once per policy step. DPO uses summed completion log-probability in the
 pairwise objective and an exact frozen copy of its configured short-SFT
 initialization.
 
-The bundled JSON runtime coordinate is
-`configs/countdown_e8_taper_0p5b.json`. It now describes the common nine-task
-path; the filename is retained only as an existing package path. Reasoning Gym
+The bundled JSON runtime configuration is
+`configs/structured_generation_0p5b.json`. Reasoning Gym
 and WikiSQL source checkouts are supplied under `DRPO_STRUCTURED_SOURCES_ROOT`
 as `reasoning-gym/` and `wikisql/`. The default example leaves DPO disabled
-until `DRPO_STRUCTURED_DPO_SFT_ADAPTER` points to the registered short-SFT
+until `DRPO_STRUCTURED_DPO_SFT_ADAPTER` points to the short-SFT
 adapter.
 
 Run all enabled methods on all nine tasks with:
 
 ```bash
 drpo-reference structured-generation \
-  --config configs/countdown_e8_taper_0p5b.json \
+  --config configs/structured_generation_0p5b.json \
   --output outputs/structured-generation
 ```
 
@@ -170,7 +165,7 @@ Or select a task/method subset without changing the implementation:
 
 ```bash
 drpo-reference structured-generation \
-  --config configs/countdown_e8_taper_0p5b.json \
+  --config configs/structured_generation_0p5b.json \
   --tasks countdown,wikisql \
   --methods positive_only,drpo \
   --output outputs/structured-generation
