@@ -152,10 +152,7 @@ def build_parser() -> argparse.ArgumentParser:
     structured.add_argument(
         "--tasks",
         type=_task_list,
-        help=(
-            "optional comma-separated task subset; available: "
-            + ", ".join(TASK_NAMES)
-        ),
+        help=("optional comma-separated task subset; available: " + ", ".join(TASK_NAMES)),
     )
     structured.add_argument(
         "--methods",
