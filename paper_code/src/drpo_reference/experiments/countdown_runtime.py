@@ -209,8 +209,8 @@ def _copy_adapter_parameters(model: Any, source: str, destination: str) -> None:
     if source_parameters.keys() != destination_parameters.keys():
         raise RuntimeError("Policy/reference adapter structures differ")
     with torch.no_grad():
-        for key in source_parameters:
-            destination_parameters[key].copy_(source_parameters[key])
+        for key, source_parameter in source_parameters.items():
+            destination_parameters[key].copy_(source_parameter)
 
 
 def _add_reference_adapter(
