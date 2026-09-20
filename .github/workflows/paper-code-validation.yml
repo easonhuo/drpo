@@ -81,7 +81,7 @@ jobs:
           python -m drpo_reference cu1 --help
           python -m drpo_reference du1 --help
           python -m drpo_reference d4rl --help
-          python -m drpo_reference countdown --help
+          python -m drpo_reference structured-generation --help
           output="$RUNNER_TEMP/du1-smoke"
           python -m drpo_reference du1 \
             --output "$output" \
