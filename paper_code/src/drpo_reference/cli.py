@@ -6,6 +6,10 @@ import argparse
 from collections.abc import Sequence
 from pathlib import Path
 
+from drpo_reference.categorical.countdown import (
+    STRUCTURED_GENERATION_METHODS,
+    TASK_NAMES,
+)
 from drpo_reference.categorical.du1_public import run_du1
 from drpo_reference.continuous.cu1_suite import (
     STAGES,
@@ -15,7 +19,7 @@ from drpo_reference.experiments import (
     D4RL_METHODS,
     run_d4rl,
 )
-from drpo_reference.experiments.countdown import run_countdown
+from drpo_reference.experiments.countdown import run_structured_generation
 
 
 def _seed_list(value: str) -> tuple[int, ...]:
@@ -134,24 +138,32 @@ def build_parser() -> argparse.ArgumentParser:
         default=1000,
         help="maximum environment steps per evaluation episode",
     )
-    countdown = experiments.add_parser(
-        "countdown",
-        help="paper-facing Countdown Qwen/LoRA training and evaluation",
+    structured = experiments.add_parser(
+        "structured-generation",
+        help="unified nine-task Structured Generation Qwen/LoRA runner",
     )
-    countdown.add_argument(
+    structured.add_argument(
         "--config",
         type=Path,
         required=True,
+        help="JSON runtime configuration",
+    )
+    structured.add_argument("--output", type=Path, required=True)
+    structured.add_argument(
+        "--tasks",
+        type=_task_list,
         help=(
-            "explicit JSON runtime coordinate; no paper protocol defaults are "
-            "selected by the command"
+            "optional comma-separated task subset; available: "
+            + ", ".join(TASK_NAMES)
         ),
     )
-    countdown.add_argument(
-        "--output",
-        type=Path,
-        required=True,
-        help="new or empty output directory",
+    structured.add_argument(
+        "--methods",
+        type=_method_list,
+        help=(
+            "optional comma-separated method subset; available: "
+            + ", ".join(STRUCTURED_GENERATION_METHODS)
+        ),
     )
     return parser
 
@@ -187,10 +199,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             methods=args.methods,
         )
         return 0
-    if args.experiment == "countdown":
-        run_countdown(
+    if args.experiment == "structured-generation":
+        run_structured_generation(
             config_path=args.config,
             output_root=args.output,
+            tasks=args.tasks,
+            methods=args.methods,
         )
         return 0
     raise AssertionError("unreachable")
