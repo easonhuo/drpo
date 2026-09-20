@@ -188,7 +188,10 @@ def _mutate_operator_candidates(expression: str) -> list[tuple[str, str]]:
             for replacement in OPS:
                 if replacement != char:
                     candidates.append(
-                        (expression[:index] + replacement + expression[index + 1 :], "operator_flip")
+                        (
+                            expression[:index] + replacement + expression[index + 1 :],
+                            "operator_flip",
+                        )
                     )
     return candidates
 
@@ -1113,6 +1116,7 @@ def build_adapters(config: Mapping[str, Any], sources_root: str | Path) -> dict[
         )
     return {name: adapters[name] for name in requested}
 
+
 STRUCTURED_GENERATION_SYSTEM_PROMPT = (
     "Answer with only the requested final output and no explanation."
 )
@@ -1215,9 +1219,7 @@ def encode_training_row(
 ) -> StructuredTrainingItem:
     prompt = str(row["prompt"])
     oracle_verification = row.get("oracle_verification", {})
-    positive_text = str(
-        oracle_verification.get("canonical_completion", row["oracle_completion"])
-    )
+    positive_text = str(oracle_verification.get("canonical_completion", row["oracle_completion"]))
     positive = encode_prompt_completion(tokenizer, prompt, positive_text, max_length)
     negatives = tuple(
         encode_prompt_completion(
@@ -1236,9 +1238,7 @@ def collate_training_items(
     pad_id: int,
 ) -> dict[str, Any]:
     flattened = [negative for item in items for negative in item.negatives]
-    row_index = [
-        row for row, item in enumerate(items) for _ in range(len(item.negatives))
-    ]
+    row_index = [row for row, item in enumerate(items) for _ in range(len(item.negatives))]
     counts = [len(item.negatives) for item in items]
     return {
         "positive": pad_encoded([item.positive for item in items], pad_id),
@@ -1265,9 +1265,7 @@ def completion_statistics_from_logits(
     if bool((lengths <= 0).any()):
         raise ValueError("every sequence must contain a completion token")
     safe = shifted_labels.masked_fill(~mask, 0)
-    token_lp = F.log_softmax(shifted_logits, dim=-1).gather(
-        -1, safe.unsqueeze(-1)
-    ).squeeze(-1)
+    token_lp = F.log_softmax(shifted_logits, dim=-1).gather(-1, safe.unsqueeze(-1)).squeeze(-1)
     summed = (token_lp * mask).sum(dim=-1)
     return {
         "mean_logprob": summed / lengths,
@@ -1277,9 +1275,7 @@ def completion_statistics_from_logits(
     }
 
 
-def completion_stats(
-    model: Any, batch: Mapping[str, torch.Tensor]
-) -> dict[str, torch.Tensor]:
+def completion_stats(model: Any, batch: Mapping[str, torch.Tensor]) -> dict[str, torch.Tensor]:
     output = model(
         input_ids=batch["input_ids"],
         attention_mask=batch["attention_mask"],
@@ -1295,9 +1291,7 @@ def prompt_balanced_mean(
 ) -> torch.Tensor:
     if values.ndim != 1 or row_index.shape != values.shape:
         raise ValueError("values and row_index must be aligned vectors")
-    result = torch.zeros(
-        counts.numel(), dtype=values.dtype, device=values.device
-    )
+    result = torch.zeros(counts.numel(), dtype=values.dtype, device=values.device)
     result.index_add_(0, row_index.to(values.device), values)
     return (result / counts.to(values.device, values.dtype)).mean()
 
@@ -1336,9 +1330,7 @@ def drpo_objective(
         scale=scale,
         coefficient=coefficient,
     )
-    negative = prompt_balanced_mean(
-        weights * negative_mean_logprob, row_index, counts
-    )
+    negative = prompt_balanced_mean(weights * negative_mean_logprob, row_index, counts)
     return -(positive_mean_logprob.mean() - negative)
 
 
