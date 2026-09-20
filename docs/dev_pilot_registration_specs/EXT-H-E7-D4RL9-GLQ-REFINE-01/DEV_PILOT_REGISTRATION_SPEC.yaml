@@ -1,0 +1,76 @@
+schema_version: 1
+experiment_id: EXT-H-E7-D4RL9-GLQ-REFINE-01
+source_experiment_id: EXT-H-E7-BENCH-01
+claim: >-
+  On the same nine public D4RL locomotion tasks and the same development seeds
+  used by the delivered coarse GLQ sweep, refine each task/controller cell with
+  five non-overlapping local candidates, then freeze one parameter per cell from
+  the SHA-bound combined ten-candidate late-window comparison without touching
+  held-out seeds or making a cross-method ranking claim.
+role: external_validity_development_hyperparameter_refinement
+environment: Hopper_Walker2d_HalfCheetah_D4RL_v2
+execution_class: pilot
+result_status: not_run
+implementation_state: implemented_pending_sha_freeze
+code_entrypoint: scripts/run_e7_canonical_scale1_grid.py
+one_click_entrypoint: scripts/run_e7_canonical_d4rl9_glq_refinement_one_click.sh
+config_path: configs/e7_canonical_d4rl9_glq_taskwise_refinement_v1.json
+protocol_path: docs/e7_canonical_d4rl9_glq_taskwise_refinement_v1.md
+methods:
+  - global
+  - reciprocal_linear
+  - reciprocal_quadratic
+controls:
+  canonical_alpha: 0.11
+  reference_distance: 2.0
+  positive_advantages_unchanged: true
+  reciprocal_negative_scale: 1.0
+  positive_only_rerun_included: false
+  exponential_rerun_included: false
+metrics:
+  primary: late_window_mean_750k_to_1m
+  diagnostics:
+    - final_score
+    - best_score_and_step
+    - best_to_final_drop
+    - best_to_late_window_drop
+    - terminal_slope_per_100k
+    - finite_history_and_zero_exit
+seeds:
+  development: [200, 201, 202, 203]
+  held_out_untouched: [204, 205, 206, 207]
+training:
+  maximum_steps: 1000000
+  evaluation_interval: 50000
+  evaluation_episodes: 10
+  batch_size: 256
+  learning_rate: 0.0003
+  maximum_parallel_workers: 60
+matrix:
+  datasets: 9
+  new_candidates_per_task_method: 5
+  methods: 3
+  seeds: 4
+  expected_branches: 540
+  combined_candidates_per_task_method_after_parent_binding: 10
+parent_evidence:
+  run_id: E7_D4RL9_GLQ_TASKWISE_TUNING_20260726_01
+  source_code_commit: a0e4be818cbd780ac6ac36e0a56fa44de89493bf
+  result_repository_commit: 088b703c6df98e2fa5807d471260d3c7241c7614
+  terminal_audit_sha256: 8775edcb436ba759a52eb6b2ae9cdb2cbce966852fd5e8e3739798134523234b
+terminal_audit:
+  required: true
+  fixed_horizon_is_convergence: false
+  task_performance_collapse: unclassified_without_registered_threshold
+  support_or_variance_boundary: unavailable_in_unchanged_trainer
+  nan_inf_numerical_failure: separate_finite_history_audit
+claims_forbidden:
+  - cross_method_ranking
+  - formal_d4rl9_table_population
+  - steady_state_or_convergence
+  - held_out_confirmation
+expected_output_root: outputs/e7/d4rl9_glq_taskwise_refinement_run_001
+registration_state: code_first_input_only_not_authoritative
+notes:
+  - The exact implementation SHA must be filled by the deterministic preparation transaction after CI freezes the branch head.
+  - This file is an input to the merged code-first registration route; it does not itself modify handoff or registry authority.
