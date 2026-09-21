@@ -171,15 +171,12 @@ def test_d4rl_control_factors_match_reference_formulas() -> None:
     normalized_excess = remoteness.detach() / (REFERENCE_DISTANCE**2)
     radial = torch.sqrt(normalized_excess)
     expected = {
-        "reciprocal_linear": (
-            1.0 / (1.0 + RECIPROCAL_LINEAR_COEFFICIENT * radial)
-        ),
+        "reciprocal_linear": (1.0 / (1.0 + RECIPROCAL_LINEAR_COEFFICIENT * radial)),
         "reciprocal_quadratic": (
             1.0 / (1.0 + RECIPROCAL_QUADRATIC_COEFFICIENT * normalized_excess)
         ),
         "drpo": (
-            DRPO_EXPONENTIAL_MULTIPLIER
-            * torch.exp(-EXPONENTIAL_COEFFICIENT * normalized_excess)
+            DRPO_EXPONENTIAL_MULTIPLIER * torch.exp(-EXPONENTIAL_COEFFICIENT * normalized_excess)
         ),
     }
     for method_id, expected_factor in expected.items():

@@ -147,9 +147,7 @@ def test_d4rl_drpo_uses_squared_standardized_remoteness_and_unit_multiplier() ->
         exprank_temperature=1.0,
     )
     assert factors[0].item() == pytest.approx(DRPO_EXPONENTIAL_MULTIPLIER)
-    expected_far = DRPO_EXPONENTIAL_MULTIPLIER * math.exp(
-        -EXPONENTIAL_COEFFICIENT * (2.0 / 4.0)
-    )
+    expected_far = DRPO_EXPONENTIAL_MULTIPLIER * math.exp(-EXPONENTIAL_COEFFICIENT * (2.0 / 4.0))
     assert factors[1].item() == pytest.approx(expected_far)
 
 

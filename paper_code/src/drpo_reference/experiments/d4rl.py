@@ -269,9 +269,7 @@ def canonical_method_negative_factors(
     if method == "global":
         return torch.full_like(negative_advantages, float(exprank_alpha))
 
-    normalized_excess = torch.relu(
-        negative_remoteness / float(REFERENCE_DISTANCE**2)
-    )
+    normalized_excess = torch.relu(negative_remoteness / float(REFERENCE_DISTANCE**2))
     radial = torch.sqrt(normalized_excess)
     if method == "reciprocal_linear":
         return 1.0 / (1.0 + RECIPROCAL_LINEAR_COEFFICIENT * radial)
