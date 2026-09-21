@@ -827,6 +827,7 @@ calibrate() {
 liveness() {
   check_source
   activate_runtime
+  prepare_task_sft_references
   local liveness_task
   liveness_task="$(
     python - <<PY
