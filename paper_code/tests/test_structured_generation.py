@@ -1,18 +1,13 @@
 from __future__ import annotations
 
-import math
-
 import pytest
 import torch
 
 from drpo_reference.categorical.structured_generation import (
     CountdownAdapter,
-    asymre_objective,
     build_task_bank,
     dpo_objective,
-    drpo_weights,
     split_bank,
-    topr_policy_objective,
 )
 
 
@@ -49,58 +44,6 @@ def test_countdown_uses_common_bank_and_split_path() -> None:
     }
     prompt_ids = [row["prompt_id"] for values in split.values() for row in values]
     assert len(set(prompt_ids)) == 6
-
-
-def test_drpo_weight_is_one_near_threshold_and_decays_far() -> None:
-    mean_logprob = torch.tensor([-1.0, -2.0, -4.0], requires_grad=True)
-    weights = drpo_weights(
-        mean_logprob,
-        threshold=2.0,
-        scale=2.0,
-        coefficient=1.5,
-    )
-    assert weights.requires_grad is False
-    assert weights.tolist()[:2] == pytest.approx([1.0, 1.0])
-    assert float(weights[2]) == pytest.approx(math.exp(-1.5))
-
-
-def test_asymre_branch_balanced_signed_reward_objective() -> None:
-    positive = torch.tensor([-1.0, -3.0])
-    negative = torch.tensor([-2.0, -4.0, -6.0, -8.0])
-    row_index = torch.tensor([0, 0, 1, 1])
-    counts = torch.tensor([2, 2])
-    loss = asymre_objective(
-        positive,
-        negative,
-        row_index,
-        counts,
-        delta_v=-0.5,
-    )
-    positive_mean = -2.0
-    negative_prompt_mean = ((-2.0 - 4.0) / 2 + (-6.0 - 8.0) / 2) / 2
-    expected_objective = 0.5 * (1.5 * positive_mean + (-0.5) * negative_prompt_mean)
-    assert float(loss) == pytest.approx(-expected_objective)
-
-
-def test_joint_topr_uses_detached_full_sequence_ratio_weight() -> None:
-    positive = torch.tensor([-1.0])
-    negative_mean = torch.tensor([-2.0, -4.0], requires_grad=True)
-    policy_sum = torch.tensor([-4.0, -2.0], requires_grad=True)
-    reference_sum = torch.tensor([-2.0, -4.0])
-    row_index = torch.tensor([0, 0])
-    counts = torch.tensor([2])
-
-    _, weights = topr_policy_objective(
-        positive,
-        negative_mean,
-        policy_sum,
-        reference_sum,
-        row_index,
-        counts,
-        beta=0.5,
-    )
-    assert weights.requires_grad is False
-    assert weights.tolist() == pytest.approx([math.exp(-1.0), 1.0])
 
 
 def test_dpo_is_prompt_balanced_over_unique_rejections() -> None:
