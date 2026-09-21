@@ -129,9 +129,7 @@ def test_d4rl_drpo_factor_matches_reference_formula() -> None:
         requires_grad=True,
     )
     normalized_excess = remoteness.detach() / (REFERENCE_DISTANCE**2)
-    expected = DRPO_EXPONENTIAL_MULTIPLIER * torch.exp(
-        -EXPONENTIAL_COEFFICIENT * normalized_excess
-    )
+    expected = DRPO_EXPONENTIAL_MULTIPLIER * torch.exp(-EXPONENTIAL_COEFFICIENT * normalized_excess)
     actual = canonical_drpo_negative_factors(remoteness)
     torch.testing.assert_close(actual, expected)
     assert actual.requires_grad is False
