@@ -183,11 +183,22 @@ def reference_warmstart_config(
     ):
         raise RuntimeError("Inherited reference warm start must remain 2 x 32")
 
+    warmstart_max_length = int(config["model"]["max_length"])
+    if _is_task_sft_dpo(config):
+        p0_lengths = {
+            int(config["task_runtime"][str(task)]["max_length"])
+            for task in config["suite"]["p0_tasks"]
+        }
+        if len(p0_lengths) != 1:
+            raise RuntimeError(
+                "Task-SFT DPO requires one shared P0 warm-start max_length contract"
+            )
+        warmstart_max_length = next(iter(p0_lengths))
     model_contract = {
         "lora_rank": int(config["model"]["lora_rank"]),
         "lora_alpha": int(config["model"]["lora_alpha"]),
         "lora_dropout": float(config["model"]["lora_dropout"]),
-        "max_length": int(config["model"]["max_length"]),
+        "max_length": warmstart_max_length,
         "gradient_checkpointing": bool(config["model"]["gradient_checkpointing"]),
         "dtype": str(config["model"]["dtype"]),
     }
