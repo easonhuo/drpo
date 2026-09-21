@@ -19,29 +19,12 @@ class TaperFamily(str, Enum):
     EXPONENTIAL_QUADRATIC = "exponential_quadratic"
 
 
-_FAMILY_ALIASES = {
-    "positive_only": TaperFamily.POSITIVE_ONLY,
-    "uncontrolled": TaperFamily.UNCONTROLLED,
-    "uncontrolled_negative": TaperFamily.UNCONTROLLED,
-    "unweighted": TaperFamily.UNCONTROLLED,
-    "reciprocal_linear": TaperFamily.RECIPROCAL_LINEAR,
-    "reciprocal_linear_distance": TaperFamily.RECIPROCAL_LINEAR,
-    "reciprocal_quadratic": TaperFamily.RECIPROCAL_QUADRATIC,
-    "reciprocal_quadratic_distance": TaperFamily.RECIPROCAL_QUADRATIC,
-    "exponential": TaperFamily.EXPONENTIAL_LINEAR,
-    "exponential_linear": TaperFamily.EXPONENTIAL_LINEAR,
-    "squared_distance_exponential": TaperFamily.EXPONENTIAL_QUADRATIC,
-    "exponential_quadratic": TaperFamily.EXPONENTIAL_QUADRATIC,
-    "exponential_quadratic_distance": TaperFamily.EXPONENTIAL_QUADRATIC,
-}
-
-
 def _coerce_family(family: TaperFamily | str) -> TaperFamily:
     if isinstance(family, TaperFamily):
         return family
     try:
-        return _FAMILY_ALIASES[str(family)]
-    except KeyError as exc:
+        return TaperFamily(str(family))
+    except ValueError as exc:
         raise ValueError(f"unknown taper family: {family}") from exc
 
 
@@ -115,7 +98,7 @@ def taper_weight(
 
     Linear and quadratic names refer to the power of ``distance`` used by the
     taper. Callers must choose the scientific coordinate explicitly: C-U1 uses
-    standardized action distance, while D-U1/Countdown may use
+    standardized action distance, while D-U1 uses
     ``sqrt(normalized excess surprisal)`` so that quadratic-distance tapers are
     linear in normalized excess surprisal.
     """
