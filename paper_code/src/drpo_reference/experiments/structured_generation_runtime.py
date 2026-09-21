@@ -336,20 +336,10 @@ def _method_optimizers(
     stack: HFStack,
     model: Any,
     config: Mapping[str, Any],
-    method: str,
-) -> tuple[
-    list[torch.nn.Parameter],
-    list[torch.nn.Parameter],
-    torch.optim.Optimizer,
-    Any,
-]:
+) -> tuple[list[torch.nn.Parameter], torch.optim.Optimizer, Any]:
     training = config["training"]
     steps = int(training["optimizer_updates"])
-    if method == "dpo":
-        policy, reference = _add_reference_adapter(model)
-    else:
-        policy = [parameter for parameter in model.parameters() if parameter.requires_grad]
-        reference = []
+    policy = [parameter for parameter in model.parameters() if parameter.requires_grad]
     optimizer = torch.optim.AdamW(
         policy,
         lr=float(training["learning_rate"]),
@@ -361,8 +351,7 @@ def _method_optimizers(
         warmup,
         steps,
     )
-    _activate_policy(model, policy, reference)
-    return policy, reference, optimizer, scheduler
+    return policy, optimizer, scheduler
 
 
 def _cell_loss(
@@ -370,54 +359,11 @@ def _cell_loss(
     packed: Mapping[str, Any],
     *,
     method: str,
-    method_spec: Mapping[str, Any],
-    task: str,
-    policy_parameters: Sequence[torch.nn.Parameter],
-    reference_parameters: Sequence[torch.nn.Parameter],
 ) -> torch.Tensor:
-    positive = packed["positive"]
-    negative = packed["negative"]
-    row_index = packed["negative_row_index"]
-    counts = packed["negative_counts"]
-
-    if method == "dpo":
-        _activate_reference(
-            model,
-            reference_parameters,
-            trainable=False,
-        )
-        model.eval()
-        with torch.no_grad():
-            reference_positive = completion_stats(model, positive)
-            reference_negative = completion_stats(model, negative)
-        _activate_policy(
-            model,
-            policy_parameters,
-            reference_parameters,
-        )
-        model.eval()
-        policy_positive = completion_stats(model, positive)
-        policy_negative = completion_stats(model, negative)
-        return dpo_objective(
-            policy_positive["sum_logprob"],
-            policy_negative["sum_logprob"],
-            reference_positive["sum_logprob"],
-            reference_negative["sum_logprob"],
-            row_index,
-            counts,
-            beta=float(
-                _task_value(
-                    method_spec,
-                    "beta",
-                    task,
-                )
-            ),
-        )
-
-    positive_stats = completion_stats(model, positive)
-    if method == "positive_only":
-        return positive_only_objective(positive_stats["mean_logprob"])
-    raise ValueError(f"Unsupported Structured Generation method: {method}")
+    if method != "positive_only":
+        raise ValueError(f"Unsupported Structured Generation method: {method}")
+    positive_stats = completion_stats(model, packed["positive"])
+    return positive_only_objective(positive_stats["mean_logprob"])
 
 
 def _train_cell(
@@ -437,35 +383,20 @@ def _train_cell(
 ) -> dict[str, Any]:
     training = config["training"]
     runtime = _task_runtime(config, task)
-    initial_adapter = None
-    if method == "dpo":
-        configured_adapter = _task_value(
-            method_spec,
-            "initial_adapter",
-            task,
-        )
-        if not configured_adapter:
-            raise ValueError("DPO requires the short-SFT initial adapter")
-        initial_adapter = str(configured_adapter)
 
     _seed_all(int(config["initialization_seed"]))
     model = _load_policy_model(
         stack,
         config,
-        initial_adapter=initial_adapter,
     )
-    policy, reference, optimizer, scheduler = _method_optimizers(
+    policy, optimizer, scheduler = _method_optimizers(
         stack,
         model,
         config,
-        method,
     )
 
     _seed_all(seed)
-    if method == "dpo":
-        model.eval()
-    else:
-        model.train()
+    model.train()
 
     batch_stream = _batch_indices(
         len(train_rows),
@@ -494,10 +425,6 @@ def _train_cell(
                 model,
                 packed,
                 method=method,
-                method_spec=method_spec,
-                task=task,
-                policy_parameters=policy,
-                reference_parameters=reference,
             )
             (loss / accumulation).backward()
             loss_total += float(loss.detach()) / accumulation
@@ -512,11 +439,6 @@ def _train_cell(
 
         should_evaluate = update % int(training["evaluation_every_updates"]) == 0 or update == steps
         if should_evaluate:
-            _activate_policy(
-                model,
-                policy,
-                reference,
-            )
             metrics = evaluate_model(
                 model,
                 tokenizer,
@@ -535,16 +457,8 @@ def _train_cell(
                     **metrics,
                 }
             )
-            if method == "dpo":
-                model.eval()
-            else:
-                model.train()
+            model.train()
 
-    _activate_policy(
-        model,
-        policy,
-        reference,
-    )
     terminal_validation = evaluate_model(
         model,
         tokenizer,
