@@ -434,7 +434,7 @@ class TaskAdapter(ABC):
 
 class CountdownAdapter(TaskAdapter):
     name = "countdown"
-    source_kind = "drpo_countdown_generator"
+    source_kind = "countdown_generator"
     source_revision = "countdown_generator_v1"
     output_structure = "arithmetic_expression"
 
@@ -1122,9 +1122,6 @@ STRUCTURED_GENERATION_SYSTEM_PROMPT = (
 )
 STRUCTURED_GENERATION_METHODS = (
     "positive_only",
-    "drpo",
-    "asymre",
-    "joint_fitted_reference_topr",
     "dpo",
 )
 IGNORE_INDEX = -100
@@ -1296,82 +1293,8 @@ def prompt_balanced_mean(
     return (result / counts.to(values.device, values.dtype)).mean()
 
 
-def drpo_weights(
-    negative_mean_logprob: torch.Tensor,
-    *,
-    threshold: float,
-    scale: float,
-    coefficient: float,
-) -> torch.Tensor:
-    if scale <= 0.0 or coefficient < 0.0:
-        raise ValueError("scale must be positive and coefficient non-negative")
-    remoteness = -negative_mean_logprob.detach()
-    normalized_far = torch.relu((remoteness - float(threshold)) / float(scale))
-    return torch.exp(-float(coefficient) * normalized_far).detach()
-
-
 def positive_only_objective(positive_mean_logprob: torch.Tensor) -> torch.Tensor:
     return -positive_mean_logprob.mean()
-
-
-def drpo_objective(
-    positive_mean_logprob: torch.Tensor,
-    negative_mean_logprob: torch.Tensor,
-    row_index: torch.Tensor,
-    counts: torch.Tensor,
-    *,
-    threshold: float,
-    scale: float,
-    coefficient: float,
-) -> torch.Tensor:
-    weights = drpo_weights(
-        negative_mean_logprob,
-        threshold=threshold,
-        scale=scale,
-        coefficient=coefficient,
-    )
-    negative = prompt_balanced_mean(weights * negative_mean_logprob, row_index, counts)
-    return -(positive_mean_logprob.mean() - negative)
-
-
-def asymre_objective(
-    positive_mean_logprob: torch.Tensor,
-    negative_mean_logprob: torch.Tensor,
-    row_index: torch.Tensor,
-    counts: torch.Tensor,
-    *,
-    delta_v: float,
-) -> torch.Tensor:
-    positive = positive_mean_logprob.mean()
-    negative = prompt_balanced_mean(negative_mean_logprob, row_index, counts)
-    objective = 0.5 * ((1.0 - float(delta_v)) * positive + (-1.0 - float(delta_v)) * negative)
-    return -objective
-
-
-def topr_policy_objective(
-    positive_mean_logprob: torch.Tensor,
-    negative_mean_logprob: torch.Tensor,
-    negative_sum_logprob: torch.Tensor,
-    reference_negative_sum_logprob: torch.Tensor,
-    row_index: torch.Tensor,
-    counts: torch.Tensor,
-    *,
-    beta: float,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    log_ratio = negative_sum_logprob - reference_negative_sum_logprob
-    weights = torch.exp(float(beta) * torch.clamp(log_ratio, max=0.0)).detach()
-    negative = prompt_balanced_mean(weights * negative_mean_logprob, row_index, counts)
-    return -(positive_mean_logprob.mean() - negative), weights
-
-
-def topr_reference_objective(
-    positive_mean_logprob: torch.Tensor,
-    negative_mean_logprob: torch.Tensor,
-    row_index: torch.Tensor,
-    counts: torch.Tensor,
-) -> torch.Tensor:
-    negative = prompt_balanced_mean(negative_mean_logprob, row_index, counts)
-    return -(0.5 * positive_mean_logprob.mean() + 0.5 * negative)
 
 
 def dpo_objective(
@@ -1498,7 +1421,6 @@ __all__ = [
     "TaskInstance",
     "VerificationResult",
     "WikiSQLAdapter",
-    "asymre_objective",
     "build_adapters",
     "build_task_bank",
     "clean_expression",
@@ -1506,8 +1428,6 @@ __all__ = [
     "completion_statistics_from_logits",
     "completion_stats",
     "dpo_objective",
-    "drpo_objective",
-    "drpo_weights",
     "encode_prompt_completion",
     "encode_training_row",
     "evaluate_outputs",
@@ -1515,7 +1435,5 @@ __all__ = [
     "positive_only_objective",
     "prompt_balanced_mean",
     "split_bank",
-    "topr_policy_objective",
-    "topr_reference_objective",
     "verify_expression",
 ]
