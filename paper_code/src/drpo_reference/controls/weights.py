@@ -13,7 +13,6 @@ class TaperFamily(str, Enum):
 
     POSITIVE_ONLY = "positive_only"
     UNCONTROLLED = "uncontrolled"
-    GLOBAL = "global"
     RECIPROCAL_LINEAR = "reciprocal_linear"
     RECIPROCAL_QUADRATIC = "reciprocal_quadratic"
     EXPONENTIAL_LINEAR = "exponential_linear"
@@ -25,8 +24,6 @@ _FAMILY_ALIASES = {
     "uncontrolled": TaperFamily.UNCONTROLLED,
     "uncontrolled_negative": TaperFamily.UNCONTROLLED,
     "unweighted": TaperFamily.UNCONTROLLED,
-    "global": TaperFamily.GLOBAL,
-    "global_matched": TaperFamily.GLOBAL,
     "reciprocal_linear": TaperFamily.RECIPROCAL_LINEAR,
     "reciprocal_linear_distance": TaperFamily.RECIPROCAL_LINEAR,
     "reciprocal_quadratic": TaperFamily.RECIPROCAL_QUADRATIC,
@@ -81,24 +78,6 @@ def normalized_excess_surprisal(
     return torch.relu((-value - float(threshold)) / float(scale))
 
 
-def surprisal_distance(
-    log_probability: torch.Tensor,
-    *,
-    threshold: float,
-    scale: float,
-    detach: bool = True,
-) -> torch.Tensor:
-    """Return the distance coordinate ``sqrt(normalized excess surprisal)``."""
-
-    normalized = normalized_excess_surprisal(
-        log_probability,
-        threshold=threshold,
-        scale=scale,
-        detach=detach,
-    )
-    return torch.sqrt(normalized)
-
-
 def point_retention_coefficient(
     family: TaperFamily | str,
     *,
@@ -112,8 +91,6 @@ def point_retention_coefficient(
         raise ValueError("retention must lie in (0, 1]")
     if not math.isfinite(reference_distance) or reference_distance <= 0.0:
         raise ValueError("reference_distance must be finite and positive")
-    if resolved is TaperFamily.GLOBAL:
-        return float(retention)
     if resolved in {TaperFamily.POSITIVE_ONLY, TaperFamily.UNCONTROLLED}:
         raise ValueError(f"{resolved.value} has no tunable point-retention coefficient")
     if resolved is TaperFamily.RECIPROCAL_LINEAR:
@@ -152,8 +129,6 @@ def taper_weight(
         return torch.zeros_like(value)
     if resolved is TaperFamily.UNCONTROLLED:
         return torch.ones_like(value)
-    if resolved is TaperFamily.GLOBAL:
-        return torch.full_like(value, float(coefficient))
     if resolved is TaperFamily.RECIPROCAL_LINEAR:
         return 1.0 / (1.0 + float(coefficient) * value)
     if resolved is TaperFamily.RECIPROCAL_QUADRATIC:
