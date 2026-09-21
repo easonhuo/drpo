@@ -24,7 +24,6 @@ from drpo_reference.categorical.structured_generation import (
     build_task_bank,
     collate_training_items,
     completion_stats,
-    dpo_objective,
     encode_training_row,
     evaluate_outputs,
     format_chat_prompt,
@@ -34,9 +33,6 @@ from drpo_reference.categorical.structured_generation import (
 )
 from drpo_reference.common.io import atomic_json
 
-POLICY_ADAPTER = "default"
-REFERENCE_ADAPTER = "reference"
-
 
 @dataclass(frozen=True)
 class HFStack:
@@ -44,7 +40,6 @@ class HFStack:
     AutoTokenizer: Any
     BitsAndBytesConfig: Any
     LoraConfig: Any
-    PeftModel: Any
     get_peft_model: Any
     get_cosine_schedule_with_warmup: Any
     prepare_model_for_kbit_training: Any
@@ -64,7 +59,6 @@ def _load_hf_stack() -> HFStack:
         AutoTokenizer=transformers.AutoTokenizer,
         BitsAndBytesConfig=transformers.BitsAndBytesConfig,
         LoraConfig=peft.LoraConfig,
-        PeftModel=peft.PeftModel,
         get_peft_model=peft.get_peft_model,
         get_cosine_schedule_with_warmup=transformers.get_cosine_schedule_with_warmup,
         prepare_model_for_kbit_training=peft.prepare_model_for_kbit_training,
@@ -128,8 +122,6 @@ def _load_tokenizer(stack: HFStack, model_path: str) -> Any:
 def _load_policy_model(
     stack: HFStack,
     config: Mapping[str, Any],
-    *,
-    initial_adapter: str | None = None,
 ) -> Any:
     model_cfg = config["model"]
     device = _resolve_device(str(model_cfg.get("device", "auto")))
@@ -157,20 +149,17 @@ def _load_policy_model(
         model = stack.prepare_model_for_kbit_training(model)
     else:
         model = model.to(device)
-    if initial_adapter:
-        model = stack.PeftModel.from_pretrained(model, initial_adapter, is_trainable=True)
-    else:
-        model = stack.get_peft_model(
-            model,
-            stack.LoraConfig(
-                r=int(model_cfg["lora_rank"]),
-                lora_alpha=int(model_cfg["lora_alpha"]),
-                lora_dropout=float(model_cfg["lora_dropout"]),
-                bias="none",
-                task_type="CAUSAL_LM",
-                target_modules=list(model_cfg["lora_target_modules"]),
-            ),
-        )
+    model = stack.get_peft_model(
+        model,
+        stack.LoraConfig(
+            r=int(model_cfg["lora_rank"]),
+            lora_alpha=int(model_cfg["lora_alpha"]),
+            lora_dropout=float(model_cfg["lora_dropout"]),
+            bias="none",
+            task_type="CAUSAL_LM",
+            target_modules=list(model_cfg["lora_target_modules"]),
+        ),
+    )
     if bool(model_cfg.get("gradient_checkpointing", True)):
         model.gradient_checkpointing_enable()
         if hasattr(model, "enable_input_require_grads"):
@@ -179,95 +168,11 @@ def _load_policy_model(
     return model
 
 
-def _adapter_parameters(model: Any, adapter_name: str) -> list[torch.nn.Parameter]:
-    token = f".{adapter_name}."
-    parameters = [parameter for name, parameter in model.named_parameters() if token in name]
-    if not parameters:
-        raise RuntimeError(f"No parameters found for adapter {adapter_name!r}")
-    return parameters
-
-
-def _copy_adapter_parameters(model: Any, source: str, destination: str) -> None:
-    source_token = f".{source}."
-    destination_token = f".{destination}."
-    source_parameters = {
-        name.replace(source_token, ".<adapter>."): parameter
-        for name, parameter in model.named_parameters()
-        if source_token in name
-    }
-    destination_parameters = {
-        name.replace(destination_token, ".<adapter>."): parameter
-        for name, parameter in model.named_parameters()
-        if destination_token in name
-    }
-    if source_parameters.keys() != destination_parameters.keys():
-        raise RuntimeError("Policy/reference adapter structures differ")
-    with torch.no_grad():
-        for key, source_parameter in source_parameters.items():
-            destination_parameters[key].copy_(source_parameter)
-
-
-def _add_reference_adapter(
-    model: Any,
-) -> tuple[list[torch.nn.Parameter], list[torch.nn.Parameter]]:
-    if not hasattr(model, "add_adapter") or not hasattr(model, "set_adapter"):
-        raise RuntimeError("Reference-based methods require PEFT multi-adapter support")
-    if POLICY_ADAPTER not in model.peft_config:
-        raise RuntimeError("Policy adapter is missing")
-    model.add_adapter(
-        REFERENCE_ADAPTER,
-        copy.deepcopy(model.peft_config[POLICY_ADAPTER]),
-    )
-    _copy_adapter_parameters(model, POLICY_ADAPTER, REFERENCE_ADAPTER)
-    return (
-        _adapter_parameters(model, POLICY_ADAPTER),
-        _adapter_parameters(model, REFERENCE_ADAPTER),
-    )
-
-
-def _activate_policy(
-    model: Any,
-    policy_parameters: Sequence[torch.nn.Parameter],
-    reference_parameters: Sequence[torch.nn.Parameter] = (),
-) -> None:
-    if hasattr(model, "set_adapter"):
-        model.set_adapter(POLICY_ADAPTER)
-    for parameter in policy_parameters:
-        parameter.requires_grad_(True)
-    for parameter in reference_parameters:
-        parameter.requires_grad_(False)
-
-
-def _activate_reference(
-    model: Any,
-    reference_parameters: Sequence[torch.nn.Parameter],
-    *,
-    trainable: bool,
-) -> None:
-    model.set_adapter(REFERENCE_ADAPTER)
-    for parameter in reference_parameters:
-        parameter.requires_grad_(trainable)
-
-
 def _release_model(model: Any | None) -> None:
     if model is not None:
         del model
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
-
-
-def _task_value(
-    spec: Mapping[str, Any],
-    key: str,
-    task: str,
-    default: Any = None,
-) -> Any:
-    value = spec.get(key, default)
-    if isinstance(value, Mapping):
-        if task in value:
-            return value[task]
-        return value.get("default", default)
-    return value
 
 
 def _task_runtime(config: Mapping[str, Any], task: str) -> dict[str, Any]:
