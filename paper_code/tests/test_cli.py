@@ -13,7 +13,7 @@ from drpo_reference import cli
 from drpo_reference.experiments.d4rl import (
     DRPO_EXPONENTIAL_MULTIPLIER,
     EXPONENTIAL_COEFFICIENT,
-    canonical_method_negative_factors,
+    canonical_drpo_negative_factors,
     canonical_standardized_action_remoteness,
     resolve_d4rl_task,
 )
@@ -140,12 +140,7 @@ def test_d4rl_drpo_uses_squared_standardized_remoteness_and_unit_multiplier() ->
         atol=0.0,
     )
 
-    factors = canonical_method_negative_factors(
-        torch.tensor([-1.0, -1.0], dtype=torch.float64),
-        remoteness,
-        method="drpo",
-        exprank_temperature=1.0,
-    )
+    factors = canonical_drpo_negative_factors(remoteness)
     assert factors[0].item() == pytest.approx(DRPO_EXPONENTIAL_MULTIPLIER)
     expected_far = DRPO_EXPONENTIAL_MULTIPLIER * math.exp(-EXPONENTIAL_COEFFICIENT * (2.0 / 4.0))
     assert factors[1].item() == pytest.approx(expected_far)
