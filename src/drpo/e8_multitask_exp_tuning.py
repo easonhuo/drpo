@@ -511,7 +511,10 @@ def _topr_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 def _dpo_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
-    return {"dpo_initialization_mode": str(config["dpo"]["initialization_mode"])}
+    return {
+        "dpo_initialization_mode": str(config["dpo"]["initialization_mode"]),
+        "zero_beta_control": config["dpo"].get("zero_beta_control"),
+    }
 
 
 def _dpo_matrix_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
