@@ -1,8 +1,8 @@
 """D4RL-9 SNA2C-IQLV training implementation.
 
-One actor/critic/optimizer lifecycle serves all nine locomotion tasks. ExpRank is
-the default method; optional negative-side controls share the same training
-lifecycle.
+One actor/critic/optimizer lifecycle serves all nine locomotion tasks. The public
+path uses the manuscript DRPO negative taper; historical ExpRank support remains
+internal only for compatibility with the recovered trainer lineage.
 """
 
 from __future__ import annotations
@@ -17,19 +17,18 @@ import torch
 from torch import nn
 
 D4RL_METHODS = (
-    "exprank",
+    "drpo",
     "positive_only",
-    "signed",
     "global",
     "reciprocal_linear",
     "reciprocal_quadratic",
-    "exponential",
 )
 CANONICAL_ALPHA = 0.11
 REFERENCE_DISTANCE = 2.0
 RECIPROCAL_LINEAR_COEFFICIENT = 0.4362580032734791
 RECIPROCAL_QUADRATIC_COEFFICIENT = 0.5520268617673281
 EXPONENTIAL_COEFFICIENT = 0.374162511054291
+DRPO_EXPONENTIAL_MULTIPLIER = 1.0
 
 
 ENVIRONMENTS = ("halfcheetah", "hopper", "walker2d")
@@ -222,12 +221,12 @@ def canonical_exprank_negative_weights(
     return float(alpha) * torch.exp(torch.clamp(-float(temperature) * score, min=-20.0))
 
 
-def canonical_standardized_action_distance(
+def canonical_standardized_action_remoteness(
     mean: torch.Tensor,
     log_std: torch.Tensor,
     actions: torch.Tensor,
 ) -> torch.Tensor:
-    """Detached RMS standardized action distance used by the distance controls."""
+    """Detached dimension-normalized squared standardized remoteness."""
 
     if log_std.shape != mean.shape:
         log_std = log_std.expand_as(mean)
@@ -236,21 +235,27 @@ def canonical_standardized_action_distance(
         standardized = (actions.detach() - mean.detach()) / safe_log_std.detach().exp().clamp_min(
             1.0e-8
         )
-        return standardized.square().mean(dim=-1).sqrt()
+        return standardized.square().mean(dim=-1)
 
 
 def canonical_method_negative_factors(
     negative_advantages: torch.Tensor,
-    negative_distances: torch.Tensor,
+    negative_remoteness: torch.Tensor,
     *,
     method: str,
     exprank_temperature: float,
     exprank_alpha: float = CANONICAL_ALPHA,
 ) -> torch.Tensor:
-    """Return detached negative-side factors for one method."""
+    """Return detached negative-side factors for one method.
+
+    The manuscript coordinate is D=mean(((a-mu)/sigma)^2). With tau=0 and
+    scale=REFERENCE_DISTANCE**2, x=D/scale and r=sqrt(x). DRPO therefore uses
+    exp(-lambda*x), i.e. the squared-remoteness exponential kernel exercised by
+    the E7 implementation, with unit near-field multiplier.
+    """
 
     negative_advantages = negative_advantages.detach()
-    negative_distances = negative_distances.detach()
+    negative_remoteness = negative_remoteness.detach()
     if method == "exprank":
         return canonical_exprank_negative_weights(
             negative_advantages,
@@ -259,31 +264,36 @@ def canonical_method_negative_factors(
         )
     if method == "positive_only":
         return torch.zeros_like(negative_advantages)
+    if method == "signed":
+        return torch.ones_like(negative_advantages)
+    if method == "global":
+        return torch.full_like(negative_advantages, float(exprank_alpha))
 
-    effective_alpha = CANONICAL_ALPHA if method == "signed" else CANONICAL_ALPHA * 0.1
-    base = torch.full_like(negative_advantages, effective_alpha)
-    if method in {"signed", "global"}:
-        return base
-    normalized_distance = negative_distances / REFERENCE_DISTANCE
+    normalized_excess = torch.relu(
+        negative_remoteness / float(REFERENCE_DISTANCE**2)
+    )
+    radial = torch.sqrt(normalized_excess)
     if method == "reciprocal_linear":
-        shape = 1.0 / (1.0 + RECIPROCAL_LINEAR_COEFFICIENT * normalized_distance)
-    elif method == "reciprocal_quadratic":
-        shape = 1.0 / (1.0 + RECIPROCAL_QUADRATIC_COEFFICIENT * normalized_distance.square())
-    elif method == "exponential":
-        shape = torch.exp(
+        return 1.0 / (1.0 + RECIPROCAL_LINEAR_COEFFICIENT * radial)
+    if method == "reciprocal_quadratic":
+        return 1.0 / (1.0 + RECIPROCAL_QUADRATIC_COEFFICIENT * normalized_excess)
+    if method in {"drpo", "exponential"}:
+        return DRPO_EXPONENTIAL_MULTIPLIER * torch.exp(
             torch.clamp(
-                -EXPONENTIAL_COEFFICIENT * normalized_distance,
+                -EXPONENTIAL_COEFFICIENT * normalized_excess,
                 min=-40.0,
                 max=0.0,
             )
         )
-    else:
-        raise AssertionError(f"unreachable D4RL method: {method}")
-    return base * shape
+    raise AssertionError(f"unreachable D4RL method: {method}")
 
 
 class SNA2CIQLVExpRankAgent:
-    """SNA2C-IQLV actor/critic update with selectable negative weighting."""
+    """SNA2C-IQLV actor/critic update with manuscript DRPO weighting.
+
+    The historical class name is retained to avoid replacing the surrounding
+    recovered trainer structure.
+    """
 
     def __init__(
         self,
@@ -296,7 +306,7 @@ class SNA2CIQLVExpRankAgent:
         tau: float = 0.7,
         temperature: float = 1.0,
         device: torch.device | str = "cpu",
-        method: str = "exprank",
+        method: str = "drpo",
     ) -> None:
         self.gamma = float(gamma)
         self.alpha = float(alpha)
@@ -352,7 +362,7 @@ class SNA2CIQLVExpRankAgent:
         transformed = advantage.clone()
         negative = advantage < 0
         if negative.any():
-            distance = canonical_standardized_action_distance(
+            remoteness = canonical_standardized_action_remoteness(
                 mean,
                 log_std,
                 action_tensor,
@@ -360,7 +370,7 @@ class SNA2CIQLVExpRankAgent:
             with torch.no_grad():
                 factor = canonical_method_negative_factors(
                     advantage[negative],
-                    distance[negative],
+                    remoteness[negative],
                     method=self.method,
                     exprank_temperature=self.temperature,
                     exprank_alpha=self.alpha,

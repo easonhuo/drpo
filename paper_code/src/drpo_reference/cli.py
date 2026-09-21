@@ -99,7 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--methods",
         type=_method_list,
         help=(
-            "optional comma-separated methods; omitted means ExpRank "
+            "optional comma-separated methods; omitted means DRPO "
             "only. Available: " + ", ".join(D4RL_METHODS)
         ),
     )

@@ -8,7 +8,13 @@ import pytest
 
 import drpo_reference.experiments as public_experiments
 from drpo_reference import cli
-from drpo_reference.experiments.d4rl import resolve_d4rl_task
+from drpo_reference.experiments.d4rl import (
+    DRPO_EXPONENTIAL_MULTIPLIER,
+    EXPONENTIAL_COEFFICIENT,
+    canonical_method_negative_factors,
+    canonical_standardized_action_remoteness,
+    resolve_d4rl_task,
+)
 
 
 def test_cli_dispatches_cu1_stage(
@@ -120,6 +126,31 @@ def test_cli_dispatches_structured_generation_runner(
     }
 
 
+def test_d4rl_drpo_uses_squared_standardized_remoteness_and_unit_multiplier() -> None:
+    mean = torch.zeros((2, 2), dtype=torch.float64)
+    log_std = torch.zeros_like(mean)
+    actions = torch.tensor([[0.0, 0.0], [2.0, 0.0]], dtype=torch.float64)
+    remoteness = canonical_standardized_action_remoteness(mean, log_std, actions)
+    torch.testing.assert_close(
+        remoteness,
+        torch.tensor([0.0, 2.0], dtype=torch.float64),
+        rtol=0.0,
+        atol=0.0,
+    )
+
+    factors = canonical_method_negative_factors(
+        torch.tensor([-1.0, -1.0], dtype=torch.float64),
+        remoteness,
+        method="drpo",
+        exprank_temperature=1.0,
+    )
+    assert factors[0].item() == pytest.approx(DRPO_EXPONENTIAL_MULTIPLIER)
+    expected_far = DRPO_EXPONENTIAL_MULTIPLIER * math.exp(
+        -EXPONENTIAL_COEFFICIENT * (2.0 / 4.0)
+    )
+    assert factors[1].item() == pytest.approx(expected_far)
+
+
 def test_evaluate_d4rl_agent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -211,7 +242,7 @@ def test_d4rl_runner_aggregates_scores(
         device="cpu",
         eval_episodes=2,
     )
-    summary = result["tasks"][task.task_id]["methods"]["exprank"]["evaluation_summary"]
+    summary = result["tasks"][task.task_id]["methods"]["drpo"]["evaluation_summary"]
     assert summary["raw_return_mean_across_seeds"] == pytest.approx(8.0)
     assert summary["normalized_score_mean_across_seeds"] == pytest.approx(16.0)
     assert (tmp_path / "output" / "results.json").is_file()

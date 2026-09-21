@@ -143,7 +143,7 @@ def run_d4rl(
 
     resolved_seeds = tuple(int(seed) for seed in seeds)
     tasks = _resolve_public_d4rl_tasks(task_ids)
-    method_specs = ("exprank",) if methods is None else tuple(str(method) for method in methods)
+    method_specs = ("drpo",) if methods is None else tuple(str(method) for method in methods)
     data_root = Path(dataset_root).expanduser().resolve()
     output = Path(output_root).expanduser().resolve()
     output.mkdir(parents=True, exist_ok=True)
