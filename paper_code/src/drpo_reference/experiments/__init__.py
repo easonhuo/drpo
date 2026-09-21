@@ -14,14 +14,13 @@ from drpo_reference.common.io import atomic_json
 
 from .d4rl import (
     D4RL9_TASKS,
-    D4RL_METHODS,
-    CanonicalExpRankTrainingConfig,
+    D4RLAgent,
     D4RLTaskSpec,
-    SNA2CIQLVExpRankAgent,
+    D4RLTrainingConfig,
     load_d4rl_hdf5,
     prepare_canonical_locomotion_dataset,
     resolve_d4rl_task,
-    train_canonical_method,
+    train_drpo,
 )
 
 
@@ -47,7 +46,7 @@ def _normalized_d4rl_score(raw_return: float, task: D4RLTaskSpec) -> float:
 
 def evaluate_d4rl_agent(
     *,
-    agent: SNA2CIQLVExpRankAgent,
+    agent: D4RLAgent,
     task: D4RLTaskSpec,
     episodes: int,
     seed: int,
@@ -137,13 +136,11 @@ def run_d4rl(
     device: str = "auto",
     eval_episodes: int = 0,
     eval_max_steps: int = 1000,
-    methods: Sequence[str] | None = None,
 ) -> dict[str, Any]:
-    """Train the selected methods and optionally evaluate them in MuJoCo."""
+    """Train DRPO and optionally evaluate it in MuJoCo."""
 
     resolved_seeds = tuple(int(seed) for seed in seeds)
     tasks = _resolve_public_d4rl_tasks(task_ids)
-    method_specs = ("drpo",) if methods is None else tuple(str(method) for method in methods)
     data_root = Path(dataset_root).expanduser().resolve()
     output = Path(output_root).expanduser().resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -151,7 +148,7 @@ def run_d4rl(
     effective_steps = int(steps)
     effective_batch_size = int(batch_size)
     resolved_device = _resolve_public_device(device)
-    config = CanonicalExpRankTrainingConfig(
+    config = D4RLTrainingConfig(
         steps=effective_steps,
         batch_size=effective_batch_size,
     )
@@ -161,40 +158,38 @@ def run_d4rl(
         dataset = prepare_canonical_locomotion_dataset(
             load_d4rl_hdf5(data_root / task.dataset_basename)
         )
-        method_results: dict[str, Any] = {}
-        for method in method_specs:
-            runs: list[dict[str, Any]] = []
-            for seed in resolved_seeds:
-                agent = train_canonical_method(
-                    dataset=dataset,
+        runs: list[dict[str, Any]] = []
+        for seed in resolved_seeds:
+            agent = train_drpo(
+                dataset=dataset,
+                seed=seed,
+                config=config,
+                device=resolved_device,
+            )
+            evaluation = None
+            if eval_episodes > 0:
+                evaluation = evaluate_d4rl_agent(
+                    agent=agent,
+                    task=task,
+                    episodes=eval_episodes,
                     seed=seed,
-                    config=config,
-                    method=method,
-                    device=resolved_device,
+                    max_steps=eval_max_steps,
                 )
-                evaluation = None
-                if eval_episodes > 0:
-                    evaluation = evaluate_d4rl_agent(
-                        agent=agent,
-                        task=task,
-                        episodes=eval_episodes,
-                        seed=seed,
-                        max_steps=eval_max_steps,
-                    )
-                runs.append({"seed": seed, "evaluation": evaluation})
-            method_results[method] = {
-                "runs": runs,
-                "evaluation_summary": _aggregate_task_evaluations(runs),
-            }
+            runs.append({"seed": seed, "evaluation": evaluation})
         task_results[task.task_id] = {
             "transition_count": dataset.size,
-            "methods": method_results,
+            "methods": {
+                "drpo": {
+                    "runs": runs,
+                    "evaluation_summary": _aggregate_task_evaluations(runs),
+                }
+            },
         }
 
     result = {
         "tasks": task_results,
         "seeds": list(resolved_seeds),
-        "methods": list(method_specs),
+        "methods": ["drpo"],
         "steps": effective_steps,
         "batch_size": effective_batch_size,
         "device": resolved_device,
@@ -204,7 +199,6 @@ def run_d4rl(
 
 
 __all__ = [
-    "D4RL_METHODS",
     "evaluate_d4rl_agent",
     "run_d4rl",
 ]
