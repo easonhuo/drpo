@@ -20,21 +20,17 @@ from drpo_reference.categorical.structured_generation import (
     TASK_NAMES,
     TaskAdapter,
     TaskInstance,
-    asymre_objective,
     build_adapters,
     build_task_bank,
     collate_training_items,
     completion_stats,
     dpo_objective,
-    drpo_objective,
     encode_training_row,
     evaluate_outputs,
     format_chat_prompt,
     move_tensor_batch_to_device,
     positive_only_objective,
     split_bank,
-    topr_policy_objective,
-    topr_reference_objective,
 )
 from drpo_reference.common.io import atomic_json
 
@@ -253,23 +249,6 @@ def _activate_reference(
         parameter.requires_grad_(trainable)
 
 
-def _capture_rng_state() -> tuple[torch.Tensor, list[torch.Tensor] | None]:
-    cpu = torch.get_rng_state().clone()
-    cuda = (
-        [value.clone() for value in torch.cuda.get_rng_state_all()]
-        if torch.cuda.is_available()
-        else None
-    )
-    return cpu, cuda
-
-
-def _restore_rng_state(state: tuple[torch.Tensor, list[torch.Tensor] | None]) -> None:
-    cpu, cuda = state
-    torch.set_rng_state(cpu)
-    if cuda is not None:
-        torch.cuda.set_rng_state_all(cuda)
-
-
 def _release_model(model: Any | None) -> None:
     if model is not None:
         del model
@@ -453,18 +432,15 @@ def _method_optimizers(
     model: Any,
     config: Mapping[str, Any],
     method: str,
-    method_spec: Mapping[str, Any],
 ) -> tuple[
     list[torch.nn.Parameter],
     list[torch.nn.Parameter],
     torch.optim.Optimizer,
-    torch.optim.Optimizer | None,
     Any,
-    Any | None,
 ]:
     training = config["training"]
     steps = int(training["optimizer_updates"])
-    if method in {"joint_fitted_reference_topr", "dpo"}:
+    if method == "dpo":
         policy, reference = _add_reference_adapter(model)
     else:
         policy = [parameter for parameter in model.parameters() if parameter.requires_grad]
@@ -480,34 +456,8 @@ def _method_optimizers(
         warmup,
         steps,
     )
-    reference_optimizer = None
-    reference_scheduler = None
-    if method == "joint_fitted_reference_topr":
-        reference_optimizer = torch.optim.AdamW(
-            reference,
-            lr=float(training["learning_rate"])
-            * float(
-                method_spec.get(
-                    "reference_learning_rate_multiplier",
-                    1.0,
-                )
-            ),
-            weight_decay=float(training["weight_decay"]),
-        )
-        reference_scheduler = stack.get_cosine_schedule_with_warmup(
-            reference_optimizer,
-            warmup,
-            steps,
-        )
     _activate_policy(model, policy, reference)
-    return (
-        policy,
-        reference,
-        optimizer,
-        reference_optimizer,
-        scheduler,
-        reference_scheduler,
-    )
+    return policy, reference, optimizer, scheduler
 
 
 def _cell_loss(
@@ -519,53 +469,11 @@ def _cell_loss(
     task: str,
     policy_parameters: Sequence[torch.nn.Parameter],
     reference_parameters: Sequence[torch.nn.Parameter],
-    accumulation: int,
-) -> tuple[torch.Tensor, torch.Tensor | None]:
+) -> torch.Tensor:
     positive = packed["positive"]
     negative = packed["negative"]
     row_index = packed["negative_row_index"]
     counts = packed["negative_counts"]
-
-    if method == "joint_fitted_reference_topr":
-        rng_state = _capture_rng_state()
-        _activate_reference(
-            model,
-            reference_parameters,
-            trainable=True,
-        )
-        reference_positive = completion_stats(model, positive)
-        reference_negative = completion_stats(model, negative)
-        reference_loss = topr_reference_objective(
-            reference_positive["mean_logprob"],
-            reference_negative["mean_logprob"],
-            row_index,
-            counts,
-        )
-        (reference_loss / accumulation).backward()
-        _activate_policy(
-            model,
-            policy_parameters,
-            reference_parameters,
-        )
-        _restore_rng_state(rng_state)
-        policy_positive = completion_stats(model, positive)
-        policy_negative = completion_stats(model, negative)
-        loss, _ = topr_policy_objective(
-            policy_positive["mean_logprob"],
-            policy_negative["mean_logprob"],
-            policy_negative["sum_logprob"],
-            reference_negative["sum_logprob"].detach(),
-            row_index,
-            counts,
-            beta=float(
-                _task_value(
-                    method_spec,
-                    "beta",
-                    task,
-                )
-            ),
-        )
-        return loss, reference_loss.detach()
 
     if method == "dpo":
         _activate_reference(
@@ -585,82 +493,25 @@ def _cell_loss(
         model.eval()
         policy_positive = completion_stats(model, positive)
         policy_negative = completion_stats(model, negative)
-        return (
-            dpo_objective(
-                policy_positive["sum_logprob"],
-                policy_negative["sum_logprob"],
-                reference_positive["sum_logprob"],
-                reference_negative["sum_logprob"],
-                row_index,
-                counts,
-                beta=float(
-                    _task_value(
-                        method_spec,
-                        "beta",
-                        task,
-                    )
-                ),
+        return dpo_objective(
+            policy_positive["sum_logprob"],
+            policy_negative["sum_logprob"],
+            reference_positive["sum_logprob"],
+            reference_negative["sum_logprob"],
+            row_index,
+            counts,
+            beta=float(
+                _task_value(
+                    method_spec,
+                    "beta",
+                    task,
+                )
             ),
-            None,
         )
 
     positive_stats = completion_stats(model, positive)
     if method == "positive_only":
-        return (
-            positive_only_objective(positive_stats["mean_logprob"]),
-            None,
-        )
-    negative_stats = completion_stats(model, negative)
-    if method == "drpo":
-        return (
-            drpo_objective(
-                positive_stats["mean_logprob"],
-                negative_stats["mean_logprob"],
-                row_index,
-                counts,
-                threshold=float(
-                    _task_value(
-                        method_spec,
-                        "threshold",
-                        task,
-                        0.0,
-                    )
-                ),
-                scale=float(
-                    _task_value(
-                        method_spec,
-                        "scale",
-                        task,
-                        1.0,
-                    )
-                ),
-                coefficient=float(
-                    _task_value(
-                        method_spec,
-                        "coefficient",
-                        task,
-                    )
-                ),
-            ),
-            None,
-        )
-    if method == "asymre":
-        return (
-            asymre_objective(
-                positive_stats["mean_logprob"],
-                negative_stats["mean_logprob"],
-                row_index,
-                counts,
-                delta_v=float(
-                    _task_value(
-                        method_spec,
-                        "delta_v",
-                        task,
-                    )
-                ),
-            ),
-            None,
-        )
+        return positive_only_objective(positive_stats["mean_logprob"])
     raise ValueError(f"Unsupported Structured Generation method: {method}")
 
 
@@ -698,19 +549,11 @@ def _train_cell(
         config,
         initial_adapter=initial_adapter,
     )
-    (
-        policy,
-        reference,
-        optimizer,
-        reference_optimizer,
-        scheduler,
-        reference_scheduler,
-    ) = _method_optimizers(
+    policy, reference, optimizer, scheduler = _method_optimizers(
         stack,
         model,
         config,
         method,
-        method_spec,
     )
 
     _seed_all(seed)
@@ -732,8 +575,6 @@ def _train_cell(
 
     for update in range(1, steps + 1):
         optimizer.zero_grad(set_to_none=True)
-        if reference_optimizer is not None:
-            reference_optimizer.zero_grad(set_to_none=True)
         loss_total = 0.0
 
         for _ in range(accumulation):
@@ -744,7 +585,7 @@ def _train_cell(
                 int(runtime["max_length"]),
                 device,
             )
-            loss, _ = _cell_loss(
+            loss = _cell_loss(
                 model,
                 packed,
                 method=method,
@@ -752,7 +593,6 @@ def _train_cell(
                 task=task,
                 policy_parameters=policy,
                 reference_parameters=reference,
-                accumulation=accumulation,
             )
             (loss / accumulation).backward()
             loss_total += float(loss.detach()) / accumulation
@@ -761,20 +601,8 @@ def _train_cell(
             policy,
             float(training["max_grad_norm"]),
         )
-        if reference_optimizer is not None:
-            reference_gradient = torch.nn.utils.clip_grad_norm_(
-                reference,
-                float(training["max_grad_norm"]),
-            )
-        else:
-            reference_gradient = None
-
         optimizer.step()
-        if reference_optimizer is not None:
-            reference_optimizer.step()
         scheduler.step()
-        if reference_scheduler is not None:
-            reference_scheduler.step()
         completed_update = update
 
         should_evaluate = update % int(training["evaluation_every_updates"]) == 0 or update == steps
@@ -799,9 +627,6 @@ def _train_cell(
                     "update": update,
                     "loss": loss_total,
                     "policy_gradient_l2": float(policy_gradient),
-                    "reference_gradient_l2": (
-                        None if reference_gradient is None else float(reference_gradient)
-                    ),
                     **metrics,
                 }
             )
