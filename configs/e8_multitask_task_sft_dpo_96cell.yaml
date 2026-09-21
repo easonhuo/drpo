@@ -34,7 +34,7 @@ model:
   lora_alpha: 64
   lora_dropout: 0.05
   dtype: auto
-  max_length: 512
+  max_length: 256
   max_new_tokens: 80
   gradient_checkpointing: true
 
