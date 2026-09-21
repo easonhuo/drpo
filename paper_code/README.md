@@ -126,16 +126,11 @@ task adapter
   -> greedy verifier success / Pass@8 evaluation
 ```
 
-The frozen replay rows do not store learner-relative surprisal, near/far labels,
-taper weights, or behavior-policy probabilities. DRPO recomputes mean
-completion-token surprisal from the current policy and detaches it before the
-thresholded exponential taper is applied.
-
-The implementation exposes Positive-only, DRPO, AsymRE, Joint Fitted-Reference
-beta-TOPR, and canonical DPO. TOPR jointly updates a branch-balanced reference
-adapter once per policy step. DPO uses summed completion log-probability in the
-pairwise objective and an exact frozen copy of its configured short-SFT
-initialization.
+The frozen replay rows contain task data, verifier outputs, and the selected
+negative completions. The reviewer-facing Structured Generation runner exposes
+only Positive-only and canonical DPO. DPO uses summed completion
+log-probability in the pairwise objective and an exact frozen copy of its
+configured short-SFT initialization.
 
 The bundled JSON runtime configuration is
 `configs/structured_generation_0p5b.json`. Reasoning Gym
@@ -158,7 +153,7 @@ Or select a task/method subset without changing the implementation:
 drpo-reference structured-generation \
   --config configs/structured_generation_0p5b.json \
   --tasks countdown,wikisql \
-  --methods positive_only,drpo \
+  --methods positive_only,dpo \
   --output outputs/structured-generation
 ```
 
