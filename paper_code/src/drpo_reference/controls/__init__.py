@@ -6,7 +6,6 @@ from .weights import (
     TaperFamily,
     normalized_excess_surprisal,
     point_retention_coefficient,
-    surprisal_distance,
     taper_weight,
 )
 
@@ -18,6 +17,5 @@ __all__ = [
     "normalized_excess_surprisal",
     "point_retention_coefficient",
     "scale_to_match_norm",
-    "surprisal_distance",
     "taper_weight",
 ]
