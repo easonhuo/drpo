@@ -757,6 +757,21 @@ engineering_self_test() {
   fail "engineering self-test exhausted automatic recovery attempts"
 }
 
+prepare_task_sft_references() {
+  local mode
+  mode="$(
+    python - <<PY
+from pathlib import Path
+from drpo.e8_multitask_exp_tuning import load_config
+config = load_config(Path("${CONFIG_PATH}"))
+print(str(config.get("dpo", {}).get("initialization_mode", "")))
+PY
+  )"
+  if [[ "${mode}" == "task_positive_warmstart" ]]; then
+    run_module reference --base-model-path "${MODEL_DIR}"
+  fi
+}
+
 prepare() {
   check_source
   activate_runtime
@@ -778,6 +793,7 @@ prepare() {
     --p0-config "${P0_CONFIG_PATH}" \
     --countdown-bank "${COUNTDOWN_WORK_DIR}/data/offline_bank_v2.jsonl" \
     --countdown-validation "${COUNTDOWN_WORK_DIR}/data/val.jsonl"
+  prepare_task_sft_references
   python - <<PY
 import json
 from pathlib import Path
@@ -800,6 +816,7 @@ PY
 calibrate() {
   check_source
   activate_runtime
+  prepare_task_sft_references
   mkdir -p "${OUTPUT_ROOT}/logs/calibration"
   run_module calibrate --base-model-path "${MODEL_DIR}" \
     >"${OUTPUT_ROOT}/logs/calibration/no_calibration_identity_gate.log" 2>&1
@@ -808,8 +825,26 @@ calibrate() {
 liveness() {
   check_source
   activate_runtime
+  local liveness_task
+  liveness_task="$(
+    python - <<PY
+from pathlib import Path
+from drpo.e8_multitask_exp_tuning import (
+    _coldstart_method,
+    _is_method_matrix,
+    _method_spec,
+    load_config,
+)
+config = load_config(Path("${CONFIG_PATH}"))
+print(
+    "countdown"
+    if _is_method_matrix(config)
+    else _method_spec(_coldstart_method(config)).liveness_task(config)
+)
+PY
+  )"
   CUDA_VISIBLE_DEVICES=0 LOCAL_RANK=0 run_module liveness \
-    --task countdown \
+    --task "${liveness_task}" \
     --base-model-path "${MODEL_DIR}"
 }
 
