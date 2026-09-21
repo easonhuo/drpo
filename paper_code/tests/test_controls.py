@@ -13,7 +13,6 @@ from drpo_reference.controls import (
     normalized_excess_surprisal,
     point_retention_coefficient,
     scale_to_match_norm,
-    surprisal_distance,
     taper_weight,
 )
 from drpo_reference.experiments.d4rl import (
@@ -65,7 +64,7 @@ def test_du1_v4_distance_coordinate_matches_reference_formulas() -> None:
 def test_exponential_quadratic_weight_is_linear_in_normalized_excess() -> None:
     log_probability = torch.tensor([-1.0, -3.0, -5.0], dtype=torch.float64)
     normalized = normalized_excess_surprisal(log_probability, threshold=1.0, scale=2.0)
-    distance = surprisal_distance(log_probability, threshold=1.0, scale=2.0)
+    distance = torch.sqrt(normalized)
     coefficient = 0.7
     actual = taper_weight(
         distance,
@@ -77,7 +76,8 @@ def test_exponential_quadratic_weight_is_linear_in_normalized_excess() -> None:
 
 def test_remoteness_weights_are_detached_by_default() -> None:
     log_probability = torch.tensor([-1.0, -3.0], requires_grad=True)
-    distance = surprisal_distance(log_probability, threshold=0.5, scale=2.0)
+    normalized = normalized_excess_surprisal(log_probability, threshold=0.5, scale=2.0)
+    distance = torch.sqrt(normalized)
     weight = taper_weight(
         distance,
         family=TaperFamily.EXPONENTIAL_QUADRATIC,
