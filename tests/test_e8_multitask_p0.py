@@ -3404,6 +3404,69 @@ def test_dpo_capability_accepts_shared_sft_initialization_mode() -> None:
     assert config["reference"]["checkpoint_kind"] == "exact_frozen_copy_of_initialized_policy"
 
 
+def test_task_sft_dpo_96cell_config_expands_exact_matrix() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
+    )
+    cells = exp_tuning.build_cells(config)
+    assert len(cells) == config["sweep"]["expected_cells"] == 96
+    assert len({cell.key for cell in cells}) == 96
+    assert {cell.task for cell in cells} == set(config["suite"]["p0_tasks"])
+    assert {cell.method for cell in cells} == {exp_tuning.METHOD_DPO}
+    assert {cell.seed for cell in cells} == {4000, 5000}
+    assert {cell.beta for cell in cells} == {0.0, 0.05, 0.1, 0.2, 0.5, 1.0}
+    assert sum(cell.beta == 0.0 for cell in cells) == 16
+    assert {cell.dpo_initialization for cell in cells} == {
+        "task_positive_warmstart"
+    }
+    assert all(cell.task != "countdown" for cell in cells)
+
+
+def test_task_sft_dpo_reuses_frozen_positive_warmstart_contract() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+    from drpo import e8_multitask_warmstart_training as warmstart
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
+    )
+    warm = warmstart.reference_warmstart_config(
+        config, Path("configs/e8_multitask_p0.yaml")
+    )
+    assert config["initialization"]["source"] == "task_positive_warmstart_100"
+    assert config["initialization"]["optimizer_updates"] == 100
+    assert config["reference"]["checkpoint_kind"] == (
+        "exact_frozen_copy_of_initialized_policy"
+    )
+    assert warm["checkpoint_kind"] == "task_positive_warmstart_100"
+    assert warm["optimizer_updates"] == 100
+    assert warm["lora_rank"] == 32
+    assert warm["lora_alpha"] == 64
+    assert warm["lora_dropout"] == pytest.approx(0.05)
+    assert warm["max_length"] == 512
+
+
+def test_task_sft_dpo_beta_zero_is_no_optimizer_update_control() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
+    )
+    assert config["dpo"]["zero_beta_control"] == (
+        "sft_only_no_dpo_optimizer_updates"
+    )
+    source = inspect.getsource(
+        exp_tuning._canonical_bridge()._train_canonical_dpo_transfer_cell
+    )
+    assert "training_updates = 0 if zero_beta_control else updates" in source
+    assert '"control_role": "sft_only_no_dpo_update"' in source
+    assert "for evaluation_step in range(eval_every, updates + 1, eval_every)" in source
+    assert 'adapter_path=None if initial_adapter is None else str(initial_adapter)' in source
+
+
 def test_dpo_capability_rejects_zero_beta() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
