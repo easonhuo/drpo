@@ -111,7 +111,6 @@ class D4RLTrainingConfig:
     batch_size: int
     learning_rate: float = 3.0e-4
     gamma: float = 0.99
-    tau: float = 0.7
 
 
 @dataclass(frozen=True)
@@ -235,11 +234,9 @@ class D4RLAgent:
         *,
         learning_rate: float = 3.0e-4,
         gamma: float = 0.99,
-        tau: float = 0.7,
         device: torch.device | str = "cpu",
     ) -> None:
         self.gamma = float(gamma)
-        self.tau = float(tau)
         self.device = torch.device(device)
         self.actor = CanonicalActor(observation_dim, action_dim).to(self.device)
         self.critic = CanonicalCritic(observation_dim).to(self.device)
@@ -302,12 +299,7 @@ class D4RLAgent:
         actor_loss = -(log_probability * transformed).mean()
 
         value_error = target - value
-        expectile_weight = torch.where(
-            value_error > 0,
-            self.tau,
-            1.0 - self.tau,
-        )
-        critic_loss = (expectile_weight * value_error.square()).mean()
+        critic_loss = 0.5 * value_error.square().mean()
 
         self.a_opt.zero_grad()
         actor_loss.backward()
@@ -380,7 +372,6 @@ def train_drpo(
         dataset.action_dim,
         learning_rate=config.learning_rate,
         gamma=config.gamma,
-        tau=config.tau,
         device=resolved_device,
     )
     tensors = {
