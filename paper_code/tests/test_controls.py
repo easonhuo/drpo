@@ -18,14 +18,10 @@ from drpo_reference.controls import (
     taper_weight,
 )
 from drpo_reference.experiments.d4rl import (
-    CANONICAL_ALPHA,
-    D4RL_METHODS,
     DRPO_EXPONENTIAL_MULTIPLIER,
     EXPONENTIAL_COEFFICIENT,
-    RECIPROCAL_LINEAR_COEFFICIENT,
-    RECIPROCAL_QUADRATIC_COEFFICIENT,
     REFERENCE_DISTANCE,
-    canonical_method_negative_factors,
+    canonical_drpo_negative_factors,
     canonical_standardized_action_remoteness,
 )
 
@@ -126,68 +122,19 @@ def test_invalid_coordinates_raise() -> None:
         near_mask(torch.tensor([float("nan")]), threshold=1.0)
 
 
-def test_d4rl_method_catalog_is_explicit() -> None:
-    assert D4RL_METHODS == (
-        "drpo",
-        "positive_only",
-        "global",
-        "reciprocal_linear",
-        "reciprocal_quadratic",
-    )
-
-
-def test_d4rl_control_factors_match_reference_formulas() -> None:
-    negative_advantages = torch.tensor(
-        [-4.0, -1.0, -3.0, -2.0],
-        dtype=torch.float64,
-        requires_grad=True,
-    )
+def test_d4rl_drpo_factor_matches_reference_formula() -> None:
     remoteness = torch.tensor(
         [0.0, 4.0, 16.0, 36.0],
         dtype=torch.float64,
         requires_grad=True,
     )
-
-    positive = canonical_method_negative_factors(
-        negative_advantages,
-        remoteness,
-        method="positive_only",
-        exprank_temperature=5.0,
-    )
-    global_factor = canonical_method_negative_factors(
-        negative_advantages,
-        remoteness,
-        method="global",
-        exprank_temperature=5.0,
-    )
-    torch.testing.assert_close(positive, torch.zeros_like(positive))
-    assert positive.requires_grad is False
-    assert global_factor.requires_grad is False
-    torch.testing.assert_close(
-        global_factor,
-        torch.full_like(global_factor, CANONICAL_ALPHA),
-    )
-
     normalized_excess = remoteness.detach() / (REFERENCE_DISTANCE**2)
-    radial = torch.sqrt(normalized_excess)
-    expected = {
-        "reciprocal_linear": (1.0 / (1.0 + RECIPROCAL_LINEAR_COEFFICIENT * radial)),
-        "reciprocal_quadratic": (
-            1.0 / (1.0 + RECIPROCAL_QUADRATIC_COEFFICIENT * normalized_excess)
-        ),
-        "drpo": (
-            DRPO_EXPONENTIAL_MULTIPLIER * torch.exp(-EXPONENTIAL_COEFFICIENT * normalized_excess)
-        ),
-    }
-    for method_id, expected_factor in expected.items():
-        actual = canonical_method_negative_factors(
-            negative_advantages,
-            remoteness,
-            method=method_id,
-            exprank_temperature=5.0,
-        )
-        torch.testing.assert_close(actual, expected_factor)
-        assert actual.requires_grad is False
+    expected = DRPO_EXPONENTIAL_MULTIPLIER * torch.exp(
+        -EXPONENTIAL_COEFFICIENT * normalized_excess
+    )
+    actual = canonical_drpo_negative_factors(remoteness)
+    torch.testing.assert_close(actual, expected)
+    assert actual.requires_grad is False
 
 
 def test_d4rl_standardized_remoteness_is_detached() -> None:
