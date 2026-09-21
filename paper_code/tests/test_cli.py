@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
+import torch
 
 import drpo_reference.experiments as public_experiments
 from drpo_reference import cli
