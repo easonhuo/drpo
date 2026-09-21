@@ -850,6 +850,11 @@ class _CanonicalBridgeImpl:
         log_every = int(train_cfg["log_every"])
         seed = int(train_cfg["seed"]) + int(cell.seed)
         beta = float(cell.beta)
+        zero_beta_control = math.isclose(beta, 0.0, rel_tol=0.0, abs_tol=0.0)
+        if zero_beta_control and configured_initialization != "task_positive_warmstart":
+            raise RuntimeError(
+                "DPO beta=0 is reserved for the task-SFT initialization-only control"
+            )
         arena.seed_all(seed)
 
         validation_rows = [] if engineering_liveness else read_jsonl(validation)
@@ -965,7 +970,9 @@ class _CanonicalBridgeImpl:
             initial_pair_margin_max_abs: float | None = None
             tolerance = float(config["dpo"]["initial_pair_margin_max_abs_tolerance"])
             numerical_failure: str | None = None
-            stop_reason = "max_steps"
+            stop_reason = (
+                "sft_only_no_dpo_update" if zero_beta_control else "max_steps"
+            )
             terminal_step = 0
             last_finite_step = 0
 
@@ -1012,7 +1019,25 @@ class _CanonicalBridgeImpl:
                 evaluate(0)
             optimizer.zero_grad(set_to_none=True)
             accumulation = int(effective["training"]["gradient_accumulation"])
-            for update in range(1, updates + 1):
+            training_updates = 0 if zero_beta_control else updates
+            if zero_beta_control:
+                initial_pair_margin_max_abs = 0.0
+                append_jsonl(
+                    training_path,
+                    {
+                        "update": 0,
+                        "dpo_beta": beta,
+                        "control_role": "sft_only_no_dpo_update",
+                        "dpo_pair_loss": None,
+                        "raw_gradient_norm_before_clip": 0.0,
+                        "optimizer_update_norm": 0.0,
+                        "initial_pair_margin_max_abs": initial_pair_margin_max_abs,
+                        "reference_role": "exact_frozen_initial_policy",
+                        "label_smoothing": 0.0,
+                        "test_data_used": False,
+                    },
+                )
+            for update in range(1, training_updates + 1):
                 loss_total = 0.0
                 diagnostic_totals = {
                     "policy_chosen_sum_lp": 0.0,
@@ -1188,6 +1213,10 @@ class _CanonicalBridgeImpl:
                 if not engineering_liveness and (update % eval_every == 0 or update == updates):
                     evaluate(update)
 
+            if zero_beta_control and not engineering_liveness:
+                for evaluation_step in range(eval_every, updates + 1, eval_every):
+                    evaluate(evaluation_step)
+
             activate_policy()
             terminal_policy_sha256 = self._parameter_sequence_sha256(policy_parameters)
             reference_terminal_sha256 = self._parameter_sequence_sha256(reference_parameters)
@@ -1240,6 +1269,10 @@ class _CanonicalBridgeImpl:
                 "label_smoothing": 0.0,
                 "reference_role": "exact_frozen_initial_policy",
                 "reference_trainable": False,
+                "control_role": (
+                    "sft_only_no_dpo_update" if zero_beta_control else None
+                ),
+                "zero_beta_control": zero_beta_control,
                 "initial_pair_margin_max_abs": initial_pair_margin_max_abs,
                 "initial_pair_margin_max_abs_tolerance": tolerance,
                 "policy_initial_state_sha256": policy_initial_sha256,
@@ -1261,7 +1294,9 @@ class _CanonicalBridgeImpl:
                     str(evaluation_path.resolve()) if evaluation_path.is_file() else None
                 ),
                 "canonical_dispatch_verified": True,
-                "finite_old_core_updates": numerical_failure is None,
+                "finite_old_core_updates": (
+                    numerical_failure is None and not zero_beta_control
+                ),
                 "optimizer_update_norm": (
                     min(value for value in optimizer_update_norms if math.isfinite(value))
                     if optimizer_update_norms
@@ -1269,7 +1304,8 @@ class _CanonicalBridgeImpl:
                 ),
                 "optimizer_updates": terminal_step,
                 "terminal_step": terminal_step,
-                "optimizer_updates_requested": updates,
+                "optimizer_updates_requested": training_updates,
+                "configured_positive_beta_optimizer_updates": updates,
                 "last_finite_step": last_finite_step,
                 "numerical_failure": numerical_failure,
                 "stop_reason": stop_reason,
