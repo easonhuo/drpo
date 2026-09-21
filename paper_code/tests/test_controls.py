@@ -20,12 +20,13 @@ from drpo_reference.controls import (
 from drpo_reference.experiments.d4rl import (
     CANONICAL_ALPHA,
     D4RL_METHODS,
+    DRPO_EXPONENTIAL_MULTIPLIER,
     EXPONENTIAL_COEFFICIENT,
     RECIPROCAL_LINEAR_COEFFICIENT,
     RECIPROCAL_QUADRATIC_COEFFICIENT,
     REFERENCE_DISTANCE,
     canonical_method_negative_factors,
-    canonical_standardized_action_distance,
+    canonical_standardized_action_remoteness,
 )
 
 
@@ -127,13 +128,11 @@ def test_invalid_coordinates_raise() -> None:
 
 def test_d4rl_method_catalog_is_explicit() -> None:
     assert D4RL_METHODS == (
-        "exprank",
+        "drpo",
         "positive_only",
-        "signed",
         "global",
         "reciprocal_linear",
         "reciprocal_quadratic",
-        "exponential",
     )
 
 
@@ -143,57 +142,50 @@ def test_d4rl_control_factors_match_reference_formulas() -> None:
         dtype=torch.float64,
         requires_grad=True,
     )
-    distances = torch.tensor(
-        [0.0, 2.0, 4.0, 6.0],
+    remoteness = torch.tensor(
+        [0.0, 4.0, 16.0, 36.0],
         dtype=torch.float64,
         requires_grad=True,
     )
 
     positive = canonical_method_negative_factors(
         negative_advantages,
-        distances,
+        remoteness,
         method="positive_only",
-        exprank_temperature=5.0,
-    )
-    signed = canonical_method_negative_factors(
-        negative_advantages,
-        distances,
-        method="signed",
         exprank_temperature=5.0,
     )
     global_factor = canonical_method_negative_factors(
         negative_advantages,
-        distances,
+        remoteness,
         method="global",
         exprank_temperature=5.0,
     )
     torch.testing.assert_close(positive, torch.zeros_like(positive))
     assert positive.requires_grad is False
-    assert signed.requires_grad is False
     assert global_factor.requires_grad is False
     torch.testing.assert_close(
-        signed,
-        torch.full_like(signed, CANONICAL_ALPHA),
-    )
-    torch.testing.assert_close(
         global_factor,
-        torch.full_like(global_factor, CANONICAL_ALPHA * 0.1),
+        torch.full_like(global_factor, CANONICAL_ALPHA),
     )
 
-    normalized = distances.detach() / REFERENCE_DISTANCE
+    normalized_excess = remoteness.detach() / (REFERENCE_DISTANCE**2)
+    radial = torch.sqrt(normalized_excess)
     expected = {
         "reciprocal_linear": (
-            CANONICAL_ALPHA * 0.1 / (1.0 + RECIPROCAL_LINEAR_COEFFICIENT * normalized)
+            1.0 / (1.0 + RECIPROCAL_LINEAR_COEFFICIENT * radial)
         ),
         "reciprocal_quadratic": (
-            CANONICAL_ALPHA * 0.1 / (1.0 + RECIPROCAL_QUADRATIC_COEFFICIENT * normalized.square())
+            1.0 / (1.0 + RECIPROCAL_QUADRATIC_COEFFICIENT * normalized_excess)
         ),
-        "exponential": (CANONICAL_ALPHA * 0.1 * torch.exp(-EXPONENTIAL_COEFFICIENT * normalized)),
+        "drpo": (
+            DRPO_EXPONENTIAL_MULTIPLIER
+            * torch.exp(-EXPONENTIAL_COEFFICIENT * normalized_excess)
+        ),
     }
     for method_id, expected_factor in expected.items():
         actual = canonical_method_negative_factors(
             negative_advantages,
-            distances,
+            remoteness,
             method=method_id,
             exprank_temperature=5.0,
         )
@@ -201,13 +193,13 @@ def test_d4rl_control_factors_match_reference_formulas() -> None:
         assert actual.requires_grad is False
 
 
-def test_d4rl_standardized_distance_is_detached() -> None:
+def test_d4rl_standardized_remoteness_is_detached() -> None:
     mean = torch.tensor([[0.0, 0.0], [1.0, -1.0]], requires_grad=True)
     log_std = torch.zeros_like(mean, requires_grad=True)
     actions = torch.tensor([[3.0, 4.0], [1.0, 1.0]], requires_grad=True)
-    distance = canonical_standardized_action_distance(mean, log_std, actions)
-    assert distance.tolist() == pytest.approx([math.sqrt(12.5), math.sqrt(2.0)])
-    assert distance.requires_grad is False
+    remoteness = canonical_standardized_action_remoteness(mean, log_std, actions)
+    assert remoteness.tolist() == pytest.approx([12.5, 2.0])
+    assert remoteness.requires_grad is False
 
 
 def test_structured_generation_drpo_weight_matches_shared_coordinate() -> None:
