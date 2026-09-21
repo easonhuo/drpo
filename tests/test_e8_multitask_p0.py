@@ -3436,11 +3436,13 @@ def test_task_sft_dpo_reuses_frozen_positive_warmstart_contract() -> None:
     )
     assert config["initialization"]["source"] == "task_positive_warmstart_100"
     assert config["initialization"]["optimizer_updates"] == 100
+    assert config["initialization"]["seed"] == 2026070803
     assert config["reference"]["checkpoint_kind"] == (
         "exact_frozen_copy_of_initialized_policy"
     )
     assert warm["checkpoint_kind"] == "task_positive_warmstart_100"
     assert warm["optimizer_updates"] == 100
+    assert warm["seed"] == 2026072900
     assert warm["lora_rank"] == 32
     assert warm["lora_alpha"] == 64
     assert warm["lora_dropout"] == pytest.approx(0.05)
