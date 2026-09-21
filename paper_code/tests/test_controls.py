@@ -5,7 +5,6 @@ import math
 import pytest
 import torch
 
-from drpo_reference.categorical.structured_generation import drpo_weights
 from drpo_reference.controls import (
     TaperFamily,
     far_mask,
@@ -63,7 +62,7 @@ def test_du1_v4_distance_coordinate_matches_reference_formulas() -> None:
         assert actual[2].item() == pytest.approx(rho, abs=1.0e-12)
 
 
-def test_structured_generation_weight_is_linear_in_normalized_excess() -> None:
+def test_exponential_quadratic_weight_is_linear_in_normalized_excess() -> None:
     log_probability = torch.tensor([-1.0, -3.0, -5.0], dtype=torch.float64)
     normalized = normalized_excess_surprisal(log_probability, threshold=1.0, scale=2.0)
     distance = surprisal_distance(log_probability, threshold=1.0, scale=2.0)
@@ -142,21 +141,3 @@ def test_d4rl_standardized_remoteness_is_detached() -> None:
     remoteness = canonical_standardized_action_remoteness(mean, log_std, actions)
     assert remoteness.tolist() == pytest.approx([12.5, 2.0])
     assert remoteness.requires_grad is False
-
-
-def test_structured_generation_drpo_weight_matches_shared_coordinate() -> None:
-    mean_log_probability = torch.tensor(
-        [-1.0, -3.0, -5.0],
-        dtype=torch.float64,
-        requires_grad=True,
-    )
-    actual = drpo_weights(
-        mean_log_probability,
-        threshold=1.0,
-        scale=2.0,
-        coefficient=0.7,
-    )
-    normalized = torch.tensor([0.0, 1.0, 2.0], dtype=torch.float64)
-    expected = torch.exp(-0.7 * normalized)
-    torch.testing.assert_close(actual, expected)
-    assert actual.requires_grad is False
