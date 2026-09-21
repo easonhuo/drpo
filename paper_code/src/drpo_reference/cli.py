@@ -15,10 +15,7 @@ from drpo_reference.continuous.cu1_suite import (
     STAGES,
     run_cu1_stage,
 )
-from drpo_reference.experiments import (
-    D4RL_METHODS,
-    run_d4rl,
-)
+from drpo_reference.experiments import run_d4rl
 from drpo_reference.experiments.structured_generation import run_structured_generation
 
 
@@ -94,14 +91,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--tasks",
         type=_task_list,
         help="optional comma-separated task IDs; defaults to all nine",
-    )
-    d4rl.add_argument(
-        "--methods",
-        type=_method_list,
-        help=(
-            "optional comma-separated methods; omitted means DRPO "
-            "only. Available: " + ", ".join(D4RL_METHODS)
-        ),
     )
     d4rl.add_argument(
         "--seeds",
@@ -193,7 +182,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             device=args.device,
             eval_episodes=args.eval_episodes,
             eval_max_steps=args.eval_max_steps,
-            methods=args.methods,
         )
         return 0
     if args.experiment == "structured-generation":
