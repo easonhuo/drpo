@@ -613,7 +613,11 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
     def validate_dpo(*, bind_global_initialization: bool) -> None:
         dpo = _mapping(config.get("dpo"), "dpo")
         mode = str(dpo.get("initialization_mode", ""))
-        if mode not in {"base_model_fresh_lora", "shared_sft_adapter"}:
+        if mode not in {
+            "base_model_fresh_lora",
+            "shared_sft_adapter",
+            "task_positive_warmstart",
+        }:
             raise ValueError("DPO initialization_mode is not implemented")
         if bind_global_initialization:
             common_reference = (
@@ -633,7 +637,7 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
                     or dpo.get("shared_sft_adapter_env") not in (None, "")
                 ):
                     raise ValueError("Cold-start DPO fresh-LoRA initialization contract drifted")
-            else:
+            elif mode == "shared_sft_adapter":
                 if (
                     reference.get("checkpoint_kind") != "exact_frozen_copy_of_initialized_policy"
                     or initialization.get("source") != "shared_sft_adapter"
@@ -644,10 +648,24 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
                     or not str(dpo.get("shared_sft_adapter_env")).strip()
                 ):
                     raise ValueError("Shared-SFT DPO initialization contract drifted")
+            else:
+                if (
+                    reference.get("checkpoint_kind") != "exact_frozen_copy_of_initialized_policy"
+                    or initialization.get("source") != "task_positive_warmstart_100"
+                    or initialization.get("optimizer_updates") != 100
+                    or initialization.get("external_adapter_allowed") is not True
+                    or initialization.get("deterministic_fresh_lora") is not False
+                    or dpo.get("shared_sft_adapter_env") not in (None, "")
+                    or dpo.get("zero_beta_control")
+                    != "sft_only_no_dpo_optimizer_updates"
+                ):
+                    raise ValueError("Task-SFT DPO initialization contract drifted")
         else:
-            if mode == "base_model_fresh_lora":
+            if mode in {"base_model_fresh_lora", "task_positive_warmstart"}:
                 if dpo.get("shared_sft_adapter_env") not in (None, ""):
-                    raise ValueError("Baseline-matrix fresh-LoRA DPO may not name a shared adapter")
+                    raise ValueError(
+                        "Baseline-matrix non-shared DPO may not name a shared adapter"
+                    )
             elif (
                 not isinstance(dpo.get("shared_sft_adapter_env"), str)
                 or not str(dpo.get("shared_sft_adapter_env")).strip()
@@ -656,7 +674,7 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
         if mode == "shared_sft_adapter":
             validate_shared_sft_adapter_contract(dpo)
         elif dpo.get("shared_sft_adapter_contract") not in (None, {}):
-            raise ValueError("Fresh-LoRA DPO may not carry a shared-SFT adapter contract")
+            raise ValueError("Non-shared DPO may not carry a shared-SFT adapter contract")
         if (
             dpo.get("policy_adapter") != "default"
             or dpo.get("reference_adapter") != "reference"
@@ -916,7 +934,12 @@ def _validate_method_grid(
         if len(set(values)) != len(values):
             raise ValueError(f"{task} {method} parameter grid contains duplicates")
         if method == COLDSTART_METHOD_DPO and any(value <= 0.0 for value in values):
-            raise ValueError(f"{task} canonical DPO beta values must be strictly positive")
+            mode = str(_mapping(config.get("dpo"), "dpo").get("initialization_mode", ""))
+            if any(value < 0.0 for value in values) or mode != "task_positive_warmstart":
+                raise ValueError(
+                    f"{task} canonical DPO beta values must be strictly positive unless "
+                    "task_positive_warmstart uses beta=0 as the SFT-only control"
+                )
 
 
 def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
