@@ -226,7 +226,7 @@ def canonical_drpo_negative_factors(
 
 
 class D4RLAgent:
-    """SNA2C-IQLV actor/critic update with manuscript DRPO weighting."""
+    """Gaussian actor/critic update with manuscript DRPO weighting."""
 
     def __init__(
         self,
@@ -348,8 +348,6 @@ def reward_norm_locomotion(
 
 def prepare_canonical_locomotion_dataset(
     data: OfflineData,
-    *,
-    gamma: float = 0.99,
 ) -> CanonicalD4RLDataset:
     actions = np.clip(data.actions, -1.0 + 1.0e-5, 1.0 - 1.0e-5)
     rewards = reward_norm_locomotion(
@@ -394,7 +392,7 @@ def train_drpo(
     }
     generator = torch.Generator(device=resolved_device)
     generator.manual_seed(int(seed))
-    for step in range(1, config.steps + 1):
+    for _ in range(config.steps):
         indices = torch.randint(
             0,
             dataset.size,
