@@ -557,7 +557,7 @@ class _CanonicalBridgeImpl:
     def _dpo_shared_sft_adapter_identity(self, config: Mapping[str, Any]) -> dict[str, Any] | None:
         dpo = config["dpo"]
         mode = str(dpo["initialization_mode"])
-        if mode == "base_model_fresh_lora":
+        if mode != "shared_sft_adapter":
             return None
         contract = dpo["shared_sft_adapter_contract"]
         env_name = str(dpo["shared_sft_adapter_env"])
@@ -764,6 +764,14 @@ class _CanonicalBridgeImpl:
         shared_adapter = (
             None if shared_adapter_record is None else Path(str(shared_adapter_record["path"]))
         )
+        task_sft_adapter = None
+        if configured_initialization == "task_positive_warmstart":
+            if inputs.reference_adapter is None:
+                raise RuntimeError(
+                    f"Task-SFT DPO initialization adapter is missing for {cell.task}"
+                )
+            task_sft_adapter = inputs.reference_adapter.resolve()
+        initial_adapter = shared_adapter if shared_adapter is not None else task_sft_adapter
         identity = self._cell_identity(
             cell,
             inputs=inputs,
@@ -797,6 +805,11 @@ class _CanonicalBridgeImpl:
                         for key, value in shared_adapter_record.items()
                         if key != "path"
                     }
+                ),
+                "task_sft_adapter_identity": (
+                    None
+                    if task_sft_adapter is None
+                    else model_identity(base_model_path, str(task_sft_adapter))["adapter"]
                 ),
                 "engineering_liveness": engineering_liveness,
                 "updates_override": updates_override,
@@ -888,7 +901,7 @@ class _CanonicalBridgeImpl:
             with self._legacy_arena_runtime_bridge(arena, effective):
                 model = arena.load_model(
                     str(Path(base_model_path).resolve()),
-                    adapter_path=None if shared_adapter is None else str(shared_adapter),
+                    adapter_path=None if initial_adapter is None else str(initial_adapter),
                     trainable_adapter=True,
                     load_in_4bit=bool(model_cfg.get("load_in_4bit", False)),
                     dtype=str(effective["model"]["dtype"]),
