@@ -82,37 +82,28 @@ writes a single `results.json` containing trajectories and summaries.
 
 ## D4RL-9 locomotion performance
 
-D4RL uses one SNA2C-IQLV actor/critic implementation across HalfCheetah, Hopper,
-and Walker2d with medium, medium-replay, and medium-expert datasets. The core
-path is dataset preparation → actor/critic update → optional MuJoCo rollout.
+D4RL uses one shared Gaussian actor/critic implementation across HalfCheetah,
+Hopper, and Walker2d with medium, medium-replay, and medium-expert datasets. The
+reviewer-facing runner contains only the DRPO exponential negative taper. Its
+core path is dataset preparation → DRPO actor/critic update → optional MuJoCo
+rollout.
 
-ExpRank is the default:
+Example:
 
 ```bash
 drpo-reference d4rl \
   --dataset-root /ABS/PATH/TO/D4RL_V2_HDF5 \
   --tasks hopper-medium-replay-v2 \
   --seeds 200,201 \
-  --steps 100000 \
+  --steps 1000000 \
   --eval-episodes 10 \
   --output outputs/d4rl_hopper_medium_replay
 ```
 
-The same loop can expose the comparison controls directly:
-
-```bash
-drpo-reference d4rl \
-  --dataset-root /ABS/PATH/TO/D4RL_V2_HDF5 \
-  --tasks hopper-medium-replay-v2 \
-  --methods exprank,positive_only,signed,global,reciprocal_linear,reciprocal_quadratic,exponential \
-  --seeds 200,201 \
-  --steps 100000 \
-  --eval-episodes 10 \
-  --output outputs/d4rl_hopper_medium_replay_methods
-```
-
 Omit `--tasks` to run all nine tasks. `--eval-episodes 0` runs training only.
-The runner writes one `results.json`.
+The compact reviewer runner evaluates after training; the full paper protocol's
+intermediate evaluation schedule is documented in the manuscript. The runner
+writes one `results.json`.
 
 ## Structured Generation
 
