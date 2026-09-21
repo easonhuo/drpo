@@ -213,7 +213,7 @@ def test_d4rl_runner_aggregates_scores(
     )
     monkeypatch.setattr(
         public_experiments,
-        "train_canonical_method",
+        "train_drpo",
         lambda **kwargs: object(),
     )
 
