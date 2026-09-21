@@ -122,24 +122,20 @@ task adapter
   -> canonical deduplication and deterministic 16-negative selection
   -> 5,000 train / 500 validation / 500 reserved test split
   -> common completion-only likelihood computation
-  -> method objective
+  -> Positive-only objective
   -> greedy verifier success / Pass@8 evaluation
 ```
 
 The frozen replay rows contain task data, verifier outputs, and the selected
 negative completions. The reviewer-facing Structured Generation runner exposes
-only Positive-only and canonical DPO. DPO uses summed completion
-log-probability in the pairwise objective and an exact frozen copy of its
-configured short-SFT initialization.
+only the common task/data path and Positive-only training objective.
 
 The bundled JSON runtime configuration is
 `configs/structured_generation_0p5b.json`. Reasoning Gym
 and WikiSQL source checkouts are supplied under `DRPO_STRUCTURED_SOURCES_ROOT`
-as `reasoning-gym/` and `wikisql/`. The default example leaves DPO disabled
-until `DRPO_STRUCTURED_DPO_SFT_ADAPTER` points to the short-SFT
-adapter.
+as `reasoning-gym/` and `wikisql/`.
 
-Run all enabled methods on all nine tasks with:
+Run the reviewer-facing path on all nine tasks with:
 
 ```bash
 drpo-reference structured-generation \
@@ -147,13 +143,12 @@ drpo-reference structured-generation \
   --output outputs/structured-generation
 ```
 
-Or select a task/method subset without changing the implementation:
+Or select a task subset without changing the implementation:
 
 ```bash
 drpo-reference structured-generation \
   --config configs/structured_generation_0p5b.json \
   --tasks countdown,wikisql \
-  --methods positive_only,dpo \
   --output outputs/structured-generation
 ```
 
