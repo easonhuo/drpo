@@ -119,21 +119,6 @@
     "positive_only": {
       "enabled": true
     },
-    "drpo": {
-      "enabled": true,
-      "threshold": 0,
-      "scale": 1,
-      "coefficient": 1
-    },
-    "asymre": {
-      "enabled": true,
-      "delta_v": -0.5
-    },
-    "joint_fitted_reference_topr": {
-      "enabled": true,
-      "beta": 0.5,
-      "reference_learning_rate_multiplier": 1
-    },
     "dpo": {
       "enabled": false,
       "beta": 0.1,
