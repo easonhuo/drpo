@@ -118,11 +118,6 @@
   "methods": {
     "positive_only": {
       "enabled": true
-    },
-    "dpo": {
-      "enabled": false,
-      "beta": 0.1,
-      "initial_adapter": "${DRPO_STRUCTURED_DPO_SFT_ADAPTER}"
     }
   }
 }
