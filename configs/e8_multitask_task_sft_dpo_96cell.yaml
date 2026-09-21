@@ -24,7 +24,7 @@ initialization:
   optimizer_updates: 100
   external_adapter_allowed: true
   deterministic_fresh_lora: false
-  seed: 2026072900
+  seed: 2026070803
 
 model:
   base_model: Qwen/Qwen2.5-0.5B-Instruct
