@@ -110,7 +110,7 @@ For beta > 0:
 - paper-facing late window: `[800, 900, 1000, 1100, 1200]`;
 - test split access: forbidden.
 
-The same qualified 16-negative-per-prompt banks remain fixed. SFT initialization must not rebuild or retune the bank.
+The same qualified 16-negative-per-prompt banks remain fixed. SFT initialization must not rebuild or retune the bank. The canonical reference-remoteness bank derivation keeps the existing fresh-LoRA seed `2026070803`; the task SFT trainer independently inherits its existing P0 warm-start seed `2026072900`.
 
 ## Reporting
 
