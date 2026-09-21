@@ -215,9 +215,7 @@ def canonical_drpo_negative_factors(
     alpha_Exp=1.
     """
 
-    normalized_excess = torch.relu(
-        negative_remoteness.detach() / float(REFERENCE_DISTANCE**2)
-    )
+    normalized_excess = torch.relu(negative_remoteness.detach() / float(REFERENCE_DISTANCE**2))
     return DRPO_EXPONENTIAL_MULTIPLIER * torch.exp(
         torch.clamp(
             -EXPONENTIAL_COEFFICIENT * normalized_excess,
