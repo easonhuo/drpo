@@ -45,7 +45,6 @@ Matrix size:
 8 tasks × 6 beta values × 2 seeds = 96 cells
 ```
 
-The seed-4000 batch completes before seed-5000 begins.
 
 ## Task-specific SFT initialization
 
