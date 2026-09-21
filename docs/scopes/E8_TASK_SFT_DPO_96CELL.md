@@ -4,11 +4,23 @@
 
 - implementation state: in development
 - result status: `not_run`
-- execution class: formal candidate
+- execution class: `formal` (not launched)
 - environment role: external-validity DPO initialization / beta-response study
 - Countdown role: historical external-validity context only; no new Countdown cells
 
 No scientific run has started. This document freezes the owner-approved scientific intent before implementation.
+
+## Launch identity and expected outputs
+
+- scientific config: `configs/e8_multitask_task_sft_dpo_96cell.yaml`
+- existing runner: `scripts/run_e8_multitask_exp_coldstart.sh`
+- formal invocation after review/merge: set `E8_COLDSTART_CONFIG=configs/e8_multitask_task_sft_dpo_96cell.yaml` and bind `E8_COLDSTART_EXPECTED_COMMIT` to the reviewed full launch SHA before calling the existing runner with `full`
+- data/environment: the exact eight qualified P0 transfer-task banks and held-out validation splits materialized by the existing E8 multitask input pipeline; no new Countdown cell
+- development/run seeds: paired DPO seed offsets `[4000, 5000]`
+- separately held-out seed set: none registered for this finite-horizon beta-response experiment; the test partition remains forbidden
+- expected per-cell output: `workload/cells/<cell_key>/cell_manifest.json` plus training/evaluation diagnostics
+- expected aggregate outputs: `workload/aggregate/plot_curve_points.csv`, `workload/terminal_audit.json`, and `workload/RUN_COMPLETE.json`
+- durable delivery: the existing guarded formal-run packaging path under the cold-start runtime
 
 ## Claim
 
