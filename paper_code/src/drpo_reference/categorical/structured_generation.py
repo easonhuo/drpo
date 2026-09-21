@@ -1120,10 +1120,7 @@ def build_adapters(config: Mapping[str, Any], sources_root: str | Path) -> dict[
 STRUCTURED_GENERATION_SYSTEM_PROMPT = (
     "Answer with only the requested final output and no explanation."
 )
-STRUCTURED_GENERATION_METHODS = (
-    "positive_only",
-    "dpo",
-)
+STRUCTURED_GENERATION_METHODS = ("positive_only",)
 IGNORE_INDEX = -100
 
 
@@ -1297,27 +1294,6 @@ def positive_only_objective(positive_mean_logprob: torch.Tensor) -> torch.Tensor
     return -positive_mean_logprob.mean()
 
 
-def dpo_objective(
-    policy_positive_sum_logprob: torch.Tensor,
-    policy_negative_sum_logprob: torch.Tensor,
-    reference_positive_sum_logprob: torch.Tensor,
-    reference_negative_sum_logprob: torch.Tensor,
-    row_index: torch.Tensor,
-    counts: torch.Tensor,
-    *,
-    beta: float,
-) -> torch.Tensor:
-    index = row_index.to(policy_positive_sum_logprob.device)
-    logits = float(beta) * (
-        policy_positive_sum_logprob[index]
-        - policy_negative_sum_logprob
-        - reference_positive_sum_logprob[index]
-        + reference_negative_sum_logprob
-    )
-    pair_losses = -F.logsigmoid(logits)
-    return prompt_balanced_mean(pair_losses, row_index, counts)
-
-
 def build_task_bank(
     adapter: TaskAdapter,
     *,
@@ -1427,7 +1403,6 @@ __all__ = [
     "collate_training_items",
     "completion_statistics_from_logits",
     "completion_stats",
-    "dpo_objective",
     "encode_prompt_completion",
     "encode_training_row",
     "evaluate_outputs",
