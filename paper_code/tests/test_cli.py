@@ -115,7 +115,7 @@ def test_cli_dispatches_structured_generation_runner(
                 "--tasks",
                 "countdown,wikisql",
                 "--methods",
-                "positive_only,drpo",
+                "positive_only,dpo",
             ]
         )
         == 0
@@ -124,7 +124,7 @@ def test_cli_dispatches_structured_generation_runner(
         "config_path": config,
         "output_root": output,
         "tasks": ("countdown", "wikisql"),
-        "methods": ("positive_only", "drpo"),
+        "methods": ("positive_only", "dpo"),
     }
 
 
