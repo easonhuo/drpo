@@ -511,7 +511,13 @@ def _topr_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 def _dpo_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
-    return {"dpo_initialization_mode": str(config["dpo"]["initialization_mode"])}
+    reporting = config.get("reporting", {})
+    return {
+        "dpo_initialization_mode": str(config["dpo"]["initialization_mode"]),
+        "zero_beta_control": config["dpo"].get("zero_beta_control"),
+        "positive_beta_seed_role": reporting.get("positive_beta_seed_role"),
+        "beta_zero_seed_role": reporting.get("beta_zero_seed_role"),
+    }
 
 
 def _dpo_matrix_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -1081,8 +1087,10 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
                 and config["sweep"]["parameterization"] == "paper_lambda_c1"
             )
             dpo_initialization = _method_spec(method).cell_initialization(config)
-            countdown_values = experiment_config.task_method_values(
-                config, "countdown", method=method
+            countdown_values = (
+                experiment_config.task_method_values(config, "countdown", method=method)
+                if "countdown" in tasks
+                else ()
             )
             countdown_include_positive_only = bool(
                 config["sweep"].get("countdown_include_positive_only", True)
@@ -1382,7 +1390,7 @@ def _derive_reference_remoteness_banks(
     if pending:
         modules = _canonical_bridge()._canonical_cold_modules(config)
         arena = modules["arena"]
-        _seed_everything(int(config["initialization"]["seed"]))
+        _seed_everything(experiment_config.coldstart_runtime_seed(config))
         tokenizer = arena.load_tokenizer(str(Path(base_model_path).resolve()))
         base_config = yaml.safe_load(
             _canonical_paths(config)["base_config"].read_text(encoding="utf-8")
@@ -1526,8 +1534,8 @@ def cmd_prepare(
     *,
     p0_work_dir: Path,
     p0_config: Path,
-    countdown_bank: Path,
-    countdown_validation: Path,
+    countdown_bank: Path | None,
+    countdown_validation: Path | None,
     countdown_adapter: Path | None,
 ) -> dict[str, Any]:
     if _is_dense(config):
@@ -1874,6 +1882,26 @@ def _cell_identity(
             )["adapter"],
         }
     )
+    if (
+        _is_coldstart(config)
+        and cell.method == METHOD_DPO
+        and str(config["dpo"]["initialization_mode"])
+        == "task_positive_warmstart"
+    ):
+        initialization = dict(initialization)
+        if _is_engineering_self_test(config):
+            initialization["task_sft_adapter_identity"] = {
+                "engineering_placeholder": True
+            }
+        else:
+            if inputs.reference_adapter is None:
+                raise RuntimeError(
+                    f"Task-SFT DPO recovery identity is missing adapter for {cell.task}"
+                )
+            initialization["task_sft_adapter_identity"] = model_identity(
+                base_model_path,
+                str(inputs.reference_adapter),
+            )["adapter"]
     return e8_runtime.recovery_identity(
         cell,
         experiment_id=experiment_id(config),
@@ -3266,8 +3294,8 @@ def make_parser() -> argparse.ArgumentParser:
     prepare = subparsers.add_parser("prepare")
     prepare.add_argument("--p0-work-dir", required=True)
     prepare.add_argument("--p0-config", default=str(DEFAULT_P0_CONFIG))
-    prepare.add_argument("--countdown-bank", required=True)
-    prepare.add_argument("--countdown-validation", required=True)
+    prepare.add_argument("--countdown-bank")
+    prepare.add_argument("--countdown-validation")
     prepare.add_argument("--countdown-adapter")
 
     inherit = subparsers.add_parser("inherit")
@@ -3345,8 +3373,16 @@ def main(argv: Sequence[str] | None = None) -> None:
             output_root,
             p0_work_dir=Path(args.p0_work_dir).resolve(),
             p0_config=Path(args.p0_config).resolve(),
-            countdown_bank=Path(args.countdown_bank).resolve(),
-            countdown_validation=Path(args.countdown_validation).resolve(),
+            countdown_bank=(
+                Path(args.countdown_bank).resolve()
+                if args.countdown_bank is not None
+                else None
+            ),
+            countdown_validation=(
+                Path(args.countdown_validation).resolve()
+                if args.countdown_validation is not None
+                else None
+            ),
             countdown_adapter=(
                 Path(args.countdown_adapter).resolve() if args.countdown_adapter else None
             ),

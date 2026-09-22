@@ -163,6 +163,8 @@ def _coldstart_result_row(
             "best_step": value["best_step"],
             "terminal_step": value["terminal_step"],
             "stop_reason": value["stop_reason"],
+            "control_role": value.get("control_role"),
+            "zero_beta_control": bool(value.get("zero_beta_control", False)),
         },
     )
 
@@ -258,7 +260,6 @@ def _write_coldstart_task_result(
 
     all_cells_path = root / "all_cells.csv"
     plot_path = root / "plot_curve_points.csv"
-    write_csv(all_cells_path, rows)
     cells_by_key = {
         cell.key: cell for cell in configured_cells if cell.task == task
     }
@@ -273,10 +274,27 @@ def _write_coldstart_task_result(
             if name not in legacy_parameter_columns
         )
     )
+    def parameter_fn(cell: CellLike) -> Mapping[str, Any]:
+        return method_specs[cell.method].parameters(cell)
+
+    static_control_representatives = _static_control_seed_representatives(
+        rows,
+        cells_by_key,
+        parameter_fn,
+        output_root=output_root,
+        require_manifest_identity=not engineering_self_test,
+    )
+    write_csv(all_cells_path, rows)
     plot_rows: list[dict[str, Any]] = []
     for row in rows:
         cell = cells_by_key[str(row["cell_key"])]
-        parameters = dict(method_specs[cell.method].parameters(cell))
+        parameters = dict(parameter_fn(cell))
+        replication_fields = _seed_replication_fields(
+            row,
+            cell,
+            static_control_representatives,
+            parameter_fn,
+        )
         plot_rows.append(
             {
                 "experiment_id": experiment_id_value,
@@ -292,6 +310,7 @@ def _write_coldstart_task_result(
                 **{name: parameters.get(name) for name in extra_parameter_names},
                 "seed": row["seed"],
                 "stage": row["stage"],
+                **replication_fields,
                 **_coldstart_plot_metrics(row),
             }
         )
@@ -311,6 +330,9 @@ def _write_coldstart_task_result(
         "task": task,
         "expected_cells": len(rows),
         "cell_count": len(rows),
+        "independent_plot_curve_point_count": sum(
+            int(row["independent_seed_count_contribution"]) for row in plot_rows
+        ),
         "all_cells_csv": f"task_results/{task}/all_cells.csv",
         "all_cells_csv_sha256": sha256_fn(all_cells_path),
         "plot_curve_points_csv": f"task_results/{task}/plot_curve_points.csv",
@@ -519,6 +541,180 @@ def _coldstart_plot_metrics(row: Mapping[str, Any]) -> dict[str, Any]:
 
 
 
+_STATIC_CONTROL_RESULT_MATCH_FIELDS = (
+    "late_window_pass8_mean",
+    "late_window_greedy_mean",
+    "best_pass8",
+    "terminal_pass8",
+    "best_greedy",
+    "terminal_greedy",
+    "best_greedy_valid_rate",
+    "terminal_greedy_valid_rate",
+    "best_step",
+    "terminal_step",
+    "stop_reason",
+)
+
+_STATIC_CONTROL_MANIFEST_MATCH_FIELDS = (
+    "policy_initial_state_sha256",
+    "terminal_trainable_state_sha256",
+    "reference_initial_state_sha256",
+    "reference_terminal_state_sha256",
+    "policy_parameters_changed",
+    "optimizer_updates",
+    "optimizer_updates_requested",
+    "terminal_step",
+    "stop_reason",
+    "training_seed_applied",
+    "effective_training_seed",
+    "static_control_single_evaluation_step",
+    "validation_late_window_pass8_mean",
+    "validation_late_window_greedy_mean",
+    "validation_best_pass8",
+    "validation_terminal_pass8",
+    "validation_best_greedy",
+    "validation_terminal_greedy",
+    "validation_best_greedy_valid_rate",
+    "validation_terminal_greedy_valid_rate",
+)
+
+
+_STATIC_CONTROL_EXPECTED_MANIFEST = {
+    "policy_parameters_changed": False,
+    "optimizer_updates": 0,
+    "optimizer_updates_requested": 0,
+    "terminal_step": 0,
+    "stop_reason": "sft_only_no_dpo_update",
+    "training_seed_applied": False,
+    "effective_training_seed": None,
+    "static_control_single_evaluation_step": 0,
+}
+
+
+def _is_static_no_update_control(row: Mapping[str, Any]) -> bool:
+    return (
+        row.get("control_role") == "sft_only_no_dpo_update"
+        and row.get("zero_beta_control") is True
+    )
+
+
+def _static_control_group_key(
+    cell: CellLike,
+    parameter_fn: Callable[[CellLike], Mapping[str, Any]],
+) -> tuple[str, str, str]:
+    return (
+        str(cell.task),
+        str(cell.method),
+        parameter_identity(dict(parameter_fn(cell))),
+    )
+
+
+def _static_control_seed_representatives(
+    rows: Sequence[Mapping[str, Any]],
+    cells_by_key: Mapping[str, CellLike],
+    parameter_fn: Callable[[CellLike], Mapping[str, Any]],
+    *,
+    output_root: Path,
+    require_manifest_identity: bool,
+) -> dict[tuple[str, str, str], int]:
+    representatives: dict[tuple[str, str, str], int] = {}
+    signatures: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for row in rows:
+        if not _is_static_no_update_control(row):
+            continue
+        cell_key = str(row["cell_key"])
+        if cell_key not in cells_by_key:
+            raise RuntimeError(f"Unknown static-control cell in result rows: {cell_key}")
+        cell = cells_by_key[cell_key]
+        key = _static_control_group_key(cell, parameter_fn)
+        signature = {
+            f"result.{field}": row.get(field)
+            for field in _STATIC_CONTROL_RESULT_MATCH_FIELDS
+        }
+        if require_manifest_identity:
+            manifest_path = output_root / "cells" / cell_key / "cell_manifest.json"
+            if not manifest_path.is_file():
+                raise RuntimeError(
+                    f"Missing static-control manifest for duplicate audit: {cell_key}"
+                )
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            missing = [
+                field
+                for field in _STATIC_CONTROL_MANIFEST_MATCH_FIELDS
+                if field not in manifest
+            ]
+            if missing:
+                raise RuntimeError(
+                    f"Static-control manifest is missing duplicate-audit fields for "
+                    f"{cell_key}: {missing}"
+                )
+            contract_failures = [
+                field
+                for field, expected in _STATIC_CONTROL_EXPECTED_MANIFEST.items()
+                if manifest[field] != expected
+            ]
+            state_hashes = {
+                manifest["policy_initial_state_sha256"],
+                manifest["terminal_trainable_state_sha256"],
+                manifest["reference_initial_state_sha256"],
+                manifest["reference_terminal_state_sha256"],
+            }
+            if contract_failures or len(state_hashes) != 1:
+                raise RuntimeError(
+                    f"Static no-update control violates its terminal contract for "
+                    f"{cell_key}: fields={contract_failures}, state_hashes_match="
+                    f"{len(state_hashes) == 1}"
+                )
+            signature.update(
+                {
+                    f"manifest.{field}": manifest[field]
+                    for field in _STATIC_CONTROL_MANIFEST_MATCH_FIELDS
+                }
+            )
+        previous = signatures.get(key)
+        if previous is None:
+            signatures[key] = signature
+        elif previous != signature:
+            mismatched = sorted(
+                field
+                for field in set(previous) | set(signature)
+                if previous.get(field) != signature.get(field)
+            )
+            raise RuntimeError(
+                "Static no-update control duplicate labels diverged before "
+                f"statistical collapse for {cell.task}/{cell.method}: {mismatched}"
+            )
+        seed = int(row["seed"])
+        representatives[key] = min(seed, representatives.get(key, seed))
+    return representatives
+
+
+def _seed_replication_fields(
+    row: Mapping[str, Any],
+    cell: CellLike,
+    representatives: Mapping[tuple[str, str, str], int],
+    parameter_fn: Callable[[CellLike], Mapping[str, Any]],
+) -> dict[str, Any]:
+    static_control = _is_static_no_update_control(row)
+    if static_control:
+        key = _static_control_group_key(cell, parameter_fn)
+        if key not in representatives:
+            raise RuntimeError(
+                f"Missing static-control representative for {row['cell_key']}"
+            )
+        independent_seed = int(row["seed"]) == int(representatives[key])
+    else:
+        independent_seed = True
+    return {
+        "control_role": row.get("control_role"),
+        "independent_seed": independent_seed,
+        "independent_seed_count_contribution": int(independent_seed),
+        "duplicate_control_seed_label": bool(
+            static_control and not independent_seed
+        ),
+    }
+
+
 def _coldstart_group_metrics(group: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     def mean(key: str) -> float:
         return float(np.mean([float(row[key]) for row in group]))
@@ -579,15 +775,47 @@ def _coldstart_method_grouped_curve(
         groups.values(),
         key=lambda item: parameter_sort_key(item[0]),
     )
-    return [
-        {
-            "task": task,
-            "method": method,
-            **parameters,
-            **_coldstart_group_metrics(group),
-        }
-        for parameters, group in ordered
-    ]
+    result: list[dict[str, Any]] = []
+    for parameters, group in ordered:
+        configured_seed_labels = sorted(int(row["seed"]) for row in group)
+        static_control = bool(group) and all(
+            row.get("control_role") == "sft_only_no_dpo_update"
+            and row.get("zero_beta_control") is True
+            for row in group
+        )
+        independent_group = (
+            [min(group, key=lambda row: int(row["seed"]))]
+            if static_control
+            else list(group)
+        )
+        independent_seed_labels = sorted(
+            int(row["seed"]) for row in independent_group
+        )
+        result.append(
+            {
+                "task": task,
+                "method": method,
+                **parameters,
+                **_coldstart_group_metrics(independent_group),
+                "configured_seed_labels": configured_seed_labels,
+                "independent_seed_count": len(independent_group),
+                "duplicate_seed_labels": (
+                    [
+                        seed
+                        for seed in configured_seed_labels
+                        if seed not in independent_seed_labels
+                    ]
+                    if static_control
+                    else []
+                ),
+                "seed_replication_role": (
+                    "single_static_control_replication"
+                    if static_control
+                    else "independent_training_replicates"
+                ),
+            }
+        )
+    return result
 
 
 
@@ -613,6 +841,14 @@ def _aggregate_coldstart_unranked(
         raise RuntimeError("Cold-start aggregate contains duplicate cell keys")
 
     run_id, source_commit = _coldstart_run_provenance(output_root)
+    parameter_fn = spec.parameters
+    static_control_representatives = _static_control_seed_representatives(
+        rows,
+        cells_by_key,
+        parameter_fn,
+        output_root=output_root,
+        require_manifest_identity=not engineering_self_test,
+    )
     plot_rows: list[dict[str, Any]] = []
     for row in rows:
         cell_key = str(row["cell_key"])
@@ -624,6 +860,12 @@ def _aggregate_coldstart_unranked(
             for name, value in projection.items()
             if name != "dpo_initialization"
         }
+        replication_fields = _seed_replication_fields(
+            row,
+            cells_by_key[cell_key],
+            static_control_representatives,
+            parameter_fn,
+        )
         plot_rows.append(
             {
                 "task": row["task"],
@@ -634,6 +876,7 @@ def _aggregate_coldstart_unranked(
                 "experiment_id": experiment_id_value,
                 "run_id": run_id,
                 "source_commit": source_commit,
+                **replication_fields,
                 **parameter_columns,
                 **_coldstart_plot_metrics(row),
             }
@@ -699,6 +942,9 @@ def _aggregate_coldstart_unranked(
         "source_commit": source_commit,
         "cell_count": len(rows),
         "plot_curve_point_count": len(plot_rows),
+        "independent_plot_curve_point_count": sum(
+            int(row["independent_seed_count_contribution"]) for row in plot_rows
+        ),
         "method": method,
         "tasks": summaries,
         "excluded_tasks": dict(config["suite"]["excluded_tasks"]),

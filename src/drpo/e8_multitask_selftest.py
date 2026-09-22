@@ -39,15 +39,19 @@ def _engineering_self_test_config(
 ) -> dict[str, Any]:
     host = bindings.host
     updated = copy.deepcopy(dict(config))
-    updated["split"].update(
-        {
-            "p0_train_rows": 2,
-            "p0_validation_rows": 1,
-            "p0_test_rows": 1,
-            "countdown_train_rows": 2,
-            "countdown_validation_rows": 1,
-        }
-    )
+    split_overrides = {
+        "p0_train_rows": 2,
+        "p0_validation_rows": 1,
+        "p0_test_rows": 1,
+    }
+    if "countdown" in set(config["suite"]["tasks"]):
+        split_overrides.update(
+            {
+                "countdown_train_rows": 2,
+                "countdown_validation_rows": 1,
+            }
+        )
+    updated["split"].update(split_overrides)
     updated["engineering_self_test"] = {
         "placeholder_backend": True,
         "scientific_evidence_allowed": False,
@@ -62,7 +66,7 @@ def _write_engineering_input_fixtures(
     output_root: Path,
     *,
     bindings: SelfTestBindings,
-) -> tuple[Path, Path, Path, Path]:
+) -> tuple[Path, Path, Path | None, Path | None]:
     host = bindings.host
     fixture_root = output_root / "engineering_fixtures"
     p0_work_dir = fixture_root / "p0"
@@ -118,42 +122,45 @@ def _write_engineering_input_fixtures(
     }
     host.atomic_json(p0_work_dir / "qualification_audit.json", qualification)
 
-    countdown_bank = fixture_root / "countdown" / "offline_bank_v2.jsonl"
-    countdown_rows = []
-    for row_index in range(int(config["split"]["countdown_train_rows"])):
-        countdown_rows.append(
-            {
-                "row_id": f"countdown-placeholder-train-{row_index:03d}",
-                "source_prompt_id": f"countdown-placeholder-source-{row_index:03d}",
-                "prompt": f"Use 1 and 2 to make {3 + row_index}",
-                "oracle_positive": "1 + 2",
-                "numbers": [1, 2],
-                "target": 3 + row_index,
-                "negative_bank": [
-                    {
-                        "expression": f"1 - 2 + {negative}",
-                        "valid_format": True,
-                        "correct": False,
-                        "source": "engineering_placeholder_wrong",
-                    }
-                    for negative in range(16)
-                ],
-            }
+    countdown_bank: Path | None = None
+    countdown_validation: Path | None = None
+    if "countdown" in set(config["suite"]["tasks"]):
+        countdown_bank = fixture_root / "countdown" / "offline_bank_v2.jsonl"
+        countdown_rows = []
+        for row_index in range(int(config["split"]["countdown_train_rows"])):
+            countdown_rows.append(
+                {
+                    "row_id": f"countdown-placeholder-train-{row_index:03d}",
+                    "source_prompt_id": f"countdown-placeholder-source-{row_index:03d}",
+                    "prompt": f"Use 1 and 2 to make {3 + row_index}",
+                    "oracle_positive": "1 + 2",
+                    "numbers": [1, 2],
+                    "target": 3 + row_index,
+                    "negative_bank": [
+                        {
+                            "expression": f"1 - 2 + {negative}",
+                            "valid_format": True,
+                            "correct": False,
+                            "source": "engineering_placeholder_wrong",
+                        }
+                        for negative in range(16)
+                    ],
+                }
+            )
+        host.atomic_jsonl(countdown_bank, countdown_rows)
+        countdown_validation = fixture_root / "countdown" / "val.jsonl"
+        host.atomic_jsonl(
+            countdown_validation,
+            [
+                {
+                    "id": "countdown-placeholder-validation-000",
+                    "prompt": "Use 2 and 2 to make 4",
+                    "oracle": "2 + 2",
+                    "numbers": [2, 2],
+                    "target": 4,
+                }
+            ],
         )
-    host.atomic_jsonl(countdown_bank, countdown_rows)
-    countdown_validation = fixture_root / "countdown" / "val.jsonl"
-    host.atomic_jsonl(
-        countdown_validation,
-        [
-            {
-                "id": "countdown-placeholder-validation-000",
-                "prompt": "Use 2 and 2 to make 4",
-                "oracle": "2 + 2",
-                "numbers": [2, 2],
-                "target": 4,
-            }
-        ],
-    )
     return p0_work_dir, p0_config_path, countdown_bank, countdown_validation
 
 
