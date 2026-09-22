@@ -1021,7 +1021,6 @@ class _CanonicalBridgeImpl:
             accumulation = int(effective["training"]["gradient_accumulation"])
             training_updates = 0 if zero_beta_control else updates
             if zero_beta_control:
-                initial_pair_margin_max_abs = 0.0
                 append_jsonl(
                     training_path,
                     {
@@ -1031,7 +1030,10 @@ class _CanonicalBridgeImpl:
                         "dpo_pair_loss": None,
                         "raw_gradient_norm_before_clip": 0.0,
                         "optimizer_update_norm": 0.0,
-                        "initial_pair_margin_max_abs": initial_pair_margin_max_abs,
+                        "initial_pair_margin_max_abs": None,
+                        "initial_pair_margin_probe": (
+                            "not_run_exact_policy_reference_state_hashes_match"
+                        ),
                         "reference_role": "exact_frozen_initial_policy",
                         "label_smoothing": 0.0,
                         "test_data_used": False,
@@ -1213,10 +1215,6 @@ class _CanonicalBridgeImpl:
                 if not engineering_liveness and (update % eval_every == 0 or update == updates):
                     evaluate(update)
 
-            if zero_beta_control and not engineering_liveness:
-                for evaluation_step in range(eval_every, updates + 1, eval_every):
-                    evaluate(evaluation_step)
-
             activate_policy()
             terminal_policy_sha256 = self._parameter_sequence_sha256(policy_parameters)
             reference_terminal_sha256 = self._parameter_sequence_sha256(reference_parameters)
@@ -1247,11 +1245,50 @@ class _CanonicalBridgeImpl:
                 scientific_status = "not_run"
             else:
                 evaluations = read_jsonl(evaluation_path)
-                summary = (
-                    self._summarize_evaluations(evaluations, config)
-                    if numerical_failure is None
-                    else {}
-                )
+                if numerical_failure is not None:
+                    summary = {}
+                elif zero_beta_control:
+                    if len(evaluations) != 1 or int(evaluations[0]["update"]) != 0:
+                        raise RuntimeError(
+                            "SFT-only beta-zero control must have exactly one step-0 evaluation"
+                        )
+                    static = evaluations[0]
+                    summary = {
+                        "late_window_updates": [
+                            int(value)
+                            for value in config["training"]["late_window_updates"]
+                        ],
+                        "validation_late_window_pass8_mean": float(static["pass8"]),
+                        "validation_late_window_greedy_mean": float(
+                            static["greedy_success"]
+                        ),
+                        "validation_late_window_valid_mean": float(
+                            static["greedy_valid_rate"]
+                        ),
+                        "validation_terminal_pass8": float(static["pass8"]),
+                        "validation_terminal_greedy": float(
+                            static["greedy_success"]
+                        ),
+                        "validation_terminal_greedy_valid_rate": float(
+                            static["greedy_valid_rate"]
+                        ),
+                        "validation_terminal_sampled_valid_rate": (
+                            None
+                            if static.get("sampled_valid_rate") is None
+                            else float(static["sampled_valid_rate"])
+                        ),
+                        "supplementary_best_step": 0,
+                        "supplementary_best_pass8": float(static["pass8"]),
+                        "supplementary_best_greedy": float(
+                            static["greedy_success"]
+                        ),
+                        "static_control_single_evaluation_step": 0,
+                        "static_control_metric_reuse": (
+                            "terminal_policy_equals_initial_policy_no_optimizer_updates"
+                        ),
+                    }
+                else:
+                    summary = self._summarize_evaluations(evaluations, config)
                 scientific_status = "pilot"
             result = {
                 **identity,
@@ -1274,6 +1311,11 @@ class _CanonicalBridgeImpl:
                 ),
                 "zero_beta_control": zero_beta_control,
                 "initial_pair_margin_max_abs": initial_pair_margin_max_abs,
+                "initial_pair_margin_probe": (
+                    "not_run_exact_policy_reference_state_hashes_match"
+                    if zero_beta_control
+                    else "measured_on_first_dpo_batch"
+                ),
                 "initial_pair_margin_max_abs_tolerance": tolerance,
                 "policy_initial_state_sha256": policy_initial_sha256,
                 "reference_initial_state_sha256": reference_initial_sha256,
