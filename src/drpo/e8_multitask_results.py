@@ -328,6 +328,9 @@ def _write_coldstart_task_result(
         "task": task,
         "expected_cells": len(rows),
         "cell_count": len(rows),
+        "independent_plot_curve_point_count": sum(
+            int(row["independent_seed_count_contribution"]) for row in plot_rows
+        ),
         "all_cells_csv": f"task_results/{task}/all_cells.csv",
         "all_cells_csv_sha256": sha256_fn(all_cells_path),
         "plot_curve_points_csv": f"task_results/{task}/plot_curve_points.csv",
@@ -824,6 +827,9 @@ def _aggregate_coldstart_unranked(
         "source_commit": source_commit,
         "cell_count": len(rows),
         "plot_curve_point_count": len(plot_rows),
+        "independent_plot_curve_point_count": sum(
+            int(row["independent_seed_count_contribution"]) for row in plot_rows
+        ),
         "method": method,
         "tasks": summaries,
         "excluded_tasks": dict(config["suite"]["excluded_tasks"]),
