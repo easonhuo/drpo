@@ -242,6 +242,7 @@ reporting:
   countdown_role: historical_external_validity_context_no_new_cells
   other_tasks_task_interface_adaptation_only: true
   paired_seed_confirmation: positive_beta_cells_only
+  positive_beta_seed_role: dpo_stage_replicates_shared_materialized_task_sft_initialization
   beta_zero_seed_role: duplicate_dpo_seed_labels_same_sft_control_not_independent_sft_replicates
   convergence_claim_allowed: false
   significance_claim_allowed: false
