@@ -3441,6 +3441,17 @@ def test_task_sft_dpo_reuses_frozen_positive_warmstart_contract() -> None:
     assert exp_tuning.experiment_config.effective_coldstart_runtime(
         config, "word_sorting"
     )["initialization_seed"] == 2026070803
+    assert (
+        exp_tuning.experiment_config.dpo_training_seed_base(config, 999999)
+        == 2026070803
+    )
+    baseline = exp_tuning.load_config(
+        Path("configs/e8_multitask_baseline_matrix_formal.yaml")
+    )
+    assert (
+        exp_tuning.experiment_config.dpo_training_seed_base(baseline, 123456)
+        == 123456
+    )
     assert config["reference"]["checkpoint_kind"] == (
         "exact_frozen_copy_of_initialized_policy"
     )
@@ -3462,8 +3473,10 @@ def test_task_sft_dpo_transfer_suite_has_no_countdown_input_dependency(
         Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
     )
     assert set(config["suite"]["tasks"]) == set(config["suite"]["p0_tasks"])
+    assert config["suite"]["external_tasks"] == []
     assert "countdown" not in config["suite"]["tasks"]
     assert "countdown" not in config["task_runtime"]
+    assert "countdown" not in config["sweep"]["task_beta"]
     assert "countdown_train_rows" not in config["split"]
     assert "countdown_validation_rows" not in config["split"]
 
@@ -3570,6 +3583,9 @@ def test_task_sft_dpo_beta_zero_aggregate_counts_one_independent_seed(
                 "task": cell.task,
                 "method": cell.method,
                 "dpo_initialization": cell.dpo_initialization,
+                "beta": cell.beta,
+                "lambda": None,
+                "rho": None,
                 "seed": cell.seed,
                 "stage": cell.stage,
                 "nan_inf_failure": False,
@@ -3589,7 +3605,45 @@ def test_task_sft_dpo_beta_zero_aggregate_counts_one_independent_seed(
             }
         )
 
+    p0.atomic_json(
+        tmp_path / "source_provenance.json",
+        {"source_commit": "a" * 40, "run_id": "task-sft-dpo-test"},
+    )
+    for cell in cells:
+        p0.atomic_json(
+            tmp_path / "cells" / cell.key / "cell_manifest.json",
+            {"cell_key": cell.key},
+        )
+
     spec = exp_tuning._method_spec(exp_tuning.METHOD_DPO)
+    e8_results._write_coldstart_task_result(
+        config,
+        tmp_path,
+        "word_sorting",
+        rows,
+        configured_cells=cells,
+        method_specs={exp_tuning.METHOD_DPO: spec},
+        experiment_id_value=exp_tuning.experiment_id(config),
+        config_hash=exp_tuning.stable_config_hash(config),
+        engineering_self_test=False,
+        write_json=p0.atomic_json,
+        sha256_fn=exp_tuning.sha256_file,
+    )
+    task_plot_rows = list(
+        csv.DictReader(
+            (tmp_path / "task_results" / "word_sorting" / "plot_curve_points.csv").open(
+                encoding="utf-8"
+            )
+        )
+    )
+    assert len(task_plot_rows) == 2
+    task_by_seed = {int(row["seed"]): row for row in task_plot_rows}
+    assert task_by_seed[4000]["independent_seed"] == "True"
+    assert task_by_seed[4000]["independent_seed_count_contribution"] == "1"
+    assert task_by_seed[5000]["independent_seed"] == "False"
+    assert task_by_seed[5000]["independent_seed_count_contribution"] == "0"
+    assert task_by_seed[5000]["duplicate_control_seed_label"] == "True"
+
     summary = e8_results._aggregate_coldstart_unranked(
         config,
         tmp_path,
@@ -3715,6 +3769,7 @@ def test_task_sft_dpo_beta_zero_is_no_optimizer_update_control() -> None:
     assert '"static_control_single_evaluation_step": 0' in source
     assert '"initial_pair_margin_max_abs": None' in source
     assert "not_run_exact_policy_reference_state_hashes_match" in source
+    assert "if not zero_beta_control:" in source
     assert 'adapter_path=None if initial_adapter is None else str(initial_adapter)' in source
 
 
