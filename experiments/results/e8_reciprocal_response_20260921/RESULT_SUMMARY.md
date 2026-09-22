@@ -9,21 +9,24 @@ The merged response dataset contains exactly **400 cells** from four runs:
 - `EXT-C-E8-MULTITASK-RECIPROCAL-RIGHTTAIL-CLOSURE-01`: 108
 - `EXT-C-E8-MULTITASK-RECIPROCAL-LINEAR-GRAPHCOLOR-CLOSURE-01`: 60
 
-The compact CSV has 400 unique `(task, method, lambda, seed)` rows, exactly seeds `4000/5000`, and no duplicated cells. Across the four source packages all scheduled rows were complete and NaN/Inf numerical failure count was zero.
+The compact CSV has 400 unique `(task, method, lambda, seed)` rows and exactly seeds `4000/5000`.
 
 ## Response-curve reading
 
-The added right-tail and Graph Color low-range points substantially close the previously open response-shape questions. Reciprocal Linear and Reciprocal Quadratic should remain reported as separate families. The expanded curves show that neither family has a stable cross-task advantage over the other.
+The added right-tail and Graph Color low-range points substantially close the previously open descriptive response-shape questions. Reciprocal Linear and Reciprocal Quadratic remain separate families; neither family is promoted to a universal cross-task winner.
 
-For peak comparisons, isolated single-point maxima should not be treated as the primary summary. Use a local multi-point smoothing window when describing peak regions so Graph Color / Maze-like spikes do not dominate interpretation.
+For peak comparisons, isolated single-point maxima should not be treated as the primary summary. Use local multi-point smoothing when a peak-region summary is needed so Graph Color / Maze-like spikes do not dominate interpretation.
 
-The merged evidence is descriptive finite-horizon response evidence only; it is not a convergence, steady-state, significance, or universal method-ranking result.
+The merged evidence remains descriptive finite-horizon response evidence only; it is not a convergence, steady-state, significance, or universal method-ranking result.
 
 ## Durable paths
 
-- CSV: `experiments/results/e8_reciprocal_response_20260921/RECIPROCAL_400_CURVE_POINTS.csv`
-- Figure: `experiments/results/e8_reciprocal_response_20260921/reciprocal_merged_400_9grid.svg`
-- Plot code: `experiments/results/e8_reciprocal_response_20260921/PLOT_CODE.md`
-- This summary: `experiments/results/e8_reciprocal_response_20260921/RESULT_SUMMARY.md`
+- Canonical compact CSV: `experiments/results/e8_reciprocal_response_20260921/RECIPROCAL_400_CURVE_POINTS.csv`
+- Machine locator: `experiments/results/e8_reciprocal_response_20260921/RESULT_LOCATOR.json`
+- Figure 6-aligned plot-ready mirror: `paper/iclr2027/figures/data/e8_reciprocal_response_20260921/RECIPROCAL_400_CURVE_POINTS.csv`
+- Plot code: `scripts/figures/plot_e8_multitask_exp_response_curves.py --reciprocal`
+- Checked-in working figure: `paper/iclr2027/figures/fig_e8_reciprocal_400_response_eight_panel.svg`
+- Generated PNG default: `paper/iclr2027/figures/fig_e8_reciprocal_400_response_eight_panel.png`
+- Generated paper-facing PDF default: `paper/overleaf/figures/fig_app_structured8_reciprocal_400_response.pdf`
 
-The raw four ZIP result packages are separate provenance objects and remain intended for archival in `easonhuo/drpo-results`.
+The raw four ZIP result packages are separate provenance objects and remain intended for archival in `drpo-results`.
