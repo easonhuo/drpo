@@ -806,11 +806,6 @@ class _CanonicalBridgeImpl:
                         if key != "path"
                     }
                 ),
-                "task_sft_adapter_identity": (
-                    None
-                    if task_sft_adapter is None
-                    else model_identity(base_model_path, str(task_sft_adapter))["adapter"]
-                ),
                 "engineering_liveness": engineering_liveness,
                 "updates_override": updates_override,
             }
