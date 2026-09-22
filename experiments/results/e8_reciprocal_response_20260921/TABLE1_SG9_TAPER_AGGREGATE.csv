@@ -1,0 +1,11 @@
+task,positive_only,global_alpha,reciprocal_linear,reciprocal_quadratic,drpo_exp,source_note
+Countdown,0.1398,0.1420,0.1360,0.1450,0.1572,current_iclr_table1_countdown_row
+Word Sorting,0.6206,,0.6150,0.6097,0.6338,transfer_task_smoothed_response_summary
+Spiral Matrix,1.0000,,0.9950,0.9994,0.9994,transfer_task_smoothed_response_summary
+Mini Sudoku,0.9591,,0.9641,0.9663,0.9706,transfer_task_smoothed_response_summary
+Maze,0.7674,,0.7734,0.7750,0.7766,transfer_task_smoothed_response_summary
+Word Ladder,0.1068,,0.1269,0.1219,0.1338,transfer_task_smoothed_response_summary
+Knights & Knaves,0.6753,,0.6781,0.6869,0.6953,transfer_task_smoothed_response_summary
+Graph Coloring,0.9867,,0.9931,0.9947,0.9988,transfer_task_smoothed_response_summary
+WikiSQL,0.8565,,0.8453,0.8363,0.8669,transfer_task_smoothed_response_summary
+SG-9 Macro Avg.,0.6791333333,,0.6807666667,0.6816888889,0.6924888889,unweighted_mean_over_nine_tasks
