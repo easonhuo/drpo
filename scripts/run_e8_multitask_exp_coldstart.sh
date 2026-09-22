@@ -735,6 +735,7 @@ engineering_self_test() {
       --source-file src/drpo/e8_multitask_exp_tuning.py \
       --source-file src/drpo/e8_multitask_canonical_bridge.py \
       --source-file src/drpo/e8_multitask_warmstart_training.py \
+      --source-file src/drpo/e8_multitask_runtime.py \
     --source-file src/drpo/e8_experiment_config.py \
     --source-file scripts/preflight_e8_multitask_config.py \
       --source-file "${CONFIG_REPO_PATH}" \
@@ -939,6 +940,7 @@ delivery_preflight() {
     --source-file src/drpo/e8_multitask_exp_tuning.py
     --source-file src/drpo/e8_multitask_canonical_bridge.py
     --source-file src/drpo/e8_multitask_warmstart_training.py
+    --source-file src/drpo/e8_multitask_runtime.py
     --source-file src/drpo/e8_experiment_config.py
     --source-file scripts/preflight_e8_multitask_config.py
     --source-file "${CONFIG_REPO_PATH}"
@@ -1018,6 +1020,7 @@ run_formal_guard_attempt() {
     --source-file src/drpo/e8_multitask_exp_tuning.py \
     --source-file src/drpo/e8_multitask_canonical_bridge.py \
     --source-file src/drpo/e8_multitask_warmstart_training.py \
+    --source-file src/drpo/e8_multitask_runtime.py \
     --source-file src/drpo/e8_experiment_config.py \
     --source-file scripts/preflight_e8_multitask_config.py \
     --source-file "${CONFIG_REPO_PATH}" \
