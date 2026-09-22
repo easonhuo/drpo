@@ -3803,6 +3803,7 @@ def test_task_sft_dpo_beta_zero_is_no_optimizer_update_control() -> None:
     assert '"training_seed_applied": not zero_beta_control' in source
     assert "None if zero_beta_control else seed" in source
     assert "not_run_exact_policy_reference_state_hashes_match" in source
+    assert "examples_override=None" in source
     assert "if not zero_beta_control:" in source
     assert '"best_adapter": (' in source
     assert "str(best_dir.resolve()) if best_dir.is_dir() else str(final_adapter_dir.resolve())" in source
