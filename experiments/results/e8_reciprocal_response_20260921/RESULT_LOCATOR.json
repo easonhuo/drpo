@@ -35,11 +35,28 @@
     "generated_png": "paper/iclr2027/figures/fig_e8_reciprocal_400_response_eight_panel.png",
     "generated_pdf": "paper/overleaf/figures/fig_app_structured8_reciprocal_400_response.pdf",
     "summary": "experiments/results/e8_reciprocal_response_20260921/RESULT_SUMMARY.md",
-    "figure_index": "paper/figures/FIGURE_INDEX.md"
+    "figure_index": "paper/figures/FIGURE_INDEX.md",
+    "table1_sg9_aggregate": "experiments/results/e8_reciprocal_response_20260921/TABLE1_SG9_TAPER_AGGREGATE.csv"
   },
   "coordinate": {
     "reciprocal_linear": "x = lambda",
     "reciprocal_quadratic": "x = sqrt(lambda)",
     "metric": "two-seed mean late-window Pass@8"
+  },
+  "table1_sg9": {
+    "positive_only": 0.6791333333,
+    "global_alpha": null,
+    "reciprocal_linear": 0.6807666667,
+    "reciprocal_quadratic": 0.6816888889,
+    "drpo_exp": 0.6924888889,
+    "display_percent": {
+      "positive_only": "67.9",
+      "global_alpha": "--",
+      "reciprocal_linear": "68.1",
+      "reciprocal_quadratic": "68.2",
+      "drpo_exp": "69.2"
+    },
+    "aggregation": "unweighted mean over Countdown plus eight transfer tasks",
+    "global_alpha_status": "pending protocol-matched eight-transfer-task sweep"
   }
 }
