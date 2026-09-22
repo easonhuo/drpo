@@ -275,10 +275,22 @@ def _write_coldstart_task_result(
             if name not in legacy_parameter_columns
         )
     )
+    parameter_fn = lambda cell: method_specs[cell.method].parameters(cell)
+    static_control_representatives = _static_control_seed_representatives(
+        rows,
+        cells_by_key,
+        parameter_fn,
+    )
     plot_rows: list[dict[str, Any]] = []
     for row in rows:
         cell = cells_by_key[str(row["cell_key"])]
-        parameters = dict(method_specs[cell.method].parameters(cell))
+        parameters = dict(parameter_fn(cell))
+        replication_fields = _seed_replication_fields(
+            row,
+            cell,
+            static_control_representatives,
+            parameter_fn,
+        )
         plot_rows.append(
             {
                 "experiment_id": experiment_id_value,
@@ -294,6 +306,7 @@ def _write_coldstart_task_result(
                 **{name: parameters.get(name) for name in extra_parameter_names},
                 "seed": row["seed"],
                 "stage": row["stage"],
+                **replication_fields,
                 **_coldstart_plot_metrics(row),
             }
         )
@@ -521,6 +534,69 @@ def _coldstart_plot_metrics(row: Mapping[str, Any]) -> dict[str, Any]:
 
 
 
+def _is_static_no_update_control(row: Mapping[str, Any]) -> bool:
+    return (
+        row.get("control_role") == "sft_only_no_dpo_update"
+        and row.get("zero_beta_control") is True
+    )
+
+
+def _static_control_group_key(
+    cell: CellLike,
+    parameter_fn: Callable[[CellLike], Mapping[str, Any]],
+) -> tuple[str, str, str]:
+    return (
+        str(cell.task),
+        str(cell.method),
+        parameter_identity(dict(parameter_fn(cell))),
+    )
+
+
+def _static_control_seed_representatives(
+    rows: Sequence[Mapping[str, Any]],
+    cells_by_key: Mapping[str, CellLike],
+    parameter_fn: Callable[[CellLike], Mapping[str, Any]],
+) -> dict[tuple[str, str, str], int]:
+    representatives: dict[tuple[str, str, str], int] = {}
+    for row in rows:
+        if not _is_static_no_update_control(row):
+            continue
+        cell_key = str(row["cell_key"])
+        if cell_key not in cells_by_key:
+            raise RuntimeError(f"Unknown static-control cell in result rows: {cell_key}")
+        cell = cells_by_key[cell_key]
+        key = _static_control_group_key(cell, parameter_fn)
+        seed = int(row["seed"])
+        representatives[key] = min(seed, representatives.get(key, seed))
+    return representatives
+
+
+def _seed_replication_fields(
+    row: Mapping[str, Any],
+    cell: CellLike,
+    representatives: Mapping[tuple[str, str, str], int],
+    parameter_fn: Callable[[CellLike], Mapping[str, Any]],
+) -> dict[str, Any]:
+    static_control = _is_static_no_update_control(row)
+    if static_control:
+        key = _static_control_group_key(cell, parameter_fn)
+        if key not in representatives:
+            raise RuntimeError(
+                f"Missing static-control representative for {row['cell_key']}"
+            )
+        independent_seed = int(row["seed"]) == int(representatives[key])
+    else:
+        independent_seed = True
+    return {
+        "control_role": row.get("control_role"),
+        "independent_seed": independent_seed,
+        "independent_seed_count_contribution": int(independent_seed),
+        "duplicate_control_seed_label": bool(
+            static_control and not independent_seed
+        ),
+    }
+
+
 def _coldstart_group_metrics(group: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     def mean(key: str) -> float:
         return float(np.mean([float(row[key]) for row in group]))
@@ -647,26 +723,12 @@ def _aggregate_coldstart_unranked(
         raise RuntimeError("Cold-start aggregate contains duplicate cell keys")
 
     run_id, source_commit = _coldstart_run_provenance(output_root)
-    static_control_seed_by_group: dict[tuple[str, str], int] = {}
-    for row in rows:
-        if (
-            row.get("control_role") == "sft_only_no_dpo_update"
-            and row.get("zero_beta_control") is True
-        ):
-            cell_key = str(row["cell_key"])
-            if cell_key not in cells_by_key:
-                raise RuntimeError(
-                    f"Unknown cold-start static control in aggregate: {cell_key}"
-                )
-            group_key = (
-                str(row["task"]),
-                parameter_identity(dict(spec.parameters(cells_by_key[cell_key]))),
-            )
-            seed = int(row["seed"])
-            static_control_seed_by_group[group_key] = min(
-                seed,
-                static_control_seed_by_group.get(group_key, seed),
-            )
+    parameter_fn = spec.parameters
+    static_control_representatives = _static_control_seed_representatives(
+        rows,
+        cells_by_key,
+        parameter_fn,
+    )
     plot_rows: list[dict[str, Any]] = []
     for row in rows:
         cell_key = str(row["cell_key"])
@@ -678,17 +740,11 @@ def _aggregate_coldstart_unranked(
             for name, value in projection.items()
             if name != "dpo_initialization"
         }
-        static_control = (
-            row.get("control_role") == "sft_only_no_dpo_update"
-            and row.get("zero_beta_control") is True
-        )
-        group_key = (
-            str(row["task"]),
-            parameter_identity(projection),
-        )
-        independent_seed = (
-            not static_control
-            or int(row["seed"]) == static_control_seed_by_group[group_key]
+        replication_fields = _seed_replication_fields(
+            row,
+            cells_by_key[cell_key],
+            static_control_representatives,
+            parameter_fn,
         )
         plot_rows.append(
             {
@@ -700,12 +756,7 @@ def _aggregate_coldstart_unranked(
                 "experiment_id": experiment_id_value,
                 "run_id": run_id,
                 "source_commit": source_commit,
-                "control_role": row.get("control_role"),
-                "independent_seed": independent_seed,
-                "independent_seed_count_contribution": int(independent_seed),
-                "duplicate_control_seed_label": bool(
-                    static_control and not independent_seed
-                ),
+                **replication_fields,
                 **parameter_columns,
                 **_coldstart_plot_metrics(row),
             }
