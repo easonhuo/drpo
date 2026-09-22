@@ -41,7 +41,7 @@ model:
   gradient_checkpointing: true
 
 suite:
-  tasks: [countdown, word_sorting, spiral_matrix, mini_sudoku, maze, word_ladder, knights_knaves, graph_color, wikisql]
+  tasks: [word_sorting, spiral_matrix, mini_sudoku, maze, word_ladder, knights_knaves, graph_color, wikisql]
   p0_tasks: [word_sorting, spiral_matrix, mini_sudoku, maze, word_ladder, knights_knaves, graph_color, wikisql]
   external_tasks: [countdown]
   excluded_tasks: {}
@@ -50,11 +50,8 @@ split:
   p0_train_rows: 5000
   p0_validation_rows: 500
   p0_test_rows: 500
-  countdown_train_rows: 6000
-  countdown_validation_rows: 500
   hash_seed: 2026072901
   test_access_allowed: false
-  countdown_subsampling_forbidden: true
 
 training:
   optimizer_updates: 1200
@@ -122,13 +119,6 @@ task_runtime:
     - evaluation.greedy_prompt_rows
     - evaluation.passk_prompt_rows
     - evaluation.pass_ks
-  countdown:
-    max_length: 256
-    max_new_tokens: 80
-    evaluation_batch_size: 8
-    greedy_prompt_rows: 500
-    passk_prompt_rows: 500
-    auxiliary_pass_ks: [64]
   word_sorting: &transfer_runtime
     max_length: 512
     max_new_tokens: 128
