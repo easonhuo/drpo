@@ -647,17 +647,25 @@ def _aggregate_coldstart_unranked(
         raise RuntimeError("Cold-start aggregate contains duplicate cell keys")
 
     run_id, source_commit = _coldstart_run_provenance(output_root)
-    static_control_seed_by_task: dict[str, int] = {}
+    static_control_seed_by_group: dict[tuple[str, str], int] = {}
     for row in rows:
         if (
             row.get("control_role") == "sft_only_no_dpo_update"
             and row.get("zero_beta_control") is True
         ):
-            task = str(row["task"])
+            cell_key = str(row["cell_key"])
+            if cell_key not in cells_by_key:
+                raise RuntimeError(
+                    f"Unknown cold-start static control in aggregate: {cell_key}"
+                )
+            group_key = (
+                str(row["task"]),
+                parameter_identity(dict(spec.parameters(cells_by_key[cell_key]))),
+            )
             seed = int(row["seed"])
-            static_control_seed_by_task[task] = min(
+            static_control_seed_by_group[group_key] = min(
                 seed,
-                static_control_seed_by_task.get(task, seed),
+                static_control_seed_by_group.get(group_key, seed),
             )
     plot_rows: list[dict[str, Any]] = []
     for row in rows:
@@ -674,10 +682,13 @@ def _aggregate_coldstart_unranked(
             row.get("control_role") == "sft_only_no_dpo_update"
             and row.get("zero_beta_control") is True
         )
+        group_key = (
+            str(row["task"]),
+            parameter_identity(projection),
+        )
         independent_seed = (
             not static_control
-            or int(row["seed"])
-            == static_control_seed_by_task[str(row["task"])]
+            or int(row["seed"]) == static_control_seed_by_group[group_key]
         )
         plot_rows.append(
             {
