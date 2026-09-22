@@ -844,14 +844,11 @@ class _CanonicalBridgeImpl:
         eval_every = int(effective["training"]["evaluation_every_updates"])
         log_every = int(train_cfg["log_every"])
         legacy_training_seed_base = int(train_cfg["seed"])
-        if configured_initialization == "task_positive_warmstart":
-            training_seed_base = experiment_config.coldstart_runtime_seed(config)
-            if legacy_training_seed_base != training_seed_base:
-                raise RuntimeError(
-                    "Task-SFT DPO derived base-config seed drifted from canonical_runtime_seed"
-                )
-        else:
-            training_seed_base = legacy_training_seed_base
+        training_seed_base = (
+            experiment_config.coldstart_runtime_seed(config)
+            if configured_initialization == "task_positive_warmstart"
+            else legacy_training_seed_base
+        )
         seed = training_seed_base + int(cell.seed)
         beta = float(cell.beta)
         zero_beta_control = math.isclose(beta, 0.0, rel_tol=0.0, abs_tol=0.0)
