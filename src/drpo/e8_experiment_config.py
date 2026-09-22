@@ -678,10 +678,15 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
                 ):
                     raise ValueError("Task-SFT DPO initialization contract drifted")
         else:
-            if mode in {"base_model_fresh_lora", "task_positive_warmstart"}:
+            if mode == "task_positive_warmstart":
+                raise ValueError(
+                    "Task-positive-warmstart DPO is implemented only for the single-method "
+                    "task-SFT DPO successor, not for method-matrix configs"
+                )
+            if mode == "base_model_fresh_lora":
                 if dpo.get("shared_sft_adapter_env") not in (None, ""):
                     raise ValueError(
-                        "Baseline-matrix non-shared DPO may not name a shared adapter"
+                        "Baseline-matrix fresh-LoRA DPO may not name a shared adapter"
                     )
             elif (
                 not isinstance(dpo.get("shared_sft_adapter_env"), str)
@@ -1263,6 +1268,15 @@ def validate_coldstart_config(config: Mapping[str, Any]) -> None:
         and len(set(tasks)) == 9
         and set(tasks) == expected
     )
+    task_sft_dpo_mode = (
+        coldstart_method(config) == COLDSTART_METHOD_DPO
+        and str(_mapping(config.get("dpo"), "dpo").get("initialization_mode", ""))
+        == "task_positive_warmstart"
+    )
+    if task_sft_dpo_mode and not transfer_only_task_sft_dpo:
+        raise ValueError(
+            "Task-positive-warmstart DPO requires the approved transfer-only eight-task suite"
+        )
     if not (full_coldstart_suite or transfer_only_task_sft_dpo):
         raise ValueError(
             "Cold-start suite must be the full nine-task suite or the approved "
