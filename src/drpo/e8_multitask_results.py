@@ -275,7 +275,9 @@ def _write_coldstart_task_result(
             if name not in legacy_parameter_columns
         )
     )
-    parameter_fn = lambda cell: method_specs[cell.method].parameters(cell)
+    def parameter_fn(cell: CellLike) -> Mapping[str, Any]:
+        return method_specs[cell.method].parameters(cell)
+
     static_control_representatives = _static_control_seed_representatives(
         rows,
         cells_by_key,
