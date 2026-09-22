@@ -3465,21 +3465,28 @@ def test_task_sft_dpo_reuses_frozen_positive_warmstart_contract() -> None:
 
 
 def test_task_sft_dpo_training_seed_uses_reviewed_runtime_seed_without_changing_legacy_modes() -> None:
-    import inspect
-
+    from drpo import e8_multitask_canonical_bridge as canonical_bridge
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
     config = exp_tuning.load_config(
         Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
     )
-    source = inspect.getsource(
-        exp_tuning._canonical_bridge()._train_canonical_dpo_transfer_cell
-    )
-    assert 'configured_initialization == "task_positive_warmstart"' in source
-    assert "experiment_config.coldstart_runtime_seed(config)" in source
-    assert 'legacy_training_seed_base = int(train_cfg["seed"])' in source
-    assert "else legacy_training_seed_base" in source
     assert config["initialization"]["canonical_runtime_seed"] == 2026070803
+    assert canonical_bridge._dpo_training_seed_base(
+        config,
+        initialization_mode="task_positive_warmstart",
+        legacy_seed_base=123,
+    ) == 2026070803
+    assert canonical_bridge._dpo_training_seed_base(
+        config,
+        initialization_mode="base_model_fresh_lora",
+        legacy_seed_base=123,
+    ) == 123
+    assert canonical_bridge._dpo_training_seed_base(
+        config,
+        initialization_mode="shared_sft_adapter",
+        legacy_seed_base=456,
+    ) == 456
 
 
 def test_task_sft_dpo_transfer_suite_has_no_countdown_input_dependency(
