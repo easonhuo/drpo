@@ -839,6 +839,18 @@ def coldstart_runtime_seed(config: Mapping[str, Any]) -> int:
     return int(initialization["seed"])
 
 
+def dpo_training_seed_base(
+    config: Mapping[str, Any],
+    legacy_base_seed: int,
+) -> int:
+    """Use the reviewed runtime seed only for task-SFT DPO; preserve historical modes."""
+
+    dpo = _mapping(config.get("dpo"), "dpo")
+    if str(dpo.get("initialization_mode", "")) == "task_positive_warmstart":
+        return coldstart_runtime_seed(config)
+    return int(legacy_base_seed)
+
+
 def effective_coldstart_runtime(config: Mapping[str, Any], task: str) -> dict[str, Any]:
     """Resolve the values that the canonical cold-start runtime must actually consume."""
 
