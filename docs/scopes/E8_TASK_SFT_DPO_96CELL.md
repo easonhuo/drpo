@@ -86,7 +86,7 @@ This special handling is required because the DPO optimizer uses AdamW with nonz
 
 The beta-zero cell keeps the task-specific SFT adapter unchanged, performs one held-out validation evaluation at step 0, records zero DPO optimizer updates, and marks itself explicitly as the SFT-only / no-DPO-update control. Because the terminal policy is bitwise the same policy state as the initial SFT adapter, the aggregate reuses that single measured validation value for the nominal late-window/terminal summary fields instead of rerunning the identical model at every nominal DPO checkpoint. The manifest records this reuse explicitly. Beta zero materializes the terminal adapter only; it must not also write a duplicate supplementary-best adapter containing the identical SFT policy.
 
-The 96-cell geometry still contains beta-zero rows under both DPO seed labels. Those two rows for a task share the same deterministic task SFT adapter and the same evaluation seed, so they are duplicate control rows for matrix geometry, not two independent SFT replications and not evidence for seed uncertainty at beta zero. Both task-local and final aggregate plot tables must therefore mark one beta-zero row as the independent representative and the other as a duplicate control label; grouped statistics must expose an effective independent-seed count of 1 and never use the duplicate row to create seed uncertainty or error bars.
+The 96-cell geometry still contains beta-zero rows under both DPO seed labels. Those two rows for a task share the same materialized task SFT adapter and the same evaluation seed, so they are duplicate control rows for matrix geometry, not two independent SFT replications and not evidence for seed uncertainty at beta zero. Both task-local and final aggregate plot tables must therefore mark one beta-zero row as the independent representative and the other as a duplicate control label; grouped statistics must expose an effective independent-seed count of 1 and never use the duplicate row to create seed uncertainty or error bars.
 
 ## Canonical DPO semantics for beta > 0
 
@@ -113,6 +113,12 @@ Only the initialization source and beta grid differ from the current fresh-LoRA 
 For beta > 0:
 
 - optimizer updates: 1200;
+- model max length: 512;
+- max new tokens: 128;
+- greedy validation prompts: 500;
+- Pass@8 validation prompts: 128;
+- evaluation batch size: 16;
+- auxiliary Pass@64: disabled for the transfer tasks;
 - micro batch: 1;
 - gradient accumulation: 8;
 - learning rate: `5.0e-5`;
@@ -124,7 +130,7 @@ For beta > 0:
 - paper-facing late window: `[800, 900, 1000, 1100, 1200]`;
 - test split access: forbidden.
 
-The qualified P0 source banks remain fixed and SFT initialization must not rebuild or retune them. As in the current E8 baseline, the canonical training input then deterministically derives a fixed 16-negative-per-prompt reference-remoteness bank from those source rows using all deterministic verifier-wrong candidates, the frozen zero-update reference policy, source P0 error-class sequence, and within-class reference-rank spread. Reference rank is provenance/diagnostic only and does not enter the DPO training weight. The canonical reference-remoteness-bank and task-SFT-DPO training base seed remains `2026070803`; each positive-beta DPO cell uses that base plus its configured DPO seed offset. The task SFT trainer independently inherits the existing P0 warm-start base seed `2026072900` (plus the existing deterministic task offset). These seed roles must be represented separately in machine-readable configuration rather than overloading one `initialization.seed` field. Historical fresh-LoRA/shared-SFT DPO paths keep their existing base-config seed semantics.
+The qualified P0 source banks remain fixed and SFT initialization must not rebuild or retune them. As in the current E8 baseline, the canonical training input then deterministically derives a fixed 16-negative-per-prompt reference-remoteness bank from those source rows using all deterministic verifier-wrong candidates, the frozen zero-update reference policy, source P0 error-class sequence, and within-class reference-rank spread. Reference rank is provenance/diagnostic only and does not enter the DPO training weight. The canonical reference-remoteness-bank and task-SFT-DPO training base seed remains `2026070803`; each positive-beta DPO cell uses that base plus its configured DPO seed offset. The task SFT trainer independently inherits the existing P0 warm-start base seed `2026072900` (plus the existing deterministic task offset), and both DPO seed labels for a task reuse that same materialized task SFT adapter. Thus the positive-beta pair measures DPO-stage stochasticity conditional on one shared SFT initialization, not end-to-end SFT+DPO pipeline variability. These seed roles must be represented separately in machine-readable configuration rather than overloading one `initialization.seed` field. Historical fresh-LoRA/shared-SFT DPO paths keep their existing base-config seed semantics.
 
 ## Input scope
 
