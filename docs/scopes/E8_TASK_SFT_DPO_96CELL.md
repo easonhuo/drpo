@@ -144,7 +144,7 @@ Report, separately:
 - validity / structure diagnostics;
 - NaN/Inf numerical failure.
 
-For positive-beta DPO cells also retain pair-margin, preference-accuracy, logit-saturation, raw-gradient norm, and optimizer-update norm diagnostics. Beta zero must be clearly identified as `sft_only_no_dpo_update`; its pair-margin probe is not fabricated and is recorded as not run because exact policy/reference state-hash equality already establishes the initialization copy.
+For positive-beta DPO cells also retain pair-margin, preference-accuracy, logit-saturation, raw-gradient norm, and optimizer-update norm diagnostics. Beta zero must be clearly identified as `sft_only_no_dpo_update`; its pair-margin, raw-gradient, and optimizer-step probes are not fabricated and are recorded as not run because no DPO objective/backward/optimizer step is executed, while exact policy/reference state-hash equality establishes the initialization copy.
 
 Any comparison across beta values must use terminal / late-window audit data and must not be described as convergence or universal method ranking.
 
