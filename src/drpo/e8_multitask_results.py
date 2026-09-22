@@ -260,7 +260,6 @@ def _write_coldstart_task_result(
 
     all_cells_path = root / "all_cells.csv"
     plot_path = root / "plot_curve_points.csv"
-    write_csv(all_cells_path, rows)
     cells_by_key = {
         cell.key: cell for cell in configured_cells if cell.task == task
     }
@@ -282,7 +281,10 @@ def _write_coldstart_task_result(
         rows,
         cells_by_key,
         parameter_fn,
+        output_root=output_root,
+        require_manifest_identity=not engineering_self_test,
     )
+    write_csv(all_cells_path, rows)
     plot_rows: list[dict[str, Any]] = []
     for row in rows:
         cell = cells_by_key[str(row["cell_key"])]
@@ -539,6 +541,44 @@ def _coldstart_plot_metrics(row: Mapping[str, Any]) -> dict[str, Any]:
 
 
 
+_STATIC_CONTROL_RESULT_MATCH_FIELDS = (
+    "late_window_pass8_mean",
+    "late_window_greedy_mean",
+    "best_pass8",
+    "terminal_pass8",
+    "best_greedy",
+    "terminal_greedy",
+    "best_greedy_valid_rate",
+    "terminal_greedy_valid_rate",
+    "best_step",
+    "terminal_step",
+    "stop_reason",
+)
+
+_STATIC_CONTROL_MANIFEST_MATCH_FIELDS = (
+    "policy_initial_state_sha256",
+    "terminal_trainable_state_sha256",
+    "reference_initial_state_sha256",
+    "reference_terminal_state_sha256",
+    "policy_parameters_changed",
+    "optimizer_updates",
+    "optimizer_updates_requested",
+    "terminal_step",
+    "stop_reason",
+    "training_seed_applied",
+    "effective_training_seed",
+    "static_control_single_evaluation_step",
+    "validation_late_window_pass8_mean",
+    "validation_late_window_greedy_mean",
+    "validation_best_pass8",
+    "validation_terminal_pass8",
+    "validation_best_greedy",
+    "validation_terminal_greedy",
+    "validation_best_greedy_valid_rate",
+    "validation_terminal_greedy_valid_rate",
+)
+
+
 def _is_static_no_update_control(row: Mapping[str, Any]) -> bool:
     return (
         row.get("control_role") == "sft_only_no_dpo_update"
@@ -561,8 +601,12 @@ def _static_control_seed_representatives(
     rows: Sequence[Mapping[str, Any]],
     cells_by_key: Mapping[str, CellLike],
     parameter_fn: Callable[[CellLike], Mapping[str, Any]],
+    *,
+    output_root: Path,
+    require_manifest_identity: bool,
 ) -> dict[tuple[str, str, str], int]:
     representatives: dict[tuple[str, str, str], int] = {}
+    signatures: dict[tuple[str, str, str], dict[str, Any]] = {}
     for row in rows:
         if not _is_static_no_update_control(row):
             continue
@@ -571,6 +615,46 @@ def _static_control_seed_representatives(
             raise RuntimeError(f"Unknown static-control cell in result rows: {cell_key}")
         cell = cells_by_key[cell_key]
         key = _static_control_group_key(cell, parameter_fn)
+        signature = {
+            f"result.{field}": row.get(field)
+            for field in _STATIC_CONTROL_RESULT_MATCH_FIELDS
+        }
+        if require_manifest_identity:
+            manifest_path = output_root / "cells" / cell_key / "cell_manifest.json"
+            if not manifest_path.is_file():
+                raise RuntimeError(
+                    f"Missing static-control manifest for duplicate audit: {cell_key}"
+                )
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            missing = [
+                field
+                for field in _STATIC_CONTROL_MANIFEST_MATCH_FIELDS
+                if field not in manifest
+            ]
+            if missing:
+                raise RuntimeError(
+                    f"Static-control manifest is missing duplicate-audit fields for "
+                    f"{cell_key}: {missing}"
+                )
+            signature.update(
+                {
+                    f"manifest.{field}": manifest[field]
+                    for field in _STATIC_CONTROL_MANIFEST_MATCH_FIELDS
+                }
+            )
+        previous = signatures.get(key)
+        if previous is None:
+            signatures[key] = signature
+        elif previous != signature:
+            mismatched = sorted(
+                field
+                for field in set(previous) | set(signature)
+                if previous.get(field) != signature.get(field)
+            )
+            raise RuntimeError(
+                "Static no-update control duplicate labels diverged before "
+                f"statistical collapse for {cell.task}/{cell.method}: {mismatched}"
+            )
         seed = int(row["seed"])
         representatives[key] = min(seed, representatives.get(key, seed))
     return representatives
@@ -733,6 +817,8 @@ def _aggregate_coldstart_unranked(
         rows,
         cells_by_key,
         parameter_fn,
+        output_root=output_root,
+        require_manifest_identity=not engineering_self_test,
     )
     plot_rows: list[dict[str, Any]] = []
     for row in rows:
