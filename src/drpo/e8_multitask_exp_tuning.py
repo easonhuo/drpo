@@ -1880,6 +1880,26 @@ def _cell_identity(
             )["adapter"],
         }
     )
+    if (
+        _is_coldstart(config)
+        and cell.method == METHOD_DPO
+        and str(config["dpo"]["initialization_mode"])
+        == "task_positive_warmstart"
+    ):
+        initialization = dict(initialization)
+        if _is_engineering_self_test(config):
+            initialization["task_sft_adapter_identity"] = {
+                "engineering_placeholder": True
+            }
+        else:
+            if inputs.reference_adapter is None:
+                raise RuntimeError(
+                    f"Task-SFT DPO recovery identity is missing adapter for {cell.task}"
+                )
+            initialization["task_sft_adapter_identity"] = model_identity(
+                base_model_path,
+                str(inputs.reference_adapter),
+            )["adapter"]
     return e8_runtime.recovery_identity(
         cell,
         experiment_id=experiment_id(config),
