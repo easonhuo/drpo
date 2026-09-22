@@ -24,7 +24,7 @@ No scientific run has started. This document freezes the owner-approved scientif
 
 ## Claim
 
-On the exact eight P0 transfer tasks and the same frozen model-independent qualified banks used by the current E8 multitask baseline work, measure canonical DPO response after a task-specific train-only positive SFT initialization. Positive-beta cells use the two paired DPO seed offsets; beta zero keeps both execution labels only for the frozen 96-cell geometry and contributes one independent static-control replicate per task. It is finite-horizon external-validity evidence and does not establish convergence, statistical significance, or a universal method ranking.
+On the exact eight P0 transfer tasks, using the same frozen qualified P0 source banks and the unchanged canonical reference-remoteness training-bank derivation used by the current E8 multitask baseline work, measure canonical DPO response after a task-specific train-only positive SFT initialization. Positive-beta cells use the two paired DPO seed offsets; beta zero keeps both execution labels only for the frozen 96-cell geometry and contributes one independent static-control replicate per task. It is finite-horizon external-validity evidence and does not establish convergence, statistical significance, or a universal method ranking.
 
 ## Frozen task matrix
 
@@ -124,7 +124,7 @@ For beta > 0:
 - paper-facing late window: `[800, 900, 1000, 1100, 1200]`;
 - test split access: forbidden.
 
-The same qualified 16-negative-per-prompt banks remain fixed. SFT initialization must not rebuild or retune the bank. The canonical reference-remoteness-bank and task-SFT-DPO training base seed remains `2026070803`; each positive-beta DPO cell uses that base plus its configured DPO seed offset. The task SFT trainer independently inherits the existing P0 warm-start base seed `2026072900` (plus the existing deterministic task offset). These seed roles must be represented separately in machine-readable configuration rather than overloading one `initialization.seed` field. Historical fresh-LoRA/shared-SFT DPO paths keep their existing base-config seed semantics.
+The qualified P0 source banks remain fixed and SFT initialization must not rebuild or retune them. As in the current E8 baseline, the canonical training input then deterministically derives a fixed 16-negative-per-prompt reference-remoteness bank from those source rows using all deterministic verifier-wrong candidates, the frozen zero-update reference policy, source P0 error-class sequence, and within-class reference-rank spread. Reference rank is provenance/diagnostic only and does not enter the DPO training weight. The canonical reference-remoteness-bank and task-SFT-DPO training base seed remains `2026070803`; each positive-beta DPO cell uses that base plus its configured DPO seed offset. The task SFT trainer independently inherits the existing P0 warm-start base seed `2026072900` (plus the existing deterministic task offset). These seed roles must be represented separately in machine-readable configuration rather than overloading one `initialization.seed` field. Historical fresh-LoRA/shared-SFT DPO paths keep their existing base-config seed semantics.
 
 ## Input scope
 
