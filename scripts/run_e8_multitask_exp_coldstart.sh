@@ -817,7 +817,6 @@ prepare() {
       --p0-work-dir "${P0_WORK_DIR}" \
       --p0-config "${P0_CONFIG_PATH}"
   fi
-  prepare_task_sft_references
   python - <<PY
 import json
 from pathlib import Path
@@ -835,6 +834,7 @@ value = {
 path = Path("${OUTPUT_ROOT}") / "source_provenance.json"
 path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 PY
+  prepare_task_sft_references
 }
 
 calibrate() {
