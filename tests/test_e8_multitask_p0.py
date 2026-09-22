@@ -3449,6 +3449,74 @@ def test_task_sft_dpo_reuses_frozen_positive_warmstart_contract() -> None:
     assert warm["max_length"] == 512
 
 
+def test_task_sft_dpo_recovery_identity_binds_adapter_content(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
+    )
+    cell = next(
+        value
+        for value in exp_tuning.build_cells(config)
+        if value.task == "word_sorting" and value.beta == 0.05
+    )
+    adapter = tmp_path / "adapter"
+    state = {"adapter": "first"}
+
+    def fake_model_identity(base_model_path: str, adapter_path: str | None) -> dict:
+        del base_model_path
+        if adapter_path is None:
+            return {"model": {"identity": "base"}}
+        return {"adapter": {"identity": state["adapter"]}}
+
+    monkeypatch.setattr(exp_tuning, "model_identity", fake_model_identity)
+    inputs = exp_tuning.TaskInputs(
+        task=cell.task,
+        bank=tmp_path / "bank.jsonl",
+        reference_adapter=adapter,
+        sources_root=tmp_path,
+        p0_config=Path("configs/e8_multitask_p0.yaml"),
+    )
+    split_manifest = {
+        "tasks": {
+            cell.task: {
+                "bank_sha256": "a" * 64,
+                "prompt_id_hashes": {"train": "b" * 64},
+            }
+        }
+    }
+    calibration = {"identity_hash": "c" * 64}
+
+    first = exp_tuning._cell_identity(
+        cell,
+        inputs=inputs,
+        split_manifest=split_manifest,
+        base_model_path="/model",
+        config=config,
+        calibration=calibration,
+    )
+    state["adapter"] = "second"
+    second = exp_tuning._cell_identity(
+        cell,
+        inputs=inputs,
+        split_manifest=split_manifest,
+        base_model_path="/model",
+        config=config,
+        calibration=calibration,
+    )
+
+    assert first["identity_hash"] != second["identity_hash"]
+    assert first["initialization"]["task_sft_adapter_identity"] == {
+        "identity": "first"
+    }
+    assert second["initialization"]["task_sft_adapter_identity"] == {
+        "identity": "second"
+    }
+
+
 def test_task_sft_dpo_beta_zero_is_no_optimizer_update_control() -> None:
     import inspect
 
