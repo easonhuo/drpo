@@ -3438,9 +3438,20 @@ def test_task_sft_dpo_reuses_frozen_positive_warmstart_contract() -> None:
     assert config["initialization"]["optimizer_updates"] == 100
     assert config["initialization"]["seed"] == 2026072900
     assert config["initialization"]["canonical_runtime_seed"] == 2026070803
-    assert exp_tuning.experiment_config.effective_coldstart_runtime(
+    effective = exp_tuning.experiment_config.effective_coldstart_runtime(
         config, "word_sorting"
-    )["initialization_seed"] == 2026070803
+    )
+    assert effective["initialization_seed"] == 2026070803
+    assert config["model"]["max_length"] == 512
+    assert config["model"]["max_new_tokens"] == 128
+    assert config["evaluation"]["passk_prompt_rows"] == 128
+    assert config["evaluation"]["batch_size"] == 16
+    assert config["evaluation"]["auxiliary_pass_ks"] == []
+    assert effective["model"]["max_length"] == 512
+    assert effective["model"]["max_new_tokens"] == 128
+    assert effective["evaluation"]["passk_prompt_rows"] == 128
+    assert effective["evaluation"]["batch_size"] == 16
+    assert effective["evaluation"]["auxiliary_pass_ks"] == []
     assert config["reference"]["checkpoint_kind"] == (
         "exact_frozen_copy_of_initialized_policy"
     )
@@ -3451,6 +3462,23 @@ def test_task_sft_dpo_reuses_frozen_positive_warmstart_contract() -> None:
     assert warm["lora_alpha"] == 64
     assert warm["lora_dropout"] == pytest.approx(0.05)
     assert warm["max_length"] == 512
+
+
+def test_task_sft_dpo_training_seed_uses_reviewed_runtime_seed_without_changing_legacy_modes() -> None:
+    import inspect
+
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
+    )
+    source = inspect.getsource(
+        exp_tuning._canonical_bridge()._train_canonical_dpo_transfer_cell
+    )
+    assert 'configured_initialization == "task_positive_warmstart"' in source
+    assert "experiment_config.coldstart_runtime_seed(config)" in source
+    assert 'else int(train_cfg["seed"])' in source
+    assert config["initialization"]["canonical_runtime_seed"] == 2026070803
 
 
 def test_task_sft_dpo_transfer_suite_has_no_countdown_input_dependency(
@@ -3769,6 +3797,8 @@ def test_task_sft_dpo_beta_zero_is_no_optimizer_update_control() -> None:
     assert '"initial_pair_margin_max_abs": None' in source
     assert "not_run_exact_policy_reference_state_hashes_match" in source
     assert "if not zero_beta_control:" in source
+    assert '"best_adapter": (' in source
+    assert "str(best_dir.resolve()) if best_dir.is_dir() else str(final_adapter_dir.resolve())" in source
     assert 'adapter_path=None if initial_adapter is None else str(initial_adapter)' in source
 
 
