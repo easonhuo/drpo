@@ -750,6 +750,7 @@ def terminal_audit(
         if not engineering_self_test:
             static_dpo_control = (
                 str(cell.method) == "canonical_dpo"
+                and getattr(cell, "beta", None) == 0.0
                 and value.get("control_role") == "sft_only_no_dpo_update"
                 and value.get("zero_beta_control") is True
             )
