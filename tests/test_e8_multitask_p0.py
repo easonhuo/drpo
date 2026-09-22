@@ -4006,7 +4006,9 @@ def test_dpo_transfer_consumes_effective_task_runtime_and_preserves_liveness_ide
     assert 'eval_cfg["batch_size"] = int(effective["evaluation"]["batch_size"])' in source
     assert 'eval_cfg["pass_ks"] = list(effective["evaluation"]["pass_ks"])' in source
     assert 'with self._legacy_arena_runtime_bridge(arena, effective):' in source
-    assert 'warmup_steps = 0 if warmup_ratio == 0.0' in source
+    assert 'warmup_ratio = float(effective["training"]["warmup_ratio"])' in source
+    assert "if warmup_ratio == 0.0" in source
+    assert "max(1, int(updates * warmup_ratio))" in source
     assert 'cell.dpo_initialization != configured_initialization' in source
     assert 'str(final_adapter_dir.resolve())' in source
     assert '"finite_old_core_updates": (' in source
