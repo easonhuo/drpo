@@ -113,6 +113,22 @@ class CanonicalBridge:
     _cmd_canonical_cold_liveness: Callable[..., Any]
 
 
+def _dpo_training_update_plan(
+    *,
+    beta: float,
+    initialization_mode: str,
+    configured_updates: int,
+) -> tuple[bool, int]:
+    """Resolve the exact beta-zero control without entering the optimizer path."""
+
+    zero_beta_control = math.isclose(beta, 0.0, rel_tol=0.0, abs_tol=0.0)
+    if zero_beta_control and initialization_mode != "task_positive_warmstart":
+        raise RuntimeError(
+            "DPO beta=0 is reserved for the task-SFT initialization-only control"
+        )
+    return zero_beta_control, 0 if zero_beta_control else int(configured_updates)
+
+
 class _CanonicalBridgeImpl:
     """Call-scoped canonical bridge implementation with explicit host dependencies."""
 
@@ -851,11 +867,11 @@ class _CanonicalBridgeImpl:
         )
         seed = training_seed_base + int(cell.seed)
         beta = float(cell.beta)
-        zero_beta_control = math.isclose(beta, 0.0, rel_tol=0.0, abs_tol=0.0)
-        if zero_beta_control and configured_initialization != "task_positive_warmstart":
-            raise RuntimeError(
-                "DPO beta=0 is reserved for the task-SFT initialization-only control"
-            )
+        zero_beta_control, training_updates = _dpo_training_update_plan(
+            beta=beta,
+            initialization_mode=configured_initialization,
+            configured_updates=updates,
+        )
         arena.seed_all(seed)
 
         validation_rows = [] if engineering_liveness else read_jsonl(validation)
@@ -1031,7 +1047,6 @@ class _CanonicalBridgeImpl:
             if not engineering_liveness:
                 evaluate(0)
             accumulation = int(effective["training"]["gradient_accumulation"])
-            training_updates = 0 if zero_beta_control else updates
             if training_updates:
                 if (
                     iterator is None
