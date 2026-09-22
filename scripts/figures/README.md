@@ -12,6 +12,7 @@ This directory contains the reproducible plotting entry points for the current p
 | Figure 3 phase transition | `scripts/figures/plot_figure3_phase_transition.py` | `results/FIGURE3_PHASE_TRANSITION/` | `paper/figures/fig_6_4_1_phase_transition` | template/layout; formal phase-scan aggregates pending |
 | Figure 4 taper/control transfer | `scripts/figures/plot_figure4_taper_left_panel.py` | `results/FIGURE4_TAPER_CONTROL_TRANSFER/` | `paper/figures/fig_6_4_2_leftfig_bigtext_legend_protocol` | template/layout; formal 6.4.2/6.4.3 aggregates pending |
 | Structured-9 DRPO coefficient response | `scripts/figures/plot_e8_multitask_exp_response_curves.py` | `paper/iclr2027/figures/data/e8_multitask_exp_response/` | `paper/overleaf/figures/fig_app_structured9_drpo_coefficient_response` (PDF); ICLR working PNG/SVG previews use `paper/iclr2027/figures/fig_e8_multitask_exp_response_nine_panel` | historical real-data-backed `pilot_response_shape_only`; uniform visualization smoothing |
+| Structured-8 reciprocal 400-cell response | `scripts/figures/plot_e8_multitask_exp_response_curves.py --reciprocal` | `paper/iclr2027/figures/data/e8_reciprocal_response_20260921/RECIPROCAL_400_CURVE_POINTS.csv` | working SVG/PNG: `paper/iclr2027/figures/fig_e8_reciprocal_400_response_eight_panel`; generated PDF: `paper/overleaf/figures/fig_app_structured8_reciprocal_400_response` | 400-cell merged `pilot_finite_horizon_response_only`; no convergence or universal ranking claim |
 
 ## Optional plotting dependencies
 
@@ -56,6 +57,10 @@ Gaussian band sigma `12`, and band scale `1.45`. These are visualization
 parameters only; they do not alter stored observations or scientific status.
 The default PDF output is the exact asset already referenced by the current
 ICLR manuscript: `paper/overleaf/figures/fig_app_structured9_drpo_coefficient_response.pdf`.
+
+The reciprocal mode keeps the registered observations unsmoothed, averages the two
+registered seeds at each matched strength, and uses the same 3×3 paper-working layout.
+Reciprocal-Linear uses `x=lambda`; Reciprocal-Quadratic uses `x=sqrt(lambda)`.
 
 ## Storage policy
 

@@ -1,0 +1,23 @@
+schema_version: 3
+update_id: EXT-C-E8-RECIPROCAL-400-COMPACT-EVIDENCE-2026-09-21
+mode: authoritative
+base:
+  commit: 4c1f416d5d3f6f808f00eb44036c81aad473d36b
+  handoff_sha256: dccf3a5e786bcb35bdf3d57c3ef12a4380fa57fc1938a9d7d030aae4d56490b4
+  registry_sha256: 130dc304fa8bac8d1ab06c38944cb3dd8f8a965d5dff6b7b0574adac01747076
+renderer_version: 1
+operations:
+- operation_id: append-e8-reciprocal-400-compact-evidence
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-reciprocal-400-compact-evidence-2026-09-21
+  content: |-
+    > **E8 Reciprocal 400-cell 合并响应证据（2026-09-21；2026-09-22 按 Figure 6 与 Table 1 资产规范对齐）：** 四轮 `EXT-C-E8-MULTITASK-RECIPROCAL-MATRIX-01`、`EXT-C-E8-MULTITASK-RECIPROCAL-RIGHTTAIL-01`、`EXT-C-E8-MULTITASK-RECIPROCAL-RIGHTTAIL-CLOSURE-01`、`EXT-C-E8-MULTITASK-RECIPROCAL-LINEAR-GRAPHCOLOR-CLOSURE-01` 分别贡献 `128 + 104 + 108 + 60 = 400` cells。合并 compact evidence 含恰好 seeds `4000/5000`、无重复 `(task, method, lambda, seed)`；合并图对应 `200` 个 two-seed means。Reciprocal Linear 与 Reciprocal Quadratic 必须继续分开报告；新增右尾与 Graph Color 低区间加密点已基本闭合本轮描述性 response-shape follow-up。峰值描述不得只取孤立 raw maximum，优先采用局部多点平滑以避免 Graph Color / Maze 式尖峰主导解释。本证据仍只属于 finite-horizon / pilot response-curve evidence，不支持 convergence、steady-state、significance 或 universal method ranking。资产现与 Figure 6 统一：canonical CSV `experiments/results/e8_reciprocal_response_20260921/RECIPROCAL_400_CURVE_POINTS.csv`；机器定位 `experiments/results/e8_reciprocal_response_20260921/RESULT_LOCATOR.json`；plot-ready mirror `paper/iclr2027/figures/data/e8_reciprocal_response_20260921/RECIPROCAL_400_CURVE_POINTS.csv`；画图入口 `scripts/figures/plot_e8_multitask_exp_response_curves.py --reciprocal`；checked-in working SVG `paper/iclr2027/figures/fig_e8_reciprocal_400_response_eight_panel.svg`。Table 1 的 structured-generation 行改为 `SG-9`，把 Countdown 与八个 transfer tasks 做未加权宏平均；派生数据位于 `experiments/results/e8_reciprocal_response_20260921/TABLE1_SG9_TAPER_AGGREGATE.csv`。当前 SG-9 显示值为 Positive-only `67.9`、Global-α `--`、Reciprocal-Linear `68.1`、Reciprocal-Quadratic `68.2`、DRPO/Exp `69.2`；Global-α 留空是因为八个 transfer tasks 的 protocol-matched Global-α sweep 尚未运行，不表示失败或 0。Countdown 不属于这 400-cell reciprocal sweeps，而是作为既有 Countdown 结果被并入 SG-9 aggregate。四个 raw ZIP 仍是独立 provenance artifact，继续归档到 `easonhuo/drpo-results`，compact evidence 不替代 raw archive。
+registry:
+  mode: unchanged
+  expected_after_sha256: null
+  changes: []
+expected:
+  exact_base_candidate_sha256: 1cdff07e2eb6091d9fe290fa31196aebe3dda7bd74c1464384fda63216a7e5a3

@@ -1,0 +1,47 @@
+{
+  "report_schema_version": 1,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "mode": "authoritative",
+  "status": "PASS",
+  "update_id": "EXT-C-E8-RECIPROCAL-400-COMPACT-EVIDENCE-2026-09-21",
+  "source_base_commit": "4c1f416d5d3f6f808f00eb44036c81aad473d36b",
+  "current_before_commit": "4c1f416d5d3f6f808f00eb44036c81aad473d36b",
+  "source_patch_commit": "88884cfa72eb294ef5202deeb8f31b888988c4d4",
+  "delta_sha256": "e899d81caa93d0096e8de283e06dad57e46e3ecda321bb2844b077ccffb52990",
+  "exact_base_candidate_sha256": "1cdff07e2eb6091d9fe290fa31196aebe3dda7bd74c1464384fda63216a7e5a3",
+  "current_handoff_before_sha256": "dccf3a5e786bcb35bdf3d57c3ef12a4380fa57fc1938a9d7d030aae4d56490b4",
+  "materialized_handoff_after_sha256": "1cdff07e2eb6091d9fe290fa31196aebe3dda7bd74c1464384fda63216a7e5a3",
+  "registry_before_sha256": "130dc304fa8bac8d1ab06c38944cb3dd8f8a965d5dff6b7b0574adac01747076",
+  "registry_after_sha256": "130dc304fa8bac8d1ab06c38944cb3dd8f8a965d5dff6b7b0574adac01747076",
+  "trusted_engine_sha256": "2c86cc5b19df5d64cc3febf8b3317a0405b82ba5a0cdc9f2b38f60693161b4cc",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "exact_base_registry_validation": {
+    "assertions": [],
+    "coverage": {
+      "added_entities": [],
+      "changed_field_count": 0,
+      "declared_assertion_count": 0,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "current_registry_validation": {
+    "assertions": [],
+    "coverage": {
+      "added_entities": [],
+      "changed_field_count": 0,
+      "declared_assertion_count": 0,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "idempotence_passed": true,
+  "history_preservation_passed": true,
+  "structural_lint_passed": true,
+  "network_used": false
+}

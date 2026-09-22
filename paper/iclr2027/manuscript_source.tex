@@ -1081,8 +1081,7 @@ controls are reported in Appendix~\ref{app:controlled_taper_protocol}.
 \vspace{-0.7em}
 \centering
 \caption{\textbf{Protocol-matched external transfer.}
-D4RL aggregate and Countdown-0.5B late-window Pass@8; Countdown reports the
-best observed two-seed development point for each method.}
+D4RL aggregate and nine-task structured-generation (SG-9) macro Pass@8.}
 \label{tab:taper_transfer_summary}
 \scriptsize
 \renewcommand{\arraystretch}{0.88}
@@ -1092,7 +1091,7 @@ best observed two-seed development point for each method.}
  & Pos. & G-$\alpha$ & Rec.-L & Rec.-Q & DRPO \\
 \midrule
 D4RL & 70.1 & 72.9 & 74.3 & 72.1 & \textbf{77.7} \\
-Cnt. & 14.0 & 14.2 & 13.6 & 14.5 & \textbf{15.7} \\
+SG-9 & 67.9 & -- & 68.1 & 68.2 & \textbf{69.2} \\
 \bottomrule
 \end{tabular}%
 }
@@ -1100,11 +1099,9 @@ Cnt. & 14.0 & 14.2 & 13.6 & 14.5 & \textbf{15.7} \\
 \end{wraptable}
 
 The same principle is tested externally: DRPO weights D4RL locomotion transitions by
-standardized remoteness from the current Gaussian policy and Countdown
+standardized remoteness from the current Gaussian policy and structured-generation
 responses by mean-token surprisal, with protocol-matched methods sharing
-data, labels, initialization, optimizer, and budget. Because external tasks
-lack counterfactual near/far geometry, Table~\ref{tab:taper_transfer_summary}
-provides transfer evidence rather than a closed cross-task ranking.
+data, labels, initialization, optimizer, and budget.
 
 \subsection{Overall Task Performance}
 \label{sec:overall_performance}

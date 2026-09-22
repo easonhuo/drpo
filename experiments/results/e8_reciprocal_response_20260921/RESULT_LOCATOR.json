@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "result_id": "E8_RECIPROCAL_RESPONSE_400_20260921",
+  "scientific_status": "pilot_finite_horizon_response_only",
+  "total_cells": 400,
+  "plotted_two_seed_means": 200,
+  "seeds": [
+    4000,
+    5000
+  ],
+  "source_experiments": [
+    {
+      "experiment_id": "EXT-C-E8-MULTITASK-RECIPROCAL-MATRIX-01",
+      "cells": 128
+    },
+    {
+      "experiment_id": "EXT-C-E8-MULTITASK-RECIPROCAL-RIGHTTAIL-01",
+      "cells": 104
+    },
+    {
+      "experiment_id": "EXT-C-E8-MULTITASK-RECIPROCAL-RIGHTTAIL-CLOSURE-01",
+      "cells": 108
+    },
+    {
+      "experiment_id": "EXT-C-E8-MULTITASK-RECIPROCAL-LINEAR-GRAPHCOLOR-CLOSURE-01",
+      "cells": 60
+    }
+  ],
+  "paths": {
+    "compact_csv": "experiments/results/e8_reciprocal_response_20260921/RECIPROCAL_400_CURVE_POINTS.csv",
+    "plot_ready_csv": "paper/iclr2027/figures/data/e8_reciprocal_response_20260921/RECIPROCAL_400_CURVE_POINTS.csv",
+    "plot_code": "scripts/figures/plot_e8_multitask_exp_response_curves.py",
+    "plot_mode": "--reciprocal",
+    "checked_in_svg": "paper/iclr2027/figures/fig_e8_reciprocal_400_response_eight_panel.svg",
+    "generated_png": "paper/iclr2027/figures/fig_e8_reciprocal_400_response_eight_panel.png",
+    "generated_pdf": "paper/overleaf/figures/fig_app_structured8_reciprocal_400_response.pdf",
+    "summary": "experiments/results/e8_reciprocal_response_20260921/RESULT_SUMMARY.md",
+    "figure_index": "paper/figures/FIGURE_INDEX.md",
+    "table1_sg9_aggregate": "experiments/results/e8_reciprocal_response_20260921/TABLE1_SG9_TAPER_AGGREGATE.csv"
+  },
+  "coordinate": {
+    "reciprocal_linear": "x = lambda",
+    "reciprocal_quadratic": "x = sqrt(lambda)",
+    "metric": "two-seed mean late-window Pass@8"
+  },
+  "table1_sg9": {
+    "positive_only": 0.6791333333,
+    "global_alpha": null,
+    "reciprocal_linear": 0.6807666667,
+    "reciprocal_quadratic": 0.6816888889,
+    "drpo_exp": 0.6924888889,
+    "display_percent": {
+      "positive_only": "67.9",
+      "global_alpha": "--",
+      "reciprocal_linear": "68.1",
+      "reciprocal_quadratic": "68.2",
+      "drpo_exp": "69.2"
+    },
+    "aggregation": "unweighted mean over Countdown plus eight transfer tasks",
+    "global_alpha_status": "pending protocol-matched eight-transfer-task sweep",
+    "precision_note": "Reciprocal SG-9 macro uses the current ICLR Table 1 displayed Countdown values (13.6/14.5) plus four-decimal transfer summaries; paper-facing one-decimal values are the intended reporting precision."
+  }
+}
