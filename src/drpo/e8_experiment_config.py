@@ -891,44 +891,45 @@ def _validate_runtime_authority_consistency(
     config: Mapping[str, Any], tasks: tuple[str, ...]
 ) -> None:
     runtime = config["task_runtime"]
-    countdown = runtime["countdown"]
     model = config["model"]
     evaluation = config["evaluation"]
-    expected_pairs = (
-        (model["max_length"], countdown["max_length"], "model.max_length"),
-        (model["max_new_tokens"], countdown["max_new_tokens"], "model.max_new_tokens"),
-        (
-            evaluation["max_new_tokens"],
-            countdown["max_new_tokens"],
-            "evaluation.max_new_tokens",
-        ),
-        (
-            evaluation["batch_size"],
-            countdown["evaluation_batch_size"],
-            "evaluation.batch_size",
-        ),
-        (
-            evaluation["greedy_prompt_rows"],
-            countdown["greedy_prompt_rows"],
-            "evaluation.greedy_prompt_rows",
-        ),
-        (
-            evaluation["passk_prompt_rows"],
-            countdown["passk_prompt_rows"],
-            "evaluation.passk_prompt_rows",
-        ),
-    )
-    for configured, task_value, label in expected_pairs:
-        if int(configured) != int(task_value):
-            raise ValueError(f"{label} must match task_runtime.countdown")
-    if tuple(int(value) for value in evaluation["auxiliary_pass_ks"]) != tuple(
-        int(value) for value in countdown["auxiliary_pass_ks"]
-    ):
-        raise ValueError("evaluation.auxiliary_pass_ks must match task_runtime.countdown")
-    if int(countdown["greedy_prompt_rows"]) != int(countdown["passk_prompt_rows"]):
-        raise ValueError(
-            "Countdown canonical evaluator currently requires equal greedy/pass-k prompt budgets"
+    if "countdown" in tasks:
+        countdown = runtime["countdown"]
+        expected_pairs = (
+            (model["max_length"], countdown["max_length"], "model.max_length"),
+            (model["max_new_tokens"], countdown["max_new_tokens"], "model.max_new_tokens"),
+            (
+                evaluation["max_new_tokens"],
+                countdown["max_new_tokens"],
+                "evaluation.max_new_tokens",
+            ),
+            (
+                evaluation["batch_size"],
+                countdown["evaluation_batch_size"],
+                "evaluation.batch_size",
+            ),
+            (
+                evaluation["greedy_prompt_rows"],
+                countdown["greedy_prompt_rows"],
+                "evaluation.greedy_prompt_rows",
+            ),
+            (
+                evaluation["passk_prompt_rows"],
+                countdown["passk_prompt_rows"],
+                "evaluation.passk_prompt_rows",
+            ),
         )
+        for configured, task_value, label in expected_pairs:
+            if int(configured) != int(task_value):
+                raise ValueError(f"{label} must match task_runtime.countdown")
+        if tuple(int(value) for value in evaluation["auxiliary_pass_ks"]) != tuple(
+            int(value) for value in countdown["auxiliary_pass_ks"]
+        ):
+            raise ValueError("evaluation.auxiliary_pass_ks must match task_runtime.countdown")
+        if int(countdown["greedy_prompt_rows"]) != int(countdown["passk_prompt_rows"]):
+            raise ValueError(
+                "Countdown canonical evaluator currently requires equal greedy/pass-k prompt budgets"
+            )
     if int(evaluation["pass_k"]) != 8:
         raise ValueError("Cold-start canonical reporting currently implements pass_k=8")
     for task in tasks:
@@ -953,7 +954,12 @@ def _validate_method_grid(
     if sweep.get("parameterization") not in parameterizations:
         raise ValueError(parameterization_error)
     task_values = _mapping(sweep.get(grid_field), f"{method}.{grid_field}")
-    if set(task_values) != set(tasks):
+    expected_grid_tasks = set(tasks)
+    if "countdown" not in expected_grid_tasks and "countdown" in task_values:
+        if tuple(task_values["countdown"]) != ():
+            raise ValueError("Transfer-only cold-start grids may keep only an empty Countdown entry")
+        expected_grid_tasks.add("countdown")
+    if set(task_values) != expected_grid_tasks:
         raise ValueError(grid_error)
     for task in tasks:
         values = task_method_values(config, task, method=method)
@@ -1230,12 +1236,28 @@ def validate_coldstart_config(config: Mapping[str, Any]) -> None:
     suite = _mapping(config.get("suite"), "suite")
     tasks = tuple(str(task) for task in suite.get("tasks", ()))
     expected = set(TASK_NAMES)
-    if len(tasks) != 9 or len(set(tasks)) != 9 or set(tasks) != expected:
-        raise ValueError("Cold-start suite must be Countdown plus the exact eight P0 tasks")
+    transfer_only_task_sft_dpo = (
+        coldstart_method(config) == COLDSTART_METHOD_DPO
+        and str(_mapping(config.get("dpo"), "dpo").get("initialization_mode", ""))
+        == "task_positive_warmstart"
+        and len(tasks) == 8
+        and len(set(tasks)) == 8
+        and set(tasks) == expected - {"countdown"}
+    )
+    full_coldstart_suite = (
+        len(tasks) == 9
+        and len(set(tasks)) == 9
+        and set(tasks) == expected
+    )
+    if not (full_coldstart_suite or transfer_only_task_sft_dpo):
+        raise ValueError(
+            "Cold-start suite must be the full nine-task suite or the approved "
+            "task-SFT DPO transfer-only eight-task suite"
+        )
     if set(suite.get("p0_tasks", ())) != expected - {"countdown"}:
         raise ValueError("Cold-start suite.p0_tasks must be the exact eight P0 tasks")
     if tuple(suite.get("external_tasks", ())) != ("countdown",):
-        raise ValueError("Countdown must be the only cold-start external task")
+        raise ValueError("Countdown must remain the sole historical cold-start external task")
     _mapping(suite.get("excluded_tasks"), "suite.excluded_tasks")
 
     _validate_scalar_types(config)
