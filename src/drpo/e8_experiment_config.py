@@ -810,6 +810,15 @@ def is_historical_coldstart_config(config: Mapping[str, Any]) -> bool:
     return experiment_id(config) in HISTORICAL_CONFIG_IDENTITIES
 
 
+def coldstart_runtime_seed(config: Mapping[str, Any]) -> int:
+    """Return the canonical cold-start runtime seed without overloading SFT seed provenance."""
+
+    initialization = _mapping(config.get("initialization"), "initialization")
+    if "canonical_runtime_seed" in initialization:
+        return int(initialization["canonical_runtime_seed"])
+    return int(initialization["seed"])
+
+
 def effective_coldstart_runtime(config: Mapping[str, Any], task: str) -> dict[str, Any]:
     """Resolve the values that the canonical cold-start runtime must actually consume."""
 
@@ -823,7 +832,7 @@ def effective_coldstart_runtime(config: Mapping[str, Any], task: str) -> dict[st
     auxiliary = [int(value) for value in runtime["auxiliary_pass_ks"]]
     pass_k = int(evaluation["pass_k"])
     return {
-        "initialization_seed": int(config["initialization"]["seed"]),
+        "initialization_seed": coldstart_runtime_seed(config),
         "model": {
             "parameterization": str(model["parameterization"]),
             "dtype": str(model["dtype"]),
