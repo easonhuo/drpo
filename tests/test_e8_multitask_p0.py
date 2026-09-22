@@ -3519,6 +3519,33 @@ def test_task_sft_dpo_transfer_suite_has_no_countdown_input_dependency(
     assert args.countdown_validation is None
 
 
+def test_task_sft_dpo_engineering_selftest_does_not_recreate_countdown_inputs(
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
+    )
+    self_config = exp_tuning._engineering_self_test_config(config)
+    assert "countdown_train_rows" not in self_config["split"]
+    assert "countdown_validation_rows" not in self_config["split"]
+
+    (
+        _p0_work_dir,
+        _p0_config_path,
+        countdown_bank,
+        countdown_validation,
+    ) = exp_tuning.e8_selftest._write_engineering_input_fixtures(
+        self_config,
+        tmp_path,
+        bindings=exp_tuning._selftest_bindings(),
+    )
+    assert countdown_bank is None
+    assert countdown_validation is None
+    assert not (tmp_path / "engineering_fixtures" / "countdown").exists()
+
+
 def test_task_sft_dpo_beta_zero_aggregate_counts_one_independent_seed(
     tmp_path: Path,
 ) -> None:
