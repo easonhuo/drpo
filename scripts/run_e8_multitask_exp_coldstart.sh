@@ -133,6 +133,9 @@ done < <(
     'docs/experiments/*.md' \
     'scripts/run_e8_multitask_exp_*.sh' | sort
 )
+if [[ "${CONFIG_REPO_PATH}" == "configs/e8_multitask_task_sft_dpo_96cell.yaml" ]]; then
+  CONFIG_SOURCE_ARGS+=(--source-file docs/scopes/E8_TASK_SFT_DPO_96CELL.md)
+fi
 
 case "${RUN_CLASS}" in
   formal|pilot) ;;
