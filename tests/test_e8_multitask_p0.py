@@ -3630,7 +3630,29 @@ def test_task_sft_dpo_beta_zero_aggregate_counts_one_independent_seed(
     for cell in cells:
         p0.atomic_json(
             tmp_path / "cells" / cell.key / "cell_manifest.json",
-            {"cell_key": cell.key},
+            {
+                "cell_key": cell.key,
+                "policy_initial_state_sha256": "b" * 64,
+                "terminal_trainable_state_sha256": "b" * 64,
+                "reference_initial_state_sha256": "b" * 64,
+                "reference_terminal_state_sha256": "b" * 64,
+                "policy_parameters_changed": False,
+                "optimizer_updates": 0,
+                "optimizer_updates_requested": 0,
+                "terminal_step": 0,
+                "stop_reason": "sft_only_no_dpo_update",
+                "training_seed_applied": False,
+                "effective_training_seed": None,
+                "static_control_single_evaluation_step": 0,
+                "validation_late_window_pass8_mean": 0.25,
+                "validation_late_window_greedy_mean": 0.125,
+                "validation_best_pass8": 0.25,
+                "validation_terminal_pass8": 0.25,
+                "validation_best_greedy": 0.125,
+                "validation_terminal_greedy": 0.125,
+                "validation_best_greedy_valid_rate": 1.0,
+                "validation_terminal_greedy_valid_rate": 1.0,
+            },
         )
 
     spec = exp_tuning._method_spec(exp_tuning.METHOD_DPO)
@@ -3707,6 +3729,28 @@ def test_task_sft_dpo_beta_zero_aggregate_counts_one_independent_seed(
     assert by_seed[5000]["independent_seed"] == "False"
     assert by_seed[5000]["independent_seed_count_contribution"] == "0"
     assert by_seed[5000]["duplicate_control_seed_label"] == "True"
+
+    duplicate_path = tmp_path / "cells" / cells[1].key / "cell_manifest.json"
+    duplicate_manifest = json.loads(duplicate_path.read_text(encoding="utf-8"))
+    duplicate_manifest["terminal_trainable_state_sha256"] = "c" * 64
+    p0.atomic_json(duplicate_path, duplicate_manifest)
+    with pytest.raises(
+        RuntimeError,
+        match="Static no-update control duplicate labels diverged",
+    ):
+        e8_results._aggregate_coldstart_unranked(
+            config,
+            tmp_path,
+            rows,
+            spec=spec,
+            configured_cells=cells,
+            experiment_id_value=exp_tuning.experiment_id(config),
+            protocol_diagnostic={"status": "NOT_RUN"},
+            engineering_self_test=False,
+            positive_only_method=exp_tuning.METHOD_POSITIVE_ONLY,
+            global_method=exp_tuning.METHOD_GLOBAL,
+            write_json=p0.atomic_json,
+        )
 
 
 def test_task_sft_dpo_recovery_identity_binds_adapter_content(
