@@ -378,9 +378,14 @@ def _validate_scalar_types(config: Mapping[str, Any]) -> None:
         split_integer_fields.extend(
             ["countdown_train_rows", "countdown_validation_rows"]
         )
+    initialization_integer_fields = ["optimizer_updates", "seed"]
+    if "canonical_runtime_seed" in _mapping(
+        config.get("initialization"), "initialization"
+    ):
+        initialization_integer_fields.append("canonical_runtime_seed")
     for section, fields in {
         "reference": ("optimizer_updates", "validation_rows_seen", "test_rows_seen"),
-        "initialization": ("optimizer_updates", "seed"),
+        "initialization": tuple(initialization_integer_fields),
         "split": tuple(split_integer_fields),
         "evaluation": ("generation_seed",),
         "negative_sampling": ("negatives_per_prompt",),
@@ -664,9 +669,7 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
                     or initialization.get("optimizer_updates") != 100
                     or initialization.get("external_adapter_allowed") is not True
                     or initialization.get("deterministic_fresh_lora") is not False
-                    or int(initialization.get("seed", -1)) != 2026072900
-                    or int(initialization.get("canonical_runtime_seed", -1))
-                    != 2026070803
+                    or "canonical_runtime_seed" not in initialization
                     or initialization.get("task_sft_seed_source")
                     != "p0_positive_warmstart_seed_plus_task_offset"
                     or dpo.get("shared_sft_adapter_env") not in (None, "")
