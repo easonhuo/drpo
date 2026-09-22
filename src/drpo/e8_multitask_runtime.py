@@ -748,11 +748,28 @@ def terminal_audit(
         if value.get("nan_inf_failure"):
             nan_inf.append(cell.key)
         if not engineering_self_test:
-            if (
-                int(value.get("terminal_step", -1)) != expected_terminal_step
-                or value.get("stop_reason") != "max_steps"
-                or value.get("test_partition_accessed") is not False
-            ):
+            static_dpo_control = (
+                str(cell.method) == "canonical_dpo"
+                and getattr(cell, "beta", None) == 0.0
+                and value.get("control_role") == "sft_only_no_dpo_update"
+                and value.get("zero_beta_control") is True
+            )
+            if static_dpo_control:
+                terminal_contract_ok = (
+                    int(value.get("terminal_step", -1)) == 0
+                    and int(value.get("optimizer_updates", -1)) == 0
+                    and int(value.get("optimizer_updates_requested", -1)) == 0
+                    and value.get("stop_reason") == "sft_only_no_dpo_update"
+                    and value.get("policy_parameters_changed") is False
+                    and value.get("test_partition_accessed") is False
+                )
+            else:
+                terminal_contract_ok = (
+                    int(value.get("terminal_step", -1)) == expected_terminal_step
+                    and value.get("stop_reason") == "max_steps"
+                    and value.get("test_partition_accessed") is False
+                )
+            if not terminal_contract_ok:
                 terminal_contract_failures.append(cell.key)
             method_audit = method_audit_fn(cell, value)
             if not method_audit.passed:

@@ -3404,6 +3404,568 @@ def test_dpo_capability_accepts_shared_sft_initialization_mode() -> None:
     assert config["reference"]["checkpoint_kind"] == "exact_frozen_copy_of_initialized_policy"
 
 
+def test_task_sft_dpo_96cell_config_expands_exact_matrix() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
+    )
+    cells = exp_tuning.build_cells(config)
+    assert len(cells) == config["sweep"]["expected_cells"] == 96
+    assert len({cell.key for cell in cells}) == 96
+    assert {cell.task for cell in cells} == set(config["suite"]["p0_tasks"])
+    assert {cell.method for cell in cells} == {exp_tuning.METHOD_DPO}
+    assert {cell.seed for cell in cells} == {4000, 5000}
+    assert {cell.beta for cell in cells} == {0.0, 0.05, 0.1, 0.2, 0.5, 1.0}
+    assert sum(cell.beta == 0.0 for cell in cells) == 16
+    assert {cell.dpo_initialization for cell in cells} == {
+        "task_positive_warmstart"
+    }
+    assert all(cell.task != "countdown" for cell in cells)
+
+
+def test_task_sft_dpo_reuses_frozen_positive_warmstart_contract() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+    from drpo import e8_multitask_warmstart_training as warmstart
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
+    )
+    warm = warmstart.reference_warmstart_config(
+        config, Path("configs/e8_multitask_p0.yaml")
+    )
+    assert config["initialization"]["source"] == "task_positive_warmstart_100"
+    assert config["initialization"]["optimizer_updates"] == 100
+    assert config["initialization"]["seed"] == 2026072900
+    assert config["initialization"]["canonical_runtime_seed"] == 2026070803
+    effective = exp_tuning.experiment_config.effective_coldstart_runtime(
+        config, "word_sorting"
+    )
+    assert effective["initialization_seed"] == 2026070803
+    assert config["model"]["max_length"] == 512
+    assert config["model"]["max_new_tokens"] == 128
+    assert config["evaluation"]["passk_prompt_rows"] == 128
+    assert config["evaluation"]["batch_size"] == 16
+    assert config["evaluation"]["auxiliary_pass_ks"] == []
+    assert effective["model"]["max_length"] == 512
+    assert effective["model"]["max_new_tokens"] == 128
+    assert effective["evaluation"]["passk_prompt_rows"] == 128
+    assert effective["evaluation"]["batch_size"] == 16
+    assert effective["evaluation"]["auxiliary_pass_ks"] == []
+    assert config["reference"]["checkpoint_kind"] == (
+        "exact_frozen_copy_of_initialized_policy"
+    )
+    assert warm["checkpoint_kind"] == "task_positive_warmstart_100"
+    assert warm["optimizer_updates"] == 100
+    assert warm["seed"] == 2026072900
+    assert warm["lora_rank"] == 32
+    assert warm["lora_alpha"] == 64
+    assert warm["lora_dropout"] == pytest.approx(0.05)
+    assert warm["max_length"] == 512
+
+
+def test_task_sft_dpo_training_seed_uses_reviewed_runtime_seed_without_changing_legacy_modes() -> None:
+    from drpo import e8_multitask_canonical_bridge as canonical_bridge
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
+    )
+    assert config["initialization"]["canonical_runtime_seed"] == 2026070803
+    assert canonical_bridge._dpo_training_seed_base(
+        config,
+        initialization_mode="task_positive_warmstart",
+        legacy_seed_base=123,
+    ) == 2026070803
+    assert canonical_bridge._dpo_training_seed_base(
+        config,
+        initialization_mode="base_model_fresh_lora",
+        legacy_seed_base=123,
+    ) == 123
+    assert canonical_bridge._dpo_training_seed_base(
+        config,
+        initialization_mode="shared_sft_adapter",
+        legacy_seed_base=456,
+    ) == 456
+
+
+def test_task_sft_dpo_transfer_suite_has_no_countdown_input_dependency(
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
+    )
+    assert set(config["suite"]["tasks"]) == set(config["suite"]["p0_tasks"])
+    assert config["suite"]["external_tasks"] == []
+    assert "countdown" not in config["suite"]["tasks"]
+    assert "countdown" not in config["task_runtime"]
+    assert "countdown" not in config["sweep"]["task_beta"]
+    assert "countdown_train_rows" not in config["split"]
+    assert "countdown_validation_rows" not in config["split"]
+
+    p0_config_path = Path("configs/e8_multitask_p0.yaml").resolve()
+    p0_config_value = yaml.safe_load(p0_config_path.read_text(encoding="utf-8"))
+    p0.atomic_json(
+        tmp_path / "qualification_audit.json",
+        {
+            "experiment_id": exp_tuning.PARENT_EXPERIMENT_ID,
+            "config_hash": exp_tuning.stable_config_hash(
+                p0.with_smoke_overrides(
+                    p0_config_value,
+                    rows=None,
+                    negatives=None,
+                )
+            ),
+            "passed": True,
+            "tasks": {
+                task: {"passed": True}
+                for task in config["suite"]["p0_tasks"]
+            },
+        },
+    )
+    (tmp_path / "sources").mkdir(parents=True)
+    for task in config["suite"]["p0_tasks"]:
+        bank = p0.bank_path(tmp_path, task)
+        bank.parent.mkdir(parents=True, exist_ok=True)
+        bank.write_text("{}\n", encoding="utf-8")
+
+    inputs = e8_inputs.resolve_task_inputs(
+        config,
+        p0_work_dir=tmp_path,
+        p0_config=p0_config_path,
+        countdown_bank=None,
+        countdown_validation=None,
+        countdown_adapter=None,
+    )
+    assert set(inputs) == set(config["suite"]["p0_tasks"])
+
+    parser = exp_tuning.make_parser()
+    args = parser.parse_args(
+        [
+            "--config",
+            "configs/e8_multitask_task_sft_dpo_96cell.yaml",
+            "--output-root",
+            str(tmp_path / "out"),
+            "prepare",
+            "--p0-work-dir",
+            str(tmp_path),
+        ]
+    )
+    assert args.countdown_bank is None
+    assert args.countdown_validation is None
+
+
+def test_task_sft_dpo_engineering_selftest_does_not_recreate_countdown_inputs(
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
+    )
+    self_config = exp_tuning._engineering_self_test_config(config)
+    assert "countdown_train_rows" not in self_config["split"]
+    assert "countdown_validation_rows" not in self_config["split"]
+
+    (
+        _p0_work_dir,
+        _p0_config_path,
+        countdown_bank,
+        countdown_validation,
+    ) = exp_tuning.e8_selftest._write_engineering_input_fixtures(
+        self_config,
+        tmp_path,
+        bindings=exp_tuning._selftest_bindings(),
+    )
+    assert countdown_bank is None
+    assert countdown_validation is None
+    assert not (tmp_path / "engineering_fixtures" / "countdown").exists()
+
+
+def test_task_sft_dpo_beta_zero_aggregate_counts_one_independent_seed(
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+    from drpo import e8_multitask_results as e8_results
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
+    )
+    cells = [
+        cell
+        for cell in exp_tuning.build_cells(config)
+        if cell.task == "word_sorting" and cell.beta == 0.0
+    ]
+    assert len(cells) == 2
+
+    rows = []
+    for cell in cells:
+        rows.append(
+            {
+                "cell_key": cell.key,
+                "task": cell.task,
+                "method": cell.method,
+                "dpo_initialization": cell.dpo_initialization,
+                "beta": cell.beta,
+                "lambda": None,
+                "rho": None,
+                "seed": cell.seed,
+                "stage": cell.stage,
+                "nan_inf_failure": False,
+                "late_window_pass8_mean": 0.25,
+                "late_window_greedy_mean": 0.125,
+                "best_pass8": 0.25,
+                "terminal_pass8": 0.25,
+                "best_greedy": 0.125,
+                "terminal_greedy": 0.125,
+                "best_greedy_valid_rate": 1.0,
+                "terminal_greedy_valid_rate": 1.0,
+                "best_step": 0,
+                "terminal_step": 0,
+                "stop_reason": "sft_only_no_dpo_update",
+                "control_role": "sft_only_no_dpo_update",
+                "zero_beta_control": True,
+            }
+        )
+
+    p0.atomic_json(
+        tmp_path / "source_provenance.json",
+        {"source_commit": "a" * 40, "run_id": "task-sft-dpo-test"},
+    )
+    for cell in cells:
+        p0.atomic_json(
+            tmp_path / "cells" / cell.key / "cell_manifest.json",
+            {
+                "cell_key": cell.key,
+                "policy_initial_state_sha256": "b" * 64,
+                "terminal_trainable_state_sha256": "b" * 64,
+                "reference_initial_state_sha256": "b" * 64,
+                "reference_terminal_state_sha256": "b" * 64,
+                "policy_parameters_changed": False,
+                "optimizer_updates": 0,
+                "optimizer_updates_requested": 0,
+                "terminal_step": 0,
+                "stop_reason": "sft_only_no_dpo_update",
+                "training_seed_applied": False,
+                "effective_training_seed": None,
+                "static_control_single_evaluation_step": 0,
+                "validation_late_window_pass8_mean": 0.25,
+                "validation_late_window_greedy_mean": 0.125,
+                "validation_best_pass8": 0.25,
+                "validation_terminal_pass8": 0.25,
+                "validation_best_greedy": 0.125,
+                "validation_terminal_greedy": 0.125,
+                "validation_best_greedy_valid_rate": 1.0,
+                "validation_terminal_greedy_valid_rate": 1.0,
+            },
+        )
+
+    spec = exp_tuning._method_spec(exp_tuning.METHOD_DPO)
+    e8_results._write_coldstart_task_result(
+        config,
+        tmp_path,
+        "word_sorting",
+        rows,
+        configured_cells=cells,
+        method_specs={exp_tuning.METHOD_DPO: spec},
+        experiment_id_value=exp_tuning.experiment_id(config),
+        config_hash=exp_tuning.stable_config_hash(config),
+        engineering_self_test=False,
+        write_json=p0.atomic_json,
+        sha256_fn=exp_tuning.sha256_file,
+    )
+    task_plot_rows = list(
+        csv.DictReader(
+            (tmp_path / "task_results" / "word_sorting" / "plot_curve_points.csv").open(
+                encoding="utf-8"
+            )
+        )
+    )
+    assert len(task_plot_rows) == 2
+    task_by_seed = {int(row["seed"]): row for row in task_plot_rows}
+    assert task_by_seed[4000]["independent_seed"] == "True"
+    assert task_by_seed[4000]["independent_seed_count_contribution"] == "1"
+    assert task_by_seed[5000]["independent_seed"] == "False"
+    assert task_by_seed[5000]["independent_seed_count_contribution"] == "0"
+    assert task_by_seed[5000]["duplicate_control_seed_label"] == "True"
+    task_marker = json.loads(
+        (
+            tmp_path
+            / "task_results"
+            / "word_sorting"
+            / "TASK_COMPLETE.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert task_marker["independent_plot_curve_point_count"] == 1
+
+    summary = e8_results._aggregate_coldstart_unranked(
+        config,
+        tmp_path,
+        rows,
+        spec=spec,
+        configured_cells=cells,
+        experiment_id_value=exp_tuning.experiment_id(config),
+        protocol_diagnostic={"status": "NOT_RUN"},
+        engineering_self_test=False,
+        positive_only_method=exp_tuning.METHOD_POSITIVE_ONLY,
+        global_method=exp_tuning.METHOD_GLOBAL,
+        write_json=p0.atomic_json,
+    )
+
+    point = summary["tasks"]["word_sorting"]["grouped_curve"][0]
+    assert point["configured_seed_labels"] == [4000, 5000]
+    assert point["seeds"] == [4000]
+    assert point["independent_seed_count"] == 1
+    assert point["duplicate_seed_labels"] == [5000]
+    assert point["seed_replication_role"] == "single_static_control_replication"
+    assert summary["independent_plot_curve_point_count"] == 1
+
+    plot_rows = list(
+        csv.DictReader(
+            (tmp_path / "aggregate" / "plot_curve_points.csv").open(
+                encoding="utf-8"
+            )
+        )
+    )
+    assert len(plot_rows) == 2
+    by_seed = {int(row["seed"]): row for row in plot_rows}
+    assert by_seed[4000]["independent_seed"] == "True"
+    assert by_seed[4000]["independent_seed_count_contribution"] == "1"
+    assert by_seed[5000]["independent_seed"] == "False"
+    assert by_seed[5000]["independent_seed_count_contribution"] == "0"
+    assert by_seed[5000]["duplicate_control_seed_label"] == "True"
+
+    duplicate_path = tmp_path / "cells" / cells[1].key / "cell_manifest.json"
+    duplicate_manifest = json.loads(duplicate_path.read_text(encoding="utf-8"))
+    duplicate_manifest["optimizer_updates"] = 1
+    p0.atomic_json(duplicate_path, duplicate_manifest)
+    with pytest.raises(
+        RuntimeError,
+        match="violates its terminal contract",
+    ):
+        e8_results._aggregate_coldstart_unranked(
+            config,
+            tmp_path,
+            rows,
+            spec=spec,
+            configured_cells=cells,
+            experiment_id_value=exp_tuning.experiment_id(config),
+            protocol_diagnostic={"status": "NOT_RUN"},
+            engineering_self_test=False,
+            positive_only_method=exp_tuning.METHOD_POSITIVE_ONLY,
+            global_method=exp_tuning.METHOD_GLOBAL,
+            write_json=p0.atomic_json,
+        )
+
+    duplicate_manifest["optimizer_updates"] = 0
+    duplicate_manifest["terminal_trainable_state_sha256"] = "c" * 64
+    p0.atomic_json(duplicate_path, duplicate_manifest)
+    with pytest.raises(
+        RuntimeError,
+        match="violates its terminal contract",
+    ):
+        e8_results._aggregate_coldstart_unranked(
+            config,
+            tmp_path,
+            rows,
+            spec=spec,
+            configured_cells=cells,
+            experiment_id_value=exp_tuning.experiment_id(config),
+            protocol_diagnostic={"status": "NOT_RUN"},
+            engineering_self_test=False,
+            positive_only_method=exp_tuning.METHOD_POSITIVE_ONLY,
+            global_method=exp_tuning.METHOD_GLOBAL,
+            write_json=p0.atomic_json,
+        )
+
+    for field in (
+        "policy_initial_state_sha256",
+        "terminal_trainable_state_sha256",
+        "reference_initial_state_sha256",
+        "reference_terminal_state_sha256",
+    ):
+        duplicate_manifest[field] = "c" * 64
+    p0.atomic_json(duplicate_path, duplicate_manifest)
+    with pytest.raises(
+        RuntimeError,
+        match="Static no-update control duplicate labels diverged",
+    ):
+        e8_results._aggregate_coldstart_unranked(
+            config,
+            tmp_path,
+            rows,
+            spec=spec,
+            configured_cells=cells,
+            experiment_id_value=exp_tuning.experiment_id(config),
+            protocol_diagnostic={"status": "NOT_RUN"},
+            engineering_self_test=False,
+            positive_only_method=exp_tuning.METHOD_POSITIVE_ONLY,
+            global_method=exp_tuning.METHOD_GLOBAL,
+            write_json=p0.atomic_json,
+        )
+
+
+def test_task_sft_dpo_recovery_identity_binds_adapter_content(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
+    )
+    cell = next(
+        value
+        for value in exp_tuning.build_cells(config)
+        if value.task == "word_sorting" and value.beta == 0.05
+    )
+    adapter = tmp_path / "adapter"
+    state = {"adapter": "first"}
+
+    def fake_model_identity(base_model_path: str, adapter_path: str | None) -> dict:
+        del base_model_path
+        if adapter_path is None:
+            return {"model": {"identity": "base"}}
+        return {"adapter": {"identity": state["adapter"]}}
+
+    monkeypatch.setattr(exp_tuning, "model_identity", fake_model_identity)
+    inputs = exp_tuning.TaskInputs(
+        task=cell.task,
+        bank=tmp_path / "bank.jsonl",
+        reference_adapter=adapter,
+        sources_root=tmp_path,
+        p0_config=Path("configs/e8_multitask_p0.yaml"),
+    )
+    split_manifest = {
+        "tasks": {
+            cell.task: {
+                "bank_sha256": "a" * 64,
+                "prompt_id_hashes": {"train": "b" * 64},
+            }
+        }
+    }
+    calibration = {"identity_hash": "c" * 64}
+
+    first = exp_tuning._cell_identity(
+        cell,
+        inputs=inputs,
+        split_manifest=split_manifest,
+        base_model_path="/model",
+        config=config,
+        calibration=calibration,
+    )
+    state["adapter"] = "second"
+    second = exp_tuning._cell_identity(
+        cell,
+        inputs=inputs,
+        split_manifest=split_manifest,
+        base_model_path="/model",
+        config=config,
+        calibration=calibration,
+    )
+
+    assert first["identity_hash"] != second["identity_hash"]
+    assert first["initialization"]["task_sft_adapter_identity"] == {
+        "identity": "first"
+    }
+    assert second["initialization"]["task_sft_adapter_identity"] == {
+        "identity": "second"
+    }
+
+
+def test_task_sft_dpo_beta_zero_is_no_optimizer_update_control() -> None:
+    from drpo import e8_multitask_canonical_bridge as canonical_bridge
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
+    )
+    assert config["dpo"]["zero_beta_control"] == (
+        "sft_only_no_dpo_optimizer_updates"
+    )
+
+    zero, updates = canonical_bridge._dpo_training_update_plan(
+        beta=0.0,
+        initialization_mode="task_positive_warmstart",
+        configured_updates=1200,
+    )
+    assert zero is True
+    assert updates == 0
+
+    zero, updates = canonical_bridge._dpo_training_update_plan(
+        beta=0.1,
+        initialization_mode="task_positive_warmstart",
+        configured_updates=1200,
+    )
+    assert zero is False
+    assert updates == 1200
+
+    with pytest.raises(
+        RuntimeError,
+        match="reserved for the task-SFT initialization-only control",
+    ):
+        canonical_bridge._dpo_training_update_plan(
+            beta=0.0,
+            initialization_mode="base_model_fresh_lora",
+            configured_updates=1200,
+        )
+
+
+def test_task_sft_dpo_terminal_audit_accepts_zero_update_control(
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
+    )
+    cells = exp_tuning.build_cells(config)
+    p0.atomic_json(
+        tmp_path / "source_provenance.json",
+        {"source_commit": "a" * 40},
+    )
+    for cell in cells:
+        zero = cell.beta == 0.0
+        p0.atomic_json(
+            tmp_path / "cells" / cell.key / "cell_manifest.json",
+            {
+                "complete": True,
+                "evaluation_status": "complete",
+                "nan_inf_failure": False,
+                "terminal_step": 0 if zero else 1200,
+                "optimizer_updates": 0 if zero else 1200,
+                "optimizer_updates_requested": 0 if zero else 1200,
+                "stop_reason": (
+                    "sft_only_no_dpo_update" if zero else "max_steps"
+                ),
+                "control_role": (
+                    "sft_only_no_dpo_update" if zero else None
+                ),
+                "zero_beta_control": zero,
+                "policy_parameters_changed": not zero,
+                "test_partition_accessed": False,
+                "reference_initial_state_sha256": "b" * 64,
+                "reference_terminal_state_sha256": "b" * 64,
+                "reference_trainable": False,
+            },
+        )
+    p0.atomic_json(
+        tmp_path / "aggregate" / "aggregate_summary.json",
+        {"cell_count": len(cells)},
+    )
+    p0.atomic_json(
+        tmp_path / "aggregate" / "countdown_protocol_diagnostic.json",
+        {"status": "NOT_RUN"},
+    )
+
+    audit = exp_tuning.cmd_audit(config, tmp_path)
+
+    assert audit["all_training_and_evaluation_complete"] is True
+    assert audit["terminal_contract_failures"] == []
+
+
 def test_dpo_capability_rejects_zero_beta() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
@@ -3547,10 +4109,13 @@ def test_dpo_transfer_consumes_effective_task_runtime_and_preserves_liveness_ide
     assert 'eval_cfg["batch_size"] = int(effective["evaluation"]["batch_size"])' in source
     assert 'eval_cfg["pass_ks"] = list(effective["evaluation"]["pass_ks"])' in source
     assert 'with self._legacy_arena_runtime_bridge(arena, effective):' in source
-    assert 'warmup_steps = 0 if warmup_ratio == 0.0' in source
+    assert 'warmup_ratio = float(effective["training"]["warmup_ratio"])' in source
+    assert "if warmup_ratio == 0.0" in source
+    assert "max(1, int(updates * warmup_ratio))" in source
     assert 'cell.dpo_initialization != configured_initialization' in source
     assert 'str(final_adapter_dir.resolve())' in source
-    assert '"finite_old_core_updates": numerical_failure is None' in source
+    assert '"finite_old_core_updates": (' in source
+    assert "numerical_failure is None and not zero_beta_control" in source
 
     liveness = inspect.getsource(exp_tuning._canonical_bridge()._cmd_dpo_liveness)
     assert 'result["identity_hash"] = stable_hash(result)' not in liveness
@@ -3972,6 +4537,15 @@ def test_baseline_matrix_one_config_expands_exact_176_cells(tmp_path: Path) -> N
         exp_tuning.METHOD_TOPR,
         exp_tuning.METHOD_DPO,
     }
+
+
+def test_baseline_matrix_rejects_task_positive_warmstart_dpo_mode() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _baseline_matrix_capability_test_config()
+    config["dpo"]["initialization_mode"] = "task_positive_warmstart"
+    with pytest.raises(ValueError, match="single-method task-SFT DPO successor"):
+        exp_tuning.validate_config(config)
 
 
 def test_baseline_matrix_supports_shared_sft_dpo_without_changing_other_initialization() -> None:

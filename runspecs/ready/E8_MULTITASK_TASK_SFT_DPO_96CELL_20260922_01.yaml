@@ -1,0 +1,185 @@
+version: 1
+run_id: E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01
+lane: e8
+priority: 180
+experiment_id: EXT-C-E8-MULTITASK-TASK-SFT-DPO-96CELL-01
+repo_commit: 7b2d185cfb39c565cb3ac7bcf01341b1f418b871
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - docs/scopes/E8_TASK_SFT_DPO_96CELL.md
+    - configs/e8_multitask_task_sft_dpo_96cell.yaml
+    - configs/e8_multitask_p0.yaml
+    - requirements/e8_multitask_exp_coldstart.txt
+    - scripts/bootstrap_e8_multitask_exp_coldstart.sh
+    - scripts/run_e8_multitask_exp_coldstart.sh
+    - scripts/preflight_e8_multitask_config.py
+    - scripts/run_experiment_guard_hardened.py
+    - scripts/package_experiment_hardened.py
+    - scripts/verify_experiment_package_hardened.py
+    - scripts/run_e8_multitask_p0.sh
+    - scripts/v2_bank_convert.py
+    - src/drpo/e8_experiment_config.py
+    - src/drpo/e8_multitask_exp_tuning.py
+    - src/drpo/e8_multitask_canonical_bridge.py
+    - src/drpo/e8_multitask_inputs.py
+    - src/drpo/e8_multitask_orchestration.py
+    - src/drpo/e8_multitask_results.py
+    - src/drpo/e8_multitask_runtime.py
+    - src/drpo/e8_multitask_selftest.py
+    - src/drpo/e8_multitask_warmstart_training.py
+    - src/drpo/e8_multitask_p0.py
+    - src/drpo/e8_multitask_tasks.py
+    - src/drpo/countdown_qwen_arena_onefile.py
+
+purpose: >-
+  Execute the reviewed 96-cell E8 task-SFT canonical-DPO beta-response study
+  exactly as frozen in configs/e8_multitask_task_sft_dpo_96cell.yaml. The run
+  covers only the eight P0 transfer tasks, with one deterministic train-only
+  task-positive SFT warm-start adapter per task, beta values
+  [0.0, 0.05, 0.1, 0.2, 0.5, 1.0], and DPO seed labels 4000 and 5000.
+  Beta zero is an exact SFT-only no-DPO-update control: its two seed labels are
+  duplicate execution rows sharing the same SFT adapter and evaluation seed and
+  contribute one independent static-control replicate per task after the
+  fail-closed duplicate-consistency audit. Positive-beta cells preserve the
+  canonical PR-268 DPO semantics and run for 1200 optimizer updates. Countdown
+  launches no new cell and the test partition remains unopened. This RunSpec is
+  an optional immutable execution snapshot and delivery convenience; it does not
+  authorize convergence, statistical significance, asymptotic claims, or a
+  universal method ranking.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    E8_COLDSTART_EXISTING_REPO=.
+    E8_COLDSTART_BOOTSTRAP_ROOT=/root/drpo-e8-task-sft-dpo-96cell-runspec-20260922-01
+    E8_COLDSTART_TARGET_REF=refs/heads/main
+    E8_COLDSTART_EXPERIMENT_ID=EXT-C-E8-MULTITASK-TASK-SFT-DPO-96CELL-01
+    E8_COLDSTART_CONFIG=configs/e8_multitask_task_sft_dpo_96cell.yaml
+    E8_COLDSTART_RUN_ID=E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01
+    E8_COLDSTART_RUN_CLASS=formal
+    E8_COLDSTART_REQUIRE_ORIGIN_MAIN=1
+    E8_COLDSTART_GUARD_ROOT=outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/guard
+    E8_COLDSTART_RECOVERY_ROOT=outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/recovery
+    bash scripts/bootstrap_e8_multitask_exp_coldstart.sh full
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: >-
+    E8_COLDSTART_EXISTING_REPO=.
+    E8_COLDSTART_BOOTSTRAP_ROOT=/root/drpo-e8-task-sft-dpo-96cell-runspec-20260922-01
+    E8_COLDSTART_TARGET_REF=refs/heads/main
+    E8_COLDSTART_EXPERIMENT_ID=EXT-C-E8-MULTITASK-TASK-SFT-DPO-96CELL-01
+    E8_COLDSTART_CONFIG=configs/e8_multitask_task_sft_dpo_96cell.yaml
+    E8_COLDSTART_RUN_ID=E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01
+    E8_COLDSTART_RUN_CLASS=formal
+    E8_COLDSTART_REQUIRE_ORIGIN_MAIN=1
+    E8_COLDSTART_GUARD_ROOT=outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/guard
+    E8_COLDSTART_RECOVERY_ROOT=outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/recovery
+    bash scripts/bootstrap_e8_multitask_exp_coldstart.sh full
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/recovery/ATTEMPT_STATE.env
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/recovery/CONFIG_PREFLIGHT.json
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/recovery/SETUP_COMPLETE.json
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/guard/attempt-*/workload/scheduler/dynamic_run.json
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/guard/attempt-*/workload/aggregate/plot_curve_points.csv
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/guard/attempt-*/workload/terminal_audit.json
+  backoff_seconds: 60
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  fixed_profile_only: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  formal_evidence_allowed: true
+
+outputs:
+  run_dir: outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01
+
+success_criteria:
+  - execution resolves refs/heads/main through the canonical easonhuo/drpo origin and uses a clean isolated checkout
+  - protected scientific paths remain unchanged from repo_commit 7b2d185cfb39c565cb3ac7bcf01341b1f418b871
+  - experiment identity is EXT-C-E8-MULTITASK-TASK-SFT-DPO-96CELL-01 and execution class is formal
+  - tracked config expands to exactly 96 unique scientific cells across the eight P0 transfer tasks only
+  - countdown launches zero new scientific cells
+  - every task uses beta values exactly 0.0, 0.05, 0.1, 0.2, 0.5, and 1.0 with seed labels exactly 4000 and 5000
+  - each task reuses one deterministic train-only task_positive_warmstart_100 adapter with 100 SFT optimizer updates and the frozen P0 warm-start recipe
+  - task-SFT seed identity remains P0 base seed 2026072900 plus the existing deterministic task offset
+  - canonical reference-bank and DPO runtime seed base remains 2026070803
+  - beta zero performs zero DPO optimizer updates and preserves exact initial-policy, terminal-policy, and frozen-reference state-hash equality
+  - the two beta-zero seed labels per task must agree on the zero-update terminal contract and measured step-zero validation metrics before aggregation collapses them to one independent replicate
+  - beta-zero grouped statistics expose effective independent seed count one and do not fabricate seed uncertainty, pair-margin probes, gradient probes, or optimizer-step probes
+  - positive-beta cells preserve canonical PR-268 chosen/rejected construction, summed completion log probability, exact frozen initial-policy reference, pair margin, softplus or sigmoid DPO loss, zero label smoothing, and prompt-balanced unique-negative aggregation
+  - positive-beta cells use exactly 1200 optimizer updates with the frozen optimizer, evaluation cadence, max-length, and held-out-validation contracts
+  - no hard-negative mining, near or far selection, distance taper, value network, or current-policy-surprisal training weight is introduced into DPO
+  - execution preserves GPU ids 0 through 7, two cells per GPU, 16 maximum concurrent cells, dynamic scheduling, and the frozen six-wave geometry
+  - test_data_used remains false and the test partition remains unopened
+  - the hardened E8 runner returns zero only after required workload completion, terminal audit, source and config provenance, and guarded-package checks
+  - task performance, valid or structure diagnostics, and NaN or Inf numerical failure remain separate report dimensions
+  - fixed 1200 updates are not described as convergence or steady state
+  - no statistical-significance, asymptotic, universal-superiority, or method-ranking claim is inferred without the terminal audit and separate reviewed analysis
+  - completed text-first evidence is delivered to drpo-results ingest/e8
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/recovery/*.json
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/recovery/*.env
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/recovery/*.log
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/guard/attempt-*/*.json
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/guard/attempt-*/logs/*.log
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/guard/attempt-*/workload/*.json
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/guard/attempt-*/workload/aggregate/*.json
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/guard/attempt-*/workload/aggregate/*.csv
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/guard/attempt-*/workload/task_results/**/*.json
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/guard/attempt-*/workload/task_results/**/*.csv
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/guard/attempt-*/workload/calibration/*.json
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/guard/attempt-*/workload/liveness/**/*.json
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/guard/attempt-*/workload/cells/*/cell_manifest.json
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/guard/attempt-*/workload/cells/*/canonical/manifest.json
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/guard/attempt-*/workload/cells/*/canonical/metrics.csv
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/guard/attempt-*/workload/cells/*/canonical/summary.json
+    - outputs/e8/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/guard/attempt-*/workload/scheduler/*.json
+    - .runspec_state/logs/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/**/*.json
+    - .runspec_state/logs/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/**/*.log
+    - .runspec_state/logs/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01/**/*.txt
+  exclude:
+    - "**/*.pt"
+    - "**/*.pth"
+    - "**/*.ckpt"
+    - "**/*.safetensors"
+    - "**/*.bin"
+    - "**/adapter/**"
+    - "**/best_pass8_adapter/**"
+    - "**/terminal_adapter/**"
+    - "**/checkpoint*"
+    - "**/checkpoints/**"
+    - "**/optimizer*"
+    - "**/wandb/**"
+    - "**/training_diagnostics.jsonl"
+    - "**/validation_diagnostics.jsonl"
+  max_package_size_mb: 100
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e8
+  export_profile: manifest_text_v1
+  max_total_size_mb: 30
+  max_file_size_mb: 10
+
+publish:
+  enabled: false
+  auto: false

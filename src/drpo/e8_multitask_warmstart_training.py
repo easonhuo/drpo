@@ -88,6 +88,22 @@ def _is_coldstart(config: Mapping[str, Any]) -> bool:
     )
 
 
+def _is_task_sft_dpo(config: Mapping[str, Any]) -> bool:
+    return (
+        _is_coldstart(config)
+        and experiment_config.coldstart_method(config)
+        == experiment_config.COLDSTART_METHOD_DPO
+        and str(config.get("dpo", {}).get("initialization_mode", ""))
+        == "task_positive_warmstart"
+    )
+
+
+def _reference_checkpoint_kind(config: Mapping[str, Any]) -> str:
+    if _is_task_sft_dpo(config):
+        return "task_positive_warmstart_100"
+    return str(config["reference"]["checkpoint_kind"])
+
+
 def _seed_everything(seed: int) -> None:
     import random
 
@@ -154,21 +170,40 @@ def reference_warmstart_config(
         raise RuntimeError("Unexpected inherited P0 checkpoint kind")
     if str(inherited.get("parameterization")) != "lora":
         raise RuntimeError("P0 reference preparation must inherit LoRA parameterization")
-    if int(inherited.get("optimizer_updates", 0)) != int(
-        config["reference"]["optimizer_updates"]
-    ):
+    expected_updates = int(
+        config["initialization"]["optimizer_updates"]
+        if _is_task_sft_dpo(config)
+        else config["reference"]["optimizer_updates"]
+    )
+    if int(inherited.get("optimizer_updates", 0)) != expected_updates:
         raise RuntimeError("Inherited P0 reference optimizer-update contract mismatch")
+    if (
+        _is_task_sft_dpo(config)
+        and int(inherited.get("seed", -1)) != int(config["initialization"]["seed"])
+    ):
+        raise RuntimeError("Inherited P0 task-SFT seed contract mismatch")
     if (
         int(inherited.get("micro_batch", 0)) != 2
         or int(inherited.get("gradient_accumulation", 0)) != 32
     ):
         raise RuntimeError("Inherited reference warm start must remain 2 x 32")
 
+    warmstart_max_length = int(config["model"]["max_length"])
+    if _is_task_sft_dpo(config):
+        p0_lengths = {
+            int(config["task_runtime"][str(task)]["max_length"])
+            for task in config["suite"]["p0_tasks"]
+        }
+        if len(p0_lengths) != 1:
+            raise RuntimeError(
+                "Task-SFT DPO requires one shared P0 warm-start max_length contract"
+            )
+        warmstart_max_length = next(iter(p0_lengths))
     model_contract = {
         "lora_rank": int(config["model"]["lora_rank"]),
         "lora_alpha": int(config["model"]["lora_alpha"]),
         "lora_dropout": float(config["model"]["lora_dropout"]),
-        "max_length": int(config["model"]["max_length"]),
+        "max_length": warmstart_max_length,
         "gradient_checkpointing": bool(config["model"]["gradient_checkpointing"]),
         "dtype": str(config["model"]["dtype"]),
     }
@@ -183,7 +218,7 @@ def reference_warmstart_config(
     if inherited_contract != model_contract:
         raise RuntimeError("Inherited P0 LoRA/model contract does not match tuning config")
 
-    inherited["checkpoint_kind"] = str(config["reference"]["checkpoint_kind"])
+    inherited["checkpoint_kind"] = _reference_checkpoint_kind(config)
     return inherited
 
 
@@ -232,7 +267,7 @@ def reference_manifest_payload(
         "experiment_id": experiment_config.experiment_id(config),
         "config_hash": stable_config_hash(config),
         "base_model_identity": base_model_identity,
-        "checkpoint_kind": str(config["reference"]["checkpoint_kind"]),
+        "checkpoint_kind": _reference_checkpoint_kind(config),
         "tasks": dict(tasks),
         "complete": complete,
         "validation_rows_seen": 0,
@@ -250,7 +285,7 @@ def validate_reference_manifest_header(
     if (
         manifest.get("experiment_id") != experiment_config.experiment_id(config)
         or manifest.get("config_hash") != stable_config_hash(config)
-        or manifest.get("checkpoint_kind") != config["reference"]["checkpoint_kind"]
+        or manifest.get("checkpoint_kind") != _reference_checkpoint_kind(config)
         or manifest.get("base_model_identity") != base_model_identity
         or int(manifest.get("validation_rows_seen", -1)) != 0
         or int(manifest.get("test_rows_seen", -1)) != 0
@@ -464,7 +499,7 @@ def attach_references(
     attached: dict[str, TaskInputs] = {}
     for task, value in inputs.items():
         if task == "countdown":
-            if value.reference_adapter is None:
+            if not _is_task_sft_dpo(config) and value.reference_adapter is None:
                 raise RuntimeError("Countdown supplied reference adapter is missing")
             attached[task] = value
             continue
@@ -521,6 +556,17 @@ def load_ready_inputs(
 ) -> tuple[dict[str, Any], dict[str, TaskInputs]]:
     splits, inputs = e8_inputs.load_prepared_inputs(output_root, config)
     if _is_coldstart(config):
+        if _is_task_sft_dpo(config):
+            if bool(config.get("engineering_self_test", {}).get("placeholder_backend", False)):
+                return splits, inputs
+            return splits, attach_references(
+                output_root,
+                config,
+                splits,
+                inputs,
+                base_model_path=base_model_path,
+                model_identity_fn=model_identity_fn,
+            )
         if any(value.reference_adapter is not None for value in inputs.values()):
             raise RuntimeError(
                 "Cold-start prepared inputs must not contain external adapters"
@@ -1115,7 +1161,7 @@ def calibrate_task(
         raise RuntimeError(f"Existing calibration identity mismatch for {task}")
 
     initialization_seed = (
-        int(config["initialization"]["seed"])
+        experiment_config.coldstart_runtime_seed(config)
         if _is_coldstart(config)
         else int(config["remoteness_calibration"]["seed"])
     )

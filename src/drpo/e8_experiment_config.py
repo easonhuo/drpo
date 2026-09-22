@@ -365,17 +365,28 @@ def task_transfer_seeds(config: Mapping[str, Any]) -> tuple[int, ...]:
 
 
 def _validate_scalar_types(config: Mapping[str, Any]) -> None:
+    configured_tasks = {
+        str(value) for value in config.get("suite", {}).get("tasks", ())
+    }
+    split_integer_fields = [
+        "p0_train_rows",
+        "p0_validation_rows",
+        "p0_test_rows",
+        "hash_seed",
+    ]
+    if "countdown" in configured_tasks:
+        split_integer_fields.extend(
+            ["countdown_train_rows", "countdown_validation_rows"]
+        )
+    initialization_integer_fields = ["optimizer_updates", "seed"]
+    if "canonical_runtime_seed" in _mapping(
+        config.get("initialization"), "initialization"
+    ):
+        initialization_integer_fields.append("canonical_runtime_seed")
     for section, fields in {
         "reference": ("optimizer_updates", "validation_rows_seen", "test_rows_seen"),
-        "initialization": ("optimizer_updates", "seed"),
-        "split": (
-            "p0_train_rows",
-            "p0_validation_rows",
-            "p0_test_rows",
-            "countdown_train_rows",
-            "countdown_validation_rows",
-            "hash_seed",
-        ),
+        "initialization": tuple(initialization_integer_fields),
+        "split": tuple(split_integer_fields),
         "evaluation": ("generation_seed",),
         "negative_sampling": ("negatives_per_prompt",),
     }.items():
@@ -403,11 +414,14 @@ def _validate_scalar_types(config: Mapping[str, Any]) -> None:
         for field in fields:
             _integer(values.get(field), f"{section}.{field}", positive=True)
 
+    split_boolean_fields = ["test_access_allowed"]
+    if "countdown" in configured_tasks:
+        split_boolean_fields.append("countdown_subsampling_forbidden")
     for section, fields in {
         "parent": ("qualified_banks_required",),
         "initialization": ("external_adapter_allowed", "deterministic_fresh_lora"),
         "model": ("gradient_checkpointing",),
-        "split": ("test_access_allowed", "countdown_subsampling_forbidden"),
+        "split": tuple(split_boolean_fields),
         "training": ("early_stopping", "terminal_adapter_required"),
         "negative_sampling": (
             "near_far_selection",
@@ -613,7 +627,11 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
     def validate_dpo(*, bind_global_initialization: bool) -> None:
         dpo = _mapping(config.get("dpo"), "dpo")
         mode = str(dpo.get("initialization_mode", ""))
-        if mode not in {"base_model_fresh_lora", "shared_sft_adapter"}:
+        if mode not in {
+            "base_model_fresh_lora",
+            "shared_sft_adapter",
+            "task_positive_warmstart",
+        }:
             raise ValueError("DPO initialization_mode is not implemented")
         if bind_global_initialization:
             common_reference = (
@@ -633,7 +651,7 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
                     or dpo.get("shared_sft_adapter_env") not in (None, "")
                 ):
                     raise ValueError("Cold-start DPO fresh-LoRA initialization contract drifted")
-            else:
+            elif mode == "shared_sft_adapter":
                 if (
                     reference.get("checkpoint_kind") != "exact_frozen_copy_of_initialized_policy"
                     or initialization.get("source") != "shared_sft_adapter"
@@ -644,10 +662,32 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
                     or not str(dpo.get("shared_sft_adapter_env")).strip()
                 ):
                     raise ValueError("Shared-SFT DPO initialization contract drifted")
+            else:
+                if (
+                    reference.get("checkpoint_kind") != "exact_frozen_copy_of_initialized_policy"
+                    or initialization.get("source") != "task_positive_warmstart_100"
+                    or initialization.get("optimizer_updates") != 100
+                    or initialization.get("external_adapter_allowed") is not True
+                    or initialization.get("deterministic_fresh_lora") is not False
+                    or "canonical_runtime_seed" not in initialization
+                    or initialization.get("task_sft_seed_source")
+                    != "p0_positive_warmstart_seed_plus_task_offset"
+                    or dpo.get("shared_sft_adapter_env") not in (None, "")
+                    or dpo.get("zero_beta_control")
+                    != "sft_only_no_dpo_optimizer_updates"
+                ):
+                    raise ValueError("Task-SFT DPO initialization contract drifted")
         else:
+            if mode == "task_positive_warmstart":
+                raise ValueError(
+                    "Task-positive-warmstart DPO is implemented only by the single-method "
+                    "task-SFT DPO successor, not the baseline matrix"
+                )
             if mode == "base_model_fresh_lora":
                 if dpo.get("shared_sft_adapter_env") not in (None, ""):
-                    raise ValueError("Baseline-matrix fresh-LoRA DPO may not name a shared adapter")
+                    raise ValueError(
+                        "Baseline-matrix fresh-LoRA DPO may not name a shared adapter"
+                    )
             elif (
                 not isinstance(dpo.get("shared_sft_adapter_env"), str)
                 or not str(dpo.get("shared_sft_adapter_env")).strip()
@@ -656,7 +696,7 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
         if mode == "shared_sft_adapter":
             validate_shared_sft_adapter_contract(dpo)
         elif dpo.get("shared_sft_adapter_contract") not in (None, {}):
-            raise ValueError("Fresh-LoRA DPO may not carry a shared-SFT adapter contract")
+            raise ValueError("Non-shared DPO may not carry a shared-SFT adapter contract")
         if (
             dpo.get("policy_adapter") != "default"
             or dpo.get("reference_adapter") != "reference"
@@ -695,7 +735,10 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
 
     if config["split"].get("test_access_allowed") is not False:
         raise ValueError("Tuning must forbid test access")
-    if config["split"].get("countdown_subsampling_forbidden") is not True:
+    if (
+        "countdown" in set(config["suite"]["tasks"])
+        and config["split"].get("countdown_subsampling_forbidden") is not True
+    ):
         raise ValueError("Countdown subsampling is not implemented by this cold-start family")
     if config["training"].get("early_stopping") is not False:
         raise ValueError("Early stopping is not implemented by this cold-start runner")
@@ -792,6 +835,15 @@ def is_historical_coldstart_config(config: Mapping[str, Any]) -> bool:
     return experiment_id(config) in HISTORICAL_CONFIG_IDENTITIES
 
 
+def coldstart_runtime_seed(config: Mapping[str, Any]) -> int:
+    """Return the canonical cold-start runtime seed without overloading SFT seed provenance."""
+
+    initialization = _mapping(config.get("initialization"), "initialization")
+    if "canonical_runtime_seed" in initialization:
+        return int(initialization["canonical_runtime_seed"])
+    return int(initialization["seed"])
+
+
 def effective_coldstart_runtime(config: Mapping[str, Any], task: str) -> dict[str, Any]:
     """Resolve the values that the canonical cold-start runtime must actually consume."""
 
@@ -805,7 +857,7 @@ def effective_coldstart_runtime(config: Mapping[str, Any], task: str) -> dict[st
     auxiliary = [int(value) for value in runtime["auxiliary_pass_ks"]]
     pass_k = int(evaluation["pass_k"])
     return {
-        "initialization_seed": int(config["initialization"]["seed"]),
+        "initialization_seed": coldstart_runtime_seed(config),
         "model": {
             "parameterization": str(model["parameterization"]),
             "dtype": str(model["dtype"]),
@@ -847,44 +899,45 @@ def _validate_runtime_authority_consistency(
     config: Mapping[str, Any], tasks: tuple[str, ...]
 ) -> None:
     runtime = config["task_runtime"]
-    countdown = runtime["countdown"]
     model = config["model"]
     evaluation = config["evaluation"]
-    expected_pairs = (
-        (model["max_length"], countdown["max_length"], "model.max_length"),
-        (model["max_new_tokens"], countdown["max_new_tokens"], "model.max_new_tokens"),
-        (
-            evaluation["max_new_tokens"],
-            countdown["max_new_tokens"],
-            "evaluation.max_new_tokens",
-        ),
-        (
-            evaluation["batch_size"],
-            countdown["evaluation_batch_size"],
-            "evaluation.batch_size",
-        ),
-        (
-            evaluation["greedy_prompt_rows"],
-            countdown["greedy_prompt_rows"],
-            "evaluation.greedy_prompt_rows",
-        ),
-        (
-            evaluation["passk_prompt_rows"],
-            countdown["passk_prompt_rows"],
-            "evaluation.passk_prompt_rows",
-        ),
-    )
-    for configured, task_value, label in expected_pairs:
-        if int(configured) != int(task_value):
-            raise ValueError(f"{label} must match task_runtime.countdown")
-    if tuple(int(value) for value in evaluation["auxiliary_pass_ks"]) != tuple(
-        int(value) for value in countdown["auxiliary_pass_ks"]
-    ):
-        raise ValueError("evaluation.auxiliary_pass_ks must match task_runtime.countdown")
-    if int(countdown["greedy_prompt_rows"]) != int(countdown["passk_prompt_rows"]):
-        raise ValueError(
-            "Countdown canonical evaluator currently requires equal greedy/pass-k prompt budgets"
+    if "countdown" in tasks:
+        countdown = runtime["countdown"]
+        expected_pairs = (
+            (model["max_length"], countdown["max_length"], "model.max_length"),
+            (model["max_new_tokens"], countdown["max_new_tokens"], "model.max_new_tokens"),
+            (
+                evaluation["max_new_tokens"],
+                countdown["max_new_tokens"],
+                "evaluation.max_new_tokens",
+            ),
+            (
+                evaluation["batch_size"],
+                countdown["evaluation_batch_size"],
+                "evaluation.batch_size",
+            ),
+            (
+                evaluation["greedy_prompt_rows"],
+                countdown["greedy_prompt_rows"],
+                "evaluation.greedy_prompt_rows",
+            ),
+            (
+                evaluation["passk_prompt_rows"],
+                countdown["passk_prompt_rows"],
+                "evaluation.passk_prompt_rows",
+            ),
         )
+        for configured, task_value, label in expected_pairs:
+            if int(configured) != int(task_value):
+                raise ValueError(f"{label} must match task_runtime.countdown")
+        if tuple(int(value) for value in evaluation["auxiliary_pass_ks"]) != tuple(
+            int(value) for value in countdown["auxiliary_pass_ks"]
+        ):
+            raise ValueError("evaluation.auxiliary_pass_ks must match task_runtime.countdown")
+        if int(countdown["greedy_prompt_rows"]) != int(countdown["passk_prompt_rows"]):
+            raise ValueError(
+                "Countdown canonical evaluator currently requires equal greedy/pass-k prompt budgets"
+            )
     if int(evaluation["pass_k"]) != 8:
         raise ValueError("Cold-start canonical reporting currently implements pass_k=8")
     for task in tasks:
@@ -916,7 +969,12 @@ def _validate_method_grid(
         if len(set(values)) != len(values):
             raise ValueError(f"{task} {method} parameter grid contains duplicates")
         if method == COLDSTART_METHOD_DPO and any(value <= 0.0 for value in values):
-            raise ValueError(f"{task} canonical DPO beta values must be strictly positive")
+            mode = str(_mapping(config.get("dpo"), "dpo").get("initialization_mode", ""))
+            if any(value < 0.0 for value in values) or mode != "task_positive_warmstart":
+                raise ValueError(
+                    f"{task} canonical DPO beta values must be strictly positive unless "
+                    "task_positive_warmstart uses beta=0 as the SFT-only control"
+                )
 
 
 def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
@@ -1016,7 +1074,11 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
         )
     else:
         _validate_method_grid(config, tasks, method=method, sweep=sweep)
-        countdown_values = task_method_values(config, "countdown", method=method)
+        countdown_values = (
+            task_method_values(config, "countdown", method=method)
+            if "countdown" in tasks
+            else ()
+        )
         if method == COLDSTART_METHOD_DPO and countdown_values:
             raise ValueError("Current multitask DPO capability intentionally excludes Countdown cells")
         if method == COLDSTART_METHOD_EXPONENTIAL and any(
@@ -1181,12 +1243,32 @@ def validate_coldstart_config(config: Mapping[str, Any]) -> None:
     suite = _mapping(config.get("suite"), "suite")
     tasks = tuple(str(task) for task in suite.get("tasks", ()))
     expected = set(TASK_NAMES)
-    if len(tasks) != 9 or len(set(tasks)) != 9 or set(tasks) != expected:
-        raise ValueError("Cold-start suite must be Countdown plus the exact eight P0 tasks")
+    transfer_only_task_sft_dpo = (
+        coldstart_method(config) == COLDSTART_METHOD_DPO
+        and str(_mapping(config.get("dpo"), "dpo").get("initialization_mode", ""))
+        == "task_positive_warmstart"
+        and len(tasks) == 8
+        and len(set(tasks)) == 8
+        and set(tasks) == expected - {"countdown"}
+    )
+    full_coldstart_suite = (
+        len(tasks) == 9
+        and len(set(tasks)) == 9
+        and set(tasks) == expected
+    )
+    if not (full_coldstart_suite or transfer_only_task_sft_dpo):
+        raise ValueError(
+            "Cold-start suite must be the full nine-task suite or the approved "
+            "task-SFT DPO transfer-only eight-task suite"
+        )
     if set(suite.get("p0_tasks", ())) != expected - {"countdown"}:
         raise ValueError("Cold-start suite.p0_tasks must be the exact eight P0 tasks")
-    if tuple(suite.get("external_tasks", ())) != ("countdown",):
-        raise ValueError("Countdown must be the only cold-start external task")
+    external_tasks = tuple(str(value) for value in suite.get("external_tasks", ()))
+    if transfer_only_task_sft_dpo:
+        if external_tasks:
+            raise ValueError("Transfer-only task-SFT DPO must have no active external tasks")
+    elif external_tasks != ("countdown",):
+        raise ValueError("Countdown must remain the sole external task for the full cold-start suite")
     _mapping(suite.get("excluded_tasks"), "suite.excluded_tasks")
 
     _validate_scalar_types(config)

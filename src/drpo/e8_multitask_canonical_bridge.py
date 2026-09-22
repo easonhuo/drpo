@@ -113,6 +113,35 @@ class CanonicalBridge:
     _cmd_canonical_cold_liveness: Callable[..., Any]
 
 
+def _dpo_training_seed_base(
+    config: Mapping[str, Any],
+    *,
+    initialization_mode: str,
+    legacy_seed_base: int,
+) -> int:
+    """Keep historical DPO seed semantics unless task-SFT separates the seed roles."""
+
+    if initialization_mode == "task_positive_warmstart":
+        return experiment_config.coldstart_runtime_seed(config)
+    return int(legacy_seed_base)
+
+
+def _dpo_training_update_plan(
+    *,
+    beta: float,
+    initialization_mode: str,
+    configured_updates: int,
+) -> tuple[bool, int]:
+    """Resolve the exact beta-zero control without entering the optimizer path."""
+
+    zero_beta_control = math.isclose(beta, 0.0, rel_tol=0.0, abs_tol=0.0)
+    if zero_beta_control and initialization_mode != "task_positive_warmstart":
+        raise RuntimeError(
+            "DPO beta=0 is reserved for the task-SFT initialization-only control"
+        )
+    return zero_beta_control, 0 if zero_beta_control else int(configured_updates)
+
+
 class _CanonicalBridgeImpl:
     """Call-scoped canonical bridge implementation with explicit host dependencies."""
 
@@ -557,7 +586,7 @@ class _CanonicalBridgeImpl:
     def _dpo_shared_sft_adapter_identity(self, config: Mapping[str, Any]) -> dict[str, Any] | None:
         dpo = config["dpo"]
         mode = str(dpo["initialization_mode"])
-        if mode == "base_model_fresh_lora":
+        if mode != "shared_sft_adapter":
             return None
         contract = dpo["shared_sft_adapter_contract"]
         env_name = str(dpo["shared_sft_adapter_env"])
@@ -764,6 +793,14 @@ class _CanonicalBridgeImpl:
         shared_adapter = (
             None if shared_adapter_record is None else Path(str(shared_adapter_record["path"]))
         )
+        task_sft_adapter = None
+        if configured_initialization == "task_positive_warmstart":
+            if inputs.reference_adapter is None:
+                raise RuntimeError(
+                    f"Task-SFT DPO initialization adapter is missing for {cell.task}"
+                )
+            task_sft_adapter = inputs.reference_adapter.resolve()
+        initial_adapter = shared_adapter if shared_adapter is not None else task_sft_adapter
         identity = self._cell_identity(
             cell,
             inputs=inputs,
@@ -835,8 +872,19 @@ class _CanonicalBridgeImpl:
         updates = int(updates_override or effective["training"]["optimizer_updates"])
         eval_every = int(effective["training"]["evaluation_every_updates"])
         log_every = int(train_cfg["log_every"])
-        seed = int(train_cfg["seed"]) + int(cell.seed)
+        legacy_training_seed_base = int(train_cfg["seed"])
+        training_seed_base = _dpo_training_seed_base(
+            config,
+            initialization_mode=configured_initialization,
+            legacy_seed_base=legacy_training_seed_base,
+        )
+        seed = training_seed_base + int(cell.seed)
         beta = float(cell.beta)
+        zero_beta_control, training_updates = _dpo_training_update_plan(
+            beta=beta,
+            initialization_mode=configured_initialization,
+            configured_updates=updates,
+        )
         arena.seed_all(seed)
 
         validation_rows = [] if engineering_liveness else read_jsonl(validation)
@@ -867,28 +915,30 @@ class _CanonicalBridgeImpl:
                 arena.evaluate_rows = evaluator
 
             tokenizer = arena.load_tokenizer(str(Path(base_model_path).resolve()))
-            train_rows = arena.read_jsonl(bank)
-            dataset = paper_common.ContinuousUniqueBankDataset(
-                train_rows,
-                tokenizer,
-                int(effective["model"]["max_length"]),
-            )
-            generator = self.torch.Generator().manual_seed(seed)
-            loader = self.DataLoader(
-                dataset,
-                batch_size=int(effective["training"]["micro_batch"]),
-                shuffle=True,
-                generator=generator,
-                collate_fn=paper_common.make_continuous_unique_bank_collator(
-                    tokenizer.pad_token_id
-                ),
-                num_workers=int(train_cfg["num_workers"]),
-            )
-            iterator = iter(loader)
+            iterator = None
+            if not zero_beta_control:
+                train_rows = arena.read_jsonl(bank)
+                dataset = paper_common.ContinuousUniqueBankDataset(
+                    train_rows,
+                    tokenizer,
+                    int(effective["model"]["max_length"]),
+                )
+                generator = self.torch.Generator().manual_seed(seed)
+                loader = self.DataLoader(
+                    dataset,
+                    batch_size=int(effective["training"]["micro_batch"]),
+                    shuffle=True,
+                    generator=generator,
+                    collate_fn=paper_common.make_continuous_unique_bank_collator(
+                        tokenizer.pad_token_id
+                    ),
+                    num_workers=int(train_cfg["num_workers"]),
+                )
+                iterator = iter(loader)
             with self._legacy_arena_runtime_bridge(arena, effective):
                 model = arena.load_model(
                     str(Path(base_model_path).resolve()),
-                    adapter_path=None if shared_adapter is None else str(shared_adapter),
+                    adapter_path=None if initial_adapter is None else str(initial_adapter),
                     trainable_adapter=True,
                     load_in_4bit=bool(model_cfg.get("load_in_4bit", False)),
                     dtype=str(effective["model"]["dtype"]),
@@ -928,19 +978,27 @@ class _CanonicalBridgeImpl:
             reference_initial_sha256 = self._parameter_sequence_sha256(reference_parameters)
             if policy_initial_sha256 != reference_initial_sha256:
                 raise RuntimeError("DPO policy/reference exact initialization copy failed")
-            optimizer = self.torch.optim.AdamW(
-                policy_parameters,
-                lr=float(effective["training"]["learning_rate"]),
-                weight_decay=float(effective["training"]["weight_decay"]),
-            )
-            warmup_ratio = float(effective["training"]["warmup_ratio"])
-            warmup_steps = 0 if warmup_ratio == 0.0 else max(1, int(updates * warmup_ratio))
-            scheduler = arena.get_cosine_schedule_with_warmup(
-                optimizer,
-                warmup_steps,
-                updates,
-            )
-            device = next(model.parameters()).device
+            optimizer = None
+            scheduler = None
+            device = None
+            if not zero_beta_control:
+                optimizer = self.torch.optim.AdamW(
+                    policy_parameters,
+                    lr=float(effective["training"]["learning_rate"]),
+                    weight_decay=float(effective["training"]["weight_decay"]),
+                )
+                warmup_ratio = float(effective["training"]["warmup_ratio"])
+                warmup_steps = (
+                    0
+                    if warmup_ratio == 0.0
+                    else max(1, int(updates * warmup_ratio))
+                )
+                scheduler = arena.get_cosine_schedule_with_warmup(
+                    optimizer,
+                    warmup_steps,
+                    updates,
+                )
+                device = next(model.parameters()).device
             model.eval()
             training_path = cell_root / "training_metrics.jsonl"
             evaluation_path = cell_root / "evaluation_metrics.jsonl"
@@ -952,7 +1010,9 @@ class _CanonicalBridgeImpl:
             initial_pair_margin_max_abs: float | None = None
             tolerance = float(config["dpo"]["initial_pair_margin_max_abs_tolerance"])
             numerical_failure: str | None = None
-            stop_reason = "max_steps"
+            stop_reason = (
+                "sft_only_no_dpo_update" if zero_beta_control else "max_steps"
+            )
             terminal_step = 0
             last_finite_step = 0
 
@@ -973,6 +1033,7 @@ class _CanonicalBridgeImpl:
                     pass64_every=200,
                     pass64_enabled=64
                     in {int(value) for value in effective["evaluation"]["auxiliary_pass_ks"]},
+                    examples_override=None,
                 )
                 sampled_valid_rate = getattr(evaluator, "_last_primary_sampled_valid_rate", None)
                 if sampled_valid_rate is not None:
@@ -989,17 +1050,47 @@ class _CanonicalBridgeImpl:
                 )
                 if float(row["val_pass_at_8"]) > best_pass8:
                     best_pass8 = float(row["val_pass_at_8"])
-                    if best_dir.exists():
-                        shutil.rmtree(best_dir)
-                    activate_policy()
-                    model.save_pretrained(best_dir, safe_serialization=True)
-                    tokenizer.save_pretrained(best_dir)
+                    if not zero_beta_control:
+                        if best_dir.exists():
+                            shutil.rmtree(best_dir)
+                        activate_policy()
+                        model.save_pretrained(best_dir, safe_serialization=True)
+                        tokenizer.save_pretrained(best_dir)
 
             if not engineering_liveness:
                 evaluate(0)
-            optimizer.zero_grad(set_to_none=True)
             accumulation = int(effective["training"]["gradient_accumulation"])
-            for update in range(1, updates + 1):
+            if training_updates:
+                if (
+                    iterator is None
+                    or optimizer is None
+                    or scheduler is None
+                    or device is None
+                ):
+                    raise RuntimeError("Positive-beta DPO training runtime was not initialized")
+                optimizer.zero_grad(set_to_none=True)
+            if zero_beta_control:
+                append_jsonl(
+                    training_path,
+                    {
+                        "update": 0,
+                        "dpo_beta": beta,
+                        "control_role": "sft_only_no_dpo_update",
+                        "dpo_pair_loss": None,
+                        "raw_gradient_norm_before_clip": None,
+                        "optimizer_update_norm": None,
+                        "gradient_probe": "not_run_no_dpo_update",
+                        "optimizer_step": "not_run_no_dpo_update",
+                        "initial_pair_margin_max_abs": None,
+                        "initial_pair_margin_probe": (
+                            "not_run_exact_policy_reference_state_hashes_match"
+                        ),
+                        "reference_role": "exact_frozen_initial_policy",
+                        "label_smoothing": 0.0,
+                        "test_data_used": False,
+                    },
+                )
+            for update in range(1, training_updates + 1):
                 loss_total = 0.0
                 diagnostic_totals = {
                     "policy_chosen_sum_lp": 0.0,
@@ -1205,11 +1296,50 @@ class _CanonicalBridgeImpl:
                 scientific_status = "not_run"
             else:
                 evaluations = read_jsonl(evaluation_path)
-                summary = (
-                    self._summarize_evaluations(evaluations, config)
-                    if numerical_failure is None
-                    else {}
-                )
+                if numerical_failure is not None:
+                    summary = {}
+                elif zero_beta_control:
+                    if len(evaluations) != 1 or int(evaluations[0]["update"]) != 0:
+                        raise RuntimeError(
+                            "SFT-only beta-zero control must have exactly one step-0 evaluation"
+                        )
+                    static = evaluations[0]
+                    summary = {
+                        "late_window_updates": [
+                            int(value)
+                            for value in config["training"]["late_window_updates"]
+                        ],
+                        "validation_late_window_pass8_mean": float(static["pass8"]),
+                        "validation_late_window_greedy_mean": float(
+                            static["greedy_success"]
+                        ),
+                        "validation_late_window_valid_mean": float(
+                            static["greedy_valid_rate"]
+                        ),
+                        "validation_terminal_pass8": float(static["pass8"]),
+                        "validation_terminal_greedy": float(
+                            static["greedy_success"]
+                        ),
+                        "validation_terminal_greedy_valid_rate": float(
+                            static["greedy_valid_rate"]
+                        ),
+                        "validation_terminal_sampled_valid_rate": (
+                            None
+                            if static.get("sampled_valid_rate") is None
+                            else float(static["sampled_valid_rate"])
+                        ),
+                        "supplementary_best_step": 0,
+                        "supplementary_best_pass8": float(static["pass8"]),
+                        "supplementary_best_greedy": float(
+                            static["greedy_success"]
+                        ),
+                        "static_control_single_evaluation_step": 0,
+                        "static_control_metric_reuse": (
+                            "terminal_policy_equals_initial_policy_no_optimizer_updates"
+                        ),
+                    }
+                else:
+                    summary = self._summarize_evaluations(evaluations, config)
                 scientific_status = "pilot"
             result = {
                 **identity,
@@ -1227,7 +1357,16 @@ class _CanonicalBridgeImpl:
                 "label_smoothing": 0.0,
                 "reference_role": "exact_frozen_initial_policy",
                 "reference_trainable": False,
+                "control_role": (
+                    "sft_only_no_dpo_update" if zero_beta_control else None
+                ),
+                "zero_beta_control": zero_beta_control,
                 "initial_pair_margin_max_abs": initial_pair_margin_max_abs,
+                "initial_pair_margin_probe": (
+                    "not_run_exact_policy_reference_state_hashes_match"
+                    if zero_beta_control
+                    else "measured_on_first_dpo_batch"
+                ),
                 "initial_pair_margin_max_abs_tolerance": tolerance,
                 "policy_initial_state_sha256": policy_initial_sha256,
                 "reference_initial_state_sha256": reference_initial_sha256,
@@ -1248,15 +1387,28 @@ class _CanonicalBridgeImpl:
                     str(evaluation_path.resolve()) if evaluation_path.is_file() else None
                 ),
                 "canonical_dispatch_verified": True,
-                "finite_old_core_updates": numerical_failure is None,
+                "finite_old_core_updates": (
+                    numerical_failure is None and not zero_beta_control
+                ),
                 "optimizer_update_norm": (
-                    min(value for value in optimizer_update_norms if math.isfinite(value))
-                    if optimizer_update_norms
-                    else 0.0
+                    None
+                    if zero_beta_control
+                    else (
+                        min(value for value in optimizer_update_norms if math.isfinite(value))
+                        if optimizer_update_norms
+                        else 0.0
+                    )
                 ),
                 "optimizer_updates": terminal_step,
                 "terminal_step": terminal_step,
-                "optimizer_updates_requested": updates,
+                "optimizer_updates_requested": training_updates,
+                "configured_positive_beta_optimizer_updates": updates,
+                "training_seed_base": training_seed_base,
+                "dpo_seed_offset": int(cell.seed),
+                "training_seed_applied": not zero_beta_control,
+                "effective_training_seed": (
+                    None if zero_beta_control else seed
+                ),
                 "last_finite_step": last_finite_step,
                 "numerical_failure": numerical_failure,
                 "stop_reason": stop_reason,
