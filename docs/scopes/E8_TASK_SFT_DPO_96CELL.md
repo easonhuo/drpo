@@ -24,7 +24,7 @@ No scientific run has started. This document freezes the owner-approved scientif
 
 ## Claim
 
-On the exact eight P0 transfer tasks and the same frozen model-independent qualified banks used by the current E8 multitask baseline work, measure canonical DPO response after a task-specific train-only positive SFT initialization. The scan varies only DPO beta after the SFT checkpoint and uses two paired seeds. It is finite-horizon external-validity evidence and does not establish convergence, statistical significance, or a universal method ranking.
+On the exact eight P0 transfer tasks and the same frozen model-independent qualified banks used by the current E8 multitask baseline work, measure canonical DPO response after a task-specific train-only positive SFT initialization. Positive-beta cells use the two paired DPO seed offsets; beta zero keeps both execution labels only for the frozen 96-cell geometry and contributes one independent static-control replicate per task. It is finite-horizon external-validity evidence and does not establish convergence, statistical significance, or a universal method ranking.
 
 ## Frozen task matrix
 
@@ -84,9 +84,9 @@ The task-specific SFT adapter is the DPO policy initialization. Immediately befo
 
 This special handling is required because the DPO optimizer uses AdamW with nonzero weight decay. Running nominal DPO optimizer steps at beta zero would still change parameters through weight decay and therefore would not be an SFT-only control.
 
-The beta-zero cell keeps the task-specific SFT adapter unchanged, performs one held-out validation evaluation at step 0, records zero DPO optimizer updates, and marks itself explicitly as the SFT-only / no-DPO-update control. Because the terminal policy is bitwise the same policy state as the initial SFT adapter, the aggregate reuses that single measured validation value for the nominal late-window/terminal summary fields instead of rerunning the identical model at every nominal DPO checkpoint. The manifest records this reuse explicitly.
+The beta-zero cell keeps the task-specific SFT adapter unchanged, performs one held-out validation evaluation at step 0, records zero DPO optimizer updates, and marks itself explicitly as the SFT-only / no-DPO-update control. Because the terminal policy is bitwise the same policy state as the initial SFT adapter, the aggregate reuses that single measured validation value for the nominal late-window/terminal summary fields instead of rerunning the identical model at every nominal DPO checkpoint. The manifest records this reuse explicitly. Beta zero materializes the terminal adapter only; it must not also write a duplicate supplementary-best adapter containing the identical SFT policy.
 
-The 96-cell geometry still contains beta-zero rows under both DPO seed labels. Those two rows for a task share the same deterministic task SFT adapter and the same evaluation seed, so they are duplicate control rows for matrix geometry, not two independent SFT replications and not evidence for seed uncertainty at beta zero. Aggregation must therefore mark beta-zero rows as a single independent control replicate per task, expose an effective independent-seed count of 1, and never use the duplicate row to create seed uncertainty or error bars.
+The 96-cell geometry still contains beta-zero rows under both DPO seed labels. Those two rows for a task share the same deterministic task SFT adapter and the same evaluation seed, so they are duplicate control rows for matrix geometry, not two independent SFT replications and not evidence for seed uncertainty at beta zero. Both task-local and final aggregate plot tables must therefore mark one beta-zero row as the independent representative and the other as a duplicate control label; grouped statistics must expose an effective independent-seed count of 1 and never use the duplicate row to create seed uncertainty or error bars.
 
 ## Canonical DPO semantics for beta > 0
 
@@ -124,11 +124,11 @@ For beta > 0:
 - paper-facing late window: `[800, 900, 1000, 1100, 1200]`;
 - test split access: forbidden.
 
-The same qualified 16-negative-per-prompt banks remain fixed. SFT initialization must not rebuild or retune the bank. The canonical reference-remoteness bank / canonical DPO runtime seed remains `2026070803`. The task SFT trainer independently inherits the existing P0 warm-start base seed `2026072900` (plus the existing deterministic task offset). These two seed roles must be represented separately in machine-readable configuration rather than overloading one `initialization.seed` field.
+The same qualified 16-negative-per-prompt banks remain fixed. SFT initialization must not rebuild or retune the bank. The canonical reference-remoteness-bank and task-SFT-DPO training base seed remains `2026070803`; each positive-beta DPO cell uses that base plus its configured DPO seed offset. The task SFT trainer independently inherits the existing P0 warm-start base seed `2026072900` (plus the existing deterministic task offset). These seed roles must be represented separately in machine-readable configuration rather than overloading one `initialization.seed` field. Historical fresh-LoRA/shared-SFT DPO paths keep their existing base-config seed semantics.
 
 ## Input scope
 
-This successor experiment has no new Countdown scientific cell. Its prepared input suite therefore contains only the eight P0 transfer tasks. Countdown remains historical external-validity context in reporting, but the 96-cell run must not require a Countdown bank, Countdown validation file, Countdown split materialization, or Countdown adapter merely to prepare or execute these transfer-task cells.
+This successor experiment has no new Countdown scientific cell. Its active suite and parameter grid therefore contain only the eight P0 transfer tasks; `suite.external_tasks` is empty for this run, and no empty Countdown beta entry is retained merely for compatibility. Countdown remains historical external-validity context in reporting, but the 96-cell run must not require a Countdown bank, Countdown validation file, Countdown split materialization, Countdown adapter, or Countdown grid entry merely to prepare or execute these transfer-task cells.
 
 ## Reporting
 
