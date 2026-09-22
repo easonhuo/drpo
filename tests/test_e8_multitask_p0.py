@@ -3424,6 +3424,51 @@ def test_task_sft_dpo_96cell_config_expands_exact_matrix() -> None:
     assert all(cell.task != "countdown" for cell in cells)
 
 
+def test_task_sft_dpo_mode_rejects_full_countdown_suite() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
+    )
+    mutated = copy.deepcopy(config)
+    mutated["suite"]["tasks"] = [
+        "countdown",
+        *mutated["suite"]["tasks"],
+    ]
+    mutated["suite"]["external_tasks"] = ["countdown"]
+    mutated["task_runtime"]["countdown"] = {
+        "max_length": 256,
+        "max_new_tokens": 80,
+        "evaluation_batch_size": 8,
+        "greedy_prompt_rows": 500,
+        "passk_prompt_rows": 500,
+        "auxiliary_pass_ks": [64],
+    }
+    mutated["sweep"]["task_beta"]["countdown"] = []
+
+    with pytest.raises(
+        ValueError,
+        match="Task-positive-warmstart DPO requires the approved transfer-only eight-task suite",
+    ):
+        exp_tuning.validate_config(mutated)
+
+
+def test_task_sft_dpo_mode_rejects_method_matrix_use() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_baseline_matrix_formal.yaml")
+    )
+    mutated = copy.deepcopy(config)
+    mutated["dpo"]["initialization_mode"] = "task_positive_warmstart"
+
+    with pytest.raises(
+        ValueError,
+        match="implemented only for the single-method task-SFT DPO successor",
+    ):
+        exp_tuning.validate_config(mutated)
+
+
 def test_task_sft_dpo_reuses_frozen_positive_warmstart_contract() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
     from drpo import e8_multitask_warmstart_training as warmstart
