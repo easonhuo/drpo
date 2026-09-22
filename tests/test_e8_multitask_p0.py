@@ -4434,6 +4434,15 @@ def test_baseline_matrix_one_config_expands_exact_176_cells(tmp_path: Path) -> N
     }
 
 
+def test_baseline_matrix_rejects_task_positive_warmstart_dpo_mode() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = _baseline_matrix_capability_test_config()
+    config["dpo"]["initialization_mode"] = "task_positive_warmstart"
+    with pytest.raises(ValueError, match="single-method task-SFT DPO successor"):
+        exp_tuning.validate_config(config)
+
+
 def test_baseline_matrix_supports_shared_sft_dpo_without_changing_other_initialization() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
