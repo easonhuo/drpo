@@ -514,6 +514,9 @@ def _dpo_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
     return {
         "dpo_initialization_mode": str(config["dpo"]["initialization_mode"]),
         "zero_beta_control": config["dpo"].get("zero_beta_control"),
+        "beta_zero_seed_role": config.get("reporting", {}).get(
+            "beta_zero_seed_role"
+        ),
     }
 
 
