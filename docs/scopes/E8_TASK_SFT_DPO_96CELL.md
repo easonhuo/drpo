@@ -14,7 +14,9 @@ No scientific run has started. This document freezes the owner-approved scientif
 
 - scientific config: `configs/e8_multitask_task_sft_dpo_96cell.yaml`
 - existing runner: `scripts/run_e8_multitask_exp_coldstart.sh`
-- formal invocation after review/merge: set `E8_COLDSTART_CONFIG=configs/e8_multitask_task_sft_dpo_96cell.yaml` and bind `E8_COLDSTART_EXPECTED_COMMIT` to the reviewed full launch SHA before calling the existing runner with `full`
+- optional RunSpec execution snapshot: `runspecs/ready/E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01.yaml`
+- RunSpec ID / run ID: `E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01`; the RunSpec is an immutable execution/delivery convenience, not an experiment-launch license
+- formal invocation after review/merge: set `E8_COLDSTART_CONFIG=configs/e8_multitask_task_sft_dpo_96cell.yaml` and bind `E8_COLDSTART_EXPECTED_COMMIT` to the reviewed full launch SHA before calling the existing runner with `full`; the RunSpec uses the existing bootstrap to resolve `refs/heads/main` to that exact SHA and passes it to the runner
 - data/environment: the exact eight qualified P0 transfer-task banks and held-out validation splits materialized by the existing E8 multitask input pipeline; no new Countdown cell
 - development/run seeds: paired DPO seed offsets `[4000, 5000]`
 - separately held-out seed set: none registered for this finite-horizon beta-response experiment; the test partition remains forbidden
