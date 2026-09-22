@@ -3796,6 +3796,12 @@ def test_task_sft_dpo_beta_zero_is_no_optimizer_update_control() -> None:
     assert "for evaluation_step in range(eval_every, updates + 1, eval_every)" not in source
     assert '"static_control_single_evaluation_step": 0' in source
     assert '"initial_pair_margin_max_abs": None' in source
+    assert '"raw_gradient_norm_before_clip": None' in source
+    assert '"optimizer_update_norm": None' in source
+    assert '"gradient_probe": "not_run_no_dpo_update"' in source
+    assert '"optimizer_step": "not_run_no_dpo_update"' in source
+    assert '"training_seed_applied": not zero_beta_control' in source
+    assert "None if zero_beta_control else seed" in source
     assert "not_run_exact_policy_reference_state_hashes_match" in source
     assert "if not zero_beta_control:" in source
     assert '"best_adapter": (' in source
