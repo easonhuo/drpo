@@ -579,6 +579,18 @@ _STATIC_CONTROL_MANIFEST_MATCH_FIELDS = (
 )
 
 
+_STATIC_CONTROL_EXPECTED_MANIFEST = {
+    "policy_parameters_changed": False,
+    "optimizer_updates": 0,
+    "optimizer_updates_requested": 0,
+    "terminal_step": 0,
+    "stop_reason": "sft_only_no_dpo_update",
+    "training_seed_applied": False,
+    "effective_training_seed": None,
+    "static_control_single_evaluation_step": 0,
+}
+
+
 def _is_static_no_update_control(row: Mapping[str, Any]) -> bool:
     return (
         row.get("control_role") == "sft_only_no_dpo_update"
@@ -635,6 +647,23 @@ def _static_control_seed_representatives(
                 raise RuntimeError(
                     f"Static-control manifest is missing duplicate-audit fields for "
                     f"{cell_key}: {missing}"
+                )
+            contract_failures = [
+                field
+                for field, expected in _STATIC_CONTROL_EXPECTED_MANIFEST.items()
+                if manifest[field] != expected
+            ]
+            state_hashes = {
+                manifest["policy_initial_state_sha256"],
+                manifest["terminal_trainable_state_sha256"],
+                manifest["reference_initial_state_sha256"],
+                manifest["reference_terminal_state_sha256"],
+            }
+            if contract_failures or len(state_hashes) != 1:
+                raise RuntimeError(
+                    f"Static no-update control violates its terminal contract for "
+                    f"{cell_key}: fields={contract_failures}, state_hashes_match="
+                    f"{len(state_hashes) == 1}"
                 )
             signature.update(
                 {
