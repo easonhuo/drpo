@@ -43,7 +43,7 @@ model:
 suite:
   tasks: [word_sorting, spiral_matrix, mini_sudoku, maze, word_ladder, knights_knaves, graph_color, wikisql]
   p0_tasks: [word_sorting, spiral_matrix, mini_sudoku, maze, word_ladder, knights_knaves, graph_color, wikisql]
-  external_tasks: [countdown]
+  external_tasks: []
   excluded_tasks: {}
 
 split:
@@ -154,7 +154,6 @@ sweep:
     graph_color: *dpo_prov
     wikisql: *dpo_prov
   task_beta:
-    countdown: []
     word_sorting: &dpo_grid [0.0, 0.05, 0.1, 0.2, 0.5, 1.0]
     spiral_matrix: *dpo_grid
     mini_sudoku: *dpo_grid
