@@ -511,12 +511,12 @@ def _topr_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 def _dpo_single_metadata(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    reporting = config.get("reporting", {})
     return {
         "dpo_initialization_mode": str(config["dpo"]["initialization_mode"]),
         "zero_beta_control": config["dpo"].get("zero_beta_control"),
-        "beta_zero_seed_role": config.get("reporting", {}).get(
-            "beta_zero_seed_role"
-        ),
+        "positive_beta_seed_role": reporting.get("positive_beta_seed_role"),
+        "beta_zero_seed_role": reporting.get("beta_zero_seed_role"),
     }
 
 
