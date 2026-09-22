@@ -19,6 +19,18 @@ For peak comparisons, isolated single-point maxima should not be treated as the 
 
 The merged evidence remains descriptive finite-horizon response evidence only; it is not a convergence, steady-state, significance, or universal method-ranking result.
 
+## Table 1 SG-9 aggregate
+
+For the compact external-transfer table, Countdown is now aggregated with the eight transfer tasks into a nine-task structured-generation macro (SG-9). The corresponding Pass@8 values are:
+
+| Scope | Positive-only | Global-α | Reciprocal Linear | Reciprocal Quadratic | DRPO / Exp |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| SG-9 macro | 67.91 | pending | 68.08 | 68.17 | 69.25 |
+
+The paper-facing compact table rounds these to one decimal place: `67.9 / -- / 68.1 / 68.2 / 69.2`. The Global-α aggregate is intentionally blank because the protocol-matched eight-transfer-task Global-α sweep has not yet been run. The derived task-level inputs and macro are stored in `TABLE1_SG9_TAPER_AGGREGATE.csv`.
+
+This row is a descriptive finite-horizon aggregate; it does not convert the reciprocal sweeps into a formal universal method-ranking result.
+
 ## Durable paths
 
 - Canonical compact CSV: `experiments/results/e8_reciprocal_response_20260921/RECIPROCAL_400_CURVE_POINTS.csv`
