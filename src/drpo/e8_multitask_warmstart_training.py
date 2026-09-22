@@ -178,6 +178,11 @@ def reference_warmstart_config(
     if int(inherited.get("optimizer_updates", 0)) != expected_updates:
         raise RuntimeError("Inherited P0 reference optimizer-update contract mismatch")
     if (
+        _is_task_sft_dpo(config)
+        and int(inherited.get("seed", -1)) != int(config["initialization"]["seed"])
+    ):
+        raise RuntimeError("Inherited P0 task-SFT seed contract mismatch")
+    if (
         int(inherited.get("micro_batch", 0)) != 2
         or int(inherited.get("gradient_accumulation", 0)) != 32
     ):
