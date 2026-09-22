@@ -502,8 +502,8 @@ def resolve_task_inputs(
     *,
     p0_work_dir: Path,
     p0_config: Path,
-    countdown_bank: Path,
-    countdown_validation: Path,
+    countdown_bank: Path | None,
+    countdown_validation: Path | None,
     countdown_adapter: Path | None,
 ) -> dict[str, TaskInputs]:
     p0_config_value = yaml.safe_load(p0_config.read_text(encoding="utf-8"))
@@ -542,14 +542,21 @@ def resolve_task_inputs(
             sources_root=(p0_work_dir / "sources").resolve(),
             p0_config=p0_config.resolve(),
         )
-    result["countdown"] = TaskInputs(
-        task="countdown",
-        bank=countdown_bank.resolve(),
-        reference_adapter=(countdown_adapter.resolve() if countdown_adapter is not None else None),
-        sources_root=(p0_work_dir / "sources").resolve(),
-        p0_config=p0_config.resolve(),
-        countdown_validation=countdown_validation.resolve(),
-    )
+    if "countdown" in {str(value) for value in config["suite"]["tasks"]}:
+        if countdown_bank is None or countdown_validation is None:
+            raise ValueError(
+                "Countdown inputs are required only when Countdown is in suite.tasks"
+            )
+        result["countdown"] = TaskInputs(
+            task="countdown",
+            bank=countdown_bank.resolve(),
+            reference_adapter=(
+                countdown_adapter.resolve() if countdown_adapter is not None else None
+            ),
+            sources_root=(p0_work_dir / "sources").resolve(),
+            p0_config=p0_config.resolve(),
+            countdown_validation=countdown_validation.resolve(),
+        )
     for task, inputs in result.items():
         if not inputs.bank.is_file():
             raise FileNotFoundError(f"Missing bank for {task}: {inputs.bank}")
