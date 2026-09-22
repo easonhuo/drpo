@@ -738,6 +738,7 @@ engineering_self_test() {
       --source-file src/drpo/e8_multitask_runtime.py \
       --source-file src/drpo/e8_multitask_inputs.py \
       --source-file src/drpo/e8_multitask_results.py \
+      --source-file src/drpo/e8_multitask_selftest.py \
     --source-file src/drpo/e8_experiment_config.py \
     --source-file scripts/preflight_e8_multitask_config.py \
       --source-file "${CONFIG_REPO_PATH}" \
@@ -960,6 +961,7 @@ delivery_preflight() {
     --source-file src/drpo/e8_multitask_runtime.py
     --source-file src/drpo/e8_multitask_inputs.py
     --source-file src/drpo/e8_multitask_results.py
+    --source-file src/drpo/e8_multitask_selftest.py
     --source-file src/drpo/e8_experiment_config.py
     --source-file scripts/preflight_e8_multitask_config.py
     --source-file "${CONFIG_REPO_PATH}"
@@ -1042,6 +1044,7 @@ run_formal_guard_attempt() {
     --source-file src/drpo/e8_multitask_runtime.py \
     --source-file src/drpo/e8_multitask_inputs.py \
     --source-file src/drpo/e8_multitask_results.py \
+    --source-file src/drpo/e8_multitask_selftest.py \
     --source-file src/drpo/e8_experiment_config.py \
     --source-file scripts/preflight_e8_multitask_config.py \
     --source-file "${CONFIG_REPO_PATH}" \
