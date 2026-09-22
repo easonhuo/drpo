@@ -37,8 +37,8 @@ model:
   lora_alpha: 64
   lora_dropout: 0.05
   dtype: auto
-  max_length: 256
-  max_new_tokens: 80
+  max_length: 512
+  max_new_tokens: 128
   gradient_checkpointing: true
 
 suite:
@@ -69,13 +69,13 @@ training:
 
 evaluation:
   greedy_prompt_rows: 500
-  passk_prompt_rows: 500
+  passk_prompt_rows: 128
   pass_k: 8
-  auxiliary_pass_ks: [64]
-  batch_size: 8
+  auxiliary_pass_ks: []
+  batch_size: 16
   sampling_temperature: 0.8
   top_p: 0.95
-  max_new_tokens: 80
+  max_new_tokens: 128
   generation_seed: 2026070801
   primary_checkpoint_policy: late_window_and_terminal
   best_checkpoint_role: supplementary_only
