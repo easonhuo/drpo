@@ -664,6 +664,11 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
                     or initialization.get("optimizer_updates") != 100
                     or initialization.get("external_adapter_allowed") is not True
                     or initialization.get("deterministic_fresh_lora") is not False
+                    or int(initialization.get("seed", -1)) != 2026072900
+                    or int(initialization.get("canonical_runtime_seed", -1))
+                    != 2026070803
+                    or initialization.get("task_sft_seed_source")
+                    != "p0_positive_warmstart_seed_plus_task_offset"
                     or dpo.get("shared_sft_adapter_env") not in (None, "")
                     or dpo.get("zero_beta_control")
                     != "sft_only_no_dpo_optimizer_updates"
