@@ -884,24 +884,26 @@ class _CanonicalBridgeImpl:
                 arena.evaluate_rows = evaluator
 
             tokenizer = arena.load_tokenizer(str(Path(base_model_path).resolve()))
-            train_rows = arena.read_jsonl(bank)
-            dataset = paper_common.ContinuousUniqueBankDataset(
-                train_rows,
-                tokenizer,
-                int(effective["model"]["max_length"]),
-            )
-            generator = self.torch.Generator().manual_seed(seed)
-            loader = self.DataLoader(
-                dataset,
-                batch_size=int(effective["training"]["micro_batch"]),
-                shuffle=True,
-                generator=generator,
-                collate_fn=paper_common.make_continuous_unique_bank_collator(
-                    tokenizer.pad_token_id
-                ),
-                num_workers=int(train_cfg["num_workers"]),
-            )
-            iterator = iter(loader)
+            iterator = None
+            if not zero_beta_control:
+                train_rows = arena.read_jsonl(bank)
+                dataset = paper_common.ContinuousUniqueBankDataset(
+                    train_rows,
+                    tokenizer,
+                    int(effective["model"]["max_length"]),
+                )
+                generator = self.torch.Generator().manual_seed(seed)
+                loader = self.DataLoader(
+                    dataset,
+                    batch_size=int(effective["training"]["micro_batch"]),
+                    shuffle=True,
+                    generator=generator,
+                    collate_fn=paper_common.make_continuous_unique_bank_collator(
+                        tokenizer.pad_token_id
+                    ),
+                    num_workers=int(train_cfg["num_workers"]),
+                )
+                iterator = iter(loader)
             with self._legacy_arena_runtime_bridge(arena, effective):
                 model = arena.load_model(
                     str(Path(base_model_path).resolve()),
@@ -945,19 +947,27 @@ class _CanonicalBridgeImpl:
             reference_initial_sha256 = self._parameter_sequence_sha256(reference_parameters)
             if policy_initial_sha256 != reference_initial_sha256:
                 raise RuntimeError("DPO policy/reference exact initialization copy failed")
-            optimizer = self.torch.optim.AdamW(
-                policy_parameters,
-                lr=float(effective["training"]["learning_rate"]),
-                weight_decay=float(effective["training"]["weight_decay"]),
-            )
-            warmup_ratio = float(effective["training"]["warmup_ratio"])
-            warmup_steps = 0 if warmup_ratio == 0.0 else max(1, int(updates * warmup_ratio))
-            scheduler = arena.get_cosine_schedule_with_warmup(
-                optimizer,
-                warmup_steps,
-                updates,
-            )
-            device = next(model.parameters()).device
+            optimizer = None
+            scheduler = None
+            device = None
+            if not zero_beta_control:
+                optimizer = self.torch.optim.AdamW(
+                    policy_parameters,
+                    lr=float(effective["training"]["learning_rate"]),
+                    weight_decay=float(effective["training"]["weight_decay"]),
+                )
+                warmup_ratio = float(effective["training"]["warmup_ratio"])
+                warmup_steps = (
+                    0
+                    if warmup_ratio == 0.0
+                    else max(1, int(updates * warmup_ratio))
+                )
+                scheduler = arena.get_cosine_schedule_with_warmup(
+                    optimizer,
+                    warmup_steps,
+                    updates,
+                )
+                device = next(model.parameters()).device
             model.eval()
             training_path = cell_root / "training_metrics.jsonl"
             evaluation_path = cell_root / "evaluation_metrics.jsonl"
@@ -1017,9 +1027,17 @@ class _CanonicalBridgeImpl:
 
             if not engineering_liveness:
                 evaluate(0)
-            optimizer.zero_grad(set_to_none=True)
             accumulation = int(effective["training"]["gradient_accumulation"])
             training_updates = 0 if zero_beta_control else updates
+            if training_updates:
+                if (
+                    iterator is None
+                    or optimizer is None
+                    or scheduler is None
+                    or device is None
+                ):
+                    raise RuntimeError("Positive-beta DPO training runtime was not initialized")
+                optimizer.zero_grad(set_to_none=True)
             if zero_beta_control:
                 append_jsonl(
                     training_path,
