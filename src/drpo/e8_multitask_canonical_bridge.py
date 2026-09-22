@@ -843,10 +843,9 @@ class _CanonicalBridgeImpl:
         updates = int(updates_override or effective["training"]["optimizer_updates"])
         eval_every = int(effective["training"]["evaluation_every_updates"])
         log_every = int(train_cfg["log_every"])
-        training_seed_base = (
-            experiment_config.coldstart_runtime_seed(config)
-            if configured_initialization == "task_positive_warmstart"
-            else int(train_cfg["seed"])
+        training_seed_base = experiment_config.dpo_training_seed_base(
+            config,
+            int(train_cfg["seed"]),
         )
         seed = training_seed_base + int(cell.seed)
         beta = float(cell.beta)
