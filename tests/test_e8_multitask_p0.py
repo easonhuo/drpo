@@ -3780,6 +3780,32 @@ def test_task_sft_dpo_beta_zero_aggregate_counts_one_independent_seed(
             write_json=p0.atomic_json,
         )
 
+    for field in (
+        "policy_initial_state_sha256",
+        "terminal_trainable_state_sha256",
+        "reference_initial_state_sha256",
+        "reference_terminal_state_sha256",
+    ):
+        duplicate_manifest[field] = "c" * 64
+    p0.atomic_json(duplicate_path, duplicate_manifest)
+    with pytest.raises(
+        RuntimeError,
+        match="Static no-update control duplicate labels diverged",
+    ):
+        e8_results._aggregate_coldstart_unranked(
+            config,
+            tmp_path,
+            rows,
+            spec=spec,
+            configured_cells=cells,
+            experiment_id_value=exp_tuning.experiment_id(config),
+            protocol_diagnostic={"status": "NOT_RUN"},
+            engineering_self_test=False,
+            positive_only_method=exp_tuning.METHOD_POSITIVE_ONLY,
+            global_method=exp_tuning.METHOD_GLOBAL,
+            write_json=p0.atomic_json,
+        )
+
 
 def test_task_sft_dpo_recovery_identity_binds_adapter_content(
     tmp_path: Path,
