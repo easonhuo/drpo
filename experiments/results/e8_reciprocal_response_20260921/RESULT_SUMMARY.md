@@ -27,7 +27,7 @@ For the compact external-transfer table, Countdown is now aggregated with the ei
 | --- | ---: | ---: | ---: | ---: | ---: |
 | SG-9 macro | 67.91 | pending | 68.08 | 68.17 | 69.25 |
 
-The paper-facing compact table rounds these to one decimal place: `67.9 / -- / 68.1 / 68.2 / 69.2`. The Global-α aggregate is intentionally blank because the protocol-matched eight-transfer-task Global-α sweep has not yet been run. The derived task-level inputs and macro are stored in `TABLE1_SG9_TAPER_AGGREGATE.csv`.
+The paper-facing compact table rounds these to one decimal place: `67.9 / -- / 68.1 / 68.2 / 69.2`. For Reciprocal Linear/Quadratic, the SG-9 macro uses the current ICLR Table 1 displayed Countdown values (`13.6/14.5`) together with the four-decimal transfer-task summaries; one decimal is therefore the intended paper-facing precision. The Global-α aggregate is intentionally blank because the protocol-matched eight-transfer-task Global-α sweep has not yet been run. The derived task-level inputs and macro are stored in `TABLE1_SG9_TAPER_AGGREGATE.csv`.
 
 This row is a descriptive finite-horizon aggregate; it does not convert the reciprocal sweeps into a formal universal method-ranking result.
 
