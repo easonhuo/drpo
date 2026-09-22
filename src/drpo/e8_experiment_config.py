@@ -678,10 +678,15 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
                 ):
                     raise ValueError("Task-SFT DPO initialization contract drifted")
         else:
-            if mode in {"base_model_fresh_lora", "task_positive_warmstart"}:
+            if mode == "task_positive_warmstart":
+                raise ValueError(
+                    "Task-positive-warmstart DPO is implemented only by the single-method "
+                    "task-SFT DPO successor, not the baseline matrix"
+                )
+            if mode == "base_model_fresh_lora":
                 if dpo.get("shared_sft_adapter_env") not in (None, ""):
                     raise ValueError(
-                        "Baseline-matrix non-shared DPO may not name a shared adapter"
+                        "Baseline-matrix fresh-LoRA DPO may not name a shared adapter"
                     )
             elif (
                 not isinstance(dpo.get("shared_sft_adapter_env"), str)
