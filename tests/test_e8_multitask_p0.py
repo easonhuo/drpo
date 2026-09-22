@@ -3465,8 +3465,64 @@ def test_task_sft_dpo_beta_zero_is_no_optimizer_update_control() -> None:
     )
     assert "training_updates = 0 if zero_beta_control else updates" in source
     assert '"control_role": "sft_only_no_dpo_update"' in source
-    assert "for evaluation_step in range(eval_every, updates + 1, eval_every)" in source
+    assert "for evaluation_step in range(eval_every, updates + 1, eval_every)" not in source
+    assert '"static_control_single_evaluation_step": 0' in source
+    assert '"initial_pair_margin_max_abs": None' in source
+    assert "not_run_exact_policy_reference_state_hashes_match" in source
     assert 'adapter_path=None if initial_adapter is None else str(initial_adapter)' in source
+
+
+def test_task_sft_dpo_terminal_audit_accepts_zero_update_control(
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
+    )
+    cells = exp_tuning.build_cells(config)
+    p0.atomic_json(
+        tmp_path / "source_provenance.json",
+        {"source_commit": "a" * 40},
+    )
+    for cell in cells:
+        zero = cell.beta == 0.0
+        p0.atomic_json(
+            tmp_path / "cells" / cell.key / "cell_manifest.json",
+            {
+                "complete": True,
+                "evaluation_status": "complete",
+                "nan_inf_failure": False,
+                "terminal_step": 0 if zero else 1200,
+                "optimizer_updates": 0 if zero else 1200,
+                "optimizer_updates_requested": 0 if zero else 1200,
+                "stop_reason": (
+                    "sft_only_no_dpo_update" if zero else "max_steps"
+                ),
+                "control_role": (
+                    "sft_only_no_dpo_update" if zero else None
+                ),
+                "zero_beta_control": zero,
+                "policy_parameters_changed": not zero,
+                "test_partition_accessed": False,
+                "reference_initial_state_sha256": "b" * 64,
+                "reference_terminal_state_sha256": "b" * 64,
+                "reference_trainable": False,
+            },
+        )
+    p0.atomic_json(
+        tmp_path / "aggregate" / "aggregate_summary.json",
+        {"cell_count": len(cells)},
+    )
+    p0.atomic_json(
+        tmp_path / "aggregate" / "countdown_protocol_diagnostic.json",
+        {"status": "NOT_RUN"},
+    )
+
+    audit = exp_tuning.cmd_audit(config, tmp_path)
+
+    assert audit["all_training_and_evaluation_complete"] is True
+    assert audit["terminal_contract_failures"] == []
 
 
 def test_dpo_capability_rejects_zero_beta() -> None:
@@ -3615,7 +3671,8 @@ def test_dpo_transfer_consumes_effective_task_runtime_and_preserves_liveness_ide
     assert 'warmup_steps = 0 if warmup_ratio == 0.0' in source
     assert 'cell.dpo_initialization != configured_initialization' in source
     assert 'str(final_adapter_dir.resolve())' in source
-    assert '"finite_old_core_updates": numerical_failure is None' in source
+    assert '"finite_old_core_updates": (' in source
+    assert "numerical_failure is None and not zero_beta_control" in source
 
     liveness = inspect.getsource(exp_tuning._canonical_bridge()._cmd_dpo_liveness)
     assert 'result["identity_hash"] = stable_hash(result)' not in liveness
