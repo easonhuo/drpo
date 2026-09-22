@@ -84,7 +84,9 @@ The task-specific SFT adapter is the DPO policy initialization. Immediately befo
 
 This special handling is required because the DPO optimizer uses AdamW with nonzero weight decay. Running nominal DPO optimizer steps at beta zero would still change parameters through weight decay and therefore would not be an SFT-only control.
 
-The beta-zero cell keeps the task-specific SFT adapter unchanged, evaluates it on the same held-out validation protocol at the nominal evaluation checkpoints needed by aggregation, records zero DPO optimizer updates, and marks itself explicitly as the SFT-only / no-DPO-update control.
+The beta-zero cell keeps the task-specific SFT adapter unchanged, performs one held-out validation evaluation at step 0, records zero DPO optimizer updates, and marks itself explicitly as the SFT-only / no-DPO-update control. Because the terminal policy is bitwise the same policy state as the initial SFT adapter, the aggregate reuses that single measured validation value for the nominal late-window/terminal summary fields instead of rerunning the identical model at every nominal DPO checkpoint. The manifest records this reuse explicitly.
+
+The 96-cell geometry still contains beta-zero rows under both DPO seed labels. Those two rows for a task share the same deterministic task SFT adapter and the same evaluation seed, so they are duplicate control rows for matrix geometry, not two independent SFT replications and not evidence for seed uncertainty at beta zero.
 
 ## Canonical DPO semantics for beta > 0
 
@@ -132,7 +134,7 @@ Report, separately:
 - validity / structure diagnostics;
 - NaN/Inf numerical failure.
 
-For DPO cells also retain pair-margin, preference-accuracy, logit-saturation, raw-gradient norm, and optimizer-update norm diagnostics. Beta zero must be clearly identified as `sft_only_no_dpo_update`.
+For positive-beta DPO cells also retain pair-margin, preference-accuracy, logit-saturation, raw-gradient norm, and optimizer-update norm diagnostics. Beta zero must be clearly identified as `sft_only_no_dpo_update`; its pair-margin probe is not fabricated and is recorded as not run because exact policy/reference state-hash equality already establishes the initialization copy.
 
 Any comparison across beta values must use terminal / late-window audit data and must not be described as convergence or universal method ranking.
 
