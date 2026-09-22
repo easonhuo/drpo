@@ -113,6 +113,19 @@ class CanonicalBridge:
     _cmd_canonical_cold_liveness: Callable[..., Any]
 
 
+def _dpo_training_seed_base(
+    config: Mapping[str, Any],
+    *,
+    initialization_mode: str,
+    legacy_seed_base: int,
+) -> int:
+    """Keep historical DPO seed semantics unless task-SFT separates the seed roles."""
+
+    if initialization_mode == "task_positive_warmstart":
+        return experiment_config.coldstart_runtime_seed(config)
+    return int(legacy_seed_base)
+
+
 def _dpo_training_update_plan(
     *,
     beta: float,
@@ -860,10 +873,10 @@ class _CanonicalBridgeImpl:
         eval_every = int(effective["training"]["evaluation_every_updates"])
         log_every = int(train_cfg["log_every"])
         legacy_training_seed_base = int(train_cfg["seed"])
-        training_seed_base = (
-            experiment_config.coldstart_runtime_seed(config)
-            if configured_initialization == "task_positive_warmstart"
-            else legacy_training_seed_base
+        training_seed_base = _dpo_training_seed_base(
+            config,
+            initialization_mode=configured_initialization,
+            legacy_seed_base=legacy_training_seed_base,
         )
         seed = training_seed_base + int(cell.seed)
         beta = float(cell.beta)
