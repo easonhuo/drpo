@@ -736,6 +736,8 @@ engineering_self_test() {
       --source-file src/drpo/e8_multitask_canonical_bridge.py \
       --source-file src/drpo/e8_multitask_warmstart_training.py \
       --source-file src/drpo/e8_multitask_runtime.py \
+      --source-file src/drpo/e8_multitask_inputs.py \
+      --source-file src/drpo/e8_multitask_results.py \
     --source-file src/drpo/e8_experiment_config.py \
     --source-file scripts/preflight_e8_multitask_config.py \
       --source-file "${CONFIG_REPO_PATH}" \
@@ -758,6 +760,15 @@ engineering_self_test() {
   done
   write_local_ai_recovery engineering_self_test
   fail "engineering self-test exhausted automatic recovery attempts"
+}
+
+config_has_countdown() {
+  python - <<PY
+from pathlib import Path
+from drpo.e8_multitask_exp_tuning import load_config
+config = load_config(Path("${CONFIG_PATH}"))
+raise SystemExit(0 if "countdown" in set(config["suite"]["tasks"]) else 1)
+PY
 }
 
 prepare_task_sft_references() {
@@ -783,19 +794,25 @@ prepare() {
     --work-dir "${P0_WORK_DIR}" prepare
   "${ROOT_DIR}/scripts/run_e8_multitask_p0.sh" \
     --work-dir "${P0_WORK_DIR}" qualify
-  python "${ROOT_DIR}/scripts/run_countdown_e8_oracle_bank_v2.py" \
-    --config "${ROOT_DIR}/configs/countdown_e8_oracle_offline_bank_v2_0p5b.yaml" \
-    --work_dir "${COUNTDOWN_WORK_DIR}"
-  python "${ROOT_DIR}/scripts/v2_bank_convert.py" \
-    --input "${COUNTDOWN_WORK_DIR}/data/oracle_offline_bank_v2_train.jsonl" \
-    --output "${COUNTDOWN_WORK_DIR}/data/offline_bank_v2.jsonl" \
-    --manifest "${COUNTDOWN_WORK_DIR}/data/offline_bank_v2.convert_manifest.json" \
-    --model "${MODEL_DIR}"
-  run_module prepare \
-    --p0-work-dir "${P0_WORK_DIR}" \
-    --p0-config "${P0_CONFIG_PATH}" \
-    --countdown-bank "${COUNTDOWN_WORK_DIR}/data/offline_bank_v2.jsonl" \
-    --countdown-validation "${COUNTDOWN_WORK_DIR}/data/val.jsonl"
+  if config_has_countdown; then
+    python "${ROOT_DIR}/scripts/run_countdown_e8_oracle_bank_v2.py" \
+      --config "${ROOT_DIR}/configs/countdown_e8_oracle_offline_bank_v2_0p5b.yaml" \
+      --work_dir "${COUNTDOWN_WORK_DIR}"
+    python "${ROOT_DIR}/scripts/v2_bank_convert.py" \
+      --input "${COUNTDOWN_WORK_DIR}/data/oracle_offline_bank_v2_train.jsonl" \
+      --output "${COUNTDOWN_WORK_DIR}/data/offline_bank_v2.jsonl" \
+      --manifest "${COUNTDOWN_WORK_DIR}/data/offline_bank_v2.convert_manifest.json" \
+      --model "${MODEL_DIR}"
+    run_module prepare \
+      --p0-work-dir "${P0_WORK_DIR}" \
+      --p0-config "${P0_CONFIG_PATH}" \
+      --countdown-bank "${COUNTDOWN_WORK_DIR}/data/offline_bank_v2.jsonl" \
+      --countdown-validation "${COUNTDOWN_WORK_DIR}/data/val.jsonl"
+  else
+    run_module prepare \
+      --p0-work-dir "${P0_WORK_DIR}" \
+      --p0-config "${P0_CONFIG_PATH}"
+  fi
   prepare_task_sft_references
   python - <<PY
 import json
@@ -941,6 +958,8 @@ delivery_preflight() {
     --source-file src/drpo/e8_multitask_canonical_bridge.py
     --source-file src/drpo/e8_multitask_warmstart_training.py
     --source-file src/drpo/e8_multitask_runtime.py
+    --source-file src/drpo/e8_multitask_inputs.py
+    --source-file src/drpo/e8_multitask_results.py
     --source-file src/drpo/e8_experiment_config.py
     --source-file scripts/preflight_e8_multitask_config.py
     --source-file "${CONFIG_REPO_PATH}"
@@ -1021,6 +1040,8 @@ run_formal_guard_attempt() {
     --source-file src/drpo/e8_multitask_canonical_bridge.py \
     --source-file src/drpo/e8_multitask_warmstart_training.py \
     --source-file src/drpo/e8_multitask_runtime.py \
+    --source-file src/drpo/e8_multitask_inputs.py \
+    --source-file src/drpo/e8_multitask_results.py \
     --source-file src/drpo/e8_experiment_config.py \
     --source-file scripts/preflight_e8_multitask_config.py \
     --source-file "${CONFIG_REPO_PATH}" \
