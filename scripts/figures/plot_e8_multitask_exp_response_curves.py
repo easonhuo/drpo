@@ -1,4 +1,8 @@
-"""Render the E8 structured-generation response figures.\n\nThe default mode reproduces the nine-task EXP/DRPO coefficient-response Figure 6.\nPass `--reciprocal` to render the matched-strength Reciprocal Linear vs\nReciprocal Quadratic 400-cell follow-up with the same paper-working layout.
+"""Render the E8 structured-generation response figures.
+
+The default mode reproduces the nine-task EXP/DRPO coefficient-response Figure 6.
+Pass `--reciprocal` to render the matched-strength Reciprocal Linear vs
+Reciprocal Quadratic 400-cell follow-up with the same paper-working layout.
 
 The default input is a checked-in plot-ready summary derived from the canonical
 historical E8 response-data locator plus the approved 22-point Countdown curve.
