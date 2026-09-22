@@ -1388,7 +1388,7 @@ def _derive_reference_remoteness_banks(
     if pending:
         modules = _canonical_bridge()._canonical_cold_modules(config)
         arena = modules["arena"]
-        _seed_everything(int(config["initialization"]["seed"]))
+        _seed_everything(experiment_config.coldstart_runtime_seed(config))
         tokenizer = arena.load_tokenizer(str(Path(base_model_path).resolve()))
         base_config = yaml.safe_load(
             _canonical_paths(config)["base_config"].read_text(encoding="utf-8")
