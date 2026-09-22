@@ -3,9 +3,10 @@ experiment_id: EXT-C-E8-MULTITASK-TASK-SFT-DPO-96CELL-01
 execution_class: formal
 result_status: not_run
 claim: >-
-  On the exact eight P0 transfer tasks and frozen model-independent qualified
-  banks, measure canonical PR-268-semantics DPO after task-specific train-only
-  positive SFT initialization across six beta values and two paired seeds.
+  On the exact eight P0 transfer tasks, using frozen qualified P0 source banks
+  and the unchanged canonical reference-remoteness training-bank derivation,
+  measure canonical PR-268-semantics DPO after task-specific train-only positive
+  SFT initialization across six beta values and two paired DPO seed labels.
   This is finite-horizon external-validity evidence; Countdown is not rerun,
   and convergence, significance, or universal method-ranking claims are excluded.
 
