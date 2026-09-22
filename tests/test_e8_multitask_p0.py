@@ -3478,7 +3478,7 @@ def test_task_sft_dpo_training_seed_uses_reviewed_runtime_seed_without_changing_
     assert 'configured_initialization == "task_positive_warmstart"' in source
     assert "experiment_config.coldstart_runtime_seed(config)" in source
     assert 'legacy_training_seed_base = int(train_cfg["seed"])' in source
-    assert "derived base-config seed drifted from canonical_runtime_seed" in source
+    assert "else legacy_training_seed_base" in source
     assert config["initialization"]["canonical_runtime_seed"] == 2026070803
 
 
