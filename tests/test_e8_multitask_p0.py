@@ -3436,7 +3436,11 @@ def test_task_sft_dpo_reuses_frozen_positive_warmstart_contract() -> None:
     )
     assert config["initialization"]["source"] == "task_positive_warmstart_100"
     assert config["initialization"]["optimizer_updates"] == 100
-    assert config["initialization"]["seed"] == 2026070803
+    assert config["initialization"]["seed"] == 2026072900
+    assert config["initialization"]["canonical_runtime_seed"] == 2026070803
+    assert exp_tuning.experiment_config.effective_coldstart_runtime(
+        config, "word_sorting"
+    )["initialization_seed"] == 2026070803
     assert config["reference"]["checkpoint_kind"] == (
         "exact_frozen_copy_of_initialized_policy"
     )
@@ -3447,6 +3451,153 @@ def test_task_sft_dpo_reuses_frozen_positive_warmstart_contract() -> None:
     assert warm["lora_alpha"] == 64
     assert warm["lora_dropout"] == pytest.approx(0.05)
     assert warm["max_length"] == 512
+
+
+def test_task_sft_dpo_transfer_suite_has_no_countdown_input_dependency(
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
+    )
+    assert set(config["suite"]["tasks"]) == set(config["suite"]["p0_tasks"])
+    assert "countdown" not in config["suite"]["tasks"]
+    assert "countdown" not in config["task_runtime"]
+    assert "countdown_train_rows" not in config["split"]
+    assert "countdown_validation_rows" not in config["split"]
+
+    p0_config_path = Path("configs/e8_multitask_p0.yaml").resolve()
+    p0_config_value = yaml.safe_load(p0_config_path.read_text(encoding="utf-8"))
+    p0.atomic_json(
+        tmp_path / "qualification_audit.json",
+        {
+            "experiment_id": exp_tuning.PARENT_EXPERIMENT_ID,
+            "config_hash": exp_tuning.stable_config_hash(
+                p0.with_smoke_overrides(
+                    p0_config_value,
+                    rows=None,
+                    negatives=None,
+                )
+            ),
+            "passed": True,
+            "tasks": {
+                task: {"passed": True}
+                for task in config["suite"]["p0_tasks"]
+            },
+        },
+    )
+    (tmp_path / "sources").mkdir(parents=True)
+    for task in config["suite"]["p0_tasks"]:
+        bank = p0.bank_path(tmp_path, task)
+        bank.parent.mkdir(parents=True, exist_ok=True)
+        bank.write_text("{}\n", encoding="utf-8")
+
+    inputs = e8_inputs.resolve_task_inputs(
+        config,
+        p0_work_dir=tmp_path,
+        p0_config=p0_config_path,
+        countdown_bank=None,
+        countdown_validation=None,
+        countdown_adapter=None,
+    )
+    assert set(inputs) == set(config["suite"]["p0_tasks"])
+
+    parser = exp_tuning.make_parser()
+    args = parser.parse_args(
+        [
+            "--config",
+            "configs/e8_multitask_task_sft_dpo_96cell.yaml",
+            "--output-root",
+            str(tmp_path / "out"),
+            "prepare",
+            "--p0-work-dir",
+            str(tmp_path),
+        ]
+    )
+    assert args.countdown_bank is None
+    assert args.countdown_validation is None
+
+
+def test_task_sft_dpo_beta_zero_aggregate_counts_one_independent_seed(
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+    from drpo import e8_multitask_results as e8_results
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_task_sft_dpo_96cell.yaml")
+    )
+    cells = [
+        cell
+        for cell in exp_tuning.build_cells(config)
+        if cell.task == "word_sorting" and cell.beta == 0.0
+    ]
+    assert len(cells) == 2
+
+    rows = []
+    for cell in cells:
+        rows.append(
+            {
+                "cell_key": cell.key,
+                "task": cell.task,
+                "method": cell.method,
+                "dpo_initialization": cell.dpo_initialization,
+                "seed": cell.seed,
+                "stage": cell.stage,
+                "nan_inf_failure": False,
+                "late_window_pass8_mean": 0.25,
+                "late_window_greedy_mean": 0.125,
+                "best_pass8": 0.25,
+                "terminal_pass8": 0.25,
+                "best_greedy": 0.125,
+                "terminal_greedy": 0.125,
+                "best_greedy_valid_rate": 1.0,
+                "terminal_greedy_valid_rate": 1.0,
+                "best_step": 0,
+                "terminal_step": 0,
+                "stop_reason": "sft_only_no_dpo_update",
+                "control_role": "sft_only_no_dpo_update",
+                "zero_beta_control": True,
+            }
+        )
+
+    spec = exp_tuning._method_spec(exp_tuning.METHOD_DPO)
+    summary = e8_results._aggregate_coldstart_unranked(
+        config,
+        tmp_path,
+        rows,
+        spec=spec,
+        configured_cells=cells,
+        experiment_id_value=exp_tuning.experiment_id(config),
+        protocol_diagnostic={"status": "NOT_RUN"},
+        engineering_self_test=False,
+        positive_only_method=exp_tuning.METHOD_POSITIVE_ONLY,
+        global_method=exp_tuning.METHOD_GLOBAL,
+        write_json=p0.atomic_json,
+    )
+
+    point = summary["tasks"]["word_sorting"]["grouped_curve"][0]
+    assert point["configured_seed_labels"] == [4000, 5000]
+    assert point["seeds"] == [4000]
+    assert point["independent_seed_count"] == 1
+    assert point["duplicate_seed_labels"] == [5000]
+    assert point["seed_replication_role"] == "single_static_control_replication"
+
+    plot_rows = list(
+        csv.DictReader(
+            (tmp_path / "aggregate" / "plot_curve_points.csv").open(
+                encoding="utf-8"
+            )
+        )
+    )
+    assert len(plot_rows) == 2
+    by_seed = {int(row["seed"]): row for row in plot_rows}
+    assert by_seed[4000]["independent_seed"] == "True"
+    assert by_seed[4000]["independent_seed_count_contribution"] == "1"
+    assert by_seed[5000]["independent_seed"] == "False"
+    assert by_seed[5000]["independent_seed_count_contribution"] == "0"
+    assert by_seed[5000]["duplicate_control_seed_label"] == "True"
 
 
 def test_task_sft_dpo_recovery_identity_binds_adapter_content(
