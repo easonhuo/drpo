@@ -3643,6 +3643,15 @@ def test_task_sft_dpo_beta_zero_aggregate_counts_one_independent_seed(
     assert task_by_seed[5000]["independent_seed"] == "False"
     assert task_by_seed[5000]["independent_seed_count_contribution"] == "0"
     assert task_by_seed[5000]["duplicate_control_seed_label"] == "True"
+    task_marker = json.loads(
+        (
+            tmp_path
+            / "task_results"
+            / "word_sorting"
+            / "TASK_COMPLETE.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert task_marker["independent_plot_curve_point_count"] == 1
 
     summary = e8_results._aggregate_coldstart_unranked(
         config,
@@ -3664,6 +3673,7 @@ def test_task_sft_dpo_beta_zero_aggregate_counts_one_independent_seed(
     assert point["independent_seed_count"] == 1
     assert point["duplicate_seed_labels"] == [5000]
     assert point["seed_replication_role"] == "single_static_control_replication"
+    assert summary["independent_plot_curve_point_count"] == 1
 
     plot_rows = list(
         csv.DictReader(
