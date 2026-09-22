@@ -1532,8 +1532,8 @@ def cmd_prepare(
     *,
     p0_work_dir: Path,
     p0_config: Path,
-    countdown_bank: Path,
-    countdown_validation: Path,
+    countdown_bank: Path | None,
+    countdown_validation: Path | None,
     countdown_adapter: Path | None,
 ) -> dict[str, Any]:
     if _is_dense(config):
@@ -3292,8 +3292,8 @@ def make_parser() -> argparse.ArgumentParser:
     prepare = subparsers.add_parser("prepare")
     prepare.add_argument("--p0-work-dir", required=True)
     prepare.add_argument("--p0-config", default=str(DEFAULT_P0_CONFIG))
-    prepare.add_argument("--countdown-bank", required=True)
-    prepare.add_argument("--countdown-validation", required=True)
+    prepare.add_argument("--countdown-bank")
+    prepare.add_argument("--countdown-validation")
     prepare.add_argument("--countdown-adapter")
 
     inherit = subparsers.add_parser("inherit")
@@ -3371,8 +3371,16 @@ def main(argv: Sequence[str] | None = None) -> None:
             output_root,
             p0_work_dir=Path(args.p0_work_dir).resolve(),
             p0_config=Path(args.p0_config).resolve(),
-            countdown_bank=Path(args.countdown_bank).resolve(),
-            countdown_validation=Path(args.countdown_validation).resolve(),
+            countdown_bank=(
+                Path(args.countdown_bank).resolve()
+                if args.countdown_bank is not None
+                else None
+            ),
+            countdown_validation=(
+                Path(args.countdown_validation).resolve()
+                if args.countdown_validation is not None
+                else None
+            ),
             countdown_adapter=(
                 Path(args.countdown_adapter).resolve() if args.countdown_adapter else None
             ),
