@@ -1087,8 +1087,10 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
                 and config["sweep"]["parameterization"] == "paper_lambda_c1"
             )
             dpo_initialization = _method_spec(method).cell_initialization(config)
-            countdown_values = experiment_config.task_method_values(
-                config, "countdown", method=method
+            countdown_values = (
+                experiment_config.task_method_values(config, "countdown", method=method)
+                if "countdown" in tasks
+                else ()
             )
             countdown_include_positive_only = bool(
                 config["sweep"].get("countdown_include_positive_only", True)
