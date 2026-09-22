@@ -163,6 +163,8 @@ def _coldstart_result_row(
             "best_step": value["best_step"],
             "terminal_step": value["terminal_step"],
             "stop_reason": value["stop_reason"],
+            "control_role": value.get("control_role"),
+            "zero_beta_control": bool(value.get("zero_beta_control", False)),
         },
     )
 
@@ -579,15 +581,47 @@ def _coldstart_method_grouped_curve(
         groups.values(),
         key=lambda item: parameter_sort_key(item[0]),
     )
-    return [
-        {
-            "task": task,
-            "method": method,
-            **parameters,
-            **_coldstart_group_metrics(group),
-        }
-        for parameters, group in ordered
-    ]
+    result: list[dict[str, Any]] = []
+    for parameters, group in ordered:
+        configured_seed_labels = sorted(int(row["seed"]) for row in group)
+        static_control = bool(group) and all(
+            row.get("control_role") == "sft_only_no_dpo_update"
+            and row.get("zero_beta_control") is True
+            for row in group
+        )
+        independent_group = (
+            [min(group, key=lambda row: int(row["seed"]))]
+            if static_control
+            else list(group)
+        )
+        independent_seed_labels = sorted(
+            int(row["seed"]) for row in independent_group
+        )
+        result.append(
+            {
+                "task": task,
+                "method": method,
+                **parameters,
+                **_coldstart_group_metrics(independent_group),
+                "configured_seed_labels": configured_seed_labels,
+                "independent_seed_count": len(independent_group),
+                "duplicate_seed_labels": (
+                    [
+                        seed
+                        for seed in configured_seed_labels
+                        if seed not in independent_seed_labels
+                    ]
+                    if static_control
+                    else []
+                ),
+                "seed_replication_role": (
+                    "single_static_control_replication"
+                    if static_control
+                    else "independent_training_replicates"
+                ),
+            }
+        )
+    return result
 
 
 
@@ -613,6 +647,18 @@ def _aggregate_coldstart_unranked(
         raise RuntimeError("Cold-start aggregate contains duplicate cell keys")
 
     run_id, source_commit = _coldstart_run_provenance(output_root)
+    static_control_seed_by_task: dict[str, int] = {}
+    for row in rows:
+        if (
+            row.get("control_role") == "sft_only_no_dpo_update"
+            and row.get("zero_beta_control") is True
+        ):
+            task = str(row["task"])
+            seed = int(row["seed"])
+            static_control_seed_by_task[task] = min(
+                seed,
+                static_control_seed_by_task.get(task, seed),
+            )
     plot_rows: list[dict[str, Any]] = []
     for row in rows:
         cell_key = str(row["cell_key"])
@@ -624,6 +670,15 @@ def _aggregate_coldstart_unranked(
             for name, value in projection.items()
             if name != "dpo_initialization"
         }
+        static_control = (
+            row.get("control_role") == "sft_only_no_dpo_update"
+            and row.get("zero_beta_control") is True
+        )
+        independent_seed = (
+            not static_control
+            or int(row["seed"])
+            == static_control_seed_by_task[str(row["task"])]
+        )
         plot_rows.append(
             {
                 "task": row["task"],
@@ -634,6 +689,12 @@ def _aggregate_coldstart_unranked(
                 "experiment_id": experiment_id_value,
                 "run_id": run_id,
                 "source_commit": source_commit,
+                "control_role": row.get("control_role"),
+                "independent_seed": independent_seed,
+                "independent_seed_count_contribution": int(independent_seed),
+                "duplicate_control_seed_label": bool(
+                    static_control and not independent_seed
+                ),
                 **parameter_columns,
                 **_coldstart_plot_metrics(row),
             }
