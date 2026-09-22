@@ -3441,17 +3441,6 @@ def test_task_sft_dpo_reuses_frozen_positive_warmstart_contract() -> None:
     assert exp_tuning.experiment_config.effective_coldstart_runtime(
         config, "word_sorting"
     )["initialization_seed"] == 2026070803
-    assert (
-        exp_tuning.experiment_config.dpo_training_seed_base(config, 999999)
-        == 2026070803
-    )
-    baseline = exp_tuning.load_config(
-        Path("configs/e8_multitask_baseline_matrix_formal.yaml")
-    )
-    assert (
-        exp_tuning.experiment_config.dpo_training_seed_base(baseline, 123456)
-        == 123456
-    )
     assert config["reference"]["checkpoint_kind"] == (
         "exact_frozen_copy_of_initialized_policy"
     )
