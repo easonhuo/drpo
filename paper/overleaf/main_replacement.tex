@@ -1173,9 +1173,7 @@ controls are reported in Appendix~\ref{app:controlled_taper_protocol}.
 \vspace{-0.7em}
 \centering
 \caption{\textbf{Protocol-matched external transfer.}
-D4RL aggregate and nine-task structured-generation (SG-9) macro Pass@8.
-SG-9 averages Countdown with the eight transfer tasks; the Global-$\alpha$
-entry is pending its protocol-matched transfer-task sweep.}
+D4RL aggregate and nine-task structured-generation (SG-9) macro Pass@8.}
 \label{tab:taper_transfer_summary}
 \scriptsize
 \renewcommand{\arraystretch}{0.88}
@@ -1194,13 +1192,12 @@ SG-9 & 67.9 & -- & 68.1 & 68.2 & 69.2 \\
 
 The same principle is tested externally: DRPO weights D4RL locomotion transitions by
 standardized remoteness from the current Gaussian policy and structured-generation
-responses by mean-token surprisal. The SG-9 row aggregates Countdown with the
-eight transfer tasks. Its Reciprocal-Linear, Reciprocal-Quadratic, and DRPO
-entries summarize the registered finite-horizon response curves; the
-Global-$\alpha$ aggregate is left unreported until the corresponding
-transfer-task sweep is run. Because external tasks lack counterfactual
-near/far geometry, Table~\ref{tab:taper_transfer_summary} provides
-descriptive transfer evidence rather than a closed cross-task ranking.
+responses by mean-token surprisal, with protocol-matched methods sharing
+data, labels, initialization, optimizer, and budget. The Global-$\alpha$ entry
+is unavailable because the corresponding nine-task evaluation has not been
+completed. Because external tasks lack counterfactual near/far geometry,
+Table~\ref{tab:taper_transfer_summary} provides descriptive transfer evidence
+rather than a closed cross-task ranking.
 
 \subsection{Overall Task Performance}
 \label{sec:overall_performance}
