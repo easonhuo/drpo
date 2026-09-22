@@ -365,17 +365,23 @@ def task_transfer_seeds(config: Mapping[str, Any]) -> tuple[int, ...]:
 
 
 def _validate_scalar_types(config: Mapping[str, Any]) -> None:
+    configured_tasks = {
+        str(value) for value in config.get("suite", {}).get("tasks", ())
+    }
+    split_integer_fields = [
+        "p0_train_rows",
+        "p0_validation_rows",
+        "p0_test_rows",
+        "hash_seed",
+    ]
+    if "countdown" in configured_tasks:
+        split_integer_fields.extend(
+            ["countdown_train_rows", "countdown_validation_rows"]
+        )
     for section, fields in {
         "reference": ("optimizer_updates", "validation_rows_seen", "test_rows_seen"),
         "initialization": ("optimizer_updates", "seed"),
-        "split": (
-            "p0_train_rows",
-            "p0_validation_rows",
-            "p0_test_rows",
-            "countdown_train_rows",
-            "countdown_validation_rows",
-            "hash_seed",
-        ),
+        "split": tuple(split_integer_fields),
         "evaluation": ("generation_seed",),
         "negative_sampling": ("negatives_per_prompt",),
     }.items():
@@ -403,11 +409,14 @@ def _validate_scalar_types(config: Mapping[str, Any]) -> None:
         for field in fields:
             _integer(values.get(field), f"{section}.{field}", positive=True)
 
+    split_boolean_fields = ["test_access_allowed"]
+    if "countdown" in configured_tasks:
+        split_boolean_fields.append("countdown_subsampling_forbidden")
     for section, fields in {
         "parent": ("qualified_banks_required",),
         "initialization": ("external_adapter_allowed", "deterministic_fresh_lora"),
         "model": ("gradient_checkpointing",),
-        "split": ("test_access_allowed", "countdown_subsampling_forbidden"),
+        "split": tuple(split_boolean_fields),
         "training": ("early_stopping", "terminal_adapter_required"),
         "negative_sampling": (
             "near_far_selection",
@@ -713,7 +722,10 @@ def _validate_implementation_contract(config: Mapping[str, Any]) -> None:
 
     if config["split"].get("test_access_allowed") is not False:
         raise ValueError("Tuning must forbid test access")
-    if config["split"].get("countdown_subsampling_forbidden") is not True:
+    if (
+        "countdown" in set(config["suite"]["tasks"])
+        and config["split"].get("countdown_subsampling_forbidden") is not True
+    ):
         raise ValueError("Countdown subsampling is not implemented by this cold-start family")
     if config["training"].get("early_stopping") is not False:
         raise ValueError("Early stopping is not implemented by this cold-start runner")
