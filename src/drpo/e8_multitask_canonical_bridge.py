@@ -1051,8 +1051,10 @@ class _CanonicalBridgeImpl:
                         "dpo_beta": beta,
                         "control_role": "sft_only_no_dpo_update",
                         "dpo_pair_loss": None,
-                        "raw_gradient_norm_before_clip": 0.0,
-                        "optimizer_update_norm": 0.0,
+                        "raw_gradient_norm_before_clip": None,
+                        "optimizer_update_norm": None,
+                        "gradient_probe": "not_run_no_dpo_update",
+                        "optimizer_step": "not_run_no_dpo_update",
                         "initial_pair_margin_max_abs": None,
                         "initial_pair_margin_probe": (
                             "not_run_exact_policy_reference_state_hashes_match"
@@ -1363,9 +1365,13 @@ class _CanonicalBridgeImpl:
                     numerical_failure is None and not zero_beta_control
                 ),
                 "optimizer_update_norm": (
-                    min(value for value in optimizer_update_norms if math.isfinite(value))
-                    if optimizer_update_norms
-                    else 0.0
+                    None
+                    if zero_beta_control
+                    else (
+                        min(value for value in optimizer_update_norms if math.isfinite(value))
+                        if optimizer_update_norms
+                        else 0.0
+                    )
                 ),
                 "optimizer_updates": terminal_step,
                 "terminal_step": terminal_step,
@@ -1373,7 +1379,10 @@ class _CanonicalBridgeImpl:
                 "configured_positive_beta_optimizer_updates": updates,
                 "training_seed_base": training_seed_base,
                 "dpo_seed_offset": int(cell.seed),
-                "effective_training_seed": seed,
+                "training_seed_applied": not zero_beta_control,
+                "effective_training_seed": (
+                    None if zero_beta_control else seed
+                ),
                 "last_finite_step": last_finite_step,
                 "numerical_failure": numerical_failure,
                 "stop_reason": stop_reason,
