@@ -1156,7 +1156,7 @@ def calibrate_task(
         raise RuntimeError(f"Existing calibration identity mismatch for {task}")
 
     initialization_seed = (
-        int(config["initialization"]["seed"])
+        experiment_config.coldstart_runtime_seed(config)
         if _is_coldstart(config)
         else int(config["remoteness_calibration"]["seed"])
     )
