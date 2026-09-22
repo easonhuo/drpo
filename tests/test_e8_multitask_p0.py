@@ -3822,8 +3822,7 @@ def test_task_sft_dpo_recovery_identity_binds_adapter_content(
 
 
 def test_task_sft_dpo_beta_zero_is_no_optimizer_update_control() -> None:
-    import inspect
-
+    from drpo import e8_multitask_canonical_bridge as canonical_bridge
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
     config = exp_tuning.load_config(
@@ -3832,26 +3831,32 @@ def test_task_sft_dpo_beta_zero_is_no_optimizer_update_control() -> None:
     assert config["dpo"]["zero_beta_control"] == (
         "sft_only_no_dpo_optimizer_updates"
     )
-    source = inspect.getsource(
-        exp_tuning._canonical_bridge()._train_canonical_dpo_transfer_cell
+
+    zero, updates = canonical_bridge._dpo_training_update_plan(
+        beta=0.0,
+        initialization_mode="task_positive_warmstart",
+        configured_updates=1200,
     )
-    assert "training_updates = 0 if zero_beta_control else updates" in source
-    assert '"control_role": "sft_only_no_dpo_update"' in source
-    assert "for evaluation_step in range(eval_every, updates + 1, eval_every)" not in source
-    assert '"static_control_single_evaluation_step": 0' in source
-    assert '"initial_pair_margin_max_abs": None' in source
-    assert '"raw_gradient_norm_before_clip": None' in source
-    assert '"optimizer_update_norm": None' in source
-    assert '"gradient_probe": "not_run_no_dpo_update"' in source
-    assert '"optimizer_step": "not_run_no_dpo_update"' in source
-    assert '"training_seed_applied": not zero_beta_control' in source
-    assert "None if zero_beta_control else seed" in source
-    assert "not_run_exact_policy_reference_state_hashes_match" in source
-    assert "examples_override=None" in source
-    assert "if not zero_beta_control:" in source
-    assert '"best_adapter": (' in source
-    assert "str(best_dir.resolve()) if best_dir.is_dir() else str(final_adapter_dir.resolve())" in source
-    assert 'adapter_path=None if initial_adapter is None else str(initial_adapter)' in source
+    assert zero is True
+    assert updates == 0
+
+    zero, updates = canonical_bridge._dpo_training_update_plan(
+        beta=0.1,
+        initialization_mode="task_positive_warmstart",
+        configured_updates=1200,
+    )
+    assert zero is False
+    assert updates == 1200
+
+    with pytest.raises(
+        RuntimeError,
+        match="reserved for the task-SFT initialization-only control",
+    ):
+        canonical_bridge._dpo_training_update_plan(
+            beta=0.0,
+            initialization_mode="base_model_fresh_lora",
+            configured_updates=1200,
+        )
 
 
 def test_task_sft_dpo_terminal_audit_accepts_zero_update_control(
