@@ -249,7 +249,8 @@ reporting:
   separate_events: [task_performance, valid_or_structure_diagnostic, nan_inf_numerical_failure]
   countdown_role: historical_external_validity_context_no_new_cells
   other_tasks_task_interface_adaptation_only: true
-  paired_seed_confirmation: true
+  paired_seed_confirmation: positive_beta_cells_only
+  beta_zero_seed_role: duplicate_dpo_seed_labels_same_sft_control_not_independent_sft_replicates
   convergence_claim_allowed: false
   significance_claim_allowed: false
   method_ranking_allowed_before_terminal_audit: false
