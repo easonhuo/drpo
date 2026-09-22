@@ -867,35 +867,26 @@ Appendices~\ref{app:gaussian_drpo_boundedness},
 \section{Experiments}
 \label{sec:experiments}
 
-The experiments proceed from occurrence to identification, control, and
-transfer. We
-first test whether the predicted far-field pattern appears in realistic
-continuous-control and autoregressive policies. Controlled environments then
-separate coefficient magnitude from policy geometry, trace the resulting
-update into policy behavior, and compare negative-weighting rules under known
-near/far structure. The final task-level sections evaluate D4RL and
-structured-generation tasks.
-
-\subsection{Environments and Datasets}
-\label{sec:environments_datasets}
-
-We use C-U1 (a Gaussian continuous-action contextual bandit) and D-U1
-(unordered categorical actions with shared representations) as controlled
-environments with known ground truth for source isolation, policy dynamics,
-and held-out-context generalization. External diagnostics use nine D4RL
-locomotion cells~\citep{fu2020d4rl} and nine structured-generation tasks---
-Countdown~\citep{hutton2002countdown,pan2025tinyzero}, seven Reasoning Gym
-tasks~\citep{stojanovski2025reasoninggym}, and
+Experiments proceed from occurrence to identification, control, and transfer.
+External probes test whether the predicted far-field pattern appears in
+realistic continuous-control and autoregressive policies; controlled
+environments separate coefficient magnitude from policy geometry, trace
+updates into policy behavior, and compare negative-weighting rules under known
+near/far structure; final task-level evaluations cover D4RL and structured
+generation. We use C-U1, a Gaussian continuous-action contextual bandit, and
+D-U1, an unordered categorical environment with shared representations, as
+controlled environments with known ground truth for source isolation, policy
+dynamics, and held-out-context generalization. External diagnostics use nine
+D4RL locomotion cells~\citep{fu2020d4rl} and nine structured-generation
+tasks---Countdown~\citep{hutton2002countdown,pan2025tinyzero}, seven Reasoning
+Gym tasks~\citep{stojanovski2025reasoninggym}, and
 WikiSQL~\citep{zhong2017seq2sql}---covering continuous-action and discrete
-autoregressive policies; full configurations are in
-Appendix~\ref{app:experimental_details}.
-
-\paragraph{Conventions.}
-Controlled source-isolation reports policy-score response, whereas neural
-probes report implemented actor-gradient magnitude to test whether the
-near-to-far pattern persists in trainable updates. Task-performance collapse,
-support/variance-boundary events, and NaN/Inf failures remain separate
-outcomes (Appendix~\ref{app:controlled_protocols}).
+autoregressive policies. Controlled source-isolation reports policy-score
+response, whereas neural probes report implemented actor-gradient magnitude
+to test whether the near-to-far pattern persists in trainable updates.
+Task-performance collapse, support/variance-boundary events, and NaN/Inf
+failures are reported separately. Full configurations and protocols are in
+Appendices~\ref{app:experimental_details} and~\ref{app:controlled_protocols}.
 
 \subsection{External Diagnostic of Far-Field Repulsion}
 \label{sec:external_far_field}
@@ -1151,8 +1142,7 @@ task-level transfer rather than a causal test of the mechanism.
 \label{sec:structured_generation_performance}
 
 For structured generation, we evaluate Qwen2.5-0.5B-Instruct
-\citep{qwen2024qwen25} on the nine tasks in
-Section~\ref{sec:environments_datasets}, using deterministic verifiers
+\citep{qwen2024qwen25} on these nine tasks using deterministic verifiers
 and Pass@8. For each prompt, we construct a fixed bank of verified correct
 and incorrect completions and reuse it throughout training, yielding a
 zero-refresh stale-negative-reuse setting
