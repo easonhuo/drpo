@@ -86,7 +86,7 @@ This special handling is required because the DPO optimizer uses AdamW with nonz
 
 The beta-zero cell keeps the task-specific SFT adapter unchanged, performs one held-out validation evaluation at step 0, records zero DPO optimizer updates, and marks itself explicitly as the SFT-only / no-DPO-update control. Because the terminal policy is bitwise the same policy state as the initial SFT adapter, the aggregate reuses that single measured validation value for the nominal late-window/terminal summary fields instead of rerunning the identical model at every nominal DPO checkpoint. The manifest records this reuse explicitly.
 
-The 96-cell geometry still contains beta-zero rows under both DPO seed labels. Those two rows for a task share the same deterministic task SFT adapter and the same evaluation seed, so they are duplicate control rows for matrix geometry, not two independent SFT replications and not evidence for seed uncertainty at beta zero.
+The 96-cell geometry still contains beta-zero rows under both DPO seed labels. Those two rows for a task share the same deterministic task SFT adapter and the same evaluation seed, so they are duplicate control rows for matrix geometry, not two independent SFT replications and not evidence for seed uncertainty at beta zero. Aggregation must therefore mark beta-zero rows as a single independent control replicate per task, expose an effective independent-seed count of 1, and never use the duplicate row to create seed uncertainty or error bars.
 
 ## Canonical DPO semantics for beta > 0
 
@@ -124,7 +124,11 @@ For beta > 0:
 - paper-facing late window: `[800, 900, 1000, 1100, 1200]`;
 - test split access: forbidden.
 
-The same qualified 16-negative-per-prompt banks remain fixed. SFT initialization must not rebuild or retune the bank. The canonical reference-remoteness bank derivation keeps the existing fresh-LoRA seed `2026070803`; the task SFT trainer independently inherits its existing P0 warm-start seed `2026072900`.
+The same qualified 16-negative-per-prompt banks remain fixed. SFT initialization must not rebuild or retune the bank. The canonical reference-remoteness bank / canonical DPO runtime seed remains `2026070803`. The task SFT trainer independently inherits the existing P0 warm-start base seed `2026072900` (plus the existing deterministic task offset). These two seed roles must be represented separately in machine-readable configuration rather than overloading one `initialization.seed` field.
+
+## Input scope
+
+This successor experiment has no new Countdown scientific cell. Its prepared input suite therefore contains only the eight P0 transfer tasks. Countdown remains historical external-validity context in reporting, but the 96-cell run must not require a Countdown bank, Countdown validation file, Countdown split materialization, or Countdown adapter merely to prepare or execute these transfer-task cells.
 
 ## Reporting
 
