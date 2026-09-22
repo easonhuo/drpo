@@ -3739,11 +3739,32 @@ def test_task_sft_dpo_beta_zero_aggregate_counts_one_independent_seed(
 
     duplicate_path = tmp_path / "cells" / cells[1].key / "cell_manifest.json"
     duplicate_manifest = json.loads(duplicate_path.read_text(encoding="utf-8"))
+    duplicate_manifest["optimizer_updates"] = 1
+    p0.atomic_json(duplicate_path, duplicate_manifest)
+    with pytest.raises(
+        RuntimeError,
+        match="violates its terminal contract",
+    ):
+        e8_results._aggregate_coldstart_unranked(
+            config,
+            tmp_path,
+            rows,
+            spec=spec,
+            configured_cells=cells,
+            experiment_id_value=exp_tuning.experiment_id(config),
+            protocol_diagnostic={"status": "NOT_RUN"},
+            engineering_self_test=False,
+            positive_only_method=exp_tuning.METHOD_POSITIVE_ONLY,
+            global_method=exp_tuning.METHOD_GLOBAL,
+            write_json=p0.atomic_json,
+        )
+
+    duplicate_manifest["optimizer_updates"] = 0
     duplicate_manifest["terminal_trainable_state_sha256"] = "c" * 64
     p0.atomic_json(duplicate_path, duplicate_manifest)
     with pytest.raises(
         RuntimeError,
-        match="Static no-update control duplicate labels diverged",
+        match="violates its terminal contract",
     ):
         e8_results._aggregate_coldstart_unranked(
             config,
