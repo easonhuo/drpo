@@ -957,12 +957,7 @@ def _validate_method_grid(
     if sweep.get("parameterization") not in parameterizations:
         raise ValueError(parameterization_error)
     task_values = _mapping(sweep.get(grid_field), f"{method}.{grid_field}")
-    expected_grid_tasks = set(tasks)
-    if "countdown" not in expected_grid_tasks and "countdown" in task_values:
-        if tuple(task_values["countdown"]) != ():
-            raise ValueError("Transfer-only cold-start grids may keep only an empty Countdown entry")
-        expected_grid_tasks.add("countdown")
-    if set(task_values) != expected_grid_tasks:
+    if set(task_values) != set(tasks):
         raise ValueError(grid_error)
     for task in tasks:
         values = task_method_values(config, task, method=method)
@@ -1074,7 +1069,11 @@ def _validate_sweep(config: Mapping[str, Any], tasks: tuple[str, ...]) -> None:
         )
     else:
         _validate_method_grid(config, tasks, method=method, sweep=sweep)
-        countdown_values = task_method_values(config, "countdown", method=method)
+        countdown_values = (
+            task_method_values(config, "countdown", method=method)
+            if "countdown" in tasks
+            else ()
+        )
         if method == COLDSTART_METHOD_DPO and countdown_values:
             raise ValueError("Current multitask DPO capability intentionally excludes Countdown cells")
         if method == COLDSTART_METHOD_EXPONENTIAL and any(
@@ -1259,8 +1258,12 @@ def validate_coldstart_config(config: Mapping[str, Any]) -> None:
         )
     if set(suite.get("p0_tasks", ())) != expected - {"countdown"}:
         raise ValueError("Cold-start suite.p0_tasks must be the exact eight P0 tasks")
-    if tuple(suite.get("external_tasks", ())) != ("countdown",):
-        raise ValueError("Countdown must remain the sole historical cold-start external task")
+    external_tasks = tuple(str(value) for value in suite.get("external_tasks", ()))
+    if transfer_only_task_sft_dpo:
+        if external_tasks:
+            raise ValueError("Transfer-only task-SFT DPO must have no active external tasks")
+    elif external_tasks != ("countdown",):
+        raise ValueError("Countdown must remain the sole external task for the full cold-start suite")
     _mapping(suite.get("excluded_tasks"), "suite.excluded_tasks")
 
     _validate_scalar_types(config)
