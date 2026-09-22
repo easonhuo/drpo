@@ -1004,6 +1004,7 @@ class _CanonicalBridgeImpl:
                     pass64_every=200,
                     pass64_enabled=64
                     in {int(value) for value in effective["evaluation"]["auxiliary_pass_ks"]},
+                    examples_override=None,
                 )
                 sampled_valid_rate = getattr(evaluator, "_last_primary_sampled_valid_rate", None)
                 if sampled_valid_rate is not None:
