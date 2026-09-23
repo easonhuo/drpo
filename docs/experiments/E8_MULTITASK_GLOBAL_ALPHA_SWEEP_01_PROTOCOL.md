@@ -87,6 +87,15 @@ The sweep inherits the current protocol-matched E8 transfer settings:
   as the reciprocal/DRPO transfer sweeps;
 - two cells per GPU on GPU 0--7, maximum concurrency 16.
 
+## Runtime binding
+
+The frozen runtime config is
+`configs/e8_multitask_global_alpha_128.yaml`. Execution uses the existing
+`scripts/run_e8_multitask_exp_coldstart.sh` entrypoint; no experiment-specific
+launcher or trainer is introduced. A formal run must bind
+`E8_COLDSTART_EXPECTED_COMMIT` to the reviewed main-branch launch commit and
+set `E8_COLDSTART_REQUIRE_ORIGIN_MAIN=1`.
+
 ## Response and reporting
 
 For every task and alpha, report the paired-seed mean late-window Pass@8 and the
