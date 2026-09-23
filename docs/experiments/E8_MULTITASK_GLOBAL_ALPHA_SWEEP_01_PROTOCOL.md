@@ -2,7 +2,7 @@
 
 Experiment ID: `EXT-C-E8-MULTITASK-GLOBAL-ALPHA-SWEEP-01`
 
-Status: protocol frozen for implementation; scientific run not started.
+Status: protocol frozen; implementation prepared; scientific run not started.
 
 ## Scientific question
 
