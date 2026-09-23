@@ -2270,7 +2270,10 @@ def _method_liveness_grid(
     value = yaml.safe_load(grid_path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
         raise TypeError("Canonical liveness grid root must be a mapping")
-    value["execution"]["liveness"]["representative_family"] = method
+    liveness = value["execution"]["liveness"]
+    liveness["representative_family"] = method
+    if method == METHOD_GLOBAL:
+        liveness["representative_c"] = 0.0
     path = output_root / "liveness" / f"canonical_liveness_grid_{method}.yaml"
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".yaml.tmp")

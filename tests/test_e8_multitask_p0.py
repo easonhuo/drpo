@@ -4974,8 +4974,12 @@ def test_global_alpha_liveness_uses_global_family_and_representative_alpha(
         tmp_path,
     )
     cell = exp_tuning._canonical_cold_liveness_cell(grid)
+    grid_config = yaml.safe_load(grid.read_text(encoding="utf-8"))
+    liveness = grid_config["execution"]["liveness"]
 
     assert grid != source
+    assert liveness["representative_family"] == exp_tuning.METHOD_GLOBAL
+    assert liveness["representative_c"] == 0.0
     assert cell.method == exp_tuning.METHOD_GLOBAL
     assert cell.alpha == 1.0
     assert cell.lambda_value == 0.0
