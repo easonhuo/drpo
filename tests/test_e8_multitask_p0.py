@@ -4945,6 +4945,18 @@ def test_global_alpha_dispatch_uses_constant_weight_and_preserves_global_one_key
     assert exp_tuning._method_output_columns(half)["alpha"] == 0.5
     assert exp_tuning._method_output_columns(one)["alpha"] == 1.0
 
+    legacy = exp_tuning.Cell(
+        "word_sorting",
+        exp_tuning.METHOD_GLOBAL,
+        1.0,
+        4000,
+        "task_transfer",
+        0.0,
+    )
+    assert legacy.alpha is None
+    assert legacy.key == "word_sorting__global__seed4000"
+    assert "alpha" not in exp_tuning._method_output_columns(legacy)
+
 def test_global_alpha_grid_rejects_zero_and_values_above_one() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
