@@ -562,6 +562,13 @@ def _register_builtin_method_specs() -> None:
         ),
         formula="alpha*exp(-c*(current_sequence_surprisal/2))",
     )
+    global_paper_runtime = PaperRuntimeSpec(
+        liveness_grid=exponential_paper_runtime.liveness_grid,
+        liveness_parameter="representative_alpha",
+        grid_paths=exponential_paper_runtime.grid_paths,
+        cell_parameters=exponential_paper_runtime.cell_parameters,
+        formula=exponential_paper_runtime.formula,
+    )
     for method, build_cell, cell_key, parameters in (
         (METHOD_POSITIVE_ONLY, _build_control_cell, _positive_key, lambda cell: {}),
         (
@@ -594,7 +601,11 @@ def _register_builtin_method_specs() -> None:
                     _run_canonical_method_liveness(_method, **kwargs)
                 ),
                 scientific_kernel="canonical_old_coldstart_imports",
-                paper_runtime=exponential_paper_runtime,
+                paper_runtime=(
+                    global_paper_runtime
+                    if method == METHOD_GLOBAL
+                    else exponential_paper_runtime
+                ),
             )
         )
 
@@ -2250,11 +2261,15 @@ def _adapter_weight_file(adapter_root: Path) -> Path:
 def _method_liveness_grid(
     grid_path: Path, method: str, output_root: Path
 ) -> Path:
-    if method not in {METHOD_RECIPROCAL_LINEAR, METHOD_RECIPROCAL_QUADRATIC}:
+    if method not in {
+        METHOD_GLOBAL,
+        METHOD_RECIPROCAL_LINEAR,
+        METHOD_RECIPROCAL_QUADRATIC,
+    }:
         return grid_path
     value = yaml.safe_load(grid_path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
-        raise TypeError("Canonical reciprocal grid root must be a mapping")
+        raise TypeError("Canonical liveness grid root must be a mapping")
     value["execution"]["liveness"]["representative_family"] = method
     path = output_root / "liveness" / f"canonical_liveness_grid_{method}.yaml"
     path.parent.mkdir(parents=True, exist_ok=True)

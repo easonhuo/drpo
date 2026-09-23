@@ -4945,3 +4945,43 @@ def test_global_alpha_dispatch_uses_constant_weight_and_preserves_global_one_key
     assert exp_tuning._method_output_columns(half)["alpha"] == 0.5
     assert exp_tuning._method_output_columns(one)["alpha"] == 1.0
 
+def test_global_alpha_grid_rejects_zero_and_values_above_one() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = Path("configs/e8_multitask_global_alpha_128.yaml")
+    config = yaml.safe_load(source.read_text(encoding="utf-8"))
+
+    zero = copy.deepcopy(config)
+    zero["sweep"]["task_alpha"]["word_sorting"][0] = 0.0
+    with pytest.raises(ValueError, match=r"word_sorting alpha values must be in \(0, 1\]"):
+        exp_tuning.validate_config(zero)
+
+    above_one = copy.deepcopy(config)
+    above_one["sweep"]["task_alpha"]["word_sorting"][-1] = 1.01
+    with pytest.raises(ValueError, match=r"word_sorting alpha values must be in \(0, 1\]"):
+        exp_tuning.validate_config(above_one)
+
+
+def test_global_alpha_liveness_uses_global_family_and_representative_alpha(
+    tmp_path: Path,
+) -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    source = Path("configs/countdown_e8_oracle_offline_v2_alpha1_highc_scan_0p5b.yaml")
+    grid = exp_tuning._method_liveness_grid(
+        source,
+        exp_tuning.METHOD_GLOBAL,
+        tmp_path,
+    )
+    cell = exp_tuning._canonical_cold_liveness_cell(grid)
+
+    assert grid != source
+    assert cell.method == exp_tuning.METHOD_GLOBAL
+    assert cell.alpha == 1.0
+    assert cell.lambda_value == 0.0
+    assert exp_tuning._canonical_bridge()._paper_params_exponential(cell) == (
+        "exponential",
+        1.0,
+        0.0,
+    )
+
