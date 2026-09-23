@@ -10,9 +10,9 @@ On the exact eight structured-generation transfer tasks used by the current E8
 multitask external-transfer pipeline, measure the finite-horizon response to a
 uniform negative-sample weight
 
-[
+$
 w(z)=\alpha
-]
+$
 
 without learner-relative remoteness. This fills the missing Global-`alpha`
 transfer response needed for the SG-9 external-transfer aggregate.
@@ -43,13 +43,13 @@ remain unchanged. The test partition remains forbidden during tuning.
 
 The eight nonzero Global-`alpha` values are frozen to
 
-[
+$
 \alpha \in
 \left\{
 \frac{1}{128},\frac{1}{64},\frac{1}{32},\frac{1}{16},
 \frac{1}{8},\frac{1}{4},\frac{1}{2},1
 \right\}.
-]
+$
 
 Decimal values:
 
@@ -71,10 +71,10 @@ Paired development seeds are frozen to:
 
 The scientific matrix is therefore:
 
-[
+$
 8\text{ tasks} \times 8\text{ alpha values} \times 2\text{ seeds}
 = 128\text{ cells}.
-]
+$
 
 No Countdown cell and no Positive-only rerun is included in the 128 cells.
 
