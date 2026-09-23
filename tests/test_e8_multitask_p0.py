@@ -4872,3 +4872,76 @@ def test_recovery_checkpoint_snapshot_uses_caller_schema_version(tmp_path: Path)
     assert payload["schema_version"] == 7
     stored = exp_tuning._read_json_object(snapshot_root / "RECOVERY_SNAPSHOT.json")
     assert stored["schema_version"] == 7
+
+def test_global_alpha_sweep_is_exactly_128_transfer_cells() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_global_alpha_128.yaml")
+    )
+    cells = exp_tuning.build_cells(config)
+    waves = exp_tuning.build_waves(config)
+    expected_alpha = (
+        1.0 / 128.0,
+        1.0 / 64.0,
+        1.0 / 32.0,
+        1.0 / 16.0,
+        1.0 / 8.0,
+        1.0 / 4.0,
+        1.0 / 2.0,
+        1.0,
+    )
+
+    assert len(cells) == 128
+    assert len({cell.key for cell in cells}) == 128
+    assert len(waves) == 8
+    assert all(len(wave) == 16 for wave in waves)
+    assert not any(cell.task == "countdown" for cell in cells)
+    assert {cell.method for cell in cells} == {exp_tuning.METHOD_GLOBAL}
+    assert {cell.seed for cell in cells} == {4000, 5000}
+
+    for task in config["suite"]["p0_tasks"]:
+        task_cells = [cell for cell in cells if cell.task == task]
+        assert len(task_cells) == 16
+        assert {cell.seed for cell in task_cells} == {4000, 5000}
+        assert tuple(sorted({float(cell.alpha) for cell in task_cells})) == expected_alpha
+        assert all(cell.lambda_value == 0.0 for cell in task_cells)
+
+
+def test_global_alpha_dispatch_uses_constant_weight_and_preserves_global_one_key() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_global_alpha_128.yaml")
+    )
+    cells = exp_tuning.build_cells(config)
+    half = next(
+        cell
+        for cell in cells
+        if cell.task == "word_sorting"
+        and cell.seed == 4000
+        and cell.alpha == 0.5
+    )
+    one = next(
+        cell
+        for cell in cells
+        if cell.task == "word_sorting"
+        and cell.seed == 4000
+        and cell.alpha == 1.0
+    )
+
+    assert exp_tuning._canonical_bridge()._paper_params_exponential(half) == (
+        "exponential",
+        0.5,
+        0.0,
+    )
+    assert exp_tuning._canonical_bridge()._paper_params_exponential(one) == (
+        "exponential",
+        1.0,
+        0.0,
+    )
+    assert half.key == "word_sorting__global_alpha0p5__seed4000"
+    assert one.key == "word_sorting__global__seed4000"
+    assert exp_tuning._method_output_columns(half)["alpha"] == 0.5
+    assert exp_tuning._method_output_columns(one)["alpha"] == 1.0
+

@@ -203,7 +203,12 @@ class _CanonicalBridgeImpl:
         return cell.method, 1.0, float(cell.lambda_value)
 
     def _paper_params_exponential(self, cell: Any) -> tuple[str, float, float]:
-        alpha = 0.0 if cell.method == self.METHOD_POSITIVE_ONLY else 1.0
+        if cell.method == self.METHOD_POSITIVE_ONLY:
+            alpha = 0.0
+        elif cell.method == self.METHOD_GLOBAL:
+            alpha = 1.0 if cell.alpha is None else float(cell.alpha)
+        else:
+            alpha = 1.0
         coefficient = (
             0.0
             if cell.method in {self.METHOD_POSITIVE_ONLY, self.METHOD_GLOBAL}

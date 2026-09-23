@@ -101,7 +101,7 @@ METHOD_RECIPROCAL_LINEAR = experiment_config.COLDSTART_METHOD_RECIPROCAL_LINEAR
 METHOD_RECIPROCAL_QUADRATIC = experiment_config.COLDSTART_METHOD_RECIPROCAL_QUADRATIC
 METHOD_BASELINE_MATRIX = experiment_config.COLDSTART_METHOD_BASELINE_MATRIX
 METHOD_RECIPROCAL_MATRIX = experiment_config.COLDSTART_METHOD_RECIPROCAL_MATRIX
-METHOD_GLOBAL = "global"
+METHOD_GLOBAL = experiment_config.COLDSTART_METHOD_GLOBAL
 TRANSFER_SYSTEM_PROMPT = "Answer with only the requested final output and no explanation."
 SWEEP_PROFILE_RHO = experiment_config.SWEEP_PROFILE_RHO
 SWEEP_PROFILE_DENSE = experiment_config.SWEEP_PROFILE_DENSE
@@ -175,6 +175,7 @@ class Cell:
     beta: float | None = None
     dpo_initialization: str | None = None
     method_parameters: Mapping[str, Any] | None = None
+    alpha: float | None = None
 
     @property
     def key(self) -> str:
@@ -283,7 +284,11 @@ def _positive_key(cell: Cell) -> str:
 
 
 def _global_key(cell: Cell) -> str:
-    return f"{cell.task}__global__seed{cell.seed}"
+    alpha = 1.0 if cell.alpha is None else float(cell.alpha)
+    if math.isclose(alpha, 1.0, rel_tol=0.0, abs_tol=0.0):
+        return f"{cell.task}__global__seed{cell.seed}"
+    tag = f"{alpha:.12g}".replace(".", "p")
+    return f"{cell.task}__global_alpha{tag}__seed{cell.seed}"
 
 
 def _exp_key(cell: Cell) -> str:
@@ -337,7 +342,15 @@ def _build_control_cell(
     if method == METHOD_POSITIVE_ONLY:
         return Cell(task, method, None, seed, stage)
     if method == METHOD_GLOBAL:
-        return Cell(task, method, 1.0, seed, stage, 0.0)
+        return Cell(
+            task,
+            method,
+            None,
+            seed,
+            stage,
+            lambda_value=0.0,
+            alpha=float(value),
+        )
     raise ValueError(f"Unsupported control method: {method}")
 
 
@@ -555,7 +568,10 @@ def _register_builtin_method_specs() -> None:
             METHOD_GLOBAL,
             _build_control_cell,
             _global_key,
-            lambda cell: {"lambda": 0.0},
+            lambda cell: {
+                "lambda": 0.0,
+                **({"alpha": float(cell.alpha)} if cell.alpha is not None else {}),
+            },
         ),
         (
             METHOD_EXPONENTIAL,
