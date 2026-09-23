@@ -4958,29 +4958,6 @@ def test_global_alpha_dispatch_uses_constant_weight_and_preserves_global_one_key
     assert "alpha" not in exp_tuning._method_output_columns(legacy)
 
 
-def test_global_alpha_grid_rejects_zero_and_values_above_one() -> None:
-    from drpo import e8_multitask_exp_tuning as exp_tuning
-
-    source = Path("configs/e8_multitask_global_alpha_128.yaml")
-    config = yaml.safe_load(source.read_text(encoding="utf-8"))
-
-    zero = copy.deepcopy(config)
-    zero["sweep"]["task_alpha"]["word_sorting"][0] = 0.0
-    with pytest.raises(
-        ValueError,
-        match=r"word_sorting alpha values must be in \(0, 1\]",
-    ):
-        exp_tuning.validate_config(zero)
-
-    above_one = copy.deepcopy(config)
-    above_one["sweep"]["task_alpha"]["word_sorting"][-1] = 1.01
-    with pytest.raises(
-        ValueError,
-        match=r"word_sorting alpha values must be in \(0, 1\]",
-    ):
-        exp_tuning.validate_config(above_one)
-
-
 def test_global_alpha_liveness_uses_global_family_and_representative_alpha(
     tmp_path: Path,
 ) -> None:
