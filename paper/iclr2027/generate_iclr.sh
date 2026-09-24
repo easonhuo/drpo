@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SOURCE_REL="paper/iclr2027/manuscript_source.tex"
 SOURCE="$ROOT/$SOURCE_REL"
 OUT_DIR="${1:-$ROOT/paper/iclr2027/build}"
-EXPECTED_BLOB="1bfd062ab497d5fdbb748e6ab5e08feb2619fdf9"
+EXPECTED_BLOB="862837e32ed5e103455ebd9fb7e5772583a68769"
 
 mkdir -p "$OUT_DIR"
 
