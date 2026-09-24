@@ -123,10 +123,11 @@ tail.
 DRPO restores eventual inward Gaussian drift for every fixed finite
 negative-to-positive mass ratio, yields an explicit ultimate-bound radius, and
 changes categorical support suppression from exponential to polynomial
-probability decay. External diagnostics and controlled interventions isolate
+probability decay. External diagnostics and controlled experiments identify
 remoteness-dependent policy geometry as a source of negative-update
-amplification and show that selective tapering can remove its far-field effect
-without discarding useful local feedback.
+amplification and show that selective tapering preserves useful local
+feedback. DRPO achieves higher aggregate scores than the reported matched
+controls on D4RL locomotion and nine structured-generation tasks.
 \end{abstract}
 
 \section{Introduction}
@@ -135,8 +136,8 @@ without discarding useful local feedback.
 Policy-based methods learn from signed feedback: positive updates pull the
 policy toward actions estimated to be preferable, whereas negative updates
 suppress those estimated to be undesirable. Negative feedback can encode useful boundaries and exclusion information
-absent from positive-only learning \citep{zhu2025negative,song2025good}. It can displace the policy beyond the positive-only solution; whether this
-improves task utility remains empirical. In off-policy settings, a historical sample may be reused after earlier updates
+absent from positive-only learning \citep{zhu2025negative,song2025good}. It can displace the policy beyond the positive-only solution; whether that
+displacement improves task utility remains an empirical question. In off-policy settings, a historical sample may be reused after earlier updates
 change its current-policy probability; we study the zero-refresh limit for
 controlled isolation. When does repeated reuse turn useful negative feedback into excessive
 repulsion?
@@ -145,11 +146,10 @@ Learner-relative remoteness is the state variable linking successive reuse steps
 its remoteness and thereby changing the next policy-score response (the \emph{near field}
 \(D\leq\tau\) versus the \emph{far field} \(D>\tau\);
 Section~\ref{sec:drpo}). Policy family determines the tail law: Gaussian mean scores grow with
-standardized distance, whereas categorical logit scores remain bounded as
-selected-action probabilities approach the simplex boundary. Under isolated reuse, uncontrolled Gaussian remoteness grows
-geometrically and categorical action probability decays exponentially; an
-exponential taper reduces the corresponding far-field growth to logarithmic
-order. This is the curse of repulsion: a negative update makes the same historical action
+standardized distance, whereas categorical logit scores remain bounded even
+as selected-action probabilities approach zero. Under isolated reuse,
+exponential tapering changes Gaussian remoteness growth from geometric to
+logarithmic and categorical probability decay from exponential to polynomial. This is the curse of repulsion: a negative update makes the same historical action
 more remote on reuse without making the signal self-limiting.
 
 Whether remoteness itself amplifies negative updates independently of sample
@@ -172,7 +172,7 @@ an empirical question.
 
 We therefore introduce Dynamic Remoteness-Aware Policy Optimization
 (DRPO), which recomputes current-policy remoteness, leaves near-field negative
-updates unchanged, and exponentially tapers beyond the threshold. The taper dominates every finite-order
+updates unchanged and exponentially attenuates those beyond the threshold. The taper dominates every finite-order
 far-field response, restores eventual inward Gaussian drift for any fixed
 finite negative-to-positive mass ratio, and makes categorical suppression
 self-limiting. Remoteness controls geometric exposure, not directional utility
@@ -183,9 +183,10 @@ under repeated negative reuse and aggregate regimes for stable extrapolation,
 persistent drift, and loss of finite stable equilibria; \textbf{(2)} a
 control-order hierarchy and selective exponential taper with Gaussian
 ultimate-boundedness and self-limiting categorical suppression guarantees; and
-\textbf{(3)} matched external diagnostics and controlled interventions that
-separate coefficient magnitude from policy geometry, identify a far-field
-causal pathway, and test the stability--utility trade-off.
+\textbf{(3)} controlled experiments that separate coefficient magnitude
+from policy geometry, identify a far-field causal pathway, and test the
+stability--utility trade-off, together with matched external diagnostics
+and task-performance evaluations in D4RL locomotion and structured generation.
 
 
 % ------------------------------------------------------------------
@@ -431,9 +432,9 @@ Thus, positive reuse makes the historical action increasingly compatible
 with the learner while attenuating its subsequent score response.
 \end{theorem}
 
-Both policy families satisfy the theorem's convexity assumption globally:
-fixed-covariance Gaussian remoteness is quadratic in the mean, and categorical
-negative log-likelihood is convex in logits
+In both policy parameterizations, the theorem's convexity assumption holds
+globally: fixed-covariance Gaussian remoteness is quadratic in the mean, and
+categorical negative log-likelihood is convex in logits
 (Appendix~\ref{app:reuse_dynamics}).
 
 Together with Proposition~\ref{prop:distance_strength}, the theorem
@@ -448,9 +449,10 @@ gives the exact rate.
 \subsection{Aggregate Equilibria under Historical Reuse}
 \label{sec:aggregate_equilibria}
 
-Aggregating positive and negative historical samples, we ask whether
-competing attraction and repulsion yield a finite stable equilibrium,
-persistent drift, or instability.
+The preceding analysis tracks one fixed historical action; aggregating
+positive and negative historical samples, we ask whether competing attraction
+and repulsion yield a finite stable equilibrium, persistent drift, or
+instability.
 
 A common fixed-context exponential-family representation covers Gaussian and
 categorical policies; Appendix~\ref{app:aggregate_equilibrium} gives the
@@ -517,8 +519,8 @@ along \(\mathbf m_+-\mathbf m_-\), away from \(\mathbf m_-\).
 \subsection{Policy-Family Manifestations of Negative Dominance}
 \label{sec:policy_family_manifestations}
 
-Under negative dominance, policy families differ in score and support
-manifestations despite lacking a finite stable equilibrium.
+Under negative dominance, no finite stable equilibrium exists, while score
+and support manifestations differ by policy family.
 
 \begin{theorem}[Policy-family score behavior under negative dominance]
 \label{thm:policy_family_manifestations}
@@ -617,8 +619,8 @@ data refresh and actor--critic coupling alter the field.
 \section{Dynamic Remoteness-Aware Policy Optimization}
 \label{sec:drpo}
 
-DRPO targets the remote negative source without uniformly weakening the
-negative branch.
+The selective-tapering analysis motivates DRPO: it targets the remote
+negative source without uniformly weakening the negative branch.
 
 \subsection{Update and Policy-Family Instantiations}
 \label{subsec:drpo_update}
@@ -723,17 +725,18 @@ Equation~\eqref{eq:drpo_exp_weight} gives
 \paragraph{Where existing off-policy controls intervene.}
 We organize off-policy controls by four questions: what data are used, what
 signal they carry, how much each sample contributes, and how policy is anchored
-to historical behavior or a reference. They classify mechanisms, not algorithms; methods may instantiate multiple
-mechanisms. DRPO acts at the sample-influence level, attenuating negative feedback by
-current-learner remoteness rather than a behavior-policy ratio. Appendix~\ref{app:topr_relation} gives the full
+to historical behavior or a reference. These questions classify mechanisms, not algorithms; methods may instantiate
+multiple mechanisms. DRPO acts at the sample-influence level, attenuating
+negative feedback according to learner-relative remoteness rather than a
+behavior-policy ratio. Appendix~\ref{app:topr_relation} gives the full
 taxonomy and comparisons.
 
 \subsection{Loop-Gain Order}
 \label{subsec:min_order_control}
 
 The next remoteness change is driven by the squared score
-\(R(D)=\|\nabla D\|_2^2\), not single-step parameter displacement; we call it
-the reuse \emph{loop gain}.
+\(R(D)=\|\nabla D\|_2^2\), not by single-step parameter displacement; we call
+\(R(D)\) the reuse \emph{loop gain}.
 
 \begin{proposition}[Gaussian loop-gain order]
 \label{prop:loop_gain_order}
@@ -792,7 +795,7 @@ L1 (vanishing far-field force) and L2 (bounded Gaussian loop gain), to L3
 (vanishing finite-order tails). Global scaling fails L0, reciprocal-quadratic
 is critical at L2, and exponential satisfies L0--L3; definitions and the
 experimental-control mapping are in Appendix~\ref{app:exp_vanishing_influence}.
-It ranks guarantees, not task performance.
+The hierarchy orders control guarantees.
 
 With positive attraction and finitely many exponentially tapered negative
 atoms, the fixed-covariance Gaussian mean field has ultimately bounded
@@ -814,10 +817,10 @@ realistic continuous-control and discrete autoregressive policies; controlled
 environments separate coefficient magnitude from policy geometry, trace
 updates into policy behavior, and compare negative-weighting rules under known
 near/far structure; task-level evaluations cover D4RL and structured
-generation. C-U1 (a Gaussian continuous-action contextual bandit) and D-U1 (unordered
-categorical actions with shared representations) provide controlled
-environments with known ground truth for source isolation, policy dynamics, and
-held-out-context generalization. External diagnostics use nine D4RL locomotion
+generation. C-U1 (a Gaussian continuous-action contextual bandit) and D-U1 (an
+unordered categorical environment with shared representations) provide
+controlled environments with known ground truth for source isolation, policy
+dynamics, and held-out-context generalization. External diagnostics use nine D4RL locomotion
 cells~\citep{fu2020d4rl} and nine structured-generation tasks---
 Countdown~\citep{hutton2002countdown,pan2025tinyzero}, seven Reasoning Gym
 tasks~\citep{stojanovski2025reasoninggym}, and
@@ -831,16 +834,17 @@ are in Appendices~\ref{app:experimental_details} and~\ref{app:controlled_protoco
 \subsection{External Diagnostic of Far-Field Repulsion}
 \label{sec:external_far_field}
 
-In D4RL and structured generation, learner-relative remoteness varies at fixed
-sample-quality magnitude; Appendices~\ref{app:d4rl_gradient_diagnostic}
+We compare near- and far-field actor gradients using matched negative-signal
+magnitudes in D4RL and fixed negative coefficients in structured generation;
+Appendices~\ref{app:d4rl_gradient_diagnostic}
 and~\ref{app:structured_generation_methods} give the protocols.
 
 In both domains, implemented actor-gradient increases from near to far field
-(Figure~\ref{fig:app_external_gradient_panels}). The approximately linear D4RL
-trend agrees with the Gaussian prediction; the fixed-coefficient structured-generation
-trend is consistent with persistent categorical suppression. These probes show the near-to-far pattern in realistic neural policies;
-controlled experiments separate remoteness from coefficient magnitude and test
-whether far-field updates drive instability.
+(Figure~\ref{fig:external_far_field}). The approximately linear D4RL
+trend agrees with the Gaussian prediction; the fixed-coefficient
+structured-generation trend is consistent with persistent categorical
+suppression. These probes show the near-to-far pattern in realistic neural
+policies.
 
 
 
@@ -848,11 +852,11 @@ whether far-field updates drive instability.
 \subsection{Controlled Identification of the Causal Mechanism}
 \label{sec:controlled_identification}
 
-External diagnostics entangle sample quality, remoteness, critic/verifier
-coefficients, coverage, and downstream dynamics, so controlled experiments
-independently vary coefficient magnitude and remoteness and intervene on near-
-versus far-field negative updates
-(Appendix~\ref{app:controlled_protocols}). C-U1 negative actions share a reward contour and fixed advantage but differ in
+The external probes show the near-to-far gradient pattern under matched
+negative-signal strength; controlled experiments then isolate its source and
+test its downstream training effects by independently varying coefficient
+magnitude and remoteness and intervening on near- versus far-field negative
+updates (Appendix~\ref{app:controlled_protocols}). C-U1 negative actions share a reward contour and fixed advantage but differ in
 standardized distance; the categorical direct-softmax reference fixes the
 negative coefficient while varying current-policy surprisal. For the causal intervention, C-U1 branches share data, fixed labels,
 initialization, optimizer, and horizon, differing only in near/far
@@ -942,7 +946,8 @@ policy-score terms: coefficient magnitude stays flat across remoteness bins
 while score response grows, so larger updates arise from policy-score geometry
 rather than larger advantages. Gaussian policies show amplitude amplification, whereas categorical
 direct-logit responses saturate while selected-action probability decreases
-toward zero.
+toward zero. This isolates the source of the update difference; the next
+intervention tests whether it propagates into drift and collapse.
 \subsubsection{Causal Transmission into Drift and Collapse}
 \label{sec:controlled_transmission}
 
@@ -1015,9 +1020,12 @@ SG-9 & 67.9 & -- & 68.1 & 68.2 & \textbf{69.2} \\
 \vspace{-0.5em}
 \end{wraptable}
 
-DRPO weights D4RL transitions by current-policy standardized remoteness and
-structured-generation responses by mean-token surprisal; protocol-matched
+We next test this remoteness-aware control principle externally. DRPO weights
+D4RL transitions by standardized remoteness under the current Gaussian policy
+and structured-generation responses by mean-token surprisal; protocol-matched
 methods share data, labels, initialization, optimizer, and budget.
+DRPO has the highest displayed aggregate score in both domains
+(Table~\ref{tab:taper_transfer_summary}).
 
 \subsection{Overall Task Performance}
 \label{sec:overall_performance}
@@ -1026,7 +1034,7 @@ Task-level transfer uses D4RL normalized return and structured-generation
 verifier success. Both domains use fixed data while recomputing learner-relative
 remoteness under the current policy; protocol-matched controls share data and
 compute budgets. Task-performance collapse, support/variance-boundary events,
-and NaN/Inf remain separate.
+and NaN/Inf failures remain separate.
 % Required packages:
 % \usepackage{booktabs}
 % \usepackage{graphicx}
@@ -1034,8 +1042,8 @@ and NaN/Inf remain separate.
 \subsubsection{D4RL Locomotion}
 \label{sec:d4rl_performance}
 
-On the D4RL offline-RL suite~\citep{fu2020d4rl},
-Table~\ref{tab:d4rl_performance} compares DRPO with published
+For continuous-control transfer, Table~\ref{tab:d4rl_performance} evaluates
+DRPO on the D4RL locomotion suite~\citep{fu2020d4rl} against published
 CQL~\citep{kumar2020conservative}, TD3+BC~\citep{fujimoto2021minimalist},
 and IQL~\citep{kostrikov2021offline} results; Appendix~\ref{app:d4rl_methods}
 gives protocol and implementation details.
@@ -1043,9 +1051,7 @@ gives protocol and implementation details.
 With the shared advantage-weighted actor form, DRPO remains competitive on
 the D4RL-9 total without an added behavior-policy constraint or conservative value
 penalty; its only method-specific component is a detached negative-branch
-remoteness taper. This is consistent with far-field source control
-(Section~\ref{sec:selective_tapering_bridge}) but is task-level transfer, not a
-causal mechanism test.
+remoteness taper.
 
 \subsubsection{Structured Generation}
 \label{sec:structured_generation_performance}
@@ -1143,8 +1149,9 @@ Pass@8 percentages.
 \end{minipage}
 \end{table*}
 
-Across the eight transfer tasks, reported DRPO scores exceed those of AsymRE
-on five tasks and joint fitted-reference $\beta$-TOPR on seven.
+Across the nine structured-generation tasks, reported DRPO scores exceed
+those of AsymRE on six and those of joint fitted-reference $\beta$-TOPR
+on eight.
 
 \section{Conclusion}
 
@@ -1153,9 +1160,9 @@ self-reinforcing far-field repulsion, linking per-sample repulsion to stable
 displacement, persistent drift, and instability. DRPO selectively attenuates remote negative updates while preserving local
 ones; matched diagnostics and interventions support this mechanism across
 continuous and discrete policies. Our guarantees analyze the zero-refresh limit for clean isolation, but the same
-learner-relative weighting applies when negatives are already remote under the
-current policy, including replay and stale-policy settings; remoteness-aware
-control is not restricted to static offline datasets.
+learner-relative weighting principle applies when negative samples are already
+remote under the current policy, including replay and stale-policy settings;
+remoteness-aware control is not restricted to static offline datasets.
 
 
 % Acknowledgements should only appear in the accepted version.
@@ -2487,14 +2494,11 @@ constraint expressed in generalized I-divergence
 \citep{csiszar1975divergence}. Optimistic or best-case distributional
 optimization also has a formal precedent in likelihood approximation
 and policy optimization
-\citep{nguyen2019optimistic,song2020optimistic}. Our construction is
-related but distinct: it reweights a finite measure of negative-update
-mass according to learner-relative remoteness and may reduce that
-measure's total mass. It is therefore an analogue of optimistic
-divergence-ball reweighting, not a standard ambiguity set over normalized
-probability distributions. The analogy is deliberately qualified: unlike
-standard ambiguity sets over normalized probability measures, the present
-construction permits attenuation of the total negative-update mass. Let
+\citep{nguyen2019optimistic,song2020optimistic}. Our construction is related but distinct: it reweights a finite measure of
+negative-update mass according to learner-relative remoteness and may reduce
+that measure's total mass. It is therefore a finite-measure analogue of
+optimistic divergence-ball reweighting: unlike normalized-distribution
+ambiguity sets, it permits attenuation of the total negative-update mass. Let
 \(d\xi^-(z)=\widehat A^-(z)d\nu(z)\) and
 \(h(z)=[D(z)-\tau(z)]_+\). Consider
 \begin{equation}
@@ -3207,10 +3211,9 @@ require the specified semantic correspondence.
 E5 serves a distinct but complementary role. Its direct-softmax
 diagnostic and categorical causal reconstruction isolate persistent
 surprisal growth, logit-gap growth, and simplex-boundary suppression
-under repeated negative updates. It shares the fixed-advantage and
-near/far intervention logic of D-U1, but it does not use the 64-action
-shared-semantic catalogue and does not support the E6 semantic
-generalization claim.
+under repeated negative updates, while sharing D-U1's fixed-advantage
+and near/far intervention logic. The semantic-generalization test is carried
+by E6-C through the 64-action shared-semantic catalogue.
 
 \subsection{D4RL Locomotion Datasets}
 \label{app:hopper_datasets}
@@ -3350,8 +3353,8 @@ treated as independent contexts for statistical inference.
 \paragraph{Purpose.}
 The source-isolation experiment asks whether policy-relative remoteness
 changes negative-update magnitude when sample quality is held fixed. It
-identifies the source of a per-sample difference, not its causal effect on
-training.
+identifies the source of a per-sample difference; the causal-transmission
+protocol below tests its downstream effect on training.
 
 \paragraph{Continuous product-manifold construction.}
 For each C-U1 context, we select multiple negative actions from a common
@@ -3407,8 +3410,8 @@ rather than advantage magnitude.
 For neural implementations, we additionally record the full
 parameter-gradient norm and the aggregate gradient obtained from samples
 in the same remoteness range. These implementation-level actor-gradient
-diagnostics are used as transfer checks, not as theorem-level score
-measures.
+diagnostics assess transfer in trainable networks, complementing the
+output-coordinate score measures used for controlled source isolation.
 
 We report near-to-far ratios of remoteness, score norm, single-sample
 gradient norm, aggregate gradient norm, and gradient-direction
@@ -3727,11 +3730,10 @@ them indiscriminately.
 \subsection{External Taper Validation}
 \label{app:external_taper_protocol}
 
-\paragraph{Scientific scope.}
-External taper experiments test whether the controlled weighting
-principle transfers to complex policies. They do not reproduce the exact
-counterfactual geometry of C-U1 or D-U1 and therefore do not replace the
-controlled source and causal experiments.
+\paragraph{Experimental role.}
+External taper experiments test transfer of the controlled weighting principle
+to complex policies; C-U1 and D-U1 provide the counterfactual source-isolation
+and causal-intervention tests.
 
 \paragraph{Hopper.}
 All Hopper taper methods branch from the same actor initialization and
@@ -3781,10 +3783,10 @@ and ratio-denominator rules are method-specific and are stated
 separately.
 
 \paragraph{Comparisons and reporting.}
-The common external comparisons are Positive-only, Uncontrolled,
-Global scaling, and exponential DRPO. Domain-specific baselines are
-reported in the overall-performance section rather than treated as
-controlled taper variants. Hopper reports normalized return and policy
+External taper comparisons include Positive-only, Uncontrolled, Global
+scaling, Reciprocal-Linear, Reciprocal-Quadratic, and exponential DRPO;
+domain-specific baselines are reported separately in the overall-performance
+section. Hopper reports normalized return and policy
 statistics; Countdown reports greedy verifier success, Pass@$k$, valid
 expression rate, surprisal, and support statistics. Task-performance,
 boundary, and NaN/Inf outcomes remain separate in both domains.
