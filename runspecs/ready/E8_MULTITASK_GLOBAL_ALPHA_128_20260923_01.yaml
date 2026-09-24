@@ -3,7 +3,7 @@ run_id: E8_MULTITASK_GLOBAL_ALPHA_128_20260923_01
 lane: e8
 priority: 180
 experiment_id: EXT-C-E8-MULTITASK-GLOBAL-ALPHA-SWEEP-01
-repo_commit: a69c80032be3736aa0902ebbf35c83b9b0908f0e
+repo_commit: 0148b638f865133c2d870a64ed895748ceba6f92
 
 registration:
   mode: deferred
@@ -109,7 +109,7 @@ outputs:
 
 success_criteria:
   - execution resolves refs/heads/main through the canonical easonhuo/drpo origin and uses a clean isolated checkout
-  - protected scientific paths remain unchanged from repo_commit a69c80032be3736aa0902ebbf35c83b9b0908f0e
+  - protected scientific paths remain unchanged from repo_commit 0148b638f865133c2d870a64ed895748ceba6f92
   - experiment identity is EXT-C-E8-MULTITASK-GLOBAL-ALPHA-SWEEP-01 and execution class is formal
   - tracked config expands to exactly 128 unique scientific cells across the eight P0 transfer tasks only
   - countdown launches zero new scientific cells
