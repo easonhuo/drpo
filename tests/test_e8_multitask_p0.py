@@ -5038,7 +5038,7 @@ def test_global_alpha_grouped_curve_preserves_all_eight_points() -> None:
 
 def test_global_alpha_uses_constant_old_kernel_weight() -> None:
     torch_module = pytest.importorskip("torch")
-    from drpo import countdown_e8_alpha1_c_scan_common as scan_common
+    from drpo import countdown_e8_alpha1_highc_scan_common as scan_common
 
     seq_lp = torch_module.tensor([-0.5, -2.0, -7.0])
     weights = scan_common.continuous_exp_weights(
