@@ -52,8 +52,8 @@ Decimal values:
 Global-`alpha` uses the canonical E8 paper runtime with exponential coefficient
 `c=0`, so the old kernel reduces exactly to `alpha * exp(0) = alpha`.
 No loss, optimizer, bank, evaluator, or trainer formula is reimplemented.
-The engineering liveness probe exercises the same Global path at
-`alpha=0.5, c=0`; it is not scientific evidence.
+The engineering liveness probe exercises the canonical old kernel under
+constant Global semantics at `alpha=0.5, c=0`; it is not scientific evidence.
 
 ## Seeds and matrix size
 
