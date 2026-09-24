@@ -4907,6 +4907,7 @@ def test_global_alpha_sweep_is_exactly_128_transfer_cells() -> None:
         assert {cell.seed for cell in task_cells} == {4000, 5000}
         assert tuple(sorted({float(cell.alpha) for cell in task_cells})) == expected_alpha
         assert all(cell.lambda_value == 0.0 for cell in task_cells)
+        assert all(cell.rho == 1.0 for cell in task_cells)
 
 
 def test_global_alpha_dispatch_uses_constant_weight_and_preserves_global_one_key() -> None:
