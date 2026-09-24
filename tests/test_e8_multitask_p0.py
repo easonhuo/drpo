@@ -4873,6 +4873,7 @@ def test_recovery_checkpoint_snapshot_uses_caller_schema_version(tmp_path: Path)
     stored = exp_tuning._read_json_object(snapshot_root / "RECOVERY_SNAPSHOT.json")
     assert stored["schema_version"] == 7
 
+
 def test_global_alpha_sweep_is_exactly_128_transfer_cells() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
@@ -4987,7 +4988,6 @@ def test_global_alpha_liveness_uses_global_family_and_representative_alpha(
     )
 
 
-
 def test_global_alpha_grid_rejects_out_of_range_values() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
@@ -5002,6 +5002,7 @@ def test_global_alpha_grid_rejects_out_of_range_values() -> None:
             match=r"Global-alpha values must be in \(0, 1\]",
         ):
             exp_tuning.validate_config(mutated)
+
 
 def test_global_alpha_grouped_curve_preserves_all_eight_points() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
