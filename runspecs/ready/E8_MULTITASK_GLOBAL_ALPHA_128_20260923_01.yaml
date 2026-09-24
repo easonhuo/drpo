@@ -109,7 +109,7 @@ outputs:
 
 success_criteria:
   - execution resolves refs/heads/main through the canonical easonhuo/drpo origin and uses a clean isolated checkout
-  - protected scientific paths remain unchanged from repo_commit 7fa7fcbc62f3606a1b7926d323c89e22e14289d5
+  - protected scientific paths remain unchanged from repo_commit e97593b74777cb94768262b74e1bf945be6c6a73
   - experiment identity is EXT-C-E8-MULTITASK-GLOBAL-ALPHA-SWEEP-01 and execution class is formal
   - tracked config expands to exactly 128 unique scientific cells across the eight P0 transfer tasks only
   - countdown launches zero new scientific cells
