@@ -7961,6 +7961,7 @@ experiments:
     E8_COLDSTART_EXPECTED_COMMIT="$(git rev-parse HEAD)"
     E8_COLDSTART_REQUIRE_ORIGIN_MAIN=1
     bash scripts/run_e8_multitask_exp_coldstart.sh full
+    # wrapper delegates to scripts/run_experiment_guard_hardened.py --experiment-id EXT-C-E8-MULTITASK-GLOBAL-ALPHA-SWEEP-01
   protocol:
     tasks: [word_sorting, spiral_matrix, mini_sudoku, maze, word_ladder, knights_knaves, graph_color, wikisql]
     external_task_reused_without_new_cells: countdown

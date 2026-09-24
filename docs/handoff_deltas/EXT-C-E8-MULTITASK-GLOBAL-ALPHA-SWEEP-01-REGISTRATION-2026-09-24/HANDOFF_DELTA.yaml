@@ -17,7 +17,7 @@ operations:
     - **E8 Global-\(\alpha\) 128-cell transfer sweep protocol registration（`EXT-C-E8-MULTITASK-GLOBAL-ALPHA-SWEEP-01`；2026-09-24）：** 科学状态保持 **not_run**。正式矩阵只覆盖八个 P0 transfer tasks：`word_sorting`、`spiral_matrix`、`mini_sudoku`、`maze`、`word_ladder`、`knights_knaves`、`graph_color`、`wikisql`；Countdown 继续复用既有结果且不新增 cell，Positive-only（\(\alpha=0\)）也不重跑。Global-\(\alpha\) 固定使用旧 canonical negative kernel 的 `c=0` 常数权重语义，\(\alpha\in\{1/128,1/64,1/32,1/16,1/8,1/4,1/2,1\}\)，paired seeds 固定为 `4000/5000`，共 `8×8×2=128` cells；fresh LoRA、数据/bank、optimizer、1200-update horizon、evaluation cadence、task-local runtime、8 GPU × 2 slots 与现有 E8 transfer contract 保持一致，test partition 禁止用于本 sweep。该实验只提供 finite-horizon external-validity response evidence；不得据此宣称 convergence、steady state、significance 或 universal method ranking，任务性能、valid/structure 诊断与 NaN/Inf 数值失败继续分开报告。
 registry:
   mode: expected_after
-  exact_base_after_sha256: d8d75e62d9dc0fabd3df8ab66799417daf300cef704126dbcb1a5f34476b6b8d
+  exact_base_after_sha256: f7a07ab14d5c96d5a9cbad0275212bfcbf4bfea7f4e0fad9c0265d7f5a2a7b56
   changes:
   - change_id: add-e8-global-alpha-128-formal
     kind: add_entity

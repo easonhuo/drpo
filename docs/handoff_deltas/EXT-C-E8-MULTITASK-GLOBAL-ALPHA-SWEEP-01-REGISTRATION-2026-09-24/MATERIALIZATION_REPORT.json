@@ -13,7 +13,7 @@
           },
           {
             "path": "experiments/registry.yaml",
-            "sha256": "d8d75e62d9dc0fabd3df8ab66799417daf300cef704126dbcb1a5f34476b6b8d"
+            "sha256": "f7a07ab14d5c96d5a9cbad0275212bfcbf4bfea7f4e0fad9c0265d7f5a2a7b56"
           },
           {
             "path": "docs/experiments/E8_MULTITASK_GLOBAL_ALPHA_SWEEP_01_PROTOCOL.md",
@@ -63,7 +63,7 @@
     },
     "legacy_transition_assertions": []
   },
-  "delta_sha256": "072654163bc3f88e141ad1a0cbcac9b2f15d15b2aac570483f63479d8f230198",
+  "delta_sha256": "00cd90749fcc9eae3658f7b61440e62e13d6e76f6266502dc5a13b6f2596b0ca",
   "exact_base_candidate_sha256": "21785ec150d9ff2b46314246d4adb38d711ccf73b401192272c742296324140b",
   "exact_base_registry_validation": {
     "assertions": [
@@ -77,7 +77,7 @@
           },
           {
             "path": "experiments/registry.yaml",
-            "sha256": "d8d75e62d9dc0fabd3df8ab66799417daf300cef704126dbcb1a5f34476b6b8d"
+            "sha256": "f7a07ab14d5c96d5a9cbad0275212bfcbf4bfea7f4e0fad9c0265d7f5a2a7b56"
           },
           {
             "path": "docs/experiments/E8_MULTITASK_GLOBAL_ALPHA_SWEEP_01_PROTOCOL.md",
@@ -133,11 +133,11 @@
   "mode": "authoritative",
   "network_used": false,
   "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
-  "registry_after_sha256": "d8d75e62d9dc0fabd3df8ab66799417daf300cef704126dbcb1a5f34476b6b8d",
+  "registry_after_sha256": "f7a07ab14d5c96d5a9cbad0275212bfcbf4bfea7f4e0fad9c0265d7f5a2a7b56",
   "registry_before_sha256": "130dc304fa8bac8d1ab06c38944cb3dd8f8a965d5dff6b7b0574adac01747076",
   "report_schema_version": 1,
   "source_base_commit": "16a8037fa6e4de5341c68e9cbf7cd8b4bfa62fca",
-  "source_patch_commit": "3d5e4014aa36a0c15b8f1f6344850135b288bb9d",
+  "source_patch_commit": "e786b5378c7fe311ea4f025f2227ed0ec6329d12",
   "stage4a_refresh": {
     "refreshed": [
       "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
