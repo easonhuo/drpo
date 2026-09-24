@@ -47,9 +47,7 @@ Decimal values:
 
 `[0.0078125, 0.015625, 0.03125, 0.0625, 0.125, 0.25, 0.5, 1.0]`.
 
-`alpha=0` is exactly the Positive-only endpoint and is not retrained. Existing
-protocol-matched Positive-only results remain the left endpoint for response
-plots and SG-9 aggregation.
+`alpha=0` is exactly the Positive-only endpoint and is not retrained.
 
 Global-`alpha` uses the canonical E8 paper runtime with exponential coefficient
 `c=0`, so the old kernel reduces exactly to `alpha * exp(0) = alpha`.
@@ -108,7 +106,3 @@ Task-performance degradation, valid-structure/support diagnostics, and NaN/Inf
 numerical failure remain separate outcome classes. Fixed 1200-update evidence is
 finite-horizon evidence and must not be called convergence or steady state.
 
-The sweep exists to complete the Global-`alpha` transfer response. Any later
-choice of a paper-facing per-task Global-`alpha` operating point must use the
-same validation-only selection semantics as the other E8 transfer controls and
-must not use the test partition.
