@@ -342,10 +342,7 @@ def task_method_values(
         return values
     if grid_field == "task_alpha":
         raw = _sequence(method_sweep[grid_field][task], f"{task} alpha grid")
-        values = tuple(_number(value, f"{task} alpha value") for value in raw)
-        if any(value <= 0.0 or value > 1.0 for value in values):
-            raise ValueError(f"{task} Global-alpha values must be in (0, 1]")
-        return values
+        return tuple(_number(value, f"{task} alpha value") for value in raw)
     if grid_field == "task_delta_v":
         return task_delta_vs(config, task, method=selected)
     return task_betas(config, task, method=selected)
