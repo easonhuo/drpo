@@ -1,0 +1,170 @@
+{
+  "current_before_commit": "16a8037fa6e4de5341c68e9cbf7cd8b4bfa62fca",
+  "current_handoff_before_sha256": "1cdff07e2eb6091d9fe290fa31196aebe3dda7bd74c1464384fda63216a7e5a3",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e8-global-alpha-128-formal",
+        "entity_id": "EXT-C-E8-MULTITASK-GLOBAL-ALPHA-SWEEP-01",
+        "evidence": [
+          {
+            "path": "configs/e8_multitask_global_alpha_128.yaml",
+            "sha256": "44fd3aefc21057c1f7376fa4952e60cd30cc0cbce9ccccf5858385da8d90cb90"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "d8d75e62d9dc0fabd3df8ab66799417daf300cef704126dbcb1a5f34476b6b8d"
+          },
+          {
+            "path": "docs/experiments/E8_MULTITASK_GLOBAL_ALPHA_SWEEP_01_PROTOCOL.md",
+            "sha256": "b502c9da38061243ae1a9bc79997752ce471a72cbf0c0cb11d0ff0a260bd3ab9"
+          },
+          {
+            "path": "runspecs/ready/E8_MULTITASK_GLOBAL_ALPHA_128_20260923_01.yaml",
+            "sha256": "c44d819cc0655199587328e45c535fda3b6aef628acb7ca7512203b587783dcc"
+          },
+          {
+            "path": "scripts/run_e8_multitask_exp_coldstart.sh",
+            "sha256": "b6cf567067dc1aaa8196e05d7609034f0ee5e92abc0599baeb92d983e62d8e29"
+          },
+          {
+            "path": "scripts/bootstrap_e8_multitask_exp_coldstart.sh",
+            "sha256": "738cf809103dc813503b46333d077f1298e5ea8a26584ef6a242ec6114f46ee8"
+          },
+          {
+            "path": "src/drpo/e8_experiment_config.py",
+            "sha256": "adddc315aea782afb1e3ec3bb4730445a4c05918cf0b35b2f8e7407d6fa83a0c"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "8beafe72aaf50bd8427f07cc90375c966ce6d10d48e8316490e53e2b6f86011e"
+          },
+          {
+            "path": "src/drpo/e8_multitask_canonical_bridge.py",
+            "sha256": "96ade9e241f5978b0b4bcd0fbe10234cdc0efeb07072ff89d830e5444c343915"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "d19162bced2bbdcc2563143919939d3f15cec365a7c531993a7edea27831c11b"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-MULTITASK-GLOBAL-ALPHA-SWEEP-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "072654163bc3f88e141ad1a0cbcac9b2f15d15b2aac570483f63479d8f230198",
+  "exact_base_candidate_sha256": "21785ec150d9ff2b46314246d4adb38d711ccf73b401192272c742296324140b",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e8-global-alpha-128-formal",
+        "entity_id": "EXT-C-E8-MULTITASK-GLOBAL-ALPHA-SWEEP-01",
+        "evidence": [
+          {
+            "path": "configs/e8_multitask_global_alpha_128.yaml",
+            "sha256": "44fd3aefc21057c1f7376fa4952e60cd30cc0cbce9ccccf5858385da8d90cb90"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "d8d75e62d9dc0fabd3df8ab66799417daf300cef704126dbcb1a5f34476b6b8d"
+          },
+          {
+            "path": "docs/experiments/E8_MULTITASK_GLOBAL_ALPHA_SWEEP_01_PROTOCOL.md",
+            "sha256": "b502c9da38061243ae1a9bc79997752ce471a72cbf0c0cb11d0ff0a260bd3ab9"
+          },
+          {
+            "path": "runspecs/ready/E8_MULTITASK_GLOBAL_ALPHA_128_20260923_01.yaml",
+            "sha256": "c44d819cc0655199587328e45c535fda3b6aef628acb7ca7512203b587783dcc"
+          },
+          {
+            "path": "scripts/run_e8_multitask_exp_coldstart.sh",
+            "sha256": "b6cf567067dc1aaa8196e05d7609034f0ee5e92abc0599baeb92d983e62d8e29"
+          },
+          {
+            "path": "scripts/bootstrap_e8_multitask_exp_coldstart.sh",
+            "sha256": "738cf809103dc813503b46333d077f1298e5ea8a26584ef6a242ec6114f46ee8"
+          },
+          {
+            "path": "src/drpo/e8_experiment_config.py",
+            "sha256": "adddc315aea782afb1e3ec3bb4730445a4c05918cf0b35b2f8e7407d6fa83a0c"
+          },
+          {
+            "path": "src/drpo/e8_multitask_exp_tuning.py",
+            "sha256": "8beafe72aaf50bd8427f07cc90375c966ce6d10d48e8316490e53e2b6f86011e"
+          },
+          {
+            "path": "src/drpo/e8_multitask_canonical_bridge.py",
+            "sha256": "96ade9e241f5978b0b4bcd0fbe10234cdc0efeb07072ff89d830e5444c343915"
+          },
+          {
+            "path": "tests/test_e8_multitask_p0.py",
+            "sha256": "d19162bced2bbdcc2563143919939d3f15cec365a7c531993a7edea27831c11b"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-MULTITASK-GLOBAL-ALPHA-SWEEP-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "21785ec150d9ff2b46314246d4adb38d711ccf73b401192272c742296324140b",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "d8d75e62d9dc0fabd3df8ab66799417daf300cef704126dbcb1a5f34476b6b8d",
+  "registry_before_sha256": "130dc304fa8bac8d1ab06c38944cb3dd8f8a965d5dff6b7b0574adac01747076",
+  "report_schema_version": 1,
+  "source_base_commit": "16a8037fa6e4de5341c68e9cbf7cd8b4bfa62fca",
+  "source_patch_commit": "3d5e4014aa36a0c15b8f1f6344850135b288bb9d",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "2c86cc5b19df5d64cc3febf8b3317a0405b82ba5a0cdc9f2b38f60693161b4cc",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-C-E8-MULTITASK-GLOBAL-ALPHA-SWEEP-01-REGISTRATION-2026-09-24"
+}
