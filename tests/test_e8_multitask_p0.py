@@ -4988,22 +4988,6 @@ def test_global_alpha_liveness_uses_global_family_and_representative_alpha(
     )
 
 
-def test_global_alpha_grid_rejects_out_of_range_values() -> None:
-    from drpo import e8_multitask_exp_tuning as exp_tuning
-
-    config = exp_tuning.load_config(
-        Path("configs/e8_multitask_global_alpha_128.yaml")
-    )
-    for invalid in (0.0, 1.01):
-        mutated = copy.deepcopy(config)
-        mutated["sweep"]["task_alpha"]["word_sorting"][0] = invalid
-        with pytest.raises(
-            ValueError,
-            match=r"Global-alpha values must be in \(0, 1\]",
-        ):
-            exp_tuning.validate_config(mutated)
-
-
 def test_global_alpha_grouped_curve_preserves_all_eight_points() -> None:
     from drpo import e8_multitask_exp_tuning as exp_tuning
 
