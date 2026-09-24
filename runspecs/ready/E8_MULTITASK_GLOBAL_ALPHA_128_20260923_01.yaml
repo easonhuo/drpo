@@ -3,7 +3,7 @@ run_id: E8_MULTITASK_GLOBAL_ALPHA_128_20260923_01
 lane: e8
 priority: 180
 experiment_id: EXT-C-E8-MULTITASK-GLOBAL-ALPHA-SWEEP-01
-repo_commit: 661ab69159f131091d10a07e6a373e8cb4ca8577
+repo_commit: 0ea90738175ab59be02203274f579dc50574216b
 
 registration:
   mode: deferred
