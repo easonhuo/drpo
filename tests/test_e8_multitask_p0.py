@@ -5002,3 +5002,64 @@ def test_global_alpha_grid_rejects_out_of_range_values() -> None:
             match=r"Global-alpha values must be in \(0, 1\]",
         ):
             exp_tuning.validate_config(mutated)
+
+def test_global_alpha_grouped_curve_preserves_all_eight_points() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_global_alpha_128.yaml")
+    )
+    cells = [
+        cell
+        for cell in exp_tuning.build_cells(config)
+        if cell.task == "word_sorting"
+    ]
+    rows = [
+        {
+            "cell_key": cell.key,
+            "task": cell.task,
+            "method": cell.method,
+            "seed": cell.seed,
+            "control_role": None,
+            "zero_beta_control": False,
+            "late_window_pass8_mean": float(cell.alpha),
+            "late_window_greedy_mean": 0.0,
+            "terminal_pass8": float(cell.alpha),
+            "terminal_greedy_valid_rate": 1.0,
+            "nan_inf_failure": False,
+        }
+        for cell in cells
+    ]
+    curve = exp_tuning._coldstart_method_grouped_curve(
+        task="word_sorting",
+        method=exp_tuning.METHOD_GLOBAL,
+        method_rows=rows,
+        cells_by_key={cell.key: cell for cell in cells},
+    )
+
+    assert [row["alpha"] for row in curve] == [
+        1.0 / 128.0,
+        1.0 / 64.0,
+        1.0 / 32.0,
+        1.0 / 16.0,
+        1.0 / 8.0,
+        1.0 / 4.0,
+        1.0 / 2.0,
+        1.0,
+    ]
+    assert all(row["configured_seed_labels"] == [4000, 5000] for row in curve)
+    assert all(row["independent_seed_count"] == 2 for row in curve)
+
+
+def test_global_alpha_uses_constant_old_kernel_weight() -> None:
+    torch_module = pytest.importorskip("torch")
+    from drpo import countdown_e8_alpha1_c_scan_common as scan_common
+
+    seq_lp = torch_module.tensor([-0.5, -2.0, -7.0])
+    weights = scan_common.continuous_exp_weights(
+        seq_lp,
+        alpha=0.5,
+        c=0.0,
+    )
+    assert torch_module.allclose(weights, torch_module.full_like(seq_lp, 0.5))
+
