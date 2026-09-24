@@ -4975,13 +4975,30 @@ def test_global_alpha_liveness_uses_global_family_and_representative_alpha(
 
     assert grid != source
     assert liveness["representative_family"] == exp_tuning.METHOD_GLOBAL
+    assert liveness["representative_alpha"] == 0.5
     assert liveness["representative_c"] == 0.0
     assert cell.method == exp_tuning.METHOD_GLOBAL
-    assert cell.alpha == 1.0
+    assert cell.alpha == 0.5
     assert cell.lambda_value == 0.0
     assert exp_tuning._canonical_bridge()._paper_params_exponential(cell) == (
         "exponential",
-        1.0,
+        0.5,
         0.0,
     )
 
+
+
+def test_global_alpha_grid_rejects_out_of_range_values() -> None:
+    from drpo import e8_multitask_exp_tuning as exp_tuning
+
+    config = exp_tuning.load_config(
+        Path("configs/e8_multitask_global_alpha_128.yaml")
+    )
+    for invalid in (0.0, 1.01):
+        mutated = copy.deepcopy(config)
+        mutated["sweep"]["task_alpha"]["word_sorting"][0] = invalid
+        with pytest.raises(
+            ValueError,
+            match=r"Global-alpha values must be in \(0, 1\]",
+        ):
+            exp_tuning.validate_config(mutated)

@@ -2273,6 +2273,7 @@ def _method_liveness_grid(
     liveness = value["execution"]["liveness"]
     liveness["representative_family"] = method
     if method == METHOD_GLOBAL:
+        liveness["representative_alpha"] = 0.5
         liveness["representative_c"] = 0.0
     path = output_root / "liveness" / f"canonical_liveness_grid_{method}.yaml"
     path.parent.mkdir(parents=True, exist_ok=True)
