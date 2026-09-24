@@ -345,7 +345,7 @@ def _build_control_cell(
         return Cell(
             task,
             method,
-            None,
+            1.0,
             seed,
             stage,
             lambda_value=0.0,
