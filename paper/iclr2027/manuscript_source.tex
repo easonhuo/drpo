@@ -832,12 +832,14 @@ We compare near- and far-field actor gradients using matched negative-signal
 magnitudes in D4RL and fixed negative coefficients in structured generation;
 Appendices~\ref{app:d4rl_gradient_diagnostic}
 and~\ref{app:structured_generation_gradient_diagnostic} give the protocols.
-In both domains, implemented actor-gradient increases from near to far field
-(Figure~\ref{fig:external_far_field}). The approximately linear D4RL
-trend agrees with the Gaussian prediction; the fixed-coefficient
-structured-generation trend is consistent with persistent categorical
-suppression. These probes show the near-to-far pattern in realistic neural
-policies.
+Figure~\ref{fig:external_far_field}(a) aggregates the nine D4RL locomotion
+cells, while panel (b) shows the Countdown full-bank probe; the remaining
+structured-generation task-level curves are reported in
+Figure~\ref{fig:app_external_gradient_panels}. In D4RL and Countdown,
+implemented actor-gradient increases from near to far field. The approximately
+linear D4RL trend agrees with the Gaussian prediction; the fixed-coefficient
+Countdown trend is consistent with persistent categorical suppression. These
+probes show the near-to-far pattern in realistic neural policies.
 
 
 The external probes show the near-to-far gradient pattern under matched
@@ -860,9 +862,10 @@ negative-update treatment
     \caption{
 \textbf{External far-field diagnostics.}
 Relative implemented actor-gradient versus learner-relative remoteness,
-aggregated over nine D4RL locomotion cells in (a) and structured-generation
-tasks in (b). Gradients are normalized to their near-field references; dashed lines
-show matched negative-signal controls and shading shows 95\% confidence intervals
+aggregated over nine D4RL locomotion cells in (a) and shown for the Countdown
+full-bank probe in (b). Gradients are normalized to their near-field references;
+dashed lines show matched negative-signal controls and shading shows 95\%
+confidence intervals under the domain-specific bootstrap procedures
 (disaggregated panels: Figure~\ref{fig:app_external_gradient_panels}).
 }
     \Description{Two-panel external diagnostic of relative implemented
@@ -2535,12 +2538,6 @@ finite one-to-one multiplier relation. Finally,
 endpoint \(\delta\ge|\xi^-|\).
 \end{proof}
 
-This problem derives learner-relative exponential attenuation. It is
-distinct from quality-based hard selection: both are optimistic
-reweighting views, but one controls remoteness under a finite negative
-measure and the other selects a quality region. Neither problem implies
-the other.
-
 \section{Where Off-Policy Controls Intervene}
 \label{app:topr_relation}
 
@@ -2972,12 +2969,13 @@ $\log\sigma_\theta(s)$
 are produced by a shared two-layer ReLU MLP with 64 hidden units per
 layer and separate output heads. The initial standard deviation is
 $0.60$, and the learnable-variance experiments use no artificial
-variance clamp.  The continuous mechanism results reported in the main
-text use the fixed-variance branch unless explicitly labeled otherwise. A finite crossing of
-$\log\sigma_\theta(s)<-12$
-is recorded as a support or variance-boundary event, whereas nonfinite
-parameters or outputs are reported separately as NaN/Inf numerical
-failure.
+variance clamp. C-U1 uses complementary fixed- and learnable-variance
+causal branches. The fixed-variance branch isolates mean drift and
+task-performance collapse, whereas the learnable-variance branch separately
+tests support or variance contraction. In the latter branch, a finite crossing
+of $\log\sigma_\theta(s)<-12$ is recorded as a support or variance-boundary
+event, whereas nonfinite parameters or outputs are reported separately as
+NaN/Inf numerical failure.
 
 Training minibatches are sampled by context, and all actions associated
 with a selected context are retrieved together. Thus, the replicated
@@ -2986,13 +2984,14 @@ Positive and negative objectives are averaged separately before their
 relative coefficient is applied, preventing the four-to-eight action
 count ratio from mechanically changing the total negative-update mass.
 
-\paragraph{Shared use across continuous protocols.}
-All C-U1 experiments reuse the same contexts, reward geometry, fixed
-advantages, and policy architecture. E1 compares equal-advantage
-negative actions at different learner-relative distances. E2 applies
-only positive updates and measures the same negative actions as phantom
-probes. E3 dynamically partitions negative actions using the
-standardized distance
+\paragraph{Use across continuous experiments.}
+All C-U1 comparisons use the same contexts, reward geometry, fixed advantages,
+and policy architecture. The source-isolation probe compares equal-advantage
+negative actions at different learner-relative distances. Positive-only
+pretraining provides a reference policy from which the same negative actions
+can be measured without applying their updates. The causal-transmission
+experiment dynamically partitions negative actions using the standardized
+distance
 \begin{equation}
     d_\theta(s,a)
     =
@@ -3003,21 +3002,20 @@ standardized distance
     },
     \label{eq:cu1_standardized_distance}
 \end{equation}
-with the prespecified near--far threshold $d_\theta=5.0$, and applies
-targeted near- and far-field interventions. E4 uses the aligned action
-$a_-(s)$ as directionally useful local negative feedback and the
-remaining contour actions as additional far-field pressure. The
-experiment-specific coefficients, training horizons, seeds, taper
-calibrations, and terminal criteria are reported separately with their
-corresponding protocols.
+with the fixed near--far threshold $d_\theta=5.0$. The taper comparison uses
+the aligned action $a_-(s)$ as directionally useful local negative feedback
+and the remaining contour actions as additional far-field pressure.
+Experiment-specific coefficients, training horizons, seeds, taper
+calibrations, and terminal criteria are given with the corresponding
+protocols.
 
 \subsection{Controlled Categorical Environment D-U1}
 \label{app:du1_environment}
 
 D-U1 denotes the controlled categorical environment family used to
 study persistent negative suppression, probability-support boundaries,
-and shared-semantic generalization. Its E6 instantiation uses a fixed
-catalogue of 64 unordered actions, each associated with a
+and shared-semantic generalization. Its shared-semantic instantiation uses a
+fixed catalogue of 64 unordered actions, each associated with a
 four-dimensional unit semantic vector. Action identifiers are randomly
 permuted for every seed, so numerical action indices carry no geometric
 ordering.
@@ -3208,21 +3206,17 @@ NaN/Inf numerical failure are reported separately. A policy can
 therefore retain high reward while still approaching a support boundary;
 the two outcomes are not treated as equivalent.
 
-\paragraph{Shared use across categorical protocols.}
-E6-A fixes the concentration and scans the strength of the local
-negative update to identify the transition from the positive-only
-ceiling to useful semantic extrapolation and then to performance
-reversal. E6-B learns the concentration and applies near/far causal
-interventions and matched controls. E6-C compares aligned and shuffled
-policy embeddings to determine whether improvements on the hidden action
-require the specified semantic correspondence.
-
-E5 serves a distinct but complementary role. Its direct-softmax
-diagnostic and categorical causal reconstruction isolate persistent
-surprisal growth, logit-gap growth, and simplex-boundary suppression
-under repeated negative updates, while sharing D-U1's fixed-advantage
-and near/far intervention logic. The semantic-generalization test is carried
-by E6-C through the 64-action shared-semantic catalogue.
+\paragraph{Use across categorical experiments.}
+D-U1 supports complementary tests of negative-feedback strength, causal
+transmission, and semantic generalization. With fixed concentration, the local
+negative coefficient is varied to trace the transition from the Positive-only
+ceiling to useful semantic extrapolation and then to performance reversal.
+With learnable concentration, near--far interventions test how selective
+negative suppression affects policy dynamics and support. The aligned-versus-
+shuffled embedding comparison tests whether improvement on the hidden action
+depends on the intended semantic correspondence. A separate direct-softmax
+diagnostic examines persistent surprisal growth, logit-gap growth, and
+simplex-boundary suppression under repeated negative updates.
 
 \subsection{D4RL Locomotion Datasets}
 \label{app:d4rl_datasets}
@@ -3247,8 +3241,8 @@ LLM formulation used by TinyZero~\citep{pan2025tinyzero}; Word Sorting,
 Spiral Matrix, Mini Sudoku, Maze, Word Ladder, Knights \& Knaves, and
 Graph Coloring are generated from Reasoning Gym
 \citep{stojanovski2025reasoninggym}; WikiSQL follows
-\citet{zhong2017seq2sql}. The corresponding source revisions are fixed by
-the registered experiment configuration.
+\citet{zhong2017seq2sql}. The versions of the task sources and generators are fixed before data
+generation.
 
 All tasks use a common prompt-indexed replay-bank schema containing the
 task identity, prompt, verifier-confirmed oracle completion, verifier
@@ -3282,7 +3276,7 @@ WikiSQL & WikiSQL & SQL logical form \\
 \end{table}
 
 Each structured-generation task uses 5,000 training prompts and
-500 validation prompts under the unified paper-facing protocol. Reserved test
+500 validation prompts under the common structured-generation protocol. Reserved test
 data are not used for coefficient tuning. The structured-generation optimization
 interface uses 16 negative responses per training prompt, keeps the replay data
 fixed during optimization, and recomputes learner-relative mean completion-token
@@ -3292,14 +3286,13 @@ stale-negative reuse without storing learner-relative remoteness in the bank.
 \section{Controlled Experimental Protocols}
 \label{app:controlled_protocols}
 
-This section specifies the interventions used in
-Sections~\ref{sec:controlled_identification}
-and~\ref{sec:repulsion_control}. The definitions of C-U1 and D-U1 are given in
-Appendix~\ref{app:experimental_details}. Network architectures,
-optimizer settings, training budgets, seeds, and evaluation frequencies
-are reported in the protocol-specific subsections below.
+The following protocols define the controlled source-isolation,
+causal-transmission, negative-strength, and taper-comparison experiments.
+C-U1 and D-U1 are defined in Appendix~\ref{app:experimental_details};
+experiment-specific training and evaluation details are given with the
+corresponding protocol.
 
-\subsection{Shared Notation and Experimental Invariants}
+\subsection{Shared Notation and Controls}
 \label{app:controlled_shared}
 
 For a negative sample
@@ -3326,22 +3319,12 @@ Learner-relative remoteness is measured by
 or by its equivalent standardized Gaussian component when additive
 density constants are irrelevant.
 
-Unless explicitly stated otherwise, all branches of one controlled
-comparison share:
-
-\begin{enumerate}
-    \item the same training and evaluation contexts;
-    \item the same positive and negative samples;
-    \item the same fixed rewards or advantage labels;
-    \item the same initial policy parameters;
-    \item the same minibatch order, optimizer, and training horizon;
-    \item the same evaluation checkpoints and terminal classification
-    rules.
-\end{enumerate}
-
-Only the variable named by the intervention is changed. Actions generated
-under the same context are aggregated at the context level and are not
-treated as independent contexts for statistical inference.
+Within each controlled comparison, all branches use the same contexts,
+samples, fixed rewards or advantage labels, initialization, optimizer,
+minibatch order, training horizon, and evaluation schedule. Only the variable
+named by the intervention changes. Actions generated under the same context
+are aggregated at the context level and are not treated as independent
+contexts for statistical inference.
 
 
 \subsection{Source-Isolation Protocol}
@@ -3863,9 +3846,8 @@ rapidly than the reciprocal alternatives.
 
 \paragraph{Hyperparameter selection.}
 
-Within each task, \(\tau\), \(c\), \(\lambda\), and the
-Global-\(\alpha\) coefficient are selected using the registered
-validation protocol only. Test-task performance is not used for
+Tuned hyperparameters are selected using validation data only; fixed settings
+are specified with each experimental protocol. Test data are not used for
 hyperparameter selection.
 
 
