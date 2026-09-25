@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SOURCE_REL="paper/iclr2027/manuscript_source.tex"
 SOURCE="$ROOT/$SOURCE_REL"
 OUT_DIR="${1:-$ROOT/paper/iclr2027/build}"
-EXPECTED_BLOB="ffd987fb4358f92ef98eb32ad6a3c2cb40774fc4"
+EXPECTED_BLOB="97f135f0b34bdf126cb37468840035af5d510a3d"
 
 mkdir -p "$OUT_DIR"
 
@@ -52,7 +52,7 @@ m = re.search(r"\\icmltitle\{([^{}]+)\}", source)
 if not m:
     raise SystemExit("could not recover the source title")
 title = m.group(1)
-expected_title = "Breaking the Curse of Repulsion: Remoteness-Aware Control of Negative Off-Policy Updates"
+expected_title = "Breaking the Curse of Repulsion in Off-Policy Reinforcement Learning"
 if title != expected_title:
     raise SystemExit(f"title drift: {title!r}")
 

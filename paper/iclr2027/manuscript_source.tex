@@ -59,7 +59,7 @@
 \begin{document}
 
 \twocolumn[
-  \icmltitle{Breaking the Curse of Repulsion: Remoteness-Aware Control of Negative Off-Policy Updates}
+  \icmltitle{Breaking the Curse of Repulsion in Off-Policy Reinforcement Learning}
 
   % It is OKAY to include author information, even for blind submissions: the
   % style file will automatically remove it for you unless you've provided
@@ -840,9 +840,11 @@ suppression. These probes show the near-to-far pattern in realistic neural
 policies.
 
 
-The external probes show the near-to-far gradient pattern under matched
-negative-signal strength; controlled experiments then isolate its source and
-test its downstream training effects by independently varying coefficient
+The external probes show the near-to-far gradient pattern with negative-signal
+magnitude approximately matched in D4RL, with learned-critic
+\( |A|_{\mathrm{far}}/|A|_{\mathrm{near}} \approx 1 \), and unit-valued by
+construction for verifier-labeled negatives in structured generation;
+controlled experiments then isolate its source and test its downstream training effects by independently varying coefficient
 magnitude and remoteness and intervening on near- versus far-field negative
 updates (Appendix~\ref{app:controlled_protocols}). C-U1 negative actions share a reward contour and fixed advantage but differ in
 standardized distance; the categorical direct-softmax reference fixes the
@@ -854,16 +856,20 @@ negative-update treatment
 \begin{figure}[t]
     \centering
     \includegraphics[
-        width=\columnwidth
-    ]{figures/figure1_external_gradient_d4rl9.pdf}
+        width=0.49\columnwidth
+    ]{figures/figure1_external_gradient_d4rl9_d4rl.pdf}
+    \hfill
+    \includegraphics[
+        width=0.49\columnwidth
+    ]{figures/figure1_external_gradient_d4rl9_sg9.pdf}
 
     \caption{
 \textbf{External far-field diagnostics.}
-Relative implemented actor-gradient versus learner-relative remoteness,
-aggregated over nine D4RL locomotion cells in (a) and structured-generation
-tasks in (b). Gradients are normalized to their near-field references; dashed lines
-show matched negative-signal controls and shading shows 95\% confidence intervals
-(disaggregated panels: Figure~\ref{fig:app_external_gradient_panels}).
+Left: D4RL locomotion aggregate of relative implemented actor-gradient versus
+policy-relative standardized distance. The dashed orange curve shows matched
+relative \( |A| \), aggregated with equal dataset-cell weighting. Right: SG-9
+aggregate over nine structured-generation tasks of relative implemented
+actor-gradient versus mean-token surprisal bin.
 }
     \Description{Two-panel external diagnostic of relative implemented
 actor-gradient versus learner-relative remoteness in D4RL and
@@ -4002,9 +4008,10 @@ All structured-generation experiments use
 Qwen2.5-0.5B-Instruct~\citep{qwen2024qwen25} with LoRA adaptation and
 frozen prompt-indexed replay data. Learner-relative remoteness for DRPO is
 the current-policy mean completion-token surprisal and is recomputed during
-training rather than stored in the replay bank. Protocol-matched methods
-share the registered task data, verifier labels, optimization budget, and
-evaluation schedule within each task.
+training rather than stored in the replay bank. In the far-field gradient
+diagnostic, verifier-incorrect completions use a unit negative coefficient
+throughout. Protocol-matched methods share the registered task data, verifier
+labels, optimization budget, and evaluation schedule within each task.
 
 \paragraph{AsymRE.}
 
