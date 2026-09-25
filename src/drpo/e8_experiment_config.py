@@ -24,6 +24,7 @@ LAMBDA_COMPLETION_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-COMPLETION-01"
 LAMBDA_CURVE_COMPLETION_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-EXP-LAMBDA-CURVE-COMPLETION-02"
 P0_EXPERIMENT_ID = "EXT-C-E8-MULTITASK-P0-01"
 COLDSTART_METHOD_EXPONENTIAL = "exponential"
+COLDSTART_METHOD_GLOBAL = "global"
 COLDSTART_METHOD_ASYMRE = "asymre"
 COLDSTART_METHOD_TOPR = "joint_fitted_reference_topr"
 COLDSTART_METHOD_DPO = "canonical_dpo"
@@ -31,6 +32,7 @@ COLDSTART_METHOD_RECIPROCAL_LINEAR = "reciprocal_linear"
 COLDSTART_METHOD_RECIPROCAL_QUADRATIC = "reciprocal_quadratic"
 COLDSTART_METHOD_BASELINE_MATRIX = "baseline_matrix"
 COLDSTART_METHOD_RECIPROCAL_MATRIX = "reciprocal_matrix"
+GLOBAL_ALPHA_PARAMETERIZATION = "global_alpha"
 ASYMRE_PARAMETERIZATION = "asymre_delta_v"
 TOPR_PARAMETERIZATION = "joint_fitted_reference_beta_topr"
 DPO_PARAMETERIZATION = "canonical_dpo_beta"
@@ -60,6 +62,11 @@ _COLDSTART_SWEEP_SPECS = {
     COLDSTART_METHOD_EXPONENTIAL: (
         ("paper_coefficient_c", "paper_lambda_c1"), "task_lambda",
         "Unsupported exponential cold-start parameterization", "Cold-start task_lambda must contain the exact nine tasks",
+    ),
+    COLDSTART_METHOD_GLOBAL: (
+        (GLOBAL_ALPHA_PARAMETERIZATION,), "task_alpha",
+        "Global-alpha cold-start requires global_alpha parameterization",
+        "Global-alpha task_alpha must contain the exact nine tasks",
     ),
     COLDSTART_METHOD_RECIPROCAL_LINEAR: (
         (RECIPROCAL_LINEAR_PARAMETERIZATION,), "task_lambda",
@@ -333,6 +340,9 @@ def task_method_values(
         if any(value <= 0.0 for value in values):
             raise ValueError(f"{task} lambda values must be strictly positive")
         return values
+    if grid_field == "task_alpha":
+        raw = _sequence(method_sweep[grid_field][task], f"{task} alpha grid")
+        return tuple(_number(value, f"{task} alpha value") for value in raw)
     if grid_field == "task_delta_v":
         return task_delta_vs(config, task, method=selected)
     return task_betas(config, task, method=selected)
