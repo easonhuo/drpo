@@ -101,7 +101,7 @@ METHOD_RECIPROCAL_LINEAR = experiment_config.COLDSTART_METHOD_RECIPROCAL_LINEAR
 METHOD_RECIPROCAL_QUADRATIC = experiment_config.COLDSTART_METHOD_RECIPROCAL_QUADRATIC
 METHOD_BASELINE_MATRIX = experiment_config.COLDSTART_METHOD_BASELINE_MATRIX
 METHOD_RECIPROCAL_MATRIX = experiment_config.COLDSTART_METHOD_RECIPROCAL_MATRIX
-METHOD_GLOBAL = "global"
+METHOD_GLOBAL = experiment_config.COLDSTART_METHOD_GLOBAL
 TRANSFER_SYSTEM_PROMPT = "Answer with only the requested final output and no explanation."
 SWEEP_PROFILE_RHO = experiment_config.SWEEP_PROFILE_RHO
 SWEEP_PROFILE_DENSE = experiment_config.SWEEP_PROFILE_DENSE
@@ -175,6 +175,7 @@ class Cell:
     beta: float | None = None
     dpo_initialization: str | None = None
     method_parameters: Mapping[str, Any] | None = None
+    alpha: float | None = None
 
     @property
     def key(self) -> str:
@@ -283,7 +284,11 @@ def _positive_key(cell: Cell) -> str:
 
 
 def _global_key(cell: Cell) -> str:
-    return f"{cell.task}__global__seed{cell.seed}"
+    alpha = 1.0 if cell.alpha is None else float(cell.alpha)
+    if math.isclose(alpha, 1.0, rel_tol=0.0, abs_tol=0.0):
+        return f"{cell.task}__global__seed{cell.seed}"
+    tag = f"{alpha:.12g}".replace(".", "p")
+    return f"{cell.task}__global_alpha{tag}__seed{cell.seed}"
 
 
 def _exp_key(cell: Cell) -> str:
@@ -337,7 +342,15 @@ def _build_control_cell(
     if method == METHOD_POSITIVE_ONLY:
         return Cell(task, method, None, seed, stage)
     if method == METHOD_GLOBAL:
-        return Cell(task, method, 1.0, seed, stage, 0.0)
+        return Cell(
+            task,
+            method,
+            1.0,
+            seed,
+            stage,
+            lambda_value=0.0,
+            alpha=float(value),
+        )
     raise ValueError(f"Unsupported control method: {method}")
 
 
@@ -549,13 +562,23 @@ def _register_builtin_method_specs() -> None:
         ),
         formula="alpha*exp(-c*(current_sequence_surprisal/2))",
     )
+    global_paper_runtime = PaperRuntimeSpec(
+        liveness_grid=exponential_paper_runtime.liveness_grid,
+        liveness_parameter="representative_alpha",
+        grid_paths=exponential_paper_runtime.grid_paths,
+        cell_parameters=exponential_paper_runtime.cell_parameters,
+        formula=exponential_paper_runtime.formula,
+    )
     for method, build_cell, cell_key, parameters in (
         (METHOD_POSITIVE_ONLY, _build_control_cell, _positive_key, lambda cell: {}),
         (
             METHOD_GLOBAL,
             _build_control_cell,
             _global_key,
-            lambda cell: {"lambda": 0.0},
+            lambda cell: {
+                "lambda": 0.0,
+                **({"alpha": float(cell.alpha)} if cell.alpha is not None else {}),
+            },
         ),
         (
             METHOD_EXPONENTIAL,
@@ -578,7 +601,11 @@ def _register_builtin_method_specs() -> None:
                     _run_canonical_method_liveness(_method, **kwargs)
                 ),
                 scientific_kernel="canonical_old_coldstart_imports",
-                paper_runtime=exponential_paper_runtime,
+                paper_runtime=(
+                    global_paper_runtime
+                    if method == METHOD_GLOBAL
+                    else exponential_paper_runtime
+                ),
             )
         )
 
@@ -2234,12 +2261,20 @@ def _adapter_weight_file(adapter_root: Path) -> Path:
 def _method_liveness_grid(
     grid_path: Path, method: str, output_root: Path
 ) -> Path:
-    if method not in {METHOD_RECIPROCAL_LINEAR, METHOD_RECIPROCAL_QUADRATIC}:
+    if method not in {
+        METHOD_GLOBAL,
+        METHOD_RECIPROCAL_LINEAR,
+        METHOD_RECIPROCAL_QUADRATIC,
+    }:
         return grid_path
     value = yaml.safe_load(grid_path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
-        raise TypeError("Canonical reciprocal grid root must be a mapping")
-    value["execution"]["liveness"]["representative_family"] = method
+        raise TypeError("Canonical liveness grid root must be a mapping")
+    liveness = value["execution"]["liveness"]
+    liveness["representative_family"] = method
+    if method == METHOD_GLOBAL:
+        liveness["representative_alpha"] = 0.5
+        liveness["representative_c"] = 0.0
     path = output_root / "liveness" / f"canonical_liveness_grid_{method}.yaml"
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".yaml.tmp")

@@ -7914,6 +7914,88 @@ experiments:
     package_created: false
     scientific_status: not_run
 
+- id: EXT-C-E8-MULTITASK-GLOBAL-ALPHA-SWEEP-01
+  environment: EXT-C
+  name: e8_multitask_global_alpha_128cell_formal
+  status: not_run
+  result_status: not_run
+  parent_experiment: EXT-C-E8-MULTITASK-P0-01
+  registration_base_commit: 16a8037fa6e4de5341c68e9cbf7cd8b4bfa62fca
+  claim: >-
+    On the exact eight P0 transfer tasks and frozen model-independent banks, measure
+    the finite-horizon response to protocol-matched Global-alpha negative weighting
+    over alpha in {1/128, 1/64, 1/32, 1/16, 1/8, 1/4, 1/2, 1} using paired seeds
+    4000 and 5000. Countdown and Positive-only are reused rather than rerun; this
+    experiment does not establish convergence, significance, steady state, or a
+    universal method ranking.
+  role: external_validity_global_alpha_response_finite_horizon
+  execution_class: formal
+  implementation_state: implemented
+  code_entrypoint: src/drpo/e8_multitask_exp_tuning.py
+  one_click_entrypoint: scripts/run_e8_multitask_exp_coldstart.sh
+  bootstrap_entrypoint: scripts/bootstrap_e8_multitask_exp_coldstart.sh
+  config_path: configs/e8_multitask_global_alpha_128.yaml
+  documentation_path: docs/experiments/E8_MULTITASK_GLOBAL_ALPHA_SWEEP_01_PROTOCOL.md
+  runspec_path: runspecs/ready/E8_MULTITASK_GLOBAL_ALPHA_128_20260923_01.yaml
+  execution_gate:
+    state: ready
+    blocked_by: []
+  formal_execution:
+    channel_ref: hardened-v1
+    activation_state: active
+    entrypoint_status: implemented
+    entrypoint: src/drpo/e8_multitask_exp_tuning.py
+    launch_mode: canonical_guard
+    artifact_owner: canonical_channel
+    guard_entrypoint: scripts/run_experiment_guard_hardened.py
+    package_entrypoint: scripts/package_experiment_hardened.py
+    verify_entrypoint: scripts/verify_experiment_package_hardened.py
+    hardened_core: scripts/artifact_protocol_hardened.py
+    artifact_protocol: docs/formal_experiment_artifact_protocol.md
+    inherit_default_artifact_budget: true
+    runner_archive_policy:
+      mode: forbid
+  formal_launch_template: >-
+    E8_COLDSTART_CONFIG=configs/e8_multitask_global_alpha_128.yaml
+    E8_COLDSTART_EXPERIMENT_ID=EXT-C-E8-MULTITASK-GLOBAL-ALPHA-SWEEP-01
+    E8_COLDSTART_EXPECTED_COMMIT="$(git rev-parse HEAD)"
+    E8_COLDSTART_REQUIRE_ORIGIN_MAIN=1
+    bash scripts/run_e8_multitask_exp_coldstart.sh full
+    # wrapper delegates to scripts/run_experiment_guard_hardened.py --experiment-id EXT-C-E8-MULTITASK-GLOBAL-ALPHA-SWEEP-01
+  protocol:
+    tasks: [word_sorting, spiral_matrix, mini_sudoku, maze, word_ladder, knights_knaves, graph_color, wikisql]
+    external_task_reused_without_new_cells: countdown
+    positive_only_reused_without_new_cells: true
+    parameterization: global_alpha
+    alpha_values: [0.0078125, 0.015625, 0.03125, 0.0625, 0.125, 0.25, 0.5, 1.0]
+    paired_development_seeds: [4000, 5000]
+    expected_cells: 128
+    optimizer_updates: 1200
+    max_concurrent_cells: 16
+    gpu_ids: [0, 1, 2, 3, 4, 5, 6, 7]
+    slots_per_gpu: 2
+    canonical_weight_semantics: alpha_times_exp_minus_c_u_with_c_zero
+    test_partition_access_allowed: false
+  reporting:
+    fixed_horizon_only: true
+    convergence_claim_allowed: false
+    significance_claim_allowed: false
+    method_ranking_allowed_before_terminal_audit: false
+    terminal_status_after_complete_contract: finite_step_validated
+    separate_events:
+    - task_performance
+    - valid_or_structure_diagnostic
+    - nan_inf_numerical_failure
+  evidence:
+    formal_config_present: true
+    implementation_present_in_registration_candidate: true
+    formal_run_started: false
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    scientific_status: not_run
+
+
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1
