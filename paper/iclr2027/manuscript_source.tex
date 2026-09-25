@@ -3428,24 +3428,23 @@ from the unbounded Gaussian-distance amplification measured in C-U1.
 
 \paragraph{Purpose.}
 The source-isolation protocol identifies the source of abnormal update
-magnitude but not its effect on task behavior. Causal transmission is tested in the nonlinear
-Gaussian protocol, where the policy mean and variance evolve jointly,
-and in the categorical support reconstruction of D-U1.
+magnitude but not its effect on task behavior. C-U1 therefore uses two
+complementary causal branches: a fixed-variance branch isolates mean drift and
+task-performance collapse, while a learnable-variance branch tests whether the
+same far-field pathway produces support or variance contraction. D-U1 provides
+the categorical support reconstruction.
 
 \paragraph{Dynamic near--far partition.}
-At each intervention step, negative samples are partitioned using their
-current-policy remoteness. Let
-$\mathcal N_\theta$
-and
-$\mathcal F_\theta$
-denote the prespecified near- and far-field sets. Their membership is
-recomputed as the policy evolves rather than frozen at initialization.
-The thresholds or quantiles are fixed before training and specified with the
-corresponding environment.
+At each intervention step, negative samples are repartitioned using their
+current policy state. In C-U1, membership is recomputed from
+Equation~\eqref{eq:cu1_standardized_distance}: samples with
+$d_\theta(s,a)\leq5.0$ are near-field and those with
+$d_\theta(s,a)>5.0$ are far-field. The partition is therefore dynamic rather
+than frozen at initialization.
 
 \paragraph{Interventions.}
-For a negative sample $z$, the following multipliers are applied to
-$g_\theta^-(z)$:
+For a negative sample $z$, the uncontrolled, Positive-only, Near-zero, and
+Far-zero branches use
 \begin{equation}
 \begin{aligned}
     w_{\mathrm{uncontrolled}}(z)
@@ -3462,51 +3461,81 @@ $g_\theta^-(z)$:
 \label{eq:causal_zero_interventions}
 \end{equation}
 
-The far-cap intervention preserves the direction of a far-field update
-but limits its detached magnitude to a reference level estimated from
-near-field negative samples:
+For the matched magnitude controls, let the current minibatch aggregate
+near- and far-field negative gradients be
 \begin{equation}
-    w_{\mathrm{far\text{-}cap}}(z)
-    =
-    \begin{cases}
-        \displaystyle
-        \min\left\{
-            1,
-            \frac{C_{\mathrm{near}}}
-                 {I_{\mathrm{sample}}(z)+\epsilon}
-        \right\},
-        & z\in\mathcal F_\theta,\\[3mm]
+\begin{aligned}
+    \mathbf G_{\mathrm N}
+    &=
+    \sum_{z\in\mathcal B^-\cap\mathcal N_\theta}
+    g_\theta^-(z),\\
+    \mathbf G_{\mathrm F}
+    &=
+    \sum_{z\in\mathcal B^-\cap\mathcal F_\theta}
+    g_\theta^-(z).
+\end{aligned}
+\label{eq:causal_aggregate_components}
+\end{equation}
+The C-U1 Far-cap branch preserves the aggregate far-gradient direction but
+caps its norm relative to the current near component:
+\begin{equation}
+\begin{aligned}
+    \gamma_{\mathrm{cap}}
+    &=
+    \min\left\{
         1,
-        & \text{otherwise},
-    \end{cases}
-    \label{eq:causal_far_cap}
+        0.05\,
+        \frac{\lVert\mathbf G_{\mathrm N}\rVert_2}
+             {\lVert\mathbf G_{\mathrm F}\rVert_2+\epsilon}
+    \right\},\\
+    \mathbf G^-_{\mathrm{far\text{-}cap}}
+    &=
+    \mathbf G_{\mathrm N}
+    +
+    \gamma_{\mathrm{cap}}\mathbf G_{\mathrm F}.
+\end{aligned}
+\label{eq:causal_far_cap}
 \end{equation}
-where $C_{\mathrm{near}}$ is the prespecified near-field update-magnitude
-reference.
-
-To distinguish selective intervention from a generic decrease in
-negative optimization, the global-matched control applies one scalar
-to every negative sample:
+The Global-matched control uses one detached scalar on the full negative
+gradient,
 \begin{equation}
-    w_{\mathrm{global}}(z)
-    =
-    \alpha_{\mathrm{match}}.
-    \label{eq:causal_global_weight}
-\end{equation}
-The scalar is chosen using the training batch so that its detached aggregate
-negative-update magnitude matches the corresponding selective
-intervention:
-\begin{equation}
+\begin{aligned}
     \alpha_{\mathrm{match}}
-    \sum_{z\in\mathcal B^-}
-        I_{\mathrm{sample}}(z)
-    =
-    \sum_{z\in\mathcal B^-}
-        w_{\mathrm{selective}}(z)
-        I_{\mathrm{sample}}(z).
-    \label{eq:causal_budget_match}
+    &=
+    \frac{
+        \lVert\mathbf G^-_{\mathrm{far\text{-}cap}}\rVert_2
+    }{
+        \lVert\mathbf G_{\mathrm N}+\mathbf G_{\mathrm F}\rVert_2
+        +\epsilon
+    },\\
+    \mathbf G^-_{\mathrm{global}}
+    &=
+    \alpha_{\mathrm{match}}
+    \left(
+        \mathbf G_{\mathrm N}+\mathbf G_{\mathrm F}
+    \right).
+\end{aligned}
+\label{eq:causal_global_match}
 \end{equation}
-The matching coefficient is not differentiated through.
+The Far-to-near control first applies the same far cap, then chooses the
+nonnegative near-field multiplier $c_{\mathrm N}$ satisfying
+\begin{equation}
+    \left\|
+        c_{\mathrm N}\mathbf G_{\mathrm N}
+        +
+        \gamma_{\mathrm{cap}}\mathbf G_{\mathrm F}
+    \right\|_2
+    =
+    \left\|
+        \mathbf G_{\mathrm N}+\mathbf G_{\mathrm F}
+    \right\|_2,
+    \label{eq:causal_far_to_near_match}
+\end{equation}
+and applies the left-hand-side gradient. Thus this intervention transfers
+the removed far-field raw-gradient budget to the near component instead of
+discarding it. All matching quantities are detached and recomputed from the
+current minibatch. They match raw aggregate gradient norm, not the subsequent
+Adam parameter-update norm.
 
 \paragraph{Causal contrasts.}
 The primary causal contrast is between removing near-field and
@@ -3535,9 +3564,13 @@ Terminal outcomes are classified separately as:
     model output becomes NaN or Inf.
 \end{enumerate}
 
-A boundary event is not automatically counted as task-performance
-collapse, and finite execution is not automatically counted as
-convergence.
+For the C-U1 fixed-variance causal branch, task-performance collapse is
+registered when held-out-context reward remains below $45\%$ of the
+branch-initial reference for three consecutive evaluations, which are spaced
+100 optimizer updates apart. In the learnable-variance branch,
+$\log\sigma_\theta(s)<-12$ is a support or variance-boundary event.
+A boundary event is not automatically counted as task-performance collapse,
+and finite execution is not automatically counted as convergence.
 
 \subsection{Controlled Negative-Strength Sweep}
 \label{app:negative_strength_sweep}
