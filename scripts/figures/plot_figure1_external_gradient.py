@@ -9,6 +9,12 @@ Usage:
     --countdown results/FIGURE1_EXTERNAL_GRADIENT/countdown_gradient_deciles_seed100.csv \
     --out paper/kdd2027/figures/figure1_external_gradient_d4rl9 \
     --appendix-out paper/kdd2027/figures/fig_app_d4rl9_gradient_panels
+
+ICLR split-panel mode additionally supplies:
+    --sg9 paper/iclr2027/figures/data/sg9_gradient_aggregate.csv
+
+In split-panel mode, --out is the common stem; the renderer writes
+<stem>_d4rl.pdf and <stem>_sg9.pdf with equal physical dimensions.
 """
 from __future__ import annotations
 
@@ -162,6 +168,19 @@ def load_countdown_deciles(path: Path, bootstrap: int) -> pd.DataFrame:
     return countdown_deciles(filter_countdown(path), bootstrap=bootstrap)
 
 
+
+def load_sg9_aggregate(path: Path) -> pd.DataFrame:
+    frame = pd.read_csv(path)
+    required = {"surprisal_bin", "relative_gradient_mean", "n_tasks"}
+    if not required.issubset(frame.columns):
+        raise ValueError("SG-9 aggregate schema mismatch")
+    frame = frame.sort_values("surprisal_bin").reset_index(drop=True)
+    if frame["surprisal_bin"].astype(int).tolist() != list(range(1, 11)):
+        raise ValueError("SG-9 aggregate must contain ten ordered surprisal bins")
+    if set(frame["n_tasks"].astype(int)) != {9}:
+        raise ValueError("SG-9 aggregate must use nine equal-weight tasks")
+    return frame
+
 def save_all(figure, stem: Path) -> None:
     stem.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(
@@ -299,6 +318,87 @@ def plot_main(main: pd.DataFrame, countdown: pd.DataFrame, manifest: dict, out: 
     plt.close(figure)
 
 
+
+def plot_split_main(
+    main: pd.DataFrame,
+    panels: pd.DataFrame,
+    sg9: pd.DataFrame,
+    out: Path,
+) -> None:
+    advantage = (
+        panels.groupby("distance_bin", sort=True)["relative_abs_advantage_mean"]
+        .mean()
+        .reindex(range(-1, 7))
+    )
+    if advantage.isna().any():
+        raise ValueError("D4RL matched-advantage aggregate is incomplete")
+
+    figure, axis = plt.subplots(figsize=(3.625, 2.62))
+    x = main["relative_distance"].to_numpy(float)
+    axis.fill_between(
+        x,
+        main["relative_gradient_ci_low"],
+        main["relative_gradient_ci_high"],
+        alpha=0.20,
+        linewidth=0,
+    )
+    axis.plot(
+        x,
+        main["relative_gradient_mean"],
+        marker="o",
+        linewidth=1.75,
+        markersize=4.2,
+        label="D4RL-9 equal-weight mean",
+    )
+    axis.plot(
+        x,
+        advantage.to_numpy(float),
+        marker="s",
+        linestyle="--",
+        linewidth=1.35,
+        markersize=3.8,
+        label=r"Matched relative $|A|$",
+    )
+    axis.axhline(1.0, linestyle=":", linewidth=1.0)
+    axis.set_xlabel("Relative standardized distance", fontsize=9.7)
+    axis.set_ylabel("Relative magnitude", fontsize=9.7)
+    axis.set_ylim(0.86, 3.82)
+    axis.set_yticks([1.0, 1.5, 2.0, 2.5, 3.0, 3.5])
+    axis.tick_params(labelsize=8.4)
+    axis.grid(True, linestyle="--", linewidth=0.45, alpha=0.33)
+    axis.spines["top"].set_visible(False)
+    axis.spines["right"].set_visible(False)
+    axis.legend(fontsize=7.4, frameon=False, loc="lower right")
+    figure.tight_layout(pad=0.35)
+    save_all(figure, out.with_name(out.name + "_d4rl"))
+    plt.close(figure)
+
+    figure, axis = plt.subplots(figsize=(3.625, 2.62))
+    x_sg9 = sg9["surprisal_bin"].to_numpy(int)
+    axis.plot(
+        x_sg9,
+        sg9["relative_gradient_mean"],
+        marker="o",
+        linewidth=1.75,
+        markersize=4.2,
+        label="SG-9 equal-weight mean",
+    )
+    axis.axhline(1.0, linestyle=":", linewidth=1.0)
+    axis.set_xlabel("Mean-token surprisal bin", fontsize=9.7)
+    axis.set_ylabel("Relative magnitude", fontsize=9.7)
+    axis.set_xticks([1, 5, 10])
+    axis.set_xticklabels(["low", "mid", "high"], fontsize=8.4)
+    axis.set_ylim(0.86, 3.82)
+    axis.set_yticks([1.0, 1.5, 2.0, 2.5, 3.0, 3.5])
+    axis.tick_params(axis="y", labelsize=8.4)
+    axis.grid(True, linestyle="--", linewidth=0.45, alpha=0.33)
+    axis.spines["top"].set_visible(False)
+    axis.spines["right"].set_visible(False)
+    axis.legend(fontsize=7.9, frameon=False, loc="lower right")
+    figure.tight_layout(pad=0.35)
+    save_all(figure, out.with_name(out.name + "_sg9"))
+    plt.close(figure)
+
 def plot_appendix(panels: pd.DataFrame, out: Path) -> None:
     order = [
         "halfcheetah-medium-v2",
@@ -393,6 +493,7 @@ def main() -> None:
     parser.add_argument("--d4rl-panels", type=Path, required=True)
     parser.add_argument("--d4rl-manifest", type=Path, required=True)
     parser.add_argument("--countdown", type=Path, required=True)
+    parser.add_argument("--sg9", type=Path)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--appendix-out", type=Path, required=True)
     parser.add_argument("--bootstrap", type=int, default=400)
@@ -401,13 +502,17 @@ def main() -> None:
     d4rl_main = pd.read_csv(args.d4rl_main)
     d4rl_panels = pd.read_csv(args.d4rl_panels)
     manifest = json.loads(args.d4rl_manifest.read_text(encoding="utf-8"))
-    countdown = load_countdown_deciles(args.countdown, bootstrap=args.bootstrap)
     validate_d4rl(d4rl_main, d4rl_panels, manifest)
-    countdown.to_csv(
-        args.out.with_name(args.out.name + "_countdown_deciles.csv"),
-        index=False,
-    )
-    plot_main(d4rl_main, countdown, manifest, args.out)
+    if args.sg9 is None:
+        countdown = load_countdown_deciles(args.countdown, bootstrap=args.bootstrap)
+        countdown.to_csv(
+            args.out.with_name(args.out.name + "_countdown_deciles.csv"),
+            index=False,
+        )
+        plot_main(d4rl_main, countdown, manifest, args.out)
+    else:
+        sg9 = load_sg9_aggregate(args.sg9)
+        plot_split_main(d4rl_main, d4rl_panels, sg9, args.out)
     plot_appendix(d4rl_panels, args.appendix_out)
 
 
