@@ -2687,8 +2687,8 @@ Uncertainty & Hierarchical bootstrap over dataset cells and seeds \\
 \label{app:structured_generation_gradient_diagnostic}
 
 \paragraph{Probe definition.}
-For each structured-generation task, learner-relative remoteness is
-measured by the current-policy mean completion-token surprisal,
+Learner-relative remoteness is the current-policy mean completion-token
+surprisal
 \[
 D_{\mathrm{SG}}(x,y)
 =
@@ -2696,25 +2696,43 @@ D_{\mathrm{SG}}(x,y)
 \sum_{t=1}^{T}
 \log \pi_\theta(y_t\mid x,y_{<t}),
 \]
-where only completion tokens are included and prompt and padding
-positions are excluded. For each verifier-incorrect response, we compute
-the corresponding full trainable-parameter gradient norm at the fixed
-probe checkpoint, without applying an optimizer update.
+where only completion tokens are included. Let
+$\bar\ell_\theta(x,y)=-D_{\mathrm{SG}}(x,y)$. For each
+verifier-incorrect response, the implemented-gradient diagnostic is
+\begin{equation}
+    G_{\mathrm{SG}}(x,y)
+    =
+    \left\|
+        \nabla_{\theta_{\mathrm{train}}}
+        \bar\ell_\theta(x,y)
+    \right\|_2,
+    \label{eq:sg_gradient_probe}
+\end{equation}
+over all trainable parameters. Thus the vertical axis is the gradient of
+the same mean-token log probability used to define the horizontal
+surprisal coordinate, rather than the gradient of a summed sequence log
+probability. No optimizer update is applied during the probe.
 
-\paragraph{Fixed-coefficient gradient measurement.}
-All probed negative responses use the same absolute negative coefficient.
-Thus, negative-signal magnitude is held fixed while learner-relative
-surprisal varies. The resulting gradient norm measures the implemented
-parameter-space response associated with increasing remoteness under a
-matched negative signal.
+\paragraph{Probe checkpoints and matched coefficient.}
+For Word Sorting, Spiral Matrix, Mini Sudoku, Maze, Word Ladder,
+Knights \& Knaves, Graph Coloring, and WikiSQL, the diagnostic uses each
+task's fixed Positive-only warm-start checkpoint after 100 optimizer updates.
+It probes 256 negative responses per task with absolute negative coefficient
+one. Countdown uses the separately frozen full-bank probe at the SFT/reference
+adapter for seed 100: 6,000 puzzles contribute one near and one far
+verifier-incorrect response, for 12,000 responses in total, again with absolute
+negative coefficient one. These are external diagnostics rather than
+method-ranking runs.
 
-\paragraph{Within-task normalization and aggregation.}
+\paragraph{Binning and uncertainty.}
 Within each task, responses are ordered by current-policy surprisal and
-partitioned into ten equal-count bins. The mean gradient norm in each bin
-is normalized by the lowest-surprisal bin of the same task. The
-task-level normalized curves are then aggregated with equal task weight;
-the corresponding task-level curves are reported separately in
-Figure~\ref{fig:app_external_gradient_panels}.
+partitioned into ten equal-count bins. The mean gradient norm in each bin is
+normalized by the lowest-surprisal bin of the same task. For the eight
+multitask probes, 95\% intervals use 2,000 prompt-cluster bootstrap
+replicates within task with bootstrap seed 161803. The Countdown full-bank
+probe uses 400 puzzle-cluster bootstrap replicates. Figure~\ref{fig:app_external_gradient_panels}
+reports the resulting task-level curves separately; the Countdown evidence is
+single-seed and is not used to claim convergence or a method ranking.
 
 \begin{figure*}[t]
 \centering
@@ -3902,12 +3920,9 @@ dataset is used by every protocol-matched method within a task.
 
 \paragraph{Published offline-RL baselines.}
 
-CQL, TD3+BC, and IQL are included as published reference results.
-These values are not protocol-matched reruns and are therefore marked
-by \(\dagger\) in Table~\ref{tab:d4rl_performance}. The main table
-reports their published task-level means. Their original uncertainty
-statistics and exact score provenance are recorded separately from the
-protocol-matched DRPO experiments.
+CQL, TD3+BC, and IQL are reported using their published task-level means.
+Because they were not rerun under our actor-training protocol, they are marked
+by \(\dagger\) in Table~\ref{tab:d4rl_performance}.
 
 \paragraph{Gaussian-policy remoteness.}
 
@@ -3939,16 +3954,9 @@ the distance term is detached during the actor update.
 \paragraph{Protocol-matched actor comparison.}
 
 Positive-only, Global-\(\alpha\), Reciprocal-Linear,
-Reciprocal-Quadratic, and DRPO share the same offline dataset, critic
-checkpoint or critic-training protocol, actor initialization, network
-architecture, optimizer, minibatch schedule, actor-update budget,
-evaluation schedule, and random seeds. They differ only in the
-negative-update weighting rule defined in
-Appendix~\ref{app:shared_methods}.
-
-The common actor advantage construction is held fixed across these
-methods. No method is allowed to change the critic, relabel samples, or
-alter the data distribution in order to improve its actor result.
+Reciprocal-Quadratic, and DRPO are evaluated under the same D4RL
+actor-training protocol and differ only in the negative-update weighting rule
+defined in Appendix~\ref{app:shared_methods}.
 
 \paragraph{Hyperparameters.}
 
@@ -4017,9 +4025,9 @@ All structured-generation experiments use
 Qwen2.5-0.5B-Instruct~\citep{qwen2024qwen25} with LoRA adaptation and
 frozen prompt-indexed replay data. Learner-relative remoteness for DRPO is
 the current-policy mean completion-token surprisal and is recomputed during
-training rather than stored in the replay bank. Protocol-matched methods
-share the registered task data, verifier labels, optimization budget, and
-evaluation schedule within each task.
+training rather than stored in the replay bank. Within each task, compared
+methods use the same task data and verifier labels; shared training and
+evaluation settings are specified below.
 
 \paragraph{AsymRE.}
 
@@ -4170,11 +4178,7 @@ outputs and ratio-derived weights are detached from the policy
 gradient. The 0.5/0.5 masses belong only to the reference-fitting
 objective, not to the policy objective. The data records do not contain
 behavior-policy log probabilities; the ratio denominator is supplied by
-the jointly fitted reference adapter during training. The completed
-TOPR coefficient scan is a provenance-limited development pilot and does
-not establish convergence, statistical significance, steady state, or
-a formal method ranking.
-
+the jointly fitted reference adapter during training. 
 \paragraph{DPO.}
 
 Canonical DPO~\citep{rafailov2023direct} is trained with the same LoRA
@@ -4285,28 +4289,28 @@ performance when it is accompanied by a deterioration in the corresponding
 output-validity diagnostic.
 
 Task-performance degradation, token- or sequence-support boundary
-events, and NaN/Inf numerical failures are audited independently.
-Claims about stability or final method ranking use the registered
-terminal checkpoint audit rather than finite-step pilot behavior.
+events, and NaN/Inf numerical failures are reported independently. The
+1,200-update response curves are finite-horizon measurements and are not
+interpreted as convergence or steady-state evidence.
 
 
 \paragraph{Baseline coefficient selection.}
 For each structured-generation task, AsymRE scans
 \(\delta_v\in\{-1.0,-0.9,-0.75,-0.5,0.0\}\), Joint Fitted-Reference
 \(\beta\)-TOPR scans \(\beta\in\{0.25,0.5,1.0\}\), and canonical DPO
-scans \(\beta\in\{0.05,0.1,0.2\}\). Coefficients are selected on the
-registered validation metric using the same task-level selection rule as the
-main structured-generation comparison; test data are not used for coefficient
-selection.
+scans \(\beta\in\{0.05,0.1,0.2\}\). Coefficients are selected on the task-level validation metric using the same
+selection rule as the main structured-generation comparison; test data are not
+used for coefficient selection.
 
 \subsection{Structured-Generation DRPO Coefficient Response}
 \label{app:structured_generation_taper_sensitivity}
 
 Figure~\ref{fig:app_structured_generation_coefficient_response} reports the
 DRPO coefficient-response curves across the structured-generation tasks.
-Each panel plots late-window Pass@8 against the registered taper coefficient
+Each panel plots late-window Pass@8 against the taper coefficient
 \(\lambda\), with the corresponding Positive-only result shown as a
-horizontal reference.
+horizontal reference. For each coefficient, the late-window statistic is the
+mean of the evaluations at optimizer updates 800, 900, 1000, 1100, and 1200.
 
 Across tasks, the response is task dependent rather than a monotone
 ``larger is better'' relationship. Countdown, Word Ladder, and
