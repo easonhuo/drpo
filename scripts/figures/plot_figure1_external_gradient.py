@@ -180,6 +180,11 @@ def save_all(figure, stem: Path) -> None:
         pad_inches=0.03,
     )
 
+
+def save_fixed_size(figure, stem: Path) -> None:
+    stem.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(str(stem) + ".pdf")
+
 def validate_d4rl(main: pd.DataFrame, panels: pd.DataFrame, manifest: dict) -> None:
     main_columns = {
         "relative_distance",
@@ -365,7 +370,7 @@ def plot_split_main(
     axis.spines["right"].set_visible(False)
     axis.legend(fontsize=7.4, frameon=False, loc="lower right")
     figure.tight_layout(pad=0.35)
-    save_all(figure, out.with_name(out.name + "_d4rl"))
+    save_fixed_size(figure, out.with_name(out.name + "_d4rl"))
     plt.close(figure)
 
     figure, axis = plt.subplots(figsize=(3.625, 2.62))
@@ -391,7 +396,7 @@ def plot_split_main(
     axis.spines["right"].set_visible(False)
     axis.legend(fontsize=7.9, frameon=False, loc="lower right")
     figure.tight_layout(pad=0.35)
-    save_all(figure, out.with_name(out.name + "_sg9"))
+    save_fixed_size(figure, out.with_name(out.name + "_sg9"))
     plt.close(figure)
 
 def plot_appendix(panels: pd.DataFrame, out: Path) -> None:
