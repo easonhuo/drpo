@@ -1110,7 +1110,7 @@ initialize LoRA directly from Qwen2.5-0.5B-Instruct; $^{\ddagger}$DPO uses the s
 parameterization but initializes policy and frozen reference from the short SFT
 checkpoint (Appendix~\ref{app:structured_generation_methods}). $\beta$-TOPR is
 the joint fitted-reference TOPR variant \citep{leroux2025tapered}. DRPO transfer
-scores are maximum means over contiguous five-point windows of registered
+scores are maximum means over contiguous five-point windows of the evaluated
 $\lambda$-response curves. Macro Avg. is the unweighted mean of nine task-level
 Pass@8 percentages.
 \end{minipage}
@@ -2646,14 +2646,13 @@ matched pairs per seed, and evaluate the full actor-parameter gradient on 64
 pairs per seed. Seven far-distance bins are reported. The probe performs no
 optimizer update.
 
-\paragraph{Aggregation and provenance.}
+\paragraph{Aggregation.}
 Every far point is normalized by its original matched near partner. Curves are
-first aggregated within seed and dataset; the main panel then assigns equal
-weight to the nine dataset cells on their shared distance support. Its 95\%
-confidence interval uses 10,000 hierarchical bootstrap draws, resampling
-dataset cells and then seeds, with bootstrap seed 20260723. The archived
-point-level output records dataset, critic, actor, RunSpec, source, and
-checkpoint provenance.
+first aggregated within seed and task--dataset combination; the main panel then
+assigns equal weight to the nine combinations on their shared distance support.
+Its 95\% confidence interval uses 10,000 hierarchical bootstrap draws,
+resampling task--dataset combinations and then seeds, with bootstrap seed
+20260723.
 
 \begin{table*}[t]
 \centering
@@ -3941,10 +3940,9 @@ D_{\mathrm{D4RL}}(s,a)
 \right)^2.
 \]
 
-This dimension-normalized convention is used consistently across all
-D4RL comparisons. The associated threshold and scale parameters are
-defined under the same convention and are kept fixed across compared
-methods.
+This dimension-normalized remoteness coordinate is used consistently across
+the D4RL comparisons. Fixed coordinate settings and tuned weighting parameters
+are specified separately below.
 
 When the actor uses a transformed action distribution, this quantity is
 computed in the policy's native Gaussian coordinates. The resulting
@@ -3960,16 +3958,10 @@ defined in Appendix~\ref{app:shared_methods}.
 
 \paragraph{Hyperparameters.}
 
-The registered training and selection configuration is summarized in
-Table~\ref{tab:d4rl_registered_config}. Although the remoteness
-coordinate is defined consistently across tasks, its empirical
-distribution depends on the dataset. We therefore register
-task-specific development grids so that each controller covers
-comparable operating regimes under the corresponding remoteness
-distribution. All grids and selection rules are frozen before
-held-out evaluation and are populated directly from the experiment
-configuration, rather than reconstructed or adjusted after observing
-test results.
+Table~\ref{tab:d4rl_registered_config} summarizes the D4RL development
+sweeps. Because the empirical remoteness distribution differs across tasks,
+the development sweeps use task-specific coefficient grids. These sweeps
+define the parameter search and are kept separate from held-out confirmation.
 
 \begin{table}[t]
 \centering
@@ -4005,17 +3997,16 @@ Exponential multiplier
 \paragraph{Evaluation and uncertainty.}
 
 Task performance is reported using the standard D4RL normalized return.
-For every protocol-matched method, the main table reports the mean over
-the registered seeds. The D4RL-9 total is the sum of
-the nine task-level means.
+For every protocol-matched method, a reported task score is averaged over the
+stated seeds, and the D4RL-9 total is the sum of the nine task-level means.
 
 Task-performance collapse is assessed from normalized return and
 training trajectories. Variance or support-boundary events are reported
 separately from task performance. NaN/Inf numerical failures are
 reported as a third outcome and are not merged with either low return or
-policy-boundary events. Any claim concerning convergence, collapse, or
-method ranking is based on the registered terminal audit rather than an
-intermediate checkpoint.
+policy-boundary events. Convergence or collapse claims require the terminal training trajectory rather
+than an intermediate checkpoint; fixed-horizon endpoints are not treated as
+convergence by themselves.
 
 
 \subsection{Structured-Generation Baselines and Experimental Protocol}
@@ -4183,7 +4174,7 @@ the jointly fitted reference adapter during training.
 
 Canonical DPO~\citep{rafailov2023direct} is trained with the same LoRA
 parameterization as the other structured-generation methods. Its policy and
-frozen reference are initialized from the registered short-SFT checkpoint,
+frozen reference are initialized from the short SFT checkpoint,
 rather than directly from the pretrained backbone; this difference is marked
 by \(^{\ddagger}\) in Table~\ref{tab:structured_generation_performance}.
 For each prompt \(x\), the verified oracle solution
@@ -4213,7 +4204,7 @@ For each prompt \(x\), the verified oracle solution
 The loss is averaged over unique negatives within each prompt and then
 uniformly across prompts. The reference remains frozen throughout the
 fixed 1,200-step continuation, and \(\beta\) is selected using the
-registered validation sweep.
+validation sweep.
 
 \paragraph{Method-specific remoteness.}
 
@@ -4245,12 +4236,12 @@ objective; neither baseline uses DRPO's mean-token remoteness.
 
 \paragraph{Frozen response-bank construction.}
 
-Before policy optimization, the registered model-independent generator
-constructs a frozen prompt-indexed replay bank for each
-structured-generation task. Each training prompt has one verifier-confirmed
-oracle completion and 16 model-independent verifier-incorrect completions
-under the registered structured-generation training interface. The
-paper-facing trainers canonicalize exact outputs before consumption. The
+Before policy optimization, the model-independent generator constructs a
+frozen prompt-indexed replay bank for each structured-generation task. Each
+training prompt has one verifier-confirmed oracle completion and 16
+model-independent verifier-incorrect completions under the common
+structured-generation training interface. Exact duplicate outputs are
+canonicalized before training. The
 bank stores no learner-relative near/far label and no behavior-policy log
 probability. Verifier outcome, response length, output-validity status, and
 task-specific error metadata remain separate stored diagnostics even when
@@ -4259,29 +4250,28 @@ they share the same binary training reward.
 \paragraph{Training and checkpoint selection.}
 
 All protocol-matched methods use Qwen2.5-0.5B-Instruct
-\citep{qwen2024qwen25} with the registered LoRA parameterization. The
+\citep{qwen2024qwen25} with the same LoRA parameterization. The
 Joint Fitted-Reference \(\beta\)-TOPR arm additionally creates a fresh
 reference LoRA with parameters copied from the initial policy adapter.
 Within each structured-generation task, protocol-matched methods share the
 AdamW optimizer~\citep{loshchilov2019decoupled}, learning-rate schedule,
 minibatch construction, optimizer-step budget, validation protocol, and
 evaluation schedule unless a method-specific protocol states otherwise.
-Hyperparameters are selected using the registered validation rule.
+Hyperparameters are selected using the task-level validation rule.
 
 The structured-generation experiments use 5,000 training prompts and
 500 validation prompts per task; reserved test data are not used for
 coefficient tuning. All tasks use 1,200 optimizer updates, 16 negatives per
 training prompt, no early stopping, and Pass@8 as the primary sampled-decoding
 metric. The common LoRA configuration is rank 32, alpha 64, and dropout 0.05.
-Task-specific runtime overrides such as sequence length and evaluation batch
-size follow the registered task adapters and are not varied as scientific
-comparison factors.
+Task-specific sequence lengths and evaluation batch sizes are fixed within
+each task and are not varied as method-specific comparison factors.
 
 \paragraph{Verifier-based evaluation.}
 
 Greedy verifier success is the fraction of held-out instances solved by
 greedy decoding. Pass@$k$ is the fraction solved by at least one of
-the registered \(k\) sampled responses. Task-specific output-validity
+the \(k\) sampled responses. Task-specific output-validity
 diagnostics are reported separately from verifier success where applicable.
 
 A higher verifier success rate is not attributed to improved task
@@ -4333,7 +4323,7 @@ universal cross-task value of \(\lambda\).
     ]{figures/fig_app_structured9_drpo_coefficient_response.pdf}
     \caption{
         \textbf{DRPO coefficient response across structured-generation tasks.}
-        Each panel reports late-window Pass@8 versus the registered taper
+        Each panel reports late-window Pass@8 versus the evaluated taper
         coefficient \(\lambda\); dashed horizontal lines denote the
         corresponding Positive-only references. Task-specific vertical scales
         are used to make within-task response shape visible.
