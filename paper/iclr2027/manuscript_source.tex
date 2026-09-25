@@ -3986,6 +3986,43 @@ For every protocol-matched method, the main table reports the mean over
 the registered seeds. The D4RL-9 total is the sum of
 the nine task-level means.
 
+% Populate only from the registered D4RL-9 taper rerun; do not backfill
+% these cells from historical development pilots.
+\begin{table}[t]
+\centering
+\caption{Taskwise normalized returns for the D4RL-9 taper comparison.}
+\label{tab:app_d4rl9_taper_taskwise}
+
+\small
+\setlength{\tabcolsep}{5.0pt}
+\renewcommand{\arraystretch}{1.08}
+
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Dataset & PO & Rec.-L & Rec.-Q & DRPO \\
+\midrule
+halfcheetah-medium & -- & -- & -- & -- \\
+hopper-medium & -- & -- & -- & -- \\
+walker2d-medium & -- & -- & -- & -- \\
+halfcheetah-replay & -- & -- & -- & -- \\
+hopper-replay & -- & -- & -- & -- \\
+walker2d-replay & -- & -- & -- & -- \\
+halfcheetah-expert & -- & -- & -- & -- \\
+hopper-expert & -- & -- & -- & -- \\
+walker2d-expert & -- & -- & -- & -- \\
+\midrule
+\textit{Macro Avg.} & -- & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+
+\vspace{2pt}
+\begin{minipage}{\columnwidth}
+\small
+\textit{Note.} PO = Positive-only. Entries are reserved for the
+registered D4RL-9 taper rerun.
+\end{minipage}
+\end{table}
+
 Task-performance collapse is assessed from normalized return and
 training trajectories. Variance or support-boundary events are reported
 separately from task performance. NaN/Inf numerical failures are
