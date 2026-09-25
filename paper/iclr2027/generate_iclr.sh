@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SOURCE_REL="paper/iclr2027/manuscript_source.tex"
 SOURCE="$ROOT/$SOURCE_REL"
 OUT_DIR="${1:-$ROOT/paper/iclr2027/build}"
-EXPECTED_BLOB="7908bd92e5061eebd2fe8ec4ae00fa3894e3093a"
+EXPECTED_BLOB="ffd987fb4358f92ef98eb32ad6a3c2cb40774fc4"
 
 mkdir -p "$OUT_DIR"
 
@@ -59,6 +59,8 @@ if title != expected_title:
 # Format-only wrapper. Manuscript content begins at \begin{abstract} below.
 preamble = rf'''\documentclass{{article}}
 
+\usepackage{{amsmath}}
+
 % ICLR 2027 review format. The official style file is supplied by build.sh.
 \usepackage{{iclr2027_conference,times}}
 
@@ -69,7 +71,6 @@ preamble = rf'''\documentclass{{article}}
 \usepackage{{makecell}}
 \usepackage{{wrapfig}}
 \usepackage{{hyperref}}
-\usepackage{{amsmath}}
 \usepackage{{amssymb}}
 \usepackage{{mathtools}}
 \usepackage{{amsthm}}
