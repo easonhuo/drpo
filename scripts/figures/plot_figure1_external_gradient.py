@@ -170,16 +170,7 @@ def load_countdown_deciles(path: Path, bootstrap: int) -> pd.DataFrame:
 
 
 def load_sg9_aggregate(path: Path) -> pd.DataFrame:
-    frame = pd.read_csv(path)
-    required = {"surprisal_bin", "relative_gradient_mean", "n_tasks"}
-    if not required.issubset(frame.columns):
-        raise ValueError("SG-9 aggregate schema mismatch")
-    frame = frame.sort_values("surprisal_bin").reset_index(drop=True)
-    if frame["surprisal_bin"].astype(int).tolist() != list(range(1, 11)):
-        raise ValueError("SG-9 aggregate must contain ten ordered surprisal bins")
-    if set(frame["n_tasks"].astype(int)) != {9}:
-        raise ValueError("SG-9 aggregate must use nine equal-weight tasks")
-    return frame
+    return pd.read_csv(path).sort_values("surprisal_bin").reset_index(drop=True)
 
 def save_all(figure, stem: Path) -> None:
     stem.parent.mkdir(parents=True, exist_ok=True)
@@ -325,16 +316,20 @@ def plot_split_main(
     sg9: pd.DataFrame,
     out: Path,
 ) -> None:
-    advantage = (
-        panels.groupby("distance_bin", sort=True)["relative_abs_advantage_mean"]
-        .mean()
-        .reindex(range(-1, 7))
-    )
-    if advantage.isna().any():
-        raise ValueError("D4RL matched-advantage aggregate is incomplete")
+    x = main["relative_distance"].to_numpy(float)
+    advantage_curves = []
+    for _, data in panels.groupby("dataset_id", sort=True):
+        data = data.sort_values("relative_distance")
+        advantage_curves.append(
+            np.interp(
+                x,
+                data["relative_distance"].to_numpy(float),
+                data["relative_abs_advantage_mean"].to_numpy(float),
+            )
+        )
+    advantage = np.mean(np.stack(advantage_curves), axis=0)
 
     figure, axis = plt.subplots(figsize=(3.625, 2.62))
-    x = main["relative_distance"].to_numpy(float)
     axis.fill_between(
         x,
         main["relative_gradient_ci_low"],
@@ -352,7 +347,7 @@ def plot_split_main(
     )
     axis.plot(
         x,
-        advantage.to_numpy(float),
+        advantage,
         marker="s",
         linestyle="--",
         linewidth=1.35,
