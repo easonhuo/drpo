@@ -831,7 +831,7 @@ are in Appendices~\ref{app:experimental_details} and~\ref{app:controlled_protoco
 We compare near- and far-field actor gradients using matched negative-signal
 magnitudes in D4RL and fixed negative coefficients in structured generation;
 Appendices~\ref{app:d4rl_gradient_diagnostic}
-and~\ref{app:structured_generation_methods} give the protocols.
+and~\ref{app:structured_generation_gradient_diagnostic} give the protocols.
 In both domains, implemented actor-gradient increases from near to far field
 (Figure~\ref{fig:external_far_field}). The approximately linear D4RL
 trend agrees with the Gaussian prediction; the fixed-coefficient
@@ -1127,6 +1127,18 @@ continuous and discrete policies. Our guarantees analyze the zero-refresh limit 
 learner-relative weighting principle applies when negative samples are already
 remote under the current policy, including replay and stale-policy settings;
 remoteness-aware control is not restricted to static offline datasets.
+
+\subsection*{AI use statement}
+
+Generative AI tools were used to assist with manuscript polishing, research
+execution, and mathematical proof development and checking. For research
+execution, AI assistance was used primarily for implementation, code review
+and debugging, experimental workflow support, and consistency checking. For
+mathematical proofs, AI tools were used to carry out detailed derivations and
+proof checking within the theoretical framework and proof strategies developed
+by the authors. All AI-assisted code, mathematical arguments, experimental
+procedures, and manuscript edits were reviewed and verified by the authors,
+who take responsibility for the final content of the work.
 
 
 % Acknowledgements should only appear in the accepted version.
@@ -2674,6 +2686,36 @@ Uncertainty & Hierarchical bootstrap over dataset cells and seeds \\
 \end{tabular}
 \end{table*}
 
+\subsection{Structured-Generation Gradient-Diagnostic Protocol}
+\label{app:structured_generation_gradient_diagnostic}
+
+\paragraph{Probe definition.}
+For each structured-generation task, learner-relative remoteness is measured
+by current-policy mean completion-token surprisal,
+\[
+D_{\mathrm{SG}}(x,y)
+=
+-\frac{1}{T}
+\sum_{t=1}^{T}
+\log \pi_\theta(y_t\mid x,y_{<t}),
+\]
+where only completion tokens are included and prompt and padding positions are
+excluded. At the frozen diagnostic checkpoint for each task, we evaluate
+verifier-incorrect responses without applying an optimizer update.
+
+\paragraph{Fixed-coefficient gradient measurement.}
+Each probed negative response uses the same unit absolute negative coefficient.
+We compute its full parameter-gradient norm, so the negative-signal magnitude
+is fixed while learner-relative surprisal varies.
+
+\paragraph{Within-task normalization and aggregation.}
+Within each task, responses are ordered by current-policy surprisal and
+partitioned into ten equal-count bins. The mean implemented actor-gradient norm
+in each bin is normalized by the lowest-surprisal bin of the same task. The
+task-level normalized curves are aggregated with equal task weight, while the
+corresponding task-level curves are reported separately in
+Figure~\ref{fig:app_external_gradient_panels}.
+
 \begin{figure*}[t]
 \centering
 
@@ -3180,26 +3222,16 @@ and near/far intervention logic. The semantic-generalization test is carried
 by E6-C through the 64-action shared-semantic catalogue.
 
 \subsection{D4RL Locomotion Datasets}
-\label{app:hopper_datasets}
+\label{app:d4rl_datasets}
 
-The task-level evaluation uses HalfCheetah, Hopper, and Walker2d under
+The D4RL experiments use HalfCheetah, Hopper, and Walker2d under
 the medium, medium-replay, and medium-expert datasets
-\citep{fu2020d4rl}; the mechanism diagnostics use Hopper, described
-below.
-
-Hopper is a continuous-control task with an
-11-dimensional observation space and a three-dimensional bounded action
-space. We use the D4RL
-\texttt{hopper-medium},
-\texttt{hopper-medium-replay}, and
-\texttt{hopper-medium-expert}
-datasets. The medium dataset contains trajectories collected from a
-partially trained policy, medium-replay contains the corresponding replay
-buffer collected throughout training, and medium-expert combines medium
-and expert behavior. Hopper-medium-replay is used for the primary mechanism
-diagnostic because its broader behavioral coverage provides a wider range of
-learner-relative distances, while all three Hopper datasets are retained for
-the task-level performance evaluation.
+\citep{fu2020d4rl}, yielding nine locomotion dataset cells in total.
+Both the external gradient diagnostic and the task-level evaluation
+cover all nine cells. The gradient diagnostic follows
+Appendix~\ref{app:d4rl_gradient_diagnostic}, with normalization performed
+within dataset and seed before equal-weight aggregation across the nine
+dataset cells.
 
 \subsection{Structured-Generation Tasks and Dataset Construction}
 \label{app:structured_generation_dataset}
@@ -3253,8 +3285,6 @@ interface uses 16 negative responses per training prompt, keeps the replay data
 fixed during optimization, and recomputes learner-relative mean completion-token
 surprisal from the current policy. This zero-refresh construction isolates
 stale-negative reuse without storing learner-relative remoteness in the bank.
-
-\subsection{Training and Evaluation Protocols}
 
 \section{Controlled Experimental Protocols}
 \label{app:controlled_protocols}
@@ -3691,69 +3721,6 @@ them indiscriminately.
 
 
 
-\subsection{External Taper Validation}
-\label{app:external_taper_protocol}
-
-\paragraph{Experimental role.}
-External taper experiments test transfer of the controlled weighting principle
-to complex policies; C-U1 and D-U1 provide the counterfactual source-isolation
-and causal-intervention tests.
-
-\paragraph{Hopper.}
-All Hopper taper methods branch from the same actor initialization and
-use the same offline transitions and advantage labels. For an action
-with inverse-squash coordinate $u$, Gaussian mean $\mu_\theta(s)$, and
-diagonal scale $\sigma_\theta(s)$, the remoteness statistic is
-\begin{equation}
-    D_{\mathrm{Hopper}}(s,a)
-    =
-    \frac{1}{2}
-    \sum_j
-    \left(
-        \frac{
-            u_j-\mu_{\theta,j}(s)
-        }{
-            \sigma_{\theta,j}(s)
-        }
-    \right)^2.
-    \label{eq:hopper_taper_remoteness}
-\end{equation}
-The additive Gaussian normalization term is omitted because it does not
-change the ordering used by the taper. Remoteness is recomputed under
-the current actor and detached before constructing the negative weight.
-The mechanism protocol with frozen advantages is kept separate from the
-standard offline-RL performance protocol; the former studies transfer of
-the far-field control mechanism, whereas the latter reports final
-environment return.
-
-\paragraph{Countdown.}
-For each replay prompt, the V2 record contains a verified oracle
-solution and 9--16 unique programmatically generated negative
-expressions stratified by construction-time error type. A fixed-width
-representation with 16 negative slots was also materialized for
-downstream compatibility: 4{,}943 prompts already contained 16 unique
-negatives, while 1{,}057 prompts were padded by cycling existing exact
-expressions. This representation records conversion provenance rather
-than the multiplicity used by the paper-facing objectives. The
-paper-facing trainers deduplicate exact expressions and optimize over
-all unique negatives available for each prompt. Learner-relative
-near/far status is never stored and is recomputed only by methods that
-use the corresponding remoteness coordinate.
-
-All protocol-matched V2 Countdown methods use the same prompt set,
-verified oracle solutions, frozen V2 negative bank, validation set,
-and maximum training budget. Initialization, sampling, calibration,
-and ratio-denominator rules are method-specific and are stated
-separately.
-
-\paragraph{Comparisons and reporting.}
-External taper comparisons include Positive-only, Uncontrolled, Global
-scaling, Reciprocal-Linear, Reciprocal-Quadratic, and exponential DRPO;
-domain-specific baselines are reported separately in the overall-performance
-section. Hopper reports normalized return and policy
-statistics; Countdown reports greedy verifier success, Pass@$k$, valid
-expression rate, surprisal, and support statistics. Task-performance,
-boundary, and NaN/Inf outcomes remain separate in both domains.
 \subsection{Shared Objectives and Negative-Update Controls}
 \label{app:shared_methods}
 
@@ -3841,16 +3808,7 @@ a global reduction in negative-update magnitude, without using
 learner-relative remoteness.
 
 \paragraph{Reciprocal-Linear and Reciprocal-Quadratic.}
-For the remoteness-aware methods, define the normalized excess
-remoteness
-\[
-x_\theta(z)
-=
-\left[
-\frac{D_\theta(z)-\tau}{c}
-\right]_{+},
-\]
-and its radialized coordinate
+Using the normalized excess remoteness defined above, let
 \[
 r_\theta(z)=\sqrt{x_\theta(z)}.
 \]
@@ -3950,10 +3908,9 @@ D_{\mathrm{D4RL}}(s,a)
 \right)^2.
 \]
 
-This dimension-normalized convention differs from
-Equation~\eqref{eq:hopper_taper_remoteness} only by a fixed task-level scale.
-The associated threshold and scale parameters absorb that constant, and each
-protocol keeps its convention fixed across all compared methods.
+This dimension-normalized convention is used consistently across all
+D4RL comparisons. The associated threshold and scale parameters are
+defined under the same convention and kept fixed across all compared methods.
 
 When the actor uses a transformed action distribution, this quantity is
 computed in the policy's native Gaussian coordinates. The resulting
