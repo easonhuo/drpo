@@ -17,6 +17,16 @@ command -v latexmk >/dev/null
 command -v pdfinfo >/dev/null
 command -v python3 >/dev/null
 
+# Materialize the split Figure 1 assets from checked-in plot-ready diagnostics.
+python3 "$ROOT/scripts/figures/plot_figure1_external_gradient.py" \
+  --d4rl-main "$ROOT/results/FIGURE1_EXTERNAL_GRADIENT_D4RL9/main_aggregate.csv" \
+  --d4rl-panels "$ROOT/results/FIGURE1_EXTERNAL_GRADIENT_D4RL9/dataset_plot_data.csv" \
+  --d4rl-manifest "$ROOT/results/FIGURE1_EXTERNAL_GRADIENT_D4RL9/MANIFEST.json" \
+  --countdown "$ROOT/results/FIGURE1_EXTERNAL_GRADIENT/countdown_gradient_deciles_seed100.csv" \
+  --sg9 "$ROOT/paper/iclr2027/figures/data/sg9_gradient_aggregate.csv" \
+  --out "$SOURCE_DIR/figures/figure1_external_gradient_d4rl9" \
+  --appendix-out "$BUILD_DIR/figure_preview/fig_app_d4rl9_gradient_panels"
+
 # Materialize the registered Structured-9 coefficient-response figure at the
 # exact asset path already referenced by the current manuscript. The plotting
 # script reads only checked-in plot-ready E8 observations and uses the fixed,
