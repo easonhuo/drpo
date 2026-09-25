@@ -832,12 +832,14 @@ We compare near- and far-field actor gradients using matched negative-signal
 magnitudes in D4RL and fixed negative coefficients in structured generation;
 Appendices~\ref{app:d4rl_gradient_diagnostic}
 and~\ref{app:structured_generation_gradient_diagnostic} give the protocols.
-In both domains, implemented actor-gradient increases from near to far field
-(Figure~\ref{fig:external_far_field}). The approximately linear D4RL
-trend agrees with the Gaussian prediction; the fixed-coefficient
-structured-generation trend is consistent with persistent categorical
-suppression. These probes show the near-to-far pattern in realistic neural
-policies.
+Figure~\ref{fig:external_far_field}(a) aggregates the nine D4RL locomotion
+cells, while panel (b) shows the Countdown full-bank probe; the remaining
+structured-generation task-level curves are reported in
+Figure~\ref{fig:app_external_gradient_panels}. In D4RL and Countdown,
+implemented actor-gradient increases from near to far field. The approximately
+linear D4RL trend agrees with the Gaussian prediction; the fixed-coefficient
+Countdown trend is consistent with persistent categorical suppression. These
+probes show the near-to-far pattern in realistic neural policies.
 
 
 The external probes show the near-to-far gradient pattern under matched
@@ -860,9 +862,10 @@ negative-update treatment
     \caption{
 \textbf{External far-field diagnostics.}
 Relative implemented actor-gradient versus learner-relative remoteness,
-aggregated over nine D4RL locomotion cells in (a) and structured-generation
-tasks in (b). Gradients are normalized to their near-field references; dashed lines
-show matched negative-signal controls and shading shows 95\% confidence intervals
+aggregated over nine D4RL locomotion cells in (a) and shown for the Countdown
+full-bank probe in (b). Gradients are normalized to their near-field references;
+dashed lines show matched negative-signal controls and shading shows 95\%
+confidence intervals under the domain-specific bootstrap procedures
 (disaggregated panels: Figure~\ref{fig:app_external_gradient_panels}).
 }
     \Description{Two-panel external diagnostic of relative implemented
@@ -1107,7 +1110,7 @@ initialize LoRA directly from Qwen2.5-0.5B-Instruct; $^{\ddagger}$DPO uses the s
 parameterization but initializes policy and frozen reference from the short SFT
 checkpoint (Appendix~\ref{app:structured_generation_methods}). $\beta$-TOPR is
 the joint fitted-reference TOPR variant \citep{leroux2025tapered}. DRPO transfer
-scores are maximum means over contiguous five-point windows of registered
+scores are maximum means over contiguous five-point windows of the evaluated
 $\lambda$-response curves. Macro Avg. is the unweighted mean of nine task-level
 Pass@8 percentages.
 \end{minipage}
@@ -2535,12 +2538,6 @@ finite one-to-one multiplier relation. Finally,
 endpoint \(\delta\ge|\xi^-|\).
 \end{proof}
 
-This problem derives learner-relative exponential attenuation. It is
-distinct from quality-based hard selection: both are optimistic
-reweighting views, but one controls remoteness under a finite negative
-measure and the other selects a quality region. Neither problem implies
-the other.
-
 \section{Where Off-Policy Controls Intervene}
 \label{app:topr_relation}
 
@@ -2649,14 +2646,13 @@ matched pairs per seed, and evaluate the full actor-parameter gradient on 64
 pairs per seed. Seven far-distance bins are reported. The probe performs no
 optimizer update.
 
-\paragraph{Aggregation and provenance.}
+\paragraph{Aggregation.}
 Every far point is normalized by its original matched near partner. Curves are
-first aggregated within seed and dataset; the main panel then assigns equal
-weight to the nine dataset cells on their shared distance support. Its 95\%
-confidence interval uses 10,000 hierarchical bootstrap draws, resampling
-dataset cells and then seeds, with bootstrap seed 20260723. The archived
-point-level output records dataset, critic, actor, RunSpec, source, and
-checkpoint provenance.
+first aggregated within seed and task--dataset combination; the main panel then
+assigns equal weight to the nine combinations on their shared distance support.
+Its 95\% confidence interval uses 10,000 hierarchical bootstrap draws,
+resampling task--dataset combinations and then seeds, with bootstrap seed
+20260723.
 
 \begin{table*}[t]
 \centering
@@ -2690,8 +2686,8 @@ Uncertainty & Hierarchical bootstrap over dataset cells and seeds \\
 \label{app:structured_generation_gradient_diagnostic}
 
 \paragraph{Probe definition.}
-For each structured-generation task, learner-relative remoteness is
-measured by the current-policy mean completion-token surprisal,
+Learner-relative remoteness is the current-policy mean completion-token
+surprisal
 \[
 D_{\mathrm{SG}}(x,y)
 =
@@ -2699,25 +2695,43 @@ D_{\mathrm{SG}}(x,y)
 \sum_{t=1}^{T}
 \log \pi_\theta(y_t\mid x,y_{<t}),
 \]
-where only completion tokens are included and prompt and padding
-positions are excluded. For each verifier-incorrect response, we compute
-the corresponding full trainable-parameter gradient norm at the fixed
-probe checkpoint, without applying an optimizer update.
+where only completion tokens are included. Let
+$\bar\ell_\theta(x,y)=-D_{\mathrm{SG}}(x,y)$. For each
+verifier-incorrect response, the implemented-gradient diagnostic is
+\begin{equation}
+    G_{\mathrm{SG}}(x,y)
+    =
+    \left\|
+        \nabla_{\theta_{\mathrm{train}}}
+        \bar\ell_\theta(x,y)
+    \right\|_2,
+    \label{eq:sg_gradient_probe}
+\end{equation}
+over all trainable parameters. Thus the vertical axis is the gradient of
+the same mean-token log probability used to define the horizontal
+surprisal coordinate, rather than the gradient of a summed sequence log
+probability. No optimizer update is applied during the probe.
 
-\paragraph{Fixed-coefficient gradient measurement.}
-All probed negative responses use the same absolute negative coefficient.
-Thus, negative-signal magnitude is held fixed while learner-relative
-surprisal varies. The resulting gradient norm measures the implemented
-parameter-space response associated with increasing remoteness under a
-matched negative signal.
+\paragraph{Probe checkpoints and matched coefficient.}
+For Word Sorting, Spiral Matrix, Mini Sudoku, Maze, Word Ladder,
+Knights \& Knaves, Graph Coloring, and WikiSQL, the diagnostic uses each
+task's fixed Positive-only warm-start checkpoint after 100 optimizer updates.
+It probes 256 negative responses per task with absolute negative coefficient
+one. Countdown uses the separately frozen full-bank probe at the SFT/reference
+adapter for seed 100: 6,000 puzzles contribute one near and one far
+verifier-incorrect response, for 12,000 responses in total, again with absolute
+negative coefficient one. These are external diagnostics rather than
+method-ranking runs.
 
-\paragraph{Within-task normalization and aggregation.}
+\paragraph{Binning and uncertainty.}
 Within each task, responses are ordered by current-policy surprisal and
-partitioned into ten equal-count bins. The mean gradient norm in each bin
-is normalized by the lowest-surprisal bin of the same task. The
-task-level normalized curves are then aggregated with equal task weight;
-the corresponding task-level curves are reported separately in
-Figure~\ref{fig:app_external_gradient_panels}.
+partitioned into ten equal-count bins. The mean gradient norm in each bin is
+normalized by the lowest-surprisal bin of the same task. For the eight
+multitask probes, 95\% intervals use 2,000 prompt-cluster bootstrap
+replicates within task with bootstrap seed 161803. The Countdown full-bank
+probe uses 400 puzzle-cluster bootstrap replicates. Figure~\ref{fig:app_external_gradient_panels}
+reports the resulting task-level curves separately; the Countdown evidence is
+single-seed and is not used to claim convergence or a method ranking.
 
 \begin{figure*}[t]
 \centering
@@ -2972,12 +2986,13 @@ $\log\sigma_\theta(s)$
 are produced by a shared two-layer ReLU MLP with 64 hidden units per
 layer and separate output heads. The initial standard deviation is
 $0.60$, and the learnable-variance experiments use no artificial
-variance clamp.  The continuous mechanism results reported in the main
-text use the fixed-variance branch unless explicitly labeled otherwise. A finite crossing of
-$\log\sigma_\theta(s)<-12$
-is recorded as a support or variance-boundary event, whereas nonfinite
-parameters or outputs are reported separately as NaN/Inf numerical
-failure.
+variance clamp. C-U1 uses complementary fixed- and learnable-variance
+causal branches. The fixed-variance branch isolates mean drift and
+task-performance collapse, whereas the learnable-variance branch separately
+tests support or variance contraction. In the latter branch, a finite crossing
+of $\log\sigma_\theta(s)<-12$ is recorded as a support or variance-boundary
+event, whereas nonfinite parameters or outputs are reported separately as
+NaN/Inf numerical failure.
 
 Training minibatches are sampled by context, and all actions associated
 with a selected context are retrieved together. Thus, the replicated
@@ -2986,13 +3001,14 @@ Positive and negative objectives are averaged separately before their
 relative coefficient is applied, preventing the four-to-eight action
 count ratio from mechanically changing the total negative-update mass.
 
-\paragraph{Shared use across continuous protocols.}
-All C-U1 experiments reuse the same contexts, reward geometry, fixed
-advantages, and policy architecture. E1 compares equal-advantage
-negative actions at different learner-relative distances. E2 applies
-only positive updates and measures the same negative actions as phantom
-probes. E3 dynamically partitions negative actions using the
-standardized distance
+\paragraph{Use across continuous experiments.}
+All C-U1 comparisons use the same contexts, reward geometry, fixed advantages,
+and policy architecture. The source-isolation probe compares equal-advantage
+negative actions at different learner-relative distances. Positive-only
+pretraining provides a reference policy from which the same negative actions
+can be measured without applying their updates. The causal-transmission
+experiment dynamically partitions negative actions using the standardized
+distance
 \begin{equation}
     d_\theta(s,a)
     =
@@ -3003,21 +3019,20 @@ standardized distance
     },
     \label{eq:cu1_standardized_distance}
 \end{equation}
-with the prespecified near--far threshold $d_\theta=5.0$, and applies
-targeted near- and far-field interventions. E4 uses the aligned action
-$a_-(s)$ as directionally useful local negative feedback and the
-remaining contour actions as additional far-field pressure. The
-experiment-specific coefficients, training horizons, seeds, taper
-calibrations, and terminal criteria are reported separately with their
-corresponding protocols.
+with the fixed near--far threshold $d_\theta=5.0$. The taper comparison uses
+the aligned action $a_-(s)$ as directionally useful local negative feedback
+and the remaining contour actions as additional far-field pressure.
+Experiment-specific coefficients, training horizons, seeds, taper
+calibrations, and terminal criteria are given with the corresponding
+protocols.
 
 \subsection{Controlled Categorical Environment D-U1}
 \label{app:du1_environment}
 
 D-U1 denotes the controlled categorical environment family used to
 study persistent negative suppression, probability-support boundaries,
-and shared-semantic generalization. Its E6 instantiation uses a fixed
-catalogue of 64 unordered actions, each associated with a
+and shared-semantic generalization. Its shared-semantic instantiation uses a
+fixed catalogue of 64 unordered actions, each associated with a
 four-dimensional unit semantic vector. Action identifiers are randomly
 permuted for every seed, so numerical action indices carry no geometric
 ordering.
@@ -3208,21 +3223,17 @@ NaN/Inf numerical failure are reported separately. A policy can
 therefore retain high reward while still approaching a support boundary;
 the two outcomes are not treated as equivalent.
 
-\paragraph{Shared use across categorical protocols.}
-E6-A fixes the concentration and scans the strength of the local
-negative update to identify the transition from the positive-only
-ceiling to useful semantic extrapolation and then to performance
-reversal. E6-B learns the concentration and applies near/far causal
-interventions and matched controls. E6-C compares aligned and shuffled
-policy embeddings to determine whether improvements on the hidden action
-require the specified semantic correspondence.
-
-E5 serves a distinct but complementary role. Its direct-softmax
-diagnostic and categorical causal reconstruction isolate persistent
-surprisal growth, logit-gap growth, and simplex-boundary suppression
-under repeated negative updates, while sharing D-U1's fixed-advantage
-and near/far intervention logic. The semantic-generalization test is carried
-by E6-C through the 64-action shared-semantic catalogue.
+\paragraph{Use across categorical experiments.}
+D-U1 supports complementary tests of negative-feedback strength, causal
+transmission, and semantic generalization. With fixed concentration, the local
+negative coefficient is varied to trace the transition from the Positive-only
+ceiling to useful semantic extrapolation and then to performance reversal.
+With learnable concentration, near--far interventions test how selective
+negative suppression affects policy dynamics and support. The aligned-versus-
+shuffled embedding comparison tests whether improvement on the hidden action
+depends on the intended semantic correspondence. A separate direct-softmax
+diagnostic examines persistent surprisal growth, logit-gap growth, and
+simplex-boundary suppression under repeated negative updates.
 
 \subsection{D4RL Locomotion Datasets}
 \label{app:d4rl_datasets}
@@ -3247,8 +3258,8 @@ LLM formulation used by TinyZero~\citep{pan2025tinyzero}; Word Sorting,
 Spiral Matrix, Mini Sudoku, Maze, Word Ladder, Knights \& Knaves, and
 Graph Coloring are generated from Reasoning Gym
 \citep{stojanovski2025reasoninggym}; WikiSQL follows
-\citet{zhong2017seq2sql}. The corresponding source revisions are fixed by
-the registered experiment configuration.
+\citet{zhong2017seq2sql}. The versions of the task sources and generators are fixed before data
+generation.
 
 All tasks use a common prompt-indexed replay-bank schema containing the
 task identity, prompt, verifier-confirmed oracle completion, verifier
@@ -3282,7 +3293,7 @@ WikiSQL & WikiSQL & SQL logical form \\
 \end{table}
 
 Each structured-generation task uses 5,000 training prompts and
-500 validation prompts under the unified paper-facing protocol. Reserved test
+500 validation prompts under the common structured-generation protocol. Reserved test
 data are not used for coefficient tuning. The structured-generation optimization
 interface uses 16 negative responses per training prompt, keeps the replay data
 fixed during optimization, and recomputes learner-relative mean completion-token
@@ -3292,14 +3303,13 @@ stale-negative reuse without storing learner-relative remoteness in the bank.
 \section{Controlled Experimental Protocols}
 \label{app:controlled_protocols}
 
-This section specifies the interventions used in
-Sections~\ref{sec:controlled_identification}
-and~\ref{sec:repulsion_control}. The definitions of C-U1 and D-U1 are given in
-Appendix~\ref{app:experimental_details}. Network architectures,
-optimizer settings, training budgets, seeds, and evaluation frequencies
-are reported in the protocol-specific subsections below.
+The following protocols define the controlled source-isolation,
+causal-transmission, negative-strength, and taper-comparison experiments.
+C-U1 and D-U1 are defined in Appendix~\ref{app:experimental_details};
+experiment-specific training and evaluation details are given with the
+corresponding protocol.
 
-\subsection{Shared Notation and Experimental Invariants}
+\subsection{Shared Notation and Controls}
 \label{app:controlled_shared}
 
 For a negative sample
@@ -3326,22 +3336,12 @@ Learner-relative remoteness is measured by
 or by its equivalent standardized Gaussian component when additive
 density constants are irrelevant.
 
-Unless explicitly stated otherwise, all branches of one controlled
-comparison share:
-
-\begin{enumerate}
-    \item the same training and evaluation contexts;
-    \item the same positive and negative samples;
-    \item the same fixed rewards or advantage labels;
-    \item the same initial policy parameters;
-    \item the same minibatch order, optimizer, and training horizon;
-    \item the same evaluation checkpoints and terminal classification
-    rules.
-\end{enumerate}
-
-Only the variable named by the intervention is changed. Actions generated
-under the same context are aggregated at the context level and are not
-treated as independent contexts for statistical inference.
+Within each controlled comparison, all branches use the same contexts,
+samples, fixed rewards or advantage labels, initialization, optimizer,
+minibatch order, training horizon, and evaluation schedule. Only the variable
+named by the intervention changes. Actions generated under the same context
+are aggregated at the context level and are not treated as independent
+contexts for statistical inference.
 
 
 \subsection{Source-Isolation Protocol}
@@ -3445,24 +3445,23 @@ from the unbounded Gaussian-distance amplification measured in C-U1.
 
 \paragraph{Purpose.}
 The source-isolation protocol identifies the source of abnormal update
-magnitude but not its effect on task behavior. Causal transmission is tested in the nonlinear
-Gaussian protocol, where the policy mean and variance evolve jointly,
-and in the categorical support reconstruction of D-U1.
+magnitude but not its effect on task behavior. C-U1 therefore uses two
+complementary causal branches: a fixed-variance branch isolates mean drift and
+task-performance collapse, while a learnable-variance branch tests whether the
+same far-field pathway produces support or variance contraction. D-U1 provides
+the categorical support reconstruction.
 
 \paragraph{Dynamic near--far partition.}
-At each intervention step, negative samples are partitioned using their
-current-policy remoteness. Let
-$\mathcal N_\theta$
-and
-$\mathcal F_\theta$
-denote the prespecified near- and far-field sets. Their membership is
-recomputed as the policy evolves rather than frozen at initialization.
-The thresholds or quantiles are fixed before training and specified with the
-corresponding environment.
+At each intervention step, negative samples are repartitioned using their
+current policy state. In C-U1, membership is recomputed from
+Equation~\eqref{eq:cu1_standardized_distance}: samples with
+$d_\theta(s,a)\leq5.0$ are near-field and those with
+$d_\theta(s,a)>5.0$ are far-field. The partition is therefore dynamic rather
+than frozen at initialization.
 
 \paragraph{Interventions.}
-For a negative sample $z$, the following multipliers are applied to
-$g_\theta^-(z)$:
+For a negative sample $z$, the uncontrolled, Positive-only, Near-zero, and
+Far-zero branches use
 \begin{equation}
 \begin{aligned}
     w_{\mathrm{uncontrolled}}(z)
@@ -3479,51 +3478,81 @@ $g_\theta^-(z)$:
 \label{eq:causal_zero_interventions}
 \end{equation}
 
-The far-cap intervention preserves the direction of a far-field update
-but limits its detached magnitude to a reference level estimated from
-near-field negative samples:
+For the matched magnitude controls, let the current minibatch aggregate
+near- and far-field negative gradients be
 \begin{equation}
-    w_{\mathrm{far\text{-}cap}}(z)
-    =
-    \begin{cases}
-        \displaystyle
-        \min\left\{
-            1,
-            \frac{C_{\mathrm{near}}}
-                 {I_{\mathrm{sample}}(z)+\epsilon}
-        \right\},
-        & z\in\mathcal F_\theta,\\[3mm]
+\begin{aligned}
+    \mathbf G_{\mathrm N}
+    &=
+    \sum_{z\in\mathcal B^-\cap\mathcal N_\theta}
+    g_\theta^-(z),\\
+    \mathbf G_{\mathrm F}
+    &=
+    \sum_{z\in\mathcal B^-\cap\mathcal F_\theta}
+    g_\theta^-(z).
+\end{aligned}
+\label{eq:causal_aggregate_components}
+\end{equation}
+The C-U1 Far-cap branch preserves the aggregate far-gradient direction but
+caps its norm relative to the current near component:
+\begin{equation}
+\begin{aligned}
+    \gamma_{\mathrm{cap}}
+    &=
+    \min\left\{
         1,
-        & \text{otherwise},
-    \end{cases}
-    \label{eq:causal_far_cap}
+        0.05\,
+        \frac{\lVert\mathbf G_{\mathrm N}\rVert_2}
+             {\lVert\mathbf G_{\mathrm F}\rVert_2+\epsilon}
+    \right\},\\
+    \mathbf G^-_{\mathrm{far\text{-}cap}}
+    &=
+    \mathbf G_{\mathrm N}
+    +
+    \gamma_{\mathrm{cap}}\mathbf G_{\mathrm F}.
+\end{aligned}
+\label{eq:causal_far_cap}
 \end{equation}
-where $C_{\mathrm{near}}$ is the prespecified near-field update-magnitude
-reference.
-
-To distinguish selective intervention from a generic decrease in
-negative optimization, the global-matched control applies one scalar
-to every negative sample:
+The Global-matched control uses one detached scalar on the full negative
+gradient,
 \begin{equation}
-    w_{\mathrm{global}}(z)
-    =
-    \alpha_{\mathrm{match}}.
-    \label{eq:causal_global_weight}
-\end{equation}
-The scalar is chosen using the training batch so that its detached aggregate
-negative-update magnitude matches the corresponding selective
-intervention:
-\begin{equation}
+\begin{aligned}
     \alpha_{\mathrm{match}}
-    \sum_{z\in\mathcal B^-}
-        I_{\mathrm{sample}}(z)
-    =
-    \sum_{z\in\mathcal B^-}
-        w_{\mathrm{selective}}(z)
-        I_{\mathrm{sample}}(z).
-    \label{eq:causal_budget_match}
+    &=
+    \frac{
+        \lVert\mathbf G^-_{\mathrm{far\text{-}cap}}\rVert_2
+    }{
+        \lVert\mathbf G_{\mathrm N}+\mathbf G_{\mathrm F}\rVert_2
+        +\epsilon
+    },\\
+    \mathbf G^-_{\mathrm{global}}
+    &=
+    \alpha_{\mathrm{match}}
+    \left(
+        \mathbf G_{\mathrm N}+\mathbf G_{\mathrm F}
+    \right).
+\end{aligned}
+\label{eq:causal_global_match}
 \end{equation}
-The matching coefficient is not differentiated through.
+The Far-to-near control first applies the same far cap, then chooses the
+nonnegative near-field multiplier $c_{\mathrm N}$ satisfying
+\begin{equation}
+    \left\|
+        c_{\mathrm N}\mathbf G_{\mathrm N}
+        +
+        \gamma_{\mathrm{cap}}\mathbf G_{\mathrm F}
+    \right\|_2
+    =
+    \left\|
+        \mathbf G_{\mathrm N}+\mathbf G_{\mathrm F}
+    \right\|_2,
+    \label{eq:causal_far_to_near_match}
+\end{equation}
+and applies the left-hand-side gradient. Thus this intervention transfers
+the removed far-field raw-gradient budget to the near component instead of
+discarding it. All matching quantities are detached and recomputed from the
+current minibatch. They match raw aggregate gradient norm, not the subsequent
+Adam parameter-update norm.
 
 \paragraph{Causal contrasts.}
 The primary causal contrast is between removing near-field and
@@ -3552,9 +3581,13 @@ Terminal outcomes are classified separately as:
     model output becomes NaN or Inf.
 \end{enumerate}
 
-A boundary event is not automatically counted as task-performance
-collapse, and finite execution is not automatically counted as
-convergence.
+For the C-U1 fixed-variance causal branch, task-performance collapse is
+registered when held-out-context reward remains below $45\%$ of the
+branch-initial reference for three consecutive evaluations, which are spaced
+100 optimizer updates apart. In the learnable-variance branch,
+$\log\sigma_\theta(s)<-12$ is a support or variance-boundary event.
+A boundary event is not automatically counted as task-performance collapse,
+and finite execution is not automatically counted as convergence.
 
 \subsection{Controlled Negative-Strength Sweep}
 \label{app:negative_strength_sweep}
@@ -3863,9 +3896,8 @@ rapidly than the reciprocal alternatives.
 
 \paragraph{Hyperparameter selection.}
 
-Within each task, \(\tau\), \(c\), \(\lambda\), and the
-Global-\(\alpha\) coefficient are selected using the registered
-validation protocol only. Test-task performance is not used for
+Tuned hyperparameters are selected using validation data only; fixed settings
+are specified with each experimental protocol. Test data are not used for
 hyperparameter selection.
 
 
@@ -3887,12 +3919,9 @@ dataset is used by every protocol-matched method within a task.
 
 \paragraph{Published offline-RL baselines.}
 
-CQL, TD3+BC, and IQL are included as published reference results.
-These values are not protocol-matched reruns and are therefore marked
-by \(\dagger\) in Table~\ref{tab:d4rl_performance}. The main table
-reports their published task-level means. Their original uncertainty
-statistics and exact score provenance are recorded separately from the
-protocol-matched DRPO experiments.
+CQL, TD3+BC, and IQL are reported using their published task-level means.
+Because they were not rerun under our actor-training protocol, they are marked
+by \(\dagger\) in Table~\ref{tab:d4rl_performance}.
 
 \paragraph{Gaussian-policy remoteness.}
 
@@ -3911,10 +3940,9 @@ D_{\mathrm{D4RL}}(s,a)
 \right)^2.
 \]
 
-This dimension-normalized convention is used consistently across all
-D4RL comparisons. The associated threshold and scale parameters are
-defined under the same convention and are kept fixed across compared
-methods.
+This dimension-normalized remoteness coordinate is used consistently across
+the D4RL comparisons. Fixed coordinate settings and tuned weighting parameters
+are specified separately below.
 
 When the actor uses a transformed action distribution, this quantity is
 computed in the policy's native Gaussian coordinates. The resulting
@@ -3924,29 +3952,16 @@ the distance term is detached during the actor update.
 \paragraph{Protocol-matched actor comparison.}
 
 Positive-only, Global-\(\alpha\), Reciprocal-Linear,
-Reciprocal-Quadratic, and DRPO share the same offline dataset, critic
-checkpoint or critic-training protocol, actor initialization, network
-architecture, optimizer, minibatch schedule, actor-update budget,
-evaluation schedule, and random seeds. They differ only in the
-negative-update weighting rule defined in
-Appendix~\ref{app:shared_methods}.
-
-The common actor advantage construction is held fixed across these
-methods. No method is allowed to change the critic, relabel samples, or
-alter the data distribution in order to improve its actor result.
+Reciprocal-Quadratic, and DRPO are evaluated under the same D4RL
+actor-training protocol and differ only in the negative-update weighting rule
+defined in Appendix~\ref{app:shared_methods}.
 
 \paragraph{Hyperparameters.}
 
-The registered training and selection configuration is summarized in
-Table~\ref{tab:d4rl_registered_config}. Although the remoteness
-coordinate is defined consistently across tasks, its empirical
-distribution depends on the dataset. We therefore register
-task-specific development grids so that each controller covers
-comparable operating regimes under the corresponding remoteness
-distribution. All grids and selection rules are frozen before
-held-out evaluation and are populated directly from the experiment
-configuration, rather than reconstructed or adjusted after observing
-test results.
+Table~\ref{tab:d4rl_registered_config} summarizes the D4RL development
+sweeps. Because the empirical remoteness distribution differs across tasks,
+the development sweeps use task-specific coefficient grids. These sweeps
+define the parameter search and are kept separate from held-out confirmation.
 
 \begin{table}[t]
 \centering
@@ -3982,17 +3997,16 @@ Exponential multiplier
 \paragraph{Evaluation and uncertainty.}
 
 Task performance is reported using the standard D4RL normalized return.
-For every protocol-matched method, the main table reports the mean over
-the registered seeds. The D4RL-9 total is the sum of
-the nine task-level means.
+For every protocol-matched method, a reported task score is averaged over the
+stated seeds, and the D4RL-9 total is the sum of the nine task-level means.
 
 Task-performance collapse is assessed from normalized return and
 training trajectories. Variance or support-boundary events are reported
 separately from task performance. NaN/Inf numerical failures are
 reported as a third outcome and are not merged with either low return or
-policy-boundary events. Any claim concerning convergence, collapse, or
-method ranking is based on the registered terminal audit rather than an
-intermediate checkpoint.
+policy-boundary events. Convergence or collapse claims require the terminal training trajectory rather
+than an intermediate checkpoint; fixed-horizon endpoints are not treated as
+convergence by themselves.
 
 
 \subsection{Structured-Generation Baselines and Experimental Protocol}
@@ -4002,9 +4016,9 @@ All structured-generation experiments use
 Qwen2.5-0.5B-Instruct~\citep{qwen2024qwen25} with LoRA adaptation and
 frozen prompt-indexed replay data. Learner-relative remoteness for DRPO is
 the current-policy mean completion-token surprisal and is recomputed during
-training rather than stored in the replay bank. Protocol-matched methods
-share the registered task data, verifier labels, optimization budget, and
-evaluation schedule within each task.
+training rather than stored in the replay bank. Within each task, compared
+methods use the same task data and verifier labels; shared training and
+evaluation settings are specified below.
 
 \paragraph{AsymRE.}
 
@@ -4155,16 +4169,12 @@ outputs and ratio-derived weights are detached from the policy
 gradient. The 0.5/0.5 masses belong only to the reference-fitting
 objective, not to the policy objective. The data records do not contain
 behavior-policy log probabilities; the ratio denominator is supplied by
-the jointly fitted reference adapter during training. The completed
-TOPR coefficient scan is a provenance-limited development pilot and does
-not establish convergence, statistical significance, steady state, or
-a formal method ranking.
-
+the jointly fitted reference adapter during training. 
 \paragraph{DPO.}
 
 Canonical DPO~\citep{rafailov2023direct} is trained with the same LoRA
 parameterization as the other structured-generation methods. Its policy and
-frozen reference are initialized from the registered short-SFT checkpoint,
+frozen reference are initialized from the short SFT checkpoint,
 rather than directly from the pretrained backbone; this difference is marked
 by \(^{\ddagger}\) in Table~\ref{tab:structured_generation_performance}.
 For each prompt \(x\), the verified oracle solution
@@ -4194,7 +4204,7 @@ For each prompt \(x\), the verified oracle solution
 The loss is averaged over unique negatives within each prompt and then
 uniformly across prompts. The reference remains frozen throughout the
 fixed 1,200-step continuation, and \(\beta\) is selected using the
-registered validation sweep.
+validation sweep.
 
 \paragraph{Method-specific remoteness.}
 
@@ -4226,12 +4236,12 @@ objective; neither baseline uses DRPO's mean-token remoteness.
 
 \paragraph{Frozen response-bank construction.}
 
-Before policy optimization, the registered model-independent generator
-constructs a frozen prompt-indexed replay bank for each
-structured-generation task. Each training prompt has one verifier-confirmed
-oracle completion and 16 model-independent verifier-incorrect completions
-under the registered structured-generation training interface. The
-paper-facing trainers canonicalize exact outputs before consumption. The
+Before policy optimization, the model-independent generator constructs a
+frozen prompt-indexed replay bank for each structured-generation task. Each
+training prompt has one verifier-confirmed oracle completion and 16
+model-independent verifier-incorrect completions under the common
+structured-generation training interface. Exact duplicate outputs are
+canonicalized before training. The
 bank stores no learner-relative near/far label and no behavior-policy log
 probability. Verifier outcome, response length, output-validity status, and
 task-specific error metadata remain separate stored diagnostics even when
@@ -4240,29 +4250,28 @@ they share the same binary training reward.
 \paragraph{Training and checkpoint selection.}
 
 All protocol-matched methods use Qwen2.5-0.5B-Instruct
-\citep{qwen2024qwen25} with the registered LoRA parameterization. The
+\citep{qwen2024qwen25} with the same LoRA parameterization. The
 Joint Fitted-Reference \(\beta\)-TOPR arm additionally creates a fresh
 reference LoRA with parameters copied from the initial policy adapter.
 Within each structured-generation task, protocol-matched methods share the
 AdamW optimizer~\citep{loshchilov2019decoupled}, learning-rate schedule,
 minibatch construction, optimizer-step budget, validation protocol, and
 evaluation schedule unless a method-specific protocol states otherwise.
-Hyperparameters are selected using the registered validation rule.
+Hyperparameters are selected using the task-level validation rule.
 
 The structured-generation experiments use 5,000 training prompts and
 500 validation prompts per task; reserved test data are not used for
 coefficient tuning. All tasks use 1,200 optimizer updates, 16 negatives per
 training prompt, no early stopping, and Pass@8 as the primary sampled-decoding
 metric. The common LoRA configuration is rank 32, alpha 64, and dropout 0.05.
-Task-specific runtime overrides such as sequence length and evaluation batch
-size follow the registered task adapters and are not varied as scientific
-comparison factors.
+Task-specific sequence lengths and evaluation batch sizes are fixed within
+each task and are not varied as method-specific comparison factors.
 
 \paragraph{Verifier-based evaluation.}
 
 Greedy verifier success is the fraction of held-out instances solved by
 greedy decoding. Pass@$k$ is the fraction solved by at least one of
-the registered \(k\) sampled responses. Task-specific output-validity
+the \(k\) sampled responses. Task-specific output-validity
 diagnostics are reported separately from verifier success where applicable.
 
 A higher verifier success rate is not attributed to improved task
@@ -4270,28 +4279,28 @@ performance when it is accompanied by a deterioration in the corresponding
 output-validity diagnostic.
 
 Task-performance degradation, token- or sequence-support boundary
-events, and NaN/Inf numerical failures are audited independently.
-Claims about stability or final method ranking use the registered
-terminal checkpoint audit rather than finite-step pilot behavior.
+events, and NaN/Inf numerical failures are reported independently. The
+1,200-update response curves are finite-horizon measurements and are not
+interpreted as convergence or steady-state evidence.
 
 
 \paragraph{Baseline coefficient selection.}
 For each structured-generation task, AsymRE scans
 \(\delta_v\in\{-1.0,-0.9,-0.75,-0.5,0.0\}\), Joint Fitted-Reference
 \(\beta\)-TOPR scans \(\beta\in\{0.25,0.5,1.0\}\), and canonical DPO
-scans \(\beta\in\{0.05,0.1,0.2\}\). Coefficients are selected on the
-registered validation metric using the same task-level selection rule as the
-main structured-generation comparison; test data are not used for coefficient
-selection.
+scans \(\beta\in\{0.05,0.1,0.2\}\). Coefficients are selected on the task-level validation metric using the same
+selection rule as the main structured-generation comparison; test data are not
+used for coefficient selection.
 
 \subsection{Structured-Generation DRPO Coefficient Response}
 \label{app:structured_generation_taper_sensitivity}
 
 Figure~\ref{fig:app_structured_generation_coefficient_response} reports the
 DRPO coefficient-response curves across the structured-generation tasks.
-Each panel plots late-window Pass@8 against the registered taper coefficient
+Each panel plots late-window Pass@8 against the taper coefficient
 \(\lambda\), with the corresponding Positive-only result shown as a
-horizontal reference.
+horizontal reference. For each coefficient, the late-window statistic is the
+mean of the evaluations at optimizer updates 800, 900, 1000, 1100, and 1200.
 
 Across tasks, the response is task dependent rather than a monotone
 ``larger is better'' relationship. Countdown, Word Ladder, and
@@ -4314,7 +4323,7 @@ universal cross-task value of \(\lambda\).
     ]{figures/fig_app_structured9_drpo_coefficient_response.pdf}
     \caption{
         \textbf{DRPO coefficient response across structured-generation tasks.}
-        Each panel reports late-window Pass@8 versus the registered taper
+        Each panel reports late-window Pass@8 versus the evaluated taper
         coefficient \(\lambda\); dashed horizontal lines denote the
         corresponding Positive-only references. Task-specific vertical scales
         are used to make within-task response shape visible.
