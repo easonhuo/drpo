@@ -1,0 +1,123 @@
+{
+  "schema_version": 3,
+  "sources_root": "${DRPO_STRUCTURED_SOURCES_ROOT}",
+  "initialization_seed": 2026070803,
+  "training_seed": 4000,
+  "model": {
+    "path": "Qwen/Qwen2.5-0.5B-Instruct",
+    "device": "auto",
+    "dtype": "bfloat16",
+    "load_in_4bit": false,
+    "gradient_checkpointing": true,
+    "lora_rank": 32,
+    "lora_alpha": 64,
+    "lora_dropout": 0.05,
+    "lora_target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ]
+  },
+  "tasks": {
+    "names": [
+      "countdown",
+      "word_sorting",
+      "spiral_matrix",
+      "mini_sudoku",
+      "maze",
+      "word_ladder",
+      "knights_knaves",
+      "graph_color",
+      "wikisql"
+    ],
+    "reasoning_gym": {
+      "word_sorting": {
+        "min_words": 6,
+        "max_words": 10,
+        "min_word_length": 3,
+        "max_word_length": 10
+      },
+      "spiral_matrix": {
+        "min_n": 4,
+        "max_n": 6
+      },
+      "mini_sudoku": {
+        "min_empty": 8,
+        "max_empty": 10
+      },
+      "maze": {
+        "min_dist": 5,
+        "max_dist": 12,
+        "min_grid_size": 6,
+        "max_grid_size": 10
+      },
+      "word_ladder": {
+        "min_word_length": 4,
+        "max_word_length": 4,
+        "min_chain_length": -1,
+        "max_chain_length": -1
+      },
+      "knights_knaves": {
+        "n_people": 4,
+        "depth_constraint": 2,
+        "width_constraint": 2
+      },
+      "graph_color": {
+        "num_colors": 3,
+        "min_num_vertices": 8,
+        "max_num_vertices": 10,
+        "edge_probability": 0.25
+      }
+    },
+    "wikisql": {
+      "split": "train"
+    }
+  },
+  "data": {
+    "candidate_rows": 7500,
+    "train_rows": 5000,
+    "validation_rows": 500,
+    "test_rows": 500,
+    "negatives_per_prompt": 16,
+    "generation_seed": 271828,
+    "split_seed": 2026072901
+  },
+  "training": {
+    "optimizer_updates": 1200,
+    "micro_batch": 1,
+    "gradient_accumulation": 8,
+    "learning_rate": 0.00005,
+    "weight_decay": 0.01,
+    "warmup_ratio": 0.03,
+    "max_grad_norm": 1,
+    "evaluation_every_updates": 100
+  },
+  "evaluation": {
+    "examples": 500,
+    "pass_k": 8,
+    "temperature": 0.8,
+    "top_p": 0.95,
+    "seed": 2026070801
+  },
+  "task_runtime": {
+    "default": {
+      "max_length": 512,
+      "max_new_tokens": 128,
+      "evaluation_batch_size": 16
+    },
+    "countdown": {
+      "max_length": 256,
+      "max_new_tokens": 80,
+      "evaluation_batch_size": 8
+    }
+  },
+  "methods": {
+    "positive_only": {
+      "enabled": true
+    }
+  }
+}
