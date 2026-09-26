@@ -1115,8 +1115,10 @@ initialize LoRA directly from Qwen2.5-0.5B-Instruct; $^{\ddagger}$DPO uses the s
 parameterization but initializes policy and frozen reference from the short SFT
 checkpoint (Appendix~\ref{app:structured_generation_methods}). $\beta$-TOPR is
 the joint fitted-reference TOPR variant \citep{leroux2025tapered}. Each $\lambda$ point is summarized by mean Pass@8 over updates
-$800,900,1000,1100,$ and $1200$. DRPO transfer scores are the maximum
-means over five adjacent $\lambda$ values on the coefficient-response curve.
+$800,900,1000,1100,$ and $1200$. For DRPO, the validation curve selects the
+contiguous five-$\lambda$ window with the highest mean late-window Pass@8.
+That window is then fixed, and the reported transfer score is the mean of the
+corresponding five Pass@8 values on the reserved test split.
 Macro Avg. is the unweighted mean of nine task-level Pass@8 percentages.
 \end{minipage}
 \end{table*}
@@ -4205,7 +4207,11 @@ Hyperparameters are selected on the validation split,
 and reserved test data are not used for selection. Pass@8 is the primary
 sampled-decoding metric. The nine tasks use the same training protocol. For
 coefficient-response experiments, late-window Pass@8 is the arithmetic mean of
-evaluations at updates \(800,900,1000,1100,\) and \(1200\).
+evaluations at updates \(800,900,1000,1100,\) and \(1200\). For DRPO, the
+validation curve selects the contiguous five-point \(\lambda\) window with
+the highest mean late-window Pass@8; that window is then fixed, evaluated on
+the reserved test split, and the five test Pass@8 values are averaged for the
+reported transfer score.
 
 \paragraph{Verifier-based evaluation.}
 
@@ -4231,10 +4237,10 @@ updates. For each task, coefficients are selected on the validation metric.
 \label{app:structured_generation_taper_sensitivity}
 
 Figure~\ref{fig:app_structured_generation_coefficient_response} reports the
-DRPO coefficient-response curves across the structured-generation tasks.
-Each panel plots late-window Pass@8 against the evaluated taper coefficient
-\(\lambda\), with the corresponding Positive-only result shown as a
-horizontal reference.
+DRPO validation coefficient-response curves across the structured-generation
+tasks. Each panel plots validation late-window Pass@8 against the evaluated
+taper coefficient \(\lambda\), with the corresponding Positive-only result
+shown as a horizontal reference.
 
 Across tasks, the response is task dependent rather than a monotone
 ``larger is better'' relationship. Countdown, Word Ladder, and
