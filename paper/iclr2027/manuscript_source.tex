@@ -1427,9 +1427,6 @@ a supersolution. Therefore
 \[
 X_t\le a^{-1}\{\log t+\log\log t+O(1)\}.
 \]
-If an application does not make the sign of \(\Delta X_t\) explicit,
-negative increments already satisfy the desired upper comparison, while
-the nonnegative branch obeys the argument above.
 
 In continuous time, the far-branch equation is
 \(\dot X=C_3Xe^{-aX}\). Thus
@@ -2053,10 +2050,10 @@ Thus \(\omega(D)R(D)\) is bounded if and only if
 squared-score reuse loop gain \(R\); the parameter-force scale is
 \(\sqrt R\), as distinguished in the main text.
 
-\subsection{Empirical Negative-Update Utility}\label{app:negative_update_utility}
+\subsection{Empirical Negative-Update Utility}
+\label{app:negative_update_utility}
 
-Let \(\widehat J_{\mathcal B}(\theta)\) be an empirical task-performance
-estimate on evaluation batch \(\mathcal B\). For a negative sample
+Let \(\widehat J_{\mathcal B}(\theta)\) be an empirical task-performanceestimate on evaluation batch \(\mathcal B\). For a negative sample
 \(z=(s,a)\), define
 \[
 g_\theta^-(z)
@@ -2471,17 +2468,14 @@ conditions of Proposition~\ref{prop:categorical_restoring_crossing}.
 \label{app:distributional_reweighting}
 \label{app:finite_measure_variational}
 
-DRPO's exponential attenuation admits an optimistic finite-measure
-reweighting interpretation analogous to divergence-ball DRO, with the
-constraint expressed in generalized I-divergence
-\citep{csiszar1975divergence}. Optimistic or best-case distributional
-optimization also has a formal precedent in likelihood approximation
-and policy optimization
-\citep{nguyen2019optimistic,song2020optimistic}. Our construction is related but distinct: it reweights a finite measure of
-negative-update mass according to learner-relative remoteness and may reduce
-that measure's total mass. It is therefore a finite-measure analogue of
-optimistic divergence-ball reweighting: unlike normalized-distribution
-ambiguity sets, it permits attenuation of the total negative-update mass. Let
+DRPO's exponential attenuation admits an optimistic finite-measure analogue
+of divergence-ball DRO under generalized I-divergence
+\citep{csiszar1975divergence}. Related optimistic distributional objectives
+appear in likelihood approximation and policy optimization
+\citep{nguyen2019optimistic,song2020optimistic}. Unlike
+normalized-distribution ambiguity sets, the finite negative-update measure
+need not preserve total mass, so reweighting may attenuate total
+negative-update mass. Let
 \(d\xi^-(z)=\widehat A^-(z)d\nu(z)\) and
 \(h(z)=[D(z)-\tau(z)]_+\). Consider
 \begin{equation}
@@ -3052,13 +3046,13 @@ demonstrated semantic target and a candidate improvement direction:
     t_+(s)
     &=
     \operatorname{unit}
-    \!\left(        W_+^\top s
+    \!\left(
+    W_+^\top s
     \right), \\
     \widetilde u(s)
     &=
     W_u^\top s
-    -
-    \left\langle
+    -    \left\langle
         W_u^\top s,
         t_+(s)
     \right\rangle
@@ -3223,18 +3217,6 @@ concentration for support-dynamics interventions, aligned/shuffled embeddings
 for semantic-transfer controls, and a direct-softmax diagnostic for repeated
 suppression.
 
-\subsection{D4RL Locomotion Datasets}
-\label{app:d4rl_datasets}
-
-The D4RL experiments use HalfCheetah, Hopper, and Walker2d under the
-medium, medium-replay, and medium-expert datasets
-\citep{fu2020d4rl}, yielding nine locomotion dataset cells in total.
-Both the external gradient diagnostic and the task-level evaluation
-cover all nine cells. The gradient diagnostic follows
-Appendix~\ref{app:d4rl_gradient_diagnostic}, with normalization performed
-within dataset and seed before equal-weight aggregation across the nine
-dataset cells.
-
 \subsection{Structured-Generation Tasks and Dataset Construction}
 \label{app:structured_generation_dataset}
 
@@ -3249,9 +3231,9 @@ Graph Coloring are generated from Reasoning Gym
 \citet{zhong2017seq2sql}. The versions of the task sources and generators are
 fixed before data generation.
 
-All tasks use a common prompt-indexed replay-bank schema containing the
-task identity, prompt, verifier-confirmed oracle completion, verifier
-outcomes, model-independent negative completions, and task metadata.
+All tasks use a common prompt-indexed replay bank containing the task
+identity, prompt, verifier-confirmed oracle completion, verifier outcomes,
+model-independent negative completions, and task metadata.
 Learner-relative quantities are excluded from bank construction:
 current-policy probability, surprisal, near/far labels, and taper weights
 are recomputed from the learner when required rather than stored with the
@@ -3891,18 +3873,22 @@ used for hyperparameter selection.
 \subsection{D4RL Baselines and Experimental Protocol}
 \label{app:d4rl_methods}
 
-The definitions of Positive-only, Global-\(\alpha\),
-Reciprocal-Linear, Reciprocal-Quadratic, and DRPO follow
-Appendix~\ref{app:shared_methods}. This section specifies only the
-D4RL-specific baselines, remoteness construction, training protocol,
-and evaluation procedure.
+Positive-only, Global-\(\alpha\), Reciprocal-Linear,
+Reciprocal-Quadratic, and DRPO follow Appendix~\ref{app:shared_methods}
+and are evaluated under the same D4RL actor-training protocol, differing
+only in their negative-update weighting rule. This section specifies the
+D4RL-specific baselines, remoteness construction, training protocol, and
+evaluation procedure.
 
 \paragraph{Tasks and datasets.}
 
 We evaluate HalfCheetah, Hopper, and Walker2d on the medium,
-medium-replay, and medium-expert datasets, producing the nine dataset cells
-reported in Table~\ref{tab:d4rl_performance}. The same fixed offline
-dataset is used by every protocol-matched method within a task.
+medium-replay, and medium-expert D4RL datasets
+\citep{fu2020d4rl}, producing the nine dataset cells reported in
+Table~\ref{tab:d4rl_performance}. The task-level comparison and external
+gradient diagnostic in Appendix~\ref{app:d4rl_gradient_diagnostic} cover the
+same nine cells. The same fixed offline dataset is used by every
+protocol-matched method within a task.
 
 \paragraph{Published offline-RL baselines.}
 
@@ -3932,13 +3918,6 @@ When the actor uses a transformed action distribution, this quantity is
 computed in the policy's native Gaussian coordinates. The resulting
 remoteness is used only to determine the negative-update coefficient;
 the distance term is detached during the actor update.
-
-\paragraph{Protocol-matched actor comparison.}
-
-Positive-only, Global-\(\alpha\), Reciprocal-Linear,
-Reciprocal-Quadratic, and DRPO are evaluated under the same D4RL
-actor-training protocol and differ only in their negative-update weighting rule
-defined in Appendix~\ref{app:shared_methods}.
 
 \paragraph{Hyperparameters.}
 
@@ -4025,21 +4004,18 @@ and optimizes
 
 For a binary verifier reward, lowering \(V\) emphasizes successful
 responses, whereas increasing \(V\) strengthens suppression of failed
-responses. In our branch-balanced signed-reward implementation,
+responses. With branch-balanced signed rewards,
 \(r\in\{-1,+1\}\) gives the empirical baseline
 \(\widehat V=0\). The swept offset therefore determines the
 objective baseline as
 \(V=\widehat V+\delta_v=\delta_v\). The baseline is selected using the validation protocol and
 is held fixed within each run.
 
-Global-\(\alpha\) and AsymRE remain separate comparisons because they
-operate on different underlying learning signals. Global-\(\alpha\)
-scales the negative part of the common precomputed signed advantage,
-whereas AsymRE constructs its signed advantage directly from the raw
-verifier reward and the published baseline parameterization. Under
-binary rewards and simplified normalization they are closely related,
-but we evaluate them as separate baselines using their respective objectives
-and tuning rules.
+Global-\(\alpha\) and AsymRE remain separate comparisons because
+Global-\(\alpha\) scales the negative branch of the common signed advantage,
+whereas AsymRE constructs its signed signal from the verifier reward relative
+to \(V\). Under binary rewards and simplified normalization they are closely
+related, but their objectives and tuning parameters remain distinct.
 
 \paragraph{\(\beta\)-TOPR (joint fitted reference).}
 
@@ -4051,7 +4027,8 @@ probability
 
 \[
 \bar{\ell}_\theta(x,y)
-=\frac{1}{|y|}
+=
+\frac{1}{|y|}
 \sum_{t=1}^{|y|}
 \log\pi_\theta(y_t\mid x,y_{<t}),
 \]
@@ -4075,7 +4052,6 @@ s_{\mathrm{ref}}(x,y)
 \sum_{t=1}^{|y|}
 \log\mu_{\mathrm{ref}}(y_t\mid x,y_{<t}),
 \]
-
 \[
 \rho_\theta(x,y)
 =
@@ -4225,13 +4201,11 @@ generation task, the methods share the AdamW optimizer
 construction, 1,200 optimizer updates, and evaluation schedule, with no early
 stopping.
 
-Each of the nine structured-generation tasks uses 5,000 training prompts and
-500 validation prompts. Hyperparameters are selected on the validation split,
-and reserved test data are not used for selection. Each training prompt uses
-16 negatives, and Pass@8 is the primary sampled-decoding metric. The nine tasks
-use the same training protocol. For coefficient-response experiments,
-late-window Pass@8 is the arithmetic mean of evaluations at updates
-\(800,900,1000,1100,\) and \(1200\).
+Hyperparameters are selected on the validation split,
+and reserved test data are not used for selection. Pass@8 is the primary
+sampled-decoding metric. The nine tasks use the same training protocol. For
+coefficient-response experiments, late-window Pass@8 is the arithmetic mean of
+evaluations at updates \(800,900,1000,1100,\) and \(1200\).
 
 \paragraph{Verifier-based evaluation.}
 
@@ -4251,8 +4225,7 @@ For each structured-generation transfer task, AsymRE scans
 \(\beta\)-TOPR scans \(\beta\in\{0.25,0.5,1.0\}\), and canonical DPO
 scans \(\beta\in\{0,0.05,0.1,0.2,0.5,1.0\}\). For DPO, \(\beta=0\)
 is the SFT-only initialization control with no subsequent DPO optimizer
-updates. For each task, coefficients are selected
-on the validation metric; test data are not used for coefficient selection.
+updates. For each task, coefficients are selected on the validation metric.
 
 \subsection{Structured-Generation DRPO Coefficient Response}
 \label{app:structured_generation_taper_sensitivity}
