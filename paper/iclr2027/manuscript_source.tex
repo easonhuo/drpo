@@ -993,7 +993,7 @@ D4RL aggregate and nine-task structured-generation (SG-9) macro Pass@8.}
  & Pos. & G-$\alpha$ & Rec.-L & Rec.-Q & DRPO \\
 \midrule
 D4RL & 70.1 & 72.9 & 74.3 & 72.1 & \textbf{77.7} \\
-SG-9 & 67.9 & -- & 68.1 & 68.2 & \textbf{69.2} \\
+SG-9 & 67.9 & 66.7 & 68.1 & 68.2 & \textbf{69.2} \\
 \bottomrule
 \end{tabular}%
 }
@@ -4220,7 +4220,9 @@ and NaN/Inf numerical failures are reported separately.
 
 
 \paragraph{Baseline coefficient selection.}
-For each structured-generation transfer task, AsymRE scans
+For each structured-generation transfer task, Global-\(\alpha\) scans
+\(\alpha\in\{1/128,1/64,1/32,1/16,1/8,1/4,1/2,1\}\),
+AsymRE scans
 \(\delta_v\in\{-1.0,-0.9,-0.75,-0.5,0.0\}\), Joint Fitted-Reference
 \(\beta\)-TOPR scans \(\beta\in\{0.25,0.5,1.0\}\), and canonical DPO
 scans \(\beta\in\{0,0.05,0.1,0.2,0.5,1.0\}\). For DPO, \(\beta=0\)
