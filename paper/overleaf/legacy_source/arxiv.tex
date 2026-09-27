@@ -11,6 +11,9 @@
 \usepackage{booktabs}
 \usepackage{makecell}
 \usepackage{wrapfig}
+\usepackage{pgfplots}
+\usepgfplotslibrary{fillbetween}
+\pgfplotsset{compat=1.18}
 \usepackage{hyperref}
 \usepackage{amssymb}
 \usepackage{mathtools}
@@ -752,13 +755,13 @@ negative-update treatment
 
 \begin{figure}[t]
     \centering
-    \includegraphics[
-        width=0.49\columnwidth
-    ]{figures/figure1_external_gradient_d4rl9_d4rl.pdf}
+    \resizebox{0.49\columnwidth}{!}{%
+        \input{figures/figure1_external_gradient_d4rl9_d4rl.tex}%
+    }
     \hfill
-    \includegraphics[
-        width=0.49\columnwidth
-    ]{figures/figure1_external_gradient_d4rl9_sg9.pdf}
+    \resizebox{0.49\columnwidth}{!}{%
+        \input{figures/figure1_external_gradient_d4rl9_sg9.tex}%
+    }
 
     \caption{
 \textbf{External far-field diagnostics.}
