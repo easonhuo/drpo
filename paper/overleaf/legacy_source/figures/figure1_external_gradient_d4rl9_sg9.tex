@@ -1,8 +1,9 @@
+\definecolor{drpoblue}{HTML}{1F77B4}
+\definecolor{drpoorange}{HTML}{FF7F0E}
 \begin{tikzpicture}
 \begin{axis}[
   width=3.625in,
   height=2.62in,
-  scale only axis,
   xmin=0.5, xmax=10.5,
   ymin=0.86, ymax=3.82,
   ytick={1,1.5,2,2.5,3,3.5},
@@ -17,8 +18,8 @@
   major grid style={dashed,opacity=0.28},
   axis line style={draw=black},
 ]
-\addplot+[mark=o,thick] coordinates {(1,1.000000000000) (2,1.202973004100) (3,1.331983746926) (4,1.629503781689) (5,2.062820740102) (6,2.399001064666) (7,3.037929393039) (8,2.896965994355) (9,3.143563384676) (10,3.505564161348)};
+\addplot[drpoblue,mark=o,thick] coordinates {(1,1.000000000000) (2,1.202973004100) (3,1.331983746926) (4,1.629503781689) (5,2.062820740102) (6,2.399001064666) (7,3.037929393039) (8,2.896965994355) (9,3.143563384676) (10,3.505564161348)};
 \addlegendentry{SG-9 equal-weight mean}
-\addplot[dotted,domain=0.5:10.5,samples=2] {1};
+\addplot[black!55,dotted,domain=0.5:10.5,samples=2] {1};
 \end{axis}
 \end{tikzpicture}
