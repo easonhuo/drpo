@@ -914,16 +914,6 @@ non-monotone response: intermediate strength raises held-out-context reward
 above the Positive-only baseline (\(q/p=0\)) while increasing policy shift,
 whereas stronger feedback further increases displacement as reward declines. Collapse, boundary events, and NaN/Inf
 failures are reported separately.
-
-Positive-only removes both the harmful tail and beneficial intermediate
-regime; remoteness-aware control should preserve local repulsion while
-suppressing the far-field tail.
-Matched controls show that remoteness-aware tapering can preserve near-field
-repulsion while suppressing far-field influence; global scaling reduces both. Appendix~\ref{app:controlled_taper_protocol} reports
-Positive-only, Global-$\alpha$, Reciprocal-Linear, Reciprocal-Quadratic, and
-exponential tapering under controls matched either by mean near-field weight
-or by pre-Adam negative-gradient norm.
-
 \begin{wraptable}{r}{0.52\columnwidth}
 \vspace{-0.7em}
 \centering
@@ -944,6 +934,17 @@ SG-9 & 67.9 & 66.7 & 68.1 & 68.2 & \textbf{69.2} \\
 }
 \vspace{-0.5em}
 \end{wraptable}
+
+Positive-only removes both the harmful tail and beneficial intermediate
+regime; remoteness-aware control should preserve local repulsion while
+suppressing the far-field tail.
+Matched controls show that remoteness-aware tapering can preserve near-field
+repulsion while suppressing far-field influence; global scaling reduces both. Appendix~\ref{app:controlled_taper_protocol} reports
+Positive-only, Global-$\alpha$, Reciprocal-Linear, Reciprocal-Quadratic, and
+exponential tapering under controls matched either by mean near-field weight
+or by pre-Adam negative-gradient norm.
+
+
 
 We next test this remoteness-aware control principle externally. DRPO weights
 D4RL transitions by standardized remoteness under the current Gaussian policy
@@ -1054,7 +1055,8 @@ WikiSQL & 85.65 & 85.78 & 82.89 & 78.91 & \textbf{86.69} \\
 \begin{minipage}{0.985\textwidth}
 \scriptsize
 \textit{Note.} PO = Positive-only. \textbf{(a)} ``replay''/``expert'' abbreviate
-``medium-replay''/``medium-expert''. $\dagger$: published results, notprotocol-matched reruns. Bold/underline: best/second-best among shown methods.
+``medium-replay''/``medium-expert''. $\dagger$: published results, not
+protocol-matched reruns. Bold/underline: best/second-best among shown methods.
 DRPO reports the mean over 10 runs. \textbf{(b)} AsymRE, $\beta$-TOPR, and DRPO
 initialize LoRA directly from Qwen2.5-0.5B-Instruct; $^{\ddagger}$DPO uses the same LoRA
 parameterization but initializes policy and frozen reference from the short SFT
@@ -2053,7 +2055,8 @@ g_\theta^-(z)
 \Delta\theta(z;w)
 =
 \eta w g_\theta^-(z),
-\qquad0\le w\le1.
+\qquad
+0\le w\le1.
 \]
 Its empirical and population utilities are
 \[
@@ -3052,7 +3055,8 @@ The ground-truth reward of action $i$ is determined by its semantic
 alignment with the hidden target:
 \begin{equation}
     R(s,i)
-    =    \frac{1}{2}
+    =
+    \frac{1}{2}
     \left(
         1+
         t_\star(s)^\top e_i
@@ -4051,7 +4055,8 @@ and the full-completion summed log probability used only for the ratio,
 s_\theta(x,y)
 =
 |y|\,\bar{\ell}_\theta(x,y)
-=\sum_{t=1}^{|y|}
+=
+\sum_{t=1}^{|y|}
 \log\pi_\theta(y_t\mid x,y_{<t}).
 \]
 
