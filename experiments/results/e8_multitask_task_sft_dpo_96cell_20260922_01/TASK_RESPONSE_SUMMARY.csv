@@ -1,0 +1,9 @@
+task,sft_only_beta0_pass8,best_positive_beta,best_positive_beta_pass8,best_positive_at_right_boundary,sweep_best_beta_including_zero,sweep_best_pass8_including_zero
+word_sorting,0.34375,1.0,0.29375,True,0.0,0.34375
+spiral_matrix,1.0,0.5,0.14296875,False,0.0,1.0
+mini_sudoku,0.9140625,0.05,0.0,False,0.0,0.9140625
+maze,0.796875,1.0,0.7578125,True,0.0,0.796875
+word_ladder,0.046875,0.5,0.0015625,False,0.0,0.046875
+knights_knaves,0.4921875,1.0,0.58203125,True,1.0,0.58203125
+graph_color,0.96875,1.0,0.78125,True,0.0,0.96875
+wikisql,0.7890625,1.0,0.5515625,True,0.0,0.7890625
