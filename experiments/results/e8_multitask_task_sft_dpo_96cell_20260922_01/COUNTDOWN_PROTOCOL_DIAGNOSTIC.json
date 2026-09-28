@@ -1,0 +1,10 @@
+{
+  "controls_task_transfer_release": false,
+  "countdown_cells": 0,
+  "experiment_id": "EXT-C-E8-MULTITASK-TASK-SFT-DPO-96CELL-01",
+  "identity_failures": [],
+  "result_gate": false,
+  "schema_version": 1,
+  "scientific_evidence": false,
+  "status": "NOT_RUN"
+}
