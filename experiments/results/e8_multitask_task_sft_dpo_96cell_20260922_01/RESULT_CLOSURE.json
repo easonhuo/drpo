@@ -1,0 +1,93 @@
+{
+  "claim_boundary": {
+    "convergence_or_steady_state_claim_allowed": false,
+    "formal_authoritative_upgrade_allowed": false,
+    "reason": "recorded source commit is not resolvable in the authoritative GitHub repository",
+    "test_result_claim_allowed": false,
+    "universal_method_ranking_allowed": false
+  },
+  "closure_id": "E8-MULTITASK-TASK-SFT-DPO-96CELL-PILOT-CLOSURE-2026-09-28",
+  "countdown_boundary": {
+    "current_96_cell_run_includes_countdown": false,
+    "historical_countdown_dpo_evidence_is_separate": true,
+    "historical_countdown_result_is_not_used_to_rewrite_this_run_provenance": true
+  },
+  "evidence_sha256": {
+    "BETA_MACRO_RESPONSE.csv": "7e59e62a7d1295f37db53796c54554ccfc69969f72bc4293aefad5ecef2568a5",
+    "COUNTDOWN_PROTOCOL_DIAGNOSTIC.json": "43f1a66a389095b4645afa4a5a47fb95d23fbb9de2c0ccdff68bdd0aeae793e6",
+    "CURVE_ANCHOR.csv": "b750071883808462c62a00c6c3e18a4bd3111633d7bce0bd053c9a151aa48ced",
+    "GROUPED_CURVE.csv": "a5796889a548dfd511c3932fed86de15993c3fee83e64e0691ed514a34d01512",
+    "RUN_COMPLETE.json": "8c5ae60c1eb99b0814950eb962c49fe6e677dc723a2e4f6db00c3dc88c75c6a4",
+    "TASK_RESPONSE_SUMMARY.csv": "c83d335f32f2dc9fa0a32f50ff0a08dbb3c7f3b67b0c0cc945ef41d551a0d733",
+    "TERMINAL_AUDIT.json": "4d39914011b87f8ee918823ca869c0243f3e613187695efb8c8d01a612813cf1"
+  },
+  "execution": {
+    "all_training_and_evaluation_complete": true,
+    "artifact_state": "raw_complete",
+    "beta_zero_control": "task-specific SFT-only initialization with no DPO optimizer update",
+    "completed_cells": 96,
+    "countdown_cells_in_this_run": 0,
+    "execution_class_recorded_by_run": "formal",
+    "expected_cells": 96,
+    "fixed_horizon_is_convergence": false,
+    "positive_beta_optimizer_updates": 1200,
+    "test_partition_accessed": false
+  },
+  "experiment_id": "EXT-C-E8-MULTITASK-TASK-SFT-DPO-96CELL-01",
+  "provenance": {
+    "aggregate_summary_sha256": "ce51f4c0b29554b05900b54730562ad1f128d7ffc3c61d2a7ae72ab20d5d389f",
+    "config_hash": "83e5399a0fabe8d0cea3791eeb7514c2c898ed2ffd475a05754124a45425ac07",
+    "github_commit_resolution": "unresolved_as_of_2026-09-28",
+    "packaging_origin_main": "ec074188ee6336278cb6fd0f29cadd7dbd3df504",
+    "recorded_run_base_commit": "905375a374647ea3d4691eae1d66022d2be103f4",
+    "recorded_run_source_commit": "905375a374647ea3d4691eae1d66022d2be103f4",
+    "repository_closure_base_main": "888423f94d78b18a7c9e84097de9685861787375",
+    "run_launch_origin_main": "16a8037fa6e4de5341c68e9cbf7cd8b4bfa62fca",
+    "terminal_audit_sha256": "4d39914011b87f8ee918823ca869c0243f3e613187695efb8c8d01a612813cf1",
+    "uploaded_raw_complete_package_sha256": "2cd42c723df4172c5fcff555223f51a32f405c8751c6e20d8626233dd832ccd4"
+  },
+  "replication_semantics": {
+    "beta_zero": "two configured seed labels are duplicate rows of one deterministic task-SFT control; effective independent n=1 per task",
+    "positive_beta": "two independent DPO-stage training replicates per task and beta, sharing the materialized task-SFT initialization"
+  },
+  "repository_scientific_status": "pilot",
+  "response_summary": {
+    "beta_values": [
+      0.0,
+      0.05,
+      0.1,
+      0.2,
+      0.5,
+      1.0
+    ],
+    "eight_task_macro_late_window_pass8": {
+      "beta_0": 0.6689453125,
+      "beta_0_05": 0.0740234375,
+      "beta_0_1": 0.09140625,
+      "beta_0_2": 0.11669921875,
+      "beta_0_5": 0.198828125,
+      "beta_1": 0.38134765625
+    },
+    "method_ranking_allowed": false,
+    "parameter_selection_deferred_to_reviewed_protocol": true,
+    "positive_beta_right_boundary_best_task_count": 5,
+    "positive_beta_right_boundary_best_task_total": 8,
+    "right_tail_localization_complete": false,
+    "significance_claim_allowed": false,
+    "taskwise_best_including_beta_zero_macro": 0.68017578125,
+    "taskwise_best_positive_beta_macro": 0.3888671875
+  },
+  "run_id": "E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01",
+  "schema_version": 1,
+  "status_reason": "raw-complete terminal-audited run evidence with unresolved recorded source commit",
+  "terminal_audit": {
+    "dpo_reference_identity_failures": 0,
+    "incomplete_cells": 0,
+    "missing_cells": 0,
+    "nan_inf_event_count": 0,
+    "run_reported_status": "PASS_by_complete_contract",
+    "structure_event": "greedy_and_sampled_valid_rate_diagnostic_only",
+    "task_performance_event": "not_adjudicated_without_registered_collapse_threshold",
+    "terminal_contract_failures": 0
+  }
+}
