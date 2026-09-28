@@ -1,0 +1,21 @@
+{
+  "aggregate_sha256": "ce51f4c0b29554b05900b54730562ad1f128d7ffc3c61d2a7ae72ab20d5d389f",
+  "all_training_and_evaluation_complete": true,
+  "artifact_state": "raw_complete",
+  "base_commit": "905375a374647ea3d4691eae1d66022d2be103f4",
+  "complete": true,
+  "completed_cells": 96,
+  "config_hash": "83e5399a0fabe8d0cea3791eeb7514c2c898ed2ffd475a05754124a45425ac07",
+  "engineering_placeholder_backend": false,
+  "execution_class": "formal",
+  "expected_cells": 96,
+  "experiment_id": "EXT-C-E8-MULTITASK-TASK-SFT-DPO-96CELL-01",
+  "run_id": "E8_MULTITASK_TASK_SFT_DPO_96CELL_20260922_01",
+  "scheduler": "dynamic_slot_queue",
+  "scheduler_run_id": "queue-1790299309-1526071",
+  "schema_version": 1,
+  "scientific_status": "finite_step_validated",
+  "source_commit": "905375a374647ea3d4691eae1d66022d2be103f4",
+  "terminal_audit_sha256": "4d39914011b87f8ee918823ca869c0243f3e613187695efb8c8d01a612813cf1",
+  "test_partition_accessed": false
+}
