@@ -1,0 +1,28 @@
+\definecolor{drpoblue}{HTML}{1F77B4}
+\definecolor{drpoorange}{HTML}{FF7F0E}
+\begin{tikzpicture}
+\begin{axis}[
+  width=3.625in,
+  height=2.62in,
+  xmin=0.9, xmax=3.5,
+  ymin=0.86, ymax=3.82,
+  ytick={1,1.5,2,2.5,3,3.5},
+  xlabel={Relative standardized distance},
+  ylabel={Relative magnitude},
+  tick label style={font=\scriptsize},
+  label style={font=\scriptsize},
+  legend style={font=\scriptsize,draw=none,at={(0.98,0.03)},anchor=south east},
+  grid=both,
+  major grid style={dashed,opacity=0.28},
+  axis line style={draw=black},
+]
+\addplot[name path=lo,draw=none] coordinates {(1.000000000000,1.000000000000) (1.337904671280,1.336498634549) (1.675809342560,1.672997269098) (2.013714013840,2.009594772326) (2.351618685119,2.345686622802) (2.689523356399,2.709517237006) (3.027428027679,3.081943403932) (3.365332698959,3.418373351979)};
+\addplot[name path=hi,draw=none] coordinates {(1.000000000000,1.000000000000) (1.337904671280,1.374948674897) (1.675809342560,1.749897349794) (2.013714013840,2.124941807497) (2.351618685119,2.499142162036) (2.689523356399,2.881336157439) (3.027428027679,3.311088163999) (3.365332698959,3.703208504812)};
+\addplot[drpoblue,opacity=0.18] fill between[of=lo and hi];
+\addplot[drpoblue,mark=o,thick] coordinates {(1.000000000000,1.000000000000) (1.337904671280,1.354231301248) (1.675809342560,1.708462602497) (2.013714013840,2.062794623537) (2.351618685119,2.416411132842) (2.689523356399,2.794309011572) (3.027428027679,3.199340397318) (3.365332698959,3.564099128961)};
+\addlegendentry{D4RL-9 equal-weight mean}
+\addplot[drpoorange,mark=square,dashed] coordinates {(1.000000000000,1.000000000000) (1.337904671280,1.000002288700) (1.675809342560,1.000004577399) (2.013714013840,1.000006866099) (2.351618685119,0.999988656744) (2.689523356399,1.000003949967) (3.027428027679,1.000046447890) (3.365332698959,1.000042852883)};
+\addlegendentry{Matched relative $|A|$}
+\addplot[black!55,dotted,domain=0.9:3.5,samples=2] {1};
+\end{axis}
+\end{tikzpicture}
