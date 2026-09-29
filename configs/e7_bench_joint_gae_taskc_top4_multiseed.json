@@ -1,0 +1,96 @@
+{
+  "experiment_id": "EXT-H-E7-SQEXP-GAE-TASKC-MS-01",
+  "profile_id": "d4rl9_task_specific_c_top4_multiseed",
+  "parent_experiment_id": "EXT-H-E7-BENCH-01",
+  "run_kind": "pilot",
+  "status": "not_run",
+  "scientific_status": "d4rl9_task_specific_c_top4_multiseed_joint_critic_gae_pilot_only",
+  "datasets": [
+    "hopper-medium-v2",
+    "hopper-medium-replay-v2",
+    "hopper-medium-expert-v2",
+    "walker2d-medium-v2",
+    "walker2d-medium-replay-v2",
+    "walker2d-medium-expert-v2",
+    "halfcheetah-medium-v2",
+    "halfcheetah-medium-replay-v2",
+    "halfcheetah-medium-expert-v2"
+  ],
+  "development_seeds": [200, 201, 202, 203, 208],
+  "held_out_seeds": [204, 205, 206, 207],
+  "steps": 1000000,
+  "evaluation_interval": 50000,
+  "evaluation_episodes": 10,
+  "actor_update_modes": ["a2c"],
+  "advantage_modes": ["gae_lambda_0p95"],
+  "candidate_selection": {
+    "source_profiles": [
+      "d4rl9_common_c_p1",
+      "d4rl9_common_c_p2_left",
+      "d4rl9_common_c_p3_left_saturation"
+    ],
+    "source_development_seeds": [200, 201],
+    "metric": "late_window_mean_800k_1m",
+    "finite_c_only": true,
+    "per_task_top_k": 4,
+    "frozen_before_multiseed_execution": true
+  },
+  "task_remoteness_scales": {
+    "hopper-medium-v2": [0.0005623413251903491, 0.0031622776601683794, 0.005623413251903491, 0.01],
+    "hopper-medium-replay-v2": [0.00017782794100389227, 0.0625, 0.08, 0.125],
+    "hopper-medium-expert-v2": [0.0001, 0.001, 0.0031622776601683794, 0.005623413251903491],
+    "walker2d-medium-v2": [0.01, 0.015625, 0.025, 0.16],
+    "walker2d-medium-replay-v2": [0.0001, 0.125, 0.16, 0.2],
+    "walker2d-medium-expert-v2": [0.00017782794100389227, 0.00031622776601683794, 0.0017782794100389228, 0.0031622776601683794],
+    "halfcheetah-medium-v2": [0.25, 0.5, 1.0, 2.0],
+    "halfcheetah-medium-replay-v2": [0.0001, 0.0031622776601683794, 0.025, 0.08],
+    "halfcheetah-medium-expert-v2": [0.00017782794100389227, 0.0005623413251903491, 0.001, 0.0625]
+  },
+  "weight_control": {
+    "formula": "w(D)=w(0)*exp(-taper_lambda*relu((D-remoteness_threshold)/remoteness_scale))",
+    "coordinate": "normalized_squared_standardized_distance",
+    "reference_distance": 2.0,
+    "taper_lambda": 1.0,
+    "remoteness_threshold": 0.0,
+    "positive_only_anchor": false,
+    "uncontrolled_anchor": false
+  },
+  "trajectory_snapshot": {
+    "gae_lambda": 0.95,
+    "canonical_batch_size": 256,
+    "critic_updated_every_step": true,
+    "prepared_advantage_artifact": false,
+    "terminal_bootstrap": false,
+    "timeout_bootstrap": true,
+    "terminal_timeout_recursion_stop": true,
+    "dataset_tail_recursion_stop": true
+  },
+  "reporting_protocol": {
+    "primary_metric": "late_window_mean_800k_1m",
+    "publication_summary": "top3_of_5",
+    "top_k": 3,
+    "total_seeds": 5,
+    "selection_unit": "within_task_within_c",
+    "candidate_c_selection": "maximize_top3_of5_late_mean_with_all5_median_then_smaller_c_tiebreak",
+    "retain_all_seed_results": true,
+    "retain_complete_training_curves": true,
+    "report_all5_mean_std_median": true,
+    "report_top3_seed_ids": true,
+    "failed_runs_may_be_deleted": false
+  },
+  "execution": {
+    "recommended_max_workers": 176,
+    "threads_per_worker": 2,
+    "branch_count_hard_cap": 180
+  },
+  "expected_total_branches": 180,
+  "screening_only": true,
+  "formal_evidence_allowed": false,
+  "non_claims": [
+    "convergence_from_fixed_1m_horizon",
+    "steady_state_method_ranking",
+    "universal_drpo_superiority",
+    "task_collapse_rate_without_registered_threshold",
+    "support_or_variance_boundary_without_instrumentation"
+  ]
+}
