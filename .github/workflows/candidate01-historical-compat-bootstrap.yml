@@ -1,0 +1,61 @@
+name: Candidate01 historical compatibility bootstrap
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: candidate01-historical-compat-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    if: github.head_ref == 'exec/candidate01-historical-compat-bootstrap-01'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Build exact Candidate 01 compatibility head
+        shell: bash
+        env:
+          PATCH_GZ_B64: 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
+          EXPECTED_MAIN: 85b0a68d77ed085a7f6e67771fb0f7672c43da09
+          EXPECTED_CANDIDATE: b00a8108e192f1451550b43925a8dff95ca64fba
+          EXPECTED_DESIGN: c57248e71763c4266d8ad4e9497f92732ec836f0
+        run: |
+          set -euo pipefail
+          git config user.name 'DRPO Compatibility Builder'
+          git config user.email 'drpo-compat@local.invalid'
+          git fetch origin main dev/candidate01-c1-evidence-adapter-impl-01 dev/gov-replayab-control-plane-split-design-01
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse origin/dev/candidate01-c1-evidence-adapter-impl-01)" = "$EXPECTED_CANDIDATE"
+          test "$(git rev-parse origin/dev/gov-replayab-control-plane-split-design-01)" = "$EXPECTED_DESIGN"
+          git checkout -B candidate-build origin/dev/candidate01-c1-evidence-adapter-impl-01
+          git merge --no-edit origin/main
+          mkdir -p docs/development_workflow_optimization/benchmarks
+          git show origin/dev/gov-replayab-control-plane-split-design-01:docs/development_workflow_optimization/benchmarks/HISTORICAL_REPLAY_COMPATIBILITY_DESIGN.md > docs/development_workflow_optimization/benchmarks/HISTORICAL_REPLAY_COMPATIBILITY_DESIGN.md
+          git add docs/development_workflow_optimization/benchmarks/HISTORICAL_REPLAY_COMPATIBILITY_DESIGN.md
+          git commit -m 'Document historical replay compatibility boundary'
+          printf '%s' "$PATCH_GZ_B64" | base64 -d | gzip -d > /tmp/compat.patch
+          git apply --check /tmp/compat.patch
+          git apply /tmp/compat.patch
+          git add scripts/run_workflow_replay.py tests/test_workflow_replay_execute.py
+          git commit -m 'Separate historical replay data and control planes'
+          python -m pip install -e '.[dev]'
+          python -m py_compile scripts/run_workflow_replay.py tests/test_workflow_replay_execute.py
+          python -m pytest tests/test_workflow_replay_execute.py -q
+          python -m ruff check scripts/run_workflow_replay.py tests/test_workflow_replay_execute.py
+          test -z "$(git status --porcelain=v1)"
+          git push origin HEAD:refs/heads/dev/candidate01-c1-evidence-adapter-impl-01
