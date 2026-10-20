@@ -1,0 +1,68 @@
+{
+  "experiment_id": "EXT-H-E7-SQEXP-ACTOR-DECISION-01",
+  "run_kind": "pilot",
+  "scientific_status": "four_seed_actor_and_high_c_decision_screening_only",
+  "predecessors": [
+    "EXT-H-E7-SQUARED-EXP-NIGHT-01",
+    "EXT-H-E7-SQUARED-EXP-KL-TUNE-01"
+  ],
+  "datasets": [
+    "hopper-medium-expert-v2",
+    "walker2d-medium-v2",
+    "walker2d-medium-replay-v2"
+  ],
+  "development_seeds": [200, 201, 202, 203],
+  "held_out_seeds": [204, 205, 206, 207],
+  "steps": 1000000,
+  "evaluation_interval": 50000,
+  "evaluation_episodes": 10,
+  "controls": [
+    {"id": "positive_only", "family": "positive_only", "weight_at_zero": 0.0, "exp_coefficient": 0.0, "reference_distance": 2.0, "formula": "w(d)=0"},
+    {"id": "linear_c12", "family": "linear_exponential", "weight_at_zero": 1.0, "exp_coefficient": 12.0, "reference_distance": 2.0, "formula": "w(d)=w(0)*exp(-c*(d/2))"},
+    {"id": "squared_c4", "family": "squared_exponential", "weight_at_zero": 1.0, "exp_coefficient": 4.0, "reference_distance": 2.0, "formula": "w(d)=w(0)*exp(-c*(d/2)^2)"},
+    {"id": "squared_c8", "family": "squared_exponential", "weight_at_zero": 1.0, "exp_coefficient": 8.0, "reference_distance": 2.0, "formula": "w(d)=w(0)*exp(-c*(d/2)^2)"},
+    {"id": "squared_c16", "family": "squared_exponential", "weight_at_zero": 1.0, "exp_coefficient": 16.0, "reference_distance": 2.0, "formula": "w(d)=w(0)*exp(-c*(d/2)^2)"},
+    {"id": "squared_c32", "family": "squared_exponential", "weight_at_zero": 1.0, "exp_coefficient": 32.0, "reference_distance": 2.0, "formula": "w(d)=w(0)*exp(-c*(d/2)^2)"},
+    {"id": "squared_c64", "family": "squared_exponential", "weight_at_zero": 1.0, "exp_coefficient": 64.0, "reference_distance": 2.0, "formula": "w(d)=w(0)*exp(-c*(d/2)^2)"},
+    {"id": "squared_c128", "family": "squared_exponential", "weight_at_zero": 1.0, "exp_coefficient": 128.0, "reference_distance": 2.0, "formula": "w(d)=w(0)*exp(-c*(d/2)^2)"}
+  ],
+  "actor_modes": [
+    {"id": "a2c"},
+    {"id": "ppo_clip_kl_k4", "clip_epsilon": 0.2, "max_updates_per_old_policy": 4, "analytic_kl_early_refresh": true, "target_kl": 0.01, "kl_penalty": false}
+  ],
+  "diagnostics": {
+    "interval": 10000,
+    "sampled_values_per_update": 16,
+    "weight_thresholds": [0.5, 0.1, 0.05, 0.01],
+    "kl_event_jsonl": false,
+    "record_500k_intermediate": true,
+    "late_window_start": 800000
+  },
+  "ppo_retention_gate": {
+    "paired_cells": 24,
+    "minimum_cells_with_lower_seed_sd": 16,
+    "maximum_median_seed_sd_ratio": 0.8,
+    "minimum_pooled_late_mean_difference": -3.0,
+    "require_lower_median_best_to_final_drop": true,
+    "require_lower_median_absolute_late_slope": true,
+    "allow_more_nan_inf_failures": false,
+    "minimum_dataset_mean_difference": -3.0
+  },
+  "expected_controls": 8,
+  "expected_actor_modes": 2,
+  "expected_runnable_branches": 192,
+  "screening_only": true,
+  "formal_evidence_allowed": false,
+  "registration_blocks_launch": false,
+  "gae_included": false,
+  "non_claims": [
+    "convergence_from_fixed_1m_horizon",
+    "steady_state_method_ranking",
+    "universal_ppo_superiority",
+    "lower_seed_variance_without_gate_pass",
+    "controlled_causal_actor_update_identification",
+    "gae_result",
+    "ood_generalization",
+    "common_c_optimum_without_cross_dataset_gate"
+  ]
+}
