@@ -1,0 +1,79 @@
+{
+  "experiment_id": "EXT-H-E7-SQEXP-GAE-01",
+  "run_kind": "pilot",
+  "status": "not_run",
+  "scientific_status": "frozen_critic_trajectory_gae_development_pilot_only",
+  "predecessor_experiment_id": "EXT-H-E7-SQUARED-EXP-NIGHT-01",
+  "datasets": [
+    "hopper-medium-expert-v2",
+    "walker2d-medium-v2",
+    "walker2d-medium-replay-v2"
+  ],
+  "development_seeds": [200, 201, 202, 203],
+  "held_out_seeds": [204, 205, 206, 207],
+  "steps": 1000000,
+  "evaluation_interval": 50000,
+  "evaluation_episodes": 10,
+  "actor_update_modes": ["a2c", "ppo_clip_k4"],
+  "advantage_modes": ["one_step_td", "gae_lambda_0p95"],
+  "shared_frozen_critic": {
+    "steps": 100000,
+    "batch": 256,
+    "gamma": 0.99,
+    "tau": 0.5,
+    "lr": 0.0003,
+    "temperature": 5.0,
+    "device": "cpu",
+    "shared_per_dataset_seed": true,
+    "updated_during_actor_training": false
+  },
+  "trajectory_advantage": {
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "ordered_behavior_trajectory": true,
+    "terminal_bootstrap": false,
+    "timeout_bootstrap": true,
+    "terminal_stops_recursion": true,
+    "timeout_stops_recursion": true,
+    "tail_bootstrap_and_stop_recursion": true,
+    "lambda_zero_must_equal_one_step": true,
+    "normalization": "none",
+    "clipping": "none"
+  },
+  "weight_control": {
+    "weight_at_zero": 1.0,
+    "positive_only_anchor": true,
+    "reference_distance": 2.0,
+    "formula": "w(d)=w(0)*exp(-c*(d/2)^2)",
+    "exp_coefficients": [64.0, 128.0, 256.0]
+  },
+  "ppo": {
+    "clip_epsilon": 0.2,
+    "updates_per_old_policy": 4,
+    "analytic_kl_early_refresh": false,
+    "kl_penalty": false,
+    "entropy_bonus": false,
+    "actor_gradient_clip": false,
+    "value_clip": false
+  },
+  "diagnostics": {
+    "interval": 1000,
+    "sampled_values_per_update": 16,
+    "record_500k_intermediate": true,
+    "late_window_start": 800000,
+    "separate_task_support_numerical_events": true
+  },
+  "expected_controls_per_actor_advantage_cell": 4,
+  "expected_total_branches": 192,
+  "screening_only": true,
+  "formal_evidence_allowed": false,
+  "non_claims": [
+    "convergence_from_fixed_1m_horizon",
+    "steady_state_method_ranking",
+    "universal_gae_superiority",
+    "universal_ppo_or_a2c_superiority",
+    "causal_actor_update_identification",
+    "ood_generalization",
+    "replacement_of_controlled_causal_evidence"
+  ]
+}
