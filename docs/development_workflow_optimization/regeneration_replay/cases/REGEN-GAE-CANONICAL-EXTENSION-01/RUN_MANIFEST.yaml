@@ -1,0 +1,86 @@
+schema_version: 1
+benchmark_id: GOV-CODE-REGENERATION-REPLAY-01
+case_id: REGEN-GAE-CANONICAL-EXTENSION-01
+status: pair_complete_but_invalid_for_causal_treatment_estimate
+historical_task_base_sha: aedbe8cc7e50f730cb6fcde90ca1816b97d79173
+evaluated_at_main_sha: d042a60e6e665fc7f8761e97d41fa0a621f78b87
+task_contract:
+  evaluator_path: docs/development_workflow_optimization/regeneration_replay/cases/REGEN-GAE-CANONICAL-EXTENSION-01/TASK_CONTRACT.md
+  evaluator_git_blob_sha: 6300e82891f7b9e59359ef5eb85ccb1a33b967c2
+  generator_path: REGEN_TASK.md
+  generator_git_blob_sha: b89e6ae5ec8d1e6aa048d7308d51400618c950f1
+  generator_packet_excluded_from_size_scoring: true
+  sha256: pending_prelaunch_export
+candidate_gate:
+  commit_sha: 7826f5d60c83d8a58a11dc526b487cc09078d818
+  treatment: verdict_and_structured_feedback_returned_only_to_candidate_treatment_run
+  actually_executed: false
+  feedback_delivered: false
+  reason_not_executed: candidate_treatment_run_produced_no_complete_submitted_attempt
+randomization:
+  method: python_secrets_randbelow_2
+  draw: 0
+  drawn_at_utc: '2026-07-17T01:22:44.317377+00:00'
+  mapping:
+    replay/regen-gae-run-01: baseline_no_candidate_gate_feedback
+    replay/regen-gae-run-02: candidate_gate_feedback_after_each_complete_attempt
+runs:
+  replay/regen-gae-run-01:
+    historical_base_sha: aedbe8cc7e50f730cb6fcde90ca1816b97d79173
+    task_packet_commit_sha: 33aff5470d5ffb0d0fde5c0829467c1e8783b428
+    generation_status: submitted_first_complete_attempt
+    final_commit_sha: 75b30004fad742e0bb07daa059fe757b183d44eb
+    terminal_classification: REJECTED_INCOMPLETE
+    production_python_churn: 1783
+    test_python_churn: 475
+    changed_files_excluding_task_packet: 19
+    new_production_python_files: 14
+  replay/regen-gae-run-02:
+    historical_base_sha: aedbe8cc7e50f730cb6fcde90ca1816b97d79173
+    task_packet_commit_sha: 8af0cd1bfd7410c5c3a7cb62f4efe99709052abf
+    generation_status: no_submission_timeout
+    final_commit_sha: null
+    remote_head_sha: 8af0cd1bfd7410c5c3a7cb62f4efe99709052abf
+    terminal_classification: NO_SUBMISSION_TIMEOUT
+    reported_uncommitted_production_python_additions: 2389
+    reported_uncommitted_test_python_additions: 453
+superseded_unstarted_branch_names:
+  - replay/regen-gae-arm-a-01
+  - replay/regen-gae-arm-b-01
+supersession_reason: >-
+  The initial names exposed treatment identity. No generation occurred. History
+  is retained, but only the neutral run branches are valid Phase-1 arms.
+generation_controls:
+  product_model: GPT-5.6 Thinking
+  exact_backend_build_exposed: false
+  classification_if_completed: quasi_controlled_same_product_model
+  fresh_context_required: true
+  current_orchestrator_context_eligible_as_generator: false
+  ineligibility_reason: >-
+    The orchestrator has inspected historical Arm A and later compact
+    implementations, later bug explanations, candidate gate internals, and hidden
+    acceptance criteria. Using it to generate either run would violate isolation.
+  maximum_complete_attempts_per_run: 3
+  maximum_repairs_after_initial: 2
+  same_tool_access_required: true
+  same_message_or_token_budget_required: true
+  cross_run_information_forbidden: true
+validation:
+  hidden_acceptance_path: docs/development_workflow_optimization/regeneration_replay/cases/REGEN-GAE-CANONICAL-EXTENSION-01/HIDDEN_ACCEPTANCE.md
+  leakage_exclusions_path: docs/development_workflow_optimization/regeneration_replay/cases/REGEN-GAE-CANONICAL-EXTENSION-01/LEAKAGE_EXCLUSIONS.md
+  full_repository_tests_required: true
+  real_liveness_required:
+    - a2c_plus_td_reaches_actor_update
+    - ppo_k4_plus_gae_reaches_actor_update
+raw_evidence:
+  raw_results: docs/development_workflow_optimization/regeneration_replay/cases/REGEN-GAE-CANONICAL-EXTENSION-01/RAW_RESULTS.jsonl
+  paired_comparison: docs/development_workflow_optimization/regeneration_replay/cases/REGEN-GAE-CANONICAL-EXTENSION-01/PAIRED_COMPARISON.json
+  decision: docs/development_workflow_optimization/regeneration_replay/cases/REGEN-GAE-CANONICAL-EXTENSION-01/DECISION.md
+  gate_verdicts: []
+  liveness_runs: []
+terminal_result:
+  valid_causal_treatment_pair: false
+  submitted_runs: 1
+  scheduled_runs: 2
+  accepted_runs: 0
+  decision: NO_CAUSAL_AB_VERDICT_RETAIN_BOTH_TRAJECTORIES
