@@ -1,0 +1,88 @@
+name: Candidate01 post-merge C06
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: candidate01-postmerge-c06
+  cancel-in-progress: false
+
+jobs:
+  replay-c06:
+    if: github.event_name != 'pull_request' || github.head_ref == 'exec/candidate01-postmerge-c06-01'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      TOOLCHAIN: dd46727c1efefd2e6d4cdf6f3b204ec1fc58fca3
+      CONTRACT: tests/fixtures/workflow_replay/candidate01_c1/c06_postmerge_contract.yaml
+      PACKET: tests/fixtures/workflow_replay/candidate01_c1/c06_stale_main_packet.yaml
+      OUTPUT: /tmp/replayab-c06-postmerge
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install development dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Freeze merged toolchain
+        run: git worktree add --detach /tmp/replayab-toolchain "$TOOLCHAIN"
+
+      - name: Run C06 opposite-order four-arm replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/replayab-toolchain/scripts/run_workflow_replay.py real-pair \
+            --contract "$GITHUB_WORKSPACE/$CONTRACT" \
+            --case-packet "$GITHUB_WORKSPACE/$PACKET" \
+            --source-repo "$GITHUB_WORKSPACE" \
+            --output-root "$OUTPUT" \
+            --json | tee /tmp/c06-postmerge-result.json
+
+      - name: Package compact evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          STAGE=/tmp/replayab-c06-postmerge-evidence
+          rm -rf "$STAGE"
+          mkdir -p "$STAGE"
+          if [ -d "$OUTPUT" ]; then
+            find "$OUTPUT" -type f \
+              \( -name '*.json' -o -name '*.jsonl' -o -name '*.yaml' -o -name '*.log' -o -name '*.txt' \) \
+              ! -path '*/workspace/*' \
+              ! -path '*/control-plane/*' \
+              ! -path '*/source.git/*' \
+              ! -path '*/integration-repo/*' \
+              -print0 | while IFS= read -r -d '' file; do
+                relative="${file#${OUTPUT}/}"
+                mkdir -p "$STAGE/$(dirname "$relative")"
+                cp "$file" "$STAGE/$relative"
+              done
+          fi
+          cp "$GITHUB_WORKSPACE/$CONTRACT" "$STAGE/"
+          cp "$GITHUB_WORKSPACE/$PACKET" "$STAGE/"
+          if [ -f /tmp/c06-postmerge-result.json ]; then
+            cp /tmp/c06-postmerge-result.json "$STAGE/"
+          fi
+          tar -C /tmp -czf "$GITHUB_WORKSPACE/replayab-c06-postmerge.tar.gz" replayab-c06-postmerge-evidence
+
+      - name: Upload C06 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: replayab-c06-postmerge-${{ github.run_id }}
+          path: replayab-c06-postmerge.tar.gz
+          if-no-files-found: error
+          retention-days: 14
