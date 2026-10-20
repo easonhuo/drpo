@@ -1,0 +1,80 @@
+name: TEMP materialize approved Countdown manuscript source
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: github.event.pull_request.head.ref == 'dev/paper-kdd2027-countdown-table-appendix-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+          persist-credentials: true
+
+      - name: Reconstruct approved source payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse origin/main)" = 'fd38cf0ce7a08a31ae2d601c343e83f1656811b7'
+          cat \
+            .github/countdown-v2-payload/chunk00.b64 \
+            .github/countdown-v2-payload/chunk01.b64 \
+            .github/countdown-v2-payload/chunk02.b64 \
+            .github/countdown-v2-payload/chunk03.b64 \
+            .github/countdown-v2-payload/chunk04.b64 \
+            | base64 --decode > /tmp/countdown_source_payload.tar.xz
+          xz -t /tmp/countdown_source_payload.tar.xz
+          tar -tJf /tmp/countdown_source_payload.tar.xz >/tmp/countdown-source-files.txt
+          grep -Fxq './paper/kdd2027/main.tex' /tmp/countdown-source-files.txt
+          grep -Fxq './paper/kdd2027/source_locked.tex' /tmp/countdown-source-files.txt
+
+      - name: Replace temporary branch with approved source commit
+        shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+          EXPECTED_REMOTE_HEAD: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git reset --hard origin/main
+          git clean -fdx
+          tar -xJf /tmp/countdown_source_payload.tar.xz -C .
+
+          echo '043e6cfcd7fc7abe3c2baf17c4f4fc1d883199f58c89ccd21103a683c6c90326  paper/kdd2027/main.tex' | sha256sum --check --strict
+          echo 'e64b74012a050f61e87c1601a301f2c5c452a9421d7e570d28098c74eb21a966  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
+          cmp -s paper/kdd2027/source_locked.tex paper/overleaf/main_replacement.tex
+          python scripts/generate_kdd2027_stage_a.py
+          python scripts/postprocess_kdd2027_stage_a.py
+          python paper/kdd2027/verify_content_lock.py
+          echo '043e6cfcd7fc7abe3c2baf17c4f4fc1d883199f58c89ccd21103a683c6c90326  paper/kdd2027/main.tex' | sha256sum --check --strict
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            .github/workflows/build-kdd2027-stage-a.yml \
+            paper/kdd2027/CONTENT_LOCK.txt \
+            paper/kdd2027/README.md \
+            paper/kdd2027/build.sh \
+            paper/kdd2027/figures/fig_app_countdown_asymre_parameter_response.pdf \
+            paper/kdd2027/figures/fig_app_countdown_topr_parameter_response.pdf \
+            paper/kdd2027/main.tex \
+            paper/kdd2027/source_locked.tex \
+            paper/kdd2027/verify_content_lock.py \
+            paper/overleaf/figures/fig_app_countdown_asymre_parameter_response.pdf \
+            paper/overleaf/figures/fig_app_countdown_topr_parameter_response.pdf \
+            paper/overleaf/main_replacement.tex \
+            scripts/generate_kdd2027_stage_a.py \
+            scripts/postprocess_kdd2027_stage_a.py
+          git commit -m 'PAPER-KDD2027-COUNTDOWN-TABLE-APPENDIX-01: integrate approved manuscript source'
+          git push --force-with-lease="refs/heads/${HEAD_BRANCH}:${EXPECTED_REMOTE_HEAD}" origin "HEAD:refs/heads/${HEAD_BRANCH}"

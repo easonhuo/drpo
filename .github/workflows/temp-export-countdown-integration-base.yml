@@ -1,0 +1,52 @@
+name: TEMP export Countdown integration base
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    if: github.event.pull_request.head.ref == 'dev/paper-kdd2027-countdown-table-appendix-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Export compact payload and diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p export
+          cp .github/countdown-compact-payload/chunk00.b64 export/compact.b64
+          set +e
+          base64 --decode export/compact.b64 > export/compact.tar.xz
+          decode_status=$?
+          xz -t export/compact.tar.xz
+          xz_status=$?
+          tar -tJf export/compact.tar.xz > export/tar-list.txt 2> export/tar-error.txt
+          tar_status=$?
+          set -e
+          {
+            echo "decode_status=${decode_status}"
+            echo "xz_status=${xz_status}"
+            echo "tar_status=${tar_status}"
+            wc -c export/compact.b64 export/compact.tar.xz
+            sha256sum export/compact.b64 export/compact.tar.xz
+          } > export/diagnostics.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: temp-countdown-compact-payload-diagnostics
+          path: export
+          if-no-files-found: error
+          retention-days: 7

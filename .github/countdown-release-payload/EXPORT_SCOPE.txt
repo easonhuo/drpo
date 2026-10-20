@@ -1,0 +1,3 @@
+base=fd38cf0ce7a08a31ae2d601c343e83f1656811b7
+claim=PAPER-KDD2027-COUNTDOWN-TABLE-APPENDIX-01
+purpose=temporary exact-base export only
