@@ -1,0 +1,159 @@
+version: 1
+run_id: E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01
+lane: e8
+priority: 180
+created_at: "2026-09-14T11:28:00Z"
+experiment_id: EXT-C-E8-MULTITASK-RECIPROCAL-MATRIX-01
+repo_commit: 54dae675e15af064d006dbc41c728628f83ea82b
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/e8_multitask_reciprocal_matrix_formal.yaml
+    - docs/experiments/E8_MULTITASK_RECIPROCAL_MATRIX_01_PROTOCOL.md
+    - docs/experiments/E8_MULTITASK_RECIPROCAL_MATRIX_01_COLDSTART_BINDING.md
+    - requirements/e8_multitask_exp_coldstart.txt
+    - scripts/bootstrap_e8_multitask_exp_coldstart.sh
+    - scripts/run_e8_multitask_exp_coldstart.sh
+    - scripts/preflight_e8_multitask_config.py
+    - scripts/run_experiment_guard_hardened.py
+    - scripts/verify_experiment_package_hardened.py
+    - src/drpo/e8_experiment_config.py
+    - src/drpo/e8_multitask_exp_tuning.py
+    - src/drpo/countdown_e8_alpha1_c_scan_common.py
+    - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    - src/drpo/countdown_e8_alpha1_c_scan_runtime.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_common.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+    - src/drpo/countdown_qwen_arena_onefile.py
+    - configs/countdown_e8_oracle_offline_v2_reciprocal_shape_screen_0p5b.yaml
+
+purpose: >-
+  Execute the frozen 128-cell E8 Reciprocal-Linear versus Reciprocal-Quadratic
+  multitask matrix on the exact eight P0 transfer tasks, with paired seeds 4000
+  and 5000, no new Countdown cells, and unchanged 1200-update cold-start budgets.
+  This RunSpec is execution and delivery plumbing only and does not authorize
+  convergence, significance, steady-state, or universal method-ranking claims.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    E8_COLDSTART_EXISTING_REPO=.
+    E8_COLDSTART_BOOTSTRAP_ROOT=/root/drpo-e8-reciprocal-matrix-runspec-20260914-01
+    E8_COLDSTART_TARGET_REF=refs/heads/dev/e8-multitask-exp-coldstart-01
+    E8_COLDSTART_EXPERIMENT_ID=EXT-C-E8-MULTITASK-RECIPROCAL-MATRIX-01
+    E8_COLDSTART_CONFIG=configs/e8_multitask_reciprocal_matrix_formal.yaml
+    E8_COLDSTART_RUN_ID=E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01
+    E8_COLDSTART_RUN_CLASS=formal
+    E8_COLDSTART_REQUIRE_ORIGIN_MAIN=0
+    E8_COLDSTART_GUARD_ROOT=outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/guard
+    E8_COLDSTART_RECOVERY_ROOT=outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/recovery
+    bash scripts/bootstrap_e8_multitask_exp_coldstart.sh full
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: >-
+    E8_COLDSTART_EXISTING_REPO=.
+    E8_COLDSTART_BOOTSTRAP_ROOT=/root/drpo-e8-reciprocal-matrix-runspec-20260914-01
+    E8_COLDSTART_TARGET_REF=refs/heads/dev/e8-multitask-exp-coldstart-01
+    E8_COLDSTART_EXPERIMENT_ID=EXT-C-E8-MULTITASK-RECIPROCAL-MATRIX-01
+    E8_COLDSTART_CONFIG=configs/e8_multitask_reciprocal_matrix_formal.yaml
+    E8_COLDSTART_RUN_ID=E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01
+    E8_COLDSTART_RUN_CLASS=formal
+    E8_COLDSTART_REQUIRE_ORIGIN_MAIN=0
+    E8_COLDSTART_GUARD_ROOT=outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/guard
+    E8_COLDSTART_RECOVERY_ROOT=outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/recovery
+    bash scripts/bootstrap_e8_multitask_exp_coldstart.sh full
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/recovery/ATTEMPT_STATE.env
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/recovery/CONFIG_PREFLIGHT.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/recovery/SETUP_COMPLETE.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/guard/attempt-*/workload/scheduler/dynamic_run.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/guard/attempt-*/workload/aggregate/plot_curve_points.csv
+  backoff_seconds: 60
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  fixed_profile_only: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  formal_evidence_allowed: true
+
+outputs:
+  run_dir: outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01
+
+success_criteria:
+  - config expands to exactly 128 unique scientific cells
+  - the exact eight P0 transfer tasks each contain both reciprocal families and four frozen lambda points for each family
+  - Reciprocal-Linear lambda is exactly [1, 3, 7, 19]
+  - Reciprocal-Quadratic lambda is exactly [1, 9, 49, 361]
+  - transfer seed offsets are exactly [4000, 5000]
+  - seed 4000 completes before seed 5000 begins
+  - Countdown launches zero new scientific cells
+  - every cell uses fresh zero-update LoRA initialization with no warm start or external adapter
+  - every cell preserves the frozen 1200-update training, evaluation, data-bank, and negative-consumer contracts
+  - test_data_used remains false and the test partition remains unopened
+  - terminal audit verifies all expected cells and aggregate completeness before any method ranking
+  - task performance, valid or structure diagnostics, and NaN or Inf numerical failure remain separate report dimensions
+  - fixed 1200 updates are not described as convergence or steady state
+  - completed text-first evidence is delivered to drpo-results ingest/e8
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/recovery/*.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/recovery/*.env
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/recovery/*.log
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/guard/attempt-*/*.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/guard/attempt-*/logs/*.log
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/guard/attempt-*/workload/*.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/guard/attempt-*/workload/aggregate/*.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/guard/attempt-*/workload/aggregate/*.csv
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/guard/attempt-*/workload/calibration/*.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/guard/attempt-*/workload/cells/*/cell_manifest.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/guard/attempt-*/workload/cells/*/canonical/manifest.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/guard/attempt-*/workload/cells/*/canonical/metrics.csv
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/guard/attempt-*/workload/cells/*/canonical/summary.json
+    - outputs/e8/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/guard/attempt-*/workload/scheduler/*.json
+    - .runspec_state/logs/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/**/*.json
+    - .runspec_state/logs/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/**/*.log
+    - .runspec_state/logs/E8_MULTITASK_RECIPROCAL_MATRIX_20260914_01/**/*.txt
+  exclude:
+    - "**/*.pt"
+    - "**/*.pth"
+    - "**/*.ckpt"
+    - "**/*.safetensors"
+    - "**/*.bin"
+    - "**/adapter/**"
+    - "**/best_pass8_adapter/**"
+    - "**/terminal_adapter/**"
+    - "**/checkpoint*"
+    - "**/checkpoints/**"
+    - "**/optimizer*"
+    - "**/wandb/**"
+    - "**/training_diagnostics.jsonl"
+    - "**/validation_diagnostics.jsonl"
+  max_package_size_mb: 100
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e8
+  export_profile: manifest_text_v1
+  max_total_size_mb: 30
+  max_file_size_mb: 10
+
+publish:
+  enabled: false
+  auto: false
