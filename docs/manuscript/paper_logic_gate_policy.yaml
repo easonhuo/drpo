@@ -1,0 +1,26 @@
+schema_version: 1
+initiative: PAPER-WRITING-LOGIC-FIRST-01
+guidance_path: docs/manuscript/RL_PAPER_WRITING_GUIDANCE.md
+playbook_path: docs/manuscript/RL_PAPER_WRITING_PLAYBOOK.md
+levels:
+  wording:
+    guidance_rules: [G02, G03, G23]
+    playbook_modules:
+      - "### Pass 8 — Scientific writing quality"
+      - "### Pass 9 — Compression and page budget"
+    required_artifacts: [paragraph_logic, source_mapping, candidate]
+  paragraph:
+    guidance_rules: [G02, G03, G07, G15, G23]
+    playbook_modules:
+      - "### Pass 3 — Outline"
+      - "### Pass 4 — Paragraph blueprint"
+      - "### Pass 8 — Scientific writing quality"
+    required_artifacts: [section_logic, paragraph_logic, source_mapping, candidate]
+  section:
+    guidance_rules: [G02, G03, G06, G07, G10, G15, G23]
+    playbook_modules:
+      - "### Pass 2 — Story and missing link"
+      - "### Pass 3 — Outline"
+      - "### Pass 4 — Paragraph blueprint"
+      - "### Pass 6 — Theory-method-object audit"
+    required_artifacts: [section_logic, paragraph_logic, source_mapping, candidate]
