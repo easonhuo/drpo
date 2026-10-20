@@ -1,0 +1,180 @@
+experiment_id: EXT-H-E7-FIG1-D4RL9-GRADIENT-COVERAGE-01
+runner_version: 1.1.1-e7q2-protocol-preserving
+execution_class: pilot
+scientific_status: pilot
+formal_launch_allowed: false
+
+claim: >-
+  Across the nine D4RL-v2 MuJoCo locomotion cells, test whether the implemented
+  full-parameter actor-gradient diagnostic increases with policy-relative standardized
+  distance for transitions with negative frozen learned-critic advantages, while
+  absolute advantage is explicitly matched using the existing E7-Q2 near/far protocol.
+
+claim_boundaries:
+  - External-validity coverage only; this does not replace C-U1 controlled mechanism identification.
+  - The original E7-Q2 near/far matching is preserved; aggregation is frozen here to reproduce the existing one-baseline-plus-seven-far-bin plot contract.
+  - The run does not compare DRPO, taper, Global alpha, Signed, or other training methods.
+  - Per-dataset curves are normalized within dataset and seed and are not pooled on an absolute cross-task scale.
+  - Task-performance collapse is not evaluated by this gradient-only diagnostic.
+  - Support or variance-boundary events and NaN/Inf numerical failures remain separate audit fields.
+  - Static checks, self-tests, preflight, and this pilot status do not constitute a formal multi-seed result.
+
+base_config_path: configs/e7_hopper_q2_medium_replay_v2.yaml
+
+datasets:
+  - id: halfcheetah-medium-v2
+    relative_path: halfcheetah_medium-v2.hdf5
+    expected_sha256: auto_capture_before_training
+    format: legacy_d4rl_hdf5
+    env_id: HalfCheetah-v4
+    observation_dim: 17
+    action_dim: 6
+    provenance_note: Exact local legacy D4RL halfcheetah-medium-v2 HDF5; SHA-256 is captured before any training.
+  - id: halfcheetah-medium-replay-v2
+    relative_path: halfcheetah_medium_replay-v2.hdf5
+    expected_sha256: auto_capture_before_training
+    format: legacy_d4rl_hdf5
+    env_id: HalfCheetah-v4
+    observation_dim: 17
+    action_dim: 6
+    provenance_note: Exact local legacy D4RL halfcheetah-medium-replay-v2 HDF5; SHA-256 is captured before any training.
+  - id: halfcheetah-medium-expert-v2
+    relative_path: halfcheetah_medium_expert-v2.hdf5
+    expected_sha256: auto_capture_before_training
+    format: legacy_d4rl_hdf5
+    env_id: HalfCheetah-v4
+    observation_dim: 17
+    action_dim: 6
+    provenance_note: Exact local legacy D4RL halfcheetah-medium-expert-v2 HDF5; SHA-256 is captured before any training.
+  - id: hopper-medium-v2
+    relative_path: hopper_medium-v2.hdf5
+    expected_sha256: auto_capture_before_training
+    format: legacy_d4rl_hdf5
+    env_id: Hopper-v4
+    observation_dim: 11
+    action_dim: 3
+    provenance_note: Exact local legacy D4RL hopper-medium-v2 HDF5; SHA-256 is captured before any training.
+  - id: hopper-medium-replay-v2
+    relative_path: hopper_medium_replay-v2.hdf5
+    expected_sha256: e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b
+    format: legacy_d4rl_hdf5
+    env_id: Hopper-v4
+    observation_dim: 11
+    action_dim: 3
+    provenance_note: Exact legacy D4RL hopper-medium-replay-v2 HDF5 already bound in EXT-H-E7-Q2.
+  - id: hopper-medium-expert-v2
+    relative_path: hopper_medium_expert-v2.hdf5
+    expected_sha256: 9d51ad87f8c905be3880d84c6140bcdb7fbf39a19e046a237f238ba34fec9e26
+    format: legacy_d4rl_hdf5
+    env_id: Hopper-v4
+    observation_dim: 11
+    action_dim: 3
+    provenance_note: Exact legacy D4RL hopper-medium-expert-v2 HDF5 already bound in the E7 benchmark pilot configuration.
+  - id: walker2d-medium-v2
+    relative_path: walker2d_medium-v2.hdf5
+    expected_sha256: auto_capture_before_training
+    format: legacy_d4rl_hdf5
+    env_id: Walker2d-v4
+    observation_dim: 17
+    action_dim: 6
+    provenance_note: Exact local legacy D4RL walker2d-medium-v2 HDF5; SHA-256 is captured before any training.
+  - id: walker2d-medium-replay-v2
+    relative_path: walker2d_medium_replay-v2.hdf5
+    expected_sha256: auto_capture_before_training
+    format: legacy_d4rl_hdf5
+    env_id: Walker2d-v4
+    observation_dim: 17
+    action_dim: 6
+    provenance_note: Exact local legacy D4RL walker2d-medium-replay-v2 HDF5; SHA-256 is captured before any training.
+  - id: walker2d-medium-expert-v2
+    relative_path: walker2d_medium_expert-v2.hdf5
+    expected_sha256: auto_capture_before_training
+    format: legacy_d4rl_hdf5
+    env_id: Walker2d-v4
+    observation_dim: 17
+    action_dim: 6
+    provenance_note: Exact local legacy D4RL walker2d-medium-expert-v2 HDF5; SHA-256 is captured before any training.
+
+protocol:
+  critic_role: one_canonical_learned_critic_per_dataset_shared_across_actor_seeds
+  actor_checkpoint_role: positive_only_fixed_budget_terminal_actor
+  frozen_advantage_definition: r_plus_gamma_v_next_minus_v_standardized_once_on_critic_train_split
+  seeds: [100, 101, 102, 103, 104, 105, 106, 107, 108, 109]
+  canonical_critic_seed: 100
+  train_method_branches: false
+  budget:
+    max_transitions: null
+    critic_steps: 100000
+    critic_eval_interval: 2000
+    positive_actor_steps: 100000
+    positive_actor_eval_interval: 5000
+    audit_sample_size: 16384
+    early_stop_rule: nan_inf_numerical_failure_only
+    fixed_horizon_is_not_convergence: true
+  probe:
+    population: negative_frozen_advantage_transitions_in_critic_train_episode_split
+    distance_coordinate: policy_relative_standardized_pre_squash_distance
+    matching_function: drpo.e7_hopper_q2.match_near_far_indices
+    near_quantile: 0.25
+    far_quantile: 0.75
+    advantage_matching_bins: 20
+    relative_advantage_tolerance: 0.05
+    matched_pair_pool_per_seed: 256
+    gradient_pairs_per_seed: 64
+    far_distance_bins: 7
+    far_distance_binning: pooled_within_dataset_quantiles_after_all_seeds
+    save_every_selected_point: true
+    full_parameter_gradient_definition: norm_of_gradient_of_negative_advantage_times_log_probability_for_one_transition
+    normalization: per_seed_near_mean_before_across_seed_aggregation
+  aggregation:
+    confidence_interval: deterministic_seed_bootstrap_percentile_95
+    bootstrap_draws: 10000
+    bootstrap_seed: 20260722
+    baseline_role: all_selected_near_points
+    far_curve_role: all_selected_far_points_split_into_seven_pooled_distance_quantiles
+
+execution:
+  coordinator: scripts/run_e7_bench.py figure1-d4rl9
+  one_click_entrypoint: scripts/run_e7_figure1_d4rl9.sh
+  require_clean_worktree: true
+  bind_source_commit_and_runner_sha256: true
+  dataset_sha_capture_stage: all_nine_files_before_any_training
+  dataset_workers: 3
+  cpus_per_worker: 32
+  device_pool: [cpu]
+  resume_granularity: dataset_seed
+  partial_output_without_completion_marker: fail_closed
+  existing_identity_mismatch: fail_closed_require_new_workdir
+  cpu_oversubscription: forbidden
+
+required_outputs:
+  - DATASET_LOCK.json
+  - RUNSPEC_RESOLVED.json
+  - RUN_MANIFEST.json
+  - RUN_COMPLETE.json
+  - datasets/<dataset_id>/CANONICAL_CRITIC_INPUT_BINDING.json
+  - datasets/<dataset_id>/CANONICAL_CRITIC_BINDING.json
+  - datasets/<dataset_id>/canonical_critic/canonical_critic_manifest.json
+  - datasets/<dataset_id>/seed_<seed>/SEED_COMPLETE.json
+  - datasets/<dataset_id>/seed_<seed>/matching_pairs.csv
+  - datasets/<dataset_id>/seed_<seed>/matching_summary.json
+  - datasets/<dataset_id>/seed_<seed>/gradient_probe_points.csv
+  - datasets/<dataset_id>/seed_<seed>/gradient_probe_summary.json
+  - datasets/<dataset_id>/dataset_gradient_probe_points.csv
+  - datasets/<dataset_id>/dataset_seed_curves.csv
+  - datasets/<dataset_id>/dataset_plot_data.csv
+  - datasets/<dataset_id>/DATASET_AGGREGATE_COMPLETE.json
+  - aggregate/d4rl9_gradient_probe_points.csv
+  - aggregate/d4rl9_seed_curves.csv
+  - aggregate/d4rl9_plot_data.csv
+  - aggregate/dataset_summary.csv
+  - aggregate/figure1_d4rl9_appendix.pdf
+  - aggregate/figure1_d4rl9_appendix.png
+  - aggregate/figure1_d4rl9_appendix.svg
+  - aggregate/AGGREGATE_COMPLETE.json
+
+result_status:
+  current: not_run
+  maximum_without_separate_registration_and_review: pilot
+  formal_evidence_allowed: false
+  method_ranking_claim_allowed: false
