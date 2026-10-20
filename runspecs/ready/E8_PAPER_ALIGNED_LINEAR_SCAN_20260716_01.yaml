@@ -6,6 +6,10 @@ created_at: "2026-07-16T09:25:00Z"
 experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01
 repo_commit: ed3f132d63a378ef272126c0cd1e6fddd6b0d5c5
 
+registration:
+  mode: deferred
+  closure_required: true
+
 provenance:
   commit_policy: protected_paths_unchanged
   protected_paths:
