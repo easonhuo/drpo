@@ -1,0 +1,73 @@
+schema_version: 1
+preparation_id: REPLAYAB-C01-PR124-HISTORICAL-ARM-A
+source:
+  repository: easonhuo/drpo
+  remote: origin
+  main_ref: refs/heads/main
+  expected_main_sha: b65882993eaf674390989bb9082be2b79f1f1e44
+  dev_branch: dev/gov-runspec-resource-orchestrator-01-review
+  expected_dev_sha: 48c40034c2445c11b36f0cba6e22fb2042a1b457
+  result_commit_sha: 48c40034c2445c11b36f0cba6e22fb2042a1b457
+  result_git_dirty: false
+subject:
+  experiment_id: GOV-RUNSPEC-RESOURCE-ORCHESTRATOR-01
+  governance_claims:
+    - GOV-RUNSPEC-RESOURCE-ORCHESTRATOR-01
+implementation:
+  operations:
+    - op: add
+      source_path: docs/scopes/GOV-RUNSPEC-RESOURCE-ORCHESTRATOR-01.md
+      destination_path: docs/scopes/GOV-RUNSPEC-RESOURCE-ORCHESTRATOR-01.md
+      expected_blob_sha: 75a6e8cc3b242ff7911deff60ff8f7f040ede871
+      expected_old_blob_sha: null
+      expected_mode: '100644'
+    - op: modify
+      source_path: runspecs/README.md
+      destination_path: runspecs/README.md
+      expected_blob_sha: 90bdc32fa01f27bee5774bccd29a7a888ae233ee
+      expected_old_blob_sha: 7748a3001548cb147cfb6b71fcffd19dffe0290e
+      expected_mode: '100644'
+    - op: modify
+      source_path: scripts/agent/run_claimed_runspec.py
+      destination_path: scripts/agent/run_claimed_runspec.py
+      expected_blob_sha: 41bcb7b901a217d9b9d4f462d0c74936a512de7f
+      expected_old_blob_sha: 7f3bfe7eeb3b7615df9de9317c2291c1b5ed28fd
+      expected_mode: '100644'
+    - op: modify
+      source_path: scripts/agent/run_lane.py
+      destination_path: scripts/agent/run_lane.py
+      expected_blob_sha: 3ebc790b11da8e20e8e176211189bf2a53eb31ed
+      expected_old_blob_sha: 4df22ef5864b2afefa5a7e3740f1a2450e87168f
+      expected_mode: '100644'
+    - op: modify
+      source_path: tests/test_agent_runspec.py
+      destination_path: tests/test_agent_runspec.py
+      expected_blob_sha: 56fffa0d22dd8065af06bff0fbfd2b5793d949cf
+      expected_old_blob_sha: 628eb1e661dfe8fcc1c0ff61f46af5289dfe0c05
+      expected_mode: '100644'
+review:
+  reviewer_id: replayab-c01-pr124-historical-arm-a-reviewer
+  decision_token: pr124-merged-runspec-resource-orchestrator-accepted
+  decision:
+    approved: true
+    code_integration_eligible: true
+    evidence_level: formal
+    result_status: not_run
+    claim_support_level: supports_claim
+    terminal_audit: not_required
+    task_performance_collapse: not_assessed
+    support_boundary: not_assessed
+    numerical_failure: not_assessed
+  limitations:
+    - historical repository-integration validation only
+    - Candidate B is not invoked
+    - no efficiency conclusion is authorized
+    - actual merge commit e99489e7435bc26e2a7e30cd8d1a3aa10f4fc67a is provenance only
+  unresolved: []
+registration:
+  mode: none
+  update_id: null
+  expected_before_semantic_sha256: null
+  experiment: null
+  handoff_operations: []
+  registry_changes: []
