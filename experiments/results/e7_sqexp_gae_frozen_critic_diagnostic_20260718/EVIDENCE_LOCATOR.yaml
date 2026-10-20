@@ -1,0 +1,13 @@
+evidence_locator:
+  schema_version: 1
+  primary_run_id: E7_SQEXP_GAE_PILOT_20260717_04
+  records:
+    - run_id: E7_SQEXP_GAE_PILOT_20260717_04
+      lane: e7
+      source_commit: 14fceaf18ce827acabc4a04a4662ae0fa99cb9a7
+      results_repository: easonhuo/drpo-results
+      results_branch: ingest/e7
+      results_commit: 8a06e4ed9b5ae282fffd4bac1f6ac99b21feb197
+      result_path: runs/e7/E7_SQEXP_GAE_PILOT_20260717_04
+      manifest_sha256: 2449b1872bf70533c63d5b4446884bdb967ba1cba4961c63d38f584b4c86fc10
+      export_profile: manifest_text_v1
