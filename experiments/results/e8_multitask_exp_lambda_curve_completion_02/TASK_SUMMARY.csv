@@ -1,0 +1,8 @@
+task,positive_only_late_window_pass8_mean,selected_lambda,selected_rho,selected_late_window_pass8_mean,selected_on_grid_edge,all_exp_below_positive_only
+word_sorting,,37.253004251237,,0.6578125,False,
+mini_sudoku,,186.154801374739,,0.9734375,False,
+maze,,57.237317958205,,0.7765625,False,
+word_ladder,,26.227404766527,,0.1390625,False,
+knights_knaves,,24.156693553547,,0.7,False,
+graph_color,,0.08,,1.0,False,
+wikisql,,111.556242601009,,0.88125,False,
