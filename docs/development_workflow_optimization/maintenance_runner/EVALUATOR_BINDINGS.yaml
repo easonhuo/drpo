@@ -1,0 +1,84 @@
+schema_version: 1
+claim_id: GOV-DRPO-MAINTENANCE-RUNNER-REPLAYAB-01
+status: stage0_partial_binding_not_frozen
+source_main: ad9bda80796dcf5c48976f5d64ffd79a006c70d5
+principles:
+  candidate_summary_is_not_oracle: true
+  correctness_before_efficiency: true
+  evaluator_must_not_call_github: true
+  evaluator_must_not_modify_candidate_ref: true
+  evaluator_change_after_results: forbidden
+existing_core:
+  case_model:
+    path: src/drpo/workflow_replay/model.py
+    git_blob_sha: ac7187cbbcdcbab76efed25e1a824f6533ee294e
+    responsibility: strict_case_identity_and_expected_outcome_validation
+  execution_record:
+    path: src/drpo/workflow_replay/execute.py
+    git_blob_sha: 47cd6a97341b8db315b5c1ae698b55ebdefbb204
+    responsibility: deterministic_plan_hashing_monotonic_event_and_timing_record
+  equivalence:
+    path: src/drpo/workflow_replay/compare.py
+    git_blob_sha: 4c7214b435f7077ba1376e317d16c5c2d3392991
+    responsibility: correctness_first_outcome_equivalence
+  evidence:
+    path: src/drpo/workflow_replay/evidence.py
+    git_blob_sha: c2516abe8268932facbf29be5442082cea298e80
+    responsibility: evidence_schema_pair_schedule_independent_acceptance_and_efficiency_release
+measurement_adapter:
+  path: scripts/run_workflow_replay.py
+  current_git_blob_sha: d399c0c3b29260ea6a2e7c697fccdf40274bed1a
+  current_state: candidate01_specific_real_pair
+  planned_change: add_fixed_git_object_pair_subcommand
+  allowed_responsibilities:
+  - construct_isolated_local_and_bare_git_fixtures
+  - execute_frozen_sequential_and_atomic_git_command_plans
+  - reuse_existing_core_plan_event_schedule_evidence_and_comparison
+  - inspect_final_parent_tree_paths_modes_terminal_and_protected_ref
+  forbidden_responsibilities:
+  - github_network_or_remote_publication
+  - arbitrary_shell_from_task_packet
+  - e7_or_e8_scientific_logic
+  - candidate01_behavior_change
+  - replayab_threshold_or_core_semantic_change
+  - new_python_path_or_dependency
+  budget:
+    preferred_executable_lines: 100
+    yellow_max_executable_lines: 140
+    hard_stop_above: 140
+independent_outcome_contract:
+  successful_case:
+  - final_commit_has_exact_declared_parent
+  - final_tree_matches_all_after_image_sha256_and_git_modes
+  - changed_paths_equal_frozen_inventory
+  - protected_ref_and_paths_unchanged
+  - fixed_validation_profile_passed
+  - scientific_invariants_passed
+  - terminal_state_ready
+  stale_head_case:
+  - terminal_state_stale
+  - safety_boundary_pre_ref_expected_head_recheck
+  - target_ref_unchanged
+  - no_automatic_retry_rebase_or_force
+  validation_failure_case:
+  - terminal_state_blocked
+  - safety_boundary_fixed_validation_profile
+  - target_ref_unchanged
+  - failure_diagnostic_retained
+case_bindings:
+  E7-M0-C01-CONFIG-RUNSPEC: pending_after_image_hashes_and_case_evaluator_sha256
+  E7-M0-C02-CODE-TEST: pending_after_image_hashes_and_scientific_invariant_evaluator
+  E7-M0-C03-INTEGRATION-HEAVY: pending_after_image_hashes_approval_provenance_and_evaluator
+  E7-M0-C04-STALE-HEAD: pending_failure_fixture_and_diagnostic_binding
+  E8-M0-C01-CONFIG-RUNSPEC: pending_after_image_hashes_and_case_evaluator_sha256
+  E8-M0-C02-CODE-TEST: pending_after_image_hashes_and_scientific_invariant_evaluator
+  E8-M0-C03-INTEGRATION-HEAVY: pending_after_image_hashes_approval_provenance_and_evaluator
+  E8-M0-C04-VALIDATION-FAILURE: pending_failure_fixture_and_diagnostic_binding
+freeze_gate:
+  allowed: false
+  missing:
+  - final_adapter_commit_and_blob_identity
+  - per_case_after_image_sha256_and_modes
+  - per_case_scientific_invariant_facts
+  - per_case_evaluator_sha256
+  - failure_fixture_and_diagnostic_identities

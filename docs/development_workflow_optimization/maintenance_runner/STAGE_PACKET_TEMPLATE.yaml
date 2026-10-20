@@ -1,0 +1,56 @@
+schema_version: 1
+claim_id: GOV-DRPO-MAINTENANCE-RUNNER-REPLAYAB-01
+packet_status: template_not_authorization
+plan:
+  path: docs/development_workflow_optimization/M0_ATOMIC_DEV_TRANSACTION_PLAN.md
+  commit: FULL_SHA_REQUIRED
+  file_sha256: SHA256_REQUIRED
+stage:
+  id: STAGE_ID_REQUIRED
+  authorization_status: EXPLICIT_APPROVAL_REQUIRED
+  current_main_sha: FULL_SHA_REQUIRED
+  current_main_resolution_method: github_repository_api
+  task_scope_authorization: AUTHORIZATION_ID_REQUIRED
+task:
+  task_id: TASK_ID_REQUIRED
+  family: e7_or_e8_or_generic
+  target_mode: new_branch_from_base_or_existing_branch_exact_head
+  target_branch: dev/CLAIM_REQUIRED
+  base_commit: FULL_SHA_REQUIRED
+  expected_head: null
+  reviewer_decision_id: REVIEW_ID_REQUIRED
+  validation_profile: PROFILE_ID_REQUIRED
+  evaluator_binding: EVALUATOR_ID_REQUIRED
+approvals:
+  new_python_paths: []
+  new_python_approval_records: []
+  code_change_budget_class: CLASSIFICATION_REQUIRED
+  large_code_approval: null
+  default_policy_change: false
+payload:
+  kind: complete_utf8_after_images
+  files:
+  - path: REPOSITORY_RELATIVE_PATH
+    sha256: SHA256_REQUIRED
+    git_mode: "100644"
+    byte_size: POSITIVE_INTEGER_REQUIRED
+    git_blob_sha: TO_BE_RECORDED_AFTER_PREOBJECT
+  expected_changed_paths:
+  - REPOSITORY_RELATIVE_PATH
+preobject:
+  secret_scan_rule: FROZEN_RULE_REQUIRED
+  protected_path_check: required
+  encoding_size_mode_check: required
+  current_main_match: required
+  approvals_complete: required
+publication:
+  create_new_branch_directly_at_final_commit: true
+  non_force_only: true
+  merge_allowed: false
+  mark_ready_allowed: false
+  experiment_launch_allowed: false
+terminal_contract:
+  expected_state: EXPECTED_STATE_REQUIRED
+  rollback_class: ROLLBACK_CLASS_REQUIRED
+  report_only_recovery_allowed: true
+  code_commit_mutation_during_recovery_allowed: false

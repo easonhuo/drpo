@@ -1,0 +1,238 @@
+schema_version: 1
+claim_id: GOV-DRPO-MAINTENANCE-RUNNER-REPLAYAB-01
+status: candidate_inventory_not_frozen
+current_main_reviewed: ad9bda80796dcf5c48976f5d64ffd79a006c70d5
+freeze_rule: >-
+  No entry becomes frozen until complete UTF-8 after-images, SHA-256 values, Git modes,
+  case-specific Arm-A operations, independent evaluator binding, expected terminal state,
+  and local-git replayability are all verified. Candidate inconvenience is not a removal rule.
+common_controls:
+  environment_id: github-actions-ubuntu24-py311-local-git-v1
+  cache_policy: cold
+  opposite_order_pairs: 2
+  third_pair_trigger_percent: 15
+  efficiency_hidden_until_independent_acceptance: true
+  remote_github_timing_separate: true
+cases:
+- case_id: E7-M0-C01-CONFIG-RUNSPEC
+  family: e7
+  category: config_runspec_success
+  status: candidate_reconstructed_subset
+  source_pr: 163
+  source_base_sha: 85b0a68d77ed085a7f6e67771fb0f7672c43da09
+  source_head_sha: 0d47ab23492138b3b4469567b2049d7582157e7c
+  treatment_input: complete_after_images
+  paths:
+  - configs/e7_bench_joint_gae_tuning_p1_c.json
+  - docs/scopes/EXT-H-E7-BENCH-01-JOINT-GAE-TUNING.md
+  - runspecs/ready/E7_BENCH_JOINT_GAE_P1_LIVENESS_20260719_01.yaml
+  validation_profile: e7_small_update
+  focused_pytest:
+  - tests/test_e7_squared_exp_kernel.py
+  expected_terminal_state: READY
+  arm_a_route: pending_historical_operation_reconstruction
+  failure_injection: null
+  after_image_ref: 0d47ab23492138b3b4469567b2049d7582157e7c
+  after_image_sha256_complete: false
+  git_modes_complete: false
+  evaluator_binding: pending
+  eligibility_blockers:
+  - prove_all_three_paths_are_reconstructable_on_declared_base
+  - freeze_per_file_sha256_and_modes
+  - prove_arm_a_has_non_atomic_treatment_contrast
+- case_id: E7-M0-C02-CODE-TEST
+  family: e7
+  category: code_test_success
+  status: candidate_complete_pr_payload
+  source_pr: 163
+  source_base_sha: 85b0a68d77ed085a7f6e67771fb0f7672c43da09
+  source_head_sha: 0d47ab23492138b3b4469567b2049d7582157e7c
+  paths:
+  - configs/e7_bench_joint_gae_tuning_p1_c.json
+  - docs/scopes/EXT-H-E7-BENCH-01-JOINT-GAE-TUNING.md
+  - runspecs/ready/E7_BENCH_JOINT_GAE_P1_LIVENESS_20260719_01.yaml
+  - src/drpo/e7_squared_exp_kernel.py
+  - src/drpo/e7_squared_exp_night.py
+  - src/drpo/e7_squared_exp_night_bootstrap.py
+  - tests/test_e7_squared_exp_kernel.py
+  validation_profile: e7_small_update
+  focused_pytest:
+  - tests/test_e7_squared_exp_kernel.py
+  - tests/test_e7_squared_exp_night.py
+  expected_terminal_state: READY
+  arm_a_route: pending_historical_operation_reconstruction
+  failure_injection: null
+  after_image_ref: 0d47ab23492138b3b4469567b2049d7582157e7c
+  after_image_sha256_complete: false
+  git_modes_complete: false
+  evaluator_binding: pending
+  eligibility_blockers:
+  - freeze_per_file_sha256_and_modes
+  - prove_exact_base_to_head_payload_without_unlisted_history
+  - freeze_scientific_invariant_evaluator
+- case_id: E7-M0-C03-INTEGRATION-HEAVY
+  family: e7
+  category: integration_heavy_success
+  status: candidate_complete_pr_payload
+  source_pr: 69
+  source_base_sha: f387391b39502e700e7f780cd8b4a1fd9c7eca7c
+  source_head_sha: d1afb5ff094f69986e0ecc3bf7f9385485add62b
+  paths:
+  - configs/e7_sqexp_actor_decision_v1.json
+  - scripts/run_e7_sqexp_actor_decision.sh
+  - scripts/run_e7_sqexp_actor_decision_auto.py
+  - src/drpo/e7_sqexp_actor_decision.py
+  - src/drpo/e7_sqexp_actor_decision_aggregate.py
+  - src/drpo/e7_sqexp_actor_decision_bootstrap.py
+  - src/drpo/e7_sqexp_actor_decision_runtime_autotune.py
+  - tests/test_e7_sqexp_actor_decision.py
+  validation_profile: e7_small_update
+  focused_pytest:
+  - tests/test_e7_sqexp_actor_decision.py
+  expected_terminal_state: READY
+  arm_a_route: pending_historical_operation_reconstruction
+  failure_injection: null
+  after_image_ref: d1afb5ff094f69986e0ecc3bf7f9385485add62b
+  after_image_sha256_complete: false
+  git_modes_complete: false
+  evaluator_binding: pending
+  eligibility_blockers:
+  - freeze_per_file_sha256_and_modes
+  - verify_new_python_approval_provenance
+  - verify_payload_size_is_still_representative_of_small_M0_task_class
+- case_id: E7-M0-C04-STALE-HEAD
+  family: e7
+  category: failure_boundary
+  status: candidate_synthetic_from_E7_M0_C02
+  source_pr: 163
+  source_base_sha: 85b0a68d77ed085a7f6e67771fb0f7672c43da09
+  source_head_sha: 0d47ab23492138b3b4469567b2049d7582157e7c
+  paths: []
+  validation_profile: e7_small_update
+  focused_pytest: []
+  expected_terminal_state: STALE
+  expected_safety_boundary: pre_ref_expected_head_recheck
+  arm_a_route: same_frozen_payload_with_stale_expected_head
+  failure_injection: local_bare_remote_target_ref_advance
+  after_image_ref: 0d47ab23492138b3b4469567b2049d7582157e7c
+  after_image_sha256_complete: false
+  git_modes_complete: false
+  evaluator_binding: pending
+  eligibility_blockers:
+  - bind_exact_parent_payload_case
+  - freeze_failure_fixture_and_expected_diagnostic
+- case_id: E8-M0-C01-CONFIG-RUNSPEC
+  family: e8
+  category: config_runspec_success
+  status: candidate_reconstructed_subset
+  source_pr: 158
+  source_base_sha: 939533e2d5933e06a441f6b0f8c2f9e58ce952e4
+  source_head_sha: 2edbadc2c99e52fd4eefab84dd3f06b5ac8c0407
+  paths:
+  - configs/countdown_e8_oracle_offline_v2_reciprocal_high_lambda_extension_0p5b.yaml
+  - configs/countdown_e8_oracle_offline_v2_reciprocal_shape_screen_0p5b.yaml
+  - runspecs/ready/E8_PAPER_ALIGNED_RECIPROCAL_HIGH_LAMBDA_EXTENSION_20260719_01.yaml
+  - runspecs/ready/E8_PAPER_ALIGNED_RECIPROCAL_SHAPE_SCREEN_20260719_01.yaml
+  validation_profile: e8_small_update
+  focused_pytest:
+  - tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
+  expected_terminal_state: READY
+  arm_a_route: pending_historical_operation_reconstruction
+  failure_injection: null
+  after_image_ref: 2edbadc2c99e52fd4eefab84dd3f06b5ac8c0407
+  after_image_sha256_complete: false
+  git_modes_complete: false
+  evaluator_binding: pending
+  eligibility_blockers:
+  - prove_subset_reconstructability_without_later_governance_commits
+  - freeze_per_file_sha256_and_modes
+  - prove_arm_a_treatment_contrast
+- case_id: E8-M0-C02-CODE-TEST
+  family: e8
+  category: code_test_success
+  status: candidate_stacked_pr_payload
+  source_pr: 229
+  source_base_sha: ae9c10a771b7673f02928552cbecbd6845b933cd
+  source_head_sha: 2eddd6139eb07754cb9355fad6a8a37ad59d3d4e
+  paths:
+  - configs/countdown_e8_oracle_offline_v2_asymre_deltav_boundary_dense_0p5b.yaml
+  - docs/scopes/EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-BOUNDARY-DENSE-0.5B-01.md
+  - runspecs/templates/E8_ASYMRE_DELTAV_BOUNDARY_DENSE_20260721_01.yaml
+  - src/drpo/countdown_e8_alpha1_highc_scan_common.py
+  - tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
+  validation_profile: e8_small_update
+  focused_pytest:
+  - tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
+  expected_terminal_state: READY
+  arm_a_route: temporary_deterministic_apply_route_run_29811599324
+  failure_injection: null
+  after_image_ref: 2eddd6139eb07754cb9355fad6a8a37ad59d3d4e
+  after_image_sha256_complete: false
+  git_modes_complete: false
+  evaluator_binding: pending
+  eligibility_blockers:
+  - freeze_per_file_sha256_and_modes
+  - reconstruct_temporary_apply_arm_a_actions
+  - verify_stacked_base_objects_available
+- case_id: E8-M0-C03-INTEGRATION-HEAVY
+  family: e8
+  category: integration_heavy_success
+  status: candidate_complete_pr_payload
+  source_pr: 83
+  source_base_sha: 05e8704770bda9a8682cd1031fa8b67bc3b55a41
+  source_head_sha: 36fea4ddde43af0e52b1c6349aae88ed4ee90605
+  paths:
+  - configs/countdown_e8_oracle_offline_v2_repro_rng_audit_0p5b.yaml
+  - docs/scopes/EXT-C-E8-ORACLE-OFFLINE-V2-REPRO-RNG-AUDIT-0.5B-01.md
+  - scripts/run_countdown_e8_oracle_offline_v2_repro_rng_audit.py
+  - scripts/run_countdown_e8_oracle_offline_v2_repro_rng_audit_one_click.sh
+  - src/drpo/countdown_e8_repro_contract.py
+  - src/drpo/countdown_e8_repro_legacy_runtime.py
+  - src/drpo/countdown_e8_repro_rng_audit_common.py
+  - src/drpo/countdown_e8_repro_rng_isolated_runtime.py
+  - src/drpo/countdown_e8_rng_isolation.py
+  - tests/test_countdown_e8_oracle_offline_v2_repro_rng_audit.py
+  - tests/test_countdown_e8_repro_execution_contract.py
+  validation_profile: e8_small_update
+  focused_pytest:
+  - tests/test_countdown_e8_oracle_offline_v2_repro_rng_audit.py
+  - tests/test_countdown_e8_repro_execution_contract.py
+  expected_terminal_state: READY
+  arm_a_route: pending_historical_operation_reconstruction
+  failure_injection: null
+  after_image_ref: 36fea4ddde43af0e52b1c6349aae88ed4ee90605
+  after_image_sha256_complete: false
+  git_modes_complete: false
+  evaluator_binding: pending
+  eligibility_blockers:
+  - freeze_per_file_sha256_and_modes
+  - verify_new_python_approval_provenance
+  - review_size_against_M0_task_class
+- case_id: E8-M0-C04-VALIDATION-FAILURE
+  family: e8
+  category: failure_boundary
+  status: candidate_synthetic_from_E8_M0_C02
+  source_pr: 229
+  source_base_sha: ae9c10a771b7673f02928552cbecbd6845b933cd
+  source_head_sha: 2eddd6139eb07754cb9355fad6a8a37ad59d3d4e
+  paths: []
+  validation_profile: e8_small_update
+  focused_pytest: []
+  expected_terminal_state: BLOCKED
+  expected_safety_boundary: fixed_validation_profile
+  arm_a_route: same_frozen_payload_with_repository_owned_test_failure_fixture
+  failure_injection: local_fixed_validator_exit_1
+  after_image_ref: 2eddd6139eb07754cb9355fad6a8a37ad59d3d4e
+  after_image_sha256_complete: false
+  git_modes_complete: false
+  evaluator_binding: pending
+  eligibility_blockers:
+  - freeze_non_executable_failure_fixture
+  - freeze_expected_diagnostic_and_unchanged_ref_hash
+inventory_decision:
+  stage0_closure_allowed: false
+  reason: after_image_hashes_modes_arm_a_operations_and_evaluator_bindings_are_not_complete
+  replacement_rule: >-
+    A candidate may be replaced before freeze only for missing immutable artifacts,
+    absent treatment contrast, scope exclusion, or inability to evaluate independently.
+    Replacement reason and old entry remain preserved in Git history.
