@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
 import shutil
 from dataclasses import replace
 from pathlib import Path
@@ -21,7 +22,6 @@ from drpo.e7_hopper_q2 import (
     spearman,
     train_actor_stage,
 )
-
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "configs" / "e7_hopper_q2_medium_replay_v2.yaml"
@@ -54,9 +54,7 @@ def test_rebuttal_plan_lists_24_cells_and_uses_profile_output_contract(tmp_path)
     assert defaults.experiment_profile == "q2" and defaults.config == module.DEFAULT_CONFIG
 
 
-@pytest.mark.parametrize("advantage_mode", ["frozen", "refreshed"])
-@pytest.mark.parametrize("method", ["drpo", "is"])
-def test_rebuttal_interrupted_resume_reproduces_uninterrupted_updates(tmp_path, monkeypatch, advantage_mode, method):
+def _rebuttal_worker_fixture(tmp_path, monkeypatch, advantage_mode="refreshed", method="is"):
     import h5py
 
     from drpo import e7_hopper_q2 as module
@@ -78,10 +76,8 @@ def test_rebuttal_interrupted_resume_reproduces_uninterrupted_updates(tmp_path, 
         f["terminals"] = np.arange(80) % 4 == 3
         f["timeouts"] = np.zeros(80, bool)
         f["infos/action_log_probs"] = np.full(80, -2., np.float32)
-    full, interrupted, resumed = (tmp_path / name for name in ("full", "interrupted", "resumed"))
+    full = tmp_path / "full"
     module.prepare_rebuttal_context(dataset, full / "prepare", settings, base, torch.device("cpu"), "a" * 40)
-    shutil.copytree(full / "prepare", interrupted / "prepare")
-    shutil.copytree(full / "prepare", resumed / "prepare")
     monkeypatch.setattr(module, "load_rebuttal_config", lambda *args: (settings, base))
 
     def fake_rollout(**kwargs):
@@ -93,6 +89,16 @@ def test_rebuttal_interrupted_resume_reproduces_uninterrupted_updates(tmp_path, 
     args = argparse.Namespace(config="toy", smoke=True, device="cpu", seed=200,
                               advantage_mode=advantage_mode, method=method,
                               dataset_path=str(dataset), work_dir=str(full), resume_from=None)
+    return module, args, full
+
+
+@pytest.mark.parametrize("advantage_mode", ["frozen", "refreshed"])
+@pytest.mark.parametrize("method", ["drpo", "is"])
+def test_rebuttal_interrupted_resume_reproduces_uninterrupted_updates(tmp_path, monkeypatch, advantage_mode, method):
+    module, args, full = _rebuttal_worker_fixture(tmp_path, monkeypatch, advantage_mode, method)
+    interrupted, resumed = (tmp_path / name for name in ("interrupted", "resumed"))
+    shutil.copytree(full / "prepare", interrupted / "prepare")
+    shutil.copytree(full / "prepare", resumed / "prepare")
     assert module.train_rebuttal_branch(args) == 0
     save = module._atomic_rebuttal_checkpoint
 
@@ -133,6 +139,85 @@ def test_rebuttal_interrupted_resume_reproduces_uninterrupted_updates(tmp_path, 
         assert (exported / name).stat().st_size > 0
     recovered = torch.load(exported / "checkpoint.pt", weights_only=False)
     assert recovered["step"] == 4 and recovered["history"] == first["history"]
+
+
+@pytest.mark.parametrize("failure_in_checkpoint", [False, True])
+def test_rebuttal_resume_does_not_train_past_an_observed_numerical_failure(tmp_path, monkeypatch, failure_in_checkpoint):
+    module, args, failed = _rebuttal_worker_fixture(tmp_path, monkeypatch)
+    actor_loss = module.rebuttal_actor_loss
+    write_json = module._write_rebuttal_json
+    save_checkpoint = module._atomic_rebuttal_checkpoint
+    calls = 0
+
+    def fail_third_loss(logp, coefficient):
+        nonlocal calls
+        calls += 1
+        return logp.sum() * float("nan") if calls == 3 else actor_loss(logp, coefficient)
+
+    def interrupt_before_summary(path, value):
+        if path.name == "summary.json":
+            raise InterruptedError("numerical failure saved, summary not yet exported")
+        write_json(path, value)
+
+    def keep_initial_checkpoint(path, state):
+        save_checkpoint(path, state)
+        if path.name == "checkpoint.pt" and state["step"] == 0:
+            torch.save(state, path.with_name("initial_checkpoint.pt"))
+
+    monkeypatch.setattr(module, "rebuttal_actor_loss", fail_third_loss)
+    monkeypatch.setattr(module, "_write_rebuttal_json", interrupt_before_summary)
+    monkeypatch.setattr(module, "_atomic_rebuttal_checkpoint", keep_initial_checkpoint)
+    with pytest.raises(InterruptedError):
+        module.train_rebuttal_branch(args)
+    old_cell = module._rebuttal_cell(failed, 200, "refreshed", "is")
+    if failure_in_checkpoint:
+        # Checkpoint-only recovery must preserve the numerical stop as well.
+        (old_cell / "numerical_failure.json").unlink()
+    else:
+        # The failure marker survived, but the newer failure checkpoint did not.
+        shutil.copy2(old_cell / "initial_checkpoint.pt", old_cell / "checkpoint.pt")
+    old_state = torch.load(old_cell / "checkpoint.pt", weights_only=False)
+    resumed = tmp_path / "resumed_failure"
+    shutil.copytree(failed / "prepare", resumed / "prepare")
+    monkeypatch.setattr(module, "_write_rebuttal_json", write_json)
+    monkeypatch.setattr(module, "_atomic_rebuttal_checkpoint", save_checkpoint)
+    args.work_dir, args.resume_from = str(resumed), str(failed)
+    assert module.train_rebuttal_branch(args) == 0
+    cell = module._rebuttal_cell(resumed, 200, "refreshed", "is")
+    summary = json.loads((cell / "summary.json").read_text())
+    assert summary["status"] == "numerical_failure"
+    assert summary["completed_actor_steps"] == old_state["step"] and summary["late_mean"] is None
+    assert summary["numerical_failure_observed_actor_steps"] == 2
+    assert calls == 3
+    state = torch.load(cell / "checkpoint.pt", weights_only=False)
+    assert state["training_rng"] == old_state["training_rng"]
+    for group in ("actor", "critic"):
+        for key, value in old_state[group].items():
+            torch.testing.assert_close(state[group][key], value, rtol=0, atol=0)
+
+
+def test_rebuttal_failed_worker_exit_overrides_a_previously_written_summary(tmp_path, monkeypatch):
+    from drpo import e7_hopper_q2 as module
+
+    settings, _ = module.load_rebuttal_config(ROOT / "configs/e7_hopper_pq_is_rebuttal_v1.yaml", True)
+    for key in module.rebuttal_matrix(settings["seeds"]):
+        cell = module._rebuttal_cell(tmp_path, key["seed"], key["advantage_mode"], key["method"])
+        module._write_rebuttal_json(cell / "summary.json", {
+            **key, "status": "completed", "completed_actor_steps": settings["actor_steps"],
+            "late_mean": 7., "terminal": 7., "late_count": 1,
+        })
+    cell = module._rebuttal_cell(tmp_path, 200, "refreshed", "is")
+    module._write_rebuttal_json(cell / "failure.json", {"status": "runtime_failure", "returncode": -11})
+    monkeypatch.setattr(module, "_plot_rebuttal", lambda *args: None)
+    audit = module.aggregate_rebuttal(tmp_path, settings)
+    assert audit["runtime_failure_cells"] == 1 and audit["completed_cells"] == 7
+    assert audit["status"] == "PARTIAL"
+    matrix = module._read_rebuttal_csv(tmp_path / "summary/MATRIX.csv")
+    row = next(r for r in matrix if r["advantage_mode"] == "refreshed" and r["method"] == "is")
+    assert row["status"] == "runtime_failure" and row["late_mean"] == "7.0"
+    summary = module._read_rebuttal_csv(tmp_path / "summary/METHOD_SUMMARY.csv")
+    row = next(r for r in summary if r["advantage_mode"] == "refreshed" and r["method"] == "is")
+    assert row["late_mean_n"] == "0" and row["late_mean_mean"] == ""
 
 
 def test_rebuttal_aggregation_retains_failures_and_uses_actual_n_and_sample_sd(tmp_path, monkeypatch):

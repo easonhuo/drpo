@@ -54,6 +54,11 @@ using the manuscript Hopper-replay coefficient and canonical reference; it is
 not a claim of exact reproduction of a historical selected run. Exp has no
 nonzero tail floor. These constants are not retuned from this experiment.
 
+Diagnostic nonnegative means use scaled reductions to avoid overflow while
+summing finite masses. These temporary statistical scalings never enter the
+actor coefficients or training loss. Identical raw/effective force vectors
+reuse one gradient calculation; zero-weight groups retain a zero force.
+
 ## Measurements and interpretation
 
 Fix up to 16384 uniformly sampled train transitions across all branches. Save
@@ -143,6 +148,14 @@ python scripts/run_e7_hopper_q2.py --experiment-profile rebuttal_pq_is --resume-
 Resume checks source/config/data identity, reuses preparation and completed
 cells, and continues only incomplete matching tuples. It never changes the
 original run directory. Reuse the same `--smoke` flag when resuming a smoke.
+An observed NaN/Inf stop remains terminal across recovery, including an
+interruption before summary export. The failure is saved in both its marker
+and checkpoint. If only an older checkpoint survives, the summary separates
+its recovered step from the originally observed failure step and does not
+continue training past that event. A worker's nonzero exit takes precedence
+over a summary written before the exit; its raw observations remain available
+but it is excluded from completed-run means. Recovery re-exports that cell
+from its checkpoint rather than silently reusing the failed export.
 
 Read `summary/MATRIX.csv` first, including failures. Then inspect
 `METHOD_SUMMARY.csv`, `PAIRED_COMPARISONS.csv`, `PQ_TRAJECTORIES.csv`,

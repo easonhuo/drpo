@@ -4333,14 +4333,26 @@ def _write_rebuttal_json(path: Path, value: Any) -> None:
     atomic_write_json(path, _rebuttal_json(value))
 
 
+def _rebuttal_nonnegative_mean(values: np.ndarray) -> float:
+    """Reduce diagnostic mass without overflowing a finite nonnegative mean."""
+    if values.size == 0:
+        return float("nan")
+    maximum = float(np.max(values))
+    if maximum == 0 or not math.isfinite(maximum):
+        return maximum
+    return float(np.mean(values / maximum)) * maximum
+
+
 def rebuttal_mass(coefficient: np.ndarray) -> dict[str, Any]:
     coefficient = np.asarray(coefficient, dtype=np.float64)
-    p = float(np.maximum(coefficient, 0).mean())
-    q = float(np.maximum(-coefficient, 0).mean())
+    p = _rebuttal_nonnegative_mean(np.maximum(coefficient, 0))
+    q = _rebuttal_nonnegative_mean(np.maximum(-coefficient, 0))
     if not (math.isfinite(p) and math.isfinite(q)):
         ratio, status = None, "nonfinite_mass"
     elif p > 0:
         ratio, status = q / p, "finite"
+        if not math.isfinite(ratio):
+            ratio, status = None, "ratio_overflow"
     else:
         ratio, status = None, "p_zero_q_positive" if q > 0 else "both_zero"
     return {"p": p, "q": q, "rho": ratio, "ratio_status": status}
@@ -4455,7 +4467,8 @@ def _rebuttal_weight_statistics(log_ratio: np.ndarray) -> dict[str, Any]:
     }
     for prefix, values in (("log_ratio", x), ("ratio", weights)):
         with np.errstate(over="ignore", invalid="ignore"):
-            summaries = [np.mean(values), *np.quantile(values, [0.5, 0.9, 0.99]), np.max(values)]
+            mean = _rebuttal_nonnegative_mean(values) if prefix == "ratio" else np.mean(values)
+            summaries = [mean, *np.quantile(values, [0.5, 0.9, 0.99]), np.max(values)]
         for name, val in zip(("mean", "median", "p90", "p99", "max"), summaries):
             result[f"{prefix}_{name}"] = float(val)
     if np.all(np.isfinite(x)):
@@ -4477,6 +4490,8 @@ def _rebuttal_force(
 ) -> torch.Tensor:
     params = list(policy.parameters())
     force = torch.zeros(sum(p.numel() for p in params), dtype=torch.float64, device=device)
+    if not np.any(coefficient):
+        return force
     for start in range(0, len(obs), batch_size):
         stop = start + batch_size
         logp, _, _ = current_action_log_prob(
@@ -4576,7 +4591,11 @@ def collect_rebuttal_diagnostics(
         row[f"{name}_count"] = int(mask.sum())
         row[f"{name}_abs_advantage_mean"] = float(np.abs(a[mask]).mean()) if mask.any() else None
         row[f"{name}_abs_coefficient_mean"] = float(np.abs(coefficient[mask]).mean()) if mask.any() else None
+        raw_norm = 0.0
         for label, values in (("raw", a), ("effective", coefficient)):
+            if label == "effective" and np.array_equal(a[mask], coefficient[mask]):
+                row[f"{label}_{name}_force_norm"] = raw_norm
+                continue
             if mask.any():
                 force = _rebuttal_force(
                     policy, context["obs"][ids[mask]], data.actions[ids[mask]],
@@ -4586,6 +4605,8 @@ def collect_rebuttal_diagnostics(
             else:
                 norm = 0.0
             row[f"{label}_{name}_force_norm"] = norm
+            if label == "raw":
+                raw_norm = norm
     for label in ("raw", "effective"):
         far, near = (row[f"{label}_{name}_negative_force_norm"] for name in ("far", "near"))
         row[f"{label}_far_vs_near_norm_share"] = far / (far + near) if far + near > 0 else None
@@ -4831,6 +4852,7 @@ def train_rebuttal_branch(args: argparse.Namespace) -> int:
     history: dict[str, list] = {k: [] for k in ("training_metrics", "diagnostics", "rollouts", "gradient_variance")}
     start, completed, critic_updates, clipped, previous = 0, 0, 0, 0, None
     critic_reference = torch.cat([p.detach().cpu().flatten() for p in critic.parameters()])
+    failure_record = None
     if args.resume_from:
         previous_cell = _rebuttal_cell(Path(args.resume_from), seed, mode, method)
         old_checkpoint = previous_cell / "checkpoint.pt"
@@ -4848,8 +4870,12 @@ def train_rebuttal_branch(args: argparse.Namespace) -> int:
             critic_updates, clipped = state["critic_updates"], state["clipped"]
             history, previous = state["history"], state["previous_advantage"]
             critic_reference = state["critic_reference"].cpu()
+            failure_record = state.get("numerical_failure")
+        marker = previous_cell / "numerical_failure.json"
+        if marker.is_file():
+            failure_record = json.loads(marker.read_text())
     last_critic: dict[str, Any] = {"loss": None, "gradient_norm": None}
-    failure = None
+    failure = failure_record["reason"] if failure_record else None
 
     def flush() -> None:
         for name, rows in history.items():
@@ -4867,6 +4893,7 @@ def train_rebuttal_branch(args: argparse.Namespace) -> int:
             "actor_optimizer": actor_opt.state_dict(), "critic_optimizer": critic_opt.state_dict(),
             "training_rng": rng.bit_generator.state, "global_rng": _rebuttal_rng_state(device),
             "history": history, "previous_advantage": previous, "critic_reference": critic_reference,
+            "numerical_failure": failure_record,
         })
         _write_rebuttal_json(cell / "checkpoint_index.json", {
             "path": str(cell / "checkpoint.pt"), "sha256": sha256_file(cell / "checkpoint.pt"),
@@ -4917,7 +4944,8 @@ def train_rebuttal_branch(args: argparse.Namespace) -> int:
             observe(0)
             rollout(0)
             checkpoint()
-        for step in range(start + 1, settings["actor_steps"] + 1):
+        steps = range(start + 1, settings["actor_steps"] + 1) if failure is None else ()
+        for step in steps:
             ids = sample_indices(rng, context["train_ids"], settings["actor_batch_size"])
             obs, next_obs = tensor(context["obs"][ids], device), tensor(context["next_obs"][ids], device)
             rewards = tensor(data.rewards[ids], device)
@@ -4971,7 +4999,10 @@ def train_rebuttal_branch(args: argparse.Namespace) -> int:
             if step % settings["checkpoint_interval"] == 0 or step == settings["actor_steps"]:
                 checkpoint()
         if failure:
-            _write_rebuttal_json(cell / "numerical_failure.json", {"reason": failure, "completed_actor_steps": completed, "attempted_step": step})
+            if failure_record is None:
+                failure_record = {"reason": failure, "completed_actor_steps": completed, "attempted_step": step}
+            failure_record = {**failure_record, "checkpoint_actor_steps": completed}
+            _write_rebuttal_json(cell / "numerical_failure.json", failure_record)
             # Last finite model and all completed observations remain available.
             if history["diagnostics"][-1]["step"] != completed:
                 observe(completed)
@@ -4996,6 +5027,7 @@ def train_rebuttal_branch(args: argparse.Namespace) -> int:
             **identity, "status": "numerical_failure" if failure else "completed",
             "completed_actor_steps": completed, "scheduled_actor_steps": settings["actor_steps"],
             "critic_update_count": critic_updates, "numerical_failure": failure,
+            "numerical_failure_observed_actor_steps": failure_record["completed_actor_steps"] if failure_record else None,
             "support_or_variance_boundary_event": boundary, "task_collapse": None,
             "task_collapse_status": "not_adjudicated_no_coldstart_threshold",
             "terminal_classification": "numerical_failure" if failure else "fixed_horizon_inconclusive",
@@ -5084,11 +5116,16 @@ def _plot_rebuttal(root: Path, tables: dict[str, list[dict]]) -> None:
 def aggregate_rebuttal(root: Path, settings: dict) -> dict:
     summary_root = root / "summary"
     summary_root.mkdir(exist_ok=True)
-    matrix, tables = [], {name: [] for name in ("training_metrics", "diagnostics", "rollouts", "gradient_variance")}
+    matrix, tables = [], {name: [] for name in ("diagnostics", "rollouts", "gradient_variance")}
     for key in rebuttal_matrix(settings["seeds"]):
         cell = _rebuttal_cell(root, key["seed"], key["advantage_mode"], key["method"])
         path = cell / "summary.json"
         row = json.loads(path.read_text()) if path.is_file() else {**key, "status": "runtime_failure", "late_mean": None, "terminal": None}
+        failure_path = cell / "failure.json"
+        if failure_path.is_file():
+            failure = json.loads(failure_path.read_text())
+            row = {**row, "status": "runtime_failure", "worker_returncode": failure.get("returncode"),
+                   "runtime_failure_log": failure.get("log")}
         matrix.append(row)
         for name, rows in tables.items():
             rows.extend({**r, **key} for r in _read_rebuttal_csv(cell / f"{name}.csv"))
@@ -5100,7 +5137,7 @@ def aggregate_rebuttal(root: Path, settings: dict) -> dict:
             cells = [r for r in matrix if r["advantage_mode"] == mode and r["method"] == method]
             row = {"advantage_mode": mode, "method": method, "planned_n": len(cells),
                    "completed_n": sum(r["status"] == "completed" for r in cells),
-                   "numerical_failure_n": sum(r["status"] == "numerical_failure" for r in cells),
+                   "numerical_failure_n": sum(r["status"] == "numerical_failure" or bool(r.get("numerical_failure")) for r in cells),
                    "runtime_failure_n": sum(r["status"] == "runtime_failure" for r in cells)}
             for metric in ("late_mean", "terminal"):
                 values = [r[metric] for r in cells if r.get(metric) is not None and r["status"] == "completed"]
@@ -5135,7 +5172,7 @@ def aggregate_rebuttal(root: Path, settings: dict) -> dict:
     audit = {
         "experiment_id": REBUTTAL_EXPERIMENT_ID, "expected_cells": len(matrix),
         "terminal_cells": terminal, "completed_cells": sum(r["status"] == "completed" for r in matrix),
-        "numerical_failure_cells": sum(r["status"] == "numerical_failure" for r in matrix),
+        "numerical_failure_cells": sum(r["status"] == "numerical_failure" or bool(r.get("numerical_failure")) for r in matrix),
         "runtime_failure_cells": len(matrix) - terminal,
         "support_or_variance_boundary_cells": sum(bool(r.get("support_or_variance_boundary_event")) for r in matrix),
         "task_collapse_status": "not_adjudicated_no_coldstart_threshold",
@@ -5227,7 +5264,7 @@ def run_rebuttal_experiment(args: argparse.Namespace) -> int:
             old_summary = old_cell / "summary.json"
             if old_summary.is_file():
                 row = json.loads(old_summary.read_text())
-                if row["status"] in ("completed", "numerical_failure"):
+                if row["status"] in ("completed", "numerical_failure") and not (old_cell / "failure.json").is_file():
                     if (row["settings_identity"] != settings["identity"]
                             or row["source_commit"] != source_commit
                             or any(row[k] != v for k, v in key.items())):
@@ -5273,11 +5310,11 @@ def run_rebuttal_experiment(args: argparse.Namespace) -> int:
                     log.close()
                     if code != 0:
                         cell = _rebuttal_cell(root, key["seed"], key["advantage_mode"], key["method"])
-                        if not (cell / "failure.json").is_file():
-                            _write_rebuttal_json(cell / "failure.json", {
-                                **key, "status": "runtime_failure", "returncode": code,
-                                "log": str(log.name),
-                            })
+                        failure_path = cell / "failure.json"
+                        failure = json.loads(failure_path.read_text()) if failure_path.is_file() else {}
+                        failure.update({**key, "status": "runtime_failure", "returncode": code, "log": str(log.name)})
+                        _write_rebuttal_json(failure_path, failure)
+                        _write_rebuttal_json(cell / "status.json", failure)
                     print(json.dumps({"event": "worker_exited", **key, "returncode": code}), flush=True)
                     del active[slot]
             _write_rebuttal_json(root / "scientific_heartbeat.json", {

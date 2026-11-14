@@ -184,6 +184,15 @@ def test_rebuttal_ess_is_stable_when_unscaled_weights_overflow():
     assert result["ratio_zero_fraction"] == 1 / 3
 
 
+def test_rebuttal_large_finite_mass_and_ratio_means_do_not_overflow_during_summing():
+    with np.errstate(over="ignore"):
+        mass = mod.rebuttal_mass(np.full(8, 1e308))
+        weights = mod._rebuttal_weight_statistics(np.full(8, 709.))
+    assert mass["p"] == 1e308 and mass["q"] == 0 and mass["rho"] == 0
+    assert weights["ratio_nonfinite_fraction"] == 0 and weights["ess"] == 8
+    np.testing.assert_allclose(weights["ratio_mean"], np.exp(709.), rtol=1e-14)
+
+
 def test_rebuttal_gradient_variance_matches_direct_sample_covariance_trace():
     settings, _, actor, critic, context = _rebuttal_toy()
     settings["variance_batches"] = 4
