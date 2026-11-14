@@ -24,6 +24,8 @@ from pathlib import Path
 
 EXPERIMENT_ID = "EXT-H-E7-Q2"
 DEFAULT_CONFIG = "configs/e7_hopper_q2_medium_replay_v2.yaml"
+REBUTTAL_CONFIG = "configs/e7_hopper_pq_is_rebuttal_v1.yaml"
+REBUTTAL_ID = "EXT-H-E7-REBUTTAL-PQ-IS-01"
 DATASET_BASENAME = "hopper_medium_replay-v2.hdf5"
 DATASET_ENV = "DRPO_HOPPER_MEDIUM_REPLAY"
 
@@ -64,6 +66,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--device", default="auto")
     parser.add_argument("--config", default=DEFAULT_CONFIG)
     parser.add_argument("--artifact-output")
+    parser.add_argument("--experiment-profile", choices=("q2", "rebuttal_pq_is"), default="q2")
+    parser.add_argument("--gpu-ids", default="0,1,2,3,4,5,6,7")
+    parser.add_argument("--max-workers", type=int, default=8)
+    parser.add_argument("--smoke", action="store_true", help="New profile only: separate short engineering matrix")
+    parser.add_argument("--resume-from", help="New profile only: previous persistent run root; writes a new run")
     parser.add_argument(
         "--critic-artifact",
         help="Optional exact v4.3 schema-3 canonical critic artifact to verify and reuse",
@@ -138,7 +145,85 @@ def resolve_config(repo: Path, raw: str) -> tuple[Path, Path]:
     return config, relative
 
 
-def build_command(args: argparse.Namespace) -> tuple[list[str], dict[str, str]]:
+def build_rebuttal_command(args: argparse.Namespace) -> tuple[list[str], dict]:
+    import yaml
+
+    repo = resolve_repo(Path(__file__).resolve())
+    head = git_text(repo, "rev-parse", "HEAD")
+    run_class = "pilot" if args.smoke else args.run_class
+    if run_class == "formal" and args.allow_dirty:
+        raise SystemExit("--allow-dirty is forbidden for formal runs")
+    if args.max_workers < 1:
+        raise SystemExit("--max-workers must be positive")
+    if args.critic_artifact:
+        raise SystemExit("This profile prepares its own compatible shared critic; omit --critic-artifact")
+    config, relative = resolve_config(repo, REBUTTAL_CONFIG if args.config == DEFAULT_CONFIG else args.config)
+    settings = yaml.safe_load(config.read_text())
+    if settings["experiment_id"] != REBUTTAL_ID:
+        raise SystemExit("The selected profile requires its own experiment config")
+    effective = dict(settings)
+    smoke_settings = effective.pop("smoke")
+    if args.smoke:
+        effective.update(smoke_settings)
+    dataset, dataset_source = resolve_dataset(repo, args.dataset_path)
+    output_root = Path("runs/e7_rebuttal_pq_is" if args.output_root == "runs/e7_q2" else args.output_root).expanduser()
+    output_root = output_root.resolve() if output_root.is_absolute() else (repo / output_root).resolve()
+    work = Path(args.work_dir).expanduser().resolve() if args.work_dir else output_root / f"{utc_stamp()}_{'smoke' if args.smoke else run_class}"
+    if work.exists() and any(work.iterdir()):
+        raise SystemExit(f"Work directory must be new or empty: {work}")
+    artifact = Path(args.artifact_output).expanduser().resolve() if args.artifact_output else work.parent / f"{work.name}_{REBUTTAL_ID}.zip"
+    if artifact.exists():
+        raise SystemExit(f"Artifact output already exists: {artifact}")
+    resume = Path(args.resume_from).expanduser().resolve() if args.resume_from else None
+    command = [
+        sys.executable, str(repo / "scripts/run_experiment_guard_hardened.py"),
+        "--experiment-id", REBUTTAL_ID, "--repo-root", str(repo),
+        "--output-root", str(work), "--artifact-output", str(artifact),
+        "--run-class", run_class, "--expected-commit", head,
+        "--large-file-persistence", "persistent_local",
+    ]
+    # Use the existing guard, with this profile's actual output/progress contract.
+    for name in ("RUN_COMPLETE.json", "terminal_audit.json", "scientific_run_manifest.json",
+                 "ROLLOUT_PREFLIGHT.json", "prepare/PREPARE_COMPLETE.json", "summary/MATRIX.csv",
+                 "summary/METHOD_SUMMARY.csv", "summary/GRADIENT_VARIANCE.csv"):
+        command.extend(["--required-output", name])
+    base_relative = (config.parent / settings["base_config"]).relative_to(repo)
+    for name in ("src/drpo/e7_hopper_q2.py", "scripts/run_e7_hopper_q2.py", str(relative),
+                 str(base_relative), "docs/experiments/EXT-H-E7-REBUTTAL-PQ-IS-01.md"):
+        command.extend(["--source-file", name])
+    for pattern in ("scientific_heartbeat.json", "cells/seed_*/*/*/status.json",
+                    "cells/seed_*/*/*/training_metrics.csv", "prepare/critic_training/critic_metrics.csv"):
+        command.extend(["--progress-glob", pattern])
+    if args.allow_dirty:
+        command.append("--allow-dirty")
+    command.extend([
+        "--", sys.executable, str(repo / "src/drpo/e7_hopper_q2.py"), "rebuttal-pq-is",
+        "--config", str(config), "--dataset-path", str(dataset), "--work-dir", str(work),
+        "--repo-root", str(repo), "--device", args.device, "--gpu-ids", args.gpu_ids,
+        "--max-workers", str(args.max_workers),
+    ])
+    if args.smoke:
+        command.append("--smoke")
+    if resume:
+        command.extend(["--resume-from", str(resume)])
+    matrix = [{"seed": int(seed), "advantage_mode": mode, "method": method}
+              for seed in effective["seeds"] for mode in ("frozen", "refreshed")
+              for method in ("positive_only", "signed", "drpo", "is")]
+    return command, {
+        "experiment_id": REBUTTAL_ID, "git_commit": head, "run_class": run_class,
+        "smoke": args.smoke, "config": str(config), "dataset": str(dataset),
+        "dataset_resolution": dataset_source, "work_dir": str(work), "artifact": str(artifact),
+        "resume_from": str(resume) if resume else None, "matrix": matrix, "cell_count": len(matrix),
+        "actor_steps": effective["actor_steps"], "critic_steps": effective["critic_steps"],
+        "max_workers": args.max_workers, "gpu_ids": args.gpu_ids,
+    }
+
+
+def build_command(args: argparse.Namespace) -> tuple[list[str], dict]:
+    if getattr(args, "experiment_profile", "q2") == "rebuttal_pq_is":
+        return build_rebuttal_command(args)
+    if getattr(args, "smoke", False) or getattr(args, "resume_from", None):
+        raise SystemExit("--smoke and --resume-from belong to --experiment-profile rebuttal_pq_is")
     script = Path(__file__).resolve()
     repo = resolve_repo(script)
     head = git_text(repo, "rev-parse", "HEAD")

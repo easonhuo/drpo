@@ -7,6 +7,7 @@ from pathlib import Path
 
 import h5py
 import numpy as np
+import pytest
 import torch
 
 MODULE_PATH = Path(__file__).parents[1] / "src" / "drpo" / "e7_hopper_q2.py"
@@ -15,6 +16,173 @@ assert spec and spec.loader
 mod = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
+
+
+def _rebuttal_toy():
+    from dataclasses import replace
+
+    settings, base = mod.load_rebuttal_config(Path(__file__).parents[1] / "configs/e7_hopper_pq_is_rebuttal_v1.yaml", True)
+    base = replace(base, hidden_sizes=(4,))
+    settings = {**settings, "diagnostic_batch_size": 8, "variance_batch_size": 8}
+    torch.manual_seed(23)
+    rng = np.random.default_rng(61)
+    n = 32
+    data = mod.OfflineData(
+        rng.normal(size=(n, 3)).astype(np.float32), np.tanh(rng.normal(size=(n, 2))).astype(np.float32),
+        rng.normal(size=n).astype(np.float32), rng.normal(size=(n, 3)).astype(np.float32),
+        np.zeros(n, dtype=bool), np.zeros(n, dtype=bool), np.arange(n),
+        np.full(n, -2.0, dtype=np.float32), np.arange(n),
+    )
+    critic = mod.ValueNetwork(3, (4,))
+    actor = mod._new_rebuttal_policy(base, 3, 2)
+    norm = mod.Normalizer(np.array([30.], np.float32), np.array([7.], np.float32))
+    context = {"base": base, "settings": settings, "data": data, "obs": data.observations,
+               "next_obs": data.next_observations, "target_norm": norm, "center": .3, "scale": 2.,
+               "diagnostic_ids": np.arange(n), "diagnostic_ids_sha256": "toy", "train_ids": np.arange(n)}
+    a, delta = mod._rebuttal_advantage_arrays(critic, context, np.arange(n), torch.device("cpu"))
+    context.update(initial_advantage=a, initial_delta=delta)
+    return settings, base, actor, critic, context
+
+
+def test_rebuttal_behavior_logp_and_transition_ids_follow_loader_limit(tmp_path):
+    path = tmp_path / "data.hdf5"
+    with h5py.File(path, "w") as handle:
+        handle["observations"] = np.zeros((6, 3), np.float32)
+        handle["actions"] = np.zeros((6, 2), np.float32)
+        handle["rewards"] = np.arange(6, dtype=np.float32)
+        handle["terminals"] = np.zeros(6, bool)
+        handle["infos/action_log_probs"] = np.arange(6, dtype=np.float32) + .5
+    data = mod.load_hopper_hdf5(path, 4)
+    np.testing.assert_array_equal(data.behavior_log_prob, [.5, 1.5, 2.5, 3.5])
+    np.testing.assert_array_equal(data.transition_ids, np.arange(4))
+
+
+def test_rebuttal_mass_uses_natural_population_and_explicit_ratio_boundaries():
+    values = np.array([2., -1., -3., 0.])
+    mass = mod.rebuttal_mass(values)
+    assert mass["p"] == .5 and mass["q"] == 1 and mass["rho"] == 2
+    assert mass["p"] - mass["q"] == values.mean()
+    assert mass["p"] + mass["q"] == np.abs(values).mean()
+    assert mod.rebuttal_mass(np.array([-1., 0.]))["ratio_status"] == "p_zero_q_positive"
+    both = mod.rebuttal_mass(np.zeros(4))
+    assert both["rho"] is None and both["ratio_status"] == "both_zero"
+
+
+def test_rebuttal_raw_is_score_gradient_including_ratios_above_one():
+    settings, _, actor, _, context = _rebuttal_toy()
+    obs = torch.from_numpy(context["obs"][:4])
+    actions = torch.from_numpy(context["data"].actions[:4])
+    lp, d, _ = mod.current_action_log_prob(actor, obs, actions)
+    ratios = torch.tensor([1., 2., .5, 7.], dtype=torch.float64)
+    behavior = lp.detach() - ratios.log()
+    a = torch.tensor([2., -1., -3., .2], dtype=torch.float64)
+    c = mod.rebuttal_actor_coefficients(a, lp, d, behavior, "is", settings)
+    assert not c.requires_grad
+    torch.testing.assert_close(c, ratios * a)
+    params = list(actor.parameters())
+    expected = [torch.zeros_like(p) for p in params]
+    for i in range(len(a)):
+        grads = torch.autograd.grad(lp[i], params, retain_graph=True)
+        for result, grad in zip(expected, grads):
+            result.add_(-ratios[i] * a[i] * grad / len(a))
+    actual = torch.autograd.grad(mod.rebuttal_actor_loss(lp, c), params, retain_graph=True)
+    for first, second in zip(actual, expected):
+        torch.testing.assert_close(first, second)
+    one = mod.rebuttal_actor_coefficients(a, lp, d, lp.detach(), "is", settings)
+    signed = mod.rebuttal_actor_coefficients(a, lp, d, behavior, "signed", settings)
+    torch.testing.assert_close(one, signed)
+
+
+def test_rebuttal_tanh_action_ratio_matches_native_ratio_and_counts_boundaries():
+    _, _, actor, _, context = _rebuttal_toy()
+    obs = torch.from_numpy(context["obs"][:3])
+    action = torch.tensor([[.1, -.2], [.4, .7], [1., -1.]])
+    lp, _, clipped = mod.current_action_log_prob(actor, obs, action)
+    safe = action.double().clamp(-1 + 1e-6, 1 - 1e-6)
+    u = torch.atanh(safe)
+    mean, ls = actor.latent_parameters(obs)
+    learner_native = torch.distributions.Normal(mean.double(), ls.double().exp()).log_prob(u).sum(-1)
+    behavior_native = torch.distributions.Normal(torch.zeros_like(u), torch.ones_like(u)).log_prob(u).sum(-1)
+    behavior_action = behavior_native - torch.log1p(-safe.square()).sum(-1)
+    torch.testing.assert_close(lp - behavior_action, learner_native - behavior_native)
+    assert clipped.tolist() == [False, False, True]
+
+
+def test_rebuttal_exp_mapping_stop_gradient_and_no_retention_floor():
+    settings, *_ = _rebuttal_toy()
+    d = torch.tensor([0., 4., 10000.], dtype=torch.float64, requires_grad=True)
+    c = mod.rebuttal_actor_coefficients(-torch.ones(3), torch.zeros(3), d, torch.zeros(3), "drpo", settings)
+    assert not c.requires_grad
+    torch.testing.assert_close(-c, torch.exp(-.03066675 * d.detach()))
+    assert 0 < -c[-1] < np.exp(-40)
+
+
+def test_rebuttal_positive_only_and_force_keep_full_batch_denominator():
+    _, _, actor, _, context = _rebuttal_toy()
+    obs, actions = context["obs"][:4], context["data"].actions[:4]
+    lp, _, _ = mod.current_action_log_prob(actor, torch.from_numpy(obs), torch.from_numpy(actions))
+    c = torch.tensor([2., 0., 0., 0.], dtype=torch.float64)
+    torch.testing.assert_close(mod.rebuttal_actor_loss(lp, c), -2 * lp[0] / 4)
+    force = mod._rebuttal_force(actor, obs[:1], actions[:1], np.array([2.]), 4, 4, torch.device("cpu"))
+    grads = torch.autograd.grad(-mod.rebuttal_actor_loss(lp, c), list(actor.parameters()))
+    torch.testing.assert_close(force, torch.cat([g.flatten().double() for g in grads]))
+
+
+def test_rebuttal_td_restores_value_units_and_uses_frozen_advantage_constants():
+    settings, _, _, critic, context = _rebuttal_toy()
+    obs, nxt = torch.from_numpy(context["obs"][:4]), torch.from_numpy(context["next_obs"][:4])
+    reward = torch.tensor([1., 2., 3., 4.])
+    done = torch.tensor([False, True, False, True])
+    a, delta = mod.current_rebuttal_advantage(critic, obs, nxt, reward, done, context["target_norm"], .99, .3, 2.)
+    value, next_value = critic(obs).detach().double() * 7 + 30, critic(nxt).detach().double() * 7 + 30
+    expected = reward.double() + .99 * (~done).double() * next_value - value
+    torch.testing.assert_close(delta, expected)
+    torch.testing.assert_close(a, (expected - .3) / 2)
+    opt = torch.optim.SGD(critic.parameters(), lr=.01)
+    before = [p.detach().clone() for p in critic.parameters()]
+    normalized_target = (reward.double() + .99 * (~done).double() * next_value - 30) / 7
+    loss = .5 * (critic(obs) - normalized_target).square().mean()
+    grads = torch.autograd.grad(loss, list(critic.parameters()))
+    settings["critic_gradient_clip"] = 1e9
+    stats = mod.update_rebuttal_critic(critic, opt, obs, nxt, reward, done, context["target_norm"], .99, settings)
+    assert stats["finite"]
+    for parameter, previous, grad in zip(critic.parameters(), before, grads):
+        torch.testing.assert_close(parameter, previous - .01 * grad)
+    changed, _ = mod.current_rebuttal_advantage(critic, obs, nxt, reward, done, context["target_norm"], .99, .3, 2.)
+    assert not torch.equal(changed, a)
+
+
+def test_rebuttal_diagnostics_preserve_gradients_rng_modes_and_optimizer():
+    settings, _, actor, critic, context = _rebuttal_toy()
+    actor.eval()
+    optimizer = torch.optim.AdamW(actor.parameters())
+    for parameter in actor.parameters():
+        parameter.grad = torch.ones_like(parameter)
+    optimizer.step()
+    before = [p.detach().clone() for p in actor.parameters()]
+    grads = [p.grad.clone() for p in actor.parameters()]
+    moments = [v["exp_avg"].clone() for v in optimizer.state.values()]
+    rng = torch.get_rng_state().clone()
+    first, previous = mod.collect_rebuttal_diagnostics(actor, critic, context, "drpo", "frozen", 0, None, torch.device("cpu"))
+    rows = mod.collect_rebuttal_gradient_variance(actor, critic, context, "frozen", "drpo", 0, 200, torch.device("cpu"))
+    second, _ = mod.collect_rebuttal_diagnostics(actor, critic, context, "drpo", "frozen", 1, previous, torch.device("cpu"))
+    assert first["p_raw"] == second["p_raw"] and first["q_raw"] == second["q_raw"]
+    assert second["previous_rms_change"] == 0
+    assert all(row["status"] == "finite" for row in rows)
+    assert not actor.training
+    torch.testing.assert_close(torch.get_rng_state(), rng)
+    for p, saved, grad in zip(actor.parameters(), before, grads):
+        torch.testing.assert_close(p, saved, rtol=0, atol=0)
+        torch.testing.assert_close(p.grad, grad, rtol=0, atol=0)
+    for state, moment in zip(optimizer.state.values(), moments):
+        torch.testing.assert_close(state["exp_avg"], moment, rtol=0, atol=0)
+
+
+def test_rebuttal_ess_is_stable_when_unscaled_weights_overflow():
+    result = mod._rebuttal_weight_statistics(np.array([1000., 1000., -1000.]))
+    assert result["ess"] == 2
+    assert result["ratio_nonfinite_fraction"] == 2 / 3
+    assert result["ratio_zero_fraction"] == 1 / 3
 
 
 def test_episode_ids_and_discounted_returns() -> None:

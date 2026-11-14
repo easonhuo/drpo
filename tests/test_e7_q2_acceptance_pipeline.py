@@ -2,8 +2,13 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
+import argparse
+import importlib.util
+import json
+import shutil
 
 import numpy as np
+import pytest
 import torch
 
 from drpo.e7_hopper_q2 import (
@@ -21,6 +26,127 @@ from drpo.e7_hopper_q2 import (
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "configs" / "e7_hopper_q2_medium_replay_v2.yaml"
+
+
+def test_rebuttal_plan_lists_24_cells_and_uses_profile_output_contract(tmp_path):
+    spec = importlib.util.spec_from_file_location("e7_launcher", ROOT / "scripts/run_e7_hopper_q2.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    dataset = tmp_path / "data.hdf5"
+    dataset.touch()
+    work = tmp_path / "planned_only"
+    args = module.build_parser().parse_args([
+        "--experiment-profile", "rebuttal_pq_is", "--plan-only",
+        "--dataset-path", str(dataset), "--work-dir", str(work),
+    ])
+    command, plan = module.build_command(args)
+    assert plan["cell_count"] == 24
+    assert len({tuple(r.values()) for r in plan["matrix"]}) == 24
+    assert set(r["method"] for r in plan["matrix"]) == {"positive_only", "signed", "drpo", "is"}
+    assert "summary/MATRIX.csv" in command and "aggregate_summary.json" not in command
+    assert "cells/seed_*/*/*/training_metrics.csv" in command
+    assert "--expected-commit" in command and "--require-origin-main-match" not in command
+    assert plan["actor_steps"] == 1_000_000 and not work.exists()
+    args.smoke = True
+    command, smoke = module.build_command(args)
+    assert smoke["cell_count"] == 8 and smoke["actor_steps"] == 10
+    assert smoke["run_class"] == "pilot" and "--smoke" in command
+    defaults = module.build_parser().parse_args([])
+    assert defaults.experiment_profile == "q2" and defaults.config == module.DEFAULT_CONFIG
+
+
+@pytest.mark.parametrize("advantage_mode", ["frozen", "refreshed"])
+@pytest.mark.parametrize("method", ["drpo", "is"])
+def test_rebuttal_interrupted_resume_reproduces_uninterrupted_updates(tmp_path, monkeypatch, advantage_mode, method):
+    import h5py
+    from drpo import e7_hopper_q2 as module
+
+    settings, base = module.load_rebuttal_config(ROOT / "configs/e7_hopper_pq_is_rebuttal_v1.yaml", True)
+    settings.update(actor_steps=4, critic_steps=2, critic_eval_interval=1, actor_batch_size=8,
+                    critic_batch_size=8, diagnostic_size=8, diagnostic_batch_size=8,
+                    diagnostic_interval=1, checkpoint_interval=1, log_interval=1,
+                    evaluation_interval=1, variance_steps=[0, 4], variance_batches=2,
+                    variance_batch_size=8, late_steps=[3, 4], max_transitions=None)
+    base = replace(base, hidden_sizes=(4,), critic_batch_size=8, actor_batch_size=8)
+    dataset = tmp_path / "toy.hdf5"
+    rng = np.random.default_rng(11)
+    with h5py.File(dataset, "w") as f:
+        f["observations"] = rng.normal(size=(80, 3)).astype(np.float32)
+        f["next_observations"] = rng.normal(size=(80, 3)).astype(np.float32)
+        f["actions"] = np.tanh(rng.normal(size=(80, 2))).astype(np.float32)
+        f["rewards"] = rng.normal(size=80).astype(np.float32)
+        f["terminals"] = np.arange(80) % 4 == 3
+        f["timeouts"] = np.zeros(80, bool)
+        f["infos/action_log_probs"] = np.full(80, -2., np.float32)
+    full, interrupted, resumed = (tmp_path / name for name in ("full", "interrupted", "resumed"))
+    module.prepare_rebuttal_context(dataset, full / "prepare", settings, base, torch.device("cpu"), "a" * 40)
+    shutil.copytree(full / "prepare", interrupted / "prepare")
+    shutil.copytree(full / "prepare", resumed / "prepare")
+    monkeypatch.setattr(module, "load_rebuttal_config", lambda *args: (settings, base))
+
+    def fake_rollout(**kwargs):
+        score = float(sum(p.detach().double().sum() for p in kwargs["policy"].parameters()))
+        return {"rollout_return_mean": score, "rollout_return_std": 0., "normalized_return": score,
+                "rollout_episodes": 1, "rollout_status": "available"}
+
+    monkeypatch.setattr(module, "evaluate_d4rl_rollouts", fake_rollout)
+    args = argparse.Namespace(config="toy", smoke=True, device="cpu", seed=200,
+                              advantage_mode=advantage_mode, method=method,
+                              dataset_path=str(dataset), work_dir=str(full), resume_from=None)
+    assert module.train_rebuttal_branch(args) == 0
+    save = module._atomic_rebuttal_checkpoint
+
+    def interrupt_after_checkpoint(path, state):
+        save(path, state)
+        if path.name == "checkpoint.pt" and state["step"] == 2:
+            raise InterruptedError("simulated interruption after durable checkpoint")
+
+    monkeypatch.setattr(module, "_atomic_rebuttal_checkpoint", interrupt_after_checkpoint)
+    args.work_dir = str(interrupted)
+    with pytest.raises(InterruptedError):
+        module.train_rebuttal_branch(args)
+    source = module._rebuttal_cell(interrupted, 200, advantage_mode, method) / "checkpoint.pt"
+    checksum = module.sha256_file(source)
+    monkeypatch.setattr(module, "_atomic_rebuttal_checkpoint", save)
+    args.work_dir, args.resume_from = str(resumed), str(interrupted)
+    assert module.train_rebuttal_branch(args) == 0
+    assert module.sha256_file(source) == checksum
+    first = torch.load(module._rebuttal_cell(full, 200, advantage_mode, method) / "checkpoint.pt", weights_only=False)
+    second = torch.load(module._rebuttal_cell(resumed, 200, advantage_mode, method) / "checkpoint.pt", weights_only=False)
+    for group in ("actor", "critic"):
+        for key in first[group]:
+            torch.testing.assert_close(first[group][key], second[group][key], atol=0, rtol=0)
+    for group in ("actor_optimizer", "critic_optimizer"):
+        assert first[group]["param_groups"] == second[group]["param_groups"]
+        for key, state in first[group]["state"].items():
+            for name, value in state.items():
+                torch.testing.assert_close(value, second[group]["state"][key][name], atol=0, rtol=0)
+    assert first["training_rng"] == second["training_rng"]
+    assert first["critic_updates"] == second["critic_updates"] == (4 if advantage_mode == "refreshed" else 0)
+    assert first["history"] == second["history"]
+
+
+def test_rebuttal_aggregation_retains_failures_and_uses_actual_n_and_sample_sd(tmp_path, monkeypatch):
+    from drpo import e7_hopper_q2 as module
+
+    settings, _ = module.load_rebuttal_config(ROOT / "configs/e7_hopper_pq_is_rebuttal_v1.yaml")
+    for key in module.rebuttal_matrix(settings["seeds"]):
+        fail = key["method"] == "signed" and key["seed"] == 202
+        value = 1 + 2 * (key["seed"] - 200) + int(key["method"] != "positive_only")
+        row = {**key, "status": "numerical_failure" if fail else "completed",
+               "late_mean": None if fail else value, "terminal": None if fail else value,
+               "completed_actor_steps": 100 if fail else settings["actor_steps"],
+               "late_count": 0 if fail else len(settings["late_steps"])}
+        cell = module._rebuttal_cell(tmp_path, key["seed"], key["advantage_mode"], key["method"])
+        module._write_rebuttal_json(cell / "summary.json", row)
+    monkeypatch.setattr(module, "_plot_rebuttal", lambda *args: None)
+    audit = module.aggregate_rebuttal(tmp_path, settings)
+    assert audit["terminal_cells"] == 24 and audit["numerical_failure_cells"] == 2
+    rows = module._read_rebuttal_csv(tmp_path / "summary/METHOD_SUMMARY.csv")
+    pos = next(r for r in rows if r["advantage_mode"] == "frozen" and r["method"] == "positive_only")
+    signed = next(r for r in rows if r["advantage_mode"] == "frozen" and r["method"] == "signed")
+    assert float(pos["late_mean_mean"]) == 3 and float(pos["late_mean_seed_sample_sd"]) == 2
+    assert signed["late_mean_n"] == "2" and float(signed["late_mean_mean"]) == 3
 
 
 def test_protocol_v43_loads_fixed_longrun_budgets_and_dynamic_global_control() -> None:
