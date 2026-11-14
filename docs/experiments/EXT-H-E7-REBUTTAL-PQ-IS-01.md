@@ -239,8 +239,11 @@ n and seed SD. Q2_PAIRED_COMPARISONS.csv preserves each seed difference and
 aggregate for Far-zero/Far-cap versus Signed and their own Global control,
 for both late and terminal scores. Q2_BUDGET_MATCHING.csv retains the block
 reductions; Q2_INTERVENTION_DIAGNOSTICS.csv retains fixed-threshold audit data.
-The root manifest records all 36 cells, 30 jobs, preparation constants and
-per-seed calibration; pair identities bind each Global to its intervention.
+The root scientific_run_manifest.json records all 36 cells, 30 jobs,
+preparation constants and per-seed calibration; pair identities bind each
+Global to its intervention. The existing guard owns run_manifest.json for
+execution/provenance and packaging. Its final write leaves the complete
+scientific manifest intact; both files are included in the same run package.
 Eight SVG figures are under `figures/`, including q2_return_curves,
 q2_budget_matching and q2_far_negative_force; each cell has training metrics,
 diagnostics, rollouts, summary, status/failure and checkpoint index.

@@ -5720,7 +5720,8 @@ def run_rebuttal_experiment(args: argparse.Namespace) -> int:
         "large_file_persistence": args.large_file_persistence,
     }
     _write_rebuttal_json(root / "scientific_run_manifest.json", manifest)
-    if not (root / "run_manifest.json").exists():
+    owns_run_manifest = not (root / "run_manifest.json").exists()
+    if owns_run_manifest:
         _write_rebuttal_json(root / "run_manifest.json", manifest)
     _write_rebuttal_json(root / "resolved_config.json", settings)
     shutil.copy2(args.config, root / "resolved_config.yaml")
@@ -5764,8 +5765,8 @@ def run_rebuttal_experiment(args: argparse.Namespace) -> int:
     manifest["preparation"] = json.loads((root / "prepare/normalization.json").read_text())
     manifest["q2_calibrations"] = [json.loads((root / "prepare" / f"q2_calibration_seed_{seed}.json").read_text()) for seed in settings["seeds"]]
     _write_rebuttal_json(root / "scientific_run_manifest.json", manifest)
-    guarded_manifest = json.loads((root / "run_manifest.json").read_text())
-    _write_rebuttal_json(root / "run_manifest.json", {**guarded_manifest, "scientific_protocol": manifest})
+    if owns_run_manifest:
+        _write_rebuttal_json(root / "run_manifest.json", manifest)
     pending = [job for job in jobs if not (resume and _reuse_rebuttal_job(resume, root, job, settings, source_commit))]
     logs = root / "logs"
     logs.mkdir(exist_ok=True)
