@@ -123,6 +123,15 @@ def test_rebuttal_interrupted_resume_reproduces_uninterrupted_updates(tmp_path, 
     assert first["training_rng"] == second["training_rng"]
     assert first["critic_updates"] == second["critic_updates"] == (4 if advantage_mode == "refreshed" else 0)
     assert first["history"] == second["history"]
+    endpoint = tmp_path / "endpoint_export_recovery"
+    shutil.copytree(full / "prepare", endpoint / "prepare")
+    args.work_dir, args.resume_from = str(endpoint), str(full)
+    assert module.train_rebuttal_branch(args) == 0
+    exported = module._rebuttal_cell(endpoint, 200, advantage_mode, method)
+    for name in ("diagnostics.csv", "training_metrics.csv", "rollouts.csv", "checkpoint_index.json"):
+        assert (exported / name).stat().st_size > 0
+    recovered = torch.load(exported / "checkpoint.pt", weights_only=False)
+    assert recovered["step"] == 4 and recovered["history"] == first["history"]
 
 
 def test_rebuttal_aggregation_retains_failures_and_uses_actual_n_and_sample_sd(tmp_path, monkeypatch):

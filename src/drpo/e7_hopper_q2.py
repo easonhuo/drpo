@@ -4979,6 +4979,10 @@ def train_rebuttal_branch(args: argparse.Namespace) -> int:
                 rollout(completed)
             checkpoint()
         if completed == settings["actor_steps"] and failure is None:
+            if start == completed:
+                # Recover an interruption after the final checkpoint but before
+                # summary export: publish its histories/index in this new root.
+                checkpoint()
             # Full train-pool moments supplement the fixed-subset observations.
             full_a = context["initial_advantage"][context["train_ids"]] if mode == "frozen" else _rebuttal_advantage_arrays(critic, context, context["train_ids"], device)[0]
             _write_rebuttal_json(cell / "terminal_full_pool_mass.json", rebuttal_mass(full_a))
