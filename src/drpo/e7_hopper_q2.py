@@ -4463,7 +4463,7 @@ def _rebuttal_weight_statistics(log_ratio: np.ndarray) -> dict[str, Any]:
         total = float(scaled.sum())
         result["ess"] = total ** 2 / float(np.square(scaled).sum())
         result["ess_fraction"] = result["ess"] / len(x)
-        k = max(1, int(math.ceil(len(x) * 0.01)))
+        k = max(1, math.ceil(len(x) * 0.01))
         result["top_1pct_weight_share"] = float(np.sort(scaled)[-k:].sum()) / total
     else:
         result.update(ess=None, ess_fraction=None, top_1pct_weight_share=None)
@@ -5090,8 +5090,8 @@ def aggregate_rebuttal(root: Path, settings: dict) -> dict:
         path = cell / "summary.json"
         row = json.loads(path.read_text()) if path.is_file() else {**key, "status": "runtime_failure", "late_mean": None, "terminal": None}
         matrix.append(row)
-        for name in tables:
-            tables[name].extend({**r, **key} for r in _read_rebuttal_csv(cell / f"{name}.csv"))
+        for name, rows in tables.items():
+            rows.extend({**r, **key} for r in _read_rebuttal_csv(cell / f"{name}.csv"))
     write_csv(summary_root / "MATRIX.csv", matrix)
     write_csv(summary_root / "PER_RUN_SUMMARY.csv", matrix)
     method_rows, paired = [], []

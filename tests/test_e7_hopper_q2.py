@@ -7,7 +7,6 @@ from pathlib import Path
 
 import h5py
 import numpy as np
-import pytest
 import torch
 
 MODULE_PATH = Path(__file__).parents[1] / "src" / "drpo" / "e7_hopper_q2.py"
@@ -153,7 +152,7 @@ def test_rebuttal_td_restores_value_units_and_uses_frozen_advantage_constants():
 
 
 def test_rebuttal_diagnostics_preserve_gradients_rng_modes_and_optimizer():
-    settings, _, actor, critic, context = _rebuttal_toy()
+    _, _, actor, critic, context = _rebuttal_toy()
     actor.eval()
     optimizer = torch.optim.AdamW(actor.parameters())
     for parameter in actor.parameters():

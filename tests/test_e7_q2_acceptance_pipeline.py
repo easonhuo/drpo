@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import replace
-from pathlib import Path
 import argparse
 import importlib.util
 import shutil
+from dataclasses import replace
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -41,7 +41,7 @@ def test_rebuttal_plan_lists_24_cells_and_uses_profile_output_contract(tmp_path)
     command, plan = module.build_command(args)
     assert plan["cell_count"] == 24
     assert len({tuple(r.values()) for r in plan["matrix"]}) == 24
-    assert set(r["method"] for r in plan["matrix"]) == {"positive_only", "signed", "drpo", "is"}
+    assert {r["method"] for r in plan["matrix"]} == {"positive_only", "signed", "drpo", "is"}
     assert "summary/MATRIX.csv" in command and "aggregate_summary.json" not in command
     assert "cells/seed_*/*/*/training_metrics.csv" in command
     assert "--expected-commit" in command and "--require-origin-main-match" not in command
@@ -58,6 +58,7 @@ def test_rebuttal_plan_lists_24_cells_and_uses_profile_output_contract(tmp_path)
 @pytest.mark.parametrize("method", ["drpo", "is"])
 def test_rebuttal_interrupted_resume_reproduces_uninterrupted_updates(tmp_path, monkeypatch, advantage_mode, method):
     import h5py
+
     from drpo import e7_hopper_q2 as module
 
     settings, base = module.load_rebuttal_config(ROOT / "configs/e7_hopper_pq_is_rebuttal_v1.yaml", True)
