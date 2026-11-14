@@ -185,6 +185,45 @@ def test_rebuttal_ess_is_stable_when_unscaled_weights_overflow():
     assert result["ratio_zero_fraction"] == 1 / 3
 
 
+def test_rebuttal_gradient_variance_matches_direct_sample_covariance_trace():
+    settings, _, actor, critic, context = _rebuttal_toy()
+    settings["variance_batches"] = 4
+    rows = mod.collect_rebuttal_gradient_variance(actor, critic, context, "frozen", "signed", 0, 200, torch.device("cpu"))
+    rng = np.random.default_rng(np.random.SeedSequence([settings["diagnostic_seed"], 200, 0, 19]))
+    gradients = []
+    for _ in range(4):
+        ids = rng.choice(context["train_ids"], size=8, replace=False)
+        logp, _, _ = mod.current_action_log_prob(actor, torch.from_numpy(context["obs"][ids]), torch.from_numpy(context["data"].actions[ids]))
+        loss = -(torch.from_numpy(context["initial_advantage"][ids]) * logp).mean()
+        gradients.append(torch.cat([g.flatten().double() for g in torch.autograd.grad(loss, list(actor.parameters()))]).numpy())
+    expected = np.var(np.stack(gradients), axis=0, ddof=1).sum()
+    signed = next(row for row in rows if row["rule"] == "signed")
+    np.testing.assert_allclose(signed["variance_trace"], expected, rtol=1e-10)
+
+
+def test_rebuttal_zero_positive_mass_and_empty_force_groups_are_observations():
+    _, _, actor, critic, context = _rebuttal_toy()
+    with torch.no_grad():
+        for parameter in actor.parameters():
+            parameter.zero_()
+    context["data"].actions[:] = 0
+    context["initial_advantage"][:] = -1
+    row, _ = mod.collect_rebuttal_diagnostics(actor, critic, context, "positive_only", "frozen", 0, None, torch.device("cpu"))
+    assert row["p_raw"] == 0 and row["q_raw"] == 1 and row["rho_raw"] is None
+    assert row["ratio_status_effective"] == "both_zero"
+    assert row["positive_count"] == row["far_negative_count"] == 0
+    assert row["raw_positive_force_norm"] == row["effective_negative_force_norm"] == 0
+
+
+def test_rebuttal_gradient_norm_reduction_does_not_overflow_on_finite_is_gradients():
+    parameter = torch.nn.Parameter(torch.zeros(2))
+    parameter.grad = torch.tensor([3e25, 4e25])
+    before = mod._clip_rebuttal_gradients([parameter], 100.)
+    assert torch.isfinite(before)
+    np.testing.assert_allclose(float(before), 5e25, rtol=1e-6)
+    np.testing.assert_allclose(parameter.grad.numpy(), [60., 80.], rtol=1e-6)
+
+
 def test_episode_ids_and_discounted_returns() -> None:
     terminals = np.array([0, 1, 0, 0], dtype=bool)
     timeouts = np.array([0, 0, 0, 1], dtype=bool)

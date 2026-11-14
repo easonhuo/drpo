@@ -71,6 +71,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-workers", type=int, default=8)
     parser.add_argument("--smoke", action="store_true", help="New profile only: separate short engineering matrix")
     parser.add_argument("--resume-from", help="New profile only: previous persistent run root; writes a new run")
+    parser.add_argument("--large-file-persistence", choices=("persistent_local", "ephemeral", "unknown"), default="persistent_local")
     parser.add_argument(
         "--critic-artifact",
         help="Optional exact v4.3 schema-3 canonical critic artifact to verify and reuse",
@@ -180,7 +181,7 @@ def build_rebuttal_command(args: argparse.Namespace) -> tuple[list[str], dict]:
         "--experiment-id", REBUTTAL_ID, "--repo-root", str(repo),
         "--output-root", str(work), "--artifact-output", str(artifact),
         "--run-class", run_class, "--expected-commit", head,
-        "--large-file-persistence", "persistent_local",
+        "--large-file-persistence", args.large_file_persistence,
     ]
     # Use the existing guard, with this profile's actual output/progress contract.
     for name in ("RUN_COMPLETE.json", "terminal_audit.json", "scientific_run_manifest.json",
@@ -201,6 +202,7 @@ def build_rebuttal_command(args: argparse.Namespace) -> tuple[list[str], dict]:
         "--config", str(config), "--dataset-path", str(dataset), "--work-dir", str(work),
         "--repo-root", str(repo), "--device", args.device, "--gpu-ids", args.gpu_ids,
         "--max-workers", str(args.max_workers),
+        "--large-file-persistence", args.large_file_persistence,
     ])
     if args.smoke:
         command.append("--smoke")
@@ -277,7 +279,7 @@ def build_command(args: argparse.Namespace) -> tuple[list[str], dict]:
         "--expected-commit",
         head,
         "--large-file-persistence",
-        "persistent_local",
+        getattr(args, "large_file_persistence", "persistent_local"),
         "--required-output",
         "RUN_COMPLETE.json",
         "--required-output",

@@ -5,6 +5,8 @@ The scientific runner trains an episode-split value critic, freezes critic-deriv
 advantages, takes a tanh-squashed Gaussian actor through a Positive-only terminal
 audit, constructs advantage-matched near/far negative probes, decomposes Gaussian
 mean and log-scale output scores, and branches the preregistered signed controls.
+The explicit ``rebuttal-pq-is`` profile reuses components with cold-start actors,
+frozen/refreshed advantages and raw IS; the original Q2 defaults are unchanged.
 
 This file never creates ZIP/TAR artifacts. Formal supervision, recovery packaging,
 checksums, and uploadable result archives are owned by the canonical hardened
@@ -4388,6 +4390,19 @@ def rebuttal_actor_loss(logp: torch.Tensor, coefficient: torch.Tensor) -> torch.
     return -(coefficient.detach() * logp).mean()
 
 
+def _clip_rebuttal_gradients(parameters: Iterable[nn.Parameter], limit: float) -> torch.Tensor:
+    """Same global norm rule, with float64 reduction of finite raw gradients."""
+    gradients = [p.grad for p in parameters if p.grad is not None]
+    if not gradients:
+        return torch.tensor(0.0, dtype=torch.float64)
+    norm = torch.sqrt(sum(g.detach().double().square().sum() for g in gradients))
+    if bool(torch.isfinite(norm)):
+        factor = (limit / (norm + 1e-6)).clamp(max=1.0)
+        for gradient in gradients:
+            gradient.mul_(factor.to(gradient.dtype))
+    return norm
+
+
 def current_rebuttal_advantage(
     critic: ValueNetwork, obs: torch.Tensor, next_obs: torch.Tensor,
     reward: torch.Tensor, done: torch.Tensor, target_norm: Normalizer,
@@ -4422,7 +4437,7 @@ def update_rebuttal_critic(
     if not bool(torch.isfinite(loss)):
         return {"loss": float("nan"), "finite": False}
     loss.backward()
-    norm = torch.nn.utils.clip_grad_norm_(critic.parameters(), settings["critic_gradient_clip"])
+    norm = _clip_rebuttal_gradients(critic.parameters(), settings["critic_gradient_clip"])
     finite = bool(torch.isfinite(norm))
     if finite:
         optimizer.step()
@@ -4439,10 +4454,9 @@ def _rebuttal_weight_statistics(log_ratio: np.ndarray) -> dict[str, Any]:
         "ratio_zero_fraction": float(np.mean(weights == 0)),
     }
     for prefix, values in (("log_ratio", x), ("ratio", weights)):
-        for name, val in zip(
-            ("mean", "median", "p90", "p99", "max"),
-            [np.mean(values), *np.quantile(values, [0.5, 0.9, 0.99]), np.max(values)],
-        ):
+        with np.errstate(over="ignore", invalid="ignore"):
+            summaries = [np.mean(values), *np.quantile(values, [0.5, 0.9, 0.99]), np.max(values)]
+        for name, val in zip(("mean", "median", "p90", "p99", "max"), summaries):
             result[f"{prefix}_{name}"] = float(val)
     if np.all(np.isfinite(x)):
         scaled = np.exp(x - np.max(x))
@@ -4742,9 +4756,12 @@ def prepare_rebuttal_context(
     })
     shutil.copy2(root / "critic_training" / "critic_metrics.csv", root / "critic_pretrain_metrics.csv")
     _write_rebuttal_json(root / "critic_checkpoint_index.json", audit["checkpoint"])
+    inputs = ["context.pt", "initial_advantages.npz", "split_indices.npz", "diagnostic_transition_ids.npy"]
+    inputs.extend(f"actor_initial_seed_{seed}.pt" for seed in settings["seeds"])
     _write_rebuttal_json(root / "PREPARE_COMPLETE.json", {
         "source_commit": source_commit, "settings_identity": settings["identity"],
         "context_sha256": sha256_file(root / "context.pt"), "data_sha256": prepared["data_sha256"],
+        "prepared_input_hashes": {name: sha256_file(root / name) for name in inputs},
     })
     return prepared
 
@@ -4818,7 +4835,7 @@ def train_rebuttal_branch(args: argparse.Namespace) -> int:
         previous_cell = _rebuttal_cell(Path(args.resume_from), seed, mode, method)
         old_checkpoint = previous_cell / "checkpoint.pt"
         if old_checkpoint.is_file():
-            state = torch.load(old_checkpoint, map_location=device, weights_only=False)
+            state = torch.load(old_checkpoint, map_location="cpu", weights_only=False)
             if state["identity"] != identity:
                 raise ValueError("Checkpoint does not belong to this exact branch/source/config")
             actor.load_state_dict(state["actor"])
@@ -4854,7 +4871,7 @@ def train_rebuttal_branch(args: argparse.Namespace) -> int:
         _write_rebuttal_json(cell / "checkpoint_index.json", {
             "path": str(cell / "checkpoint.pt"), "sha256": sha256_file(cell / "checkpoint.pt"),
             "size_bytes": (cell / "checkpoint.pt").stat().st_size, "step": completed,
-            "persistence": "persistent_local", **identity,
+            "persistence": getattr(args, "large_file_persistence", "persistent_local"), **identity,
         })
 
     def observe(step: int) -> None:
@@ -4917,7 +4934,7 @@ def train_rebuttal_branch(args: argparse.Namespace) -> int:
                 failure = "nonfinite_actor_loss"
                 break
             loss.backward()
-            norm = torch.nn.utils.clip_grad_norm_(actor.parameters(), settings["actor_gradient_clip"])
+            norm = _clip_rebuttal_gradients(actor.parameters(), settings["actor_gradient_clip"])
             if not bool(torch.isfinite(norm)):
                 failure = "nonfinite_actor_gradient"
                 actor_opt.zero_grad(set_to_none=True)
@@ -5155,6 +5172,7 @@ def run_rebuttal_experiment(args: argparse.Namespace) -> int:
         "behavior_logp_source": "infos/action_log_probs, per collection row",
         "state_occupancy_correction": False, "actor_warmstart_steps": 0,
         "environment": environment_manifest(),
+        "large_file_persistence": args.large_file_persistence,
     }
     _write_rebuttal_json(root / "scientific_run_manifest.json", manifest)
     if not (root / "run_manifest.json").exists():
@@ -5164,13 +5182,16 @@ def run_rebuttal_experiment(args: argparse.Namespace) -> int:
     resume = Path(args.resume_from).resolve() if args.resume_from else None
     if resume:
         old = json.loads((resume / "scientific_run_manifest.json").read_text())
-        if any(old[k] != manifest[k] for k in ("source_commit", "settings_identity", "dataset")):
+        if any(old[k] != manifest[k] for k in ("source_commit", "settings_identity")) or old["dataset"]["sha256"] != digest:
             raise ValueError("Resume requires the same exact source/config/dataset; use the original commit")
         done = resume / "prepare" / "PREPARE_COMPLETE.json"
         if done.is_file():
             record = json.loads(done.read_text())
             if record["context_sha256"] != sha256_file(resume / "prepare" / "context.pt"):
                 raise ValueError("The prepared recovery context checksum changed")
+            for name, expected in record["prepared_input_hashes"].items():
+                if sha256_file(resume / "prepare" / name) != expected:
+                    raise ValueError(f"Prepared recovery input checksum changed: {name}")
             shutil.copytree(resume / "prepare", root / "prepare")
     device = choose_device(args.device)
     if device.type == "cuda":
@@ -5203,7 +5224,9 @@ def run_rebuttal_experiment(args: argparse.Namespace) -> int:
             if old_summary.is_file():
                 row = json.loads(old_summary.read_text())
                 if row["status"] in ("completed", "numerical_failure"):
-                    if row["settings_identity"] != settings["identity"] or row["source_commit"] != source_commit:
+                    if (row["settings_identity"] != settings["identity"]
+                            or row["source_commit"] != source_commit
+                            or any(row[k] != v for k, v in key.items())):
                         raise ValueError("Completed resume cell identity mismatch")
                     cell = _rebuttal_cell(root, key["seed"], key["advantage_mode"], key["method"])
                     cell.mkdir(parents=True, exist_ok=True)
@@ -5228,6 +5251,7 @@ def run_rebuttal_experiment(args: argparse.Namespace) -> int:
                     "--config", str(Path(args.config).resolve()), "--dataset-path", str(dataset),
                     "--work-dir", str(root), "--device", worker_device, "--seed", str(key["seed"]),
                     "--advantage-mode", key["advantage_mode"], "--method", key["method"],
+                    "--large-file-persistence", args.large_file_persistence,
                 ]
                 if args.smoke:
                     command.append("--smoke")
@@ -5243,6 +5267,13 @@ def run_rebuttal_experiment(args: argparse.Namespace) -> int:
                 code = process.poll()
                 if code is not None:
                     log.close()
+                    if code != 0:
+                        cell = _rebuttal_cell(root, key["seed"], key["advantage_mode"], key["method"])
+                        if not (cell / "failure.json").is_file():
+                            _write_rebuttal_json(cell / "failure.json", {
+                                **key, "status": "runtime_failure", "returncode": code,
+                                "log": str(log.name),
+                            })
                     print(json.dumps({"event": "worker_exited", **key, "returncode": code}), flush=True)
                     del active[slot]
             _write_rebuttal_json(root / "scientific_heartbeat.json", {
@@ -5284,6 +5315,7 @@ def build_parser() -> argparse.ArgumentParser:
         profile.add_argument("--device", default="auto")
         profile.add_argument("--smoke", action="store_true")
         profile.add_argument("--resume-from")
+        profile.add_argument("--large-file-persistence", choices=("persistent_local", "ephemeral", "unknown"), default="persistent_local")
         if name.endswith("-worker"):
             profile.add_argument("--seed", type=int, required=True)
             profile.add_argument("--advantage-mode", choices=REBUTTAL_MODES, required=True)

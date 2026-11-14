@@ -1,6 +1,7 @@
 # Hopper p/q, advantage refresh and raw IS
 
-Status: implementation; no 24-run scientific result has been produced.
+Implementation: runnable profile on `dev/e7-rebuttal-pq-is`.
+Scientific result status: `not_run`; no 24-run scientific result has been produced.
 Experiment: `EXT-H-E7-REBUTTAL-PQ-IS-01`. This is a tracked scientific protocol
 and operator roadmap, not a replacement for `docs/handoff.md`.
 
@@ -22,6 +23,10 @@ eight branches. No actor warmstart, including Positive-only. Each branch uses
 1M updates, AdamW lr 3e-4, weight decay 1e-4, batch 1024, global diagonal
 log_std clamped to [-5,2], and actor gradient clip **100**. Clipping is common
 optimizer processing; raw IS ratios themselves are never clipped or normalized.
+Global gradient norms are reduced in float64 so squaring a large but finite
+float32 score gradient does not itself create a numerical failure. Parameters
+and stored parameter gradients remain float32; genuine non-finite losses or
+gradients are recorded, not replaced by fallback weights.
 
 Define b=1-terminal-timeout (logical OR), delta=r+0.99*b*V(next)-V(state), with
 V restored to reward units. Freeze m_A and s_A=max(std(delta_0),1e-8) once on
@@ -102,7 +107,7 @@ server dataset locations. No `mujoco-py` or D4RL import is required.
 ```bash
 python scripts/run_e7_hopper_q2.py --experiment-profile rebuttal_pq_is --plan-only
 python scripts/run_e7_hopper_q2.py --experiment-profile rebuttal_pq_is --smoke --device cpu --max-workers 2
-python scripts/run_e7_hopper_q2.py --experiment-profile rebuttal_pq_is --gpu-ids 0,1,2,3,4,5,6,7 --max-workers 8
+python scripts/run_e7_hopper_q2.py --experiment-profile rebuttal_pq_is --device cuda --gpu-ids 0,1,2,3,4,5,6,7 --max-workers 8
 ```
 
 The smoke command is a separate 8-cell, 10-update engineering check with its own
@@ -115,6 +120,10 @@ process owns each branch; no fork of an initialized CUDA context is used.
 The launcher prints the absolute run directory and supervises the complete
 pipeline through the existing hardened guard. The exact clean dev-branch HEAD,
 config hashes, dataset SHA, environment and matrix are saved in the manifest.
+The default checkpoint storage label is `persistent_local`, for a persistent
+training machine. In a disposable container pass
+`--large-file-persistence ephemeral` (or `unknown` when persistence is unknown);
+the run manifest and checkpoint indexes retain this operational distinction.
 Using a clean reviewed development commit does not require a merge into main.
 Registry/READY/channel activation is not a launch prerequisite.
 
@@ -127,7 +136,7 @@ After interruption use a **new** guarded output directory, referring to the
 previous persistent run root:
 
 ```bash
-python scripts/run_e7_hopper_q2.py --experiment-profile rebuttal_pq_is --resume-from "$PREVIOUS_RUN_ROOT" --gpu-ids 0,1,2,3,4,5,6,7 --max-workers 8
+python scripts/run_e7_hopper_q2.py --experiment-profile rebuttal_pq_is --resume-from "$PREVIOUS_RUN_ROOT" --device cuda --gpu-ids 0,1,2,3,4,5,6,7 --max-workers 8
 ```
 
 `PREVIOUS_RUN_ROOT` is the absolute directory printed by the original launcher.
