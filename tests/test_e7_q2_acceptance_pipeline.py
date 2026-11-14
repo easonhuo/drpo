@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "configs" / "e7_hopper_q2_medium_replay_v2.yaml"
 
 
-def test_rebuttal_plan_lists_24_cells_and_uses_profile_output_contract(tmp_path):
+def test_rebuttal_plan_lists_36_cells_30_jobs_and_uses_profile_output_contract(tmp_path):
     spec = importlib.util.spec_from_file_location("e7_launcher", ROOT / "scripts/run_e7_hopper_q2.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -39,16 +39,26 @@ def test_rebuttal_plan_lists_24_cells_and_uses_profile_output_contract(tmp_path)
         "--dataset-path", str(dataset), "--work-dir", str(work),
     ])
     command, plan = module.build_command(args)
-    assert plan["cell_count"] == 24
-    assert len({tuple(r.values()) for r in plan["matrix"]}) == 24
-    assert {r["method"] for r in plan["matrix"]} == {"positive_only", "signed", "drpo", "is"}
+    from drpo import e7_hopper_q2 as runner
+
+    assert plan["cell_count"] == 36
+    assert len({tuple(r.values()) for r in plan["matrix"]}) == 36
+    assert sum(r["advantage_mode"] == "frozen" for r in plan["matrix"]) == 24
+    assert sum(r["method"] in runner.REBUTTAL_METHODS for r in plan["matrix"]) == 24
+    assert all(r["advantage_mode"] == "frozen" for r in plan["matrix"] if r["method"] in runner.Q2_METHODS)
+    settings, _ = runner.load_rebuttal_config(plan["config"])
+    assert plan["jobs"] == runner.rebuttal_jobs(settings)
+    assert plan["job_count"] == 30 and plan["pair_count"] == 6
+    scheduled = [tuple(cell.values()) for job in plan["jobs"] for cell in job["cells"]]
+    assert len(scheduled) == len(set(scheduled)) == 36
     assert "summary/MATRIX.csv" in command and "aggregate_summary.json" not in command
     assert "cells/seed_*/*/*/training_metrics.csv" in command
     assert "--expected-commit" in command and "--require-origin-main-match" not in command
     assert plan["actor_steps"] == 1_000_000 and not work.exists()
     args.smoke = True
     command, smoke = module.build_command(args)
-    assert smoke["cell_count"] == 8 and smoke["actor_steps"] == 10
+    assert smoke["cell_count"] == 12 and smoke["actor_steps"] == 10
+    assert smoke["job_count"] == 10 and smoke["pair_count"] == 2
     assert smoke["run_class"] == "pilot" and "--smoke" in command
     defaults = module.build_parser().parse_args([])
     assert defaults.experiment_profile == "q2" and defaults.config == module.DEFAULT_CONFIG
@@ -210,7 +220,7 @@ def test_rebuttal_failed_worker_exit_overrides_a_previously_written_summary(tmp_
     module._write_rebuttal_json(cell / "failure.json", {"status": "runtime_failure", "returncode": -11})
     monkeypatch.setattr(module, "_plot_rebuttal", lambda *args: None)
     audit = module.aggregate_rebuttal(tmp_path, settings)
-    assert audit["runtime_failure_cells"] == 1 and audit["completed_cells"] == 7
+    assert audit["runtime_failure_cells"] == 1 and audit["completed_cells"] == 11
     assert audit["status"] == "PARTIAL"
     matrix = module._read_rebuttal_csv(tmp_path / "summary/MATRIX.csv")
     row = next(r for r in matrix if r["advantage_mode"] == "refreshed" and r["method"] == "is")
@@ -235,12 +245,155 @@ def test_rebuttal_aggregation_retains_failures_and_uses_actual_n_and_sample_sd(t
         module._write_rebuttal_json(cell / "summary.json", row)
     monkeypatch.setattr(module, "_plot_rebuttal", lambda *args: None)
     audit = module.aggregate_rebuttal(tmp_path, settings)
-    assert audit["terminal_cells"] == 24 and audit["numerical_failure_cells"] == 2
+    assert audit["terminal_cells"] == 36 and audit["numerical_failure_cells"] == 2
     rows = module._read_rebuttal_csv(tmp_path / "summary/METHOD_SUMMARY.csv")
     pos = next(r for r in rows if r["advantage_mode"] == "frozen" and r["method"] == "positive_only")
     signed = next(r for r in rows if r["advantage_mode"] == "frozen" and r["method"] == "signed")
     assert float(pos["late_mean_mean"]) == 3 and float(pos["late_mean_seed_sample_sd"]) == 2
     assert signed["late_mean_n"] == "2" and float(signed["late_mean_mean"]) == 3
+    q2 = module._read_rebuttal_csv(tmp_path / "summary/Q2_PAIRED_COMPARISONS.csv")
+    aggregate = [r for r in q2 if r["row_type"] == "aggregate"]
+    assert len(aggregate) == 8
+    far_vs_signed = next(r for r in aggregate if r["method"] == "far_zero" and r["reference"] == "signed" and r["metric"] == "late_mean")
+    assert far_vs_signed["paired_n"] == "2" and float(far_vs_signed["mean_difference"]) == 0
+    q2_methods = module._read_rebuttal_csv(tmp_path / "summary/Q2_METHOD_SUMMARY.csv")
+    assert len(q2_methods) == 8
+    assert next(r for r in q2_methods if r["method"] == "signed")["late_mean_n"] == "2"
+
+
+@pytest.mark.parametrize("intervention", ["far_zero", "far_cap"])
+def test_rebuttal_q2_pair_resume_preserves_both_trajectories_and_partial_budget_block(tmp_path, monkeypatch, intervention):
+    module, args, full = _rebuttal_worker_fixture(tmp_path, monkeypatch, "frozen", intervention)
+    settings, _ = module.load_rebuttal_config(args.config, True)
+    settings["log_interval"] = 3  # checkpoint at step 2 holds an unfinished block
+    interrupted, resumed = (tmp_path / name for name in ("interrupted", "resumed"))
+    for directory in (interrupted, resumed):
+        shutil.copytree(full / "prepare", directory / "prepare")
+    assert module.train_rebuttal_q2_pair(args) == 0
+    save = module._atomic_rebuttal_checkpoint
+
+    def interrupt(path, state):
+        save(path, state)
+        if path.name == "checkpoint.pt" and state["step"] == 2:
+            raise InterruptedError("pair checkpoint saved")
+
+    monkeypatch.setattr(module, "_atomic_rebuttal_checkpoint", interrupt)
+    args.work_dir = str(interrupted)
+    with pytest.raises(InterruptedError):
+        module.train_rebuttal_q2_pair(args)
+    old = module._q2_pair_path(interrupted, 200, intervention) / "checkpoint.pt"
+    digest = module.sha256_file(old)
+    state = torch.load(old, weights_only=False)
+    assert state["step"] == state["budget_block"]["count"] == 2
+    monkeypatch.setattr(module, "_atomic_rebuttal_checkpoint", save)
+    args.work_dir, args.resume_from = str(resumed), str(interrupted)
+    assert module.train_rebuttal_q2_pair(args) == 0
+    assert module.sha256_file(old) == digest
+    first = torch.load(module._q2_pair_path(full, 200, intervention) / "checkpoint.pt", weights_only=False)
+    second = torch.load(module._q2_pair_path(resumed, 200, intervention) / "checkpoint.pt", weights_only=False)
+    for k in ("actors", "optimizers", "global_rng"):
+        assert _nested_equal(first[k], second[k])
+    for k in ("training_rng", "histories", "budgets", "clipped", "step", "calibration"):
+        assert first[k] == second[k], k
+    assert sum(row["updates"] for row in first["budgets"]) == 4
+    assert all(row["q2_absolute_error_max"] < 1e-5 for row in first["budgets"])
+    # Pair batch stream remains identical to the original independent seed map.
+    context = module._load_rebuttal_context(full / "prepare", Path(args.dataset_path), settings, module.load_rebuttal_config(args.config, True)[1])
+    rng = np.random.default_rng(np.random.SeedSequence([200, 41591]))
+    for _ in range(4):
+        module.sample_indices(rng, context["train_ids"], settings["actor_batch_size"])
+    assert rng.bit_generator.state == first["training_rng"]
+    job = next(job for job in module.rebuttal_jobs(settings) if job["method"] == intervention)
+    reused = tmp_path / "reused"
+    assert module._reuse_rebuttal_job(full, reused, job, settings, "a" * 40)
+    # A copied complete pair can still recover an interrupted endpoint export
+    # through its indexed synchronized checkpoint, without independent halves.
+    endpoint = tmp_path / "endpoint"
+    shutil.copytree(full / "prepare", endpoint / "prepare")
+    args.work_dir, args.resume_from = str(endpoint), str(reused)
+    assert module.train_rebuttal_q2_pair(args) == 0
+    recovered = torch.load(module._q2_pair_path(endpoint, 200, intervention) / "checkpoint.pt", weights_only=False)
+    assert recovered["histories"] == first["histories"]
+    assert _nested_equal(recovered["actors"], first["actors"])
+    failed_cell = module._rebuttal_cell(full, 200, "frozen", f"global_matched_{intervention}")
+    module._write_rebuttal_json(failed_cell / "failure.json", {"returncode": -11})
+    assert not module._reuse_rebuttal_job(full, tmp_path / "must_retry_pair", job, settings, "a" * 40)
+
+
+def _nested_equal(a, b):
+    if isinstance(a, torch.Tensor):
+        return torch.equal(a, b)
+    if isinstance(a, np.ndarray):
+        return np.array_equal(a, b)
+    if isinstance(a, dict):
+        return a.keys() == b.keys() and all(_nested_equal(a[k], b[k]) for k in a)
+    if isinstance(a, (list, tuple)):
+        return len(a) == len(b) and all(_nested_equal(x, y) for x, y in zip(a, b))
+    return a == b
+
+
+@pytest.mark.parametrize("status", ["undefined_no_initial_negative", "nonfinite_calibration"])
+def test_q2_undefined_calibration_is_reported_without_manufacturing_negative_data(tmp_path, monkeypatch, status):
+    module, args, full = _rebuttal_worker_fixture(tmp_path, monkeypatch, "frozen", "far_zero")
+    path = full / "prepare/q2_calibration_seed_200.json"
+    calibration = json.loads(path.read_text())
+    calibration.update(status=status, far_threshold=None, far_cap=None)
+    module._write_rebuttal_json(path, calibration)
+    assert module.train_rebuttal_q2_pair(args) == 0
+    rows = [json.loads((module._rebuttal_cell(full, 200, "frozen", method) / "summary.json").read_text()) for method in ("far_zero", "global_matched_far_zero")]
+    expected = "calibration_undefined" if status == "undefined_no_initial_negative" else "numerical_failure"
+    assert all(row["status"] == expected and row["completed_actor_steps"] == 0 for row in rows)
+    assert all(row["late_mean"] is None for row in rows)
+
+
+@pytest.mark.parametrize("checkpoint_only", [False, True])
+def test_rebuttal_q2_pair_numerical_stop_survives_interrupted_export(tmp_path, monkeypatch, checkpoint_only):
+    module, args, full = _rebuttal_worker_fixture(tmp_path, monkeypatch, "frozen", "far_cap")
+    clip, write, save = module._clip_rebuttal_gradients, module._write_rebuttal_json, module._atomic_rebuttal_checkpoint
+    calls = 0
+
+    def fail_third_step(parameters, limit):
+        nonlocal calls
+        calls += 1
+        norm = clip(parameters, limit)
+        return norm * float("nan") if calls == 5 else norm
+
+    def interrupt_export(path, value):
+        if path.name == "summary.json":
+            raise InterruptedError("numerical pair stop saved")
+        write(path, value)
+
+    def initial_snapshot(path, state):
+        save(path, state)
+        if path.name == "checkpoint.pt" and state["step"] == 0:
+            torch.save(state, path.with_name("initial.pt"))
+
+    monkeypatch.setattr(module, "_clip_rebuttal_gradients", fail_third_step)
+    monkeypatch.setattr(module, "_write_rebuttal_json", interrupt_export)
+    monkeypatch.setattr(module, "_atomic_rebuttal_checkpoint", initial_snapshot)
+    with pytest.raises(InterruptedError):
+        module.train_rebuttal_q2_pair(args)
+    pair = module._q2_pair_path(full, 200, "far_cap")
+    if checkpoint_only:
+        (pair / "numerical_failure.json").unlink()
+    else:
+        shutil.copy2(pair / "initial.pt", pair / "checkpoint.pt")
+    before = torch.load(pair / "checkpoint.pt", weights_only=False)
+    resumed = tmp_path / "resumed_stop"
+    shutil.copytree(full / "prepare", resumed / "prepare")
+    args.work_dir, args.resume_from = str(resumed), str(full)
+    monkeypatch.setattr(module, "_write_rebuttal_json", write)
+    monkeypatch.setattr(module, "_atomic_rebuttal_checkpoint", save)
+    assert module.train_rebuttal_q2_pair(args) == 0
+    assert calls == 6  # both gradients checked, neither optimizer advanced
+    state = torch.load(module._q2_pair_path(resumed, 200, "far_cap") / "checkpoint.pt", weights_only=False)
+    assert _nested_equal(state["actors"], before["actors"])
+    assert _nested_equal(state["optimizers"], before["optimizers"])
+    assert state["step"] == before["step"]
+    assert state["numerical_failure"]["observed_completed_actor_steps"] == 2
+    rows = [json.loads((module._rebuttal_cell(resumed, 200, "frozen", method) / "summary.json").read_text()) for method in ("far_cap", "global_matched_far_cap")]
+    assert [r["status"] for r in rows] == ["numerical_failure", "paired_stop"]
+    assert all(r["late_mean"] is None for r in rows)
 
 
 def test_protocol_v43_loads_fixed_longrun_budgets_and_dynamic_global_control() -> None:

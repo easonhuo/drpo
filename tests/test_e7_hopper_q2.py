@@ -43,6 +43,120 @@ def _rebuttal_toy():
     return settings, base, actor, critic, context
 
 
+def test_q2_far_block_cap_and_global_matching_zero_boundaries():
+    near, far = torch.tensor([3., 0.], dtype=torch.float64), torch.tensor([0., 4.], dtype=torch.float64)
+    factor = mod.q2_cap_factor(far.norm(), 2.)
+    torch.testing.assert_close(factor, torch.tensor(.5, dtype=torch.float64))
+    torch.testing.assert_close(near + factor * far, torch.tensor([3., 2.], dtype=torch.float64))
+    target = (near + factor * far).norm()
+    alpha = mod.q2_global_scale(target, target.new_tensor(1.))
+    assert alpha > 1  # matching is not clipped to the taper interval
+    assert mod.q2_global_scale(target.new_tensor(0.), target).item() == 0
+    assert mod.q2_global_scale(target, target.new_tensor(0.)).item() == 0
+    assert mod.q2_cap_factor(target.new_tensor(0.), 0.).item() == 1
+    assert mod.q2_cap_factor(target, 0.).item() == 0
+
+
+def test_q2_actual_distinct_actors_match_full_parameter_forces_and_detach_controls():
+    _, base, actor, _, context = _rebuttal_toy()
+    other = mod._new_rebuttal_policy(base, 3, 2)
+    with torch.no_grad():
+        other.log_std.fill_(.7)
+    obs = torch.from_numpy(context["obs"][:4])
+    actions = torch.from_numpy(context["data"].actions[:4])
+    lp, _, _ = mod.current_action_log_prob(actor, obs, actions)
+    gp, _, _ = mod.current_action_log_prob(other, obs, actions)
+    a = torch.tensor([2., -1., -3., 0.], dtype=torch.float64)
+    distances = [torch.tensor([8., 1., 3., 9.]), torch.zeros(4)]
+    params = list(actor.parameters())
+
+    def force(logp, coef, parameters):
+        return torch.cat([g.double().flatten() for g in torch.autograd.grad((logp * coef).sum() / 4, parameters, retain_graph=True)])
+
+    gn = force(lp, torch.tensor([0., -1., 0., 0.]), params)
+    gf = force(lp, torch.tensor([0., 0., -3., 0.]), params)
+    calibration = {"far_threshold": 2., "far_cap": float(gf.norm()) / 2}
+    coefficients, stats = mod.q2_pair_coefficients([actor, other], [lp, gp], distances, a, calibration, "far_cap")
+    torch.testing.assert_close(coefficients[0], torch.tensor([2., -1., -1.5, 0.], dtype=torch.float64))
+    assert not any(c.requires_grad for c in coefficients)
+    assert not any(v.requires_grad for v in stats.values())
+    torch.testing.assert_close(stats["target_budget"], (gn + .5 * gf).norm(), rtol=1e-6, atol=1e-7)
+    assert float(stats["relative_error_nonzero_target"]) < 1e-6
+    graw = force(gp, a.clamp(max=0), list(other.parameters())).norm()
+    torch.testing.assert_close(stats["alpha"], stats["target_budget"] / graw)
+    assert stats["far_count"] == 1 and stats["near_count"] == 1
+    actual = torch.cat([g.double().flatten() for g in torch.autograd.grad(mod.rebuttal_actor_loss(lp, coefficients[0]), params, retain_graph=True)])
+    expected = -force(lp, a.clamp_min(0), params) - gn - .5 * gf
+    torch.testing.assert_close(actual, expected, rtol=1e-6, atol=1e-7)
+    assert actual.numel() == sum(p.numel() for p in params)  # includes learned log_std
+
+
+def test_q2_masks_use_current_distance_fixed_threshold_and_full_batch_denominator():
+    _, base, actor, _, context = _rebuttal_toy()
+    other = mod._new_rebuttal_policy(base, 3, 2)
+    obs, actions = torch.from_numpy(context["obs"][:4]), torch.from_numpy(context["data"].actions[:4])
+    lp = mod.current_action_log_prob(actor, obs, actions)[0]
+    gp = mod.current_action_log_prob(other, obs, actions)[0]
+    a = torch.tensor([2., -1., -3., 0.], dtype=torch.float64)
+    calibration = {"far_threshold": 2., "far_cap": 0.}
+    first, _ = mod.q2_pair_coefficients([actor, other], [lp, gp], [torch.tensor([9., 2., 3., 9.]), torch.zeros(4)], a, calibration, "far_zero")
+    second, _ = mod.q2_pair_coefficients([actor, other], [lp, gp], [torch.tensor([9., 3., 1., 9.]), torch.zeros(4)], a, calibration, "far_zero")
+    torch.testing.assert_close(first[0], torch.tensor([2., -1., 0., 0.], dtype=torch.float64))
+    torch.testing.assert_close(second[0], torch.tensor([2., 0., -3., 0.], dtype=torch.float64))
+    torch.testing.assert_close(mod.rebuttal_actor_loss(lp, first[0]), -(2 * lp[0] - lp[1]) / 4)
+    cap, _ = mod.q2_pair_coefficients([actor, other], [lp, gp], [torch.tensor([9., 2., 3., 9.]), torch.zeros(4)], a, calibration, "far_cap")
+    torch.testing.assert_close(cap[0], first[0])
+
+
+def test_q2_unmatchable_zero_global_force_is_reported_without_epsilon():
+    _, _, actor, _, context = _rebuttal_toy()
+    other = torch.nn.Linear(1, 1, bias=False)
+    lp = mod.current_action_log_prob(actor, torch.from_numpy(context["obs"][:2]), torch.from_numpy(context["data"].actions[:2]))[0]
+    zero_lp = other.weight.sum() * torch.zeros(2)
+    a = -torch.ones(2)
+    coefficients, stats = mod.q2_pair_coefficients([actor, other], [lp, zero_lp], [torch.zeros(2), torch.zeros(2)], a,
+                                                  {"far_threshold": 1., "far_cap": 1.}, "far_zero")
+    assert stats["target_budget"] > 0 and stats["raw_global_budget"] == 0
+    assert stats["alpha"] == 0 and stats["unmatched_zero_raw_gradient"] == 1
+    assert stats["matchable"] == 0 and stats["relative_error_nonzero_target"] == 1
+    assert torch.equal(coefficients[1], torch.zeros(2, dtype=torch.float64))
+
+
+def test_q2_calibration_is_initial_only_deterministic_and_preserves_rng_and_gradients():
+    _, _, actor, _, context = _rebuttal_toy()
+    context["initial_advantage"] = np.tile(np.array([-1., 1.]), 16)
+    actor.log_std.grad = torch.full_like(actor.log_std, 7.)
+    state = torch.get_rng_state().clone()
+    first = mod.calibrate_rebuttal_q2(actor, context, 200, torch.device("cpu"))
+    second = mod.calibrate_rebuttal_q2(actor, context, 200, torch.device("cpu"))
+    assert first == second and first["status"] == "defined"
+    _, d, _ = mod.current_action_log_prob(actor, torch.from_numpy(context["obs"]), torch.from_numpy(context["data"].actions))
+    assert first["far_threshold"] == np.quantile(d.numpy()[context["initial_advantage"] < 0], .75)
+    assert first["far_cap"] == np.median(first["initial_far_block_norms"])
+    assert first["calibration_batches"] == 16 and first["calibration_batch_size"] == 1024
+    assert torch.equal(torch.get_rng_state(), state)
+    assert torch.equal(actor.log_std.grad, torch.full_like(actor.log_std, 7.))
+    context["initial_advantage"] = np.ones(32)
+    undefined = mod.calibrate_rebuttal_q2(actor, context, 200, torch.device("cpu"))
+    assert undefined["status"] == "undefined_no_initial_negative"
+    assert undefined["far_cap"] is undefined["far_threshold"] is None
+
+
+def test_q2_block_statistics_count_nonzero_targets_and_resume_in_constant_space():
+    block = mod._Q2BudgetBlock(torch.device("cpu"))
+    block.add({"nonzero_target": torch.tensor(0.), "relative_error_nonzero_target": torch.tensor(0.), "alpha": torch.tensor(0.)})
+    resumed = mod._Q2BudgetBlock(torch.device("cpu"), block.state_dict())
+    resumed.add({"nonzero_target": torch.tensor(1.), "relative_error_nonzero_target": torch.tensor(.5), "alpha": torch.tensor(2.)})
+    row = resumed.finish(2)
+    assert row["updates"] == 2 and row["q2_nonzero_target_steps"] == 1
+    assert row["q2_relative_error_nonzero_target_mean"] == .5
+    assert row["q2_alpha_mean"] == 1 and row["q2_alpha_max"] == 2
+    assert resumed.state_dict() is None
+    resumed.add({"nonzero_target": torch.tensor(0.), "relative_error_nonzero_target": torch.tensor(0.)})
+    row = resumed.finish(3)
+    assert row["q2_relative_error_nonzero_target_mean"] is row["q2_relative_error_nonzero_target_max"] is None
+
+
 def test_rebuttal_behavior_logp_and_transition_ids_follow_loader_limit(tmp_path):
     path = tmp_path / "data.hdf5"
     with h5py.File(path, "w") as handle:

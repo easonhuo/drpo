@@ -186,14 +186,17 @@ def build_rebuttal_command(args: argparse.Namespace) -> tuple[list[str], dict]:
     # Use the existing guard, with this profile's actual output/progress contract.
     for name in ("RUN_COMPLETE.json", "terminal_audit.json", "scientific_run_manifest.json",
                  "ROLLOUT_PREFLIGHT.json", "prepare/PREPARE_COMPLETE.json", "summary/MATRIX.csv",
-                 "summary/METHOD_SUMMARY.csv", "summary/GRADIENT_VARIANCE.csv"):
+                 "summary/METHOD_SUMMARY.csv", "summary/GRADIENT_VARIANCE.csv",
+                 "summary/Q2_METHOD_SUMMARY.csv", "summary/Q2_BUDGET_MATCHING.csv",
+                 "summary/Q2_PAIRED_COMPARISONS.csv", "summary/Q2_INTERVENTION_DIAGNOSTICS.csv"):
         command.extend(["--required-output", name])
     base_relative = (config.parent / settings["base_config"]).relative_to(repo)
     for name in ("src/drpo/e7_hopper_q2.py", "scripts/run_e7_hopper_q2.py", str(relative),
                  str(base_relative), "docs/experiments/EXT-H-E7-REBUTTAL-PQ-IS-01.md"):
         command.extend(["--source-file", name])
     for pattern in ("scientific_heartbeat.json", "cells/seed_*/*/*/status.json",
-                    "cells/seed_*/*/*/training_metrics.csv", "prepare/critic_training/critic_metrics.csv"):
+                    "cells/seed_*/*/*/training_metrics.csv", "pairs/seed_*/*/budget_matching.csv",
+                    "prepare/critic_training/critic_metrics.csv"):
         command.extend(["--progress-glob", pattern])
     if args.allow_dirty:
         command.append("--allow-dirty")
@@ -210,12 +213,22 @@ def build_rebuttal_command(args: argparse.Namespace) -> tuple[list[str], dict]:
         command.extend(["--resume-from", str(resume)])
     matrix = [{"seed": int(seed), "advantage_mode": mode, "method": method}
               for seed in effective["seeds"] for mode in ("frozen", "refreshed")
-              for method in ("positive_only", "signed", "drpo", "is")]
+              for method in effective["methods_by_advantage_mode"][mode]]
+    q2_methods = {method for pair in effective["q2"]["pairs"] for method in pair}
+    jobs = [{**key, "job_kind": "independent", "cells": [key]} for key in matrix if key["method"] not in q2_methods]
+    for seed in effective["seeds"]:
+        for intervention, control in effective["q2"]["pairs"]:
+            jobs.append({"seed": int(seed), "advantage_mode": "frozen", "method": intervention,
+                         "job_kind": "q2_pair", "cells": [
+                             {"seed": int(seed), "advantage_mode": "frozen", "method": method}
+                             for method in (intervention, control)],
+                         "checkpoint_index": f"pairs/seed_{seed}/{intervention}/checkpoint_index.json"})
     return command, {
         "experiment_id": REBUTTAL_ID, "git_commit": head, "run_class": run_class,
         "smoke": args.smoke, "config": str(config), "dataset": str(dataset),
         "dataset_resolution": dataset_source, "work_dir": str(work), "artifact": str(artifact),
         "resume_from": str(resume) if resume else None, "matrix": matrix, "cell_count": len(matrix),
+        "jobs": jobs, "job_count": len(jobs), "pair_count": sum(job["job_kind"] == "q2_pair" for job in jobs),
         "actor_steps": effective["actor_steps"], "critic_steps": effective["critic_steps"],
         "max_workers": args.max_workers, "gpu_ids": args.gpu_ids,
     }

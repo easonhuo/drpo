@@ -1,5 +1,5 @@
 experiment_id: EXT-H-E7-REBUTTAL-PQ-IS-01
-protocol_version: 1
+protocol_version: 2
 role: external_training_diagnostic
 base_config: e7_hopper_q2_medium_replay_v2.yaml
 seeds: [200, 201, 202]
@@ -33,6 +33,22 @@ max_transitions: null
 drpo_scale: 1.0
 drpo_exponent_coefficient: 0.122667
 drpo_reference_distance: 2.0
+methods_by_advantage_mode:
+  frozen: [positive_only, signed, drpo, is, far_zero, global_matched_far_zero, far_cap, global_matched_far_cap]
+  refreshed: [positive_only, signed, drpo, is]
+q2:
+  enabled: true
+  advantage_mode: frozen
+  far_threshold_quantile: 0.75
+  cap_calibration_batches: 16
+  cap_calibration_batch_size: 1024
+  calibration_rng_role: 62831
+  cap_reference: median_initial_far_block_gradient_norm
+  budget: full_parameter_negative_aggregate_l2_pre_clip
+  matching: paired_actual_trajectories_each_step
+  pairs:
+    - [far_zero, global_matched_far_zero]
+    - [far_cap, global_matched_far_cap]
 smoke:
   seeds: [200]
   critic_steps: 20

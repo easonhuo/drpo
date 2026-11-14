@@ -4279,6 +4279,8 @@ def run_experiment(args: argparse.Namespace) -> int:
 REBUTTAL_EXPERIMENT_ID = "EXT-H-E7-REBUTTAL-PQ-IS-01"
 REBUTTAL_METHODS = ("positive_only", "signed", "drpo", "is")
 REBUTTAL_MODES = ("frozen", "refreshed")
+Q2_PAIRS = (("far_zero", "global_matched_far_zero"), ("far_cap", "global_matched_far_cap"))
+Q2_METHODS = tuple(method for pair in Q2_PAIRS for method in pair)
 
 
 def load_rebuttal_config(path: str | Path, smoke: bool = False) -> tuple[dict, E7Config]:
@@ -4309,11 +4311,25 @@ def load_rebuttal_config(path: str | Path, smoke: bool = False) -> tuple[dict, E
     return settings, base
 
 
-def rebuttal_matrix(seeds: Sequence[int]) -> list[dict[str, Any]]:
+def rebuttal_matrix(seeds: Sequence[int], methods_by_mode: dict | None = None) -> list[dict[str, Any]]:
+    methods_by_mode = methods_by_mode or {"frozen": REBUTTAL_METHODS + Q2_METHODS, "refreshed": REBUTTAL_METHODS}
     return [
         {"seed": int(seed), "advantage_mode": mode, "method": method}
-        for seed in seeds for mode in REBUTTAL_MODES for method in REBUTTAL_METHODS
+        for seed in seeds for mode in REBUTTAL_MODES for method in methods_by_mode[mode]
     ]
+
+
+def rebuttal_jobs(settings: dict) -> list[dict[str, Any]]:
+    matrix = rebuttal_matrix(settings["seeds"], settings["methods_by_advantage_mode"])
+    jobs = [{**key, "job_kind": "independent", "cells": [key]} for key in matrix if key["method"] in REBUTTAL_METHODS]
+    for seed in settings["seeds"]:
+        for intervention, control in settings["q2"]["pairs"]:
+            jobs.append({"seed": int(seed), "advantage_mode": "frozen", "method": intervention,
+                         "job_kind": "q2_pair", "cells": [
+                             {"seed": int(seed), "advantage_mode": "frozen", "method": method}
+                             for method in (intervention, control)],
+                         "checkpoint_index": f"pairs/seed_{seed}/{intervention}/checkpoint_index.json"})
+    return jobs
 
 
 def _rebuttal_json(value: Any) -> Any:
@@ -4413,6 +4429,139 @@ def _clip_rebuttal_gradients(parameters: Iterable[nn.Parameter], limit: float) -
         for gradient in gradients:
             gradient.mul_(factor.to(gradient.dtype))
     return norm
+
+
+def _q2_force_from_graph(policy: SquashedGaussianPolicy, logp: torch.Tensor, coefficient: torch.Tensor) -> torch.Tensor:
+    """Full-parameter ascent force, full B denominator, no higher derivatives."""
+    gradients = torch.autograd.grad(
+        (logp * coefficient.detach()).mean(), list(policy.parameters()), retain_graph=True,
+    )
+    return torch.cat([gradient.detach().double().flatten() for gradient in gradients])
+
+
+def q2_cap_factor(far_norm: torch.Tensor, cap: float) -> torch.Tensor:
+    denominator = torch.where(far_norm > 0, far_norm, torch.ones_like(far_norm))
+    return torch.where(far_norm > 0, (cap / denominator).clamp(max=1), torch.ones_like(far_norm)).detach()
+
+
+def q2_global_scale(target: torch.Tensor, raw: torch.Tensor) -> torch.Tensor:
+    denominator = torch.where(raw > 0, raw, torch.ones_like(raw))
+    return torch.where((target > 0) & (raw > 0), target / denominator, torch.zeros_like(target)).detach()
+
+
+def q2_pair_coefficients(
+    actors: Sequence[SquashedGaussianPolicy], logps: Sequence[torch.Tensor],
+    distances: Sequence[torch.Tensor], advantage: torch.Tensor, calibration: dict,
+    intervention: str,
+) -> tuple[list[torch.Tensor], dict[str, torch.Tensor]]:
+    """Budgets come from the two actual pre-update actors, never a proxy."""
+    a = advantage.detach().double()
+    positive, negative = a.clamp_min(0), (-a).clamp_min(0)
+    far = ((a < 0) & (distances[0].detach() > calibration["far_threshold"])).detach()
+    near = (a < 0) & ~far
+    g_near = _q2_force_from_graph(actors[0], logps[0], -negative * near)
+    g_far = _q2_force_from_graph(actors[0], logps[0], -negative * far)
+    near_norm, far_norm = g_near.norm(), g_far.norm()
+    kappa = q2_cap_factor(far_norm, calibration["far_cap"]) if intervention == "far_cap" else far_norm.new_zeros(())
+    c_intervention = positive - negative * (near.double() + kappa * far.double())
+    # Measure the actual weighted backward, including parameter-dtype rounding.
+    g_intervention = (g_near if intervention == "far_zero" else
+                      _q2_force_from_graph(actors[0], logps[0], c_intervention - positive))
+    target = g_intervention.norm()
+    g_global = _q2_force_from_graph(actors[1], logps[1], -negative)
+    raw_global = g_global.norm()
+    alpha = q2_global_scale(target, raw_global)
+    c_global = positive - alpha * negative
+    actual = _q2_force_from_graph(actors[1], logps[1], c_global - positive).norm()
+    error = (actual - target).abs()
+    nonzero = target > 0
+    unmatched = nonzero & (raw_global == 0)
+    statistics = {
+        "target_budget": target, "raw_global_budget": raw_global, "actual_global_budget": actual,
+        "absolute_error": error,
+        "relative_error_nonzero_target": torch.where(nonzero, error / torch.where(nonzero, target, torch.ones_like(target)), error.new_zeros(())),
+        "nonzero_target": nonzero, "zero_target": ~nonzero,
+        "matchable": ~unmatched, "unmatched_zero_raw_gradient": unmatched,
+        "alpha": alpha, "alpha_gt_one": alpha > 1, "kappa": kappa,
+        "cap_triggered": (kappa < 1) if intervention == "far_cap" else far_norm.new_zeros(()),
+        "far_count": far.sum(), "far_fraction": far.double().mean(),
+        "near_count": near.sum(), "near_negative_norm": near_norm,
+        "far_negative_norm_before": far_norm, "far_negative_norm_after": kappa * far_norm,
+        "negative_norm_before": (g_near + g_far).norm(), "negative_norm_after": target,
+        "intervention_p": c_intervention.clamp_min(0).mean(), "intervention_q": (-c_intervention).clamp_min(0).mean(),
+        "global_p": c_global.clamp_min(0).mean(), "global_q": (-c_global).clamp_min(0).mean(),
+    }
+    return [c_intervention.detach(), c_global.detach()], {k: v.detach().double() for k, v in statistics.items()}
+
+
+def calibrate_rebuttal_q2(policy: SquashedGaussianPolicy, context: dict, seed: int, device: torch.device) -> dict:
+    settings, data = context["settings"], context["data"]
+    q2, ids = settings["q2"], context["diagnostic_ids"]
+    negative = context["initial_advantage"][ids] < 0
+    record = {"seed": seed, "settings_identity": settings["identity"],
+              "diagnostic_ids_sha256": context["diagnostic_ids_sha256"],
+              "negative_count": int(negative.sum()), "quantile": q2["far_threshold_quantile"],
+              "calibration_batches": q2["cap_calibration_batches"],
+              "calibration_batch_size": q2["cap_calibration_batch_size"],
+              "rng_seed_sequence": [seed, q2["calibration_rng_role"]]}
+    if not negative.any():
+        return {**record, "status": "undefined_no_initial_negative", "far_threshold": None, "far_cap": None}
+    distances = []
+    with torch.no_grad():
+        for start in range(0, len(ids), settings["diagnostic_batch_size"]):
+            ix = ids[start:start + settings["diagnostic_batch_size"]]
+            _, d, _ = current_action_log_prob(policy, tensor(context["obs"][ix], device), tensor(data.actions[ix], device))
+            distances.append(d.cpu().numpy())
+    threshold = float(np.quantile(np.concatenate(distances)[negative], q2["far_threshold_quantile"]))
+    rng = np.random.default_rng(np.random.SeedSequence(record["rng_seed_sequence"]))
+    norms, batch_hash = [], hashlib.sha256()
+    for _ in range(q2["cap_calibration_batches"]):
+        ix = sample_indices(rng, context["train_ids"], q2["cap_calibration_batch_size"])
+        batch_hash.update(data.transition_ids[ix].astype("<i8").tobytes())
+        lp, d, _ = current_action_log_prob(policy, tensor(context["obs"][ix], device), tensor(data.actions[ix], device))
+        a = torch.as_tensor(context["initial_advantage"][ix], device=device)
+        force = _q2_force_from_graph(policy, lp, a.double().clamp(max=0) * (d > threshold))
+        norms.append(float(force.norm().cpu()))
+    cap = float(np.median(norms))
+    return {**record, "status": "defined" if math.isfinite(threshold) and math.isfinite(cap) else "nonfinite_calibration",
+            "far_threshold": threshold, "far_cap": cap, "zero_cap_degeneracy": cap == 0,
+            "initial_far_block_norms": norms, "calibration_transition_ids_sha256": batch_hash.hexdigest()}
+
+
+class _Q2BudgetBlock:
+    """Constant-memory device reductions; no million-row per-step output."""
+
+    def __init__(self, device: torch.device, state: dict | None = None):
+        self.device, self.count, self.keys = device, 0, []
+        self.sums = self.maxima = None
+        if state:
+            self.count, self.keys = state["count"], state["keys"]
+            self.sums, self.maxima = state["sums"].to(device), state["maxima"].to(device)
+
+    def add(self, values: dict[str, torch.Tensor]) -> None:
+        vector = torch.stack(list(values.values()))
+        if self.count == 0:
+            self.keys, self.sums, self.maxima = list(values), vector.clone(), vector.clone()
+        else:
+            self.sums.add_(vector)
+            self.maxima = torch.maximum(self.maxima, vector)
+        self.count += 1
+
+    def state_dict(self) -> dict | None:
+        return {"count": self.count, "keys": self.keys, "sums": self.sums.cpu(), "maxima": self.maxima.cpu()} if self.count else None
+
+    def finish(self, step: int) -> dict:
+        sums, maxima = self.sums.cpu().tolist(), self.maxima.cpu().tolist()
+        row = {"step": step, "start_step": step - self.count + 1, "updates": self.count}
+        totals = dict(zip(self.keys, sums))
+        for key, total, maximum in zip(self.keys, sums, maxima):
+            denominator = totals["nonzero_target"] if key == "relative_error_nonzero_target" else self.count
+            row[f"q2_{key}_mean"] = total / denominator if denominator else None
+            row[f"q2_{key}_max"] = maximum if denominator else None
+            if key in ("nonzero_target", "zero_target", "matchable", "unmatched_zero_raw_gradient", "alpha_gt_one", "cap_triggered"):
+                row[f"q2_{key}_steps"] = int(total)
+        self.count = 0
+        return row
 
 
 def current_rebuttal_advantage(
@@ -4524,7 +4673,7 @@ def _rebuttal_advantage_arrays(
 def collect_rebuttal_diagnostics(
     policy: SquashedGaussianPolicy, critic: ValueNetwork, context: dict,
     method: str, advantage_mode: str, step: int, previous: np.ndarray | None,
-    device: torch.device,
+    device: torch.device, effective_coefficient: np.ndarray | None = None,
 ) -> tuple[dict[str, Any], np.ndarray]:
     settings, data = context["settings"], context["data"]
     ids = context["diagnostic_ids"]
@@ -4545,7 +4694,7 @@ def collect_rebuttal_diagnostics(
             boundaries.append(boundary.cpu())
     logp, d = torch.cat(logps), torch.cat(distances)
     boundary = torch.cat(boundaries).numpy()
-    coefficient = rebuttal_actor_coefficients(
+    coefficient = effective_coefficient if effective_coefficient is not None else rebuttal_actor_coefficients(
         torch.from_numpy(a), logp, d, torch.from_numpy(data.behavior_log_prob[ids]),
         method, settings,
     ).numpy()
@@ -4621,6 +4770,9 @@ def collect_rebuttal_diagnostics(
         row["log_std_max_fraction"] = float((policy.log_std >= policy.log_std_max).double().mean())
         means = policy.action_mean(tensor(context["obs"][ids], device))
         row["action_mean_boundary_fraction"] = float((means.abs() >= context["base"].support_boundary_threshold).double().mean())
+    if effective_coefficient is not None:
+        row = {k.replace("effective", "audit_effective"): v for k, v in row.items()}
+        row["effective_coefficient_scope"] = "fixed_population_audit_not_training_batch"
     return _rebuttal_json(row), a.copy()
 
 
@@ -4758,6 +4910,13 @@ def prepare_rebuttal_context(
         seed_everything(seed)
         actor = _new_rebuttal_policy(base, data.observations.shape[1], data.actions.shape[1])
         _atomic_rebuttal_checkpoint(root / f"actor_initial_seed_{seed}.pt", {"actor": actor.state_dict()})
+        calibration = calibrate_rebuttal_q2(actor.to(device), {
+            **context, "settings": settings, "initial_advantage": advantage,
+            "train_ids": split["train"], "diagnostic_ids": diagnostic_ids,
+            "diagnostic_ids_sha256": prepared["diagnostic_ids_sha256"],
+        }, seed, device)
+        calibration.update(source_commit=source_commit, actor_initial_sha256=sha256_file(root / f"actor_initial_seed_{seed}.pt"))
+        _write_rebuttal_json(root / f"q2_calibration_seed_{seed}.json", calibration)
     _atomic_rebuttal_checkpoint(root / "context.pt", prepared)
     _write_rebuttal_json(root / "normalization.json", {k: v for k, v in prepared.items() if k in (
         "obs_mean", "obs_std", "target_mean", "target_std", "advantage_center", "advantage_scale"
@@ -4779,6 +4938,7 @@ def prepare_rebuttal_context(
     _write_rebuttal_json(root / "critic_checkpoint_index.json", audit["checkpoint"])
     inputs = ["context.pt", "initial_advantages.npz", "split_indices.npz", "diagnostic_transition_ids.npy"]
     inputs.extend(f"actor_initial_seed_{seed}.pt" for seed in settings["seeds"])
+    inputs.extend(f"q2_calibration_seed_{seed}.json" for seed in settings["seeds"])
     _write_rebuttal_json(root / "PREPARE_COMPLETE.json", {
         "source_commit": source_commit, "settings_identity": settings["identity"],
         "context_sha256": sha256_file(root / "context.pt"), "data_sha256": prepared["data_sha256"],
@@ -4826,6 +4986,58 @@ def _rebuttal_mc_reference_mse(critic: ValueNetwork, context: dict, device: torc
 
 def _rebuttal_cell(root: Path, seed: int, mode: str, method: str) -> Path:
     return root / "cells" / f"seed_{seed}" / mode / method
+
+
+def _rebuttal_rollout_row(actor, context: dict, cell: Path, step: int, seed: int, device: torch.device) -> dict:
+    settings, base = context["settings"], context["base"]
+    # Environment setup may consume global RNG in third-party libraries.
+    state = _rebuttal_rng_state(device)
+    try:
+        result = evaluate_d4rl_rollouts(
+            policy=actor, obs_norm=context["obs_norm"], backend=base.env_backend,
+            dataset_id=base.rollout_dataset_id, env_id=base.env_id,
+            episodes=settings["terminal_evaluation_episodes"] if step == settings["actor_steps"] else settings["evaluation_episodes"],
+            seed=settings["evaluation_seed"] + seed * 100000 + step,
+            device=device, normalized_score_percent=base.normalized_score_percent,
+            reference_min_score=base.normalized_score_reference_min,
+            reference_max_score=base.normalized_score_reference_max, required=True,
+            diagnostics_path=cell / "rollouts" / f"step_{step:08d}.json",
+        )
+    finally:
+        _restore_rebuttal_rng(state, device)
+    return {
+        "step": step, "raw_return": result["rollout_return_mean"],
+        "episode_return_sd": result["rollout_return_std"],
+        "normalized_return": result["normalized_return"],
+        "episodes": result["rollout_episodes"], "status": result["rollout_status"],
+    }
+
+
+def _rebuttal_branch_summary(identity: dict, context: dict, history: dict, completed: int, critic_updates: int, failure_record: dict | None) -> dict:
+    settings, base = context["settings"], context["base"]
+    failure = failure_record["reason"] if failure_record else None
+    rollouts = history["rollouts"]
+    late = [r for r in rollouts if r["step"] in settings["late_steps"]]
+    complete_late = len(late) == len(settings["late_steps"]) and failure is None
+    terminal = next((r["normalized_return"] for r in rollouts if r["step"] == settings["actor_steps"]), None)
+    best = max(r["normalized_return"] for r in rollouts) if rollouts else None
+    boundary = any(r["action_mean_boundary_fraction"] >= base.support_boundary_fraction or r["log_std_min_fraction"] > 0 or r["log_std_max_fraction"] > 0 for r in history["diagnostics"])
+    summary = {
+        **identity, "status": "numerical_failure" if failure else "completed",
+        "completed_actor_steps": completed, "scheduled_actor_steps": settings["actor_steps"],
+        "critic_update_count": critic_updates, "numerical_failure": failure,
+        "numerical_failure_observed_actor_steps": failure_record["completed_actor_steps"] if failure_record else None,
+        "support_or_variance_boundary_event": boundary, "task_collapse": None,
+        "task_collapse_status": "not_adjudicated_no_coldstart_threshold",
+        "terminal_classification": "numerical_failure" if failure else "fixed_horizon_inconclusive",
+        "late_count": len(late), "late_expected_count": len(settings["late_steps"]),
+        "late_mean": float(np.mean([r["normalized_return"] for r in late])) if complete_late else None,
+        "terminal": terminal, "best": best,
+        "best_to_terminal_drop": best - terminal if terminal is not None else None,
+        "late_slope_per_update": float(np.polyfit([r["step"] for r in late], [r["normalized_return"] for r in late], 1)[0]) if complete_late and len(late) > 1 else None,
+        "scientific_status": "smoke" if settings["smoke"] else "finite_budget_diagnostic",
+    }
+    return summary
 
 
 def train_rebuttal_branch(args: argparse.Namespace) -> int:
@@ -4917,27 +5129,7 @@ def train_rebuttal_branch(args: argparse.Namespace) -> int:
             history["gradient_variance"].extend(collect_rebuttal_gradient_variance(actor, critic, context, mode, method, step, seed, device))
 
     def rollout(step: int) -> None:
-        # Environment setup may consume global RNG in third-party libraries.
-        state = _rebuttal_rng_state(device)
-        try:
-            result = evaluate_d4rl_rollouts(
-                policy=actor, obs_norm=context["obs_norm"], backend=base.env_backend,
-                dataset_id=base.rollout_dataset_id, env_id=base.env_id,
-                episodes=settings["terminal_evaluation_episodes"] if step == settings["actor_steps"] else settings["evaluation_episodes"],
-                seed=settings["evaluation_seed"] + seed * 100000 + step,
-                device=device, normalized_score_percent=base.normalized_score_percent,
-                reference_min_score=base.normalized_score_reference_min,
-                reference_max_score=base.normalized_score_reference_max, required=True,
-                diagnostics_path=cell / "rollouts" / f"step_{step:08d}.json",
-            )
-        finally:
-            _restore_rebuttal_rng(state, device)
-        history["rollouts"].append({
-            "step": step, "raw_return": result["rollout_return_mean"],
-            "episode_return_sd": result["rollout_return_std"],
-            "normalized_return": result["normalized_return"],
-            "episodes": result["rollout_episodes"], "status": result["rollout_status"],
-        })
+        history["rollouts"].append(_rebuttal_rollout_row(actor, context, cell, step, seed, device))
 
     try:
         if start == 0 and not history["diagnostics"]:
@@ -5017,27 +5209,7 @@ def train_rebuttal_branch(args: argparse.Namespace) -> int:
             # Full train-pool moments supplement the fixed-subset observations.
             full_a = context["initial_advantage"][context["train_ids"]] if mode == "frozen" else _rebuttal_advantage_arrays(critic, context, context["train_ids"], device)[0]
             _write_rebuttal_json(cell / "terminal_full_pool_mass.json", rebuttal_mass(full_a))
-        rollouts = history["rollouts"]
-        late = [r for r in rollouts if r["step"] in settings["late_steps"]]
-        complete_late = len(late) == len(settings["late_steps"]) and failure is None
-        terminal = next((r["normalized_return"] for r in rollouts if r["step"] == settings["actor_steps"]), None)
-        best = max(r["normalized_return"] for r in rollouts) if rollouts else None
-        boundary = any(r["action_mean_boundary_fraction"] >= base.support_boundary_fraction or r["log_std_min_fraction"] > 0 or r["log_std_max_fraction"] > 0 for r in history["diagnostics"])
-        summary = {
-            **identity, "status": "numerical_failure" if failure else "completed",
-            "completed_actor_steps": completed, "scheduled_actor_steps": settings["actor_steps"],
-            "critic_update_count": critic_updates, "numerical_failure": failure,
-            "numerical_failure_observed_actor_steps": failure_record["completed_actor_steps"] if failure_record else None,
-            "support_or_variance_boundary_event": boundary, "task_collapse": None,
-            "task_collapse_status": "not_adjudicated_no_coldstart_threshold",
-            "terminal_classification": "numerical_failure" if failure else "fixed_horizon_inconclusive",
-            "late_count": len(late), "late_expected_count": len(settings["late_steps"]),
-            "late_mean": float(np.mean([r["normalized_return"] for r in late])) if complete_late else None,
-            "terminal": terminal, "best": best,
-            "best_to_terminal_drop": best - terminal if terminal is not None else None,
-            "late_slope_per_update": float(np.polyfit([r["step"] for r in late], [r["normalized_return"] for r in late], 1)[0]) if complete_late and len(late) > 1 else None,
-            "scientific_status": "smoke" if settings["smoke"] else "finite_budget_diagnostic",
-        }
+        summary = _rebuttal_branch_summary(identity, context, history, completed, critic_updates, failure_record)
         _write_rebuttal_json(cell / "summary.json", summary)
         _write_rebuttal_json(cell / "status.json", summary)
         return 0
@@ -5049,6 +5221,237 @@ def train_rebuttal_branch(args: argparse.Namespace) -> int:
         }
         _write_rebuttal_json(cell / "failure.json", record)
         _write_rebuttal_json(cell / "status.json", record)
+        raise
+
+
+def _q2_pair_path(root: Path, seed: int, intervention: str) -> Path:
+    return root / "pairs" / f"seed_{seed}" / intervention
+
+
+def train_rebuttal_q2_pair(args: argparse.Namespace) -> int:
+    settings, base = load_rebuttal_config(args.config, args.smoke)
+    torch.set_num_threads(settings["worker_threads"])
+    device, root, seed = choose_device(args.device), Path(args.work_dir).resolve(), args.seed
+    methods = next(tuple(pair) for pair in settings["q2"]["pairs"] if pair[0] == args.method)
+    pair_root = _q2_pair_path(root, seed, methods[0])
+    pair_root.mkdir(parents=True, exist_ok=True)
+    cells = [_rebuttal_cell(root, seed, "frozen", method) for method in methods]
+    for cell in cells:
+        cell.mkdir(parents=True, exist_ok=True)
+    context = _load_rebuttal_context(root / "prepare", Path(args.dataset_path), settings, base)
+    calibration_path = root / "prepare" / f"q2_calibration_seed_{seed}.json"
+    calibration = json.loads(calibration_path.read_text())
+    identity = {"seed": seed, "advantage_mode": "frozen", "method": methods[0], "global_method": methods[1],
+                "source_commit": context["prepared"]["source_commit"], "settings_identity": settings["identity"],
+                "context_sha256": sha256_file(root / "prepare/context.pt"),
+                "calibration_sha256": sha256_file(calibration_path)}
+    identities = [{**identity, "method": method, "paired_intervention": methods[0]} for method in methods]
+    seed_everything(seed)
+    data = context["data"]
+    initial = torch.load(root / "prepare" / f"actor_initial_seed_{seed}.pt", map_location=device, weights_only=False)["actor"]
+    actors = [_new_rebuttal_policy(base, data.observations.shape[1], data.actions.shape[1]).to(device) for _ in methods]
+    for actor in actors:
+        actor.load_state_dict(initial)
+    optimizers = [torch.optim.AdamW(actor.parameters(), lr=base.actor_lr, weight_decay=base.weight_decay) for actor in actors]
+    critic = ValueNetwork(data.observations.shape[1], base.hidden_sizes, base.activation, base.init_scheme, base.init_gain).to(device)
+    critic.load_state_dict(context["prepared"]["critic"])
+    rng = np.random.default_rng(np.random.SeedSequence([seed, 41591]))
+    histories = [{k: [] for k in ("training_metrics", "diagnostics", "rollouts", "gradient_variance")} for _ in methods]
+    previous, clipped, completed, budgets, failure = [None, None], [0, 0], 0, [], None
+    block = _Q2BudgetBlock(device)
+    if args.resume_from:
+        old_root = _q2_pair_path(Path(args.resume_from), seed, methods[0])
+        checkpoint_path = old_root / "checkpoint.pt"
+        if not checkpoint_path.is_file() and (old_root / "checkpoint_index.json").is_file():
+            checkpoint_path = Path(json.loads((old_root / "checkpoint_index.json").read_text())["path"])
+        if checkpoint_path.is_file():
+            state = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+            if state["identity"] != identity or state["calibration"] != calibration:
+                raise ValueError("Paired checkpoint/source/config/calibration identity mismatch")
+            for index, (actor, optimizer) in enumerate(zip(actors, optimizers)):
+                actor.load_state_dict(state["actors"][index])
+                optimizer.load_state_dict(state["optimizers"][index])
+            completed, clipped, histories, previous = state["step"], state["clipped"], state["histories"], state["previous"]
+            budgets, failure = state["budgets"], state["numerical_failure"]
+            block = _Q2BudgetBlock(device, state["budget_block"])
+            rng.bit_generator.state = state["training_rng"]
+            _restore_rebuttal_rng(state["global_rng"], device)
+        marker = old_root / "numerical_failure.json"
+        if marker.is_file():
+            failure = json.loads(marker.read_text())
+        for cell, method in zip(cells, methods):
+            old_rollouts = _rebuttal_cell(Path(args.resume_from), seed, "frozen", method) / "rollouts"
+            if old_rollouts.is_dir():
+                shutil.copytree(old_rollouts, cell / "rollouts", dirs_exist_ok=True)
+
+    def flush() -> None:
+        write_csv(pair_root / "budget_matching.csv", budgets)
+        for cell, cell_identity, history in zip(cells, identities, histories):
+            for name, rows in history.items():
+                write_csv(cell / f"{name}.csv", rows)
+            _write_rebuttal_json(cell / "status.json", {**cell_identity, "status": "running", "step": completed, "critic_update_count": 0})
+        _write_rebuttal_json(pair_root / "status.json", {**identity, "status": "running", "step": completed})
+
+    def checkpoint() -> None:
+        flush()
+        path = pair_root / "checkpoint.pt"
+        _atomic_rebuttal_checkpoint(path, {
+            "identity": identity, "step": completed, "actors": [actor.state_dict() for actor in actors],
+            "optimizers": [optimizer.state_dict() for optimizer in optimizers], "clipped": clipped,
+            "histories": histories, "previous": previous, "budgets": budgets, "budget_block": block.state_dict(),
+            "training_rng": rng.bit_generator.state, "global_rng": _rebuttal_rng_state(device),
+            "calibration": calibration, "numerical_failure": failure,
+        })
+        index = {**identity, "path": str(path), "sha256": sha256_file(path), "step": completed,
+                 "size_bytes": path.stat().st_size, "persistence": getattr(args, "large_file_persistence", "persistent_local"),
+                 "methods": list(methods), "role": "synchronized_q2_pair"}
+        _write_rebuttal_json(pair_root / "checkpoint_index.json", index)
+        for cell, method in zip(cells, methods):
+            _write_rebuttal_json(cell / "checkpoint_index.json", {**index, "actor_key": method})
+
+    def observe(step: int) -> None:
+        ids = context["diagnostic_ids"]
+        obs, actions = tensor(context["obs"][ids], device), tensor(data.actions[ids], device)
+        a = torch.as_tensor(context["initial_advantage"][ids], device=device)
+        outputs = [current_action_log_prob(actor, obs, actions) for actor in actors]
+        coefficients, statistics = q2_pair_coefficients(actors, [out[0] for out in outputs], [out[1] for out in outputs], a, calibration, methods[0])
+        for i, (actor, method, history, output) in enumerate(zip(actors, methods, histories, outputs)):
+            row, previous[i] = collect_rebuttal_diagnostics(
+                actor, critic, context, method, "frozen", step, previous[i], device,
+                effective_coefficient=coefficients[i].cpu().numpy(),
+            )
+            distance = output[1]
+            far = (a < 0) & (distance > calibration["far_threshold"])
+            row.update({"critic_update_count": 0, "q2_far_threshold": calibration["far_threshold"],
+                        "q2_far_cap": calibration["far_cap"], "q2_fixed_threshold_far_count": int(far.sum()),
+                        "q2_fixed_threshold_far_fraction": float(far.double().mean()),
+                        "q2_audit_budget_source_method": methods[0],
+                        **{f"q2_audit_{k}": float(v.cpu()) for k, v in statistics.items()}})
+            near = (a < 0) & ~far
+            for group, mask in (("near", near), ("far", far)):
+                selected = mask.cpu().numpy()
+                for label, values in (("raw", a.cpu().numpy()), ("audit_effective", coefficients[i].cpu().numpy())):
+                    force = _rebuttal_force(actor, context["obs"][ids[selected]], data.actions[ids[selected]],
+                                            values[selected], len(ids), settings["diagnostic_batch_size"], device)
+                    row[f"q2_{label}_{group}_negative_force_norm"] = float(force.norm().cpu())
+            history["diagnostics"].append(_rebuttal_json(row))
+            if step in settings["variance_steps"]:
+                history["gradient_variance"].extend(collect_rebuttal_gradient_variance(actor, critic, context, "frozen", method, step, seed, device))
+
+    def rollout(step: int) -> None:
+        for actor, cell, history in zip(actors, cells, histories):
+            history["rollouts"].append(_rebuttal_rollout_row(actor, context, cell, step, seed, device))
+
+    def emit_budget(last: list[dict]) -> None:
+        if not block.count:
+            return
+        row = block.finish(completed)
+        budgets.append(row)
+        for i, history in enumerate(histories):
+            prefix = "intervention" if i == 0 else "global"
+            history["training_metrics"].append({"step": completed, "critic_update_count": 0,
+                "coefficient_scope": "actual_training_batches_block_mean", "p_effective": row[f"q2_{prefix}_p_mean"],
+                "q_effective": row[f"q2_{prefix}_q_mean"], "clipped_updates": clipped[i],
+                "clipping_fraction": clipped[i] / completed, **last[i]})
+
+    try:
+        if calibration["status"] == "defined":
+            if not histories[0]["diagnostics"]:
+                observe(0)
+                rollout(0)
+                checkpoint()
+            last = [{}, {}]
+            steps = range(completed + 1, settings["actor_steps"] + 1) if failure is None else ()
+            for step in steps:
+                ids = sample_indices(rng, context["train_ids"], settings["actor_batch_size"])
+                obs, actions = tensor(context["obs"][ids], device), tensor(data.actions[ids], device)
+                a = torch.as_tensor(context["initial_advantage"][ids], device=device)
+                outputs = [current_action_log_prob(actor, obs, actions) for actor in actors]
+                coefficients, statistics = q2_pair_coefficients(actors, [out[0] for out in outputs], [out[1] for out in outputs], a, calibration, methods[0])
+                if not bool(torch.isfinite(torch.stack(list(statistics.values()))).all()):
+                    failure = {"reason": "nonfinite_q2_budget", "affected_methods": [methods[0] if not bool(torch.isfinite(statistics["target_budget"])) else methods[1]]}
+                    break
+                losses = [rebuttal_actor_loss(out[0], c) for out, c in zip(outputs, coefficients)]
+                bad = [method for method, loss in zip(methods, losses) if not bool(torch.isfinite(loss))]
+                if bad:
+                    failure = {"reason": "nonfinite_actor_loss", "affected_methods": bad}
+                    break
+                norms = []
+                for actor, optimizer, loss in zip(actors, optimizers, losses):
+                    optimizer.zero_grad(set_to_none=True)
+                    loss.backward()
+                    norms.append(_clip_rebuttal_gradients(actor.parameters(), settings["actor_gradient_clip"]))
+                bad = [method for method, norm in zip(methods, norms) if not bool(torch.isfinite(norm))]
+                if bad:
+                    failure = {"reason": "nonfinite_actor_gradient", "affected_methods": bad}
+                    break
+                log_step = step % settings["log_interval"] == 0 or step == settings["actor_steps"]
+                for i, (actor, optimizer, norm, loss) in enumerate(zip(actors, optimizers, norms, losses)):
+                    clipped[i] += int(norm > settings["actor_gradient_clip"])
+                    if log_step:
+                        last[i] = {"loss": float(loss.detach()), "gradient_norm_pre_clip": float(norm),
+                                   "gradient_norm_post_clip": float(torch.sqrt(sum(p.grad.detach().double().square().sum() for p in actor.parameters())))}
+                    optimizer.step()
+                    optimizer.zero_grad(set_to_none=True)
+                completed = step
+                block.add(statistics)
+                if log_step:
+                    emit_budget(last)
+                    flush()
+                    print(json.dumps({**identity, "step": step, "event": "pair_progress"}), flush=True)
+                if step % settings["diagnostic_interval"] == 0 or step == settings["actor_steps"]:
+                    observe(step)
+                if step % settings["evaluation_interval"] == 0 or step == settings["actor_steps"]:
+                    rollout(step)
+                if step % settings["checkpoint_interval"] == 0 or step == settings["actor_steps"]:
+                    checkpoint()
+            if failure:
+                failure = {"observed_completed_actor_steps": completed, "attempted_step": completed + 1, **failure,
+                           "checkpoint_actor_steps": completed}
+                _write_rebuttal_json(pair_root / "numerical_failure.json", failure)
+                emit_budget(last)
+                if histories[0]["diagnostics"][-1]["step"] != completed:
+                    observe(completed)
+                if histories[0]["rollouts"][-1]["step"] != completed:
+                    rollout(completed)
+                checkpoint()
+            elif completed == settings["actor_steps"] and not (pair_root / "checkpoint.pt").is_file():
+                checkpoint()
+        else:
+            _write_rebuttal_json(pair_root / "calibration_status.json", calibration)
+            if calibration["status"] == "nonfinite_calibration":
+                failure = {"reason": "nonfinite_q2_calibration", "affected_methods": list(methods),
+                           "observed_completed_actor_steps": 0, "checkpoint_actor_steps": 0, "attempted_step": 0}
+                _write_rebuttal_json(pair_root / "numerical_failure.json", failure)
+                checkpoint()
+        statuses = []
+        for cell, method, cell_identity, history in zip(cells, methods, identities, histories):
+            failed = failure and method in failure["affected_methods"]
+            record = {"reason": failure["reason"], "completed_actor_steps": failure["observed_completed_actor_steps"]} if failed else None
+            summary = _rebuttal_branch_summary(cell_identity, context, history, completed, 0, record)
+            if failure and not failed:
+                summary.update(status="paired_stop", late_mean=None, terminal_classification="paired_stop")
+            if calibration["status"] == "undefined_no_initial_negative":
+                summary.update(status="calibration_undefined", terminal_classification="calibration_undefined")
+            summary.update(pair_failure=failure, pair_checkpoint_index=str(pair_root / "checkpoint_index.json"))
+            if completed == settings["actor_steps"] and failure is None:
+                _write_rebuttal_json(cell / "terminal_full_pool_mass.json", rebuttal_mass(context["initial_advantage"][context["train_ids"]]))
+            _write_rebuttal_json(cell / "summary.json", summary)
+            _write_rebuttal_json(cell / "status.json", summary)
+            if failed:
+                _write_rebuttal_json(cell / "numerical_failure.json", failure)
+            statuses.append(summary["status"])
+        _write_rebuttal_json(pair_root / "summary.json", {**identity, "step": completed, "cell_statuses": statuses,
+                            "status": "completed" if all(status == "completed" for status in statuses) else "stopped",
+                            "numerical_failure": failure, "calibration": calibration})
+        return 0
+    except BaseException:
+        flush()
+        record = {**identity, "status": "runtime_failure", "completed_actor_steps": completed, "traceback": traceback.format_exc()}
+        _write_rebuttal_json(pair_root / "failure.json", record)
+        for cell in cells:
+            _write_rebuttal_json(cell / "failure.json", record)
+            _write_rebuttal_json(cell / "status.json", record)
         raise
 
 
@@ -5072,13 +5475,17 @@ def _plot_rebuttal(root: Path, tables: dict[str, list[dict]]) -> None:
         "far_negative_force_and_remoteness": ("diagnostics", ["raw_far_negative_force_norm", "effective_far_negative_force_norm", "negative_distance_mean"]),
         "is_weights_ess_and_gradient_variance": ("diagnostics", ["ess_fraction", "log_ratio_p99", "variance_trace"]),
         "hopper_return_curves": ("rollouts", ["normalized_return"]),
+        "q2_return_curves": ("rollouts", ["normalized_return"]),
+        "q2_budget_matching": ("q2_budgets", ["q2_target_budget_mean", "q2_actual_global_budget_mean", "q2_absolute_error_max"]),
+        "q2_far_negative_force": ("diagnostics", ["q2_raw_far_negative_force_norm", "q2_audit_effective_far_negative_force_norm"]),
     }
     for name, (table, metrics) in specifications.items():
         fig, axes = plt.subplots(len(metrics), 1, figsize=(10, 3.1 * len(metrics)), squeeze=False)
         for ax, metric in zip(axes[:, 0], metrics):
             rows = tables["gradient_variance"] if metric == "variance_trace" else tables[table]
-            for mode in REBUTTAL_MODES:
-                for method in REBUTTAL_METHODS:
+            for mode in (("frozen",) if name.startswith("q2_") else REBUTTAL_MODES):
+                methods = REBUTTAL_METHODS + Q2_METHODS if name.startswith("q2_") else REBUTTAL_METHODS
+                for method in methods:
                     buckets: dict[int, list[float]] = {}
                     for row in rows:
                         if row["advantage_mode"] != mode:
@@ -5099,7 +5506,7 @@ def _plot_rebuttal(root: Path, tables: dict[str, list[dict]]) -> None:
                         continue
                     steps = sorted(buckets)
                     mean = np.array([np.mean(buckets[s]) for s in steps])
-                    color = f"C{REBUTTAL_METHODS.index(method)}"
+                    color = f"C{methods.index(method)}"
                     ax.plot(np.array(steps) / 1e6, mean, color=color,
                             linestyle="-" if mode == "frozen" else "--", label=f"{mode}/{method}")
             ax.set(xlabel="Actor updates (millions)", ylabel=metric.replace("_", " "))
@@ -5113,11 +5520,71 @@ def _plot_rebuttal(root: Path, tables: dict[str, list[dict]]) -> None:
         plt.close(fig)
 
 
+def _aggregate_rebuttal_q2(root: Path, settings: dict, matrix: list[dict], tables: dict) -> None:
+    output = root / "summary"
+    budgets = []
+    for seed in settings["seeds"]:
+        for intervention, control in settings["q2"]["pairs"]:
+            budgets.extend({**row, "seed": seed, "advantage_mode": "frozen", "method": intervention,
+                            "global_method": control}
+                           for row in _read_rebuttal_csv(_q2_pair_path(root, seed, intervention) / "budget_matching.csv"))
+    tables["q2_budgets"] = budgets
+    write_csv(output / "Q2_BUDGET_MATCHING.csv", budgets)
+    common = {"seed", "advantage_mode", "method", "step", "sample_count", "effective_coefficient_scope"}
+    write_csv(output / "Q2_INTERVENTION_DIAGNOSTICS.csv", [
+        {k: v for k, v in row.items() if k in common or k.startswith(("q2_", "p_", "q_", "rho_", "ratio_status_"))}
+        for row in tables["diagnostics"] if row["method"] in Q2_METHODS
+    ])
+    rows = []
+    for method in REBUTTAL_METHODS + Q2_METHODS:
+        cells = [r for r in matrix if r["advantage_mode"] == "frozen" and r["method"] == method]
+        row = {"method": method, "advantage_mode": "frozen", "planned_n": len(cells),
+               "completed_n": sum(r["status"] == "completed" for r in cells),
+               "numerical_failure_n": sum(bool(r.get("numerical_failure")) or r["status"] == "numerical_failure" for r in cells),
+               "paired_stop_n": sum(r["status"] == "paired_stop" for r in cells),
+               "runtime_failure_n": sum(r["status"] == "runtime_failure" for r in cells),
+               "calibration_undefined_n": sum(r["status"] == "calibration_undefined" for r in cells),
+               "source": "existing_frozen_cell" if method in REBUTTAL_METHODS else "q2_paired_cell"}
+        for metric in ("late_mean", "terminal"):
+            values = [r[metric] for r in cells if r["status"] == "completed" and r.get(metric) is not None]
+            row.update({f"{metric}_n": len(values), f"{metric}_mean": float(np.mean(values)) if values else None,
+                        f"{metric}_seed_sample_sd": float(np.std(values, ddof=1)) if len(values) > 1 else None})
+        pair_rows = [r for r in budgets if method in (r["method"], r["global_method"])]
+        if pair_rows:
+            total = sum(int(r["updates"]) for r in pair_rows)
+            row["q2_budget_observed_steps"] = total
+            for field in ("matchable", "unmatched_zero_raw_gradient", "zero_target", "alpha_gt_one", "cap_triggered"):
+                row[f"q2_{field}_fraction"] = sum(int(r[f"q2_{field}_steps"]) for r in pair_rows) / total
+            row["q2_absolute_error_max"] = max(float(r["q2_absolute_error_max"]) for r in pair_rows)
+            relative_errors = [float(r["q2_relative_error_nonzero_target_max"]) for r in pair_rows if r["q2_relative_error_nonzero_target_max"] not in (None, "")]
+            row["q2_relative_error_nonzero_target_max"] = max(relative_errors) if relative_errors else None
+        rows.append(row)
+    write_csv(output / "Q2_METHOD_SUMMARY.csv", rows)
+    comparisons = [(intervention, reference) for intervention, control in settings["q2"]["pairs"]
+                   for reference in ("signed", control)]
+    paired = []
+    by_key = {(r["seed"], r["method"]): r for r in matrix if r["advantage_mode"] == "frozen"}
+    for method, reference in comparisons:
+        for metric in ("late_mean", "terminal"):
+            differences = []
+            for seed in settings["seeds"]:
+                cell, baseline = by_key[seed, method], by_key[seed, reference]
+                difference = cell[metric] - baseline[metric] if cell["status"] == baseline["status"] == "completed" and cell.get(metric) is not None and baseline.get(metric) is not None else None
+                if difference is not None:
+                    differences.append(difference)
+                paired.append({"row_type": "seed", "seed": seed, "method": method, "reference": reference,
+                               "metric": metric, "difference": difference, "method_status": cell["status"], "reference_status": baseline["status"]})
+            paired.append({"row_type": "aggregate", "method": method, "reference": reference, "metric": metric,
+                           "paired_n": len(differences), "mean_difference": float(np.mean(differences)) if differences else None,
+                           "difference_sample_sd": float(np.std(differences, ddof=1)) if len(differences) > 1 else None})
+    write_csv(output / "Q2_PAIRED_COMPARISONS.csv", paired)
+
+
 def aggregate_rebuttal(root: Path, settings: dict) -> dict:
     summary_root = root / "summary"
     summary_root.mkdir(exist_ok=True)
     matrix, tables = [], {name: [] for name in ("diagnostics", "rollouts", "gradient_variance")}
-    for key in rebuttal_matrix(settings["seeds"]):
+    for key in rebuttal_matrix(settings["seeds"], settings["methods_by_advantage_mode"]):
         cell = _rebuttal_cell(root, key["seed"], key["advantage_mode"], key["method"])
         path = cell / "summary.json"
         row = json.loads(path.read_text()) if path.is_file() else {**key, "status": "runtime_failure", "late_mean": None, "terminal": None}
@@ -5168,12 +5635,15 @@ def aggregate_rebuttal(root: Path, settings: dict) -> dict:
     for name, include in field_sets.items():
         write_csv(summary_root / f"{name}.csv", [{k: v for k, v in r.items() if k in common or include(k)} for r in tables["diagnostics"]])
     write_csv(summary_root / "GRADIENT_VARIANCE.csv", tables["gradient_variance"])
-    terminal = sum(r["status"] in ("completed", "numerical_failure") for r in matrix)
+    _aggregate_rebuttal_q2(root, settings, matrix, tables)
+    terminal = sum(r["status"] in ("completed", "numerical_failure", "paired_stop", "calibration_undefined") for r in matrix)
     audit = {
         "experiment_id": REBUTTAL_EXPERIMENT_ID, "expected_cells": len(matrix),
         "terminal_cells": terminal, "completed_cells": sum(r["status"] == "completed" for r in matrix),
         "numerical_failure_cells": sum(r["status"] == "numerical_failure" or bool(r.get("numerical_failure")) for r in matrix),
         "runtime_failure_cells": len(matrix) - terminal,
+        "paired_stop_cells": sum(r["status"] == "paired_stop" for r in matrix),
+        "calibration_undefined_cells": sum(r["status"] == "calibration_undefined" for r in matrix),
         "support_or_variance_boundary_cells": sum(bool(r.get("support_or_variance_boundary_event")) for r in matrix),
         "task_collapse_status": "not_adjudicated_no_coldstart_threshold",
         "all_full_budgets_completed": all(r["status"] == "completed" and r["completed_actor_steps"] == settings["actor_steps"] for r in matrix),
@@ -5189,6 +5659,38 @@ def aggregate_rebuttal(root: Path, settings: dict) -> dict:
     return audit
 
 
+def _reuse_rebuttal_job(resume: Path, root: Path, job: dict, settings: dict, source_commit: str) -> bool:
+    old_cells = [_rebuttal_cell(resume, key["seed"], key["advantage_mode"], key["method"]) for key in job["cells"]]
+    paired = job["job_kind"] == "q2_pair"
+    old_pair = _q2_pair_path(resume, job["seed"], job["method"])
+    if paired and ((old_pair / "failure.json").is_file() or not (old_pair / "summary.json").is_file()):
+        return False
+    for old, key in zip(old_cells, job["cells"]):
+        if not (old / "summary.json").is_file() or (old / "failure.json").is_file():
+            return False
+        row = json.loads((old / "summary.json").read_text())
+        if row["status"] not in (("completed",) if paired else ("completed", "numerical_failure")):
+            return False
+        if (row["settings_identity"] != settings["identity"] or row["source_commit"] != source_commit
+                or any(row[k] != v for k, v in key.items())):
+            raise ValueError("Completed resume cell identity mismatch")
+    for old, key in zip(old_cells, job["cells"]):
+        cell = _rebuttal_cell(root, key["seed"], key["advantage_mode"], key["method"])
+        cell.mkdir(parents=True, exist_ok=True)
+        for path in old.iterdir():
+            if path.suffix in (".csv", ".json"):
+                shutil.copy2(path, cell / path.name)
+            elif path.is_dir() and path.name == "rollouts":
+                shutil.copytree(path, cell / path.name)
+    if paired:
+        pair = _q2_pair_path(root, job["seed"], job["method"])
+        pair.mkdir(parents=True, exist_ok=True)
+        for path in old_pair.iterdir():
+            if path.suffix in (".csv", ".json"):
+                shutil.copy2(path, pair / path.name)
+    return True
+
+
 def run_rebuttal_experiment(args: argparse.Namespace) -> int:
     import time
 
@@ -5201,12 +5703,14 @@ def run_rebuttal_experiment(args: argparse.Namespace) -> int:
     digest = sha256_file(dataset)
     if not args.smoke and digest != base.dataset_sha256:
         raise ValueError("This fixed dataset protocol requires the registered Hopper-replay HDF5")
-    matrix = rebuttal_matrix(settings["seeds"])
+    matrix = rebuttal_matrix(settings["seeds"], settings["methods_by_advantage_mode"])
+    jobs = rebuttal_jobs(settings)
     manifest = {
         "experiment_id": REBUTTAL_EXPERIMENT_ID, "base_commit": source_commit,
         "source_commit": source_commit, "source_branch": git_output(repo, "branch", "--show-current"),
         "run_id": root.name, "settings_identity": settings["identity"], "settings": settings,
         "dataset": {"path": str(dataset), "sha256": digest}, "matrix": matrix,
+        "jobs": jobs, "cell_count": len(matrix), "job_count": len(jobs),
         "started_utc": utc_now(), "smoke": args.smoke,
         "scientific_status": "not_run" if args.smoke else "pilot",
         "density_processing": "tanh action-space ratio with one a_safe; no ratio clipping/normalization",
@@ -5257,27 +5761,12 @@ def run_rebuttal_experiment(args: argparse.Namespace) -> int:
     _write_rebuttal_json(root / "ROLLOUT_PREFLIGHT.json", preflight)
     if not (root / "prepare" / "PREPARE_COMPLETE.json").is_file():
         prepare_rebuttal_context(dataset, root / "prepare", settings, base, torch.device(devices[0]), source_commit)
-    pending = []
-    for key in matrix:
-        if resume:
-            old_cell = _rebuttal_cell(resume, key["seed"], key["advantage_mode"], key["method"])
-            old_summary = old_cell / "summary.json"
-            if old_summary.is_file():
-                row = json.loads(old_summary.read_text())
-                if row["status"] in ("completed", "numerical_failure") and not (old_cell / "failure.json").is_file():
-                    if (row["settings_identity"] != settings["identity"]
-                            or row["source_commit"] != source_commit
-                            or any(row[k] != v for k, v in key.items())):
-                        raise ValueError("Completed resume cell identity mismatch")
-                    cell = _rebuttal_cell(root, key["seed"], key["advantage_mode"], key["method"])
-                    cell.mkdir(parents=True, exist_ok=True)
-                    for path in old_cell.iterdir():
-                        if path.suffix in (".csv", ".json"):
-                            shutil.copy2(path, cell / path.name)
-                        elif path.is_dir() and path.name == "rollouts":
-                            shutil.copytree(path, cell / path.name)
-                    continue
-        pending.append(key)
+    manifest["preparation"] = json.loads((root / "prepare/normalization.json").read_text())
+    manifest["q2_calibrations"] = [json.loads((root / "prepare" / f"q2_calibration_seed_{seed}.json").read_text()) for seed in settings["seeds"]]
+    _write_rebuttal_json(root / "scientific_run_manifest.json", manifest)
+    guarded_manifest = json.loads((root / "run_manifest.json").read_text())
+    _write_rebuttal_json(root / "run_manifest.json", {**guarded_manifest, "scientific_protocol": manifest})
+    pending = [job for job in jobs if not (resume and _reuse_rebuttal_job(resume, root, job, settings, source_commit))]
     logs = root / "logs"
     logs.mkdir(exist_ok=True)
     active: dict[int, tuple[subprocess.Popen, Any, dict]] = {}
@@ -5292,6 +5781,7 @@ def run_rebuttal_experiment(args: argparse.Namespace) -> int:
                     "--config", str(Path(args.config).resolve()), "--dataset-path", str(dataset),
                     "--work-dir", str(root), "--device", worker_device, "--seed", str(key["seed"]),
                     "--advantage-mode", key["advantage_mode"], "--method", key["method"],
+                    "--job-kind", key["job_kind"],
                     "--large-file-persistence", args.large_file_persistence,
                 ]
                 if args.smoke:
@@ -5309,12 +5799,15 @@ def run_rebuttal_experiment(args: argparse.Namespace) -> int:
                 if code is not None:
                     log.close()
                     if code != 0:
-                        cell = _rebuttal_cell(root, key["seed"], key["advantage_mode"], key["method"])
-                        failure_path = cell / "failure.json"
-                        failure = json.loads(failure_path.read_text()) if failure_path.is_file() else {}
-                        failure.update({**key, "status": "runtime_failure", "returncode": code, "log": str(log.name)})
-                        _write_rebuttal_json(failure_path, failure)
-                        _write_rebuttal_json(cell / "status.json", failure)
+                        failure_dirs = [_rebuttal_cell(root, cell["seed"], cell["advantage_mode"], cell["method"]) for cell in key["cells"]]
+                        if key["job_kind"] == "q2_pair":
+                            failure_dirs.append(_q2_pair_path(root, key["seed"], key["method"]))
+                        for directory in failure_dirs:
+                            failure_path = directory / "failure.json"
+                            failure = json.loads(failure_path.read_text()) if failure_path.is_file() else {}
+                            failure.update({**key, "status": "runtime_failure", "returncode": code, "log": str(log.name)})
+                            _write_rebuttal_json(failure_path, failure)
+                            _write_rebuttal_json(directory / "status.json", failure)
                     print(json.dumps({"event": "worker_exited", **key, "returncode": code}), flush=True)
                     del active[slot]
             _write_rebuttal_json(root / "scientific_heartbeat.json", {
@@ -5360,7 +5853,8 @@ def build_parser() -> argparse.ArgumentParser:
         if name.endswith("-worker"):
             profile.add_argument("--seed", type=int, required=True)
             profile.add_argument("--advantage-mode", choices=REBUTTAL_MODES, required=True)
-            profile.add_argument("--method", choices=REBUTTAL_METHODS, required=True)
+            profile.add_argument("--method", choices=REBUTTAL_METHODS + Q2_METHODS, required=True)
+            profile.add_argument("--job-kind", choices=("independent", "q2_pair"), default="independent")
         else:
             profile.add_argument("--repo-root", default=".")
             profile.add_argument("--gpu-ids", default="0,1,2,3,4,5,6,7")
@@ -5412,7 +5906,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise ValueError("--max-workers must be positive")
         return run_rebuttal_experiment(args)
     if args.command == "rebuttal-pq-is-worker":
-        return train_rebuttal_branch(args)
+        return train_rebuttal_q2_pair(args) if args.job_kind == "q2_pair" else train_rebuttal_branch(args)
     if args.command == "rollout-preflight-worker":
         report = _run_rollout_preflight_worker(
             backend=args.backend,
