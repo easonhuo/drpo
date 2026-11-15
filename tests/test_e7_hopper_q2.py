@@ -131,7 +131,11 @@ def test_q2_calibration_is_initial_only_deterministic_and_preserves_rng_and_grad
     second = mod.calibrate_rebuttal_q2(actor, context, 200, torch.device("cpu"))
     assert first == second and first["status"] == "defined"
     _, d, _ = mod.current_action_log_prob(actor, torch.from_numpy(context["obs"]), torch.from_numpy(context["data"].actions))
-    assert first["far_threshold"] == np.quantile(d.numpy()[context["initial_advantage"] < 0], .75)
+    # The float32 mean network may use different GEMM kernels for diagnostic
+    # chunks and this full-population reference. Repeated calibration itself
+    # is still checked for exact determinism above.
+    np.testing.assert_allclose(first["far_threshold"], np.quantile(d.numpy()[context["initial_advantage"] < 0], .75),
+                               rtol=1e-6, atol=1e-8)
     assert first["far_cap"] == np.median(first["initial_far_block_norms"])
     assert first["calibration_batches"] == 16 and first["calibration_batch_size"] == 1024
     assert torch.equal(torch.get_rng_state(), state)
