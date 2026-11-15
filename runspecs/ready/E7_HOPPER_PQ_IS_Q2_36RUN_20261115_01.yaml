@@ -4,7 +4,7 @@ lane: e7
 priority: 160
 created_at: '2026-11-15T00:00:00Z'
 experiment_id: EXT-H-E7-REBUTTAL-PQ-IS-01
-repo_commit: f2ff0147ac3fc4a8dc5669d9718282de5ec74758
+repo_commit: aae486a1be73cc64da2a62231be09c943075119f
 
 registration:
   mode: deferred
