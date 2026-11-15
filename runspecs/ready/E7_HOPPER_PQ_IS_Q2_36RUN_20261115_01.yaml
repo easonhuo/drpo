@@ -1,0 +1,154 @@
+version: 1
+run_id: E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01
+lane: e7
+priority: 160
+created_at: '2026-11-15T00:00:00Z'
+experiment_id: EXT-H-E7-REBUTTAL-PQ-IS-01
+repo_commit: 93bacc64dbedb08945c377f39648170465cc50ae
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - src/drpo/e7_hopper_q2.py
+    - scripts/run_e7_hopper_q2.py
+    - configs/e7_hopper_pq_is_rebuttal_v1.yaml
+    - configs/e7_hopper_q2_medium_replay_v2.yaml
+    - docs/experiments/EXT-H-E7-REBUTTAL-PQ-IS-01.md
+    - tests/test_e7_hopper_q2.py
+    - tests/test_e7_q2_acceptance_pipeline.py
+    - scripts/run_experiment_guard_hardened.py
+    - scripts/artifact_protocol_hardened.py
+
+purpose: >-
+  Execute the unified 36-run Hopper-medium-replay p/q, advantage-refresh,
+  raw-IS and Q2 intervention protocol. Reuse the original 24 cold-start
+  branches and add only 12 frozen-advantage Far-zero/Far-cap and dedicated
+  Global controls. Each paired worker matches actual full-parameter
+  pre-clipping negative-gradient norms between its two trajectories on every
+  update. One eight-GPU pool schedules 24 independent and six pair jobs.
+  This is fixed-budget external-validity evidence, not a convergence or
+  steady-state method-ranking claim. No training has been launched by
+  creating this snapshot.
+
+scientific_snapshot:
+  protocol_version: 2
+  config: configs/e7_hopper_pq_is_rebuttal_v1.yaml
+  config_sha256: e4bd8cd77151116bd7f51e9da05f6e62873a7b875b77f5f44371bbce938e3c59
+  base_config: configs/e7_hopper_q2_medium_replay_v2.yaml
+  base_config_sha256: 262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e
+  dataset: hopper-medium-replay-v2
+  dataset_sha256: e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b
+  dataset_path_resolution: DRPO_HOPPER_MEDIUM_REPLAY or existing standard server location
+  seeds: [200, 201, 202]
+  critic_seed: 100
+  critic_steps: 100000
+  actor_steps_per_cell: 1000000
+  actor_warmstart_steps: 0
+  cell_count: 36
+  independent_job_count: 24
+  paired_job_count: 6
+  job_count: 30
+  methods_by_advantage_mode:
+    frozen: [positive_only, signed, drpo, is, far_zero, global_matched_far_zero, far_cap, global_matched_far_cap]
+    refreshed: [positive_only, signed, drpo, is]
+  q2_pairs:
+    - [far_zero, global_matched_far_zero]
+    - [far_cap, global_matched_far_cap]
+  frozen_config_authority: All remaining scientific parameters come from the hash-bound config.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    python scripts/run_e7_hopper_q2.py
+    --experiment-profile rebuttal_pq_is
+    --config configs/e7_hopper_pq_is_rebuttal_v1.yaml
+    --device cuda --gpu-ids 0,1,2,3,4,5,6,7 --max-workers 8
+    --large-file-persistence persistent_local
+    --work-dir runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01
+    --artifact-output runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01_EXT-H-E7-REBUTTAL-PQ-IS-01.zip
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  scientific_aggregation_allowed: true
+  formal_evidence_allowed: true
+
+outputs:
+  run_dir: runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01
+  summary_file: runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/summary/METHOD_SUMMARY.csv
+  audit_file: runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/terminal_audit.json
+  scientific_manifest: runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/scientific_run_manifest.json
+
+success_criteria:
+  - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/RUN_COMPLETE.json exists
+  - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/terminal_audit.json exists
+  - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/scientific_run_manifest.json exists
+  - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/summary/MATRIX.csv exists
+  - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/summary/Q2_METHOD_SUMMARY.csv exists
+  - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/summary/Q2_PAIRED_COMPARISONS.csv exists
+  - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/summary/Q2_BUDGET_MATCHING.csv exists
+  - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/summary/Q2_INTERVENTION_DIAGNOSTICS.csv exists
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/RUN_COMPLETE.json
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/terminal_audit.json
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/run_manifest.json
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/scientific_run_manifest.json
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/resolved_config.*
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/ROLLOUT_PREFLIGHT.json
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/recovery_package_status.json
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/prepare/data_manifest.json
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/prepare/normalization.json
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/prepare/initial_advantage_summary.json
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/prepare/q2_calibration_seed_*.json
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/summary/*.csv
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/summary/TERMINAL_AUDIT.json
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/cells/seed_*/*/*/summary.json
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/cells/seed_*/*/*/status.json
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/cells/seed_*/*/*/failure.json
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/cells/seed_*/*/*/numerical_failure.json
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/pairs/seed_*/*/summary.json
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/pairs/seed_*/*/status.json
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/pairs/seed_*/*/failure.json
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/figures/*.svg
+    - runs/e7_rebuttal_pq_is/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01/logs/*.log
+  exclude:
+    - '**/*.pt'
+    - '**/*.pth'
+    - '**/*.ckpt'
+    - '**/*.safetensors'
+    - '**/*.bin'
+    - '**/checkpoint*'
+    - '**/optimizer*'
+    - '**/wandb/**'
+  max_package_size_mb: 25
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e7
+  export_profile: manifest_text_v1
+  max_total_size_mb: 30
+  max_file_size_mb: 10
+
+publish:
+  enabled: false
+  auto: false
+
+# The launcher preserves independent and synchronized-pair checkpoints. An
+# interrupted attempt resumes through the documented new-root launcher command;
+# this snapshot does not automatically repeat failed or numerical-stop training.
+recovery:
+  enabled: false

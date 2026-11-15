@@ -5,6 +5,8 @@ The scientific runner trains an episode-split value critic, freezes critic-deriv
 advantages, takes a tanh-squashed Gaussian actor through a Positive-only terminal
 audit, constructs advantage-matched near/far negative probes, decomposes Gaussian
 mean and log-scale output scores, and branches the preregistered signed controls.
+The explicit ``rebuttal-pq-is`` profile reuses components with cold-start actors,
+frozen/refreshed advantages and raw IS; the original Q2 defaults are unchanged.
 
 This file never creates ZIP/TAR artifacts. Formal supervision, recovery packaging,
 checksums, and uploadable result archives are owned by the canonical hardened
@@ -26,7 +28,7 @@ import subprocess
 import sys
 import traceback
 from importlib import metadata as importlib_metadata
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
@@ -434,6 +436,8 @@ class OfflineData:
     terminals: np.ndarray
     timeouts: np.ndarray
     episode_ids: np.ndarray
+    behavior_log_prob: np.ndarray | None = None
+    transition_ids: np.ndarray | None = None
 
     @property
     def size(self) -> int:
@@ -451,6 +455,10 @@ def load_hopper_hdf5(path: str | Path, max_transitions: int | None) -> OfflineDa
         limit = total if max_transitions is None else min(total, int(max_transitions))
         observations = np.asarray(handle["observations"][:limit], dtype=np.float32)
         actions = np.asarray(handle["actions"][:limit], dtype=np.float32)
+        behavior_log_prob = (
+            np.asarray(handle["infos/action_log_probs"][:limit], dtype=np.float32).reshape(-1)
+            if "infos/action_log_probs" in handle else None
+        )
         rewards = np.asarray(handle["rewards"][:limit], dtype=np.float32).reshape(-1)
         terminals = np.asarray(handle["terminals"][:limit], dtype=np.bool_).reshape(-1)
         if "timeouts" in handle:
@@ -474,6 +482,8 @@ def load_hopper_hdf5(path: str | Path, max_transitions: int | None) -> OfflineDa
         terminals=terminals,
         timeouts=timeouts,
         episode_ids=episode_ids,
+        behavior_log_prob=behavior_log_prob,
+        transition_ids=np.arange(limit, dtype=np.int64),
     )
 
 
@@ -4262,9 +4272,1714 @@ def run_experiment(args: argparse.Namespace) -> int:
         raise
 
 
+# ---------------------------------------------------------------------------
+# Isolated Hopper p/q / refreshed-advantage / raw-IS profile
+# ---------------------------------------------------------------------------
+
+REBUTTAL_EXPERIMENT_ID = "EXT-H-E7-REBUTTAL-PQ-IS-01"
+REBUTTAL_METHODS = ("positive_only", "signed", "drpo", "is")
+TOPR_METHOD_BETAS = {"topr_beta_0p25": 0.25, "topr_beta_0p5": 0.5, "topr": 1.0,
+                     "topr_beta_2": 2.0, "topr_beta_4": 4.0}
+TOPR_METHOD_IDENTITIES = {
+    method: "canonical_topr_weight_adaptation" if beta == 1 else "beta_topr_logged_frozen_reference_variant"
+    for method, beta in TOPR_METHOD_BETAS.items()
+}
+REBUTTAL_INDEPENDENT_METHODS = REBUTTAL_METHODS + tuple(TOPR_METHOD_BETAS)
+TOPR_EXPERIMENT_ID = "EXT-H-E7-TOPR-D4RL9-PILOT-400K-01"
+REBUTTAL_MODES = ("frozen", "refreshed")
+Q2_PAIRS = (("far_zero", "global_matched_far_zero"), ("far_cap", "global_matched_far_cap"))
+Q2_METHODS = tuple(method for pair in Q2_PAIRS for method in pair)
+
+
+def load_rebuttal_config(path: str | Path, smoke: bool = False, task: str | None = None) -> tuple[dict, E7Config]:
+    path = Path(path).resolve()
+    raw = yaml.safe_load(path.read_text())
+    if raw["experiment_id"] not in (REBUTTAL_EXPERIMENT_ID, TOPR_EXPERIMENT_ID):
+        raise ValueError("The rebuttal profile requires its own experiment config")
+    settings = dict(raw)
+    smoke_settings = settings.pop("smoke")
+    if smoke:
+        settings.update(smoke_settings)
+    settings["smoke"] = smoke
+    base_path = path.parent / raw["base_config"]
+    base = load_config(base_path)
+    if settings.get("tasks"):
+        task_id = task or settings["default_task"]
+        actual_task = dict(settings["tasks"][task_id])
+        settings.update(task_id=task_id, actual_task=actual_task)
+        settings["worker_threads"] = int(actual_task.get("worker_threads", settings["worker_threads"]))
+        task_fields = {
+            "dataset_basename": "dataset_basename", "dataset_sha256": "dataset_sha256",
+            "env_id": "env_id", "dataset_id": "rollout_dataset_id",
+            "reference_min_score": "normalized_score_reference_min",
+            "reference_max_score": "normalized_score_reference_max",
+        }
+        base = replace(base, **{target: actual_task[key] for key, target in task_fields.items() if key in actual_task})
+    settings["config_sha256"] = sha256_file(path)
+    settings["base_config_sha256"] = sha256_file(base_path)
+    settings["base_config_path"] = str(base_path.resolve())
+    identity = {k: v for k, v in settings.items() if k != "base_config_path"}
+    settings["identity"] = hashlib.sha256(
+        json.dumps(identity, sort_keys=True).encode()
+    ).hexdigest()
+    base = replace(
+        base, actor_batch_size=settings["actor_batch_size"],
+        critic_batch_size=settings["critic_batch_size"],
+        actor_lr=settings["learning_rate"], critic_lr=settings["learning_rate"],
+        max_gradient_norm=settings["actor_gradient_clip"],
+    )
+    return settings, base
+
+
+def rebuttal_matrix(seeds: Sequence[int], methods_by_mode: dict | None = None) -> list[dict[str, Any]]:
+    methods_by_mode = methods_by_mode or {"frozen": REBUTTAL_METHODS + Q2_METHODS, "refreshed": REBUTTAL_METHODS}
+    return [
+        {"seed": int(seed), "advantage_mode": mode, "method": method}
+        for seed in seeds for mode in REBUTTAL_MODES for method in methods_by_mode[mode]
+    ]
+
+
+def rebuttal_jobs(settings: dict) -> list[dict[str, Any]]:
+    matrix = rebuttal_matrix(settings["seeds"], settings["methods_by_advantage_mode"])
+    jobs = [{**key, "job_kind": "independent", "cells": [key]} for key in matrix if key["method"] in REBUTTAL_INDEPENDENT_METHODS]
+    for seed in settings["seeds"]:
+        for intervention, control in settings["q2"]["pairs"] if settings["q2"]["enabled"] else ():
+            jobs.append({"seed": int(seed), "advantage_mode": "frozen", "method": intervention,
+                         "job_kind": "q2_pair", "cells": [
+                             {"seed": int(seed), "advantage_mode": "frozen", "method": method}
+                             for method in (intervention, control)],
+                         "checkpoint_index": f"pairs/seed_{seed}/{intervention}/checkpoint_index.json"})
+    return jobs
+
+
+def _rebuttal_json(value: Any) -> Any:
+    """JSON-safe observations; undefined ratios never become arbitrary epsilons."""
+    if isinstance(value, dict):
+        return {k: _rebuttal_json(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, np.ndarray)):
+        return [_rebuttal_json(v) for v in value]
+    if isinstance(value, (float, np.floating)):
+        return float(value) if math.isfinite(float(value)) else None
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
+def _write_rebuttal_json(path: Path, value: Any) -> None:
+    atomic_write_json(path, _rebuttal_json(value))
+
+
+def _rebuttal_nonnegative_mean(values: np.ndarray) -> float:
+    """Reduce diagnostic mass without overflowing a finite nonnegative mean."""
+    if values.size == 0:
+        return float("nan")
+    maximum = float(np.max(values))
+    if maximum == 0 or not math.isfinite(maximum):
+        return maximum
+    return float(np.mean(values / maximum)) * maximum
+
+
+def rebuttal_mass(coefficient: np.ndarray) -> dict[str, Any]:
+    coefficient = np.asarray(coefficient, dtype=np.float64)
+    p = _rebuttal_nonnegative_mean(np.maximum(coefficient, 0))
+    q = _rebuttal_nonnegative_mean(np.maximum(-coefficient, 0))
+    if not (math.isfinite(p) and math.isfinite(q)):
+        ratio, status = None, "nonfinite_mass"
+    elif p > 0:
+        ratio, status = q / p, "finite"
+        if not math.isfinite(ratio):
+            ratio, status = None, "ratio_overflow"
+    else:
+        ratio, status = None, "p_zero_q_positive" if q > 0 else "both_zero"
+    return {"p": p, "q": q, "rho": ratio, "ratio_status": status}
+
+
+def current_action_log_prob(
+    policy: SquashedGaussianPolicy, obs: torch.Tensor, actions: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """New-profile action density and RMS-squared native Gaussian remoteness.
+
+    Use one safe action for both inverse and Jacobian. Double arithmetic helps
+    evaluate raw IS; it does not clamp its log-ratio or alter old Q2 log_prob.
+    """
+    safe = actions.double().clamp(
+        -1.0 + policy.action_clip_epsilon, 1.0 - policy.action_clip_epsilon
+    )
+    latent = torch.atanh(safe)
+    mean, log_std = policy.latent_parameters(obs)
+    z = (latent - mean.double()) * torch.exp(-log_std.double())
+    gaussian = -0.5 * (z.square() + 2 * log_std.double() + math.log(2 * math.pi))
+    logp = (gaussian - torch.log1p(-safe.square())).sum(-1)
+    boundary = (safe != actions.double()).any(-1)
+    return logp, z.square().mean(-1).detach(), boundary
+
+
+def rebuttal_actor_coefficients(
+    advantage: torch.Tensor, logp: torch.Tensor, distance_squared: torch.Tensor,
+    behavior_logp: torch.Tensor, method: str, settings: dict,
+) -> torch.Tensor:
+    a = advantage.detach().double()
+    if method == "positive_only":
+        return a.clamp_min(0)
+    if method == "signed":
+        return a
+    if method == "drpo":
+        exponent = -settings["drpo_exponent_coefficient"] * (
+            distance_squared.detach().double() / settings["drpo_reference_distance"] ** 2
+        )
+        weight = settings["drpo_scale"] * torch.exp(exponent)
+        return a.clamp_min(0) - weight * (-a).clamp_min(0)
+    if method in TOPR_METHOD_BETAS:
+        log_ratio = logp.detach().double() - behavior_logp.detach().double()
+        weight = torch.exp(TOPR_METHOD_BETAS[method] * torch.minimum(log_ratio, torch.zeros_like(log_ratio)))
+        return a.clamp_min(0) - weight * (-a).clamp_min(0)
+    if method == "is":
+        return torch.exp(logp.detach().double() - behavior_logp.double()) * a
+    raise ValueError(f"Unknown rebuttal method: {method}")
+
+
+def rebuttal_actor_loss(logp: torch.Tensor, coefficient: torch.Tensor) -> torch.Tensor:
+    return -(coefficient.detach() * logp).mean()
+
+
+def _clip_rebuttal_gradients(parameters: Iterable[nn.Parameter], limit: float) -> torch.Tensor:
+    """Same global norm rule, with float64 reduction of finite raw gradients."""
+    gradients = [p.grad for p in parameters if p.grad is not None]
+    if not gradients:
+        return torch.tensor(0.0, dtype=torch.float64)
+    norm = torch.sqrt(sum(g.detach().double().square().sum() for g in gradients))
+    if bool(torch.isfinite(norm)):
+        factor = (limit / (norm + 1e-6)).clamp(max=1.0)
+        for gradient in gradients:
+            gradient.mul_(factor.to(gradient.dtype))
+    return norm
+
+
+def _q2_force_from_graph(policy: SquashedGaussianPolicy, logp: torch.Tensor, coefficient: torch.Tensor) -> torch.Tensor:
+    """Full-parameter ascent force, full B denominator, no higher derivatives."""
+    gradients = torch.autograd.grad(
+        (logp * coefficient.detach()).mean(), list(policy.parameters()), retain_graph=True,
+    )
+    return torch.cat([gradient.detach().double().flatten() for gradient in gradients])
+
+
+def q2_cap_factor(far_norm: torch.Tensor, cap: float) -> torch.Tensor:
+    denominator = torch.where(far_norm > 0, far_norm, torch.ones_like(far_norm))
+    return torch.where(far_norm > 0, (cap / denominator).clamp(max=1), torch.ones_like(far_norm)).detach()
+
+
+def q2_global_scale(target: torch.Tensor, raw: torch.Tensor) -> torch.Tensor:
+    denominator = torch.where(raw > 0, raw, torch.ones_like(raw))
+    return torch.where((target > 0) & (raw > 0), target / denominator, torch.zeros_like(target)).detach()
+
+
+def q2_pair_coefficients(
+    actors: Sequence[SquashedGaussianPolicy], logps: Sequence[torch.Tensor],
+    distances: Sequence[torch.Tensor], advantage: torch.Tensor, calibration: dict,
+    intervention: str,
+) -> tuple[list[torch.Tensor], dict[str, torch.Tensor]]:
+    """Budgets come from the two actual pre-update actors, never a proxy."""
+    a = advantage.detach().double()
+    positive, negative = a.clamp_min(0), (-a).clamp_min(0)
+    far = ((a < 0) & (distances[0].detach() > calibration["far_threshold"])).detach()
+    near = (a < 0) & ~far
+    g_near = _q2_force_from_graph(actors[0], logps[0], -negative * near)
+    g_far = _q2_force_from_graph(actors[0], logps[0], -negative * far)
+    near_norm, far_norm = g_near.norm(), g_far.norm()
+    kappa = q2_cap_factor(far_norm, calibration["far_cap"]) if intervention == "far_cap" else far_norm.new_zeros(())
+    c_intervention = positive - negative * (near.double() + kappa * far.double())
+    # Measure the actual weighted backward, including parameter-dtype rounding.
+    g_intervention = (g_near if intervention == "far_zero" else
+                      _q2_force_from_graph(actors[0], logps[0], c_intervention - positive))
+    target = g_intervention.norm()
+    g_global = _q2_force_from_graph(actors[1], logps[1], -negative)
+    raw_global = g_global.norm()
+    alpha = q2_global_scale(target, raw_global)
+    c_global = positive - alpha * negative
+    actual = _q2_force_from_graph(actors[1], logps[1], c_global - positive).norm()
+    error = (actual - target).abs()
+    nonzero = target > 0
+    unmatched = nonzero & (raw_global == 0)
+    statistics = {
+        "target_budget": target, "raw_global_budget": raw_global, "actual_global_budget": actual,
+        "absolute_error": error,
+        "relative_error_nonzero_target": torch.where(nonzero, error / torch.where(nonzero, target, torch.ones_like(target)), error.new_zeros(())),
+        "nonzero_target": nonzero, "zero_target": ~nonzero,
+        "matchable": ~unmatched, "unmatched_zero_raw_gradient": unmatched,
+        "alpha": alpha, "alpha_gt_one": alpha > 1, "kappa": kappa,
+        "cap_triggered": (kappa < 1) if intervention == "far_cap" else far_norm.new_zeros(()),
+        "far_count": far.sum(), "far_fraction": far.double().mean(),
+        "near_count": near.sum(), "near_negative_norm": near_norm,
+        "far_negative_norm_before": far_norm, "far_negative_norm_after": kappa * far_norm,
+        "negative_norm_before": (g_near + g_far).norm(), "negative_norm_after": target,
+        "intervention_p": c_intervention.clamp_min(0).mean(), "intervention_q": (-c_intervention).clamp_min(0).mean(),
+        "global_p": c_global.clamp_min(0).mean(), "global_q": (-c_global).clamp_min(0).mean(),
+    }
+    return [c_intervention.detach(), c_global.detach()], {k: v.detach().double() for k, v in statistics.items()}
+
+
+def calibrate_rebuttal_q2(policy: SquashedGaussianPolicy, context: dict, seed: int, device: torch.device) -> dict:
+    settings, data = context["settings"], context["data"]
+    q2, ids = settings["q2"], context["diagnostic_ids"]
+    negative = context["initial_advantage"][ids] < 0
+    record = {"seed": seed, "settings_identity": settings["identity"],
+              "diagnostic_ids_sha256": context["diagnostic_ids_sha256"],
+              "negative_count": int(negative.sum()), "quantile": q2["far_threshold_quantile"],
+              "calibration_batches": q2["cap_calibration_batches"],
+              "calibration_batch_size": q2["cap_calibration_batch_size"],
+              "rng_seed_sequence": [seed, q2["calibration_rng_role"]]}
+    if not negative.any():
+        return {**record, "status": "undefined_no_initial_negative", "far_threshold": None, "far_cap": None}
+    distances = []
+    with torch.no_grad():
+        for start in range(0, len(ids), settings["diagnostic_batch_size"]):
+            ix = ids[start:start + settings["diagnostic_batch_size"]]
+            _, d, _ = current_action_log_prob(policy, tensor(context["obs"][ix], device), tensor(data.actions[ix], device))
+            distances.append(d.cpu().numpy())
+    threshold = float(np.quantile(np.concatenate(distances)[negative], q2["far_threshold_quantile"]))
+    rng = np.random.default_rng(np.random.SeedSequence(record["rng_seed_sequence"]))
+    norms, batch_hash = [], hashlib.sha256()
+    for _ in range(q2["cap_calibration_batches"]):
+        ix = sample_indices(rng, context["train_ids"], q2["cap_calibration_batch_size"])
+        batch_hash.update(data.transition_ids[ix].astype("<i8").tobytes())
+        lp, d, _ = current_action_log_prob(policy, tensor(context["obs"][ix], device), tensor(data.actions[ix], device))
+        a = torch.as_tensor(context["initial_advantage"][ix], device=device)
+        force = _q2_force_from_graph(policy, lp, a.double().clamp(max=0) * (d > threshold))
+        norms.append(float(force.norm().cpu()))
+    cap = float(np.median(norms))
+    return {**record, "status": "defined" if math.isfinite(threshold) and math.isfinite(cap) else "nonfinite_calibration",
+            "far_threshold": threshold, "far_cap": cap, "zero_cap_degeneracy": cap == 0,
+            "initial_far_block_norms": norms, "calibration_transition_ids_sha256": batch_hash.hexdigest()}
+
+
+class _Q2BudgetBlock:
+    """Constant-memory device reductions; no million-row per-step output."""
+
+    def __init__(self, device: torch.device, state: dict | None = None):
+        self.device, self.count, self.keys = device, 0, []
+        self.sums = self.maxima = None
+        if state:
+            self.count, self.keys = state["count"], state["keys"]
+            self.sums, self.maxima = state["sums"].to(device), state["maxima"].to(device)
+
+    def add(self, values: dict[str, torch.Tensor]) -> None:
+        vector = torch.stack(list(values.values()))
+        if self.count == 0:
+            self.keys, self.sums, self.maxima = list(values), vector.clone(), vector.clone()
+        else:
+            self.sums.add_(vector)
+            self.maxima = torch.maximum(self.maxima, vector)
+        self.count += 1
+
+    def state_dict(self) -> dict | None:
+        return {"count": self.count, "keys": self.keys, "sums": self.sums.cpu(), "maxima": self.maxima.cpu()} if self.count else None
+
+    def finish(self, step: int) -> dict:
+        sums, maxima = self.sums.cpu().tolist(), self.maxima.cpu().tolist()
+        row = {"step": step, "start_step": step - self.count + 1, "updates": self.count}
+        totals = dict(zip(self.keys, sums))
+        for key, total, maximum in zip(self.keys, sums, maxima):
+            denominator = totals["nonzero_target"] if key == "relative_error_nonzero_target" else self.count
+            row[f"q2_{key}_mean"] = total / denominator if denominator else None
+            row[f"q2_{key}_max"] = maximum if denominator else None
+            if key in ("nonzero_target", "zero_target", "matchable", "unmatched_zero_raw_gradient", "alpha_gt_one", "cap_triggered"):
+                row[f"q2_{key}_steps"] = int(total)
+        self.count = 0
+        return row
+
+
+def current_rebuttal_advantage(
+    critic: ValueNetwork, obs: torch.Tensor, next_obs: torch.Tensor,
+    reward: torch.Tensor, done: torch.Tensor, target_norm: Normalizer,
+    gamma: float, center: float, scale: float,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    with torch.no_grad():
+        m, s = float(target_norm.mean[0]), float(target_norm.std[0])
+        value = critic(obs).double() * s + m
+        next_value = critic(next_obs).double() * s + m
+        delta = reward.double() + gamma * (~done).double() * next_value - value
+        return ((delta - center) / scale).detach(), delta.detach()
+
+
+def update_rebuttal_critic(
+    critic: ValueNetwork, optimizer: torch.optim.Optimizer,
+    obs: torch.Tensor, next_obs: torch.Tensor, reward: torch.Tensor,
+    done: torch.Tensor, target_norm: Normalizer, gamma: float, settings: dict,
+) -> dict[str, Any]:
+    m, s = float(target_norm.mean[0]), float(target_norm.std[0])
+    value = critic(obs)
+    with torch.no_grad():
+        target = reward.double() + gamma * (~done).double() * (
+            critic(next_obs).double() * s + m
+        )
+        error_sign = target > value.detach().double() * s + m
+        eta = torch.where(
+            error_sign, settings["critic_expectile"], 1 - settings["critic_expectile"]
+        )
+        normalized_target = (target - m) / s
+    loss = (eta * (value - normalized_target).square()).mean()
+    optimizer.zero_grad(set_to_none=True)
+    if not bool(torch.isfinite(loss)):
+        return {"loss": float("nan"), "finite": False}
+    loss.backward()
+    norm = _clip_rebuttal_gradients(critic.parameters(), settings["critic_gradient_clip"])
+    finite = bool(torch.isfinite(norm))
+    if finite:
+        optimizer.step()
+    optimizer.zero_grad(set_to_none=True)
+    return {"loss": loss.detach(), "gradient_norm": norm.detach(), "finite": finite}
+
+
+def _rebuttal_weight_statistics(log_ratio: np.ndarray) -> dict[str, Any]:
+    x = np.asarray(log_ratio, dtype=np.float64)
+    with np.errstate(over="ignore", under="ignore", invalid="ignore"):
+        weights = np.exp(x)
+    result = {
+        "ratio_nonfinite_fraction": float(np.mean(~np.isfinite(weights))),
+        "ratio_zero_fraction": float(np.mean(weights == 0)),
+    }
+    for prefix, values in (("log_ratio", x), ("ratio", weights)):
+        with np.errstate(over="ignore", invalid="ignore"):
+            mean = _rebuttal_nonnegative_mean(values) if prefix == "ratio" else np.mean(values)
+            summaries = [mean, *np.quantile(values, [0.5, 0.9, 0.99]), np.max(values)]
+        for name, val in zip(("mean", "median", "p90", "p99", "max"), summaries):
+            result[f"{prefix}_{name}"] = float(val)
+    if np.all(np.isfinite(x)):
+        scaled = np.exp(x - np.max(x))
+        total = float(scaled.sum())
+        result["ess"] = total ** 2 / float(np.square(scaled).sum())
+        result["ess_fraction"] = result["ess"] / len(x)
+        k = max(1, math.ceil(len(x) * 0.01))
+        result["top_1pct_weight_share"] = float(np.sort(scaled)[-k:].sum()) / total
+    else:
+        result.update(ess=None, ess_fraction=None, top_1pct_weight_share=None)
+    return result
+
+
+def _rebuttal_force(
+    policy: SquashedGaussianPolicy, obs: np.ndarray, actions: np.ndarray,
+    coefficient: np.ndarray, denominator: int, batch_size: int,
+    device: torch.device,
+) -> torch.Tensor:
+    params = list(policy.parameters())
+    force = torch.zeros(sum(p.numel() for p in params), dtype=torch.float64, device=device)
+    if not np.any(coefficient):
+        return force
+    for start in range(0, len(obs), batch_size):
+        stop = start + batch_size
+        logp, _, _ = current_action_log_prob(
+            policy, tensor(obs[start:stop], device), tensor(actions[start:stop], device)
+        )
+        c = torch.as_tensor(coefficient[start:stop], dtype=torch.float64, device=device)
+        grads = torch.autograd.grad(-(c * logp).sum() / denominator, params)
+        force -= torch.cat([g.detach().reshape(-1).double() for g in grads])
+    return force
+
+
+def _rebuttal_advantage_arrays(
+    critic: ValueNetwork, context: dict, indices: np.ndarray, device: torch.device,
+) -> tuple[np.ndarray, np.ndarray]:
+    chunks, deltas = [], []
+    data, base = context["data"], context["base"]
+    for start in range(0, len(indices), 4096):
+        ids = indices[start:start + 4096]
+        a, delta = current_rebuttal_advantage(
+            critic, tensor(context["obs"][ids], device),
+            tensor(context["next_obs"][ids], device), tensor(data.rewards[ids], device),
+            torch.as_tensor(data.terminals[ids] | data.timeouts[ids], device=device),
+            context["target_norm"], base.gamma, context["center"], context["scale"],
+        )
+        chunks.append(a.cpu().numpy())
+        deltas.append(delta.cpu().numpy())
+    return np.concatenate(chunks), np.concatenate(deltas)
+
+
+def collect_rebuttal_diagnostics(
+    policy: SquashedGaussianPolicy, critic: ValueNetwork, context: dict,
+    method: str, advantage_mode: str, step: int, previous: np.ndarray | None,
+    device: torch.device, effective_coefficient: np.ndarray | None = None,
+) -> tuple[dict[str, Any], np.ndarray]:
+    settings, data = context["settings"], context["data"]
+    ids = context["diagnostic_ids"]
+    initial = context["initial_advantage"][ids]
+    if advantage_mode == "frozen":
+        a, delta = initial.copy(), context["initial_delta"][ids]
+    else:
+        a, delta = _rebuttal_advantage_arrays(critic, context, ids, device)
+    logps, distances, boundaries = [], [], []
+    with torch.no_grad():
+        for start in range(0, len(ids), settings["diagnostic_batch_size"]):
+            ix = ids[start:start + settings["diagnostic_batch_size"]]
+            lp, d, boundary = current_action_log_prob(
+                policy, tensor(context["obs"][ix], device), tensor(data.actions[ix], device)
+            )
+            logps.append(lp.cpu())
+            distances.append(d.cpu())
+            boundaries.append(boundary.cpu())
+    logp, d = torch.cat(logps), torch.cat(distances)
+    boundary = torch.cat(boundaries).numpy()
+    coefficient = effective_coefficient if effective_coefficient is not None else rebuttal_actor_coefficients(
+        torch.from_numpy(a), logp, d, torch.from_numpy(data.behavior_log_prob[ids]),
+        method, settings,
+    ).numpy()
+    row: dict[str, Any] = {
+        "step": step, "sample_count": len(ids),
+        "diagnostic_ids_sha256": context["diagnostic_ids_sha256"],
+        "raw_delta_mean": float(delta.mean()), "raw_delta_std": float(delta.std()),
+        "advantage_mean": float(a.mean()), "advantage_std": float(a.std()),
+        "positive_fraction": float(np.mean(a > 0)),
+        "negative_fraction": float(np.mean(a < 0)), "zero_fraction": float(np.mean(a == 0)),
+        "boundary_clip_count": int(boundary.sum()),
+    }
+    for label, values in (("raw", a), ("effective", coefficient), ("td", delta)):
+        for key, val in rebuttal_mass(values).items():
+            row[f"{key}_{label}"] = val
+    for label, reference in (("initial", initial), ("previous", previous)):
+        if reference is None:
+            reference = a
+        difference = a - reference
+        row.update({
+            f"{label}_mean_abs_change": float(np.mean(np.abs(difference))),
+            f"{label}_rms_change": float(np.sqrt(np.mean(difference ** 2))),
+            f"{label}_pos_to_neg_fraction": float(np.mean((reference > 0) & (a < 0))),
+            f"{label}_neg_to_pos_fraction": float(np.mean((reference < 0) & (a > 0))),
+            f"{label}_zero_to_nonzero_fraction": float(np.mean((reference == 0) & (a != 0))),
+            f"{label}_nonzero_to_zero_fraction": float(np.mean((reference != 0) & (a == 0))),
+        })
+    distance = d.numpy()
+    negative = a < 0
+    cuts = np.quantile(distance[negative], [0.25, 0.75]) if negative.any() else [None, None]
+    row["near_distance_cut"], row["far_distance_cut"] = cuts
+    if negative.any():
+        row["negative_distance_mean"] = float(distance[negative].mean())
+        for quantile in (0.25, 0.5, 0.75, 0.9, 0.99):
+            row[f"negative_D_q{int(100 * quantile)}"] = float(np.quantile(distance[negative], quantile))
+    groups = {
+        "positive": a > 0, "negative": negative,
+        "near_negative": negative & (distance <= cuts[0]) if negative.any() else negative,
+        "far_negative": negative & (distance >= cuts[1]) & (distance > cuts[0]) if negative.any() else negative,
+        "boundary": boundary,
+    }
+    for name, mask in groups.items():
+        row[f"{name}_count"] = int(mask.sum())
+        row[f"{name}_abs_advantage_mean"] = float(np.abs(a[mask]).mean()) if mask.any() else None
+        row[f"{name}_abs_coefficient_mean"] = float(np.abs(coefficient[mask]).mean()) if mask.any() else None
+        raw_norm = 0.0
+        for label, values in (("raw", a), ("effective", coefficient)):
+            if label == "effective" and np.array_equal(a[mask], coefficient[mask]):
+                row[f"{label}_{name}_force_norm"] = raw_norm
+                continue
+            if mask.any():
+                force = _rebuttal_force(
+                    policy, context["obs"][ids[mask]], data.actions[ids[mask]],
+                    values[mask], len(ids), settings["diagnostic_batch_size"], device,
+                )
+                norm = float(torch.linalg.vector_norm(force).cpu())
+            else:
+                norm = 0.0
+            row[f"{label}_{name}_force_norm"] = norm
+            if label == "raw":
+                raw_norm = norm
+    for label in ("raw", "effective"):
+        far, near = (row[f"{label}_{name}_negative_force_norm"] for name in ("far", "near"))
+        row[f"{label}_far_vs_near_norm_share"] = far / (far + near) if far + near > 0 else None
+    log_ratio = logp.numpy() - data.behavior_log_prob[ids].astype(np.float64)
+    row.update(_rebuttal_weight_statistics(log_ratio))
+    if method in TOPR_METHOD_BETAS:
+        beta = TOPR_METHOD_BETAS[method]
+        row.update(topr_beta=beta, topr_identity=TOPR_METHOD_IDENTITIES[method])
+        negative_log_ratio = log_ratio[negative]
+        weights = np.exp(beta * np.minimum(negative_log_ratio, 0.0))
+        row["topr_negative_weight_mean"] = float(weights.mean()) if len(weights) else None
+        for name, quantile in (("median", 0.5), ("p90", 0.9), ("p99", 0.99)):
+            row[f"topr_negative_weight_{name}"] = float(np.quantile(weights, quantile)) if len(weights) else None
+        row["topr_negative_log_ratio_lt0_fraction"] = float(np.mean(negative_log_ratio < 0)) if len(weights) else None
+    scaled = np.exp(log_ratio - np.max(log_ratio)) if np.all(np.isfinite(log_ratio)) else None
+    row["boundary_ratio_mass_share"] = float(scaled[boundary].sum() / scaled.sum()) if scaled is not None else None
+    abs_c = np.abs(coefficient)
+    row["boundary_coefficient_mass_share"] = float(abs_c[boundary].sum() / abs_c.sum()) if abs_c.sum() > 0 else None
+    with torch.no_grad():
+        row["log_std_min_fraction"] = float((policy.log_std <= policy.log_std_min).double().mean())
+        row["log_std_max_fraction"] = float((policy.log_std >= policy.log_std_max).double().mean())
+        means = policy.action_mean(tensor(context["obs"][ids], device))
+        row["action_mean_boundary_fraction"] = float((means.abs() >= context["base"].support_boundary_threshold).double().mean())
+    if effective_coefficient is not None:
+        row = {k.replace("effective", "audit_effective"): v for k, v in row.items()}
+        row["effective_coefficient_scope"] = "fixed_population_audit_not_training_batch"
+    return _rebuttal_json(row), a.copy()
+
+
+def collect_rebuttal_gradient_variance(
+    policy: SquashedGaussianPolicy, critic: ValueNetwork, context: dict,
+    advantage_mode: str, source_method: str, step: int, seed: int,
+    device: torch.device,
+) -> list[dict[str, Any]]:
+    settings, data = context["settings"], context["data"]
+    rng = np.random.default_rng(np.random.SeedSequence([settings["diagnostic_seed"], seed, step, 19]))
+    statistics: dict[str, dict] = {rule: {"n": 0, "m2": 0.0, "norm_sum": 0.0, "nonfinite": False}
+                                    for rule in ("signed", "drpo", "is")}
+    log_ratios = []
+    for _ in range(settings["variance_batches"]):
+        ids = sample_indices(rng, context["train_ids"], settings["variance_batch_size"])
+        a = context["initial_advantage"][ids] if advantage_mode == "frozen" else _rebuttal_advantage_arrays(critic, context, ids, device)[0]
+        with torch.no_grad():
+            logp, d, _ = current_action_log_prob(policy, tensor(context["obs"][ids], device), tensor(data.actions[ids], device))
+        behavior = torch.as_tensor(data.behavior_log_prob[ids], device=device)
+        log_ratios.append(logp.cpu().numpy() - data.behavior_log_prob[ids])
+        for rule, stats in statistics.items():
+            c = rebuttal_actor_coefficients(torch.as_tensor(a, device=device), logp, d, behavior, rule, settings)
+            force = _rebuttal_force(policy, context["obs"][ids], data.actions[ids], c.cpu().numpy(), len(ids), len(ids), device)
+            if not bool(torch.isfinite(force).all()):
+                stats["nonfinite"] = True
+                continue
+            stats["n"] += 1
+            stats["norm_sum"] += float(force.norm().cpu())
+            if stats["n"] == 1:
+                stats["mean"] = force.clone()
+            else:
+                difference = force - stats["mean"]
+                stats["mean"] += difference / stats["n"]
+                stats["m2"] += float(torch.dot(difference, force - stats["mean"]).cpu())
+    weights = _rebuttal_weight_statistics(np.concatenate(log_ratios))
+    rows = []
+    for rule, stats in statistics.items():
+        complete = not stats["nonfinite"] and stats["n"] == settings["variance_batches"]
+        rows.append(_rebuttal_json({
+            "step": step, "rule": rule, "checkpoint_source_method": source_method,
+            "variance_trace": stats["m2"] / (stats["n"] - 1) if complete and stats["n"] > 1 else None,
+            "mean_gradient_norm": float(stats["mean"].norm().cpu()) if complete else None,
+            "mean_batch_gradient_norm": stats["norm_sum"] / stats["n"] if complete else None,
+            "batch_size": settings["variance_batch_size"], "M": settings["variance_batches"],
+            "valid_batches": stats["n"], "status": "finite" if complete else "nonfinite_estimator",
+            **weights,
+        }))
+    return rows
+
+
+def _new_rebuttal_policy(base: E7Config, obs_dim: int, action_dim: int) -> SquashedGaussianPolicy:
+    return SquashedGaussianPolicy(
+        obs_dim, action_dim, base.hidden_sizes, base.log_std_min, base.log_std_max,
+        base.action_clip_epsilon, base.activation, base.init_scheme, base.init_gain,
+    )
+
+
+def _atomic_rebuttal_checkpoint(path: Path, state: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    torch.save(state, temporary)
+    os.replace(temporary, path)
+
+
+def _rebuttal_rng_state(device: torch.device) -> dict:
+    return {
+        "python": random.getstate(), "numpy": np.random.get_state(),
+        "torch": torch.get_rng_state(),
+        "cuda": torch.cuda.get_rng_state(device) if device.type == "cuda" else None,
+    }
+
+
+def _restore_rebuttal_rng(state: dict, device: torch.device) -> None:
+    random.setstate(state["python"])
+    np.random.set_state(state["numpy"])
+    torch.set_rng_state(state["torch"].cpu())
+    if device.type == "cuda" and state["cuda"] is not None:
+        torch.cuda.set_rng_state(state["cuda"].cpu(), device)
+
+
+def prepare_rebuttal_context(
+    dataset: Path, root: Path, settings: dict, base: E7Config,
+    device: torch.device, source_commit: str,
+) -> dict:
+    """Prepare once; old Q2 run_seed/warmstart/active-mean are never called."""
+    root.mkdir(parents=True, exist_ok=True)
+    seed_everything(settings["critic_seed"])
+    data = load_hopper_hdf5(dataset, settings["max_transitions"])
+    if data.behavior_log_prob is None or len(data.behavior_log_prob) != data.size:
+        raise ValueError("Raw IS requires aligned infos/action_log_probs in this input")
+    if not np.isfinite(data.behavior_log_prob).all():
+        raise ValueError("Input behavior log probabilities contain non-finite values")
+    split = split_episode_indices(data.episode_ids, settings["critic_seed"], base.train_fraction, base.validation_fraction)
+    obs_norm = Normalizer.fit(data.observations[split["train"]])
+    returns = discounted_returns(data.rewards, data.terminals, data.timeouts, base.gamma)
+    mode = replace(
+        base.formal, max_transitions=settings["max_transitions"],
+        critic_max_steps=settings["critic_steps"], critic_min_steps=settings["critic_steps"],
+        critic_eval_interval=settings["critic_eval_interval"],
+        audit_sample_size=settings["diagnostic_size"],
+    )
+    critic, target_norm, audit = train_critic(
+        data=data, split=split, obs_norm=obs_norm, returns=returns, config=base,
+        mode=mode, seed=settings["critic_seed"], device=device,
+        output_dir=root / "critic_training",
+    )
+    if not audit["fixed_budget_completed"]:
+        raise RuntimeError("The shared critic did not complete its fixed pretraining budget")
+    context = {
+        "data": data, "base": base, "obs": obs_norm.transform(data.observations),
+        "next_obs": obs_norm.transform(data.next_observations), "target_norm": target_norm,
+        "center": 0.0, "scale": 1.0,
+    }
+    _, delta = _rebuttal_advantage_arrays(critic, context, np.arange(data.size), device)
+    center = float(delta[split["train"]].mean())
+    scale = max(float(delta[split["train"]].std()), 1e-8)
+    advantage = (delta - center) / scale
+    diagnostic_ids = np.random.default_rng(settings["diagnostic_seed"]).choice(
+        split["train"], min(settings["diagnostic_size"], len(split["train"])), replace=False
+    )
+    np.savez_compressed(root / "split_indices.npz", **split)
+    np.save(root / "diagnostic_transition_ids.npy", data.transition_ids[diagnostic_ids])
+    np.savez_compressed(root / "initial_advantages.npz", advantage=advantage, delta=delta)
+    prepared = {
+        "settings_identity": settings["identity"], "source_commit": source_commit,
+        "data_sha256": sha256_file(dataset), "transitions": data.size,
+        "obs_mean": obs_norm.mean, "obs_std": obs_norm.std,
+        "target_mean": target_norm.mean, "target_std": target_norm.std,
+        "advantage_center": center, "advantage_scale": scale,
+        "critic": {k: v.detach().cpu() for k, v in critic.state_dict().items()},
+        "diagnostic_ids": diagnostic_ids,
+        "diagnostic_ids_sha256": sha256_file(root / "diagnostic_transition_ids.npy"),
+    }
+    for seed in settings["seeds"]:
+        seed_everything(seed)
+        actor = _new_rebuttal_policy(base, data.observations.shape[1], data.actions.shape[1])
+        _atomic_rebuttal_checkpoint(root / f"actor_initial_seed_{seed}.pt", {"actor": actor.state_dict()})
+        if settings["q2"]["enabled"]:
+            calibration = calibrate_rebuttal_q2(actor.to(device), {
+                **context, "settings": settings, "initial_advantage": advantage,
+                "train_ids": split["train"], "diagnostic_ids": diagnostic_ids,
+                "diagnostic_ids_sha256": prepared["diagnostic_ids_sha256"],
+            }, seed, device)
+            calibration.update(source_commit=source_commit, actor_initial_sha256=sha256_file(root / f"actor_initial_seed_{seed}.pt"))
+            _write_rebuttal_json(root / f"q2_calibration_seed_{seed}.json", calibration)
+    _atomic_rebuttal_checkpoint(root / "context.pt", prepared)
+    _write_rebuttal_json(root / "normalization.json", {k: v for k, v in prepared.items() if k in (
+        "obs_mean", "obs_std", "target_mean", "target_std", "advantage_center", "advantage_scale"
+    )})
+    _write_rebuttal_json(root / "data_manifest.json", {
+        "path": str(dataset), "sha256": prepared["data_sha256"], "transitions": data.size,
+        "behavior_logp_source": "D4RL replay env_infos/action_log_prob -> infos/action_log_probs",
+        "behavior_logp_min": float(data.behavior_log_prob.min()),
+        "behavior_logp_max": float(data.behavior_log_prob.max()),
+        "boundary_exact_count": int(np.any(np.abs(data.actions) == 1, axis=1).sum()),
+        "boundary_clip_count": int(np.any(np.abs(data.actions) > 1 - base.action_clip_epsilon, axis=1).sum()),
+        "density_processing": "shared a_safe for atanh/Jacobian; finite-precision approximation at boundaries",
+    })
+    _write_rebuttal_json(root / "initial_advantage_summary.json", {
+        "center": center, "scale": scale, "train_population": len(split["train"]),
+        **rebuttal_mass(advantage[split["train"]]),
+    })
+    shutil.copy2(root / "critic_training" / "critic_metrics.csv", root / "critic_pretrain_metrics.csv")
+    _write_rebuttal_json(root / "critic_checkpoint_index.json", audit["checkpoint"])
+    inputs = ["context.pt", "initial_advantages.npz", "split_indices.npz", "diagnostic_transition_ids.npy"]
+    inputs.extend(f"actor_initial_seed_{seed}.pt" for seed in settings["seeds"])
+    if settings["q2"]["enabled"]:
+        inputs.extend(f"q2_calibration_seed_{seed}.json" for seed in settings["seeds"])
+    _write_rebuttal_json(root / "PREPARE_COMPLETE.json", {
+        "source_commit": source_commit, "settings_identity": settings["identity"],
+        "context_sha256": sha256_file(root / "context.pt"), "data_sha256": prepared["data_sha256"],
+        "prepared_input_hashes": {name: sha256_file(root / name) for name in inputs},
+    })
+    return prepared
+
+
+def _load_rebuttal_context(root: Path, dataset: Path, settings: dict, base: E7Config) -> dict:
+    prepared = torch.load(root / "context.pt", map_location="cpu", weights_only=False)
+    if prepared["settings_identity"] != settings["identity"]:
+        raise ValueError("Preparation/config identity mismatch")
+    data = load_hopper_hdf5(dataset, settings["max_transitions"])
+    obs_norm = Normalizer(prepared["obs_mean"], prepared["obs_std"])
+    target_norm = Normalizer(prepared["target_mean"], prepared["target_std"])
+    with np.load(root / "initial_advantages.npz") as arrays:
+        initial, initial_delta = arrays["advantage"].copy(), arrays["delta"].copy()
+    with np.load(root / "split_indices.npz") as arrays:
+        split = {k: arrays[k].copy() for k in arrays.files}
+    return {
+        "prepared": prepared, "settings": settings, "base": base, "data": data,
+        "obs_norm": obs_norm, "target_norm": target_norm,
+        "obs": obs_norm.transform(data.observations), "next_obs": obs_norm.transform(data.next_observations),
+        "train_ids": split["train"], "validation_ids": split["validation"],
+        "diagnostic_ids": prepared["diagnostic_ids"],
+        "diagnostic_ids_sha256": prepared["diagnostic_ids_sha256"],
+        "initial_advantage": initial, "initial_delta": initial_delta,
+        "center": prepared["advantage_center"], "scale": prepared["advantage_scale"],
+        "returns": discounted_returns(data.rewards, data.terminals, data.timeouts, base.gamma),
+    }
+
+
+def _rebuttal_mc_reference_mse(critic: ValueNetwork, context: dict, device: torch.device) -> float:
+    ids = context["validation_ids"]
+    error = 0.0
+    norm = context["target_norm"]
+    with torch.no_grad():
+        for start in range(0, len(ids), 4096):
+            ix = ids[start:start + 4096]
+            value = critic(tensor(context["obs"][ix], device)).double()
+            value = value * float(norm.std[0]) + float(norm.mean[0])
+            error += float((value - torch.as_tensor(context["returns"][ix], device=device)).square().sum().cpu())
+    return error / len(ids)
+
+
+def _rebuttal_cell(root: Path, seed: int, mode: str, method: str) -> Path:
+    return root / "cells" / f"seed_{seed}" / mode / method
+
+
+def _rebuttal_rollout_row(actor, context: dict, cell: Path, step: int, seed: int, device: torch.device) -> dict:
+    settings, base = context["settings"], context["base"]
+    # Environment setup may consume global RNG in third-party libraries.
+    state = _rebuttal_rng_state(device)
+    try:
+        result = evaluate_d4rl_rollouts(
+            policy=actor, obs_norm=context["obs_norm"], backend=base.env_backend,
+            dataset_id=base.rollout_dataset_id, env_id=base.env_id,
+            episodes=settings["terminal_evaluation_episodes"] if step == settings["actor_steps"] else settings["evaluation_episodes"],
+            seed=settings["evaluation_seed"] + seed * 100000 + step,
+            device=device, normalized_score_percent=base.normalized_score_percent,
+            reference_min_score=base.normalized_score_reference_min,
+            reference_max_score=base.normalized_score_reference_max, required=True,
+            diagnostics_path=cell / "rollouts" / f"step_{step:08d}.json",
+        )
+    finally:
+        _restore_rebuttal_rng(state, device)
+    return {
+        "step": step, "raw_return": result["rollout_return_mean"],
+        "episode_return_sd": result["rollout_return_std"],
+        "normalized_return": result["normalized_return"],
+        "episodes": result["rollout_episodes"], "status": result["rollout_status"],
+    }
+
+
+def _rebuttal_branch_summary(identity: dict, context: dict, history: dict, completed: int, critic_updates: int, failure_record: dict | None) -> dict:
+    settings, base = context["settings"], context["base"]
+    failure = failure_record["reason"] if failure_record else None
+    rollouts = history["rollouts"]
+    late = [r for r in rollouts if r["step"] in settings["late_steps"]]
+    complete_late = len(late) == len(settings["late_steps"]) and failure is None
+    terminal = next((r["normalized_return"] for r in rollouts if r["step"] == settings["actor_steps"]), None)
+    best = max(r["normalized_return"] for r in rollouts) if rollouts else None
+    boundary = any(r["action_mean_boundary_fraction"] >= base.support_boundary_fraction or r["log_std_min_fraction"] > 0 or r["log_std_max_fraction"] > 0 for r in history["diagnostics"])
+    summary = {
+        **identity, "status": "numerical_failure" if failure else "completed",
+        "completed_actor_steps": completed, "scheduled_actor_steps": settings["actor_steps"],
+        "critic_update_count": critic_updates, "numerical_failure": failure,
+        "numerical_failure_observed_actor_steps": failure_record["completed_actor_steps"] if failure_record else None,
+        "support_or_variance_boundary_event": boundary, "task_collapse": None,
+        "task_collapse_status": "not_adjudicated_no_coldstart_threshold",
+        "terminal_classification": "numerical_failure" if failure else "fixed_horizon_inconclusive",
+        "late_count": len(late), "late_expected_count": len(settings["late_steps"]),
+        "late_mean": float(np.mean([r["normalized_return"] for r in late])) if complete_late else None,
+        "terminal": terminal, "best": best,
+        "best_to_terminal_drop": best - terminal if terminal is not None else None,
+        "late_slope_per_update": float(np.polyfit([r["step"] for r in late], [r["normalized_return"] for r in late], 1)[0]) if complete_late and len(late) > 1 else None,
+        "scientific_status": "smoke" if settings["smoke"] else "finite_budget_diagnostic",
+    }
+    return summary
+
+
+def train_rebuttal_branch(args: argparse.Namespace) -> int:
+    settings, base = load_rebuttal_config(args.config, args.smoke, getattr(args, "task", None))
+    torch.set_num_threads(settings["worker_threads"])
+    device = choose_device(args.device)
+    seed, mode, method = args.seed, args.advantage_mode, args.method
+    root = Path(args.work_dir).resolve()
+    cell = _rebuttal_cell(root, seed, mode, method)
+    cell.mkdir(parents=True, exist_ok=True)
+    context = _load_rebuttal_context(root / "prepare", Path(args.dataset_path), settings, base)
+    data = context["data"]
+    seed_everything(seed)
+    actor = _new_rebuttal_policy(base, data.observations.shape[1], data.actions.shape[1]).to(device)
+    actor.load_state_dict(torch.load(root / "prepare" / f"actor_initial_seed_{seed}.pt", map_location=device, weights_only=False)["actor"])
+    critic = ValueNetwork(data.observations.shape[1], base.hidden_sizes, base.activation, base.init_scheme, base.init_gain).to(device)
+    critic.load_state_dict(context["prepared"]["critic"])
+    actor_opt = torch.optim.AdamW(actor.parameters(), lr=base.actor_lr, weight_decay=base.weight_decay)
+    critic_opt = torch.optim.AdamW(critic.parameters(), lr=base.critic_lr, weight_decay=base.weight_decay)
+    rng = np.random.default_rng(np.random.SeedSequence([seed, 41591]))
+    identity = {"settings_identity": settings["identity"], "seed": seed, "advantage_mode": mode,
+                "method": method, "source_commit": context["prepared"]["source_commit"],
+                "context_sha256": sha256_file(root / "prepare" / "context.pt")}
+    runtime = {"worker_device": str(device), "worker_threads": torch.get_num_threads()}
+    if method in TOPR_METHOD_BETAS:
+        runtime.update(topr_beta=TOPR_METHOD_BETAS[method], topr_identity=TOPR_METHOD_IDENTITIES[method])
+    history: dict[str, list] = {k: [] for k in ("training_metrics", "diagnostics", "rollouts", "gradient_variance")}
+    start, completed, critic_updates, clipped, previous = 0, 0, 0, 0, None
+    critic_reference = torch.cat([p.detach().cpu().flatten() for p in critic.parameters()])
+    failure_record = None
+    actor_snapshots = []
+    if args.resume_from:
+        previous_cell = _rebuttal_cell(Path(args.resume_from), seed, mode, method)
+        old_checkpoint = previous_cell / "checkpoint.pt"
+        if old_checkpoint.is_file():
+            state = torch.load(old_checkpoint, map_location="cpu", weights_only=False)
+            if state["identity"] != identity:
+                raise ValueError("Checkpoint does not belong to this exact branch/source/config")
+            actor.load_state_dict(state["actor"])
+            critic.load_state_dict(state["critic"])
+            actor_opt.load_state_dict(state["actor_optimizer"])
+            critic_opt.load_state_dict(state["critic_optimizer"])
+            rng.bit_generator.state = state["training_rng"]
+            _restore_rebuttal_rng(state["global_rng"], device)
+            start = completed = state["step"]
+            critic_updates, clipped = state["critic_updates"], state["clipped"]
+            history, previous = state["history"], state["previous_advantage"]
+            critic_reference = state["critic_reference"].cpu()
+            failure_record = state.get("numerical_failure")
+        marker = previous_cell / "numerical_failure.json"
+        if marker.is_file():
+            failure_record = json.loads(marker.read_text())
+        old_rollouts = previous_cell / "rollouts"
+        if old_rollouts.is_dir():
+            shutil.copytree(old_rollouts, cell / "rollouts", dirs_exist_ok=True)
+        old_snapshots = previous_cell / "actor_snapshot_index.json"
+        if settings.get("retain_actor_snapshots", False) and old_snapshots.is_file():
+            actor_snapshots = json.loads(old_snapshots.read_text()).get("snapshots", [])
+    last_critic: dict[str, Any] = {"loss": None, "gradient_norm": None}
+    failure = failure_record["reason"] if failure_record else None
+
+    def flush() -> None:
+        for name, rows in history.items():
+            write_csv(cell / f"{name}.csv", rows)
+        _write_rebuttal_json(cell / "status.json", {
+            **identity, **runtime, "status": "running", "step": completed, "utc": utc_now(),
+            "critic_update_count": critic_updates,
+        })
+
+    def checkpoint() -> None:
+        flush()
+        _atomic_rebuttal_checkpoint(cell / "checkpoint.pt", {
+            "identity": identity, "step": completed, "critic_updates": critic_updates,
+            "clipped": clipped, "actor": actor.state_dict(), "critic": critic.state_dict(),
+            "actor_optimizer": actor_opt.state_dict(), "critic_optimizer": critic_opt.state_dict(),
+            "training_rng": rng.bit_generator.state, "global_rng": _rebuttal_rng_state(device),
+            "history": history, "previous_advantage": previous, "critic_reference": critic_reference,
+            "numerical_failure": failure_record,
+        })
+        _write_rebuttal_json(cell / "checkpoint_index.json", {
+            "path": str(cell / "checkpoint.pt"), "sha256": sha256_file(cell / "checkpoint.pt"),
+            "size_bytes": (cell / "checkpoint.pt").stat().st_size, "step": completed,
+            "persistence": getattr(args, "large_file_persistence", "persistent_local"), **identity,
+        })
+        if settings.get("retain_actor_snapshots", False) and completed > 0:
+            if not any(record["step"] == completed for record in actor_snapshots):
+                path = cell / "models" / f"actor_step_{completed:09d}.pt"
+                if not path.is_file():
+                    _atomic_rebuttal_checkpoint(path, {
+                        "identity": identity, "step": completed,
+                        "actor": {k: v.detach().cpu().clone() for k, v in actor.state_dict().items()},
+                        "obs_normalizer": {"mean": torch.as_tensor(context["obs_norm"].mean).cpu().clone(),
+                                           "std": torch.as_tensor(context["obs_norm"].std).cpu().clone()},
+                        "actor_structure": {"obs_dim": data.observations.shape[1], "action_dim": data.actions.shape[1],
+                            "hidden_sizes": list(base.hidden_sizes), "log_std_min": base.log_std_min,
+                            "log_std_max": base.log_std_max, "action_clip_epsilon": base.action_clip_epsilon,
+                            "activation": base.activation, "init_scheme": base.init_scheme, "init_gain": base.init_gain},
+                    })
+                actor_snapshots.append({"path": str(path), "size_bytes": path.stat().st_size,
+                    "sha256": sha256_file(path), "step": completed,
+                    "persistence": getattr(args, "large_file_persistence", "persistent_local"), "role": "actor_only_snapshot"})
+            _write_rebuttal_json(cell / "actor_snapshot_index.json", {
+                **identity, "role": "actor_trajectory_snapshots", "snapshots": sorted(actor_snapshots, key=lambda r: r["step"]),
+            })
+
+    def observe(step: int) -> None:
+        nonlocal previous, critic_reference
+        row, previous = collect_rebuttal_diagnostics(actor, critic, context, method, mode, step, previous, device)
+        current = torch.cat([p.detach().cpu().flatten() for p in critic.parameters()])
+        row.update({
+            "critic_update_count": critic_updates,
+            "critic_parameter_change_since_diagnostic": float((current - critic_reference).double().norm()),
+            "critic_mc_validation_reference_mse": _rebuttal_mc_reference_mse(critic, context, device),
+            "critic_td_loss": float(last_critic["loss"]) if last_critic["loss"] is not None else None,
+        })
+        critic_reference = current
+        history["diagnostics"].append(row)
+        if step in settings["variance_steps"]:
+            history["gradient_variance"].extend(collect_rebuttal_gradient_variance(actor, critic, context, mode, method, step, seed, device))
+
+    def rollout(step: int) -> None:
+        history["rollouts"].append(_rebuttal_rollout_row(actor, context, cell, step, seed, device))
+
+    try:
+        if start == 0 and not history["diagnostics"]:
+            observe(0)
+            rollout(0)
+            checkpoint()
+        steps = range(start + 1, settings["actor_steps"] + 1) if failure is None else ()
+        for step in steps:
+            ids = sample_indices(rng, context["train_ids"], settings["actor_batch_size"])
+            obs, next_obs = tensor(context["obs"][ids], device), tensor(context["next_obs"][ids], device)
+            rewards = tensor(data.rewards[ids], device)
+            done = torch.as_tensor(data.terminals[ids] | data.timeouts[ids], device=device)
+            if mode == "frozen":
+                advantage = torch.as_tensor(context["initial_advantage"][ids], device=device)
+            else:
+                advantage, _ = current_rebuttal_advantage(critic, obs, next_obs, rewards, done, context["target_norm"], base.gamma, context["center"], context["scale"])
+            logp, d, _ = current_action_log_prob(actor, obs, tensor(data.actions[ids], device))
+            coefficient = rebuttal_actor_coefficients(advantage, logp, d, torch.as_tensor(data.behavior_log_prob[ids], device=device), method, settings)
+            loss = rebuttal_actor_loss(logp, coefficient)
+            actor_opt.zero_grad(set_to_none=True)
+            if not bool(torch.isfinite(loss)):
+                failure = "nonfinite_actor_loss"
+                break
+            loss.backward()
+            norm = _clip_rebuttal_gradients(actor.parameters(), settings["actor_gradient_clip"])
+            if not bool(torch.isfinite(norm)):
+                failure = "nonfinite_actor_gradient"
+                actor_opt.zero_grad(set_to_none=True)
+                break
+            clipped += int(norm > settings["actor_gradient_clip"])
+            post_clip_norm = (
+                float(torch.sqrt(sum(p.grad.detach().double().square().sum() for p in actor.parameters())))
+                if step % settings["log_interval"] == 0 or step == settings["actor_steps"] else None
+            )
+            actor_opt.step()
+            actor_opt.zero_grad(set_to_none=True)
+            completed = step
+            if mode == "refreshed":
+                last_critic = update_rebuttal_critic(critic, critic_opt, obs, next_obs, rewards, done, context["target_norm"], base.gamma, settings)
+                if not last_critic["finite"]:
+                    failure = "nonfinite_critic_update"
+                    break
+                critic_updates += 1
+            if step % settings["log_interval"] == 0 or step == settings["actor_steps"]:
+                history["training_metrics"].append(_rebuttal_json({
+                    "step": step, "loss": float(loss.detach()),
+                    "gradient_norm_pre_clip": float(norm),
+                    "gradient_norm_post_clip": post_clip_norm,
+                    "clipped_updates": clipped, "clipping_fraction": clipped / step,
+                    "critic_update_count": critic_updates,
+                    "critic_td_loss": float(last_critic["loss"]) if last_critic["loss"] is not None else None,
+                }))
+                flush()
+                print(json.dumps({"seed": seed, "advantage_mode": mode, "method": method, "step": step}), flush=True)
+            if step % settings["diagnostic_interval"] == 0 or step == settings["actor_steps"]:
+                observe(step)
+            if step % settings["evaluation_interval"] == 0 or step == settings["actor_steps"]:
+                rollout(step)
+            if step % settings["checkpoint_interval"] == 0 or step == settings["actor_steps"]:
+                checkpoint()
+        if failure:
+            if failure_record is None:
+                failure_record = {"reason": failure, "completed_actor_steps": completed, "attempted_step": step}
+            failure_record = {**failure_record, "checkpoint_actor_steps": completed}
+            _write_rebuttal_json(cell / "numerical_failure.json", failure_record)
+            # Last finite model and all completed observations remain available.
+            if history["diagnostics"][-1]["step"] != completed:
+                observe(completed)
+            if history["rollouts"][-1]["step"] != completed:
+                rollout(completed)
+            checkpoint()
+        if completed == settings["actor_steps"] and failure is None:
+            if start == completed:
+                # Recover an interruption after the final checkpoint but before
+                # summary export: publish its histories/index in this new root.
+                checkpoint()
+            # Full train-pool moments supplement the fixed-subset observations.
+            full_a = context["initial_advantage"][context["train_ids"]] if mode == "frozen" else _rebuttal_advantage_arrays(critic, context, context["train_ids"], device)[0]
+            _write_rebuttal_json(cell / "terminal_full_pool_mass.json", rebuttal_mass(full_a))
+        summary = _rebuttal_branch_summary(identity, context, history, completed, critic_updates, failure_record)
+        summary.update(runtime)
+        _write_rebuttal_json(cell / "summary.json", summary)
+        _write_rebuttal_json(cell / "status.json", summary)
+        return 0
+    except BaseException:
+        flush()
+        record = {
+            **identity, "status": "runtime_failure", "completed_actor_steps": completed,
+            "traceback": traceback.format_exc(),
+        }
+        _write_rebuttal_json(cell / "failure.json", record)
+        _write_rebuttal_json(cell / "status.json", record)
+        raise
+
+
+def _q2_pair_path(root: Path, seed: int, intervention: str) -> Path:
+    return root / "pairs" / f"seed_{seed}" / intervention
+
+
+def train_rebuttal_q2_pair(args: argparse.Namespace) -> int:
+    settings, base = load_rebuttal_config(args.config, args.smoke, getattr(args, "task", None))
+    torch.set_num_threads(settings["worker_threads"])
+    device, root, seed = choose_device(args.device), Path(args.work_dir).resolve(), args.seed
+    methods = next(tuple(pair) for pair in settings["q2"]["pairs"] if pair[0] == args.method)
+    pair_root = _q2_pair_path(root, seed, methods[0])
+    pair_root.mkdir(parents=True, exist_ok=True)
+    cells = [_rebuttal_cell(root, seed, "frozen", method) for method in methods]
+    for cell in cells:
+        cell.mkdir(parents=True, exist_ok=True)
+    context = _load_rebuttal_context(root / "prepare", Path(args.dataset_path), settings, base)
+    calibration_path = root / "prepare" / f"q2_calibration_seed_{seed}.json"
+    calibration = json.loads(calibration_path.read_text())
+    identity = {"seed": seed, "advantage_mode": "frozen", "method": methods[0], "global_method": methods[1],
+                "source_commit": context["prepared"]["source_commit"], "settings_identity": settings["identity"],
+                "context_sha256": sha256_file(root / "prepare/context.pt"),
+                "calibration_sha256": sha256_file(calibration_path)}
+    identities = [{**identity, "method": method, "paired_intervention": methods[0]} for method in methods]
+    seed_everything(seed)
+    data = context["data"]
+    initial = torch.load(root / "prepare" / f"actor_initial_seed_{seed}.pt", map_location=device, weights_only=False)["actor"]
+    actors = [_new_rebuttal_policy(base, data.observations.shape[1], data.actions.shape[1]).to(device) for _ in methods]
+    for actor in actors:
+        actor.load_state_dict(initial)
+    optimizers = [torch.optim.AdamW(actor.parameters(), lr=base.actor_lr, weight_decay=base.weight_decay) for actor in actors]
+    critic = ValueNetwork(data.observations.shape[1], base.hidden_sizes, base.activation, base.init_scheme, base.init_gain).to(device)
+    critic.load_state_dict(context["prepared"]["critic"])
+    rng = np.random.default_rng(np.random.SeedSequence([seed, 41591]))
+    histories = [{k: [] for k in ("training_metrics", "diagnostics", "rollouts", "gradient_variance")} for _ in methods]
+    previous, clipped, completed, budgets, failure = [None, None], [0, 0], 0, [], None
+    block = _Q2BudgetBlock(device)
+    if args.resume_from:
+        old_root = _q2_pair_path(Path(args.resume_from), seed, methods[0])
+        checkpoint_path = old_root / "checkpoint.pt"
+        if not checkpoint_path.is_file() and (old_root / "checkpoint_index.json").is_file():
+            checkpoint_path = Path(json.loads((old_root / "checkpoint_index.json").read_text())["path"])
+        if checkpoint_path.is_file():
+            state = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+            if state["identity"] != identity or state["calibration"] != calibration:
+                raise ValueError("Paired checkpoint/source/config/calibration identity mismatch")
+            for index, (actor, optimizer) in enumerate(zip(actors, optimizers)):
+                actor.load_state_dict(state["actors"][index])
+                optimizer.load_state_dict(state["optimizers"][index])
+            completed, clipped, histories, previous = state["step"], state["clipped"], state["histories"], state["previous"]
+            budgets, failure = state["budgets"], state["numerical_failure"]
+            block = _Q2BudgetBlock(device, state["budget_block"])
+            rng.bit_generator.state = state["training_rng"]
+            _restore_rebuttal_rng(state["global_rng"], device)
+        marker = old_root / "numerical_failure.json"
+        if marker.is_file():
+            failure = json.loads(marker.read_text())
+        for cell, method in zip(cells, methods):
+            old_rollouts = _rebuttal_cell(Path(args.resume_from), seed, "frozen", method) / "rollouts"
+            if old_rollouts.is_dir():
+                shutil.copytree(old_rollouts, cell / "rollouts", dirs_exist_ok=True)
+
+    def flush() -> None:
+        write_csv(pair_root / "budget_matching.csv", budgets)
+        for cell, cell_identity, history in zip(cells, identities, histories):
+            for name, rows in history.items():
+                write_csv(cell / f"{name}.csv", rows)
+            _write_rebuttal_json(cell / "status.json", {**cell_identity, "status": "running", "step": completed, "critic_update_count": 0})
+        _write_rebuttal_json(pair_root / "status.json", {**identity, "status": "running", "step": completed})
+
+    def checkpoint() -> None:
+        flush()
+        path = pair_root / "checkpoint.pt"
+        _atomic_rebuttal_checkpoint(path, {
+            "identity": identity, "step": completed, "actors": [actor.state_dict() for actor in actors],
+            "optimizers": [optimizer.state_dict() for optimizer in optimizers], "clipped": clipped,
+            "histories": histories, "previous": previous, "budgets": budgets, "budget_block": block.state_dict(),
+            "training_rng": rng.bit_generator.state, "global_rng": _rebuttal_rng_state(device),
+            "calibration": calibration, "numerical_failure": failure,
+        })
+        index = {**identity, "path": str(path), "sha256": sha256_file(path), "step": completed,
+                 "size_bytes": path.stat().st_size, "persistence": getattr(args, "large_file_persistence", "persistent_local"),
+                 "methods": list(methods), "role": "synchronized_q2_pair"}
+        _write_rebuttal_json(pair_root / "checkpoint_index.json", index)
+        for cell, method in zip(cells, methods):
+            _write_rebuttal_json(cell / "checkpoint_index.json", {**index, "actor_key": method})
+
+    def observe(step: int) -> None:
+        ids = context["diagnostic_ids"]
+        obs, actions = tensor(context["obs"][ids], device), tensor(data.actions[ids], device)
+        a = torch.as_tensor(context["initial_advantage"][ids], device=device)
+        outputs = [current_action_log_prob(actor, obs, actions) for actor in actors]
+        coefficients, statistics = q2_pair_coefficients(actors, [out[0] for out in outputs], [out[1] for out in outputs], a, calibration, methods[0])
+        for i, (actor, method, history, output) in enumerate(zip(actors, methods, histories, outputs)):
+            row, previous[i] = collect_rebuttal_diagnostics(
+                actor, critic, context, method, "frozen", step, previous[i], device,
+                effective_coefficient=coefficients[i].cpu().numpy(),
+            )
+            distance = output[1]
+            far = (a < 0) & (distance > calibration["far_threshold"])
+            row.update({"critic_update_count": 0, "q2_far_threshold": calibration["far_threshold"],
+                        "q2_far_cap": calibration["far_cap"], "q2_fixed_threshold_far_count": int(far.sum()),
+                        "q2_fixed_threshold_far_fraction": float(far.double().mean()),
+                        "q2_audit_budget_source_method": methods[0],
+                        **{f"q2_audit_{k}": float(v.cpu()) for k, v in statistics.items()}})
+            near = (a < 0) & ~far
+            for group, mask in (("near", near), ("far", far)):
+                selected = mask.cpu().numpy()
+                for label, values in (("raw", a.cpu().numpy()), ("audit_effective", coefficients[i].cpu().numpy())):
+                    force = _rebuttal_force(actor, context["obs"][ids[selected]], data.actions[ids[selected]],
+                                            values[selected], len(ids), settings["diagnostic_batch_size"], device)
+                    row[f"q2_{label}_{group}_negative_force_norm"] = float(force.norm().cpu())
+            history["diagnostics"].append(_rebuttal_json(row))
+            if step in settings["variance_steps"]:
+                history["gradient_variance"].extend(collect_rebuttal_gradient_variance(actor, critic, context, "frozen", method, step, seed, device))
+
+    def rollout(step: int) -> None:
+        for actor, cell, history in zip(actors, cells, histories):
+            history["rollouts"].append(_rebuttal_rollout_row(actor, context, cell, step, seed, device))
+
+    def emit_budget(last: list[dict]) -> None:
+        if not block.count:
+            return
+        row = block.finish(completed)
+        budgets.append(row)
+        for i, history in enumerate(histories):
+            prefix = "intervention" if i == 0 else "global"
+            history["training_metrics"].append({"step": completed, "critic_update_count": 0,
+                "coefficient_scope": "actual_training_batches_block_mean", "p_effective": row[f"q2_{prefix}_p_mean"],
+                "q_effective": row[f"q2_{prefix}_q_mean"], "clipped_updates": clipped[i],
+                "clipping_fraction": clipped[i] / completed, **last[i]})
+
+    try:
+        if calibration["status"] == "defined":
+            if not histories[0]["diagnostics"]:
+                observe(0)
+                rollout(0)
+                checkpoint()
+            last = [{}, {}]
+            steps = range(completed + 1, settings["actor_steps"] + 1) if failure is None else ()
+            for step in steps:
+                ids = sample_indices(rng, context["train_ids"], settings["actor_batch_size"])
+                obs, actions = tensor(context["obs"][ids], device), tensor(data.actions[ids], device)
+                a = torch.as_tensor(context["initial_advantage"][ids], device=device)
+                outputs = [current_action_log_prob(actor, obs, actions) for actor in actors]
+                coefficients, statistics = q2_pair_coefficients(actors, [out[0] for out in outputs], [out[1] for out in outputs], a, calibration, methods[0])
+                if not bool(torch.isfinite(torch.stack(list(statistics.values()))).all()):
+                    failure = {"reason": "nonfinite_q2_budget", "affected_methods": [methods[0] if not bool(torch.isfinite(statistics["target_budget"])) else methods[1]]}
+                    break
+                losses = [rebuttal_actor_loss(out[0], c) for out, c in zip(outputs, coefficients)]
+                bad = [method for method, loss in zip(methods, losses) if not bool(torch.isfinite(loss))]
+                if bad:
+                    failure = {"reason": "nonfinite_actor_loss", "affected_methods": bad}
+                    break
+                norms = []
+                for actor, optimizer, loss in zip(actors, optimizers, losses):
+                    optimizer.zero_grad(set_to_none=True)
+                    loss.backward()
+                    norms.append(_clip_rebuttal_gradients(actor.parameters(), settings["actor_gradient_clip"]))
+                bad = [method for method, norm in zip(methods, norms) if not bool(torch.isfinite(norm))]
+                if bad:
+                    failure = {"reason": "nonfinite_actor_gradient", "affected_methods": bad}
+                    break
+                log_step = step % settings["log_interval"] == 0 or step == settings["actor_steps"]
+                for i, (actor, optimizer, norm, loss) in enumerate(zip(actors, optimizers, norms, losses)):
+                    clipped[i] += int(norm > settings["actor_gradient_clip"])
+                    if log_step:
+                        last[i] = {"loss": float(loss.detach()), "gradient_norm_pre_clip": float(norm),
+                                   "gradient_norm_post_clip": float(torch.sqrt(sum(p.grad.detach().double().square().sum() for p in actor.parameters())))}
+                    optimizer.step()
+                    optimizer.zero_grad(set_to_none=True)
+                completed = step
+                block.add(statistics)
+                if log_step:
+                    emit_budget(last)
+                    flush()
+                    print(json.dumps({**identity, "step": step, "event": "pair_progress"}), flush=True)
+                if step % settings["diagnostic_interval"] == 0 or step == settings["actor_steps"]:
+                    observe(step)
+                if step % settings["evaluation_interval"] == 0 or step == settings["actor_steps"]:
+                    rollout(step)
+                if step % settings["checkpoint_interval"] == 0 or step == settings["actor_steps"]:
+                    checkpoint()
+            if failure:
+                failure = {"observed_completed_actor_steps": completed, "attempted_step": completed + 1, **failure,
+                           "checkpoint_actor_steps": completed}
+                _write_rebuttal_json(pair_root / "numerical_failure.json", failure)
+                emit_budget(last)
+                if histories[0]["diagnostics"][-1]["step"] != completed:
+                    observe(completed)
+                if histories[0]["rollouts"][-1]["step"] != completed:
+                    rollout(completed)
+                checkpoint()
+            elif completed == settings["actor_steps"] and not (pair_root / "checkpoint.pt").is_file():
+                checkpoint()
+        else:
+            _write_rebuttal_json(pair_root / "calibration_status.json", calibration)
+            if calibration["status"] == "nonfinite_calibration":
+                failure = {"reason": "nonfinite_q2_calibration", "affected_methods": list(methods),
+                           "observed_completed_actor_steps": 0, "checkpoint_actor_steps": 0, "attempted_step": 0}
+                _write_rebuttal_json(pair_root / "numerical_failure.json", failure)
+                checkpoint()
+        statuses = []
+        for cell, method, cell_identity, history in zip(cells, methods, identities, histories):
+            failed = failure and method in failure["affected_methods"]
+            record = {"reason": failure["reason"], "completed_actor_steps": failure["observed_completed_actor_steps"]} if failed else None
+            summary = _rebuttal_branch_summary(cell_identity, context, history, completed, 0, record)
+            if failure and not failed:
+                summary.update(status="paired_stop", late_mean=None, terminal_classification="paired_stop")
+            if calibration["status"] == "undefined_no_initial_negative":
+                summary.update(status="calibration_undefined", terminal_classification="calibration_undefined")
+            summary.update(pair_failure=failure, pair_checkpoint_index=str(pair_root / "checkpoint_index.json"))
+            if completed == settings["actor_steps"] and failure is None:
+                _write_rebuttal_json(cell / "terminal_full_pool_mass.json", rebuttal_mass(context["initial_advantage"][context["train_ids"]]))
+            _write_rebuttal_json(cell / "summary.json", summary)
+            _write_rebuttal_json(cell / "status.json", summary)
+            if failed:
+                _write_rebuttal_json(cell / "numerical_failure.json", failure)
+            statuses.append(summary["status"])
+        _write_rebuttal_json(pair_root / "summary.json", {**identity, "step": completed, "cell_statuses": statuses,
+                            "status": "completed" if all(status == "completed" for status in statuses) else "stopped",
+                            "numerical_failure": failure, "calibration": calibration})
+        return 0
+    except BaseException:
+        flush()
+        record = {**identity, "status": "runtime_failure", "completed_actor_steps": completed, "traceback": traceback.format_exc()}
+        _write_rebuttal_json(pair_root / "failure.json", record)
+        for cell, cell_identity in zip(cells, identities):
+            cell_record = {**record, **cell_identity}
+            _write_rebuttal_json(cell / "failure.json", cell_record)
+            _write_rebuttal_json(cell / "status.json", cell_record)
+        raise
+
+
+def _read_rebuttal_csv(path: Path) -> list[dict[str, str]]:
+    if not path.is_file() or path.stat().st_size == 0:
+        return []
+    with path.open(newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def _plot_rebuttal(root: Path, tables: dict[str, list[dict]], settings: dict | None = None) -> None:
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    output = root / "figures"
+    output.mkdir(exist_ok=True)
+    specifications = {
+        "pq_raw_and_effective": ("diagnostics", ["p_raw", "q_raw", "p_effective", "q_effective"]),
+        "advantage_change_and_sign_flips": ("diagnostics", ["initial_rms_change", "initial_pos_to_neg_fraction", "initial_neg_to_pos_fraction"]),
+        "far_negative_force_and_remoteness": ("diagnostics", ["raw_far_negative_force_norm", "effective_far_negative_force_norm", "negative_distance_mean"]),
+        "is_weights_ess_and_gradient_variance": ("diagnostics", ["ess_fraction", "log_ratio_p99", "variance_trace"]),
+        "hopper_return_curves": ("rollouts", ["normalized_return"]),
+        "q2_return_curves": ("rollouts", ["normalized_return"]),
+        "q2_budget_matching": ("q2_budgets", ["q2_target_budget_mean", "q2_actual_global_budget_mean", "q2_absolute_error_max"]),
+        "q2_far_negative_force": ("diagnostics", ["q2_raw_far_negative_force_norm", "q2_audit_effective_far_negative_force_norm"]),
+    }
+    for name, (table, metrics) in specifications.items():
+        if settings is not None and name.startswith("q2_") and not settings["q2"]["enabled"]:
+            continue
+        if not tables.get(table):
+            continue
+        metrics = [metric for metric in metrics if metric != "variance_trace" or tables["gradient_variance"]]
+        fig, axes = plt.subplots(len(metrics), 1, figsize=(10, 3.1 * len(metrics)), squeeze=False)
+        for ax, metric in zip(axes[:, 0], metrics):
+            rows = tables["gradient_variance"] if metric == "variance_trace" else tables[table]
+            for mode in (("frozen",) if name.startswith("q2_") else REBUTTAL_MODES):
+                methods = REBUTTAL_METHODS + Q2_METHODS if name.startswith("q2_") else REBUTTAL_METHODS
+                if settings is not None:
+                    methods = tuple(method for method in settings["methods_by_advantage_mode"].get(mode, [])
+                                    if name.startswith("q2_") or method in REBUTTAL_INDEPENDENT_METHODS)
+                for method in methods:
+                    buckets: dict[int, list[float]] = {}
+                    for row in rows:
+                        if row["advantage_mode"] != mode:
+                            continue
+                        if metric == "variance_trace":
+                            # Same IS checkpoint, three offline weighting rules.
+                            if row["method"] != "is" or row["rule"] != method:
+                                continue
+                        elif row["method"] != method:
+                            continue
+                        raw = row.get(metric)
+                        if raw in (None, ""):
+                            continue
+                        value = float(raw)
+                        if math.isfinite(value):
+                            buckets.setdefault(int(row["step"]), []).append(value)
+                    if not buckets:
+                        continue
+                    steps = sorted(buckets)
+                    mean = np.array([np.mean(buckets[s]) for s in steps])
+                    color = f"C{methods.index(method)}"
+                    ax.plot(np.array(steps) / 1e6, mean, color=color,
+                            linestyle="-" if mode == "frozen" else "--", label=f"{mode}/{method}")
+            ax.set(xlabel="Actor updates (millions)", ylabel=metric.replace("_", " "))
+            if metric == "variance_trace":
+                ax.set_title("Rules compared at the same trained IS checkpoints; pre-clipping")
+            ax.grid(alpha=0.2)
+            if ax.lines:
+                ax.legend(fontsize=8, ncol=2)
+        fig.tight_layout()
+        fig.savefig(output / f"{name}.svg")
+        plt.close(fig)
+
+
+def _aggregate_rebuttal_q2(root: Path, settings: dict, matrix: list[dict], tables: dict) -> None:
+    output = root / "summary"
+    budgets = []
+    for seed in settings["seeds"]:
+        for intervention, control in settings["q2"]["pairs"]:
+            budgets.extend({**row, "seed": seed, "advantage_mode": "frozen", "method": intervention,
+                            "global_method": control}
+                           for row in _read_rebuttal_csv(_q2_pair_path(root, seed, intervention) / "budget_matching.csv"))
+    tables["q2_budgets"] = budgets
+    write_csv(output / "Q2_BUDGET_MATCHING.csv", budgets)
+    common = {"seed", "advantage_mode", "method", "step", "sample_count", "effective_coefficient_scope"}
+    write_csv(output / "Q2_INTERVENTION_DIAGNOSTICS.csv", [
+        {k: v for k, v in row.items() if k in common or k.startswith(("q2_", "p_", "q_", "rho_", "ratio_status_"))}
+        for row in tables["diagnostics"] if row["method"] in Q2_METHODS
+    ])
+    rows = []
+    for method in REBUTTAL_METHODS + Q2_METHODS:
+        cells = [r for r in matrix if r["advantage_mode"] == "frozen" and r["method"] == method]
+        row = {"method": method, "advantage_mode": "frozen", "planned_n": len(cells),
+               "completed_n": sum(r["status"] == "completed" for r in cells),
+               "numerical_failure_n": sum(bool(r.get("numerical_failure")) or r["status"] == "numerical_failure" for r in cells),
+               "paired_stop_n": sum(r["status"] == "paired_stop" for r in cells),
+               "runtime_failure_n": sum(r["status"] == "runtime_failure" for r in cells),
+               "calibration_undefined_n": sum(r["status"] == "calibration_undefined" for r in cells),
+               "source": "existing_frozen_cell" if method in REBUTTAL_METHODS else "q2_paired_cell"}
+        for metric in ("late_mean", "terminal"):
+            values = [r[metric] for r in cells if r["status"] == "completed" and r.get(metric) is not None]
+            row.update({f"{metric}_n": len(values), f"{metric}_mean": float(np.mean(values)) if values else None,
+                        f"{metric}_seed_sample_sd": float(np.std(values, ddof=1)) if len(values) > 1 else None})
+        pair_rows = [r for r in budgets if method in (r["method"], r["global_method"])]
+        if pair_rows:
+            total = sum(int(r["updates"]) for r in pair_rows)
+            row["q2_budget_observed_steps"] = total
+            for field in ("matchable", "unmatched_zero_raw_gradient", "zero_target", "alpha_gt_one", "cap_triggered"):
+                row[f"q2_{field}_fraction"] = sum(int(r[f"q2_{field}_steps"]) for r in pair_rows) / total
+            row["q2_absolute_error_max"] = max(float(r["q2_absolute_error_max"]) for r in pair_rows)
+            relative_errors = [float(r["q2_relative_error_nonzero_target_max"]) for r in pair_rows if r["q2_relative_error_nonzero_target_max"] not in (None, "")]
+            row["q2_relative_error_nonzero_target_max"] = max(relative_errors) if relative_errors else None
+        rows.append(row)
+    write_csv(output / "Q2_METHOD_SUMMARY.csv", rows)
+    comparisons = [(intervention, reference) for intervention, control in settings["q2"]["pairs"]
+                   for reference in ("signed", control)]
+    paired = []
+    by_key = {(r["seed"], r["method"]): r for r in matrix if r["advantage_mode"] == "frozen"}
+    for method, reference in comparisons:
+        for metric in ("late_mean", "terminal"):
+            differences = []
+            for seed in settings["seeds"]:
+                cell, baseline = by_key[seed, method], by_key[seed, reference]
+                difference = cell[metric] - baseline[metric] if cell["status"] == baseline["status"] == "completed" and cell.get(metric) is not None and baseline.get(metric) is not None else None
+                if difference is not None:
+                    differences.append(difference)
+                paired.append({"row_type": "seed", "seed": seed, "method": method, "reference": reference,
+                               "metric": metric, "difference": difference, "method_status": cell["status"], "reference_status": baseline["status"]})
+            paired.append({"row_type": "aggregate", "method": method, "reference": reference, "metric": metric,
+                           "paired_n": len(differences), "mean_difference": float(np.mean(differences)) if differences else None,
+                           "difference_sample_sd": float(np.std(differences, ddof=1)) if len(differences) > 1 else None})
+    write_csv(output / "Q2_PAIRED_COMPARISONS.csv", paired)
+
+
+def aggregate_rebuttal(root: Path, settings: dict) -> dict:
+    summary_root = root / "summary"
+    summary_root.mkdir(exist_ok=True)
+    matrix, tables = [], {name: [] for name in ("diagnostics", "rollouts", "gradient_variance")}
+    for key in rebuttal_matrix(settings["seeds"], settings["methods_by_advantage_mode"]):
+        cell = _rebuttal_cell(root, key["seed"], key["advantage_mode"], key["method"])
+        path = cell / "summary.json"
+        row = json.loads(path.read_text()) if path.is_file() else {**key, "status": "runtime_failure", "late_mean": None, "terminal": None}
+        failure_path = cell / "failure.json"
+        if failure_path.is_file():
+            failure = json.loads(failure_path.read_text())
+            row = {**row, "status": "runtime_failure", "worker_returncode": failure.get("returncode"),
+                   "runtime_failure_log": failure.get("log")}
+        matrix.append(row)
+        for name, rows in tables.items():
+            rows.extend({**r, **key} for r in _read_rebuttal_csv(cell / f"{name}.csv"))
+    write_csv(summary_root / "MATRIX.csv", matrix)
+    write_csv(summary_root / "PER_RUN_SUMMARY.csv", matrix)
+    method_rows, paired, paired_seeds = [], [], []
+    reference_method = settings.get("comparison_reference", "positive_only")
+    by_key = {(r["advantage_mode"], r["method"], r["seed"]): r for r in matrix}
+    for mode in REBUTTAL_MODES:
+        selected_methods = settings["methods_by_advantage_mode"].get(mode, [])
+        for method in (name for name in selected_methods if name in REBUTTAL_INDEPENDENT_METHODS):
+            cells = [r for r in matrix if r["advantage_mode"] == mode and r["method"] == method]
+            row = {"advantage_mode": mode, "method": method, "planned_n": len(cells),
+                   "completed_n": sum(r["status"] == "completed" for r in cells),
+                   "numerical_failure_n": sum(r["status"] == "numerical_failure" or bool(r.get("numerical_failure")) for r in cells),
+                   "runtime_failure_n": sum(r["status"] == "runtime_failure" for r in cells)}
+            if method in TOPR_METHOD_BETAS:
+                row.update(topr_beta=TOPR_METHOD_BETAS[method], topr_identity=TOPR_METHOD_IDENTITIES[method])
+            for metric in ("late_mean", "terminal"):
+                values = [r[metric] for r in cells if r.get(metric) is not None and r["status"] == "completed"]
+                row[f"{metric}_n"] = len(values)
+                row[f"{metric}_mean"] = float(np.mean(values)) if values else None
+                row[f"{metric}_seed_sample_sd"] = float(np.std(values, ddof=1)) if len(values) > 1 else None
+            method_rows.append(row)
+            if method == reference_method or reference_method not in selected_methods:
+                continue
+            for metric in ("late_mean", "terminal"):
+                differences = []
+                for cell in cells:
+                    reference = by_key.get((mode, reference_method, cell["seed"]))
+                    if reference is not None and cell.get(metric) is not None and reference.get(metric) is not None and cell["status"] == reference["status"] == "completed":
+                        difference = cell[metric] - reference[metric]
+                        differences.append(difference)
+                        paired_seeds.append({"seed": cell["seed"], "advantage_mode": mode, "method": method,
+                                             "reference": reference_method, "metric": metric, "difference": difference})
+                paired.append({"advantage_mode": mode, "method": method, "reference": reference_method, "metric": metric,
+                               "paired_n": len(differences), "mean_difference": float(np.mean(differences)) if differences else None,
+                               "difference_sample_sd": float(np.std(differences, ddof=1)) if len(differences) > 1 else None})
+    write_csv(summary_root / "METHOD_SUMMARY.csv", method_rows)
+    write_csv(summary_root / "PAIRED_COMPARISONS.csv", paired)
+    write_csv(summary_root / "PAIRED_SEED_DIFFERENCES.csv", paired_seeds)
+    field_sets = {
+        "PQ_TRAJECTORIES": lambda k: k.startswith(("p_", "q_", "rho_", "ratio_status_")),
+        "ADVANTAGE_REFRESH": lambda k: k.startswith(("initial_", "previous_", "advantage_", "raw_delta_", "critic_")) or k in ("positive_fraction", "negative_fraction", "zero_fraction"),
+        "GRADIENT_GEOMETRY": lambda k: "force_norm" in k or "norm_share" in k or "distance" in k or "_D_" in k or "abs_advantage" in k or "abs_coefficient" in k or k.endswith("_count") or "log_std" in k or "action_mean_boundary" in k,
+        "IS_WEIGHT_STATS": lambda k: k.startswith(("log_ratio_", "ratio_", "ess", "top_", "topr_", "boundary_")),
+    }
+    common = {"seed", "advantage_mode", "method", "step", "sample_count", "diagnostic_ids_sha256"}
+    for name, include in field_sets.items():
+        write_csv(summary_root / f"{name}.csv", [{k: v for k, v in r.items() if k in common or include(k)} for r in tables["diagnostics"]])
+    write_csv(summary_root / "GRADIENT_VARIANCE.csv", tables["gradient_variance"])
+    if settings["q2"]["enabled"]:
+        _aggregate_rebuttal_q2(root, settings, matrix, tables)
+    else:
+        tables["q2_budgets"] = []
+    terminal = sum(r["status"] in ("completed", "numerical_failure", "paired_stop", "calibration_undefined") for r in matrix)
+    audit = {
+        "experiment_id": settings["experiment_id"], "expected_cells": len(matrix),
+        "terminal_cells": terminal, "completed_cells": sum(r["status"] == "completed" for r in matrix),
+        "numerical_failure_cells": sum(r["status"] == "numerical_failure" or bool(r.get("numerical_failure")) for r in matrix),
+        "runtime_failure_cells": len(matrix) - terminal,
+        "paired_stop_cells": sum(r["status"] == "paired_stop" for r in matrix),
+        "calibration_undefined_cells": sum(r["status"] == "calibration_undefined" for r in matrix),
+        "support_or_variance_boundary_cells": sum(bool(r.get("support_or_variance_boundary_event")) for r in matrix),
+        "task_collapse_status": "not_adjudicated_no_coldstart_threshold",
+        "all_full_budgets_completed": all(r["status"] == "completed" and r["completed_actor_steps"] == settings["actor_steps"] for r in matrix),
+        "all_late_windows_complete": all(r.get("late_count", 0) == len(settings["late_steps"]) for r in matrix),
+        "terminal_classification": "fixed_horizon_inconclusive_no_steady_state_claim",
+        "status": "PASS" if terminal == len(matrix) else "PARTIAL",
+        "status_meaning": "matrix/evidence completeness only, not convergence or method superiority",
+        "smoke": settings["smoke"],
+    }
+    _write_rebuttal_json(summary_root / "TERMINAL_AUDIT.json", audit)
+    _write_rebuttal_json(root / "terminal_audit.json", audit)
+    _plot_rebuttal(root, tables, settings)
+    return audit
+
+
+def _reuse_rebuttal_job(resume: Path, root: Path, job: dict, settings: dict, source_commit: str) -> bool:
+    old_cells = [_rebuttal_cell(resume, key["seed"], key["advantage_mode"], key["method"]) for key in job["cells"]]
+    paired = job["job_kind"] == "q2_pair"
+    old_pair = _q2_pair_path(resume, job["seed"], job["method"])
+    if paired and ((old_pair / "failure.json").is_file() or not (old_pair / "summary.json").is_file()):
+        return False
+    for old, key in zip(old_cells, job["cells"]):
+        if not (old / "summary.json").is_file() or (old / "failure.json").is_file():
+            return False
+        row = json.loads((old / "summary.json").read_text())
+        if row["status"] not in (("completed",) if paired else ("completed", "numerical_failure")):
+            return False
+        if (row["settings_identity"] != settings["identity"] or row["source_commit"] != source_commit
+                or any(row[k] != v for k, v in key.items())):
+            raise ValueError("Completed resume cell identity mismatch")
+    for old, key in zip(old_cells, job["cells"]):
+        cell = _rebuttal_cell(root, key["seed"], key["advantage_mode"], key["method"])
+        cell.mkdir(parents=True, exist_ok=True)
+        for path in old.iterdir():
+            if path.suffix in (".csv", ".json"):
+                shutil.copy2(path, cell / path.name)
+            elif path.is_dir() and path.name == "rollouts":
+                shutil.copytree(path, cell / path.name)
+    if paired:
+        pair = _q2_pair_path(root, job["seed"], job["method"])
+        pair.mkdir(parents=True, exist_ok=True)
+        for path in old_pair.iterdir():
+            if path.suffix in (".csv", ".json"):
+                shutil.copy2(path, pair / path.name)
+    return True
+
+
+def run_rebuttal_experiment(args: argparse.Namespace) -> int:
+    import time
+
+    settings, base = load_rebuttal_config(args.config, args.smoke, getattr(args, "task", None))
+    torch.set_num_threads(settings["worker_threads"])
+    root, repo = Path(args.work_dir).resolve(), Path(args.repo_root).resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    dataset = Path(args.dataset_path).resolve()
+    source_commit = git_output(repo, "rev-parse", "HEAD")
+    digest = sha256_file(dataset)
+    if not args.smoke and digest != base.dataset_sha256:
+        raise ValueError("This fixed dataset protocol requires the configured dataset HDF5")
+    matrix = rebuttal_matrix(settings["seeds"], settings["methods_by_advantage_mode"])
+    jobs = rebuttal_jobs(settings)
+    manifest = {
+        "experiment_id": settings["experiment_id"], "base_commit": source_commit,
+        "source_commit": source_commit, "source_branch": git_output(repo, "branch", "--show-current"),
+        "run_id": root.name, "settings_identity": settings["identity"], "settings": settings,
+        "dataset": {"path": str(dataset), "sha256": digest}, "matrix": matrix,
+        "jobs": jobs, "cell_count": len(matrix), "job_count": len(jobs),
+        "started_utc": utc_now(), "smoke": args.smoke,
+        "scientific_status": "not_run" if args.smoke else "pilot",
+        "density_processing": "tanh action-space ratio with one a_safe; no ratio clipping/normalization",
+        "behavior_logp_source": "infos/action_log_probs, per collection row",
+        "state_occupancy_correction": False, "actor_warmstart_steps": 0,
+        "environment": environment_manifest(),
+        "large_file_persistence": args.large_file_persistence,
+    }
+    selected_methods = {key["method"] for key in matrix}
+    if selected_methods.intersection(TOPR_METHOD_BETAS):
+        manifest["density_processing"] = "joint tanh action-space density with one a_safe; TOPR negative min(r,1)^beta; no self-normalization"
+        manifest["method_weighting"] = {
+            method: {"beta": beta, "identity": TOPR_METHOD_IDENTITIES[method],
+                     "reference": "logged frozen infos/action_log_probs",
+                     "coefficient": "A+ - exp(beta*min(log_pi-log_mu,0))*A-",
+                     "coefficient_detached": True, "loss_reduction": "full_batch_mean"}
+            for method, beta in TOPR_METHOD_BETAS.items() if method in selected_methods
+        }
+        if "drpo" in selected_methods:
+            manifest["method_weighting"]["drpo"] = {"coefficient": "existing detached standardized-action-distance exponential negative taper; unchanged positive A+"}
+    if settings.get("task_id"):
+        manifest.update(task_id=settings["task_id"], actual_task=settings["actual_task"])
+    _write_rebuttal_json(root / "scientific_run_manifest.json", manifest)
+    owns_run_manifest = not (root / "run_manifest.json").exists()
+    if owns_run_manifest:
+        _write_rebuttal_json(root / "run_manifest.json", manifest)
+    _write_rebuttal_json(root / "resolved_config.json", settings)
+    shutil.copy2(args.config, root / "resolved_config.yaml")
+    resume = Path(args.resume_from).resolve() if args.resume_from else None
+    if resume:
+        old = json.loads((resume / "scientific_run_manifest.json").read_text())
+        if any(old[k] != manifest[k] for k in ("source_commit", "settings_identity")) or old["dataset"]["sha256"] != digest:
+            raise ValueError("Resume requires the same exact source/config/dataset; use the original commit")
+        done = resume / "prepare" / "PREPARE_COMPLETE.json"
+        if done.is_file():
+            record = json.loads(done.read_text())
+            if record["context_sha256"] != sha256_file(resume / "prepare" / "context.pt"):
+                raise ValueError("The prepared recovery context checksum changed")
+            for name, expected in record["prepared_input_hashes"].items():
+                if sha256_file(resume / "prepare" / name) != expected:
+                    raise ValueError(f"Prepared recovery input checksum changed: {name}")
+            shutil.copytree(resume / "prepare", root / "prepare")
+    if getattr(args, "worker_devices", None):
+        devices = [str(torch.device(value.strip())) for value in args.worker_devices.split(",") if value.strip()]
+    else:
+        device = choose_device(args.device)
+        if device.type == "cuda":
+            gpu_ids = [int(v) for v in args.gpu_ids.split(",") if v.strip()]
+            if args.device.startswith("cuda:"):
+                gpu_ids = [device.index]
+            devices = [f"cuda:{i}" for i in gpu_ids if i < torch.cuda.device_count()]
+            if not devices:
+                raise ValueError("No requested CUDA slot is visible")
+        else:
+            devices = ["cpu"] * args.max_workers
+    devices = devices[:args.max_workers]
+    preparation_device = torch.device(args.device) if args.device not in ("auto", "cuda") else torch.device(devices[0])
+    manifest.update(preparation_device=str(preparation_device), worker_devices=devices,
+                    worker_threads=settings["worker_threads"])
+    _write_rebuttal_json(root / "scientific_run_manifest.json", manifest)
+    if owns_run_manifest:
+        _write_rebuttal_json(root / "run_manifest.json", manifest)
+    with h5py.File(dataset, "r") as handle:
+        observation_dim, action_dim = handle["observations"].shape[1], handle["actions"].shape[1]
+    preflight = preflight_rollout_environment(
+        backend=base.env_backend, dataset_id=base.rollout_dataset_id, env_id=base.env_id,
+        expected_observation_dim=observation_dim, expected_action_dim=action_dim, seed=settings["evaluation_seed"],
+        max_steps=base.rollout_preflight_max_steps, normalized_score_percent=base.normalized_score_percent,
+        reference_min_score=base.normalized_score_reference_min,
+        reference_max_score=base.normalized_score_reference_max,
+        output_dir=root / "rollout_preflight", required=True,
+        process_isolated=True, timeout_seconds=base.rollout_preflight_timeout_seconds,
+    )
+    _write_rebuttal_json(root / "ROLLOUT_PREFLIGHT.json", preflight)
+    if not (root / "prepare" / "PREPARE_COMPLETE.json").is_file():
+        prepare_rebuttal_context(dataset, root / "prepare", settings, base, preparation_device, source_commit)
+    manifest["preparation"] = json.loads((root / "prepare/normalization.json").read_text())
+    manifest["q2_calibrations"] = ([json.loads((root / "prepare" / f"q2_calibration_seed_{seed}.json").read_text())
+                                     for seed in settings["seeds"]] if settings["q2"]["enabled"] else [])
+    _write_rebuttal_json(root / "scientific_run_manifest.json", manifest)
+    if owns_run_manifest:
+        _write_rebuttal_json(root / "run_manifest.json", manifest)
+    pending = [job for job in jobs if not (resume and _reuse_rebuttal_job(resume, root, job, settings, source_commit))]
+    logs = root / "logs"
+    logs.mkdir(exist_ok=True)
+    active: dict[int, tuple[subprocess.Popen, Any, dict]] = {}
+    try:
+        while pending or active:
+            for slot, worker_device in enumerate(devices):
+                if slot in active or not pending:
+                    continue
+                key = pending.pop(0)
+                command = [
+                    sys.executable, str(Path(__file__).resolve()), "rebuttal-pq-is-worker",
+                    "--config", str(Path(args.config).resolve()), "--dataset-path", str(dataset),
+                    "--work-dir", str(root), "--device", worker_device, "--seed", str(key["seed"]),
+                    "--advantage-mode", key["advantage_mode"], "--method", key["method"],
+                    "--job-kind", key["job_kind"],
+                    "--large-file-persistence", args.large_file_persistence,
+                ]
+                if settings.get("task_id"):
+                    command.extend(["--task", settings["task_id"]])
+                if args.smoke:
+                    command.append("--smoke")
+                if resume:
+                    command.extend(["--resume-from", str(resume)])
+                log = (logs / f"seed_{key['seed']}_{key['advantage_mode']}_{key['method']}.log").open("w")
+                env = os.environ.copy()
+                env.update(OMP_NUM_THREADS=str(settings["worker_threads"]), MKL_NUM_THREADS=str(settings["worker_threads"]))
+                process = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, env=env)
+                active[slot] = (process, log, key)
+                print(json.dumps({"event": "worker_started", **key, "device": worker_device}), flush=True)
+            for slot, (process, log, key) in list(active.items()):
+                code = process.poll()
+                if code is not None:
+                    log.close()
+                    if code != 0:
+                        failure_targets = [
+                            (_rebuttal_cell(root, cell["seed"], cell["advantage_mode"], cell["method"]), {**key, **cell})
+                            for cell in key["cells"]
+                        ]
+                        if key["job_kind"] == "q2_pair":
+                            failure_targets.append((_q2_pair_path(root, key["seed"], key["method"]), key))
+                        for directory, failure_identity in failure_targets:
+                            failure_path = directory / "failure.json"
+                            failure = json.loads(failure_path.read_text()) if failure_path.is_file() else {}
+                            failure.update({**failure_identity, "status": "runtime_failure", "returncode": code, "log": str(log.name)})
+                            _write_rebuttal_json(failure_path, failure)
+                            _write_rebuttal_json(directory / "status.json", failure)
+                    print(json.dumps({"event": "worker_exited", **key, "returncode": code}), flush=True)
+                    del active[slot]
+            _write_rebuttal_json(root / "scientific_heartbeat.json", {
+                "utc": utc_now(), "pending_cells": len(pending), "active_cells": [key for _, _, key in active.values()],
+            })
+            if pending or active:
+                time.sleep(0.25)
+    finally:
+        for process, log, _ in active.values():
+            if process.poll() is None:
+                process.terminate()
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+            log.close()
+    audit = aggregate_rebuttal(root, settings)
+    if audit["runtime_failure_cells"]:
+        _write_rebuttal_json(root / "RUN_PARTIAL.json", {"experiment_id": settings["experiment_id"], "base_commit": source_commit, **audit})
+        return 2
+    _write_rebuttal_json(root / "RUN_COMPLETE.json", {
+        "experiment_id": settings["experiment_id"], "base_commit": source_commit,
+        "run_id": root.name, "execution_state": "raw_complete", "smoke": args.smoke,
+        "scientific_status": "not_run" if args.smoke else "pilot", "finished_utc": utc_now(),
+        "matrix_terminal_cells": audit["terminal_cells"], "numerical_failures": audit["numerical_failure_cells"],
+    })
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
+    for name in ("rebuttal-pq-is", "rebuttal-pq-is-worker"):
+        profile = sub.add_parser(name, help="isolated Hopper p/q and raw-IS profile")
+        profile.add_argument("--config", default="configs/e7_hopper_pq_is_rebuttal_v1.yaml")
+        profile.add_argument("--task", help="Task key from the selected config; defaults to its default_task")
+        profile.add_argument("--dataset-path", required=True)
+        profile.add_argument("--work-dir", required=True)
+        profile.add_argument("--device", default="auto")
+        profile.add_argument("--smoke", action="store_true")
+        profile.add_argument("--resume-from")
+        profile.add_argument("--large-file-persistence", choices=("persistent_local", "ephemeral", "unknown"), default="persistent_local")
+        if name.endswith("-worker"):
+            profile.add_argument("--seed", type=int, required=True)
+            profile.add_argument("--advantage-mode", choices=REBUTTAL_MODES, required=True)
+            profile.add_argument("--method", choices=REBUTTAL_INDEPENDENT_METHODS + Q2_METHODS, required=True)
+            profile.add_argument("--job-kind", choices=("independent", "q2_pair"), default="independent")
+        else:
+            profile.add_argument("--repo-root", default=".")
+            profile.add_argument("--gpu-ids", default="0,1,2,3,4,5,6,7")
+            profile.add_argument("--max-workers", type=int, default=8)
+            profile.add_argument("--worker-devices", help="Optional comma-separated device slots, e.g. cuda:0,cpu,cpu; repetitions are preserved")
     run = sub.add_parser("run", help="run the automatic E7-Q2 pipeline")
     run.add_argument("--mode", choices=("pilot", "formal"), required=True)
     run.add_argument("--dataset-path", required=True)
@@ -4307,6 +6022,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.command == "rebuttal-pq-is":
+        if args.max_workers < 1:
+            raise ValueError("--max-workers must be positive")
+        return run_rebuttal_experiment(args)
+    if args.command == "rebuttal-pq-is-worker":
+        return train_rebuttal_q2_pair(args) if args.job_kind == "q2_pair" else train_rebuttal_branch(args)
     if args.command == "rollout-preflight-worker":
         report = _run_rollout_preflight_worker(
             backend=args.backend,

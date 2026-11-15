@@ -1,0 +1,71 @@
+experiment_id: EXT-H-E7-REBUTTAL-PQ-IS-01
+protocol_version: 2
+role: external_training_diagnostic
+base_config: e7_hopper_q2_medium_replay_v2.yaml
+seeds: [200, 201, 202]
+critic_seed: 100
+critic_steps: 100000
+critic_eval_interval: 2000
+critic_expectile: 0.5
+critic_gradient_clip: 10.0
+actor_steps: 1000000
+actor_warmstart_steps: 0
+actor_batch_size: 1024
+critic_batch_size: 1024
+learning_rate: 0.0003
+actor_gradient_clip: 100.0
+log_interval: 1000
+diagnostic_interval: 5000
+diagnostic_size: 16384
+diagnostic_batch_size: 1024
+diagnostic_seed: 73191
+variance_steps: [0, 250000, 500000, 750000, 1000000]
+variance_batches: 16
+variance_batch_size: 1024
+evaluation_interval: 50000
+evaluation_episodes: 10
+terminal_evaluation_episodes: 20
+evaluation_seed: 91831
+late_steps: [750000, 800000, 850000, 900000, 950000, 1000000]
+checkpoint_interval: 5000
+worker_threads: 1
+max_transitions: null
+drpo_scale: 1.0
+drpo_exponent_coefficient: 0.122667
+drpo_reference_distance: 2.0
+methods_by_advantage_mode:
+  frozen: [positive_only, signed, drpo, is, far_zero, global_matched_far_zero, far_cap, global_matched_far_cap]
+  refreshed: [positive_only, signed, drpo, is]
+q2:
+  enabled: true
+  advantage_mode: frozen
+  far_threshold_quantile: 0.75
+  cap_calibration_batches: 16
+  cap_calibration_batch_size: 1024
+  calibration_rng_role: 62831
+  cap_reference: median_initial_far_block_gradient_norm
+  budget: full_parameter_negative_aggregate_l2_pre_clip
+  matching: paired_actual_trajectories_each_step
+  pairs:
+    - [far_zero, global_matched_far_zero]
+    - [far_cap, global_matched_far_cap]
+smoke:
+  seeds: [200]
+  critic_steps: 20
+  critic_eval_interval: 10
+  actor_steps: 10
+  actor_batch_size: 32
+  critic_batch_size: 32
+  log_interval: 5
+  diagnostic_interval: 5
+  diagnostic_size: 64
+  diagnostic_batch_size: 32
+  variance_steps: [0, 10]
+  variance_batches: 2
+  variance_batch_size: 32
+  evaluation_interval: 10
+  evaluation_episodes: 1
+  terminal_evaluation_episodes: 1
+  late_steps: [10]
+  checkpoint_interval: 5
+  max_transitions: 10000
