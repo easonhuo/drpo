@@ -155,8 +155,8 @@ def test_topr_fixed_population_weight_diagnostics_and_no_negative_case():
 
 
 def test_topr_preparation_without_q2_does_not_calibrate_or_hash_missing_files(tmp_path, monkeypatch):
-    from dataclasses import replace
     import json
+    from dataclasses import replace
 
     settings, base = mod.load_rebuttal_config(_topr_config(tmp_path), True)
     settings.update(actor_batch_size=8, critic_batch_size=8, diagnostic_size=8, diagnostic_batch_size=8)
@@ -187,6 +187,7 @@ def test_topr_preparation_without_q2_does_not_calibrate_or_hash_missing_files(tm
 def test_rebuttal_actor_snapshots_preserve_step_models_and_default_output(tmp_path, monkeypatch):
     import json
     import shutil
+
     from test_e7_q2_acceptance_pipeline import _rebuttal_worker_fixture
 
     module, args, original = _rebuttal_worker_fixture(tmp_path, monkeypatch, "frozen", "topr")
@@ -243,6 +244,7 @@ def test_rebuttal_actor_snapshots_preserve_step_models_and_default_output(tmp_pa
 
 def test_topr_coordinator_generic_dimensions_slots_task_and_optional_reference(tmp_path, monkeypatch):
     import json
+
     import yaml
 
     config = _topr_config(tmp_path)
@@ -259,7 +261,7 @@ def test_topr_coordinator_generic_dimensions_slots_task_and_optional_reference(t
     observed = {}
     commands = []
     monkeypatch.setattr(mod, "git_output", lambda *args: "c" * 40)
-    monkeypatch.setattr(mod, "environment_manifest", lambda: {})
+    monkeypatch.setattr(mod, "environment_manifest", dict)
     monkeypatch.setattr(mod, "_plot_rebuttal", lambda *args: None)
 
     def preflight(**kwargs):
