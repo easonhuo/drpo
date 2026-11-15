@@ -1,6 +1,6 @@
 # DRPO ICLR 2027：四位审稿人原始意见、中文回复稿与核对记录
 
-版本：v35  
+版本：v36  
 更新日期：2026-11-15（北京时间）  
 论文：Breaking the Curse of Repulsion in Off-Policy Reinforcement Learning  
 投稿：ICLR 2027，Submission 30229  
@@ -11,7 +11,7 @@
 
 **本文件的用途：供多个 session 共用审稿原文、已确认的中文回复和讨论进度；先完成完整中文回复，再统一翻译成英文。它是审稿回复工作文件，不替代唯一研究主文档 `docs/handoff.md`，也不是已向 OpenReview 提交的回复。**
 
-**完成范围：**YPds 的 W1 四个方面、W2 的机制证据与收益／不确定性，以及 Q1 的优势刷新和重要性修正已有完整中文回复；外部 q/p 轨迹和匹配总负梯度的 Q2 仍待补充结果。Uwf4 已整合记号呈现、研究动机、TOPR／IS 方法与理论区别、行为概率估计、Positive-only 收益及统计补充的完整中文回复，待用户检查。aYhA 的完整中文回复已经用户确认并整合；iW2z 的表 2 不确定性回复与两张表格已确认并整合，所提供的 SD 已补齐并重算九任务汇总；D4RL 表现与方法实际价值的完整中文回复也已确认并整合；Q1–Q7 的完整中文回复也已全部确认并整合；其余 Weaknesses 由对应 session 继续逐条处理。文末核对记录和历史存档不进入审稿回复。
+**完成范围：**YPds 的 W1 四个方面、W2 的机制证据与收益／不确定性，以及 Q1 的优势刷新和重要性修正已有完整中文回复；外部 q/p 轨迹和匹配总负梯度的 Q2 仍待补充结果。Uwf4 已整合记号呈现、研究动机、TOPR／IS 方法与理论区别、行为概率估计、Positive-only 收益及统计补充的完整中文回复，待用户检查。aYhA 的完整中文回复已经用户确认并整合；iW2z 的表 2 不确定性回复与两张表格已确认并整合，所提供的 SD 已补齐并重算九任务汇总；D4RL 表现与方法实际价值的完整中文回复也已确认并整合；结构化生成模型规模的完整中文回复已确认并整合；Q1–Q7 的完整中文回复也已全部确认并整合；其余 Weaknesses 由对应 session 继续逐条处理。文末核对记录和历史存档不进入审稿回复。
 
 ## 四位审稿人的原始意见
 
@@ -533,7 +533,7 @@ DRPO 在八个迁移任务中的平均配置标准差为 **0.47 个百分点**�
 
 ### Reviewer iW2z：逐条回复（部分整合）
 
-本节整合已确认的不确定性回复、两张统计表及九任务汇总，以及 D4RL 表现与方法实际价值的完整中文回复。Q1–Q7 的完整中文回复现已确认并收录；其余 Weaknesses 继续逐条核对，不据此标记本 reviewer 全部回复完成。
+本节整合已确认的不确定性回复、两张统计表及九任务汇总，以及 D4RL 表现与方法实际价值的完整中文回复。结构化生成模型规模的完整中文回复也已确认并收录。Q1–Q7 的完整中文回复现已确认并收录；其余 Weaknesses 继续逐条核对，不据此标记本 reviewer 全部回复完成。
 
 #### Weaknesses：表 2 的不确定性报告
 
@@ -587,6 +587,22 @@ DRPO 的八项迁移任务平均配置标准差为 0.47 个百分点，八项中
 该控制只依赖当前策略的 remoteness，无需取得或估计行为策略密度，也不需要额外参考策略。例如，canonical TOPR 的负样本权重 \(\min\{\pi_\theta/\mu,1\}\) 需要行为策略 \(\mu\) 对样本的概率。对于来自不同策略、且未保存生成概率的混合历史数据，拟合行为分布还会引入额外的建模工作与估计误差。DRPO 直接利用当前模型计算样本远度，因而无需这一步，便于接入已有的策略更新流程。
 
 DRPO 还具有与 AsymRE 的反馈调整、IQL 的价值学习模块以及 Trust Region 式策略移动约束结合的空间。本文对 remoteness 机制及其控制有效性的研究，为后续方法的组合与改进提供了基础。
+
+#### Weaknesses：结构化生成实验的模型规模
+
+感谢您对模型规模与实验覆盖范围的关注。本文研究的是历史负反馈在当前策略下的复用动力学。理论分析关注反馈系数、learner-relative remoteness 及相应的策略更新响应。DRPO 根据正负反馈和当前策略下的样本远度调节更新强度，其控制规则不依赖特定的语言提示或语义设计，分析与控制公式也不以某个网络参数规模为前提。Off-policy 描述的是当前策略与历史数据来源之间的关系，本身并非小模型、大模型或语言任务特有的问题。因此，识别其远场负反馈机制并检验相应的控制原则，不要求模型先达到某个参数规模。
+
+利用小模型研究训练机制也有相关先例。例如，NeurIPS 2025 的《On the Effect of Negative Gradient in Group Relative Deep Reinforcement Optimization》使用包含 Qwen2.5-0.5B 在内的模型分析负梯度对正确回答概率的影响 [1]；ICLR 2026 的《Stable-LoRA: Stabilizing Feature Learning of Low-Rank Adaptation》也使用 0.5B 模型开展核心训练动力学分析 [2]。对于这类研究，实验的重要作用是检验理论所识别的机制，以及针对该机制的控制是否有效。
+
+本文将受控分析中的控制原则落实到了真实 Transformer 训练，包含远场梯度诊断和任务性能评估。在协议匹配的对照中，DRPO 保持基模型规模不变，通过改变负更新的处理方式取得收益，展示了 remoteness 控制在实际神经策略上的价值。同一控制原则还在连续 Gaussian 策略的 D4RL 任务中得到检验，连续控制与离散生成的结果共同提供了跨策略族、跨任务的外部有效性证据。
+
+现有的理论分析、受控实验及外部任务结果，共同支持了本文对远场负反馈机制的识别及其控制价值。将这一控制原则拓展到更大规模模型，是值得在后续研究中进一步探索的方向。
+
+##### 本条参考文献
+
+[1] Wenlong Deng, Yi Ren, Muchen Li, et al. [On the Effect of Negative Gradient in Group Relative Deep Reinforcement Optimization](https://proceedings.neurips.cc/paper_files/paper/2025/hash/6adaf0cbeba11705d4ea67a62044f63d-Abstract-Conference.html). NeurIPS 2025 主会.
+
+[2] Yize Wu, Ke Gao, Ling Li, Yanjun Wu. [Stable-LoRA: Stabilizing Feature Learning of Low-Rank Adaptation](https://proceedings.iclr.cc/paper_files/paper/2026/hash/2962d47082d07cd6e28272ab471e0526-Abstract-Conference.html). ICLR 2026.
 
 #### Q1：动作侧几何、策略输出坐标与更新幅度
 
@@ -783,6 +799,7 @@ TOPR 根据行为／参考相对概率调整历史负样本的影响；本文则
 - Reviewer Uwf4 的完整中文回复已在 v29 整合，待用户检查；aYhA 的完整中文回复已确认并在 v30 整合；iW2z 的 Q1–Q7 中文回复已确认并在 v35 整合，剩余 Weaknesses 继续逐条处理。
 - Reviewer iW2z 的不确定性回复与 Table 2(a)/(b) 已更新：A 表按本轮提供的数据补齐各任务 SD、加入 BC；B 表补齐 DPO 与 Countdown 的 SD。九任务宏平均和平均任务 SD 已重算；独立训练／配置波动的来源保持分别标注。
 - Reviewer iW2z 关于 D4RL 表现与方法实际价值的回复已由用户确认并在 v34 原样整合；其他尚未讨论完成的问题继续分别处理。
+- Reviewer iW2z 关于结构化生成模型规模的完整中文回复已确认并在 v36 整合，包含 off-policy 问题的普遍性、NeurIPS 2025 与 ICLR 2026 的机制研究先例，以及后续模型规模拓展的表述。
 - Reviewer iW2z 的 Q1–Q7 完整中文回复已由用户逐条确认并在 v35 整合。回复中的正文补充承诺尚待论文修改落实；canonical TOPR 直接比较等实验请求不因本轮文字整合而标为完成。
 
 ### 2. 用户已确认保留的补实验待办
@@ -1071,6 +1088,14 @@ w^-_{\mathrm{DRPO}}
 核对依据：[定理原文](https://github.com/easonhuo/drpo/blob/b949e60e68d1f1832a6e06f94a3c38a32b43d7b2/paper/iclr2027/manuscript_source.tex#L504)；[附录中的约束保持性证明](https://github.com/easonhuo/drpo/blob/b949e60e68d1f1832a6e06f94a3c38a32b43d7b2/paper/iclr2027/manuscript_source.tex#L1929)。
 
 本轮同步更新完成范围、进度表和待办。其他 reviewer 的回复、iW2z 已有的不确定性表格与 D4RL 表现回复、四份原始 review 及历史存档均保持原样。正文补充承诺与 canonical TOPR 直接比较等实验请求仍分别跟踪；本轮未修改论文、代码、handoff、registry 或实验设置，未运行实验，也未向 OpenReview 提交内容。
+
+### 25. v36：写入用户确认的 iW2z 模型规模回复
+
+用户已确认模型规模问题的完整中文回复，并明确授权加入现有 GitHub 文档。本轮将确认稿的四段正文原样放入 iW2z 的独立子节“结构化生成实验的模型规模”，同步收录两篇参考文献的正式发表信息和链接。
+
+回复保留 off-policy 描述当前策略与历史数据来源之间关系的说明，明确该问题并非小模型、大模型或语言任务特有；保留理论分析、实际 Transformer 训练与连续控制证据之间的连接，以及更大规模模型作为后续研究方向的表述。引用 NeurIPS 2025 的负梯度研究和 ICLR 2026 的 Stable-LoRA，准确说明这些工作使用 0.5B 模型开展机制分析，不将其改称为仅使用 0.5B 的实验。
+
+本轮仅新增上述已确认回复、参考文献及相应版本和进度记录。其他 reviewer 回复、iW2z 的已有回复、统计表、四份原始 review 和历史存档保留。本轮未修改论文、代码、handoff、registry 或实验设置，未运行实验，也未向 OpenReview 提交内容。
 
 ---
 
