@@ -5103,6 +5103,7 @@ def train_rebuttal_branch(args: argparse.Namespace) -> int:
     start, completed, critic_updates, clipped, previous = 0, 0, 0, 0, None
     critic_reference = torch.cat([p.detach().cpu().flatten() for p in critic.parameters()])
     failure_record = None
+    actor_snapshots = []
     if args.resume_from:
         previous_cell = _rebuttal_cell(Path(args.resume_from), seed, mode, method)
         old_checkpoint = previous_cell / "checkpoint.pt"
@@ -5127,6 +5128,9 @@ def train_rebuttal_branch(args: argparse.Namespace) -> int:
         old_rollouts = previous_cell / "rollouts"
         if old_rollouts.is_dir():
             shutil.copytree(old_rollouts, cell / "rollouts", dirs_exist_ok=True)
+        old_snapshots = previous_cell / "actor_snapshot_index.json"
+        if settings.get("retain_actor_snapshots", False) and old_snapshots.is_file():
+            actor_snapshots = json.loads(old_snapshots.read_text()).get("snapshots", [])
     last_critic: dict[str, Any] = {"loss": None, "gradient_norm": None}
     failure = failure_record["reason"] if failure_record else None
 
@@ -5153,6 +5157,26 @@ def train_rebuttal_branch(args: argparse.Namespace) -> int:
             "size_bytes": (cell / "checkpoint.pt").stat().st_size, "step": completed,
             "persistence": getattr(args, "large_file_persistence", "persistent_local"), **identity,
         })
+        if settings.get("retain_actor_snapshots", False) and completed > 0:
+            if not any(record["step"] == completed for record in actor_snapshots):
+                path = cell / "models" / f"actor_step_{completed:09d}.pt"
+                if not path.is_file():
+                    _atomic_rebuttal_checkpoint(path, {
+                        "identity": identity, "step": completed,
+                        "actor": {k: v.detach().cpu().clone() for k, v in actor.state_dict().items()},
+                        "obs_normalizer": {"mean": torch.as_tensor(context["obs_norm"].mean).cpu().clone(),
+                                           "std": torch.as_tensor(context["obs_norm"].std).cpu().clone()},
+                        "actor_structure": {"obs_dim": data.observations.shape[1], "action_dim": data.actions.shape[1],
+                            "hidden_sizes": list(base.hidden_sizes), "log_std_min": base.log_std_min,
+                            "log_std_max": base.log_std_max, "action_clip_epsilon": base.action_clip_epsilon,
+                            "activation": base.activation, "init_scheme": base.init_scheme, "init_gain": base.init_gain},
+                    })
+                actor_snapshots.append({"path": str(path), "size_bytes": path.stat().st_size,
+                    "sha256": sha256_file(path), "step": completed,
+                    "persistence": getattr(args, "large_file_persistence", "persistent_local"), "role": "actor_only_snapshot"})
+            _write_rebuttal_json(cell / "actor_snapshot_index.json", {
+                **identity, "role": "actor_trajectory_snapshots", "snapshots": sorted(actor_snapshots, key=lambda r: r["step"]),
+            })
 
     def observe(step: int) -> None:
         nonlocal previous, critic_reference

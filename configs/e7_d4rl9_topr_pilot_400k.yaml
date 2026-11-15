@@ -23,7 +23,7 @@ diagnostic_seed: 73191
 variance_steps: []
 variance_batches: 16
 variance_batch_size: 1024
-evaluation_interval: 50000
+evaluation_interval: 10000
 evaluation_episodes: 10
 terminal_evaluation_episodes: 20
 evaluation_seed: 91831
@@ -31,7 +31,7 @@ late_steps:
 - 300000
 - 350000
 - 400000
-checkpoint_interval: 50000
+checkpoint_interval: 10000
 worker_threads: 1
 max_transitions: null
 drpo_scale: 1.0
@@ -59,24 +59,26 @@ q2:
 smoke:
   seeds:
   - 200
-  critic_steps: 20
-  critic_eval_interval: 10
-  actor_steps: 10
-  actor_batch_size: 32
-  critic_batch_size: 32
-  log_interval: 5
-  diagnostic_interval: 5
+  critic_steps: 300
+  critic_eval_interval: 100
+  actor_steps: 300
+  actor_batch_size: 1024
+  critic_batch_size: 1024
+  log_interval: 100
+  diagnostic_interval: 100
   diagnostic_size: 64
   diagnostic_batch_size: 32
   variance_steps: []
   variance_batches: 2
   variance_batch_size: 32
-  evaluation_interval: 10
+  evaluation_interval: 100
   evaluation_episodes: 1
   terminal_evaluation_episodes: 1
   late_steps:
-  - 10
-  checkpoint_interval: 5
+  - 100
+  - 200
+  - 300
+  checkpoint_interval: 100
   max_transitions: 10000
 protocol_document: docs/experiments/EXT-H-E7-TOPR-D4RL9-PILOT-400K-01.md
 comparison_reference: topr
@@ -181,3 +183,4 @@ tasks:
     action_dim: 6
     n: 1999995
     worker_threads: 2
+retain_actor_snapshots: true

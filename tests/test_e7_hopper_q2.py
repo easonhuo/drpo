@@ -184,6 +184,63 @@ def test_topr_preparation_without_q2_does_not_calibrate_or_hash_missing_files(tm
         assert mod.sha256_file(prepare / name) == expected
 
 
+def test_rebuttal_actor_snapshots_preserve_step_models_and_default_output(tmp_path, monkeypatch):
+    import json
+    import shutil
+    from test_e7_q2_acceptance_pipeline import _rebuttal_worker_fixture
+
+    module, args, original = _rebuttal_worker_fixture(tmp_path, monkeypatch, "frozen", "topr")
+    settings, _ = module.load_rebuttal_config(args.config, True)
+    settings.update(checkpoint_interval=2, variance_steps=[])
+    assert not settings.get("retain_actor_snapshots", False)
+    assert module.train_rebuttal_branch(args) == 0
+    old_cell = module._rebuttal_cell(original, 200, "frozen", "topr")
+    assert not (old_cell / "models").exists() and not (old_cell / "actor_snapshot_index.json").exists()
+    baseline = torch.load(old_cell / "checkpoint.pt", map_location="cpu", weights_only=False)
+    retained = tmp_path / "retained"
+    shutil.copytree(original / "prepare", retained / "prepare")
+    settings["retain_actor_snapshots"] = True
+    args.work_dir = str(retained)
+    save, captured = module._atomic_rebuttal_checkpoint, {}
+
+    def capture(path, state):
+        save(path, state)
+        if path.name == "checkpoint.pt" and state["step"] > 0:
+            captured[state["step"]] = {k: v.detach().cpu().clone() for k, v in state["actor"].items()}
+
+    monkeypatch.setattr(module, "_atomic_rebuttal_checkpoint", capture)
+    assert module.train_rebuttal_branch(args) == 0
+    cell = module._rebuttal_cell(retained, 200, "frozen", "topr")
+    index = json.loads((cell / "actor_snapshot_index.json").read_text())
+    assert [r["step"] for r in index["snapshots"]] == [2, 4]
+    context = module._load_rebuttal_context(retained / "prepare", Path(args.dataset_path), settings, module.load_rebuttal_config(args.config, True)[1])
+    for record in index["snapshots"]:
+        path = Path(record["path"])
+        assert path.name == f"actor_step_{record['step']:09d}.pt"
+        assert path.stat().st_size == record["size_bytes"] and module.sha256_file(path) == record["sha256"]
+        snapshot = torch.load(path, map_location="cpu", weights_only=True)
+        assert snapshot["identity"] == baseline["identity"] and snapshot["step"] == record["step"]
+        assert set(snapshot) == {"identity", "step", "actor", "obs_normalizer", "actor_structure"}
+        reloaded = module.SquashedGaussianPolicy(**snapshot["actor_structure"])
+        reloaded.load_state_dict(snapshot["actor"])
+        for key, value in snapshot["actor"].items():
+            assert value.device.type == "cpu"
+            torch.testing.assert_close(value, captured[record["step"]][key], rtol=0, atol=0)
+            torch.testing.assert_close(value, reloaded.state_dict()[key], rtol=0, atol=0)
+        np.testing.assert_array_equal(snapshot["obs_normalizer"]["mean"], context["obs_norm"].mean)
+        np.testing.assert_array_equal(snapshot["obs_normalizer"]["std"], context["obs_norm"].std)
+    for key, value in baseline["actor"].items():
+        torch.testing.assert_close(value, captured[4][key], rtol=0, atol=0)
+    assert any(not torch.equal(captured[2][key], captured[4][key]) for key in captured[2])
+    resumed = tmp_path / "snapshot_resume"
+    shutil.copytree(retained / "prepare", resumed / "prepare")
+    args.work_dir, args.resume_from = str(resumed), str(retained)
+    assert module.train_rebuttal_branch(args) == 0
+    exported = module._rebuttal_cell(resumed, 200, "frozen", "topr")
+    assert json.loads((exported / "actor_snapshot_index.json").read_text())["snapshots"] == index["snapshots"]
+    assert not (exported / "models").exists()  # existing step files stay referenced in the previous root
+
+
 def test_topr_coordinator_generic_dimensions_slots_task_and_optional_reference(tmp_path, monkeypatch):
     import json
     import yaml
