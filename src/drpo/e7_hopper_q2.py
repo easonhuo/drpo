@@ -5086,6 +5086,9 @@ def train_rebuttal_branch(args: argparse.Namespace) -> int:
         marker = previous_cell / "numerical_failure.json"
         if marker.is_file():
             failure_record = json.loads(marker.read_text())
+        old_rollouts = previous_cell / "rollouts"
+        if old_rollouts.is_dir():
+            shutil.copytree(old_rollouts, cell / "rollouts", dirs_exist_ok=True)
     last_critic: dict[str, Any] = {"loss": None, "gradient_norm": None}
     failure = failure_record["reason"] if failure_record else None
 

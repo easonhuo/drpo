@@ -214,6 +214,43 @@ def test_rebuttal_interrupted_resume_reproduces_uninterrupted_updates(tmp_path, 
     assert recovered["step"] == 4 and recovered["history"] == first["history"]
 
 
+def test_rebuttal_independent_resume_preserves_historical_rollout_files(tmp_path, monkeypatch):
+    module, args, interrupted = _rebuttal_worker_fixture(tmp_path, monkeypatch)
+    evaluate = module.evaluate_d4rl_rollouts
+    save = module._atomic_rebuttal_checkpoint
+
+    def persist_rollout(**kwargs):
+        result = evaluate(**kwargs)
+        module.atomic_write_json(kwargs["diagnostics_path"], result)
+        return result
+
+    def interrupt_after_checkpoint(path, state):
+        save(path, state)
+        if path.name == "checkpoint.pt" and state["step"] == 2:
+            raise InterruptedError("simulated interruption after rollout checkpoint")
+
+    monkeypatch.setattr(module, "evaluate_d4rl_rollouts", persist_rollout)
+    monkeypatch.setattr(module, "_atomic_rebuttal_checkpoint", interrupt_after_checkpoint)
+    with pytest.raises(InterruptedError):
+        module.train_rebuttal_branch(args)
+    old_rollouts = module._rebuttal_cell(interrupted, 200, "refreshed", "is") / "rollouts"
+    original = {path.name: path.read_bytes() for path in old_rollouts.iterdir()}
+    assert len(original) == 3
+
+    resumed = tmp_path / "resumed_rollout_evidence"
+    shutil.copytree(interrupted / "prepare", resumed / "prepare")
+    monkeypatch.setattr(module, "_atomic_rebuttal_checkpoint", save)
+    args.work_dir, args.resume_from = str(resumed), str(interrupted)
+    assert module.train_rebuttal_branch(args) == 0
+    new_rollouts = module._rebuttal_cell(resumed, 200, "refreshed", "is") / "rollouts"
+    assert {path.name for path in new_rollouts.iterdir()} == {
+        f"step_{step:08d}.json" for step in range(5)
+    }
+    for name, content in original.items():
+        assert (new_rollouts / name).read_bytes() == content
+        assert (old_rollouts / name).read_bytes() == content
+
+
 @pytest.mark.parametrize("failure_in_checkpoint", [False, True])
 def test_rebuttal_resume_does_not_train_past_an_observed_numerical_failure(tmp_path, monkeypatch, failure_in_checkpoint):
     module, args, failed = _rebuttal_worker_fixture(tmp_path, monkeypatch)
