@@ -1,0 +1,183 @@
+experiment_id: EXT-H-E7-TOPR-D4RL9-PILOT-400K-01
+protocol_version: 1
+role: external_training_beta_sensitivity_pilot
+base_config: e7_hopper_q2_medium_replay_v2.yaml
+seeds:
+- 200
+critic_seed: 100
+critic_steps: 100000
+critic_eval_interval: 2000
+critic_expectile: 0.5
+critic_gradient_clip: 10.0
+actor_steps: 400000
+actor_warmstart_steps: 0
+actor_batch_size: 1024
+critic_batch_size: 1024
+learning_rate: 0.0003
+actor_gradient_clip: 100.0
+log_interval: 1000
+diagnostic_interval: 50000
+diagnostic_size: 4096
+diagnostic_batch_size: 1024
+diagnostic_seed: 73191
+variance_steps: []
+variance_batches: 16
+variance_batch_size: 1024
+evaluation_interval: 50000
+evaluation_episodes: 10
+terminal_evaluation_episodes: 20
+evaluation_seed: 91831
+late_steps:
+- 300000
+- 350000
+- 400000
+checkpoint_interval: 50000
+worker_threads: 1
+max_transitions: null
+drpo_scale: 1.0
+drpo_exponent_coefficient: 0.122667
+drpo_reference_distance: 2.0
+methods_by_advantage_mode:
+  frozen:
+  - topr_beta_0p25
+  - topr_beta_0p5
+  - topr
+  - topr_beta_2
+  - topr_beta_4
+  refreshed: []
+q2:
+  enabled: false
+  advantage_mode: frozen
+  far_threshold_quantile: 0.75
+  cap_calibration_batches: 16
+  cap_calibration_batch_size: 1024
+  calibration_rng_role: 62831
+  cap_reference: median_initial_far_block_gradient_norm
+  budget: full_parameter_negative_aggregate_l2_pre_clip
+  matching: paired_actual_trajectories_each_step
+  pairs: []
+smoke:
+  seeds:
+  - 200
+  critic_steps: 20
+  critic_eval_interval: 10
+  actor_steps: 10
+  actor_batch_size: 32
+  critic_batch_size: 32
+  log_interval: 5
+  diagnostic_interval: 5
+  diagnostic_size: 64
+  diagnostic_batch_size: 32
+  variance_steps: []
+  variance_batches: 2
+  variance_batch_size: 32
+  evaluation_interval: 10
+  evaluation_episodes: 1
+  terminal_evaluation_episodes: 1
+  late_steps:
+  - 10
+  checkpoint_interval: 5
+  max_transitions: 10000
+protocol_document: docs/experiments/EXT-H-E7-TOPR-D4RL9-PILOT-400K-01.md
+comparison_reference: topr
+default_task: hopper-medium-replay-v2
+tasks:
+  hopper-medium-v2:
+    dataset_basename: hopper_medium-v2.hdf5
+    dataset_sha256: 5bdf1bc4a713c82941de44633df669b36c89850b652a25985166796d25cf71a0
+    env_id: Hopper-v4
+    dataset_id: hopper-medium-v2
+    reference_min_score: -20.272305
+    reference_max_score: 3234.3
+    obs_dim: 11
+    action_dim: 3
+    n: 1000000
+    worker_threads: 1
+  hopper-medium-replay-v2:
+    dataset_basename: hopper_medium_replay-v2.hdf5
+    dataset_sha256: e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b
+    env_id: Hopper-v4
+    dataset_id: hopper-medium-replay-v2
+    reference_min_score: -20.272305
+    reference_max_score: 3234.3
+    obs_dim: 11
+    action_dim: 3
+    n: 402000
+    worker_threads: 1
+  hopper-medium-expert-v2:
+    dataset_basename: hopper_medium_expert-v2.hdf5
+    dataset_sha256: 9d51ad87f8c905be3880d84c6140bcdb7fbf39a19e046a237f238ba34fec9e26
+    env_id: Hopper-v4
+    dataset_id: hopper-medium-expert-v2
+    reference_min_score: -20.272305
+    reference_max_score: 3234.3
+    obs_dim: 11
+    action_dim: 3
+    n: 1999906
+    worker_threads: 1
+  halfcheetah-medium-v2:
+    dataset_basename: halfcheetah_medium-v2.hdf5
+    dataset_sha256: 41324e8487a9556d8cfa4538827f8937f4d63dae3030825ebc9f3a726ed08ca0
+    env_id: HalfCheetah-v4
+    dataset_id: halfcheetah-medium-v2
+    reference_min_score: -280.178953
+    reference_max_score: 12135.0
+    obs_dim: 17
+    action_dim: 6
+    n: 1000000
+    worker_threads: 2
+  halfcheetah-medium-replay-v2:
+    dataset_basename: halfcheetah_medium_replay-v2.hdf5
+    dataset_sha256: 48d494a4770c11f48260736dec090b78bdca8375647ed4d24bfa5b6610c7f683
+    env_id: HalfCheetah-v4
+    dataset_id: halfcheetah-medium-replay-v2
+    reference_min_score: -280.178953
+    reference_max_score: 12135.0
+    obs_dim: 17
+    action_dim: 6
+    n: 202000
+    worker_threads: 2
+  halfcheetah-medium-expert-v2:
+    dataset_basename: halfcheetah_medium_expert-v2.hdf5
+    dataset_sha256: 015db75dae5bbe8e94029b71fa0bafc2073365df0c94744e71031189f3f79c06
+    env_id: HalfCheetah-v4
+    dataset_id: halfcheetah-medium-expert-v2
+    reference_min_score: -280.178953
+    reference_max_score: 12135.0
+    obs_dim: 17
+    action_dim: 6
+    n: 2000000
+    worker_threads: 2
+  walker2d-medium-v2:
+    dataset_basename: walker2d_medium-v2.hdf5
+    dataset_sha256: cf00f43add04c17fdfc2958dd581dea0851b2e5bedbe6fda073758a8f841aeda
+    env_id: Walker2d-v4
+    dataset_id: walker2d-medium-v2
+    reference_min_score: 1.629008
+    reference_max_score: 4592.3
+    obs_dim: 17
+    action_dim: 6
+    n: 1000000
+    worker_threads: 2
+  walker2d-medium-replay-v2:
+    dataset_basename: walker2d_medium_replay-v2.hdf5
+    dataset_sha256: e75de96a4f77acf7d4e0d6fdf0d7ccb177c26c44bb4388e4fd99f543ccfa18db
+    env_id: Walker2d-v4
+    dataset_id: walker2d-medium-replay-v2
+    reference_min_score: 1.629008
+    reference_max_score: 4592.3
+    obs_dim: 17
+    action_dim: 6
+    n: 302000
+    worker_threads: 2
+  walker2d-medium-expert-v2:
+    dataset_basename: walker2d_medium_expert-v2.hdf5
+    dataset_sha256: 6b8d7f868c45bbaedf460be797fb7271b46dee6ebe45fe7a64319f2005b59a04
+    env_id: Walker2d-v4
+    dataset_id: walker2d-medium-expert-v2
+    reference_min_score: 1.629008
+    reference_max_score: 4592.3
+    obs_dim: 17
+    action_dim: 6
+    n: 1999995
+    worker_threads: 2

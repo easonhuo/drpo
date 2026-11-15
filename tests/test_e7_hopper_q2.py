@@ -43,6 +43,256 @@ def _rebuttal_toy():
     return settings, base, actor, critic, context
 
 
+def _topr_config(tmp_path):
+    import yaml
+
+    root = Path(__file__).parents[1]
+    raw = yaml.safe_load((root / "configs/e7_hopper_pq_is_rebuttal_v1.yaml").read_text())
+    raw.update(experiment_id=mod.TOPR_EXPERIMENT_ID, base_config=str(root / "configs/e7_hopper_q2_medium_replay_v2.yaml"),
+               seeds=[200, 201], actor_steps=500000, comparison_reference="drpo",
+               methods_by_advantage_mode={"frozen": ["drpo", "topr"], "refreshed": []},
+               default_task="hopper-medium-replay-v2", variance_steps=[])
+    raw["q2"] = {**raw["q2"], "enabled": False, "pairs": []}
+    raw["smoke"].update(seeds=[200, 201], variance_steps=[], critic_steps=2, critic_eval_interval=1,
+                        actor_steps=4, late_steps=[3, 4], max_transitions=None)
+    raw["tasks"] = {
+        "hopper-medium-replay-v2": {"dataset_basename": "hopper.hdf5", "dataset_sha256": "a" * 64,
+            "dataset_id": "hopper-medium-replay-v2", "env_id": "Hopper-v4", "reference_min_score": -20., "reference_max_score": 3234.3},
+        "halfcheetah-medium-v2": {"dataset_basename": "cheetah.hdf5", "dataset_sha256": "b" * 64,
+            "dataset_id": "halfcheetah-medium-v2", "env_id": "HalfCheetah-v4", "reference_min_score": -280., "reference_max_score": 12135.},
+    }
+    path = tmp_path / "topr.yaml"
+    path.write_text(yaml.safe_dump(raw))
+    return path
+
+
+def test_topr_negative_cap_positive_invariance_detach_and_large_log_ratios():
+    settings, *_ = _rebuttal_toy()
+    log_ratio = torch.tensor([np.log(.1), 0., np.log(10.), np.log(.1), 0., np.log(10.), 1000., -1000.],
+                             dtype=torch.float64, requires_grad=True)
+    behavior = torch.zeros_like(log_ratio, requires_grad=True)
+    a = torch.tensor([-2., -2., -2., 3., 3., 3., -2., -2.], dtype=torch.float64, requires_grad=True)
+    distance = torch.ones_like(a, requires_grad=True)
+    coefficient = mod.rebuttal_actor_coefficients(a, log_ratio, distance, behavior, "topr", settings)
+    expected = torch.tensor([-.2, -2., -2., 3., 3., 3., -2., 0.], dtype=torch.float64)
+    assert not coefficient.requires_grad and torch.isfinite(coefficient).all()
+    torch.testing.assert_close(coefficient, expected)
+    loss = mod.rebuttal_actor_loss(log_ratio, coefficient)
+    torch.testing.assert_close(loss, -(expected * log_ratio).sum() / len(a))
+    loss.backward()
+    torch.testing.assert_close(log_ratio.grad, -expected / len(a))
+    assert a.grad is None and behavior.grad is None and distance.grad is None
+
+
+def test_topr_five_fixed_betas_preserve_canonical_and_positive_coefficients():
+    settings, *_ = _rebuttal_toy()
+    assert list(mod.TOPR_METHOD_BETAS.values()) == [.25, .5, 1., 2., 4.]
+    lp = torch.tensor([np.log(.1), 0., np.log(10.), np.log(.1), 1000., -1000.], dtype=torch.float64, requires_grad=True)
+    a = torch.tensor([-2., -2., -2., 3., -2., -2.], dtype=torch.float64, requires_grad=True)
+    behavior = torch.zeros_like(lp, requires_grad=True)
+    canonical = a.detach().clamp_min(0) - torch.exp(torch.minimum(lp.detach(), torch.zeros_like(lp))) * (-a.detach()).clamp_min(0)
+    for method, beta in mod.TOPR_METHOD_BETAS.items():
+        coefficient = mod.rebuttal_actor_coefficients(a, lp, torch.ones_like(lp), behavior, method, settings)
+        assert not coefficient.requires_grad and torch.isfinite(coefficient).all()
+        torch.testing.assert_close(coefficient, torch.tensor([-2 * .1 ** beta, -2., -2., 3., -2., 0.], dtype=torch.float64))
+        gradient, = torch.autograd.grad(mod.rebuttal_actor_loss(lp, coefficient), lp, retain_graph=True)
+        torch.testing.assert_close(gradient, -coefficient / len(lp))
+        if beta == 1:
+            assert method == "topr" and torch.equal(coefficient, canonical)
+
+
+def test_topr_profile_task_identity_jobs_and_legacy_matrix_are_separate(tmp_path):
+    import yaml
+
+    old, base = mod.load_rebuttal_config(Path(__file__).parents[1] / "configs/e7_hopper_pq_is_rebuttal_v1.yaml")
+    assert old["identity"] == "bd6e5b673dd7a33fdf8ae782bbe1eaa241a60b8fbac9682084273865eb8edebe"
+    assert base.weight_decay == .0001 and "topr" not in mod.REBUTTAL_METHODS
+    assert len(mod.rebuttal_matrix(old["seeds"])) == 36
+    old_jobs = mod.rebuttal_jobs(old)
+    assert len(old_jobs) == 30 and sum(j["job_kind"] == "q2_pair" for j in old_jobs) == 6
+    config = _topr_config(tmp_path)
+    default, _ = mod.load_rebuttal_config(config)
+    chosen, chosen_base = mod.load_rebuttal_config(config, task="halfcheetah-medium-v2")
+    assert default["task_id"] == "hopper-medium-replay-v2"
+    assert chosen["identity"] != default["identity"]
+    assert chosen["actual_task"]["dataset_sha256"] == chosen_base.dataset_sha256 == "b" * 64
+    assert chosen_base.dataset_basename == "cheetah.hdf5" and chosen_base.env_id == "HalfCheetah-v4"
+    assert chosen_base.rollout_dataset_id == "halfcheetah-medium-v2"
+    assert chosen_base.normalized_score_reference_min == -280. and chosen_base.normalized_score_reference_max == 12135.
+    jobs = mod.rebuttal_jobs(chosen)
+    assert len(jobs) == 4 and all(j["job_kind"] == "independent" for j in jobs)
+    assert {(j["seed"], j["method"]) for j in jobs} == {(s, m) for s in (200, 201) for m in ("drpo", "topr")}
+    raw = yaml.safe_load(config.read_text())
+    raw["tasks"]["halfcheetah-medium-v2"]["worker_threads"] = 4
+    config.write_text(yaml.safe_dump(raw))
+    threaded, _ = mod.load_rebuttal_config(config, task="halfcheetah-medium-v2")
+    assert threaded["worker_threads"] == 4 and threaded["identity"] != chosen["identity"]
+    assert default["worker_threads"] == chosen["worker_threads"] == 1
+
+
+def test_topr_fixed_population_weight_diagnostics_and_no_negative_case():
+    _, _, actor, critic, context = _rebuttal_toy()
+    context["initial_advantage"] = np.tile(np.array([-1., 1.]), 16)
+    lp = mod.current_action_log_prob(actor, torch.from_numpy(context["obs"]), torch.from_numpy(context["data"].actions))[0].detach().numpy()
+    desired_log_ratio = np.tile(np.log([.1, 1., 10., 1.]), 8)
+    context["data"].behavior_log_prob[:] = lp - desired_log_ratio
+    row, _ = mod.collect_rebuttal_diagnostics(actor, critic, context, "topr", "frozen", 0, None, torch.device("cpu"))
+    negative = context["initial_advantage"] < 0
+    weights = np.exp(np.minimum((lp - context["data"].behavior_log_prob)[negative], 0.))
+    np.testing.assert_allclose(row["topr_negative_weight_mean"], weights.mean(), rtol=1e-6)
+    for key, quantile in [("median", .5), ("p90", .9), ("p99", .99)]:
+        np.testing.assert_allclose(row[f"topr_negative_weight_{key}"], np.quantile(weights, quantile), rtol=1e-6)
+    assert row["topr_negative_log_ratio_lt0_fraction"] == .5
+    context["initial_advantage"][:] = 1
+    empty, _ = mod.collect_rebuttal_diagnostics(actor, critic, context, "topr", "frozen", 1, None, torch.device("cpu"))
+    assert all(empty[key] is None for key in row if key.startswith("topr_negative_"))
+    assert empty["topr_beta"] == 1 and empty["topr_identity"] == "canonical_topr_weight_adaptation"
+    context["initial_advantage"][:] = np.tile(np.array([-1., 1.]), 16)
+    for method, beta in mod.TOPR_METHOD_BETAS.items():
+        row, _ = mod.collect_rebuttal_diagnostics(actor, critic, context, method, "frozen", 2, None, torch.device("cpu"))
+        assert row["topr_beta"] == beta and row["topr_identity"] == mod.TOPR_METHOD_IDENTITIES[method]
+        np.testing.assert_allclose(row["topr_negative_weight_mean"], np.mean(weights ** beta), rtol=1e-6)
+
+
+def test_topr_preparation_without_q2_does_not_calibrate_or_hash_missing_files(tmp_path, monkeypatch):
+    from dataclasses import replace
+    import json
+
+    settings, base = mod.load_rebuttal_config(_topr_config(tmp_path), True)
+    settings.update(actor_batch_size=8, critic_batch_size=8, diagnostic_size=8, diagnostic_batch_size=8)
+    base = replace(base, hidden_sizes=(4,), critic_batch_size=8)
+    dataset = tmp_path / "data.hdf5"
+    rng = np.random.default_rng(11)
+    with h5py.File(dataset, "w") as f:
+        f["observations"] = rng.normal(size=(80, 3)).astype(np.float32)
+        f["next_observations"] = rng.normal(size=(80, 3)).astype(np.float32)
+        f["actions"] = np.tanh(rng.normal(size=(80, 2))).astype(np.float32)
+        f["rewards"] = rng.normal(size=80).astype(np.float32)
+        f["terminals"] = np.arange(80) % 4 == 3
+        f["infos/action_log_probs"] = np.full(80, -2., np.float32)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Q2 calibration must not execute when disabled")
+
+    monkeypatch.setattr(mod, "calibrate_rebuttal_q2", forbidden)
+    prepare = tmp_path / "prepare"
+    mod.prepare_rebuttal_context(dataset, prepare, settings, base, torch.device("cpu"), "c" * 40)
+    assert not list(prepare.glob("q2_calibration*"))
+    record = json.loads((prepare / "PREPARE_COMPLETE.json").read_text())
+    assert len(record["prepared_input_hashes"]) == 6
+    for name, expected in record["prepared_input_hashes"].items():
+        assert mod.sha256_file(prepare / name) == expected
+
+
+def test_topr_coordinator_generic_dimensions_slots_task_and_optional_reference(tmp_path, monkeypatch):
+    import json
+    import yaml
+
+    config = _topr_config(tmp_path)
+    dataset = tmp_path / "cheetah.hdf5"
+    with h5py.File(dataset, "w") as handle:
+        handle["observations"] = np.zeros((8, 17), np.float32)
+        handle["actions"] = np.zeros((8, 6), np.float32)
+    root = tmp_path / "run"
+    args = mod.build_parser().parse_args([
+        "rebuttal-pq-is", "--config", str(config), "--task", "halfcheetah-medium-v2",
+        "--dataset-path", str(dataset), "--work-dir", str(root), "--smoke",
+        "--worker-devices", "cpu,cuda:3,cpu,cuda:3", "--max-workers", "4",
+    ])
+    observed = {}
+    commands = []
+    monkeypatch.setattr(mod, "git_output", lambda *args: "c" * 40)
+    monkeypatch.setattr(mod, "environment_manifest", lambda: {})
+    monkeypatch.setattr(mod, "_plot_rebuttal", lambda *args: None)
+
+    def preflight(**kwargs):
+        observed.update(kwargs)
+        return {"status": "passed"}
+
+    def prepare(dataset, path, settings, base, device, source_commit):
+        assert str(device) == observed.get("expected_preparation_device", "cpu")
+        mod._write_rebuttal_json(path / "normalization.json", {})
+        mod._write_rebuttal_json(path / "PREPARE_COMPLETE.json", {})
+
+    class FinishedWorker:
+        def __init__(self, command, **kwargs):
+            worker_args = mod.build_parser().parse_args(command[2:])
+            assert worker_args.task == "halfcheetah-medium-v2"
+            commands.append(command)
+            seed = int(command[command.index("--seed") + 1])
+            method = command[command.index("--method") + 1]
+            value = float(seed - 200 + (2 if method == "topr" else 0))
+            mod._write_rebuttal_json(mod._rebuttal_cell(root, seed, "frozen", method) / "summary.json", {
+                "seed": seed, "method": method, "advantage_mode": "frozen", "status": "completed",
+                "completed_actor_steps": 4, "late_count": 2, "late_mean": value, "terminal": value,
+            })
+
+        def poll(self):
+            return 0
+
+    monkeypatch.setattr(mod, "preflight_rollout_environment", preflight)
+    monkeypatch.setattr(mod, "prepare_rebuttal_context", prepare)
+    monkeypatch.setattr(mod.subprocess, "Popen", FinishedWorker)
+    assert mod.run_rebuttal_experiment(args) == 0
+    assert observed["expected_observation_dim"] == 17 and observed["expected_action_dim"] == 6
+    assert observed["env_id"] == "HalfCheetah-v4"
+    assert [c[c.index("--device") + 1] for c in commands] == ["cpu", "cuda:3", "cpu", "cuda:3"]
+    assert all(c[c.index("--task") + 1] == "halfcheetah-medium-v2" for c in commands)
+    manifest = json.loads((root / "scientific_run_manifest.json").read_text())
+    assert manifest["experiment_id"] == mod.TOPR_EXPERIMENT_ID and manifest["q2_calibrations"] == []
+    assert manifest["task_id"] == "halfcheetah-medium-v2" and "TOPR negative" in manifest["density_processing"]
+    rows = mod._read_rebuttal_csv(root / "summary/METHOD_SUMMARY.csv")
+    assert len(rows) == 2 and {r["method"] for r in rows} == {"drpo", "topr"}
+    paired = mod._read_rebuttal_csv(root / "summary/PAIRED_COMPARISONS.csv")
+    assert len(paired) == 2 and all(r["reference"] == "drpo" and float(r["mean_difference"]) == 2 for r in paired)
+    assert len(mod._read_rebuttal_csv(root / "summary/PAIRED_SEED_DIFFERENCES.csv")) == 4
+    assert not list((root / "summary").glob("Q2_*"))
+    settings, _ = mod.load_rebuttal_config(config, True, "halfcheetah-medium-v2")
+    settings["methods_by_advantage_mode"]["frozen"] = ["topr"]
+    audit = mod.aggregate_rebuttal(root, settings)
+    assert audit["expected_cells"] == 2
+    assert mod._read_rebuttal_csv(root / "summary/PAIRED_COMPARISONS.csv") == []
+    assert mod._read_rebuttal_csv(root / "summary/PAIRED_SEED_DIFFERENCES.csv") == []
+    # The owner-selected single-seed screen composes nine five-job task runs;
+    # preparation may use a GPU while all five actor slots use CPUs.
+    raw = yaml.safe_load(config.read_text())
+    raw.update(seeds=[200], comparison_reference="topr", methods_by_advantage_mode={"frozen": list(mod.TOPR_METHOD_BETAS), "refreshed": []})
+    raw["smoke"]["seeds"] = [200]
+    families = [("hopper", "Hopper-v4", -20., 3234.3), ("halfcheetah", "HalfCheetah-v4", -280., 12135.),
+                ("walker2d", "Walker2d-v4", 1.6, 4592.3)]
+    raw["tasks"] = {f"{family}-{quality}-v2": {
+        "dataset_basename": f"{family}_{quality}-v2.hdf5", "dataset_sha256": "b" * 64,
+        "dataset_id": f"{family}-{quality}-v2", "env_id": env,
+        "reference_min_score": low, "reference_max_score": high,
+    } for family, env, low, high in families for quality in ("medium", "medium-replay", "medium-expert")}
+    config.write_text(yaml.safe_dump(raw))
+    all_jobs = []
+    for task in raw["tasks"]:
+        selected, _ = mod.load_rebuttal_config(config, task=task)
+        task_jobs = mod.rebuttal_jobs(selected)
+        assert len(task_jobs) == 5 and all(j["seed"] == 200 and j["job_kind"] == "independent" for j in task_jobs)
+        all_jobs.extend((task, j["seed"], j["method"]) for j in task_jobs)
+    assert len(all_jobs) == len(set(all_jobs)) == 45
+    root = tmp_path / "beta_run"
+    args.work_dir, args.device = str(root), "cuda:7"
+    args.worker_devices, args.max_workers = "cpu,cpu,cpu,cpu,cpu", 5
+    observed["expected_preparation_device"] = "cuda:7"
+    commands.clear()
+    assert mod.run_rebuttal_experiment(args) == 0
+    assert len(commands) == 5 and all(c[c.index("--device") + 1] == "cpu" for c in commands)
+    manifest = json.loads((root / "scientific_run_manifest.json").read_text())
+    assert manifest["preparation_device"] == "cuda:7" and manifest["worker_devices"] == ["cpu"] * 5
+    assert {m: rule["beta"] for m, rule in manifest["method_weighting"].items()} == mod.TOPR_METHOD_BETAS
+    assert manifest["method_weighting"]["topr"]["identity"] == "canonical_topr_weight_adaptation"
+    assert all(rule["identity"] == "beta_topr_logged_frozen_reference_variant" for m, rule in manifest["method_weighting"].items() if m != "topr")
+    rows = mod._read_rebuttal_csv(root / "summary/METHOD_SUMMARY.csv")
+    assert len(rows) == 5 and all(r["late_mean_n"] == r["terminal_n"] == "1" for r in rows)
+    assert all(r["late_mean_seed_sample_sd"] == r["terminal_seed_sample_sd"] == "" for r in rows)
+    assert {r["method"]: float(r["topr_beta"]) for r in rows} == mod.TOPR_METHOD_BETAS
+    paired = mod._read_rebuttal_csv(root / "summary/PAIRED_COMPARISONS.csv")
+    assert len(paired) == 8 and all(r["paired_n"] == "1" and r["difference_sample_sd"] == "" for r in paired)
+
+
 def test_q2_far_block_cap_and_global_matching_zero_boundaries():
     near, far = torch.tensor([3., 0.], dtype=torch.float64), torch.tensor([0., 4.], dtype=torch.float64)
     factor = mod.q2_cap_factor(far.norm(), 2.)

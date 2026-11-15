@@ -26,6 +26,7 @@ EXPERIMENT_ID = "EXT-H-E7-Q2"
 DEFAULT_CONFIG = "configs/e7_hopper_q2_medium_replay_v2.yaml"
 REBUTTAL_CONFIG = "configs/e7_hopper_pq_is_rebuttal_v1.yaml"
 REBUTTAL_ID = "EXT-H-E7-REBUTTAL-PQ-IS-01"
+TOPR_ID = "EXT-H-E7-TOPR-D4RL9-PILOT-400K-01"
 DATASET_BASENAME = "hopper_medium_replay-v2.hdf5"
 DATASET_ENV = "DRPO_HOPPER_MEDIUM_REPLAY"
 
@@ -69,6 +70,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--experiment-profile", choices=("q2", "rebuttal_pq_is"), default="q2")
     parser.add_argument("--gpu-ids", default="0,1,2,3,4,5,6,7")
     parser.add_argument("--max-workers", type=int, default=8)
+    parser.add_argument("--task", help="Dataset task selected from a multi-task profile config")
+    parser.add_argument("--worker-devices", help="Actor slots, e.g. cuda:0,cuda:1 or cpu,cpu")
     parser.add_argument("--smoke", action="store_true", help="New profile only: separate short engineering matrix")
     parser.add_argument("--resume-from", help="New profile only: previous persistent run root; writes a new run")
     parser.add_argument("--large-file-persistence", choices=("persistent_local", "ephemeral", "unknown"), default="persistent_local")
@@ -89,25 +92,29 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def resolve_dataset(repo: Path, explicit: str | None) -> tuple[Path, str]:
+def resolve_dataset(repo: Path, explicit: str | None, basename: str = DATASET_BASENAME) -> tuple[Path, str]:
     candidates: list[tuple[Path, str]] = []
     if explicit:
         candidates.append((Path(explicit).expanduser(), "--dataset-path"))
-    env_value = os.environ.get(DATASET_ENV)
+    env_value = os.environ.get(DATASET_ENV) if basename == DATASET_BASENAME else None
     if env_value:
         candidates.append((Path(env_value).expanduser(), f"${DATASET_ENV}"))
+    data_dir = os.environ.get("D4RL_DATASET_DIR")
+    if data_dir:
+        candidates.append((Path(data_dir).expanduser() / basename, "$D4RL_DATASET_DIR"))
     candidates.extend(
         [
             (
-                Path("/root/d4rl/d4rl_datasets/locomotion") / DATASET_BASENAME,
+                Path("/root/d4rl/d4rl_datasets/locomotion") / basename,
                 "registered server location",
             ),
             (
-                Path("/root/d4rl/datasets") / DATASET_BASENAME,
+                Path("/root/d4rl/datasets") / basename,
                 "alternate server location",
             ),
-            (repo / "data" / DATASET_BASENAME, "repository data directory"),
-            (repo.parent / "d4rl_datasets" / DATASET_BASENAME, "sibling data directory"),
+            (repo / "data" / basename, "repository data directory"),
+            (repo / "data" / "d4rl" / basename, "repository D4RL data directory"),
+            (repo.parent / "d4rl_datasets" / basename, "sibling data directory"),
         ]
     )
     checked: list[str] = []
@@ -160,39 +167,48 @@ def build_rebuttal_command(args: argparse.Namespace) -> tuple[list[str], dict]:
         raise SystemExit("This profile prepares its own compatible shared critic; omit --critic-artifact")
     config, relative = resolve_config(repo, REBUTTAL_CONFIG if args.config == DEFAULT_CONFIG else args.config)
     settings = yaml.safe_load(config.read_text())
-    if settings["experiment_id"] != REBUTTAL_ID:
+    experiment_id = settings["experiment_id"]
+    if experiment_id not in (REBUTTAL_ID, TOPR_ID):
         raise SystemExit("The selected profile requires its own experiment config")
     effective = dict(settings)
     smoke_settings = effective.pop("smoke")
     if args.smoke:
         effective.update(smoke_settings)
-    dataset, dataset_source = resolve_dataset(repo, args.dataset_path)
-    output_root = Path("runs/e7_rebuttal_pq_is" if args.output_root == "runs/e7_q2" else args.output_root).expanduser()
+    task_id = getattr(args, "task", None) or settings.get("default_task")
+    task = settings.get("tasks", {}).get(task_id, {})
+    dataset, dataset_source = (resolve_dataset(repo, args.dataset_path, task["dataset_basename"])
+                               if task else resolve_dataset(repo, args.dataset_path))
+    default_output = "runs/e7_topr_d4rl9_pilot_400k" if experiment_id == TOPR_ID else "runs/e7_rebuttal_pq_is"
+    output_root = Path(default_output if args.output_root == "runs/e7_q2" else args.output_root).expanduser()
     output_root = output_root.resolve() if output_root.is_absolute() else (repo / output_root).resolve()
     work = Path(args.work_dir).expanduser().resolve() if args.work_dir else output_root / f"{utc_stamp()}_{'smoke' if args.smoke else run_class}"
     if work.exists() and any(work.iterdir()):
         raise SystemExit(f"Work directory must be new or empty: {work}")
-    artifact = Path(args.artifact_output).expanduser().resolve() if args.artifact_output else work.parent / f"{work.name}_{REBUTTAL_ID}.zip"
+    artifact = Path(args.artifact_output).expanduser().resolve() if args.artifact_output else work.parent / f"{work.name}_{experiment_id}.zip"
     if artifact.exists():
         raise SystemExit(f"Artifact output already exists: {artifact}")
     resume = Path(args.resume_from).expanduser().resolve() if args.resume_from else None
     command = [
         sys.executable, str(repo / "scripts/run_experiment_guard_hardened.py"),
-        "--experiment-id", REBUTTAL_ID, "--repo-root", str(repo),
+        "--experiment-id", experiment_id, "--repo-root", str(repo),
         "--output-root", str(work), "--artifact-output", str(artifact),
         "--run-class", run_class, "--expected-commit", head,
         "--large-file-persistence", args.large_file_persistence,
     ]
     # Use the existing guard, with this profile's actual output/progress contract.
-    for name in ("RUN_COMPLETE.json", "terminal_audit.json", "scientific_run_manifest.json",
-                 "ROLLOUT_PREFLIGHT.json", "prepare/PREPARE_COMPLETE.json", "summary/MATRIX.csv",
-                 "summary/METHOD_SUMMARY.csv", "summary/GRADIENT_VARIANCE.csv",
-                 "summary/Q2_METHOD_SUMMARY.csv", "summary/Q2_BUDGET_MATCHING.csv",
-                 "summary/Q2_PAIRED_COMPARISONS.csv", "summary/Q2_INTERVENTION_DIAGNOSTICS.csv"):
+    required = ["RUN_COMPLETE.json", "terminal_audit.json", "scientific_run_manifest.json",
+                "ROLLOUT_PREFLIGHT.json", "prepare/PREPARE_COMPLETE.json", "summary/MATRIX.csv",
+                "summary/METHOD_SUMMARY.csv"]
+    if effective["variance_steps"]:
+        required.append("summary/GRADIENT_VARIANCE.csv")
+    if effective["q2"]["enabled"]:
+        required.extend(["summary/Q2_METHOD_SUMMARY.csv", "summary/Q2_BUDGET_MATCHING.csv",
+                         "summary/Q2_PAIRED_COMPARISONS.csv", "summary/Q2_INTERVENTION_DIAGNOSTICS.csv"])
+    for name in required:
         command.extend(["--required-output", name])
     base_relative = (config.parent / settings["base_config"]).relative_to(repo)
     for name in ("src/drpo/e7_hopper_q2.py", "scripts/run_e7_hopper_q2.py", str(relative),
-                 str(base_relative), "docs/experiments/EXT-H-E7-REBUTTAL-PQ-IS-01.md"):
+                 str(base_relative), settings.get("protocol_document", "docs/experiments/EXT-H-E7-REBUTTAL-PQ-IS-01.md")):
         command.extend(["--source-file", name])
     for pattern in ("scientific_heartbeat.json", "cells/seed_*/*/*/status.json",
                     "cells/seed_*/*/*/training_metrics.csv", "pairs/seed_*/*/budget_matching.csv",
@@ -209,28 +225,35 @@ def build_rebuttal_command(args: argparse.Namespace) -> tuple[list[str], dict]:
     ])
     if args.smoke:
         command.append("--smoke")
+    if task_id:
+        command.extend(["--task", task_id])
+    if getattr(args, "worker_devices", None):
+        command.extend(["--worker-devices", args.worker_devices])
     if resume:
         command.extend(["--resume-from", str(resume)])
     matrix = [{"seed": int(seed), "advantage_mode": mode, "method": method}
               for seed in effective["seeds"] for mode in ("frozen", "refreshed")
               for method in effective["methods_by_advantage_mode"][mode]]
-    q2_methods = {method for pair in effective["q2"]["pairs"] for method in pair}
+    q2_pairs = effective["q2"]["pairs"] if effective["q2"]["enabled"] else []
+    q2_methods = {method for pair in q2_pairs for method in pair}
     jobs = [{**key, "job_kind": "independent", "cells": [key]} for key in matrix if key["method"] not in q2_methods]
     for seed in effective["seeds"]:
-        for intervention, control in effective["q2"]["pairs"]:
+        for intervention, control in q2_pairs:
             jobs.append({"seed": int(seed), "advantage_mode": "frozen", "method": intervention,
                          "job_kind": "q2_pair", "cells": [
                              {"seed": int(seed), "advantage_mode": "frozen", "method": method}
                              for method in (intervention, control)],
                          "checkpoint_index": f"pairs/seed_{seed}/{intervention}/checkpoint_index.json"})
     return command, {
-        "experiment_id": REBUTTAL_ID, "git_commit": head, "run_class": run_class,
+        "experiment_id": experiment_id, "git_commit": head, "run_class": run_class,
+        "task_id": task_id, "actual_task": task,
         "smoke": args.smoke, "config": str(config), "dataset": str(dataset),
         "dataset_resolution": dataset_source, "work_dir": str(work), "artifact": str(artifact),
         "resume_from": str(resume) if resume else None, "matrix": matrix, "cell_count": len(matrix),
         "jobs": jobs, "job_count": len(jobs), "pair_count": sum(job["job_kind"] == "q2_pair" for job in jobs),
         "actor_steps": effective["actor_steps"], "critic_steps": effective["critic_steps"],
         "max_workers": args.max_workers, "gpu_ids": args.gpu_ids,
+        "worker_devices": getattr(args, "worker_devices", None),
     }
 
 
