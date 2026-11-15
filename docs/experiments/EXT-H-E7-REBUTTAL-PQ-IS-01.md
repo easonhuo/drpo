@@ -197,6 +197,35 @@ Registry/READY/channel activation is not a launch prerequisite.
 
 ## Recovery and outputs
 
+### Optional RunSpec
+
+The unified snapshot is
+`runspecs/ready/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01.yaml`. It pins the reviewed
+implementation and both config hashes, all 36 cells / 30 jobs, the data SHA,
+paired seeds, exact command, persistent output root and evidence-delivery policy.
+Its code commit may have documentation-only descendants with the protected
+implementation paths unchanged; the actual launch HEAD is still recorded by
+the guard. RunSpec is optional: the direct launcher above remains available.
+
+With the existing E7 executor setup and dataset environment, validate or select
+this exact snapshot rather than relying on lane priority:
+
+```bash
+python scripts/agent/validate_runspec.py --repo-root . --lane e7 runspecs/ready/E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01.yaml
+python scripts/agent/run_lane.py --repo-root . --lane e7 --once --run-id E7_HOPPER_PQ_IS_Q2_36RUN_20261115_01
+```
+
+Validation does not claim or execute a run. The snapshot uses the existing
+deferred-registration mode and automatic text-evidence delivery to
+`easonhuo/drpo-results` / `ingest/e7`; it does not merge code into main.
+The guard's full archive, figures and model/checkpoint files remain on persistent
+training storage; the existing results-repository exporter delivers its supported
+small text/CSV/JSON evidence. Upload failure preserves the local result for a
+delivery-only retry. The RunSpec does not automatically repeat failed training;
+the existing new-root checkpoint recovery below remains the recovery mechanism.
+
+### Checkpoints
+
 Each branch atomically saves latest actor/critic/optimizer/RNG state every 5000
 updates. Preparation saves critic and actor initializations once. Checkpoints
 stay in the persistent run directory; the archive contains their indexes.

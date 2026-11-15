@@ -5449,9 +5449,10 @@ def train_rebuttal_q2_pair(args: argparse.Namespace) -> int:
         flush()
         record = {**identity, "status": "runtime_failure", "completed_actor_steps": completed, "traceback": traceback.format_exc()}
         _write_rebuttal_json(pair_root / "failure.json", record)
-        for cell in cells:
-            _write_rebuttal_json(cell / "failure.json", record)
-            _write_rebuttal_json(cell / "status.json", record)
+        for cell, cell_identity in zip(cells, identities):
+            cell_record = {**record, **cell_identity}
+            _write_rebuttal_json(cell / "failure.json", cell_record)
+            _write_rebuttal_json(cell / "status.json", cell_record)
         raise
 
 
@@ -5800,13 +5801,16 @@ def run_rebuttal_experiment(args: argparse.Namespace) -> int:
                 if code is not None:
                     log.close()
                     if code != 0:
-                        failure_dirs = [_rebuttal_cell(root, cell["seed"], cell["advantage_mode"], cell["method"]) for cell in key["cells"]]
+                        failure_targets = [
+                            (_rebuttal_cell(root, cell["seed"], cell["advantage_mode"], cell["method"]), {**key, **cell})
+                            for cell in key["cells"]
+                        ]
                         if key["job_kind"] == "q2_pair":
-                            failure_dirs.append(_q2_pair_path(root, key["seed"], key["method"]))
-                        for directory in failure_dirs:
+                            failure_targets.append((_q2_pair_path(root, key["seed"], key["method"]), key))
+                        for directory, failure_identity in failure_targets:
                             failure_path = directory / "failure.json"
                             failure = json.loads(failure_path.read_text()) if failure_path.is_file() else {}
-                            failure.update({**key, "status": "runtime_failure", "returncode": code, "log": str(log.name)})
+                            failure.update({**failure_identity, "status": "runtime_failure", "returncode": code, "log": str(log.name)})
                             _write_rebuttal_json(failure_path, failure)
                             _write_rebuttal_json(directory / "status.json", failure)
                     print(json.dumps({"event": "worker_exited", **key, "returncode": code}), flush=True)

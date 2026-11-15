@@ -102,6 +102,69 @@ def _rebuttal_worker_fixture(tmp_path, monkeypatch, advantage_mode="refreshed", 
     return module, args, full
 
 
+def test_q2_pair_runtime_failure_records_each_cell_method(tmp_path, monkeypatch):
+    module, args, root = _rebuttal_worker_fixture(tmp_path, monkeypatch, "frozen", "far_zero")
+
+    def fail_rollout(**kwargs):
+        raise RuntimeError("simulated rollout export failure")
+
+    monkeypatch.setattr(module, "evaluate_d4rl_rollouts", fail_rollout)
+    with pytest.raises(RuntimeError, match="simulated rollout export failure"):
+        module.train_rebuttal_q2_pair(args)
+    for method in ("far_zero", "global_matched_far_zero"):
+        cell = module._rebuttal_cell(root, 200, "frozen", method)
+        for name in ("failure.json", "status.json"):
+            row = json.loads((cell / name).read_text())
+            assert row["method"] == method
+            assert row["status"] == "runtime_failure"
+            assert "simulated rollout export failure" in row["traceback"]
+
+
+def test_q2_coordinator_nonzero_exit_keeps_global_cell_identity(tmp_path, monkeypatch):
+    module, args, root = _rebuttal_worker_fixture(tmp_path, monkeypatch, "frozen", "far_zero")
+    settings, _ = module.load_rebuttal_config(args.config, True)
+    args.config = str(ROOT / "configs/e7_hopper_pq_is_rebuttal_v1.yaml")
+    args.repo_root, args.gpu_ids, args.max_workers = str(ROOT), "0", 2
+    args.large_file_persistence = "ephemeral"
+    monkeypatch.setattr(module, "preflight_rollout_environment", lambda **kwargs: {"status": "PASS"})
+    monkeypatch.setattr(module, "_plot_rebuttal", lambda *args: None)
+
+    class FakeWorker:
+        def __init__(self, command, **kwargs):
+            method = command[command.index("--method") + 1]
+            mode = command[command.index("--advantage-mode") + 1]
+            pair = command[command.index("--job-kind") + 1] == "q2_pair"
+            methods = next(p for p in settings["q2"]["pairs"] if p[0] == method) if pair else [method]
+            self.returncode = -11 if method == "far_zero" else 0
+            for name in methods:
+                cell = module._rebuttal_cell(root, 200, mode, name)
+                module._write_rebuttal_json(cell / "summary.json", {
+                    "seed": 200, "advantage_mode": mode, "method": name, "status": "completed",
+                    "late_mean": 7., "terminal": 7., "completed_actor_steps": settings["actor_steps"],
+                    "late_count": len(settings["late_steps"]),
+                })
+                if self.returncode:
+                    module._write_rebuttal_json(cell / "failure.json", {"method": name, "traceback": "preserve worker evidence"})
+
+        def poll(self):
+            return self.returncode
+
+    monkeypatch.setattr(module.subprocess, "Popen", FakeWorker)
+    # git_output uses subprocess.run, so resolve repository identity before the
+    # fake worker substitutes Popen underneath it.
+    monkeypatch.setattr(module, "git_output", lambda *args: "a" * 40)
+    assert module.run_rebuttal_experiment(args) == 2
+    for method in ("far_zero", "global_matched_far_zero"):
+        cell = module._rebuttal_cell(root, 200, "frozen", method)
+        for name in ("failure.json", "status.json"):
+            row = json.loads((cell / name).read_text())
+            assert row["method"] == method and row["returncode"] == -11
+            assert row["traceback"] == "preserve worker evidence"
+    audit = json.loads((root / "summary/TERMINAL_AUDIT.json").read_text())
+    assert audit["runtime_failure_cells"] == 2 and audit["completed_cells"] == 10
+    assert (root / "RUN_PARTIAL.json").is_file() and not (root / "RUN_COMPLETE.json").exists()
+
+
 @pytest.mark.parametrize("advantage_mode", ["frozen", "refreshed"])
 @pytest.mark.parametrize("method", ["drpo", "is"])
 def test_rebuttal_interrupted_resume_reproduces_uninterrupted_updates(tmp_path, monkeypatch, advantage_mode, method):
